@@ -443,6 +443,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_ink::ink_haptics,
         crate::embed::embed_load,
         crate::embed::embed_texts,
+        crate::embed::embed_unload,
         crate::menu::commands::menu_model,
         crate::menu::commands::menu_invoke,
         crate::menu::commands::title_bar_colors,

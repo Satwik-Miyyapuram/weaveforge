@@ -2,7 +2,7 @@
 
 use std::fmt;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 
 use ort::environment::Environment;
 use ort::session::Session;
@@ -13,9 +13,9 @@ use tokenizers::Tokenizer;
 pub const MAX_TOKENS: usize = 512;
 /// Longest text in chars handed to the tokenizer, so one huge note cannot stall a batch.
 ///
-/// 16 chars per token is far above real text, so the cut never changes the first [`MAX_TOKENS`]
-/// tokens unless the text opens with thousands of blank chars.
-pub const MAX_TEXT_CHARS: usize = MAX_TOKENS * 16;
+/// 128 chars per token (64 Ki chars) is far above real text, so the cut never changes the first
+/// [`MAX_TOKENS`] tokens even when a note opens with a long URL, base64 blob or blank run.
+pub const MAX_TEXT_CHARS: usize = MAX_TOKENS * 128;
 /// Texts per model run; bounds the padded batch size.
 pub const BATCH: usize = 32;
 /// Files transformers.js fetches for a q8 encoder, relative to `<repo>/resolve/main/`.
@@ -385,9 +385,8 @@ fn load_session(path: &Path) -> Result<Session, EmbedError> {
 ///
 /// A failed start leaves the slot empty, so the next call tries again.
 fn environment() -> Result<Environment, EmbedError> {
-    let mut slot = ENVIRONMENT
-        .lock()
-        .map_err(|_| EmbedError("ONNX Runtime start was interrupted".to_string()))?;
+    // The slot holds no half-written state, so a poisoned lock is safe to reuse.
+    let mut slot = ENVIRONMENT.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(env) = slot.as_ref() {
         return Ok(env.clone());
     }

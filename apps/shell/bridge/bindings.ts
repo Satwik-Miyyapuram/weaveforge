@@ -230,12 +230,20 @@ export const commands = {
 	 */
 	embedLoad: (model: string) => typedError<EmbedInfo, ShellError>(__TAURI_INVOKE("embed_load", { model })),
 	/**
-	 *  Embeds texts with the loaded model.
+	 *  Embeds texts with `model`, which `embed_load` must have loaded.
 	 * 
 	 *  # Errors
-	 *  `NOT_LOADED` when no model is loaded, or the encoder's own message.
+	 *  `NOT_LOADED` when `model` is not loaded (never loaded, or dropped while idle), or the encoder's own message.
 	 */
-	embedTexts: (texts: string[], kind: EmbedKindArg) => typedError<((number | null)[])[], ShellError>(__TAURI_INVOKE("embed_texts", { texts, kind })),
+	embedTexts: (model: string, texts: string[], kind: EmbedKindArg) => typedError<((number | null)[])[], ShellError>(__TAURI_INVOKE("embed_texts", { model, texts, kind })),
+	/**
+	 *  Drops `model` now instead of waiting for it to go idle.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Never; the `Err` arm is kept for the Tauri wiring.
+	 */
+	embedUnload: (model: string) => typedError<null, ShellError>(__TAURI_INVOKE("embed_unload", { model })),
 	/**
 	 *  The window's menu, as the page's menu bar draws it.
 	 * 

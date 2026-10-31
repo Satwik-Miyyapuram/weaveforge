@@ -150,6 +150,14 @@ fn prepare_caps_huge_texts_on_a_char_boundary() {
     );
 }
 
+#[test]
+fn prepare_keeps_prose_after_a_long_opening_word() {
+    let text = format!("{} the prose that follows", "a".repeat(9000));
+    let passage = prepare(std::slice::from_ref(&text),EmbedKind::Passage, arctic_profile());
+    assert_eq!(passage[0], text);
+    assert!(passage[0].ends_with(" the prose that follows"));
+}
+
 /// Reads the model folder, or says why a model test is skipped.
 fn model_dir_or_skip() -> Option<String> {
     let dir = std::env::var("WF_EMBED_MODEL_DIR").ok();

@@ -11,14 +11,17 @@ import { DEFAULT_EMBEDDING_MODEL, embeddingProfile, type EmbeddingModelProfile }
  */
 
 export type NativeEmbedBridge = Required<Pick<DesktopBridge, "embedLoad" | "embedTexts">> &
-  Pick<DesktopBridge, "onEmbedProgress">;
+  Pick<DesktopBridge, "onEmbedProgress" | "embedUnload">;
 
 export interface NativeEmbedderOptions {
   /** Model repository id, as for `WorkerEmbedder`. */
   model?: string;
-  /** Bytes downloaded so far, for the settings panel. */
+  /** Model files ready so far out of the model's total, for the settings panel. */
   onProgress?(loaded: number, total: number): void;
 }
+
+/** The shell's message when the model was dropped while idle (apps/shell/src/embed.rs `NOT_LOADED`). */
+export const NOT_LOADED = "The model is not loaded.";
 
 /** The shell's encoder, when this build has one; null in the browser. */
 export function nativeEmbedBridge(bridge: DesktopBridge | null = desktop()): NativeEmbedBridge | null {
@@ -63,21 +66,36 @@ export class NativeEmbedder implements IEmbedder {
     if (request.signal?.aborted) throw abortReason(request.signal);
     if (request.texts.length === 0) return [];
     await this.load();
-    const rows = await this.bridge.embedTexts([...request.texts], request.kind);
+    const rows = await this.embedLoaded([...request.texts], request.kind);
     if (request.signal?.aborted) throw abortReason(request.signal);
     if (rows.length !== request.texts.length)
       throw new Error("The encoder returned the wrong number of vectors.");
     return rows.map((row) => new Float32Array(row));
   }
 
-  /** The shell owns the model's memory, so there is nothing to release here. */
-  dispose(): void {}
+  /** Release the shell's copy of this model now instead of when it goes idle. */
+  dispose(): void {
+    this.ready = null;
+    this.bridge.embedUnload?.(this.profile.id).catch(() => {});
+  }
+
+  /** Embed, reloading once when the shell dropped the model while it sat idle. */
+  private async embedLoaded(texts: string[], kind: EmbedRequest["kind"]): Promise<number[][]> {
+    try {
+      return await this.bridge.embedTexts(this.profile.id, texts, kind);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== NOT_LOADED) throw error;
+      this.ready = null;
+      await this.load();
+      return this.bridge.embedTexts(this.profile.id, texts, kind);
+    }
+  }
 
   private async start(): Promise<void> {
-    // Subscribed before `embedLoad` so progress from the first byte is not lost.
-    const unsubscribe = this.bridge.onEmbedProgress?.((loaded, total) =>
-      this.options.onProgress?.(loaded, total),
-    );
+    // Subscribed before `embedLoad` so progress from the first file is not lost.
+    const unsubscribe = this.bridge.onEmbedProgress?.((loaded, total, model) => {
+      if (model === this.profile.id) this.options.onProgress?.(loaded, total);
+    });
     try {
       const { dimensions } = await this.bridge.embedLoad(this.profile.id);
       this.dimensions = dimensions;

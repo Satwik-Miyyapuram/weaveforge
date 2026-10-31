@@ -264,10 +264,15 @@ export interface DesktopBridge {
   ): () => void;
   /** Loads a sentence encoder natively, downloading missing files once. Desktop shell only. */
   embedLoad?(model: string): Promise<{ dimensions: number }>;
-  /** Embeds texts with the loaded encoder; vectors are unit length. */
-  embedTexts?(texts: string[], kind: "passage" | "query"): Promise<number[][]>;
-  /** Model files fetched so far while `embedLoad` runs; returns an unsubscribe. */
-  onEmbedProgress?(listener: (loaded: number, total: number) => void): () => void;
+  /**
+   * Embeds texts with `model`, which `embedLoad` loaded; vectors are unit length.
+   * Rejects with "The model is not loaded." once the shell dropped it while idle.
+   */
+  embedTexts?(model: string, texts: string[], kind: "passage" | "query"): Promise<number[][]>;
+  /** Drops `model` from the shell now instead of when it goes idle. */
+  embedUnload?(model: string): Promise<void>;
+  /** Model files ready so far, per model, while `embedLoad` runs; returns an unsubscribe. */
+  onEmbedProgress?(listener: (loaded: number, total: number, model: string) => void): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
     entryFile: string,

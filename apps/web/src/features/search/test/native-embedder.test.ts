@@ -7,6 +7,7 @@ import { test } from "node:test";
 
 import type { DesktopBridge } from "../../../lib/desktop/desktop-bridge";
 import {
+  NOT_LOADED,
   NativeEmbedder,
   nativeEmbedBridge,
   type NativeEmbedBridge,
@@ -15,28 +16,46 @@ import { DEFAULT_EMBEDDING_MODEL, embeddingProfile } from "../infrastructure/emb
 
 const MODEL = "Xenova/all-MiniLM-L6-v2";
 
-/** A bridge that records calls. Each text embeds to `[index, 1]`. */
-function fakeBridge(options: { failLoads?: number; progress?: [number, number][] } = {}) {
+/**
+ * A bridge that records calls. Each text embeds to `[index, 1]`. The first
+ * `dropTexts` embeds reject as the shell does after dropping an idle model.
+ */
+function fakeBridge(
+  options: {
+    failLoads?: number;
+    dropTexts?: number;
+    progress?: [number, number, string][];
+  } = {},
+) {
   const calls = {
     loads: [] as string[],
-    texts: [] as { texts: string[]; kind: string }[],
+    texts: [] as { model: string; texts: string[]; kind: string }[],
+    unloads: [] as string[],
     unsubscribed: 0,
   };
   let failLoads = options.failLoads ?? 0;
-  let listener: ((loaded: number, total: number) => void) | null = null;
+  let dropTexts = options.dropTexts ?? 0;
+  let listener: ((loaded: number, total: number, model: string) => void) | null = null;
   const bridge: NativeEmbedBridge = {
     embedLoad: async (model) => {
       calls.loads.push(model);
-      for (const [loaded, total] of options.progress ?? []) listener?.(loaded, total);
+      for (const [loaded, total, from] of options.progress ?? []) listener?.(loaded, total, from);
       if (failLoads > 0) {
         failLoads -= 1;
         throw new Error("offline");
       }
       return { dimensions: 2 };
     },
-    embedTexts: async (texts, kind) => {
-      calls.texts.push({ texts: [...texts], kind });
+    embedTexts: async (model, texts, kind) => {
+      calls.texts.push({ model, texts: [...texts], kind });
+      if (dropTexts > 0) {
+        dropTexts -= 1;
+        throw new Error(NOT_LOADED);
+      }
       return texts.map((_, i) => [i, 1]);
+    },
+    embedUnload: async (model) => {
+      calls.unloads.push(model);
     },
     onEmbedProgress: (next) => {
       listener = next;
@@ -87,8 +106,8 @@ test("concurrent embeds share one load and return the bridge's rows", async () =
   assert.deepEqual(calls.loads, [MODEL], "the model loads once");
   assert.equal(e.dimensions, 2);
   assert.deepEqual(calls.texts, [
-    { texts: ["x"], kind: "passage" },
-    { texts: ["y", "z"], kind: "query" },
+    { model: MODEL, texts: ["x"], kind: "passage" },
+    { model: MODEL, texts: ["y", "z"], kind: "query" },
   ]);
   assert.ok(first[0] instanceof Float32Array);
   assert.deepEqual([...first[0]!], [0, 1]);
@@ -125,22 +144,76 @@ test("a failed load rejects, and the next embed retries it", async () => {
   assert.equal(calls.loads.length, 2, "the failure was not cached");
 });
 
-test("load progress reaches onProgress and the listener is removed after load", async () => {
+test("only this model's load progress reaches onProgress, and the listener is removed after load", async () => {
   const { bridge, calls } = fakeBridge({
     progress: [
-      [5, 10],
-      [10, 10],
+      [1, 3, MODEL],
+      [2, 3, "other/model"],
+      [3, 3, MODEL],
     ],
   });
   const seen: [number, number][] = [];
-  const e = new NativeEmbedder(bridge, { onProgress: (loaded, total) => seen.push([loaded, total]) });
+  const e = new NativeEmbedder(bridge, {
+    model: MODEL,
+    onProgress: (loaded, total) => seen.push([loaded, total]),
+  });
   await e.embed({ texts: ["a"], kind: "query" });
 
   assert.deepEqual(seen, [
-    [5, 10],
-    [10, 10],
+    [1, 3],
+    [3, 3],
   ]);
   assert.equal(calls.unsubscribed, 1);
+});
+
+test("a model the shell dropped while idle is loaded again and the embed retried once", async () => {
+  const { bridge, calls } = fakeBridge({ dropTexts: 1 });
+  const e = new NativeEmbedder(bridge, { model: MODEL });
+  await e.load();
+
+  const rows = await e.embed({ texts: ["a"], kind: "query" });
+  assert.deepEqual([...rows[0]!], [0, 1]);
+  assert.deepEqual(calls.loads, [MODEL, MODEL]);
+  assert.equal(calls.texts.length, 2);
+});
+
+test("a second drop in a row rejects instead of looping", async () => {
+  const { bridge, calls } = fakeBridge({ dropTexts: 2 });
+  const e = new NativeEmbedder(bridge, { model: MODEL });
+  await assert.rejects(e.embed({ texts: ["a"], kind: "query" }), { message: NOT_LOADED });
+  assert.equal(calls.texts.length, 2);
+});
+
+test("other embed errors are not retried", async () => {
+  const { bridge, calls } = fakeBridge();
+  bridge.embedTexts = async () => {
+    throw new Error("bad input");
+  };
+  const e = new NativeEmbedder(bridge, { model: MODEL });
+  await assert.rejects(e.embed({ texts: ["a"], kind: "query" }), { message: "bad input" });
+  assert.deepEqual(calls.loads, [MODEL]);
+});
+
+test("dispose unloads this model in the shell, and a later embed loads it again", async () => {
+  const { bridge, calls } = fakeBridge();
+  const e = new NativeEmbedder(bridge, { model: MODEL });
+  await e.embed({ texts: ["a"], kind: "query" });
+  e.dispose();
+  assert.deepEqual(calls.unloads, [MODEL]);
+
+  await e.embed({ texts: ["b"], kind: "query" });
+  assert.deepEqual(calls.loads, [MODEL, MODEL]);
+});
+
+test("dispose swallows a failed unload and works without embedUnload", async () => {
+  const { bridge } = fakeBridge();
+  bridge.embedUnload = async () => {
+    throw new Error("gone");
+  };
+  new NativeEmbedder(bridge).dispose();
+  delete bridge.embedUnload;
+  new NativeEmbedder(bridge).dispose();
+  await new Promise((resolve) => setImmediate(resolve));
 });
 
 test("a wrong row count rejects", async () => {

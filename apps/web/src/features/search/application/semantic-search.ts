@@ -3,6 +3,7 @@ import { getContainer } from "@/bootstrap";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
 import { WorkerEmbedder, supportsLocalEmbedding, type WorkerEmbedderOptions } from "../infrastructure/worker-embedder";
 import { NativeEmbedder, nativeEmbedBridge } from "../infrastructure/native-embedder";
+import { loadWithFallback } from "../infrastructure/load-with-fallback";
 import { vectorStore } from "../infrastructure/vector-store";
 import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
 import { desktop } from "@/lib/desktop/desktop-bridge";
@@ -35,6 +36,21 @@ export function createEmbedder(options: WorkerEmbedderOptions): WorkerEmbedder |
   return bridge
     ? new NativeEmbedder(bridge, { model: options.model, onProgress: options.onProgress })
     : new WorkerEmbedder(options);
+}
+
+/**
+ * Load `candidate`. A native encoder that fails to load hands over to the web
+ * worker, so a broken native runtime never turns semantic search off.
+ */
+function loadEmbedder(
+  options: WorkerEmbedderOptions,
+  candidate: WorkerEmbedder | NativeEmbedder = createEmbedder(options),
+): Promise<WorkerEmbedder | NativeEmbedder> {
+  return loadWithFallback<WorkerEmbedder | NativeEmbedder>(
+    candidate,
+    candidate instanceof NativeEmbedder ? () => new WorkerEmbedder(options) : null,
+    (error) => console.warn("The native encoder did not load; using the web worker:", error),
+  );
 }
 
 /**
@@ -155,7 +171,7 @@ async function run(options: EnableOptions): Promise<void> {
     embedder.dispose();
     embedder = null;
   }
-  embedder ??= createEmbedder({
+  const embedderOptions: WorkerEmbedderOptions = {
     model: target.id,
     onProgress: (loaded, total) => {
       // A cached model reports its "download" too, instantly; past 100% the
@@ -163,8 +179,9 @@ async function run(options: EnableOptions): Promise<void> {
       setStatus(loaded >= total ? { phase: "loading" } : { phase: "downloading", loaded, total });
       downloadListener?.({ done: 0, total: 0, download: { loaded, total } });
     },
-  });
-  await embedder.load();
+  };
+  embedder ??= createEmbedder(embedderOptions);
+  embedder = await loadEmbedder(embedderOptions, embedder);
 
   semantic = new SemanticIndex(embedder);
   semanticProject = projectId;
@@ -259,9 +276,9 @@ async function serveWhileUpgrading(
   targetId: string,
 ): Promise<boolean> {
   if (stored.hashes === undefined && stored.revision !== revision) return false;
-  const previous = createEmbedder({ model: stored.model });
+  let previous = createEmbedder({ model: stored.model });
   try {
-    await previous.load();
+    previous = await loadEmbedder({ model: stored.model }, previous);
     const old = new SemanticIndex(previous);
     const loaded = old.load(
       { model: stored.model, dimensions: stored.dimensions, ids: stored.ids, vectors: stored.vectors, hashes: stored.hashes },
@@ -294,7 +311,7 @@ async function serveWhileUpgrading(
  */
 async function upgradeInBackground(projectId: string | null, targetId: string, previous: WorkerEmbedder | NativeEmbedder): Promise<void> {
   const controller = new AbortController();
-  const next = createEmbedder({ model: targetId });
+  let next = createEmbedder({ model: targetId });
   upgrade = { controller, embedder: next };
   const showProgress = (done: number, total: number) => {
     if (status.phase !== "ready" || upgrade?.embedder !== next) return;
@@ -302,7 +319,9 @@ async function upgradeInBackground(projectId: string | null, targetId: string, p
   };
   try {
     showProgress(0, 0);
-    await next.load();
+    const candidate = next;
+    next = await loadEmbedder({ model: targetId }, candidate);
+    if (upgrade?.embedder === candidate) upgrade.embedder = next;
     const fresh = new SemanticIndex(next);
     const container = getContainer();
     await fresh.build(await container.search.projectionForSemantic(), {
