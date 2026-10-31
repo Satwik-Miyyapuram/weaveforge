@@ -16,7 +16,9 @@ publish = false
 wf-core = { path = "crates/wf-core" }
 wf-store = { path = "crates/wf-store" }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.154"
+# preserve_order: rows and frontmatter keep key order, as JS objects do, so the
+# folder mirror writes the same bytes as the TypeScript (no churn between apps).
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 specta = { version = "=2.0.0-rc.27", features = ["derive"] }
 specta-serde = "=0.0.14"
 specta-typescript = "=0.0.14"
@@ -26,6 +28,8 @@ serde-wasm-bindgen = "=0.6.5"
 # Search text rules (phase 1): NFD/NFC and general categories for \p{L}/\p{N}.
 unicode-normalization = "=0.1.26"
 unicode-properties = { version = "=0.1.4", default-features = false, features = ["general-category"] }
+# WHATWG URL parsing, the same rules as the JS `URL` class (already in the lock via git2).
+url = "=2.5.8"
 # Property tests (plan §4.4): 256 cases per commit. No fork/timeout features.
 proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 # Git sync (P2.10): libgit2, built from source on every platform. gix cannot yet push

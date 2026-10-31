@@ -1,0 +1,869 @@
+{
+ "slugs": [
+  [
+   "",
+   "untitled",
+   "project"
+  ],
+  [
+   "Hello World",
+   "hello-world",
+   "hello-world"
+  ],
+  [
+   "  --Hello--  ",
+   "hello",
+   "hello"
+  ],
+  [
+   "Café Ångström",
+   "cafe-angstrom",
+   "cafe-angstrom"
+  ],
+  [
+   "日本語のタイトル",
+   "日本語のタイトル",
+   "日本語のタイトル"
+  ],
+  [
+   "con",
+   "con-file",
+   "con-file"
+  ],
+  [
+   "CON",
+   "con-file",
+   "con-file"
+  ],
+  [
+   "aux",
+   "aux-file",
+   "aux-file"
+  ],
+  [
+   "com1",
+   "com1-file",
+   "com1-file"
+  ],
+  [
+   "com0",
+   "com0",
+   "com0"
+  ],
+  [
+   "lpt9",
+   "lpt9-file",
+   "lpt9-file"
+  ],
+  [
+   "nul.txt",
+   "nul-txt",
+   "nul-txt"
+  ],
+  [
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  [
+   "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+   "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+   "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  ],
+  [
+   "😀 emoji",
+   "emoji",
+   "emoji"
+  ],
+  [
+   "x😀y",
+   "x-y",
+   "x-y"
+  ],
+  [
+   "ﬁle",
+   "file",
+   "file"
+  ],
+  [
+   "Ⅻ",
+   "xii",
+   "xii"
+  ],
+  [
+   "ΣΑΣ",
+   "σας",
+   "σας"
+  ],
+  [
+   "İstanbul",
+   "istanbul",
+   "istanbul"
+  ],
+  [
+   "a_b-c.d",
+   "a-b-c-d",
+   "a-b-c-d"
+  ],
+  [
+   "---",
+   "untitled",
+   "project"
+  ],
+  [
+   "😀",
+   "untitled",
+   "project"
+  ],
+  [
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀",
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  [
+   "Ａｂｃ",
+   "abc",
+   "abc"
+  ],
+  [
+   "x́y",
+   "xy",
+   "xy"
+  ],
+  [
+   "Straße",
+   "straße",
+   "straße"
+  ],
+  [
+   "ǅ",
+   "dz",
+   "dz"
+  ]
+ ],
+ "ids": [
+  [
+   "",
+   "x"
+  ],
+  [
+   "abc",
+   "abc"
+  ],
+  [
+   "a-b-c-d-e-f-g",
+   "abcdef"
+  ],
+  [
+   "1234567890",
+   "123456"
+  ],
+  [
+   "--",
+   "x"
+  ],
+  [
+   "日本",
+   "x"
+  ],
+  [
+   "AbC_dE.fGh",
+   "AbCdEf"
+  ]
+ ],
+ "kinds": [
+  [
+   "methods--a1b2c3.note.md",
+   "vault_page",
+   "methods--a1b2c3"
+  ],
+  [
+   "x.ink.md",
+   "ink_page",
+   "x"
+  ],
+  [
+   "x.md",
+   null,
+   "x"
+  ],
+  [
+   "x.foo.md",
+   null,
+   "x.foo"
+  ],
+  [
+   "x.paper.md",
+   "paper",
+   "x"
+  ],
+  [
+   "dir/y.list.md",
+   "reading_list",
+   "dir/y"
+  ],
+  [
+   "x.Note.md",
+   null,
+   "x.Note"
+  ],
+  [
+   "x.note.md.bak",
+   null,
+   "x.note.md.bak"
+  ],
+  [
+   ".note.md",
+   "vault_page",
+   ""
+  ],
+  [
+   "x.log",
+   null,
+   "x"
+  ],
+  [
+   "a.b.c.report.md",
+   "report_section",
+   "a.b.c"
+  ],
+  [
+   "x.experiment.md",
+   "experiment",
+   "x"
+  ],
+  [
+   "x.milestone.md",
+   "milestone",
+   "x"
+  ],
+  [
+   "x.log.md",
+   "log_entry",
+   "x"
+  ],
+  [
+   "x.list.MD",
+   null,
+   "x.list.MD"
+  ],
+  [
+   "x.my_kind.md",
+   null,
+   "x.my_kind"
+  ]
+ ],
+ "project": [
+  [
+   {
+    "id": "abcdef123",
+    "name": "My Project"
+   },
+   "my-project--abcdef"
+  ],
+  [
+   {
+    "id": "",
+    "name": ""
+   },
+   "project--x"
+  ],
+  [
+   {
+    "id": "p-1",
+    "name": "con"
+   },
+   "con-file--p1"
+  ]
+ ],
+ "dirs": [
+  [
+   "vault_page",
+   "notes",
+   "note",
+   "notes",
+   "proj--abc/notes",
+   "notes/a-title--id1234.note.md",
+   "root/notes/untitled--id.note.md"
+  ],
+  [
+   "ink_page",
+   "notes",
+   "ink",
+   "notes",
+   "proj--abc/notes",
+   "notes/a-title--id1234.ink.md",
+   "root/notes/untitled--id.ink.md"
+  ],
+  [
+   "paper",
+   "papers",
+   "paper",
+   "papers",
+   "proj--abc/papers",
+   "papers/a-title--id1234.paper.md",
+   "root/papers/untitled--id.paper.md"
+  ],
+  [
+   "reading_list",
+   "reading-lists",
+   "list",
+   "reading-lists",
+   "proj--abc/reading-lists",
+   "reading-lists/a-title--id1234.list.md",
+   "root/reading-lists/untitled--id.list.md"
+  ],
+  [
+   "report_section",
+   "report",
+   "report",
+   "report",
+   "proj--abc/report",
+   "report/a-title--id1234.report.md",
+   "root/report/untitled--id.report.md"
+  ],
+  [
+   "experiment",
+   "experiments",
+   "experiment",
+   "experiments",
+   "proj--abc/experiments",
+   "experiments/a-title--id1234.experiment.md",
+   "root/experiments/untitled--id.experiment.md"
+  ],
+  [
+   "milestone",
+   "plan",
+   "milestone",
+   "plan",
+   "proj--abc/plan",
+   "plan/a-title--id1234.milestone.md",
+   "root/plan/untitled--id.milestone.md"
+  ],
+  [
+   "log_entry",
+   "logbook",
+   "log",
+   "logbook",
+   "proj--abc/logbook",
+   "logbook/a-title--id1234.log.md",
+   "root/logbook/untitled--id.log.md"
+  ]
+ ],
+ "logs": [
+  [
+   "abc",
+   "2026-03-14",
+   "",
+   "logbook/2026/03/2026-03-14--abc.log.md"
+  ],
+  [
+   "abc",
+   "2026",
+   "",
+   "logbook/2026/00/2026--abc.log.md"
+  ],
+  [
+   "abc",
+   "",
+   "",
+   "logbook//00/--abc.log.md"
+  ],
+  [
+   "abc",
+   "2026-03-14",
+   "proj",
+   "proj/logbook/2026/03/2026-03-14--abc.log.md"
+  ],
+  [
+   "x",
+   "a-b-c",
+   "",
+   "logbook/a/b/a-b-c--x.log.md"
+  ]
+ ],
+ "tree": [
+  [
+   [],
+   "vault_page",
+   "",
+   []
+  ],
+  [
+   [],
+   "ink_page",
+   "proj",
+   []
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Alpha"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/alpha.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Alpha"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/alpha.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Alpha"
+    },
+    {
+     "id": "b",
+     "title": "Beta",
+     "parentId": "a"
+    },
+    {
+     "id": "c",
+     "title": "Gamma",
+     "parentId": "b"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/alpha/alpha.note.md"
+    ],
+    [
+     "b",
+     "notes/alpha/beta/beta.note.md"
+    ],
+    [
+     "c",
+     "notes/alpha/beta/gamma.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Alpha"
+    },
+    {
+     "id": "b",
+     "title": "Beta",
+     "parentId": "a"
+    },
+    {
+     "id": "c",
+     "title": "Gamma",
+     "parentId": "b"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/alpha/alpha.ink.md"
+    ],
+    [
+     "b",
+     "proj/notes/alpha/beta/beta.ink.md"
+    ],
+    [
+     "c",
+     "proj/notes/alpha/beta/gamma.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Same"
+    },
+    {
+     "id": "b",
+     "title": "Same"
+    },
+    {
+     "id": "c",
+     "title": "Same"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/same.note.md"
+    ],
+    [
+     "b",
+     "notes/same--b.note.md"
+    ],
+    [
+     "c",
+     "notes/same--c.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Same"
+    },
+    {
+     "id": "b",
+     "title": "Same"
+    },
+    {
+     "id": "c",
+     "title": "Same"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/same.ink.md"
+    ],
+    [
+     "b",
+     "proj/notes/same--b.ink.md"
+    ],
+    [
+     "c",
+     "proj/notes/same--c.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Same",
+     "parentId": "p"
+    },
+    {
+     "id": "b",
+     "title": "Same"
+    },
+    {
+     "id": "p",
+     "title": "Parent"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/parent/same.note.md"
+    ],
+    [
+     "b",
+     "notes/same.note.md"
+    ],
+    [
+     "p",
+     "notes/parent/parent.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "Same",
+     "parentId": "p"
+    },
+    {
+     "id": "b",
+     "title": "Same"
+    },
+    {
+     "id": "p",
+     "title": "Parent"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/parent/same.ink.md"
+    ],
+    [
+     "b",
+     "proj/notes/same.ink.md"
+    ],
+    [
+     "p",
+     "proj/notes/parent/parent.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": "b"
+    },
+    {
+     "id": "b",
+     "title": "B",
+     "parentId": "a"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/a/a.note.md"
+    ],
+    [
+     "b",
+     "notes/a/b/b.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": "b"
+    },
+    {
+     "id": "b",
+     "title": "B",
+     "parentId": "a"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/a/a.ink.md"
+    ],
+    [
+     "b",
+     "proj/notes/a/b/b.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": "a"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/a/a.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": "a"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/a/a.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": "missing"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/a.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": "missing"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/a.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "x1",
+     "title": "Dup"
+    },
+    {
+     "id": "x2",
+     "title": "Dup"
+    },
+    {
+     "id": "c",
+     "title": "Child",
+     "parentId": "x2"
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "x1",
+     "notes/dup.note.md"
+    ],
+    [
+     "x2",
+     "notes/dup--x2/dup--x2.note.md"
+    ],
+    [
+     "c",
+     "notes/dup--x2/child.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "x1",
+     "title": "Dup"
+    },
+    {
+     "id": "x2",
+     "title": "Dup"
+    },
+    {
+     "id": "c",
+     "title": "Child",
+     "parentId": "x2"
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "x1",
+     "proj/notes/dup.ink.md"
+    ],
+    [
+     "x2",
+     "proj/notes/dup--x2/dup--x2.ink.md"
+    ],
+    [
+     "c",
+     "proj/notes/dup--x2/child.ink.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": ""
+    }
+   ],
+   "vault_page",
+   "",
+   [
+    [
+     "a",
+     "notes/a.note.md"
+    ]
+   ]
+  ],
+  [
+   [
+    {
+     "id": "a",
+     "title": "A",
+     "parentId": ""
+    }
+   ],
+   "ink_page",
+   "proj",
+   [
+    [
+     "a",
+     "proj/notes/a.ink.md"
+    ]
+   ]
+  ]
+ ],
+ "misc": {
+  "metaDir": ".weaveforge",
+  "assetDir": "assets",
+  "pdfDir": "papers/pdf",
+  "htmlDir": "papers/html",
+  "projectMeta": "p/.weaveforge",
+  "pdf": [
+   "papers/pdf/id1.pdf",
+   "p/papers/pdf/id1.pdf"
+  ],
+  "html": [
+   "papers/html/id1.html",
+   "p/papers/html/id1.html"
+  ],
+  "asset": [
+   "assets/notes/u/p/f.png",
+   "assets/papers/x",
+   "assets/report/"
+  ]
+ }
+}
