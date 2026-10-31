@@ -32,6 +32,15 @@ pub enum SidecarSource {
     },
 }
 
+/// What the sidecar needs to serve the local API: where artifacts live and this app's version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApiArgs {
+    /// Folder of locally stored artifacts (`<app data>/artifacts`).
+    pub artifacts: PathBuf,
+    /// The app version the local API reports.
+    pub app_version: String,
+}
+
 /// `Dev` when `WF_SIDECAR_DEV` names the repo root (debug builds only), else `Bundled`.
 #[must_use]
 pub fn sidecar_source(resources: PathBuf) -> SidecarSource {
@@ -71,13 +80,38 @@ pub fn electron_data_dir(source: &SidecarSource, config_dir: &Path) -> Option<Pa
     }
 }
 
+/// `Dev` runs with `--home-variant dev`: its MCP files stay in `~/.weaveforge/mcp-dev*`, never the installed app's.
+/// `None` for `Bundled`.
+#[must_use]
+pub fn home_variant(source: &SidecarSource) -> Option<&'static str> {
+    match source {
+        SidecarSource::Dev { .. } => Some("dev"),
+        SidecarSource::Bundled { .. } => None,
+    }
+}
+
+/// The MCP bridge script the editors run.
+#[must_use]
+pub fn bridge_source(source: &SidecarSource) -> PathBuf {
+    match source {
+        SidecarSource::Dev { repo } => {
+            without_verbatim_prefix(repo).join("apps/desktop/dist/weaveforge-mcp.mjs")
+        }
+        SidecarSource::Bundled { resources } => without_verbatim_prefix(resources)
+            .join("sidecar")
+            .join("weaveforge-mcp.mjs"),
+    }
+}
+
 /// The sidecar command for `source`, opening the database in `data_dir` and keeping its backups in `backups_dir`.
-/// `migrate_from` (Electron's data dir) is passed as `--migrate-from` last, when set.
+/// Then the API args (`--artifacts`, `--bridge`, `--app-version`, and `--home-variant` for `Dev`), then
+/// `migrate_from` (Electron's data dir) as `--migrate-from` last, when set.
 #[must_use]
 pub fn sidecar_config(
     source: &SidecarSource,
     data_dir: &Path,
     backups_dir: &Path,
+    api: &ApiArgs,
     migrate_from: Option<&Path>,
 ) -> SidecarConfig {
     let data_dir = without_verbatim_prefix(data_dir);
@@ -118,6 +152,16 @@ pub fn sidecar_config(
             (program, args, dir)
         }
     };
+    args.push("--artifacts".into());
+    args.push(without_verbatim_prefix(&api.artifacts).into_os_string());
+    args.push("--bridge".into());
+    args.push(bridge_source(source).into_os_string());
+    args.push("--app-version".into());
+    args.push(api.app_version.clone().into());
+    if let Some(variant) = home_variant(source) {
+        args.push("--home-variant".into());
+        args.push(variant.into());
+    }
     if let Some(dir) = migrate_from {
         args.push("--migrate-from".into());
         args.push(dir.into_os_string());
@@ -137,6 +181,13 @@ pub fn sidecar_config(
 mod tests {
     use super::*;
 
+    fn api() -> ApiArgs {
+        ApiArgs {
+            artifacts: PathBuf::from("/data/artifacts"),
+            app_version: "1.2.3".into(),
+        }
+    }
+
     #[test]
     fn dev_runs_main_ts_through_tsx() {
         let repo = PathBuf::from("repo");
@@ -144,6 +195,7 @@ mod tests {
             &SidecarSource::Dev { repo: repo.clone() },
             &PathBuf::from("data"),
             &PathBuf::from("backups"),
+            &api(),
             None,
         );
         assert_eq!(config.program, PathBuf::from("node"));
@@ -160,6 +212,15 @@ mod tests {
             repo.join("db/migrations").into_os_string(),
             "--migrations".into(),
             repo.join("db/migrations-local").into_os_string(),
+            "--artifacts".into(),
+            "/data/artifacts".into(),
+            "--bridge".into(),
+            repo.join("apps/desktop/dist/weaveforge-mcp.mjs")
+                .into_os_string(),
+            "--app-version".into(),
+            "1.2.3".into(),
+            "--home-variant".into(),
+            "dev".into(),
         ];
         assert_eq!(config.args, expected);
     }
@@ -174,6 +235,7 @@ mod tests {
             },
             &PathBuf::from("data"),
             &PathBuf::from("backups"),
+            &api(),
             None,
         );
         assert_eq!(
@@ -191,8 +253,139 @@ mod tests {
             dir.join("migrations").into_os_string(),
             "--migrations".into(),
             dir.join("migrations-local").into_os_string(),
+            "--artifacts".into(),
+            "/data/artifacts".into(),
+            "--bridge".into(),
+            dir.join("weaveforge-mcp.mjs").into_os_string(),
+            "--app-version".into(),
+            "1.2.3".into(),
         ];
         assert_eq!(config.args, expected);
+    }
+
+    #[test]
+    fn bundled_full_args_have_no_home_variant_and_migrate_from_last() {
+        let res = PathBuf::from("res");
+        let dir = res.join("sidecar");
+        let config = sidecar_config(
+            &SidecarSource::Bundled {
+                resources: res.clone(),
+            },
+            &PathBuf::from("data"),
+            &PathBuf::from("backups"),
+            &api(),
+            Some(Path::new("old")),
+        );
+        let expected: Vec<OsString> = vec![
+            dir.join("main.mjs").into_os_string(),
+            "--data-dir".into(),
+            "data".into(),
+            "--backups".into(),
+            "backups".into(),
+            "--migrations".into(),
+            dir.join("migrations").into_os_string(),
+            "--migrations".into(),
+            dir.join("migrations-local").into_os_string(),
+            "--artifacts".into(),
+            "/data/artifacts".into(),
+            "--bridge".into(),
+            dir.join("weaveforge-mcp.mjs").into_os_string(),
+            "--app-version".into(),
+            "1.2.3".into(),
+            "--migrate-from".into(),
+            "old".into(),
+        ];
+        assert_eq!(config.args, expected);
+        assert!(!config.args.iter().any(|a| a == "--home-variant"));
+    }
+
+    #[test]
+    fn dev_full_args_have_home_variant_and_no_migrate_from() {
+        let repo = PathBuf::from("repo");
+        let config = sidecar_config(
+            &SidecarSource::Dev { repo: repo.clone() },
+            &PathBuf::from("data"),
+            &PathBuf::from("backups"),
+            &api(),
+            None,
+        );
+        assert!(!config.args.iter().any(|a| a == "--migrate-from"));
+        let tail: Vec<OsString> = vec![
+            "--app-version".into(),
+            "1.2.3".into(),
+            "--home-variant".into(),
+            "dev".into(),
+        ];
+        assert!(config.args.ends_with(&tail), "{:?}", config.args);
+    }
+
+    #[test]
+    fn home_variant_is_dev_only() {
+        assert_eq!(
+            home_variant(&SidecarSource::Dev {
+                repo: PathBuf::from("repo"),
+            }),
+            Some("dev")
+        );
+        assert_eq!(
+            home_variant(&SidecarSource::Bundled {
+                resources: PathBuf::from("res"),
+            }),
+            None
+        );
+    }
+
+    #[test]
+    fn bridge_source_per_variant() {
+        assert_eq!(
+            bridge_source(&SidecarSource::Dev {
+                repo: PathBuf::from("repo"),
+            }),
+            PathBuf::from("repo").join("apps/desktop/dist/weaveforge-mcp.mjs")
+        );
+        assert_eq!(
+            bridge_source(&SidecarSource::Bundled {
+                resources: PathBuf::from("res"),
+            }),
+            PathBuf::from("res")
+                .join("sidecar")
+                .join("weaveforge-mcp.mjs")
+        );
+    }
+
+    #[test]
+    fn bridge_source_strips_verbatim_resources() {
+        assert_eq!(
+            bridge_source(&SidecarSource::Bundled {
+                resources: PathBuf::from(r"\\?\C:\app"),
+            }),
+            PathBuf::from(r"C:\app")
+                .join("sidecar")
+                .join("weaveforge-mcp.mjs")
+        );
+    }
+
+    #[test]
+    fn artifacts_verbatim_prefix_is_stripped() {
+        let api = ApiArgs {
+            artifacts: PathBuf::from(r"\\?\C:\data\artifacts"),
+            app_version: "1.2.3".into(),
+        };
+        let config = sidecar_config(
+            &SidecarSource::Bundled {
+                resources: PathBuf::from("res"),
+            },
+            &PathBuf::from("data"),
+            &PathBuf::from("backups"),
+            &api,
+            None,
+        );
+        let pair: Vec<OsString> = vec!["--artifacts".into(), r"C:\data\artifacts".into()];
+        assert!(
+            config.args.windows(2).any(|w| w == pair.as_slice()),
+            "{:?}",
+            config.args
+        );
     }
 
     #[test]
@@ -203,6 +396,7 @@ mod tests {
             },
             &PathBuf::from("data"),
             &PathBuf::from("backups"),
+            &api(),
             Some(Path::new(r"\\?\C:\old")),
         );
         let tail: Vec<OsString> = vec!["--migrate-from".into(), r"C:\old".into()];
@@ -217,6 +411,7 @@ mod tests {
             },
             &PathBuf::from("data"),
             &PathBuf::from("backups"),
+            &api(),
             Some(Path::new("old")),
         );
         let tail: Vec<OsString> = vec!["--migrate-from".into(), "old".into()];
@@ -269,6 +464,7 @@ mod tests {
                 source,
                 &PathBuf::from("data"),
                 &PathBuf::from("backups"),
+                &api(),
                 None,
             );
             assert_eq!(config.call_timeout, CALL_TIMEOUT);
@@ -318,11 +514,16 @@ mod tests {
                 resources: PathBuf::from(r"\\?\C:\app"),
             },
         ];
+        let api = ApiArgs {
+            artifacts: PathBuf::from(r"\\?\C:\data\artifacts"),
+            app_version: "1.2.3".into(),
+        };
         for source in &sources {
             let config = sidecar_config(
                 source,
                 Path::new(r"\\?\C:\data"),
                 Path::new(r"\\?\C:\backups"),
+                &api,
                 None,
             );
             assert!(!verbatim(config.program.as_os_str()));

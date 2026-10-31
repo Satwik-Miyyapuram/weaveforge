@@ -21,6 +21,11 @@ ignore = [
   # Unmaintained, not vulnerable. A compile-time proc macro used by specta (which
   # tauri itself depends on) and tauri-specta. Drop once specta moves off it.
   { id = "RUSTSEC-2024-0436", reason = "paste via specta; proc macro, build-time only, no fixed release" },
+  # Unmaintained, not vulnerable: folded into zbus 6. zbus 5 (Linux D-Bus, via
+  # tauri-plugin-opener) still uses them. Drop once the opener plugin moves to zbus 6.
+  { id = "RUSTSEC-2026-0370", reason = "zvariant via zbus 5 (tauri-plugin-opener); merged into zbus 6, no fix on 5" },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names via zbus 5 (tauri-plugin-opener); merged into zbus 6, no fix on 5" },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via zbus 5 (tauri-plugin-opener); merged into zbus 6, no fix on 5" },
 ]
 
 [licenses]

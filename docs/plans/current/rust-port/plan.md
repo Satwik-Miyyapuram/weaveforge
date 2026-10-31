@@ -456,6 +456,11 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - The watch dies when the folder is renamed or the drive unplugged; detect and re-watch or say so (rubric 13).
 - No UI for the model store or the cache size (rubric 30).
 - Entries refused by the import (bad names, too big) vanish from the list without a reason (rubric 13).
+- The `.weaveforge.bak` copy of a rewritten editor MCP config is never removed and may hold other servers' API keys (it keeps the original's mode since batch M); remove it once the rewrite is verified (rubric 1).
+- Rewritten and skipped editor MCP configs are only logged; show them in the UI with the `.bak` path (rubric 7, 13).
+- JSONC editor configs are skipped; rewrite them with `jsonc-parser` `modify`/`applyEdits` so comments survive.
+- `host.rs` `HOST_URL_PREFIXES` and `mcp-connect.ts` install links can drift; add a cross-check test.
+- Merge the shell integration tests into one test binary: each `tests/*.rs` links Tauri on its own (about 100 MB of debug info each).
 
 **Other**
 

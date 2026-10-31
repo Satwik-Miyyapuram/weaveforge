@@ -5,6 +5,7 @@ import type {
   DesktopCommitResult,
   DesktopInkHaptics,
   DesktopInkResult,
+  DesktopLocalApi,
   DesktopOverleafSource,
   DesktopPreferenceName,
   DesktopPreferenceValue,
@@ -120,6 +121,7 @@ export interface DesktopCommands {
   }): Promise<Result<WireInkResult>>;
   inkHapticsAvailable(): Promise<Result<boolean>>;
   inkHaptics(message: DesktopInkHaptics): Promise<Result<null>>;
+  localApiCall(channel: string, args: unknown[]): Promise<Result<unknown>>;
 }
 
 /** Subscribes to a shell event; resolves to the way to stop listening. */
@@ -130,10 +132,46 @@ export interface DesktopEvents {
 /** The event the shell emits with folder-relative paths changed by other programs. */
 export const VAULT_CHANGED_EVENT = "vault-changed";
 
+/** The event the sidecar emits to ask for a semantic ranking: [id, query, candidates]. */
+export const SEMANTIC_RANK_EVENT = "semanticRank";
+
+/** The Electron-era handler channels `local_api_call` forwards to (literals, as in apps/desktop/src/channels.ts). */
+export const LOCAL_API = {
+  state: "weaveforge:local-api-state",
+  set: "weaveforge:local-api-set",
+  tokenCreate: "weaveforge:local-api-token-create",
+  tokenRevoke: "weaveforge:local-api-token-revoke",
+  mcpConnect: "weaveforge:mcp-connect",
+  mcpDisconnect: "weaveforge:mcp-disconnect",
+  mcpOpenClient: "weaveforge:mcp-open-client",
+  semanticRanked: "weaveforge:semantic-ranked",
+} as const;
+
+/** Whether a `semanticRank` payload has the id, query and string candidates it should. */
+function isSemanticRankPayload(
+  payload: unknown,
+): payload is [number, string, string[]] {
+  return (
+    Array.isArray(payload) &&
+    typeof payload[0] === "number" &&
+    typeof payload[1] === "string" &&
+    Array.isArray(payload[2]) &&
+    payload[2].every((c) => typeof c === "string")
+  );
+}
+
 /** The desktop members this shim provides, as `window.weaveforge` expects them. */
 export type DesktopShim = Pick<
   DesktopBridge,
   | "onVaultChange"
+  | "localApiState"
+  | "setLocalApi"
+  | "createLocalApiToken"
+  | "revokeLocalApiToken"
+  | "connectMcp"
+  | "disconnectMcp"
+  | "openMcpClient"
+  | "onSemanticRank"
   | "inkAvailable"
   | "inkHapticsAvailable"
   | "inkRecognise"
@@ -173,7 +211,62 @@ export function desktopShim(
   cmds: DesktopCommands,
   events: DesktopEvents,
 ): DesktopShim {
+  // Cast to the page's type, as preload's `call<T>` does.
+  const localApi = async <T>(channel: string, args: unknown[]) =>
+    unwrap(await cmds.localApiCall(channel, args)) as T;
+  // Never rejects: a failed answer is logged, the sidecar's request stays unanswered.
+  const answerRank = async (body: unknown[]) => {
+    try {
+      unwrap(await cmds.localApiCall(LOCAL_API.semanticRanked, body));
+    } catch (error: unknown) {
+      console.warn("Semantic ranking answer was not delivered:", error);
+    }
+  };
   return {
+    localApiState: () => localApi<DesktopLocalApi>(LOCAL_API.state, []),
+    setLocalApi: (enabled) =>
+      localApi<DesktopLocalApi>(LOCAL_API.set, [enabled]),
+    createLocalApiToken: (request) =>
+      localApi<DesktopLocalApi>(LOCAL_API.tokenCreate, [request]),
+    revokeLocalApiToken: (id) =>
+      localApi<DesktopLocalApi>(LOCAL_API.tokenRevoke, [id]),
+    connectMcp: () => localApi<DesktopLocalApi>(LOCAL_API.mcpConnect, []),
+    disconnectMcp: () => localApi<DesktopLocalApi>(LOCAL_API.mcpDisconnect, []),
+    openMcpClient: async (client) => {
+      // Resolves to nothing, as in Electron; whatever the handler returned is dropped.
+      await localApi<unknown>(LOCAL_API.mcpOpenClient, [client]);
+    },
+    // Same unlisten rule as `onVaultChange`: a stop before `listen` resolves still unlistens.
+    onSemanticRank: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | null = null;
+      void events
+        .listen(SEMANTIC_RANK_EVENT, (payload) => {
+          if (stopped || !isSemanticRankPayload(payload)) return;
+          const [id, query, candidates] = payload;
+          // A throw or rejection still answers, with its reason, so the sidecar is never left waiting.
+          void Promise.resolve()
+            .then(() => cb(query, candidates))
+            .then(
+              (order) => answerRank([id, order]),
+              (err: unknown) =>
+                answerRank([id, null, err instanceof Error ? err.message : String(err)]),
+            );
+        })
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("Semantic ranking will not run:", error);
+        });
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        unlisten?.();
+        unlisten = null;
+      };
+    },
     // A stop before `listen` resolves must still unlisten, or the watch leaks.
     onVaultChange: (cb) => {
       let stopped = false;
