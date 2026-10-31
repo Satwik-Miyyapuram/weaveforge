@@ -60,6 +60,21 @@ test("wireIpc refuses params that are not an argument list", async () => {
   await assert.rejects(handlers["ipc:x"]!({ 0: 1 }), /needs an argument list/);
 });
 
+test("wireIpc listeners that read the event fail loudly", async () => {
+  const handlers: Record<string, Handler> = {};
+  wireIpc(handlers).handle("who", async (event) => event.sender);
+  await assert.rejects(handlers["ipc:who"]!([]), { message: "the shell's IPC event has no fields" });
+});
+
+test("wireIpc listeners can await or log the event without it throwing", async () => {
+  const handlers: Record<string, Handler> = {};
+  wireIpc(handlers).handle("ok", async (event) => {
+    await Promise.resolve(event);
+    return JSON.stringify(event);
+  });
+  assert.equal(await handlers["ipc:ok"]!([]), "{}");
+});
+
 test("wireIpc refuses a channel registered twice", () => {
   const ipc = wireIpc({});
   ipc.handle("dup", async () => null);
@@ -181,6 +196,27 @@ test("vaultRootHandler refuses params without a path", async () => {
   const handler = vaultRootHandler(newVaultSession());
   for (const bad of [{}, "x"]) {
     await assert.rejects(handler(bad), /vault\.root needs/);
+  }
+});
+
+test("vaultRootHandler refuses a relative path and keeps the session root", async () => {
+  const session = newVaultSession();
+  const handler = vaultRootHandler(session);
+  await assert.rejects(handler({ path: "relative/dir", state: "empty" }), {
+    message: "vault.root needs { path, state } with an absolute path",
+  });
+  assert.equal(session.root, null);
+  assert.equal(session.fs, null);
+});
+
+test("vaultRootHandler accepts an absolute path in the existing state", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-api-deps-"));
+  try {
+    const session = newVaultSession();
+    assert.equal(await vaultRootHandler(session)({ path: dir, state: "existing" }), null);
+    assert.deepEqual(session.root, { path: dir, state: "existing" });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 

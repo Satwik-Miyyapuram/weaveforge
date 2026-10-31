@@ -18,6 +18,9 @@ export interface McpClientConfig {
   key: McpServersKey;
 }
 
+/** How one config file ended: rewritten, already current, or left alone because it could not be rewritten. */
+export type McpRewriteOutcome = "changed" | "unchanged" | "skipped";
+
 /** Cursor's and VS Code's user MCP configs on this OS. */
 export function mcpClientConfigs(
   home: string,
@@ -53,7 +56,14 @@ export function isElectronEntry(entry: unknown): boolean {
   return segments[segments.length - 1] === MCP_BRIDGE_FILE;
 }
 
-/** The config with every Electron entry under `key` moved to `launch`; others untouched. */
+/** The MCP file a launch env points at, by basename; `mcp.json` when none is set. */
+export function mcpFileOf(env: unknown): string {
+  if (!isPlainObject(env)) return "mcp.json";
+  const file = env.WEAVEFORGE_MCP_FILE;
+  return typeof file === "string" && file !== "" ? path.basename(file) : "mcp.json";
+}
+
+/** The config with every Electron entry for this launch's MCP file moved to `launch`; others untouched. */
 export function rewriteMcpConfig(
   config: unknown,
   key: McpServersKey,
@@ -65,7 +75,7 @@ export function rewriteMcpConfig(
   const nextServers: Record<string, unknown> = {};
   let changed = false;
   for (const [name, entry] of Object.entries(config[key])) {
-    if (!isElectronEntry(entry)) {
+    if (!isElectronEntry(entry) || mcpFileOf((entry as Record<string, unknown>).env) !== mcpFileOf(launch.env)) {
       nextServers[name] = entry;
       continue;
     }
@@ -85,32 +95,53 @@ export function rewriteMcpConfig(
 }
 
 /**
- * Rewrites one config file in place. A missing or unreadable file, or one that
- * is not JSON, is left alone and reports false.
+ * Rewrites one config file in place. A missing file is "unchanged"; an unreadable
+ * or non-JSON file (e.g. JSONC with comments) is "skipped" and left alone.
  */
-export async function rewriteMcpConfigFile(target: McpClientConfig, launch: McpLaunch): Promise<boolean> {
+export async function rewriteMcpConfigFile(
+  target: McpClientConfig,
+  launch: McpLaunch,
+): Promise<McpRewriteOutcome> {
+  let original: string;
+  try {
+    original = await fs.readFile(target.file, "utf8");
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? "unchanged" : "skipped";
+  }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await fs.readFile(target.file, "utf8"));
+    parsed = JSON.parse(original);
   } catch {
-    return false;
+    return "skipped";
   }
   const result = rewriteMcpConfig(parsed, target.key, launch);
-  if (!result.changed) return false;
-  const tmp = `${target.file}.tmp`;
-  await fs.writeFile(tmp, `${JSON.stringify(result.config, null, 2)}\n`);
-  await fs.rename(tmp, target.file);
-  return true;
+  if (!result.changed) return "unchanged";
+  const tmp = `${target.file}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    // Keep the first original only; later rewrites must not replace it.
+    await fs.writeFile(`${target.file}.weaveforge.bak`, original, { flag: "wx" }).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    });
+    await fs.writeFile(tmp, `${JSON.stringify(result.config, null, 2)}\n`);
+    await fs.rename(tmp, target.file);
+  } catch {
+    await fs.rm(tmp, { force: true }).catch(() => undefined);
+    return "skipped";
+  }
+  return "changed";
 }
 
-/** Rewrites every client config; returns the files it changed. */
+/** Rewrites every client config; returns the files it changed and the ones it skipped. */
 export async function rewriteMcpClientConfigs(
   targets: readonly McpClientConfig[],
   launch: McpLaunch,
-): Promise<string[]> {
+): Promise<{ changed: string[]; skipped: string[] }> {
   const changed: string[] = [];
+  const skipped: string[] = [];
   for (const target of targets) {
-    if (await rewriteMcpConfigFile(target, launch)) changed.push(target.file);
+    const outcome = await rewriteMcpConfigFile(target, launch);
+    if (outcome === "changed") changed.push(target.file);
+    if (outcome === "skipped") skipped.push(target.file);
   }
-  return changed;
+  return { changed, skipped };
 }

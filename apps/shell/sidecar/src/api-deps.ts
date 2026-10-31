@@ -5,6 +5,7 @@
  * its deps by asking the shell (or by emitting to it) instead of calling Electron.
  */
 
+import path from "node:path";
 import { errorMessage } from "@weaveforge/core";
 import { CHANNELS, type IpcResult } from "../../../desktop/src/channels";
 import type { GuardedEvent, IpcSurface } from "../../../desktop/src/ipc-guard";
@@ -30,8 +31,13 @@ export interface SidecarApiOptions {
   version: string;
 }
 
-/** Electron's event is never read by the local API; the shell already checked the origin. */
-const SHELL_EVENT = {} as unknown as GuardedEvent;
+/** Listeners never read the event; a future one that does fails loudly instead of reading undefined. */
+const SHELL_EVENT = new Proxy({}, {
+  get(_target, key) {
+    if (key === "then" || key === Symbol.toPrimitive || key === Symbol.toStringTag || key === "toJSON") return undefined;
+    throw new Error("the shell's IPC event has no fields");
+  },
+}) as unknown as GuardedEvent;
 
 /** `ipc:<channel>` handlers for the shell to call, as `ipcMain` would have answered. */
 export function wireIpc(handlers: Record<string, Handler>): IpcSurface {
@@ -147,8 +153,8 @@ export function vaultRootHandler(session: VaultSession): Handler {
       return null;
     }
     // Refused without a state: the shell sends one, and a folder with no state is not adopted.
-    if (typeof root !== "string" || (state !== "empty" && state !== "existing")) {
-      throw new Error("vault.root needs { path }");
+    if (typeof root !== "string" || !path.isAbsolute(root) || (state !== "empty" && state !== "existing")) {
+      throw new Error("vault.root needs { path, state } with an absolute path");
     }
     session.root = { path: root, state };
     session.fs = new NodeWorkspaceFs(root);

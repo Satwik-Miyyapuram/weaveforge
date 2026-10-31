@@ -10,7 +10,10 @@ use std::sync::{Arc, Mutex};
 
 use common::{TempDir, put};
 use serde_json::{Value, json};
-use weaveforge_shell::host::{Opener, PrefAccess, SecretAccess, ShellHost, WindowEvents};
+use weaveforge_shell::host::{
+    HOST_URL_PREFIXES, Opener, PrefAccess, SecretAccess, ShellHost, WindowEvents,
+};
+use weaveforge_shell::launch::without_verbatim_prefix;
 use weaveforge_shell::prefs::PrefValue;
 use weaveforge_shell::sidecar::SidecarHost;
 
@@ -302,33 +305,42 @@ fn store_error_passes_through() {
 }
 
 #[test]
-fn open_url_allows_only_editor_install_schemes() {
+fn open_url_allows_only_editor_install_prefixes() {
     let (_base, mcp) = mcp_setup();
     let r = rig(&mcp, false);
-    let ok = [
-        "cursor://anysphere.cursor-deeplink/mcp/install?x=1",
-        "VSCODE:mcp/install",
-        "vscode-insiders:mcp/install",
-    ];
-    for url in ok {
+    let mut ok: Vec<String> = HOST_URL_PREFIXES
+        .iter()
+        .map(|prefix| format!("{prefix}payload"))
+        .collect();
+    ok.push("CURSOR://anysphere.cursor-deeplink/mcp/install?name=weaveforge&config=abc".to_owned());
+    for url in &ok {
         assert_eq!(
             r.host.ask("open.url", json!({ "url": url })),
-            Ok(Value::Null)
+            Ok(Value::Null),
+            "url {url}"
         );
     }
-    assert_eq!(
-        *r.opener.urls.lock().unwrap(),
-        ok.map(str::to_owned).to_vec()
-    );
+    assert_eq!(*r.opener.urls.lock().unwrap(), ok);
 
-    for url in [
+    let refused = [
         "https://evil.example",
         "file:///C:/x",
         "javascript:alert(1)",
-    ] {
+        "vscode://file/C:/x",
+        "vscode://vscode.git/clone?url=x",
+        "cursor://anysphere.cursor-deeplink/mcp/install?name=evil&config=",
+        "vscode:extension/foo",
+        "cursor:",
+        "https://x",
+        "",
+        "x",
+        "vscodé:mcp/install?",
+    ];
+    for url in refused {
         assert_eq!(
             r.host.ask("open.url", json!({ "url": url })),
-            Err("url not allowed".to_owned())
+            Err("url not allowed".to_owned()),
+            "url {url}"
         );
     }
     assert_eq!(r.opener.urls.lock().unwrap().len(), ok.len());
@@ -355,9 +367,16 @@ fn open_path_allows_only_mcpb_files_directly_in_the_mcp_folder() {
     }
     let expected: Vec<PathBuf> = allowed
         .iter()
-        .map(|p| fs::canonicalize(p).unwrap())
+        .map(|p| without_verbatim_prefix(&fs::canonicalize(p).unwrap()))
         .collect();
     assert_eq!(*r.opener.paths.lock().unwrap(), expected);
+    for opened in r.opener.paths.lock().unwrap().iter() {
+        assert!(
+            !opened.to_string_lossy().starts_with(r"\\?\"),
+            "{}",
+            opened.display()
+        );
+    }
 
     let refused = [
         mcp.join("x.txt"),

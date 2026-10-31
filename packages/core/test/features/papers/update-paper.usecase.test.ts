@@ -6,6 +6,7 @@ import { AddPaperUseCase } from "../../../src/features/papers/application/add-pa
 import { UpdatePaperUseCase } from "../../../src/features/papers/application/update-paper.use-case.js";
 import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
 import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { NotFoundError } from "../../../src/index.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
@@ -232,6 +233,45 @@ test("a failed update does not block the next one", async () => {
   await assert.rejects(update.setStatus(p.id, "read"), /disk/);
   const next = await update.setStatus(p.id, "read");
   assert.equal(next.status, "read");
+});
+
+test("a remove waits for a parked update, which saves before the delete", async () => {
+  const { repo, add, update } = setup();
+  const p = await add.addManual({ title: "VAE" });
+  const log: string[] = [];
+  const originalSave = repo.save.bind(repo);
+  repo.save = async (entity) => {
+    log.push("save");
+    return originalSave(entity);
+  };
+  const originalDelete = repo.delete.bind(repo);
+  repo.delete = async (id: string) => {
+    log.push("delete");
+    return originalDelete(id);
+  };
+  const gate = gateGetById(repo, p.id);
+  const title = update.setTitle(p.id, "New");
+  await gate.parked;
+  const removed = update.remove(p.id);
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(log, []);
+  gate.release();
+  await Promise.all([title, removed]);
+  assert.deepEqual(log, ["save", "delete"]);
+  assert.equal(await repo.getById(p.id), null);
+});
+
+test("an update queued behind a remove fails with NotFound and does not write the row back", async () => {
+  const { repo, add, update } = setup();
+  const p = await add.addManual({ title: "VAE" });
+  const removed = update.remove(p.id);
+  const title = update.setTitle(p.id, "New");
+  await removed;
+  await assert.rejects(title, NotFoundError);
+  assert.equal(await repo.getById(p.id), null);
+  await new Promise((r) => setImmediate(r));
+  const queues = (update as unknown as { queues: Map<string, unknown> }).queues;
+  assert.equal(queues.size, 0);
 });
 
 test("the queue empties after the last update", async () => {

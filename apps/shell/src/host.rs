@@ -17,6 +17,11 @@ pub const HOST_PREFS: &[&str] = &["local-api"];
 pub const HOST_SECRETS: &[&str] = &["local-api-token"];
 /// Window events the sidecar may send.
 pub const HOST_EVENTS: &[&str] = &["semanticRank"];
+/// The only links `open.url` opens: the editors' MCP install links that apps/desktop/src/mcp-connect.ts builds.
+pub const HOST_URL_PREFIXES: &[&str] = &[
+    "cursor://anysphere.cursor-deeplink/mcp/install?name=weaveforge&config=",
+    "vscode:mcp/install?",
+];
 
 /// Preference access, so tests need no file.
 pub trait PrefAccess: Send + Sync {
@@ -179,10 +184,10 @@ impl ShellHost {
     /// `open.url`: opens an editor install link; the url is never echoed in a refusal.
     fn open_url(&self, params: &Value) -> Result<Value, String> {
         let url = str_field(params, "url").ok_or_else(|| needs("open.url", "{ url }"))?;
-        let lower = url.to_ascii_lowercase();
-        let allowed = ["cursor:", "vscode:", "vscode-insiders:"]
-            .into_iter()
-            .any(|scheme| lower.starts_with(scheme));
+        let allowed = HOST_URL_PREFIXES.iter().any(|prefix| {
+            url.get(..prefix.len())
+                .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
+        });
         if !allowed {
             return Err("url not allowed".to_owned());
         }
@@ -196,7 +201,8 @@ impl ShellHost {
         let canonical = self
             .mcpb_in_mcp_dir(Path::new(path))
             .ok_or_else(|| "path not allowed".to_owned())?;
-        self.opener.open_path(&canonical)?;
+        let opened = crate::launch::without_verbatim_prefix(&canonical);
+        self.opener.open_path(&opened)?;
         Ok(Value::Null)
     }
 
