@@ -5,6 +5,7 @@ use base64::engine::general_purpose::STANDARD;
 
 use crate::commands::ShellError;
 use crate::vault::{VaultEntry, VaultRoot, VaultSession, VaultState};
+use crate::vault_watcher::WatchSlot;
 
 /// Said when the bytes from the page are not valid base64; nothing is written.
 pub const BAD_BYTES: &str = "Those bytes could not be read.";
@@ -71,7 +72,22 @@ pub async fn read_bytes(state: &VaultState, path: String) -> Result<Option<Strin
 /// # Errors
 /// Invalid base64 (nothing is written), no folder chosen, a refused path, or contents over the size cap.
 pub async fn write_bytes(state: &VaultState, path: String, bytes: String) -> Result<(), String> {
-    let bytes = STANDARD.decode(bytes).map_err(|_| BAD_BYTES.to_owned())?;
+    write_raw(state, path, decode_bytes(&bytes)?).await
+}
+
+/// Decodes standard base64 bytes from the page.
+///
+/// # Errors
+/// `BAD_BYTES` when `bytes` is not valid base64.
+pub fn decode_bytes(bytes: &str) -> Result<Vec<u8>, String> {
+    STANDARD.decode(bytes).map_err(|_| BAD_BYTES.to_owned())
+}
+
+/// Writes raw bytes to a file in the chosen folder.
+///
+/// # Errors
+/// No folder chosen, a refused path, or contents over the size cap.
+pub async fn write_raw(state: &VaultState, path: String, bytes: Vec<u8>) -> Result<(), String> {
     blocking(state, move |session| session.write_bytes(&path, &bytes)).await
 }
 
@@ -132,9 +148,12 @@ pub async fn vault_read(
 #[specta::specta]
 pub async fn vault_write(
     state: tauri::State<'_, VaultState>,
+    watch: tauri::State<'_, WatchSlot>,
     path: String,
     contents: String,
 ) -> Result<(), ShellError> {
+    // Noted before writing, so the folder watch can never see the write first.
+    watch.note_self_write(&path, contents.as_bytes());
     write(state.inner(), path, contents)
         .await
         .map_err(ShellError::from)
@@ -163,10 +182,13 @@ pub async fn vault_read_bytes(
 #[specta::specta]
 pub async fn vault_write_bytes(
     state: tauri::State<'_, VaultState>,
+    watch: tauri::State<'_, WatchSlot>,
     path: String,
     bytes: String,
 ) -> Result<(), ShellError> {
-    write_bytes(state.inner(), path, bytes)
+    let bytes = decode_bytes(&bytes)?;
+    watch.note_self_write(&path, &bytes);
+    write_raw(state.inner(), path, bytes)
         .await
         .map_err(ShellError::from)
 }

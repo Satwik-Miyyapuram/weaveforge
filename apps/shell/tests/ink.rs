@@ -14,8 +14,9 @@ use tokio::io::{
 };
 use tokio::sync::mpsc;
 use weaveforge_shell::ink::{
-    HelperIo, InkHapticsMessage, InkOptions, InkRecogniser, InkRecognitionLineInput,
-    InkRecognitionRequest, InkRecognitionResult, Spawner, ink_recogniser_path, read_ink_request,
+    HelperIo, InkHapticsMessage, InkOptions, InkRecogniser, InkRecognitionLine,
+    InkRecognitionLineInput, InkRecognitionRequest, InkRecognitionResult, InkRecognitionWord,
+    Spawner, ink_recogniser_path, read_ink_request,
 };
 
 const NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not available.";
@@ -619,5 +620,127 @@ async fn a_ready_line_without_a_version_still_makes_the_helper_ready() {
     });
     assert!(available);
     assert_eq!(recogniser.version().as_deref(), Some(""));
+    recogniser.dispose();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_helper_reply_with_candidates_decodes_in_full() {
+    let Fixture {
+        recogniser,
+        mut far,
+        ..
+    } = fixture(LONG, LONG);
+    let (outcome, _helper) = tokio::join!(recogniser.recognise(request(1)), async {
+        let mut helper = connect(&mut far).await;
+        let sent = helper.next().await;
+        let reply = json!({
+            "id": sent["id"].clone(),
+            "type": "recognised",
+            "engine": "windows-ink@1",
+            "ms": 12,
+            "lines": [{
+                "text": "hello wrld",
+                "confidence": 1,
+                "alternatives": ["hello world"],
+                "words": [
+                    {"candidates": ["hello"], "known": [true], "join": null},
+                    {"candidates": ["wrld", "world"], "known": [false, true], "join": null}
+                ]
+            }]
+        });
+        helper.say(reply).await;
+        helper
+    });
+    let result = outcome.unwrap();
+    assert_eq!(result.engine, "windows-ink@1");
+    assert_eq!(result.ms, 12.0);
+    assert_eq!(result.lines.len(), 1);
+    let line = &result.lines[0];
+    assert_eq!(line.text, "hello wrld");
+    assert_eq!(line.confidence, 1.0);
+    assert_eq!(line.alternatives, ["hello world"]);
+    assert_eq!(line.words.len(), 2);
+    let first = &line.words[0];
+    assert_eq!(first.candidates, ["hello"]);
+    assert_eq!(first.known, Some(vec![true]));
+    assert_eq!(first.join, None);
+    let second = &line.words[1];
+    assert_eq!(second.candidates, ["wrld", "world"]);
+    assert_eq!(second.known, Some(vec![false, true]));
+    assert_eq!(second.join, None);
+    recogniser.dispose();
+}
+
+#[test]
+fn a_word_without_known_or_join_reads_as_null() {
+    let word: InkRecognitionWord = serde_json::from_value(json!({"candidates": ["hi"]})).unwrap();
+    assert_eq!(word.candidates, ["hi"]);
+    assert_eq!(word.known, None);
+    assert_eq!(word.join, None);
+    let empty: InkRecognitionWord = serde_json::from_value(json!({})).unwrap();
+    assert!(empty.candidates.is_empty());
+    assert_eq!(empty.known, None);
+}
+
+#[test]
+fn a_line_without_alternatives_has_none() {
+    let line: InkRecognitionLine =
+        serde_json::from_value(json!({"text": "a", "confidence": 1})).unwrap();
+    assert!(line.alternatives.is_empty());
+}
+
+#[test]
+fn the_page_haptics_message_decodes_from_its_own_tags() {
+    let tool: InkHapticsMessage =
+        serde_json::from_value(json!({"type": "tool", "tool": "pen"})).unwrap();
+    assert_eq!(
+        tool,
+        InkHapticsMessage::Tool {
+            tool: "pen".to_owned()
+        }
+    );
+    let update: InkHapticsMessage =
+        serde_json::from_value(json!({"type": "update", "pressure": 0.5, "velocity": 1.0}))
+            .unwrap();
+    assert_eq!(
+        update,
+        InkHapticsMessage::Update {
+            pressure: 0.5,
+            velocity: 1.0
+        }
+    );
+    let stop: InkHapticsMessage = serde_json::from_value(json!({"type": "stop"})).unwrap();
+    assert_eq!(stop, InkHapticsMessage::Stop);
+}
+
+#[test]
+fn a_helper_haptics_tag_is_not_a_page_message() {
+    let decoded = serde_json::from_value::<InkHapticsMessage>(json!({"type": "haptics-stop"}));
+    assert!(decoded.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_long_tool_name_is_cut_to_32_characters() {
+    let Fixture {
+        recogniser,
+        mut far,
+        ..
+    } = fixture(LONG, LONG);
+    let (available, mut helper) = tokio::join!(recogniser.haptics_available(), async {
+        let mut helper = connect(&mut far).await;
+        let _probe = helper.next().await;
+        helper
+            .say(json!({"id": 1, "type": "haptics", "available": true}))
+            .await;
+        helper
+    });
+    assert!(available);
+    recogniser.haptics(&InkHapticsMessage::Tool {
+        tool: "é".repeat(40),
+    });
+    assert_eq!(
+        helper.next_text().await,
+        format!(r#"{{"type":"haptics-tool","tool":"{}"}}"#, "é".repeat(32))
+    );
     recogniser.dispose();
 }

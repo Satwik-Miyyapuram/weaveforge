@@ -37,6 +37,7 @@ thiserror = "=2.0.21"
 # platform's native store at start, and tests use its mock store.
 keyring-core = "=1.0.1"
 # Vault, root confinement and search logic shared with the web build (plan §4.1).
+wf-core = { path = "../../crates/wf-core" }
 wf-store = { path = "../../crates/wf-store" }
 # Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
 # Same reqwest tauri already locks. native-tls, not rustls: rustls's default
@@ -52,6 +53,7 @@ regex = "=1.13.1"
 # Bytes cross the bridge as base64 text (vault PDFs, images, compiled PDFs): JSON
 # number arrays would be three to four times larger. Already in the lock through tauri.
 base64 = "=0.23.1"
+notify = "=8.2.1"
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.

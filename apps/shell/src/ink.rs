@@ -76,10 +76,15 @@ pub struct InkRecognitionRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct InkRecognitionWord {
-    /// Word text.
-    pub text: String,
-    /// Engine confidence, 0 to 1.
-    pub confidence: f64,
+    /// Readings of the word, best first.
+    #[serde(default)]
+    pub candidates: Vec<String>,
+    /// Per candidate, whether it is in the vocabulary; null when not given.
+    #[serde(default)]
+    pub known: Option<Vec<bool>>,
+    /// Joins with the next word; null when not given.
+    #[serde(default)]
+    pub join: Option<String>,
 }
 
 /// One recognised line.
@@ -90,6 +95,9 @@ pub struct InkRecognitionLine {
     pub text: String,
     /// Engine confidence, 0 to 1.
     pub confidence: f64,
+    /// Other readings of the whole line, best first; empty when none.
+    #[serde(default)]
+    pub alternatives: Vec<String>,
     /// Words in the line; empty when the engine gives none.
     #[serde(default)]
     pub words: Vec<InkRecognitionWord>,
@@ -117,16 +125,14 @@ fn default_engine() -> String {
 
 /// Pen state forwarded to the helper for haptic feedback.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum InkHapticsMessage {
     /// The active pen tool changed.
-    #[serde(rename = "haptics-tool")]
     Tool {
         /// Tool name.
         tool: String,
     },
     /// A pen sample.
-    #[serde(rename = "haptics-update")]
     Update {
         /// Normalised pen pressure.
         pressure: f64,
@@ -134,8 +140,29 @@ pub enum InkHapticsMessage {
         velocity: f64,
     },
     /// The pen left the surface.
-    #[serde(rename = "haptics-stop")]
     Stop,
+}
+
+/// Longest tool name sent to the helper, in characters, as the Electron client does.
+const HAPTICS_TOOL_MAX_CHARS: usize = 32;
+
+/// The helper's line for a page's pen message; `None` when a number cannot be written.
+fn haptics_line(message: &InkHapticsMessage) -> Option<String> {
+    match message {
+        InkHapticsMessage::Tool { tool } => {
+            let tool: String = tool.chars().take(HAPTICS_TOOL_MAX_CHARS).collect();
+            Some(format!(
+                r#"{{"type":"haptics-tool","tool":{}}}"#,
+                serde_json::to_string(&tool).ok()?
+            ))
+        }
+        InkHapticsMessage::Update { pressure, velocity } => Some(format!(
+            r#"{{"type":"haptics-update","pressure":{},"velocity":{}}}"#,
+            serde_json::to_string(pressure).ok()?,
+            serde_json::to_string(velocity).ok()?
+        )),
+        InkHapticsMessage::Stop => Some(r#"{"type":"haptics-stop"}"#.to_owned()),
+    }
 }
 
 /// Builds a request from untrusted JSON; `None` when the shape is wrong.
@@ -380,7 +407,7 @@ impl InkRecogniser {
         if lock(&session.shared.state).haptics != Some(true) {
             return;
         }
-        if let Ok(line) = serde_json::to_string(message) {
+        if let Some(line) = haptics_line(message) {
             let _ = session.send(line);
         }
     }
