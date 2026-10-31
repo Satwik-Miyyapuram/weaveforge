@@ -97,7 +97,7 @@ pub async fn proxy_html(client: &reqwest::Client, request_url: &Url) -> Answer {
 pub async fn relay_html(
     client: &reqwest::Client,
     target: &Url,
-    allowed: &dyn Fn(&Url) -> bool,
+    allowed: &(dyn Fn(&Url) -> bool + Sync),
     max: usize,
     timeout: Duration,
 ) -> Answer {

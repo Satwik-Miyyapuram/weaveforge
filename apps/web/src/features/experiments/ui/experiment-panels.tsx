@@ -10,7 +10,7 @@ import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
-import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
+import { isAbsoluteUrl, viewableArtifactUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
 import { Chip } from "@/components/controls";
 import { ImageViewer } from "@/components/image-viewer";
@@ -105,7 +105,7 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
 function useArtifactUrls(entries: string[]): (string | null)[] {
   // One slot per entry, in order: absolute links are ready now, paths once signed.
   const [resolved, setResolved] = useState<(string | null)[]>(() =>
-    entries.map((entry) => (isAbsoluteUrl(entry) ? entry : null)),
+    entries.map((entry) => (isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : null)),
   );
 
   // NUL separator, written as an escape: a literal NUL byte in the source makes

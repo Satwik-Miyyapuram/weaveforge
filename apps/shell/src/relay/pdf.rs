@@ -154,7 +154,7 @@ fn allowed_for(typed: bool, raw: &str) -> bool {
 pub async fn relay_pdf(
     client: &reqwest::Client,
     target: &Url,
-    allowed: &dyn Fn(&Url) -> bool,
+    allowed: &(dyn Fn(&Url) -> bool + Sync),
     max: usize,
     timeout: Duration,
 ) -> Answer {

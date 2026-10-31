@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use common::{TempDir, put};
 use weaveforge_shell::protocol::Reply;
-use weaveforge_shell::range::{PART_BYTES_MAX, Pick, WHOLE_BYTES_MAX, pick, serve_file};
+use weaveforge_shell::range::{
+    PART_BYTES_MAX, Pick, WHOLE_BYTES_MAX, pick, serve_file, serve_file_capped,
+};
 
 /// Writes `bytes` to `name` inside `dir` and returns its path.
 fn file(dir: &TempDir, name: &str, bytes: &[u8]) -> PathBuf {
@@ -381,4 +383,20 @@ fn caller_content_length_and_content_range_are_dropped() {
             .headers
             .contains(&("content-type", "application/pdf".to_owned()))
     );
+}
+
+#[test]
+fn whole_read_limit_is_the_callers() {
+    let dir = TempDir::new();
+    let path = dir.path().join("w.bin");
+    std::fs::write(&path, b"0123456789").unwrap();
+    let err = serve_file_capped(&path, None, content_type(), 9).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::FileTooLarge);
+    let reply = serve_file_capped(&path, None, content_type(), 10).unwrap();
+    assert_eq!(reply.status, 200);
+    assert_eq!(reply.body, b"0123456789".to_vec());
+    // A range read is not a whole read; the limit does not apply.
+    let reply = serve_file_capped(&path, Some("bytes=0-1"), content_type(), 1).unwrap();
+    assert_eq!(reply.status, 206);
+    assert_eq!(reply.body, b"01".to_vec());
 }
