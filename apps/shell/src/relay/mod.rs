@@ -14,6 +14,10 @@ pub mod blob;
 
 pub mod html;
 
+pub mod overleaf;
+
 pub mod pdf;
+
+pub mod route;
 
 pub mod semantic_scholar;

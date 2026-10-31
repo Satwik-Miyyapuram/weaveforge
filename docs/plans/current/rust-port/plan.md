@@ -380,6 +380,9 @@ Doing these now in TS is wasted work, so they wait for the port to land on main.
   5. `Ctrl+Shift+F` workspace search on desktop and mobile; focus mode moves to `F11` (approved).
   - Tests first per key (inside and outside the editor, no CodeMirror clash). Update the `Ctrl+/` sheet in the same PR. Prove it in WeaveForge Dev.
 - **Kensaku-style filters** (`type:`, `in:`, `-word`, `modified:7d`, sort, recent-weighted ranking, Space to preview): the parser part is built in Rust phase 1. The UI parts left after the port (sort control, Space preview) come here.
+- **Grouped AI suggestion review** (user request 2026-10-31: approving one by one is too hard): group pending AI proposals (by document and by kind) in `ai-proposal-review-screen.tsx`, with approve-all / reject-all per group and for everything, plus undo. Tests first: grouping, bulk approve applies every proposal once, a failed apply leaves the rest pending.
+- **Import papers from a `.bib` file** (user request 2026-10-31): pick a BibTeX file and add each entry to the papers library (title, authors, year, venue, DOI, URL, citation key, abstract), skipping duplicates by DOI or citation key and reporting the skipped and broken entries. Reuse or extend `packages/core/src/features/report/domain/bib-entries.ts`; the parser goes in Rust (`wf-core`), since the port is done by then. Tests first with real exports (Zotero, Mendeley, Google Scholar, Paperpile).
+- **Paperpile import** (user request 2026-10-31): Paperpile has no public API; it exports BibTeX and can keep a `.bib` synced to Google Drive. So it is the `.bib` import plus a "From Paperpile" entry that explains the export, and optionally re-importing a chosen synced `.bib` file. Ask the user before adding any Google Drive access.
 
 ## 11. Sources
 

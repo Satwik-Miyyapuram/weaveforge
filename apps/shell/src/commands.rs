@@ -286,7 +286,15 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_tools::zotero_local,
         crate::cmd_tools::update_check,
         crate::cmd_tools::app_log_report,
-        crate::cmd_tools::app_log_read
+        crate::cmd_tools::app_log_read,
+        crate::overleaf_read::overleaf_read,
+        crate::overleaf_links::overleaf_sync,
+        crate::mattermost::mattermost_sign_in,
+        crate::mattermost::mattermost_post,
+        crate::menu::commands::menu_model,
+        crate::menu::commands::menu_invoke,
+        crate::menu::commands::title_bar_colors,
+        crate::menu::commands::window_focus
     ])
 }
 
