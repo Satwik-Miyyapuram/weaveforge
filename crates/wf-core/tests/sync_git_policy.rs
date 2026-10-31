@@ -500,7 +500,7 @@ fn distinct_char_secret() -> impl Strategy<Value = String> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn redacted_text_never_contains_the_secret(

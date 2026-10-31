@@ -209,7 +209,7 @@ fn replace_image_refs_stops_a_target_at_whitespace_unless_allowed() {
 // ---- properties ----
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn escaped_alt_text_has_no_unescaped_brackets(alt in ".*") {

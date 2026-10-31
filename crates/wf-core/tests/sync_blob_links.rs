@@ -212,7 +212,7 @@ fn relative_asset_paths_reports_each_scope_and_path_in_order() {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn a_storage_path_survives_a_trip_through_the_folder(
