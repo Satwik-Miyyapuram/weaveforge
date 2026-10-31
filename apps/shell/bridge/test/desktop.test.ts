@@ -504,3 +504,170 @@ test("readOverleafProject returns the shell's source", async () => {
     { cmd: "overleafRead", args: ["p1", "main.tex"] },
   ]);
 });
+
+test("local API members send their channel and args and return the unwrapped value", async () => {
+  const state = { enabled: true, tokens: [] };
+  const { cmds, calls } = fakeCommands({
+    localApiCall: { status: "ok", data: state },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.localApiState(), state);
+  assert.deepEqual(await shim.setLocalApi(true), state);
+  assert.deepEqual(
+    await shim.createLocalApiToken({ permissions: [], expiresAt: null }),
+    state,
+  );
+  assert.deepEqual(await shim.revokeLocalApiToken("t1"), state);
+  assert.deepEqual(await shim.connectMcp?.(), state);
+  assert.deepEqual(await shim.disconnectMcp?.(), state);
+  assert.equal(await shim.openMcpClient?.("cursor"), undefined);
+  assert.deepEqual(calls, [
+    { cmd: "localApiCall", args: ["weaveforge:local-api-state", []] },
+    { cmd: "localApiCall", args: ["weaveforge:local-api-set", [true]] },
+    {
+      cmd: "localApiCall",
+      args: [
+        "weaveforge:local-api-token-create",
+        [{ permissions: [], expiresAt: null }],
+      ],
+    },
+    { cmd: "localApiCall", args: ["weaveforge:local-api-token-revoke", ["t1"]] },
+    { cmd: "localApiCall", args: ["weaveforge:mcp-connect", []] },
+    { cmd: "localApiCall", args: ["weaveforge:mcp-disconnect", []] },
+    { cmd: "localApiCall", args: ["weaveforge:mcp-open-client", ["cursor"]] },
+  ]);
+});
+
+test("a local API error result rejects with the shell's message", async () => {
+  const { cmds } = fakeCommands({
+    localApiCall: error("m"),
+  });
+  await assert.rejects(
+    () => desktopShim(cmds, fakeEvents().events).localApiState(),
+    (e: unknown) => e instanceof Error && e.message === "m",
+  );
+});
+
+test("onSemanticRank ranks the candidates and answers the order on its own channel", async () => {
+  const { cmds, calls } = fakeCommands();
+  const fake = fakeEvents();
+  const seen: [string, string[]][] = [];
+  desktopShim(cmds, fake.events).onSemanticRank((query, candidates) => {
+    seen.push([query, candidates]);
+    return [...candidates].reverse();
+  });
+  assert.deepEqual(
+    fake.listens.map((l) => l.event),
+    ["semanticRank"],
+  );
+  fake.listens[0]!.handler([7, "q", ["a", "b"]]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(seen, [["q", ["a", "b"]]]);
+  assert.deepEqual(calls, [
+    { cmd: "localApiCall", args: ["weaveforge:semantic-ranked", [7, ["b", "a"]]] },
+  ]);
+});
+
+test("onSemanticRank answers the reason when the callback throws", async () => {
+  const { cmds, calls } = fakeCommands();
+  const fake = fakeEvents();
+  desktopShim(cmds, fake.events).onSemanticRank(() => {
+    throw new Error("boom");
+  });
+  fake.listens[0]!.handler([7, "q", ["a"]]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [
+    { cmd: "localApiCall", args: ["weaveforge:semantic-ranked", [7, null, "boom"]] },
+  ]);
+});
+
+test("onSemanticRank answers a string rejection as its text", async () => {
+  const { cmds, calls } = fakeCommands();
+  const fake = fakeEvents();
+  desktopShim(cmds, fake.events).onSemanticRank(() => Promise.reject("slow down"));
+  fake.listens[0]!.handler([7, "q", ["a"]]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [
+    {
+      cmd: "localApiCall",
+      args: ["weaveforge:semantic-ranked", [7, null, "slow down"]],
+    },
+  ]);
+});
+
+test("onSemanticRank ignores a payload that is not [number, string, string[]]", async () => {
+  const { cmds, calls } = fakeCommands();
+  const fake = fakeEvents();
+  let called = 0;
+  desktopShim(cmds, fake.events).onSemanticRank(() => {
+    called += 1;
+    return [];
+  });
+  const handler = fake.listens[0]!.handler;
+  handler(null);
+  handler([1, "q"]);
+  handler(["1", "q", []]);
+  handler([1, "q", [2]]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(called, 0);
+  assert.deepEqual(calls, []);
+});
+
+test("stopping onSemanticRank before listen resolves unlistens on arrival and never calls back", async () => {
+  const { cmds, calls } = fakeCommands();
+  let open: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  const fake = fakeEvents(() => gate);
+  let called = 0;
+  const stop = desktopShim(cmds, fake.events).onSemanticRank(() => {
+    called += 1;
+    return [];
+  });
+  stop();
+  open();
+  await new Promise((resolve) => setImmediate(resolve));
+  fake.listens[0]!.handler([7, "q", ["a"]]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(called, 0);
+  assert.deepEqual(calls, []);
+  assert.equal(fake.unlistenCount(), 1);
+});
+
+test("stopping onSemanticRank ignores later events", async () => {
+  const { cmds, calls } = fakeCommands();
+  const fake = fakeEvents();
+  let called = 0;
+  const stop = desktopShim(cmds, fake.events).onSemanticRank(() => {
+    called += 1;
+    return [];
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  stop();
+  fake.listens[0]!.handler([7, "q", ["a"]]);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(called, 0);
+  assert.deepEqual(calls, []);
+  assert.equal(fake.unlistenCount(), 1);
+});
+
+test("a failing semantic-ranked answer is logged, not left unhandled", async () => {
+  const { cmds } = fakeCommands({
+    localApiCall: () => Promise.reject(new Error("ipc down")),
+  });
+  const fake = fakeEvents();
+  desktopShim(cmds, fake.events).onSemanticRank(() => ["a"]);
+  const warn = console.warn;
+  const warned: unknown[] = [];
+  console.warn = (...args: unknown[]) => {
+    warned.push(args);
+  };
+  try {
+    fake.listens[0]!.handler([7, "q", ["a"]]);
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warned.length, 1);
+});

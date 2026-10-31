@@ -17,6 +17,7 @@ pub mod git;
 pub mod host;
 pub mod ink;
 pub mod launch;
+pub mod local_api;
 pub mod local_artifacts;
 pub mod mattermost;
 pub mod menu;
@@ -61,6 +62,7 @@ fn web_root() -> PathBuf {
 pub fn run() -> tauri::Result<()> {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
@@ -212,6 +214,15 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     store
 }
 
+/// Reads the open vault root's `vault.root` params, for a respawned sidecar; `None` without a vault session.
+fn vault_root_source(app: &tauri::AppHandle) -> Option<commands::VaultRootSource> {
+    use tauri::Manager;
+    let vault = app.try_state::<vault::VaultState>()?.inner().clone();
+    Some(Arc::new(move || {
+        local_api::vault_root_params(vault.lock().root().as_ref())
+    }))
+}
+
 /// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.
 fn start_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
@@ -225,12 +236,42 @@ fn start_local_db(app: &tauri::AppHandle) {
                 .config_dir()
                 .ok()
                 .and_then(|c| launch::electron_data_dir(&source, &c));
-            let config = launch::sidecar_config(&source, &data_dir, &backups_dir, old.as_deref());
+            let api = launch::ApiArgs {
+                artifacts: data.join("artifacts"),
+                app_version: app.package_info().version.to_string(),
+            };
+            let config =
+                launch::sidecar_config(&source, &data_dir, &backups_dir, &api, old.as_deref());
+            let home = paths.home_dir().unwrap_or_else(|_| {
+                local_api::warn(app, "no home folder: the MCP folder is relative");
+                PathBuf::new()
+            });
+            let host = local_api::shell_host(
+                app,
+                local_api::mcp_dir(&home, launch::home_variant(&source)),
+            );
+            if host.is_none() {
+                local_api::warn(
+                    app,
+                    "no prefs or secrets yet: the sidecar's asks go unanswered",
+                );
+            }
             // Sidecar::spawn needs a Tokio runtime; setup runs outside one.
-            let sidecar =
-                tauri::async_runtime::block_on(async { sidecar::Sidecar::spawn(config.clone()) });
-            commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
-                .restartable(config)
+            let sidecar = tauri::async_runtime::block_on(async {
+                commands::spawn(config.clone(), host.as_ref())
+            });
+            let db = commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
+                .restartable(config);
+            let db = match vault_root_source(app) {
+                Some(source) => db.with_vault_root(source),
+                None => db,
+            };
+            let log = app.clone();
+            let db = db.with_warn(Arc::new(move |line: &str| local_api::warn(&log, line)));
+            match host {
+                Some(h) => db.with_host(h),
+                None => db,
+            }
         }
         (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(
             Err(sidecar::SidecarError::Spawn(e.to_string())),
@@ -238,6 +279,10 @@ fn start_local_db(app: &tauri::AppHandle) {
         ),
     };
     let _ = app.manage(db);
+    let handle = app.clone();
+    let _task = tauri::async_runtime::spawn(async move {
+        local_api::forward_vault_root(&handle).await;
+    });
 }
 
 /// Closes the sidecar's stdin and waits up to `SHUTDOWN_GRACE` for it to exit.

@@ -1,11 +1,12 @@
 //! Tauri commands for the local database, served by the Node sidecar (design: phase-2-desktop.md § 2.4).
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::Value;
 
-use crate::sidecar::{Sidecar, SidecarConfig, SidecarError};
+use crate::sidecar::{AskLimits, Sidecar, SidecarConfig, SidecarError, SidecarHost};
 
 /// The error every command returns. The bridge shim throws `new Error(message)`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -56,15 +57,42 @@ impl From<SidecarError> for ShellError {
     }
 }
 
+/// Spawns the sidecar, with `host` when one is set so its asks keep working.
+///
+/// # Errors
+/// The spawn error, as from [`Sidecar::spawn`].
+pub fn spawn(
+    config: SidecarConfig,
+    host: Option<&Arc<dyn SidecarHost>>,
+) -> Result<Sidecar, SidecarError> {
+    match host {
+        Some(host) => Sidecar::spawn_with_host(config, Arc::clone(host), AskLimits::default()),
+        None => Sidecar::spawn(config),
+    }
+}
+
 /// Whether a sidecar reply asks for the sidecar to be restarted.
 fn asks_restart(reply: &Value) -> bool {
     reply.get("restart") == Some(&Value::Bool(true))
 }
 
+/// Gives the current `vault.root` params.
+pub type VaultRootSource = Arc<dyn Fn() -> Value + Send + Sync>;
+
+/// Takes a warning line, such as a restarted sidecar refusing the vault root.
+pub type WarnSink = Arc<dyn Fn(&str) + Send + Sync>;
+
 /// Tauri-managed handle to the sidecar. A failed spawn is kept, so every command can report it.
 pub struct LocalDb {
     sidecar: tokio::sync::RwLock<Result<Sidecar, ShellError>>,
     config: Option<SidecarConfig>,
+    host: Option<Arc<dyn SidecarHost>>,
+    /// Gives the `vault.root` params a respawned sidecar is sent, read at each restart.
+    vault_root: Option<VaultRootSource>,
+    /// Orders `vault.root` sends, so a restart's send never lands after, and undoes, a newer folder's.
+    vault_root_send: tokio::sync::Mutex<()>,
+    /// Gets the warnings a restart logs; stderr when unset.
+    warn: Option<WarnSink>,
     /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
     /// gone is skipped, so concurrent callers restart once.
     generation: AtomicU64,
@@ -80,6 +108,10 @@ impl LocalDb {
         Self {
             sidecar: tokio::sync::RwLock::new(sidecar.map_err(ShellError::from)),
             config: None,
+            host: None,
+            vault_root: None,
+            vault_root_send: tokio::sync::Mutex::new(()),
+            warn: None,
             generation: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             data_dir,
@@ -92,6 +124,45 @@ impl LocalDb {
     pub fn restartable(mut self, config: SidecarConfig) -> Self {
         self.config = Some(config);
         self
+    }
+
+    /// Respawns the sidecar with this host, so its asks keep working after a restart.
+    #[must_use]
+    pub fn with_host(mut self, host: Arc<dyn SidecarHost>) -> Self {
+        self.host = Some(host);
+        self
+    }
+
+    /// Sends each respawned sidecar `vault.root` with the params `source` gives at that moment, so a restart
+    /// keeps the open folder.
+    #[must_use]
+    pub fn with_vault_root(mut self, source: VaultRootSource) -> Self {
+        self.vault_root = Some(source);
+        self
+    }
+
+    /// Sends the warnings a restart logs to `sink`, such as the app log, instead of stderr.
+    #[must_use]
+    pub fn with_warn(mut self, sink: WarnSink) -> Self {
+        self.warn = Some(sink);
+        self
+    }
+
+    /// Sends `vault.root` with the params `params` gives, read only once earlier sends are done.
+    ///
+    /// # Errors
+    ///
+    /// The sidecar's error when it is down or refuses the folder.
+    pub async fn send_vault_root(&self, params: impl FnOnce() -> Value) -> Result<(), ShellError> {
+        let _order = self.vault_root_send.lock().await;
+        self.call("vault.root", params()).await.map(|_| ())
+    }
+
+    /// Calls the sidecar's `method` with `params` and returns its reply.
+    pub async fn call(&self, method: &str, params: Value) -> Result<Value, ShellError> {
+        let sidecar = self.sidecar.read().await;
+        let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
+        sidecar.call(method, params).await.map_err(ShellError::from)
     }
 
     /// Runs `sql` with `params` and returns the rows.
@@ -151,9 +222,31 @@ impl LocalDb {
         }
     }
 
-    /// Replaces the sidecar of generation `asked_by` with a fresh one from the saved config; does nothing when it
-    /// was already replaced. A failed spawn is stored, as at startup.
+    /// Replaces the sidecar of generation `asked_by` with a fresh one from the saved config, then sends it the
+    /// open vault root; does nothing when it was already replaced. A failed spawn is stored, as at startup.
     async fn restart(&self, asked_by: u64) -> Result<(), ShellError> {
+        if !self.respawn(asked_by).await? {
+            return Ok(());
+        }
+        // After the write lock is released: `call` takes the read lock. The restart itself worked, so a
+        // failed send is logged, not returned.
+        if let Some(source) = &self.vault_root
+            && let Err(e) = self.send_vault_root(&**source).await
+        {
+            let line = format!(
+                "the restarted sidecar did not get the workspace folder: {}",
+                e.message
+            );
+            match &self.warn {
+                Some(warn) => warn(&line),
+                None => eprintln!("[local-api] {line}"),
+            }
+        }
+        Ok(())
+    }
+
+    /// The respawn half of `restart`. Returns whether it spawned a new sidecar.
+    async fn respawn(&self, asked_by: u64) -> Result<bool, ShellError> {
         let Some(config) = &self.config else {
             return Err(shell_error(
                 "local database: restart the app to finish the reset",
@@ -164,14 +257,14 @@ impl LocalDb {
             return Err(shell_error("local database: closed"));
         }
         if self.generation.load(Ordering::Acquire) != asked_by {
-            return Ok(());
+            return Ok(false);
         }
         if let Ok(old) = &*sidecar {
             let _ = old.shutdown(crate::launch::SHUTDOWN_GRACE).await;
         }
-        *sidecar = Sidecar::spawn(config.clone()).map_err(ShellError::from);
+        *sidecar = spawn(config.clone(), self.host.as_ref()).map_err(ShellError::from);
         let _ = self.generation.fetch_add(1, Ordering::AcqRel);
-        sidecar.as_ref().map(|_| ()).map_err(Clone::clone)
+        sidecar.as_ref().map(|_| true).map_err(Clone::clone)
     }
 
     /// Resets the database. A reset that can only finish in a fresh process restarts the sidecar, which then
@@ -243,6 +336,57 @@ fn json_row(row: Value) -> Result<Json, ShellError> {
     serde_json::from_value(row).map_err(|_| shell_error("local database: bad reply"))
 }
 
+/// The local-API channels the page may call, as in apps/desktop/src/channels.ts.
+pub const LOCAL_API_CHANNELS: &[&str] = &[
+    "weaveforge:local-api-state",
+    "weaveforge:local-api-set",
+    "weaveforge:local-api-token-create",
+    "weaveforge:local-api-token-revoke",
+    "weaveforge:mcp-connect",
+    "weaveforge:mcp-disconnect",
+    "weaveforge:mcp-open-client",
+    "weaveforge:semantic-ranked",
+];
+
+/// Refuses a channel the page may not call, before the sidecar is touched.
+fn check_channel(channel: &str) -> Result<(), ShellError> {
+    if LOCAL_API_CHANNELS.contains(&channel) {
+        Ok(())
+    } else {
+        Err(shell_error("channel not allowed"))
+    }
+}
+
+/// Unwraps a sidecar `{ ok, value | message }` reply; any other reply passes through unchanged.
+fn ipc_reply(reply: Value) -> Result<Value, ShellError> {
+    match reply.get("ok").and_then(Value::as_bool) {
+        Some(true) => Ok(reply.get("value").cloned().unwrap_or(Value::Null)),
+        Some(false) => Err(shell_error(
+            reply
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("local API call failed"),
+        )),
+        None => Ok(reply),
+    }
+}
+
+/// Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron.
+#[tauri::command]
+#[specta::specta]
+pub async fn local_api_call(
+    db: tauri::State<'_, LocalDb>,
+    channel: String,
+    args: Vec<Json>,
+) -> Result<Json, ShellError> {
+    check_channel(&channel)?;
+    let args = json_params(args)?;
+    let reply = db
+        .call(&format!("ipc:{channel}"), Value::Array(args))
+        .await?;
+    json_row(ipc_reply(reply)?)
+}
+
 /// Reports the local database's health.
 #[tauri::command]
 #[specta::specta]
@@ -264,6 +408,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         db_query,
         db_state,
         db_reset,
+        local_api_call,
         crate::prefs::preference_write,
         crate::secrets::secret_read,
         crate::secrets::secret_write,
@@ -356,5 +501,84 @@ mod tests {
         assert_eq!(msg(SidecarError::Timeout), "local database timed out");
         assert_eq!(msg(SidecarError::Exited), "local database stopped");
         assert_eq!(msg(SidecarError::Remote("m".into())), "m");
+    }
+
+    #[test]
+    fn ipc_reply_ok_with_value() {
+        let reply = serde_json::json!({"ok": true, "value": [1]});
+        assert_eq!(ipc_reply(reply), Ok(serde_json::json!([1])));
+    }
+
+    #[test]
+    fn ipc_reply_ok_without_value_is_null() {
+        let reply = serde_json::json!({"ok": true});
+        assert_eq!(ipc_reply(reply), Ok(Value::Null));
+    }
+
+    #[test]
+    fn ipc_reply_error_with_message() {
+        let reply = serde_json::json!({"ok": false, "message": "m"});
+        assert_eq!(ipc_reply(reply), Err(shell_error("m")));
+    }
+
+    #[test]
+    fn ipc_reply_error_without_message() {
+        let reply = serde_json::json!({"ok": false});
+        assert_eq!(ipc_reply(reply), Err(shell_error("local API call failed")));
+    }
+
+    #[test]
+    fn ipc_reply_null_passes_through() {
+        assert_eq!(ipc_reply(Value::Null), Ok(Value::Null));
+    }
+
+    #[test]
+    fn ipc_reply_object_without_ok_passes_through() {
+        let reply = serde_json::json!({"value": 1});
+        assert_eq!(ipc_reply(reply.clone()), Ok(reply));
+    }
+
+    #[test]
+    fn ipc_reply_string_ok_passes_through() {
+        let reply = serde_json::json!({"ok": "true", "value": 1});
+        assert_eq!(ipc_reply(reply.clone()), Ok(reply));
+    }
+
+    #[test]
+    fn check_channel_accepts_every_listed_channel() {
+        for channel in LOCAL_API_CHANNELS {
+            assert_eq!(check_channel(channel), Ok(()));
+        }
+    }
+
+    #[test]
+    fn check_channel_refuses_unlisted_channels() {
+        for channel in [
+            "weaveforge:vault-read",
+            "",
+            "ipc:weaveforge:local-api-state",
+            "WEAVEFORGE:LOCAL-API-STATE",
+        ] {
+            assert_eq!(
+                check_channel(channel),
+                Err(shell_error("channel not allowed"))
+            );
+        }
+    }
+
+    #[test]
+    fn local_api_channels_are_eight_unique() {
+        assert_eq!(LOCAL_API_CHANNELS.len(), 8);
+        let unique: std::collections::BTreeSet<_> = LOCAL_API_CHANNELS.iter().collect();
+        assert_eq!(unique.len(), LOCAL_API_CHANNELS.len());
+    }
+
+    #[tokio::test]
+    async fn call_on_failed_spawn_returns_stored_error() {
+        let db = LocalDb::new(Err(SidecarError::Spawn("x".into())), "/d".to_owned());
+        assert_eq!(
+            db.call("ipc:weaveforge:local-api-state", Value::Null).await,
+            Err(shell_error("local database failed to start: x"))
+        );
     }
 }
