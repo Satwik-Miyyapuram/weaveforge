@@ -27,9 +27,12 @@ fn to_stat(entry: Entry) -> WorkspaceStat {
 }
 
 /// Maps a vault failure to the port's error; `path` is the path the call was made on.
+/// A link out of the root is refused like any unsafe path, not reported as a disk error.
 fn to_fs_error(path: &str, err: VaultError) -> FsError {
     match err {
-        VaultError::UnsafePath(text) => FsError::Unsafe(UnsafePath(text)),
+        VaultError::UnsafePath(text) | VaultError::Escape(text) => {
+            FsError::Unsafe(UnsafePath(text))
+        }
         other if other.io_kind() == Some(ErrorKind::NotFound) => FsError::NotFound(path.to_owned()),
         other => FsError::Io(other.to_string()),
     }
@@ -82,7 +85,15 @@ impl WorkspaceFs for Vault {
     }
 
     /// Move a file, creating its parent folders and replacing any file at `to`.
+    /// A failure names `from` when the source is missing, else `to`.
     fn rename(&mut self, from: &str, to: &str) -> Result<(), FsError> {
-        Vault::rename(self, from, to).map_err(|err| to_fs_error(from, err))
+        Vault::rename(self, from, to).map_err(|err| {
+            let side = if Vault::stat(self, from).is_none() {
+                from
+            } else {
+                to
+            };
+            to_fs_error(side, err)
+        })
     }
 }

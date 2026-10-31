@@ -460,6 +460,11 @@ jobs:
       - name: Rust gates (fmt, clippy, nextest, doctest, deny, advisories)
         run: node scripts/check-rust.mjs
 
+      # fuzz/ is its own workspace, so the gates above never build it. Building the
+      # target on stable keeps it from rotting; running it needs nightly (nightly.yml).
+      - name: Check the fuzz target compiles
+        run: cargo check --locked --manifest-path fuzz/Cargo.toml
+
   shell:
     # The Tauri shell (apps/shell) is its own Cargo workspace with its own
     # deny.toml: Tauri's graph has duplicate crate versions that wf-core's

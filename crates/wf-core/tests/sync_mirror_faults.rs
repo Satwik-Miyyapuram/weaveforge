@@ -1,8 +1,11 @@
 //! Seeded fault simulation of the folder mirror. Writes and removes fail partway
 //! through a run and assets go missing at random. Two properties must hold:
 //! (1) a clean rerun after an interrupted run converges to exactly the folder a
-//! clean run produces; (2) a reader's edit to a mirrored file is never lost.
-//! Seeds are fixed by proptest, so a failing case replays from its regressions file.
+//! clean run produces; (2) a reader's edit to a mirrored file is never lost to a
+//! write or remove fault. Read faults are out of scope: like the TS, the mirror
+//! treats any read error as a missing file (plan §10).
+//! Seeds are random unless `PROPTEST_RNG_SEED` is set; a failing case is saved to
+//! the regressions file and replays from it.
 
 // Golden-reading helpers and proptest bodies use expect/unwrap on fixed inputs.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
@@ -138,6 +141,48 @@ fn mirror(
     mirror_workspace(snapshot, fs, options)
 }
 
+/// The op to fail: one of the `total` writes and removes the faulty run will make,
+/// so every case injects a fault. `None` when the run makes no op at all.
+fn pick_op(total: usize, seed: usize) -> Option<usize> {
+    (total > 0).then(|| 1 + seed % total)
+}
+
+/// A mirrored folder with one note overwritten by a reader.
+struct Edited {
+    fs: FaultyFs,
+    /// The first run's paths.
+    previous: Vec<String>,
+    /// The first run's digest map.
+    base: HashMap<String, String>,
+    /// The note the reader edited.
+    path: String,
+}
+
+/// A folder mirrored from `before`, with one non-app note overwritten by a reader.
+fn edited_folder(before: &WorkspaceSnapshot, pick: usize) -> Option<Edited> {
+    let mut fs = fresh();
+    let first = mirror(&mut fs, before, &[], None, &[]).expect("clean run");
+    let notes: Vec<String> = first
+        .written
+        .iter()
+        .filter(|path| path.ends_with(".md") && !is_app_owned_path(path))
+        .cloned()
+        .collect();
+    if notes.is_empty() {
+        return None;
+    }
+    let edited = notes[pick % notes.len()].clone();
+    fs.inner
+        .write_file(&edited, "reader edit\n".as_bytes())
+        .expect("edit on disk");
+    Some(Edited {
+        fs,
+        previous: departed(&first),
+        base: digest_map(&first.mirrored),
+        path: edited,
+    })
+}
+
 /// Every path a run may have left behind: mirrored keys plus written files, deduped.
 fn departed(first: &MirrorResult) -> Vec<String> {
     let paths: BTreeSet<String> = first
@@ -184,7 +229,7 @@ proptest! {
         before in pages(),
         after in pages(),
         flags in proptest::collection::vec(any::<bool>(), 8),
-        fail_at in 1usize..=12,
+        seed in any::<usize>(),
     ) {
         let before = snapshot_of(before);
         let after = snapshot_of(after);
@@ -195,11 +240,20 @@ proptest! {
         let _ = mirror(&mut reference, &after, &previous, None, &[]).expect("clean run");
         let expected = reference.inner.to_record();
 
+        let mut counted = fresh();
+        let _ = mirror(&mut counted, &before, &[], None, &[]).expect("clean run");
+        counted.ops = 0;
+        let _ = mirror(&mut counted, &after, &previous, None, &flags).expect("counting run");
+        let Some(fail_at) = pick_op(counted.ops, seed) else {
+            return Ok(());
+        };
+
         let mut faulty = fresh();
         let _ = mirror(&mut faulty, &before, &[], None, &[]).expect("clean run");
         faulty.fail_at = Some(fail_at);
         faulty.ops = 0;
         let _ = mirror(&mut faulty, &after, &previous, None, &flags);
+        prop_assert!(faulty.ops >= fail_at, "fault {} never fired", fail_at);
         faulty.fail_at = None;
         let _ = mirror(&mut faulty, &after, &previous, None, &[]).expect("clean rerun");
 
@@ -211,31 +265,28 @@ proptest! {
         before in pages(),
         after in pages(),
         flags in proptest::collection::vec(any::<bool>(), 8),
-        fail_at in 1usize..=12,
+        seed in any::<usize>(),
         pick in any::<usize>(),
     ) {
         let before = snapshot_of(before);
         let after = snapshot_of(after);
 
-        let mut fs = fresh();
-        let first = mirror(&mut fs, &before, &[], None, &[]).expect("clean run");
-        let previous = departed(&first);
-        let base = digest_map(&first.mirrored);
-        let notes: Vec<String> = first
-            .written
-            .iter()
-            .filter(|path| path.ends_with(".md") && !is_app_owned_path(path))
-            .cloned()
-            .collect();
-        prop_assume!(!notes.is_empty());
-        let edited = notes[pick % notes.len()].clone();
-        fs.inner
-            .write_file(&edited, "reader edit\n".as_bytes())
-            .expect("edit on disk");
+        let Some(mut counted) = edited_folder(&before, pick) else {
+            return Ok(());
+        };
+        counted.fs.ops = 0;
+        let _ = mirror(&mut counted.fs, &after, &counted.previous, Some(&counted.base), &flags)
+            .expect("counting run");
+        let Some(fail_at) = pick_op(counted.fs.ops, seed) else {
+            return Ok(());
+        };
 
+        let Edited { mut fs, previous, base, path: edited } =
+            edited_folder(&before, pick).expect("same setup");
         fs.fail_at = Some(fail_at);
         fs.ops = 0;
         let _ = mirror(&mut fs, &after, &previous, Some(&base), &flags);
+        prop_assert!(fs.ops >= fail_at, "fault {} never fired", fail_at);
         fs.fail_at = None;
         let last = mirror(&mut fs, &after, &previous, Some(&base), &[]).expect("clean rerun");
 
@@ -279,7 +330,8 @@ fn failed_remove_is_retried_by_the_rerun() {
         .filter(|path| !expected.contains_key(path.as_str()))
         .cloned()
         .collect();
-    assert!(!gone.is_empty());
+    // The run fails its last op, which removes the last departed path; one path keeps that unambiguous.
+    assert_eq!(gone.len(), 1);
 
     // Removes come after every write, so the last op of the run is a remove.
     let mut counted = fresh();

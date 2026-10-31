@@ -5,7 +5,7 @@
 //! - `sync::deserialize::parse_workspace_file` (path = first line, content = rest)
 //! - `sync::instant::parse_instant`
 //! - `sync::text_diff::has_conflict_markers`, `diff_body`, `write_conflict_markers`
-//!   (input split into three parts at NUL bytes)
+//!   (input split at the first NUL byte into an old and a new text)
 //! - `sync::git_remote::check_git_remote_url`
 //! - `sync::markdown_image::normalize_markdown_image_syntax`, `image_paths_in_body`
 //! - `sync::blob_links::to_relative_blob_links`

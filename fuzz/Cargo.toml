@@ -12,7 +12,7 @@ cargo-fuzz = true
 libfuzzer-sys = "=0.4.10"
 wf-core = { path = "../crates/wf-core" }
 
-# Not part of the root workspace: cargo-fuzz needs nightly and its own lock.
+# Not part of the root workspace: running cargo-fuzz needs nightly. Its lock is fuzz/Cargo.lock.
 [workspace]
 members = ["."]
 

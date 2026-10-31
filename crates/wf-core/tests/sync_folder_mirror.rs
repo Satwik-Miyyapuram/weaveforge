@@ -443,6 +443,9 @@ fn a_missing_asset_does_not_abort_the_mirror() {
         result.written.contains(&at("notes/method.note.md")),
         "the note is still written"
     );
+    assert!(!result.written.iter().any(|path| path.ends_with("gone.png")));
+    let on_disk = fs.walk("").expect("walk");
+    assert!(!on_disk.iter().any(|entry| entry.path.ends_with("gone.png")));
 }
 
 /// A file the reader edited belongs to the reader: left alone and reported.
@@ -899,4 +902,8 @@ fn a_remove_failure_is_ignored() {
         .expect("a failed remove is not a failed mirror");
 
     assert!(result.removed.contains(&at("notes/gone.note.md")));
+    assert!(
+        fs.inner.stat(&at("notes/gone.note.md")).is_some(),
+        "the failed remove left the file in place"
+    );
 }

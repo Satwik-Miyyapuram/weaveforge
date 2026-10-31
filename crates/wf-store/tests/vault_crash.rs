@@ -12,7 +12,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use wf_core::sync::workspace_fs::{FsError, FsKind, WorkspaceFs};
+#[cfg(test)]
+mod common;
+
+use common::{TempDir, make_dir_link};
+use wf_core::sync::workspace_fs::{FsError, FsKind, WorkspaceFs, WorkspaceStat};
 use wf_store::vault::{TEMP_SUFFIX, Vault};
 
 const TARGET: &str = "notes/target.md";
@@ -48,14 +52,6 @@ fn crash_child_writer() {
     }
 }
 
-/// A fresh, empty temp root for one round.
-fn fresh_root(round: u32) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("wf-crash-{}-{round}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(&root).expect("create crash root");
-    root
-}
-
 /// One xorshift64 step; no `rand` crate needed.
 fn xorshift(state: &mut u64) -> u64 {
     let mut x = *state;
@@ -83,10 +79,13 @@ fn spawn_child(root: &Path) -> Child {
         .expect("spawn child writer")
 }
 
-/// Polls for the child's `ready` marker; kills the child and panics after 30 s.
+/// Polls for the child's `ready` marker; panics at once if the child exits, and after 30 s.
 fn wait_for_ready(root: &Path, child: &mut Child) {
     let deadline = Instant::now() + Duration::from_secs(30);
     while !root.join("ready").exists() {
+        if let Ok(Some(status)) = child.try_wait() {
+            panic!("child writer exited before ready: {status}");
+        }
         if Instant::now() >= deadline {
             let _ = child.kill();
             panic!("child writer never reported ready in {}", root.display());
@@ -96,11 +95,11 @@ fn wait_for_ready(root: &Path, child: &mut Child) {
 }
 
 /// Runs one round: starts a child, waits until it is writing, kills it after a seeded
-/// 1..=40 ms, and returns the root for inspection.
-fn kill_writer_at_seeded_moment(round: u32) -> PathBuf {
-    let root = fresh_root(round);
-    let mut child = spawn_child(&root);
-    wait_for_ready(&root, &mut child);
+/// 1..=40 ms, and returns the root for inspection. The root is removed on drop.
+fn kill_writer_at_seeded_moment(round: u32) -> TempDir {
+    let root = TempDir::new();
+    let mut child = spawn_child(root.path());
+    wait_for_ready(root.path(), &mut child);
     let mut state = SEED ^ u64::from(round);
     let delay_ms = 1 + xorshift(&mut state) % 40;
     std::thread::sleep(Duration::from_millis(delay_ms));
@@ -138,44 +137,76 @@ fn ok<T>(result: Result<T, FsError>, what: &str) -> T {
 fn killed_writer_never_leaves_a_torn_file() {
     for round in 0..ROUNDS {
         let root = kill_writer_at_seeded_moment(round);
-        let bytes = fs::read(root.join(TARGET)).expect("target exists after the first write");
+        let bytes =
+            fs::read(root.path().join(TARGET)).expect("target exists after the first write");
         assert_whole_version(&bytes, round);
-        let _ = Vault::new(root.clone())
+        let _ = Vault::new(root.path().to_path_buf())
             .read_text(TARGET)
             .expect("target reads back through the vault");
-        let _ = fs::remove_dir_all(&root);
     }
 }
 
 /// A kill may leave a `*.wftmp` sibling; listings must skip it and the target stays whole.
+/// One is planted too, so the skip is exercised even when the kill lands between writes.
 #[test]
 fn leftover_temp_file_is_not_listed_as_a_note() {
-    // Round 1000 keeps this test's folder apart from the rounds the other test uses.
     let round = 1000;
     let root = kill_writer_at_seeded_moment(round);
-    let walked = Vault::new(root.clone()).walk("").expect("walk root");
+    let planted = root
+        .path()
+        .join(format!("notes/target.md.1.0{TEMP_SUFFIX}"));
+    fs::write(&planted, b"torn").expect("plant temp file");
+    let vault = Vault::new(root.path().to_path_buf());
+    let walked = vault.walk("").expect("walk root");
     assert!(
         walked
             .iter()
             .all(|entry| !entry.path.ends_with(TEMP_SUFFIX)),
         "a temp file was listed"
     );
-    let bytes = fs::read(root.join(TARGET)).expect("target exists");
+    assert!(walked.iter().any(|entry| entry.path == TARGET));
+    let listed = vault.list("notes").expect("list notes");
+    assert!(
+        listed
+            .iter()
+            .all(|entry| !entry.path.ends_with(TEMP_SUFFIX))
+    );
+    let port: &dyn WorkspaceFs = &vault;
+    let port_walk = ok(port.walk(""), "port walk");
+    let port_list = ok(port.list("notes"), "port list");
+    assert!(port_walk.iter().any(|entry| entry.path == TARGET));
+    assert!(
+        port_walk
+            .iter()
+            .chain(&port_list)
+            .all(|entry| !entry.path.ends_with(TEMP_SUFFIX))
+    );
+    let bytes = fs::read(root.path().join(TARGET)).expect("target exists");
     assert_whole_version(&bytes, round);
-    let _ = fs::remove_dir_all(&root);
 }
 
 /// The vault answers every `WorkspaceFs` call with the port's types and error mapping.
 #[test]
 fn vault_satisfies_workspace_fs() {
-    let root = std::env::temp_dir().join(format!("wf-port-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(&root).expect("create port root");
-    let mut vault = Vault::new(root.clone());
+    let root = TempDir::new();
+    let mut vault = Vault::new(root.path().to_path_buf());
     let port: &mut dyn WorkspaceFs = &mut vault;
 
     ok(port.write_file("a/b.md", b"x"), "write");
     assert_eq!(ok(port.read_text("a/b.md"), "read"), "x");
+    assert_eq!(ok(port.read_file("a/b.md"), "read bytes"), b"x");
+    ok(port.mkdirp("m/n"), "mkdirp");
+    assert!(matches!(
+        port.stat("m/n").map(|s| s.kind),
+        Some(FsKind::Dir)
+    ));
+    let paths = |entries: Vec<WorkspaceStat>| -> Vec<String> {
+        entries.into_iter().map(|entry| entry.path).collect()
+    };
+    assert_eq!(paths(ok(port.list("a"), "list")), ["a/b.md"]);
+    assert_eq!(paths(ok(port.walk(""), "walk")), ["a/b.md"]);
+    // Reading a folder as a file is a disk error, not a missing path.
+    assert!(matches!(port.read_text("m/n"), Err(FsError::Io(_))));
     let file = port.stat("a/b.md").expect("file stat");
     assert!(matches!(file.kind, FsKind::File));
     assert_eq!(file.size, 1);
@@ -197,5 +228,38 @@ fn vault_satisfies_workspace_fs() {
     ok(port.rename("c.md", "d/e.md"), "rename");
     assert_eq!(ok(port.read_text("d/e.md"), "read renamed"), "moved");
     assert!(port.stat("c.md").is_none());
-    let _ = fs::remove_dir_all(&root);
+
+    assert!(matches!(
+        port.rename("gone.md", "f.md"),
+        Err(FsError::NotFound(ref p)) if p == "gone.md"
+    ));
+}
+
+/// A link out of the root is refused as unsafe through the port, not reported as a disk error.
+#[test]
+fn port_maps_a_link_escape_to_unsafe() {
+    let root = TempDir::new();
+    let outside = TempDir::new();
+    if !make_dir_link(&root.path().join("away"), outside.path()) {
+        eprintln!("skipped: this machine cannot create a directory link");
+        return;
+    }
+    let mut vault = Vault::new(root.path().to_path_buf());
+    let port: &mut dyn WorkspaceFs = &mut vault;
+    assert!(matches!(
+        port.write_file("away/escaped.md", b"x"),
+        Err(FsError::Unsafe(_))
+    ));
+    assert!(matches!(
+        port.read_text("away/escaped.md"),
+        Err(FsError::Unsafe(_))
+    ));
+    assert!(
+        outside
+            .path()
+            .read_dir()
+            .expect("read outside")
+            .next()
+            .is_none()
+    );
 }

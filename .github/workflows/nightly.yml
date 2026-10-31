@@ -27,7 +27,9 @@ jobs:
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
 
-      - name: Property tests, 10k cases, fixed seeds
+      - name: Property tests, 10k cases, fixed seed
+        env:
+          PROPTEST_RNG_SEED: "0"
         run: cargo test --release -p wf-core
 
       - name: Property tests, fresh seed
@@ -37,6 +39,16 @@ jobs:
           echo "seed $PROPTEST_RNG_SEED"
           cargo test --release -p wf-core
 
+      - name: Keep proptest regressions
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proptest-regressions
+          path: |
+            crates/wf-core/proptest-regressions/
+            crates/wf-core/tests/*.proptest-regressions
+          if-no-files-found: ignore
+
   fuzz:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -45,14 +57,22 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install nightly Rust toolchain
-        run: rustup toolchain install nightly --profile minimal
+        run: rustup toolchain install nightly-2026-10-01 --profile minimal
+
+      # Keeps the inputs found so far, so each run starts from the last corpus.
+      - name: Restore the fuzz corpus
+        uses: actions/cache@v4
+        with:
+          path: fuzz/corpus/sync_parsers
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
 
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --version 0.13.1 --locked
 
       - name: Fuzz the sync parsers for 20 minutes
         working-directory: fuzz
-        run: cargo +nightly fuzz run sync_parsers -- -max_total_time=1200 -rss_limit_mb=2048
+        run: cargo +nightly-2026-10-01 fuzz run sync_parsers -- -max_total_time=1200
 
       - name: Keep crashes
         if: failure()

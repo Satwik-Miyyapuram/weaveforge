@@ -33,9 +33,10 @@ fn dir(path: &str) -> WorkspaceStat {
 
 fn tree() -> MemoryWorkspaceFs {
     let mut fs = fixed();
-    fs.write_file("a/x.md", b"1").expect("write");
-    fs.write_file("a/y/z.md", b"22").expect("write");
+    // Written out of order, so the sorted-listing tests prove the sort.
     fs.write_file("b.md", b"333").expect("write");
+    fs.write_file("a/y/z.md", b"22").expect("write");
+    fs.write_file("a/x.md", b"1").expect("write");
     fs
 }
 
@@ -229,6 +230,17 @@ fn rename_missing_source_is_not_found() {
         fs.rename("missing.md", "x.md"),
         Err(FsError::NotFound("missing.md".into()))
     );
+}
+
+#[test]
+fn rename_to_an_unsafe_target_keeps_the_source() {
+    let mut fs = fixed();
+    fs.write_file("a.md", b"hi").expect("write");
+    assert!(matches!(
+        fs.rename("a.md", "../x.md"),
+        Err(FsError::Unsafe(_))
+    ));
+    assert_eq!(fs.read_file("a.md"), Ok(b"hi".to_vec()));
 }
 
 #[test]
