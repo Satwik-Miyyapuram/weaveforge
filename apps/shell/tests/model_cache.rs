@@ -11,10 +11,11 @@ use std::path::{Path, PathBuf};
 use common::{TempDir, put};
 use upstream::{Reply as Canned, Upstream, redirect, response, serve};
 use weaveforge_shell::model_cache::{
-    MAX_HOPS, cache_path_for, is_upstream_host, model_client, model_path, serve_model_file,
-    serve_model_file_capped,
+    MAX_FILE_BYTES, MAX_HOPS, cache_path_for, is_cache_part, is_upstream_host, is_upstream_url,
+    model_client, model_path, serve_model_file, serve_model_file_capped,
 };
 use weaveforge_shell::protocol::Reply as Answer;
+use weaveforge_shell::range::WHOLE_BYTES_MAX;
 
 const NO_HOST: &str = "http://127.0.0.1:9";
 const CONFIG: &str = "/Xenova/all-MiniLM-L6-v2/resolve/main/config.json";
@@ -25,7 +26,7 @@ fn root() -> PathBuf {
 }
 
 fn client() -> reqwest::Client {
-    model_client(|h| h == "127.0.0.1").unwrap()
+    model_client(|u| u.host_str() == Some("127.0.0.1")).unwrap()
 }
 
 fn base(up: &Upstream) -> String {
@@ -274,7 +275,7 @@ async fn upstream_down_is_502() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn non_2xx_redirect_to_a_refused_host_is_served_as_its_status() {
+async fn redirect_to_a_refused_host_is_502_not_a_bare_3xx() {
     let dir = TempDir::new();
     let root = dir.path().join("models");
     let up = serve(vec![(
@@ -285,7 +286,7 @@ async fn non_2xx_redirect_to_a_refused_host_is_served_as_its_status() {
 
     let answer = serve_model_file(&client(), &root, CONFIG, &base(&up), None).await;
 
-    assert_eq!(answer.status, 302);
+    assert_eq!(answer.status, 502);
     assert!(names(&root).is_empty());
 }
 
@@ -434,8 +435,8 @@ async fn redirect_chain_longer_than_max_hops_is_not_200() {
     let answer = serve_model_file(&client(), &root, "/loop", &base(&up), None).await;
 
     assert_ne!(answer.status, 200);
-    // The policy stops at the hop past MAX_HOPS and that 3xx is served as the status.
-    assert_eq!(answer.status, 302);
+    // The policy stops at the hop past MAX_HOPS; that 3xx has no use to the page, so it is a 502.
+    assert_eq!(answer.status, 502);
     assert!(up.seen().len() <= MAX_HOPS + 1);
     assert!(names(&root).is_empty());
 }
@@ -467,3 +468,82 @@ async fn same_origin_path_downloads_the_repository_path_without_the_folder() {
 //   handling of a non-numeric content-length is not verified here.
 // - "a redirect is not policed..." (hop-by-hop walk): replaced by the Rust policy tests
 //   (redirect_to_the_same_server_is_followed_to_200, redirect_chain_longer_than_max_hops_is_not_200).
+
+#[test]
+fn cache_path_for_refuses_parts_windows_would_change_or_open_as_devices() {
+    for path in [
+        "/a/.. ",
+        "/a/a.",
+        "/a/a:b",
+        "/a/a%3Ab",
+        "/a/NUL",
+        "/a/nul.json",
+        "/a/Com1",
+        "/a/LPT9.onnx",
+        "/a/CON",
+        "/a/aux.txt",
+        "/a/prn",
+        "/a/b c",
+        "/a/b%20",
+        "/a/b%00",
+    ] {
+        assert_eq!(cache_path_for(&root(), path), None, "{path}");
+    }
+    for ok in [
+        "CONSOLE.json",
+        "COM10",
+        "nullable",
+        "model_quantized.onnx",
+        ".gitattributes",
+    ] {
+        assert!(is_cache_part(ok), "{ok}");
+    }
+    assert!(!is_cache_part(""));
+    assert!(!is_cache_part(&"a".repeat(256)));
+    assert!(is_cache_part(&"a".repeat(255)));
+}
+
+#[test]
+fn upstream_url_must_be_https_on_hugging_face() {
+    let url = |s: &str| reqwest::Url::parse(s).unwrap();
+    assert!(is_upstream_url(&url("https://huggingface.co/x")));
+    assert!(is_upstream_url(&url("https://cdn-lfs.hf.co/x")));
+    assert!(!is_upstream_url(&url("http://huggingface.co/x")));
+    assert!(!is_upstream_url(&url("http://cdn-lfs.hf.co/x")));
+    assert!(!is_upstream_url(&url("https://evil.example/x")));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cached_file_over_the_page_limit_is_still_served_whole() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    let file = root.join(CONFIG_FILE);
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let big = fs::File::create(&file).unwrap();
+    big.set_len(WHOLE_BYTES_MAX + 1).unwrap();
+    drop(big);
+    const { assert!(WHOLE_BYTES_MAX < MAX_FILE_BYTES) };
+
+    let answer = serve_model_file(&client(), &root, CONFIG, NO_HOST, None).await;
+
+    assert_eq!(answer.status, 200);
+    assert_eq!(
+        u64::try_from(answer.body.len()).unwrap(),
+        WHOLE_BYTES_MAX + 1
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cached_file_over_the_model_cap_is_500_without_a_range() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    put(&root.join(CONFIG_FILE), b"0123456789");
+
+    let whole = serve_model_file_capped(&client(), &root, CONFIG, NO_HOST, None, 4).await;
+    let part =
+        serve_model_file_capped(&client(), &root, CONFIG, NO_HOST, Some("bytes=0-1"), 4).await;
+
+    assert_eq!(whole.status, 500);
+    assert_eq!(part.status, 206);
+    assert_eq!(part.body, b"01".to_vec());
+}

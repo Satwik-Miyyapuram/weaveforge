@@ -15,7 +15,7 @@ use tokio::io::{
 use tokio::sync::mpsc;
 use weaveforge_shell::ink::{
     HelperIo, InkHapticsMessage, InkOptions, InkRecogniser, InkRecognitionLineInput,
-    InkRecognitionRequest, Spawner, ink_recogniser_path, read_ink_request,
+    InkRecognitionRequest, InkRecognitionResult, Spawner, ink_recogniser_path, read_ink_request,
 };
 
 const NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not available.";
@@ -587,4 +587,37 @@ async fn disposing_fails_a_page_in_flight() {
         helper
     });
     assert_eq!(outcome.err().as_deref(), Some(DISPOSED));
+}
+
+#[test]
+fn a_recognised_reply_missing_fields_takes_the_ts_defaults() {
+    let result: InkRecognitionResult =
+        serde_json::from_value(json!({"id": 1, "type": "recognised"})).unwrap();
+    assert_eq!(result.engine, "windows-ink@1");
+    assert_eq!(result.ms, 0.0);
+    assert!(result.lines.is_empty());
+    let full: InkRecognitionResult = serde_json::from_value(
+        json!({"engine": "other@2", "ms": 3, "lines": [{"text": "a", "confidence": 0.5}]}),
+    )
+    .unwrap();
+    assert_eq!(full.engine, "other@2");
+    assert_eq!(full.ms, 3.0);
+    assert_eq!(full.lines.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_ready_line_without_a_version_still_makes_the_helper_ready() {
+    let Fixture {
+        recogniser,
+        mut far,
+        ..
+    } = fixture(LONG, LONG);
+    let (available, _helper) = tokio::join!(recogniser.available(), async {
+        let mut helper = Helper::new(far.recv().await.unwrap());
+        helper.say(json!({"type": "ready"})).await;
+        helper
+    });
+    assert!(available);
+    assert_eq!(recogniser.version().as_deref(), Some(""));
+    recogniser.dispose();
 }

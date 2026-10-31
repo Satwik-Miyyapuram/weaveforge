@@ -5,7 +5,7 @@ mod common;
 
 use common::{TempDir, put};
 use weaveforge_shell::app_route::{AppRoutes, from_reply, page_host, route};
-use weaveforge_shell::local_artifacts::write_local_artifact;
+use weaveforge_shell::local_artifacts::{ARTIFACT_CSP, write_local_artifact};
 use weaveforge_shell::protocol::Reply;
 use weaveforge_shell::relay::route::RelayConfig;
 use weaveforge_shell::relay::shared::Answer;
@@ -82,14 +82,22 @@ async fn a_saved_artifact_is_served_on_both_url_forms() {
     let (web, data) = (TempDir::new(), TempDir::new());
     let routes = routes(&web, &data);
     let url = write_local_artifact(&routes.artifacts, "exp-1", "loss.png", b"png bytes").unwrap();
-    let path = url.strip_prefix("app://artifacts").unwrap();
+    let path = url.strip_prefix("/artifacts").unwrap();
     for uri in [
+        format!("app://localhost{url}"),
+        format!("http://app.localhost{url}"),
         format!("app://artifacts{path}"),
         format!("http://app.artifacts{path}"),
     ] {
         let answer = ask(&routes, &uri).await;
         assert_eq!(answer.status, 200, "{uri}");
         assert_eq!(answer.body, b"png bytes".to_vec(), "{uri}");
+        let csp = answer
+            .headers
+            .iter()
+            .find(|(n, _)| n == "content-security-policy")
+            .map(|(_, v)| v.as_str());
+        assert_eq!(csp, Some(ARTIFACT_CSP), "{uri}");
     }
 }
 
@@ -112,4 +120,35 @@ async fn an_api_path_without_a_relay_client_falls_through_to_the_export() {
     let answer = ask(&routes(&web, &data), "app://localhost/api/storage/x").await;
     // No relay ran: the answer is the export's, never a relay 502.
     assert_ne!(answer.status, 502);
+}
+
+#[tokio::test]
+async fn artifacts_path_never_reaches_the_web_export() {
+    let (web, data) = (TempDir::new(), TempDir::new());
+    put(&web.path().join("artifacts/exp-1/f/x.png"), b"export bytes");
+    let answer = ask(
+        &routes(&web, &data),
+        "app://localhost/artifacts/exp-1/f/x.png",
+    )
+    .await;
+    assert_eq!(answer.status, 404);
+    assert!(answer.body.is_empty());
+}
+
+/// `/models/` and `/artifacts/` belong to the shell; the web app must not ship pages or files there.
+#[test]
+fn web_app_has_no_models_or_artifacts_route() {
+    let web = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../web");
+    for dir in [
+        "src/app/models",
+        "src/app/artifacts",
+        "public/models",
+        "public/artifacts",
+    ] {
+        assert!(!web.join(dir).exists(), "{dir}");
+    }
+    assert!(
+        web.join("src/app").is_dir(),
+        "apps/web moved; update this test"
+    );
 }

@@ -1,11 +1,12 @@
 //! Routes one `app://` request in the Electron order (`serveBundle` in apps/desktop/src/main.ts):
 //! cached model weights, saved artifacts, the `/api/` relays, then the web export.
+//! Saved artifacts are also served same-origin under `/artifacts/`, which Windows webviews need.
 
 use std::path::PathBuf;
 
 use tauri::http::request::Parts;
 
-use crate::local_artifacts::{ARTIFACT_HOST, serve_local_artifact};
+use crate::local_artifacts::{ARTIFACT_HOST, ARTIFACT_URL_PREFIX, serve_local_artifact};
 use crate::model_cache::{UPSTREAM, model_path, serve_model_file};
 use crate::protocol::{self, APP_HOSTS, Reply};
 use crate::relay::route::{RelayConfig, answer_relay};
@@ -101,6 +102,10 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     }
     if !APP_HOSTS.contains(&host.as_str()) {
         return bare(404);
+    }
+    if let Some(rest) = path.strip_prefix(ARTIFACT_URL_PREFIX) {
+        let (root, rest) = (routes.artifacts.clone(), format!("/{rest}"));
+        return blocking(move || serve_local_artifact(&root, &rest)).await;
     }
     if path.starts_with("/api/")
         && let Some(client) = routes.relay_client.as_ref()

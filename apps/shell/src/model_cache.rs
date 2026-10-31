@@ -10,7 +10,7 @@ use std::sync::{LazyLock, Mutex, MutexGuard, PoisonError};
 use tokio::sync::watch;
 
 use crate::protocol::{APP_HOSTS, Reply};
-use crate::range::serve_file;
+use crate::range::serve_file_capped;
 
 /// The host the weights come from, when they are not on disk yet.
 pub const UPSTREAM: &str = "https://huggingface.co";
@@ -58,11 +58,7 @@ pub fn model_path(host: &str, path: &str) -> Option<String> {
 pub fn cache_path_for(root: &Path, path: &str) -> Option<PathBuf> {
     let decoded = percent_decode(path)?;
     let parts: Vec<&str> = decoded.split('/').filter(|p| !p.is_empty()).collect();
-    if parts.is_empty()
-        || parts
-            .iter()
-            .any(|p| *p == "." || *p == ".." || p.contains('\\'))
-    {
+    if parts.is_empty() || !parts.iter().all(|p| is_cache_part(p)) {
         return None;
     }
     let mut file = root.to_path_buf();
@@ -73,21 +69,54 @@ pub fn cache_path_for(root: &Path, path: &str) -> Option<PathBuf> {
     file.starts_with(root).then_some(file)
 }
 
-/// A client that follows at most `MAX_HOPS` redirects, and stops at a hop whose host fails `allow`.
+/// Windows device names: a file part named one of these (with any extension) opens the device.
+const DEVICE_NAMES: [&str; 4] = ["CON", "PRN", "AUX", "NUL"];
+
+/// One part of a cache path that is safe as a file name on every platform: 1 to 255 of
+/// `A-Za-z0-9._-`, not `.` or `..`, no trailing `.`, and not a Windows device name.
+#[must_use]
+pub fn is_cache_part(part: &str) -> bool {
+    let stem = part
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let numbered_device = (stem.starts_with("COM") || stem.starts_with("LPT"))
+        && stem.len() == 4
+        && stem.bytes().last().is_some_and(|b| b.is_ascii_digit());
+    (1..=255).contains(&part.len())
+        && !part.ends_with('.')
+        && part
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+        && !DEVICE_NAMES.contains(&stem.as_str())
+        && !numbered_device
+}
+
+/// Whether a download may go to `url`: https on Hugging Face's own hosts.
+#[must_use]
+pub fn is_upstream_url(url: &reqwest::Url) -> bool {
+    url.scheme() == "https" && url.host_str().is_some_and(is_upstream_host)
+}
+
+/// Gives up connecting to the upstream after this long.
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+/// Gives up when the upstream sends nothing for this long.
+const READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// A client that follows at most `MAX_HOPS` redirects, and stops at a hop `allow` refuses.
 ///
 /// # Errors
 /// When reqwest cannot build the client (TLS backend failed to load).
-pub fn model_client(allow: fn(&str) -> bool) -> Result<reqwest::Client, reqwest::Error> {
+pub fn model_client(allow: fn(&reqwest::Url) -> bool) -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .read_timeout(READ_TIMEOUT)
         .redirect(reqwest::redirect::Policy::custom(move |attempt| {
-            if attempt.previous().len() > MAX_HOPS {
-                return attempt.stop();
-            }
-            let host = attempt.url().host_str().unwrap_or("");
-            if allow(host) {
-                attempt.follow()
-            } else {
+            if attempt.previous().len() > MAX_HOPS || !allow(attempt.url()) {
                 attempt.stop()
+            } else {
+                attempt.follow()
             }
         }))
         .build()
@@ -118,11 +147,11 @@ pub async fn serve_model_file_capped(
         return bare(404);
     };
     let range = range.map(str::to_owned);
-    if let Some(reply) = serve_disk(file.clone(), range.clone()).await {
+    if let Some(reply) = serve_disk(file.clone(), range.clone(), cap).await {
         return reply;
     }
     match claim(&file) {
-        Claim::Join(rx) => join(rx, file, range).await,
+        Claim::Join(rx) => join(rx, file, range, cap).await,
         Claim::Lead(leader) => lead_download(&leader, client, path, upstream, range, cap).await,
     }
 }
@@ -171,7 +200,7 @@ async fn lead_download(
     range: Option<String>,
     cap: u64,
 ) -> Reply {
-    let reply = match serve_disk(leader.file.clone(), range).await {
+    let reply = match serve_disk(leader.file.clone(), range, cap).await {
         Some(reply) => reply,
         None => match fetch_and_store(client, &leader.file, path, upstream, cap).await {
             Ok(body) => Reply {
@@ -187,13 +216,18 @@ async fn lead_download(
 }
 
 /// A joiner's answer: the file from disk once the leader succeeded, else the leader's status.
-async fn join(mut rx: watch::Receiver<Option<u16>>, file: PathBuf, range: Option<String>) -> Reply {
+async fn join(
+    mut rx: watch::Receiver<Option<u16>>,
+    file: PathBuf,
+    range: Option<String>,
+    cap: u64,
+) -> Reply {
     let state = match rx.wait_for(Option::is_some).await {
         Ok(state) => *state,
         Err(_) => None,
     };
     match state {
-        Some(status) if (200..300).contains(&status) => serve_disk(file, range)
+        Some(status) if (200..300).contains(&status) => serve_disk(file, range, cap)
             .await
             .unwrap_or_else(|| bare(BAD_GATEWAY)),
         Some(status) => bare(status),
@@ -201,10 +235,10 @@ async fn join(mut rx: watch::Receiver<Option<u16>>, file: PathBuf, range: Option
     }
 }
 
-/// The file from disk, or `None` when it is not there to read.
-async fn serve_disk(file: PathBuf, range: Option<String>) -> Option<Reply> {
+/// The file from disk, or `None` when it is not there to read. Read whole up to `cap`, as the download was.
+async fn serve_disk(file: PathBuf, range: Option<String>, cap: u64) -> Option<Reply> {
     tokio::task::spawn_blocking(move || {
-        match serve_file(&file, range.as_deref(), headers_for(&file)) {
+        match serve_file_capped(&file, range.as_deref(), headers_for(&file), cap) {
             Ok(reply) => Some(reply),
             Err(error) if error.kind() == ErrorKind::FileTooLarge => Some(bare(500)),
             Err(_) => None,
@@ -228,6 +262,10 @@ async fn fetch_and_store(
         .send()
         .await
         .map_err(|_| BAD_GATEWAY)?;
+    // A redirect the policy refused carries no Location the page could use.
+    if response.status().is_redirection() {
+        return Err(BAD_GATEWAY);
+    }
     if !response.status().is_success() {
         return Err(response.status().as_u16());
     }

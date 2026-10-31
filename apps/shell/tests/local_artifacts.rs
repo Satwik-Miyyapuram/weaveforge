@@ -7,8 +7,8 @@ use std::path::Path;
 
 use common::TempDir;
 use weaveforge_shell::local_artifacts::{
-    ARTIFACT_HOST, ARTIFACT_URL_PREFIX, UNSAFE, is_safe_segment, serve_local_artifact,
-    write_local_artifact,
+    ARTIFACT_CSP, ARTIFACT_HOST, ARTIFACT_URL_PREFIX, LEGACY_URL_PREFIX, UNSAFE, is_safe_segment,
+    serve_local_artifact, write_local_artifact,
 };
 use weaveforge_shell::protocol::Reply;
 
@@ -19,7 +19,7 @@ fn header<'a>(r: &'a Reply, name: &str) -> Option<&'a str> {
         .map(|(_, v)| v.as_str())
 }
 
-/// The URL path after the host: `app://artifacts/exp/uuid/name` gives `/exp/uuid/name`.
+/// The path under the artifacts root: `/artifacts/exp/uuid/name` gives `/exp/uuid/name`.
 fn url_path(url: &str) -> String {
     format!("/{}", url.strip_prefix(ARTIFACT_URL_PREFIX).unwrap())
 }
@@ -31,7 +31,8 @@ fn count_entries(dir: &Path) -> usize {
 #[test]
 fn artifact_host_and_prefix() {
     assert_eq!(ARTIFACT_HOST, "artifacts");
-    assert_eq!(ARTIFACT_URL_PREFIX, "app://artifacts/");
+    assert_eq!(ARTIFACT_URL_PREFIX, "/artifacts/");
+    assert_eq!(LEGACY_URL_PREFIX, "app://artifacts/");
 }
 
 // TS: "a saved artifact is served back from its URL"
@@ -169,4 +170,19 @@ fn ok_reply_carries_nosniff() {
     let r = serve_local_artifact(dir.path(), &url_path(&url));
     assert_eq!(r.status, 200);
     assert_eq!(header(&r, "x-content-type-options"), Some("nosniff"));
+}
+
+#[test]
+fn ok_reply_is_sandboxed_and_loads_nothing() {
+    let dir = TempDir::new();
+    let url =
+        write_local_artifact(dir.path(), "exp-1", "page.html", b"<script>1</script>").unwrap();
+    let r = serve_local_artifact(dir.path(), &url_path(&url));
+    assert_eq!(r.status, 200);
+    let csp = header(&r, "content-security-policy").unwrap();
+    assert_eq!(csp, ARTIFACT_CSP);
+    let directives: Vec<&str> = csp.split(';').map(str::trim).collect();
+    assert!(directives.contains(&"sandbox"));
+    assert!(directives.contains(&"default-src 'none'"));
+    assert!(!csp.contains("script-src"));
 }

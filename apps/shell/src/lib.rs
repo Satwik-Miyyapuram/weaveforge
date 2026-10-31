@@ -181,7 +181,7 @@ fn start_routes(app: &tauri::AppHandle) {
         web: web_root(),
         models: data.join("models"),
         artifacts: data.join("artifacts"),
-        model_client: model_cache::model_client(model_cache::is_upstream_host).ok(),
+        model_client: model_cache::model_client(model_cache::is_upstream_url).ok(),
         relay_client: relay::shared::relay_client().ok(),
         relay_config: relay::route::RelayConfig::production(),
     };

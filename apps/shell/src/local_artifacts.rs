@@ -1,4 +1,5 @@
-//! SDK uploads kept on this disk, served over the `app` scheme as `app://artifacts/...`.
+//! SDK uploads kept on this disk, served same-origin at `/artifacts/...` on the app host, and at
+//! `app://artifacts/...` for URLs the Electron app recorded.
 //!
 //! Port of `apps/desktop/src/local-artifacts.ts`.
 
@@ -13,8 +14,17 @@ use crate::protocol::{Reply, content_type_for};
 /// Host the artifact URLs use.
 pub const ARTIFACT_HOST: &str = "artifacts";
 
-/// Prefix of every artifact URL: `app://artifacts/{experiment_id}/{folder}/{name}`.
-pub const ARTIFACT_URL_PREFIX: &str = "app://artifacts/";
+/// Prefix of every artifact URL this app records: `/artifacts/{experiment_id}/{folder}/{name}`.
+/// Same-origin, because Windows webviews cannot load a second `app://` host and the page CSP allows only `'self'`.
+pub const ARTIFACT_URL_PREFIX: &str = "/artifacts/";
+
+/// Prefix the Electron app recorded; still served on the `artifacts` host.
+pub const LEGACY_URL_PREFIX: &str = "app://artifacts/";
+
+/// An artifact runs nothing and loads nothing: an HTML or SVG upload opened on the app's origin
+/// would otherwise run script next to the IPC bridge.
+pub const ARTIFACT_CSP: &str =
+    "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'";
 
 /// Matches the web route's 25 MB cap. The writer does not enforce it; the caller does.
 pub const MAX_LOCAL_ARTIFACT_BYTES: usize = 25 * 1024 * 1024;
@@ -104,6 +114,7 @@ pub fn serve_local_artifact(root: &Path, path: &str) -> Reply {
             headers: vec![
                 ("content-type", content_type_for(&file).to_owned()),
                 ("x-content-type-options", "nosniff".to_owned()),
+                ("content-security-policy", ARTIFACT_CSP.to_owned()),
             ],
             body,
         },

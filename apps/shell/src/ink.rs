@@ -99,12 +99,20 @@ pub struct InkRecognitionLine {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct InkRecognitionResult {
-    /// Engine that produced the answer.
+    /// Engine that produced the answer; `windows-ink@1` when the helper leaves it out.
+    #[serde(default = "default_engine")]
     pub engine: String,
-    /// Engine time in milliseconds.
+    /// Engine time in milliseconds; 0 when left out.
+    #[serde(default)]
     pub ms: f64,
-    /// Recognised lines in the order sent.
+    /// Recognised lines in the order sent; empty when left out.
+    #[serde(default)]
     pub lines: Vec<InkRecognitionLine>,
+}
+
+/// The engine name the TS client assumes when the helper does not say.
+fn default_engine() -> String {
+    "windows-ink@1".to_owned()
 }
 
 /// Pen state forwarded to the helper for haptic feedback.
@@ -630,9 +638,9 @@ fn handle_reply(shared: &Shared, reply: Value) {
     let kind = reply.get("type").and_then(Value::as_str).map(str::to_owned);
     match kind.as_deref() {
         Some("ready") => {
-            if let Some(version) = reply.get("version").and_then(Value::as_str) {
-                shared.become_ready(version.to_owned());
-            }
+            let version = reply.get("version").and_then(Value::as_str);
+            shared.become_ready(version.unwrap_or_default().to_owned());
+            deliver(shared, id, Ok(reply));
         }
         Some("recognised" | "haptics") => deliver(shared, id, Ok(reply)),
         Some("error") => {
