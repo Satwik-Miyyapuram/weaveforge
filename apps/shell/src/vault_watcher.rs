@@ -10,14 +10,16 @@ use std::time::{Duration, Instant};
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use wf_store::vault::TEMP_SUFFIX;
 
-use crate::vault_watch::{Digest, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest};
+use crate::vault_watch::{
+    Digest, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
+};
 
 /// Receives each batch of changed folder-relative paths ('/'-separated, sorted).
 pub type ChangeSink = Arc<dyn Fn(Vec<String>) + Send + Sync>;
 
-/// Largest file whose content is read to tell our own write from someone else's (8 MiB,
-/// the vault's text cap). A bigger file is always reported.
-pub const DIGEST_MAX_BYTES: u64 = 8 * 1024 * 1024;
+/// Largest file whose content is read to tell our own write from someone else's: the
+/// vault's largest write (`MAX_BLOB_BYTES`). A bigger file is always reported.
+pub const DIGEST_MAX_BYTES: u64 = crate::vault::MAX_BLOB_BYTES;
 
 /// The reason shown when the folder cannot be watched.
 pub const CANNOT_WATCH: &str = "This folder cannot be watched for outside changes.";
@@ -62,9 +64,15 @@ impl VaultWatcher {
         }
         let (tx, rx) = mpsc::channel();
         let handler_tx = tx.clone();
-        let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-            let _ = handler_tx.send(Msg::Event(res));
-        })
+        // Symlinks are not followed: a link to a folder outside must not leak its names
+        // to the page or have its files read.
+        let config = notify::Config::default().with_follow_symlinks(false);
+        let mut watcher = RecommendedWatcher::new(
+            move |res: notify::Result<notify::Event>| {
+                let _ = handler_tx.send(Msg::Event(res));
+            },
+            config,
+        )
         .map_err(|_| CANNOT_WATCH.to_owned())?;
         watcher
             .watch(root, RecursiveMode::Recursive)
@@ -89,6 +97,11 @@ impl VaultWatcher {
     /// The app just wrote `bytes` to `rel` (folder-relative); its echo is not reported.
     pub fn note_self_write(&self, rel: &str, bytes: &[u8]) {
         lock(&self.shared).note_self_write(rel, content_digest(bytes), Instant::now());
+    }
+
+    /// The app just deleted `rel` (folder-relative); the report that it is gone is not news.
+    pub fn note_self_remove(&self, rel: &str) {
+        lock(&self.shared).note_self_remove(rel, Instant::now());
     }
 }
 
@@ -135,6 +148,18 @@ impl WatchSlot {
             .as_ref()
         {
             watcher.note_self_write(rel, bytes);
+        }
+    }
+
+    /// The app is about to delete `rel`; does nothing when no watch runs.
+    pub fn note_self_remove(&self, rel: &str) {
+        if let Some(watcher) = self
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+        {
+            watcher.note_self_remove(rel);
         }
     }
 }
@@ -209,15 +234,19 @@ fn handle_event(roots: &[PathBuf], shared: &Mutex<VaultWatch>, res: notify::Resu
         if is_ignored(&rel) {
             continue;
         }
-        lock(shared).saw(&rel, digest_of(path), Instant::now());
+        // Only a path we wrote can be an echo; anything else is reported unread.
+        let expected = lock(shared).expects(&rel);
+        let current = if expected { digest_of(path) } else { None };
+        lock(shared).saw(&rel, current, Instant::now());
     }
 }
 
-/// The content digest of a small regular file, or None when it is not one.
+/// The content digest of a regular file up to `DIGEST_MAX_BYTES`, or None otherwise.
 fn digest_of(path: &Path) -> Option<Digest> {
-    let meta = fs::metadata(path).ok()?;
+    let meta = fs::symlink_metadata(path).ok()?;
     if !meta.is_file() || meta.len() > DIGEST_MAX_BYTES {
         return None;
     }
-    fs::read(path).ok().map(|bytes| content_digest(&bytes))
+    let mut file = fs::File::open(path).ok()?;
+    digest_reader(&mut file).ok()
 }

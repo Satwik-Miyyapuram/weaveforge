@@ -129,9 +129,10 @@ pub const VAULT_CHANGED_EVENT: &str = "vault-changed";
 /// Manages the handwriting recogniser; its helper starts on first use, never at startup.
 fn start_ink(app: &tauri::AppHandle) {
     use tauri::Manager;
-    let resources = app.path().resource_dir().unwrap_or_default();
-    let executable =
-        ink::ink_recogniser_path(std::env::consts::OS, std::env::consts::ARCH, &resources);
+    // No resource folder means no helper: never fall back to the working directory.
+    let executable = app.path().resource_dir().ok().and_then(|resources| {
+        ink::ink_recogniser_path(std::env::consts::OS, std::env::consts::ARCH, &resources)
+    });
     let log_app = app.clone();
     let on_diagnostic = Arc::new(move |line: &str| {
         if let Some(log) = log_app.try_state::<app_log::AppLog>() {

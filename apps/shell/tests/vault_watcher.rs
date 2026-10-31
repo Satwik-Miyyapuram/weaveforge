@@ -186,3 +186,67 @@ fn clearing_the_slot_stops_the_watch() {
     let got = rx.recv_timeout(Duration::from_millis(500));
     assert!(matches!(got, Err(RecvTimeoutError::Timeout)));
 }
+
+#[test]
+fn a_big_self_write_is_not_reported() {
+    let dir = TempDir::new();
+    let (watcher, rx, _alive) = start(dir.path());
+    let bytes = vec![7u8; 9 * 1024 * 1024];
+    watcher.note_self_write("big.pdf", &bytes);
+    fs::write(dir.path().join("big.pdf"), &bytes).unwrap();
+    fs::write(dir.path().join("marker.md"), b"m").unwrap();
+    let seen = until_marker(&rx, "marker.md");
+    assert!(!seen.contains(&"big.pdf".to_owned()));
+}
+
+#[test]
+fn our_own_delete_is_not_reported() {
+    let dir = TempDir::new();
+    fs::write(dir.path().join("gone.md"), b"x").unwrap();
+    let (watcher, rx, _alive) = start(dir.path());
+    watcher.note_self_remove("gone.md");
+    fs::remove_file(dir.path().join("gone.md")).unwrap();
+    fs::write(dir.path().join("marker.md"), b"m").unwrap();
+    let seen = until_marker(&rx, "marker.md");
+    assert!(!seen.contains(&"gone.md".to_owned()));
+}
+
+#[test]
+fn a_delete_noted_through_the_slot_is_not_reported() {
+    let dir = TempDir::new();
+    fs::write(dir.path().join("gone.md"), b"x").unwrap();
+    let (watcher, rx, _alive) = start(dir.path());
+    let slot = WatchSlot::default();
+    slot.set(Some(watcher));
+    slot.note_self_remove("gone.md");
+    fs::remove_file(dir.path().join("gone.md")).unwrap();
+    fs::write(dir.path().join("marker.md"), b"m").unwrap();
+    let seen = until_marker(&rx, "marker.md");
+    assert!(!seen.contains(&"gone.md".to_owned()));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_symlink_to_a_folder_outside_is_not_followed() {
+    let dir = TempDir::new();
+    let outside = TempDir::new();
+    std::os::unix::fs::symlink(outside.path(), dir.path().join("link")).unwrap();
+    let (_watcher, rx, _alive) = start(dir.path());
+    fs::write(outside.path().join("secret.txt"), b"s").unwrap();
+    fs::write(dir.path().join("marker.md"), b"m").unwrap();
+    let seen = until_marker(&rx, "marker.md");
+    assert!(
+        seen.iter().all(|path| !path.starts_with("link/")),
+        "{seen:?}"
+    );
+}
+
+#[test]
+fn the_main_window_may_listen_for_vault_changes() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities/default.json");
+    let text = fs::read_to_string(path).unwrap();
+    let capability: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    let permissions = capability["permissions"].as_array().unwrap();
+    assert!(permissions.contains(&serde_json::json!("core:event:default")));
+}

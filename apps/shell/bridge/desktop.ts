@@ -186,7 +186,9 @@ export function desktopShim(
           if (stopped) stop();
           else unlisten = stop;
         })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          console.warn("Outside changes to the workspace folder will not show up live:", error);
+        });
       return () => {
         if (stopped) return;
         stopped = true;

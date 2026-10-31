@@ -227,7 +227,9 @@ pub async fn vault_stat(
 #[specta::specta]
 pub async fn vault_remove(
     state: tauri::State<'_, VaultState>,
+    watch: tauri::State<'_, WatchSlot>,
     path: String,
 ) -> Result<(), ShellError> {
+    watch.note_self_remove(&path);
     remove(state.inner(), path).await.map_err(ShellError::from)
 }

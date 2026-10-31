@@ -3,7 +3,9 @@
 
 use std::time::{Duration, Instant};
 
-use weaveforge_shell::vault_watch::{Digest, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest};
+use weaveforge_shell::vault_watch::{
+    Digest, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
+};
 
 /// A fake clock: a fixed base instant plus an offset the test moves.
 struct Clock {
@@ -288,4 +290,107 @@ fn deadline_moves_forward_on_each_saw() {
     w.saw("b.md", Some(theirs()), clock.now());
     assert_eq!(w.deadline(), Some(clock.now() + QUIET));
     assert!(w.deadline() > Some(clock.base + QUIET));
+}
+
+#[test]
+fn two_quick_saves_then_a_late_echo_of_the_first_are_not_news() {
+    let mut clock = Clock::new();
+    let mut w = watch();
+    let first = content_digest(b"first");
+    let second = content_digest(b"second");
+    w.note_self_write("a.md", first, clock.now());
+    clock.advance(10);
+    w.note_self_write("a.md", second, clock.now());
+    w.saw("a.md", Some(first), clock.now());
+    w.saw("a.md", Some(second), clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+}
+
+#[test]
+fn an_outside_edit_after_two_quick_saves_is_reported() {
+    let mut clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", content_digest(b"first"), clock.now());
+    clock.advance(10);
+    w.note_self_write("a.md", content_digest(b"second"), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
+fn our_own_delete_is_not_news() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.saw("gone.md", None, clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+}
+
+#[test]
+fn a_file_recreated_by_someone_else_after_our_delete_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.saw("gone.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["gone.md"]);
+}
+
+#[test]
+fn only_noted_paths_need_their_contents_read() {
+    let clock = Clock::new();
+    let mut w = watch();
+    assert!(!w.expects("a.md"));
+    w.note_self_write("a.md", ours(), clock.now());
+    assert!(w.expects("a.md"));
+    assert!(!w.expects("b.md"));
+    w.note_self_remove("c.md", clock.now());
+    assert!(w.expects("c.md"));
+}
+
+#[test]
+fn a_file_changing_without_pause_still_flushes_within_the_max_wait() {
+    let mut clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    let start = clock.now();
+    w.saw("log.txt", Some(theirs()), clock.now());
+    w.saw("note.md", Some(theirs()), clock.now());
+    let mut flushed = Vec::new();
+    for _ in 0..20 {
+        clock.advance(300);
+        flushed = w.flush(clock.now());
+        if !flushed.is_empty() {
+            break;
+        }
+        w.saw("log.txt", Some(theirs()), clock.now());
+    }
+    assert_eq!(flushed, vec!["log.txt", "note.md"]);
+    assert!(clock.now() <= start + MAX_WAIT + Duration::from_millis(300));
+    assert!(w.deadline().is_none());
+}
+
+#[test]
+fn the_max_wait_restarts_after_each_batch() {
+    let mut clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    w.saw("a.md", Some(theirs()), clock.now());
+    clock.advance(500);
+    assert_eq!(w.flush(clock.now()), vec!["a.md"]);
+    clock.advance(5_000);
+    w.saw("b.md", Some(theirs()), clock.now());
+    assert_eq!(w.deadline(), Some(clock.now() + QUIET));
+}
+
+#[test]
+fn a_streamed_digest_matches_the_whole_buffer_digest() {
+    let bytes: Vec<u8> = (0..300_000u32)
+        .map(|i| u8::try_from(i % 251).unwrap())
+        .collect();
+    assert_eq!(
+        digest_reader(&mut bytes.as_slice()).unwrap(),
+        content_digest(&bytes)
+    );
+    assert_eq!(
+        digest_reader(&mut [].as_slice()).unwrap(),
+        content_digest(b"")
+    );
 }

@@ -16,6 +16,9 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWrite
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{mpsc, oneshot, watch};
 
+/// Lines waiting for the helper; pen updates beyond this are dropped, not queued.
+const OUTBOX_CAPACITY: usize = 256;
+
 /// Per-request answer timeout.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// How long the helper has to print its ready line.
@@ -331,7 +334,7 @@ struct Shared {
 
 struct Session {
     shared: Arc<Shared>,
-    outbox: mpsc::UnboundedSender<String>,
+    outbox: mpsc::Sender<String>,
 }
 
 #[derive(Default)]
@@ -544,7 +547,7 @@ impl Session {
         diagnostic: Diagnostic,
     ) -> Arc<Self> {
         let shared = Arc::new(Shared::new());
-        let (outbox, lines) = mpsc::unbounded_channel();
+        let (outbox, lines) = mpsc::channel(OUTBOX_CAPACITY);
         let _writer = tokio::spawn(write_lines(writer, lines));
         let _reader = tokio::spawn(read_replies(Arc::clone(&shared), reader, diagnostic));
         Arc::new(Self { shared, outbox })
@@ -552,7 +555,8 @@ impl Session {
 
     fn send(&self, mut line: String) -> bool {
         line.push('\n');
-        self.outbox.send(line).is_ok()
+        // Full means the helper stopped reading: drop rather than grow without limit.
+        self.outbox.try_send(line).is_ok()
     }
 }
 
@@ -617,7 +621,7 @@ impl Shared {
 /// Writes queued lines in order, so haptics and requests keep their sequence.
 async fn write_lines(
     mut writer: Box<dyn AsyncWrite + Send + Unpin>,
-    mut lines: mpsc::UnboundedReceiver<String>,
+    mut lines: mpsc::Receiver<String>,
 ) {
     while let Some(line) = lines.recv().await {
         if writer.write_all(line.as_bytes()).await.is_err() || writer.flush().await.is_err() {
