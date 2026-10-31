@@ -58,6 +58,7 @@ function toInkResult(wire: WireInkResult): DesktopInkResult {
 /** The generated commands this part of the shim calls (names as tauri-specta camelCases them). */
 export interface DesktopCommands {
   vaultRoot(): Promise<Result<DesktopVaultRoot | null>>;
+  vaultChoose(): Promise<Result<DesktopVaultRoot | null>>;
   vaultRead(path: string): Promise<Result<string | null>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
   vaultReadBytes(path: string): Promise<Result<string | null>>; // base64
@@ -142,6 +143,7 @@ export type DesktopShim = Pick<
   | "readOverleafProject"
   | "overleafSync"
   | "vaultRoot"
+  | "chooseVaultRoot"
   | "readVaultFile"
   | "writeVaultFile"
   | "readVaultBytes"
@@ -247,6 +249,7 @@ export function desktopShim(
       return unwrap(await cmds.overleafSync(request.action, projectId, folder));
     },
     vaultRoot: async () => unwrap(await cmds.vaultRoot()),
+    chooseVaultRoot: async () => unwrap(await cmds.vaultChoose()),
     readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));

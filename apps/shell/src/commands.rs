@@ -269,6 +269,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::secrets::secret_write,
         crate::secrets::secret_clear,
         crate::cmd_vault::vault_root,
+        crate::cmd_vault::vault_choose,
         crate::cmd_vault::vault_read,
         crate::cmd_vault::vault_write,
         crate::cmd_vault::vault_read_bytes,

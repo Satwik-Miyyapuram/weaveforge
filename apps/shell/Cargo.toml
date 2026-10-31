@@ -20,6 +20,9 @@ name = "weaveforge_shell"
 # Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
 git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
 tauri = { version = "=2.12.5", features = [] }
+# Native folder picker for the workspace folder (step 2.7b). The plugin runs the
+# dialog on the platform's UI thread; the page gets no dialog permission.
+tauri-plugin-dialog = "=2.8.3"
 # Sidecar client (step 2.4): async child process, Job Object on Windows so the
 # sidecar dies with the shell. The std API of process-wrap never sets kill-on-close.
 process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags"] }

@@ -112,6 +112,37 @@ test("an error result rejects with the command's exact message", async () => {
   }
 });
 
+test("chooseVaultRoot answers the folder the shell adopted", async () => {
+  const adopted = { path: "C:/notes", state: "empty" };
+  const { cmds, calls } = fakeCommands({
+    vaultChoose: { status: "ok", data: adopted },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.chooseVaultRoot(), adopted);
+  assert.deepEqual(calls, [{ cmd: "vaultChoose", args: [] }]);
+});
+
+test("chooseVaultRoot answers null when no folder is chosen", async () => {
+  const { cmds } = fakeCommands({
+    vaultChoose: { status: "ok", data: null },
+  });
+  assert.equal(
+    await desktopShim(cmds, fakeEvents().events).chooseVaultRoot(),
+    null,
+  );
+});
+
+test("chooseVaultRoot rejects with the shell's reason when the folder is refused", async () => {
+  const { cmds } = fakeCommands({
+    vaultChoose: error("That folder cannot be used."),
+  });
+  await assert.rejects(
+    () => desktopShim(cmds, fakeEvents().events).chooseVaultRoot(),
+    (e: unknown) =>
+      e instanceof Error && e.message === "That folder cannot be used.",
+  );
+});
+
 test("fetchImage gives an exact ArrayBuffer of the decoded bytes", async () => {
   const { cmds } = fakeCommands({
     fetchImage: {

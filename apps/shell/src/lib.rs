@@ -32,6 +32,7 @@ pub mod sidecar;
 pub mod tex;
 pub mod update_check;
 pub mod vault;
+pub mod vault_choice;
 pub mod vault_search;
 pub mod vault_sync;
 pub mod vault_watch;
@@ -58,6 +59,7 @@ fn web_root() -> PathBuf {
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
@@ -110,11 +112,7 @@ fn start_stores(app: &tauri::AppHandle) {
         .unwrap_or_default();
     let prefs = prefs::Prefs::new(data.join("preferences.json"));
     let vault = vault::VaultState::new();
-    let remembered = match prefs.read("vault-root") {
-        Ok(Some(prefs::PrefValue::Text(path))) => Some(path),
-        _ => None,
-    };
-    let _ = vault.lock().restore(remembered.as_deref());
+    let _ = vault_choice::restore_remembered(&vault, &prefs);
     let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());
     let _ = app.manage(prefs);
     let _ = app.manage(vault);
@@ -125,6 +123,23 @@ fn start_stores(app: &tauri::AppHandle) {
 
 /// The event that carries folder-relative paths changed by other programs to the page.
 pub const VAULT_CHANGED_EVENT: &str = "vault-changed";
+
+/// The sink a folder watch reports to: each batch of paths goes to the page as a `vault-changed` event.
+pub(crate) fn change_sink(app: &tauri::AppHandle) -> vault_watcher::ChangeSink {
+    use tauri::Emitter as _;
+    let emitter = app.clone();
+    Arc::new(move |paths: Vec<String>| {
+        let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+    })
+}
+
+/// Logs a vault-watch or remembering problem; the folder still works without it.
+pub(crate) fn log_vault_warning(app: &tauri::AppHandle, reason: &str, path: &str) {
+    use tauri::Manager as _;
+    if let Some(log) = app.try_state::<app_log::AppLog>() {
+        log.record(app_log::LogLevel::Warn, "vault-watch", reason, Some(path));
+    }
+}
 
 /// Manages the handwriting recogniser; its helper starts on first use, never at startup.
 fn start_ink(app: &tauri::AppHandle) {
@@ -152,29 +167,16 @@ fn start_ink(app: &tauri::AppHandle) {
 ///
 /// A folder that cannot be watched is logged; the app still runs without the watch.
 fn start_vault_watch(app: &tauri::AppHandle) {
-    use tauri::{Emitter as _, Manager as _};
+    use tauri::Manager as _;
     let slot = vault_watcher::WatchSlot::default();
     let root = app
         .try_state::<vault::VaultState>()
         .and_then(|vault| vault.lock().root());
-    if let Some(root) = root {
-        let emitter = app.clone();
-        let sink: vault_watcher::ChangeSink = Arc::new(move |paths: Vec<String>| {
-            let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
-        });
-        match vault_watcher::VaultWatcher::start(std::path::Path::new(&root.path), sink) {
-            Ok(watcher) => slot.set(Some(watcher)),
-            Err(reason) => {
-                if let Some(log) = app.try_state::<app_log::AppLog>() {
-                    log.record(
-                        app_log::LogLevel::Warn,
-                        "vault-watch",
-                        &reason,
-                        Some(&root.path),
-                    );
-                }
-            }
-        }
+    if let Some(root) = root
+        && let Err(reason) =
+            vault_choice::watch_root(&slot, std::path::Path::new(&root.path), change_sink(app))
+    {
+        log_vault_warning(app, &reason, &root.path);
     }
     let _ = app.manage(slot);
 }

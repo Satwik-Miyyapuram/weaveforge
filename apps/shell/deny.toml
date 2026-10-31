@@ -76,6 +76,7 @@ skip = [
   { crate = "foreign-types@0.3", reason = "openssl 0.10 (native-tls for reqwest, Linux) on 0.3; core-graphics (macOS) on 0.5" },
   { crate = "foreign-types-shared@0.1", reason = "foreign-types 0.3 via openssl, see above" },
   { crate = "openssl-probe@0.1", reason = "git2 0.21 on 0.1; native-tls on 0.2" },
+  { crate = "windows-sys@0.60", reason = "rfd 0.16 (folder picker of tauri-plugin-dialog) on 0.60; the rest on 0.61" },
 ]
 
 [sources]
