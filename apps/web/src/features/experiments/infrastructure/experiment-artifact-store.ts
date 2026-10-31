@@ -56,19 +56,39 @@ export class ExperimentArtifactStore {
     const signed = paths.length ? await this.blobs.signedUrls(BUCKET, paths, SIGNED_TTL_S) : [];
 
     const byPath = new Map(paths.map((path, index) => [path, signed[index] ?? null]));
-    return entries.map((entry) => (isAbsoluteUrl(entry) ? entry : (byPath.get(entry) ?? null)));
+    return entries.map((entry) =>
+      isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : (byPath.get(entry) ?? null),
+    );
   }
 }
 
+const LOCAL_ARTIFACT_PREFIX = "app://artifacts/";
+
 /** `http(s)`, or a desktop-local `app://artifacts/` upload; a bare path must not pass as a link. */
 export function isAbsoluteUrl(value: string): boolean {
-  if (value.startsWith("app://artifacts/")) return true;
+  if (value.startsWith(LOCAL_ARTIFACT_PREFIX)) return true;
   try {
     const { protocol } = new URL(value);
     return protocol === "http:" || protocol === "https:";
   } catch {
     return false;
   }
+}
+
+/** True inside the Tauri shell, which defines `__TAURI_INTERNALS__` on the page. */
+export function isTauriShell(scope: object = globalThis): boolean {
+  return "__TAURI_INTERNALS__" in scope;
+}
+
+/**
+ * The URL to render for a stored entry. The Tauri shell serves desktop-local
+ * uploads on the page's own origin under `/artifacts/`, because its webview
+ * cannot load the separate `app://artifacts` origin that Electron records.
+ */
+export function viewableArtifactUrl(entry: string, inShell: boolean = isTauriShell()): string {
+  return inShell && entry.startsWith(LOCAL_ARTIFACT_PREFIX)
+    ? `/artifacts/${entry.slice(LOCAL_ARTIFACT_PREFIX.length)}`
+    : entry;
 }
 
 /**
