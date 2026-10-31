@@ -5,8 +5,9 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 
 use weaveforge_shell::menu::{
-    BAD_TITLE_BAR_COLOR, MenuGroup, MenuHost, MenuItem, MenuItemKind, MenuRole, NOT_AVAILABLE,
-    PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, menu_invoke, menu_model,
+    BAD_TITLE_BAR_COLOR, DOCS_URL, MenuGroup, MenuHost, MenuItem, MenuItemKind, MenuRole,
+    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command,
+    menu_invoke, menu_model,
 };
 
 /// Records every native action the menu asks for, instead of doing it.
@@ -156,6 +157,27 @@ fn search_entry_calls_page_command_search() {
         item(&groups, "Go", "Search…").command.as_deref(),
         Some("search")
     );
+}
+
+#[test]
+fn edit_roles_map_to_page_edit_commands() {
+    let cases = [
+        (MenuRole::Undo, Some("edit-undo")),
+        (MenuRole::Redo, Some("edit-redo")),
+        (MenuRole::Cut, Some("edit-cut")),
+        (MenuRole::Copy, Some("edit-copy")),
+        (MenuRole::Paste, Some("edit-paste")),
+        (MenuRole::SelectAll, Some("edit-select-all")),
+        (MenuRole::Reload, None),
+    ];
+    for (role, command) in cases {
+        assert_eq!(edit_command(role), command);
+    }
+}
+
+#[test]
+fn docs_url_is_the_weaveforge_docs_site() {
+    assert_eq!(DOCS_URL, "https://www.weaveforge.org/docs/");
 }
 
 #[test]

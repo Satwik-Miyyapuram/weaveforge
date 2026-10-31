@@ -96,7 +96,7 @@ pub fn remote_status(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteS
     if !repo.is_repo() {
         return Ok(RemoteStatus {
             url: None,
-            branch: SYNC_BRANCH.to_owned(),
+            branch: repo.branch().to_owned(),
             ahead: 0,
             behind: 0,
         });
@@ -106,7 +106,7 @@ pub fn remote_status(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteS
 
 fn status_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteStatus, RepoError> {
     let r = prepare(repo, config)?;
-    let theirs = fetch(&r, config)?;
+    let theirs = fetch(&r, config, repo.branch())?;
     let head = head_oid(&r)?;
     let (ahead, behind) = match (head, theirs) {
         (Some(h), None) => (count_reachable(&r, h)?, 0),
@@ -116,7 +116,7 @@ fn status_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteStatus
     };
     Ok(RemoteStatus {
         url: Some(config.url.clone()),
-        branch: SYNC_BRANCH.to_owned(),
+        branch: repo.branch().to_owned(),
         ahead,
         behind,
     })
@@ -133,7 +133,7 @@ pub fn pull(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, Rep
 fn pull_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, RepoError> {
     let r = prepare(repo, config)?;
     commit_pending(repo)?;
-    let Some(theirs) = fetch(&r, config)? else {
+    let Some(theirs) = fetch(&r, config, repo.branch())? else {
         return Ok(PullOutcome::UpToDate);
     };
     let head = head_oid(&r)?;
@@ -156,12 +156,14 @@ fn pull_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, R
         return Ok(PullOutcome::Conflict { files: collisions });
     }
     match head {
-        Some(ours) if !r.graph_descendant_of(theirs, ours)? => merge_into_head(&r, ours, theirs),
+        Some(ours) if !r.graph_descendant_of(theirs, ours)? => {
+            merge_into_head(&r, ours, theirs, repo.branch())
+        }
         _ => fast_forward(&r, theirs),
     }
 }
 
-/// Local branch HEAD points to; the remote side is always `main`.
+/// Local branch HEAD points to; the remote side is the folder's sync branch.
 fn head_branch(r: &Repository) -> Result<String, RepoError> {
     r.find_reference("HEAD")?
         .symbolic_target()?
@@ -182,7 +184,12 @@ fn fast_forward(r: &Repository, theirs: Oid) -> Result<PullOutcome, RepoError> {
     })
 }
 
-fn merge_into_head(r: &Repository, ours: Oid, theirs: Oid) -> Result<PullOutcome, RepoError> {
+fn merge_into_head(
+    r: &Repository,
+    ours: Oid,
+    theirs: Oid,
+    branch: &str,
+) -> Result<PullOutcome, RepoError> {
     let our_commit = r.find_commit(ours)?;
     let their_commit = r.find_commit(theirs)?;
     let mut index = r.merge_commits(&our_commit, &their_commit, None)?;
@@ -201,7 +208,7 @@ fn merge_into_head(r: &Repository, ours: Oid, theirs: Oid) -> Result<PullOutcome
         Some("HEAD"),
         &sig,
         &sig,
-        "Merge main from the remote",
+        &format!("Merge {branch} from the remote"),
         &tree,
         &[&our_commit, &their_commit],
     )?;
@@ -224,7 +231,7 @@ fn push_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PushOutcome, R
     let Some(head) = head_oid(&r)? else {
         return Ok(PushOutcome::UpToDate);
     };
-    let theirs = fetch(&r, config)?;
+    let theirs = fetch(&r, config, repo.branch())?;
     if let Some(t) = theirs
         && (t == head || r.graph_descendant_of(t, head)?)
     {
@@ -237,10 +244,10 @@ fn push_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PushOutcome, R
             reason: PULL_FIRST.to_owned(),
         });
     }
-    send(&r, config)
+    send(&r, config, repo.branch())
 }
 
-fn send(r: &Repository, config: &RemoteConfig) -> Result<PushOutcome, RepoError> {
+fn send(r: &Repository, config: &RemoteConfig, branch: &str) -> Result<PushOutcome, RepoError> {
     let refused = RefCell::new(None::<String>);
     let mut callbacks = callbacks(config);
     let _ = callbacks.push_update_reference(|_name, status| {
@@ -253,7 +260,7 @@ fn send(r: &Repository, config: &RemoteConfig) -> Result<PushOutcome, RepoError>
     let _ = options.remote_callbacks(callbacks);
     let _ = options.follow_redirects(RemoteRedirect::None);
     let mut remote = r.find_remote(SYNC_REMOTE)?;
-    let refspec = format!("{}:refs/heads/main", head_branch(r)?);
+    let refspec = format!("{}:refs/heads/{branch}", head_branch(r)?);
     let pushed = remote.push(&[refspec.as_str()], Some(&mut options));
     let refusal = refused.borrow().clone();
     if let Some(reason) = refusal {
@@ -396,11 +403,11 @@ fn prepare(repo: &FolderRepo, config: &RemoteConfig) -> Result<Repository, RepoE
     if !repo.is_repo() {
         repo.init()?;
     }
-    let r = Repository::open(repo.root())?;
+    let r = repo.open()?;
     if let Err(error) = r.head()
         && error.code() == ErrorCode::UnbornBranch
     {
-        r.set_head(&format!("refs/heads/{SYNC_BRANCH}"))?;
+        r.set_head(&format!("refs/heads/{}", repo.branch()))?;
     }
     write_excludes(&r)?;
     match r.find_remote(SYNC_REMOTE) {
@@ -444,17 +451,17 @@ fn callbacks<'a>(config: &RemoteConfig) -> RemoteCallbacks<'a> {
     callbacks
 }
 
-/// Fetches the remote's `main`; `None` when the remote has no `main` yet.
-fn fetch(r: &Repository, config: &RemoteConfig) -> Result<Option<Oid>, RepoError> {
+/// Fetches the remote's sync branch; `None` when the remote has no such branch yet.
+fn fetch(r: &Repository, config: &RemoteConfig, branch: &str) -> Result<Option<Oid>, RepoError> {
     let mut remote = r.find_remote(SYNC_REMOTE)?;
     let mut options = FetchOptions::new();
     let _ = options.remote_callbacks(callbacks(config));
     let _ = options
         .download_tags(AutotagOption::None)
         .follow_redirects(RemoteRedirect::None);
-    let refspec = format!("+refs/heads/{SYNC_BRANCH}:refs/remotes/{SYNC_REMOTE}/{SYNC_BRANCH}");
+    let refspec = format!("+refs/heads/{branch}:refs/remotes/{SYNC_REMOTE}/{branch}");
     remote.fetch(&[refspec.as_str()], Some(&mut options), None)?;
-    match r.find_reference(&format!("refs/remotes/{SYNC_REMOTE}/{SYNC_BRANCH}")) {
+    match r.find_reference(&format!("refs/remotes/{SYNC_REMOTE}/{branch}")) {
         Ok(reference) => Ok(reference.target()),
         Err(error) if error.code() == ErrorCode::NotFound => Ok(None),
         Err(error) => Err(error.into()),

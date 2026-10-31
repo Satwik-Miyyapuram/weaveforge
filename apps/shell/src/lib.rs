@@ -1,13 +1,15 @@
 //! WeaveForge desktop shell on Tauri 2.
 //!
 //! Serves the static web export over the `app` scheme and starts the local database sidecar behind the
-//! typed DB commands. The `window.weaveforge` shim is not injected yet, so the UI still runs in browser mode.
+//! typed DB commands. The main window gets the `window.weaveforge` bridge as an init script (`shim`),
+//! and the sign-in redirect comes back through the loopback listener (`auth_loopback`).
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod app_log;
 pub mod app_route;
+pub mod auth_loopback;
 pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
@@ -31,6 +33,7 @@ pub mod protocol;
 pub mod range;
 pub mod relay;
 pub mod secrets;
+pub mod shim;
 pub mod sidecar;
 pub mod tex;
 pub mod update_check;
@@ -71,6 +74,8 @@ pub fn run() -> tauri::Result<()> {
             start_vault_watch(app.handle());
             start_routes(app.handle());
             start_local_db(app.handle());
+            open_main_window(app.handle())?;
+            start_sign_in(app.handle());
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol(
@@ -308,6 +313,143 @@ fn start_routes(app: &tauri::AppHandle) {
         relay_config: relay::route::RelayConfig::production(),
     };
     let _ = app.manage(routes);
+}
+
+/// The label of the one app window, as `tauri.conf.json` names it.
+const MAIN_WINDOW: &str = "main";
+
+/// Opens the main window from its `tauri.conf.json` entry (`create: false`), with the bridge as its init script.
+/// The window stays on the app's own pages: other http(s) links and popups open in the OS browser, as in Electron.
+fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let Some(config) = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == MAIN_WINDOW)
+    else {
+        log_warn(
+            app,
+            "shell",
+            "tauri.conf.json has no main window",
+            MAIN_WINDOW,
+        );
+        return Err(tauri::Error::WindowNotFound);
+    };
+    let script = shim::init_script(
+        &app.package_info().version.to_string(),
+        std::env::consts::OS,
+    );
+    let nav_app = app.clone();
+    let popup_app = app.clone();
+    tauri::WebviewWindowBuilder::from_config(app, config)?
+        .initialization_script(script)
+        .on_navigation(move |url| {
+            let stays = shim::main_window_keeps(url);
+            if !stays {
+                open_outside(&nav_app, url);
+            }
+            stays
+        })
+        .on_new_window(move |url, _features| {
+            if shim::is_app_blob(&url) {
+                // A file the app made, such as a compiled PDF: show it in its own window.
+                return tauri::webview::NewWindowResponse::Allow;
+            }
+            open_outside(&popup_app, &url);
+            tauri::webview::NewWindowResponse::Deny
+        })
+        .build()
+        .inspect_err(|error| {
+            log_warn(
+                app,
+                "shell",
+                "The main window did not open",
+                &error.to_string(),
+            );
+        })
+        .map(|_| ())
+}
+
+/// Opens a public http(s) address in the OS browser, by the same URL-shape rule as Electron's
+/// `mayOpenExternally`. Anything else (credentials, odd ports, local hosts, other schemes) is dropped
+/// and logged, as is a failure to open.
+fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
+    use tauri_plugin_opener::OpenerExt as _;
+    if let Err(rejection) = fetch::url_shape::check_url_shape(url) {
+        log_warn(
+            app,
+            "shell",
+            "A link was not opened",
+            &format!("{rejection:?} ({})", url.scheme()),
+        );
+        return;
+    }
+    if let Err(error) = app.opener().open_url(url.as_str(), None::<&str>) {
+        log_warn(
+            app,
+            "shell",
+            "A link could not open in the browser",
+            &error.to_string(),
+        );
+    }
+}
+
+/// Listens for the sign-in redirect; a taken port is logged and sign-in falls back to pasting the link.
+fn start_sign_in(app: &tauri::AppHandle) {
+    let app = app.clone();
+    let _task = tauri::async_runtime::spawn(async move {
+        match auth_loopback::bind().await {
+            Ok(listener) => {
+                let handle = app.clone();
+                auth_loopback::serve(listener, move |query| deliver_sign_in(&handle, query)).await;
+            }
+            Err(error) => log_warn(
+                &app,
+                "sign-in",
+                "The sign-in listener did not start",
+                &error.to_string(),
+            ),
+        }
+    });
+}
+
+/// Hands a sign-in query to the page and brings the window forward, as Electron did.
+/// A closed main window is reopened first.
+fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
+    use tauri::{Emitter as _, Manager as _};
+    if app.get_webview_window(MAIN_WINDOW).is_none() && open_main_window(app).is_err() {
+        return;
+    }
+    if let Err(error) = app.emit_to(MAIN_WINDOW, auth_loopback::SIGN_IN_EVENT, query) {
+        log_warn(
+            app,
+            "sign-in",
+            "The sign-in did not reach the page",
+            &error.to_string(),
+        );
+    }
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW)
+        && let Err(error) = window
+            .unminimize()
+            .and_then(|()| window.show())
+            .and_then(|()| window.set_focus())
+    {
+        log_warn(
+            app,
+            "sign-in",
+            "The window could not come forward",
+            &error.to_string(),
+        );
+    }
+}
+
+/// Records a warning in the app log, when the log is up.
+fn log_warn(app: &tauri::AppHandle, source: &str, message: &str, detail: &str) {
+    use tauri::Manager as _;
+    if let Some(log) = app.try_state::<app_log::AppLog>() {
+        log.record(app_log::LogLevel::Warn, source, message, Some(detail));
+    }
 }
 
 /// Turns an answer into the window's response; a bad header becomes a bare 500.
