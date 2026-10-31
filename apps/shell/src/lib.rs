@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 pub mod app_log;
 pub mod app_route;
+pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
@@ -34,6 +35,7 @@ pub mod vault;
 pub mod vault_search;
 pub mod vault_sync;
 pub mod vault_watch;
+pub mod vault_watcher;
 pub mod zotero_local;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
@@ -59,6 +61,8 @@ pub fn run() -> tauri::Result<()> {
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
+            start_ink(app.handle());
+            start_vault_watch(app.handle());
             start_routes(app.handle());
             start_local_db(app.handle());
             Ok(())
@@ -86,6 +90,7 @@ pub fn run() -> tauri::Result<()> {
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
             stop_local_db(handle);
+            stop_helpers(handle);
         }
     });
     Ok(())
@@ -116,6 +121,73 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
+}
+
+/// The event that carries folder-relative paths changed by other programs to the page.
+pub const VAULT_CHANGED_EVENT: &str = "vault-changed";
+
+/// Manages the handwriting recogniser; its helper starts on first use, never at startup.
+fn start_ink(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    // No resource folder means no helper: never fall back to the working directory.
+    let executable = app.path().resource_dir().ok().and_then(|resources| {
+        ink::ink_recogniser_path(std::env::consts::OS, std::env::consts::ARCH, &resources)
+    });
+    let log_app = app.clone();
+    let on_diagnostic = Arc::new(move |line: &str| {
+        if let Some(log) = log_app.try_state::<app_log::AppLog>() {
+            log.record(app_log::LogLevel::Warn, "ink", line, None);
+        }
+    });
+    let _ = app.manage(ink::InkRecogniser::new(ink::InkOptions {
+        executable,
+        spawner: ink::process_spawner(),
+        timeout: ink::REQUEST_TIMEOUT,
+        ready_timeout: ink::READY_TIMEOUT,
+        on_diagnostic,
+    }));
+}
+
+/// Watches the remembered workspace folder so edits made in other programs reach the page.
+///
+/// A folder that cannot be watched is logged; the app still runs without the watch.
+fn start_vault_watch(app: &tauri::AppHandle) {
+    use tauri::{Emitter as _, Manager as _};
+    let slot = vault_watcher::WatchSlot::default();
+    let root = app
+        .try_state::<vault::VaultState>()
+        .and_then(|vault| vault.lock().root());
+    if let Some(root) = root {
+        let emitter = app.clone();
+        let sink: vault_watcher::ChangeSink = Arc::new(move |paths: Vec<String>| {
+            let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+        });
+        match vault_watcher::VaultWatcher::start(std::path::Path::new(&root.path), sink) {
+            Ok(watcher) => slot.set(Some(watcher)),
+            Err(reason) => {
+                if let Some(log) = app.try_state::<app_log::AppLog>() {
+                    log.record(
+                        app_log::LogLevel::Warn,
+                        "vault-watch",
+                        &reason,
+                        Some(&root.path),
+                    );
+                }
+            }
+        }
+    }
+    let _ = app.manage(slot);
+}
+
+/// Stops the folder watch and the handwriting helper before the process exits.
+fn stop_helpers(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(slot) = app.try_state::<vault_watcher::WatchSlot>() {
+        slot.set(None);
+    }
+    if let Some(ink) = app.try_state::<ink::InkRecogniser>() {
+        ink.dispose();
+    }
 }
 
 /// This platform's keychain, or `None` when it cannot be opened.

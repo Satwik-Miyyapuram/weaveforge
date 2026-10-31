@@ -3,6 +3,9 @@ import type {
   DesktopBridge,
   DesktopCommit,
   DesktopCommitResult,
+  DesktopInkHaptics,
+  DesktopInkResult,
+  DesktopOverleafSource,
   DesktopPreferenceName,
   DesktopPreferenceValue,
   DesktopSecretName,
@@ -31,6 +34,26 @@ type Result<T> =
 type WireTexResult = Omit<DesktopTexCompileResult, "pdf"> & {
   pdf: string | null;
 };
+
+/** A recognise answer as it crosses the bridge: Rust floats arrive as null when not finite. */
+type WireInkResult = Omit<DesktopInkResult, "lines" | "ms"> & {
+  ms: number | null;
+  lines: (Omit<DesktopInkResult["lines"][number], "confidence"> & {
+    confidence: number | null;
+  })[];
+};
+
+/** The page's recognise answer; a missing confidence or time reads as 0. */
+function toInkResult(wire: WireInkResult): DesktopInkResult {
+  return {
+    ...wire,
+    ms: wire.ms ?? 0,
+    lines: wire.lines.map((line) => ({
+      ...line,
+      confidence: line.confidence ?? 0,
+    })),
+  };
+}
 
 /** The generated commands this part of the shim calls (names as tauri-specta camelCases them). */
 export interface DesktopCommands {
@@ -70,11 +93,54 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
+  overleafRead(
+    projectId: string,
+    entryFile: string,
+  ): Promise<Result<DesktopOverleafSource>>;
+  overleafSync(
+    action: string,
+    projectId: string | null,
+    folder: string | null,
+  ): Promise<
+    Result<{ links: { projectId: string; folder: string }[]; hasToken: boolean }>
+  >;
+  mattermostSignIn(serverUrl: string): Promise<Result<string | null>>;
+  mattermostPost(post: {
+    serverUrl: string;
+    token: string;
+    channelId: string;
+    message: string;
+  }): Promise<Result<{ status: number; body: string }>>;
+  inkAvailable(): Promise<Result<boolean>>;
+  inkRecognise(request: {
+    lines: { strokes: number[][] }[];
+    vocabulary: string[] | null;
+    lang: string | null;
+  }): Promise<Result<WireInkResult>>;
+  inkHapticsAvailable(): Promise<Result<boolean>>;
+  inkHaptics(message: DesktopInkHaptics): Promise<Result<null>>;
 }
+
+/** Subscribes to a shell event; resolves to the way to stop listening. */
+export interface DesktopEvents {
+  listen(event: string, handler: (payload: unknown) => void): Promise<() => void>;
+}
+
+/** The event the shell emits with folder-relative paths changed by other programs. */
+export const VAULT_CHANGED_EVENT = "vault-changed";
 
 /** The desktop members this shim provides, as `window.weaveforge` expects them. */
 export type DesktopShim = Pick<
   DesktopBridge,
+  | "onVaultChange"
+  | "inkAvailable"
+  | "inkHapticsAvailable"
+  | "inkRecognise"
+  | "inkHaptics"
+  | "mattermostSignIn"
+  | "mattermostPost"
+  | "readOverleafProject"
+  | "overleafSync"
   | "vaultRoot"
   | "readVaultFile"
   | "writeVaultFile"
@@ -101,8 +167,85 @@ export type DesktopShim = Pick<
 >;
 
 /** Wraps the generated commands as the desktop members of `DesktopBridge`. */
-export function desktopShim(cmds: DesktopCommands): DesktopShim {
+export function desktopShim(
+  cmds: DesktopCommands,
+  events: DesktopEvents,
+): DesktopShim {
   return {
+    // A stop before `listen` resolves must still unlisten, or the watch leaks.
+    onVaultChange: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | null = null;
+      void events
+        .listen(VAULT_CHANGED_EVENT, (payload) => {
+          if (stopped || !Array.isArray(payload)) return;
+          const paths = payload.filter((p): p is string => typeof p === "string");
+          if (paths.length > 0) cb(paths);
+        })
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("Outside changes to the workspace folder will not show up live:", error);
+        });
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        unlisten?.();
+        unlisten = null;
+      };
+    },
+    inkAvailable: async () => {
+      try {
+        return unwrap(await cmds.inkAvailable());
+      } catch {
+        return false;
+      }
+    },
+    inkHapticsAvailable: async () => {
+      try {
+        return unwrap(await cmds.inkHapticsAvailable());
+      } catch {
+        return false;
+      }
+    },
+    inkRecognise: async (request) =>
+      toInkResult(
+        unwrap(
+          await cmds.inkRecognise({
+            lines: request.lines.map((l) => ({ strokes: l.strokes })),
+            vocabulary: request.vocabulary ?? null,
+            lang: request.lang ?? null,
+          }),
+        ),
+      ),
+    // Haptics are fire and forget, so a failed send is dropped like a failed log.
+    inkHaptics: (message) => {
+      void cmds
+        .inkHaptics(message)
+        .then((reply) => unwrap(reply))
+        .catch(() => {});
+    },
+    mattermostSignIn: async (serverUrl) =>
+      unwrap(await cmds.mattermostSignIn(serverUrl)),
+    mattermostPost: async (req) =>
+      unwrap(
+        await cmds.mattermostPost({
+          serverUrl: req.serverUrl,
+          token: req.token,
+          channelId: req.channelId,
+          message: req.message,
+        }),
+      ),
+    readOverleafProject: async (projectId, entryFile) =>
+      unwrap(await cmds.overleafRead(projectId, entryFile)),
+    overleafSync: async (request) => {
+      const projectId = request.action === "list" ? null : request.projectId;
+      const folder =
+        request.action === "link" ? (request.folder ?? null) : null;
+      return unwrap(await cmds.overleafSync(request.action, projectId, folder));
+    },
     vaultRoot: async () => unwrap(await cmds.vaultRoot()),
     readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
     writeVaultFile: async (path, contents) => {

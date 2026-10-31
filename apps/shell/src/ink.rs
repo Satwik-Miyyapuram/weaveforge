@@ -16,6 +16,9 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWrite
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{mpsc, oneshot, watch};
 
+/// Lines waiting for the helper; pen updates beyond this are dropped, not queued.
+const OUTBOX_CAPACITY: usize = 256;
+
 /// Per-request answer timeout.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// How long the helper has to print its ready line.
@@ -29,6 +32,8 @@ pub const INK_NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not a
 pub const INK_TIMED_OUT: &str = "The handwriting recogniser did not answer in time.";
 /// Error text when the helper exits before answering.
 pub const INK_STOPPED: &str = "The handwriting recogniser stopped before answering.";
+/// Error text when the helper is too far behind to take another request.
+pub const INK_BUSY: &str = "The handwriting recogniser is busy. Try again in a moment.";
 /// Error text for requests cut off by `dispose`.
 pub const INK_DISPOSED: &str = "The handwriting recogniser was stopped.";
 /// Error text when the helper reports failure without a message.
@@ -76,10 +81,15 @@ pub struct InkRecognitionRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct InkRecognitionWord {
-    /// Word text.
-    pub text: String,
-    /// Engine confidence, 0 to 1.
-    pub confidence: f64,
+    /// Readings of the word, best first.
+    #[serde(default)]
+    pub candidates: Vec<String>,
+    /// Per candidate, whether it is in the vocabulary; null when not given.
+    #[serde(default)]
+    pub known: Option<Vec<bool>>,
+    /// Joins with the next word; null when not given.
+    #[serde(default)]
+    pub join: Option<String>,
 }
 
 /// One recognised line.
@@ -90,6 +100,9 @@ pub struct InkRecognitionLine {
     pub text: String,
     /// Engine confidence, 0 to 1.
     pub confidence: f64,
+    /// Other readings of the whole line, best first; empty when none.
+    #[serde(default)]
+    pub alternatives: Vec<String>,
     /// Words in the line; empty when the engine gives none.
     #[serde(default)]
     pub words: Vec<InkRecognitionWord>,
@@ -117,16 +130,14 @@ fn default_engine() -> String {
 
 /// Pen state forwarded to the helper for haptic feedback.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum InkHapticsMessage {
     /// The active pen tool changed.
-    #[serde(rename = "haptics-tool")]
     Tool {
         /// Tool name.
         tool: String,
     },
     /// A pen sample.
-    #[serde(rename = "haptics-update")]
     Update {
         /// Normalised pen pressure.
         pressure: f64,
@@ -134,8 +145,29 @@ pub enum InkHapticsMessage {
         velocity: f64,
     },
     /// The pen left the surface.
-    #[serde(rename = "haptics-stop")]
     Stop,
+}
+
+/// Longest tool name sent to the helper, in characters, as the Electron client does.
+const HAPTICS_TOOL_MAX_CHARS: usize = 32;
+
+/// The helper's line for a page's pen message; `None` when a number cannot be written.
+fn haptics_line(message: &InkHapticsMessage) -> Option<String> {
+    match message {
+        InkHapticsMessage::Tool { tool } => {
+            let tool: String = tool.chars().take(HAPTICS_TOOL_MAX_CHARS).collect();
+            Some(format!(
+                r#"{{"type":"haptics-tool","tool":{}}}"#,
+                serde_json::to_string(&tool).ok()?
+            ))
+        }
+        InkHapticsMessage::Update { pressure, velocity } => Some(format!(
+            r#"{{"type":"haptics-update","pressure":{},"velocity":{}}}"#,
+            serde_json::to_string(pressure).ok()?,
+            serde_json::to_string(velocity).ok()?
+        )),
+        InkHapticsMessage::Stop => Some(r#"{"type":"haptics-stop"}"#.to_owned()),
+    }
 }
 
 /// Builds a request from untrusted JSON; `None` when the shape is wrong.
@@ -304,7 +336,7 @@ struct Shared {
 
 struct Session {
     shared: Arc<Shared>,
-    outbox: mpsc::UnboundedSender<String>,
+    outbox: mpsc::Sender<String>,
 }
 
 #[derive(Default)]
@@ -380,7 +412,11 @@ impl InkRecogniser {
         if lock(&session.shared.state).haptics != Some(true) {
             return;
         }
-        if let Ok(line) = serde_json::to_string(message) {
+        // Haptics are best effort: keep half the queue free for recognise requests.
+        if session.outbox.capacity() < OUTBOX_CAPACITY / 2 {
+            return;
+        }
+        if let Some(line) = haptics_line(message) {
             let _ = session.send(line);
         }
     }
@@ -497,7 +533,12 @@ impl InkRecogniser {
         }
         if !session.send(body.to_string()) {
             let _ = lock(&session.shared.state).pending.remove(&id);
-            return Err(INK_STOPPED.to_owned());
+            let reason = if session.outbox.is_closed() {
+                INK_STOPPED
+            } else {
+                INK_BUSY
+            };
+            return Err(reason.to_owned());
         }
         match tokio::time::timeout(self.timeout, reply).await {
             Ok(Ok(outcome)) => outcome,
@@ -517,7 +558,7 @@ impl Session {
         diagnostic: Diagnostic,
     ) -> Arc<Self> {
         let shared = Arc::new(Shared::new());
-        let (outbox, lines) = mpsc::unbounded_channel();
+        let (outbox, lines) = mpsc::channel(OUTBOX_CAPACITY);
         let _writer = tokio::spawn(write_lines(writer, lines));
         let _reader = tokio::spawn(read_replies(Arc::clone(&shared), reader, diagnostic));
         Arc::new(Self { shared, outbox })
@@ -525,7 +566,8 @@ impl Session {
 
     fn send(&self, mut line: String) -> bool {
         line.push('\n');
-        self.outbox.send(line).is_ok()
+        // Full means the helper stopped reading: drop rather than grow without limit.
+        self.outbox.try_send(line).is_ok()
     }
 }
 
@@ -590,7 +632,7 @@ impl Shared {
 /// Writes queued lines in order, so haptics and requests keep their sequence.
 async fn write_lines(
     mut writer: Box<dyn AsyncWrite + Send + Unpin>,
-    mut lines: mpsc::UnboundedReceiver<String>,
+    mut lines: mpsc::Receiver<String>,
 ) {
     while let Some(line) = lines.recv().await {
         if writer.write_all(line.as_bytes()).await.is_err() || writer.flush().await.is_err() {

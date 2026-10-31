@@ -1,23 +1,67 @@
 //! Batches folder-watcher reports and drops the app's own writes; the caller drives time.
+//! A report is our own write only while the file still holds the bytes we wrote.
 
 use std::collections::{BTreeSet, HashMap};
+use std::hash::{DefaultHasher, Hasher};
+use std::io::{self, Read};
 use std::time::{Duration, Instant};
 
-/// Long enough to cover a write and its own echo, short enough to feel live.
-pub const SELF_WRITE_WINDOW: Duration = Duration::from_millis(2_000);
+/// A digest of file contents, enough to tell the app's own write from someone else's.
+///
+/// A 64-bit non-cryptographic hash, stable within one process run: fine for matching
+/// an echo, never for checking integrity.
+pub type Digest = u64;
+
+/// The digest of `bytes`. Stable within one process run, which is all the watch needs.
+#[must_use]
+pub fn content_digest(bytes: &[u8]) -> Digest {
+    let mut hasher = DefaultHasher::new();
+    hasher.write(bytes);
+    hasher.finish()
+}
+
+/// The digest of everything `reader` yields, read in chunks; equals `content_digest`
+/// of the same bytes.
+/// # Errors
+/// A read error from `reader`.
+pub fn digest_reader(reader: &mut impl Read) -> io::Result<Digest> {
+    let mut hasher = DefaultHasher::new();
+    let mut chunk = vec![0u8; 64 * 1024];
+    loop {
+        let read = reader.read(&mut chunk)?;
+        let Some(bytes) = chunk.get(..read) else {
+            return Ok(hasher.finish());
+        };
+        if bytes.is_empty() {
+            return Ok(hasher.finish());
+        }
+        hasher.write(bytes);
+    }
+}
+
+/// Covers a slow write (a big folder reconnecting) and its echo; the content check
+/// decides what counts as an echo, so this only bounds how long we keep the entry.
+pub const SELF_WRITE_WINDOW: Duration = Duration::from_millis(10_000);
 
 /// Long enough for an editor to finish saving, short enough to feel live.
 pub const QUIET: Duration = Duration::from_millis(400);
+
+/// The longest a change waits: a file written without pause must not hold back the rest.
+pub const MAX_WAIT: Duration = Duration::from_millis(2_000);
 
 /// Collects watcher reports and releases them as one batch once things go quiet.
 pub struct VaultWatch {
     normalize: Box<dyn Fn(&str) -> String + Send>,
     quiet: Duration,
     self_write_window: Duration,
-    /// Normalized path -> when this process last wrote it.
-    mine: HashMap<String, Instant>,
+    /// Normalized path -> this process's newest write to it: when, and the digest of what
+    /// it wrote (None for a delete). Older saves are not kept: their bytes coming back
+    /// may be someone restoring them.
+    mine: HashMap<String, (Instant, Option<Digest>)>,
     pending: BTreeSet<String>,
     deadline: Option<Instant>,
+    /// When the oldest pending path arrived; bounds the wait by `MAX_WAIT`.
+    first_pending: Option<Instant>,
 }
 
 impl VaultWatch {
@@ -35,34 +79,63 @@ impl VaultWatch {
             mine: HashMap::new(),
             pending: BTreeSet::new(),
             deadline: None,
+            first_pending: None,
         }
     }
 
-    /// This process wrote `path` at `now`; its echo is not news.
-    pub fn note_self_write(&mut self, path: &str, now: Instant) {
+    /// This process wrote `path` at `now` with bytes `digest`; their echo is not news.
+    pub fn note_self_write(&mut self, path: &str, digest: Digest, now: Instant) {
+        self.note(path, Some(digest), now);
+    }
+
+    /// This process deleted `path` at `now`; the report that it is gone is not news.
+    pub fn note_self_remove(&mut self, path: &str, now: Instant) {
+        self.note(path, None, now);
+    }
+
+    /// Whether a report for `path` could be our own echo, so its contents are worth reading.
+    #[must_use]
+    pub fn expects(&self, path: &str) -> bool {
+        self.mine.contains_key(&(self.normalize)(path))
+    }
+
+    fn note(&mut self, path: &str, digest: Option<Digest>, now: Instant) {
         let key = (self.normalize)(path);
-        let _ = self.mine.insert(key, now);
+        let _ = self.mine.insert(key, (now, digest));
         // Swept here: the map only grows while the app is writing.
         let window = self.self_write_window;
         self.mine
-            .retain(|_, when| now.saturating_duration_since(*when) <= window);
+            .retain(|_, (when, _)| now.saturating_duration_since(*when) <= window);
     }
 
-    /// The filesystem reported `path` at `now`.
-    pub fn saw(&mut self, path: &str, now: Instant) {
+    /// The filesystem reported `path` at `now`; `current` is its digest, None if gone.
+    pub fn saw(&mut self, path: &str, current: Option<Digest>, now: Instant) {
         let key = (self.normalize)(path);
         let window = self.self_write_window;
-        let echo = self
-            .mine
-            .get(&key)
-            .is_some_and(|written| now.saturating_duration_since(*written) <= window);
+        // Only our newest save: bytes of an older one may be someone restoring it. A late
+        // event showing an older save just waits; the newest save's own event cancels it.
+        let echo = self.mine.get(&key).is_some_and(|(written, digest)| {
+            now.saturating_duration_since(*written) <= window && current == *digest
+        });
         if echo {
-            // Forgotten once, so a second change moments later is still reported.
-            let _ = self.mine.remove(&key);
+            // Kept, not removed: one save often arrives as several events. The file
+            // holds our bytes now, so an earlier view of it (half written) is not news.
+            let _ = self.pending.remove(&key);
+            if self.pending.is_empty() {
+                self.deadline = None;
+                self.first_pending = None;
+            }
             return;
         }
+        // Not forgotten yet: a big save is first seen half written. Once reported
+        // (`flush`), the path is no longer ours.
+        self.mark_pending(key, now);
+    }
+
+    fn mark_pending(&mut self, key: String, now: Instant) {
         let _ = self.pending.insert(key);
-        self.deadline = Some(now + self.quiet);
+        let first = *self.first_pending.get_or_insert(now);
+        self.deadline = Some((now + self.quiet).min(first + MAX_WAIT));
     }
 
     /// When the caller should next call `flush`, or None when nothing is pending.
@@ -78,7 +151,21 @@ impl VaultWatch {
             return Vec::new();
         }
         self.deadline = None;
-        std::mem::take(&mut self.pending).into_iter().collect()
+        self.first_pending = None;
+        let reported: Vec<String> = std::mem::take(&mut self.pending).into_iter().collect();
+        for key in &reported {
+            let _ = self.mine.remove(key);
+        }
+        reported
+    }
+
+    /// The filesystem reported `path`, but its contents could not be read (too big, not a
+    /// file, no access). Reported unless a later event shows our newest bytes.
+    pub fn saw_unreadable(&mut self, path: &str, now: Instant) {
+        // Our saves are kept: a file held open a moment (antivirus, sync) is unreadable
+        // once, and a later event with our bytes still cancels the report.
+        let key = (self.normalize)(path);
+        self.mark_pending(key, now);
     }
 
     /// Drops anything pending and forgets all self-writes.
@@ -86,5 +173,6 @@ impl VaultWatch {
         self.pending.clear();
         self.mine.clear();
         self.deadline = None;
+        self.first_pending = None;
     }
 }

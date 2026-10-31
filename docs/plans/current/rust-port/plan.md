@@ -384,6 +384,52 @@ Doing these now in TS is wasted work, so they wait for the port to land on main.
 - **Import papers from a `.bib` file** (user request 2026-10-31): pick a BibTeX file and add each entry to the papers library (title, authors, year, venue, DOI, URL, citation key, abstract), skipping duplicates by DOI or citation key and reporting the skipped and broken entries. Reuse or extend `packages/core/src/features/report/domain/bib-entries.ts`; the parser goes in Rust (`wf-core`), since the port is done by then. Tests first with real exports (Zotero, Mendeley, Google Scholar, Paperpile).
 - **Paperpile import** (user request 2026-10-31): Paperpile has no public API; it exports BibTeX and can keep a `.bib` synced to Google Drive. So it is the `.bib` import plus a "From Paperpile" entry that explains the export, and optionally re-importing a chosen synced `.bib` file. Ask the user before adding any Google Drive access.
 
+### Found during the port (reviewers, look-back reviews, user reports)
+
+Reviewers check every diff against `qol-rubric.md`; the number in brackets is the rubric item. `[bug]` items that the port itself must fix are scheduled in a phase and marked so; the rest wait for this section.
+
+**Bugs**
+
+- **Note edit then status change is lost** (user report 2026-10-31, rubric 2, 9). `UpdatePaperUseCase.mutate` (`packages/core/src/features/papers/application/update-paper.use-case.ts:131-143`) reads, changes and saves the whole row with no version check, and `PostgrestPaperRepository.save` upserts every column including `status`. A summary save that started before a status change writes the old status back. Test first in `packages/core/test/features/papers/update-paper.usecase.test.ts` with a gated fake repo: start `setSummary`, park it at `getById`, run `setStatus("read")`, release, assert both the status and the summary survive. Fix: write only changed fields, or a conditional update as `replaceSummary` does. Also check the stale snapshot via `onReplace` (`papers-list.tsx:199-206`) and the offline queue replaying full rows.
+- **Vault files edited outside WeaveForge are not picked up** (user report, rubric 6). In Tauri `vault_watch.rs` has no caller, no `notify` dependency and no event to the page, so nothing reloads. The echo filter (`vault_watch.rs:52-66`) is path plus a 2 s window, so a real edit right after an app save is dropped. Scheduled in batch 2.12e: wire the watcher, compare content hash or mtime, reload a clean open note in place, offer keep-mine / take-theirs / merge for a dirty one. No click needed.
+- **Blind vault writes** (`vault.rs:200-216`, rubric 2, 3) can overwrite an external edit made since the note was read. Check hash or mtime before writing (2.12e).
+- **Pull conflicts are only a sentence** (`vault_sync.rs:253-293`, `folder-remote-sync-panel.tsx:65-69`, `git-remote.ts:108-109`; rubric 1, 10). No keep-mine, take-remote or keep-both, the remote copy is unreachable, and the same conflict repeats every sync. `folder-remote-sync.ts:14-15` wrongly says the watcher imports pulled files.
+- **A failed update check reads "up to date"** (`desktop-update-panel.tsx:117`, `update_check.rs:101-135`; rubric 13). Return an error and say "Could not check for updates. Try again."
+- **Main-thread reindex on every write** (`workspace-search.ts:234,247`; rubric 26). One note or paper save re-projects, rebuilds the wiki graph and re-tokenizes every note. Likely over 100 ms at 10k notes; measure on the large fixture and make it incremental.
+- **Joiner gets 502 when the leader's model store fails** (`model_cache.rs`). Fall back to its own download.
+
+**Missing reach or wiring**
+
+- `vault_search` is not registered in `commands.rs` and has no web caller; it re-reads every note per query (`vault_search.rs:60-80`; rubric 20-22, 26).
+- Bridge gaps in `apps/shell/bridge/desktop.ts`: Mattermost sign-in and post, Overleaf sync and read (`overleaf_links.rs:155` is a stub), vault search, preference read (rubric 24).
+- `write_local_artifact` has no production caller (rubric 22). Wire it to the SDK upload path or remove it.
+- Command palette lacks Check for updates, Documentation, workspace folder actions, Show in file explorer and Keyboard shortcuts; rows show no shortcut hint (`jump-to-palette.tsx`; rubric 20). Help menu has no Keyboard shortcuts entry (`menu.rs:286-296`).
+- Plan widget toggle, ink-unavailable reason and haptics setting need menu, palette and settings entries (rubric 20, 21).
+- No UI lists, sizes or clears the artifact store, model cache or logs (rubric 22, 33).
+
+**Feedback and progress**
+
+- TeX compile runs up to 300 s with no progress or Cancel (`tex.rs:449`, `project-checks.tsx:96-118`; rubric 11). Add a cancel command (kill on drop) and elapsed time.
+- PDF library indexing passes no AbortSignal and has no Cancel (`library-pdf-indexing.tsx:77`; rubric 11). A 2,000-paper run takes about 100 min. Status shows only in Settings (rubric 7).
+- Model download shows no progress or Cancel, loads whole files into RAM per joiner (up to 512 MiB) and restarts instead of resuming from `.part` (`model_cache.rs:200,240`; rubric 11, 28). No size limit on the models folder.
+- Raw OS and reqwest text reaches users: `fetch/safe.rs:295-311`, `sidecar.rs:324,384`, the TeX spawn error (`tex.rs:427-449`), `update_check.rs` codes (rubric 13). Plain words, detail to the log.
+- `INK_NOT_AVAILABLE` gives no next step (`ink.rs:27,343`); say where to turn handwriting on. Ink availability is cached as false for the session (`recognisers.ts:65-70`); re-probe (rubric 10). Helper ready line without a version is not logged and its stderr is dropped (`ink.rs:640`).
+- Sync status has no live region (`folder-remote-sync-panel.tsx:107`; rubric 15). Pull-first takes two clicks (rubric 16, 19). The search worker falls back silently (`workspace-search.ts:162`; rubric 13).
+- Update check runs on every Settings mount with no off switch (`desktop-update-panel.tsx:31,65`; rubric 34).
+- `read_at` (`repo.rs:253`) has no UI, so earlier file versions cannot be viewed or restored (rubric 1, 22).
+
+**Artifacts**
+
+- A missing, refused or 404 artifact renders nothing or a broken image; show a placeholder with its name, "not on this computer", and Retry (`experiment-panels.tsx:120,154`; rubric 13, 14).
+- Desktop-local `app://artifacts/` entries are dead links on web and phone; label them "on desktop only" until synced (rubric 24).
+- PDF artifacts download instead of opening in an in-app pdf.js view (rubric 18).
+- `serve_local_artifact` reads the whole file and ignores Range (`local_artifacts.rs:113`); use `range::serve_file` (rubric 28). The writer has no 25 MB cap and nothing is cleaned when an experiment is deleted (rubric 33).
+
+**Other**
+
+- Plan widget falls back to the first work area, not the primary one.
+- Vault watcher: show a short "folder changed, N files reloaded" note (rubric 7).
+
 ## 11. Sources
 
 - [Mozilla: autogenerating Rust-JS bindings with UniFFI](https://hacks.mozilla.org/2023/08/autogenerating-rust-js-bindings-with-uniffi/)

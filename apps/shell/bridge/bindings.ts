@@ -183,6 +183,35 @@ export const commands = {
 	 */
 	mattermostPost: (post: MattermostPost) => typedError<MattermostReply, ShellError>(__TAURI_INVOKE("mattermost_post", { post })),
 	/**
+	 *  Whether the handwriting helper can start.
+	 * 
+	 *  # Errors
+	 *  Never: an unavailable helper is reported as `false`.
+	 */
+	inkAvailable: () => typedError<boolean, ShellError>(__TAURI_INVOKE("ink_available")),
+	/**
+	 *  Recognises a page of ink.
+	 * 
+	 *  # Errors
+	 *  Fails when the page is empty or malformed, or when the helper is missing, stopped or does
+	 *  not answer in time.
+	 */
+	inkRecognise: (request: InkRecognitionRequest_Deserialize) => typedError<InkRecognitionResult_Serialize, ShellError>(__TAURI_INVOKE("ink_recognise", { request })),
+	/**
+	 *  Whether the helper can give pen haptics.
+	 * 
+	 *  # Errors
+	 *  Never: an unavailable helper is reported as `false`.
+	 */
+	inkHapticsAvailable: () => typedError<boolean, ShellError>(__TAURI_INVOKE("ink_haptics_available")),
+	/**
+	 *  Sends a pen message to the helper for haptic feedback.
+	 * 
+	 *  # Errors
+	 *  Never: the message is dropped when the helper is not running.
+	 */
+	inkHaptics: (message: InkHapticsMessage) => typedError<null, ShellError>(__TAURI_INVOKE("ink_haptics", { message })),
+	/**
 	 *  The window's menu, as the page's menu bar draws it.
 	 * 
 	 *  # Errors
@@ -322,6 +351,123 @@ export type ImageReply = {
 	contentType: string,
 	/**  The final URL after redirects. */
 	url: string,
+};
+
+/**  Pen state forwarded to the helper for haptic feedback. */
+export type InkHapticsMessage = 
+/**  The active pen tool changed. */
+{ type: "tool"; 
+/**  Tool name. */
+tool: string } | 
+/**  A pen sample. */
+{ type: "update"; 
+/**  Normalised pen pressure. */
+pressure: number | null; 
+/**  Pen speed. */
+velocity: number | null } | 
+/**  The pen left the surface. */
+{ type: "stop" };
+
+/**  One recognised line. */
+export type InkRecognitionLine = InkRecognitionLine_Serialize | InkRecognitionLine_Deserialize;
+
+/**  One stroke list per line; each stroke is a flat list of coordinates. */
+export type InkRecognitionLineInput = {
+	/**  Strokes of this line, each a flat `[x, y, t, ...]` list. */
+	strokes: ((number | null)[])[],
+};
+
+/**  One recognised line. */
+export type InkRecognitionLine_Deserialize = {
+	/**  Line text. */
+	text: string,
+	/**  Engine confidence, 0 to 1. */
+	confidence: number | null,
+	/**  Other readings of the whole line, best first; empty when none. */
+	alternatives?: string[],
+	/**  Words in the line; empty when the engine gives none. */
+	words?: InkRecognitionWord_Deserialize[],
+};
+
+/**  One recognised line. */
+export type InkRecognitionLine_Serialize = {
+	/**  Line text. */
+	text: string,
+	/**  Engine confidence, 0 to 1. */
+	confidence: number | null,
+	/**  Other readings of the whole line, best first; empty when none. */
+	alternatives: string[],
+	/**  Words in the line; empty when the engine gives none. */
+	words: InkRecognitionWord_Serialize[],
+};
+
+/**  A page of ink to recognise. */
+export type InkRecognitionRequest = InkRecognitionRequest_Serialize | InkRecognitionRequest_Deserialize;
+
+/**  A page of ink to recognise. */
+export type InkRecognitionRequest_Deserialize = {
+	/**  Lines in reading order. */
+	lines: InkRecognitionLineInput[],
+	/**  Expected words; absent when not sent. */
+	vocabulary?: string[] | null,
+	/**  BCP 47 language tag; absent when not sent. */
+	lang?: string | null,
+};
+
+/**  A page of ink to recognise. */
+export type InkRecognitionRequest_Serialize = {
+	/**  Lines in reading order. */
+	lines: InkRecognitionLineInput[],
+	/**  Expected words; absent when not sent. */
+	vocabulary: string[] | null,
+	/**  BCP 47 language tag; absent when not sent. */
+	lang: string | null,
+};
+
+/**  The helper's answer to a recognise request. */
+export type InkRecognitionResult = InkRecognitionResult_Serialize | InkRecognitionResult_Deserialize;
+
+/**  The helper's answer to a recognise request. */
+export type InkRecognitionResult_Deserialize = {
+	/**  Engine that produced the answer; `windows-ink@1` when the helper leaves it out. */
+	engine?: string,
+	/**  Engine time in milliseconds; 0 when left out. */
+	ms?: number | null,
+	/**  Recognised lines in the order sent; empty when left out. */
+	lines?: InkRecognitionLine_Deserialize[],
+};
+
+/**  The helper's answer to a recognise request. */
+export type InkRecognitionResult_Serialize = {
+	/**  Engine that produced the answer; `windows-ink@1` when the helper leaves it out. */
+	engine: string,
+	/**  Engine time in milliseconds; 0 when left out. */
+	ms: number | null,
+	/**  Recognised lines in the order sent; empty when left out. */
+	lines: InkRecognitionLine_Serialize[],
+};
+
+/**  One recognised word. */
+export type InkRecognitionWord = InkRecognitionWord_Serialize | InkRecognitionWord_Deserialize;
+
+/**  One recognised word. */
+export type InkRecognitionWord_Deserialize = {
+	/**  Readings of the word, best first. */
+	candidates?: string[],
+	/**  Per candidate, whether it is in the vocabulary; null when not given. */
+	known?: boolean[] | null,
+	/**  Joins with the next word; null when not given. */
+	join?: string | null,
+};
+
+/**  One recognised word. */
+export type InkRecognitionWord_Serialize = {
+	/**  Readings of the word, best first. */
+	candidates: string[],
+	/**  Per candidate, whether it is in the vocabulary; null when not given. */
+	known: boolean[] | null,
+	/**  Joins with the next word; null when not given. */
+	join: string | null,
 };
 
 /**  A Mattermost post as the page sends it. */
