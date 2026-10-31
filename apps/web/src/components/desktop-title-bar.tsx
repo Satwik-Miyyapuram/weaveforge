@@ -9,6 +9,7 @@ import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { MenuItemButton } from "./controls";
+import { isEditCommand, runEditCommand } from "@/lib/desktop/menu-edit";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the
@@ -24,8 +25,26 @@ export const TITLE_BAR_BOOT_SCRIPT = `try{var w=window.weaveforge;if(w&&w.platfo
  */
 const MENU_COMMAND_EVENT = "weaveforge:menu-command";
 
+function logCommandFailure(command: string, error: unknown): void {
+  logToApp({
+    level: "warn",
+    source: "title-bar",
+    message: "A menu command failed",
+    detail: `${command}: ${describeRejection(error)}`,
+  });
+}
+
 function runCommand(command: string): void {
   if (command === "search") openSearchPalette();
+  else if (command === "choose-workspace") {
+    void desktop()
+      ?.chooseVaultRoot()
+      .catch((error: unknown) => logCommandFailure(command, error));
+  } else if (isEditCommand(command)) {
+    runEditCommand(command, document, navigator.clipboard).catch((error: unknown) =>
+      logCommandFailure(command, error),
+    );
+  }
 }
 
 /** Whether `route` is the page open now (`/papers/` is `/papers`). */

@@ -473,6 +473,33 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - `MAX_TOKENS` is a fixed 512, right for both known models. transformers.js uses each tokenizer's `model_max_length`; read it (or `max_position_embeddings`) per model before adding a model with a smaller limit.
 - The model id, pooling and query prefix live in both `crates/wf-store/src/embed.rs` and `apps/web/src/features/search/infrastructure/embedding-models.ts`. Pass them from the page or add a test that both lists agree (rubric 24).
 - The model download shows no progress, cannot resume and has no size cap; the model cache has no UI to list or clear it (rubric 11, 22, 33).
+- `embed.rs` load gate: make it per model (or hold it only around the open, not `ensure_files`) so an upgrade download never stalls a reload of the serving model; with no network timeouts yet (2.10d) a stalled download holds its gate indefinitely.
+- `embed_unload` should take the load gate, so an unload racing a load cannot leave the model loaded.
+- Two `NativeEmbedder`s sharing a model id unload each other on `dispose()`; refcount on the shell side.
+- `upgradeInBackground`'s catch can dispose twice after `loadWithFallback` already released both.
+- `NOT_LOADED` is matched as a string across Rust and TS; use a typed `ShellError` code.
+- An `ensure_files` failure is not written to the app log.
+- The shelf of loaded models has no cap (cap at 2, LRU of unheld entries, or reject unknown names); the load-gate map never shrinks.
+- The native-to-worker fallback is not shown in the status, and `loadWithFallback` takes no `AbortSignal`.
+
+**Desktop shell (2.13)**
+
+- Mattermost sign-in popups, and script-driven main-window navigations to outside pages, open browser tabs with no throttle; share one cap of one per second.
+- An app-made `blob:` popup (the compiled TeX PDF) opens as a plain window with no bridge and no navigation guard, and nothing logs it. WKWebView and WebKitGTK may open nothing for the default popup, and WebKitGTK has no PDF viewer; verify on each OS, and if it fails show the PDF in the page.
+- A `mailto:` link is refused and logged (Electron parity); hand it to the OS mail app so it does something.
+- The Mattermost window's `on_new_window` still uses its own http(s) check; route it through `open_outside` so one URL-shape rule covers every outside open.
+- `shim::is_app_blob` allows app-made blob popups of any type; drop the `Allow` branch once the PDF shows in the page.
+- Unlinking an Overleaf folder leaves its `overleaf-git` directory; prune orphans on unlink.
+- A refused paste or an empty clipboard gives no feedback; toast it.
+- Page-command strings (`edit-*`, `choose-workspace`, `search`) are spelled in Rust and TS; share one list or test them against each other.
+- No test kills a TeX engine's whole process tree (Job Object / process group); add one with a child that spawns a grandchild.
+- Overleaf sync edge cases untested: conflict on pull, push rejected as behind, status on an unborn branch, token redaction in a failed fetch.
+- `wf-store` `SYNC_BRANCH` may be unused after branch-per-repo; drop it if nothing reads it.
+- Any local process or web page can hit `127.0.0.1:53682/auth/callback?x` and make the shell emit a sign-in and steal focus. PKCE in the page stops a forged login; to stop the focus spam, deliver only while a sign-in is pending (set by the page when it starts one, cleared on first delivery or a timeout). Accept GET only.
+- A taken sign-in port (a second instance) is only logged; tell the reader in the page to paste the link instead.
+- `shim::APP_ORIGINS` is hard-coded; derive it from `useHttpsScheme` and the OS.
+- Check that WebKitGTK and WKWebView call the main window's navigation guard for the top frame only; if subframes reach it, external http(s) iframes open in the browser instead.
+- A sign-in that arrives before the page has loaded its bridge is lost (the page inbox only covers late subscribers); queue it in the shell until the page asks.
 
 ## 11. Sources
 

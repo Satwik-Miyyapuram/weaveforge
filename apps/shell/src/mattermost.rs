@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use tauri::Manager;
+use tauri_plugin_opener::OpenerExt as _;
 use tokio::sync::watch;
 
 use crate::commands::ShellError;
@@ -153,14 +154,34 @@ impl CookieSource for WindowCookies {
     }
 }
 
-/// Opens the server's login page in a fresh in-memory window. Popups are denied: opening
-/// http(s) links in the browser waits for tauri 2.13's opener.
+/// Whether a popup's address opens in the OS browser: only http and https.
+#[must_use]
+pub fn popup_opens_in_browser(url: &tauri::Url) -> bool {
+    matches!(url.scheme(), "http" | "https")
+}
+
+/// Opens the server's login page in a fresh in-memory window. Popups are always denied; http(s)
+/// ones open in the OS browser instead, so no script-driven window is ever created.
 fn open_window(app: &tauri::AppHandle, login: tauri::Url) -> Result<(), String> {
+    let popup_app = app.clone();
     tauri::WebviewWindowBuilder::new(app, SIGNIN_LABEL, tauri::WebviewUrl::External(login))
         .title(SIGNIN_TITLE)
         .inner_size(520.0, 760.0)
         .incognito(true)
-        .on_new_window(|_url, _features| tauri::webview::NewWindowResponse::Deny)
+        .on_new_window(move |url, _features| {
+            if popup_opens_in_browser(&url)
+                && let Err(error) = popup_app.opener().open_url(url.as_str(), None::<&str>)
+                && let Some(log) = popup_app.try_state::<crate::app_log::AppLog>()
+            {
+                log.record(
+                    crate::app_log::LogLevel::Warn,
+                    "mattermost",
+                    "A sign-in popup could not open in the browser",
+                    Some(&error.to_string()),
+                );
+            }
+            tauri::webview::NewWindowResponse::Deny
+        })
         .build()
         .map(|_| ())
         .map_err(|_| SIGN_IN_NOT_OPENED.to_owned())
@@ -346,4 +367,24 @@ pub async fn mattermost_post(post: MattermostPost) -> Result<MattermostReply, Sh
     post_with(&client, &post, POST_TIMEOUT)
         .await
         .map_err(ShellError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn popup_opens_in_browser_only_for_http_and_https() {
+        let decide = |raw: &str| {
+            tauri::Url::parse(raw)
+                .ok()
+                .map(|u| popup_opens_in_browser(&u))
+        };
+        assert_eq!(decide("https://example.org/a"), Some(true));
+        assert_eq!(decide("http://example.org/a"), Some(true));
+        assert_eq!(decide("javascript:alert(1)"), Some(false));
+        assert_eq!(decide("file:///C:/secret.txt"), Some(false));
+        assert_eq!(decide("data:text/html,hi"), Some(false));
+        assert_eq!(decide("about:blank"), Some(false));
+    }
 }

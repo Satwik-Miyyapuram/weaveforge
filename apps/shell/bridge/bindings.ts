@@ -176,9 +176,9 @@ export const commands = {
 	 *  Runs an Overleaf sync action on the chosen folder.
 	 * 
 	 *  # Errors
-	 *  The reason to show the reader when the action is refused or not yet available.
+	 *  The reason to show the reader when the action is refused or git fails.
 	 */
-	overleafSync: (action: string, projectId: string | null, folder: string | null) => typedError<OverleafSyncReply, ShellError>(__TAURI_INVOKE("overleaf_sync", { action, projectId, folder })),
+	overleafSync: (action: string, projectId: string | null, folder: string | null) => typedError<OverleafSyncReply_Serialize, ShellError>(__TAURI_INVOKE("overleaf_sync", { action, projectId, folder })),
 	/**
 	 *  Opens the Mattermost sign-in window and answers the session token, or null if it was closed.
 	 * 
@@ -631,12 +631,35 @@ export type OverleafSource = {
 	overleafUrl: string,
 };
 
-/**  What the page reads back from an Overleaf sync action. */
-export type OverleafSyncReply = {
+/**  What the page reads back from an Overleaf sync action. Link actions leave the git fields unset. */
+export type OverleafSyncReply = OverleafSyncReply_Serialize | OverleafSyncReply_Deserialize;
+
+/**  What the page reads back from an Overleaf sync action. Link actions leave the git fields unset. */
+export type OverleafSyncReply_Deserialize = {
 	/**  The links after the action. */
 	links: OverleafLink[],
 	/**  Whether an Overleaf git token is stored. */
 	hasToken: boolean,
+	/**  The remote's status, for `status`. */
+	status?: SyncStatus_Deserialize | null,
+	/**  The pull's outcome, for `pull`. */
+	pull?: SyncPull | null,
+	/**  The push's outcome, for `push`. */
+	push?: SyncPush | null,
+};
+
+/**  What the page reads back from an Overleaf sync action. Link actions leave the git fields unset. */
+export type OverleafSyncReply_Serialize = {
+	/**  The links after the action. */
+	links: OverleafLink[],
+	/**  Whether an Overleaf git token is stored. */
+	hasToken: boolean,
+	/**  The remote's status, for `status`. */
+	status?: SyncStatus_Serialize,
+	/**  The pull's outcome, for `pull`. */
+	pull?: SyncPull,
+	/**  The push's outcome, for `push`. */
+	push?: SyncPush,
 };
 
 /**  Whether a chosen root is brand new or already holds a workspace. */
