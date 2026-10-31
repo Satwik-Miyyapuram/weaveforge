@@ -225,7 +225,14 @@ async fn ensure_files(
         }
         let loaded = u32::try_from(i + 1).unwrap_or(0);
         let model = model.to_owned();
-        let _ = app.emit(PROGRESS_EVENT, EmbedProgress { model, loaded, total });
+        let _ = app.emit(
+            PROGRESS_EVENT,
+            EmbedProgress {
+                model,
+                loaded,
+                total,
+            },
+        );
     }
     Ok(())
 }
@@ -327,7 +334,10 @@ pub async fn embed_texts(
 /// Never; the `Err` arm is kept for the Tauri wiring.
 #[tauri::command]
 #[specta::specta]
-pub async fn embed_unload(slot: tauri::State<'_, EmbedSlot>, model: String) -> Result<(), ShellError> {
+pub async fn embed_unload(
+    slot: tauri::State<'_, EmbedSlot>,
+    model: String,
+) -> Result<(), ShellError> {
     slot.models.remove(&model);
     Ok(())
 }
