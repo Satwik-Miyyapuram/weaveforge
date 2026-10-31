@@ -362,7 +362,7 @@ fn spec() -> impl Strategy<Value = Vec<(u8, u8)>> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn applying_the_plan_reproduces_the_next_snapshot(base_spec in spec(), next_spec in spec()) {

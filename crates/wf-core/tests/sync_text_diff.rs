@@ -301,7 +301,7 @@ fn counts(lines: &[&str]) -> BTreeMap<String, usize> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn all_ours_picks_merge_to_ours(ours in text_strategy(), theirs in text_strategy()) {

@@ -371,7 +371,7 @@ fn a_slug_of_only_separators_falls_back_and_reserved_names_get_a_suffix() {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn slug_is_nonempty_clean_bounded_and_idempotent(title in "\\PC{0,200}") {

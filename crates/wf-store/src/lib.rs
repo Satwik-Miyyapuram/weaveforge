@@ -6,3 +6,4 @@ pub mod embed;
 pub mod git;
 pub mod root;
 pub mod vault;
+pub mod workspace_fs;

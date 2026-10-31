@@ -157,7 +157,7 @@ fn rank_for_eviction_on_empty_is_empty() {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn score_never_decreases_as_idle_days_grow(

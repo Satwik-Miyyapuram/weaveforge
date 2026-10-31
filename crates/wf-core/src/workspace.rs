@@ -127,7 +127,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(256))]
+        #![proptest_config(ProptestConfig::default())]
 
         #[test]
         fn ok_output_is_safe_and_idempotent(input in "[a-z./\\\\:]{0,12}") {

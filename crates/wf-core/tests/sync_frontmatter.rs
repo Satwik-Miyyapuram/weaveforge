@@ -335,7 +335,7 @@ fn assert_round_trip(map: BTreeMap<String, Value>) -> Result<(), TestCaseError> 
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn string_fields_round_trip(

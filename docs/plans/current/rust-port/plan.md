@@ -501,6 +501,22 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - Check that WebKitGTK and WKWebView call the main window's navigation guard for the top frame only; if subframes reach it, external http(s) iframes open in the browser instead.
 - A sign-in that arrives before the page has loaded its bridge is lost (the page inbox only covers late subscribers); queue it in the shell until the page asks.
 
+**Sync and storage (phase 3)**
+
+- [bug] Folder mirror: when reading a file fails, `edited_since_base` treats it as unedited, so a held local edit can be overwritten. Same in the TypeScript; fix both, test first with a read fault.
+- JS number printing (`JsPretty`) and `parse_number` lose precision for integers above 2^53, as JS does; decide whether ids that large can occur.
+- Blob ranking sorts a `NaN` score unpredictably; rank NaN last.
+- `instant.rs`: say in the docs that times without a zone are read as UTC.
+- `sync_merge`: assert byte equality of the merged text, not only line equality.
+- `git_remote`: add a test for `https://:@host/x` (empty user and password).
+- Entity key order follows JS `Object.keys` (integer-like keys first); test it on both sides.
+- TS sets `merged[f] = undefined` for a removed field, Rust drops the key; both serialize the same, keep a test.
+- Fault sim: read faults in `FaultyFs`, convergence with a base, unstamped edge cases, entries for held paths, a departed path that is already gone, and asset write failures propagated.
+- Report `failed_removes` from the mirror, and count `*.wftmp` files left behind.
+- `Vault::write_file`: fsync the temp file and its parent folder.
+- Folder mirror: treat read errors other than not-found as errors, and dedupe repeated paths.
+- Fuzz: add round-trip properties (parse then print then parse).
+
 ## 11. Sources
 
 - [Mozilla: autogenerating Rust-JS bindings with UniFFI](https://hacks.mozilla.org/2023/08/autogenerating-rust-js-bindings-with-uniffi/)
