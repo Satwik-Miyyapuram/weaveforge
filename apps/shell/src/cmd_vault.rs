@@ -139,11 +139,16 @@ pub async fn vault_root(
 #[specta::specta]
 pub async fn vault_choose(
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
 ) -> Result<Option<VaultRoot>, ShellError> {
-    let picked = pick_folder(&app).await;
+    // The dialog is modal; this also refuses a second pick that slips in while one is open.
+    let Some(_choosing) = Choosing::start() else {
+        return Ok(root(vault.inner()).await);
+    };
+    let picked = pick_folder(&app, &window).await;
     let vault = vault.inner().clone();
     let prefs = prefs.inner().clone();
     let watch = watch.inner().clone();
@@ -162,13 +167,40 @@ pub async fn vault_choose(
     Ok(choice.root)
 }
 
+/// Set while a folder dialog is open.
+static CHOOSING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Holds `CHOOSING` for one pick and releases it when dropped, even on an early return.
+struct Choosing;
+
+impl Choosing {
+    /// `None` when another pick is already open.
+    fn start() -> Option<Self> {
+        use std::sync::atomic::Ordering;
+        CHOOSING
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for Choosing {
+    fn drop(&mut self) {
+        CHOOSING.store(false, std::sync::atomic::Ordering::Release);
+    }
+}
+
 /// The folder the reader picked, or `None` when the dialog was cancelled or the pick is not a local path.
-async fn pick_folder(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+async fn pick_folder(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+) -> Option<std::path::PathBuf> {
     use tauri_plugin_dialog::DialogExt as _;
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog()
         .file()
         .set_title("Choose a folder for your workspace")
+        .set_parent(window)
         .pick_folder(move |picked| {
             let _ = tx.send(picked);
         });

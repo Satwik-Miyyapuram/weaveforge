@@ -86,7 +86,25 @@ fn replace_watch(
     Ok(())
 }
 
+/// Adopts the folder remembered from the last run. A folder that is missing (an unplugged drive,
+/// a network share not mounted yet) keeps the preference for next time; one that exists but can
+/// no longer hold the workspace is forgotten so the reader is asked again.
+#[must_use]
+pub fn restore_remembered(vault: &VaultState, prefs: &Prefs) -> Option<VaultRoot> {
+    let Ok(Some(PrefValue::Text(path))) = prefs.read(ROOT_PREF) else {
+        return None;
+    };
+    let restored = vault.lock().restore(Some(&path));
+    if restored.is_none() && Path::new(&path).exists() {
+        let _ = prefs.write(ROOT_PREF, None);
+    }
+    restored
+}
+
 /// Shared pick flow; `watch` is the only part that differs between default and given timings.
+///
+/// The session stays locked for the whole pick, so two picks run one after the other and the
+/// session, remembered folder and watch always end on the same folder.
 fn adopt_inner(
     vault: &VaultState,
     prefs: &Prefs,
@@ -101,7 +119,19 @@ fn adopt_inner(
             warnings: Vec::new(),
         });
     };
-    let root = vault.lock().choose(Some(chosen))?;
+    let mut session = vault.lock();
+    let old = session.root();
+    // Stop the old folder first: its reports must never be read against the new folder.
+    slot.set(None);
+    let root = match session.choose(Some(chosen)) {
+        Ok(root) => root,
+        Err(reason) => {
+            if let Some(old) = old {
+                let _ = watch(slot, Path::new(&old.path), sink);
+            }
+            return Err(reason);
+        }
+    };
     let mut warnings = Vec::new();
     if let Some(picked) = &root {
         if prefs

@@ -112,15 +112,7 @@ fn start_stores(app: &tauri::AppHandle) {
         .unwrap_or_default();
     let prefs = prefs::Prefs::new(data.join("preferences.json"));
     let vault = vault::VaultState::new();
-    let remembered = match prefs.read(vault_choice::ROOT_PREF) {
-        Ok(Some(prefs::PrefValue::Text(path))) => Some(path),
-        _ => None,
-    };
-    let restored = vault.lock().restore(remembered.as_deref());
-    if remembered.is_some() && restored.is_none() {
-        // Gone or no longer ours: ask again instead of failing on every start.
-        let _ = prefs.write(vault_choice::ROOT_PREF, None);
-    }
+    let _ = vault_choice::restore_remembered(&vault, &prefs);
     let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());
     let _ = app.manage(prefs);
     let _ = app.manage(vault);

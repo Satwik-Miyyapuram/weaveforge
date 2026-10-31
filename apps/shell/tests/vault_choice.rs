@@ -4,6 +4,7 @@
 mod common;
 
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
@@ -12,7 +13,7 @@ use common::TempDir;
 use weaveforge_shell::prefs::{PrefValue, Prefs};
 use weaveforge_shell::vault::VaultState;
 use weaveforge_shell::vault_choice::{
-    NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, watch_root_with,
+    NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, restore_remembered, watch_root_with,
 };
 use weaveforge_shell::vault_watcher::{ChangeSink, WatchSlot};
 
@@ -248,4 +249,148 @@ fn watching_a_missing_folder_stops_the_old_watch() {
 
     assert!(result.is_err());
     assert!(!slot.is_watching());
+}
+
+/// Waits for a batch naming `name`; false when none arrives in time.
+fn reported(rx: &Receiver<Vec<String>>, name: &str) -> bool {
+    for _ in 0..50 {
+        match rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(batch) if batch.iter().any(|p| p == name) => return true,
+            Ok(_) => {}
+            Err(_) => return false,
+        }
+    }
+    false
+}
+
+#[test]
+fn a_refused_pick_keeps_the_old_folder_reporting() {
+    let tmp = TempDir::new();
+    let folder = TempDir::new();
+    let file_dir = TempDir::new();
+    let file = file_dir.path().join("x.txt");
+    fs::write(&file, "x").unwrap();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let slot = WatchSlot::default();
+    let (sink1, _rx1) = sink();
+    let (sink2, rx2) = sink();
+
+    let root = adopt_choice_with(
+        &vault,
+        &prefs,
+        &slot,
+        Some(folder.path()),
+        sink1,
+        QUIET,
+        WINDOW,
+    )
+    .unwrap()
+    .root
+    .unwrap();
+    assert!(adopt_choice_with(&vault, &prefs, &slot, Some(&file), sink2, QUIET, WINDOW).is_err());
+    while rx2.try_recv().is_ok() {}
+
+    fs::write(Path::new(&root.path).join("still.md"), "s").unwrap();
+
+    assert!(reported(&rx2, "still.md"), "old folder no longer watched");
+}
+
+#[test]
+fn two_picks_at_once_leave_session_pref_and_watch_on_one_folder() {
+    let tmp = TempDir::new();
+    let folder_a = TempDir::new();
+    let folder_b = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let slot = WatchSlot::default();
+    let (sink_a, rx_a) = sink();
+    let (sink_b, rx_b) = sink();
+
+    std::thread::scope(|s| {
+        let (vault, prefs, slot) = (&vault, &prefs, &slot);
+        let a = folder_a.path();
+        let b = folder_b.path();
+        let _ =
+            s.spawn(move || adopt_choice_with(vault, prefs, slot, Some(a), sink_a, QUIET, WINDOW));
+        let _ =
+            s.spawn(move || adopt_choice_with(vault, prefs, slot, Some(b), sink_b, QUIET, WINDOW));
+    });
+
+    let root = vault.lock().root().unwrap();
+    assert_eq!(
+        prefs.read(ROOT_PREF),
+        Ok(Some(PrefValue::Text(root.path.clone())))
+    );
+    let rx = if Path::new(&root.path).starts_with(folder_a.path()) {
+        &rx_a
+    } else {
+        &rx_b
+    };
+    while rx.try_recv().is_ok() {}
+    fs::write(Path::new(&root.path).join("here.md"), "h").unwrap();
+    assert!(
+        reported(rx, "here.md"),
+        "the watch is not on the session's folder"
+    );
+}
+
+#[test]
+fn restoring_with_nothing_remembered_writes_nothing() {
+    let tmp = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+
+    assert_eq!(restore_remembered(&vault, &prefs), None);
+    assert_eq!(vault.lock().root(), None);
+    assert!(!tmp.path().join("preferences.json").exists());
+}
+
+#[test]
+fn restoring_a_good_folder_adopts_it_and_keeps_the_pref() {
+    let tmp = TempDir::new();
+    let folder = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let path = folder.path().to_string_lossy().into_owned();
+    prefs
+        .write(ROOT_PREF, Some(PrefValue::Text(path.clone())))
+        .unwrap();
+
+    let root = restore_remembered(&vault, &prefs).unwrap();
+
+    assert_eq!(root.path, path);
+    assert_eq!(vault.lock().root(), Some(root));
+    assert_eq!(prefs.read(ROOT_PREF), Ok(Some(PrefValue::Text(path))));
+}
+
+#[test]
+fn restoring_a_missing_folder_keeps_the_pref_for_next_time() {
+    let tmp = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    // An unplugged drive looks like a missing folder; it may be back next start.
+    let path = tmp.path().join("unplugged").to_string_lossy().into_owned();
+    prefs
+        .write(ROOT_PREF, Some(PrefValue::Text(path.clone())))
+        .unwrap();
+
+    assert_eq!(restore_remembered(&vault, &prefs), None);
+    assert_eq!(vault.lock().root(), None);
+    assert_eq!(prefs.read(ROOT_PREF), Ok(Some(PrefValue::Text(path))));
+}
+
+#[test]
+fn restoring_a_folder_that_is_no_longer_ours_forgets_it() {
+    let tmp = TempDir::new();
+    let folder = TempDir::new();
+    fs::write(folder.path().join("someone-else.txt"), "x").unwrap();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let path = folder.path().to_string_lossy().into_owned();
+    prefs.write(ROOT_PREF, Some(PrefValue::Text(path))).unwrap();
+
+    assert_eq!(restore_remembered(&vault, &prefs), None);
+    assert_eq!(vault.lock().root(), None);
+    assert_eq!(prefs.read(ROOT_PREF), Ok(None));
 }
