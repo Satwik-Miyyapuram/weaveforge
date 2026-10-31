@@ -7,16 +7,21 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod app_log;
+pub mod app_route;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
 pub mod fetch;
 pub mod git;
+pub mod ink;
 pub mod launch;
+pub mod local_artifacts;
 pub mod mattermost;
 pub mod menu;
+pub mod model_cache;
 pub mod overleaf_links;
 pub mod overleaf_read;
+pub mod plan_widget;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
@@ -28,6 +33,7 @@ pub mod update_check;
 pub mod vault;
 pub mod vault_search;
 pub mod vault_sync;
+pub mod vault_watch;
 pub mod zotero_local;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
@@ -49,29 +55,30 @@ fn web_root() -> PathBuf {
 
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
-    let root = Arc::new(web_root());
     let app = tauri::Builder::default()
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
+            start_routes(app.handle());
             start_local_db(app.handle());
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol(
             protocol::APP_SCHEME,
-            move |_ctx, request, responder| {
-                let root = Arc::clone(&root);
-                let host = request.uri().host().map(str::to_owned);
-                let path = request.uri().path().to_owned();
-                let query = request.uri().query().map(str::to_owned);
-                // Disk reads stay off the webview thread.
-                let _task = tauri::async_runtime::spawn_blocking(move || {
-                    responder.respond(to_response(protocol::respond(
-                        &root,
-                        host.as_deref(),
-                        &path,
-                        query.as_deref(),
-                    )));
+            |ctx, request, responder| {
+                let app = ctx.app_handle().clone();
+                // Network and disk work stay off the webview thread.
+                let _task = tauri::async_runtime::spawn(async move {
+                    use tauri::Manager;
+                    let answer = match app.try_state::<app_route::AppRoutes>() {
+                        Some(routes) => app_route::route(&routes, request).await,
+                        None => relay::shared::Answer {
+                            status: 503,
+                            headers: Vec::new(),
+                            body: Vec::new(),
+                        },
+                    };
+                    responder.respond(to_response(answer));
                 });
             },
         )
@@ -166,8 +173,23 @@ fn stop_local_db(app: &tauri::AppHandle) {
     }
 }
 
-/// Turns a protocol reply into the window's response; a bad header becomes a bare 500.
-fn to_response(reply: protocol::Reply) -> tauri::http::Response<Vec<u8>> {
+/// Makes the `app://` routes' folders and clients; the folders sit in app data, as in Electron.
+fn start_routes(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let data = app.path().app_data_dir().unwrap_or_default();
+    let routes = app_route::AppRoutes {
+        web: web_root(),
+        models: data.join("models"),
+        artifacts: data.join("artifacts"),
+        model_client: model_cache::model_client(model_cache::is_upstream_host).ok(),
+        relay_client: relay::shared::relay_client().ok(),
+        relay_config: relay::route::RelayConfig::production(),
+    };
+    let _ = app.manage(routes);
+}
+
+/// Turns an answer into the window's response; a bad header becomes a bare 500.
+fn to_response(reply: relay::shared::Answer) -> tauri::http::Response<Vec<u8>> {
     let mut builder = tauri::http::Response::builder().status(reply.status);
     for (name, value) in reply.headers {
         builder = builder.header(name, value);
@@ -189,11 +211,11 @@ mod tests {
 
     #[test]
     fn to_response_carries_status_headers_body() {
-        let reply = protocol::Reply {
+        let reply = relay::shared::Answer {
             status: 200,
             headers: vec![
-                ("content-type", "text/plain".to_owned()),
-                ("x-a", "b".to_owned()),
+                ("content-type".to_owned(), "text/plain".to_owned()),
+                ("x-a".to_owned(), "b".to_owned()),
             ],
             body: b"hi".to_vec(),
         };
@@ -215,9 +237,9 @@ mod tests {
 
     #[test]
     fn to_response_bad_header_is_500() {
-        let reply = protocol::Reply {
+        let reply = relay::shared::Answer {
             status: 200,
-            headers: vec![("x-bad", "bad\nvalue".to_owned())],
+            headers: vec![("x-bad".to_owned(), "bad\nvalue".to_owned())],
             body: b"hi".to_vec(),
         };
         let response = to_response(reply);

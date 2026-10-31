@@ -97,7 +97,7 @@ pub fn next_hop(
     at: &reqwest::Url,
     status: u16,
     location: Option<&str>,
-    allowed: &dyn Fn(&reqwest::Url) -> bool,
+    allowed: &(dyn Fn(&reqwest::Url) -> bool + Sync),
 ) -> Hop {
     let location = match location.map(str::trim) {
         Some(l) if (300..400).contains(&status) && !l.is_empty() => l,
@@ -140,7 +140,7 @@ pub struct Checked {
 pub async fn fetch_checked_hops(
     client: &reqwest::Client,
     target: &reqwest::Url,
-    allowed: &dyn Fn(&reqwest::Url) -> bool,
+    allowed: &(dyn Fn(&reqwest::Url) -> bool + Sync),
     headers: &reqwest::header::HeaderMap,
     proxy: &str,
 ) -> Result<Checked, Refusal> {
@@ -190,7 +190,7 @@ fn bad_location(proxy: &str, at: &reqwest::Url, location: Option<&str>) -> Refus
 /// The last response must sit on an allowed address too.
 fn check_final(
     response: reqwest::Response,
-    allowed: &dyn Fn(&reqwest::Url) -> bool,
+    allowed: &(dyn Fn(&reqwest::Url) -> bool + Sync),
 ) -> Result<Checked, Refusal> {
     if !allowed(response.url()) {
         return Err(refuse(400, "Redirect target not allowed"));
