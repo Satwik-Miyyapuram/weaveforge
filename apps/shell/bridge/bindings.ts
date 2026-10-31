@@ -29,6 +29,15 @@ export const commands = {
 	 */
 	vaultRoot: () => typedError<VaultRoot | null, ShellError>(__TAURI_INVOKE("vault_root")),
 	/**
+	 *  Asks the reader for a workspace folder in a native dialog and moves the workspace there.
+	 * 
+	 *  Cancelling answers the current folder unchanged. The page never names a folder.
+	 * 
+	 *  # Errors
+	 *  The reason the picked folder cannot hold a workspace; nothing changes.
+	 */
+	vaultChoose: () => typedError<VaultRoot | null, ShellError>(__TAURI_INVOKE("vault_choose")),
+	/**
 	 *  Reads a text file in the chosen folder.
 	 * 
 	 *  # Errors
