@@ -237,7 +237,7 @@ export const commands = {
 	 */
 	embedTexts: (model: string, texts: string[], kind: EmbedKindArg) => typedError<((number | null)[])[], ShellError>(__TAURI_INVOKE("embed_texts", { model, texts, kind })),
 	/**
-	 *  Drops `model` now instead of waiting for it to go idle.
+	 *  Drops `model` now instead of waiting for it to go idle, after any load of it in flight.
 	 * 
 	 *  # Errors
 	 * 
