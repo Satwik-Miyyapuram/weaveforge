@@ -151,10 +151,7 @@ export function WorkspaceScreen() {
   }, []);
   const hasOpenTab = openTabs(layout).length > 0;
   // A note open here can hold typing not yet saved; an outside edit to it waits for review.
-  const openNoteIds = openTabs(layout)
-    .filter((tab) => tab.kind === "vault_page" || tab.kind === "ink_page")
-    .map((tab) => tab.id)
-    .join(" ");
+  const openNoteIds = openTabs(layout).flatMap((tab) => (hasInkView(tab.kind) ? [tab.id] : [])).join(" ");
   useEffect(() => (openNoteIds ? holdOpenNotes(openNoteIds.split(" ")) : undefined), [openNoteIds]);
   useEffect(() => {
     if (phone && hasOpenTab) setExplorerHidden(true);
