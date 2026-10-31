@@ -10,6 +10,8 @@ const resetRefuse = process.argv.includes("--reset-refuse");
 // Like the real sidecar's lazy open: once a query has run, the state reports where the database came from.
 const reportOpen = process.argv.includes("--report-open");
 let opened = false;
+let nextAsk = 1;
+const asks = new Map();
 const markerIndex = process.argv.indexOf("--restart-marker");
 const restartMarker = markerIndex >= 0 ? process.argv[markerIndex + 1] : null;
 
@@ -40,7 +42,13 @@ if (noRead) {
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
 
   rl.on("line", (line) => {
-    const { id, method, params } = JSON.parse(line);
+    const msg = JSON.parse(line);
+    if (Object.hasOwn(msg, "answer")) {
+      const waiter = asks.get(msg.answer);
+      if (waiter) { asks.delete(msg.answer); waiter(line); }
+      return;
+    }
+    const { id, method, params } = msg;
     switch (method) {
       case "echo":
         reply({ id, ok: true, value: params });
@@ -101,6 +109,26 @@ if (noRead) {
         } else {
           reply({ id, ok: true, value: { restart: wantsRestart() } });
         }
+        break;
+      case "ask": {
+        const k = nextAsk++;
+        asks.set(k, (raw) => reply({ id, ok: true, value: raw }));
+        process.stdout.write(JSON.stringify({ ask: k, method: params.method, params: params.params }) + "\n");
+        break;
+      }
+      case "badask": {
+        const k = nextAsk++;
+        asks.set(k, (raw) => reply({ id, ok: true, value: raw }));
+        process.stdout.write(JSON.stringify({ ask: k, params: 1 }) + "\n");
+        break;
+      }
+      case "emit":
+        process.stdout.write(JSON.stringify({ event: params.name, params: params.params }) + "\n");
+        reply({ id, ok: true, value: null });
+        break;
+      case "strayask":
+        process.stdout.write('{"ask":-1,"method":"x"}\n');
+        reply({ id, ok: true, value: "after" });
         break;
       case "badutf8":
         process.stdout.write(Buffer.from([0xff, 0xfe, 0x0a]));

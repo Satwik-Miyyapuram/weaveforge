@@ -120,10 +120,14 @@ export async function applyJsonEntries(json: JsonDiff | undefined): Promise<stri
  * held was the one the app would have written, not the one the reader's edit
  * produced, and leaving it would keep the mirror holding those files back
  * forever — the folder would never be brought back into step.
+ *
+ * A path whose text no longer matches its `expected` digest moved after the preview;
+ * its base is left alone so the next look treats that newer edit as the folder's.
  */
 export async function refreshMirrorBase(
   fs: IWorkspaceFs | null,
   paths: readonly string[],
+  expected: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   if (!fs || paths.length === 0) return;
   const project = await activeProjectOrNull().catch(() => null);
@@ -135,6 +139,7 @@ export async function refreshMirrorBase(
   for (const path of paths) {
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
+    if (expected[path] !== undefined && baseDigest(text) !== expected[path]) continue;
     base[path] = baseDigest(text);
     const pageBase = vaultPageBase(path, text);
     if (pageBase) bases[path] = pageBase;

@@ -139,7 +139,7 @@ export function WorkspaceFolderPanel() {
     };
   }, [session]);
 
-  // Files something else changed in the folder; shown, never applied.
+  // Outside edits that still need a look: the folder's own edits are taken in by themselves.
   const [outside, setOutside] = useState<string[]>([]);
   useEffect(() => {
     setOutside(externalChanges());
@@ -209,7 +209,7 @@ export function WorkspaceFolderPanel() {
           <StatusRow label="Outside edits">
             {outside.length === 0
               ? "None"
-              : `${outside.length} file${outside.length === 1 ? "" : "s"} changed outside WeaveForge — not in the app yet`}
+              : `${outside.length} outside edit${outside.length === 1 ? "" : "s"} to review`}
           </StatusRow>
         )}
         {database?.dataDir && (

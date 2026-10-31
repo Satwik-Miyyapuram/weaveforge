@@ -33,6 +33,14 @@ export function clearPendingAssets(): void {
   pendingAssets = new Map();
 }
 
+/** For a run started in the background against one folder. */
+export interface ApplyOptions {
+  /** The folder the diff was read from; the apply refuses if another is connected now. */
+  fs?: IWorkspaceFs;
+  /** Digest per path when previewed; a file that moved since keeps its old base. */
+  expected?: Readonly<Record<string, string>>;
+}
+
 /**
  * Apply what the user chose from the preview: create and update notes.
  *
@@ -43,9 +51,11 @@ export function clearPendingAssets(): void {
 export async function applyFolderImport(
   diff: ImportDiff & { json?: JsonDiff },
   resolutions: Readonly<Record<string, ConflictResolution>> = {},
+  options: ApplyOptions = {},
 ): Promise<{ created: number; updated: number }> {
   const fs = activeWorkspaceFs();
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
+  if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
 
   const result = await applyEntries(fs, diff, resolutions);
   const appliedJson = await applyJsonEntries(diff.json);
@@ -55,7 +65,7 @@ export async function applyFolderImport(
   await refreshMirrorBase(fs, [
     ...result.appliedPaths,
     ...appliedJson,
-  ]);
+  ], options.expected ?? {});
 
   await syncToFolder().catch(() => undefined);
   return { created: result.created, updated: result.updated };
