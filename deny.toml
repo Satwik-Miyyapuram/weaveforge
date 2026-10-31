@@ -6,6 +6,10 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+  # Unmaintained, not vulnerable: a compile-time proc macro used by tokenizers.
+  { id = "RUSTSEC-2024-0436", reason = "paste via tokenizers; proc macro, build-time only, no fixed release" },
+]
 
 [licenses]
 version = 2
@@ -28,6 +32,12 @@ allow = [
   "Zlib",
 ]
 
+# Mozilla's CA list as data (CDLA-Permissive-2.0), used only by the build script of
+# ort-sys to download ONNX Runtime; it is not in the binary.
+[[licenses.exceptions]]
+crate = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
 [licenses.private]
 ignore = true
 
@@ -40,6 +50,10 @@ skip = [
   # Proc-macro only (compile time, not in the binary): specta-macros =2.0.0-rc.27
   # is on syn 2, serde_derive 1.0.229 on syn 3.
   { crate = "syn@2", reason = "specta-macros rc.27 still on syn 2; build-time only" },
+  { crate = "base64@0.13", reason = "spm_precompiled via tokenizers still on 0.13" },
+  { crate = "getrandom@0.3", reason = "ahash and rand 0.9 via tokenizers on 0.3; uuid on 0.4" },
+  { crate = "r-efi@5", reason = "getrandom 0.3 (UEFI only), see above" },
+  { crate = "openssl-probe@0.1", reason = "git2 0.21 on 0.1; native-tls (ort-sys build download) on 0.2" },
 ]
 
 [sources]
