@@ -163,7 +163,7 @@ async function main(): Promise<void> {
       peer,
       localDb: lc.host,
       artifactRoot: parsed.artifacts ?? path.join(path.dirname(dataDir), "artifacts"),
-      bridge: parsed.bridge ?? "",
+      ...(parsed.bridge !== undefined ? { bridge: parsed.bridge } : {}),
       version: parsed.appVersion ?? "0.0.0",
       ...(parsed.homeVariant !== undefined ? { homeVariant: parsed.homeVariant } : {}),
       home: os.homedir(),

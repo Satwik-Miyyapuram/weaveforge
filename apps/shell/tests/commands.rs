@@ -196,6 +196,66 @@ async fn reset_with_restart_respawns() {
     let _ = std::fs::remove_file(&m);
 }
 
+/// The pid of the current sidecar and the last `vault.root` params it got.
+async fn root_seen(db: &LocalDb) -> (u64, serde_json::Value) {
+    let rows = db.query("root".into(), vec![]).await.unwrap();
+    (rows[0]["pid"].as_u64().unwrap(), rows[0]["root"].clone())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reset_with_restart_sends_the_vault_root_to_the_new_sidecar() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg]).with_vault_root(std::sync::Arc::new(
+        || json!({"root": "/v", "kind": "local"}),
+    ));
+    let (before, root) = root_seen(&db).await;
+    assert_eq!(
+        root,
+        serde_json::Value::Null,
+        "nothing sent before a restart"
+    );
+    assert_eq!(db.reset().await, Ok(()));
+    let (after, root) = root_seen(&db).await;
+    assert_ne!(after, before);
+    assert_eq!(root, json!({"root": "/v", "kind": "local"}));
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_with_restart_sends_the_vault_root_read_at_restart() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let calls = std::sync::Arc::new(AtomicUsize::new(0));
+    let seen = std::sync::Arc::clone(&calls);
+    let db = restartable(&["--restart-marker", &arg]).with_vault_root(std::sync::Arc::new(
+        move || json!({"root": seen.fetch_add(1, Ordering::Relaxed)}),
+    ));
+    let (before, _) = root_seen(&db).await;
+    assert!(db.state().await.is_ok());
+    let (after, root) = root_seen(&db).await;
+    assert_ne!(after, before);
+    assert_eq!(root, json!({"root": 0}));
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        1,
+        "read once, at the restart"
+    );
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reset_without_restart_sends_no_vault_root() {
+    let m = marker();
+    std::fs::write(&m, "").unwrap();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg])
+        .with_vault_root(std::sync::Arc::new(|| json!({"root": "/v"})));
+    assert_eq!(db.reset().await, Ok(()));
+    assert_eq!(root_seen(&db).await.1, serde_json::Value::Null);
+    let _ = std::fs::remove_file(&m);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn state_with_restart_respawns_once() {
     let m = marker();

@@ -58,7 +58,10 @@ impl From<SidecarError> for ShellError {
 }
 
 /// Spawns the sidecar, with `host` when one is set so its asks keep working.
-fn spawn(
+///
+/// # Errors
+/// The spawn error, as from [`Sidecar::spawn`].
+pub fn spawn(
     config: SidecarConfig,
     host: Option<&Arc<dyn SidecarHost>>,
 ) -> Result<Sidecar, SidecarError> {
@@ -73,11 +76,16 @@ fn asks_restart(reply: &Value) -> bool {
     reply.get("restart") == Some(&Value::Bool(true))
 }
 
+/// Gives the current `vault.root` params.
+pub type VaultRootSource = Arc<dyn Fn() -> Value + Send + Sync>;
+
 /// Tauri-managed handle to the sidecar. A failed spawn is kept, so every command can report it.
 pub struct LocalDb {
     sidecar: tokio::sync::RwLock<Result<Sidecar, ShellError>>,
     config: Option<SidecarConfig>,
     host: Option<Arc<dyn SidecarHost>>,
+    /// Gives the `vault.root` params a respawned sidecar is sent, read at each restart.
+    vault_root: Option<VaultRootSource>,
     /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
     /// gone is skipped, so concurrent callers restart once.
     generation: AtomicU64,
@@ -94,6 +102,7 @@ impl LocalDb {
             sidecar: tokio::sync::RwLock::new(sidecar.map_err(ShellError::from)),
             config: None,
             host: None,
+            vault_root: None,
             generation: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             data_dir,
@@ -112,6 +121,14 @@ impl LocalDb {
     #[must_use]
     pub fn with_host(mut self, host: Arc<dyn SidecarHost>) -> Self {
         self.host = Some(host);
+        self
+    }
+
+    /// Sends each respawned sidecar `vault.root` with the params `source` gives at that moment, so a restart
+    /// keeps the open folder.
+    #[must_use]
+    pub fn with_vault_root(mut self, source: VaultRootSource) -> Self {
+        self.vault_root = Some(source);
         self
     }
 
@@ -179,9 +196,21 @@ impl LocalDb {
         }
     }
 
-    /// Replaces the sidecar of generation `asked_by` with a fresh one from the saved config; does nothing when it
-    /// was already replaced. A failed spawn is stored, as at startup.
+    /// Replaces the sidecar of generation `asked_by` with a fresh one from the saved config, then sends it the
+    /// open vault root; does nothing when it was already replaced. A failed spawn is stored, as at startup.
     async fn restart(&self, asked_by: u64) -> Result<(), ShellError> {
+        if !self.respawn(asked_by).await? {
+            return Ok(());
+        }
+        // After the write lock is released: `call` takes the read lock.
+        match &self.vault_root {
+            Some(source) => self.call("vault.root", source()).await.map(|_| ()),
+            None => Ok(()),
+        }
+    }
+
+    /// The respawn half of `restart`. Returns whether it spawned a new sidecar.
+    async fn respawn(&self, asked_by: u64) -> Result<bool, ShellError> {
         let Some(config) = &self.config else {
             return Err(shell_error(
                 "local database: restart the app to finish the reset",
@@ -192,14 +221,14 @@ impl LocalDb {
             return Err(shell_error("local database: closed"));
         }
         if self.generation.load(Ordering::Acquire) != asked_by {
-            return Ok(());
+            return Ok(false);
         }
         if let Ok(old) = &*sidecar {
             let _ = old.shutdown(crate::launch::SHUTDOWN_GRACE).await;
         }
         *sidecar = spawn(config.clone(), self.host.as_ref()).map_err(ShellError::from);
         let _ = self.generation.fetch_add(1, Ordering::AcqRel);
-        sidecar.as_ref().map(|_| ()).map_err(Clone::clone)
+        sidecar.as_ref().map(|_| true).map_err(Clone::clone)
     }
 
     /// Resets the database. A reset that can only finish in a fresh process restarts the sidecar, which then

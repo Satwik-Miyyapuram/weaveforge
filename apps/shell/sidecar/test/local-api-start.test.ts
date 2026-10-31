@@ -79,7 +79,7 @@ test("a base handler with a local API name throws synchronously", (t) => {
   assert.throws(() => startLocalApi(base, options(home, fakePeer(quiet), [])), /handler vault\.root registered twice/);
 });
 
-test("ready resolves, and startLocalApi returns before any ask is awaited", async (t) => {
+test("ready resolves after asking for the local-api preference", async (t) => {
   const home = tmpHome(t);
   const peer = fakePeer(quiet);
   const start = startLocalApi({}, options(home, peer, []));
@@ -89,7 +89,8 @@ test("ready resolves, and startLocalApi returns before any ask is awaited", asyn
   await start.close();
 });
 
-test("ready still resolves when the preference read throws", async (t) => {
+// The preference store reads a failed ask as "off", so the door stays shut without a log line.
+test("ready still resolves when the preference read throws, and reads nothing past it", async (t) => {
   const home = tmpHome(t);
   const logs: string[] = [];
   const peer = fakePeer(async () => {
@@ -97,7 +98,48 @@ test("ready still resolves when the preference read throws", async (t) => {
   });
   const start = startLocalApi({}, options(home, peer, logs));
   await assert.doesNotReject(start.ready);
+  assert.deepEqual(
+    peer.asks.map(([method]) => method),
+    ["pref.read"],
+  );
+  assert.equal(logs.some((l) => l.startsWith("[local-api]")), false, logs.join("\n"));
   await start.close();
+});
+
+test("without a bridge: no asks, no rewrite, one [local-api] line", async (t) => {
+  const home = tmpHome(t);
+  const logs: string[] = [];
+  const text = JSON.stringify({ mcpServers: { wf: OLD } });
+  const file = writeCursor(home, text);
+  const peer = fakePeer(quiet);
+  const o = options(home, peer, logs);
+  delete o.bridge;
+  const start = startLocalApi({}, o);
+  await start.ready;
+  await start.close();
+
+  assert.deepEqual(peer.asks, []);
+  assert.equal(fs.readFileSync(file, "utf8"), text);
+  assert.deepEqual(logs, ["[local-api] not started: no --bridge"]);
+});
+
+test("close before resume settles: ready skips the rewrite", async (t) => {
+  const home = tmpHome(t);
+  const logs: string[] = [];
+  const text = JSON.stringify({ mcpServers: { wf: OLD } });
+  const file = writeCursor(home, text);
+  let answerPref: (value: unknown) => void = () => undefined;
+  const pending = new Promise<unknown>((resolve) => {
+    answerPref = resolve;
+  });
+  const peer = fakePeer((method) => (method === "pref.read" ? pending : quiet(method)));
+  const start = startLocalApi({}, options(home, peer, logs));
+  await start.close();
+  answerPref(false);
+  await start.ready;
+
+  assert.equal(fs.readFileSync(file, "utf8"), text);
+  assert.equal(logs.some((l) => l.startsWith("[mcp]")), false, logs.join("\n"));
 });
 
 test("prod rewrites the Electron entry in the Cursor config and keeps a backup", async (t) => {
@@ -108,9 +150,17 @@ test("prod rewrites the Electron entry in the Cursor config and keeps a backup",
   await start.ready;
   await start.close();
 
-  const config = JSON.parse(fs.readFileSync(file, "utf8")) as { mcpServers: { wf: { command: string } } };
-  assert.equal(config.mcpServers.wf.command, "/app/node");
-  assert.equal(fs.existsSync(`${file}.weaveforge.bak`), true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), {
+    mcpServers: {
+      wf: {
+        command: "/app/node",
+        args: [path.join(home, ".weaveforge", "mcp", "weaveforge-mcp.mjs")],
+        env: { KEEP: "x" },
+        type: "stdio",
+      },
+    },
+  });
+  assert.equal(fs.readFileSync(`${file}.weaveforge.bak`, "utf8"), JSON.stringify({ mcpServers: { wf: OLD } }));
   assert.ok(logs.some((l) => l.startsWith("[mcp] moved editor entries:")), logs.join("\n"));
 });
 

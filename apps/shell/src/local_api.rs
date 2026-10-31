@@ -76,16 +76,26 @@ pub fn vault_root_params(root: Option<&VaultRoot>) -> Value {
 /// Tells the sidecar which vault folder is open; a failure is logged, never returned.
 pub async fn forward_vault_root(app: &tauri::AppHandle, root: Option<&VaultRoot>) {
     let Some(db) = app.try_state::<LocalDb>() else {
+        warn(
+            app,
+            "the local API did not get the workspace folder: no local database",
+        );
         return;
     };
-    if let Err(e) = db.call("vault.root", vault_root_params(root)).await
-        && let Some(log) = app.try_state::<AppLog>()
-    {
+    if let Err(e) = db.call("vault.root", vault_root_params(root)).await {
         let line = format!(
             "the local API did not get the workspace folder: {}",
             e.message
         );
-        log.record(LogLevel::Warn, "local-api", &line, None);
+        warn(app, &line);
+    }
+}
+
+/// Logs a `local-api` warning to the app log, or to stderr before the log is managed.
+pub fn warn(app: &tauri::AppHandle, line: &str) {
+    match app.try_state::<AppLog>() {
+        Some(log) => log.record(LogLevel::Warn, "local-api", line, None),
+        None => eprintln!("[local-api] {line}"),
     }
 }
 

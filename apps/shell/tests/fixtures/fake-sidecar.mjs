@@ -25,6 +25,8 @@ if (spawnIndex >= 0) appendFileSync(process.argv[spawnIndex + 1], "spawn\n");
 // Like the real sidecar: the first process to see a missing marker creates it, then asks for a restart until
 // it is replaced.
 let asked = false;
+// The last `vault.root` params this process got; `query root` reads it back.
+let vaultRoot = null;
 function wantsRestart() {
   if (asked) return true;
   if (restartMarker === null || existsSync(restartMarker)) return false;
@@ -56,6 +58,10 @@ if (noRead) {
       case "cwd":
         reply({ id, ok: true, value: process.cwd() });
         break;
+      case "vault.root":
+        vaultRoot = params;
+        reply({ id, ok: true, value: null });
+        break;
       case "slow":
         setTimeout(() => reply({ id, ok: true, value: params }), params.ms);
         break;
@@ -82,6 +88,8 @@ if (noRead) {
           reply({ id, ok: true, value: 5 });
         } else if (params.sql === "pid") {
           reply({ id, ok: true, value: [{ pid: process.pid }] });
+        } else if (params.sql === "root") {
+          reply({ id, ok: true, value: [{ pid: process.pid, root: vaultRoot }] });
         } else {
           reply({ id, ok: true, value: [{ sql: params.sql, params: params.params }] });
         }

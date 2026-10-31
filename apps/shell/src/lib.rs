@@ -214,6 +214,15 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     store
 }
 
+/// Reads the open vault root's `vault.root` params, for a respawned sidecar; `None` without a vault session.
+fn vault_root_source(app: &tauri::AppHandle) -> Option<commands::VaultRootSource> {
+    use tauri::Manager;
+    let vault = app.try_state::<vault::VaultState>()?.inner().clone();
+    Some(Arc::new(move || {
+        local_api::vault_root_params(vault.lock().root().as_ref())
+    }))
+}
+
 /// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.
 fn start_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
@@ -233,24 +242,30 @@ fn start_local_db(app: &tauri::AppHandle) {
             };
             let config =
                 launch::sidecar_config(&source, &data_dir, &backups_dir, &api, old.as_deref());
-            let home = paths.home_dir().unwrap_or_default();
+            let home = paths.home_dir().unwrap_or_else(|_| {
+                local_api::warn(app, "no home folder: the MCP folder is relative");
+                PathBuf::new()
+            });
             let host = local_api::shell_host(
                 app,
                 local_api::mcp_dir(&home, launch::home_variant(&source)),
             );
+            if host.is_none() {
+                local_api::warn(
+                    app,
+                    "no prefs or secrets yet: the sidecar's asks go unanswered",
+                );
+            }
             // Sidecar::spawn needs a Tokio runtime; setup runs outside one.
             let sidecar = tauri::async_runtime::block_on(async {
-                match &host {
-                    Some(h) => sidecar::Sidecar::spawn_with_host(
-                        config.clone(),
-                        Arc::clone(h),
-                        sidecar::AskLimits::default(),
-                    ),
-                    None => sidecar::Sidecar::spawn(config.clone()),
-                }
+                commands::spawn(config.clone(), host.as_ref())
             });
             let db = commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
                 .restartable(config);
+            let db = match vault_root_source(app) {
+                Some(source) => db.with_vault_root(source),
+                None => db,
+            };
             match host {
                 Some(h) => db.with_host(h),
                 None => db,
@@ -262,11 +277,12 @@ fn start_local_db(app: &tauri::AppHandle) {
         ),
     };
     let _ = app.manage(db);
-    let root = app
-        .try_state::<vault::VaultState>()
-        .and_then(|vault| vault.lock().root());
     let handle = app.clone();
+    // The root is read inside the task, so a folder chosen meanwhile is not overwritten with a stale one.
     let _task = tauri::async_runtime::spawn(async move {
+        let root = handle
+            .try_state::<vault::VaultState>()
+            .and_then(|vault| vault.lock().root());
         local_api::forward_vault_root(&handle, root.as_ref()).await;
     });
 }
