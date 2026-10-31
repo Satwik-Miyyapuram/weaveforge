@@ -188,11 +188,24 @@ impl<T> Models<T> {
     }
 }
 
-/// The loaded encoders, plus a gate so two loads of a model never open it twice.
+/// One async gate per model name, so loading one model never waits on another's download.
+#[derive(Clone, Default)]
+pub struct LoadGates(Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>);
+
+impl LoadGates {
+    /// The gate for `model`, made on first use and shared after that.
+    #[must_use]
+    pub fn gate(&self, model: &str) -> Arc<tokio::sync::Mutex<()>> {
+        let mut gates = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        Arc::clone(gates.entry(model.to_owned()).or_default())
+    }
+}
+
+/// The loaded encoders, plus per-model gates so two loads of a model never open it twice.
 #[derive(Clone, Default)]
 pub struct EmbedSlot {
     models: Models<Mutex<Encoder>>,
-    load_gate: Arc<tokio::sync::Mutex<()>>,
+    gates: LoadGates,
 }
 
 /// Turns a vector length into the page's number type.
@@ -264,8 +277,9 @@ pub async fn embed_load(
     if let Some(dimensions) = slot.models.touch(&model, Instant::now()) {
         return info(dimensions);
     }
-    // One load at a time; a second caller for the same model finds it loaded here.
-    let _gate = slot.load_gate.lock().await;
+    // One load per model at a time; a second caller for the same model finds it loaded here.
+    let gate = slot.gates.gate(&model);
+    let _gate = gate.lock().await;
     if let Some(dimensions) = slot.models.touch(&model, Instant::now()) {
         return info(dimensions);
     }
@@ -327,7 +341,7 @@ pub async fn embed_texts(
     Ok(vectors)
 }
 
-/// Drops `model` now instead of waiting for it to go idle.
+/// Drops `model` now instead of waiting for it to go idle, after any load of it in flight.
 ///
 /// # Errors
 ///
@@ -338,6 +352,8 @@ pub async fn embed_unload(
     slot: tauri::State<'_, EmbedSlot>,
     model: String,
 ) -> Result<(), ShellError> {
+    let gate = slot.gates.gate(&model);
+    let _gate = gate.lock().await;
     slot.models.remove(&model);
     Ok(())
 }
@@ -465,5 +481,22 @@ mod tests {
         models.remove("a/missing");
         assert_eq!(models.get("a/one", now), None);
         assert_eq!(models.get("a/two", now).as_deref(), Some(&2));
+    }
+
+    #[test]
+    fn a_held_gate_blocks_only_its_own_model() {
+        let gates = LoadGates::default();
+        let held = gates.gate("a/one");
+        let guard = held.try_lock().ok();
+        assert!(guard.is_some());
+        assert!(gates.gate("a/one").try_lock().is_err());
+        assert!(gates.gate("a/two").try_lock().is_ok());
+    }
+
+    #[test]
+    fn the_same_model_shares_one_gate() {
+        let gates = LoadGates::default();
+        assert!(Arc::ptr_eq(&gates.gate("a/one"), &gates.gate("a/one")));
+        assert!(!Arc::ptr_eq(&gates.gate("a/one"), &gates.gate("a/two")));
     }
 }
