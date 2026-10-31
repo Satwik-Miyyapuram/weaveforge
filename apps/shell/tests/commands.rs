@@ -223,6 +223,28 @@ async fn reset_with_restart_sends_the_vault_root_to_the_new_sidecar() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reset_with_restart_succeeds_when_the_sidecar_refuses_the_vault_root() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg])
+        .with_vault_root(std::sync::Arc::new(|| json!({"refuse": true})));
+    let (before, _) = root_seen(&db).await;
+    assert_eq!(
+        db.reset().await,
+        Ok(()),
+        "the respawn worked, so the reset did"
+    );
+    let (after, root) = root_seen(&db).await;
+    assert_ne!(after, before, "a new sidecar runs");
+    assert_eq!(
+        root,
+        serde_json::Value::Null,
+        "the refused folder was not kept"
+    );
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn state_with_restart_sends_the_vault_root_read_at_restart() {
     let m = marker();
     let arg = m.to_string_lossy().into_owned();

@@ -11,7 +11,7 @@ export interface LocalApiStartOptions {
   peer: Pick<Peer, "ask" | "emit">;
   localDb: LocalDbHost;
   artifactRoot: string;
-  /** The bundled MCP bridge script; without it the door stays shut and no config is rewritten. */
+  /** The bundled MCP bridge script; without it the startup resume and the config rewrite are skipped. */
   bridge?: string;
   version: string;
   homeVariant?: string;
@@ -60,7 +60,8 @@ export function startLocalApi(base: Handlers, o: LocalApiStartOptions): LocalApi
   let closing = false;
   // Not awaited here: asks are only answered once `serve` reads stdin.
   const ready = (async () => {
-    // A door or an editor entry without the bridge would point at nothing.
+    // An editor entry without the bridge would point at nothing, so skip the startup resume and the
+    // rewrite. A later toggle can still open the door; refusing it is a plan §10 item.
     if (o.bridge === undefined || o.bridge === "") {
       o.log("[local-api] not started: no --bridge");
       return;

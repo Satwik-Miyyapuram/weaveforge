@@ -82,7 +82,7 @@ pub async fn forward_vault_root(app: &tauri::AppHandle, root: Option<&VaultRoot>
         );
         return;
     };
-    if let Err(e) = db.call("vault.root", vault_root_params(root)).await {
+    if let Err(e) = db.send_vault_root(|| vault_root_params(root)).await {
         let line = format!(
             "the local API did not get the workspace folder: {}",
             e.message

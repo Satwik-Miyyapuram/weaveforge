@@ -59,6 +59,11 @@ if (noRead) {
         reply({ id, ok: true, value: process.cwd() });
         break;
       case "vault.root":
+        // `{ refuse: true }` stands in for a folder the sidecar rejects.
+        if (params && params.refuse === true) {
+          reply({ id, ok: false, error: "folder refused" });
+          break;
+        }
         vaultRoot = params;
         reply({ id, ok: true, value: null });
         break;

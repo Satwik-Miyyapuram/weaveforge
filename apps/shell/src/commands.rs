@@ -86,6 +86,8 @@ pub struct LocalDb {
     host: Option<Arc<dyn SidecarHost>>,
     /// Gives the `vault.root` params a respawned sidecar is sent, read at each restart.
     vault_root: Option<VaultRootSource>,
+    /// Orders `vault.root` sends, so a restart's send never lands after, and undoes, a newer folder's.
+    vault_root_send: tokio::sync::Mutex<()>,
     /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
     /// gone is skipped, so concurrent callers restart once.
     generation: AtomicU64,
@@ -103,6 +105,7 @@ impl LocalDb {
             config: None,
             host: None,
             vault_root: None,
+            vault_root_send: tokio::sync::Mutex::new(()),
             generation: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             data_dir,
@@ -130,6 +133,16 @@ impl LocalDb {
     pub fn with_vault_root(mut self, source: VaultRootSource) -> Self {
         self.vault_root = Some(source);
         self
+    }
+
+    /// Sends `vault.root` with the params `params` gives, read only once earlier sends are done.
+    ///
+    /// # Errors
+    ///
+    /// The sidecar's error when it is down or refuses the folder.
+    pub async fn send_vault_root(&self, params: impl FnOnce() -> Value) -> Result<(), ShellError> {
+        let _order = self.vault_root_send.lock().await;
+        self.call("vault.root", params()).await.map(|_| ())
     }
 
     /// Calls the sidecar's `method` with `params` and returns its reply.
@@ -202,11 +215,17 @@ impl LocalDb {
         if !self.respawn(asked_by).await? {
             return Ok(());
         }
-        // After the write lock is released: `call` takes the read lock.
-        match &self.vault_root {
-            Some(source) => self.call("vault.root", source()).await.map(|_| ()),
-            None => Ok(()),
+        // After the write lock is released: `call` takes the read lock. The restart itself worked, so a
+        // failed send is logged, not returned.
+        if let Some(source) = &self.vault_root
+            && let Err(e) = self.send_vault_root(&**source).await
+        {
+            eprintln!(
+                "[local-api] the restarted sidecar did not get the workspace folder: {}",
+                e.message
+            );
         }
+        Ok(())
     }
 
     /// The respawn half of `restart`. Returns whether it spawned a new sidecar.
