@@ -36,37 +36,56 @@ import init, {
   extractPageMetadata as rawExtractPageMetadata,
   pageImportRefusal as rawPageImportRefusal,
   guessBlobContentType as rawGuessBlobContentType,
+  mergeVaultPage as rawMergeVaultPage,
+  vaultPageBase as rawVaultPageBase,
+  vaultPageSide as rawVaultPageSide,
+  mergeHunks as rawMergeHunks,
+  writeConflictMarkers as rawWriteConflictMarkers,
+  readFrontmatter as rawReadFrontmatter,
+  writeFrontmatter as rawWriteFrontmatter,
 } from "../pkg/wf_wasm.js";
 import type {
   ChangeSide,
+  Conflict,
   CoreInfo,
   ExcerptRange,
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
+  HunkPick,
   PageMetadata,
   PaperRef,
   PaperRefKind,
+  ParsedDocument,
   ParsedQuery,
   RankedList,
   SearchKind,
   TokenizerOptions,
+  VaultPageBase,
+  VaultPageMerge,
+  VaultPageSide,
 } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
 export type {
   ChangeSide,
+  Conflict,
   CoreInfo,
   ExcerptRange,
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
+  HunkPick,
   PageMetadata,
   PaperRef,
   PaperRefKind,
+  ParsedDocument,
   ParsedQuery,
   SearchKind,
   TokenizerOptions,
+  VaultPageBase,
+  VaultPageMerge,
+  VaultPageSide,
 };
 export { init, initSync };
 
@@ -270,4 +289,60 @@ export function pageImportRefusal(meta: PageMetadata): string | null {
 export function guessBlobContentType(path: string): string {
   checkIndexText(path);
   return rawGuessBlobContentType(path);
+}
+
+/** Three-way merge of a note's frontmatter fields and body (Rust `merge_vault_page`). */
+export function mergeVaultPage(
+  base: { fields: Readonly<Record<string, unknown>>; bodyDigest: string },
+  folder: { fields: Readonly<Record<string, unknown>>; body: string },
+  workspace: { fields: Readonly<Record<string, unknown>>; body: string },
+): VaultPageMerge {
+  checkIndexText(base.bodyDigest);
+  checkIndexText(folder.body);
+  checkIndexText(workspace.body);
+  return rawMergeVaultPage(base, folder, workspace) as VaultPageMerge;
+}
+
+/** The base a mirrored note leaves behind, or null if the file is not a note. */
+export function vaultPageBase(path: string, content: string): VaultPageBase | null {
+  checkIndexText(path);
+  checkIndexText(content);
+  return (rawVaultPageBase(path, content) ?? null) as VaultPageBase | null;
+}
+
+/** One side of the merge, or null if the file is not a note. */
+export function vaultPageSide(path: string, content: string): VaultPageSide | null {
+  checkIndexText(path);
+  checkIndexText(content);
+  return (rawVaultPageSide(path, content) ?? null) as VaultPageSide | null;
+}
+
+/** The body composed from a pick per hunk; a missing pick keeps ours. */
+export function mergeHunks(
+  oursText: string,
+  theirsText: string,
+  picks: Readonly<Record<number, HunkPick>> = {},
+): string {
+  checkIndexText(oursText);
+  checkIndexText(theirsText);
+  return rawMergeHunks(oursText, theirsText, picks);
+}
+
+/** Both copies in one text, differing lines fenced with git-style markers. */
+export function writeConflictMarkers(oursText: string, theirsText: string): string {
+  checkIndexText(oursText);
+  checkIndexText(theirsText);
+  return rawWriteConflictMarkers(oursText, theirsText);
+}
+
+/** A note's frontmatter map and body. */
+export function readFrontmatter(content: string): ParsedDocument {
+  checkIndexText(content);
+  return rawReadFrontmatter(content) as ParsedDocument;
+}
+
+/** Fields as a `---` block followed by body; null, undefined and empty lists are skipped. */
+export function writeFrontmatter(fields: Readonly<Record<string, unknown>>, body: string): string {
+  checkIndexText(body);
+  return rawWriteFrontmatter(fields, body);
 }

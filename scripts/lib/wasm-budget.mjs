@@ -40,7 +40,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   deserializers for the tagged pull and push results. checkGitRemoteUrl is
 //   not exported: the url crate (idna and its Unicode tables) cost 88 KB, and
 //   the browser already has URL. 215 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 215 * 1024;
+// - Step 0b-3: 265,661 bytes (module 258,324 + glue 7,337), the Windows build.
+//   The folder-merge exports (mergeVaultPage, vaultPageBase/Side, mergeHunks,
+//   writeConflictMarkers, read/writeFrontmatter) add ~47 KB. Most of it is
+//   vaultPageBase/Side (~35 KB raw gzip alone): they parse a note through
+//   wf-core's workspace deserializer, which later batches export anyway. The
+//   rest is the line diff, the frontmatter number parsing and formatting, and
+//   serde_json::Value crossing to and from JS. 262 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 262 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

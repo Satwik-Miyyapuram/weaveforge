@@ -19,13 +19,20 @@ import {
   isUnderIgnoredFolder,
   maxFusionIds,
   maxIndexTextUtf16,
+  mergeHunks,
+  mergeVaultPage,
   normalizeArxivId,
   pageImportRefusal,
   parsePaperRef,
   parseQuery,
+  readFrontmatter,
   safeWorkspacePath,
   stampWorkspaceId,
   tokenize,
+  vaultPageBase,
+  vaultPageSide,
+  writeConflictMarkers,
+  writeFrontmatter,
   type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
@@ -374,4 +381,71 @@ test("guessBlobContentType maps known extensions and falls back", () => {
 
 test("extractDoi rejects text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
   assert.throws(() => extractDoi("x".repeat(maxIndexTextUtf16() + 1)), RangeError);
+});
+
+const NOTE_PATH = "notes/t--111111.note.md";
+const note = (status: string, body: string) =>
+  `---\nweaveforge-id: 11111111-1111-4111-8111-111111111111\nweaveforge-type: vault_page\ntitle: T\nstatus: ${status}\n---\n${body}`;
+
+test("mergeVaultPage takes a field only one side moved", () => {
+  const base = { fields: { title: "T", status: "a" }, bodyDigest: vaultPageBase(NOTE_PATH, note("a", "body\n"))!.bodyDigest };
+  const folder = { fields: { title: "T", status: "b" }, body: "body\n" };
+  const workspace = { fields: { title: "T", status: "a" }, body: "body\n" };
+  const result = mergeVaultPage(base, folder, workspace);
+  assert.equal(result.fields.status, "b");
+  assert.deepEqual(result.conflicts, []);
+});
+
+test("mergeVaultPage reports a field both sides moved", () => {
+  const base = { fields: { title: "T", status: "a" }, bodyDigest: vaultPageBase(NOTE_PATH, note("a", "body\n"))!.bodyDigest };
+  const folder = { fields: { title: "T", status: "b" }, body: "body\n" };
+  const workspace = { fields: { title: "T", status: "c" }, body: "body\n" };
+  const result = mergeVaultPage(base, folder, workspace);
+  assert.deepEqual(result.conflicts, [{ field: "status", base: "a", local: "b", remote: "c" }]);
+  assert.equal(result.fields.status, "c");
+});
+
+test("vaultPageBase and vaultPageSide read a note, null for a file that is not one", () => {
+  const side = vaultPageSide(NOTE_PATH, note("a", "hello\n"));
+  assert.equal(side?.body, "hello\n");
+  assert.equal(side?.fields.title, "T");
+  assert.equal(side?.fields.status, "a");
+  const base = vaultPageBase(NOTE_PATH, note("a", "hello\n"));
+  assert.match(base?.bodyDigest ?? "", /^[0-9a-f]{16}$/);
+  assert.equal(vaultPageBase("notes/x.txt", "plain text"), null);
+  assert.equal(vaultPageSide("notes/x.txt", "plain text"), null);
+});
+
+test("mergeHunks follows the picks, keyed by hunk index", () => {
+  assert.equal(mergeHunks("a\nb\nc", "a\nB\nc", {}), "a\nb\nc");
+  assert.equal(mergeHunks("a\nb\nc", "a\nB\nc", { 0: "theirs" }), "a\nB\nc");
+  const both = mergeHunks("a\nb\nc", "a\nB\nc", { 0: "both" });
+  const lines = both.split("\n");
+  assert.ok(lines.includes("b") && lines.includes("B"));
+  assert.equal(mergeHunks("a\nb\nc", "a\nB\nc", { "00": "theirs" } as never), "a\nb\nc");
+});
+
+test("writeConflictMarkers marks the differing lines", () => {
+  const result = writeConflictMarkers("a\nb", "a\nc");
+  assert.ok(result.includes("<<<<<<< this app"));
+  assert.ok(result.includes("======="));
+  assert.ok(result.includes(">>>>>>> the folder"));
+});
+
+test("readFrontmatter and writeFrontmatter round-trip", () => {
+  const text = writeFrontmatter({ title: "T", tags: ["x", "y"], n: 2, skip: undefined, empty: [] }, "body\n");
+  const order = ["title", "tags", "n"].map((key) => text.search(new RegExp(`^${key}:`, "m")));
+  assert.ok(order.every((at) => at >= 0));
+  assert.deepEqual(order, [...order].sort((a, b) => a - b));
+  const parsed = readFrontmatter(text);
+  assert.deepEqual(parsed.frontmatter, { title: "T", tags: ["x", "y"], n: 2 });
+  assert.equal(parsed.body, "body\n");
+});
+
+test("the merge wrappers reject text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+  const huge = "a".repeat(2 ** 24 + 1);
+  const beforeWasm = (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message);
+  assert.throws(() => writeConflictMarkers(huge, ""), beforeWasm);
+  assert.throws(() => readFrontmatter(huge), beforeWasm);
+  assert.throws(() => vaultPageSide("a.md", huge), beforeWasm);
 });

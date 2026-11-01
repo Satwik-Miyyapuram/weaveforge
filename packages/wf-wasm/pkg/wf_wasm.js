@@ -323,6 +323,62 @@ export function maxIndexTextUtf16() {
 }
 
 /**
+ * [`wf_core::sync::text_diff::merge_hunks`] for JS. Picks are keyed by hunk
+ * index; only canonical decimal keys (`"0"`, not `"00"`) count, as in the TS.
+ *
+ * # Errors
+ *
+ * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
+ * `picks` is not an object of `HunkPick` values.
+ * @param {string} ours
+ * @param {string} theirs
+ * @param {any} picks
+ * @returns {string}
+ */
+export function mergeHunks(ours, theirs, picks) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.mergeHunks(ptr0, len0, ptr1, len1, picks);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * [`wf_core::sync::merge_vault_page::merge_vault_page`] for JS, as `VaultPageMerge`.
+ *
+ * # Errors
+ *
+ * Fails when a body or the base digest is over `MAX_INDEX_TEXT_UTF16` UTF-16
+ * units, or when an argument is not a valid vault page shape.
+ * @param {any} base
+ * @param {any} folder
+ * @param {any} workspace
+ * @returns {any}
+ */
+export function mergeVaultPage(base, folder, workspace) {
+    const ret = wasm.mergeVaultPage(base, folder, workspace);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
  * `value`, or `None`.
  *
@@ -413,6 +469,25 @@ export function parseQuery(query) {
 }
 
 /**
+ * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
+ *
+ * # Errors
+ *
+ * Fails when `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} content
+ * @returns {any}
+ */
+export function readFrontmatter(content) {
+    const ptr0 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.readFrontmatter(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
  *
  * # Errors
@@ -489,6 +564,116 @@ export function tokenize(text, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::merge_vault_page::vault_page_base`] for JS; `null` when the file is not a note.
+ *
+ * # Errors
+ *
+ * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} path
+ * @param {string} content
+ * @returns {any}
+ */
+export function vaultPageBase(path, content) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.vaultPageBase(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::merge_vault_page::vault_page_side`] for JS; `null` when the file is not a note.
+ *
+ * # Errors
+ *
+ * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} path
+ * @param {string} content
+ * @returns {any}
+ */
+export function vaultPageSide(path, content) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.vaultPageSide(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::text_diff::write_conflict_markers`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} ours
+ * @param {string} theirs
+ * @returns {string}
+ */
+export function writeConflictMarkers(ours, theirs) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.writeConflictMarkers(ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * [`wf_core::sync::frontmatter::write_frontmatter`] for JS. Fields are written
+ * in object key order; a `null` (JS `undefined`) value is skipped, as in the TS.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
+ * `fields` is not an object.
+ * @param {any} fields
+ * @param {string} body
+ * @returns {string}
+ */
+export function writeFrontmatter(fields, body) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.writeFrontmatter(fields, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 function __wbg_get_imports() {
     const import0 = {
@@ -651,6 +836,10 @@ function __wbg_get_imports() {
             const ret = new Uint8Array(arg0);
             return ret;
         },
+        __wbg_new_28744009d011f847: function() {
+            const ret = new Map();
+            return ret;
+        },
         __wbg_new_617a8cdb8bb1130e: function() {
             const ret = new Object();
             return ret;
@@ -669,6 +858,10 @@ function __wbg_get_imports() {
         }, arguments); },
         __wbg_prototypesetcall_bc27214492979395: function(arg0, arg1, arg2) {
             Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), arg2);
+        },
+        __wbg_set_6ae97e73113c4f0b: function(arg0, arg1, arg2) {
+            const ret = arg0.set(arg1, arg2);
+            return ret;
         },
         __wbg_set_6be42768c690e380: function(arg0, arg1, arg2) {
             arg0[arg1] = arg2;
