@@ -562,6 +562,12 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+      - name: Phone build check
+        # Phones take the rustls path (src/tls.rs); check it compiles there too.
+        run: |
+          rustup target add aarch64-linux-android
+          cargo check --locked -p wf-relay --target aarch64-linux-android
+
       - name: Dependency policy
         run: cargo deny --locked check
 

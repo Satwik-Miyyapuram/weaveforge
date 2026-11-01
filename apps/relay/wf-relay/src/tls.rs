@@ -6,6 +6,9 @@
 //! (`wf-relay-server`) takes the desktop path.
 
 /// Applies the platform's roots: unchanged on desktops, the bundled list on phones.
+///
+/// Phones build rustls without a crypto provider, so the caller must install one
+/// before building a client (the shell installs ring's at start, `apps/shell/src/lib.rs`).
 #[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn with_roots(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
     builder.tls_certs_only(bundled_roots())
