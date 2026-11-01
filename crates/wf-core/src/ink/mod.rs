@@ -13,6 +13,7 @@
 )]
 
 pub mod curve;
+pub mod decode;
 pub mod js_math;
 pub mod recognise;
 pub mod segment;
