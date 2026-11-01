@@ -596,11 +596,6 @@ export function isAppOwnedPath(path: string): boolean {
   return rawIsAppOwnedPath(path);
 }
 
-/** Who changed a path since both sides last agreed; the diffs ask it per path. */
-export interface OriginOptions {
-  origin?(path: string): ChangeSide;
-}
-
 /** The project's folder-mirror files for a snapshot (Rust `serialize_workspace`). */
 export function serializeWorkspace(
   snapshot: object,
@@ -627,7 +622,7 @@ export function parseWorkspaceFolder(files: Readonly<Record<string, string>>): P
 export function diffWorkspace(
   parsed: readonly ParsedEntity[],
   existing: readonly ExistingEntity[],
-  options: OriginOptions = {},
+  options: { origin?(path: string): ChangeSide } = {},
 ): ImportDiff {
   const origin = options.origin;
   const sides = origin ? Object.fromEntries(parsed.map((entity) => [entity.path, origin(entity.path)])) : undefined;
@@ -651,7 +646,7 @@ export function parseJsonData(path: string, content: string, kind: WorkspaceJson
 export function diffJsonData(
   parsed: ParsedJsonData,
   existing: readonly Readonly<Record<string, unknown>>[],
-  options: OriginOptions = {},
+  options: { origin?(path: string): ChangeSide } = {},
 ): JsonDiff {
   return rawDiffJsonData(parsed, JSON.stringify(existing), options.origin?.(parsed.path)) as JsonDiff;
 }
