@@ -3,6 +3,7 @@
 
 pub mod error_report;
 pub mod experiments;
+pub mod member;
 pub mod org;
 pub mod papers;
 pub mod plan;
