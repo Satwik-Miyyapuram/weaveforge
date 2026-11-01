@@ -1,4 +1,4 @@
-//! Searching the workspace folder. Ported from apps/desktop/src/vault-search.ts.
+//! Searching the workspace folder. Ported from apps/shell/sidecar/src/vault-search.ts.
 
 use crate::vault::{EntryKindPayload, VaultSession};
 

@@ -336,7 +336,7 @@ fn json_row(row: Value) -> Result<Json, ShellError> {
     serde_json::from_value(row).map_err(|_| shell_error("local database: bad reply"))
 }
 
-/// The local-API channels the page may call, as in apps/desktop/src/channels.ts.
+/// The local-API channels the page may call, as in apps/shell/sidecar/src/channels.ts.
 pub const LOCAL_API_CHANNELS: &[&str] = &[
     "weaveforge:local-api-state",
     "weaveforge:local-api-set",

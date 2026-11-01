@@ -46,7 +46,7 @@ exist, are already tested, and currently justify none of their weight.
 - [x] `verifyRoot` refuses a folder that is neither empty nor already ours —
       `.weaveforge/` is the mark. Pointing this at `Documents/` would bury a
       person's files among a thousand of ours with no way to tell them apart
-- [x] 18 tests in `apps/desktop/test/vault-folder.test.ts`
+- [x] 18 tests in `apps/shell/sidecar/test/vault-folder.test.ts`
 
 Not yet done in this phase: persisting the chosen root across restarts. The
 `preference-store` allow list would need a `vault-root` name, and the question

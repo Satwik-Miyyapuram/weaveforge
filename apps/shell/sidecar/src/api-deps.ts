@@ -7,15 +7,15 @@
 
 import path from "node:path";
 import { errorMessage } from "@weaveforge/core";
-import { CHANNELS, type IpcResult } from "../../../desktop/src/channels";
-import type { GuardedEvent, IpcSurface } from "../../../desktop/src/ipc-guard";
-import type { LocalDbHost } from "../../../desktop/src/local-db-host";
-import type { MainLocalApiDeps, RankWindow } from "../../../desktop/src/main-local-api";
-import type { McpPaths } from "../../../desktop/src/mcp-connect";
-import type { PreferenceStore, PreferenceValue } from "../../../desktop/src/preference-store";
-import type { SecretStore } from "../../../desktop/src/secret-store";
-import { newVaultSession, type VaultSession } from "../../../desktop/src/vault-handlers";
-import { NodeWorkspaceFs } from "../../../desktop/src/vault-folder";
+import { CHANNELS, type IpcResult } from "./channels";
+import type { GuardedEvent, IpcSurface } from "./ipc-guard";
+import type { LocalDbHost } from "./local-db-host";
+import type { MainLocalApiDeps, RankWindow } from "./main-local-api";
+import type { McpPaths } from "./mcp-connect";
+import type { PreferenceStore, PreferenceValue } from "./preference-store";
+import type { SecretStore } from "./secret-store";
+import { newVaultSession, type VaultSession } from "./vault-handlers";
+import { NodeWorkspaceFs } from "./vault-folder";
 import type { Peer } from "./wire";
 
 export type Handler = (params: unknown) => Promise<unknown>;

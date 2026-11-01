@@ -587,7 +587,7 @@ export interface DesktopVaultEntry {
 }
 
 /**
- * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`
+ * The secrets the page may name. Mirrored in `apps/shell/sidecar/src/secret-store.ts`
  * (`PAGE_WRITABLE`, held equal by its typecheck), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
@@ -595,7 +595,7 @@ export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-tok
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
- * `apps/desktop/src/preference-store.ts`; a desktop test holds them equal.
+ * `apps/shell/sidecar/src/preference-store.ts`; a desktop test holds them equal.
  */
 export type DesktopPreferenceName = "vault-git" | "vault-git-remote";
 export type DesktopPreferenceValue = string | boolean | null;

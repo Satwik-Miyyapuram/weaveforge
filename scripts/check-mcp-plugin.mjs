@@ -11,7 +11,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listedTools } from "../apps/desktop/src/local-mcp.ts";
+import { listedTools } from "../apps/shell/sidecar/src/local-mcp.ts";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const server = join(root, "plugins/weaveforge-research/mcp-server/index.mjs");

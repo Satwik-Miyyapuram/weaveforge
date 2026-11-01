@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { PlanWidgetData } from "@weaveforge/core";
-import { CHANNELS } from "./channels";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
 
 /**
  * The widget page's whole view of the shell: its data and the app's colours arriving, and its two

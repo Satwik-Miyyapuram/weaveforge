@@ -17,9 +17,9 @@ import type { BrowserWindow } from "electron";
 
 import { safeWorkspacePath } from "@weaveforge/core";
 
-import { CHANNELS } from "./channels";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
 import { createVaultWatch, type VaultWatch } from "./vault-watch";
-import { TEMP_SUFFIX } from "./vault-folder";
+import { TEMP_SUFFIX } from "../../shell/sidecar/src/vault-folder";
 
 /** What the watcher needs from the shell. */
 export interface MainVaultWatchDeps {

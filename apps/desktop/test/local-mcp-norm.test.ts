@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { norm, pickProject } from "../src/local-mcp-projects";
+import { norm, pickProject } from "../../shell/sidecar/src/local-mcp-projects";
 
 test("norm trims, lowercases and folds whitespace runs", () => {
   assert.equal(norm("  My   Thesis\tDraft \n"), "my thesis draft");

@@ -1,6 +1,6 @@
 import { errorMessage, planWidgetData, type FeedMilestone, type PlanWidgetData } from "@weaveforge/core";
 import { milestoneToDomain, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
-import type { IpcResult } from "./channels";
+import type { IpcResult } from "../../shell/sidecar/src/channels";
 
 /**
  * The plan widget's pure half: what it reads, how the rows become the widget's

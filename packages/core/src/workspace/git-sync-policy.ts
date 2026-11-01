@@ -5,7 +5,7 @@
  * every byte it ever sees, so a folder synced as-is can turn into gigabytes of
  * build output, dependency trees and render caches. These rules gate what the
  * browser-side (isomorphic-git) commit path stages, and the desktop's native
- * commit path (`apps/desktop/src/vault-git.ts`) applies the same rules before
+ * commit path (`apps/shell/sidecar/src/vault-git.ts`) applies the same rules before
  * anything is committed or pushed to a remote.
  *
  * Kept separate from `IMPORT_LIMITS`: that cap is about what the app will read

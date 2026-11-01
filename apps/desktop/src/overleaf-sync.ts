@@ -27,9 +27,9 @@ import {
 
 import { OVERLEAF_PROJECT_ID, overleafGitUrl, parseOverleafProjectId } from "@/features/overleaf/domain/link-rules";
 
-import type { IpcResult } from "./channels";
-import { gitReason, NativeWorkspaceGit, redactAuth, serial } from "./vault-git";
-import type { VaultSession } from "./vault-handlers";
+import type { IpcResult } from "../../shell/sidecar/src/channels";
+import { gitReason, NativeWorkspaceGit, redactAuth, serial } from "../../shell/sidecar/src/vault-git";
+import type { VaultSession } from "../../shell/sidecar/src/vault-handlers";
 
 export const OVERLEAF_SYNC_ACTIONS = ["list", "link", "unlink", "status", "pull", "push"] as const;
 export type OverleafSyncAction = (typeof OVERLEAF_SYNC_ACTIONS)[number];

@@ -20,8 +20,8 @@ import {
   canonicalAppUrl,
   isPageRequest,
   resolveAppFile,
-} from "./app-protocol";
-import { readHomeConfig, writeHomeConfig } from "./home-config";
+} from "../../shell/sidecar/src/app-protocol";
+import { readHomeConfig, writeHomeConfig } from "../../shell/sidecar/src/home-config";
 import {
   chooseRoot,
   currentRoot,
@@ -38,20 +38,20 @@ import {
   type RememberRoot,
   writeVaultBytes,
   writeVaultFile,
-} from "./vault-handlers";
+} from "../../shell/sidecar/src/vault-handlers";
 import { registerMainAppLog } from "./main-app-log";
 import { followTaskbarTheme } from "./taskbar-icon";
 import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
 import { registerMainPlanWidget } from "./main-plan-widget";
-import { registerMainLocalApi, shellMcpDeps } from "./main-local-api";
+import { registerMainLocalApi, shellMcpDeps } from "../../shell/sidecar/src/main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
 import { registerMainTex } from "./main-tex";
 import { registerMattermostSignIn } from "./mattermost-signin";
-import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
+import { ARTIFACT_HOST, serveLocalArtifact } from "../../shell/sidecar/src/local-artifacts";
 import { modelCacheUrl, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
@@ -59,13 +59,13 @@ import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { sendWhenLoaded } from "./sign-in-relay";
-import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
+import { CHANNELS, type IpcResult, type MenuGroupPayload } from "../../shell/sidecar/src/channels";
 import { pagePreferenceStore, pageSecretStore, preferenceStore, readOverleafSyncDeps, readVaultSyncSettings, secretStore } from "./main-stores";
 import { syncOverleafFolder } from "./overleaf-sync";
 import { checkUpdateReply, fetchReleases } from "./update-check";
 import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
-import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
+import { originOf, registerGuardedIpc, sameOrigin } from "../../shell/sidecar/src/ipc-guard";
 import { runBoundedQuit } from "./quit";
 import { createAppLog, type AppLog } from "./app-log";
 

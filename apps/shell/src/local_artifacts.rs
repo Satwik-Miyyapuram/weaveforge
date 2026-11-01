@@ -1,7 +1,7 @@
 //! SDK uploads kept on this disk, served same-origin at `/artifacts/...` on the app host, and at
 //! `app://artifacts/...` for URLs the Electron app recorded.
 //!
-//! Port of `apps/desktop/src/local-artifacts.ts`.
+//! Port of `apps/shell/sidecar/src/local-artifacts.ts`.
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};

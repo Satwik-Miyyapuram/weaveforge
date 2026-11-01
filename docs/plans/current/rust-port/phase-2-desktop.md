@@ -9,7 +9,7 @@ Tauri 2 app in `apps/shell`, plus a new crate `wf-store` for native I/O. The
 React UI does not change: it reaches the shell only through
 `window.weaveforge`, typed by `DesktopBridge` in
 `apps/web/src/lib/desktop/desktop-bridge.ts`, over the channels named in
-`apps/desktop/src/channels.ts`.
+`apps/shell/sidecar/src/channels.ts`.
 
 | Electron today | Tauri 2 |
 | --- | --- |
@@ -61,7 +61,7 @@ Its costs are stated, not hidden:
 
 ### How 2.8b does it
 
-`registerMainLocalApi` (`apps/desktop/src/main-local-api.ts`) already takes
+`registerMainLocalApi` (`apps/shell/sidecar/src/main-local-api.ts`) already takes
 everything it touches as injected deps, so it runs in the sidecar unchanged.
 The sidecar supplies those deps, and the shell answers what only it can.
 
@@ -170,7 +170,7 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
   written last and atomically; while it exists the copy never runs again. A
   failed copy stops the sidecar (exit 1) instead of opening an empty
   database, which would hide the user's data on every later start.
-- Electron (`apps/desktop/src/migrated-notice.ts`) shows a warning dialog on
+- Electron (`apps/shell/sidecar/src/migrated-notice.ts`) shows a warning dialog on
   start when the marker is there.
 - Not copied: the workspace database. It stays in the folder; **2.7** must
   pass the workspace root to the sidecar and open the database there as

@@ -1,7 +1,7 @@
 import type { DesktopOverleafSource } from "@/lib/desktop/desktop-bridge";
 import { readOverleafProject } from "@/features/overleaf/infrastructure/overleaf-git-reader";
 import { safeOverleafError } from "@/features/overleaf/infrastructure/overleaf-error";
-import type { IpcResult } from "./channels";
+import type { IpcResult } from "../../shell/sidecar/src/channels";
 
 /**
  * A linked Overleaf project, read here because there is no server to read it.

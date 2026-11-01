@@ -1,6 +1,6 @@
 import { checkUrlShape } from "@weaveforge/core";
 import { fetchPageTitle, fetchRemoteImage } from "@/backend/net/fetch-for-paste";
-import type { ImagePayload, IpcResult, TitlePayload } from "./channels";
+import type { ImagePayload, IpcResult, TitlePayload } from "../../shell/sidecar/src/channels";
 
 /**
  * What the two fetch channels actually do, with no Electron in sight.

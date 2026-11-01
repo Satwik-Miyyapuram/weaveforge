@@ -1,4 +1,4 @@
-//! Sync a folder repo with one https remote: status, pull, push. Ported from the remote half of apps/desktop/src/vault-git.ts.
+//! Sync a folder repo with one https remote: status, pull, push. Ported from the remote half of apps/shell/sidecar/src/vault-git.ts.
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;

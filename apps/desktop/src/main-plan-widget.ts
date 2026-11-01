@@ -17,10 +17,10 @@
 import { app, BrowserWindow, ipcMain, screen, type IpcMainEvent } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { CHANNELS, type IpcResult, type PlanWidgetStatePayload } from "./channels";
-import type { IpcSurface } from "./ipc-guard";
-import type { LocalDbHost } from "./local-db-host";
-import type { PreferenceStore } from "./preference-store";
+import { CHANNELS, type IpcResult, type PlanWidgetStatePayload } from "../../shell/sidecar/src/channels";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
+import type { LocalDbHost } from "../../shell/sidecar/src/local-db-host";
+import type { PreferenceStore } from "../../shell/sidecar/src/preference-store";
 import {
   cleanWidgetPalette,
   hwndFromHandle,

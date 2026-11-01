@@ -5,8 +5,8 @@
 import { errorMessage } from "@weaveforge/core";
 import { shell } from "electron";
 import { MAX_ENTRIES, type AppLog, type AppLogEntry } from "./app-log";
-import { CHANNELS, type AppLogPayload, type IpcResult } from "./channels";
-import type { IpcSurface } from "./ipc-guard";
+import { CHANNELS, type AppLogPayload, type IpcResult } from "../../shell/sidecar/src/channels";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 
 /**
  * One log entry as one line.

@@ -1,26 +1,26 @@
 import fs from "node:fs";
-import type { LocalClient } from "../../../desktop/src/local-db";
+import type { LocalClient } from "./local-db";
 import {
   LocalDbBackups,
   readBackup,
-} from "../../../desktop/src/local-db-backup";
-import { engineStartParams } from "../../../desktop/src/local-db-engine-params";
-import { LocalDbHost } from "../../../desktop/src/local-db-host";
-import { DatabaseInUseError } from "../../../desktop/src/local-db-lock";
-import { prepareDataDir } from "../../../desktop/src/local-db-prepare";
+} from "./local-db-backup";
+import { engineStartParams } from "./local-db-engine-params";
+import { LocalDbHost } from "./local-db-host";
+import { DatabaseInUseError } from "./local-db-lock";
+import { prepareDataDir } from "./local-db-prepare";
 import {
   applyDeferredMove,
   claimRelaunch,
   clearRelaunch,
   moveAside,
   type MoveOutcome,
-} from "../../../desktop/src/local-db-reset";
+} from "./local-db-reset";
 import {
   clearRestoreLeftovers,
   restoreNewestGood,
-} from "../../../desktop/src/local-db-restore";
-import { openWithRetry } from "../../../desktop/src/local-db-retry";
-import { dumpOnDisk } from "../../../desktop/src/local-db-tar";
+} from "./local-db-restore";
+import { openWithRetry } from "./local-db-retry";
+import { dumpOnDisk } from "./local-db-tar";
 
 /** What the sidecar needs to run the database: where it is, where its migrations and backups are. */
 export interface LifecycleOptions {

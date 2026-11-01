@@ -187,7 +187,7 @@ describe("migrations and their ledger (37-19)", () => {
   });
 
   it("replays every shipped migration, 0099 included, and records each once", async () => {
-    const root = path.resolve(import.meta.dirname, "../../../db");
+    const root = path.resolve(import.meta.dirname, "../../../../db");
     const migrations = ["migrations", "migrations-local"].flatMap((dir) =>
       readdirSync(path.join(root, dir))
         .filter((name) => name.endsWith(".sql"))

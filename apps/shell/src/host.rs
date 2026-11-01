@@ -17,7 +17,7 @@ pub const HOST_PREFS: &[&str] = &["local-api"];
 pub const HOST_SECRETS: &[&str] = &["local-api-token"];
 /// Window events the sidecar may send.
 pub const HOST_EVENTS: &[&str] = &["semanticRank"];
-/// The only links `open.url` opens: the editors' MCP install links that apps/desktop/src/mcp-connect.ts builds.
+/// The only links `open.url` opens: the editors' MCP install links that apps/shell/sidecar/src/mcp-connect.ts builds.
 /// `vscode-insiders:` links are refused.
 pub const HOST_URL_PREFIXES: &[&str] = &[
     "cursor://anysphere.cursor-deeplink/mcp/install?name=weaveforge&config=",

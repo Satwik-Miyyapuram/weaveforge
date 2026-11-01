@@ -182,7 +182,7 @@ answers a semantic query correctly after a restart.
 ### 5. A wider MCP surface
 
 **What exists.** Three read tools and ten proposal tools, dispatched in
-`mcp-browser-relay.ts`; the desktop's own server in `apps/desktop/src/local-mcp.ts`
+`mcp-browser-relay.ts`; the desktop's own server in `apps/shell/sidecar/src/local-mcp.ts`
 answers three. The proposal gate is already the rule: nothing is written without
 review.
 

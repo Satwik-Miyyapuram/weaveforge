@@ -6,9 +6,9 @@ import path from "node:path";
 import type {
   LocalClient,
   LocalTransaction,
-} from "../../../desktop/src/local-db";
-import { backupFileName } from "../../../desktop/src/local-db-backup";
-import type { MoveOutcome } from "../../../desktop/src/local-db-reset";
+} from "../src/local-db";
+import { backupFileName } from "../src/local-db-backup";
+import type { MoveOutcome } from "../src/local-db-reset";
 import { createLifecycle, type Lifecycle } from "../src/lifecycle";
 
 const roots: string[] = [];

@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { CHANNELS } from "../../../desktop/src/channels";
-import { registerMainLocalApi } from "../../../desktop/src/main-local-api";
-import type { LocalDbHost } from "../../../desktop/src/local-db-host";
-import { mcpPaths } from "../../../desktop/src/mcp-connect";
+import { CHANNELS } from "../src/channels";
+import { registerMainLocalApi } from "../src/main-local-api";
+import type { LocalDbHost } from "../src/local-db-host";
+import { mcpPaths } from "../src/mcp-connect";
 import {
   askOpen,
   askPreferences,
@@ -18,7 +18,7 @@ import {
   wireWindow,
   type Handler,
 } from "../src/api-deps";
-import { newVaultSession } from "../../../desktop/src/vault-handlers";
+import { newVaultSession } from "../src/vault-handlers";
 
 function fakePeer(answer: (method: string, params?: unknown) => Promise<unknown>) {
   return {

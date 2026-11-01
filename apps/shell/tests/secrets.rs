@@ -322,7 +322,7 @@ fn error_texts_match_the_spec_exactly() {
 
 #[test]
 fn shared_error_texts_match_the_typescript_constants() {
-    let ts = include_str!("../../desktop/src/secret-store.ts");
+    let ts = include_str!("../../shell/sidecar/src/secret-store.ts");
     let unknown = SecretError::UnknownName.to_string();
     assert!(ts.contains(&format!("\"{unknown}\"")));
     let (first, second) = NO_KEYCHAIN_TEXT.split_at(

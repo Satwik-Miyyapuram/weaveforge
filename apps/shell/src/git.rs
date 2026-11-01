@@ -1,4 +1,4 @@
-//! Vault history commands over wf-store's git. Ported from apps/desktop/src/vault-git.ts.
+//! Vault history commands over wf-store's git. Ported from apps/shell/sidecar/src/vault-git.ts.
 
 use std::path::PathBuf;
 use std::sync::Arc;

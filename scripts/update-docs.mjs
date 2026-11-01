@@ -49,7 +49,7 @@ function codeMap() {
  * thing they want is even possible from the renderer.
  */
 function desktopIpc() {
-  const source = read("apps/desktop/src/channels.ts");
+  const source = read("apps/shell/sidecar/src/channels.ts");
   const channels = [...source.matchAll(/^\s{2}([a-zA-Z]+): "(weaveforge:[a-z-]+)",/gm)]
     .map((match) => ({ name: match[1], channel: match[2] }));
   // Members of the bridge object the preload exposes — one line each, and the

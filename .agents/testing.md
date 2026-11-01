@@ -18,7 +18,7 @@ From the repo root (Git Bash or PowerShell):
 One file or one test, faster:
 
 ```bash
-cd apps/desktop && node --import tsx --test test/home-config.test.ts
+node --import tsx --test apps/shell/sidecar/test/home-config.test.ts
 cd packages/core && node --import tsx --test test/features/reader/references.test.ts
 npm run test:web -- --test-name-pattern "find overlay"
 ```
