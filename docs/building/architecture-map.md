@@ -105,7 +105,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 ## The IPC surface
 
 Everything the desktop shell can do that a tab cannot goes through one of these,
-named once in `apps/desktop/src/channels.ts` and typed once in
+named once in `apps/shell/sidecar/src/channels.ts` and typed once in
 `desktop-bridge.ts`. Two are pushed the other way — main to renderer — because
 they are events nobody asked for: a sign-in finishing, and somebody else
 changing the folder.
