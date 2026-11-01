@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use weaveforge_shell::sidecar::{
+use weaveforge_shell_lib::sidecar::{
     AskLimits, SIDECAR_MAX_LINE, Sidecar, SidecarConfig, SidecarError, SidecarHost,
 };
 

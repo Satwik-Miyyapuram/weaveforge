@@ -5,8 +5,10 @@ use std::sync::Arc;
 
 use keyring_core::CredentialStore;
 use keyring_core::mock::Cred;
-use weaveforge_shell::commands::ShellError;
-use weaveforge_shell::secrets::{PAGE_READABLE, PAGE_WRITABLE, SECRET_NAMES, SecretError, Secrets};
+use weaveforge_shell_lib::commands::ShellError;
+use weaveforge_shell_lib::secrets::{
+    PAGE_READABLE, PAGE_WRITABLE, SECRET_NAMES, SecretError, Secrets,
+};
 
 const SERVICE: &str = "org.weaveforge.test";
 const UNKNOWN_NAMES: [&str; 6] = [

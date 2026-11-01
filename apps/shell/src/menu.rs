@@ -556,9 +556,16 @@ pub fn set_window_focus<R: Runtime>(
     window: &tauri::WebviewWindow<R>,
     focus: bool,
 ) -> Result<(), String> {
-    window
+    #[cfg(desktop)]
+    return window
         .set_fullscreen(focus)
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string());
+    // Phone windows are always full screen.
+    #[cfg(mobile)]
+    {
+        let _ = (window, focus);
+        Ok(())
+    }
 }
 
 /// Zoom factors the window steps through, as Electron's are (an approximation of its log steps).
@@ -625,6 +632,11 @@ impl<R: Runtime> TauriMenuHost<R> {
         }
     }
 
+    /// Phone windows cannot be resized, so this does nothing there.
+    #[cfg(mobile)]
+    fn toggle_maximized(&self) {}
+
+    #[cfg(desktop)]
     fn toggle_maximized(&self) {
         if self.is_maximized() {
             let _ = self.window.unmaximize();
@@ -677,13 +689,18 @@ impl<R: Runtime> MenuHost for TauriMenuHost<R> {
             MenuRole::ResetZoom => self.step_zoom(|_| 1.0),
             MenuRole::ZoomIn => self.step_zoom(zoom_in),
             MenuRole::ZoomOut => self.step_zoom(zoom_out),
+            #[cfg(desktop)]
             MenuRole::FullScreen => {
                 let _ = self.window.set_fullscreen(!self.is_fullscreen());
             }
             MenuRole::DevTools => self.dev_tools(),
+            #[cfg(desktop)]
             MenuRole::Minimize => {
                 let _ = self.window.minimize();
             }
+            // Phone windows are always full screen and cannot be minimized.
+            #[cfg(mobile)]
+            MenuRole::FullScreen | MenuRole::Minimize => {}
             MenuRole::Maximize => self.toggle_maximized(),
             MenuRole::Close => {
                 let _ = self.window.close();

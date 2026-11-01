@@ -25,7 +25,7 @@ type BridgeCommands = DesktopCommands & LocalDbCommands & MenuCommands;
 /** What the shell tells the page about itself. */
 export interface ShellInfo {
   version: string;
-  platform: "darwin" | "win32" | "linux";
+  platform: "darwin" | "win32" | "linux" | "android" | "ios";
 }
 
 /** The event the shell emits with a sign-in link's query string. */

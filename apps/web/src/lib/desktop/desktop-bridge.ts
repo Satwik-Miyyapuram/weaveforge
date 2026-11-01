@@ -37,8 +37,8 @@ export interface DesktopLocalDbState {
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
-  /** The platform, for the few places a keyboard hint differs. */
-  readonly platform: "darwin" | "win32" | "linux";
+  /** The platform, for the few places a keyboard hint or the sign-in return differs. */
+  readonly platform: "darwin" | "win32" | "linux" | "android" | "ios";
 
   /**
    * Reads a page's title without a server round trip.

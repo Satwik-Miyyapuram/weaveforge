@@ -13,7 +13,7 @@ use tokio::io::{
     AsyncBufReadExt, AsyncWriteExt, BufReader, DuplexStream, Lines, ReadHalf, WriteHalf,
 };
 use tokio::sync::mpsc;
-use weaveforge_shell::ink::{
+use weaveforge_shell_lib::ink::{
     HelperIo, InkHapticsMessage, InkOptions, InkRecogniser, InkRecognitionLine,
     InkRecognitionLineInput, InkRecognitionRequest, InkRecognitionResult, InkRecognitionWord,
     Spawner, ink_recogniser_path, read_ink_request,

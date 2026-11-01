@@ -6,11 +6,11 @@ mod common;
 use std::path::Path;
 
 use common::TempDir;
-use weaveforge_shell::local_artifacts::{
+use weaveforge_shell_lib::local_artifacts::{
     ARTIFACT_CSP, ARTIFACT_HOST, ARTIFACT_URL_PREFIX, SAME_ORIGIN_PREFIX, UNSAFE, is_safe_segment,
     serve_local_artifact, write_local_artifact,
 };
-use weaveforge_shell::protocol::Reply;
+use weaveforge_shell_lib::protocol::Reply;
 
 fn header<'a>(r: &'a Reply, name: &str) -> Option<&'a str> {
     r.headers

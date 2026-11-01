@@ -2,7 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use weaveforge_shell::fetch::page_title::{
+use weaveforge_shell_lib::fetch::page_title::{
     MAX_TITLE, PAGE_TITLE_SCAN_CHARS, decode_html_entities, extract_page_title,
     looks_like_image_url,
 };

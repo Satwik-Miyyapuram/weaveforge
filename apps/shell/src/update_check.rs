@@ -95,7 +95,7 @@ pub fn newest_release(releases: &[Release]) -> Option<(Version, &Release)> {
 /// # Errors
 /// `releases: failed` when the request, the body or the JSON breaks; `releases: <status>` on a non-2xx answer.
 pub async fn fetch_releases(url: &str) -> Result<Vec<Release>, String> {
-    let client = reqwest::Client::builder()
+    let client = crate::tls::with_roots(reqwest::Client::builder())
         .timeout(UPDATE_TIMEOUT)
         .build()
         .map_err(|_| "releases: failed".to_string())?;

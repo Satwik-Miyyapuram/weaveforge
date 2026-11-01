@@ -34,8 +34,9 @@ url = "=2.5.8"
 proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 # Git sync (P2.10): libgit2, built from source on every platform. gix cannot yet push
 # over https or merge into the worktree. https uses WinHTTP on Windows, SecureTransport
-# on macOS and a vendored OpenSSL on Linux; ssh uses a vendored libssh2.
-git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
+# on macOS and a vendored OpenSSL on Linux; ssh uses a vendored libssh2. Those come from
+# wf-store's default `git-https` feature, so phones can build without OpenSSL.
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
 # Local embeddings (P2.11): ONNX Runtime downloaded and linked statically at build time; no ndarray,
 # no tracing. tokenizers without the C++ esaxx, onig, progress bar or hub download (fancy-regex instead).
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "api-31"] }

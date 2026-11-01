@@ -7,10 +7,10 @@ use std::path::Path;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use common::TempDir;
-use weaveforge_shell::cmd_vault::{
+use weaveforge_shell_lib::cmd_vault::{
     BAD_BYTES, list, read, read_bytes, remove, root, stat, write, write_bytes,
 };
-use weaveforge_shell::vault::{EntryKindPayload, NO_ROOT, RootKind, VaultState};
+use weaveforge_shell_lib::vault::{EntryKindPayload, NO_ROOT, RootKind, VaultState};
 
 fn text(path: &Path) -> String {
     path.to_string_lossy().into_owned()

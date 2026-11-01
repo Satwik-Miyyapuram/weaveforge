@@ -127,7 +127,7 @@ pub const RELAY_READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// # Errors
 /// When reqwest cannot build the client (TLS backend failed to load).
 pub fn relay_client() -> Result<reqwest::Client, reqwest::Error> {
-    reqwest::Client::builder()
+    crate::tls::with_roots(reqwest::Client::builder())
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(RELAY_CONNECT_TIMEOUT)
         .read_timeout(RELAY_READ_TIMEOUT)

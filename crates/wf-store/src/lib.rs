@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 /// Native sentence embeddings matching transformers.js q8 models.
+#[cfg(feature = "embeddings")]
 pub mod embed;
 pub mod git;
 pub mod root;

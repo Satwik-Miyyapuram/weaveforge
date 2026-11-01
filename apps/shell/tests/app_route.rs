@@ -4,11 +4,11 @@
 mod common;
 
 use common::{TempDir, put};
-use weaveforge_shell::app_route::{AppRoutes, from_reply, page_host, route};
-use weaveforge_shell::local_artifacts::{ARTIFACT_CSP, write_local_artifact};
-use weaveforge_shell::protocol::Reply;
-use weaveforge_shell::relay::route::RelayConfig;
-use weaveforge_shell::relay::shared::Answer;
+use weaveforge_shell_lib::app_route::{AppRoutes, from_reply, page_host, route};
+use weaveforge_shell_lib::local_artifacts::{ARTIFACT_CSP, write_local_artifact};
+use weaveforge_shell_lib::protocol::Reply;
+use weaveforge_shell_lib::relay::route::RelayConfig;
+use weaveforge_shell_lib::relay::shared::Answer;
 
 fn routes(web: &TempDir, data: &TempDir) -> AppRoutes {
     AppRoutes {

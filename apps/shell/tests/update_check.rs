@@ -5,7 +5,7 @@
 mod upstream;
 
 use upstream::{Upstream, response, serve};
-use weaveforge_shell::update_check::{
+use weaveforge_shell_lib::update_check::{
     MAX_RELEASES_BYTES, Release, UPDATE_CHECK_FAILED, Update, Version, check_update_reply,
     fetch_releases, find_update_at, is_newer, newest_release, parse_tag, parse_version,
 };

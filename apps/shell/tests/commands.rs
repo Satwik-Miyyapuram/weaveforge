@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use serde_json::json;
-use weaveforge_shell::commands::{DbState, Json, LocalDb, ShellError, export_bindings};
-use weaveforge_shell::sidecar::{Sidecar, SidecarConfig, SidecarError};
+use weaveforge_shell_lib::commands::{DbState, Json, LocalDb, ShellError, export_bindings};
+use weaveforge_shell_lib::sidecar::{Sidecar, SidecarConfig, SidecarError};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-sidecar.mjs")

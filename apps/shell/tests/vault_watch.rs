@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use weaveforge_shell::vault_watch::{
+use weaveforge_shell_lib::vault_watch::{
     Digest, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
 };
 

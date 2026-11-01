@@ -1,4 +1,5 @@
 //! Tests for native sentence embeddings: profiles, prompts, pooling and the optional model comparisons.
+#![cfg(feature = "embeddings")]
 
 use std::path::Path;
 use std::time::Instant;

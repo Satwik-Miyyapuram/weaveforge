@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refreshed every 30 minutes, the shortest period the platform honours for
+  updatePeriodMillis, and on every tap. No background worker: a deadline list
+  does not need to be fresher than that, and a worker would be a dependency and
+  a battery line item for it.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="org.weaveforge.ink.PlanWidgetConfigActivity"
+    android:description="@string/plan_widget_description"
+    android:initialLayout="@layout/widget_plan"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="110dp"
+    android:previewLayout="@layout/widget_plan"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

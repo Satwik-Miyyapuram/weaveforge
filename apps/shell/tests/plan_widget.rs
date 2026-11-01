@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
-use weaveforge_shell::plan_widget::{
+use weaveforge_shell_lib::plan_widget::{
     PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WidgetBounds, WorkArea,
     clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created, pin_script,
     place_widget, powershell_args, switch_plan_widget,

@@ -9,7 +9,7 @@ use std::net::TcpListener;
 use std::time::Duration;
 
 use upstream::{redirect, response, serve};
-use weaveforge_shell::zotero_local::{
+use weaveforge_shell_lib::zotero_local::{
     LOCAL_ORIGIN, MAX_ZOTERO_BODY, NOT_ANSWERING, NOT_LOCAL, TOO_LARGE, ZOTERO_LOCAL_API,
     ZOTERO_LOCAL_LIBRARY, ZOTERO_LOCAL_TIMEOUT, fetch_zotero_at, is_local_zotero_url,
     is_zotero_url_at,

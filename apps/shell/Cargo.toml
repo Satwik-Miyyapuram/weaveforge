@@ -13,12 +13,14 @@ repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
 publish = false
 
 [lib]
-name = "weaveforge_shell"
+# `_lib`, as in Tauri's template: a cdylib and a bin with one name write the same .pdb on
+# Windows (cargo #6313).
+name = "weaveforge_shell_lib"
+# Android loads the app as a shared library (cdylib); the desktop bin and tests use the rlib.
+crate-type = ["cdylib", "rlib"]
 
 # Exact pins, as in the root workspace: Tauri 2.x minor releases change behaviour.
 [dependencies]
-# Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
-git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
 tauri = { version = "=2.12.5", features = [] }
 # Native folder picker for the workspace folder (step 2.7b). The plugin runs the
 # dialog on the platform's UI thread; the page gets no dialog permission.
@@ -44,12 +46,6 @@ thiserror = "=2.0.21"
 keyring-core = "=1.0.1"
 # Vault, root confinement and search logic shared with the web build (plan §4.1).
 wf-core = { path = "../../crates/wf-core" }
-wf-store = { path = "../../crates/wf-store" }
-# Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
-# Same reqwest tauri already locks. native-tls, not rustls: rustls's default
-# aws-lc-rs needs cmake and nasm to build; native-tls uses schannel on Windows,
-# Security.framework on macOS, and on Linux the OpenSSL git2 already vendors.
-reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
 # The HTML relay decodes a page by the charset it declares: the same WHATWG labels
 # the TS relay's TextDecoder takes.
 encoding_rs = "=0.8.35"
@@ -62,6 +58,33 @@ base64 = "=0.23.1"
 notify = "=8.2.1"
 # Overleaf git dirs are named by a hash of the folder (step 2.13). Already in the lock.
 sha2 = "=0.10.9"
+
+# Desktop: git over https and ssh, and TLS from the platform (phase 4 design, decision 1).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
+git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
+# Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
+# Same reqwest tauri already locks. native-tls, not rustls: rustls's default
+# aws-lc-rs needs cmake and nasm to build; native-tls uses schannel on Windows,
+# Security.framework on macOS, and on Linux the OpenSSL git2 already vendors.
+reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
+wf-store = { path = "../../crates/wf-store" }
+
+# Phones: vendored OpenSSL needs perl and make to cross-build, so no OpenSSL.
+# git2 without https (no Overleaf git on phones); rustls on ring, which builds
+# with the NDK's clang.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std"] }
+# Mozilla's roots, checked by rustls: the default platform verifier needs JNI set-up on
+# Android. Already in the lock through ort-sys's build script.
+webpki-root-certs = "=1.0.11"
+wf-store = { path = "../../crates/wf-store", default-features = false }
+# The pen surface over the WebView (step 4.3a; plugins/ink).
+tauri-plugin-ink = { path = "plugins/ink" }
+# App Links for the sign-in return (auth_link.rs); 2.6.3 is the newest 2.x.
+tauri-plugin-deep-link = "=2.6.3"
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
@@ -80,6 +103,8 @@ apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-rust"] }
 
 [dev-dependencies]
+# tls.rs tests the phone roots on desktops too.
+webpki-root-certs = "=1.0.11"
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
 
 [build-dependencies]
@@ -90,7 +115,9 @@ tauri-build = { version = "=2.7.4", features = [] }
 unused_must_use = "deny"
 unused_results = "deny"
 missing_docs = "deny"
-unsafe_code = "forbid"
+# deny, not forbid: the phone entry point (lib.rs `mobile_entry`) comes from a Tauri macro
+# that emits `no_mangle` and JNI glue, and needs a local allow.
+unsafe_code = "deny"
 
 [lints.clippy]
 unwrap_used = "deny"

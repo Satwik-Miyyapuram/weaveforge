@@ -9,15 +9,15 @@ use std::time::Duration;
 use reqwest::Url;
 use reqwest::header::HeaderMap;
 use upstream::{Upstream, response, serve};
-use weaveforge_shell::relay::arxiv::{ARXIV_TIMEOUT, ARXIV_UPSTREAM};
-use weaveforge_shell::relay::blob::{BLOB_TIMEOUT, BLOB_UPSTREAM};
-use weaveforge_shell::relay::html::HTML_TIMEOUT;
-use weaveforge_shell::relay::pdf::PDF_TIMEOUT;
-use weaveforge_shell::relay::route::{RelayConfig, answer_relay};
-use weaveforge_shell::relay::semantic_scholar::{
+use weaveforge_shell_lib::relay::arxiv::{ARXIV_TIMEOUT, ARXIV_UPSTREAM};
+use weaveforge_shell_lib::relay::blob::{BLOB_TIMEOUT, BLOB_UPSTREAM};
+use weaveforge_shell_lib::relay::html::HTML_TIMEOUT;
+use weaveforge_shell_lib::relay::pdf::PDF_TIMEOUT;
+use weaveforge_shell_lib::relay::route::{RelayConfig, answer_relay};
+use weaveforge_shell_lib::relay::semantic_scholar::{
     RETRY_UNIT, SEMANTIC_SCHOLAR_TIMEOUT, SEMANTIC_SCHOLAR_UPSTREAM,
 };
-use weaveforge_shell::relay::shared::{Answer, RelayRequest, relay_client};
+use weaveforge_shell_lib::relay::shared::{Answer, RelayRequest, relay_client};
 
 const SHORT: Duration = Duration::from_secs(5);
 const NO_HOST: &str = "http://127.0.0.1:9";

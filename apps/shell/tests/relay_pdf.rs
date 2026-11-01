@@ -10,11 +10,11 @@ use std::time::{Duration, Instant};
 
 use reqwest::Url;
 use upstream::{Reply, redirect, response};
-use weaveforge_shell::relay::pdf::{
+use weaveforge_shell_lib::relay::pdf::{
     PDF_PROXY_ALLOWED_HOSTS, PDF_PROXY_MAX_BYTES, has_pdf_magic, is_allowed_pdf_proxy_url,
     is_pdf_content_type, is_pdf_proxy_request, proxy_pdf, relay_pdf,
 };
-use weaveforge_shell::relay::shared::{Answer, refuse, relay_client};
+use weaveforge_shell_lib::relay::shared::{Answer, refuse, relay_client};
 
 const FIVE: Duration = Duration::from_secs(5);
 const UNDER: Duration = Duration::from_secs(3);

@@ -6,11 +6,11 @@ use std::time::{Duration, Instant};
 
 use common::{TempDir, put};
 use serde_json::json;
-use weaveforge_shell::git::{
+use weaveforge_shell_lib::git::{
     CommitReply, GIT_TIMED_OUT, GIT_TIMEOUT, GitQueue, GitQueueError, WorkspaceCommit,
     commit_vault_folder, log_limit, vault_log,
 };
-use weaveforge_shell::vault::NO_ROOT;
+use weaveforge_shell_lib::vault::NO_ROOT;
 use wf_store::git::repo::{FolderRepo, MIRROR_AUTHOR};
 
 type Spans = Arc<Mutex<Vec<(Instant, Instant)>>>;
