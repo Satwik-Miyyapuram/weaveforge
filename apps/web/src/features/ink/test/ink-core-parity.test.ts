@@ -179,6 +179,50 @@ test("packer: packInkStroke matches, pressures of the wrong length included", ()
   same(rs.packInkStroke([1, 2, Number.NaN, 4]).points, ts.packInkStroke([1, 2, Number.NaN, 4]).points, "NaN");
 });
 
+// Non-finite values, -0 and .5 ties, which seeded strokes never produce.
+const EDGE = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0, -0.3, 2.5, -2.5, 0.49999999999999994];
+
+test("edge values: curve, smooth and packer match on NaN, Infinity, -0 and ties", () => {
+  const strokes: number[][] = [];
+  for (const v of EDGE) {
+    strokes.push([v, 1, 3, 4, 6, 2, 9, 9], [1, 2, v, v, 5, 7, 8, 1], [-0, -0, 3.5, -1.5, v, 0, 4, 4]);
+  }
+  for (const points of strokes) {
+    const [xs, ys] = xsYs(points);
+    for (let i = 0; i < xs.length; i += 1) {
+      for (const side of ["in", "out"] as const) {
+        const a = ts.inkTangentAt(xs, ys, i, side);
+        const b = rs.inkTangentAt(xs, ys, i, side);
+        same([a.x, a.y], [b.x, b.y], `${points} tangent ${i} ${side}`);
+      }
+      if (i + 1 < xs.length) {
+        for (const u of [0, 0.5, 1]) {
+          const a = ts.inkCurveAt(xs, ys, i, u);
+          const b = rs.inkCurveAt(xs, ys, i, u);
+          same([a.x, a.y], [b.x, b.y], `${points} curve ${i} ${u}`);
+        }
+      }
+    }
+    const pressures = points.slice(0, points.length / 2);
+    // An infinite span never ends resampling, in TS and Rust alike.
+    if (!points.some((v) => Math.abs(v) === Number.POSITIVE_INFINITY)) {
+      const ra = ts.resampleInkStroke(points, pressures, 2);
+      const rb = rs.resampleInkStroke(points, pressures, 2);
+      same(ra.points, rb.points, `${points} resample points`);
+      same(ra.pressures, rb.pressures, `${points} resample pressures`);
+    }
+    for (const passes of [0, 1, 1.5, -1, Number.NaN]) {
+      same(ts.binomialSmooth(points, 2, passes), rs.binomialSmooth(points, 2, passes), `${points} binomial ${passes}`);
+    }
+    for (const options of [{}, { maxPoints: 3.5 }, { maxPoints: Number.POSITIVE_INFINITY }, { maxPoints: 2 }]) {
+      const a = ts.packInkStroke(points, pressures, options);
+      const b = rs.packInkStroke(points, pressures, options);
+      same(a.points, b.points, `${points} pack ${JSON.stringify(options)} points`);
+      same(a.pressures, b.pressures, `${points} pack ${JSON.stringify(options)} pressures`);
+    }
+  }
+});
+
 // The live packer stays in TS for now; packing each prefix in Rust must give
 // what the live packer holds after that push.
 test("packer: packInkStroke matches the live packer after every push", () => {

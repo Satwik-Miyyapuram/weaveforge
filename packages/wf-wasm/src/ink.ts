@@ -53,7 +53,7 @@ export function resampleInkStroke(
   return rawResampleInkStroke(Float64Array.from(points), Float64Array.from(pressures), spacing) as PackedInkStroke;
 }
 
-/** `values` smoothed with the [1, 2, 1] kernel, ends kept (Rust `binomial_smooth`). */
+/** `values` smoothed with the five-tap [1, 4, 6, 4, 1] / 16 kernel, ends kept (Rust `binomial_smooth`). */
 export function binomialSmooth(values: readonly number[], stride: number, passes = 2): number[] {
   return Array.from(rawBinomialSmooth(Float64Array.from(values), stride, passes));
 }

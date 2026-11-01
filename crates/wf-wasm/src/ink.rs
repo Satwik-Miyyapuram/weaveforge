@@ -77,8 +77,14 @@ pub fn resample_ink_stroke_js(
 /// [`binomial_smooth`].
 #[wasm_bindgen(js_name = binomialSmooth)]
 #[must_use]
-pub fn binomial_smooth_js(values: &[f64], stride: u32, passes: u32) -> Vec<f64> {
-    binomial_smooth(values, stride as usize, passes)
+pub fn binomial_smooth_js(values: &[f64], stride: u32, passes: f64) -> Vec<f64> {
+    binomial_smooth(values, stride as usize, js_passes(passes))
+}
+
+/// A JS `pass < passes` loop count: a fraction rounds up, NaN or negative runs none.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn js_passes(passes: f64) -> u32 {
+    passes.max(0.0).ceil() as u32
 }
 
 /// The TS `smoothInkStroke` options; a missing field takes the default.
@@ -105,9 +111,7 @@ pub fn smooth_ink_stroke_js(
     } else {
         serde_wasm_bindgen::from_value(options)?
     };
-    // JS runs `pass < passes` loops: a fraction rounds up, NaN or negative runs none.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let passes = o.passes.map(|p| p.max(0.0).ceil() as u32);
+    let passes = o.passes.map(js_passes);
     let (points, pressures) = smooth_ink_stroke(points, pressures, o.spacing, passes);
     to_js(&PackedInkStroke { points, pressures })
 }
