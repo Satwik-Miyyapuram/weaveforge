@@ -37,12 +37,32 @@ impl AuthError {
     }
 }
 
+/// A verified caller: the Supabase user id and the JWT to act with as that user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Caller {
+    /// Supabase user id.
+    pub user_id: String,
+    /// Bearer JWT for PostgREST calls made as this user.
+    pub access_token: String,
+}
+
 /// Authenticates a request and returns the Supabase user id it acts for.
 pub async fn require_user(
     client: &reqwest::Client,
     config: &Config,
     authorization: Option<&str>,
 ) -> Result<String, AuthError> {
+    require_caller(client, config, authorization)
+        .await
+        .map(|caller| caller.user_id)
+}
+
+/// Authenticates a request and returns the user id plus the token to act with.
+pub async fn require_caller(
+    client: &reqwest::Client,
+    config: &Config,
+    authorization: Option<&str>,
+) -> Result<Caller, AuthError> {
     let token =
         bearer_token(authorization).ok_or_else(|| AuthError::new(401, NOT_AUTHENTICATED))?;
     if is_api_token(token) {
@@ -53,9 +73,13 @@ pub async fn require_user(
     if !looks_like_jwt(token) {
         return Err(AuthError::new(401, SESSION_REFUSED));
     }
-    get_user(client, config, token)
+    let user_id = get_user(client, config, token)
         .await
-        .ok_or_else(|| AuthError::new(401, SESSION_REFUSED))
+        .ok_or_else(|| AuthError::new(401, SESSION_REFUSED))?;
+    Ok(Caller {
+        user_id,
+        access_token: token.to_owned(),
+    })
 }
 
 /// Exchanges an API token for a minted JWT, then asks Supabase who it is.
@@ -63,7 +87,7 @@ async fn api_token_user(
     client: &reqwest::Client,
     config: &Config,
     token: &str,
-) -> Result<String, AuthError> {
+) -> Result<Caller, AuthError> {
     // Scopes are read before any JWT is minted, so a token of the wrong scope
     // never reaches `resolve_api_token`.
     let scopes = rpc(client, config, "api_token_scopes", token).await?;
@@ -80,9 +104,13 @@ async fn api_token_user(
         .filter(|id| !id.is_empty())
         .ok_or_else(|| AuthError::new(401, API_TOKEN_REFUSED))?;
     let jwt = mint_jwt(secret, user_id, now_seconds());
-    get_user(client, config, &jwt)
+    let verified = get_user(client, config, &jwt)
         .await
-        .ok_or_else(|| AuthError::new(401, API_TOKEN_REFUSED))
+        .ok_or_else(|| AuthError::new(401, API_TOKEN_REFUSED))?;
+    Ok(Caller {
+        user_id: verified,
+        access_token: jwt,
+    })
 }
 
 /// The token in `Authorization: Bearer <token>`, as the web's `bearerToken` reads it.

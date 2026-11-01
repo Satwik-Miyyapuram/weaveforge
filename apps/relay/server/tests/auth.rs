@@ -7,7 +7,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use common::{Reply, Upstream, response, serve};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
-use wf_relay_server::auth::{AuthError, mint_jwt, require_user};
+use wf_relay_server::auth::{AuthError, Caller, mint_jwt, require_caller, require_user};
 use wf_relay_server::config::Config;
 
 const USER: &str = "00000000-0000-4000-8000-000000000001";
@@ -272,5 +272,54 @@ fn mint_jwt_matches_hs256_vector() {
     assert_eq!(
         parts[2],
         hs256_b64(SECRET, &format!("{}.{}", parts[0], parts[1]))
+    );
+}
+
+#[tokio::test]
+async fn session_jwt_caller_carries_the_bearer_token() {
+    let up = serve(vec![(
+        GET_USER,
+        vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))],
+    )])
+    .await;
+    let cfg = config(&up, Some(SECRET));
+    let client = reqwest::Client::new();
+    let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln";
+    let header = format!("Bearer {jwt}");
+    assert_eq!(
+        require_caller(&client, &cfg, Some(header.as_str())).await,
+        Ok(Caller {
+            user_id: USER.to_owned(),
+            access_token: jwt.to_owned(),
+        })
+    );
+}
+
+#[tokio::test]
+async fn api_token_caller_carries_the_minted_jwt() {
+    let up = serve(vec![
+        (SCOPES, vec![json_reply(200, r#"["sdk"]"#)]),
+        (RESOLVE, vec![json_reply(200, &format!("\"{USER}\""))]),
+        (
+            GET_USER,
+            vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))],
+        ),
+    ])
+    .await;
+    let cfg = config(&up, Some(SECRET));
+    let client = reqwest::Client::new();
+    let header = format!("Bearer {API_TOKEN}");
+    let caller = require_caller(&client, &cfg, Some(header.as_str()))
+        .await
+        .unwrap();
+    assert_eq!(caller.user_id, USER);
+    assert_ne!(caller.access_token, API_TOKEN);
+    assert_eq!(caller.access_token.split('.').count(), 3);
+    let seen = up.seen();
+    assert_eq!(
+        Some(caller.access_token.as_str()),
+        seen[2]
+            .header("authorization")
+            .map(|value| value.trim_start_matches("Bearer "))
     );
 }
