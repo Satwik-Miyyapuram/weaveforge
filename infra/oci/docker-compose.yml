@@ -325,6 +325,8 @@ services:
       # /api/settings/*: MCP token switch ("false" or "0" turns it off) and the credential-sealing key.
       RELAY_MCP_ENABLED: ${RELAY_MCP_ENABLED:-true}
       OVERLEAF_CREDENTIAL_KEY: ${OVERLEAF_CREDENTIAL_KEY:-}
+      GITHUB_ISSUES_TOKEN: ${GITHUB_ISSUES_TOKEN:-}
+      GITHUB_ISSUES_REPO: ${GITHUB_ISSUES_REPO:-}
     mem_limit: 128m
     # No healthcheck: the image is debian-slim with ca-certificates only, so it
     # has neither curl nor wget to probe /healthz with.

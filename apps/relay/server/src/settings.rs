@@ -7,13 +7,27 @@ pub struct SettingsConfig {
     pub mcp_enabled: bool,
     /// `OVERLEAF_CREDENTIAL_KEY`, the secret that seals stored credentials; None when unset.
     pub credential_key: Option<String>,
+    /// `GITHUB_ISSUES_TOKEN`, the write-scoped token that files error reports; None when unset.
+    pub issues_token: Option<String>,
+    /// `GITHUB_ISSUES_REPO`, the `owner/name` that error reports are filed to.
+    pub issues_repo: String,
+    /// The GitHub API base for filing; fixed, so tests can point it at a stand-in.
+    pub issues_api: String,
 }
+
+/// The repository error reports go to when `GITHUB_ISSUES_REPO` is unset.
+const DEFAULT_ISSUES_REPO: &str = "Satwik-Miyyapuram/weaveforge";
+/// The GitHub API base; not read from the environment.
+const ISSUES_API: &str = "https://api.github.com";
 
 impl Default for SettingsConfig {
     fn default() -> Self {
         Self {
             mcp_enabled: true,
             credential_key: None,
+            issues_token: None,
+            issues_repo: DEFAULT_ISSUES_REPO.to_owned(),
+            issues_api: ISSUES_API.to_owned(),
         }
     }
 }
@@ -25,9 +39,19 @@ impl SettingsConfig {
         let mcp = get("RELAY_MCP_ENABLED").map(|v| v.trim().to_ascii_lowercase());
         // Not trimmed: the web hashes the value exactly as set, so the key must match.
         let credential_key = get("OVERLEAF_CREDENTIAL_KEY").filter(|v| !v.is_empty());
+        let issues_token = get("GITHUB_ISSUES_TOKEN")
+            .map(|v| v.trim().to_owned())
+            .filter(|v| !v.is_empty());
+        let issues_repo = get("GITHUB_ISSUES_REPO")
+            .map(|v| v.trim().to_owned())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| DEFAULT_ISSUES_REPO.to_owned());
         SettingsConfig {
             mcp_enabled: !matches!(mcp.as_deref(), Some("false" | "0")),
             credential_key,
+            issues_token,
+            issues_repo,
+            issues_api: ISSUES_API.to_owned(),
         }
     }
 }
