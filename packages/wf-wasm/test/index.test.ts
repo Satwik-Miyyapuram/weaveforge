@@ -2,11 +2,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  applyCommaPlacement,
   buildExcerpt,
   changedSide,
+  cleanPastedText,
+  cleanPdfText,
+  cleanUrlsWithRules,
+  cleanWrappedText,
   coreInfo,
   decideGitSyncPath,
   defaultInkNoteMeta,
+  defaultPasteSettings,
   describePull,
   describePush,
   diffBody,
@@ -30,14 +36,18 @@ import {
   mergeRows,
   mergeVaultPage,
   normalizeArxivId,
+  normalizePasteSettings,
   pageImportRefusal,
+  parseLinkRemovalText,
   parsePaperRef,
   parseQuery,
+  pasteLandsInVerbatimContext,
   readFrontmatter,
   readInkNoteBody,
   safeWorkspacePath,
   sameValue,
   stampWorkspaceId,
+  tabSeparatedToMarkdownTable,
   tokenize,
   vaultPageBase,
   vaultPageSide,
@@ -527,4 +537,54 @@ test("jsonKindOfPath returns null for a path that is not a JSON entity", () => {
 test("imageAltFromFilename accepts no name or null", () => {
   assert.equal(typeof imageAltFromFilename(), "string");
   assert.equal(typeof imageAltFromFilename(null), "string");
+});
+
+test("defaultPasteSettings matches normalizePasteSettings of nothing stored", () => {
+  const defaults = defaultPasteSettings();
+  assert.equal(typeof defaults.cleanOnPaste, "boolean");
+  assert.deepEqual(normalizePasteSettings(undefined), defaults);
+  assert.deepEqual(normalizePasteSettings("not an object"), defaults);
+  assert.deepEqual(normalizePasteSettings({ ...defaults, linkRemovals: ["a.com"] }).linkRemovals, ["a.com"]);
+});
+
+test("parseLinkRemovalText keeps one trimmed rule per non-empty line", () => {
+  assert.deepEqual(parseLinkRemovalText(" a.com \n\nb.org/x\n"), ["a.com", "b.org/x"]);
+});
+
+test("cleanPastedText returns text, changed and urlsCleaned", () => {
+  const result = cleanPastedText("plain text", defaultPasteSettings());
+  assert.deepEqual(Object.keys(result).sort(), ["changed", "text", "urlsCleaned"]);
+  assert.equal(result.text, "plain text");
+  assert.equal(result.changed, false);
+});
+
+test("pasteLandsInVerbatimContext takes a UTF-16 offset", () => {
+  const doc = "😀\n```\ncode\n```";
+  assert.equal(pasteLandsInVerbatimContext(doc, doc.indexOf("code")), true);
+  assert.equal(pasteLandsInVerbatimContext("plain", 2), false);
+  assert.equal(pasteLandsInVerbatimContext("plain", -5), false);
+  assert.equal(pasteLandsInVerbatimContext("plain", 1.7), false);
+});
+
+test("the text cleaners return text and changed", () => {
+  const wrapped = cleanWrappedText("a\nb", { rejoin: "never", bullets: "preserve" });
+  assert.deepEqual(Object.keys(wrapped).sort(), ["changed", "text"]);
+  assert.equal(typeof cleanPdfText("a b", {}).text, "string");
+  assert.deepEqual(tabSeparatedToMarkdownTable("no tabs"), { text: "no tabs", changed: false });
+  assert.equal(applyCommaPlacement("plain", "inside").changed, false);
+  assert.throws(() => applyCommaPlacement("x", "middle" as never));
+});
+
+test("cleanUrlsWithRules strips tracking parameters and counts URLs", () => {
+  const result = cleanUrlsWithRules("see https://example.com/a?utm_source=x", []);
+  assert.equal(result.text, "see https://example.com/a");
+  assert.equal(result.count, 1);
+});
+
+test("the paste wrappers reject text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+  const big = "a".repeat(maxIndexTextUtf16() + 1);
+  const beforeWasm = (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message);
+  assert.throws(() => cleanPastedText(big, defaultPasteSettings()), beforeWasm);
+  assert.throws(() => tabSeparatedToMarkdownTable(big), beforeWasm);
+  assert.throws(() => cleanUrlsWithRules(big, []), beforeWasm);
 });

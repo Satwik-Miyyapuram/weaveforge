@@ -2,28 +2,19 @@
 
 import { EditorSelection, type ChangeSpec, type StateCommand } from "@codemirror/state";
 import { EditorView, type Command, type KeyBinding } from "@codemirror/view";
-import {
-  applyCommaPlacement,
-  cleanPastedText,
-  cleanPdfText,
-  cleanWrappedText,
-  pasteLandsInVerbatimContext,
-  tabSeparatedToMarkdownTable,
-  type CommaPlacement,
-  type PasteSettings,
-  type PdfTextOptions,
-} from "@weaveforge/core";
+import type { CommaPlacement, PasteSettings, PdfTextOptions } from "@weaveforge/wasm";
 import {
   afterUrlPaste,
   BARE_URL,
   escapeLinkLabel,
   type RemotePasteOptions,
 } from "@/components/markdown/markdown-remote-paste";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Paste cleanup for the note editor.
  *
- * All the judgement lives in `@weaveforge/core/paste`, which is pure text in
+ * All the judgement lives in the Rust core (`wf_core::paste`), pure text in
  * and text out. This file is only the wiring: it decides *whether* a given
  * paste is eligible, and turns a cleaned string into a single CodeMirror
  * transaction.
@@ -127,9 +118,9 @@ function handlePaste(
   if (!current.cleanOnPaste) return false;
 
   const document = view.state.doc.toString();
-  if (pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
+  if (readyCore().pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
 
-  const result = cleanPastedText(raw, current);
+  const result = readyCore().cleanPastedText(raw, current);
 
   // A cleaned URL dropped onto selected text becomes a link around it. Done
   // here rather than left to the markdown package, which would wrap the
@@ -198,7 +189,7 @@ function transformSelection(transform: (text: string) => string): StateCommand {
 
 /** Runs the automatic rules over the selection on demand. */
 export function cleanSelection(settings: () => PasteSettings): StateCommand {
-  return transformSelection((text) => cleanPastedText(text, { ...settings(), cleanOnPaste: true }).text);
+  return transformSelection((text) => readyCore().cleanPastedText(text, { ...settings(), cleanOnPaste: true }).text);
 }
 
 /**
@@ -208,7 +199,7 @@ export function cleanSelection(settings: () => PasteSettings): StateCommand {
  */
 export const cleanTerminalSelection: StateCommand = transformSelection(
   (text) =>
-    cleanWrappedText(text, {
+    readyCore().cleanWrappedText(text, {
       rejoin: "any",
       bullets: "markdown",
       // `$$` in terminal output is the shell's process id, not maths.
@@ -218,12 +209,12 @@ export const cleanTerminalSelection: StateCommand = transformSelection(
 
 /** Repairs text copied out of a PDF. */
 export function cleanPdfSelection(options: PdfTextOptions): StateCommand {
-  return transformSelection((text) => cleanPdfText(text, options).text);
+  return transformSelection((text) => readyCore().cleanPdfText(text, options).text);
 }
 
 /** Moves commas to the chosen side of a closing quote. */
 export function moveCommas(placement: CommaPlacement): StateCommand {
-  return transformSelection((text) => applyCommaPlacement(text, placement).text);
+  return transformSelection((text) => readyCore().applyCommaPlacement(text, placement).text);
 }
 
 /**
@@ -233,7 +224,7 @@ export function moveCommas(placement: CommaPlacement): StateCommand {
  * the automatic version switched off, and for text that arrived some other way.
  */
 const selectionToTable: StateCommand = transformSelection(
-  (text) => tabSeparatedToMarkdownTable(text).text,
+  (text) => readyCore().tabSeparatedToMarkdownTable(text).text,
 );
 
 /** Pastes the clipboard with no rules applied at all. */

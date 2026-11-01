@@ -27,6 +27,7 @@ use crate::search::js_text::{is_js_whitespace, utf16_len};
 /// Options for [`clean_pdf_text`].
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase", default)]
 pub struct PdfTextOptions {
     /// Remove page-number lines along with the page break around them.

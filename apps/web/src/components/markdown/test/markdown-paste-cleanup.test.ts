@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorSelection, EditorState, type StateCommand, type Transaction } from "@codemirror/state";
-import { DEFAULT_PASTE_SETTINGS, type PasteSettings } from "@weaveforge/core";
+import type { PasteSettings } from "@weaveforge/wasm";
 import {
   cleanPdfSelection,
   cleanSelection,
   cleanTerminalSelection,
   moveCommas,
 } from "@/components/markdown/markdown-paste-cleanup";
+import { readyCore } from "@/lib/rust-core";
+
+const DEFAULT_PASTE_SETTINGS = readyCore().defaultPasteSettings();
 
 /**
  * The editor commands are `StateCommand`s, so they need a document and a

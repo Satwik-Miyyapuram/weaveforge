@@ -27,7 +27,9 @@ let outDir: string;
 test.beforeAll(async () => {
   outDir = fs.mkdtempSync(path.join(os.tmpdir(), "weaveforge-editor-"));
   await build({
-    entryPoints: [path.join(ROOT, "e2e/fixtures/editor-harness.ts")],
+    // The boot entry loads the Rust core first; its .wasm is inlined (file:// cannot fetch it).
+    entryPoints: [path.join(ROOT, "e2e/fixtures/editor-harness-boot.ts")],
+    loader: { ".wasm": "binary" },
     bundle: true,
     outfile: path.join(outDir, "bundle.js"),
     format: "iife",

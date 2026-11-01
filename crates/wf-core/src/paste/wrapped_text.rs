@@ -41,7 +41,7 @@ pub const MIN_WRAP_WIDTH: usize = 60;
 
 /// The same floor for a PDF. A two-column journal layout wraps prose at about
 /// 45 characters, so the terminal floor would refuse every rejoin that matters.
-pub const PDF_MIN_WRAP_WIDTH: usize = 35;
+pub const PDF_MIN_WRAP_WIDTH: u32 = 35;
 
 /// How far below the longest line still counts as a full line.
 ///
@@ -56,6 +56,7 @@ pub const SOFT_HYPHEN: char = '\u{AD}';
 
 /// How a rejoin decides which lines belong to the same paragraph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum Rejoin {
     /// Rejoins every line that looks wrapped.
@@ -68,6 +69,7 @@ pub enum Rejoin {
 
 /// What to do with bullet characters such as U+2022.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum Bullets {
     /// Leave the bullet characters as written.
@@ -79,6 +81,7 @@ pub enum Bullets {
 /// Options for [`clean_wrapped_text`].
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct WrappedTextOptions {
     /// Which wrapped lines are rejoined.
@@ -93,7 +96,7 @@ pub struct WrappedTextOptions {
     pub collapse_spaces: bool,
     /// Lower bound for the inferred wrap column; `None` uses [`MIN_WRAP_WIDTH`].
     #[serde(default)]
-    pub min_wrap_width: Option<usize>,
+    pub min_wrap_width: Option<u32>,
     /// Treat a lone `$$` line as a maths delimiter.
     #[serde(default)]
     pub protect_math: bool,
@@ -794,7 +797,12 @@ pub fn clean_wrapped_text(input: &str, options: &WrappedTextOptions) -> TextResu
     let pieces: Vec<&str> = text.split('\n').collect();
     let lines = dedent_lines(&pieces);
     let refs: Vec<&str> = lines.iter().map(String::as_str).collect();
-    let wrap_width = infer_wrap_width(&refs, options.min_wrap_width.unwrap_or(MIN_WRAP_WIDTH));
+    let wrap_width = infer_wrap_width(
+        &refs,
+        options.min_wrap_width.map_or(MIN_WRAP_WIDTH, |width| {
+            usize::try_from(width).unwrap_or(usize::MAX)
+        }),
+    );
     let paragraphs = group_paragraphs(&refs, options, wrap_width);
     let rejoined = paragraphs
         .iter()

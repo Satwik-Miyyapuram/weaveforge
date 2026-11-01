@@ -76,6 +76,16 @@ import init, {
   countJsonActions as rawCountJsonActions,
   addCounts as rawAddCounts,
   planMirror as rawPlanMirror,
+  cleanPastedText as rawCleanPastedText,
+  pasteLandsInVerbatimContext as rawPasteLandsInVerbatimContext,
+  cleanWrappedText as rawCleanWrappedText,
+  cleanPdfText as rawCleanPdfText,
+  applyCommaPlacement as rawApplyCommaPlacement,
+  tabSeparatedToMarkdownTable as rawTabSeparatedToMarkdownTable,
+  cleanUrlsWithRules as rawCleanUrlsWithRules,
+  defaultPasteSettings as rawDefaultPasteSettings,
+  normalizePasteSettings as rawNormalizePasteSettings,
+  parseLinkRemovalText as rawParseLinkRemovalText,
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
@@ -83,7 +93,10 @@ import type {
   BlobScheme,
   BodyDiff,
   BodySides,
+  Bullets,
   ChangeSide,
+  CleanPasteResult,
+  CommaPlacement,
   Conflict,
   ConflictKind,
   CoreInfo,
@@ -115,19 +128,25 @@ import type {
   ParsedEntity,
   ParsedJsonData,
   ParsedQuery,
+  PasteSettings,
+  PdfTextOptions,
   RankedList,
+  Rejoin,
   RelativeAsset,
   RelativeLinks,
   SearchKind,
   SerializedAsset,
   SerializedWorkspace,
+  TextResult,
   TokenizerOptions,
+  UrlCleanupResult,
   VaultPageBase,
   VaultPageMerge,
   VaultPageSide,
   WorkspaceEntityType,
   WorkspaceJsonKind,
   WorkspaceSnapshotCounts,
+  WrappedTextOptions,
 } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
@@ -137,7 +156,10 @@ export type {
   BlobScheme,
   BodyDiff,
   BodySides,
+  Bullets,
   ChangeSide,
+  CleanPasteResult,
+  CommaPlacement,
   Conflict,
   ConflictKind,
   CoreInfo,
@@ -169,18 +191,24 @@ export type {
   ParsedEntity,
   ParsedJsonData,
   ParsedQuery,
+  PasteSettings,
+  PdfTextOptions,
+  Rejoin,
   RelativeAsset,
   RelativeLinks,
   SearchKind,
   SerializedAsset,
   SerializedWorkspace,
+  TextResult,
   TokenizerOptions,
+  UrlCleanupResult,
   VaultPageBase,
   VaultPageMerge,
   VaultPageSide,
   WorkspaceEntityType,
   WorkspaceJsonKind,
   WorkspaceSnapshotCounts,
+  WrappedTextOptions,
 };
 export { init, initSync };
 
@@ -683,4 +711,64 @@ export function planMirror(
     base,
     disk,
   ) as MirrorResult;
+}
+
+/** The automatic paste rules over `input` (Rust `clean_pasted_text`). */
+export function cleanPastedText(input: string, settings: PasteSettings): CleanPasteResult {
+  checkIndexText(input);
+  return rawCleanPastedText(input, settings) as CleanPasteResult;
+}
+
+/** Whether a paste at UTF-16 `offset` lands in code or frontmatter (Rust `paste_lands_in_verbatim_context`). */
+export function pasteLandsInVerbatimContext(document: string, offset: number): boolean {
+  checkIndexText(document);
+  return rawPasteLandsInVerbatimContext(document, Math.max(0, Math.floor(offset)));
+}
+
+/** Rejoins wrapped terminal or PDF lines (Rust `clean_wrapped_text`). */
+export function cleanWrappedText(input: string, options: WrappedTextOptions): TextResult {
+  checkIndexText(input);
+  return rawCleanWrappedText(input, options) as TextResult;
+}
+
+/** Repairs text copied out of a PDF (Rust `clean_pdf_text`). */
+export function cleanPdfText(input: string, options: PdfTextOptions): TextResult {
+  checkIndexText(input);
+  return rawCleanPdfText(input, options) as TextResult;
+}
+
+/** Moves commas to the chosen side of a closing quote (Rust `apply_comma_placement`). */
+export function applyCommaPlacement(input: string, placement: CommaPlacement): TextResult {
+  checkIndexText(input);
+  return rawApplyCommaPlacement(input, placement) as TextResult;
+}
+
+/** A tab-separated text as a Markdown table, or unchanged (Rust `tab_separated_to_markdown_table`). */
+export function tabSeparatedToMarkdownTable(input: string): TextResult {
+  checkIndexText(input);
+  return rawTabSeparatedToMarkdownTable(input) as TextResult;
+}
+
+/** The URLs in `text` cleaned by the built-in rules plus `rules` (Rust `clean_urls_in_text`). */
+export function cleanUrlsWithRules(text: string, rules: readonly string[]): UrlCleanupResult {
+  checkIndexText(text);
+  return rawCleanUrlsWithRules(text, rules) as UrlCleanupResult;
+}
+
+/** The default paste settings (Rust `PasteSettings::default`). */
+export function defaultPasteSettings(): PasteSettings {
+  return rawDefaultPasteSettings() as PasteSettings;
+}
+
+/** Settings the pipeline can trust from whatever was stored (Rust `normalize_paste_settings`). */
+export function normalizePasteSettings(raw: unknown): PasteSettings {
+  const json = JSON.stringify(raw) ?? "null";
+  checkIndexText(json);
+  return rawNormalizePasteSettings(json) as PasteSettings;
+}
+
+/** The link removal rules in a textarea, one per line (Rust `parse_link_removal_text`). */
+export function parseLinkRemovalText(text: string): string[] {
+  checkIndexText(text);
+  return rawParseLinkRemovalText(text) as string[];
 }
