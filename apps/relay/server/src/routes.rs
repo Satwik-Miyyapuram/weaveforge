@@ -28,6 +28,7 @@ use wf_relay::relay::shared::{Answer, RelayRequest, refuse};
 use crate::auth::require_user;
 use crate::config::Config;
 use crate::limiter::RateLimiter;
+use crate::org_routes;
 use crate::sdk;
 use crate::sdk_metrics;
 use crate::url_meta::{MetaUpstreams, url_meta};
@@ -81,6 +82,17 @@ pub fn app(state: Arc<AppState>) -> Router {
             "/api/sdk/metrics",
             post(sdk_metrics::metrics_post).delete(sdk_metrics::metrics_delete),
         )
+        .route(
+            "/api/org/codes",
+            get(org_routes::codes_get).post(org_routes::codes_post),
+        )
+        .route("/api/org/create", post(org_routes::create))
+        .route("/api/org/join", post(org_routes::join))
+        .route("/api/org/leave", post(org_routes::leave))
+        .route("/api/org/switch", post(org_routes::switch))
+        .route("/api/org/standalone", post(org_routes::standalone))
+        .route("/api/org/memberships", get(org_routes::memberships))
+        .route("/api/org/mine", get(org_routes::mine))
         .layer(cors)
         .with_state(state)
 }

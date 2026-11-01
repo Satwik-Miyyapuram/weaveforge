@@ -222,3 +222,66 @@ fn in_list_quotes_and_escapes_values() {
     let slash = vec!["x\\y".to_string()];
     assert_eq!(in_list(&slash), r#"in.("x\\y")"#);
 }
+
+#[tokio::test]
+async fn rpc_posts_args_and_returns_parsed_reply() {
+    let up = serve(vec![(
+        "/rest/v1/rpc/do_it",
+        vec![response(200, &[], br#"{"ok":true}"#)],
+    )])
+    .await;
+    let client = reqwest::Client::new();
+    let url = data_url(up.port);
+    let db = UserDb::new(&client, &url, "anon", "tok");
+    let reply = db.rpc("do_it", &json!({"a": 1})).await.unwrap();
+    assert_eq!(reply, json!({"ok": true}));
+    let seen = up.seen();
+    assert_eq!(seen[0].method, "POST");
+    assert_eq!(seen[0].target, "/rest/v1/rpc/do_it");
+    assert_eq!(seen[0].body, br#"{"a":1}"#.to_vec());
+    assert_eq!(seen[0].header("apikey"), Some("anon"));
+    assert_eq!(seen[0].header("authorization"), Some("Bearer tok"));
+}
+
+#[tokio::test]
+async fn rpc_empty_reply_is_null() {
+    let up = serve(vec![("/rest/v1/rpc/do_it", vec![response(204, &[], b"")])]).await;
+    let client = reqwest::Client::new();
+    let url = data_url(up.port);
+    let db = UserDb::new(&client, &url, "anon", "tok");
+    assert_eq!(db.rpc("do_it", &json!({})).await.unwrap(), json!(null));
+}
+
+#[tokio::test]
+async fn rpc_error_reply_keeps_code() {
+    let up = serve(vec![(
+        "/rest/v1/rpc/do_it",
+        vec![response(400, &[], br#"{"code":"23505","message":"dup"}"#)],
+    )])
+    .await;
+    let client = reqwest::Client::new();
+    let url = data_url(up.port);
+    let db = UserDb::new(&client, &url, "anon", "tok");
+    let err = db.rpc("do_it", &json!({})).await.unwrap_err();
+    assert_eq!(err.code.as_deref(), Some("23505"));
+    assert!(err.message.starts_with("HTTP 400: "));
+}
+
+#[tokio::test]
+async fn insert_ignore_posts_with_on_conflict_and_ignore_prefer() {
+    let up = serve(vec![("/rest/v1/profiles", vec![response(201, &[], b"")])]).await;
+    let client = reqwest::Client::new();
+    let url = data_url(up.port);
+    let db = UserDb::new(&client, &url, "anon", "tok");
+    db.insert_ignore("profiles", &json!({"user_id": "u1"}), "user_id")
+        .await
+        .unwrap();
+    let seen = up.seen();
+    assert_eq!(seen[0].method, "POST");
+    assert_eq!(seen[0].target, "/rest/v1/profiles?on_conflict=user_id");
+    assert_eq!(seen[0].body, br#"{"user_id":"u1"}"#.to_vec());
+    assert_eq!(
+        seen[0].header("prefer"),
+        Some("resolution=ignore-duplicates,return=minimal")
+    );
+}
