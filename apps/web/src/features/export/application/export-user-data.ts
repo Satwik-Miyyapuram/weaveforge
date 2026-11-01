@@ -1,14 +1,13 @@
 import { zipSync, strToU8 } from "fflate";
 import {
-  serializeWorkspace,
   vaultAssetPathsInBody,
-  workspaceSnapshotCounts,
   type WorkspaceProject,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { activeProject } from "@/features/workspace/application/active-project";
 import { downloadBlob, zipToBlob } from "@/lib/blob-output";
+import { loadCore } from "@/lib/rust-core";
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));
@@ -34,7 +33,8 @@ export async function buildExportFiles(
   snapshot: WorkspaceSnapshot,
   assets: ExportAssetReaders,
 ): Promise<Record<string, Uint8Array>> {
-  const counts = workspaceSnapshotCounts(snapshot);
+  const core = await loadCore();
+  const counts = core.workspaceSnapshotCounts(snapshot);
 
   const date = new Date().toISOString().slice(0, 10);
   const root = `weaveforge-export-${date}`;
@@ -139,7 +139,8 @@ export async function buildWorkspaceFolderFiles(
   // Inside the project's folder, exactly as the folder mirror writes it: an
   // export and a mirrored folder have to be the same tree, or re-importing one
   // of them finds none of its files where it left them.
-  const { files, assets: refs } = serializeWorkspace(snapshot, project);
+  const core = await loadCore();
+  const { files, assets: refs } = core.serializeWorkspace(snapshot, project);
   const out: Record<string, Uint8Array> = {};
   for (const [path, content] of Object.entries(files)) out[path] = strToU8(content);
 

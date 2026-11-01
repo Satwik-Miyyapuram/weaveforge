@@ -2,15 +2,11 @@ import {
   ASSET_DIR,
   FOLDER_DRAFTS_DIR,
   NoOpWorkspaceGit,
-  addCounts,
   describeChanges,
   GIT_OFF,
-  diffWorkspace,
   idSuffix,
   fromRelativeBlobLinks,
   mirrorWorkspace,
-  parseWorkspaceFolder,
-  serializeWorkspace,
   type ImportDiff,
   type IWorkspaceFs,
   type IWorkspaceGit,
@@ -673,7 +669,7 @@ async function diffAgainstWorkspace(
   setPendingAssets(assets);
   const owned = ownedAssetFolderPaths(workspaceBodies(snapshot));
   const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
-  const parsed = importableEntities(parseWorkspaceFolder(files), noteIds).map((entity) => ({
+  const parsed = importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
     ...entity,
     // Restore links to assets this account already owns before comparing.
     // Without it every note holding an image reads as changed on every import,
@@ -687,9 +683,9 @@ async function diffAgainstWorkspace(
   // What the mirror would write from the workspace as it stands now. Compared
   // against the same base as the folder's copy, this is what says whether the
   // difference came from out there or in here.
-  const current = serializeWorkspace(snapshot, project).files;
+  const current = core.serializeWorkspace(snapshot, project).files;
 
-  const diff = diffWorkspace(parsed, existing, {
+  const diff = core.diffWorkspace(parsed, existing, {
     origin: (path) =>
       core.changedSide({
         // A version 1 manifest recorded the path and no digest, which reads
@@ -699,7 +695,8 @@ async function diffAgainstWorkspace(
         folder: files[path] === undefined ? undefined : baseDigest(files[path]),
         workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
       }),
-  });
+    // The generated `fields` type is a plain record; the entities are the parsed ones above.
+  }) as ImportDiff;
 
   // A file both sides changed is only a conflict if the changes collide. Most
   // do not: a tag added in Obsidian and a paragraph rewritten here are two
@@ -713,7 +710,7 @@ async function diffAgainstWorkspace(
   // set of numbers.
   const json = await jsonDiff(jsonFiles, current, base, project);
   const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base);
-  return { entries, counts: addCounts(countActions(entries), json.counts), json, seen };
+  return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen };
 }
 
 /**

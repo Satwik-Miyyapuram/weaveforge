@@ -25,7 +25,9 @@ use crate::sync::workspace_snapshot::{WorkspaceSnapshot, workspace_snapshot_coun
 pub const WORKSPACE_SCHEMA_VERSION: u32 = 2;
 
 /// An asset the mirror copies into `assets/`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct SerializedAsset {
     /// The path after the app's blob scheme.
     pub storage_path: String,
@@ -34,7 +36,8 @@ pub struct SerializedAsset {
 }
 
 /// A serialized workspace: its files in write order, and the assets they reference.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct SerializedWorkspace {
     /// Every file as `(path, content)`, in write order.
     pub files: Vec<(String, String)>,
@@ -614,4 +617,21 @@ fn unique_assets(assets: Vec<SerializedAsset>) -> Vec<SerializedAsset> {
         .into_iter()
         .filter(|asset| seen.insert(asset.folder_path.clone()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialized_asset_uses_camel_case() {
+        let asset = SerializedAsset {
+            storage_path: "a".into(),
+            folder_path: "b".into(),
+        };
+        assert_eq!(
+            serde_json::to_value(asset).unwrap(),
+            json!({"storagePath":"a","folderPath":"b"})
+        );
+    }
 }

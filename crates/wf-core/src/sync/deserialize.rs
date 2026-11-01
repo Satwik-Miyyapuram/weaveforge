@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
 use crate::search::js_text::is_js_whitespace;
@@ -35,11 +36,16 @@ const ALL_TYPES: [WorkspaceEntityType; 8] = [
 ];
 
 /// A markdown file in the folder, read as an entity.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct ParsedEntity {
     /// The `weaveforge-id` the file declares, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub id: Option<String>,
     /// What kind of entity the file is.
+    #[serde(rename = "type")]
     pub entity_type: WorkspaceEntityType,
     /// The title, from frontmatter or the file name.
     pub title: String,
@@ -48,15 +54,19 @@ pub struct ParsedEntity {
     /// The file's path in the folder.
     pub path: String,
     /// Every frontmatter field except the id, type and title.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub fields: Map<String, Value>,
 }
 
 /// An entity as the workspace stores it.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct ExistingEntity {
     /// The entity's id.
     pub id: String,
     /// What kind of entity it is.
+    #[serde(rename = "type")]
     pub entity_type: WorkspaceEntityType,
     /// The stored title.
     pub title: String,
@@ -65,54 +75,102 @@ pub struct ExistingEntity {
 }
 
 /// What an import would do with one parsed file.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct ImportDiffEntry {
     /// The action the import would take.
     pub action: ImportAction,
     /// The parsed file this entry is about.
     pub entity: ParsedEntity,
     /// Why the entry conflicts, shown before anything is written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub reason: Option<String>,
     /// Which conflict, when the entry is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = ConflictKind))]
     pub kind: Option<ConflictKind>,
     /// The fields a per-field merge could not settle, `body` or a frontmatter
     /// key. Set by the folder import, never by [`diff_workspace`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = Vec<String>))]
     pub conflict_fields: Option<Vec<String>>,
     /// What the resolver needs to offer a choice. Set by the folder import,
     /// never by [`diff_workspace`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = ImportMergeDetail))]
     pub merge: Option<ImportMergeDetail>,
 }
 
 /// One key both sides moved, with all three sides so a person can pick.
 /// `ours` is the workspace's value, `theirs` the folder's.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MergeFieldDispute {
     /// The disputed key.
     pub field: String,
     /// The value when the sides last agreed.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub base: Value,
     /// The workspace's value.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub ours: Value,
     /// The folder's value.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub theirs: Value,
+}
+
+/// The two copies of a disputed body, as the TypeScript's `bodySides` holds them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct BodySides {
+    /// The workspace's copy.
+    pub ours: String,
+    /// The folder's copy.
+    pub theirs: String,
+}
+
+/// Writes `body_sides` as `{ ours, theirs }`.
+fn body_sides_js<S: Serializer>(
+    sides: &Option<(String, String)>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    sides
+        .as_ref()
+        .map(|(ours, theirs)| BodySides {
+            ours: ours.clone(),
+            theirs: theirs.clone(),
+        })
+        .serialize(serializer)
 }
 
 /// What the resolver has to work with for one conflicted file: the merged
 /// result plus what is still in dispute.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct ImportMergeDetail {
     /// Merged fields, every one-sided change already applied.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub fields: Map<String, Value>,
     /// Merged body.
     pub body: String,
     /// Keys both sides moved differently.
     pub disputed: Vec<MergeFieldDispute>,
     /// `(ours, theirs)` bodies, only when the body itself is in dispute.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "body_sides_js"
+    )]
+    #[cfg_attr(feature = "specta", specta(type = BodySides))]
     pub body_sides: Option<(String, String)>,
 }
 
 /// One preview: an entry per parsed file, with counts.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ImportDiff {
     /// One entry per parsed file, in file order.
     pub entries: Vec<ImportDiffEntry>,
@@ -328,4 +386,77 @@ fn trim_js(text: &str) -> &str {
 
 fn trim_start_js(text: &str) -> &str {
     text.trim_start_matches(is_js_whitespace)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parsed_entity_round_trips_with_ts_field_names() {
+        let entity = ParsedEntity {
+            id: None,
+            entity_type: WorkspaceEntityType::VaultPage,
+            title: "T".into(),
+            body: "B".into(),
+            path: "notes/t.md".into(),
+            fields: json!({"tags": ["a"]}).as_object().unwrap().clone(),
+        };
+        let value = json!({"type":"vault_page","title":"T","body":"B","path":"notes/t.md","fields":{"tags":["a"]}});
+        assert_eq!(serde_json::to_value(&entity).unwrap(), value);
+        assert_eq!(
+            serde_json::from_value::<ParsedEntity>(value).unwrap(),
+            entity
+        );
+    }
+
+    #[test]
+    fn merge_detail_writes_body_sides_as_an_object() {
+        let detail = ImportMergeDetail {
+            fields: Map::new(),
+            body: "x".into(),
+            disputed: vec![],
+            body_sides: Some(("o".into(), "t".into())),
+        };
+        assert_eq!(
+            serde_json::to_value(&detail).unwrap(),
+            json!({"fields":{},"body":"x","disputed":[],"bodySides":{"ours":"o","theirs":"t"}})
+        );
+        let without = ImportMergeDetail {
+            body_sides: None,
+            ..detail
+        };
+        assert!(
+            serde_json::to_value(&without)
+                .unwrap()
+                .get("bodySides")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn diff_entry_omits_absent_options_and_spells_conflict_fields() {
+        let entry = ImportDiffEntry {
+            action: ImportAction::Conflict,
+            entity: ParsedEntity {
+                id: None,
+                entity_type: WorkspaceEntityType::VaultPage,
+                title: "T".into(),
+                body: "B".into(),
+                path: "notes/t.md".into(),
+                fields: Map::new(),
+            },
+            reason: None,
+            kind: Some(ConflictKind::BothChanged),
+            conflict_fields: Some(vec!["title".into()]),
+            merge: None,
+        };
+        let value = serde_json::to_value(&entry).unwrap();
+        assert_eq!(value["action"], json!("conflict"));
+        assert_eq!(value["kind"], json!("both-changed"));
+        assert_eq!(value["conflictFields"], json!(["title"]));
+        assert!(value.get("reason").is_none());
+        assert!(value.get("merge").is_none());
+    }
 }

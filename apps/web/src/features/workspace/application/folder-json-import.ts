@@ -11,10 +11,6 @@
 
 import {
   JSON_KINDS,
-  countJsonActions,
-  diffJsonData,
-  jsonDataPath,
-  parseJsonData,
   type IWorkspaceFs,
   type JsonDiff,
   type JsonDiffEntry,
@@ -60,25 +56,26 @@ export async function jsonDiff(
   const projectRoot = core.projectDir(project);
   const entries: JsonDiffEntry[] = [];
   for (const kind of JSON_KINDS) {
-    const path = jsonDataPath(projectRoot, kind);
+    const path = core.jsonDataPath(projectRoot, kind);
     const text = folderFiles[path];
     if (text === undefined) continue;
-    const parsed = parseJsonData(path, text, kind);
+    const parsed = core.parseJsonData(path, text, kind);
     // A file that will not parse says nothing. Reporting it as "no rows" would
     // read a syntax error as a removal of everything it held.
     if (!parsed) continue;
     entries.push(
-      ...diffJsonData(parsed, existing[kind], {
+      ...(core.diffJsonData(parsed, existing[kind], {
         origin: (changed) =>
           core.changedSide({
             base: base[changed] || undefined,
             folder: baseDigest(text),
             workspace: current[changed] === undefined ? undefined : baseDigest(current[changed]),
           }),
-      }).entries,
+        // The generated row type is a plain record; the rows are the ones passed in.
+      }).entries as JsonDiffEntry[]),
     );
   }
-  return { entries, counts: countJsonActions(entries) };
+  return { entries, counts: core.countJsonActions(entries) };
 }
 
 /**

@@ -99,13 +99,15 @@ pub fn is_app_owned_path(path: &str) -> bool {
 }
 
 /// One of the three files, read: its rows that have a non-empty string id.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ParsedJsonData {
     /// Which file this is.
     pub kind: WorkspaceJsonKind,
     /// Where the file was read from.
     pub path: String,
     /// The rows with a non-empty string id, in file order.
+    #[cfg_attr(feature = "specta", specta(type = Vec<std::collections::BTreeMap<String, specta_typescript::Unknown>>))]
     pub rows: Vec<JsonRow>,
 }
 
@@ -191,7 +193,9 @@ fn same_row(a: &JsonRow, b: &JsonRow) -> bool {
 }
 
 /// One comparison outcome for a row or a removal.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct JsonDiffEntry {
     /// What the import would do.
     pub action: ImportAction,
@@ -200,17 +204,25 @@ pub struct JsonDiffEntry {
     /// Which file the entry came from, as a path.
     pub path: String,
     /// The row as the folder has it. `None` on a removal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub row: Option<JsonRow>,
     /// The stored row this entry is about: what exists, or what would go.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub existing: JsonRow,
     /// Why an entry is a conflict, shown before anything is written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub reason: Option<String>,
     /// Which conflict, when the entry is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = ConflictKind))]
     pub conflict_kind: Option<ConflictKind>,
 }
 
 /// The entries for one file, with their counts.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct JsonDiff {
     /// Every row and removal, in comparison order.
     pub entries: Vec<JsonDiffEntry>,
@@ -344,5 +356,45 @@ pub fn add_counts(a: ActionCounts, b: ActionCounts) -> ActionCounts {
         unchanged: a.unchanged.saturating_add(b.unchanged),
         conflict: a.conflict.saturating_add(b.conflict),
         removed: a.removed.saturating_add(b.removed),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn json_diff_entry_uses_ts_field_names() {
+        let entry = JsonDiffEntry {
+            action: ImportAction::Conflict,
+            kind: WorkspaceJsonKind::Tags,
+            path: "p".to_owned(),
+            row: None,
+            existing: json!({"id": "t1"}).as_object().unwrap().clone(),
+            reason: Some("r".to_owned()),
+            conflict_kind: Some(ConflictKind::BothChanged),
+        };
+        let wire = json!({
+            "action": "conflict",
+            "kind": "tags",
+            "path": "p",
+            "existing": {"id": "t1"},
+            "reason": "r",
+            "conflictKind": "both-changed"
+        });
+        assert_eq!(serde_json::to_value(&entry).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<JsonDiffEntry>(wire).unwrap(),
+            entry
+        );
+    }
+
+    #[test]
+    fn parsed_json_data_round_trips() {
+        let wire = json!({"kind": "relations", "path": "p", "rows": [{"id": "r1"}]});
+        let parsed = serde_json::from_value::<ParsedJsonData>(wire.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
     }
 }

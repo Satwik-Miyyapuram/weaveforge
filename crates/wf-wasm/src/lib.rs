@@ -9,6 +9,7 @@
 //! written here may not use `unsafe`.
 #![deny(unsafe_code)]
 
+mod folder;
 mod merge;
 mod sync;
 mod workspace;
