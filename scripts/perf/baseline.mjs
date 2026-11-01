@@ -103,7 +103,7 @@ out.idle = await mem("idle dashboard");
     for (const href of NAV.slice(1).concat(NAV[0])) {
       const sel = `document.querySelector('a[href="${href}"]')`;
       if (!(await run(`!!${sel}`))) {
-        if (round === 0) out.navSkipped.push(href);
+        out.navSkipped.push({ round, href });
         continue;
       }
       await click(sel);
@@ -151,8 +151,12 @@ out.idle = await mem("idle dashboard");
   const t0 = await run(OBSERVE);
   // Newer builds open ink notes straight in page view, with no mode toggle.
   const inkBtn = `[...document.querySelectorAll("[aria-label='Document mode'] button")].find((b) => b.textContent.trim() === "Ink")`;
-  if (await run(`!!${inkBtn}`)) await click(inkBtn);
+  out.inkToggle = await run(`!!${inkBtn}`);
+  if (out.inkToggle) await click(inkBtn);
   await sleep(4000);
+  // Without the toggle, the page view must already be open.
+  if (!(await run(`!!document.querySelector("button[aria-label='Next page']")`)))
+    throw new Error("ink page view did not open");
   out.inkModeOpen = await mem("ink mode open");
   for (let i = 0; i < 5; i++) {
     await click(`document.querySelector("button[aria-label='Next page']")`);
