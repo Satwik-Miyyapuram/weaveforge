@@ -3,7 +3,8 @@
   "bundle": {
     "active": true,
     "resources": {
-      "target/stage/sidecar/": "sidecar/"
+      "target/stage/sidecar/": "sidecar/",
+      "../desktop/dist/web/": "web/"
     },
     "linux": {
       "deb": {

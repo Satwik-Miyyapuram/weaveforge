@@ -16,6 +16,7 @@ fn api_args(data: &Path) -> ApiArgs {
     ApiArgs {
         artifacts: data.parent().unwrap().join("artifacts"),
         app_version: "0.0.0-test".to_owned(),
+        product_name: "WeaveForge".to_owned(),
     }
 }
 

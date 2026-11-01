@@ -572,6 +572,79 @@ jobs:
       - name: Real sidecar (database lock and orphan)
         run: cargo test --locked --test launch -- --ignored
 
+  shell-bundle-windows:
+    # Windows x64 release bundles (MSI and NSIS) with the sidecar and the web
+    # export, and their sizes in the step summary (phase 2 done-when: installer
+    # size measured on x64). This is the release product ("WeaveForge"), built
+    # only to measure; the installers are not uploaded or installed anywhere.
+    # Skipped on fork PRs, which get no secrets for the web export.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      # The web export refuses to build without these (scripts/build-web.mjs).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_BACKEND_PROVIDER: postgrest
+    defaults:
+      run:
+        working-directory: apps/shell
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/shell
+
+      - name: Build web export
+        working-directory: apps/desktop
+        run: node scripts/build-web.mjs
+
+      - name: Stage sidecar
+        working-directory: .
+        shell: pwsh
+        # The Rust cache can restore a stage folder from an earlier run, and stage.mjs refuses a non-empty one.
+        run: |
+          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
+          node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
+
+      - name: Bundle
+        run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json
+
+      - name: Report bundle sizes
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem target/release/bundle -Recurse -Include *.msi, *-setup.exe
+          if (-not $files) { throw "no bundles found" }
+          "| Bundle | MiB |" >> $env:GITHUB_STEP_SUMMARY
+          "| --- | --- |" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($f in $files) { "| $($f.Name) | $([math]::Round($f.Length / 1MB, 2)) |" >> $env:GITHUB_STEP_SUMMARY; "$($f.Name) $([math]::Round($f.Length / 1MB, 2)) MiB" }
+
+      # rust-cache saves target/ after the job; keep the staged sidecar (100+ MB) out of it.
+      - name: Drop staged sidecar before cache save
+        if: always()
+        shell: pwsh
+        run: Remove-Item target/stage -Recurse -Force -ErrorAction SilentlyContinue
+
   shell-android:
     # The phone build of the Tauri shell (phase-4-phones.md, step 4.6): Android
     # clippy, the ink plugin's Kotlin unit tests, and a debug APK. gen/android is
