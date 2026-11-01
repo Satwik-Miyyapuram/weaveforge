@@ -280,6 +280,32 @@ services:
       - caddy-data:/data
       - caddy-config:/config
 
+  # The relay server (apps/relay): the outside fetches the browser cannot make
+  # itself (papers, page metadata, arXiv, Semantic Scholar, pasted links). Caddy
+  # sends /relay/* here, with the prefix stripped. Not published to the host.
+  #
+  # Build context is the repo root, so the compose file must sit in a checkout
+  # (../.. is the repo root from infra/oci). A VM with only this file needs the
+  # image built elsewhere and referenced by `image:` instead.
+  weaveforge-relay:
+    build:
+      context: ../..
+      dockerfile: apps/relay/Dockerfile
+    container_name: weaveforge-relay
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL in .env}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set NEXT_PUBLIC_SUPABASE_ANON_KEY in .env}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:?Set SUPABASE_JWT_SECRET in .env}
+      # PostgREST over the compose network, not the public hostname.
+      NEXT_PUBLIC_DATA_URL: http://postgrest:3000
+      RELAY_ALLOWED_ORIGINS: "${RELAY_ALLOWED_ORIGINS:-https://weaveforge.org,https://www.weaveforge.org,https://app.weaveforge.org,app://weaveforge,http://localhost:3000,http://localhost:3100}"
+      RELAY_BIND: 0.0.0.0:8787
+    mem_limit: 128m
+    # No healthcheck: the image is debian-slim with ca-certificates only, so it
+    # has neither curl nor wget to probe /healthz with.
+
   minio:
     image: minio/minio:latest
     container_name: weaveforge-minio
