@@ -15,6 +15,10 @@ pub struct SettingsConfig {
     pub issues_api: String,
     /// The Zotero Web API base; fixed, so tests can point it at a stand-in.
     pub zotero_api: String,
+    /// The Overleaf site base (with a trailing '/'); fixed, so tests can point it at a stand-in.
+    pub overleaf_base: String,
+    /// The first retry delay in ms for Overleaf calls (doubles, capped at 4x); 0 in tests.
+    pub overleaf_retry_ms: u64,
 }
 
 /// The repository error reports go to when `GITHUB_ISSUES_REPO` is unset.
@@ -23,6 +27,10 @@ const DEFAULT_ISSUES_REPO: &str = "Satwik-Miyyapuram/weaveforge";
 const ISSUES_API: &str = "https://api.github.com";
 /// The Zotero Web API base; not read from the environment.
 const ZOTERO_API: &str = "https://api.zotero.org";
+/// The Overleaf site base; not read from the environment.
+const OVERLEAF_BASE: &str = "https://www.overleaf.com/";
+/// The first Overleaf retry delay, as the web uses.
+const OVERLEAF_RETRY_MS: u64 = 1000;
 
 impl Default for SettingsConfig {
     fn default() -> Self {
@@ -33,6 +41,8 @@ impl Default for SettingsConfig {
             issues_repo: DEFAULT_ISSUES_REPO.to_owned(),
             issues_api: ISSUES_API.to_owned(),
             zotero_api: ZOTERO_API.to_owned(),
+            overleaf_base: OVERLEAF_BASE.to_owned(),
+            overleaf_retry_ms: OVERLEAF_RETRY_MS,
         }
     }
 }
@@ -58,6 +68,8 @@ impl SettingsConfig {
             issues_repo,
             issues_api: ISSUES_API.to_owned(),
             zotero_api: ZOTERO_API.to_owned(),
+            overleaf_base: OVERLEAF_BASE.to_owned(),
+            overleaf_retry_ms: OVERLEAF_RETRY_MS,
         }
     }
 }
