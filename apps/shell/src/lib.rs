@@ -92,24 +92,6 @@ mod mobile_entry {
     }
 }
 
-/// The phone entry point. Android and iOS start the app through the symbols Tauri's macro makes;
-/// the desktop starts it from `main.rs`.
-#[cfg(mobile)]
-#[allow(
-    unsafe_code,
-    missing_docs,
-    reason = "tauri::mobile_entry_point emits no_mangle and JNI glue without docs"
-)]
-mod mobile_entry {
-    /// Runs the app; a failed start is printed, as `main` does on desktops.
-    #[tauri::mobile_entry_point]
-    fn start() {
-        if let Err(error) = super::run() {
-            eprintln!("weaveforge: {error}");
-        }
-    }
-}
-
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
     install_tls_provider();
