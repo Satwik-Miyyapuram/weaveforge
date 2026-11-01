@@ -3,8 +3,9 @@
  *
  * wasm-bindgen's raw exports return `any`. Each is re-exported here with the
  * type that crates/wf-bindings generated from the Rust struct into
- * ./bindings.ts. This file declares no types of its own, and every raw export
- * has a wrapper here; test/index.test.ts checks both.
+ * ./bindings.ts. These modules declare no types of their own, and every raw
+ * export has a wrapper here or in a sibling module (ink.ts); test/index.test.ts
+ * checks both.
  *
  * The `as` in each wrapper is unchecked, so every wrapper needs a test that
  * checks the runtime value against its type, like the `coreInfo` one.
@@ -147,10 +148,14 @@ import type {
   WorkspaceJsonKind,
   WorkspaceSnapshotCounts,
   WrappedTextOptions,
+  PackedInkStroke,
+  InkStrokePackerOptions,
 } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
 export type {
+  PackedInkStroke,
+  InkStrokePackerOptions,
   ActionCounts,
   BlobAsset,
   BlobScheme,
@@ -211,6 +216,7 @@ export type {
   WrappedTextOptions,
 };
 export { init, initSync };
+export * from "./ink.js";
 
 
 /** Facts about this core build, such as its version. */

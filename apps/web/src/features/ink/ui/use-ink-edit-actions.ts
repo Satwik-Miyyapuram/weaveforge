@@ -7,7 +7,8 @@
 
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from "react";
 
-import { clampInkZoom, type FigureGeometry } from "@weaveforge/core";
+import type { FigureGeometry } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { PageStep } from "../application/ink-page-history";
 import { ERASER_SCREEN_RADIUS } from "./ink-page-pointer";
@@ -41,7 +42,7 @@ export function useInkEditActions({
 
   /** Two fingers pinched: zoom, clamped like the wheel is. */
   const onPinch = useCallback((factor: number) => {
-    setZoom((value) => clampInkZoom(value * factor));
+    setZoom((value) => readyCore().clampInkZoom(value * factor));
   }, [setZoom]);
 
   const onErase = useCallback(

@@ -10,6 +10,7 @@
 #![deny(unsafe_code)]
 
 mod folder;
+mod ink;
 mod merge;
 mod paste;
 mod sync;

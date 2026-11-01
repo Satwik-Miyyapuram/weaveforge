@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   applyCommaPlacement,
   buildExcerpt,
@@ -64,6 +64,14 @@ const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
 
 const read = (url: URL) => readFileSync(url, "utf8");
+/** index.ts and every sibling wrapper module; bindings.ts is generated. */
+const wrapperSources = () => {
+  const src = new URL("../src/", import.meta.url);
+  return readdirSync(src)
+    .filter((name) => name.endsWith(".ts") && name !== "bindings.ts")
+    .map((name) => read(new URL(name, src)))
+    .join("\n");
+};
 
 test("coreInfo returns the core crate version", () => {
   const cargo = read(new URL("../../../Cargo.toml", import.meta.url));
@@ -72,10 +80,10 @@ test("coreInfo returns the core crate version", () => {
   assert.deepEqual(coreInfo(), { version });
 });
 
-test("index.ts declares no types of its own", () => {
+test("the wrapper modules declare no types of their own", () => {
   // Every type comes from bindings.ts, which wf-bindings generates from Rust,
   // so a type cannot drift from its Rust struct.
-  const src = read(new URL("../src/index.ts", import.meta.url));
+  const src = wrapperSources();
   assert.doesNotMatch(src, /^\s*(export\s+)?(type|interface)\s+\w+/m);
 });
 
@@ -84,7 +92,7 @@ test("every raw wasm export has a typed wrapper", () => {
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   const names = [...dts.matchAll(/^export function (\w+)\(/gm)].map((m) => m[1]).filter((n) => n !== "initSync");
   assert.ok(names.length > 0, "found no raw exports in wf_wasm.d.ts");
-  const src = read(new URL("../src/index.ts", import.meta.url));
+  const src = wrapperSources();
   for (const name of names) {
     assert.match(src, new RegExp(`^export function ${name}(<[^>]*>)?\\(`, "m"), `no typed wrapper for ${name}`);
   }
