@@ -19,6 +19,8 @@ pub struct SettingsConfig {
     pub overleaf_base: String,
     /// The first retry delay in ms for Overleaf calls (doubles, capped at 4x); 0 in tests.
     pub overleaf_retry_ms: u64,
+    /// The Overleaf git base (no trailing '/'); fixed, so tests can point it at a local repo.
+    pub overleaf_git_base: String,
 }
 
 /// The repository error reports go to when `GITHUB_ISSUES_REPO` is unset.
@@ -31,6 +33,8 @@ const ZOTERO_API: &str = "https://api.zotero.org";
 const OVERLEAF_BASE: &str = "https://www.overleaf.com/";
 /// The first Overleaf retry delay, as the web uses.
 const OVERLEAF_RETRY_MS: u64 = 1000;
+/// The Overleaf git base; not read from the environment.
+const OVERLEAF_GIT_BASE: &str = "https://git.overleaf.com";
 
 impl Default for SettingsConfig {
     fn default() -> Self {
@@ -43,6 +47,7 @@ impl Default for SettingsConfig {
             zotero_api: ZOTERO_API.to_owned(),
             overleaf_base: OVERLEAF_BASE.to_owned(),
             overleaf_retry_ms: OVERLEAF_RETRY_MS,
+            overleaf_git_base: OVERLEAF_GIT_BASE.to_owned(),
         }
     }
 }
@@ -70,6 +75,7 @@ impl SettingsConfig {
             zotero_api: ZOTERO_API.to_owned(),
             overleaf_base: OVERLEAF_BASE.to_owned(),
             overleaf_retry_ms: OVERLEAF_RETRY_MS,
+            overleaf_git_base: OVERLEAF_GIT_BASE.to_owned(),
         }
     }
 }

@@ -3,6 +3,7 @@
 
 pub mod error_report;
 pub mod experiments;
+pub mod latex_section_tree;
 pub mod mcp;
 pub mod member;
 pub mod org;

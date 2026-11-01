@@ -25,6 +25,8 @@ pub mod org_members;
 pub mod org_routes;
 pub mod overleaf_api;
 pub mod overleaf_connections;
+pub mod overleaf_git;
+pub mod overleaf_report_content;
 pub mod overleaf_reports;
 pub mod overleaf_workshop;
 pub mod plan_feed;
