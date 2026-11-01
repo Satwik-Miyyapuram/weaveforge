@@ -165,7 +165,17 @@ async fn file_issue(state: &AppState, token: &str, payload: &Value) -> Result<Va
         return Err(error_response(502, "The issue tracker refused the report."));
     }
     let created = match answer.bytes().await {
-        Ok(bytes) => serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null),
+        Ok(bytes) => match serde_json::from_slice::<Value>(&bytes) {
+            Ok(value) => value,
+            Err(err) => {
+                // TS `response.json()` throws here, which the route reports as unreachable.
+                eprintln!("[report-issue] tracker reply is not JSON: {err}");
+                return Err(error_response(
+                    502,
+                    "The issue tracker could not be reached.",
+                ));
+            }
+        },
         Err(err) => {
             eprintln!("[report-issue] tracker reply unreadable: {err}");
             return Err(error_response(

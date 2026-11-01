@@ -213,6 +213,18 @@ async fn tracker_refusal_is_502() {
 }
 
 #[tokio::test]
+async fn non_json_tracker_reply_is_502() {
+    let up = upstream("rep-html", vec![(ISSUES, vec![json_reply(201, "<html>")])]).await;
+    let req = post(GOOD, Some(SESSION));
+    let (status, _, value) = reply(&up, settings(&up, Some("gh")), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(
+        value,
+        json!({"error": "The issue tracker could not be reached."})
+    );
+}
+
+#[tokio::test]
 async fn unreachable_tracker_is_502() {
     let up = upstream("rep-down", vec![]).await;
     let mut config = settings(&up, Some("gh"));

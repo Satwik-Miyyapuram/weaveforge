@@ -19,7 +19,7 @@ const RULE_SOURCES: [(&str, &str); 9] = [
     ),
     // An Authorization header in any casing, whatever scheme it carries.
     (
-        r#"(?i)\b(bearer|basic|token)\s+[A-Za-z0-9._~+/=-]{8,}"#,
+        r#"(?i)\b(bearer|basic|token)[\s\x{00A0}\x{FEFF}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+[A-Za-z0-9._~+/=-]{8,}"#,
         "${1} <redacted>",
     ),
     // Provider key prefixes that identify themselves.
@@ -31,7 +31,7 @@ const RULE_SOURCES: [(&str, &str); 9] = [
     (r#"\bsk-[A-Za-z0-9_-]{16,}"#, "<key>"),
     // A credential in a query string; keeps the parameter name.
     (
-        r#"(?i)([?&](?:key|token|access_token|refresh_token|apikey|api_key|secret|code|password|signature)=)[^&\s"']+"#,
+        r#"(?i)([?&](?:t|key|token|access_token|refresh_token|apikey|api_key|secret|code|password|signature)=)[^&\s"']+"#,
         "${1}<redacted>",
     ),
     // An absolute home directory; the account name is the leaf.
@@ -160,6 +160,19 @@ mod tests {
         let out = redact(r"at C:\Users\sam\proj\a.rs and /home/sam/b");
         assert_eq!(out.text, r"at C:\Users\<user>\proj\a.rs and /home/<user>/b");
         assert_eq!(out.redactions, 2);
+    }
+
+    #[test]
+    fn blob_view_token_in_query_is_redacted() {
+        let out = redact("GET /api/blobs/view?t=abc123&x=1");
+        assert_eq!(out.text, "GET /api/blobs/view?t=<redacted>&x=1");
+        assert_eq!(out.redactions, 1);
+    }
+
+    #[test]
+    fn bearer_after_unicode_space_is_redacted() {
+        let out = redact("Bearer\u{00A0}abcdefghijkl");
+        assert_eq!(out.text, "Bearer <redacted>");
     }
 
     #[test]

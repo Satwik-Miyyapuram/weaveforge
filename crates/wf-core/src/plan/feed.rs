@@ -33,8 +33,6 @@ fn parse_date(value: Option<&str>) -> Option<i64> {
     let year = digits(b.get(0..4)?)?;
     let month = digits(b.get(5..7)?)?;
     let day = digits(b.get(8..10)?)?;
-    // Date.UTC maps years 0..=99 to 1900+; the TypeScript inherits that.
-    let year = if year < 100 { year + 1900 } else { year };
     let days = days_from_civil(year, month, day);
     // Rejects 2026-02-31, which would roll into March.
     (civil_from_days(days).1 == month).then_some(days)
@@ -351,6 +349,13 @@ mod tests {
         let ics = milestones_to_ics(&items, false, 0, NOW_MS);
         assert_eq!(ics.matches("BEGIN:VEVENT").count(), 1);
         assert!(ics.contains("UID:ok@weaveforge.org"));
+    }
+
+    #[test]
+    fn two_digit_years_are_not_shifted_to_1900s() {
+        let items = [item("early", Some("0050-01-01"), "planned")];
+        let ics = milestones_to_ics(&items, false, 0, NOW_MS);
+        assert!(ics.contains("DTSTART;VALUE=DATE:00500101"), "{ics}");
     }
 
     #[test]
