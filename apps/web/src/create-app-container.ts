@@ -114,6 +114,7 @@ import { createCredentialReader } from "@/integrations/credentials";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
 import { closeFolder } from "@/features/workspace/application/workspace-folder";
+import { relayUrl } from "@/lib/relay-url";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -248,7 +249,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const openAlexSource = new OpenAlexMetadataSource();
 
   const resolver = new MetadataResolver([
-    new ArxivMetadataSource(undefined, "/api/arxiv"),
+    new ArxivMetadataSource(undefined, relayUrl("/api/arxiv")),
     new CrossrefMetadataSource(),
     ...(wiredIntegrations.bibliographyMetadataSource
       ? [wiredIntegrations.bibliographyMetadataSource]
@@ -267,7 +268,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // `semanticScholarUrl`), not a second direct network path. Identifier refs
   // cascade so a DOI Semantic Scholar does not know still lands in Crossref.
   const readerResolver = new MetadataResolver(
-    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, "/api/arxiv")],
+    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, relayUrl("/api/arxiv"))],
     true,
   );
 

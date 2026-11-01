@@ -85,7 +85,8 @@ fn cors_layer(origins: &[String]) -> CorsLayer {
             CONTENT_TYPE,
             HeaderName::from_static("x-api-key"),
         ])
-        .expose_headers([RETRY_AFTER])
+        // x-final-url names the page after redirects in html-proxy replies.
+        .expose_headers([RETRY_AFTER, HeaderName::from_static("x-final-url")])
 }
 
 async fn healthz() -> &'static str {

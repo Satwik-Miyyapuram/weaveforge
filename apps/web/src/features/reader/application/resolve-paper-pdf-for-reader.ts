@@ -17,6 +17,7 @@ import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
 import { isAllowedPdfProxyUrl, proxiedPdfUrl } from "./sanitize-reader-url";
+import { relayPath } from "@/lib/relay-url";
 
 const CACHE_CAP = 64;
 let sharedCache: IPdfByteCache | null = null;
@@ -170,13 +171,13 @@ export async function fetchPdfBytesForCache(
   getAccessToken: () => Promise<string | null> = () =>
     getContainer().auth.auth.getAccessToken(),
 ): Promise<ArrayBuffer | null> {
-  const target = url.startsWith("/") ? url : proxiedPdfUrl(url);
+  const target = relayPath(url).startsWith("/") ? url : proxiedPdfUrl(url);
   // Still cross-origin after the rewrite — an unallowlisted host. CORS would
   // reject it, so do not spend a request on it.
-  if (!target.startsWith("/")) return null;
+  if (!relayPath(target).startsWith("/")) return null;
 
   const headers: Record<string, string> = {};
-  if (target.startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
+  if (relayPath(target).startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
     const token = await getAccessToken();
     if (!token) return null;
     headers.Authorization = `Bearer ${token}`;
