@@ -10,6 +10,7 @@ pub mod org;
 pub mod overleaf;
 pub mod overleaf_workshop;
 pub mod papers;
+pub mod paste;
 pub mod plan;
 pub mod search;
 pub mod storage;
