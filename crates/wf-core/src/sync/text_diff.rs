@@ -3,6 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
+
 use crate::search::js_text::is_js_whitespace;
 
 /// Label on the opening marker this app writes; detection matches it exactly.
@@ -56,7 +58,9 @@ pub struct BodyDiff {
 }
 
 /// What a hunk may be resolved to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
 pub enum HunkPick {
     /// Keep ours.
     Ours,

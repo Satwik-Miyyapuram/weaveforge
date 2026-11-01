@@ -13,6 +13,18 @@ export type ChangeSide =
 /**  Some digest is missing, so no guess is made. */
 "unknown";
 
+/**  A field that both sides moved to different values. */
+export type Conflict = {
+	/**  Column name. */
+	field: string,
+	/**  Value in the common base, `null` when absent. */
+	base: unknown,
+	/**  Value on this device, `null` when absent. */
+	local: unknown,
+	/**  Value on the server, `null` when absent. */
+	remote: unknown,
+};
+
 /**  Facts about this core build that every shell can show. */
 export type CoreInfo = {
 	/**  Semver version of the core crate. */
@@ -66,6 +78,15 @@ export type GitSyncSkipReason =
 /**  The path has no segments (empty or `.`). */
 "invalid-path";
 
+/**  What a hunk may be resolved to. */
+export type HunkPick = 
+/**  Keep ours. */
+"ours" | 
+/**  Take theirs. */
+"theirs" | 
+/**  Ours, then theirs. */
+"both";
+
 /**  Everything a page says about the paper it carries. */
 export type PageMetadata = {
 	/**  Title with the site's name suffix removed. */
@@ -108,6 +129,14 @@ export type PaperRefKind =
 "url" | 
 /**  An opaque Zotero item key. */
 "zotero";
+
+/**  A note split into its frontmatter map and the text after the fence. */
+export type ParsedDocument = {
+	/**  Parsed `key: value` fields, in file order. */
+	frontmatter: { [key in string]: unknown },
+	/**  Everything after the closing fence, or the whole input when there is no fence. */
+	body: string,
+};
 
 /**  A parsed query (TS `ParsedQuery` plus `modified_within_days`). */
 export type ParsedQuery = {
@@ -168,4 +197,30 @@ export type TokenizerOptions = {
 	splitCamelCase: boolean,
 	/**  Emit host and path segments of a URL as separate terms. TS default: `true`. */
 	tokenizeUrls: boolean,
+};
+
+/**  The note as it stood when the two sides last agreed. */
+export type VaultPageBase = {
+	/**  Frontmatter fields, with `title` included. */
+	fields: { [key in string]: unknown },
+	/**  Digest, not text: enough to tell a rewrite from an untouched body. */
+	bodyDigest: string,
+};
+
+/**  The merged note and the conflicts the reader has to decide. */
+export type VaultPageMerge = {
+	/**  Merged frontmatter fields. */
+	fields: { [key in string]: unknown },
+	/**  Merged body text. */
+	body: string,
+	/**  Empty when the merge settled everything. `body` appears as its own field. */
+	conflicts: Conflict[],
+};
+
+/**  One side's current copy. */
+export type VaultPageSide = {
+	/**  Frontmatter fields, with `title` included. */
+	fields: { [key in string]: unknown },
+	/**  Body text after the frontmatter. */
+	body: string,
 };

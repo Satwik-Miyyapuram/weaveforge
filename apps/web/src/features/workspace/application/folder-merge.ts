@@ -15,15 +15,8 @@ import type {
   MergeFieldDispute,
   VaultPageBase,
 } from "@weaveforge/core";
-import {
-  mergeHunks,
-  mergeVaultPage,
-  readFrontmatter,
-  vaultPageSide,
-  writeConflictMarkers,
-  writeFrontmatter,
-  type HunkPick,
-} from "@weaveforge/core";
+import type { HunkPick } from "@weaveforge/core";
+import type { RustCore } from "@/lib/rust-core";
 
 /**
  * Settle a both-changed file per field, or say what is actually in dispute.
@@ -38,6 +31,7 @@ import {
  * behaviour it had: report, and let the user decide.
  */
 export function mergeBothChanged(
+  core: RustCore,
   entry: ImportDiffEntry,
   base: VaultPageBase | undefined,
   workspaceContent: string | undefined,
@@ -45,14 +39,21 @@ export function mergeBothChanged(
   if (entry.action !== "conflict" || entry.kind !== "both-changed") return entry;
   if (!base || workspaceContent === undefined) return entry;
 
-  const workspace = vaultPageSide(entry.entity.path, workspaceContent);
-  if (!workspace) return entry;
+  // A note over the WASM text limit cannot be merged here; it stays a conflict for the person to settle.
+  let workspace: ReturnType<RustCore["vaultPageSide"]>;
+  let merged: ReturnType<RustCore["mergeVaultPage"]>;
+  try {
+    workspace = core.vaultPageSide(entry.entity.path, workspaceContent);
+    if (!workspace) return entry;
 
-  const merged = mergeVaultPage(
-    base,
-    { fields: { ...entry.entity.fields, title: entry.entity.title }, body: entry.entity.body },
-    workspace,
-  );
+    merged = core.mergeVaultPage(
+      base,
+      { fields: { ...entry.entity.fields, title: entry.entity.title }, body: entry.entity.body },
+      workspace,
+    );
+  } catch {
+    return entry;
+  }
 
   if (merged.conflicts.length > 0) {
     const fields = merged.conflicts.map((conflict) => conflict.field);
@@ -90,19 +91,21 @@ export function mergeBothChanged(
  * carries digests for a body, never text.
  */
 function mergeDetail(
-  merged: ReturnType<typeof mergeVaultPage>,
+  merged: ReturnType<RustCore["mergeVaultPage"]>,
   entry: ImportDiffEntry,
-  workspace: ReturnType<typeof vaultPageSide> & object,
+  workspace: NonNullable<ReturnType<RustCore["vaultPageSide"]>>,
 ): ImportMergeDetail {
   const disputed: MergeFieldDispute[] = merged.conflicts
     .filter((conflict) => conflict.field !== "body")
     // local is the folder's side and remote the workspace's, so they land on
-    // `theirs` and `ours` respectively.
+    // `theirs` and `ours` respectively. An absent side crosses from Rust as
+    // `null`; it goes back to `undefined` so picking it drops the field
+    // instead of saving a null.
     .map((conflict) => ({
       field: conflict.field,
-      base: conflict.base,
-      ours: conflict.remote,
-      theirs: conflict.local,
+      base: conflict.base ?? undefined,
+      ours: conflict.remote ?? undefined,
+      theirs: conflict.local ?? undefined,
     }));
   const bodyDisputed = merged.conflicts.some((conflict) => conflict.field === "body");
 
@@ -158,6 +161,7 @@ export function keepBothTitle(title: string): string {
  * policy -- can then be tested without one.
  */
 export function settleConflict(
+  core: RustCore,
   entry: ImportDiffEntry,
   resolutions: Readonly<Record<string, ConflictResolution>>,
 ): ImportDiffEntry | null {
@@ -171,7 +175,7 @@ export function settleConflict(
   // Writing markers is an action on the folder's copy, not an import: nothing
   // reaches the workspace until the person has edited the file.
   if (asked === "markers") return null;
-  if (typeof asked === "object") return settlePicks(entry, asked);
+  if (typeof asked === "object") return settlePicks(core, entry, asked);
   // A type mismatch has nothing to update: the id names a paper or an
   // experiment, so writing the file over it is not on offer whatever the
   // caller asked for. Importing it as a new note still is.
@@ -192,7 +196,11 @@ export function settleConflict(
  * merge, and a folder with no recorded base has no three sides to offer — in
  * both cases the shortcuts are the only honest answers.
  */
-function settlePicks(entry: ImportDiffEntry, picks: ConflictPicks): ImportDiffEntry | null {
+function settlePicks(
+  core: RustCore,
+  entry: ImportDiffEntry,
+  picks: ConflictPicks,
+): ImportDiffEntry | null {
   const detail = entry.merge;
   if (!detail) return null;
 
@@ -204,9 +212,15 @@ function settlePicks(entry: ImportDiffEntry, picks: ConflictPicks): ImportDiffEn
   }
 
   const { title, ...rest } = fields;
-  const body = detail.bodySides
-    ? mergeHunks(detail.bodySides.ours, detail.bodySides.theirs, picks.hunks ?? {})
-    : detail.body;
+  let body = detail.body;
+  if (detail.bodySides) {
+    try {
+      body = core.mergeHunks(detail.bodySides.ours, detail.bodySides.theirs, picks.hunks ?? {});
+    } catch {
+      // A body over the WASM text limit cannot be composed; it stays a conflict.
+      return null;
+    }
+  }
 
   return {
     ...entry,
@@ -240,6 +254,7 @@ function settlePicks(entry: ImportDiffEntry, picks: ConflictPicks): ImportDiffEn
  * impossible to import by accident.
  */
 export async function writeConflictMarkersTo(
+  core: RustCore,
   fs: IWorkspaceFs,
   entry: ImportDiffEntry,
 ): Promise<boolean> {
@@ -249,10 +264,10 @@ export async function writeConflictMarkersTo(
   const current = await fs.readText(entry.entity.path).catch(() => null);
   if (current === null) return false;
 
-  const { frontmatter } = readFrontmatter(current);
+  const { frontmatter } = core.readFrontmatter(current);
   await fs.writeFile(
     entry.entity.path,
-    writeFrontmatter(frontmatter, writeConflictMarkers(sides.ours, sides.theirs)),
+    core.writeFrontmatter(frontmatter, core.writeConflictMarkers(sides.ours, sides.theirs)),
   );
   return true;
 }

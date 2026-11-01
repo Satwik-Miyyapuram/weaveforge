@@ -705,7 +705,7 @@ async function diffAgainstWorkspace(
   // do not: a tag added in Obsidian and a paragraph rewritten here are two
   // edits to one note, not two answers to one question.
   const entries = diff.entries.map((entry) =>
-    mergeBothChanged(entry, bases[entry.entity.path], current[entry.entity.path]),
+    mergeBothChanged(core, entry, bases[entry.entity.path], current[entry.entity.path]),
   );
 
   // The JSON data files are the same question asked of rows rather than prose,

@@ -2,6 +2,7 @@
 //! note edited on both sides. Fields go through `merge_rows`; the body is
 //! compared by digest only, so no base text is kept.
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::sync::change_origin::digest_text;
@@ -10,27 +11,36 @@ use crate::sync::folder_layout::WorkspaceEntityType;
 use crate::sync::merge::{Conflict, merge_rows};
 
 /// The note as it stood when the two sides last agreed.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct VaultPageBase {
     /// Frontmatter fields, with `title` included.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub fields: Map<String, Value>,
     /// Digest, not text: enough to tell a rewrite from an untouched body.
     pub body_digest: String,
 }
 
 /// One side's current copy.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct VaultPageSide {
     /// Frontmatter fields, with `title` included.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub fields: Map<String, Value>,
     /// Body text after the frontmatter.
     pub body: String,
 }
 
 /// The merged note and the conflicts the reader has to decide.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct VaultPageMerge {
     /// Merged frontmatter fields.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub fields: Map<String, Value>,
     /// Merged body text.
     pub body: String,

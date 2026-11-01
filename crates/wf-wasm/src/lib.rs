@@ -9,6 +9,7 @@
 //! written here may not use `unsafe`.
 #![deny(unsafe_code)]
 
+mod merge;
 mod sync;
 
 use serde::Serialize;

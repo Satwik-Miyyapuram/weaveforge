@@ -140,6 +140,27 @@ export function maxFusionIds(): number;
 export function maxIndexTextUtf16(): number;
 
 /**
+ * [`wf_core::sync::text_diff::merge_hunks`] for JS. Picks are keyed by hunk
+ * index; only canonical decimal keys (`"0"`, not `"00"`) count, as in the TS.
+ *
+ * # Errors
+ *
+ * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
+ * `picks` is not an object of `HunkPick` values.
+ */
+export function mergeHunks(ours: string, theirs: string, picks: any): string;
+
+/**
+ * [`wf_core::sync::merge_vault_page::merge_vault_page`] for JS, as `VaultPageMerge`.
+ *
+ * # Errors
+ *
+ * Fails when a body or the base digest is over `MAX_INDEX_TEXT_UTF16` UTF-16
+ * units, or when an argument is not a valid vault page shape.
+ */
+export function mergeVaultPage(base: any, folder: any, workspace: any): any;
+
+/**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
  * `value`, or `None`.
  *
@@ -181,6 +202,15 @@ export function parsePaperRef(kind: any, value: string): any;
 export function parseQuery(query: string): any;
 
 /**
+ * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
+ *
+ * # Errors
+ *
+ * Fails when `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function readFrontmatter(content: string): any;
+
+/**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
  *
  * # Errors
@@ -209,6 +239,44 @@ export function stampWorkspaceId(content: string, id: string): string | undefine
  */
 export function tokenize(text: string, options: any): any;
 
+/**
+ * [`wf_core::sync::merge_vault_page::vault_page_base`] for JS; `null` when the file is not a note.
+ *
+ * # Errors
+ *
+ * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function vaultPageBase(path: string, content: string): any;
+
+/**
+ * [`wf_core::sync::merge_vault_page::vault_page_side`] for JS; `null` when the file is not a note.
+ *
+ * # Errors
+ *
+ * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function vaultPageSide(path: string, content: string): any;
+
+/**
+ * [`wf_core::sync::text_diff::write_conflict_markers`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function writeConflictMarkers(ours: string, theirs: string): string;
+
+/**
+ * [`wf_core::sync::frontmatter::write_frontmatter`] for JS. Fields are written
+ * in object key order; a `null` (JS `undefined`) value is skipped, as in the TS.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
+ * `fields` is not an object.
+ */
+export function writeFrontmatter(fields: any, body: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -228,13 +296,20 @@ export interface InitOutput {
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
+    readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
+    readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
+    readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
+    readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly writeConflictMarkers: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly writeFrontmatter: (a: any, b: number, c: number) => [number, number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

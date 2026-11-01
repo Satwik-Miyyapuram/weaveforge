@@ -2,6 +2,7 @@
 
 use std::num::FpCategory;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::search::js_text::is_js_whitespace;
@@ -9,9 +10,11 @@ use crate::search::js_text::is_js_whitespace;
 const LINE_TERMINATORS: [char; 4] = ['\n', '\r', '\u{2028}', '\u{2029}'];
 
 /// A note split into its frontmatter map and the text after the fence.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ParsedDocument {
     /// Parsed `key: value` fields, in file order.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub frontmatter: Map<String, Value>,
     /// Everything after the closing fence, or the whole input when there is no fence.
     pub body: String,
