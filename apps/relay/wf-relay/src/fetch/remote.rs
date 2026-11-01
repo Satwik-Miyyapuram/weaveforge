@@ -35,6 +35,16 @@ pub struct ImageReply {
 
 /// Reads a pasted link's page title through `net`; the error is the sentence to show.
 pub async fn fetch_title_via<N: Network>(net: &N, url: &str) -> Result<TitleReply, String> {
+    fetch_title_status_via(net, url)
+        .await
+        .map_err(|(_, message)| message)
+}
+
+/// Like [`fetch_title_via`], but the error also carries the HTTP status to answer with.
+pub async fn fetch_title_status_via<N: Network>(
+    net: &N,
+    url: &str,
+) -> Result<TitleReply, (u16, String)> {
     let options = FetchOptions {
         accept: TITLE_ACCEPT.to_owned(),
         limits: FetchLimits {
@@ -44,9 +54,9 @@ pub async fn fetch_title_via<N: Network>(net: &N, url: &str) -> Result<TitleRepl
     };
     let fetched = safe_fetch_via(net, url, &options)
         .await
-        .map_err(|failure| failure.message)?;
+        .map_err(|failure| (failure.status, failure.message))?;
     let title = title_from_page(&fetched.content_type, &fetched.body)
-        .map_err(|refusal| refusal.message.to_owned())?;
+        .map_err(|refusal| (refusal.status, refusal.message.to_owned()))?;
     Ok(TitleReply {
         title,
         url: fetched.url,
@@ -55,6 +65,16 @@ pub async fn fetch_title_via<N: Network>(net: &N, url: &str) -> Result<TitleRepl
 
 /// Reads a pasted link's image through `net`; the error is the sentence to show.
 pub async fn fetch_image_via<N: Network>(net: &N, url: &str) -> Result<ImageReply, String> {
+    fetch_image_status_via(net, url)
+        .await
+        .map_err(|(_, message)| message)
+}
+
+/// Like [`fetch_image_via`], but the error also carries the HTTP status to answer with.
+pub async fn fetch_image_status_via<N: Network>(
+    net: &N,
+    url: &str,
+) -> Result<ImageReply, (u16, String)> {
     let options = FetchOptions {
         accept: IMAGE_ACCEPT.to_owned(),
         limits: FetchLimits {
@@ -64,9 +84,9 @@ pub async fn fetch_image_via<N: Network>(net: &N, url: &str) -> Result<ImageRepl
     };
     let fetched = safe_fetch_via(net, url, &options)
         .await
-        .map_err(|failure| failure.message)?;
-    let content_type =
-        image_content_type(&fetched.content_type).map_err(|refusal| refusal.message.to_owned())?;
+        .map_err(|failure| (failure.status, failure.message))?;
+    let content_type = image_content_type(&fetched.content_type)
+        .map_err(|refusal| (refusal.status, refusal.message.to_owned()))?;
     Ok(ImageReply {
         bytes: STANDARD.encode(&fetched.body),
         content_type,
