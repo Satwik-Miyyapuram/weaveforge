@@ -308,7 +308,7 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
       # PostgREST over the compose network, not the public hostname.
       NEXT_PUBLIC_DATA_URL: http://postgrest:3000
-      RELAY_ALLOWED_ORIGINS: "${RELAY_ALLOWED_ORIGINS:-https://weaveforge.org,https://www.weaveforge.org,https://app.weaveforge.org,app://weaveforge,http://localhost:3000,http://localhost:3100}"
+      RELAY_ALLOWED_ORIGINS: "${RELAY_ALLOWED_ORIGINS:-https://weaveforge.org,https://www.weaveforge.org,https://app.weaveforge.org,app://weaveforge,https://app.localhost,app://localhost,http://localhost:3000,http://localhost:3100}"
       RELAY_BIND: 0.0.0.0:8787
     mem_limit: 128m
     # No healthcheck: the image is debian-slim with ca-certificates only, so it
