@@ -1,4 +1,5 @@
-import { normalizeArxivId, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * arXiv metadata source. Implements the IMetadataSource contract so it can be
@@ -24,7 +25,7 @@ export class ArxivMetadataSource implements IMetadataSource {
 
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
     // Accept an abs/pdf URL or an `arXiv:` prefixed string, not just a bare id.
-    const id = normalizeArxivId(ref.value) ?? ref.value.trim();
+    const id = (await loadCore()).normalizeArxivId(ref.value) ?? ref.value.trim();
     const res = await this.fetchFn(`${this.baseUrl}?id_list=${encodeURIComponent(id)}`);
     if (!res.ok) {
       throw new Error(`arXiv request failed: ${res.status} ${res.statusText}`);

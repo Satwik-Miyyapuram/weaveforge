@@ -1,7 +1,5 @@
 import {
-  extractPageMetadata,
   isPlaceholderTitle,
-  pageImportRefusal,
   titleFromFileName,
   type IMetadataSource,
   type PaperMetadata,
@@ -10,6 +8,7 @@ import {
 import { authHeaders } from "@/lib/auth-headers";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "@/features/reader/application/paper-html-rules";
 import { relayUrl } from "@/lib/relay-url";
 
@@ -86,8 +85,9 @@ export class UrlMetadataSource implements IMetadataSource {
       throw new Error(`Could not read that page${detail ? `: ${detail}` : ` (${res.status})`}.`);
     }
     const html = await res.text();
-    const meta = extractPageMetadata(html, res.headers.get(HTML_FINAL_URL_HEADER) || target);
-    const refusal = pageImportRefusal(meta);
+    const core = await loadCore();
+    const meta = core.extractPageMetadata(html, res.headers.get(HTML_FINAL_URL_HEADER) || target);
+    const refusal = core.pageImportRefusal(meta);
     if (refusal) throw new Error(refusal);
     return meta;
   }

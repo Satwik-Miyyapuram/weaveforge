@@ -91,6 +91,12 @@ export class AddPaperUseCase {
   }
 }
 
+/** Decides what a pasted reference really is (see `parsePaperRef`). */
+export type ParsePaperRef = (
+  kind: Exclude<PaperRef["kind"], "bibliographic">,
+  value: string,
+) => PaperRef | Promise<PaperRef>;
+
 /**
  * Importing a paper from an external reference (arXiv id / DOI). Composes the
  * metadata resolver with the add use-case so the dedupe rule is reused.
@@ -99,6 +105,8 @@ export class ImportPaperUseCase {
   constructor(
     private readonly resolver: MetadataResolver,
     private readonly addPaper: AddPaperUseCase,
+    /** Parses the pasted reference. Defaults to the TS parser; the web app passes the Rust one. */
+    private readonly parseRef: ParsePaperRef = parsePaperRef,
   ) {}
 
   async fromRef(input: PaperRef, status?: PaperStatus): Promise<Paper> {
@@ -109,7 +117,7 @@ export class ImportPaperUseCase {
   async importRef(input: PaperRef, status?: PaperStatus): Promise<AddPaperResult> {
     // Whatever the picker said, resolve what was actually pasted: an abs page,
     // a PDF link and a bare id are all the same paper.
-    const ref = input.kind === "bibliographic" ? input : parsePaperRef(input.kind, input.value);
+    const ref = input.kind === "bibliographic" ? input : await this.parseRef(input.kind, input.value);
     const metadata = await this.resolver.resolve(ref);
     // Ensure the originating id is recorded for future dedupe.
     if (ref.kind === "arxiv" && !metadata.arxivId) metadata.arxivId = ref.value;

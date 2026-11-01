@@ -5,35 +5,42 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::LazyLock;
 
 use regex::{Captures, Regex};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 /// Interstitials that answer 200 with an ordinary-looking title.
 pub const BOT_WALL_PATTERN: &str = r"(?i)client challenge|verifying your browser|just a moment|attention required|are you a robot|access denied|captcha|checking your browser";
 
 /// Everything a page says about the paper it carries.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PageMetadata {
     /// Title with the site's name suffix removed.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub title: Option<String>,
     /// Author names, de-duplicated case-insensitively.
     pub authors: Vec<String>,
     /// Year of the publish date.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = i32))]
     pub year: Option<i32>,
     /// Journal, conference or site name.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub venue: Option<String>,
     /// DOI without its resolver prefix.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub doi: Option<String>,
     /// arXiv id, from the tag or the page address.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub arxiv_id: Option<String>,
     /// Abstract with whitespace collapsed.
-    #[serde(rename = "abstract", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "abstract", default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub r#abstract: Option<String>,
     /// The page address the metadata came from.
     pub url: String,
@@ -445,4 +452,20 @@ pub fn page_import_refusal(meta: &PageMetadata) -> Option<&'static str> {
     Some(
         "That page does not look like a paper or an article — it has no citation tags and does not say it is an article. Import by DOI or arXiv id, or add the paper manually.",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn page_metadata_deserializes_camel_case() {
+        let meta: PageMetadata = serde_json::from_str(
+            r#"{"authors":[],"url":"https://x.org","hasCitationMeta":true,"isArticle":false,"arxivId":"2305.12345"}"#,
+        )
+        .unwrap();
+        assert_eq!(meta.arxiv_id.as_deref(), Some("2305.12345"));
+        assert_eq!(meta.title, None);
+        assert!(meta.has_citation_meta);
+    }
 }

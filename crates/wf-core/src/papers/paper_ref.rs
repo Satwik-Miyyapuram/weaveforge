@@ -4,7 +4,7 @@
 use std::sync::LazyLock;
 
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Arxiv id core: modern `2305.12345` or legacy `cs.LG/0501001`. Digits are ASCII, as in JS.
 const ARXIV_CORE: &str = r"[a-z-]+(?:\.[A-Z]{2})?/[0-9]{7}|[0-9]{4}\.[0-9]{4,5}";
@@ -34,7 +34,8 @@ static HOSTLIKE_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"(?i)^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(/\S*)?$").ok());
 
 /// The kind of paper reference a caller declares for a pasted value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum PaperRefKind {
     /// A Digital Object Identifier.
@@ -49,6 +50,7 @@ pub enum PaperRefKind {
 
 /// A paper reference: what it is and the value that identifies it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PaperRef {
     /// Which source can answer for this reference.
     pub kind: PaperRefKind,
@@ -176,5 +178,23 @@ fn hex_value(byte: u8) -> Option<u8> {
         b'a'..=b'f' => Some(byte - b'a' + 10),
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn paper_ref_kind_round_trips_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&PaperRefKind::Arxiv).unwrap(),
+            "\"arxiv\""
+        );
+        assert_eq!(
+            serde_json::from_str::<PaperRefKind>("\"zotero\"").unwrap(),
+            PaperRefKind::Zotero
+        );
+        assert!(serde_json::from_str::<PaperRefKind>("\"bibliographic\"").is_err());
     }
 }

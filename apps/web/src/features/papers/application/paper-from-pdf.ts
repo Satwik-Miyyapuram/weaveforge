@@ -11,7 +11,8 @@
  * a plain test.
  */
 
-import { MetadataResolutionError, extractDoi, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
+import { MetadataResolutionError, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 /** Past this a PDF is more likely a scanned book than a paper; the byte cache is not meant for it. */
 export const MAX_PDF_BYTES = 200 * 1024 * 1024;
@@ -109,7 +110,7 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   const offline = !deps.online();
   // pdf.js runs here, so the PDF is read offline too; only the lookups need the network.
   const pdf = await readPdf(bytes, deps);
-  const doi = extractDoi(pdf.text) ?? undefined;
+  const doi = (await loadCore()).extractDoi(pdf.text);
   const title = metadataTitle(pdf.title) ?? guessTitle(pdf.text);
   let found: AddPaperResult | null = null;
   if (!offline) {
