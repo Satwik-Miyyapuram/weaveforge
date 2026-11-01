@@ -36,7 +36,7 @@ use crate::sdk_metrics;
 use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
-use crate::{credentials, plan_feed, report_issue, settings_routes};
+use crate::{account, admin_users, credentials, plan_feed, report_issue, settings_routes};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
 /// Same caching as the Next.js arXiv route on success.
@@ -131,8 +131,20 @@ pub fn app(state: Arc<AppState>) -> Router {
         )
         .route("/api/report-issue", post(report_issue::report_issue))
         .route("/api/plan/feed/{token}/{file}", get(plan_feed::plan_feed))
+        .merge(account_routes())
         .layer(cors)
         .with_state(state)
+}
+
+/// Account deletion and admin user creation.
+fn account_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/api/account/delete-user", post(account::delete_user))
+        .route(
+            "/api/account/delete-user/otp",
+            post(account::delete_user_otp),
+        )
+        .route("/api/admin/create-user", post(admin_users::create_user))
 }
 
 fn cors_layer(origins: &[String]) -> CorsLayer {
