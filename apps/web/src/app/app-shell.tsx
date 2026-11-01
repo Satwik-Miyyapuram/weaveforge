@@ -31,6 +31,8 @@ import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
 import { Button, CloseButton } from "@/components/button";
+import { loadCore } from "@/lib/rust-core";
+import { CoreGate } from "./core-gate";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -59,6 +61,10 @@ const MattermostSignedOutHost = dynamic(
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, expired, sessionEpoch } = useAuth();
   const pathname = usePathname();
+  // Start fetching the Rust core while sign-in resolves; CoreGate awaits it.
+  useEffect(() => {
+    loadCore().catch(() => {});
+  }, []);
   if (pathname === "/recover") return <EmailRecoveryScreen />;
   if (pathname === "/reset-password") return <PasswordResetScreen />;
   // The product pitch is public and renders its own chrome: no auth gate, no
@@ -68,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (loading) return <ThesisLoaderScreen />;
   if (!user) return <main className="app-shell"><LoginScreen /></main>;
   return (
+    <CoreGate>
     <StartupProvider userId={user.id}>
         <PrivacyDisclaimerGate>
           <ProfileProvider key={user.id}>
@@ -95,6 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </ProfileProvider>
         </PrivacyDisclaimerGate>
     </StartupProvider>
+    </CoreGate>
   );
 }
 

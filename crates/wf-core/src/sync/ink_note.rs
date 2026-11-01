@@ -2,6 +2,7 @@
 //! body-header subset (lines 1-381) of `packages/core/src/ink/ink-note.ts`; the
 //! stroke model, packing, pages and sidecar paths are not ported here.
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::search::js_text::is_js_whitespace;
@@ -33,7 +34,9 @@ pub mod ink_keys {
 }
 
 /// Page backgrounds, in the binary enum's order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
 pub enum InkPaper {
     /// Plain page.
     Blank,
@@ -75,7 +78,9 @@ impl InkPaper {
 }
 
 /// Which hand the writer uses.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
 pub enum InkHand {
     /// Right hand.
     Right,
@@ -105,7 +110,9 @@ impl InkHand {
 }
 
 /// The ink metadata a note carries, as its frontmatter or body header holds it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct InkNoteMeta {
     /// Page count as declared.
     pub pages: u32,
@@ -114,6 +121,12 @@ pub struct InkNoteMeta {
     /// Chunk ids, in reading order.
     pub page_order: Vec<String>,
     /// Mean recognition confidence, `0` when never recognised.
+    // specta writes f64 as `number | null` because serde_json turns NaN into
+    // null. It reaches JS through serde_wasm_bindgen, which keeps a number,
+    // and the reader clamps it to 0..=1, so the TS type is a plain number.
+    // specta renders f32 the same way, so u32 stands in only to get `number`;
+    // the value is still a 0..=1 fraction.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub recognised: f64,
     /// The engine that produced the text layer, if any.
     pub engine: Option<String>,

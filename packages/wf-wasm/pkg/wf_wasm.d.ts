@@ -43,6 +43,15 @@ export function coreInfo(): any;
 export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file_bytes: number): any;
 
 /**
+ * [`wf_core::sync::ink_note::default_ink_note_meta`] for JS.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function defaultInkNoteMeta(): any;
+
+/**
  * [`wf_core::sync::git_remote::describe_pull`] for JS.
  *
  * # Errors
@@ -59,6 +68,25 @@ export function describePull(result: any): string;
  * Fails when `result` is not a valid `GitPushResult` object.
  */
 export function describePush(result: any): string;
+
+/**
+ * [`wf_core::sync::text_diff::diff_body`] for JS, as `BodyDiff`.
+ *
+ * # Errors
+ *
+ * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function diffBody(ours: string, theirs: string): any;
+
+/**
+ * [`wf_core::sync::folder_layout::entity_dir`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `entity` is not a workspace entity type, or `project_root` is
+ * over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function entityDir(entity: string, project_root: string): string;
 
 /**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
@@ -101,6 +129,53 @@ export function fuseRankings(lists: any, k?: number | null, limit?: number | nul
 export function guessBlobContentType(path: string): string;
 
 /**
+ * [`wf_core::sync::text_diff::has_conflict_markers`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function hasConflictMarkers(text: string): boolean;
+
+/**
+ * [`wf_core::sync::folder_layout::id_suffix`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function idSuffix(id: string): string;
+
+/**
+ * [`wf_core::sync::markdown_image::image_alt_from_filename`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function imageAltFromFilename(name?: string | null): string;
+
+/**
+ * [`wf_core::sync::markdown_image::image_extension_for_mime`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `mime` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function imageExtensionForMime(mime: string): string;
+
+/**
+ * [`wf_core::sync::markdown_image::image_paths_in_body`] for JS. The body is
+ * always normalised with `normalize_markdown_image_syntax` first, as every
+ * TS caller does; `prefix` is literal text, not a regex.
+ *
+ * # Errors
+ *
+ * Fails when `body` or `prefix` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function imagePathsInBody(body: string, prefix: string): string[];
+
+/**
  * [`wf_core::search::tokenizer::index_terms`]: what MiniSearch indexes for `text`.
  *
  * # Errors
@@ -109,6 +184,33 @@ export function guessBlobContentType(path: string): string;
  * `options` is not a valid `TokenizerOptions` object.
  */
 export function indexTerms(text: string, options: any): any;
+
+/**
+ * [`wf_core::sync::json_entities::is_app_owned_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function isAppOwnedPath(path: string): boolean;
+
+/**
+ * [`wf_core::sync::ink_note::is_ink_chunk_id`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function isInkChunkId(text: string): boolean;
+
+/**
+ * [`wf_core::sync::ink_note::is_ink_note_body`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function isInkNoteBody(body: string): boolean;
 
 /**
  * [`wf_core::workspace::is_safe_workspace_path`] for JS.
@@ -127,6 +229,24 @@ export function isSafeWorkspacePath(path: string): boolean;
  * Fails when `rel_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function isUnderIgnoredFolder(rel_path: string): boolean;
+
+/**
+ * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
+ *
+ * # Errors
+ *
+ * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function jsonKindOfPath(path: string): string | undefined;
+
+/**
+ * [`wf_core::sync::markdown_image::markdown_image`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when an argument is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function markdownImage(target: string, alt: string): string;
 
 /**
  * [`MAX_FUSION_IDS`] for JS.
@@ -151,6 +271,15 @@ export function maxIndexTextUtf16(): number;
 export function mergeHunks(ours: string, theirs: string, picks: any): string;
 
 /**
+ * [`wf_core::sync::merge::merge_rows`] for JS, as `{ merged, conflicts }`.
+ *
+ * # Errors
+ *
+ * Fails when a row is not a plain object of JSON values.
+ */
+export function mergeRows(base: any, local: any, remote: any): any;
+
+/**
  * [`wf_core::sync::merge_vault_page::merge_vault_page`] for JS, as `VaultPageMerge`.
  *
  * # Errors
@@ -169,6 +298,15 @@ export function mergeVaultPage(base: any, folder: any, workspace: any): any;
  * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function normalizeArxivId(value: string): string | undefined;
+
+/**
+ * [`wf_core::sync::markdown_image::normalize_markdown_image_syntax`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function normalizeMarkdownImageSyntax(body: string): string;
 
 /**
  * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
@@ -202,6 +340,24 @@ export function parsePaperRef(kind: any, value: string): any;
 export function parseQuery(query: string): any;
 
 /**
+ * [`wf_core::sync::folder_layout::project_dir`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `id` or `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function projectDir(id: string, name: string): string;
+
+/**
+ * [`wf_core::sync::folder_layout::project_meta_dir`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function projectMetaDir(project_root: string): string;
+
+/**
  * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
  *
  * # Errors
@@ -209,6 +365,24 @@ export function parseQuery(query: string): any;
  * Fails when `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function readFrontmatter(content: string): any;
+
+/**
+ * [`wf_core::sync::ink_note::read_ink_note_body`] for JS, as `{ meta, text }`.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function readInkNoteBody(body: string): any;
+
+/**
+ * [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function relativeAssetPaths(body: string): any;
 
 /**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
@@ -221,6 +395,15 @@ export function readFrontmatter(content: string): any;
 export function safeWorkspacePath(path: string): string;
 
 /**
+ * [`wf_core::sync::merge::same_value`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when a value is not JSON.
+ */
+export function sameValue(a: any, b: any): boolean;
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -228,6 +411,25 @@ export function safeWorkspacePath(path: string): string;
  * Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function stampWorkspaceId(content: string, id: string): string | undefined;
+
+/**
+ * [`wf_core::sync::folder_layout::strip_kind_suffix`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function stripKindSuffix(name: string): string;
+
+/**
+ * [`wf_core::sync::blob_links::to_relative_blob_links`] for JS, as
+ * `{ body, assets: [{ scheme, storagePath, folderPath }] }`.
+ *
+ * # Errors
+ *
+ * Fails when `body` or `file_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function toRelativeBlobLinks(body: string, file_path: string): any;
 
 /**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
@@ -277,6 +479,16 @@ export function writeConflictMarkers(ours: string, theirs: string): string;
  */
 export function writeFrontmatter(fields: any, body: string): string;
 
+/**
+ * [`wf_core::sync::ink_note::write_ink_note_body`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
+ * `meta` is not an `InkNoteMeta` (unknown paper or hand included).
+ */
+export function writeInkNoteBody(meta: any, text: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -285,31 +497,54 @@ export interface InitOutput {
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly defaultInkNoteMeta: () => [number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
+    readonly diffBody: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
+    readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
+    readonly idSuffix: (a: number, b: number) => [number, number, number, number];
+    readonly imageAltFromFilename: (a: number, b: number) => [number, number, number, number];
+    readonly imageExtensionForMime: (a: number, b: number) => [number, number, number, number];
+    readonly imagePathsInBody: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
+    readonly isInkChunkId: (a: number, b: number) => [number, number, number];
+    readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
+    readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
+    readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
+    readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
+    readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
+    readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
+    readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
+    readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
+    readonly sameValue: (a: any, b: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
+    readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly writeConflictMarkers: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly writeFrontmatter: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly writeInkNoteBody: (a: any, b: number, c: number) => [number, number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
@@ -317,6 +552,7 @@ export interface InitOutput {
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __externref_drop_slice: (a: number, b: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

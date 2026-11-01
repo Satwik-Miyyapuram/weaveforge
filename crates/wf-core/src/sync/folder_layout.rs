@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::search::js_text::{is_letter_or_number, utf16_len};
@@ -24,7 +25,9 @@ pub const PAPER_HTML_DIR: &str = "papers/html";
 const SLUG_MAX_UTF16: usize = 80;
 
 /// Kinds of entity the folder holds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
 pub enum WorkspaceEntityType {
     /// A note.
     VaultPage,

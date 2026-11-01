@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::sync::change_origin::ChangeSide;
@@ -14,7 +15,9 @@ use crate::sync::import_action::{ActionCounts, ConflictKind, ImportAction};
 pub type JsonRow = Map<String, Value>;
 
 /// The three JSON data files, by what they hold.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
 pub enum WorkspaceJsonKind {
     /// `relations.json`.
     Relations,

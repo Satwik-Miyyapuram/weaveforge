@@ -30,9 +30,11 @@ pub struct Conflict {
 }
 
 /// A merged row and the conflicts the reader has to decide.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MergeResult {
     /// The row with the server's values, overridden by local-only edits.
+    #[cfg_attr(feature = "specta", specta(type = std::collections::HashMap<String, specta_typescript::Unknown>))]
     pub merged: Map<String, Value>,
     /// Conflicts in field order: local keys, then remote-only keys.
     pub conflicts: Vec<Conflict>,
