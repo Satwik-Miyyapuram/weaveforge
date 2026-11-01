@@ -38,7 +38,7 @@ use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
 use crate::{
     account, admin_users, credentials, mcp_relay, overleaf_connections, overleaf_reports,
-    plan_feed, report_issue, settings_routes, zotero_collections,
+    overleaf_workshop, plan_feed, report_issue, settings_routes, zotero_collections,
 };
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
@@ -182,6 +182,22 @@ fn integration_routes() -> Router<Arc<AppState>> {
                 .patch(mcp_relay::relay_patch),
         )
         .route("/api/mcp/relay/browser", get(mcp_relay::browser_get))
+        .route(
+            "/api/overleaf/workshop/session",
+            post(overleaf_workshop::session_post).delete(overleaf_workshop::session_delete),
+        )
+        .route(
+            "/api/overleaf/workshop/projects",
+            post(overleaf_workshop::projects_post),
+        )
+        .route(
+            "/api/overleaf/workshop/compile",
+            post(overleaf_workshop::compile_post),
+        )
+        .route(
+            "/api/overleaf/workshop/pdf",
+            post(overleaf_workshop::pdf_post),
+        )
 }
 
 fn cors_layer(origins: &[String]) -> CorsLayer {
