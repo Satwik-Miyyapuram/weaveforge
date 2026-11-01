@@ -8,6 +8,7 @@ import {
   type JsonDiff,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 import { activeProject } from "./active-project";
 import {
   assetExtension,
@@ -72,9 +73,10 @@ export async function applyFolderImport(
 }
 
 /** See `writeConflictMarkersTo`: this window's folder gets the markers. */
-export function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
+export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
   const fs = activeWorkspaceFs();
-  return fs ? writeConflictMarkersTo(fs, entry) : Promise.resolve(false);
+  if (!fs) return false;
+  return writeConflictMarkersTo(await loadCore(), fs, entry);
 }
 
 async function applyEntries(
@@ -82,6 +84,7 @@ async function applyEntries(
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
 ): Promise<{ created: number; updated: number; appliedPaths: string[] }> {
+  const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
   const projectRoot = projectDir(await activeProject());
@@ -90,7 +93,7 @@ async function applyEntries(
   const appliedPaths: string[] = [];
 
   for (const raw of diff.entries) {
-    const entry = raw.action === "conflict" ? settleConflict(raw, resolutions) : raw;
+    const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
     if (!entry) continue;
 
     if (entry.action === "conflict" || entry.action === "unchanged" || entry.action === "removed") {

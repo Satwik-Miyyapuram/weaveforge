@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::sync::instant::parse_instant;
@@ -12,15 +13,19 @@ use crate::sync::instant::parse_instant;
 const RESERVED: [&str; 4] = ["id", "server_seq", "row_version", "created_at"];
 
 /// A field that both sides moved to different values.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Conflict {
     /// Column name.
     pub field: String,
     /// Value in the common base, `null` when absent.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub base: Value,
     /// Value on this device, `null` when absent.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub local: Value,
     /// Value on the server, `null` when absent.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub remote: Value,
 }
 

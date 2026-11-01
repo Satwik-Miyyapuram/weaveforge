@@ -153,3 +153,184 @@ test("isSafeWorkspacePath and safeWorkspacePath match the TS checks", () => {
     );
   }
 });
+
+const NOTE_ID = "11111111-1111-4111-8111-111111111111";
+const notePath = "notes/n--111111.note.md";
+const noteText = (extra: string, body: string) =>
+  `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: vault_page\ntitle: T\n${extra}---\n${body}`;
+const NOTE_TEXTS = [
+  noteText("", "body\n"),
+  noteText("tags: [a, b]\n", "body\n"),
+  noteText("status: done\nupdated_at: 2024-01-01T00:00:00Z\n", "line 1\nline 2\n"),
+  noteText("n: 1.5\nflag: true\n", ""),
+  noteText("", "\r\nwindows\r\n"),
+  `﻿${noteText("", "bom\n")}`,
+  "no frontmatter at all",
+  `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: paper\ntitle: P\n---\nsummary`,
+];
+
+test("vaultPageBase and vaultPageSide match the TS", () => {
+  for (const text of NOTE_TEXTS) {
+    assert.deepEqual(
+      rs.vaultPageBase(notePath, text),
+      ts.vaultPageBase(notePath, text),
+      `base ${JSON.stringify(text)}`,
+    );
+    assert.deepEqual(
+      rs.vaultPageSide(notePath, text),
+      ts.vaultPageSide(notePath, text),
+      `side ${JSON.stringify(text)}`,
+    );
+  }
+});
+
+const FIELD_VALUES: unknown[] = [
+  undefined,
+  null,
+  "a",
+  "b",
+  1,
+  1.0,
+  true,
+  ["x"],
+  "2024-01-01T00:00:00Z",
+  "2024-01-01T00:00:00.000Z",
+];
+const withField = (value: unknown): Record<string, unknown> => ({
+  title: "T",
+  ...(value === undefined ? {} : { f: value }),
+});
+
+/**
+ * A merge with absent values spelled one way. The Rust sends JSON, so an absent
+ * conflict side crosses as `null` and a field both sides dropped is left out,
+ * where the TS keeps it as `undefined`. The conflict card shows `null` and
+ * `undefined` alike, and the frontmatter writer skips `undefined` keys.
+ */
+function absentAsUndefined<
+  T extends {
+    fields: Record<string, unknown>;
+    conflicts: Array<{ base?: unknown; local?: unknown; remote?: unknown }>;
+  },
+>(merged: T): T {
+  return {
+    ...merged,
+    fields: Object.fromEntries(Object.entries(merged.fields).filter(([, value]) => value !== undefined)),
+    conflicts: merged.conflicts.map((c) => ({
+      ...c,
+      base: c.base ?? undefined,
+      local: c.local ?? undefined,
+      remote: c.remote ?? undefined,
+    })),
+  };
+}
+
+test("mergeVaultPage matches the TS", () => {
+  for (const b of FIELD_VALUES) {
+    for (const l of FIELD_VALUES) {
+      for (const r of FIELD_VALUES) {
+        const base = {
+          fields: withField(b),
+          bodyDigest: ts.digestText("body"),
+        };
+        const folder = { fields: withField(l), body: "body" };
+        const workspace = { fields: withField(r), body: "body" };
+        assert.deepEqual(
+          absentAsUndefined(rs.mergeVaultPage(base, folder, workspace)),
+          absentAsUndefined(ts.mergeVaultPage(base, folder, workspace)),
+          `fields ${JSON.stringify([b, l, r])}`,
+        );
+      }
+    }
+  }
+
+  const BODIES = ["body", "new", "other"];
+  const base = {
+    fields: withField(undefined),
+    bodyDigest: ts.digestText("body"),
+  };
+  for (const folderBody of BODIES) {
+    for (const workspaceBody of BODIES) {
+      const folder = { fields: withField(undefined), body: folderBody };
+      const workspace = { fields: withField(undefined), body: workspaceBody };
+      assert.deepEqual(
+        rs.mergeVaultPage(base, folder, workspace),
+        ts.mergeVaultPage(base, folder, workspace),
+        `bodies ${JSON.stringify([folderBody, workspaceBody])}`,
+      );
+    }
+  }
+});
+
+const HUNK_PAIRS: Array<[string, string]> = [
+  ["a\nb\nc", "a\nB\nc"],
+  ["", "x"],
+  ["x", ""],
+  ["a\nb", "c\nd"],
+  ["1\n2\n3\n4\n5", "1\nX\n3\nY\n5"],
+  ["a\r\nb", "a\nB"],
+];
+const HUNK_PICKS: Array<Readonly<Record<number, "ours" | "theirs" | "both">>> = [
+  {},
+  { 0: "theirs" },
+  { 0: "both" },
+  { 1: "theirs" },
+  { 0: "theirs", 1: "both" },
+  { 5: "theirs" },
+];
+
+test("mergeHunks matches the TS", () => {
+  for (const [ours, theirs] of HUNK_PAIRS) {
+    for (const picks of HUNK_PICKS) {
+      assert.deepEqual(
+        rs.mergeHunks(ours, theirs, picks),
+        ts.mergeHunks(ours, theirs, picks),
+        `input ${JSON.stringify([ours, theirs, picks])}`,
+      );
+    }
+  }
+});
+
+test("writeConflictMarkers matches the TS", () => {
+  for (const [ours, theirs] of HUNK_PAIRS) {
+    assert.deepEqual(
+      rs.writeConflictMarkers(ours, theirs),
+      ts.writeConflictMarkers(ours, theirs),
+      `input ${JSON.stringify([ours, theirs])}`,
+    );
+  }
+});
+
+test("readFrontmatter matches the TS", () => {
+  const texts = [
+    ...NOTE_TEXTS,
+    '---\na: "q\\"uote"\n---\nx',
+    "---\nk: 'it''s'\n---\n",
+    "---\n---\n",
+    "---\nnot closed",
+  ];
+  for (const text of texts) {
+    assert.deepEqual(rs.readFrontmatter(text), ts.readFrontmatter(text), `input ${JSON.stringify(text)}`);
+  }
+});
+
+test("writeFrontmatter matches the TS", () => {
+  const FIELD_MAPS: Array<Record<string, ts.FrontmatterValue | undefined>> = [
+    {},
+    { title: "T" },
+    { a: "x: y", b: "#hash", c: "" },
+    { n: 0, m: -1.5, t: true, f: false },
+    { tags: ["a", "b c"], empty: [] },
+    { skip: undefined, keep: "k" },
+    { quote: 'say "hi"', back: "a\\b" },
+  ];
+  for (const fields of FIELD_MAPS) {
+    for (const body of ["", "body\n"]) {
+      assert.deepEqual(
+        rs.writeFrontmatter(fields, body),
+        ts.writeFrontmatter(fields, body),
+        `input ${JSON.stringify([fields, body])}`,
+      );
+    }
+  }
+});

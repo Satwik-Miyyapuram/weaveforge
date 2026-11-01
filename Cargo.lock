@@ -1680,6 +1680,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+ "specta-typescript",
  "unicode-normalization",
  "unicode-properties",
  "url",
@@ -1703,6 +1704,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
  "wf-core",
 ]

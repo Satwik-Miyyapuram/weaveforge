@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import {
   mergeHunks,
   parseWorkspaceFolder,
   vaultPageBase,
   type ImportDiffEntry,
 } from "@weaveforge/core";
+import type { RustCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { mergeBothChanged, settleConflict } from "../application/folder-merge";
+
+let rs: RustCore;
+before(async () => {
+  rs = await loadTestCore();
+});
 
 /**
  * The conflict policy for a note both sides edited.
@@ -44,7 +51,7 @@ test("a key only one side moved is settled without asking", () => {
   const folder = note({ status: "review" }, "Folder body.");
   const workspace = note({ status: "draft" }, "Workspace body.");
 
-  const merged = mergeBothChanged(entry(folder), base, workspace);
+  const merged = mergeBothChanged(rs, entry(folder), base, workspace);
 
   // The one-sided field change is taken; only the body is left to ask about.
   assert.deepEqual(merged.conflictFields, ["body"]);
@@ -62,7 +69,7 @@ test("nothing collides means no conflict at all", () => {
   const folder = note({ status: "review" }, "Base body.");
   const workspace = note({ status: "draft" }, "Workspace body.");
 
-  const merged = mergeBothChanged(entry(folder), base, workspace);
+  const merged = mergeBothChanged(rs, entry(folder), base, workspace);
 
   assert.equal(merged.action, "updated");
   assert.equal(merged.kind, undefined);
@@ -73,6 +80,7 @@ test("nothing collides means no conflict at all", () => {
 test("a key both sides moved is a dispute, shown with its base", () => {
   const base = vaultPageBase(PATH, note({ status: "draft" }, "Base body."))!;
   const merged = mergeBothChanged(
+    rs,
     entry(note({ status: "review" }, "Base body.")),
     base,
     note({ status: "published" }, "Base body."),
@@ -84,15 +92,34 @@ test("a key both sides moved is a dispute, shown with its base", () => {
   ]);
 });
 
+test("a key one side deleted is absent, not null, when that side is picked", () => {
+  const base = vaultPageBase(PATH, note({ status: "draft" }, "Base body."))!;
+  // The folder dropped the key; this app changed it.
+  const conflicted = mergeBothChanged(
+    rs,
+    entry(note({}, "Base body.")),
+    base,
+    note({ status: "published" }, "Base body."),
+  );
+  assert.deepEqual(conflicted.merge?.disputed, [
+    { field: "status", base: "draft", ours: "published", theirs: undefined },
+  ]);
+
+  const settled = settleConflict(rs, conflicted, { [PATH]: { kind: "picks", fields: { status: "theirs" } } });
+
+  assert.equal(settled?.entity.fields.status, undefined);
+});
+
 test("a choice per key and per hunk composes one note", () => {
   const base = vaultPageBase(PATH, note({ status: "draft" }, "We ran three seeds.\nHeld."))!;
   const folder = note({ status: "review" }, "We ran five seeds.\nHeld.");
   const workspace = note({ status: "published" }, "We ran three seeds.\nHeld.");
-  const conflicted = mergeBothChanged(entry(folder), base, workspace);
+  const conflicted = mergeBothChanged(rs, entry(folder), base, workspace);
   assert.equal(conflicted.action, "conflict");
 
   // Their status, their seed count, and the rest of this app's copy.
   const settled = settleConflict(
+    rs,
     conflicted,
     { [PATH]: { kind: "picks", fields: { status: "theirs" }, hunks: { 0: "theirs" } } },
   );
@@ -107,12 +134,13 @@ test("a choice per key and per hunk composes one note", () => {
 test("an unchosen key keeps this app's copy", () => {
   const base = vaultPageBase(PATH, note({ status: "draft" }, "Base body."))!;
   const conflicted = mergeBothChanged(
+    rs,
     entry(note({ status: "review" }, "Base body.")),
     base,
     note({ status: "published" }, "Base body."),
   );
 
-  const settled = settleConflict(conflicted, { [PATH]: { kind: "picks" } });
+  const settled = settleConflict(rs, conflicted, { [PATH]: { kind: "picks" } });
 
   assert.equal(settled?.entity.fields.status, "published");
 });
@@ -120,6 +148,7 @@ test("an unchosen key keeps this app's copy", () => {
 test("a file holding markers is never imported, whatever is chosen", () => {
   const base = vaultPageBase(PATH, note({ status: "draft" }, "Base body."))!;
   const conflicted = mergeBothChanged(
+    rs,
     entry(note({ status: "review" }, "Base body.")),
     base,
     note({ status: "published" }, "Base body."),
@@ -127,36 +156,45 @@ test("a file holding markers is never imported, whatever is chosen", () => {
 
   for (const resolution of ["keep", "folder", "both", "markers"] as const) {
     const marked: ImportDiffEntry = { ...conflicted, kind: "markers" };
-    assert.equal(settleConflict(marked, { [PATH]: resolution }), null, resolution);
+    assert.equal(settleConflict(rs, marked, { [PATH]: resolution }), null, resolution);
   }
   const markedWithPicks: ImportDiffEntry = { ...conflicted, kind: "markers" };
-  assert.equal(settleConflict(markedWithPicks, { [PATH]: { kind: "picks" } }), null);
+  assert.equal(settleConflict(rs, markedWithPicks, { [PATH]: { kind: "picks" } }), null);
 });
 
 test("writing markers imports nothing", () => {
   const base = vaultPageBase(PATH, note({ status: "draft" }, "Base body."))!;
   const conflicted = mergeBothChanged(
+    rs,
     entry(note({ status: "review" }, "Folder body.")),
     base,
     note({ status: "draft" }, "Workspace body."),
   );
 
-  assert.equal(settleConflict(conflicted, { [PATH]: "markers" }), null);
+  assert.equal(settleConflict(rs, conflicted, { [PATH]: "markers" }), null);
 });
 
 test("the whole-file shortcuts still mean what they meant", () => {
   const base = vaultPageBase(PATH, note({ status: "draft" }, "Base body."))!;
   const conflicted = mergeBothChanged(
+    rs,
     entry(note({ status: "review" }, "Folder body.")),
     base,
     note({ status: "draft" }, "Workspace body."),
   );
 
-  assert.equal(settleConflict(conflicted, {}), null);
-  assert.equal(settleConflict(conflicted, { [PATH]: "keep" }), null);
-  assert.equal(settleConflict(conflicted, { [PATH]: "folder" })?.action, "updated");
-  const both = settleConflict(conflicted, { [PATH]: "both" });
+  assert.equal(settleConflict(rs, conflicted, {}), null);
+  assert.equal(settleConflict(rs, conflicted, { [PATH]: "keep" }), null);
+  assert.equal(settleConflict(rs, conflicted, { [PATH]: "folder" })?.action, "updated");
+  const both = settleConflict(rs, conflicted, { [PATH]: "both" });
   assert.equal(both?.action, "created");
   assert.equal(both?.entity.id, undefined);
   assert.match(both?.entity.title ?? "", /\(from folder\)$/);
+});
+
+test("a note over the WASM limit stays a conflict", () => {
+  const big = "x".repeat(16 * 1024 * 1024 + 1);
+  const base = vaultPageBase(PATH, note({}, "body"))!;
+  const conflicted = entry(note({ status: "b" }, "body"));
+  assert.equal(mergeBothChanged(rs, conflicted, base, note({}, big)), conflicted);
 });

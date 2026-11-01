@@ -25,7 +25,6 @@ import {
   type Tag,
   type WorkspaceJsonKind,
   type WorkspaceProject,
-  vaultPageBase,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { loadCore } from "@/lib/rust-core";
@@ -133,6 +132,7 @@ export async function refreshMirrorBase(
   if (!fs || paths.length === 0) return;
   const project = await activeProjectOrNull().catch(() => null);
   if (!project) return;
+  const core = await loadCore();
   const projectRoot = projectDir(project);
   const base = await readMirrorBase(fs, projectRoot);
   const bases = await readMirrorBases(fs, projectRoot);
@@ -142,7 +142,14 @@ export async function refreshMirrorBase(
     if (text === null) continue;
     if (expected[path] !== undefined && baseDigest(text) !== expected[path]) continue;
     base[path] = baseDigest(text);
-    const pageBase = vaultPageBase(path, text);
+    // A note over the WASM text limit keeps no field base; the next merge
+    // of it then reports a conflict instead of guessing.
+    let pageBase: ReturnType<typeof core.vaultPageBase> = null;
+    try {
+      pageBase = core.vaultPageBase(path, text);
+    } catch {
+      pageBase = null;
+    }
     if (pageBase) bases[path] = pageBase;
     touched = true;
   }
