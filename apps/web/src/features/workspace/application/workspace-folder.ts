@@ -540,7 +540,6 @@ function reportFolderChanges(paths: readonly string[]): void {
   void (async () => {
     // A mirror run writes its files before its manifest; checked mid-run, every one reads as foreign.
     await syncInFlight;
-    const core = await loadCore();
     const fs = activeFs;
     const project = await activeProjectOrNull().catch(() => null);
     const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
@@ -549,7 +548,7 @@ function reportFolderChanges(paths: readonly string[]): void {
     for (const path of candidates) {
       if (fs) {
         const text = await fs.readText(path).catch(() => null);
-        if (text !== null && !jsonEditSince(core, base, path, text)) continue;
+        if (text !== null && !jsonEditSince(base, path, text)) continue;
         // Unreadable and never mirrored: a directory event, not a deleted note.
         if (text === null && base[path] === undefined) continue;
       }
@@ -561,7 +560,9 @@ function reportFolderChanges(paths: readonly string[]): void {
     if (external.size !== beforeRead) announceExternal();
     // A path already listed can change again; that edit needs taking in too.
     if (outside) scheduleAutoApply();
-  })();
+  })().catch((error: unknown) => {
+    console.warn("Could not check folder changes:", error);
+  });
 }
 
 const draftListeners = new Set<() => void>();
@@ -695,8 +696,8 @@ async function diffAgainstWorkspace(
         // as an empty string here and must not be mistaken for a file whose
         // contents hashed to nothing.
         base: base[path] || undefined,
-        folder: files[path] === undefined ? undefined : baseDigest(core, files[path]),
-        workspace: current[path] === undefined ? undefined : baseDigest(core, current[path]),
+        folder: files[path] === undefined ? undefined : baseDigest(files[path]),
+        workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
       }),
   });
 
@@ -728,9 +729,9 @@ function seenFiles(
 ): Record<string, SeenFile> {
   const seen: Record<string, SeenFile> = {};
   for (const [path, text] of Object.entries(folder)) {
-    const digest = baseDigest(core, text);
+    const digest = baseDigest(text);
     const known = base[path] || undefined;
-    const workspace = current[path] === undefined ? undefined : baseDigest(core, current[path]);
+    const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
     const newPath = known === undefined && workspace === undefined;
     const side = newPath ? "folder" : core.changedSide({ base: known, folder: digest, workspace });
     seen[path] = newPath ? { side, digest, newPath } : { side, digest };

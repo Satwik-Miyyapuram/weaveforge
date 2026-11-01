@@ -10,7 +10,6 @@ before(async () => {
 });
 
 // Rust and TS must agree on every input, so the TS copies can be deleted.
-const TEXTS = ["", "a", "hello\nworld", "\r\n", "caf\u00e9", "\u{1F600} emoji", "\ufeffbom", "x".repeat(5000)];
 
 const SIDES = [undefined, "", "a", "b"];
 
@@ -93,12 +92,6 @@ function outcome(fn: () => string): { ok: true; value: string } | { ok: false } 
     return { ok: false };
   }
 }
-
-test("digestText matches the TS digest", () => {
-  for (const x of TEXTS) {
-    assert.deepEqual(rs.digestText(x), ts.digestText(x), `input ${JSON.stringify(x)}`);
-  }
-});
 
 test("changedSide matches the TS helper over every base/folder/workspace combination", () => {
   for (const base of SIDES) {

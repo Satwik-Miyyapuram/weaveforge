@@ -22,7 +22,6 @@ import init, {
   maxFusionIds as rawMaxFusionIds,
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
-  digestText as rawDigestText,
   changedSide as rawChangedSide,
   isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
   decideGitSyncPath as rawDecideGitSyncPath,
@@ -182,12 +181,6 @@ export function fuseRankings<T>(
 
 /** Largest file `decideGitSyncPath` admits by default (TS `GIT_SYNC_LIMITS.maxFileBytes`). */
 export const GIT_SYNC_MAX_FILE_BYTES = 25 * 1024 * 1024;
-
-/** Short stable digest of a file's text; change detection only. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function digestText(text: string): string {
-  checkIndexText(text);
-  return rawDigestText(text);
-}
 
 /** Which side changed a mirrored file since both last agreed. */
 export function changedSide(origin: { base?: string; folder?: string; workspace?: string }): ChangeSide {

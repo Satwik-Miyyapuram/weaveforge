@@ -7,7 +7,6 @@ export const coreInfo: () => [number, number, number];
 export const decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const describePull: (a: any) => [number, number, number, number];
 export const describePush: (a: any) => [number, number, number, number];
-export const digestText: (a: number, b: number) => [number, number, number, number];
 export const extractDoi: (a: number, b: number) => [number, number, number, number];
 export const extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const fuseRankings: (a: any, b: number, c: number) => [number, number, number];

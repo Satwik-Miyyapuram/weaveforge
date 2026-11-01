@@ -1,5 +1,6 @@
 import {
   WORKSPACE_META_DIR,
+  digestText,
   idSuffix,
   projectDir,
   projectMetaDir,
@@ -7,7 +8,7 @@ import {
   type VaultPageBase,
   type WorkspaceProject,
 } from "@weaveforge/core";
-import { loadCore, type RustCore } from "@/lib/rust-core";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -115,13 +116,12 @@ export async function readMirrorBase(
  * is somebody's edit.
  */
 export function jsonEditSince(
-  core: RustCore,
   base: Readonly<Record<string, string>>,
   path: string,
   text: string,
 ): boolean {
   const recorded = base[path];
-  return recorded === undefined || recorded !== core.digestText(text);
+  return recorded === undefined || recorded !== digestText(text);
 }
 
 /**
@@ -205,9 +205,13 @@ export async function followProjectRename(
   return old;
 }
 
-/** The digest a file's text is recorded under. Change detection only. */
-export function baseDigest(core: RustCore, text: string): string {
-  return core.digestText(text);
+/**
+ * The digest a file's text is recorded under. Change detection only.
+ * Stays TS: it hashes UTF-16 units, so WASM would only add an input limit and
+ * change how lone surrogates hash against digests other TS code still writes.
+ */
+export function baseDigest(text: string): string {
+  return digestText(text);
 }
 
 export async function writeMirrorManifest(
@@ -369,7 +373,7 @@ export async function claimImportedFile(
   await fs.writeFile(path, stamped);
   const base = await readMirrorBase(fs, projectRoot);
   const bases = await readMirrorBases(fs, projectRoot);
-  base[path] = core.digestText(stamped);
+  base[path] = digestText(stamped);
   await writeMirrorManifest(fs, projectRoot, Object.keys(base), base, bases);
   return true;
 }

@@ -8,7 +8,6 @@ import {
   decideGitSyncPath,
   describePull,
   describePush,
-  digestText,
   extractDoi,
   extractPageMetadata,
   fuseRankings,
@@ -287,12 +286,6 @@ test("buildExcerpt rejects a bad maxChars before WASM", () => {
     assert.throws(() => buildExcerpt("x", ["x"], { maxChars: bad }), (e: unknown) => e instanceof RangeError && /^maxChars /.test(e.message));
   }
   assert.equal(buildExcerpt("x", ["x"], { maxChars: 0xffff_ffff }).text, "x");
-});
-
-test("digestText is the FNV digest of the text, 16 lowercase hex chars", () => {
-  assert.equal(digestText(""), "811c9dc501000193");
-  assert.match(digestText("a"), /^[0-9a-f]{16}$/);
-  assert.notEqual(digestText("a"), digestText("b"));
 });
 
 test("changedSide reports which side moved since the base", () => {

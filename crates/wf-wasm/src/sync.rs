@@ -4,7 +4,9 @@
 use serde::Serialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::sync::change_origin::{ChangeOrigin, changed_side, digest_text};
+// digest_text stays out: the web hashes in TS, which matches the digests
+// other TS code writes (lone surrogates included) and has no input limit.
+use wf_core::sync::change_origin::{ChangeOrigin, changed_side};
 use wf_core::sync::git_policy::{
     GitSyncDecision, GitSyncSkipReason, decide_git_sync_path, is_under_ignored_folder,
 };
@@ -23,17 +25,6 @@ struct Decision {
     include: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<GitSyncSkipReason>,
-}
-
-/// [`wf_core::sync::change_origin::digest_text`] for JS.
-///
-/// # Errors
-///
-/// Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = digestText)]
-pub fn digest_text_js(text: &str) -> JsResult<String> {
-    check_text(text)?;
-    Ok(digest_text(text))
 }
 
 /// [`wf_core::sync::change_origin::changed_side`] for JS, as a `ChangeSide` string.

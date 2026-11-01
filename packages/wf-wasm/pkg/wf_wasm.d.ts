@@ -61,15 +61,6 @@ export function describePull(result: any): string;
 export function describePush(result: any): string;
 
 /**
- * [`wf_core::sync::change_origin::digest_text`] for JS.
- *
- * # Errors
- *
- * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
- */
-export function digestText(text: string): string;
-
-/**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
  *
  * # Errors
@@ -228,7 +219,6 @@ export interface InitOutput {
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
-    readonly digestText: (a: number, b: number) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];

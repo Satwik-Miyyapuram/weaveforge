@@ -74,8 +74,8 @@ export async function jsonDiff(
         origin: (changed) =>
           core.changedSide({
             base: base[changed] || undefined,
-            folder: baseDigest(core, text),
-            workspace: current[changed] === undefined ? undefined : baseDigest(core, current[changed]),
+            folder: baseDigest(text),
+            workspace: current[changed] === undefined ? undefined : baseDigest(current[changed]),
           }),
       }).entries,
     );
@@ -141,8 +141,8 @@ export async function refreshMirrorBase(
   for (const path of paths) {
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
-    if (expected[path] !== undefined && baseDigest(core, text) !== expected[path]) continue;
-    base[path] = baseDigest(core, text);
+    if (expected[path] !== undefined && baseDigest(text) !== expected[path]) continue;
+    base[path] = baseDigest(text);
     const pageBase = vaultPageBase(path, text);
     if (pageBase) bases[path] = pageBase;
     touched = true;
