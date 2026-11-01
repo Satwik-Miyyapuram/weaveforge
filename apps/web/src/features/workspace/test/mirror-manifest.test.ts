@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { digestText, projectDir } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+
+import { loadTestCore } from "@/lib/test/load-test-core";
+import type { RustCore } from "@/lib/rust-core";
 
 import {
   MIRROR_MANIFEST_PATH,
@@ -16,6 +19,11 @@ import {
   readMirrorBase,
   writeMirrorManifest,
 } from "../application/mirror-manifest";
+
+let core: RustCore;
+before(async () => {
+  core = await loadTestCore();
+});
 
 /**
  * Two projects, because a manifest belongs to one.
@@ -230,7 +238,7 @@ test("a hand-written file is stamped with the id it was imported as", async () =
   // under its own name — instead of leaving the folder holding both copies.
   const base = await readMirrorBase(fs, ROOT);
   assert.deepEqual(Object.keys(base).sort(), ["notes/My idea.md", "notes/old.note.md"]);
-  assert.equal(base["notes/My idea.md"], baseDigest(stamped));
+  assert.equal(base["notes/My idea.md"], baseDigest(core, stamped));
   assert.equal(base["notes/old.note.md"], "d0");
 });
 
@@ -301,12 +309,12 @@ test("a JSON data file is somebody's edit unless it still holds what the app wro
 
   // The manifest's digest is what the app wrote: the file matching it is the
   // app's own write, and is not news.
-  assert.equal(jsonEditSince({ [path]: digestText(written) }, path, written), false);
+  assert.equal(jsonEditSince(core, { [path]: digestText(written) }, path, written), false);
 
   // A file that has moved on since is an edit, and so is a file with no record
   // at all — a hand-made one, or one an older layout wrote.
-  assert.equal(jsonEditSince({ [path]: digestText(written) }, path, '[{"id":"r1"}]'), true);
-  assert.equal(jsonEditSince({}, path, written), true);
+  assert.equal(jsonEditSince(core, { [path]: digestText(written) }, path, '[{"id":"r1"}]'), true);
+  assert.equal(jsonEditSince(core, {}, path, written), true);
 });
 
 test("a renamed project carries its folder and manifest to the new name", async () => {

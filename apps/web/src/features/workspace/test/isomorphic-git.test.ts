@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { IsomorphicWorkspaceGit, type IsomorphicWorkspaceGitOptions } from "../infrastructure/isomorphic-workspace-git";
 import { isomorphicFsFrom } from "../infrastructure/isomorphic-fs-adapter";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Drives real isomorphic-git through the fs shim. This is the piece the plan

@@ -22,11 +22,42 @@ import init, {
   maxFusionIds as rawMaxFusionIds,
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
+  digestText as rawDigestText,
+  changedSide as rawChangedSide,
+  isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
+  decideGitSyncPath as rawDecideGitSyncPath,
+  checkGitRemoteUrl as rawCheckGitRemoteUrl,
+  describePull as rawDescribePull,
+  describePush as rawDescribePush,
+  stampWorkspaceId as rawStampWorkspaceId,
+  safeWorkspacePath as rawSafeWorkspacePath,
+  isSafeWorkspacePath as rawIsSafeWorkspacePath,
 } from "../pkg/wf_wasm.js";
-import type { CoreInfo, ExcerptRange, ParsedQuery, RankedList, SearchKind, TokenizerOptions } from "./bindings.js";
+import type {
+  ChangeSide,
+  CoreInfo,
+  ExcerptRange,
+  GitPullResult,
+  GitPushResult,
+  GitSyncSkipReason,
+  ParsedQuery,
+  RankedList,
+  SearchKind,
+  TokenizerOptions,
+} from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
-export type { CoreInfo, ExcerptRange, ParsedQuery, SearchKind, TokenizerOptions };
+export type {
+  ChangeSide,
+  CoreInfo,
+  ExcerptRange,
+  GitPullResult,
+  GitPushResult,
+  GitSyncSkipReason,
+  ParsedQuery,
+  SearchKind,
+  TokenizerOptions,
+};
 export { init, initSync };
 
 /** Facts about this core build, such as its version. */
@@ -136,4 +167,72 @@ export function fuseRankings<T>(
   const limit = options.limit === 0 ? undefined : options.limit;
   const fused = rawFuseRankings(ranked, options.k, limit) as string[];
   return fused.map((id) => representative.get(id) as T);
+}
+
+/** Largest file `decideGitSyncPath` admits by default (TS `GIT_SYNC_LIMITS.maxFileBytes`). */
+export const GIT_SYNC_MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+/** Short stable digest of a file's text; change detection only. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function digestText(text: string): string {
+  checkIndexText(text);
+  return rawDigestText(text);
+}
+
+/** Which side changed a mirrored file since both last agreed. */
+export function changedSide(origin: { base?: string; folder?: string; workspace?: string }): ChangeSide {
+  return rawChangedSide(origin.base, origin.folder, origin.workspace) as ChangeSide;
+}
+
+/** True when the path sits inside a folder git sync never touches. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function isUnderIgnoredFolder(relPath: string): boolean {
+  checkIndexText(relPath);
+  return rawIsUnderIgnoredFolder(relPath);
+}
+
+/** Whether one workspace path goes into git, and why not. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function decideGitSyncPath(
+  relPath: string,
+  sizeBytes: number,
+  maxFileBytes: number = GIT_SYNC_MAX_FILE_BYTES,
+): { include: true } | { include: false; reason: GitSyncSkipReason } {
+  checkIndexText(relPath);
+  return rawDecideGitSyncPath(relPath, sizeBytes, maxFileBytes) as
+    | { include: true }
+    | { include: false; reason: GitSyncSkipReason };
+}
+
+/** Accepts only credential-free `https://host/path` remotes; a non-string is refused. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function checkGitRemoteUrl(raw: unknown): { ok: true; url: string } | { ok: false; reason: string } {
+  const text = typeof raw === "string" ? raw : undefined;
+  if (text !== undefined) checkIndexText(text);
+  return rawCheckGitRemoteUrl(text) as { ok: true; url: string } | { ok: false; reason: string };
+}
+
+/** One line for the Settings panel. */
+export function describePull(result: GitPullResult): string {
+  return rawDescribePull(result);
+}
+
+/** One line for the Settings panel. */
+export function describePush(result: GitPushResult): string {
+  return rawDescribePush(result);
+}
+
+/** The file with a `weaveforge-id` frontmatter line added, or null if it already has one. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function stampWorkspaceId(content: string, id: string): string | null {
+  checkIndexText(content);
+  checkIndexText(id);
+  return rawStampWorkspaceId(content, id) ?? null;
+}
+
+/** The normalized relative path; throws `Unsafe workspace path: <path>` for one that could leave the root. */
+export function safeWorkspacePath(path: string): string {
+  checkIndexText(path);
+  return rawSafeWorkspacePath(path);
+}
+
+/** True when `safeWorkspacePath` accepts the path. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function isSafeWorkspacePath(path: string): boolean {
+  checkIndexText(path);
+  return rawIsSafeWorkspacePath(path);
 }

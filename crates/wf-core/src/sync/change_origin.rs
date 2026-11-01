@@ -2,6 +2,8 @@
 //! mirrored file since the two last agreed. Digests are FNV-style and only
 //! compared against values this app wrote, so they are not cryptographic.
 
+use serde::{Deserialize, Serialize};
+
 /// The three digests a change check compares. Missing ones are `None`.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ChangeOrigin<'a> {
@@ -14,7 +16,9 @@ pub struct ChangeOrigin<'a> {
 }
 
 /// Who changed the file since the two sides last agreed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
 pub enum ChangeSide {
     /// Nothing moved, or both sides arrived at the same text.
     Neither,
@@ -66,5 +70,18 @@ pub fn changed_side(origin: ChangeOrigin<'_>) -> ChangeSide {
         (true, false) => ChangeSide::Folder,
         (false, true) => ChangeSide::Workspace,
         (false, false) => ChangeSide::Neither,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn change_side_serializes_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&ChangeSide::Workspace).unwrap(),
+            "\"workspace\""
+        );
     }
 }

@@ -11,7 +11,6 @@
 
 import {
   JSON_KINDS,
-  changedSide,
   countJsonActions,
   diffJsonData,
   jsonDataPath,
@@ -29,6 +28,7 @@ import {
   vaultPageBase,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 import { activeProjectOrNull } from "./active-project";
 import { baseDigest, readMirrorBase, readMirrorBases, writeMirrorManifest } from "./mirror-manifest";
 
@@ -45,6 +45,7 @@ export async function jsonDiff(
   base: Readonly<Record<string, string>>,
   project: WorkspaceProject,
 ): Promise<JsonDiff> {
+  const core = await loadCore();
   const c = getContainer();
   const [relations, tags, lists] = await Promise.all([
     c.graph.relations.getGraph(),
@@ -71,10 +72,10 @@ export async function jsonDiff(
     entries.push(
       ...diffJsonData(parsed, existing[kind], {
         origin: (changed) =>
-          changedSide({
+          core.changedSide({
             base: base[changed] || undefined,
-            folder: baseDigest(text),
-            workspace: current[changed] === undefined ? undefined : baseDigest(current[changed]),
+            folder: baseDigest(core, text),
+            workspace: current[changed] === undefined ? undefined : baseDigest(core, current[changed]),
           }),
       }).entries,
     );
@@ -130,6 +131,7 @@ export async function refreshMirrorBase(
   expected: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   if (!fs || paths.length === 0) return;
+  const core = await loadCore();
   const project = await activeProjectOrNull().catch(() => null);
   if (!project) return;
   const projectRoot = projectDir(project);
@@ -139,8 +141,8 @@ export async function refreshMirrorBase(
   for (const path of paths) {
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
-    if (expected[path] !== undefined && baseDigest(text) !== expected[path]) continue;
-    base[path] = baseDigest(text);
+    if (expected[path] !== undefined && baseDigest(core, text) !== expected[path]) continue;
+    base[path] = baseDigest(core, text);
     const pageBase = vaultPageBase(path, text);
     if (pageBase) bases[path] = pageBase;
     touched = true;

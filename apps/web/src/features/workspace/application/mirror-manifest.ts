@@ -1,14 +1,13 @@
 import {
   WORKSPACE_META_DIR,
-  digestText,
   idSuffix,
   projectDir,
   projectMetaDir,
-  stampWorkspaceId,
   type IWorkspaceFs,
   type VaultPageBase,
   type WorkspaceProject,
 } from "@weaveforge/core";
+import { loadCore, type RustCore } from "@/lib/rust-core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -116,12 +115,13 @@ export async function readMirrorBase(
  * is somebody's edit.
  */
 export function jsonEditSince(
+  core: RustCore,
   base: Readonly<Record<string, string>>,
   path: string,
   text: string,
 ): boolean {
   const recorded = base[path];
-  return recorded === undefined || recorded !== digestText(text);
+  return recorded === undefined || recorded !== core.digestText(text);
 }
 
 /**
@@ -206,8 +206,8 @@ export async function followProjectRename(
 }
 
 /** The digest a file's text is recorded under. Change detection only. */
-export function baseDigest(text: string): string {
-  return digestText(text);
+export function baseDigest(core: RustCore, text: string): string {
+  return core.digestText(text);
 }
 
 export async function writeMirrorManifest(
@@ -362,13 +362,14 @@ export async function claimImportedFile(
     return false;
   }
 
-  const stamped = stampWorkspaceId(content, id);
+  const core = await loadCore();
+  const stamped = core.stampWorkspaceId(content, id);
   if (stamped === null) return false;
 
   await fs.writeFile(path, stamped);
   const base = await readMirrorBase(fs, projectRoot);
   const bases = await readMirrorBases(fs, projectRoot);
-  base[path] = digestText(stamped);
+  base[path] = core.digestText(stamped);
   await writeMirrorManifest(fs, projectRoot, Object.keys(base), base, bases);
   return true;
 }

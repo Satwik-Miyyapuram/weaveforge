@@ -1,10 +1,10 @@
-import { checkGitRemoteUrl, describePull, describePush } from "@weaveforge/core";
 import {
   desktop,
   type DesktopBridge,
   type DesktopVaultSync,
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * Pushing and pulling the workspace folder to a git remote (Settings → Workspace folder).
@@ -34,7 +34,7 @@ export function remoteSyncAvailable(): boolean {
  * refused before anything is stored. Answers the URL as stored.
  */
 export async function saveRemoteSyncSettings(input: { url: string; token: string | null }): Promise<string> {
-  const url = checkGitRemoteUrl(input.url);
+  const url = (await loadCore()).checkGitRemoteUrl(input.url);
   if (!url.ok) throw new Error(url.reason);
   const bridge = shell();
   if (!bridge) throw new Error(NO_SHELL);
@@ -69,9 +69,10 @@ export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<Deskto
 }
 
 /** One line for the panel. */
-export function describeRemoteSync(reply: DesktopVaultSync): string {
-  if (reply.pull) return describePull(reply.pull);
-  if (reply.push) return describePush(reply.push);
+export async function describeRemoteSync(reply: DesktopVaultSync): Promise<string> {
+  const core = await loadCore();
+  if (reply.pull) return core.describePull(reply.pull);
+  if (reply.push) return core.describePush(reply.push);
   const status = reply.status;
   if (!status) return "";
   if (!status.url) return "Not connected yet.";
