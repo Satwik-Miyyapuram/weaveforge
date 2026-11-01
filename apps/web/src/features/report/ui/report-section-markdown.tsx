@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { errorMessage, normalizeMarkdownImageSyntax, type Experiment } from "@weaveforge/core";
+import { errorMessage, type Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
@@ -12,11 +12,12 @@ import {
 } from "../application/artifact-refs";
 import { resolveArtifactRefsMarkdown } from "../application/resolve-artifact-markdown";
 import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
+import { readyCore } from "@/lib/rust-core";
 
 const REPORT_IMAGES_BUCKET = "report-images";
 
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  return stripUnresolvedImageRefs(normalizeMarkdownImageSyntax(body), REPORT_IMAGE_PREFIX, paths, urls);
+  return stripUnresolvedImageRefs(readyCore().normalizeMarkdownImageSyntax(body), REPORT_IMAGE_PREFIX, paths, urls);
 }
 
 /** Renders section notes markdown with `reportimg:` and `expartifact:` resolved. */

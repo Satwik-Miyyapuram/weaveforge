@@ -1,9 +1,9 @@
 import {
   ASSET_DIR,
   relativeAssetPaths,
-  toRelativeBlobLinks,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Deciding what an imported body's image links are allowed to point at.
@@ -40,7 +40,7 @@ export function ownedAssetFolderPaths(bodies: readonly string[]): Set<string> {
   for (const body of bodies) {
     // Reuse the write-side rewriter rather than a second regex: whatever path
     // it produces on export is exactly what has to be recognised on import.
-    for (const asset of toRelativeBlobLinks(body, "x.md").assets) owned.add(asset.folderPath);
+    for (const asset of readyCore().toRelativeBlobLinks(body, "x.md").assets) owned.add(asset.folderPath);
   }
   return owned;
 }

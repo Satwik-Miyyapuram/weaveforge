@@ -15,13 +15,13 @@
 import {
   ENTITY_DIRS,
   KIND_SUFFIX,
-  entityDir,
   flatPath,
   logPath,
   treePaths,
   type FolderNode,
   type WorkspaceEntityType,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The entity kinds plus two of the tree's own: `folder` for a grouping row and
@@ -148,7 +148,7 @@ function nestedRoot(
   const built = new Map<string, WorkspaceTreeNode>();
   for (const node of nodes) {
     const kind = node.kind ?? type;
-    let path = paths.get(node.id) ?? entityDir(type, projectRoot);
+    let path = paths.get(node.id) ?? readyCore().entityDir(type, projectRoot);
     // An ink note mirrors as `.ink.md` in the same place a note would be.
     if (kind !== type) path = path.replace(/\.[a-z_]+\.md$/, `.${KIND_SUFFIX[kind]}.md`);
     built.set(node.id, {
@@ -182,7 +182,7 @@ function nestedRoot(
     key: ENTITY_DIRS[type],
     kind: "folder",
     label,
-    path: entityDir(type, projectRoot),
+    path: readyCore().entityDir(type, projectRoot),
     children: roots,
   };
 }
@@ -246,7 +246,7 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
       key: ENTITY_DIRS.paper,
       kind: "folder",
       label: "Papers",
-      path: entityDir("paper", input.projectRoot),
+      path: readyCore().entityDir("paper", input.projectRoot),
       children: papers,
     },
     nestedRoot("Report", "report_section", input.reportSections, input.projectRoot),
@@ -254,7 +254,7 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
       key: ENTITY_DIRS.log_entry,
       kind: "folder",
       label: "Log",
-      path: entityDir("log_entry", input.projectRoot),
+      path: readyCore().entityDir("log_entry", input.projectRoot),
       children: logEntries,
     },
   ];

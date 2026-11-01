@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { normalizeMarkdownImageSyntax, VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
+import { VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
+import { readyCore } from "@/lib/rust-core";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { makeWikilinkResolver, useWikilinkClick, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
 import { stripRegionMarkers } from "../application/note-template-engine";
@@ -33,7 +34,7 @@ function expandEmbeds(body: string, resolveEmbed: (title: string) => string | nu
 const VAULT_ASSETS_BUCKET = "vault-assets";
 
 function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = stripRegionMarkers(normalizeMarkdownImageSyntax(body));
+  let next = stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
   for (const path of paths) {
     if (urls.has(path)) continue;
     const ref = `${VAULT_IMAGE_PREFIX}${path}`;

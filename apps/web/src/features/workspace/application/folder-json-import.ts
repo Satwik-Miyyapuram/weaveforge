@@ -15,7 +15,6 @@ import {
   diffJsonData,
   jsonDataPath,
   parseJsonData,
-  projectDir,
   type IWorkspaceFs,
   type JsonDiff,
   type JsonDiffEntry,
@@ -58,7 +57,7 @@ export async function jsonDiff(
     reading_list_items: items as unknown as JsonRow[],
   };
 
-  const projectRoot = projectDir(project);
+  const projectRoot = core.projectDir(project);
   const entries: JsonDiffEntry[] = [];
   for (const kind of JSON_KINDS) {
     const path = jsonDataPath(projectRoot, kind);
@@ -133,7 +132,7 @@ export async function refreshMirrorBase(
   const project = await activeProjectOrNull().catch(() => null);
   if (!project) return;
   const core = await loadCore();
-  const projectRoot = projectDir(project);
+  const projectRoot = core.projectDir(project);
   const base = await readMirrorBase(fs, projectRoot);
   const bases = await readMirrorBases(fs, projectRoot);
   let touched = false;

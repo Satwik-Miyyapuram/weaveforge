@@ -1,5 +1,6 @@
-import { projectDir, type WorkspaceProject } from "@weaveforge/core";
+import { type WorkspaceProject } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * Which project a folder path belongs to.
@@ -39,5 +40,6 @@ export async function activeProject(): Promise<WorkspaceProject> {
 
 /** The active project's folder, which is what every path builder wants. */
 export async function activeProjectRoot(): Promise<string> {
-  return projectDir(await activeProject());
+  const core = await loadCore();
+  return core.projectDir(await activeProject());
 }
