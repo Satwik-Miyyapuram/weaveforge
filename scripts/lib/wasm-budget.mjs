@@ -71,7 +71,7 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   packInkStroke, the zoom steps, ...) add ~12 KB: wf-core's ink module
 //   (resampling, binomial smoothing, Hermite curves, the stroke packer) and
 //   the wasm-bindgen glue for the typed arrays. 380 KB is this batch's ceiling.
-// - Step 5.2c: 392,957 bytes (module 380,547 + glue 12,410), the Windows build.
+// - Step 5.2c: 392,979 bytes (module 380,569 + glue 12,410), the Linux CI build.
 //   The line segmentation and recognition exports (segmentInkLines,
 //   inkLineRecords, mapInkConfidence, inkVocabularyHints, ...) add ~7 KB:
 //   wf-core's ink segment and recognise modules plus serde for the line
