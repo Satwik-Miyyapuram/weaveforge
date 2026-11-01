@@ -17,26 +17,24 @@
  */
 
 import {
-  applyInkSegmentation,
   INK_ENGINE_MAX_CONFIDENCE,
   inkPageBackground,
   inkPageFigures,
-  inkPageConfidence,
   inkLineStrokes,
   inkStrokeBand,
-  isUnsureLine,
-  segmentInkLines,
   type InkLine,
   type InkLineRecord,
   type InkPage,
   type InkRecogniser,
   type InkRecognitionHints,
+  type InkSegmentation,
   type RecognisedLine,
   withInkPageBackground,
   withInkPageFigures,
 } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 import { matchVocabulary } from "./vocab-match";
 
 export interface RecognisePageInput {
@@ -94,11 +92,11 @@ export function acceptedLines(
 /** The lines and records a recognised page reduces to; split out for tests. */
 export function assembleRecognisedPage(
   page: InkPage,
-  segmentation: ReturnType<typeof segmentInkLines>,
+  segmentation: InkSegmentation,
   results: readonly RecognisedLine[],
   engine: string,
 ): RecognisedPage {
-  const applied = applyInkSegmentation(
+  const applied = readyCore().applyInkSegmentation(
     page.strokes,
     segmentation,
     results.map((line) => ({ text: line.text, confidence: line.conf })),
@@ -110,8 +108,8 @@ export function assembleRecognisedPage(
     page: next,
     text: shown.map((line) => line.text.trim()).join("\n"),
     lines: [...results],
-    confidence: inkPageConfidence(results),
-    unsure: results.filter((line) => line.text && isUnsureLine(line)).length,
+    confidence: readyCore().inkPageConfidence(results),
+    unsure: results.filter((line) => line.text && readyCore().isUnsureLine(line)).length,
     engine,
   };
 }
@@ -120,7 +118,7 @@ export async function recognisePage(
   input: RecognisePageInput,
 ): Promise<RecognisedPage> {
   const { page, recogniser, hints } = input;
-  const segmentation = segmentInkLines(page.strokes);
+  const segmentation = readyCore().segmentInkLines(page.strokes);
   const accepted = acceptedLines(page);
   const total = segmentation.lines.length;
   const results: RecognisedLine[] = [];
@@ -187,8 +185,8 @@ export function acceptLine(
     page,
     lines,
     text: shown.map((line) => line.text.trim()).join("\n"),
-    confidence: inkPageConfidence(lines),
-    unsure: lines.filter((line) => line.text && isUnsureLine(line)).length,
+    confidence: readyCore().inkPageConfidence(lines),
+    unsure: lines.filter((line) => line.text && readyCore().isUnsureLine(line)).length,
   };
 }
 
@@ -210,8 +208,8 @@ export function recognisedPageFromModel(
     page,
     text: shown.map((line) => line.text.trim()).join("\n"),
     lines,
-    confidence: inkPageConfidence(lines),
-    unsure: lines.filter((line) => line.text && isUnsureLine(line)).length,
+    confidence: readyCore().inkPageConfidence(lines),
+    unsure: lines.filter((line) => line.text && readyCore().isUnsureLine(line)).length,
     engine: engine ?? "",
   };
 }

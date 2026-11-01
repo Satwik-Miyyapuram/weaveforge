@@ -10,11 +10,11 @@
  */
 
 import {
-  inkVocabularyHints,
   selectInkRecogniser,
   type InkRecogniser,
   type InkRecognitionHints,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import type { InkChunkStore } from "@/features/ink/application/ink-chunk-store";
 import {
@@ -115,6 +115,6 @@ export class InkFacade {
     } catch {
       sources = [];
     }
-    return { vocabulary: inkVocabularyHints(sources), lang };
+    return { vocabulary: readyCore().inkVocabularyHints(sources), lang };
   }
 }
