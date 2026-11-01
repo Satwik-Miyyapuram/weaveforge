@@ -66,77 +66,118 @@ import init, {
   stripKindSuffix as rawStripKindSuffix,
   jsonKindOfPath as rawJsonKindOfPath,
   isAppOwnedPath as rawIsAppOwnedPath,
+  serializeWorkspace as rawSerializeWorkspace,
+  workspaceSnapshotCounts as rawWorkspaceSnapshotCounts,
+  parseWorkspaceFolder as rawParseWorkspaceFolder,
+  diffWorkspace as rawDiffWorkspace,
+  jsonDataPath as rawJsonDataPath,
+  parseJsonData as rawParseJsonData,
+  diffJsonData as rawDiffJsonData,
+  countJsonActions as rawCountJsonActions,
+  addCounts as rawAddCounts,
 } from "../pkg/wf_wasm.js";
 import type {
+  ActionCounts,
   BlobAsset,
   BlobScheme,
   BodyDiff,
+  BodySides,
   ChangeSide,
   Conflict,
+  ConflictKind,
   CoreInfo,
   DiffHunk,
   DiffLine,
   DiffOp,
   ExcerptRange,
+  ExistingEntity,
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
   HunkPick,
+  ImportAction,
+  ImportDiff,
+  ImportDiffEntry,
+  ImportMergeDetail,
   InkHand,
   InkNoteMeta,
   InkPaper,
+  JsonDiff,
+  JsonDiffEntry,
+  MergeFieldDispute,
   MergeResult,
   PageMetadata,
   PaperRef,
   PaperRefKind,
   ParsedDocument,
+  ParsedEntity,
+  ParsedJsonData,
   ParsedQuery,
   RankedList,
   RelativeAsset,
   RelativeLinks,
   SearchKind,
+  SerializedAsset,
+  SerializedWorkspace,
   TokenizerOptions,
   VaultPageBase,
   VaultPageMerge,
   VaultPageSide,
   WorkspaceEntityType,
   WorkspaceJsonKind,
+  WorkspaceSnapshotCounts,
 } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
 export type {
+  ActionCounts,
   BlobAsset,
   BlobScheme,
   BodyDiff,
+  BodySides,
   ChangeSide,
   Conflict,
+  ConflictKind,
   CoreInfo,
   DiffHunk,
   DiffLine,
   DiffOp,
   ExcerptRange,
+  ExistingEntity,
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
   HunkPick,
+  ImportAction,
+  ImportDiff,
+  ImportDiffEntry,
+  ImportMergeDetail,
   InkHand,
   InkNoteMeta,
   InkPaper,
+  JsonDiff,
+  JsonDiffEntry,
+  MergeFieldDispute,
   MergeResult as FieldMergeResult,
   PageMetadata,
   PaperRef,
   PaperRefKind,
   ParsedDocument,
+  ParsedEntity,
+  ParsedJsonData,
   ParsedQuery,
   RelativeAsset,
   RelativeLinks,
   SearchKind,
+  SerializedAsset,
+  SerializedWorkspace,
   TokenizerOptions,
   VaultPageBase,
   VaultPageMerge,
   VaultPageSide,
   WorkspaceEntityType,
   WorkspaceJsonKind,
+  WorkspaceSnapshotCounts,
 };
 export { init, initSync };
 
@@ -553,4 +594,74 @@ export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
 export function isAppOwnedPath(path: string): boolean {
   checkIndexText(path);
   return rawIsAppOwnedPath(path);
+}
+
+/** Who changed a path since both sides last agreed; the diffs ask it per path. */
+export interface OriginOptions {
+  origin?(path: string): ChangeSide;
+}
+
+/** The project's folder-mirror files for a snapshot (Rust `serialize_workspace`). */
+export function serializeWorkspace(
+  snapshot: object,
+  project: { id: string; name: string },
+): { files: Record<string, string>; assets: SerializedAsset[] } {
+  const out = rawSerializeWorkspace(JSON.stringify(snapshot), project.id, project.name) as SerializedWorkspace;
+  return { files: Object.fromEntries(out.files), assets: out.assets };
+}
+
+/** Row counts of a snapshot, as the manifest records them (Rust `workspace_snapshot_counts`). */
+export function workspaceSnapshotCounts(snapshot: object): WorkspaceSnapshotCounts {
+  return rawWorkspaceSnapshotCounts(JSON.stringify(snapshot)) as WorkspaceSnapshotCounts;
+}
+
+/** Every importable entity in a folder's files (Rust `parse_workspace_folder`). Throws over MAX_INDEX_TEXT_UTF16 units per file. */
+export function parseWorkspaceFolder(files: Readonly<Record<string, string>>): ParsedEntity[] {
+  return rawParseWorkspaceFolder(Object.entries(files)) as ParsedEntity[];
+}
+
+/**
+ * What importing `parsed` would do to `existing` (Rust `diff_workspace`).
+ * `origin` is asked once for every parsed path up front, so it must be pure.
+ */
+export function diffWorkspace(
+  parsed: readonly ParsedEntity[],
+  existing: readonly ExistingEntity[],
+  options: OriginOptions = {},
+): ImportDiff {
+  const origin = options.origin;
+  const sides = origin ? Object.fromEntries(parsed.map((entity) => [entity.path, origin(entity.path)])) : undefined;
+  return rawDiffWorkspace(parsed, existing, sides) as ImportDiff;
+}
+
+/** Path of one of the project's JSON data files (Rust `json_data_path`). */
+export function jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string {
+  checkIndexText(projectRoot);
+  return rawJsonDataPath(projectRoot, kind);
+}
+
+/** The rows of a JSON data file, or null when it is not a JSON array (Rust `parse_json_data`). */
+export function parseJsonData(path: string, content: string, kind: WorkspaceJsonKind): ParsedJsonData | null {
+  checkIndexText(path);
+  checkIndexText(content);
+  return (rawParseJsonData(path, content, kind) ?? null) as ParsedJsonData | null;
+}
+
+/** What importing a JSON data file would do to the stored rows (Rust `diff_json_data`). */
+export function diffJsonData(
+  parsed: ParsedJsonData,
+  existing: readonly Readonly<Record<string, unknown>>[],
+  options: OriginOptions = {},
+): JsonDiff {
+  return rawDiffJsonData(parsed, JSON.stringify(existing), options.origin?.(parsed.path)) as JsonDiff;
+}
+
+/** How many entries there are of each action (Rust `count_json_actions`). */
+export function countJsonActions(entries: readonly JsonDiffEntry[]): ActionCounts {
+  return rawCountJsonActions(entries) as ActionCounts;
+}
+
+/** Two sets of counts summed (Rust `add_counts`). */
+export function addCounts(a: Readonly<ActionCounts>, b: Readonly<ActionCounts>): ActionCounts {
+  return rawAddCounts(a, b) as ActionCounts;
 }

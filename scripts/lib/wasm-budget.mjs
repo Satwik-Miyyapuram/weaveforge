@@ -53,7 +53,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   toRelativeBlobLinks, projectDir, jsonKindOfPath, ...) add ~15 KB: those
 //   wf-core modules plus serde for their results, whose TS types are now
 //   generated from wf-core. 276 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 276 * 1024;
+// - Step 0b-5b: 329,219 bytes (module 319,694 + glue 9,525), the Windows build.
+//   The folder export, import parse and import diff exports (serializeWorkspace,
+//   parseWorkspaceFolder, diffWorkspace, parseJsonData, diffJsonData, ...) add
+//   ~48 KB: wf-core's workspace serializer (paper, report, experiment and log
+//   writers, frontmatter and ink note output), the folder parser and diff, the
+//   JSON data diff, and serde for the snapshot rows and the diff results.
+//   330 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 330 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

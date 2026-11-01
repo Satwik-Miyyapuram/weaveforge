@@ -2,6 +2,15 @@
 /* eslint-disable */
 
 /**
+ * [`wf_core::sync::json_entities::add_counts`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when either argument is not action counts.
+ */
+export function addCounts(a: any, b: any): any;
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -31,6 +40,15 @@ export function changedSide(base?: string | null, folder?: string | null, worksp
  * Fails only if the value cannot be converted to a JS value.
  */
 export function coreInfo(): any;
+
+/**
+ * [`wf_core::sync::json_entities::count_json_actions`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `entries` does not match the diff entry shape.
+ */
+export function countJsonActions(entries: any): any;
 
 /**
  * [`wf_core::sync::git_policy::decide_git_sync_path`] for JS, as `{ include, reason? }`.
@@ -77,6 +95,27 @@ export function describePush(result: any): string;
  * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function diffBody(ours: string, theirs: string): any;
+
+/**
+ * [`wf_core::sync::json_entities::diff_json_data`] for JS. `side` is who changed `parsed.path`;
+ * the TS wrapper asks `origin` for it.
+ *
+ * # Errors
+ *
+ * Fails when an argument does not match its shape.
+ */
+export function diffJsonData(parsed: any, existing_json: string, side: any): any;
+
+/**
+ * [`wf_core::sync::deserialize::diff_workspace`] for JS. `sides` maps a parsed path to who
+ * changed it; the TS wrapper fills it from `origin`. A path it lacks is `Unknown`. Without
+ * `sides`, there is no origin.
+ *
+ * # Errors
+ *
+ * Fails when an argument does not match its shape.
+ */
+export function diffWorkspace(parsed: any, existing: any, sides: any): any;
 
 /**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
@@ -231,6 +270,16 @@ export function isSafeWorkspacePath(path: string): boolean;
 export function isUnderIgnoredFolder(rel_path: string): boolean;
 
 /**
+ * [`wf_core::sync::json_entities::json_data_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units or `kind` is not a
+ * known kind.
+ */
+export function jsonDataPath(project_root: string, kind: any): string;
+
+/**
  * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
  *
  * # Errors
@@ -319,6 +368,16 @@ export function normalizeMarkdownImageSyntax(body: string): string;
 export function pageImportRefusal(meta: any): string | undefined;
 
 /**
+ * [`wf_core::sync::json_entities::parse_json_data`] for JS, as `null` when it is not a JSON array.
+ *
+ * # Errors
+ *
+ * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `kind` is
+ * not a known kind.
+ */
+export function parseJsonData(path: string, content: string, kind: any): any;
+
+/**
  * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
  * (`PaperRef` in `bindings.ts`) of the given `kind`.
  *
@@ -338,6 +397,15 @@ export function parsePaperRef(kind: any, value: string): any;
  * Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function parseQuery(query: string): any;
+
+/**
+ * [`wf_core::sync::deserialize::parse_workspace_folder`] for JS, over `[path, content][]`.
+ *
+ * # Errors
+ *
+ * Fails when a path or content is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function parseWorkspaceFolder(files: any): any;
 
 /**
  * [`wf_core::sync::folder_layout::project_dir`] for JS.
@@ -404,6 +472,16 @@ export function safeWorkspacePath(path: string): string;
 export function sameValue(a: any, b: any): boolean;
 
 /**
+ * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
+ *
+ * # Errors
+ *
+ * Fails when the snapshot JSON is invalid, or the project id or name is over
+ * `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function serializeWorkspace(snapshot_json: string, project_id: string, project_name: string): any;
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -460,6 +538,15 @@ export function vaultPageBase(path: string, content: string): any;
 export function vaultPageSide(path: string, content: string): any;
 
 /**
+ * [`wf_core::sync::workspace_snapshot::workspace_snapshot_counts`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when the snapshot JSON is invalid.
+ */
+export function workspaceSnapshotCounts(snapshot_json: string): any;
+
+/**
  * [`wf_core::sync::text_diff::write_conflict_markers`] for JS.
  *
  * # Errors
@@ -493,14 +580,18 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly addCounts: (a: any, b: any) => [number, number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
+    readonly countJsonActions: (a: any) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly defaultInkNoteMeta: () => [number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
     readonly diffBody: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly diffJsonData: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly diffWorkspace: (a: any, b: any, c: any) => [number, number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -517,6 +608,7 @@ export interface InitOutput {
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
+    readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
     readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly maxFusionIds: () => number;
@@ -527,8 +619,10 @@ export interface InitOutput {
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
+    readonly parseJsonData: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
+    readonly parseWorkspaceFolder: (a: any) => [number, number, number];
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
@@ -536,12 +630,14 @@ export interface InitOutput {
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
+    readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly workspaceSnapshotCounts: (a: number, b: number) => [number, number, number];
     readonly writeConflictMarkers: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly writeFrontmatter: (a: any, b: number, c: number) => [number, number, number, number];
     readonly writeInkNoteBody: (a: any, b: number, c: number) => [number, number, number, number];
