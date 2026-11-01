@@ -15,6 +15,7 @@ export const cleanWrappedText: (a: number, b: number, c: any) => [number, number
 export const coreInfo: () => [number, number, number];
 export const countJsonActions: (a: any) => [number, number, number];
 export const decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
+export const decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
 export const defaultInkNoteMeta: () => [number, number, number];
 export const defaultPasteSettings: () => [number, number, number];
 export const describePull: (a: any) => [number, number, number, number];

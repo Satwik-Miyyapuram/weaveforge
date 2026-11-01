@@ -1,5 +1,5 @@
 /**
- * Ink line segmentation and recognition helpers (step 5-2c), re-exported from
+ * Ink line segmentation and recognition helpers (steps 5-2c, 5-2d), re-exported from
  * index.ts. Rust returns stroke indices; these wrappers map them back to the
  * caller's stroke objects. serde_wasm_bindgen sends every f64 as a JS number,
  * so the `number | null` that bindings.ts gives an f64 is narrowed here.
@@ -11,6 +11,7 @@ import {
   mapInkConfidence as rawMapInkConfidence,
   inkPageConfidence as rawInkPageConfidence,
   inkVocabularyHints as rawInkVocabularyHints,
+  decodeInkWords as rawDecodeInkWords,
 } from "../pkg/wf_wasm.js";
 import type { InkSegmentationIndices } from "./bindings.js";
 
@@ -99,4 +100,16 @@ export function inkPageConfidence(lines: readonly { conf: number }[]): number {
 /** Trimmed, case-insensitively unique hint words, at most `limit` (Rust `ink_vocabulary_hints`). */
 export function inkVocabularyHints(sources: readonly (readonly string[])[], limit = 500): string[] {
   return rawInkVocabularyHints(sources, limit) as string[];
+}
+
+/**
+ * One line from its words' readings: the chosen text, a confidence under
+ * `INK_ENGINE_MAX_CONFIDENCE`, and whole-line alternatives (Rust `decode_ink_words`).
+ */
+export function decodeInkWords(
+  words: readonly { candidates: readonly string[]; known?: readonly boolean[] | null; join?: string | null }[],
+  vocabulary: readonly string[],
+  engineText?: string,
+): { text: string; conf: number; alternatives?: string[] } {
+  return rawDecodeInkWords(words, vocabulary, engineText) as ReturnType<typeof decodeInkWords>;
 }

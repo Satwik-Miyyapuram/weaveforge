@@ -18,7 +18,6 @@
  */
 
 import {
-  decodeInkWords,
   INK_ENGINE_MAX_CONFIDENCE,
   type InkLine,
   type InkRecogniser,
@@ -95,7 +94,11 @@ export function createDesktopInkRecogniser(
         // helper that predates them, and is capped the same way either way:
         // `1` is a person's correction, never an engine's.
         if (line.text && line.words?.length) {
-          return decodeInkWords(line.words, hints.vocabulary, line.text);
+          return readyCore().decodeInkWords(
+            line.words,
+            hints.vocabulary,
+            line.text,
+          );
         }
         return {
           text: line.text,

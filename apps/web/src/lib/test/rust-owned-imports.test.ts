@@ -19,6 +19,7 @@ const RUST_OWNED = [
   "cleanUrlsInText",
   "cleanWrappedText",
   "countJsonActions",
+  "decodeInkWords",
   "DEFAULT_PASTE_SETTINGS",
   "diffJsonData",
   "diffWorkspace",
