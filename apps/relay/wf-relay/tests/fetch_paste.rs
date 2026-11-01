@@ -2,7 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use weaveforge_shell_lib::fetch::paste::{
+use wf_relay::fetch::paste::{
     BOT_WALL, IMAGE_ACCEPT, IMAGE_BYTES, NO_TITLE, NOT_A_PAGE, NOT_AN_IMAGE, TITLE_ACCEPT,
     TITLE_BYTES, decode_title_head, image_content_type, is_page_content_type, title_from_page,
 };

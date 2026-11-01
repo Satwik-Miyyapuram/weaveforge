@@ -1,6 +1,6 @@
 //! Tests for which hosts and addresses a relay may fetch from (ported from url-safety.ts).
 
-use weaveforge_shell_lib::relay::address::{is_ip_address, is_private_host, is_public_address};
+use wf_relay::relay::address::{is_ip_address, is_private_host, is_public_address};
 
 #[test]
 fn public_v4_allowed() {

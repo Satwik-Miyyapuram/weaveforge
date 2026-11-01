@@ -179,5 +179,6 @@ apps/web/public/ort-wasm-*
 # Rust build output
 /target/
 /apps/shell/target/
+/apps/relay/target/
 # Tauri writes capability schemas here on every build.
 /apps/shell/gen/

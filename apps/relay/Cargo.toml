@@ -1,0 +1,51 @@
+# WeaveForge relays: the fetches a browser page cannot make itself (papers, pages,
+# APIs), shared by the desktop shell and the relay server (phase 5, plan §9 item 2).
+# Its own workspace, as apps/shell is: reqwest and tokio bring duplicate crate
+# versions the root workspace's strict cargo-deny bans must not take in.
+[workspace]
+resolver = "3"
+members = ["wf-relay"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
+publish = false
+
+# Same rules as the root workspace (plan §4.2/§4.3).
+[workspace.lints.rust]
+unused_must_use = "deny"
+unused_results = "deny"
+missing_docs = "deny"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+undocumented_unsafe_blocks = "deny"
+too_many_lines = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "deny"
+checked_conversions = "deny"
+must_use_candidate = "deny"
+needless_pass_by_value = "deny"
+redundant_closure_for_method_calls = "deny"
+semicolon_if_nothing_returned = "deny"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+debug-assertions = false
+overflow-checks = true

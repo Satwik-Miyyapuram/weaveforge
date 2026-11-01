@@ -5701,6 +5701,7 @@ dependencies = [
  "tokio",
  "webpki-root-certs",
  "wf-core",
+ "wf-relay",
  "wf-store",
  "windows",
  "windows-native-keyring-store",
@@ -5834,6 +5835,21 @@ dependencies = [
  "unicode-normalization",
  "unicode-properties",
  "url",
+]
+
+[[package]]
+name = "wf-relay"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "encoding_rs",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "specta",
+ "tokio",
+ "webpki-root-certs",
 ]
 
 [[package]]

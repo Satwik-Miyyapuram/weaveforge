@@ -9,11 +9,9 @@ use std::time::Duration;
 use reqwest::Url;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use upstream::{Upstream, response, serve};
-use weaveforge_shell_lib::relay::overleaf::{
-    OVERLEAF_PROXY_ROUTES, is_overleaf_proxy_request, proxy_overleaf,
-};
-use weaveforge_shell_lib::relay::route::{RelayConfig, answer_relay};
-use weaveforge_shell_lib::relay::shared::{Answer, RelayRequest, relay_client};
+use wf_relay::relay::overleaf::{OVERLEAF_PROXY_ROUTES, is_overleaf_proxy_request, proxy_overleaf};
+use wf_relay::relay::route::{RelayConfig, answer_relay};
+use wf_relay::relay::shared::{Answer, RelayRequest, relay_client};
 
 const SHORT: Duration = Duration::from_secs(5);
 const NO_HOST: &str = "http://127.0.0.1:9";

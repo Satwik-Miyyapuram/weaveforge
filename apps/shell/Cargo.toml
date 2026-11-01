@@ -46,6 +46,8 @@ thiserror = "=2.0.21"
 keyring-core = "=1.0.1"
 # Vault, root confinement and search logic shared with the web build (plan §4.1).
 wf-core = { path = "../../crates/wf-core" }
+# Relays and pasted-link fetches, shared with the relay server.
+wf-relay = { path = "../relay/wf-relay", features = ["specta"] }
 # The HTML relay decodes a page by the charset it declares: the same WHATWG labels
 # the TS relay's TextDecoder takes.
 encoding_rs = "=0.8.35"
