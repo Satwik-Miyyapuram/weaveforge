@@ -33,15 +33,7 @@ const PATHS = [
   "a\\b\\c.md",
   "./a/./b",
 ];
-const SIZES = [
-  0,
-  1,
-  25 * 1024 * 1024,
-  25 * 1024 * 1024 + 1,
-  -1,
-  Number.NaN,
-  Number.POSITIVE_INFINITY,
-];
+const SIZES = [0, 1, 25 * 1024 * 1024, 25 * 1024 * 1024 + 1, -1, Number.NaN, Number.POSITIVE_INFINITY];
 
 type PullResult = Parameters<RustCore["describePull"]>[0];
 type PushResult = Parameters<RustCore["describePush"]>[0];
@@ -93,9 +85,7 @@ const SAFE_PATHS = [
 ];
 
 /** Value or refusal, so both sides compare on whether they throw and what they return. */
-function outcome(
-  fn: () => string,
-): { ok: true; value: string } | { ok: false } {
+function outcome(fn: () => string): { ok: true; value: string } | { ok: false } {
   try {
     return { ok: true, value: fn() };
   } catch {
@@ -108,11 +98,7 @@ test("changedSide matches the TS helper over every base/folder/workspace combina
     for (const folder of SIDES) {
       for (const workspace of SIDES) {
         const origin = { base, folder, workspace };
-        assert.deepEqual(
-          rs.changedSide(origin),
-          ts.changedSide(origin),
-          `origin ${JSON.stringify(origin)}`,
-        );
+        assert.deepEqual(rs.changedSide(origin), ts.changedSide(origin), `origin ${JSON.stringify(origin)}`);
       }
     }
   }
@@ -120,11 +106,7 @@ test("changedSide matches the TS helper over every base/folder/workspace combina
 
 test("isUnderIgnoredFolder and decideGitSyncPath match the TS policy", () => {
   for (const p of PATHS) {
-    assert.deepEqual(
-      rs.isUnderIgnoredFolder(p),
-      ts.isUnderIgnoredFolder(p),
-      `path ${JSON.stringify(p)}`,
-    );
+    assert.deepEqual(rs.isUnderIgnoredFolder(p), ts.isUnderIgnoredFolder(p), `path ${JSON.stringify(p)}`);
     for (const size of SIZES) {
       assert.deepEqual(
         rs.decideGitSyncPath(p, size),
@@ -137,18 +119,10 @@ test("isUnderIgnoredFolder and decideGitSyncPath match the TS policy", () => {
 
 test("describePull and describePush match the TS descriptions", () => {
   for (const result of PULL_RESULTS) {
-    assert.equal(
-      rs.describePull(result),
-      ts.describePull(result),
-      `pull ${JSON.stringify(result)}`,
-    );
+    assert.equal(rs.describePull(result), ts.describePull(result), `pull ${JSON.stringify(result)}`);
   }
   for (const result of PUSH_RESULTS) {
-    assert.equal(
-      rs.describePush(result),
-      ts.describePush(result),
-      `push ${JSON.stringify(result)}`,
-    );
+    assert.equal(rs.describePush(result), ts.describePush(result), `push ${JSON.stringify(result)}`);
   }
 });
 
@@ -167,23 +141,11 @@ test("isSafeWorkspacePath and safeWorkspacePath match the TS checks", () => {
     // Known divergence: Rust also refuses a drive prefix on a later segment ("a/C:"),
     // which TS accepts. Assert the Rust refusal and skip the TS comparison for that input.
     if (p === "a/C:") {
-      assert.equal(
-        rs.isSafeWorkspacePath(p),
-        false,
-        `path ${JSON.stringify(p)}`,
-      );
-      assert.deepEqual(
-        outcome(() => rs.safeWorkspacePath(p)),
-        { ok: false },
-        `path ${JSON.stringify(p)}`,
-      );
+      assert.equal(rs.isSafeWorkspacePath(p), false, `path ${JSON.stringify(p)}`);
+      assert.deepEqual(outcome(() => rs.safeWorkspacePath(p)), { ok: false }, `path ${JSON.stringify(p)}`);
       continue;
     }
-    assert.equal(
-      rs.isSafeWorkspacePath(p),
-      ts.isSafeWorkspacePath(p),
-      `path ${JSON.stringify(p)}`,
-    );
+    assert.equal(rs.isSafeWorkspacePath(p), ts.isSafeWorkspacePath(p), `path ${JSON.stringify(p)}`);
     assert.deepEqual(
       outcome(() => rs.safeWorkspacePath(p)),
       outcome(() => ts.safeWorkspacePath(p)),
@@ -199,10 +161,7 @@ const noteText = (extra: string, body: string) =>
 const NOTE_TEXTS = [
   noteText("", "body\n"),
   noteText("tags: [a, b]\n", "body\n"),
-  noteText(
-    "status: done\nupdated_at: 2024-01-01T00:00:00Z\n",
-    "line 1\nline 2\n",
-  ),
+  noteText("status: done\nupdated_at: 2024-01-01T00:00:00Z\n", "line 1\nline 2\n"),
   noteText("n: 1.5\nflag: true\n", ""),
   noteText("", "\r\nwindows\r\n"),
   `﻿${noteText("", "bom\n")}`,
@@ -256,9 +215,7 @@ function absentAsUndefined<
 >(merged: T): T {
   return {
     ...merged,
-    fields: Object.fromEntries(
-      Object.entries(merged.fields).filter(([, value]) => value !== undefined),
-    ),
+    fields: Object.fromEntries(Object.entries(merged.fields).filter(([, value]) => value !== undefined)),
     conflicts: merged.conflicts.map((c) => ({
       ...c,
       base: c.base ?? undefined,
@@ -313,15 +270,14 @@ const HUNK_PAIRS: Array<[string, string]> = [
   ["1\n2\n3\n4\n5", "1\nX\n3\nY\n5"],
   ["a\r\nb", "a\nB"],
 ];
-const HUNK_PICKS: Array<Readonly<Record<number, "ours" | "theirs" | "both">>> =
-  [
-    {},
-    { 0: "theirs" },
-    { 0: "both" },
-    { 1: "theirs" },
-    { 0: "theirs", 1: "both" },
-    { 5: "theirs" },
-  ];
+const HUNK_PICKS: Array<Readonly<Record<number, "ours" | "theirs" | "both">>> = [
+  {},
+  { 0: "theirs" },
+  { 0: "both" },
+  { 1: "theirs" },
+  { 0: "theirs", 1: "both" },
+  { 5: "theirs" },
+];
 
 test("mergeHunks matches the TS", () => {
   for (const [ours, theirs] of HUNK_PAIRS) {
@@ -354,11 +310,7 @@ test("readFrontmatter matches the TS", () => {
     "---\nnot closed",
   ];
   for (const text of texts) {
-    assert.deepEqual(
-      rs.readFrontmatter(text),
-      ts.readFrontmatter(text),
-      `input ${JSON.stringify(text)}`,
-    );
+    assert.deepEqual(rs.readFrontmatter(text), ts.readFrontmatter(text), `input ${JSON.stringify(text)}`);
   }
 });
 

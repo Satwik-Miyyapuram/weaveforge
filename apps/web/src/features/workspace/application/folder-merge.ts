@@ -36,8 +36,7 @@ export function mergeBothChanged(
   base: VaultPageBase | undefined,
   workspaceContent: string | undefined,
 ): ImportDiffEntry {
-  if (entry.action !== "conflict" || entry.kind !== "both-changed")
-    return entry;
+  if (entry.action !== "conflict" || entry.kind !== "both-changed") return entry;
   if (!base || workspaceContent === undefined) return entry;
 
   // A note over the WASM text limit cannot be merged here; it stays a conflict for the person to settle.
@@ -49,10 +48,7 @@ export function mergeBothChanged(
 
     merged = core.mergeVaultPage(
       base,
-      {
-        fields: { ...entry.entity.fields, title: entry.entity.title },
-        body: entry.entity.body,
-      },
+      { fields: { ...entry.entity.fields, title: entry.entity.title }, body: entry.entity.body },
       workspace,
     );
   } catch {
@@ -111,9 +107,7 @@ function mergeDetail(
       ours: conflict.remote ?? undefined,
       theirs: conflict.local ?? undefined,
     }));
-  const bodyDisputed = merged.conflicts.some(
-    (conflict) => conflict.field === "body",
-  );
+  const bodyDisputed = merged.conflicts.some((conflict) => conflict.field === "body");
 
   return {
     fields: merged.fields,
@@ -140,8 +134,7 @@ function listFields(fields: readonly string[]): string {
  * nothing -- and the fallback `offline-first-sync.md` already settled on for
  * the database: keep both, tell the user.
  */
-export type ConflictResolution =
-  "keep" | "folder" | "both" | "markers" | ConflictPicks;
+export type ConflictResolution = "keep" | "folder" | "both" | "markers" | ConflictPicks;
 
 /**
  * A choice per disputed key, and per hunk of the body.
@@ -186,18 +179,13 @@ export function settleConflict(
   // A type mismatch has nothing to update: the id names a paper or an
   // experiment, so writing the file over it is not on offer whatever the
   // caller asked for. Importing it as a new note still is.
-  const resolution =
-    asked === "folder" && entry.kind === "type-mismatch" ? "both" : asked;
+  const resolution = asked === "folder" && entry.kind === "type-mismatch" ? "both" : asked;
   if (resolution === "keep") return null;
   if (resolution === "folder") return { ...entry, action: "updated" };
   return {
     ...entry,
     action: "created",
-    entity: {
-      ...entry.entity,
-      id: undefined,
-      title: keepBothTitle(entry.entity.title),
-    },
+    entity: { ...entry.entity, id: undefined, title: keepBothTitle(entry.entity.title) },
   };
 }
 
@@ -218,21 +206,16 @@ function settlePicks(
 
   const fields: Record<string, unknown> = { ...detail.fields };
   for (const dispute of detail.disputed) {
-    fields[dispute.field] =
-      (picks.fields?.[dispute.field] ?? "ours") === "ours"
-        ? dispute.ours
-        : dispute.theirs;
+    fields[dispute.field] = (picks.fields?.[dispute.field] ?? "ours") === "ours"
+      ? dispute.ours
+      : dispute.theirs;
   }
 
   const { title, ...rest } = fields;
   let body = detail.body;
   if (detail.bodySides) {
     try {
-      body = core.mergeHunks(
-        detail.bodySides.ours,
-        detail.bodySides.theirs,
-        picks.hunks ?? {},
-      );
+      body = core.mergeHunks(detail.bodySides.ours, detail.bodySides.theirs, picks.hunks ?? {});
     } catch {
       // A body over the WASM text limit cannot be composed; it stays a conflict.
       return null;
@@ -284,17 +267,12 @@ export async function writeConflictMarkersTo(
   const { frontmatter } = core.readFrontmatter(current);
   await fs.writeFile(
     entry.entity.path,
-    core.writeFrontmatter(
-      frontmatter,
-      core.writeConflictMarkers(sides.ours, sides.theirs),
-    ),
+    core.writeFrontmatter(frontmatter, core.writeConflictMarkers(sides.ours, sides.theirs)),
   );
   return true;
 }
 
-export function countActions(
-  entries: readonly ImportDiffEntry[],
-): ImportDiff["counts"] {
+export function countActions(entries: readonly ImportDiffEntry[]): ImportDiff["counts"] {
   const counts: ImportDiff["counts"] = {
     created: 0,
     updated: 0,
