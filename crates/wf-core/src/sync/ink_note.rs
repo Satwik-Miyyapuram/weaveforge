@@ -124,6 +124,8 @@ pub struct InkNoteMeta {
     // specta writes f64 as `number | null` because serde_json turns NaN into
     // null. It reaches JS through serde_wasm_bindgen, which keeps a number,
     // and the reader clamps it to 0..=1, so the TS type is a plain number.
+    // specta renders f32 the same way, so u32 stands in only to get `number`;
+    // the value is still a 0..=1 fraction.
     #[cfg_attr(feature = "specta", specta(type = u32))]
     pub recognised: f64,
     /// The engine that produced the text layer, if any.
