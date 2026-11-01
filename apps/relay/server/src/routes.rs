@@ -1,5 +1,5 @@
 //! The HTTP routes: the paths the Next routes served, behind Caddy's `/relay` prefix.
-//! Ported from apps/web/src/app/api/{pdf-proxy,html-proxy,semantic-scholar,arxiv,fetch-url,url-meta,sdk/{whoami,projects,experiments,metrics}}/route.ts.
+//! Ported from apps/web/src/app/api/{pdf-proxy,html-proxy,semantic-scholar,arxiv,fetch-url,url-meta,sdk/{whoami,projects,experiments,metrics},report-issue,plan/feed}/route.ts.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -36,7 +36,7 @@ use crate::sdk_metrics;
 use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
-use crate::{credentials, settings_routes};
+use crate::{credentials, plan_feed, report_issue, settings_routes};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
 /// Same caching as the Next.js arXiv route on success.
@@ -129,6 +129,8 @@ pub fn app(state: Arc<AppState>) -> Router {
             "/api/settings/credentials",
             get(credentials::credentials_get).post(credentials::credentials_post),
         )
+        .route("/api/report-issue", post(report_issue::report_issue))
+        .route("/api/plan/feed/{token}/{file}", get(plan_feed::plan_feed))
         .layer(cors)
         .with_state(state)
 }

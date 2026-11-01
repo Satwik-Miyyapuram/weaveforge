@@ -46,6 +46,7 @@ fn keyed() -> SettingsConfig {
     SettingsConfig {
         mcp_enabled: true,
         credential_key: Some(KEY.to_string()),
+        ..SettingsConfig::default()
     }
 }
 
@@ -238,6 +239,7 @@ async fn get_with_wrong_key_is_500() {
     let other = SettingsConfig {
         mcp_enabled: true,
         credential_key: Some("other".to_string()),
+        ..SettingsConfig::default()
     };
     let (status, _, body) = call(&up, other, request("GET", "", true)).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
