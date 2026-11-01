@@ -9,10 +9,10 @@ use std::time::{Duration, Instant};
 
 use reqwest::Url;
 use reqwest::header::{HeaderMap, HeaderValue};
-use weaveforge_shell_lib::relay::arxiv::{
+use wf_relay::relay::arxiv::{
     ARXIV_PROXY_PATH, encode_uri_component, is_arxiv_proxy_request, proxy_arxiv,
 };
-use weaveforge_shell_lib::relay::shared::{Answer, RelayRequest, relay_client};
+use wf_relay::relay::shared::{Answer, RelayRequest, relay_client};
 
 use upstream::{Reply, redirect, response, serve};
 

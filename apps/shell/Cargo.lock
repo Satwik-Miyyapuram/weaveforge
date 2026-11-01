@@ -5677,7 +5677,6 @@ dependencies = [
  "apple-native-keyring-store",
  "base64 0.23.1",
  "dbus-secret-service-keyring-store",
- "encoding_rs",
  "git2",
  "keyring-core",
  "notify",
@@ -5699,8 +5698,8 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.21",
  "tokio",
- "webpki-root-certs",
  "wf-core",
+ "wf-relay",
  "wf-store",
  "windows",
  "windows-native-keyring-store",
@@ -5834,6 +5833,21 @@ dependencies = [
  "unicode-normalization",
  "unicode-properties",
  "url",
+]
+
+[[package]]
+name = "wf-relay"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "encoding_rs",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "specta",
+ "tokio",
+ "webpki-root-certs",
 ]
 
 [[package]]

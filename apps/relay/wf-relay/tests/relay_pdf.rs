@@ -10,11 +10,11 @@ use std::time::{Duration, Instant};
 
 use reqwest::Url;
 use upstream::{Reply, redirect, response};
-use weaveforge_shell_lib::relay::pdf::{
+use wf_relay::relay::pdf::{
     PDF_PROXY_ALLOWED_HOSTS, PDF_PROXY_MAX_BYTES, has_pdf_magic, is_allowed_pdf_proxy_url,
     is_pdf_content_type, is_pdf_proxy_request, proxy_pdf, relay_pdf,
 };
-use weaveforge_shell_lib::relay::shared::{Answer, refuse, relay_client};
+use wf_relay::relay::shared::{Answer, refuse, relay_client};
 
 const FIVE: Duration = Duration::from_secs(5);
 const UNDER: Duration = Duration::from_secs(3);
@@ -38,7 +38,7 @@ fn pdf_request(query: &[(&str, &str)]) -> Url {
 #[test]
 fn allowlist_matches_the_ts_list() {
     // The TS set is the source of truth: read it and compare every host, in order.
-    let ts = include_str!("../../web/src/features/reader/application/sanitize-reader-url.ts");
+    let ts = include_str!("../../../web/src/features/reader/application/sanitize-reader-url.ts");
     let start = ts.find("PDF_PROXY_ALLOWED_HOSTS = new Set([").unwrap();
     let block = &ts[start..];
     let block = &block[..block.find("]);").unwrap()];

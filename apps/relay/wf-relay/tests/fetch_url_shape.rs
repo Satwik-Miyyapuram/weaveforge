@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use weaveforge_shell_lib::fetch::url_shape::{
+use wf_relay::fetch::url_shape::{
     DEFAULT_FETCH_LIMITS, UrlRejection, check_url_shape_str, describe_rejection, parse_user_url,
 };
 
