@@ -36,7 +36,10 @@ use crate::sdk_metrics;
 use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
-use crate::{account, admin_users, credentials, plan_feed, report_issue, settings_routes};
+use crate::{
+    account, admin_users, credentials, mcp_relay, overleaf_connections, overleaf_reports,
+    plan_feed, report_issue, settings_routes, zotero_collections,
+};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
 /// Same caching as the Next.js arXiv route on success.
@@ -132,6 +135,7 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route("/api/report-issue", post(report_issue::report_issue))
         .route("/api/plan/feed/{token}/{file}", get(plan_feed::plan_feed))
         .merge(account_routes())
+        .merge(integration_routes())
         .layer(cors)
         .with_state(state)
 }
@@ -145,6 +149,39 @@ fn account_routes() -> Router<Arc<AppState>> {
             post(account::delete_user_otp),
         )
         .route("/api/admin/create-user", post(admin_users::create_user))
+}
+
+/// Overleaf links, Zotero collections and the MCP relay.
+fn integration_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route(
+            "/api/overleaf/connections",
+            get(overleaf_connections::connections_get)
+                .post(overleaf_connections::connections_post)
+                .delete(overleaf_connections::connections_delete),
+        )
+        .route(
+            "/api/overleaf/reports",
+            get(overleaf_reports::reports_get)
+                .post(overleaf_reports::reports_post)
+                .patch(overleaf_reports::reports_patch)
+                .delete(overleaf_reports::reports_delete),
+        )
+        .route(
+            "/api/integrations/zotero/collections",
+            post(zotero_collections::collections_post),
+        )
+        .route(
+            "/api/mcp",
+            get(mcp_relay::mcp_get).post(mcp_relay::mcp_post),
+        )
+        .route(
+            "/api/mcp/relay",
+            get(mcp_relay::relay_get)
+                .post(mcp_relay::relay_post)
+                .patch(mcp_relay::relay_patch),
+        )
+        .route("/api/mcp/relay/browser", get(mcp_relay::browser_get))
 }
 
 fn cors_layer(origins: &[String]) -> CorsLayer {
