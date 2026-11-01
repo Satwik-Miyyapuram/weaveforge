@@ -10,6 +10,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::PackedInkStroke;
 use wf_core::ink::curve::{Side, ink_curve_at, ink_tangent_at};
+use wf_core::ink::decode::{InkWordReadings, decode_ink_words};
 use wf_core::ink::recognise::{
     INK_VOCABULARY_LIMIT, ink_page_confidence, ink_vocabulary_hints, is_unsure_confidence,
     map_ink_confidence,
@@ -303,5 +304,30 @@ pub fn ink_vocabulary_hints_js(sources: JsValue, limit: Option<f64>) -> JsResult
     to_js(&ink_vocabulary_hints(
         &sources,
         limit.unwrap_or(INK_VOCABULARY_LIMIT),
+    ))
+}
+
+/// [`decode_ink_words`]: `words` is an array of `{ candidates, known?, join? }`,
+/// `vocabulary` an array of strings.
+///
+/// # Errors
+///
+/// Fails if `words` or `vocabulary` is not such an array.
+#[wasm_bindgen(js_name = decodeInkWords)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes optional strings by value"
+)]
+pub fn decode_ink_words_js(
+    words: JsValue,
+    vocabulary: JsValue,
+    engine_text: Option<String>,
+) -> JsResult<JsValue> {
+    let words: Vec<InkWordReadings> = serde_wasm_bindgen::from_value(words)?;
+    let vocabulary: Vec<String> = serde_wasm_bindgen::from_value(vocabulary)?;
+    to_js(&decode_ink_words(
+        &words,
+        &vocabulary,
+        engine_text.as_deref(),
     ))
 }
