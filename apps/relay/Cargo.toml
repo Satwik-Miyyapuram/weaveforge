@@ -4,7 +4,7 @@
 # versions the root workspace's strict cargo-deny bans must not take in.
 [workspace]
 resolver = "3"
-members = ["wf-relay"]
+members = ["wf-relay", "server"]
 
 [workspace.package]
 version = "0.1.0"
