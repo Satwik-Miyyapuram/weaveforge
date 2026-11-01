@@ -23,7 +23,7 @@ static ARXIV_URL_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
 
 static ARXIV_PREFIXED_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     compile(&format!(
-        r"(?i)(?-u:\b)arxiv(?:\s*:\s*|\s+)({ARXIV_CORE})(v[0-9]+)?"
+        r"(?i)\barxiv(?:\s*:\s*|\s+)({ARXIV_CORE})(v[0-9]+)?"
     ))
     .ok()
 });
@@ -186,6 +186,16 @@ fn hex_value(byte: u8) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_static_regex_compiles() {
+        // A pattern regex-lite rejects becomes None and silently never matches.
+        assert!(DOI_RE.is_some());
+        assert!(ARXIV_URL_RE.is_some());
+        assert!(ARXIV_PREFIXED_RE.is_some());
+        assert!(ARXIV_BARE_RE.is_some());
+        assert!(HOSTLIKE_RE.is_some());
+    }
 
     #[test]
     fn paper_ref_kind_round_trips_lowercase() {

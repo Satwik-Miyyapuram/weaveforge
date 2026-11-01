@@ -31,6 +31,12 @@ const IDS_AND_DOIS = [
   "Some prose with DOI 10.5555/12345678 inside.",
   "ARXIV:2305.12345",
   "10.1234/ABC",
+  // Non-ASCII: JS whitespace, BOM, and word boundaries next to non-ASCII letters.
+  " 2305.12345　",
+  "﻿10.1145/3290605.3300233",
+  "10.5555/123 tail",
+  "arXiv: 2305.12345",
+  "www.example.com/é",
 ];
 
 const REF_KINDS = ["doi", "arxiv", "url", "zotero"] as const;
@@ -51,6 +57,9 @@ const PAGE_FIXTURES = [
   `<html></html>`,
   `<meta name="citation_title" content="Caf&eacute; &amp; Co &#x2014; x">`,
   `<title>My Paper | Nature</title><meta name="dc.title" content="My Paper">`,
+  `<title>A B C | Nature</title>`,
+  `<META NAME="CITATION_TITLE" CONTENT="X">`,
+  `<meta name="émeta" content="y">`,
 ];
 
 const BLOB_PATHS = [

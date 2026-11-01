@@ -86,7 +86,8 @@ export class UrlMetadataSource implements IMetadataSource {
     }
     const html = await res.text();
     const core = await loadCore();
-    const meta = core.extractPageMetadata(html, res.headers.get(HTML_FINAL_URL_HEADER) || target);
+    // The meta tags are in the head, so a page over the Rust input limit is cut, not refused.
+    const meta = core.extractPageMetadata(html.slice(0, core.maxIndexTextUtf16()), res.headers.get(HTML_FINAL_URL_HEADER) || target);
     const refusal = core.pageImportRefusal(meta);
     if (refusal) throw new Error(refusal);
     return meta;

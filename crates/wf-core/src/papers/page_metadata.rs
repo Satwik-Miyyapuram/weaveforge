@@ -458,6 +458,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_static_regex_compiles() {
+        // A pattern regex-lite rejects becomes None and silently never matches.
+        for (name, ok) in [
+            ("BOT_WALL", BOT_WALL.is_some()),
+            ("META_TAG", META_TAG.is_some()),
+            ("JSON_LD", JSON_LD.is_some()),
+            ("HTML_TITLE", HTML_TITLE.is_some()),
+            ("WHITESPACE", WHITESPACE.is_some()),
+            ("YEAR", YEAR.is_some()),
+            ("SITE_SUFFIX", SITE_SUFFIX.is_some()),
+            ("ARXIV_AT", ARXIV_AT.is_some()),
+            ("ARXIV_ID", ARXIV_ID.is_some()),
+            ("ARXIV_VERSION", ARXIV_VERSION.is_some()),
+            ("DOI_PREFIX", DOI_PREFIX.is_some()),
+            ("HTTP_URL", HTTP_URL.is_some()),
+            ("HEX_ENTITY", HEX_ENTITY.is_some()),
+            ("DEC_ENTITY", DEC_ENTITY.is_some()),
+            ("NAMED_ENTITIES", NAMED_ENTITIES.is_some()),
+        ] {
+            assert!(ok, "{name} does not compile");
+        }
+    }
+
+    #[test]
     fn page_metadata_deserializes_camel_case() {
         let meta: PageMetadata = serde_json::from_str(
             r#"{"authors":[],"url":"https://x.org","hasCitationMeta":true,"isArticle":false,"arxivId":"2305.12345"}"#,

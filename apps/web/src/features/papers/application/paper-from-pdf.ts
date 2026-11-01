@@ -110,7 +110,9 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   const offline = !deps.online();
   // pdf.js runs here, so the PDF is read offline too; only the lookups need the network.
   const pdf = await readPdf(bytes, deps);
-  const doi = (await loadCore()).extractDoi(pdf.text);
+  const core = await loadCore();
+  // The Rust parser takes at most maxIndexTextUtf16() units; a DOI sits near the start.
+  const doi = core.extractDoi(pdf.text.slice(0, core.maxIndexTextUtf16()));
   const title = metadataTitle(pdf.title) ?? guessTitle(pdf.text);
   let found: AddPaperResult | null = null;
   if (!offline) {
