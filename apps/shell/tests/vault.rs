@@ -6,7 +6,7 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use common::{TempDir, put};
-use weaveforge_shell::vault::{
+use weaveforge_shell_lib::vault::{
     BAD_ARGUMENT, EntryKindPayload, MAX_BLOB_BYTES, MAX_TEXT_BYTES, NO_ROOT, RootKind, SWEEP_AGE,
     VaultEntry, VaultRoot, VaultSession, iso_utc, sweep_temp_files, too_large,
 };

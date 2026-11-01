@@ -5,7 +5,7 @@ mod common;
 use std::fs;
 
 use common::{TempDir, put};
-use weaveforge_shell::app_log::{
+use weaveforge_shell_lib::app_log::{
     AppLog, AppLogEntry, DEGRADED, LOG_FILE, LogLevel, MAX_ENTRIES, MAX_FILE_BYTES, TRIM_TO_BYTES,
     clip, home_redactor, redact,
 };

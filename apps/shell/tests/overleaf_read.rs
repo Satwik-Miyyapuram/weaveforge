@@ -8,10 +8,10 @@ use std::sync::{Arc, LazyLock};
 
 use common::{TempDir, put};
 use keyring_core::CredentialStore;
-use weaveforge_shell::overleaf_read::{
+use weaveforge_shell_lib::overleaf_read::{
     collect_text_files, overleaf_read_with, read_project, safe_error,
 };
-use weaveforge_shell::secrets::Secrets;
+use weaveforge_shell_lib::secrets::Secrets;
 
 const SERVICE: &str = "org.weaveforge.test";
 const NO_TOKEN_TEXT: &str =
@@ -58,7 +58,7 @@ fn checkouts_left() -> usize {
         .count()
 }
 
-fn names(files: &[weaveforge_shell::overleaf_read::OverleafFile]) -> Vec<&str> {
+fn names(files: &[weaveforge_shell_lib::overleaf_read::OverleafFile]) -> Vec<&str> {
     files.iter().map(|f| f.path.as_str()).collect()
 }
 

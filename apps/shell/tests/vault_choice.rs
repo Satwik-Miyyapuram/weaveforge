@@ -10,12 +10,12 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
 use common::TempDir;
-use weaveforge_shell::prefs::{PrefValue, Prefs};
-use weaveforge_shell::vault::VaultState;
-use weaveforge_shell::vault_choice::{
+use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
+use weaveforge_shell_lib::vault::VaultState;
+use weaveforge_shell_lib::vault_choice::{
     NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, restore_remembered, watch_root_with,
 };
-use weaveforge_shell::vault_watcher::{ChangeSink, WatchSlot};
+use weaveforge_shell_lib::vault_watcher::{ChangeSink, WatchSlot};
 
 const QUIET: Duration = Duration::from_millis(100);
 const WINDOW: Duration = Duration::from_secs(10);

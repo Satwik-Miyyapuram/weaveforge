@@ -9,11 +9,16 @@ use std::sync::Arc;
 
 pub mod app_log;
 pub mod app_route;
+pub mod auth_link;
 pub mod auth_loopback;
 pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
+#[cfg(desktop)]
+pub mod embed;
+#[cfg(mobile)]
+#[path = "embed_phone.rs"]
 pub mod embed;
 pub mod fetch;
 pub mod git;
@@ -36,6 +41,7 @@ pub mod secrets;
 pub mod shim;
 pub mod sidecar;
 pub mod tex;
+pub mod tls;
 pub mod update_check;
 pub mod vault;
 pub mod vault_choice;
@@ -62,11 +68,37 @@ fn web_root() -> PathBuf {
     PathBuf::from("web")
 }
 
+/// The phone entry point. Android and iOS start the app through the symbols Tauri's macro makes;
+/// the desktop starts it from `main.rs`.
+#[cfg(mobile)]
+#[allow(
+    unsafe_code,
+    missing_docs,
+    reason = "tauri::mobile_entry_point emits no_mangle and JNI glue without docs"
+)]
+mod mobile_entry {
+    /// Runs the app; a failed start is printed, as `main` does on desktops.
+    #[tauri::mobile_entry_point]
+    fn start() {
+        if let Err(error) = super::run() {
+            eprintln!("weaveforge: {error}");
+        }
+    }
+}
+
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
-    let app = tauri::Builder::default()
+    install_tls_provider();
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+    // The pen surface over the WebView (phase 4, step 4.3a); desktops ink in the web app.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_ink::init());
+    // Sign-in returns through an App Link on phones (phase 4, step 4.5).
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_deep_link::init());
+    let app = builder
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
@@ -106,6 +138,17 @@ pub fn run() -> tauri::Result<()> {
     });
     Ok(())
 }
+
+/// Phones build reqwest with `rustls-no-provider`, so its clients need a process-wide crypto
+/// provider before the first one is made. Desktops use the platform's TLS and need none.
+#[cfg(mobile)]
+fn install_tls_provider() {
+    // Err only means a provider is already installed, which is just as good.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
+#[cfg(desktop)]
+const fn install_tls_provider() {}
 
 /// Manages the preferences, keychain secrets, app log, git queue and the chosen vault folder.
 ///
@@ -342,7 +385,7 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     );
     let nav_app = app.clone();
     let popup_app = app.clone();
-    tauri::WebviewWindowBuilder::from_config(app, config)?
+    let builder = tauri::WebviewWindowBuilder::from_config(app, config)?
         .initialization_script(script)
         .on_navigation(move |url| {
             let stays = shim::main_window_keeps(url);
@@ -358,7 +401,23 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
             open_outside(&popup_app, &url);
             tauri::webview::NewWindowResponse::Deny
-        })
+        });
+    // A cold-start sign-in waits until the page (and the shim's listener) exists.
+    #[cfg(mobile)]
+    let builder = builder.on_page_load(|window, payload| {
+        use tauri::Manager as _;
+        if payload.event() != tauri::webview::PageLoadEvent::Finished {
+            return;
+        }
+        let app = window.app_handle();
+        let query = app
+            .try_state::<PendingSignIn>()
+            .and_then(|pending| pending.0.lock().ok().and_then(|mut slot| slot.take()));
+        if let Some(query) = query {
+            deliver_sign_in(app, query);
+        }
+    });
+    builder
         .build()
         .inspect_err(|error| {
             log_warn(
@@ -396,6 +455,7 @@ fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
 }
 
 /// Listens for the sign-in redirect; a taken port is logged and sign-in falls back to pasting the link.
+#[cfg(desktop)]
 fn start_sign_in(app: &tauri::AppHandle) {
     let app = app.clone();
     let _task = tauri::async_runtime::spawn(async move {
@@ -414,6 +474,42 @@ fn start_sign_in(app: &tauri::AppHandle) {
     });
 }
 
+/// A sign-in App Link that cold-started the app, held until the page has loaded.
+#[cfg(mobile)]
+#[derive(Default)]
+struct PendingSignIn(std::sync::Mutex<Option<String>>);
+
+/// Hands each sign-in App Link the OS opens to the page; phones have no loopback port.
+/// A link that cold-starts the app is held and handed over once the page has loaded.
+#[cfg(mobile)]
+fn start_sign_in(app: &tauri::AppHandle) {
+    use tauri::Manager as _;
+    use tauri_plugin_deep_link::DeepLinkExt as _;
+    let handle = app.clone();
+    // The listener lives as long as the app, so its id is never needed to remove it.
+    let _listener = app.deep_link().on_open_url(move |event| {
+        for url in event.urls() {
+            if let Some(query) = auth_link::callback_query(&url) {
+                deliver_sign_in(&handle, query);
+            }
+        }
+    });
+    match app.deep_link().get_current() {
+        Ok(Some(urls)) => {
+            if let Some(query) = auth_link::newest_callback_query(&urls) {
+                let _ = app.manage(PendingSignIn(std::sync::Mutex::new(Some(query))));
+            }
+        }
+        Ok(None) => {}
+        Err(error) => log_warn(
+            app,
+            "sign-in",
+            "The cold-start sign-in link was not read",
+            &error.to_string(),
+        ),
+    }
+}
+
 /// Hands a sign-in query to the page and brings the window forward, as Electron did.
 /// A closed main window is reopened first.
 fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
@@ -429,9 +525,13 @@ fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
             &error.to_string(),
         );
     }
+    // Phone windows cannot be minimized.
+    #[cfg(desktop)]
+    let unminimize = |window: &tauri::WebviewWindow| window.unminimize();
+    #[cfg(mobile)]
+    let unminimize = |_: &tauri::WebviewWindow| Ok(());
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
-        && let Err(error) = window
-            .unminimize()
+        && let Err(error) = unminimize(&window)
             .and_then(|()| window.show())
             .and_then(|()| window.set_focus())
     {

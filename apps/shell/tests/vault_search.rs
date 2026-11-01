@@ -4,8 +4,8 @@ mod common;
 use std::path::Path;
 
 use common::{TempDir, put};
-use weaveforge_shell::vault::VaultSession;
-use weaveforge_shell::vault_search::{
+use weaveforge_shell_lib::vault::VaultSession;
+use weaveforge_shell_lib::vault_search::{
     CONTEXT, MAX_MATCHES_PER_FILE, SEARCH_LIMIT, VaultSearchHit, search_vault, walk_vault,
 };
 

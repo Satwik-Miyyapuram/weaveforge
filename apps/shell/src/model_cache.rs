@@ -109,7 +109,7 @@ const READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 /// # Errors
 /// When reqwest cannot build the client (TLS backend failed to load).
 pub fn model_client(allow: fn(&reqwest::Url) -> bool) -> Result<reqwest::Client, reqwest::Error> {
-    reqwest::Client::builder()
+    crate::tls::with_roots(reqwest::Client::builder())
         .connect_timeout(CONNECT_TIMEOUT)
         .read_timeout(READ_TIMEOUT)
         .redirect(reqwest::redirect::Policy::custom(move |attempt| {

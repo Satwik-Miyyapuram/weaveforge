@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use upstream::{Reply, Upstream, response, serve};
-use weaveforge_shell::mattermost::{
+use weaveforge_shell_lib::mattermost::{
     BAD_SERVER_URL, CookieSource, MattermostPost, MattermostReply, POST_NEEDS_FIELDS,
     SERVER_UNREACHABLE, SignInOutcome, SignInSlot, check_server_url, post_with, shared_sign_in,
     verify_token, wait_for_token,
@@ -89,7 +89,7 @@ async fn answering(status: u16) -> Upstream {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn token_that_signs_in_is_true_and_a_refused_one_is_false() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let ok = answering(200).await;
     assert!(verify_token(&client, &ok.base, "tok", SHORT).await);
     let refused = answering(401).await;
@@ -98,7 +98,7 @@ async fn token_that_signs_in_is_true_and_a_refused_one_is_false() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn token_check_sends_a_get_with_the_bearer_token() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let up = answering(200).await;
     let _ = verify_token(&client, &up.base, "tok", SHORT).await;
     let seen = up.seen();
@@ -110,14 +110,14 @@ async fn token_check_sends_a_get_with_the_bearer_token() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn token_check_that_outlasts_its_timeout_is_false() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let up = serve(vec![("/api/v4/users/me", vec![Reply::Silent])]).await;
     assert!(!verify_token(&client, &up.base, "tok", SHORT).await);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn token_check_with_no_server_is_false() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let base = reqwest::Url::parse(&format!("{NO_HOST}/")).unwrap();
     assert!(!verify_token(&client, &base, "tok", SHORT).await);
 }
@@ -126,7 +126,7 @@ async fn token_check_with_no_server_is_false() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn post_is_sent_to_the_posts_endpoint_with_the_token_and_json_body() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let up = serve(vec![("/api/v4/posts", vec![response(201, &[], b"")])]).await;
     let req = post(&format!("{}team/x", up.base), "tok", "ch", "hi");
     let reply = post_with(&client, &req, SHORT).await.unwrap();
@@ -151,7 +151,7 @@ async fn post_is_sent_to_the_posts_endpoint_with_the_token_and_json_body() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn refused_post_returns_the_status_and_body() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let up = serve(vec![("/api/v4/posts", vec![response(403, &[], b"nope")])]).await;
     let req = post(up.base.as_ref(), "tok", "ch", "hi");
     let reply = post_with(&client, &req, SHORT).await.unwrap();
@@ -166,7 +166,7 @@ async fn refused_post_returns_the_status_and_body() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn refused_post_body_is_capped_at_2000_chars() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let long = "x".repeat(5000);
     let up = serve(vec![(
         "/api/v4/posts",
@@ -181,7 +181,7 @@ async fn refused_post_body_is_capped_at_2000_chars() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn refusal_of_two_megabytes_returns_at_once_with_2000_chars() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let huge = vec![b'x'; 2 * 1024 * 1024];
     let up = serve(vec![("/api/v4/posts", vec![response(400, &[], &huge)])]).await;
     let req = post(up.base.as_ref(), "tok", "ch", "hi");
@@ -198,7 +198,7 @@ async fn refusal_of_two_megabytes_returns_at_once_with_2000_chars() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn refused_post_body_is_capped_by_chars_not_bytes() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let long = "é".repeat(3000);
     let up = serve(vec![(
         "/api/v4/posts",
@@ -213,7 +213,7 @@ async fn refused_post_body_is_capped_by_chars_not_bytes() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn post_missing_a_field_gives_its_message_and_sends_nothing() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let up = serve(vec![("/api/v4/posts", vec![response(201, &[], b"")])]).await;
     let base = up.base.to_string();
     let cases = [
@@ -236,7 +236,7 @@ async fn post_missing_a_field_gives_its_message_and_sends_nothing() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn post_to_a_bad_server_url_gives_the_url_message() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let req = post("file:///x", "tok", "ch", "hi");
     assert_eq!(
         post_with(&client, &req, SHORT).await,
@@ -246,7 +246,7 @@ async fn post_to_a_bad_server_url_gives_the_url_message() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn post_with_no_server_gives_the_could_not_reach_message() {
-    let client = weaveforge_shell::relay::shared::relay_client().unwrap();
+    let client = weaveforge_shell_lib::relay::shared::relay_client().unwrap();
     let req = post(NO_HOST, "tok", "ch", "hi");
     assert_eq!(
         post_with(&client, &req, SHORT).await,

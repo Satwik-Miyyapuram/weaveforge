@@ -75,7 +75,7 @@ pub async fn fetch_zotero_at(
     if !is_zotero_url_at(raw, origin) {
         return Err(NOT_LOCAL.to_owned());
     }
-    let client = reqwest::Client::builder()
+    let client = crate::tls::with_roots(reqwest::Client::builder())
         .redirect(reqwest::redirect::Policy::none())
         // Node fetch ignores proxy settings, and a proxy cannot reach this computer's Zotero.
         .no_proxy()

@@ -27,12 +27,22 @@ const AUTH_LOOPBACK_PORT = 53682;
 export const AUTH_LOOPBACK_URL = `http://127.0.0.1:${AUTH_LOOPBACK_PORT}/auth/callback`;
 
 /**
+ * Where a sign-in returns on a phone. Phones cannot rely on a listening port,
+ * so the browser returns to an https link the app owns (an Android App Link or
+ * iOS Universal Link), and the OS hands it to the app. The shell repeats this
+ * in `apps/shell/src/auth_link.rs`.
+ */
+export const AUTH_LINK_URL = "https://app.weaveforge.org/auth/app-callback";
+
+/**
  * The address a provider should return to.
  *
  * In a browser that is the origin itself, which is what it has always been. In
  * the desktop app it is the loopback listener, because the browser finishing
  * the flow is a different program from the one that started it — landing back
  * on the origin would sign the browser in and leave the app as it was.
+ *
+ * On a phone it is the app's sign-in link (`AUTH_LINK_URL`).
  */
 export function appOrigin(): string | undefined {
   return typeof window === "undefined" ? undefined : window.location.origin;
@@ -40,5 +50,7 @@ export function appOrigin(): string | undefined {
 
 export function authRedirectTo(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return desktop() ? AUTH_LOOPBACK_URL : window.location.origin;
+  const bridge = desktop();
+  if (!bridge) return window.location.origin;
+  return bridge.platform === "android" || bridge.platform === "ios" ? AUTH_LINK_URL : AUTH_LOOPBACK_URL;
 }

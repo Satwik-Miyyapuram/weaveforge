@@ -215,7 +215,7 @@ async fn send_hop(
 ) -> Result<Response, FetchFailure> {
     let host = url.host_str().unwrap_or("");
     let port = url.port_or_known_default().unwrap_or(443);
-    let client = Client::builder()
+    let client = crate::tls::with_roots(Client::builder())
         .redirect(Policy::none())
         // A proxy cannot reach the address this hop is pinned to.
         .no_proxy()

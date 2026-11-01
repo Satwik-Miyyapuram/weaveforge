@@ -8,11 +8,11 @@ mod upstream;
 use std::time::{Duration, Instant};
 
 use reqwest::Url;
-use weaveforge_shell::relay::html::{
+use weaveforge_shell_lib::relay::html::{
     HTML_FINAL_URL_HEADER, charset_of, decode_html_bytes, is_html_content_type,
     is_html_proxy_request, proxy_html, relay_html,
 };
-use weaveforge_shell::relay::shared::{Answer, relay_client};
+use weaveforge_shell_lib::relay::shared::{Answer, relay_client};
 
 use upstream::{Reply, redirect, response, serve};
 

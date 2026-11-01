@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use weaveforge_shell::cmd_ink::{NOT_A_PAGE, available, haptics, haptics_available, recognise};
-use weaveforge_shell::ink::{
+use weaveforge_shell_lib::cmd_ink::{NOT_A_PAGE, available, haptics, haptics_available, recognise};
+use weaveforge_shell_lib::ink::{
     HelperIo, INK_NOT_AVAILABLE, InkHapticsMessage, InkOptions, InkRecogniser,
     InkRecognitionLineInput, InkRecognitionRequest, Spawner,
 };

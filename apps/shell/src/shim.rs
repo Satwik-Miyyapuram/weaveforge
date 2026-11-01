@@ -29,12 +29,14 @@ pub fn is_app_blob(url: &tauri::Url) -> bool {
     url.scheme() == "blob" && tauri::Url::parse(url.path()).is_ok_and(|inner| is_app_url(&inner))
 }
 
-/// Node's name for an OS (`process.platform`), as `DesktopBridge.platform` expects it.
+/// Node's name for an OS (`process.platform`), as `DesktopBridge.platform` expects it; phones keep their own name.
 #[must_use]
 pub fn platform_name(os: &str) -> &'static str {
     match os {
         "windows" => "win32",
         "macos" => "darwin",
+        "android" => "android",
+        "ios" => "ios",
         _ => "linux",
     }
 }
@@ -64,6 +66,8 @@ mod tests {
         assert_eq!(platform_name("macos"), "darwin");
         assert_eq!(platform_name("linux"), "linux");
         assert_eq!(platform_name("freebsd"), "linux");
+        assert_eq!(platform_name("android"), "android");
+        assert_eq!(platform_name("ios"), "ios");
     }
 
     #[test]

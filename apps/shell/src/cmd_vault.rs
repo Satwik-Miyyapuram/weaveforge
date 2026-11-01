@@ -192,6 +192,7 @@ impl Drop for Choosing {
 }
 
 /// The folder the reader picked, or `None` when the dialog was cancelled or the pick is not a local path.
+#[cfg(desktop)]
 async fn pick_folder(
     app: &tauri::AppHandle,
     window: &tauri::WebviewWindow,
@@ -209,6 +210,15 @@ async fn pick_folder(
         .ok()
         .flatten()
         .and_then(|picked| picked.into_path().ok())
+}
+
+/// Phones have no folder picker: the workspace is the app's own store there (phase 4 design).
+#[cfg(mobile)]
+async fn pick_folder(
+    _app: &tauri::AppHandle,
+    _window: &tauri::WebviewWindow,
+) -> Option<std::path::PathBuf> {
+    None
 }
 
 /// Reads a text file in the chosen folder.

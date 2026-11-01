@@ -11,17 +11,17 @@ use std::path::{Path, PathBuf};
 
 use common::TempDir;
 use serde_json::json;
-use weaveforge_shell::git::GitQueue;
-use weaveforge_shell::overleaf_links::{
+use weaveforge_shell_lib::git::GitQueue;
+use weaveforge_shell_lib::overleaf_links::{
     ALREADY_LINKED, BAD_FOLDER, BAD_PROJECT, FOLDER_TAKEN, NO_TOKEN, NOT_AN_ACTION, NOT_LINKED,
     OUTSIDE, OVERLEAF_BRANCH, OVERLEAF_GIT_URL, OverleafDeps, OverleafGit, OverleafLink,
     OverleafSyncReply, apply_link_action, check_link_folder, inside_vault, overleaf_git_dir,
     overleaf_sync_with, parse_links,
 };
-use weaveforge_shell::prefs::{PrefValue, Prefs};
-use weaveforge_shell::secrets::Secrets;
-use weaveforge_shell::vault::{NO_ROOT, VaultState};
-use weaveforge_shell::vault_sync::{SyncPull, SyncPush, SyncStatus};
+use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
+use weaveforge_shell_lib::secrets::Secrets;
+use weaveforge_shell_lib::vault::{NO_ROOT, VaultState};
+use weaveforge_shell_lib::vault_sync::{SyncPull, SyncPush, SyncStatus};
 
 const ID: &str = "64f0c0ffee0123456789abcd";
 const OTHER: &str = "64f0c0ffee0123456789abce";
