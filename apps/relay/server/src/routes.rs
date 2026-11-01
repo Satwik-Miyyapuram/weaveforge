@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use axum::Router;
 use axum::body::{Body, Bytes};
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::response::Response;
@@ -26,11 +26,14 @@ use wf_relay::relay::semantic_scholar::proxy_semantic_scholar;
 use wf_relay::relay::shared::{Answer, RelayRequest, refuse};
 
 use crate::auth::require_user;
+use crate::blob_routes::{self, UPLOAD_BODY_LIMIT};
 use crate::config::Config;
 use crate::limiter::RateLimiter;
 use crate::org_routes;
 use crate::sdk;
+use crate::sdk_artifacts::{self, ARTIFACT_BODY_LIMIT};
 use crate::sdk_metrics;
+use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
@@ -54,6 +57,8 @@ pub struct AppState {
     pub pages: RateLimiter,
     /// Per-user budget for pasted-link image fetches.
     pub pastes: RateLimiter,
+    /// Tiered blob storage: provider switch, object stores and the view-token secret.
+    pub storage: StorageConfig,
 }
 
 /// The router: every route, with CORS for the configured origins.
@@ -93,6 +98,17 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route("/api/org/standalone", post(org_routes::standalone))
         .route("/api/org/memberships", get(org_routes::memberships))
         .route("/api/org/mine", get(org_routes::mine))
+        .route("/api/blobs/content", get(blob_routes::content))
+        .route("/api/blobs/remove", post(blob_routes::remove))
+        .route("/api/blobs/signed-urls", post(blob_routes::signed_urls))
+        .route(
+            "/api/blobs/upload",
+            post(blob_routes::upload).layer(DefaultBodyLimit::max(UPLOAD_BODY_LIMIT)),
+        )
+        .route(
+            "/api/sdk/artifacts",
+            post(sdk_artifacts::artifacts_post).layer(DefaultBodyLimit::max(ARTIFACT_BODY_LIMIT)),
+        )
         .layer(cors)
         .with_state(state)
 }
