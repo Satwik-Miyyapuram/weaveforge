@@ -39,6 +39,22 @@ export function applyCommaPlacement(input, placement) {
 }
 
 /**
+ * [`binomial_smooth`].
+ * @param {Float64Array} values
+ * @param {number} stride
+ * @param {number} passes
+ * @returns {Float64Array}
+ */
+export function binomialSmooth(values, stride, passes) {
+    const ptr0 = passArrayF64ToWasm0(values, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.binomialSmooth(ptr0, len0, stride, passes);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -87,6 +103,27 @@ export function changedSide(base, folder, workspace) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
+ * @param {number} width
+ * @param {number | null} [fallback]
+ * @returns {number}
+ */
+export function clampInkNoteWidth(width, fallback) {
+    const ret = wasm.clampInkNoteWidth(width, !isLikeNone(fallback), isLikeNone(fallback) ? 0 : fallback);
+    return ret;
+}
+
+/**
+ * [`clamp_ink_zoom`].
+ * @param {number} zoom
+ * @returns {number}
+ */
+export function clampInkZoom(zoom) {
+    const ret = wasm.clampInkZoom(zoom);
+    return ret;
 }
 
 /**
@@ -668,6 +705,104 @@ export function indexTerms(text, options) {
 }
 
 /**
+ * [`ink_curve_at`] as `[x, y]`. A span past the end gives `[NaN, NaN]`, as
+ * the TS copy's out-of-range reads do.
+ * @param {Float64Array} xs
+ * @param {Float64Array} ys
+ * @param {number} i
+ * @param {number} u
+ * @returns {Float64Array}
+ */
+export function inkCurveAt(xs, ys, i, u) {
+    const ptr0 = passArrayF64ToWasm0(xs, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(ys, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.inkCurveAt(ptr0, len0, ptr1, len1, i, u);
+    var v3 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v3;
+}
+
+/**
+ * [`ink_pressure_factor`].
+ * @param {number | null} [pressure]
+ * @returns {number}
+ */
+export function inkPressureFactor(pressure) {
+    const ret = wasm.inkPressureFactor(!isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure);
+    return ret;
+}
+
+/**
+ * [`ink_tangent_at`] as `[x, y]`; `side` is `"in"` or `"out"` (anything else is `"out"`).
+ * An index past the end gives `[0, 0]`, as the TS copy does.
+ * @param {Float64Array} xs
+ * @param {Float64Array} ys
+ * @param {number} i
+ * @param {string} side
+ * @returns {Float64Array}
+ */
+export function inkTangentAt(xs, ys, i, side) {
+    const ptr0 = passArrayF64ToWasm0(xs, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(ys, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(side, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.inkTangentAt(ptr0, len0, ptr1, len1, i, ptr2, len2);
+    var v4 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v4;
+}
+
+/**
+ * [`ink_velocity_between`].
+ * @param {number} x0
+ * @param {number} y0
+ * @param {number} t0
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} t1
+ * @returns {number}
+ */
+export function inkVelocityBetween(x0, y0, t0, x1, y1, t1) {
+    const ret = wasm.inkVelocityBetween(x0, y0, t0, x1, y1, t1);
+    return ret;
+}
+
+/**
+ * [`ink_velocity_factor`]; `fullTaper` defaults to `INK_VELOCITY_FULL_TAPER`.
+ * @param {number} velocity
+ * @param {number | null} [full_taper]
+ * @returns {number}
+ */
+export function inkVelocityFactor(velocity, full_taper) {
+    const ret = wasm.inkVelocityFactor(velocity, !isLikeNone(full_taper), isLikeNone(full_taper) ? 0 : full_taper);
+    return ret;
+}
+
+/**
+ * [`ink_zoom_in`].
+ * @param {number} zoom
+ * @returns {number}
+ */
+export function inkZoomIn(zoom) {
+    const ret = wasm.inkZoomIn(zoom);
+    return ret;
+}
+
+/**
+ * [`ink_zoom_out`].
+ * @param {number} zoom
+ * @returns {number}
+ */
+export function inkZoomOut(zoom) {
+    const ret = wasm.inkZoomOut(zoom);
+    return ret;
+}
+
+/**
  * [`wf_core::sync::json_entities::is_app_owned_path`] for JS.
  *
  * # Errors
@@ -946,6 +1081,19 @@ export function mergeVaultPage(base, folder, workspace) {
 }
 
 /**
+ * [`nib_width`]; `velocity` defaults to 0.
+ * @param {number} base
+ * @param {number | null} [pressure]
+ * @param {number | null} [velocity]
+ * @param {number | null} [full_taper]
+ * @returns {number}
+ */
+export function nibWidth(base, pressure, velocity, full_taper) {
+    const ret = wasm.nibWidth(base, !isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure, !isLikeNone(velocity), isLikeNone(velocity) ? 0 : velocity, !isLikeNone(full_taper), isLikeNone(full_taper) ? 0 : full_taper);
+    return ret;
+}
+
+/**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
  * `value`, or `None`.
  *
@@ -1013,6 +1161,30 @@ export function normalizePasteSettings(json) {
     const ptr0 = passStringToWasm0(json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.normalizePasteSettings(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pack_ink_stroke`] as `{ points, pressures }`; `options` is the TS
+ * `InkStrokePackerOptions` or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object.
+ * @param {Float64Array} points
+ * @param {Float64Array} pressures
+ * @param {any} options
+ * @returns {any}
+ */
+export function packInkStroke(points, pressures, options) {
+    const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(pressures, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.packInkStroke(ptr0, len0, ptr1, len1, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1309,6 +1481,29 @@ export function relativeAssetPaths(body) {
 }
 
 /**
+ * [`resample_ink_stroke`] as `{ points, pressures }`.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {Float64Array} points
+ * @param {Float64Array} pressures
+ * @param {number | null} [spacing]
+ * @returns {any}
+ */
+export function resampleInkStroke(points, pressures, spacing) {
+    const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(pressures, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.resampleInkStroke(ptr0, len0, ptr1, len1, !isLikeNone(spacing), isLikeNone(spacing) ? 0 : spacing);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
  *
  * # Errors
@@ -1384,6 +1579,30 @@ export function serializeWorkspace(snapshot_json, project_id, project_name) {
 }
 
 /**
+ * [`smooth_ink_stroke`] as `{ points, pressures }`; `options` is
+ * `{ spacing?, passes? }` or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object.
+ * @param {Float64Array} points
+ * @param {Float64Array} pressures
+ * @param {any} options
+ * @returns {any}
+ */
+export function smoothInkStroke(points, pressures, options) {
+    const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(pressures, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.smoothInkStroke(ptr0, len0, ptr1, len1, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -1438,6 +1657,19 @@ export function stripKindSuffix(name) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`stroke_base_width`].
+ * @param {Float64Array} samples
+ * @param {number} base
+ * @returns {number}
+ */
+export function strokeBaseWidth(samples, base) {
+    const ptr0 = passArrayF64ToWasm0(samples, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.strokeBaseWidth(ptr0, len0, base);
+    return ret;
 }
 
 /**
@@ -1704,6 +1936,10 @@ function __wbg_get_imports() {
             const ret = typeof(arg0) === 'function';
             return ret;
         },
+        __wbg___wbindgen_is_null_e343b7d08827ba72: function(arg0) {
+            const ret = arg0 === null;
+            return ret;
+        },
         __wbg___wbindgen_is_object_3c45d4f2dde4e749: function(arg0) {
             const val = arg0;
             const ret = typeof(val) === 'object' && val !== null;
@@ -1968,6 +2204,11 @@ function debugString(val) {
     return className;
 }
 
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
 function getArrayJsValueFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     const mem = getDataViewMemory0();
@@ -1990,6 +2231,14 @@ function getDataViewMemory0() {
         cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
     }
     return cachedDataViewMemory0;
+}
+
+let cachedFloat64ArrayMemory0 = null;
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -2015,6 +2264,13 @@ function handleError(f, args) {
 
 function isLikeNone(x) {
     return x === undefined || x === null;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 function passStringToWasm0(arg, malloc, realloc) {
@@ -2095,6 +2351,7 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;
+    cachedFloat64ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;

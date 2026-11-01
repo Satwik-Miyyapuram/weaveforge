@@ -66,7 +66,12 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   paste module (wrapped and PDF text rejoining, smart punctuation, URL
 //   tracker rules, tables, the verbatim-context scan) and serde for the
 //   settings and results. 370 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 370 * 1024;
+// - Step 5.2b: 385,845 bytes (module 374,192 + glue 11,653), the Windows build.
+//   The ink geometry exports (smoothInkStroke, inkCurveAt, nibWidth,
+//   packInkStroke, the zoom steps, ...) add ~12 KB: wf-core's ink module
+//   (resampling, binomial smoothing, Hermite curves, the stroke packer) and
+//   the wasm-bindgen glue for the typed arrays. 380 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 380 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

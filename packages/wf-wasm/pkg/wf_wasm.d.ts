@@ -20,6 +20,11 @@ export function addCounts(a: any, b: any): any;
 export function applyCommaPlacement(input: string, placement: any): any;
 
 /**
+ * [`binomial_smooth`].
+ */
+export function binomialSmooth(values: Float64Array, stride: number, passes: number): Float64Array;
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -40,6 +45,16 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
  * Fails only if the value cannot be converted to a JS value.
  */
 export function changedSide(base?: string | null, folder?: string | null, workspace?: string | null): any;
+
+/**
+ * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
+ */
+export function clampInkNoteWidth(width: number, fallback?: number | null): number;
+
+/**
+ * [`clamp_ink_zoom`].
+ */
+export function clampInkZoom(zoom: number): number;
 
 /**
  * [`clean_pasted_text`] for JS, as `{ text, changed, urlsCleaned }`.
@@ -280,6 +295,43 @@ export function imagePathsInBody(body: string, prefix: string): string[];
 export function indexTerms(text: string, options: any): any;
 
 /**
+ * [`ink_curve_at`] as `[x, y]`. A span past the end gives `[NaN, NaN]`, as
+ * the TS copy's out-of-range reads do.
+ */
+export function inkCurveAt(xs: Float64Array, ys: Float64Array, i: number, u: number): Float64Array;
+
+/**
+ * [`ink_pressure_factor`].
+ */
+export function inkPressureFactor(pressure?: number | null): number;
+
+/**
+ * [`ink_tangent_at`] as `[x, y]`; `side` is `"in"` or `"out"` (anything else is `"out"`).
+ * An index past the end gives `[0, 0]`, as the TS copy does.
+ */
+export function inkTangentAt(xs: Float64Array, ys: Float64Array, i: number, side: string): Float64Array;
+
+/**
+ * [`ink_velocity_between`].
+ */
+export function inkVelocityBetween(x0: number, y0: number, t0: number, x1: number, y1: number, t1: number): number;
+
+/**
+ * [`ink_velocity_factor`]; `fullTaper` defaults to `INK_VELOCITY_FULL_TAPER`.
+ */
+export function inkVelocityFactor(velocity: number, full_taper?: number | null): number;
+
+/**
+ * [`ink_zoom_in`].
+ */
+export function inkZoomIn(zoom: number): number;
+
+/**
+ * [`ink_zoom_out`].
+ */
+export function inkZoomOut(zoom: number): number;
+
+/**
  * [`wf_core::sync::json_entities::is_app_owned_path`] for JS.
  *
  * # Errors
@@ -394,6 +446,11 @@ export function mergeRows(base: any, local: any, remote: any): any;
 export function mergeVaultPage(base: any, folder: any, workspace: any): any;
 
 /**
+ * [`nib_width`]; `velocity` defaults to 0.
+ */
+export function nibWidth(base: number, pressure?: number | null, velocity?: number | null, full_taper?: number | null): number;
+
+/**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
  * `value`, or `None`.
  *
@@ -420,6 +477,16 @@ export function normalizeMarkdownImageSyntax(body: string): string;
  * Fails when `json` is not valid JSON or is over the text cap.
  */
 export function normalizePasteSettings(json: string): any;
+
+/**
+ * [`pack_ink_stroke`] as `{ points, pressures }`; `options` is the TS
+ * `InkStrokePackerOptions` or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object.
+ */
+export function packInkStroke(points: Float64Array, pressures: Float64Array, options: any): any;
 
 /**
  * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
@@ -547,6 +614,15 @@ export function readInkNoteBody(body: string): any;
 export function relativeAssetPaths(body: string): any;
 
 /**
+ * [`resample_ink_stroke`] as `{ points, pressures }`.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function resampleInkStroke(points: Float64Array, pressures: Float64Array, spacing?: number | null): any;
+
+/**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
  *
  * # Errors
@@ -576,6 +652,16 @@ export function sameValue(a: any, b: any): boolean;
 export function serializeWorkspace(snapshot_json: string, project_id: string, project_name: string): any;
 
 /**
+ * [`smooth_ink_stroke`] as `{ points, pressures }`; `options` is
+ * `{ spacing?, passes? }` or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object.
+ */
+export function smoothInkStroke(points: Float64Array, pressures: Float64Array, options: any): any;
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -592,6 +678,11 @@ export function stampWorkspaceId(content: string, id: string): string | undefine
  * Fails when `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function stripKindSuffix(name: string): string;
+
+/**
+ * [`stroke_base_width`].
+ */
+export function strokeBaseWidth(samples: Float64Array, base: number): number;
 
 /**
  * [`tab_separated_to_markdown_table`] for JS, as `{ text, changed }`.
@@ -685,8 +776,11 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly addCounts: (a: any, b: any) => [number, number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
+    readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
+    readonly clampInkZoom: (a: number) => number;
     readonly cleanPastedText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanPdfText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanUrlsWithRules: (a: number, b: number, c: any) => [number, number, number];
@@ -712,6 +806,13 @@ export interface InitOutput {
     readonly imageExtensionForMime: (a: number, b: number) => [number, number, number, number];
     readonly imagePathsInBody: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly inkCurveAt: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly inkPressureFactor: (a: number, b: number) => number;
+    readonly inkTangentAt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
+    readonly inkVelocityBetween: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly inkVelocityFactor: (a: number, b: number, c: number) => number;
+    readonly inkZoomIn: (a: number) => number;
+    readonly inkZoomOut: (a: number) => number;
     readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
@@ -725,9 +826,11 @@ export interface InitOutput {
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
+    readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
+    readonly packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly parseJsonData: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly parseLinkRemovalText: (a: number, b: number) => [number, number, number];
@@ -741,11 +844,14 @@ export interface InitOutput {
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
+    readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
+    readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
