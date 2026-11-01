@@ -16,6 +16,7 @@ use wf_relay_server::postgrest::UserDb;
 use wf_relay_server::routes::AppState;
 use wf_relay_server::s3::S3Target;
 use wf_relay_server::safe_error::SERVER_FAULT;
+use wf_relay_server::settings::SettingsConfig;
 use wf_relay_server::storage::StorageConfig;
 use wf_relay_server::url_meta::MetaUpstreams;
 
@@ -79,6 +80,7 @@ fn state(up: &Upstream, storage: StorageConfig) -> Arc<AppState> {
         pages: RateLimiter::new(PAGE_FETCH_LIMIT),
         pastes: RateLimiter::new(PASTE_FETCH_LIMIT),
         storage,
+        settings: SettingsConfig::default(),
     })
 }
 
