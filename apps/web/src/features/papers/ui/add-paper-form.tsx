@@ -1,8 +1,10 @@
 "use client";
 
 import { enumLabel } from "@/lib/enum-label";
-import { useMemo, useRef, useState } from "react";
-import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import { useEffect, useRef, useState } from "react";
+import { PAPER_STATUSES, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import type { PaperRef as WasmPaperRef } from "@weaveforge/wasm";
+import { loadCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
@@ -69,10 +71,19 @@ export function AddPaperForm({
   // The picker states intent; the parser decides what was actually pasted, so
   // an abs link in the arXiv box resolves as arXiv. Shown so the researcher
   // sees which source will answer before submitting.
-  const detected = useMemo(
-    () => (refValue.trim() ? parsePaperRef(refKind, refValue) : null),
-    [refKind, refValue],
-  );
+  const [detected, setDetected] = useState<WasmPaperRef | null>(null);
+  useEffect(() => {
+    if (!refValue.trim()) {
+      setDetected(null);
+      return;
+    }
+    let live = true;
+    loadCore().then(
+      (core) => { if (live) setDetected(core.parsePaperRef(refKind, refValue)); },
+      () => { if (live) setDetected(null); },
+    );
+    return () => { live = false; };
+  }, [refKind, refValue]);
 
   const { busy, error, submit } = useSubmit(async () => {
     const papers = getContainer().papers;
@@ -140,7 +151,7 @@ export function AddPaperForm({
             placeholder={REF_PLACEHOLDERS[refKind]}
             aria-describedby={detected ? "refValueHint" : undefined}
           />
-          {detected && detected.kind !== "bibliographic" && (
+          {detected && (
             <p id="refValueHint" className="muted field-hint">
               Recognized as {DETECTED_LABELS[detected.kind]}
               {detected.kind !== "url" ? ` — ${detected.value}` : ""}

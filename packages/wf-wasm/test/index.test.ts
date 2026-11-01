@@ -10,14 +10,20 @@ import {
   describePull,
   describePush,
   digestText,
+  extractDoi,
+  extractPageMetadata,
   fuseRankings,
   GIT_SYNC_MAX_FILE_BYTES,
+  guessBlobContentType,
   indexTerms,
   initSync,
   isSafeWorkspacePath,
   isUnderIgnoredFolder,
   maxFusionIds,
   maxIndexTextUtf16,
+  normalizeArxivId,
+  pageImportRefusal,
+  parsePaperRef,
   parseQuery,
   safeWorkspacePath,
   stampWorkspaceId,
@@ -338,4 +344,52 @@ test("safeWorkspacePath normalizes and refuses escapes from the root", () => {
   assert.throws(() => safeWorkspacePath("../x"), /Unsafe workspace path: \.\.\/x/);
   assert.equal(isSafeWorkspacePath("/etc"), false);
   assert.equal(isSafeWorkspacePath("a/b"), true);
+});
+
+test("parsePaperRef normalizes each kind", () => {
+  assert.deepEqual(parsePaperRef("doi", "https://arxiv.org/abs/2305.12345v2"), { kind: "arxiv", value: "2305.12345" });
+  assert.deepEqual(parsePaperRef("zotero", "  ABCD1234 "), { kind: "zotero", value: "ABCD1234" });
+  assert.deepEqual(parsePaperRef("url", "example.com/paper"), { kind: "url", value: "https://example.com/paper" });
+  assert.throws(() => parsePaperRef("bibliographic" as never, "x"));
+});
+
+test("normalizeArxivId strips prefixes and rejects non-ids", () => {
+  assert.equal(normalizeArxivId(undefined), undefined);
+  assert.equal(normalizeArxivId("arXiv:2305.12345v1"), "2305.12345");
+  assert.equal(normalizeArxivId("not an id"), undefined);
+});
+
+test("extractDoi finds a DOI in a URL", () => {
+  assert.equal(extractDoi("https://doi.org/10.1145/3290605.3300233)."), "10.1145/3290605.3300233");
+  assert.equal(extractDoi(""), undefined);
+});
+
+test("extractPageMetadata reads citation meta tags", () => {
+  const html = '<html><head><meta name="citation_title" content="A Paper"><meta name="citation_author" content="Ada Lovelace"></head></html>';
+  const result = extractPageMetadata(html, "https://example.org/p");
+  assert.equal(result.title, "A Paper");
+  assert.deepEqual(result.authors, ["Ada Lovelace"]);
+  assert.equal(result.url, "https://example.org/p");
+  assert.equal(typeof result.hasCitationMeta, "boolean");
+  assert.equal(typeof result.isArticle, "boolean");
+  // Absent optional fields are omitted, not null.
+  assert.equal("doi" in result, false);
+});
+
+test("pageImportRefusal accepts a page with metadata and refuses a bare one", () => {
+  const result = extractPageMetadata('<html><head><meta name="citation_title" content="A Paper"><meta name="citation_author" content="Ada Lovelace"></head></html>', "https://example.org/p");
+  assert.equal(pageImportRefusal(result), null);
+  const bare = { authors: [], url: "https://x.org", hasCitationMeta: false, isArticle: false };
+  const refusal = pageImportRefusal(bare);
+  assert.ok(typeof refusal === "string" && refusal.length > 0);
+});
+
+test("guessBlobContentType maps known extensions and falls back", () => {
+  assert.equal(guessBlobContentType("a/b.pdf"), "application/pdf");
+  const fallback = guessBlobContentType("x.unknownext");
+  assert.ok(typeof fallback === "string" && fallback.length > 0);
+});
+
+test("extractDoi rejects text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+  assert.throws(() => extractDoi("x".repeat(maxIndexTextUtf16() + 1)), RangeError);
 });

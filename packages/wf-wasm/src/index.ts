@@ -32,6 +32,12 @@ import init, {
   stampWorkspaceId as rawStampWorkspaceId,
   safeWorkspacePath as rawSafeWorkspacePath,
   isSafeWorkspacePath as rawIsSafeWorkspacePath,
+  parsePaperRef as rawParsePaperRef,
+  normalizeArxivId as rawNormalizeArxivId,
+  extractDoi as rawExtractDoi,
+  extractPageMetadata as rawExtractPageMetadata,
+  pageImportRefusal as rawPageImportRefusal,
+  guessBlobContentType as rawGuessBlobContentType,
 } from "../pkg/wf_wasm.js";
 import type {
   ChangeSide,
@@ -40,6 +46,9 @@ import type {
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
+  PageMetadata,
+  PaperRef,
+  PaperRefKind,
   ParsedQuery,
   RankedList,
   SearchKind,
@@ -54,6 +63,9 @@ export type {
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
+  PageMetadata,
+  PaperRef,
+  PaperRefKind,
   ParsedQuery,
   SearchKind,
   TokenizerOptions,
@@ -235,4 +247,42 @@ export function safeWorkspacePath(path: string): string {
 export function isSafeWorkspacePath(path: string): boolean {
   checkIndexText(path);
   return rawIsSafeWorkspacePath(path);
+}
+
+/** The paper id a `kind` reference points to, normalized (Rust `parse_paper_ref`). Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function parsePaperRef(kind: PaperRefKind, value: string): PaperRef {
+  checkIndexText(value);
+  return rawParsePaperRef(kind, value) as PaperRef;
+}
+
+/** The bare arXiv id in `value` (a URL or `arXiv:` prefix), or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function normalizeArxivId(value?: string): string | undefined {
+  if (!value) return undefined;
+  checkIndexText(value);
+  return rawNormalizeArxivId(value) ?? undefined;
+}
+
+/** The DOI in `value`, or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function extractDoi(value?: string): string | undefined {
+  if (!value) return undefined;
+  checkIndexText(value);
+  return rawExtractDoi(value) ?? undefined;
+}
+
+/** Citation metadata read from a page's HTML. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function extractPageMetadata(html: string, url: string): PageMetadata {
+  checkIndexText(html);
+  checkIndexText(url);
+  return rawExtractPageMetadata(html, url) as PageMetadata;
+}
+
+/** Why `meta` cannot be imported as a paper, or null if it can. */
+export function pageImportRefusal(meta: PageMetadata): string | null {
+  return rawPageImportRefusal(meta) ?? null;
+}
+
+/** MIME type for a blob's file `path`, by extension. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function guessBlobContentType(path: string): string {
+  checkIndexText(path);
+  return rawGuessBlobContentType(path);
 }

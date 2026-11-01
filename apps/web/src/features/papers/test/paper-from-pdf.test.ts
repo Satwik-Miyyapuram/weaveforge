@@ -7,11 +7,12 @@
  * neither (a scan) is named after the file, and the toast says so. The file is
  * kept as the paper's PDF, on a duplicate too when that paper has none.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MetadataResolutionError, type Paper, type PaperRef } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   MAX_PDF_BYTES,
   addPaperFromPdf,
@@ -23,6 +24,8 @@ import {
 } from "../application/paper-from-pdf";
 
 const paper = (id: string, title = id) => ({ id, title }) as Paper;
+
+before(async () => { await loadTestCore(); });
 const bytes = new ArrayBuffer(8);
 
 function deps(over: Partial<PdfDropDeps> = {}) {

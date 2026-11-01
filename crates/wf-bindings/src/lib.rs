@@ -41,6 +41,9 @@ pub fn types() -> Types {
         .register::<wf_core::sync::git_policy::GitSyncSkipReason>()
         .register::<wf_core::sync::git_remote::GitPullResult>()
         .register::<wf_core::sync::git_remote::GitPushResult>()
+        .register::<wf_core::papers::paper_ref::PaperRefKind>()
+        .register::<wf_core::papers::paper_ref::PaperRef>()
+        .register::<wf_core::papers::page_metadata::PageMetadata>()
 }
 
 /// Render the full bindings file.
