@@ -33,8 +33,10 @@ use crate::org_routes;
 use crate::sdk;
 use crate::sdk_artifacts::{self, ARTIFACT_BODY_LIMIT};
 use crate::sdk_metrics;
+use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
+use crate::{credentials, settings_routes};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
 /// Same caching as the Next.js arXiv route on success.
@@ -59,6 +61,8 @@ pub struct AppState {
     pub pastes: RateLimiter,
     /// Tiered blob storage: provider switch, object stores and the view-token secret.
     pub storage: StorageConfig,
+    /// MCP switch and the credential-sealing key for `/api/settings/*`.
+    pub settings: SettingsConfig,
 }
 
 /// The router: every route, with CORS for the configured origins.
@@ -108,6 +112,22 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route(
             "/api/sdk/artifacts",
             post(sdk_artifacts::artifacts_post).layer(DefaultBodyLimit::max(ARTIFACT_BODY_LIMIT)),
+        )
+        .route(
+            "/api/settings/api-tokens",
+            get(settings_routes::api_tokens_get)
+                .post(settings_routes::api_tokens_post)
+                .delete(settings_routes::api_tokens_delete),
+        )
+        .route(
+            "/api/settings/mcp-tokens",
+            get(settings_routes::mcp_tokens_get)
+                .post(settings_routes::mcp_tokens_post)
+                .delete(settings_routes::mcp_tokens_delete),
+        )
+        .route(
+            "/api/settings/credentials",
+            get(credentials::credentials_get).post(credentials::credentials_post),
         )
         .layer(cors)
         .with_state(state)

@@ -15,6 +15,7 @@ use wf_relay_server::config::Config;
 use wf_relay_server::limiter::{PAGE_FETCH_LIMIT, PASTE_FETCH_LIMIT, RateLimiter};
 use wf_relay_server::routes::{AppState, app};
 use wf_relay_server::sdk_artifacts::ARTIFACT_BODY_LIMIT;
+use wf_relay_server::settings::SettingsConfig;
 use wf_relay_server::storage::StorageConfig;
 use wf_relay_server::url_meta::MetaUpstreams;
 
@@ -62,6 +63,7 @@ fn state(up: &Upstream) -> Arc<AppState> {
         pages: RateLimiter::new(PAGE_FETCH_LIMIT),
         pastes: RateLimiter::new(PASTE_FETCH_LIMIT),
         storage: StorageConfig::default(),
+        settings: SettingsConfig::default(),
     })
 }
 

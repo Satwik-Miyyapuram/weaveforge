@@ -134,7 +134,8 @@ async fn api_token_user(
 }
 
 /// The token in `Authorization: Bearer <token>`, as the web's `bearerToken` reads it.
-fn bearer_token(authorization: Option<&str>) -> Option<&str> {
+#[must_use]
+pub fn bearer_token(authorization: Option<&str>) -> Option<&str> {
     let value = authorization?;
     let stripped = value
         .get(..6)
