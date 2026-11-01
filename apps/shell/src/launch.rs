@@ -16,6 +16,8 @@ pub const MAX_REPLY_BYTES: usize = 256 * 1024 * 1024;
 /// How long quitting waits for the sidecar to back up and close the database. Same as Electron's
 /// `QUIT_TIMEOUT_MS` (apps/desktop/src/quit.ts): the exit backup can be hundreds of MB.
 pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(15);
+/// Product name of the side-by-side test build. It keeps its own data and MCP files, like Electron's.
+pub const DEV_PRODUCT_NAME: &str = "WeaveForge Dev";
 
 /// Where the sidecar's code comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +41,8 @@ pub struct ApiArgs {
     pub artifacts: PathBuf,
     /// The app version the local API reports.
     pub app_version: String,
+    /// The app's product name; [`DEV_PRODUCT_NAME`] marks the side-by-side test build.
+    pub product_name: String,
 }
 
 /// `Dev` when `WF_SIDECAR_DEV` names the repo root (debug builds only), else `Bundled`.
@@ -70,22 +74,27 @@ pub fn without_verbatim_prefix(path: &Path) -> PathBuf {
 }
 
 /// Electron's data dir, to copy from on first start; `None` for a dev sidecar, which must never touch the installed
-/// app's data. Electron's `userData` is `<appData>/WeaveForge`, and Tauri's `config_dir` is that `<appData>` on
-/// every OS.
+/// app's data. Electron's `userData` is `<appData>/<productName>`, so the release copies from `WeaveForge` and the
+/// test build from `WeaveForge Dev`. Tauri's `config_dir` is that `<appData>` on every OS.
 #[must_use]
-pub fn electron_data_dir(source: &SidecarSource, config_dir: &Path) -> Option<PathBuf> {
+pub fn electron_data_dir(
+    source: &SidecarSource,
+    product_name: &str,
+    config_dir: &Path,
+) -> Option<PathBuf> {
     match source {
         SidecarSource::Dev { .. } => None,
-        SidecarSource::Bundled { .. } => Some(config_dir.join("WeaveForge")),
+        SidecarSource::Bundled { .. } => Some(config_dir.join(product_name)),
     }
 }
 
 /// `Dev` runs with `--home-variant dev`: its MCP files stay in `~/.weaveforge/mcp-dev*`, never the installed app's.
-/// `None` for `Bundled`.
+/// The side-by-side test build (`DEV_PRODUCT_NAME`) gets the same variant. `None` otherwise.
 #[must_use]
-pub fn home_variant(source: &SidecarSource) -> Option<&'static str> {
+pub fn home_variant(source: &SidecarSource, product_name: &str) -> Option<&'static str> {
     match source {
         SidecarSource::Dev { .. } => Some("dev"),
+        SidecarSource::Bundled { .. } if product_name == DEV_PRODUCT_NAME => Some("dev"),
         SidecarSource::Bundled { .. } => None,
     }
 }
@@ -158,7 +167,7 @@ pub fn sidecar_config(
     args.push(bridge_source(source).into_os_string());
     args.push("--app-version".into());
     args.push(api.app_version.clone().into());
-    if let Some(variant) = home_variant(source) {
+    if let Some(variant) = home_variant(source, &api.product_name) {
         args.push("--home-variant".into());
         args.push(variant.into());
     }
@@ -185,6 +194,7 @@ mod tests {
         ApiArgs {
             artifacts: PathBuf::from("/data/artifacts"),
             app_version: "1.2.3".into(),
+            product_name: "WeaveForge".into(),
         }
     }
 
@@ -320,19 +330,61 @@ mod tests {
     }
 
     #[test]
-    fn home_variant_is_dev_only() {
+    fn home_variant_is_dev_or_dev_product() {
         assert_eq!(
-            home_variant(&SidecarSource::Dev {
-                repo: PathBuf::from("repo"),
-            }),
+            home_variant(
+                &SidecarSource::Dev {
+                    repo: PathBuf::from("repo"),
+                },
+                "WeaveForge"
+            ),
             Some("dev")
         );
         assert_eq!(
-            home_variant(&SidecarSource::Bundled {
-                resources: PathBuf::from("res"),
-            }),
+            home_variant(
+                &SidecarSource::Bundled {
+                    resources: PathBuf::from("res"),
+                },
+                "WeaveForge"
+            ),
             None
         );
+        assert_eq!(
+            home_variant(
+                &SidecarSource::Bundled {
+                    resources: PathBuf::from("res"),
+                },
+                DEV_PRODUCT_NAME
+            ),
+            Some("dev")
+        );
+    }
+
+    #[test]
+    fn bundled_dev_product_args_have_home_variant() {
+        let res = PathBuf::from("res");
+        let api = ApiArgs {
+            artifacts: PathBuf::from("/data/artifacts"),
+            app_version: "1.2.3".into(),
+            product_name: DEV_PRODUCT_NAME.into(),
+        };
+        let config = sidecar_config(
+            &SidecarSource::Bundled {
+                resources: res.clone(),
+            },
+            &PathBuf::from("data"),
+            &PathBuf::from("backups"),
+            &api,
+            Some(Path::new("old")),
+        );
+        let pair: Vec<OsString> = vec!["--home-variant".into(), "dev".into()];
+        assert!(
+            config.args.windows(2).any(|w| w == pair.as_slice()),
+            "{:?}",
+            config.args
+        );
+        let tail: Vec<OsString> = vec!["--migrate-from".into(), "old".into()];
+        assert!(config.args.ends_with(&tail), "{:?}", config.args);
     }
 
     #[test]
@@ -370,6 +422,7 @@ mod tests {
         let api = ApiArgs {
             artifacts: PathBuf::from(r"\\?\C:\data\artifacts"),
             app_version: "1.2.3".into(),
+            product_name: "WeaveForge".into(),
         };
         let config = sidecar_config(
             &SidecarSource::Bundled {
@@ -426,6 +479,7 @@ mod tests {
                 &SidecarSource::Dev {
                     repo: PathBuf::from("repo")
                 },
+                DEV_PRODUCT_NAME,
                 &cfg
             ),
             None
@@ -438,8 +492,19 @@ mod tests {
             resources: PathBuf::from("res"),
         };
         assert_eq!(
-            electron_data_dir(&source, Path::new("cfg")),
+            electron_data_dir(&source, "WeaveForge", Path::new("cfg")),
             Some(PathBuf::from("cfg").join("WeaveForge"))
+        );
+    }
+
+    #[test]
+    fn dev_product_migrates_from_its_own_user_data() {
+        let source = SidecarSource::Bundled {
+            resources: PathBuf::from("res"),
+        };
+        assert_eq!(
+            electron_data_dir(&source, DEV_PRODUCT_NAME, Path::new("cfg")),
+            Some(PathBuf::from("cfg").join("WeaveForge Dev"))
         );
     }
 
@@ -517,6 +582,7 @@ mod tests {
         let api = ApiArgs {
             artifacts: PathBuf::from(r"\\?\C:\data\artifacts"),
             app_version: "1.2.3".into(),
+            product_name: "WeaveForge".into(),
         };
         for source in &sources {
             let config = sidecar_config(

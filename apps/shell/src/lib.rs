@@ -51,21 +51,27 @@ pub mod vault_watch;
 pub mod vault_watcher;
 pub mod zotero_local;
 
-/// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
-fn web_root() -> PathBuf {
+/// Where the static web export lives: `dev_dir` (`WF_WEB_DIST`, debug builds only) if set, else `web/` in
+/// Tauri's resource dir (beside the exe on Windows, `/usr/lib/<product>` on Linux, `Contents/Resources` on macOS).
+fn web_root_in(
+    dev_dir: Option<std::ffi::OsString>,
+    resources: Option<&std::path::Path>,
+) -> PathBuf {
+    if let Some(dir) = dev_dir.filter(|d| !d.is_empty()) {
+        return PathBuf::from(dir);
+    }
+    resources.map_or_else(|| PathBuf::from("web"), |r| r.join("web"))
+}
+
+/// The app's web export, found through `web_root_in` with the app's resource dir.
+fn web_root(app: &tauri::AppHandle) -> PathBuf {
+    use tauri::Manager;
     #[cfg(debug_assertions)]
-    {
-        if let Some(dir) = std::env::var_os("WF_WEB_DIST").filter(|d| !d.is_empty()) {
-            return PathBuf::from(dir);
-        }
-    }
-    if let Some(dir) = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|p| p.join("web")))
-    {
-        return dir;
-    }
-    PathBuf::from("web")
+    let dev = std::env::var_os("WF_WEB_DIST");
+    #[cfg(not(debug_assertions))]
+    let dev = None;
+    let resources = app.path().resource_dir().ok();
+    web_root_in(dev, resources.as_deref())
 }
 
 /// The phone entry point. Android and iOS start the app through the symbols Tauri's macro makes;
@@ -282,13 +288,15 @@ fn start_local_db(app: &tauri::AppHandle) {
             let data_dir = data.join("local-db");
             let backups_dir = data.join("local-db-backups");
             let source = launch::sidecar_source(resources);
+            let product = app.package_info().name.clone();
             let old = paths
                 .config_dir()
                 .ok()
-                .and_then(|c| launch::electron_data_dir(&source, &c));
+                .and_then(|c| launch::electron_data_dir(&source, &product, &c));
             let api = launch::ApiArgs {
                 artifacts: data.join("artifacts"),
                 app_version: app.package_info().version.to_string(),
+                product_name: product.clone(),
             };
             let config =
                 launch::sidecar_config(&source, &data_dir, &backups_dir, &api, old.as_deref());
@@ -298,7 +306,7 @@ fn start_local_db(app: &tauri::AppHandle) {
             });
             let host = local_api::shell_host(
                 app,
-                local_api::mcp_dir(&home, launch::home_variant(&source)),
+                local_api::mcp_dir(&home, launch::home_variant(&source, &product)),
             );
             if host.is_none() {
                 local_api::warn(
@@ -348,7 +356,7 @@ fn start_routes(app: &tauri::AppHandle) {
     use tauri::Manager;
     let data = app.path().app_data_dir().unwrap_or_default();
     let routes = app_route::AppRoutes {
-        web: web_root(),
+        web: web_root(app),
         models: data.join("models"),
         artifacts: data.join("artifacts"),
         model_client: model_cache::model_client(model_cache::is_upstream_url).ok(),
@@ -571,6 +579,7 @@ fn to_response(reply: relay::shared::Answer) -> tauri::http::Response<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
     use tauri::http::StatusCode;
 
     #[test]
@@ -618,5 +627,50 @@ mod tests {
             "\"url\": \"{}://localhost/\"",
             protocol::APP_SCHEME
         )));
+    }
+
+    #[test]
+    fn web_root_uses_the_resource_dir() {
+        assert_eq!(
+            web_root_in(None, Some(Path::new("res"))),
+            PathBuf::from("res").join("web")
+        );
+    }
+
+    #[test]
+    fn web_root_prefers_the_dev_dir() {
+        assert_eq!(
+            web_root_in(Some("dist".into()), Some(Path::new("res"))),
+            PathBuf::from("dist")
+        );
+    }
+
+    #[test]
+    fn web_root_ignores_an_empty_dev_dir() {
+        assert_eq!(
+            web_root_in(Some("".into()), Some(Path::new("res"))),
+            PathBuf::from("res").join("web")
+        );
+    }
+
+    #[test]
+    fn web_root_without_resources_is_relative() {
+        assert_eq!(web_root_in(None, None), PathBuf::from("web"));
+    }
+
+    #[test]
+    fn bundle_ships_the_web_export() {
+        let bundle = include_str!("../tauri.bundle.json");
+        assert!(bundle.contains("\"../desktop/dist/web/\": \"web/\""));
+        assert!(bundle.contains("\"target/stage/sidecar/\": \"sidecar/\""));
+    }
+
+    #[test]
+    fn dev_overlay_names_the_dev_product_with_its_own_identifier() {
+        let dev = include_str!("../tauri.dev.json");
+        let name = format!("\"productName\": \"{}\"", launch::DEV_PRODUCT_NAME);
+        assert!(dev.contains(&name));
+        assert!(dev.contains("\"identifier\": \"dev.weaveforge.desktop.dev\""));
+        assert!(!include_str!("../tauri.conf.json").contains("dev.weaveforge.desktop.dev"));
     }
 }
