@@ -40,8 +40,7 @@ pub fn token_from_bytes(bytes: &[u8; 32]) -> GeneratedToken {
 /// A new token from OS randomness; fails rather than falling back to a weaker RNG.
 pub fn generate_token() -> Result<GeneratedToken, String> {
     let mut bytes = [0u8; 32];
-    getrandom::fill(&mut bytes)
-        .map_err(|_| "Could not generate a secure token.".to_string())?;
+    getrandom::fill(&mut bytes).map_err(|_| "Could not generate a secure token.".to_string())?;
     Ok(token_from_bytes(&bytes))
 }
 
