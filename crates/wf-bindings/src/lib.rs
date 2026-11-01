@@ -65,6 +65,7 @@ pub fn types() -> Types {
         .register::<wf_core::sync::serialize::SerializedAsset>()
         .register::<wf_core::sync::serialize::SerializedWorkspace>()
         .register::<wf_core::sync::workspace_snapshot::WorkspaceSnapshotCounts>()
+        .register::<wf_core::sync::folder_mirror::MirrorResult>()
         .register::<wf_core::sync::merge_vault_page::VaultPageBase>()
         .register::<wf_core::sync::merge_vault_page::VaultPageSide>()
         .register::<wf_core::sync::merge_vault_page::VaultPageMerge>()

@@ -1,4 +1,4 @@
-//! Folder export, import parsing and import diffs for JavaScript (step 0b-5b). Each export
+//! Folder export, import parsing and import diffs for JavaScript (steps 0b-5b, 0b-5c). Each export
 //! wraps a `wf-core` function; the JS shapes match `packages/core`.
 //!
 //! The snapshot and the stored JSON rows cross as JSON text: `JSON.stringify` drops
@@ -14,6 +14,7 @@ use wf_core::sync::deserialize::{
     ExistingEntity, ParsedEntity, diff_workspace, parse_workspace_folder,
 };
 use wf_core::sync::folder_layout::WorkspaceProject;
+use wf_core::sync::folder_mirror::plan_mirror;
 use wf_core::sync::import_action::ActionCounts;
 use wf_core::sync::json_entities::{
     JsonDiffEntry, JsonRow, ParsedJsonData, WorkspaceJsonKind, add_counts, count_json_actions,
@@ -164,4 +165,30 @@ pub fn add_counts_js(a: JsValue, b: JsValue) -> JsResult<JsValue> {
     let a: ActionCounts = serde_wasm_bindgen::from_value(a)?;
     let b: ActionCounts = serde_wasm_bindgen::from_value(b)?;
     to_js(&add_counts(a, b))
+}
+
+/// [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
+/// `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
+/// `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
+/// Returns the `MirrorResult` (`mirrored` and `bases` as `[path, value][]`).
+///
+/// # Errors
+///
+/// Fails when an argument has the wrong shape.
+#[wasm_bindgen(js_name = planMirror)]
+pub fn plan_mirror_js(
+    files: JsValue,
+    asset_paths: JsValue,
+    previous_paths: JsValue,
+    base: JsValue,
+    disk: JsValue,
+) -> JsResult<JsValue> {
+    let files: Vec<(String, String)> = serde_wasm_bindgen::from_value(files)?;
+    let asset_paths: Vec<String> = serde_wasm_bindgen::from_value(asset_paths)?;
+    let previous_paths: Vec<String> = serde_wasm_bindgen::from_value(previous_paths)?;
+    let base: Option<HashMap<String, String>> = serde_wasm_bindgen::from_value(base)?;
+    let disk: HashMap<String, String> = serde_wasm_bindgen::from_value(disk)?;
+    let plan = plan_mirror(&files, &asset_paths, &previous_paths, base.as_ref(), &disk)
+        .map_err(|err| serde_wasm_bindgen::Error::new(err.to_string()))?;
+    to_js(&plan)
 }
