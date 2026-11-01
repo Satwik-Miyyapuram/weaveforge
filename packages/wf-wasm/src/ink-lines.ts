@@ -61,13 +61,29 @@ export function applyInkSegmentation<S extends object>(
   }
   const counts = Uint32Array.from(segmentation.lines, (line) => line.strokes.length);
   const bands = Float64Array.from(segmentation.lines.flatMap((line) => [line.yBand[0], line.yBand[1]]));
-  const lines = rawInkLineRecords(counts, bands, recognised) as ReturnType<typeof applyInkSegmentation>["lines"];
-  return { strokes: grouped, lines };
+  return { strokes: grouped, lines: inkLineRecords(counts, bands, recognised) };
+}
+
+/**
+ * The stored line records: `counts[i]` strokes in line `i`, `bands` its flat
+ * `yMin, yMax` pairs, `recognised` its text and confidence (Rust `ink_line_records`).
+ */
+export function inkLineRecords(
+  counts: Uint32Array,
+  bands: Float64Array,
+  recognised: readonly ({ text: string; confidence: number } | undefined)[] = [],
+): { strokeStart: number; strokeCount: number; yMin: number; yMax: number; text: string; confidence: number }[] {
+  return rawInkLineRecords(counts, bands, recognised) as ReturnType<typeof inkLineRecords>;
 }
 
 /** Whether a line's confidence is too low, or missing, to trust (Rust `is_unsure_confidence`). */
 export function isUnsureLine(line: { conf: number }): boolean {
-  return rawIsUnsureConfidence(line.conf);
+  return isUnsureConfidence(line.conf);
+}
+
+/** Whether a confidence is too low, or missing (NaN), to trust (Rust `is_unsure_confidence`). */
+export function isUnsureConfidence(conf: number): boolean {
+  return rawIsUnsureConfidence(conf);
 }
 
 /** An engine's raw score mapped to [0, 1] (Rust `map_ink_confidence`). */

@@ -71,7 +71,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   packInkStroke, the zoom steps, ...) add ~12 KB: wf-core's ink module
 //   (resampling, binomial smoothing, Hermite curves, the stroke packer) and
 //   the wasm-bindgen glue for the typed arrays. 380 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 380 * 1024;
+// - Step 5.2c: 392,957 bytes (module 380,547 + glue 12,410), the Windows build.
+//   The line segmentation and recognition exports (segmentInkLines,
+//   inkLineRecords, mapInkConfidence, inkVocabularyHints, ...) add ~7 KB:
+//   wf-core's ink segment and recognise modules plus serde for the line
+//   records. Strokes cross as typed arrays and segmentation sorts by binary
+//   insertion, which saved ~4 KB over serde input and sort_by. 390 KB is this
+//   batch's ceiling.
+export const WASM_GZIP_BUDGET = 390 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
