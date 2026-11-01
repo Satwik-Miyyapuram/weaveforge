@@ -7,7 +7,7 @@ import { test, type TestContext } from "node:test";
 
 import { SYNC_AUTHOR, type GitRemoteConfig } from "@weaveforge/core";
 
-import { NativeWorkspaceGit, redactAuth, remoteAuth } from "../src/vault-git";
+import { NativeWorkspaceGit, redactAuth, remoteAuth } from "../../shell/sidecar/src/vault-git";
 
 /**
  * Remote sync through the machine's git, against a bare repository on disk.

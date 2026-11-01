@@ -1,6 +1,6 @@
 //! Serving the bundled web export to the window over a custom scheme.
 //!
-//! Port of `apps/desktop/src/app-protocol.ts`. Functions take the request path
+//! Port of `apps/shell/sidecar/src/app-protocol.ts`. Functions take the request path
 //! (what `http::Uri::path()` returns), not a full URL, because the scheme's URL
 //! differs per OS.
 

@@ -23,7 +23,7 @@ export interface IsomorphicWorkspaceGitOptions {
  *
  * Local operations only — no clone, push, pull, or merge. Remotes from a
  * browser need a CORS proxy plus stored credentials; remote sync is the desktop
- * shell's (`IWorkspaceGitRemote` in `apps/desktop/src/vault-git.ts`).
+ * shell's (`IWorkspaceGitRemote` in `apps/shell/sidecar/src/vault-git.ts`).
  *
  * Commit scope: `git.commit` commits whatever the index holds, so every commit
  * first brings the index back in line with the sync policy. Entries the policy

@@ -1,6 +1,6 @@
 import http from "node:http";
 import { AUTH_LOOPBACK_PORT, signInCallbackQuery } from "./handlers";
-import { isLoopbackHost } from "./local-api-server";
+import { isLoopbackHost } from "../../shell/sidecar/src/local-api-server";
 
 /**
  * Where a provider sign-in comes back to.

@@ -1,8 +1,8 @@
 import { errorMessage } from "@weaveforge/core";
-import type { LocalDbHost } from "../../../desktop/src/local-db-host";
-import { registerMainLocalApi } from "../../../desktop/src/main-local-api";
-import { mcpLaunch, mcpPaths } from "../../../desktop/src/mcp-connect";
-import { mcpClientConfigs, rewriteMcpClientConfigs } from "../../../desktop/src/mcp-rewrite";
+import type { LocalDbHost } from "./local-db-host";
+import { registerMainLocalApi } from "./main-local-api";
+import { mcpLaunch, mcpPaths } from "./mcp-connect";
+import { mcpClientConfigs, rewriteMcpClientConfigs } from "./mcp-rewrite";
 import { sidecarApiDeps, type Handler } from "./api-deps";
 import type { Handlers, Peer } from "./wire";
 

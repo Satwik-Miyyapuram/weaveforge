@@ -157,7 +157,7 @@ export const SEMANTIC_RANK_EVENT = "semanticRank";
 /** The event the shell emits with `{ model, loaded, total }` while `embedLoad` fetches model files. */
 export const EMBED_PROGRESS_EVENT = "embedProgress";
 
-/** The Electron-era handler channels `local_api_call` forwards to (literals, as in apps/desktop/src/channels.ts). */
+/** The Electron-era handler channels `local_api_call` forwards to (literals, as in apps/shell/sidecar/src/channels.ts). */
 export const LOCAL_API = {
   state: "weaveforge:local-api-state",
   set: "weaveforge:local-api-set",

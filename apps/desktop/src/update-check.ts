@@ -20,7 +20,7 @@
  * because an Electron app cannot be started inside `node --test`.
  */
 import { errorMessage } from "@weaveforge/core";
-import type { IpcResult } from "./channels";
+import type { IpcResult } from "../../shell/sidecar/src/channels";
 
 /** A release, as much of one as this needs. */
 export interface Release {

@@ -30,7 +30,7 @@ test("serving the local API is a switch, like every other on/off", () => {
   // Nothing tells the reader to tick a box that is no longer there.
   assert.doesNotMatch(clients, /Tick Serve MCP/);
   assert.match(clients, /Turn on Serve MCP above\./);
-  const shell = read("../../desktop/src/main-local-api.ts");
+  const shell = read("../../shell/sidecar/src/main-local-api.ts");
   assert.doesNotMatch(shell, /tick Serve MCP/);
 });
 

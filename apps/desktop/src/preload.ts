@@ -29,7 +29,7 @@ import {
   type ImagePayload,
   type IpcResult,
   type TitlePayload,
-} from "./channels";
+} from "../../shell/sidecar/src/channels";
 
 /**
  * What the page is allowed to ask the machine for.
