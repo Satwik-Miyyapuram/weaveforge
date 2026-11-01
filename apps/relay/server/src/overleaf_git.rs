@@ -105,16 +105,23 @@ fn clone_and_collect(
 }
 
 fn clone_project(url: &str, dir: &Path, token: &str) -> Result<(), String> {
-    let auth = format!(
-        "Authorization: Basic {}",
-        STANDARD.encode(format!("git:{token}"))
-    );
+    let encoded = STANDARD.encode(format!("git:{token}"));
+    let auth = format!("Authorization: Basic {encoded}");
+    // No user or system git config, no tracing and no askpass, so nothing can
+    // rewrite the host or echo the header. Git for Windows maps /dev/null too.
     let output = Command::new("git")
         .args(["clone", "--depth", "1", "--single-branch", "--quiet", "--"])
         .arg(url)
         .arg(dir)
+        .env_remove("GIT_TRACE")
+        .env_remove("GIT_TRACE_CURL")
+        .env_remove("GIT_TRACE_PACKET")
+        .env_remove("GIT_CURL_VERBOSE")
+        .env_remove("GIT_ASKPASS")
+        .env_remove("SSH_ASKPASS")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_COUNT", "1")
         .env("GIT_CONFIG_KEY_0", "http.extraHeader")
         .env("GIT_CONFIG_VALUE_0", auth)
@@ -129,7 +136,7 @@ fn clone_project(url: &str, dir: &Path, token: &str) -> Result<(), String> {
     if output.status.success() {
         return Ok(());
     }
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stderr = String::from_utf8_lossy(&output.stderr).replace(&encoded, "[redacted]");
     Err(format!("Overleaf git clone failed: {}", stderr.trim()))
 }
 

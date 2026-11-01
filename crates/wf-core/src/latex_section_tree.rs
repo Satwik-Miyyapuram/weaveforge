@@ -57,7 +57,7 @@ pub struct LatexSectionTree {
 
 static SECTION_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     Regex::new(&format!(
-        r"^[{WS}]*\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)\*?[{WS}]*\{{([^{{}}]*)\}}"
+        r"^[{WS}]*\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)\*?[{WS}]*(?:\[[^\]]*\][{WS}]*)?\{{([^{{}}]*)\}}"
     ))
     .ok()
 });

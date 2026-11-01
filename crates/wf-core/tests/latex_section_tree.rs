@@ -37,6 +37,16 @@ fn starred_heading_is_parsed_with_base_command() {
 }
 
 #[test]
+fn short_title_in_brackets_is_skipped() {
+    let tree = parse(&[(
+        "main.tex",
+        "\\section[Short]{Long title}\n\\subsection*[S] {Sub}",
+    )]);
+    assert_eq!(tree.roots[0].title, "Long title");
+    assert_eq!(tree.roots[0].children[0].title, "Sub");
+}
+
+#[test]
 fn title_cleanup_strips_commands_and_comments() {
     // A brace inside the title keeps the TS SECTION_RE from matching, so this uses a bare command.
     let tree = parse(&[("main.tex", "\\section{The \\emph Big Idea % note}")]);
