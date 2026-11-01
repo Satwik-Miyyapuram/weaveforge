@@ -4,22 +4,27 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
+use serde::Serialize;
+
 use crate::sync::change_origin::digest_text;
 use crate::sync::folder_layout::WorkspaceProject;
 use crate::sync::json_entities::is_app_owned_path;
 use crate::sync::merge_vault_page::{VaultPageBase, vault_page_base};
 use crate::sync::serialize::{SerializedAsset, serialize_workspace};
-use crate::sync::workspace_fs::{FsError, WorkspaceFs};
+use crate::sync::workspace_fs::{FsError, WorkspaceFs, WorkspaceStat};
 use crate::sync::workspace_snapshot::WorkspaceSnapshot;
 
 /// What one run did.
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct MirrorResult {
     /// Paths written, in write order.
     pub written: Vec<String>,
     /// Paths removed because the workspace no longer owns them.
     pub removed: Vec<String>,
     /// Unchanged files, skipped without a write.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub unchanged: usize,
     /// Digest of every markdown/data file the folder now holds, by path, in write order (each path once).
     pub mirrored: Vec<(String, String)>,
@@ -87,6 +92,88 @@ pub fn mirror_workspace<F: WorkspaceFs + ?Sized>(
 #[must_use]
 pub fn digest_map(mirrored: &[(String, String)]) -> HashMap<String, String> {
     mirrored.iter().cloned().collect()
+}
+
+/// What [`mirror_workspace`] would do, without touching a folder: the caller has read
+/// the folder's text into `disk` (path -> text; a missing key is a missing file) for every
+/// path in `files`, and for every previous path that is not present but has a `base`
+/// entry. Assets are not fetched or written; their folder paths only count as present,
+/// so they are never removed. `written` and `removed` are the writes and removals to apply.
+///
+/// # Errors
+///
+/// None in practice: the plan's file system never fails. The `Result` keeps the shared
+/// mirror steps unchanged.
+pub fn plan_mirror(
+    files: &[(String, String)],
+    asset_paths: &[String],
+    previous_paths: &[String],
+    base: Option<&HashMap<String, String>>,
+    disk: &HashMap<String, String>,
+) -> Result<MirrorResult, FsError> {
+    let mut fs = PlanFs { disk };
+    let mut run = Run {
+        fs: &mut fs,
+        base,
+        result: MirrorResult::default(),
+        held: HashSet::new(),
+    };
+    for (path, content) in files {
+        run.mirror_file(path, content)?;
+    }
+    let present: HashSet<&str> = files
+        .iter()
+        .map(|(path, _)| path.as_str())
+        .chain(asset_paths.iter().map(String::as_str))
+        .collect();
+    run.remove_departed(previous_paths, &present);
+    Ok(run.result)
+}
+
+/// A read-only view of text the caller already read; writes succeed and change nothing.
+struct PlanFs<'a> {
+    disk: &'a HashMap<String, String>,
+}
+
+impl WorkspaceFs for PlanFs<'_> {
+    fn read_file(&self, path: &str) -> Result<Vec<u8>, FsError> {
+        self.read_text(path).map(String::into_bytes)
+    }
+
+    fn read_text(&self, path: &str) -> Result<String, FsError> {
+        self.disk
+            .get(path)
+            .cloned()
+            .ok_or_else(|| FsError::NotFound(path.to_owned()))
+    }
+
+    fn write_file(&mut self, _path: &str, _data: &[u8]) -> Result<(), FsError> {
+        Ok(())
+    }
+
+    fn remove(&mut self, _path: &str, _recursive: bool) -> Result<(), FsError> {
+        Ok(())
+    }
+
+    fn mkdirp(&mut self, _path: &str) -> Result<(), FsError> {
+        Ok(())
+    }
+
+    fn list(&self, _dir: &str) -> Result<Vec<WorkspaceStat>, FsError> {
+        Ok(Vec::new())
+    }
+
+    fn walk(&self, _dir: &str) -> Result<Vec<WorkspaceStat>, FsError> {
+        Ok(Vec::new())
+    }
+
+    fn stat(&self, _path: &str) -> Option<WorkspaceStat> {
+        None
+    }
+
+    fn rename(&mut self, _from: &str, _to: &str) -> Result<(), FsError> {
+        Ok(())
+    }
 }
 
 /// The accumulating state of one run.

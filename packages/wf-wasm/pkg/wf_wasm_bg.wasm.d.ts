@@ -44,6 +44,7 @@ export const parseJsonData: (a: number, b: number, c: number, d: number, e: any)
 export const parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
 export const parseQuery: (a: number, b: number) => [number, number, number];
 export const parseWorkspaceFolder: (a: any) => [number, number, number];
+export const planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
 export const projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const projectMetaDir: (a: number, b: number) => [number, number, number, number];
 export const readFrontmatter: (a: number, b: number) => [number, number, number];

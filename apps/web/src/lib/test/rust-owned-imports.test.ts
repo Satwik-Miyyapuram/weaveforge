@@ -21,6 +21,7 @@ const RUST_OWNED = [
   "jsonDataPath",
   "jsonKindOfPath",
   "markdownImage",
+  "mirrorWorkspace",
   "normalizeMarkdownImageSyntax",
   "parseJsonData",
   "parseWorkspaceFolder",

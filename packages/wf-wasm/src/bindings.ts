@@ -327,6 +327,22 @@ export type MergeResult = {
 	conflicts: Conflict[],
 };
 
+/**  What one run did. */
+export type MirrorResult = {
+	/**  Paths written, in write order. */
+	written: string[],
+	/**  Paths removed because the workspace no longer owns them. */
+	removed: string[],
+	/**  Unchanged files, skipped without a write. */
+	unchanged: number,
+	/**  Digest of every markdown/data file the folder now holds, by path, in write order (each path once). */
+	mirrored: ([string, string])[],
+	/**  Paths left as the folder has them, because they changed since the mirror wrote them. */
+	heldBack: string[],
+	/**  Note bases, in write order. */
+	bases: ([string, VaultPageBase])[],
+};
+
 /**  Everything a page says about the paper it carries. */
 export type PageMetadata = {
 	/**  Title with the site's name suffix removed. */
