@@ -82,6 +82,26 @@ pub async fn require_caller(
     })
 }
 
+/// Authenticates a signed-in session only: org routes refuse API tokens, as `requireOrgApiUser` does.
+pub async fn require_session(
+    client: &reqwest::Client,
+    config: &Config,
+    authorization: Option<&str>,
+) -> Result<Caller, AuthError> {
+    let token =
+        bearer_token(authorization).ok_or_else(|| AuthError::new(401, NOT_AUTHENTICATED))?;
+    if !looks_like_jwt(token) {
+        return Err(AuthError::new(401, SESSION_REFUSED));
+    }
+    let user_id = get_user(client, config, token)
+        .await
+        .ok_or_else(|| AuthError::new(401, SESSION_REFUSED))?;
+    Ok(Caller {
+        user_id,
+        access_token: token.to_owned(),
+    })
+}
+
 /// Exchanges an API token for a minted JWT, then asks Supabase who it is.
 async fn api_token_user(
     client: &reqwest::Client,

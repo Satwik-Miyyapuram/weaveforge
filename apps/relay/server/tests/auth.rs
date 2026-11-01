@@ -7,7 +7,9 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use common::{Reply, Upstream, response, serve};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
-use wf_relay_server::auth::{AuthError, Caller, mint_jwt, require_caller, require_user};
+use wf_relay_server::auth::{
+    AuthError, Caller, mint_jwt, require_caller, require_session, require_user,
+};
 use wf_relay_server::config::Config;
 
 const USER: &str = "00000000-0000-4000-8000-000000000001";
@@ -321,5 +323,66 @@ async fn api_token_caller_carries_the_minted_jwt() {
         seen[2]
             .header("authorization")
             .map(|value| value.trim_start_matches("Bearer "))
+    );
+}
+
+#[tokio::test]
+async fn session_only_missing_header_is_not_authenticated() {
+    let up = serve(vec![]).await;
+    let cfg = config(&up, Some(SECRET));
+    let client = reqwest::Client::new();
+    assert_eq!(
+        require_session(&client, &cfg, None).await,
+        Err(refused(401, "Not authenticated."))
+    );
+    assert!(up.seen().is_empty());
+}
+
+#[tokio::test]
+async fn session_only_refuses_api_tokens_without_upstream_call() {
+    let up = serve(vec![]).await;
+    let cfg = config(&up, Some(SECRET));
+    let client = reqwest::Client::new();
+    let wf_token = "Bearer wf_0123456789abcdefghijklmnop".to_owned();
+    let api_token = format!("Bearer {API_TOKEN}");
+    for header in [wf_token.as_str(), api_token.as_str()] {
+        assert_eq!(
+            require_session(&client, &cfg, Some(header)).await,
+            Err(refused(401, "Invalid session."))
+        );
+    }
+    assert!(up.seen().is_empty());
+}
+
+#[tokio::test]
+async fn session_only_jwt_refused_by_get_user_is_invalid_session() {
+    let up = serve(vec![(
+        GET_USER,
+        vec![json_reply(401, r#"{"message":"bad"}"#)],
+    )])
+    .await;
+    let cfg = config(&up, Some(SECRET));
+    let client = reqwest::Client::new();
+    assert_eq!(
+        require_session(&client, &cfg, Some("Bearer a.b.c")).await,
+        Err(refused(401, "Invalid session."))
+    );
+}
+
+#[tokio::test]
+async fn session_only_jwt_checked_with_get_user_returns_caller() {
+    let up = serve(vec![(
+        GET_USER,
+        vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))],
+    )])
+    .await;
+    let cfg = config(&up, Some(SECRET));
+    let client = reqwest::Client::new();
+    assert_eq!(
+        require_session(&client, &cfg, Some("Bearer a.b.c")).await,
+        Ok(Caller {
+            user_id: USER.to_owned(),
+            access_token: "a.b.c".to_owned(),
+        })
     );
 }

@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod experiments;
+pub mod org;
 pub mod papers;
 pub mod search;
 pub mod storage;

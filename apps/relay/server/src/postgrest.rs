@@ -128,6 +128,33 @@ impl<'a> UserDb<'a> {
         Ok(count)
     }
 
+    /// `POST` `args` to the database function `name` and return its JSON reply (`null` when empty).
+    pub async fn rpc(&self, name: &str, args: &Value) -> Result<Value, DbError> {
+        let response = self
+            .send(Method::POST, &format!("rpc/{name}"), &[], None, Some(args))
+            .await?;
+        value(response).await
+    }
+
+    /// `POST` one `row` into `table`, skipping it when `on_conflict` columns already exist.
+    pub async fn insert_ignore(
+        &self,
+        table: &str,
+        row: &Value,
+        on_conflict: &str,
+    ) -> Result<(), DbError> {
+        let _response = self
+            .send(
+                Method::POST,
+                table,
+                &[("on_conflict", on_conflict.to_string())],
+                Some("resolution=ignore-duplicates,return=minimal"),
+                Some(row),
+            )
+            .await?;
+        Ok(())
+    }
+
     /// Sends one request and returns the response when it is 2xx.
     async fn send(
         &self,
@@ -189,6 +216,21 @@ async fn rows(response: Response) -> Result<Vec<Value>, DbError> {
             message: "Unexpected reply from the database.".to_string(),
         }),
     }
+}
+
+/// Parses a 2xx reply as JSON; an empty body is `null`.
+async fn value(response: Response) -> Result<Value, DbError> {
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|err| transport_error(&err.to_string()))?;
+    if bytes.iter().all(u8::is_ascii_whitespace) {
+        return Ok(Value::Null);
+    }
+    serde_json::from_slice::<Value>(&bytes).map_err(|_| DbError {
+        code: None,
+        message: "Unexpected reply from the database.".to_string(),
+    })
 }
 
 /// The `code` of a JSON error object, when it is a non-empty string.
