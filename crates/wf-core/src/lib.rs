@@ -3,8 +3,10 @@
 
 pub mod error_report;
 pub mod experiments;
+pub mod mcp;
 pub mod member;
 pub mod org;
+pub mod overleaf;
 pub mod papers;
 pub mod plan;
 pub mod search;
@@ -12,6 +14,7 @@ pub mod storage;
 pub mod sync;
 pub mod units;
 pub mod workspace;
+pub mod zotero;
 
 /// Version of this core build, taken from Cargo at compile time.
 #[must_use]
