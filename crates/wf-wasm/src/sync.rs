@@ -8,10 +8,8 @@ use wf_core::sync::change_origin::{ChangeOrigin, changed_side, digest_text};
 use wf_core::sync::git_policy::{
     GitSyncDecision, GitSyncSkipReason, decide_git_sync_path, is_under_ignored_folder,
 };
-use wf_core::sync::git_remote::{
-    GitPullResult, GitPushResult, GitRemoteUrlCheck, check_git_remote_url, describe_pull,
-    describe_push,
-};
+// check_git_remote_url stays out: the url crate adds ~88 KB gzipped, and the browser has URL.
+use wf_core::sync::git_remote::{GitPullResult, GitPushResult, describe_pull, describe_push};
 use wf_core::sync::stamp_workspace_id::stamp_workspace_id;
 use wf_core::workspace::{is_safe_workspace_path, safe_workspace_path};
 
@@ -25,16 +23,6 @@ struct Decision {
     include: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<GitSyncSkipReason>,
-}
-
-/// `{ ok: true, url }` or `{ ok: false, reason }`, as the TS returns it.
-#[derive(Serialize)]
-struct UrlCheck<'a> {
-    ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reason: Option<&'a str>,
 }
 
 /// [`wf_core::sync::change_origin::digest_text`] for JS.
@@ -105,36 +93,6 @@ pub fn decide_git_sync_path_js(
         },
     };
     to_js(&decision)
-}
-
-/// [`wf_core::sync::git_remote::check_git_remote_url`] for JS, as `{ ok, url? | reason? }`.
-///
-/// # Errors
-///
-/// Fails when `raw` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or the result
-/// cannot be converted to a JS value.
-#[wasm_bindgen(js_name = checkGitRemoteUrl)]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes optional strings by value"
-)]
-pub fn check_git_remote_url_js(raw: Option<String>) -> JsResult<JsValue> {
-    if let Some(raw) = raw.as_deref() {
-        check_text(raw)?;
-    }
-    let check = match check_git_remote_url(raw.as_deref()) {
-        GitRemoteUrlCheck::Accepted { url } => UrlCheck {
-            ok: true,
-            url: Some(url),
-            reason: None,
-        },
-        GitRemoteUrlCheck::Refused { reason } => UrlCheck {
-            ok: false,
-            url: None,
-            reason: Some(reason),
-        },
-    };
-    to_js(&check)
 }
 
 /// [`wf_core::sync::git_remote::describe_pull`] for JS.

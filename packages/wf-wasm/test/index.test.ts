@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import {
   buildExcerpt,
   changedSide,
-  checkGitRemoteUrl,
   coreInfo,
   decideGitSyncPath,
   describePull,
@@ -315,16 +314,6 @@ test("decideGitSyncPath includes normal files and names the skip reason", () => 
   assert.deepEqual(decideGitSyncPath("a.md", GIT_SYNC_MAX_FILE_BYTES + 1), { include: false, reason: "too-large" });
   assert.deepEqual(decideGitSyncPath("", 1), { include: false, reason: "invalid-path" });
   assert.deepEqual(decideGitSyncPath("a.md", Number.NaN), { include: false, reason: "too-large" });
-});
-
-test("checkGitRemoteUrl accepts only credential-free https remotes", () => {
-  assert.deepEqual(checkGitRemoteUrl("https://github.com/you/notes.git"), {
-    ok: true,
-    url: "https://github.com/you/notes.git",
-  });
-  assert.deepEqual(checkGitRemoteUrl(42), { ok: false, reason: "Enter the remote's https URL." });
-  assert.equal(checkGitRemoteUrl("http://x.org/a").ok, false);
-  assert.equal(checkGitRemoteUrl("https://u:p@x.org/a").ok, false);
 });
 
 test("describePull and describePush give one settings line", () => {

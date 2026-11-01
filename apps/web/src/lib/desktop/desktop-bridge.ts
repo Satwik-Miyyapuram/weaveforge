@@ -546,7 +546,7 @@ export interface DesktopVaultSync {
     | { kind: "up-to-date" }
     | { kind: "fast-forward"; oid: string }
     | { kind: "merged"; oid: string }
-    | { kind: "conflict"; files: readonly string[] };
+    | { kind: "conflict"; files: string[] };
   push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
 }
 

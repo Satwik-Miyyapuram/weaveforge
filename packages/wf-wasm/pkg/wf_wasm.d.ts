@@ -15,6 +15,15 @@
 export function buildExcerpt(body: string, terms: any, max_chars?: number | null, single_line?: boolean | null): any;
 
 /**
+ * [`wf_core::sync::change_origin::changed_side`] for JS, as a `ChangeSide` string.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function changedSide(base?: string | null, folder?: string | null, workspace?: string | null): any;
+
+/**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
  *
  * # Errors
@@ -22,6 +31,43 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
  * Fails only if the value cannot be converted to a JS value.
  */
 export function coreInfo(): any;
+
+/**
+ * [`wf_core::sync::git_policy::decide_git_sync_path`] for JS, as `{ include, reason? }`.
+ *
+ * # Errors
+ *
+ * Fails when `rel_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or the
+ * decision cannot be converted to a JS value.
+ */
+export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file_bytes: number): any;
+
+/**
+ * [`wf_core::sync::git_remote::describe_pull`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `result` is not a valid `GitPullResult` object.
+ */
+export function describePull(result: any): string;
+
+/**
+ * [`wf_core::sync::git_remote::describe_push`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `result` is not a valid `GitPushResult` object.
+ */
+export function describePush(result: any): string;
+
+/**
+ * [`wf_core::sync::change_origin::digest_text`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function digestText(text: string): string;
 
 /**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
@@ -72,6 +118,24 @@ export function guessBlobContentType(path: string): string;
  * `options` is not a valid `TokenizerOptions` object.
  */
 export function indexTerms(text: string, options: any): any;
+
+/**
+ * [`wf_core::workspace::is_safe_workspace_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function isSafeWorkspacePath(path: string): boolean;
+
+/**
+ * [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `rel_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function isUnderIgnoredFolder(rel_path: string): boolean;
 
 /**
  * [`MAX_FUSION_IDS`] for JS.
@@ -126,6 +190,25 @@ export function parsePaperRef(kind: any, value: string): any;
 export function parseQuery(query: string): any;
 
 /**
+ * [`wf_core::workspace::safe_workspace_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when the
+ * path could leave the workspace root (`Unsafe workspace path: <path>`).
+ */
+export function safeWorkspacePath(path: string): string;
+
+/**
+ * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
+ *
+ * # Errors
+ *
+ * Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function stampWorkspaceId(content: string, id: string): string | undefined;
+
+/**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
  *
  * # Errors
@@ -140,18 +223,27 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
+    readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
+    readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly describePull: (a: any) => [number, number, number, number];
+    readonly describePush: (a: any) => [number, number, number, number];
+    readonly digestText: (a: number, b: number) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
+    readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
+    readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
+    readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

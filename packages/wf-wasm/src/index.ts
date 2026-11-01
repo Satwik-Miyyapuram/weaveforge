@@ -26,7 +26,6 @@ import init, {
   changedSide as rawChangedSide,
   isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
   decideGitSyncPath as rawDecideGitSyncPath,
-  checkGitRemoteUrl as rawCheckGitRemoteUrl,
   describePull as rawDescribePull,
   describePush as rawDescribePush,
   stampWorkspaceId as rawStampWorkspaceId,
@@ -211,13 +210,6 @@ export function decideGitSyncPath(
   return rawDecideGitSyncPath(relPath, sizeBytes, maxFileBytes) as
     | { include: true }
     | { include: false; reason: GitSyncSkipReason };
-}
-
-/** Accepts only credential-free `https://host/path` remotes; a non-string is refused. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function checkGitRemoteUrl(raw: unknown): { ok: true; url: string } | { ok: false; reason: string } {
-  const text = typeof raw === "string" ? raw : undefined;
-  if (text !== undefined) checkIndexText(text);
-  return rawCheckGitRemoteUrl(text) as { ok: true; url: string } | { ok: false; reason: string };
 }
 
 /** One line for the Settings panel. */

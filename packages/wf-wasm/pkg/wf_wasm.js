@@ -27,6 +27,31 @@ export function buildExcerpt(body, terms, max_chars, single_line) {
 }
 
 /**
+ * [`wf_core::sync::change_origin::changed_side`] for JS, as a `ChangeSide` string.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string | null} [base]
+ * @param {string | null} [folder]
+ * @param {string | null} [workspace]
+ * @returns {any}
+ */
+export function changedSide(base, folder, workspace) {
+    var ptr0 = isLikeNone(base) ? 0 : passStringToWasm0(base, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(folder) ? 0 : passStringToWasm0(folder, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    var ptr2 = isLikeNone(workspace) ? 0 : passStringToWasm0(workspace, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len2 = WASM_VECTOR_LEN;
+    const ret = wasm.changedSide(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
  *
  * # Errors
@@ -40,6 +65,114 @@ export function coreInfo() {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::git_policy::decide_git_sync_path`] for JS, as `{ include, reason? }`.
+ *
+ * # Errors
+ *
+ * Fails when `rel_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or the
+ * decision cannot be converted to a JS value.
+ * @param {string} rel_path
+ * @param {number} size_bytes
+ * @param {number} max_file_bytes
+ * @returns {any}
+ */
+export function decideGitSyncPath(rel_path, size_bytes, max_file_bytes) {
+    const ptr0 = passStringToWasm0(rel_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decideGitSyncPath(ptr0, len0, size_bytes, max_file_bytes);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::git_remote::describe_pull`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `result` is not a valid `GitPullResult` object.
+ * @param {any} result
+ * @returns {string}
+ */
+export function describePull(result) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.describePull(result);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`wf_core::sync::git_remote::describe_push`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `result` is not a valid `GitPushResult` object.
+ * @param {any} result
+ * @returns {string}
+ */
+export function describePush(result) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.describePush(result);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`wf_core::sync::change_origin::digest_text`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} text
+ * @returns {string}
+ */
+export function digestText(text) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.digestText(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -163,6 +296,44 @@ export function indexTerms(text, options) {
 }
 
 /**
+ * [`wf_core::workspace::is_safe_workspace_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} path
+ * @returns {boolean}
+ */
+export function isSafeWorkspacePath(path) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isSafeWorkspacePath(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `rel_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} rel_path
+ * @returns {boolean}
+ */
+export function isUnderIgnoredFolder(rel_path) {
+    const ptr0 = passStringToWasm0(rel_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isUnderIgnoredFolder(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`MAX_FUSION_IDS`] for JS.
  * @returns {number}
  */
@@ -272,6 +443,64 @@ export function parseQuery(query) {
 }
 
 /**
+ * [`wf_core::workspace::safe_workspace_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when the
+ * path could leave the workspace root (`Unsafe workspace path: <path>`).
+ * @param {string} path
+ * @returns {string}
+ */
+export function safeWorkspacePath(path) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.safeWorkspacePath(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
+ *
+ * # Errors
+ *
+ * Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} content
+ * @param {string} id
+ * @returns {string | undefined}
+ */
+export function stampWorkspaceId(content, id) {
+    const ptr0 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.stampWorkspaceId(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
+}
+
+/**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
  *
  * # Errors
@@ -302,6 +531,12 @@ function __wbg_get_imports() {
             const ret = Number(arg0);
             return ret;
         },
+        __wbg___wbindgen_bigint_get_as_i64_a2383202b9353e4c: function(arg0, arg1) {
+            const v = arg1;
+            const ret = typeof(v) === 'bigint' ? v : undefined;
+            getDataViewMemory0().setBigInt64(arg0 + 8 * 1, isLikeNone(ret) ? BigInt(0) : ret, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, !isLikeNone(ret), true);
+        },
         __wbg___wbindgen_boolean_get_5b446f51afd21013: function(arg0) {
             const v = arg0;
             const ret = typeof(v) === 'boolean' ? v : undefined;
@@ -316,6 +551,10 @@ function __wbg_get_imports() {
         },
         __wbg___wbindgen_in_92f62ee1427d9e49: function(arg0, arg1) {
             const ret = arg0 in arg1;
+            return ret;
+        },
+        __wbg___wbindgen_is_bigint_b123553bed3bb382: function(arg0) {
+            const ret = typeof(arg0) === 'bigint';
             return ret;
         },
         __wbg___wbindgen_is_function_1f9d30630b8b1d3d: function(arg0) {
@@ -333,6 +572,10 @@ function __wbg_get_imports() {
         },
         __wbg___wbindgen_is_undefined_8865fb403f8fe9d8: function(arg0) {
             const ret = arg0 === undefined;
+            return ret;
+        },
+        __wbg___wbindgen_jsval_eq_02babf21faa37971: function(arg0, arg1) {
+            const ret = arg0 === arg1;
             return ret;
         },
         __wbg___wbindgen_jsval_loose_eq_677f21e468d6b461: function(arg0, arg1) {
@@ -388,6 +631,16 @@ function __wbg_get_imports() {
             let result;
             try {
                 result = arg0 instanceof ArrayBuffer;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
+            return ret;
+        },
+        __wbg_instanceof_Map_b2611749102d7ba3: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof Map;
             } catch (_) {
                 result = false;
             }
@@ -462,12 +715,17 @@ function __wbg_get_imports() {
             const ret = arg0;
             return ret;
         },
-        __wbindgen_generic_0000000000000002: function(arg0, arg1) {
+        __wbindgen_generic_0000000000000002: function(arg0) {
+            // Cast intrinsic for `I64 -> Externref`.
+            const ret = arg0;
+            return ret;
+        },
+        __wbindgen_generic_0000000000000003: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
             return ret;
         },
-        __wbindgen_generic_0000000000000003: function(arg0) {
+        __wbindgen_generic_0000000000000004: function(arg0) {
             // Cast intrinsic for `U64 -> Externref`.
             const ret = BigInt.asUintN(64, arg0);
             return ret;

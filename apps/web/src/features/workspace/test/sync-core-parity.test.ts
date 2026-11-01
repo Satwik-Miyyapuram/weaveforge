@@ -36,28 +36,6 @@ const PATHS = [
 ];
 const SIZES = [0, 1, 25 * 1024 * 1024, 25 * 1024 * 1024 + 1, -1, Number.NaN, Number.POSITIVE_INFINITY];
 
-const REMOTES: unknown[] = [
-  undefined,
-  null,
-  42,
-  "",
-  "   ",
-  "https://github.com/you/notes.git",
-  "  https://github.com/you/notes.git\u00a0",
-  "http://x.org/a",
-  "https://x.org",
-  "https://x.org/",
-  "https://u@x.org/a",
-  "https://u:p@x.org/a",
-  "not a url",
-  "https://EXAMPLE.com/A b",
-  "https://x.org/a?q=1#f",
-  "ftp://x.org/a",
-  "https://[::1]/a",
-  "https://xn--caf-dma.org/a",
-  "https://café.org/a",
-];
-
 type PullResult = Parameters<RustCore["describePull"]>[0];
 type PushResult = Parameters<RustCore["describePush"]>[0];
 
@@ -143,12 +121,6 @@ test("isUnderIgnoredFolder and decideGitSyncPath match the TS policy", () => {
         `path ${JSON.stringify(p)} size ${size}`,
       );
     }
-  }
-});
-
-test("checkGitRemoteUrl matches the TS check", () => {
-  for (const raw of REMOTES) {
-    assert.deepEqual(rs.checkGitRemoteUrl(raw), ts.checkGitRemoteUrl(raw), `input ${JSON.stringify(raw)}`);
   }
 });
 
