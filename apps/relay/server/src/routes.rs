@@ -1,5 +1,5 @@
 //! The HTTP routes: the paths the Next routes served, behind Caddy's `/relay` prefix.
-//! Ported from apps/web/src/app/api/{pdf-proxy,html-proxy,semantic-scholar,arxiv,fetch-url,url-meta}/route.ts.
+//! Ported from apps/web/src/app/api/{pdf-proxy,html-proxy,semantic-scholar,arxiv,fetch-url,url-meta,sdk/{whoami,projects,experiments,metrics}}/route.ts.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -10,7 +10,7 @@ use axum::extract::State;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::response::Response;
-use axum::routing::get;
+use axum::routing::{get, post};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use reqwest::Url;
@@ -28,6 +28,8 @@ use wf_relay::relay::shared::{Answer, RelayRequest, refuse};
 use crate::auth::require_user;
 use crate::config::Config;
 use crate::limiter::RateLimiter;
+use crate::sdk;
+use crate::sdk_metrics;
 use crate::url_meta::{MetaUpstreams, url_meta};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
@@ -67,6 +69,18 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route(ARXIV_PROXY_PATH, get(arxiv))
         .route(FETCH_URL_PATH, get(fetch_url))
         .route(URL_META_PATH, get(url_meta_route))
+        .route("/api/sdk/whoami", get(sdk::whoami))
+        .route("/api/sdk/projects", get(sdk::projects))
+        .route(
+            "/api/sdk/experiments",
+            get(sdk::experiments_get)
+                .post(sdk::experiments_post)
+                .delete(sdk::experiments_delete),
+        )
+        .route(
+            "/api/sdk/metrics",
+            post(sdk_metrics::metrics_post).delete(sdk_metrics::metrics_delete),
+        )
         .layer(cors)
         .with_state(state)
 }
@@ -78,7 +92,7 @@ fn cors_layer(origins: &[String]) -> CorsLayer {
         .collect();
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         // x-api-key carries the user's own Semantic Scholar key, forwarded upstream.
         .allow_headers([
             AUTHORIZATION,
