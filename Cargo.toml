@@ -31,7 +31,9 @@ unicode-properties = { version = "=0.1.4", default-features = false, features = 
 # WHATWG URL parsing, the same rules as the JS `URL` class (already in the lock via git2).
 url = "=2.5.8"
 # Paper page parsing (phase 5b): the same patterns as packages/core page-metadata.ts.
-regex = "=1.13.1"
+# regex-lite, not regex: the Unicode tables tripled the WASM module, and JS
+# (no u flag) treats word boundaries and (?i) as ASCII too. Whitespace is spelled out in js_regex.rs.
+regex-lite = "=0.1.9"
 # Property tests (plan §4.4): 256 cases per commit. No fork/timeout features.
 proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 # Git sync (P2.10): libgit2, built from source on every platform. gix cannot yet push

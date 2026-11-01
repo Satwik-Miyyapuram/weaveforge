@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { UrlMetadataSource } from "../infrastructure/url-metadata-source";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * The desktop path: no server route, so the page comes through the shell's

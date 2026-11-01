@@ -1,6 +1,11 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { SemanticScholarMetadataSource } from "../infrastructure/semantic-scholar-metadata-source";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 interface Recorded {
   url: string;

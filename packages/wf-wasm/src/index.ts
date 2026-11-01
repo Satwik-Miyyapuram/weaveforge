@@ -22,11 +22,27 @@ import init, {
   maxFusionIds as rawMaxFusionIds,
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
+  parsePaperRef as rawParsePaperRef,
+  normalizeArxivId as rawNormalizeArxivId,
+  extractDoi as rawExtractDoi,
+  extractPageMetadata as rawExtractPageMetadata,
+  pageImportRefusal as rawPageImportRefusal,
+  guessBlobContentType as rawGuessBlobContentType,
 } from "../pkg/wf_wasm.js";
-import type { CoreInfo, ExcerptRange, ParsedQuery, RankedList, SearchKind, TokenizerOptions } from "./bindings.js";
+import type {
+  CoreInfo,
+  ExcerptRange,
+  PageMetadata,
+  ParsedQuery,
+  PaperRef,
+  PaperRefKind,
+  RankedList,
+  SearchKind,
+  TokenizerOptions,
+} from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
-export type { CoreInfo, ExcerptRange, ParsedQuery, SearchKind, TokenizerOptions };
+export type { CoreInfo, ExcerptRange, PageMetadata, ParsedQuery, PaperRef, PaperRefKind, SearchKind, TokenizerOptions };
 export { init, initSync };
 
 /** Facts about this core build, such as its version. */
@@ -136,4 +152,42 @@ export function fuseRankings<T>(
   const limit = options.limit === 0 ? undefined : options.limit;
   const fused = rawFuseRankings(ranked, options.k, limit) as string[];
   return fused.map((id) => representative.get(id) as T);
+}
+
+/** The paper id a `kind` reference points to, normalized (Rust `parse_paper_ref`). Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function parsePaperRef(kind: PaperRefKind, value: string): PaperRef {
+  checkIndexText(value);
+  return rawParsePaperRef(kind, value) as PaperRef;
+}
+
+/** The bare arXiv id in `value` (a URL or `arXiv:` prefix), or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function normalizeArxivId(value?: string): string | undefined {
+  if (!value) return undefined;
+  checkIndexText(value);
+  return rawNormalizeArxivId(value) ?? undefined;
+}
+
+/** The DOI in `value`, or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function extractDoi(value?: string): string | undefined {
+  if (!value) return undefined;
+  checkIndexText(value);
+  return rawExtractDoi(value) ?? undefined;
+}
+
+/** Citation metadata read from a page's HTML. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function extractPageMetadata(html: string, url: string): PageMetadata {
+  checkIndexText(html);
+  checkIndexText(url);
+  return rawExtractPageMetadata(html, url) as PageMetadata;
+}
+
+/** Why `meta` cannot be imported as a paper, or null if it can. */
+export function pageImportRefusal(meta: PageMetadata): string | null {
+  return rawPageImportRefusal(meta) ?? null;
+}
+
+/** MIME type for a blob's file `path`, by extension. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function guessBlobContentType(path: string): string {
+  checkIndexText(path);
+  return rawGuessBlobContentType(path);
 }

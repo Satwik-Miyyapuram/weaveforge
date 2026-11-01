@@ -14,6 +14,49 @@ export type ExcerptRange = {
 	end: number,
 };
 
+/**  Everything a page says about the paper it carries. */
+export type PageMetadata = {
+	/**  Title with the site's name suffix removed. */
+	title?: string,
+	/**  Author names, de-duplicated case-insensitively. */
+	authors: string[],
+	/**  Year of the publish date. */
+	year?: number,
+	/**  Journal, conference or site name. */
+	venue?: string,
+	/**  DOI without its resolver prefix. */
+	doi?: string,
+	/**  arXiv id, from the tag or the page address. */
+	arxivId?: string,
+	/**  Abstract with whitespace collapsed. */
+	abstract?: string,
+	/**  The page address the metadata came from. */
+	url: string,
+	/**  The page carries bibliographic tags (Highwire / Dublin Core). */
+	hasCitationMeta: boolean,
+	/**  The page says it is an article: JSON-LD, `og:type=article`, or a publish time. */
+	isArticle: boolean,
+};
+
+/**  A paper reference: what it is and the value that identifies it. */
+export type PaperRef = {
+	/**  Which source can answer for this reference. */
+	kind: PaperRefKind,
+	/**  The normalized identifier or URL. */
+	value: string,
+};
+
+/**  The kind of paper reference a caller declares for a pasted value. */
+export type PaperRefKind = 
+/**  A Digital Object Identifier. */
+"doi" | 
+/**  An arXiv id. */
+"arxiv" | 
+/**  A web page URL. */
+"url" | 
+/**  An opaque Zotero item key. */
+"zotero";
+
 /**  A parsed query (TS `ParsedQuery` plus `modified_within_days`). */
 export type ParsedQuery = {
 	/**  Free terms. */

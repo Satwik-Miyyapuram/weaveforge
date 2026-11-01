@@ -37,6 +37,9 @@ pub fn types() -> Types {
         .register::<wf_core::search::query::ParsedQuery>()
         .register::<wf_core::search::fusion::RankedList>()
         .register::<wf_core::search::excerpt::ExcerptRange>()
+        .register::<wf_core::papers::paper_ref::PaperRefKind>()
+        .register::<wf_core::papers::paper_ref::PaperRef>()
+        .register::<wf_core::papers::page_metadata::PageMetadata>()
 }
 
 /// Render the full bindings file.

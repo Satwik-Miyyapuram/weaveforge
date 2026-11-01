@@ -43,6 +43,53 @@ export function coreInfo() {
 }
 
 /**
+ * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} value
+ * @returns {string | undefined}
+ */
+export function extractDoi(value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.extractDoi(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * [`wf_core::papers::page_metadata::extract_page_metadata`]: metadata of a
+ * fetched page (`PageMetadata` in `bindings.ts`).
+ *
+ * # Errors
+ *
+ * Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} html
+ * @param {string} url
+ * @returns {any}
+ */
+export function extractPageMetadata(html, url) {
+    const ptr0 = passStringToWasm0(html, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.extractPageMetadata(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
  * `k` defaults to [`RRF_K`]; `limit` of `None` or 0 means no limit.
  *
@@ -61,6 +108,37 @@ export function fuseRankings(lists, k, limit) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
+ * by its extension.
+ *
+ * # Errors
+ *
+ * Fails if `path` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} path
+ * @returns {string}
+ */
+export function guessBlobContentType(path) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.guessBlobContentType(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -101,6 +179,76 @@ export function maxFusionIds() {
 export function maxIndexTextUtf16() {
     const ret = wasm.maxIndexTextUtf16();
     return ret >>> 0;
+}
+
+/**
+ * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
+ * `value`, or `None`.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} value
+ * @returns {string | undefined}
+ */
+export function normalizeArxivId(value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.normalizeArxivId(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
+ * imported, or `None` when it can.
+ *
+ * # Errors
+ *
+ * Fails if `meta` is not a valid `PageMetadata` object.
+ * @param {any} meta
+ * @returns {string | undefined}
+ */
+export function pageImportRefusal(meta) {
+    const ret = wasm.pageImportRefusal(meta);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
+ * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
+ * (`PaperRef` in `bindings.ts`) of the given `kind`.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if `kind`
+ * is not a valid `PaperRefKind`.
+ * @param {any} kind
+ * @param {string} value
+ * @returns {any}
+ */
+export function parsePaperRef(kind, value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parsePaperRef(kind, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -150,6 +298,10 @@ function __wbg_get_imports() {
             const ret = Error(getStringFromWasm0(arg0, arg1));
             return ret;
         },
+        __wbg_Number_14af1003b8dd5ead: function(arg0) {
+            const ret = Number(arg0);
+            return ret;
+        },
         __wbg___wbindgen_boolean_get_5b446f51afd21013: function(arg0) {
             const v = arg0;
             const ret = typeof(v) === 'boolean' ? v : undefined;
@@ -173,6 +325,10 @@ function __wbg_get_imports() {
         __wbg___wbindgen_is_object_3c45d4f2dde4e749: function(arg0) {
             const val = arg0;
             const ret = typeof(val) === 'object' && val !== null;
+            return ret;
+        },
+        __wbg___wbindgen_is_string_90b56bc79aad6f6c: function(arg0) {
+            const ret = typeof(arg0) === 'string';
             return ret;
         },
         __wbg___wbindgen_is_undefined_8865fb403f8fe9d8: function(arg0) {
@@ -208,10 +364,18 @@ function __wbg_get_imports() {
             const ret = arg0.done;
             return ret;
         },
+        __wbg_entries_fb6397112b1de25f: function(arg0) {
+            const ret = Object.entries(arg0);
+            return ret;
+        },
         __wbg_get_658f6698067d9515: function() { return handleError(function (arg0, arg1) {
             const ret = Reflect.get(arg0, arg1);
             return ret;
         }, arguments); },
+        __wbg_get_6c896e0571ddae51: function(arg0, arg1) {
+            const ret = arg0[arg1 >>> 0];
+            return ret;
+        },
         __wbg_get_unchecked_288889d017702237: function(arg0, arg1) {
             const ret = arg0[arg1 >>> 0];
             return ret;
@@ -242,6 +406,10 @@ function __wbg_get_imports() {
         },
         __wbg_isArray_e15a2ff68ffdbef2: function(arg0) {
             const ret = Array.isArray(arg0);
+            return ret;
+        },
+        __wbg_isSafeInteger_717808ad6a54bd9e: function(arg0) {
+            const ret = Number.isSafeInteger(arg0);
             return ret;
         },
         __wbg_iterator_e3c31c892080e444: function() {

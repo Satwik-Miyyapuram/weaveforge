@@ -1,4 +1,5 @@
-import { extractDoi, normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * Crossref metadata source (DOI). Implements IMetadataSource so it registers
@@ -31,7 +32,7 @@ export class CrossrefMetadataSource implements IMetadataSource {
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
     // Accept full URLs / "doi:" forms by normalizing to the bare DOI first.
     // `extractDoi` also pulls one out of a publisher URL (dl.acm.org/doi/10.x).
-    const doi = extractDoi(ref.value) ?? normalizeDoi(ref.value) ?? ref.value.trim();
+    const doi = (await loadCore()).extractDoi(ref.value) ?? normalizeDoi(ref.value) ?? ref.value.trim();
     const res = await this.fetchFn(`${this.baseUrl}/${encodeURIComponent(doi)}`);
     if (!res.ok) {
       if (res.status === 404) {
