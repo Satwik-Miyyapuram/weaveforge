@@ -56,6 +56,25 @@ impl<'a> UserDb<'a> {
         Ok(())
     }
 
+    /// `POST` `rows` into `table` and return the saved rows (`return=representation`).
+    pub async fn insert_returning(
+        &self,
+        table: &str,
+        body: &Value,
+        query: &[(&str, String)],
+    ) -> Result<Vec<Value>, DbError> {
+        let response = self
+            .send(
+                Method::POST,
+                table,
+                query,
+                Some("return=representation"),
+                Some(body),
+            )
+            .await?;
+        rows(response).await
+    }
+
     /// `POST` one `row` into `table` as merge-duplicates and return the saved rows.
     pub async fn upsert(
         &self,

@@ -8,6 +8,7 @@ use wf_relay::relay::shared::relay_client;
 use wf_relay_server::config::Config;
 use wf_relay_server::limiter::{PAGE_FETCH_LIMIT, PASTE_FETCH_LIMIT, RateLimiter};
 use wf_relay_server::routes::{AppState, app};
+use wf_relay_server::settings::SettingsConfig;
 use wf_relay_server::storage::StorageConfig;
 use wf_relay_server::url_meta::MetaUpstreams;
 
@@ -34,6 +35,7 @@ async fn run() -> Result<(), String> {
         pages: RateLimiter::new(PAGE_FETCH_LIMIT),
         pastes: RateLimiter::new(PASTE_FETCH_LIMIT),
         storage: StorageConfig::from_env(|key| std::env::var(key).ok()),
+        settings: SettingsConfig::from_env(|key| std::env::var(key).ok()),
     });
     let listener = tokio::net::TcpListener::bind(bind)
         .await
