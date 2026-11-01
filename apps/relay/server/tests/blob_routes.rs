@@ -334,7 +334,11 @@ async fn remove_refuses_bad_requests_before_touching_storage() {
     assert_eq!(value, json!({"error": "Not authenticated."}));
 
     let cases = [
-        ("not json", StatusCode::BAD_REQUEST, "Invalid JSON body."),
+        (
+            "[1]",
+            StatusCode::BAD_REQUEST,
+            "bucket and path are required.",
+        ),
         (
             r#"{"bucket":"paper-images"}"#,
             StatusCode::BAD_REQUEST,
@@ -361,6 +365,10 @@ async fn remove_refuses_bad_requests_before_touching_storage() {
         assert_eq!(status, code, "{body}");
         assert_eq!(value, json!({"error": message}), "{body}");
     }
+    let (status, value) = send(&up, request("POST", "/api/blobs/remove", "not json")).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let message = value["error"].as_str().unwrap_or_default();
+    assert!(message.starts_with("Invalid JSON body: "), "{message}");
     assert!(calls(&up, "/phys").is_empty());
     assert!(calls(&up, BLOBS).is_empty());
 }
@@ -459,6 +467,35 @@ async fn signed_urls_follow_the_forwarded_proto() {
     assert_eq!(status, StatusCode::OK);
     let first = value["urls"][0].as_str().expect("url");
     assert!(first.starts_with("http://relay.test/api/blobs/content?t="));
+}
+
+#[tokio::test]
+async fn signed_urls_keep_the_proxy_prefix() {
+    let up = upstream(vec![
+        (
+            BLOBS,
+            vec![json_reply(200, r#"[{"path":"user-1/a.png","tier":"hot"}]"#)],
+        ),
+        (RPC_ACCESS, vec![json_reply(200, "null")]),
+    ])
+    .await;
+    let body = r#"{"bucket":"paper-images","paths":["user-1/a.png"]}"#;
+    let req = request_with(
+        "POST",
+        "/api/blobs/signed-urls",
+        body,
+        &[
+            ("x-forwarded-host", "api.weaveforge.org"),
+            ("x-forwarded-prefix", "/relay"),
+        ],
+    );
+    let (status, value) = send(&up, req).await;
+    assert_eq!(status, StatusCode::OK);
+    let first = value["urls"][0].as_str().expect("url");
+    assert!(
+        first.starts_with("https://api.weaveforge.org/relay/api/blobs/content?t="),
+        "{first}"
+    );
 }
 
 #[tokio::test]

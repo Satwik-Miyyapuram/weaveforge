@@ -252,6 +252,11 @@ pub async fn remove(
     bucket: &str,
     path: &str,
 ) -> Result<(), BlobError> {
+    // A missing store config is reported before any registry lookup, as in TS.
+    let _ = state
+        .storage
+        .target_for("hot")
+        .map_err(|message| BlobError::Status(500, message))?;
     let tier = registry_tier(db, bucket, path)
         .await?
         .unwrap_or_else(|| "hot".to_string());

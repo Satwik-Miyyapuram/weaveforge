@@ -177,11 +177,13 @@ fn provider_refusal(state: &AppState) -> Option<Response> {
     }
 }
 
-/// The JSON body as an object; anything else is a bad request.
+/// The JSON body as an object. A body that is not JSON is a bad request; JSON
+/// that is not an object reads as empty, so the required-field check answers.
 fn json_object(body: &[u8]) -> Result<Map<String, Value>, Response> {
     match serde_json::from_slice::<Value>(body) {
         Ok(Value::Object(fields)) => Ok(fields),
-        _ => Err(error_response(400, "Invalid JSON body.")),
+        Ok(_) => Ok(Map::new()),
+        Err(err) => Err(error_response(400, &format!("Invalid JSON body: {err}"))),
     }
 }
 
@@ -212,7 +214,8 @@ fn blob_error_response(err: &BlobError) -> Response {
     error_response(err.status(), &err.message())
 }
 
-/// The origin the caller reached us at, from the forwarded or plain host headers.
+/// The base URL the caller reached us at: the forwarded or plain host, plus the
+/// path prefix the proxy stripped (`x-forwarded-prefix`, e.g. `/relay`).
 fn origin_from(headers: &HeaderMap) -> Option<String> {
     let proto = headers
         .get("x-forwarded-proto")
@@ -225,7 +228,12 @@ fn origin_from(headers: &HeaderMap) -> Option<String> {
         .get("x-forwarded-host")
         .or_else(|| headers.get(HOST))
         .and_then(|value| value.to_str().ok())?;
-    Some(format!("{proto}://{host}"))
+    let prefix = headers
+        .get("x-forwarded-prefix")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.trim().trim_end_matches('/'))
+        .unwrap_or("");
+    Some(format!("{proto}://{host}{prefix}"))
 }
 
 /// A multipart read failure: 413 when the body was too large, else 400.

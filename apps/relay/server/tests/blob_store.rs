@@ -483,3 +483,23 @@ async fn remove_keeps_the_row_when_the_store_delete_fails() {
     assert!(matches!(err, BlobError::Store(_)), "{err:?}");
     assert_eq!(calls(&up, REGISTRY).len(), 1);
 }
+
+#[tokio::test]
+async fn remove_with_no_hot_store_is_500_before_the_registry_lookup() {
+    let up = serve(vec![]).await;
+    let storage = StorageConfig {
+        tiered: true,
+        hot: Err(MISSING.to_string()),
+        cold: None,
+        view_secret: None,
+    };
+    let state = state(&up, storage);
+    let client = reqwest::Client::new();
+    let base = data_url(&up);
+    let db = UserDb::new(&client, &base, "anon", "token");
+    let err = blob_store::remove(&state, &db, "paper-images", "u1/a.png")
+        .await
+        .unwrap_err();
+    assert_eq!(err, BlobError::Status(500, MISSING.to_string()));
+    assert!(up.seen().is_empty());
+}
