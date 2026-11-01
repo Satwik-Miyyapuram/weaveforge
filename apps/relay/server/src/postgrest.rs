@@ -113,6 +113,25 @@ impl<'a> UserDb<'a> {
         Ok(())
     }
 
+    /// PATCH rows matching `query` and return the changed rows (`return=representation`).
+    pub async fn update_returning(
+        &self,
+        table: &str,
+        query: &[(&str, String)],
+        patch: &Value,
+    ) -> Result<Vec<Value>, DbError> {
+        let response = self
+            .send(
+                Method::PATCH,
+                table,
+                query,
+                Some("return=representation"),
+                Some(patch),
+            )
+            .await?;
+        rows(response).await
+    }
+
     /// `DELETE` the rows of `table` matching `query`.
     pub async fn delete(&self, table: &str, query: &[(&str, String)]) -> Result<(), DbError> {
         let _response = self

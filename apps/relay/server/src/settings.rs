@@ -13,12 +13,16 @@ pub struct SettingsConfig {
     pub issues_repo: String,
     /// The GitHub API base for filing; fixed, so tests can point it at a stand-in.
     pub issues_api: String,
+    /// The Zotero Web API base; fixed, so tests can point it at a stand-in.
+    pub zotero_api: String,
 }
 
 /// The repository error reports go to when `GITHUB_ISSUES_REPO` is unset.
 const DEFAULT_ISSUES_REPO: &str = "Satwik-Miyyapuram/weaveforge";
 /// The GitHub API base; not read from the environment.
 const ISSUES_API: &str = "https://api.github.com";
+/// The Zotero Web API base; not read from the environment.
+const ZOTERO_API: &str = "https://api.zotero.org";
 
 impl Default for SettingsConfig {
     fn default() -> Self {
@@ -28,6 +32,7 @@ impl Default for SettingsConfig {
             issues_token: None,
             issues_repo: DEFAULT_ISSUES_REPO.to_owned(),
             issues_api: ISSUES_API.to_owned(),
+            zotero_api: ZOTERO_API.to_owned(),
         }
     }
 }
@@ -52,6 +57,7 @@ impl SettingsConfig {
             issues_token,
             issues_repo,
             issues_api: ISSUES_API.to_owned(),
+            zotero_api: ZOTERO_API.to_owned(),
         }
     }
 }

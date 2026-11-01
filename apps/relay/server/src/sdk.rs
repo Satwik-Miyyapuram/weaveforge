@@ -9,12 +9,12 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::State;
-use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
-use axum::http::{HeaderMap, StatusCode, Uri};
+use axum::http::header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Map, Value, json};
 
-use crate::auth::{Caller, require_caller};
+use crate::auth::{Caller, require_caller, require_mcp_relay};
 use crate::postgrest::{DbError, UserDb, eq};
 use crate::routes::AppState;
 use crate::safe_error::format_error_for_response;
@@ -171,6 +171,16 @@ pub(crate) async fn caller(state: &AppState, headers: &HeaderMap) -> Result<Call
         .map_err(|err| error_response(err.status, &err.message))
 }
 
+/// The MCP relay caller (session or `mcp_relay` token), or the refusal reply.
+pub(crate) async fn mcp_caller(state: &AppState, headers: &HeaderMap) -> Result<Caller, Response> {
+    let authorization = headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    require_mcp_relay(&state.client, &state.config, authorization)
+        .await
+        .map_err(|err| error_response(err.status, &err.message))
+}
+
 /// A database handle that runs as the caller, with the caller's own token.
 pub(crate) fn user_db<'a>(state: &'a AppState, caller: &'a Caller) -> UserDb<'a> {
     UserDb::new(
@@ -190,6 +200,14 @@ pub(crate) fn json_response(status: u16, value: &Value) -> Response {
         value.to_string(),
     )
         .into_response()
+}
+
+/// `response` with `Cache-Control: no-store`.
+pub(crate) fn no_store(mut response: Response) -> Response {
+    let _previous = response
+        .headers_mut()
+        .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
 }
 
 /// A JSON reply `{"error": message}` with the given status.

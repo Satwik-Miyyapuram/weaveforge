@@ -1,0 +1,155 @@
+//! Overleaf link rules: project id and entry file validation, section target sanitizing, and project URLs.
+
+use serde_json::{Map, Value};
+
+/// Entry file used when a report does not name one.
+pub const DEFAULT_ENTRY_FILE: &str = "main.tex";
+
+/// Message returned when an entry file path is rejected.
+pub const ENTRY_FILE_INVALID: &str = "Entry file path is invalid.";
+
+/// Largest accepted section target line number.
+const MAX_SECTION_LINE: i64 = 10_000_000;
+
+/// Longest accepted section target key, in UTF-16 units (matches the JS client).
+const MAX_SECTION_KEY_UTF16: usize = 500;
+
+/// Whether `id` is a non-empty Overleaf project id made of ASCII letters, digits, `_` and `-`.
+#[must_use]
+pub fn is_valid_project_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+
+/// Error message for an unsafe entry file path, or `None` when the path is acceptable.
+#[must_use]
+pub fn entry_file_error(path: &str) -> Option<&'static str> {
+    let bad_char = path
+        .bytes()
+        .any(|b| !(b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'/' | b'-')));
+    if path.is_empty() || bad_char || path.starts_with('/') || path.contains("..") {
+        Some(ENTRY_FILE_INVALID)
+    } else {
+        None
+    }
+}
+
+/// Browser URL of an Overleaf project.
+#[must_use]
+pub fn external_url(id: &str) -> String {
+    format!("https://www.overleaf.com/project/{id}")
+}
+
+/// Validate section targets (section key to line number). `None` when the input is not a valid map.
+#[must_use]
+pub fn sanitize_section_targets(input: &Value) -> Option<Map<String, Value>> {
+    let object = input.as_object()?;
+    let mut out = Map::new();
+    for (key, value) in object {
+        if key.is_empty() || key.encode_utf16().count() > MAX_SECTION_KEY_UTF16 {
+            return None;
+        }
+        if value.is_null() {
+            continue;
+        }
+        let line = section_line(value)?;
+        let _previous = out.insert(key.clone(), Value::from(line));
+    }
+    Some(out)
+}
+
+/// Integer line number in `1..=MAX_SECTION_LINE`, accepting whole-valued floats such as `3.0`.
+fn section_line(value: &Value) -> Option<i64> {
+    let line = match value.as_i64() {
+        Some(v) => v,
+        None => {
+            let f = value.as_f64()?;
+            if !f.is_finite() || f.fract() != 0.0 {
+                return None;
+            }
+            f.to_string().parse::<i64>().ok()?
+        }
+    };
+    (1..=MAX_SECTION_LINE).contains(&line).then_some(line)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn project_id_rules() {
+        assert!(is_valid_project_id("abc_DEF-123"));
+        assert!(!is_valid_project_id(""));
+        assert!(!is_valid_project_id("a b"));
+        assert!(!is_valid_project_id("a/b"));
+        assert!(!is_valid_project_id("a.b"));
+    }
+
+    #[test]
+    fn entry_file_rules() {
+        assert_eq!(entry_file_error("main.tex"), None);
+        assert_eq!(entry_file_error("chapters/intro_1-2.tex"), None);
+        assert_eq!(entry_file_error(""), Some(ENTRY_FILE_INVALID));
+        assert_eq!(entry_file_error("/etc/passwd"), Some(ENTRY_FILE_INVALID));
+        assert_eq!(entry_file_error("a/../b.tex"), Some(ENTRY_FILE_INVALID));
+        assert_eq!(entry_file_error("a..b.tex"), Some(ENTRY_FILE_INVALID));
+        assert_eq!(entry_file_error("my file.tex"), Some(ENTRY_FILE_INVALID));
+    }
+
+    #[test]
+    fn builds_external_url() {
+        assert_eq!(
+            external_url("abc123"),
+            "https://www.overleaf.com/project/abc123"
+        );
+    }
+
+    #[test]
+    fn sanitize_rejects_non_objects() {
+        assert!(sanitize_section_targets(&json!(null)).is_none());
+        assert!(sanitize_section_targets(&json!([])).is_none());
+        assert!(sanitize_section_targets(&json!("x")).is_none());
+    }
+
+    #[test]
+    fn sanitize_rejects_bad_keys() {
+        assert!(sanitize_section_targets(&json!({"": 1})).is_none());
+        let long_key = "a".repeat(501);
+        assert!(sanitize_section_targets(&json!({ long_key: 1 })).is_none());
+        let max_key = "a".repeat(500);
+        assert!(sanitize_section_targets(&json!({ max_key: 1 })).is_some());
+    }
+
+    #[test]
+    fn sanitize_drops_null_values() {
+        let out = sanitize_section_targets(&json!({"intro": null, "methods": 4})).unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out.get("methods"), Some(&json!(4)));
+    }
+
+    #[test]
+    fn sanitize_rejects_bad_values() {
+        for bad in [
+            json!(0),
+            json!(-1),
+            json!(10_000_001),
+            json!(1.5),
+            json!("5"),
+        ] {
+            assert!(sanitize_section_targets(&json!({ "s": bad })).is_none());
+        }
+    }
+
+    #[test]
+    fn sanitize_keeps_bounds_and_whole_floats() {
+        let out = sanitize_section_targets(&json!({"a": 1, "b": 10_000_000, "c": 3.0})).unwrap();
+        assert_eq!(out.get("a"), Some(&json!(1)));
+        assert_eq!(out.get("b"), Some(&json!(10_000_000)));
+        assert_eq!(out.get("c"), Some(&json!(3)));
+    }
+}

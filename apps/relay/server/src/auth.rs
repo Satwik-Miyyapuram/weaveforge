@@ -16,6 +16,7 @@ const NOT_AUTHENTICATED: &str = "Not authenticated.";
 const SESSION_REFUSED: &str = "Invalid session.";
 const API_TOKEN_REFUSED: &str = "Invalid or expired API token.";
 const PLAN_FEED_REFUSED: &str = "Unknown or revoked feed link.";
+const MCP_RELAY_REFUSED: &str = "Invalid or expired MCP token.";
 const MISSING_SECRET: &str = "Server is missing SUPABASE_JWT_SECRET for API token auth.";
 const SERVER_ERROR: &str = "Something went wrong on the server.";
 
@@ -109,6 +110,30 @@ pub async fn require_session(
         user_id,
         access_token: token.to_owned(),
     })
+}
+
+/// Authenticates an MCP relay call (`requireMcpRelayUser`): a browser session as
+/// [`require_caller`] does, or an `mcp_relay`-scoped API token. SDK tokens are refused.
+pub async fn require_mcp_relay(
+    client: &reqwest::Client,
+    config: &Config,
+    authorization: Option<&str>,
+) -> Result<Caller, AuthError> {
+    let token =
+        bearer_token(authorization).ok_or_else(|| AuthError::new(401, NOT_AUTHENTICATED))?;
+    if !is_api_token(token) {
+        return require_caller(client, config, authorization).await;
+    }
+    scoped_token_user(
+        client,
+        config,
+        token,
+        "mcp_relay",
+        "resolve_mcp_relay_token",
+        MCP_RELAY_REFUSED,
+        Some(MISSING_SECRET),
+    )
+    .await
 }
 
 /// Authenticates a plan-feed link: a `plan_feed`-scoped API token only.
