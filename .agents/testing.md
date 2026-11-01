@@ -97,9 +97,12 @@ this machine: it would migrate from the installed app's data.
 
 ```powershell
 cd apps\desktop; node scripts/build-web.mjs; cd ..\..
-node apps/shell/sidecar/scripts/stage.mjs <out> --node (Get-Command node).Source --node-license LICENSE
+node apps/shell/sidecar/scripts/stage.mjs <out> --node (Get-Command node).Source
 cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
 ```
+
+`stage.mjs` copies the `LICENSE` beside `node.exe`. If that install has none,
+pass `--node-license <Node's LICENSE>`, never the repo's own `LICENSE`.
 
 Copy `target\release\weaveforge-shell.exe` into `<out>`, and
 `apps\desktop\dist\web` to `<out>\web`. Run the exe from `<out>` unbundled, so

@@ -577,6 +577,8 @@ jobs:
     # export, and their sizes in the step summary (phase 2 done-when: installer
     # size measured on x64). This is the release product ("WeaveForge"), built
     # only to measure; the installers are not uploaded or installed anywhere.
+    # Skipped on fork PRs, which get no secrets for the web export.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: windows-latest
     timeout-minutes: 40
     env:
