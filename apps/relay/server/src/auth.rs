@@ -10,12 +10,12 @@ use sha2::{Digest, Sha256};
 use crate::config::Config;
 
 const API_TOKEN_PREFIX: &str = "tt_";
-const SDK_SCOPE: &str = "sdk";
 const JWT_LIFETIME_SECONDS: u64 = 3600;
 const JWT_HEADER: &str = r#"{"alg":"HS256","typ":"JWT"}"#;
 const NOT_AUTHENTICATED: &str = "Not authenticated.";
 const SESSION_REFUSED: &str = "Invalid session.";
 const API_TOKEN_REFUSED: &str = "Invalid or expired API token.";
+const PLAN_FEED_REFUSED: &str = "Unknown or revoked feed link.";
 const MISSING_SECRET: &str = "Server is missing SUPABASE_JWT_SECRET for API token auth.";
 const SERVER_ERROR: &str = "Something went wrong on the server.";
 
@@ -66,7 +66,16 @@ pub async fn require_caller(
     let token =
         bearer_token(authorization).ok_or_else(|| AuthError::new(401, NOT_AUTHENTICATED))?;
     if is_api_token(token) {
-        return api_token_user(client, config, token).await;
+        return scoped_token_user(
+            client,
+            config,
+            token,
+            "sdk",
+            "resolve_api_token",
+            API_TOKEN_REFUSED,
+            Some(MISSING_SECRET),
+        )
+        .await;
     }
     // Not a JWT either: no session could match it, and asking Supabase would
     // turn a bad credential into a server error.
@@ -102,31 +111,60 @@ pub async fn require_session(
     })
 }
 
-/// Exchanges an API token for a minted JWT, then asks Supabase who it is.
-async fn api_token_user(
+/// Authenticates a plan-feed link: a `plan_feed`-scoped API token only.
+pub async fn require_plan_feed(
     client: &reqwest::Client,
     config: &Config,
     token: &str,
 ) -> Result<Caller, AuthError> {
+    if !is_api_token(token) {
+        return Err(AuthError::new(401, PLAN_FEED_REFUSED));
+    }
+    scoped_token_user(
+        client,
+        config,
+        token,
+        "plan_feed",
+        "resolve_plan_feed_token",
+        PLAN_FEED_REFUSED,
+        None,
+    )
+    .await
+}
+
+/// Exchanges a token of `scope` for a minted JWT, then asks Supabase who it is.
+/// A missing JWT secret is `missing_secret` as a 503, or `refused` as a 401 when `None`.
+async fn scoped_token_user(
+    client: &reqwest::Client,
+    config: &Config,
+    token: &str,
+    scope: &str,
+    resolve_rpc: &str,
+    refused: &str,
+    missing_secret: Option<&str>,
+) -> Result<Caller, AuthError> {
     // Scopes are read before any JWT is minted, so a token of the wrong scope
-    // never reaches `resolve_api_token`.
+    // never reaches the resolve RPC.
     let scopes = rpc(client, config, "api_token_scopes", token).await?;
-    if !has_sdk_scope(&scopes) {
-        return Err(AuthError::new(401, API_TOKEN_REFUSED));
+    if !has_scope(&scopes, scope) {
+        return Err(AuthError::new(401, refused));
     }
     let secret = config
         .jwt_secret
         .as_deref()
-        .ok_or_else(|| AuthError::new(503, MISSING_SECRET))?;
-    let resolved = rpc(client, config, "resolve_api_token", token).await?;
+        .ok_or_else(|| match missing_secret {
+            Some(message) => AuthError::new(503, message),
+            None => AuthError::new(401, refused),
+        })?;
+    let resolved = rpc(client, config, resolve_rpc, token).await?;
     let user_id = resolved
         .as_str()
         .filter(|id| !id.is_empty())
-        .ok_or_else(|| AuthError::new(401, API_TOKEN_REFUSED))?;
+        .ok_or_else(|| AuthError::new(401, refused))?;
     let jwt = mint_jwt(secret, user_id, now_seconds());
     let verified = get_user(client, config, &jwt)
         .await
-        .ok_or_else(|| AuthError::new(401, API_TOKEN_REFUSED))?;
+        .ok_or_else(|| AuthError::new(401, refused))?;
     Ok(Caller {
         user_id: verified,
         access_token: jwt,
@@ -211,10 +249,10 @@ fn hs256_b64(secret: &str, data: &str) -> String {
     URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes())
 }
 
-fn has_sdk_scope(scopes: &serde_json::Value) -> bool {
+fn has_scope(scopes: &serde_json::Value, scope: &str) -> bool {
     scopes
         .as_array()
-        .is_some_and(|list| list.iter().any(|scope| scope.as_str() == Some(SDK_SCOPE)))
+        .is_some_and(|list| list.iter().any(|item| item.as_str() == Some(scope)))
 }
 
 fn now_seconds() -> u64 {
