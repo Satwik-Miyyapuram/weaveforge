@@ -37,8 +37,9 @@ use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
 use crate::{
-    account, admin_users, credentials, mcp_relay, overleaf_connections, overleaf_reports,
-    overleaf_workshop, plan_feed, report_issue, settings_routes, zotero_collections,
+    account, admin_users, credentials, mcp_relay, overleaf_connections, overleaf_report_content,
+    overleaf_reports, overleaf_workshop, plan_feed, report_issue, settings_routes,
+    zotero_collections,
 };
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
@@ -197,6 +198,10 @@ fn integration_routes() -> Router<Arc<AppState>> {
         .route(
             "/api/overleaf/workshop/pdf",
             post(overleaf_workshop::pdf_post),
+        )
+        .route(
+            "/api/overleaf/reports/{id}/content",
+            get(overleaf_report_content::content_get),
         )
 }
 

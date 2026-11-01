@@ -18,8 +18,9 @@ RUN cargo build --release --locked -p wf-relay-server \
 
 FROM debian:bookworm-slim AS runtime
 # ca-certificates: the server makes HTTPS calls (Supabase, PostgREST, upstreams).
+# git: the Overleaf report content route clones projects over HTTPS.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates git \
  && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 10001 relay \
  && useradd --system --uid 10001 --gid relay --no-create-home --shell /usr/sbin/nologin relay
