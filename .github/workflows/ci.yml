@@ -575,9 +575,15 @@ jobs:
   shell-bundle-windows:
     # Windows x64 release bundles (MSI and NSIS) with the sidecar and the web
     # export, and their sizes in the step summary (phase 2 done-when: installer
-    # size measured on x64).
+    # size measured on x64). This is the release product ("WeaveForge"), built
+    # only to measure; the installers are not uploaded or installed anywhere.
     runs-on: windows-latest
     timeout-minutes: 40
+    env:
+      # The web export refuses to build without these (scripts/build-web.mjs).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_BACKEND_PROVIDER: postgrest
     defaults:
       run:
         working-directory: apps/shell

@@ -363,7 +363,6 @@ mod tests {
     #[test]
     fn bundled_dev_product_args_have_home_variant() {
         let res = PathBuf::from("res");
-        let dir = res.join("sidecar");
         let api = ApiArgs {
             artifacts: PathBuf::from("/data/artifacts"),
             app_version: "1.2.3".into(),

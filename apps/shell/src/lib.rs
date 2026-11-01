@@ -664,4 +664,13 @@ mod tests {
         assert!(bundle.contains("\"../desktop/dist/web/\": \"web/\""));
         assert!(bundle.contains("\"target/stage/sidecar/\": \"sidecar/\""));
     }
+
+    #[test]
+    fn dev_overlay_names_the_dev_product_with_its_own_identifier() {
+        let dev = include_str!("../tauri.dev.json");
+        let name = format!("\"productName\": \"{}\"", launch::DEV_PRODUCT_NAME);
+        assert!(dev.contains(&name));
+        assert!(dev.contains("\"identifier\": \"dev.weaveforge.desktop.dev\""));
+        assert!(!include_str!("../tauri.conf.json").contains("dev.weaveforge.desktop.dev"));
+    }
 }

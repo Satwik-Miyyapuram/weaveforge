@@ -4,7 +4,7 @@ import { execSync } from "node:child_process";
 import { send, run, shot, close } from "./cdp.mjs";
 
 const PAPER = process.env.PERF_PAPER ?? "e7b08520-e2e6-4dfc-b903-bc431b14c858";
-// Origin the app serves pages from: Electron `app://weaveforge`, Tauri on Windows `http://app.localhost`.
+// Origin the app serves pages from: Electron `app://weaveforge`, Tauri on Windows `https://app.localhost` (useHttpsScheme).
 const ORIGIN = process.env.PERF_ORIGIN ?? "app://weaveforge";
 // Install folder of the app under test; its processes and all their descendants are measured.
 const APP_DIR = process.env.PERF_APP_DIR ?? `${process.env.LOCALAPPDATA}\\Programs\\WeaveForge Dev`;

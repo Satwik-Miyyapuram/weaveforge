@@ -87,6 +87,26 @@ Stop it only by path, as in the first line. Never `taskkill /IM WeaveForge.exe`.
 - Sign-in loopback port 53682 is shared, so Dev logs `EADDRINUSE` while the
   main app runs. Harmless for local-only checks.
 
+### Tauri Dev build (Rust port)
+
+The Tauri shell becomes the Dev build only through the `tauri.dev.json`
+overlay (productName `WeaveForge Dev`, identifier
+`dev.weaveforge.desktop.dev`). It then migrates from the Electron Dev profile
+and leaves editor MCP configs alone. Never run a Tauri build without it on
+this machine: it would migrate from the installed app's data.
+
+```powershell
+cd apps\desktop; node scripts/build-web.mjs; cd ..\..
+node apps/shell/sidecar/scripts/stage.mjs <out> --node (Get-Command node).Source --node-license LICENSE
+cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
+```
+
+Copy `target\release\weaveforge-shell.exe` into `<out>`, and
+`apps\desktop\dist\web` to `<out>\web`. Run the exe from `<out>` unbundled, so
+it registers no URL scheme. For CDP set
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`; the page
+origin is `https://app.localhost`.
+
 ## 4. Drive it over CDP
 
 `http://127.0.0.1:9223/json` lists targets; the one with `type === "page"` is
