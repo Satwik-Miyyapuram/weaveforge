@@ -34,7 +34,7 @@ pub fn seal(plain: &str, secret: Option<&str>) -> Result<String, String> {
         return Err(MISSING_KEY.to_string());
     }
     let mut iv = [0u8; 12];
-    getrandom::getrandom(&mut iv).map_err(|_| "Could not generate a secure IV.".to_string())?;
+    getrandom::fill(&mut iv).map_err(|_| "Could not generate a secure IV.".to_string())?;
     seal_with_iv(plain, secret, &iv)
 }
 

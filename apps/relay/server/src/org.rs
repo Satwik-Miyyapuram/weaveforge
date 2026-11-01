@@ -334,7 +334,7 @@ pub fn invite_code_hash(code: &str) -> String {
 #[must_use]
 pub fn new_invite_code() -> String {
     let mut bytes = [0u8; 10];
-    if getrandom::getrandom(&mut bytes).is_err() {
+    if getrandom::fill(&mut bytes).is_err() {
         bytes = fallback_bytes();
     }
     invite_code_from_bytes(&bytes)
