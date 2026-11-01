@@ -1,6 +1,24 @@
 /* @ts-self-types="./wf_wasm.d.ts" */
 
 /**
+ * [`wf_core::sync::json_entities::add_counts`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when either argument is not action counts.
+ * @param {any} a
+ * @param {any} b
+ * @returns {any}
+ */
+export function addCounts(a, b) {
+    const ret = wasm.addCounts(a, b);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -61,6 +79,23 @@ export function changedSide(base, folder, workspace) {
  */
 export function coreInfo() {
     const ret = wasm.coreInfo();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::json_entities::count_json_actions`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `entries` does not match the diff entry shape.
+ * @param {any} entries
+ * @returns {any}
+ */
+export function countJsonActions(entries) {
+    const ret = wasm.countJsonActions(entries);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -177,6 +212,49 @@ export function diffBody(ours, theirs) {
     const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.diffBody(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::json_entities::diff_json_data`] for JS. `side` is who changed `parsed.path`;
+ * the TS wrapper asks `origin` for it.
+ *
+ * # Errors
+ *
+ * Fails when an argument does not match its shape.
+ * @param {any} parsed
+ * @param {string} existing_json
+ * @param {any} side
+ * @returns {any}
+ */
+export function diffJsonData(parsed, existing_json, side) {
+    const ptr0 = passStringToWasm0(existing_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.diffJsonData(parsed, ptr0, len0, side);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::deserialize::diff_workspace`] for JS. `sides` maps a parsed path to who
+ * changed it; the TS wrapper fills it from `origin`. A path it lacks is `Unknown`. Without
+ * `sides`, there is no origin.
+ *
+ * # Errors
+ *
+ * Fails when an argument does not match its shape.
+ * @param {any} parsed
+ * @param {any} existing
+ * @param {any} sides
+ * @returns {any}
+ */
+export function diffWorkspace(parsed, existing, sides) {
+    const ret = wasm.diffWorkspace(parsed, existing, sides);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -568,6 +646,38 @@ export function isUnderIgnoredFolder(rel_path) {
 }
 
 /**
+ * [`wf_core::sync::json_entities::json_data_path`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units or `kind` is not a
+ * known kind.
+ * @param {string} project_root
+ * @param {any} kind
+ * @returns {string}
+ */
+export function jsonDataPath(project_root, kind) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.jsonDataPath(ptr0, len0, kind);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
  *
  * # Errors
@@ -797,6 +907,30 @@ export function pageImportRefusal(meta) {
 }
 
 /**
+ * [`wf_core::sync::json_entities::parse_json_data`] for JS, as `null` when it is not a JSON array.
+ *
+ * # Errors
+ *
+ * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `kind` is
+ * not a known kind.
+ * @param {string} path
+ * @param {string} content
+ * @param {any} kind
+ * @returns {any}
+ */
+export function parseJsonData(path, content, kind) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.parseJsonData(ptr0, len0, ptr1, len1, kind);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
  * (`PaperRef` in `bindings.ts`) of the given `kind`.
  *
@@ -832,6 +966,23 @@ export function parseQuery(query) {
     const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.parseQuery(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::deserialize::parse_workspace_folder`] for JS, over `[path, content][]`.
+ *
+ * # Errors
+ *
+ * Fails when a path or content is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {any} files
+ * @returns {any}
+ */
+export function parseWorkspaceFolder(files) {
+    const ret = wasm.parseWorkspaceFolder(files);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1008,6 +1159,32 @@ export function sameValue(a, b) {
 }
 
 /**
+ * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
+ *
+ * # Errors
+ *
+ * Fails when the snapshot JSON is invalid, or the project id or name is over
+ * `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} snapshot_json
+ * @param {string} project_id
+ * @param {string} project_name
+ * @returns {any}
+ */
+export function serializeWorkspace(snapshot_json, project_id, project_name) {
+    const ptr0 = passStringToWasm0(snapshot_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(project_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(project_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.serializeWorkspace(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -1146,6 +1323,25 @@ export function vaultPageSide(path, content) {
     const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.vaultPageSide(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::workspace_snapshot::workspace_snapshot_counts`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when the snapshot JSON is invalid.
+ * @param {string} snapshot_json
+ * @returns {any}
+ */
+export function workspaceSnapshotCounts(snapshot_json) {
+    const ptr0 = passStringToWasm0(snapshot_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.workspaceSnapshotCounts(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

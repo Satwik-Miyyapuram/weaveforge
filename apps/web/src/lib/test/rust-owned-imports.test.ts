@@ -8,17 +8,26 @@ import { fileURLToPath } from "node:url";
 // Importing their TypeScript twins from @weaveforge/core would quietly bring
 // the old copy back, so app code must not.
 const RUST_OWNED = [
+  "addCounts",
   "changedSide",
+  "countJsonActions",
+  "diffJsonData",
+  "diffWorkspace",
   "entityDir",
   "imageAltFromFilename",
   "imageExtensionForMime",
   "imagePathsInBody",
   "isAppOwnedPath",
+  "jsonDataPath",
   "jsonKindOfPath",
   "markdownImage",
   "normalizeMarkdownImageSyntax",
+  "parseJsonData",
+  "parseWorkspaceFolder",
   "projectDir",
+  "serializeWorkspace",
   "toRelativeBlobLinks",
+  "workspaceSnapshotCounts",
 ];
 
 const src = fileURLToPath(new URL("../../", import.meta.url));

@@ -1,8 +1,12 @@
 //! Ports `ImportAction`, `ConflictKind` and the `Record<ImportAction, number>`
 //! counts from `packages/core/src/workspace/deserialize-workspace.ts`.
 
+use serde::{Deserialize, Serialize};
+
 /// What an import would do with one entry.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ImportAction {
     /// An id nothing has yet.
     Created,
@@ -40,7 +44,9 @@ impl ImportAction {
 }
 
 /// Why an entry conflicts, which decides what may be done about it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ConflictKind {
     /// Both copies are legitimate; the user may pick either.
     BothChanged,
@@ -63,17 +69,23 @@ impl ConflictKind {
 }
 
 /// `Record<ImportAction, number>`: one count per action.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActionCounts {
     /// Entries to create.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub created: usize,
     /// Entries to update.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub updated: usize,
     /// Entries left as they are.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub unchanged: usize,
     /// Entries that need a decision.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub conflict: usize,
     /// Entries the folder no longer lists.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub removed: usize,
 }
 
@@ -100,5 +112,43 @@ impl ActionCounts {
             ImportAction::Removed => &mut self.removed,
         };
         *slot = slot.saturating_add(n);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn action_and_conflict_kind_serialize_as_ts_names() {
+        for a in ImportAction::ALL {
+            assert_eq!(serde_json::to_value(a).unwrap(), json!(a.as_str()));
+        }
+        for k in [
+            ConflictKind::BothChanged,
+            ConflictKind::TypeMismatch,
+            ConflictKind::Markers,
+        ] {
+            assert_eq!(serde_json::to_value(k).unwrap(), json!(k.as_str()));
+        }
+    }
+
+    #[test]
+    fn action_counts_read_ts_field_names() {
+        let counts: ActionCounts = serde_json::from_value(
+            json!({"created":1,"updated":2,"unchanged":3,"conflict":4,"removed":5}),
+        )
+        .unwrap();
+        assert_eq!(
+            counts,
+            ActionCounts {
+                created: 1,
+                updated: 2,
+                unchanged: 3,
+                conflict: 4,
+                removed: 5,
+            }
+        );
     }
 }
