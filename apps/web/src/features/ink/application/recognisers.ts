@@ -20,12 +20,12 @@
 import {
   decodeInkWords,
   INK_ENGINE_MAX_CONFIDENCE,
-  mapInkConfidence,
   type InkLine,
   type InkRecogniser,
   type InkRecognitionHints,
   type RecognisedLine,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import type {
   DesktopBridge,
@@ -100,7 +100,7 @@ export function createDesktopInkRecogniser(
         return {
           text: line.text,
           conf: Math.min(
-            mapInkConfidence(line.confidence),
+            readyCore().mapInkConfidence(line.confidence),
             INK_ENGINE_MAX_CONFIDENCE,
           ),
           ...(line.alternatives?.length

@@ -1,5 +1,6 @@
-//! Ink geometry for JavaScript (step 5-2b). Each export wraps a `wf_core::ink`
-//! function; the JS shapes match `packages/core/src/ink`.
+//! Ink geometry, line segmentation and recognition helpers for JavaScript
+//! (steps 5-2b, 5-2c). Each export wraps a `wf_core::ink` function; the JS
+//! shapes match `packages/core/src/ink`.
 //!
 //! Point and pressure arrays cross as `Float64Array`s (flat x,y pairs), not
 //! through serde. The live packer stays in TS until its handle design is agreed.
@@ -9,6 +10,14 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::PackedInkStroke;
 use wf_core::ink::curve::{Side, ink_curve_at, ink_tangent_at};
+use wf_core::ink::recognise::{
+    INK_VOCABULARY_LIMIT, ink_page_confidence, ink_vocabulary_hints, is_unsure_confidence,
+    map_ink_confidence,
+};
+use wf_core::ink::segment::{
+    INK_GROUP_WINDOW_MS, INK_LINE_BAND_RATIO, RecognisedLineText, SegmentStroke, ink_line_records,
+    segment_ink_lines,
+};
 use wf_core::ink::smooth::{
     INK_SMOOTH_SPACING, binomial_smooth, resample_ink_stroke, smooth_ink_stroke,
 };
@@ -198,4 +207,101 @@ pub fn pack_ink_stroke_js(
 ) -> JsResult<JsValue> {
     let packed = pack_ink_stroke(points, pressures, packer_options(options)?);
     to_js(&packed)
+}
+
+/// [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
+/// `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
+/// `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
+///
+/// # Errors
+///
+/// Fails only if the value cannot be converted to a JS value.
+#[wasm_bindgen(js_name = segmentInkLines)]
+pub fn segment_ink_lines_js(
+    points: &[f64],
+    offsets: &[u32],
+    pen: &[u8],
+    t0s: &[f64],
+    window_ms: Option<f64>,
+    band_ratio: Option<f64>,
+) -> JsResult<JsValue> {
+    let strokes: Vec<SegmentStroke> = offsets
+        .windows(2)
+        .zip(pen.iter().zip(t0s))
+        .map(|(span, (&is_pen, &t0))| SegmentStroke {
+            points: points
+                .get(span[0] as usize..span[1] as usize)
+                .unwrap_or_default()
+                .to_vec(),
+            tool: if is_pen == 1 { "pen" } else { "" }.to_owned(),
+            t0: Some(t0),
+        })
+        .collect();
+    to_js(&segment_ink_lines(
+        &strokes,
+        window_ms.unwrap_or(INK_GROUP_WINDOW_MS),
+        band_ratio.unwrap_or(INK_LINE_BAND_RATIO),
+    ))
+}
+
+/// [`ink_line_records`]: `counts[i]` strokes per line, `bands` as flat
+/// `yMin, yMax` pairs, `recognised` an array of `{ text, confidence }` or
+/// undefined per line.
+///
+/// # Errors
+///
+/// Fails if `recognised` is not such an array.
+#[wasm_bindgen(js_name = inkLineRecords)]
+pub fn ink_line_records_js(
+    counts: &[u32],
+    bands: &[f64],
+    recognised: JsValue,
+) -> JsResult<JsValue> {
+    let recognised: Vec<Option<RecognisedLineText>> =
+        if recognised.is_undefined() || recognised.is_null() {
+            Vec::new()
+        } else {
+            serde_wasm_bindgen::from_value(recognised)?
+        };
+    let lines: Vec<(u32, [f64; 2])> = counts
+        .iter()
+        .zip(bands.as_chunks::<2>().0)
+        .map(|(&count, &band)| (count, band))
+        .collect();
+    to_js(&ink_line_records(&lines, &recognised))
+}
+
+/// [`is_unsure_confidence`].
+#[wasm_bindgen(js_name = isUnsureConfidence)]
+#[must_use]
+pub fn is_unsure_confidence_js(conf: f64) -> bool {
+    is_unsure_confidence(conf)
+}
+
+/// [`map_ink_confidence`]; `scale` defaults to 1.
+#[wasm_bindgen(js_name = mapInkConfidence)]
+#[must_use]
+pub fn map_ink_confidence_js(raw: f64, scale: Option<f64>) -> f64 {
+    map_ink_confidence(raw, scale.unwrap_or(1.0))
+}
+
+/// [`ink_page_confidence`] over the lines' `conf` values.
+#[wasm_bindgen(js_name = inkPageConfidence)]
+#[must_use]
+pub fn ink_page_confidence_js(confs: &[f64]) -> f64 {
+    ink_page_confidence(confs)
+}
+
+/// [`ink_vocabulary_hints`]; `limit` defaults to 500.
+///
+/// # Errors
+///
+/// Fails if `sources` is not an array of string arrays.
+#[wasm_bindgen(js_name = inkVocabularyHints)]
+pub fn ink_vocabulary_hints_js(sources: JsValue, limit: Option<f64>) -> JsResult<JsValue> {
+    let sources: Vec<Vec<String>> = serde_wasm_bindgen::from_value(sources)?;
+    to_js(&ink_vocabulary_hints(
+        &sources,
+        limit.unwrap_or(INK_VOCABULARY_LIMIT),
+    ))
 }

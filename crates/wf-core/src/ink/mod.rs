@@ -14,6 +14,8 @@
 
 pub mod curve;
 pub mod js_math;
+pub mod recognise;
+pub mod segment;
 pub mod smooth;
 pub mod stroke_packer;
 pub mod width;
