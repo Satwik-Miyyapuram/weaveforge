@@ -18,7 +18,7 @@ import { PreferenceStore } from "../src/preference-store";
 import { SecretStore } from "../src/secret-store";
 import type { VaultSession } from "../src/vault-handlers";
 
-const BRIDGE = path.resolve(__dirname, "../../../plugins/weaveforge-research/mcp-server/index.mjs");
+const BRIDGE = path.resolve(__dirname, "../../../../plugins/weaveforge-research/mcp-server/index.mjs");
 
 function home(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "wf-mcp-"));

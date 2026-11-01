@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
-import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "../../../desktop/src/local-db-lock";
-import { MIGRATED_MARKER } from "../../../desktop/src/migrated-notice";
+import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
+import { MIGRATED_MARKER } from "./migrated-notice";
 
 /** Written into the new data dir when the copy is complete; its presence means "never again". */
 export const DONE_MARKER = "migrated-from-electron";

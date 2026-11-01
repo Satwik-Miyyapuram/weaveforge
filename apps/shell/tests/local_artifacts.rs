@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Tests for `local_artifacts`: the port of `apps/desktop/test/local-artifacts.test.ts` plus the spec's extra cases.
+//! Tests for `local_artifacts`: the port of `apps/shell/sidecar/test/local-artifacts.test.ts` plus the spec's extra cases.
 
 mod common;
 

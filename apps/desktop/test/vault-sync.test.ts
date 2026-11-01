@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { GitRemoteConfig, IWorkspaceGitRemote, VaultRepoState } from "@weaveforge/core";
 
-import { syncVault, type VaultSyncSettings } from "../src/vault-git";
+import { syncVault, type VaultSyncSettings } from "../../shell/sidecar/src/vault-git";
 
 /** A remote that records what it was asked and never touches a disk or network. */
 function fakeRemote(fail?: string) {

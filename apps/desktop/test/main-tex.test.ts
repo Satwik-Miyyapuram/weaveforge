@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CHANNELS } from "../src/channels";
-import type { IpcSurface } from "../src/ipc-guard";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 import { registerMainTex } from "../src/main-tex";
 import type { TexTool } from "../src/tex";
 
