@@ -7,6 +7,7 @@ pub mod mcp;
 pub mod member;
 pub mod org;
 pub mod overleaf;
+pub mod overleaf_workshop;
 pub mod papers;
 pub mod plan;
 pub mod search;
