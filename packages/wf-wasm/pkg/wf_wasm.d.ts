@@ -11,6 +11,15 @@
 export function addCounts(a: any, b: any): any;
 
 /**
+ * [`apply_comma_placement`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `placement` is not `"inside"` or `"outside"`, or `input` is over the text cap.
+ */
+export function applyCommaPlacement(input: string, placement: any): any;
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -31,6 +40,43 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
  * Fails only if the value cannot be converted to a JS value.
  */
 export function changedSide(base?: string | null, folder?: string | null, workspace?: string | null): any;
+
+/**
+ * [`clean_pasted_text`] for JS, as `{ text, changed, urlsCleaned }`.
+ *
+ * # Errors
+ *
+ * Fails when `settings` is not a `PasteSettings` object, or `input` is over the text cap.
+ */
+export function cleanPastedText(input: string, settings: any): any;
+
+/**
+ * [`clean_pdf_text`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `options` is not a `PdfTextOptions` object, or `input` is over the text cap.
+ */
+export function cleanPdfText(input: string, options: any): any;
+
+/**
+ * Cleans the URLs in `text` with the built-in rules plus the user's `rules`
+ * (TS `cleanUrlsInText(text, buildUrlCleanupOptions(rules))`), as `{ text, count }`.
+ *
+ * # Errors
+ *
+ * Fails when `rules` is not a string array, or `text` is over the text cap.
+ */
+export function cleanUrlsWithRules(text: string, rules: any): any;
+
+/**
+ * [`clean_wrapped_text`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `options` is not a `WrappedTextOptions` object, or `input` is over the text cap.
+ */
+export function cleanWrappedText(input: string, options: any): any;
 
 /**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
@@ -68,6 +114,15 @@ export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file
  * Fails only if the value cannot be converted to a JS value.
  */
 export function defaultInkNoteMeta(): any;
+
+/**
+ * The default paste settings (TS `DEFAULT_PASTE_SETTINGS`).
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function defaultPasteSettings(): any;
 
 /**
  * [`wf_core::sync::git_remote::describe_pull`] for JS.
@@ -358,6 +413,15 @@ export function normalizeArxivId(value: string): string | undefined;
 export function normalizeMarkdownImageSyntax(body: string): string;
 
 /**
+ * [`normalize_paste_settings`] for JS. `json` is `JSON.stringify` of whatever was stored.
+ *
+ * # Errors
+ *
+ * Fails when `json` is not valid JSON or is over the text cap.
+ */
+export function normalizePasteSettings(json: string): any;
+
+/**
  * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
  * imported, or `None` when it can.
  *
@@ -376,6 +440,15 @@ export function pageImportRefusal(meta: any): string | undefined;
  * not a known kind.
  */
 export function parseJsonData(path: string, content: string, kind: any): any;
+
+/**
+ * [`parse_link_removal_text`] for JS: the textarea's rules, one per line.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over the text cap.
+ */
+export function parseLinkRemovalText(text: string): any;
 
 /**
  * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
@@ -406,6 +479,15 @@ export function parseQuery(query: string): any;
  * Fails when a path or content is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function parseWorkspaceFolder(files: any): any;
+
+/**
+ * [`paste_lands_in_verbatim_context`] for JS. `offset` is in UTF-16 code units.
+ *
+ * # Errors
+ *
+ * Fails when `document` is over the text cap.
+ */
+export function pasteLandsInVerbatimContext(document: string, offset: number): boolean;
 
 /**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
@@ -512,6 +594,15 @@ export function stampWorkspaceId(content: string, id: string): string | undefine
 export function stripKindSuffix(name: string): string;
 
 /**
+ * [`tab_separated_to_markdown_table`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `input` is over the text cap.
+ */
+export function tabSeparatedToMarkdownTable(input: string): any;
+
+/**
  * [`wf_core::sync::blob_links::to_relative_blob_links`] for JS, as
  * `{ body, assets: [{ scheme, storagePath, folderPath }] }`.
  *
@@ -593,12 +684,18 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly addCounts: (a: any, b: any) => [number, number, number];
+    readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly cleanPastedText: (a: number, b: number, c: any) => [number, number, number];
+    readonly cleanPdfText: (a: number, b: number, c: any) => [number, number, number];
+    readonly cleanUrlsWithRules: (a: number, b: number, c: any) => [number, number, number];
+    readonly cleanWrappedText: (a: number, b: number, c: any) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly defaultInkNoteMeta: () => [number, number, number];
+    readonly defaultPasteSettings: () => [number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
     readonly diffBody: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -630,11 +727,14 @@ export interface InitOutput {
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
+    readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly parseJsonData: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly parseLinkRemovalText: (a: number, b: number) => [number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly parseWorkspaceFolder: (a: any) => [number, number, number];
+    readonly pasteLandsInVerbatimContext: (a: number, b: number, c: number) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
@@ -646,6 +746,7 @@ export interface InitOutput {
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
+    readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];

@@ -74,6 +74,15 @@ pub fn types() -> Types {
         .register::<wf_core::papers::paper_ref::PaperRefKind>()
         .register::<wf_core::papers::paper_ref::PaperRef>()
         .register::<wf_core::papers::page_metadata::PageMetadata>()
+        .register::<wf_core::paste::TextResult>()
+        .register::<wf_core::paste::clean_pasted_text::CleanPasteResult>()
+        .register::<wf_core::paste::paste_settings::PasteSettings>()
+        .register::<wf_core::paste::pdf_text::PdfTextOptions>()
+        .register::<wf_core::paste::quote_commas::CommaPlacement>()
+        .register::<wf_core::paste::wrapped_text::Rejoin>()
+        .register::<wf_core::paste::wrapped_text::Bullets>()
+        .register::<wf_core::paste::wrapped_text::WrappedTextOptions>()
+        .register::<wf_core::paste::url_cleanup::UrlCleanupResult>()
 }
 
 /// Render the full bindings file.

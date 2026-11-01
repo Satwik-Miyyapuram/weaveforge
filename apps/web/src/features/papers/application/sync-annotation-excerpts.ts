@@ -1,4 +1,4 @@
-import { cleanPdfText } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Clipboard representation shared by paper annotation cards and the report
@@ -14,7 +14,7 @@ import { cleanPdfText } from "@weaveforge/core";
  * exactly what the file says, and only the rendering for a note is mended.
  */
 export function formatQuoteCiteClipboard(quote: string, paperTitle: string): string {
-  const repaired = cleanPdfText(quote.replace(/\r\n?/g, "\n"), {
+  const repaired = readyCore().cleanPdfText(quote.replace(/\r\n?/g, "\n"), {
     // Neither guess is safe without a person to confirm it: a lone number in a
     // highlight is as likely to be data as a page number, and a highlight that
     // spans two paragraphs meant to.
