@@ -6,8 +6,6 @@ import {
   describeChanges,
   GIT_OFF,
   diffWorkspace,
-  isAppOwnedPath,
-  projectDir,
   idSuffix,
   fromRelativeBlobLinks,
   mirrorWorkspace,
@@ -28,7 +26,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach } from "@/lib/notify-each";
-import { loadCore, type RustCore } from "@/lib/rust-core";
+import { loadCore, readyCore, type RustCore } from "@/lib/rust-core";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
@@ -272,7 +270,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const container = getContainer();
   const project = await activeProject();
   await followProjectRename(fs, project);
-  const projectRoot = projectDir(project);
+  const core = await loadCore();
+  const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
   // This project's manifest, and only this project's: the paths in it are the
   // files the removal pass below is allowed to touch.
@@ -519,7 +518,7 @@ function reportFolderChanges(paths: readonly string[]): void {
       drafts = true;
       continue;
     }
-    if (isAppOwnedPath(path)) continue;
+    if (readyCore().isAppOwnedPath(path)) continue;
 
     // When scoped to a project, ignore outside changes that belong to another project's subfolder:
     const subfolderMatch = path.match(/^[^\/]+--([a-zA-Z0-9]{1,8})\//);
@@ -542,7 +541,7 @@ function reportFolderChanges(paths: readonly string[]): void {
     await syncInFlight;
     const fs = activeFs;
     const project = await activeProjectOrNull().catch(() => null);
-    const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
+    const base = fs && project ? await readMirrorBase(fs, (await loadCore()).projectDir(project)) : {};
     const beforeRead = external.size;
     let outside = false;
     for (const path of candidates) {
@@ -593,7 +592,8 @@ export async function previewFolderImport(): Promise<FolderDiff & { json: JsonDi
 
   const project = await activeProject();
   await followProjectRename(activeFs, project);
-  const projectRoot = projectDir(project);
+  const core = await loadCore();
+  const projectRoot = core.projectDir(project);
   const base = await readMirrorBase(activeFs, projectRoot);
   const bases = await readMirrorBases(activeFs, projectRoot);
 

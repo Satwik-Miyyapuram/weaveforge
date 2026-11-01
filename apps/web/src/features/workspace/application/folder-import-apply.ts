@@ -1,7 +1,6 @@
 import {
   ASSET_DIR,
   fromRelativeBlobLinks,
-  projectDir,
   type ImportDiff,
   type ImportDiffEntry,
   type IWorkspaceFs,
@@ -87,7 +86,7 @@ async function applyEntries(
   const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
-  const projectRoot = projectDir(await activeProject());
+  const projectRoot = core.projectDir(await activeProject());
   let created = 0;
   let updated = 0;
   const appliedPaths: string[] = [];

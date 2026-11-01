@@ -2,7 +2,6 @@ import {
   WORKSPACE_META_DIR,
   digestText,
   idSuffix,
-  projectDir,
   projectMetaDir,
   type IWorkspaceFs,
   type VaultPageBase,
@@ -165,7 +164,8 @@ export async function followProjectRename(
   fs: IWorkspaceFs,
   project: WorkspaceProject,
 ): Promise<string | null> {
-  const root = projectDir(project);
+  const core = await loadCore();
+  const root = core.projectDir(project);
   if (await fs.stat(root)) return null;
   const tail = `--${idSuffix(project.id)}`;
   const found = (await fs.list("")).filter((e) => e.kind === "dir" && e.path.endsWith(tail));

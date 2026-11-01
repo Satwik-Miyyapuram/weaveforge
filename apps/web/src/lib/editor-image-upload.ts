@@ -1,9 +1,9 @@
 "use client";
 
-import { imageAltFromFilename, imageExtensionForMime } from "@weaveforge/core";
 import { compressImage } from "@/lib/image-compress";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
+import { loadCore } from "@/lib/rust-core";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 
 /**
@@ -25,9 +25,10 @@ export function editorImageUpload(options: {
   return {
     onError: options.onError,
     async upload(file: File): Promise<string> {
+      const core = await loadCore();
       const { blob, ext } = await prepare(file);
       const path = await options.store(blob, ext);
-      return options.toMarkdown(path, imageAltFromFilename(file.name));
+      return options.toMarkdown(path, core.imageAltFromFilename(file.name));
     },
   };
 }
@@ -42,6 +43,7 @@ export function editorImageUpload(options: {
  * file the writer meant to attach, and the note keeps working.
  */
 async function prepare(file: File): Promise<{ blob: Blob; ext: string }> {
+  const core = await loadCore();
   if (file.type === "image/gif") {
     return { blob: file, ext: "gif" };
   }
@@ -56,6 +58,6 @@ async function prepare(file: File): Promise<{ blob: Blob; ext: string }> {
       message: "An image could not be re-encoded and was stored as it came",
       detail: `${file.name}: ${describeRejection(error)}`,
     });
-    return { blob: file, ext: imageExtensionForMime(file.type) };
+    return { blob: file, ext: core.imageExtensionForMime(file.type) };
   }
 }

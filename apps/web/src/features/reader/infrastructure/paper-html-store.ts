@@ -7,7 +7,8 @@
  * may have been edited by hand, and nothing unsanitised reaches the frame.
  */
 
-import { entityDir, paperHtmlPath, type IWorkspaceFs } from "@weaveforge/core";
+import { paperHtmlPath, type IWorkspaceFs } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import {
@@ -40,8 +41,9 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   }
 
   async set(page: PaperHtmlPage): Promise<void> {
+    const core = await loadCore();
     const root = await this.projectRoot();
-    await this.fs.mkdirp(entityDir("paper", root) + "/html");
+    await this.fs.mkdirp(core.entityDir("paper", root) + "/html");
     await this.fs.writeFile(paperHtmlPath(page.paperId, root), buildPaperHtmlDocument(page));
   }
 
