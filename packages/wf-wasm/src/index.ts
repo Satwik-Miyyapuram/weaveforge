@@ -75,6 +75,7 @@ import init, {
   diffJsonData as rawDiffJsonData,
   countJsonActions as rawCountJsonActions,
   addCounts as rawAddCounts,
+  planMirror as rawPlanMirror,
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
@@ -106,6 +107,7 @@ import type {
   JsonDiffEntry,
   MergeFieldDispute,
   MergeResult,
+  MirrorResult,
   PageMetadata,
   PaperRef,
   PaperRefKind,
@@ -159,6 +161,7 @@ export type {
   JsonDiffEntry,
   MergeFieldDispute,
   MergeResult as FieldMergeResult,
+  MirrorResult,
   PageMetadata,
   PaperRef,
   PaperRefKind,
@@ -659,4 +662,25 @@ export function countJsonActions(entries: readonly JsonDiffEntry[]): ActionCount
 /** Two sets of counts summed (Rust `add_counts`). */
 export function addCounts(a: Readonly<ActionCounts>, b: Readonly<ActionCounts>): ActionCounts {
   return rawAddCounts(a, b) as ActionCounts;
+}
+
+/**
+ * What mirroring `serialized` into the folder would do (Rust `plan_mirror`), without
+ * touching it. `disk` holds the folder's text for every file path and for every previous
+ * path that is not present but has a `base` entry; a missing key is a missing file.
+ * Assets are not fetched: their folder paths only count as present, so they are never removed.
+ */
+export function planMirror(
+  serialized: { files: Readonly<Record<string, string>>; assets: readonly SerializedAsset[] },
+  previousPaths: readonly string[],
+  base: Readonly<Record<string, string>> | undefined,
+  disk: Readonly<Record<string, string>>,
+): MirrorResult {
+  return rawPlanMirror(
+    Object.entries(serialized.files),
+    serialized.assets.map((asset) => asset.folderPath),
+    previousPaths,
+    base,
+    disk,
+  ) as MirrorResult;
 }

@@ -6,7 +6,6 @@ import {
   GIT_OFF,
   idSuffix,
   fromRelativeBlobLinks,
-  mirrorWorkspace,
   type ImportDiff,
   type IWorkspaceFs,
   type IWorkspaceGit,
@@ -43,6 +42,7 @@ import {
   type Coalescer,
 } from "./mirror-manifest";
 import { activeProject, activeProjectOrNull } from "./active-project";
+import { mirrorWorkspace } from "./folder-mirror";
 import { readPreviewFolder } from "./folder-preview-read";
 import { jsonDiff } from "./folder-json-import";
 import { applyFolderImport } from "./folder-import-apply";
@@ -274,7 +274,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
 
-  const mirror = await mirrorWorkspace(snapshot, fs, {
+  const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
     previousPaths,
     // The digests, not only the paths: a file whose content has moved on since

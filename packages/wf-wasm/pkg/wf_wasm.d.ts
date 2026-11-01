@@ -408,6 +408,18 @@ export function parseQuery(query: string): any;
 export function parseWorkspaceFolder(files: any): any;
 
 /**
+ * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
+ * `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
+ * `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
+ * Returns the `MirrorResult` (`mirrored` and `bases` as `[path, value][]`).
+ *
+ * # Errors
+ *
+ * Fails when an argument has the wrong shape.
+ */
+export function planMirror(files: any, asset_paths: any, previous_paths: any, base: any, disk: any): any;
+
+/**
  * [`wf_core::sync::folder_layout::project_dir`] for JS.
  *
  * # Errors
@@ -623,6 +635,7 @@ export interface InitOutput {
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly parseWorkspaceFolder: (a: any) => [number, number, number];
+    readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];

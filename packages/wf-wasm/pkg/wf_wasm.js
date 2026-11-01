@@ -990,6 +990,30 @@ export function parseWorkspaceFolder(files) {
 }
 
 /**
+ * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
+ * `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
+ * `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
+ * Returns the `MirrorResult` (`mirrored` and `bases` as `[path, value][]`).
+ *
+ * # Errors
+ *
+ * Fails when an argument has the wrong shape.
+ * @param {any} files
+ * @param {any} asset_paths
+ * @param {any} previous_paths
+ * @param {any} base
+ * @param {any} disk
+ * @returns {any}
+ */
+export function planMirror(files, asset_paths, previous_paths, base, disk) {
+    const ret = wasm.planMirror(files, asset_paths, previous_paths, base, disk);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::folder_layout::project_dir`] for JS.
  *
  * # Errors
