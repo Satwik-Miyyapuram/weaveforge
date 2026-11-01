@@ -302,6 +302,16 @@ export type InkPaper =
 /**  Wide ruled. */
 "wide";
 
+/**  Options for [`InkStrokePacker`] and [`pack_ink_stroke`]; a missing field takes the default. */
+export type InkStrokePackerOptions = {
+	/**  Distance, in 0.1 mm, the packed curve may stray; default `INK_PACK_TOLERANCE`. */
+	tolerance?: number | null,
+	/**  Most points a stroke keeps; default `INK_STROKE_MAX_POINTS`. */
+	maxPoints?: number | null,
+	/**  Pressure deviation, out of 255, that keeps a point; default `INK_PACK_PRESSURE_TOLERANCE`. */
+	pressureTolerance?: number | null,
+};
+
 /**  The entries for one file, with their counts. */
 export type JsonDiff = {
 	/**  Every row and removal, in comparison order. */
@@ -365,6 +375,17 @@ export type MirrorResult = {
 	heldBack: string[],
 	/**  Note bases, in write order. */
 	bases: ([string, VaultPageBase])[],
+};
+
+/**
+ *  One stroke ready for storage: flat x,y pairs and one pressure byte per point.
+ *  The smoothing functions return this shape too.
+ */
+export type PackedInkStroke = {
+	/**  Flat x,y pairs in 0.1 mm. */
+	points: (number | null)[],
+	/**  One 0-255 pressure byte per point. */
+	pressures: (number | null)[],
 };
 
 /**  Everything a page says about the paper it carries. */

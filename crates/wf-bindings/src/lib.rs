@@ -83,6 +83,8 @@ pub fn types() -> Types {
         .register::<wf_core::paste::wrapped_text::Bullets>()
         .register::<wf_core::paste::wrapped_text::WrappedTextOptions>()
         .register::<wf_core::paste::url_cleanup::UrlCleanupResult>()
+        .register::<wf_core::ink::PackedInkStroke>()
+        .register::<wf_core::ink::stroke_packer::InkStrokePackerOptions>()
 }
 
 /// Render the full bindings file.

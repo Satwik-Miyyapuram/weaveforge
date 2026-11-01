@@ -29,12 +29,11 @@ import {
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   INK_HIGHLIGHTER_WIDTHS,
-  clampInkZoom,
-  inkZoomIn,
-  inkZoomOut,
   type InkHand,
   type InkPaper,
 } from "@weaveforge/core";
+
+import { readyCore } from "@/lib/rust-core";
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
 import { MoreMenu, type InkPageGap } from "./ink-bar-more";
@@ -316,9 +315,9 @@ export function InkBar({
     (zoom !== undefined && onZoom
       ? {
           zoomPercent: Math.round(zoom * 100),
-          onZoomOut: () => onZoom(inkZoomOut(zoom)),
-          onZoomIn: () => onZoom(inkZoomIn(zoom)),
-          onZoomTo: (percent) => onZoom(clampInkZoom(percent / 100)),
+          onZoomOut: () => onZoom(readyCore().inkZoomOut(zoom)),
+          onZoomIn: () => onZoom(readyCore().inkZoomIn(zoom)),
+          onZoomTo: (percent) => onZoom(readyCore().clampInkZoom(percent / 100)),
           fit: zoom === 1 ? "width" : "custom",
           onFitWidth: () => onZoom(1),
         }
