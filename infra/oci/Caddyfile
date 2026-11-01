@@ -135,7 +135,10 @@
 	# The relay server (apps/relay). The prefix is stripped, so its routes are
 	# /api/... and /healthz. Must stay above the catch-all `handle` below.
 	handle_path /relay/* {
-		reverse_proxy weaveforge-relay:8787
+		reverse_proxy weaveforge-relay:8787 {
+			# Lets the relay build absolute URLs (signed blob views) under /relay.
+			header_up X-Forwarded-Prefix /relay
+		}
 	}
 
 	handle {
