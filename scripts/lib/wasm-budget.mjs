@@ -47,7 +47,13 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   wf-core's workspace deserializer, which later batches export anyway. The
 //   rest is the line diff, the frontmatter number parsing and formatting, and
 //   serde_json::Value crossing to and from JS. 262 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 262 * 1024;
+// - Step 0b-4: 281,383 bytes (module 272,569 + glue 8,814), the Windows build.
+//   The offline-merge, ink note, text diff, image, blob link and folder layout
+//   exports (mergeRows, read/writeInkNoteBody, diffBody, imagePathsInBody,
+//   toRelativeBlobLinks, projectDir, jsonKindOfPath, ...) add ~15 KB: those
+//   wf-core modules plus serde for their results, whose TS types are now
+//   generated from wf-core. 276 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 276 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

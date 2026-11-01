@@ -8,7 +8,7 @@ import type { EditorHandleRef } from "@/components/editor-handle";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import { defaultInkNoteMeta, writeInkNoteBody } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import { useProject } from "@/features/projects";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
@@ -393,7 +393,7 @@ export function WorkspaceScreen() {
       );
       // An ink note is born with its header and no text layer; the host writes
       // the first page's chunk when there is a first stroke.
-      const body = input.ink ? writeInkNoteBody(defaultInkNoteMeta(), "") : undefined;
+      const body = input.ink ? readyCore().writeInkNoteBody(readyCore().defaultInkNoteMeta(), "") : undefined;
       const id = existing
         ? existing.id
         : (

@@ -2,11 +2,12 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isEmptyPaperSummary, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { removePaper } from "./remove-paper";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
@@ -98,7 +99,7 @@ export function PaperNote({
   // Text or Ink, as in the Editor's toolbar: a handwritten note opens on its
   // sheet, any other in Text. Only a reader without edit rights reads.
   const [mode, setMode] = useState<NoteMode>(() =>
-    readOnly ? "read" : isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
+    readOnly ? "read" : readyCore().isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
   );
   const inkFocus = useInkFocus(mode === "ink");
   const modeRef = useRef<NoteMode>(mode);
@@ -412,7 +413,7 @@ export function PaperNote({
                 className={
                   mode !== "read"
                     ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
-                    : isInkNoteBody(paper.summary ?? "")
+                    : readyCore().isInkNoteBody(paper.summary ?? "")
                       ? "record-note-read record-note-read--ink"
                       : "record-note-read"
                 }

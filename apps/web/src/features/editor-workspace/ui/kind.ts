@@ -19,7 +19,8 @@
  * learns a new word.
  */
 
-import { isInkNoteBody, KIND_SUFFIX } from "@weaveforge/core";
+import { KIND_SUFFIX } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import type { DocumentMode, TabRef } from "../application/pane-tree";
 import type { TreeNodeKind } from "../application/workspace-tree";
@@ -415,7 +416,7 @@ export function defaultModeFor(kind: string): DocumentMode {
  * writing is the content. A kind with no Ink keeps its default even then.
  */
 export function openModeFor(kind: string, body: string): DocumentMode {
-  return modesFor(kind).includes("ink") && isInkNoteBody(body) ? "ink" : defaultModeFor(kind);
+  return modesFor(kind).includes("ink") && readyCore().isInkNoteBody(body) ? "ink" : defaultModeFor(kind);
 }
 
 /** The tab that opens a document, in its `openModeFor` mode: the explorer and quick-open both open through this. */

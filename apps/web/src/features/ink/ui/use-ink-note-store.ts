@@ -16,13 +16,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 
 import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
 import type { InkSave } from "./use-ink-worker-rpc";
 import {
   joinInkTextLayer,
   newInkChunkId,
-  writeInkNoteBody,
   type InkNoteMeta,
 } from "@weaveforge/core";
 
@@ -103,7 +103,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     };
     return {
       meta,
-      body: writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)),
+      body: readyCore().writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)),
     };
   }, [metaRef, pagesRef, textPagesRef]);
 

@@ -1,0 +1,378 @@
+import { before, test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  mergeRows as tsMergeRows,
+  sameValue as tsSameValue,
+  isInkChunkId as tsIsInkChunkId,
+  isInkNoteBody as tsIsInkNoteBody,
+  readInkNoteBody as tsReadInkNoteBody,
+  writeInkNoteBody as tsWriteInkNoteBody,
+  defaultInkNoteMeta as tsDefaultInkNoteMeta,
+  diffBody as tsDiffBody,
+  hasConflictMarkers as tsHasConflictMarkers,
+  markdownImage as tsMarkdownImage,
+  imageAltFromFilename as tsImageAltFromFilename,
+  imageExtensionForMime as tsImageExtensionForMime,
+  imagePathsInBody as tsImagePathsInBody,
+  normalizeMarkdownImageSyntax as tsNormalizeMarkdownImageSyntax,
+  toRelativeBlobLinks as tsToRelativeBlobLinks,
+  relativeAssetPaths as tsRelativeAssetPaths,
+  projectDir as tsProjectDir,
+  entityDir as tsEntityDir,
+  projectMetaDir as tsProjectMetaDir,
+  idSuffix as tsIdSuffix,
+  stripKindSuffix as tsStripKindSuffix,
+  jsonKindOfPath as tsJsonKindOfPath,
+  isAppOwnedPath as tsIsAppOwnedPath,
+  type InkNoteMeta,
+  type WorkspaceEntityType,
+} from "@weaveforge/core";
+import type { RustCore } from "@/lib/rust-core";
+import { loadTestCore } from "./load-test-core";
+
+let core: RustCore;
+before(async () => {
+  core = await loadTestCore();
+});
+
+// Rust and TS must agree on every input, so the TS copies can be deleted.
+
+const MERGE_CASES: [Record<string, unknown>, Record<string, unknown>, Record<string, unknown>][] = [
+  // (a) no change
+  [{ title: "a", n: 1 }, { title: "a", n: 1 }, { title: "a", n: 1 }],
+  // (b) only local changed
+  [{ title: "a", n: 1 }, { title: "b", n: 1 }, { title: "a", n: 1 }],
+  // (c) only remote changed
+  [{ title: "a", n: 1 }, { title: "a", n: 1 }, { title: "a", n: 2 }],
+  // (d) both changed to the same value
+  [{ title: "a" }, { title: "b" }, { title: "b" }],
+  // (e) both changed differently: conflict
+  [{ t: "a" }, { t: "b" }, { t: "c" }],
+  // (f) updated_at changed on both sides: later wins
+  [
+    { updated_at: "2023-12-31T00:00:00Z" },
+    { updated_at: "2024-01-01T00:00:00Z" },
+    { updated_at: "2024-01-02T00:00:00Z" },
+  ],
+  [
+    { updated_at: "2023-12-31T00:00:00Z" },
+    { updated_at: "2024-01-02T00:00:00Z" },
+    { updated_at: "2024-01-01T00:00:00Z" },
+  ],
+  // (g) reserved fields
+  [
+    { id: 1, server_seq: 1 },
+    { id: 2, server_seq: 2 },
+    { id: 3, server_seq: 3 },
+  ],
+  // (h) jsonb objects with different key order
+  [{ meta: { a: 1, b: 2 } }, { meta: { b: 2, a: 1, c: 3 } }, { meta: { a: 1, b: 2 } }],
+  [{ meta: { a: 1, b: 2 } }, { meta: { b: 2, a: 1 } }, { meta: { a: 9, b: 2 } }],
+  // (i) timestamps: same instant in different offsets
+  [
+    { at: "2024-01-01T00:00:00Z" },
+    { at: "2024-01-01T01:00:00+01:00" },
+    { at: "2024-01-01T00:00:00Z", n: 1 },
+  ],
+  // (j) field only in remote
+  [{ a: 1 }, { a: 1 }, { a: 1, extra: "r" }],
+  // (k) nested arrays
+  [{ tags: [1, [2, 3]] }, { tags: [1, [2, 4]] }, { tags: [1, [2, 3], 5] }],
+];
+
+const SAME_VALUE_PAIRS: [unknown, unknown][] = [
+  [null, null],
+  ["a", "a"],
+  ["a", "b"],
+  [1, 1],
+  [1, "1"],
+  [true, true],
+  [{ a: 1, b: [1, 2] }, { b: [1, 2], a: 1 }],
+  [[1, 2], [2, 1]],
+  ["2024-01-01T00:00:00Z", "2024-01-01 00:00:00+00"],
+  ["2024-01-01T00:00:00Z", "2024-01-01T00:00:00.000Z"],
+  ["not a date", "not a date"],
+  [0, null],
+  ["", null],
+];
+
+const ID_INPUTS = [
+  "01HZX3K9Q7M2N5P8R4T6V0W1XY",
+  "01J5Z8A3B7C2D9E4F6G1H0K5MN",
+  "",
+  "../x",
+  "a b",
+  "a".repeat(200),
+];
+
+const DIFF_CASES: [string, string][] = [
+  ["", ""],
+  ["a", "a"],
+  ["a\nb", "a\nc"],
+  ["a\nb\nc\nd", "a\nx\nc\ny"],
+  ["a\n", "a"],
+  ["a\nb\n", "a\nb"],
+  ["a\r\nb\r\n", "a\r\nc\r\n"],
+  ["a\nb", "a\nx\ny\nb"],
+  ["a\nx\ny\nb", "a\nb"],
+  ["<<<<<<< this app\na\n=======\nb\n>>>>>>> the folder\n", "a\n"],
+  ["<<<<<<< this app\r\na\r\n=======\r\nb\r\n>>>>>>> the folder\r\n", "a\r\n"],
+  ["x <<<<<<< this app\na", "a"],
+];
+
+const MARKER_INPUTS = [
+  "<<<<<<< this app\na\n=======\nb\n>>>>>>> the folder\n",
+  "<<<<<<< this app\r\na\r\n=======\r\nb\r\n>>>>>>> the folder\r\n",
+  "plain",
+  "text with <<<<<<< in the middle",
+  "x ======= y",
+  "",
+];
+
+const DEFAULT_META: InkNoteMeta = tsDefaultInkNoteMeta();
+const META: InkNoteMeta = {
+  pages: 3,
+  paper: "dotted",
+  pageOrder: ["01HZX3K9Q7M2N5P8R4T6V0W1XY", "01J5Z8A3B7C2D9E4F6G1H0K5MN"],
+  recognised: 0.75,
+  engine: "myscript",
+  hand: "left",
+};
+const GRID_META: InkNoteMeta = { pages: 2, paper: "grid", pageOrder: [], recognised: 0.5, engine: "x", hand: "left" };
+const META_CASES = [DEFAULT_META, META, GRID_META];
+
+const WRITTEN_META = tsWriteInkNoteBody(META, "line 1\n\nline 2");
+const INK_BODIES = [
+  "",
+  "# plain",
+  tsWriteInkNoteBody(DEFAULT_META, ""),
+  WRITTEN_META,
+  // An unknown paper value, as a hand-edited header would carry it.
+  WRITTEN_META.replace("ink-paper=dotted", "ink-paper=weird"),
+  WRITTEN_META.replace(/\n/g, "\r\n"),
+];
+
+const MARKDOWN_IMAGE_BODIES = [
+  "no images here",
+  "![a](vault:x.png)",
+  "![a](vault:x.png) and ![a](vault:x.png)",
+  "![a](vault:x.png) ![b](paperimg:y.png) ![c](vault:x.png)",
+  '![a](vault:x.png "title")',
+  "![a](<vault:x.png>)",
+  '<img src="vault:x.png">',
+  "![a\n](vault:x.png)",
+  "![p](paperimg:p/a.png)\n![r](reportimg:r/b.jpg)",
+  "![a](https://example.com/x.png)",
+];
+
+const LINK_FILE_PATHS = ["notes/a.md", "p--1/notes/deep/b.md"];
+
+const ENTITY_TYPES: WorkspaceEntityType[] = [
+  "vault_page",
+  "ink_page",
+  "paper",
+  "reading_list",
+  "report_section",
+  "experiment",
+  "milestone",
+  "log_entry",
+];
+
+test("mergeRows matches the TS merge", () => {
+  for (const [base, local, remote] of MERGE_CASES) {
+    assert.deepEqual(
+      core.mergeRows(base, local, remote),
+      tsMergeRows(base, local, remote),
+      JSON.stringify([base, local, remote]),
+    );
+  }
+});
+
+test("sameValue matches the TS comparison", () => {
+  for (const [a, b] of SAME_VALUE_PAIRS) {
+    assert.deepEqual(core.sameValue(a, b), tsSameValue(a, b), JSON.stringify([a, b]));
+  }
+});
+
+test("isInkChunkId matches the TS check", () => {
+  for (const id of ID_INPUTS) {
+    assert.deepEqual(core.isInkChunkId(id), tsIsInkChunkId(id), JSON.stringify(id.slice(0, 40)));
+  }
+});
+
+test("isInkNoteBody and readInkNoteBody match the TS reader", () => {
+  for (const body of INK_BODIES) {
+    assert.deepEqual(core.isInkNoteBody(body), tsIsInkNoteBody(body), JSON.stringify(body));
+    assert.deepEqual(core.readInkNoteBody(body), tsReadInkNoteBody(body), JSON.stringify(body));
+  }
+});
+
+test("writeInkNoteBody matches the TS writer", () => {
+  for (const meta of META_CASES) {
+    for (const text of ["", "x", "a\n\nb"]) {
+      assert.deepEqual(
+        core.writeInkNoteBody(meta, text),
+        tsWriteInkNoteBody(meta, text),
+        JSON.stringify([meta, text]),
+      );
+    }
+  }
+});
+
+test("defaultInkNoteMeta matches the TS default", () => {
+  assert.deepEqual(core.defaultInkNoteMeta(), tsDefaultInkNoteMeta());
+});
+
+test("diffBody matches the TS diff", () => {
+  for (const [ours, theirs] of DIFF_CASES) {
+    assert.deepEqual(core.diffBody(ours, theirs), tsDiffBody(ours, theirs), JSON.stringify([ours, theirs]));
+  }
+});
+
+test("hasConflictMarkers matches the TS check", () => {
+  for (const text of MARKER_INPUTS) {
+    assert.deepEqual(core.hasConflictMarkers(text), tsHasConflictMarkers(text), JSON.stringify(text));
+  }
+});
+
+test("markdownImage matches the TS builder", () => {
+  const cases: [string, string][] = [
+    ["vault:x.png", "photo"],
+    ["paperimg:a/b c.png", ""],
+    ["vault:x.png", "a [b] c"],
+    ["vault:x.png", "line\nbreak"],
+    ["vault:x.png", "back\\slash"],
+  ];
+  for (const [target, alt] of cases) {
+    assert.deepEqual(core.markdownImage(target, alt), tsMarkdownImage(target, alt), JSON.stringify([target, alt]));
+  }
+});
+
+test("imageAltFromFilename matches the TS alt text", () => {
+  const names: (string | undefined)[] = [
+    undefined,
+    "",
+    "photo.png",
+    "my_photo-1.JPG",
+    "no-ext",
+    ".hidden",
+    "image.png",
+  ];
+  for (const name of names) {
+    assert.deepEqual(core.imageAltFromFilename(name), tsImageAltFromFilename(name), JSON.stringify(name));
+  }
+  // `null` is not in the TS type, but the Rust side accepts it: both must give the same answer.
+  assert.deepEqual(core.imageAltFromFilename(null), tsImageAltFromFilename(null as unknown as string));
+});
+
+test("imageExtensionForMime matches the TS mapping", () => {
+  for (const mime of ["image/png", "image/jpeg", "image/svg+xml", "image/webp", "text/plain", ""]) {
+    assert.deepEqual(core.imageExtensionForMime(mime), tsImageExtensionForMime(mime), JSON.stringify(mime));
+  }
+});
+
+test("imagePathsInBody matches the TS scan", () => {
+  for (const body of MARKDOWN_IMAGE_BODIES) {
+    for (const prefix of ["vault:", "paperimg:"]) {
+      assert.deepEqual(
+        core.imagePathsInBody(body, prefix),
+        tsImagePathsInBody(body, prefix, tsNormalizeMarkdownImageSyntax),
+        JSON.stringify([body, prefix]),
+      );
+    }
+  }
+});
+
+test("normalizeMarkdownImageSyntax matches the TS normaliser", () => {
+  for (const body of MARKDOWN_IMAGE_BODIES) {
+    assert.deepEqual(
+      core.normalizeMarkdownImageSyntax(body),
+      tsNormalizeMarkdownImageSyntax(body),
+      JSON.stringify(body),
+    );
+  }
+});
+
+test("toRelativeBlobLinks and relativeAssetPaths match the TS blob links", () => {
+  for (const body of MARKDOWN_IMAGE_BODIES) {
+    for (const filePath of LINK_FILE_PATHS) {
+      const expected = tsToRelativeBlobLinks(body, filePath);
+      assert.deepEqual(core.toRelativeBlobLinks(body, filePath), expected, JSON.stringify([body, filePath]));
+      assert.deepEqual(
+        core.relativeAssetPaths(expected.body),
+        tsRelativeAssetPaths(expected.body),
+        JSON.stringify(expected.body),
+      );
+    }
+    assert.deepEqual(core.relativeAssetPaths(body), tsRelativeAssetPaths(body), JSON.stringify(body));
+  }
+});
+
+test("projectDir matches the TS folder name", () => {
+  const projects = [
+    { id: "1234567890abcdef", name: "My Thesis" },
+    { id: "1234567890abcdef", name: "論文 ñ" },
+    { id: "abc", name: "" },
+    { id: "p-1/2", name: "a/b/c" },
+  ];
+  for (const project of projects) {
+    assert.deepEqual(core.projectDir(project), tsProjectDir(project), JSON.stringify(project));
+  }
+});
+
+test("entityDir matches the TS directory for every type", () => {
+  for (const type of ENTITY_TYPES) {
+    for (const root of ["", "p--1"]) {
+      assert.deepEqual(core.entityDir(type, root), tsEntityDir(type, root), `${type} root ${JSON.stringify(root)}`);
+    }
+  }
+});
+
+test("projectMetaDir, idSuffix and stripKindSuffix match the TS helpers", () => {
+  for (const root of ["", "p--1"]) {
+    assert.deepEqual(core.projectMetaDir(root), tsProjectMetaDir(root), JSON.stringify(root));
+  }
+  for (const id of ["abc", "0123456789abcdef-xyz", ""]) {
+    assert.deepEqual(core.idSuffix(id), tsIdSuffix(id), JSON.stringify(id));
+  }
+  const names = [
+    "methods--a1b2c3.note.md",
+    "x.ink.md",
+    "x.paper.md",
+    "x.list.md",
+    "x.report.md",
+    "x.experiment.md",
+    "x.milestone.md",
+    "x.log.md",
+    "plain.md",
+    "noext",
+    "x.unknown.md",
+    "x.pdf",
+  ];
+  for (const name of names) {
+    assert.deepEqual(core.stripKindSuffix(name), tsStripKindSuffix(name), JSON.stringify(name));
+  }
+});
+
+test("jsonKindOfPath and isAppOwnedPath match the TS path rules", () => {
+  const paths = [
+    ".weaveforge/relations.json",
+    "p--1/.weaveforge/tags.json",
+    "p--1/.weaveforge/reading-list-items.json",
+    "p--1/.weaveforge/mirror.json",
+    "p--1/.weaveforge/db/x",
+    "x/reading_list_items.json",
+    "notes/a.md",
+    "tags.json",
+    ".git/config",
+    "README.md",
+    "papers/pdf/a.pdf",
+    "x/papers/html/b.html",
+    "p--1/.weaveforge/manifest.json",
+    "p--1/.weaveforge/cache/z",
+  ];
+  for (const path of paths) {
+    assert.deepEqual(core.jsonKindOfPath(path), tsJsonKindOfPath(path), JSON.stringify(path));
+    assert.deepEqual(core.isAppOwnedPath(path), tsIsAppOwnedPath(path), JSON.stringify(path));
+  }
+});

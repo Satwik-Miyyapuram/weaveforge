@@ -11,6 +11,7 @@
 
 mod merge;
 mod sync;
+mod workspace;
 
 use serde::Serialize;
 use std::num::NonZeroUsize;

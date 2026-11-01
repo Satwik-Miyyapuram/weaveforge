@@ -23,6 +23,7 @@ import {
 } from "../application/figure-clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isEditableTarget } from "@/lib/editable-target";
+import { readyCore } from "@/lib/rust-core";
 import {
   errorMessage,
   INK_A4_WIDTH,
@@ -37,7 +38,6 @@ import {
   newInkChunkId,
   withInkPageBackground,
   withInkPageFigures,
-  writeInkNoteBody,
   type FigureGeometry,
   type InkNoteMeta,
 } from "@weaveforge/core";
@@ -464,7 +464,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           const path = await deps.assets.upload(deps.noteId, png, "png");
           const text = withInkPageBackground("", path);
           const nextTextPages = [...deps.textPagesRef.current, text];
-          const body = writeInkNoteBody(
+          const body = readyCore().writeInkNoteBody(
             deps.metaRef.current,
             joinInkTextLayer(nextTextPages),
           );

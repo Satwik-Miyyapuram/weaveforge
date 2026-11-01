@@ -4,10 +4,12 @@
  * that renders a caller. A failed load (offline, a missed fetch) is dropped so
  * the next caller tries again. `source` is for tests (the .wasm bytes); the app
  * passes nothing and the browser fetches the module next to the glue.
+ * `readyCore()` returns it synchronously once loaded.
  */
 export type RustCore = typeof import("@weaveforge/wasm");
 
 let loaded: Promise<RustCore> | null = null;
+let ready: RustCore | null = null;
 
 export function loadCore(source?: BufferSource): Promise<RustCore> {
   loaded ??= import("@weaveforge/wasm")
@@ -15,6 +17,7 @@ export function loadCore(source?: BufferSource): Promise<RustCore> {
       await core.init(
         source === undefined ? undefined : { module_or_path: source },
       );
+      ready = core;
       return core;
     })
     .catch((error: unknown) => {
@@ -22,4 +25,14 @@ export function loadCore(source?: BufferSource): Promise<RustCore> {
       throw error;
     });
   return loaded;
+}
+
+/**
+ * The loaded core, for synchronous callers such as React render. The app
+ * shell awaits `loadCore()` before it renders anything that calls this, and
+ * the web tests preload it, so a throw here means a caller ran too early.
+ */
+export function readyCore(): RustCore {
+  if (!ready) throw new Error("Rust core not loaded yet: await loadCore() first");
+  return ready;
 }

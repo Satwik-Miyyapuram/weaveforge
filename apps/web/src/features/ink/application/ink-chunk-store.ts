@@ -16,7 +16,6 @@
 import {
   INK_CHUNK_EXT,
   inkChunkPath,
-  isInkChunkId,
   newInkChunkId,
   resolveInkPageOrder,
   type InkNoteMeta,
@@ -24,6 +23,7 @@ import {
 } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 
 export interface InkChunkStore {
   /** The chunk's bytes, or `null` where no such chunk exists. Throws when the read itself failed. */
@@ -68,7 +68,7 @@ export async function loadInkPages(
   const present = (await store.list(noteId)) ?? [];
   // Declared order is kept even where a chunk is missing — a page that lost
   // its file is an empty page, not a vanished one — then the orphans follow.
-  const declared = meta.pageOrder.filter(isInkChunkId);
+  const declared = meta.pageOrder.filter((id) => readyCore().isInkChunkId(id));
   const order = [...new Set(declared)];
   for (const id of resolveInkPageOrder(declared, present)) {
     if (!order.includes(id)) order.push(id);
@@ -93,7 +93,7 @@ export async function loadInkPages(
 export function chunkIdOfFileName(name: string): string | null {
   if (!name.endsWith(INK_CHUNK_EXT)) return null;
   const id = name.slice(0, -INK_CHUNK_EXT.length);
-  return isInkChunkId(id) ? id : null;
+  return readyCore().isInkChunkId(id) ? id : null;
 }
 
 /** A store that forgets on reload. Tests, and the fallback where nothing else is wired. */

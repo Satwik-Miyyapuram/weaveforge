@@ -18,7 +18,9 @@ pub const MARKER_THEIRS: &str = ">>>>>>> the folder";
 const MAX_DIFF_CELLS: usize = 4_000_000;
 
 /// Which side a diff line belongs to, or whether both sides agree on it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
 pub enum DiffOp {
     /// Present on both sides at this point.
     Same,
@@ -29,7 +31,8 @@ pub enum DiffOp {
 }
 
 /// One line of the interleaved view.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct DiffLine {
     /// Which side the line belongs to.
     pub op: DiffOp,
@@ -38,9 +41,11 @@ pub struct DiffLine {
 }
 
 /// A run of disagreeing lines; either side may be empty.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct DiffHunk {
     /// Position of the hunk among the hunks, from zero.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub index: usize,
     /// Ours lines in this run, in order.
     pub ours: Vec<String>,
@@ -49,7 +54,8 @@ pub struct DiffHunk {
 }
 
 /// The interleaved lines and the hunks grouped from them.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct BodyDiff {
     /// Every line, agreed and disagreeing, in order.
     pub lines: Vec<DiffLine>,

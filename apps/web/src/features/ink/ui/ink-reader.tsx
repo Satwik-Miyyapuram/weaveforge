@@ -22,7 +22,6 @@ import {
   inkPageFigures,
   inkZoomIn,
   inkZoomOut,
-  readInkNoteBody,
   splitInkTextLayer,
 } from "@weaveforge/core";
 import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
@@ -43,6 +42,7 @@ import {
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 import { InkBar } from "./ink-bar";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
@@ -69,7 +69,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   const [pages, setPages] = useState<readonly InkStoredPage[] | null>(null);
 
-  const parsed = useMemo(() => readInkNoteBody(body), [body]);
+  const parsed = useMemo(() => readyCore().readInkNoteBody(body), [body]);
   const meta = parsed.meta;
   const textPages = useMemo(
     () => splitInkTextLayer(parsed.text),

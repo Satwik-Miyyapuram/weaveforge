@@ -4,11 +4,11 @@ import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   extractHashtags,
-  isInkNoteBody,
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { deletedMessage, removeLater } from "@/lib/toast";
+import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
 import { readableText } from "@/lib/page-text";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -37,7 +37,7 @@ const NOTE_MODES = ["edit", "ink"] as const;
 type NoteMode = (typeof NOTE_MODES)[number] | "read";
 
 /** A handwritten note opens on its sheet, any other in Text. */
-const openMode = (body: string): NoteMode => (isInkNoteBody(body) ? "ink" : "edit");
+const openMode = (body: string): NoteMode => (readyCore().isInkNoteBody(body) ? "ink" : "edit");
 
 export function PageEditor({
   page,
@@ -107,7 +107,7 @@ export function PageEditor({
   // A handwritten note keeps its ink header and page markers in the body. Its
   // three modes are the Editor's, drawn by the Editor's own document host:
   // Edit the source, Read the sheet with the pen down, Ink the ink surface.
-  const ink = isInkNoteBody(page.body);
+  const ink = readyCore().isInkNoteBody(page.body);
   const readBody = useMemo(() => readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
