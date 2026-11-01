@@ -3,6 +3,9 @@
  * are untrusted — never put them in `<a href>` or pdf.js without checking.
  */
 
+import { relayPath, relayUrl } from "@/lib/relay-url";
+
+
 /**
  * Hosts the same-origin PDF proxy will fetch. Shared by the web route
  * (`app/api/pdf-proxy`) and the desktop shell (`apps/desktop/src/pdf-proxy.ts`),
@@ -192,7 +195,7 @@ export function proxiedPdfUrl(url: string): string {
   try {
     const u = new URL(url);
     if (!isAllowedPdfProxyUrl(u.toString())) return url;
-    return `/api/pdf-proxy?url=${encodeURIComponent(u.toString())}`;
+    return relayUrl(`/api/pdf-proxy?url=${encodeURIComponent(u.toString())}`);
   } catch {
     return url;
   }
@@ -200,7 +203,7 @@ export function proxiedPdfUrl(url: string): string {
 
 /** Recover the original https PDF URL from a same-origin proxy path, if present. */
 export function originalUrlFromProxy(url: string): string | null {
-  if (!url.startsWith("/api/pdf-proxy?")) return null;
+  if (!relayPath(url).startsWith("/api/pdf-proxy?")) return null;
   try {
     const target = new URL(url, "https://local.invalid").searchParams.get("url");
     return sanitizePdfUrl(target);

@@ -1,4 +1,5 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { relayPath, relayUrl } from "@/lib/relay-url";
 
 /**
  * Where Semantic Scholar is reached from: always our own relay.
@@ -17,7 +18,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  */
 export function semanticScholarUrl(path: string): string {
   const rest = path.startsWith("/") ? path.slice(1) : path;
-  return `/api/semantic-scholar/${rest}`;
+  return relayUrl(`/api/semantic-scholar/${rest}`);
 }
 
 const RETRIES = 3;
@@ -56,7 +57,7 @@ async function attempt(fetchFn: typeof fetch, url: string, init?: RequestInit): 
     return await fetchFn(url, init);
   } catch (error) {
     // The relay path, and only outside the desktop: see the note above.
-    if (error instanceof TypeError && !desktop() && url.startsWith("/api/semantic-scholar/")) return error;
+    if (error instanceof TypeError && !desktop() && relayPath(url).startsWith("/api/semantic-scholar/")) return error;
     throw error;
   }
 }

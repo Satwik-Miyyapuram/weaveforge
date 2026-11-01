@@ -36,6 +36,7 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 import type { PageTextGeometry } from "@weaveforge/core";
+import { relayPath } from "@/lib/relay-url";
 
 export interface PdfRenderingDeps {
   url: string;
@@ -177,7 +178,7 @@ export function usePdfRendering({
   const rotation = viewport.rotation;
 
 const safeUrl = (() => {
-  if (url.startsWith("/api/pdf-proxy?")) {
+  if (relayPath(url).startsWith("/api/pdf-proxy?")) {
     const original = originalUrlFromProxy(url);
     return original && isAllowedPdfProxyUrl(original) ? url : null;
   }
@@ -283,7 +284,7 @@ useEffect(() => {
       const lib = await loadPdfLib();
       if (cancelled) return;
       const httpHeaders: Record<string, string> = {};
-      if (safeUrl.startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
+      if (relayPath(safeUrl).startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
         const accessToken = await getContainer().auth.auth.getAccessToken();
         if (!accessToken) {
           if (!cancelled) setError("Sign in to open this PDF in the reader.");

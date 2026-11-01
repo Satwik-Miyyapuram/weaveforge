@@ -15,6 +15,7 @@ import { pdfProxyNeedsToken } from "./pdf-download-consent";
 import { fetchTypedPdfToCache } from "./resolve-paper-pdf-for-reader";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "./paper-html-rules";
 import { findFreeCopy, type FreeCopyOutcome, type HtmlFetchResult } from "./find-free-copy";
+import { relayUrl } from "@/lib/relay-url";
 
 const INDEX_TIMEOUT_MS = 12_000;
 
@@ -52,7 +53,7 @@ export async function fetchPaperHtml(
       if (!token) return { ok: false, reason: "failed" };
       headers.Authorization = `Bearer ${token}`;
     }
-    res = await fetchFn(`${HTML_PROXY_PATH}?url=${encodeURIComponent(url)}`, { headers });
+    res = await fetchFn(`${relayUrl(HTML_PROXY_PATH)}?url=${encodeURIComponent(url)}`, { headers });
   } catch {
     return { ok: false, reason: "failed" };
   }
