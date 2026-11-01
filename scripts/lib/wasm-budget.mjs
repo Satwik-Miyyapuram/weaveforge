@@ -78,7 +78,7 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   records. Strokes cross as typed arrays and segmentation sorts by binary
 //   insertion, which saved ~4 KB over serde input and sort_by. 390 KB is this
 //   batch's ceiling.
-// - Step 5.2d: 401,088 bytes (module 388,562 + glue 12,526), the Windows build.
+// - Step 5.2d: 400,999 bytes (module 388,473 + glue 12,526), the Linux CI build.
 //   decodeInkWords adds ~8 KB: wf-core's ink decode module (reading choice,
 //   UTF-16 edit distance, joins and line alternatives), the vocabulary
 //   HashSet and serde for the word readings. 400 KB is this batch's ceiling.
