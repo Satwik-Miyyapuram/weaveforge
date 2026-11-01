@@ -326,11 +326,44 @@ fn js_number(value: Option<&Value>) -> f64 {
             if text.is_empty() {
                 0.0
             } else {
-                text.parse::<f64>().unwrap_or(f64::NAN)
+                js_string_number(text)
             }
         }
         Some(_) => f64::NAN,
     }
+}
+
+/// JS `Number(text)` for trimmed, non-empty text: decimal, `Infinity`, and
+/// unsigned `0x`/`0o`/`0b` integers. Anything else is NaN.
+fn js_string_number(text: &str) -> f64 {
+    let radix = match text.get(..2) {
+        Some("0x" | "0X") => 16,
+        Some("0o" | "0O") => 8,
+        Some("0b" | "0B") => 2,
+        _ => 0,
+    };
+    if radix != 0 {
+        let digits = &text[2..];
+        if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+            return f64::NAN;
+        }
+        return digits.chars().fold(0.0, |acc, c| {
+            acc * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
+        });
+    }
+    let unsigned = text.strip_prefix(['+', '-']).unwrap_or(text);
+    if unsigned == "Infinity" {
+        return if text.starts_with('-') {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        };
+    }
+    // Rust also reads "inf" and "nan" in any case; JS does not.
+    if !unsigned.starts_with(|c: char| c.is_ascii_digit() || c == '.') {
+        return f64::NAN;
+    }
+    text.parse::<f64>().unwrap_or(f64::NAN)
 }
 
 /// JS truthiness of a field read off a point.
@@ -352,4 +385,24 @@ fn json_text(value: Option<&Value>) -> String {
 /// A stored step as JSON, so `5.0` is sent as `5`.
 fn js_number_value(step: f64) -> Value {
     serde_json::from_str(&step.to_string()).unwrap_or(Value::Null)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::js_string_number;
+
+    #[test]
+    fn string_steps_follow_js_number() {
+        assert_eq!(js_string_number("0x10"), 16.0);
+        assert_eq!(js_string_number("0O7"), 7.0);
+        assert_eq!(js_string_number("0b101"), 5.0);
+        assert_eq!(js_string_number("12.5"), 12.5);
+        assert_eq!(js_string_number("+3"), 3.0);
+        assert_eq!(js_string_number(".5"), 0.5);
+        assert_eq!(js_string_number("1e3"), 1000.0);
+        assert_eq!(js_string_number("-Infinity"), f64::NEG_INFINITY);
+        for nan in ["0x", "0xg", "-0x10", "inf", "NaN", "infinity", "abc", "1_0"] {
+            assert!(js_string_number(nan).is_nan(), "{nan} should be NaN");
+        }
+    }
 }
