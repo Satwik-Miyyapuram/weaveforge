@@ -263,6 +263,28 @@ export function decideGitSyncPath(rel_path, size_bytes, max_file_bytes) {
 }
 
 /**
+ * [`decode_ink_words`]: `words` is an array of `{ candidates, known?, join? }`,
+ * `vocabulary` an array of strings.
+ *
+ * # Errors
+ *
+ * Fails if `words` or `vocabulary` is not such an array.
+ * @param {any} words
+ * @param {any} vocabulary
+ * @param {string | null} [engine_text]
+ * @returns {any}
+ */
+export function decodeInkWords(words, vocabulary, engine_text) {
+    var ptr0 = isLikeNone(engine_text) ? 0 : passStringToWasm0(engine_text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decodeInkWords(words, vocabulary, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::ink_note::default_ink_note_meta`] for JS.
  *
  * # Errors

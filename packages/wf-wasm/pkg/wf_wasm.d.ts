@@ -122,6 +122,16 @@ export function countJsonActions(entries: any): any;
 export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file_bytes: number): any;
 
 /**
+ * [`decode_ink_words`]: `words` is an array of `{ candidates, known?, join? }`,
+ * `vocabulary` an array of strings.
+ *
+ * # Errors
+ *
+ * Fails if `words` or `vocabulary` is not such an array.
+ */
+export function decodeInkWords(words: any, vocabulary: any, engine_text?: string | null): any;
+
+/**
  * [`wf_core::sync::ink_note::default_ink_note_meta`] for JS.
  *
  * # Errors
@@ -834,6 +844,7 @@ export interface InitOutput {
     readonly coreInfo: () => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly defaultInkNoteMeta: () => [number, number, number];
     readonly defaultPasteSettings: () => [number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
