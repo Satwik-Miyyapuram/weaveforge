@@ -622,7 +622,10 @@ jobs:
       - name: Stage sidecar
         working-directory: .
         shell: pwsh
-        run: node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
+        # The Rust cache can restore a stage folder from an earlier run, and stage.mjs refuses a non-empty one.
+        run: |
+          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
+          node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
 
       - name: Bundle
         run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json
