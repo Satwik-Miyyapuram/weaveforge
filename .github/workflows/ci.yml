@@ -527,6 +527,50 @@ jobs:
       - name: Dependency policy
         run: cargo deny --locked check
 
+  relay:
+    # The relay crate (apps/relay) is shared by the shell and the relay server.
+    # It is its own Cargo workspace for the same reason the shell is: reqwest's
+    # graph has duplicate versions that wf-core's strict bans must not inherit.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/relay
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/relay
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Phone build check
+        # Phones take the rustls path (src/tls.rs); check it compiles there too.
+        run: |
+          rustup target add aarch64-linux-android
+          cargo check --locked -p wf-relay --target aarch64-linux-android
+
+      - name: Dependency policy
+        run: cargo deny --locked check
+
   shell-windows:
     # Windows-only shell code: the sidecar's Job Object (kill-on-close) and its
     # orphan test run only here (phase-2-desktop.md, step 2.4). The real-sidecar

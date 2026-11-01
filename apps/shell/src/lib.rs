@@ -20,7 +20,6 @@ pub mod embed;
 #[cfg(mobile)]
 #[path = "embed_phone.rs"]
 pub mod embed;
-pub mod fetch;
 pub mod git;
 pub mod host;
 pub mod ink;
@@ -32,16 +31,15 @@ pub mod menu;
 pub mod model_cache;
 pub mod overleaf_links;
 pub mod overleaf_read;
+pub mod paste_commands;
 pub mod plan_widget;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
-pub mod relay;
 pub mod secrets;
 pub mod shim;
 pub mod sidecar;
 pub mod tex;
-pub mod tls;
 pub mod update_check;
 pub mod vault;
 pub mod vault_choice;
@@ -50,6 +48,8 @@ pub mod vault_sync;
 pub mod vault_watch;
 pub mod vault_watcher;
 pub mod zotero_local;
+
+pub use wf_relay::{fetch, relay, tls};
 
 /// Where the static web export lives: `dev_dir` (`WF_WEB_DIST`, debug builds only) if set, else `web/` in
 /// Tauri's resource dir (beside the exe on Windows, `/usr/lib/<product>` on Linux, `Contents/Resources` on macOS).

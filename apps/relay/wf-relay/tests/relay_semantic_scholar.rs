@@ -10,11 +10,11 @@ use std::time::{Duration, Instant};
 use reqwest::Url;
 use reqwest::header::{HeaderMap, HeaderValue};
 use upstream::{Reply, redirect, response};
-use weaveforge_shell_lib::relay::semantic_scholar::{
+use wf_relay::relay::semantic_scholar::{
     forwarded_headers, is_semantic_scholar_proxy_request, proxy_semantic_scholar,
     semantic_scholar_target,
 };
-use weaveforge_shell_lib::relay::shared::{Answer, RelayRequest, relay_client};
+use wf_relay::relay::shared::{Answer, RelayRequest, relay_client};
 
 const UPSTREAM: &str = "https://api.semanticscholar.org";
 

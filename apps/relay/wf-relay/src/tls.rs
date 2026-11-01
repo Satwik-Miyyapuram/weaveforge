@@ -1,23 +1,27 @@
-//! Which certificate roots the shell's HTTP clients trust.
+//! Which certificate roots the relay's HTTP clients trust.
 //!
 //! Desktops use the platform's TLS and its trust store. Phones use rustls, whose
 //! default verifier on Android needs JNI set-up the shell does not do, so they
-//! verify against Mozilla's root list bundled in the app instead.
+//! verify against Mozilla's root list bundled in the app instead. The server
+//! (`wf-relay-server`) takes the desktop path.
 
 /// Applies the platform's roots: unchanged on desktops, the bundled list on phones.
-#[cfg(mobile)]
+///
+/// Phones build rustls without a crypto provider, so the caller must install one
+/// before building a client (the shell installs ring's at start, `apps/shell/src/lib.rs`).
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn with_roots(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
     builder.tls_certs_only(bundled_roots())
 }
 
 /// Applies the platform's roots: unchanged on desktops, the bundled list on phones.
-#[cfg(desktop)]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub const fn with_roots(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
     builder
 }
 
 /// Mozilla's server roots as reqwest certificates; one that does not parse is skipped.
-#[cfg(any(mobile, test))]
+#[cfg(any(target_os = "android", target_os = "ios", test))]
 #[must_use]
 pub fn bundled_roots() -> Vec<reqwest::Certificate> {
     webpki_root_certs::TLS_SERVER_ROOT_CERTS

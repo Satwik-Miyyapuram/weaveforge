@@ -10,7 +10,7 @@ use reqwest::Url;
 use reqwest::header::{HeaderMap, HeaderValue};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use weaveforge_shell_lib::relay::shared::{
+use wf_relay::relay::shared::{
     Hop, MAX_REDIRECTS, fetch_checked_hops, is_public_https_url, next_hop, refuse, relay_client,
     upstream_failed,
 };
@@ -401,7 +401,7 @@ mod upstream;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn read_capped_keeps_the_cap_while_reading() {
-    use weaveforge_shell_lib::relay::shared::read_capped;
+    use wf_relay::relay::shared::read_capped;
     let server = upstream::serve(vec![
         ("/ten", vec![upstream::response(200, &[], b"0123456789")]),
         // No content-length: the cap must still hold.
@@ -440,7 +440,7 @@ async fn read_capped_keeps_the_cap_while_reading() {
 
 #[test]
 fn refusal_becomes_a_json_answer() {
-    use weaveforge_shell_lib::relay::shared::Answer;
+    use wf_relay::relay::shared::Answer;
     let answer = Answer::from(refuse(413, "PDF too large"));
     assert_eq!(answer.status, 413);
     assert_eq!(answer.header("Content-Type"), Some("application/json"));

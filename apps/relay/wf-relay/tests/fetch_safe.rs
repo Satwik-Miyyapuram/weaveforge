@@ -11,13 +11,13 @@ use reqwest::Url;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-use weaveforge_shell_lib::fetch::paste::{NOT_A_PAGE, NOT_AN_IMAGE};
-use weaveforge_shell_lib::fetch::remote::{TitleReply, fetch_image_via, fetch_title_via};
-use weaveforge_shell_lib::fetch::safe::{
+use wf_relay::fetch::paste::{NOT_A_PAGE, NOT_AN_IMAGE};
+use wf_relay::fetch::remote::{TitleReply, fetch_image_via, fetch_title_via};
+use wf_relay::fetch::safe::{
     BROWSER_AGENT, FailKind, FetchOptions, Network, PublicNetwork, TOO_SLOW, check_reachable,
     mb_label, parse_fetch_input, safe_fetch_via,
 };
-use weaveforge_shell_lib::fetch::url_shape::{
+use wf_relay::fetch::url_shape::{
     DEFAULT_FETCH_LIMITS, FetchLimits, UrlRejection, describe_rejection,
 };
 
