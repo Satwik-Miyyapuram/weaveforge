@@ -60,12 +60,7 @@ fn count_temp_entries(project_id: &str) -> usize {
     std::fs::read_dir(std::env::temp_dir())
         .unwrap()
         .filter_map(Result::ok)
-        .filter(|entry| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with(&prefix)
-        })
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
         .count()
 }
 
