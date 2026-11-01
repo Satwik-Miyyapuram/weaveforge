@@ -95,19 +95,20 @@ fn crlf_stays_crlf() {
 }
 
 #[test]
-fn a_bom_prefixed_file_gets_new_frontmatter_in_front_as_in_the_ts() {
-    // The TS does not look past a byte-order mark, so the existing block is
-    // treated as body. Matched on purpose; plan §10 tracks the fix.
+fn a_bom_prefixed_file_keeps_its_bom_and_gets_one_frontmatter() {
+    // Ported from the TS case "(06-01)".
     let bom = "\u{feff}";
     assert_eq!(
         stamp_workspace_id(&format!("{bom}---\ntitle: Mine\n---\n\nbody\n"), "n1").as_deref(),
-        Some(
-            format!("---\nweaveforge-id: n1\n---\n\n{bom}---\ntitle: Mine\n---\n\nbody\n").as_str()
-        )
+        Some(format!("{bom}---\nweaveforge-id: n1\ntitle: Mine\n---\n\nbody\n").as_str())
+    );
+    assert_eq!(
+        stamp_workspace_id(&format!("{bom}---\r\nweaveforge-id: n9\r\n---\r\n"), "n1"),
+        None
     );
     assert_eq!(
         stamp_workspace_id(&format!("{bom}# Idea\n"), "n1").as_deref(),
-        Some(format!("---\nweaveforge-id: n1\n---\n\n{bom}# Idea\n").as_str())
+        Some(format!("{bom}---\nweaveforge-id: n1\n---\n\n# Idea\n").as_str())
     );
 }
 

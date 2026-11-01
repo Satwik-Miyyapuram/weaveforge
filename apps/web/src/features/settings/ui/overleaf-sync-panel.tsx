@@ -65,7 +65,7 @@ export function OverleafSyncPanel({ onPulled }: { onPulled?: () => void }) {
     run(`${action}:${link.projectId}`, async () => {
       const reply = await overleafSync({ action, projectId: link.projectId });
       take(reply);
-      setStatus(`${link.folder}: ${describeOverleafSync(reply)}`);
+      setStatus(`${link.folder}: ${await describeOverleafSync(reply)}`);
       if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
     });
 

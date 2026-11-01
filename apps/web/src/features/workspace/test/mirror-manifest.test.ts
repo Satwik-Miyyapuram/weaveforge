@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { digestText, projectDir } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   MIRROR_MANIFEST_PATH,
@@ -16,6 +18,10 @@ import {
   readMirrorBase,
   writeMirrorManifest,
 } from "../application/mirror-manifest";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Two projects, because a manifest belongs to one.

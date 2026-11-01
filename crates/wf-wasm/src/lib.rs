@@ -9,6 +9,8 @@
 //! written here may not use `unsafe`.
 #![deny(unsafe_code)]
 
+mod sync;
+
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use wasm_bindgen::JsValue;

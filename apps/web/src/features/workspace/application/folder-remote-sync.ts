@@ -1,10 +1,12 @@
-import { checkGitRemoteUrl, describePull, describePush } from "@weaveforge/core";
+// checkGitRemoteUrl stays TS: it wraps the browser's URL parser, which WASM would duplicate.
+import { checkGitRemoteUrl } from "@weaveforge/core";
 import {
   desktop,
   type DesktopBridge,
   type DesktopVaultSync,
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * Pushing and pulling the workspace folder to a git remote (Settings → Workspace folder).
@@ -69,9 +71,10 @@ export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<Deskto
 }
 
 /** One line for the panel. */
-export function describeRemoteSync(reply: DesktopVaultSync): string {
-  if (reply.pull) return describePull(reply.pull);
-  if (reply.push) return describePush(reply.push);
+export async function describeRemoteSync(reply: DesktopVaultSync): Promise<string> {
+  const core = await loadCore();
+  if (reply.pull) return core.describePull(reply.pull);
+  if (reply.push) return core.describePush(reply.push);
   const status = reply.status;
   if (!status) return "";
   if (!status.url) return "Not connected yet.";

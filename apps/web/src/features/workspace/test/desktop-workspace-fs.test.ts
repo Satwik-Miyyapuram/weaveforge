@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { WorkspacePathError, projectDir } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
 } from "../infrastructure/desktop-workspace-fs";
 import { followProjectRename } from "../application/mirror-manifest";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** A bridge backed by the in-memory fs, standing in for the desktop process. */
 function bridgeOver(fs: MemoryWorkspaceFs): VaultFileBridge {

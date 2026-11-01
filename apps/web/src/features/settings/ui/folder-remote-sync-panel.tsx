@@ -65,7 +65,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
   const act = (action: keyof typeof LABELS) =>
     run(action, async () => {
       const reply = await folderRemoteSync(action);
-      setStatus(describeRemoteSync(reply));
+      setStatus(await describeRemoteSync(reply));
       if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
     });
 

@@ -14,8 +14,10 @@ const ID_KEY: &str = "weaveforge-id";
 /// "stamped" from "left alone" without comparing text.
 #[must_use]
 pub fn stamp_workspace_id(content: &str, id: &str) -> Option<String> {
-    // A leading byte-order mark hides the opening fence, as in the TS; the file
-    // then gets a new frontmatter block in front of it (plan §10 tracks a fix).
+    // A byte-order mark hides the opening fence; set it aside and put it back.
+    if let Some(rest) = content.strip_prefix('\u{feff}') {
+        return stamp_workspace_id(rest, id).map(|stamped| format!("\u{feff}{stamped}"));
+    }
     let newline = if content.contains("\r\n") {
         "\r\n"
     } else {

@@ -2,7 +2,6 @@ import {
   ASSET_DIR,
   FOLDER_DRAFTS_DIR,
   NoOpWorkspaceGit,
-  changedSide,
   addCounts,
   describeChanges,
   GIT_OFF,
@@ -29,6 +28,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach } from "@/lib/notify-each";
+import { loadCore, type RustCore } from "@/lib/rust-core";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
@@ -560,7 +560,9 @@ function reportFolderChanges(paths: readonly string[]): void {
     if (external.size !== beforeRead) announceExternal();
     // A path already listed can change again; that edit needs taking in too.
     if (outside) scheduleAutoApply();
-  })();
+  })().catch((error: unknown) => {
+    console.warn("Could not check folder changes:", error);
+  });
 }
 
 const draftListeners = new Set<() => void>();
@@ -606,7 +608,7 @@ export async function previewArchiveImport(
   bytes: Uint8Array,
 ): Promise<ImportDiff & { skipped: string[]; json: JsonDiff }> {
   const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
-  const { safe, skipped } = sanitizeArchiveEntries(inflated);
+  const { safe, skipped } = sanitizeArchiveEntries(await loadCore(), inflated);
   const entries = stripArchiveRoot(safe);
 
   const decoder = new TextDecoder();
@@ -651,6 +653,7 @@ async function diffAgainstWorkspace(
   /** The three JSON data files, when the caller has them. A ZIP has none. */
   jsonFiles: Record<string, string> = {},
 ): Promise<FolderDiff & { json: JsonDiff }> {
+  const core = await loadCore();
   const snapshot = await getContainer().workspace.snapshot();
   const existing = [
     ...snapshot.vaultPages.map((page) => ({
@@ -688,7 +691,7 @@ async function diffAgainstWorkspace(
 
   const diff = diffWorkspace(parsed, existing, {
     origin: (path) =>
-      changedSide({
+      core.changedSide({
         // A version 1 manifest recorded the path and no digest, which reads
         // as an empty string here and must not be mistaken for a file whose
         // contents hashed to nothing.
@@ -709,7 +712,7 @@ async function diffAgainstWorkspace(
   // and they are shown in the same preview: one list of what would change, one
   // set of numbers.
   const json = await jsonDiff(jsonFiles, current, base, project);
-  const seen = seenFiles({ ...files, ...jsonFiles }, current, base);
+  const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base);
   return { entries, counts: addCounts(countActions(entries), json.counts), json, seen };
 }
 
@@ -719,6 +722,7 @@ async function diffAgainstWorkspace(
  * A file neither the manifest nor the workspace knows is new in the folder: the folder alone made it.
  */
 function seenFiles(
+  core: RustCore,
   folder: Readonly<Record<string, string>>,
   current: Readonly<Record<string, string>>,
   base: Readonly<Record<string, string>>,
@@ -729,7 +733,7 @@ function seenFiles(
     const known = base[path] || undefined;
     const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
     const newPath = known === undefined && workspace === undefined;
-    const side = newPath ? "folder" : changedSide({ base: known, folder: digest, workspace });
+    const side = newPath ? "folder" : core.changedSide({ base: known, folder: digest, workspace });
     seen[path] = newPath ? { side, digest, newPath } : { side, digest };
   }
   return seen;

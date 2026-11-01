@@ -1,4 +1,4 @@
-import { describePull, describePush } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 import {
   desktop,
   type DesktopBridge,
@@ -41,9 +41,10 @@ export async function saveOverleafToken(token: string): Promise<void> {
 }
 
 /** One line for the panel. */
-export function describeOverleafSync(reply: DesktopOverleafSync): string {
-  if (reply.pull) return describePull(reply.pull);
-  if (reply.push) return describePush(reply.push);
+export async function describeOverleafSync(reply: DesktopOverleafSync): Promise<string> {
+  const core = await loadCore();
+  if (reply.pull) return core.describePull(reply.pull);
+  if (reply.push) return core.describePush(reply.push);
   const status = reply.status;
   if (!status) return "";
   if (!status.url) return "Not pulled yet.";

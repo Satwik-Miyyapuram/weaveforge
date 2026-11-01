@@ -1,4 +1,4 @@
-import { isSafeWorkspacePath } from "@weaveforge/core";
+import type { RustCore } from "@/lib/rust-core";
 
 /**
  * Bounds on an imported archive.
@@ -93,6 +93,7 @@ export interface ArchiveEntry {
  * finish.
  */
 export function sanitizeArchiveEntries(
+  core: RustCore,
   entries: Record<string, Uint8Array>,
 ): { safe: ArchiveEntry[]; skipped: string[] } {
   const names = Object.keys(entries);
@@ -111,7 +112,7 @@ export function sanitizeArchiveEntries(
     // Directory markers carry no content.
     if (name.endsWith("/") || bytes.byteLength === 0) continue;
 
-    if (!isSafeWorkspacePath(name)) {
+    if (!core.isSafeWorkspacePath(name)) {
       skipped.push(name);
       continue;
     }

@@ -1,13 +1,12 @@
 import {
-  decideGitSyncPath,
   GIT_SYNC_LIMITS,
-  isUnderIgnoredFolder,
   type GitAuthor,
   type GitFileStatus,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type WorkspaceCommit,
 } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 import { isomorphicFsFrom } from "./isomorphic-fs-adapter";
 
 export interface IsomorphicWorkspaceGitOptions {
@@ -69,11 +68,12 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
    * keeps them out of the result.
    */
   async status(): Promise<readonly GitFileStatus[]> {
+    const core = await loadCore();
     const git = await this.git();
     const rows = await git.statusMatrix({
       fs: this.fs,
       dir: this.dir,
-      filter: (path) => !isUnderIgnoredFolder(path),
+      filter: (path) => !core.isUnderIgnoredFolder(path),
     });
     const out: GitFileStatus[] = [];
     // Row shape is [path, head, workdir, stage]: 0 means absent, 1 unchanged,
@@ -123,11 +123,12 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
 
   /** Splits changes into what is committed and the paths the policy keeps out. */
   private async classify(changes: readonly GitFileStatus[]): Promise<{ kept: GitFileStatus[]; skipped: string[] }> {
+    const core = await loadCore();
     const kept: GitFileStatus[] = [];
     const skipped: string[] = [];
     for (const change of changes) {
       const size = change.state === "deleted" ? 0 : ((await this.workspace.stat(change.path))?.size ?? 0);
-      if (decideGitSyncPath(change.path, size, this.maxFileBytes).include) kept.push(change);
+      if (core.decideGitSyncPath(change.path, size, this.maxFileBytes).include) kept.push(change);
       else skipped.push(change.path);
     }
     return { kept, skipped };
@@ -139,12 +140,13 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
    * checked, so a large tracked history is not rehashed on every pass.
    */
   private async unstageOutOfScope(keptPaths: ReadonlySet<string>, skippedPaths: ReadonlySet<string>): Promise<void> {
+    const core = await loadCore();
     const git = await this.git();
     const indexed: string[] = await git.listFiles({ fs: this.fs, dir: this.dir });
     const strays = indexed.filter(
       (path) =>
         !keptPaths.has(path) &&
-        (skippedPaths.has(path) || !decideGitSyncPath(path, 0, this.maxFileBytes).include),
+        (skippedPaths.has(path) || !core.decideGitSyncPath(path, 0, this.maxFileBytes).include),
     );
     if (strays.length === 0) return;
 

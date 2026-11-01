@@ -33,7 +33,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   module and regex-lite (~55 KB). The full regex crate's Unicode tables made
 //   it 466 KB, so wf-core uses regex-lite. 200 KB is this batch's ceiling; the
 //   sync exports (0b-2+) raise it again with their own note.
-export const WASM_GZIP_BUDGET = 200 * 1024;
+// - Step 0b-2: 217,181 bytes (module 210,591 + glue 6,590); the Windows and
+//   CI Linux builds are byte-identical.
+//   The sync and workspace exports (changedSide, decideGitSyncPath, describePull,
+//   safeWorkspacePath, ...) add ~15 KB: wf-core's sync module plus serde
+//   deserializers for the tagged pull and push results. checkGitRemoteUrl is
+//   not exported: the url crate (idna and its Unicode tables) cost 88 KB, and
+//   the browser already has URL. 215 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 215 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
