@@ -217,6 +217,7 @@ export type {
 };
 export { init, initSync };
 export * from "./ink.js";
+export * from "./ink-lines.js";
 
 
 /** Facts about this core build, such as its version. */

@@ -273,6 +273,30 @@ export type InkHand =
 /**  Left hand. */
 "left";
 
+/**  One line: the input indices of its strokes and its `[yMin, yMax]` band. */
+export type InkLineIndices = {
+	/**  Indices into the input strokes, in the order they joined the line. */
+	strokeIndices: number[],
+	/**  `[yMin, yMax]` over the line's strokes. */
+	yBand: [(number | null), (number | null)],
+};
+
+/**  One line as the container stores it. */
+export type InkLineRecord = {
+	/**  First stroke of the line in the stored (line-ordered) stroke list. */
+	strokeStart: number,
+	/**  Number of strokes in the line. */
+	strokeCount: number,
+	/**  Rounded top of the line's band. */
+	yMin: number | null,
+	/**  Rounded bottom of the line's band. */
+	yMax: number | null,
+	/**  The recognised text, `""` when there is none. */
+	text: string,
+	/**  The engine's confidence, `0` when there is none. */
+	confidence: number | null,
+};
+
 /**  The ink metadata a note carries, as its frontmatter or body header holds it. */
 export type InkNoteMeta = {
 	/**  Page count as declared. */
@@ -301,6 +325,14 @@ export type InkPaper =
 "grid" | 
 /**  Wide ruled. */
 "wide";
+
+/**  Lines top to bottom, and the line each input stroke went into (`-1` for none). */
+export type InkSegmentationIndices = {
+	/**  Lines in reading order, top to bottom. */
+	lines: InkLineIndices[],
+	/**  The line each input stroke went into, `-1` when it was not segmented. */
+	lineOfStroke: number[],
+};
 
 /**  Options for [`InkStrokePacker`] and [`pack_ink_stroke`]; a missing field takes the default. */
 export type InkStrokePackerOptions = {

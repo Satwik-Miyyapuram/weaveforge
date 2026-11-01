@@ -85,6 +85,8 @@ pub fn types() -> Types {
         .register::<wf_core::paste::url_cleanup::UrlCleanupResult>()
         .register::<wf_core::ink::PackedInkStroke>()
         .register::<wf_core::ink::stroke_packer::InkStrokePackerOptions>()
+        .register::<wf_core::ink::segment::InkSegmentationIndices>()
+        .register::<wf_core::ink::segment::InkLineRecord>()
 }
 
 /// Render the full bindings file.

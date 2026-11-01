@@ -301,6 +301,22 @@ export function indexTerms(text: string, options: any): any;
 export function inkCurveAt(xs: Float64Array, ys: Float64Array, i: number, u: number): Float64Array;
 
 /**
+ * [`ink_line_records`]: `counts[i]` strokes per line, `bands` as flat
+ * `yMin, yMax` pairs, `recognised` an array of `{ text, confidence }` or
+ * undefined per line.
+ *
+ * # Errors
+ *
+ * Fails if `recognised` is not such an array.
+ */
+export function inkLineRecords(counts: Uint32Array, bands: Float64Array, recognised: any): any;
+
+/**
+ * [`ink_page_confidence`] over the lines' `conf` values.
+ */
+export function inkPageConfidence(confs: Float64Array): number;
+
+/**
  * [`ink_pressure_factor`].
  */
 export function inkPressureFactor(pressure?: number | null): number;
@@ -320,6 +336,15 @@ export function inkVelocityBetween(x0: number, y0: number, t0: number, x1: numbe
  * [`ink_velocity_factor`]; `fullTaper` defaults to `INK_VELOCITY_FULL_TAPER`.
  */
 export function inkVelocityFactor(velocity: number, full_taper?: number | null): number;
+
+/**
+ * [`ink_vocabulary_hints`]; `limit` defaults to 500.
+ *
+ * # Errors
+ *
+ * Fails if `sources` is not an array of string arrays.
+ */
+export function inkVocabularyHints(sources: any, limit?: number | null): any;
 
 /**
  * [`ink_zoom_in`].
@@ -377,6 +402,11 @@ export function isSafeWorkspacePath(path: string): boolean;
 export function isUnderIgnoredFolder(rel_path: string): boolean;
 
 /**
+ * [`is_unsure_confidence`].
+ */
+export function isUnsureConfidence(conf: number): boolean;
+
+/**
  * [`wf_core::sync::json_entities::json_data_path`] for JS.
  *
  * # Errors
@@ -394,6 +424,11 @@ export function jsonDataPath(project_root: string, kind: any): string;
  * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function jsonKindOfPath(path: string): string | undefined;
+
+/**
+ * [`map_ink_confidence`]; `scale` defaults to 1.
+ */
+export function mapInkConfidence(raw: number, scale?: number | null): number;
 
 /**
  * [`wf_core::sync::markdown_image::markdown_image`] for JS.
@@ -642,6 +677,17 @@ export function safeWorkspacePath(path: string): string;
 export function sameValue(a: any, b: any): boolean;
 
 /**
+ * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
+ * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
+ * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function segmentInkLines(points: Float64Array, offsets: Uint32Array, pen: Uint8Array, t0s: Float64Array, window_ms?: number | null, band_ratio?: number | null): any;
+
+/**
  * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
  *
  * # Errors
@@ -807,10 +853,13 @@ export interface InitOutput {
     readonly imagePathsInBody: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
     readonly inkCurveAt: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly inkLineRecords: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly inkPageConfidence: (a: number, b: number) => number;
     readonly inkPressureFactor: (a: number, b: number) => number;
     readonly inkTangentAt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
     readonly inkVelocityBetween: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly inkVelocityFactor: (a: number, b: number, c: number) => number;
+    readonly inkVocabularyHints: (a: any, b: number, c: number) => [number, number, number];
     readonly inkZoomIn: (a: number) => number;
     readonly inkZoomOut: (a: number) => number;
     readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
@@ -818,8 +867,10 @@ export interface InitOutput {
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
+    readonly isUnsureConfidence: (a: number) => number;
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
+    readonly mapInkConfidence: (a: number, b: number, c: number) => number;
     readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
@@ -847,6 +898,7 @@ export interface InitOutput {
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
+    readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];

@@ -725,6 +725,43 @@ export function inkCurveAt(xs, ys, i, u) {
 }
 
 /**
+ * [`ink_line_records`]: `counts[i]` strokes per line, `bands` as flat
+ * `yMin, yMax` pairs, `recognised` an array of `{ text, confidence }` or
+ * undefined per line.
+ *
+ * # Errors
+ *
+ * Fails if `recognised` is not such an array.
+ * @param {Uint32Array} counts
+ * @param {Float64Array} bands
+ * @param {any} recognised
+ * @returns {any}
+ */
+export function inkLineRecords(counts, bands, recognised) {
+    const ptr0 = passArray32ToWasm0(counts, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(bands, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.inkLineRecords(ptr0, len0, ptr1, len1, recognised);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`ink_page_confidence`] over the lines' `conf` values.
+ * @param {Float64Array} confs
+ * @returns {number}
+ */
+export function inkPageConfidence(confs) {
+    const ptr0 = passArrayF64ToWasm0(confs, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.inkPageConfidence(ptr0, len0);
+    return ret;
+}
+
+/**
  * [`ink_pressure_factor`].
  * @param {number | null} [pressure]
  * @returns {number}
@@ -780,6 +817,24 @@ export function inkVelocityBetween(x0, y0, t0, x1, y1, t1) {
 export function inkVelocityFactor(velocity, full_taper) {
     const ret = wasm.inkVelocityFactor(velocity, !isLikeNone(full_taper), isLikeNone(full_taper) ? 0 : full_taper);
     return ret;
+}
+
+/**
+ * [`ink_vocabulary_hints`]; `limit` defaults to 500.
+ *
+ * # Errors
+ *
+ * Fails if `sources` is not an array of string arrays.
+ * @param {any} sources
+ * @param {number | null} [limit]
+ * @returns {any}
+ */
+export function inkVocabularyHints(sources, limit) {
+    const ret = wasm.inkVocabularyHints(sources, !isLikeNone(limit), isLikeNone(limit) ? 0 : limit);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -898,6 +953,16 @@ export function isUnderIgnoredFolder(rel_path) {
 }
 
 /**
+ * [`is_unsure_confidence`].
+ * @param {number} conf
+ * @returns {boolean}
+ */
+export function isUnsureConfidence(conf) {
+    const ret = wasm.isUnsureConfidence(conf);
+    return ret !== 0;
+}
+
+/**
  * [`wf_core::sync::json_entities::json_data_path`] for JS.
  *
  * # Errors
@@ -951,6 +1016,17 @@ export function jsonKindOfPath(path) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v2;
+}
+
+/**
+ * [`map_ink_confidence`]; `scale` defaults to 1.
+ * @param {number} raw
+ * @param {number | null} [scale]
+ * @returns {number}
+ */
+export function mapInkConfidence(raw, scale) {
+    const ret = wasm.mapInkConfidence(raw, !isLikeNone(scale), isLikeNone(scale) ? 0 : scale);
+    return ret;
 }
 
 /**
@@ -1550,6 +1626,38 @@ export function sameValue(a, b) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
+ * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
+ * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {Float64Array} points
+ * @param {Uint32Array} offsets
+ * @param {Uint8Array} pen
+ * @param {Float64Array} t0s
+ * @param {number | null} [window_ms]
+ * @param {number | null} [band_ratio]
+ * @returns {any}
+ */
+export function segmentInkLines(points, offsets, pen, t0s, window_ms, band_ratio) {
+    const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray32ToWasm0(offsets, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(pen, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ptr3 = passArrayF64ToWasm0(t0s, wasm.__wbindgen_malloc);
+    const len3 = WASM_VECTOR_LEN;
+    const ret = wasm.segmentInkLines(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, !isLikeNone(window_ms), isLikeNone(window_ms) ? 0 : window_ms, !isLikeNone(band_ratio), isLikeNone(band_ratio) ? 0 : band_ratio);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -2245,6 +2353,14 @@ function getStringFromWasm0(ptr, len) {
     return decodeText(ptr >>> 0, len);
 }
 
+let cachedUint32ArrayMemory0 = null;
+function getUint32ArrayMemory0() {
+    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
+        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32ArrayMemory0;
+}
+
 let cachedUint8ArrayMemory0 = null;
 function getUint8ArrayMemory0() {
     if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
@@ -2264,6 +2380,20 @@ function handleError(f, args) {
 
 function isLikeNone(x) {
     return x === undefined || x === null;
+}
+
+function passArray32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getUint32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 function passArrayF64ToWasm0(arg, malloc) {
@@ -2352,6 +2482,7 @@ function __wbg_finalize_init(instance, module) {
     wasmModule = module;
     cachedDataViewMemory0 = null;
     cachedFloat64ArrayMemory0 = null;
+    cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;
