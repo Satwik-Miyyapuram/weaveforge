@@ -22,7 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EditorView } from "@codemirror/view";
-import { isInkNoteBody, vaultImageMarkdown } from "@weaveforge/core";
+import { vaultImageMarkdown } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -38,6 +38,7 @@ import { PaperPdfPane } from "@/features/reader";
 import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
 import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
+import { readyCore } from "@/lib/rust-core";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
@@ -156,7 +157,7 @@ export function rendererFor(kind: string, mode: DocumentMode, body = ""): Render
   if (mode === "read") {
     // A note written in ink is read as the sheet it was written on. A note
     // with no ink in it stays prose, which is what it is.
-    return documentKind(kind) === "ink" || (hasInkView(kind) && isInkNoteBody(body))
+    return documentKind(kind) === "ink" || (hasInkView(kind) && readyCore().isInkNoteBody(body))
       ? "ink_reader"
       : "markdown";
   }

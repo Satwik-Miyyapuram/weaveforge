@@ -12,11 +12,12 @@
 import {
   BlobNotFoundError,
   INK_CHUNK_EXT,
-  isInkChunkId,
   isInkNoteId,
   type IBlobFetcher,
   type ICurrentUserProvider,
 } from "@weaveforge/core";
+
+import { readyCore } from "@/lib/rust-core";
 
 import type { InkChunkStore } from "../application/ink-chunk-store";
 
@@ -33,7 +34,7 @@ export class BlobInkChunkStore implements InkChunkStore {
   private async path(noteId: string, chunkId: string): Promise<string> {
     if (!isInkNoteId(noteId))
       throw new Error(`ink: unusable note id ${JSON.stringify(noteId)}`);
-    if (!isInkChunkId(chunkId))
+    if (!readyCore().isInkChunkId(chunkId))
       throw new Error(`ink: unusable chunk id ${JSON.stringify(chunkId)}`);
     const userId = await this.session.requireUserId();
     return `${userId}/${noteId}/ink/${chunkId}${INK_CHUNK_EXT}`;

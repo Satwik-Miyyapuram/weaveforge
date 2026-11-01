@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { isInkNoteBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ImageSizeControl } from "@/components/image-size-control";
+import { readyCore } from "@/lib/rust-core";
 import { VaultMarkdown, type WikilinkEntry } from "./vault-markdown";
 
 /**
@@ -28,7 +28,7 @@ const InkReader = dynamic(() => import("@/features/ink/ui/ink-reader").then((m) 
 export function NoteReadView({
   noteId,
   body,
-  ink = isInkNoteBody(body),
+  ink = readyCore().isInkNoteBody(body),
   paperId = null,
   onSave,
   onClickCapture,

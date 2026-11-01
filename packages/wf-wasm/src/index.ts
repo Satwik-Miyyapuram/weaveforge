@@ -43,51 +43,103 @@ import init, {
   writeConflictMarkers as rawWriteConflictMarkers,
   readFrontmatter as rawReadFrontmatter,
   writeFrontmatter as rawWriteFrontmatter,
+  mergeRows as rawMergeRows,
+  sameValue as rawSameValue,
+  isInkChunkId as rawIsInkChunkId,
+  isInkNoteBody as rawIsInkNoteBody,
+  readInkNoteBody as rawReadInkNoteBody,
+  writeInkNoteBody as rawWriteInkNoteBody,
+  defaultInkNoteMeta as rawDefaultInkNoteMeta,
+  diffBody as rawDiffBody,
+  hasConflictMarkers as rawHasConflictMarkers,
+  markdownImage as rawMarkdownImage,
+  imageAltFromFilename as rawImageAltFromFilename,
+  imageExtensionForMime as rawImageExtensionForMime,
+  imagePathsInBody as rawImagePathsInBody,
+  normalizeMarkdownImageSyntax as rawNormalizeMarkdownImageSyntax,
+  toRelativeBlobLinks as rawToRelativeBlobLinks,
+  relativeAssetPaths as rawRelativeAssetPaths,
+  projectDir as rawProjectDir,
+  entityDir as rawEntityDir,
+  projectMetaDir as rawProjectMetaDir,
+  idSuffix as rawIdSuffix,
+  stripKindSuffix as rawStripKindSuffix,
+  jsonKindOfPath as rawJsonKindOfPath,
+  isAppOwnedPath as rawIsAppOwnedPath,
 } from "../pkg/wf_wasm.js";
 import type {
+  BlobAsset,
+  BlobScheme,
+  BodyDiff,
   ChangeSide,
   Conflict,
   CoreInfo,
+  DiffHunk,
+  DiffLine,
+  DiffOp,
   ExcerptRange,
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
   HunkPick,
+  InkHand,
+  InkNoteMeta,
+  InkPaper,
+  MergeResult,
   PageMetadata,
   PaperRef,
   PaperRefKind,
   ParsedDocument,
   ParsedQuery,
   RankedList,
+  RelativeAsset,
+  RelativeLinks,
   SearchKind,
   TokenizerOptions,
   VaultPageBase,
   VaultPageMerge,
   VaultPageSide,
+  WorkspaceEntityType,
+  WorkspaceJsonKind,
 } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
 export type {
+  BlobAsset,
+  BlobScheme,
+  BodyDiff,
   ChangeSide,
   Conflict,
   CoreInfo,
+  DiffHunk,
+  DiffLine,
+  DiffOp,
   ExcerptRange,
   GitPullResult,
   GitPushResult,
   GitSyncSkipReason,
   HunkPick,
+  InkHand,
+  InkNoteMeta,
+  InkPaper,
+  MergeResult as FieldMergeResult,
   PageMetadata,
   PaperRef,
   PaperRefKind,
   ParsedDocument,
   ParsedQuery,
+  RelativeAsset,
+  RelativeLinks,
   SearchKind,
   TokenizerOptions,
   VaultPageBase,
   VaultPageMerge,
   VaultPageSide,
+  WorkspaceEntityType,
+  WorkspaceJsonKind,
 };
 export { init, initSync };
+
 
 /** Facts about this core build, such as its version. */
 export function coreInfo(): CoreInfo {
@@ -345,4 +397,160 @@ export function readFrontmatter(content: string): ParsedDocument {
 export function writeFrontmatter(fields: Readonly<Record<string, unknown>>, body: string): string {
   checkIndexText(body);
   return rawWriteFrontmatter(fields, body);
+}
+
+/** A value as JSON would carry it: dates become strings, undefined and functions become null. */
+function plainJson(value: unknown): unknown {
+  const text = JSON.stringify(value);
+  return text === undefined ? null : JSON.parse(text);
+}
+
+/** Three-way merge per field (Rust `merge_rows`). Rows cross as plain JSON, so a Date arrives as its ISO string and an undefined field counts as missing. */
+export function mergeRows(
+  base: Readonly<Record<string, unknown>>,
+  local: Readonly<Record<string, unknown>>,
+  remote: Readonly<Record<string, unknown>>,
+): MergeResult {
+  return rawMergeRows(plainJson(base), plainJson(local), plainJson(remote)) as MergeResult;
+}
+
+/** Equality as the database means it (Rust `same_value`). */
+export function sameValue(a: unknown, b: unknown): boolean {
+  return rawSameValue(plainJson(a), plainJson(b));
+}
+
+/** Whether `text` is an ink chunk id (Rust `is_ink_chunk_id`). */
+export function isInkChunkId(text: string): boolean {
+  checkIndexText(text);
+  return rawIsInkChunkId(text);
+}
+
+/** Whether `body` is an ink note body (Rust `is_ink_note_body`). */
+export function isInkNoteBody(body: string): boolean {
+  checkIndexText(body);
+  return rawIsInkNoteBody(body);
+}
+
+/** The header and text of an ink note body (Rust `read_ink_note_body`). */
+export function readInkNoteBody(body: string): { meta: InkNoteMeta; text: string } {
+  checkIndexText(body);
+  return rawReadInkNoteBody(body) as { meta: InkNoteMeta; text: string };
+}
+
+/** An ink note body: the header for `meta`, then `text` (Rust `write_ink_note_body`). */
+export function writeInkNoteBody(
+  meta: Omit<InkNoteMeta, "pageOrder"> & { readonly pageOrder: readonly string[] },
+  text: string,
+): string {
+  checkIndexText(text);
+  return rawWriteInkNoteBody(meta, text);
+}
+
+/** The header of a new, empty ink note (Rust `default_ink_note_meta`). */
+export function defaultInkNoteMeta(): InkNoteMeta {
+  return rawDefaultInkNoteMeta() as InkNoteMeta;
+}
+
+/** Line and hunk diff of two bodies (Rust `diff_body`). */
+export function diffBody(ours: string, theirs: string): BodyDiff {
+  checkIndexText(ours);
+  checkIndexText(theirs);
+  return rawDiffBody(ours, theirs) as BodyDiff;
+}
+
+/** Whether `text` holds git-style conflict markers (Rust `has_conflict_markers`). */
+export function hasConflictMarkers(text: string): boolean {
+  checkIndexText(text);
+  return rawHasConflictMarkers(text);
+}
+
+/** A markdown image for `target` with `alt` text (Rust `markdown_image`). */
+export function markdownImage(target: string, alt: string): string {
+  checkIndexText(target);
+  checkIndexText(alt);
+  return rawMarkdownImage(target, alt);
+}
+
+/** Alt text from a file name (Rust `image_alt_from_filename`). */
+export function imageAltFromFilename(name?: string | null): string {
+  if (name) checkIndexText(name);
+  return rawImageAltFromFilename(name ?? undefined);
+}
+
+/** File extension for an image MIME type (Rust `image_extension_for_mime`). */
+export function imageExtensionForMime(mime: string): string {
+  checkIndexText(mime);
+  return rawImageExtensionForMime(mime);
+}
+
+/** Image targets in `body` under `prefix`. The body is normalised first; `prefix` is literal text, not a regex. */
+export function imagePathsInBody(body: string, prefix: string): string[] {
+  checkIndexText(body);
+  checkIndexText(prefix);
+  return rawImagePathsInBody(body, prefix) as string[];
+}
+
+/** `body` with markdown image syntax normalised (Rust `normalize_markdown_image_syntax`). */
+export function normalizeMarkdownImageSyntax(body: string): string {
+  checkIndexText(body);
+  return rawNormalizeMarkdownImageSyntax(body);
+}
+
+/** `body` with blob links made relative to `filePath`, and the assets they name (Rust `to_relative_blob_links`). */
+export function toRelativeBlobLinks(
+  body: string,
+  filePath: string,
+): RelativeLinks {
+  checkIndexText(body);
+  checkIndexText(filePath);
+  return rawToRelativeBlobLinks(body, filePath) as RelativeLinks;
+}
+
+/** The asset paths a body's relative links point at (Rust `relative_asset_paths`). */
+export function relativeAssetPaths(body: string): RelativeAsset[] {
+  checkIndexText(body);
+  return rawRelativeAssetPaths(body) as RelativeAsset[];
+}
+
+/** The folder of a project, named from its id and name (Rust `project_dir`). */
+export function projectDir(project: { id: string; name: string }): string {
+  checkIndexText(project.id);
+  checkIndexText(project.name);
+  return rawProjectDir(project.id, project.name);
+}
+
+/** The folder for one entity type under `projectRoot` (Rust `entity_dir`). */
+export function entityDir(type: WorkspaceEntityType, projectRoot = ""): string {
+  checkIndexText(projectRoot);
+  return rawEntityDir(type, projectRoot);
+}
+
+/** The metadata folder under `projectRoot` (Rust `project_meta_dir`). */
+export function projectMetaDir(projectRoot = ""): string {
+  checkIndexText(projectRoot);
+  return rawProjectMetaDir(projectRoot);
+}
+
+/** The short suffix that makes a folder name unique to its id (Rust `id_suffix`). */
+export function idSuffix(id: string): string {
+  checkIndexText(id);
+  return rawIdSuffix(id);
+}
+
+/** `name` without its entity-kind suffix (Rust `strip_kind_suffix`). */
+export function stripKindSuffix(name: string): string {
+  checkIndexText(name);
+  return rawStripKindSuffix(name);
+}
+
+/** The JSON entity kind a path holds, or null for any other path (Rust `json_kind_of_path`). */
+export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
+  checkIndexText(path);
+  return (rawJsonKindOfPath(path) ?? null) as WorkspaceJsonKind | null;
+}
+
+/** Whether `path` is a file the app owns rather than user content (Rust `is_app_owned_path`). */
+export function isAppOwnedPath(path: string): boolean {
+  checkIndexText(path);
+  return rawIsAppOwnedPath(path);
 }

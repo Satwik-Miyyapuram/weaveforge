@@ -6,33 +6,45 @@ import {
   changedSide,
   coreInfo,
   decideGitSyncPath,
+  defaultInkNoteMeta,
   describePull,
   describePush,
+  diffBody,
+  entityDir,
   extractDoi,
   extractPageMetadata,
   fuseRankings,
   GIT_SYNC_MAX_FILE_BYTES,
   guessBlobContentType,
+  hasConflictMarkers,
+  imageAltFromFilename,
   indexTerms,
   initSync,
+  isInkNoteBody,
   isSafeWorkspacePath,
   isUnderIgnoredFolder,
+  jsonKindOfPath,
   maxFusionIds,
   maxIndexTextUtf16,
   mergeHunks,
+  mergeRows,
   mergeVaultPage,
   normalizeArxivId,
   pageImportRefusal,
   parsePaperRef,
   parseQuery,
   readFrontmatter,
+  readInkNoteBody,
   safeWorkspacePath,
+  sameValue,
   stampWorkspaceId,
   tokenize,
   vaultPageBase,
   vaultPageSide,
   writeConflictMarkers,
   writeFrontmatter,
+  writeInkNoteBody,
+  type InkNoteMeta,
   type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
@@ -448,4 +460,71 @@ test("the merge wrappers reject text over MAX_INDEX_TEXT_UTF16 before WASM", () 
   assert.throws(() => writeConflictMarkers(huge, ""), beforeWasm);
   assert.throws(() => readFrontmatter(huge), beforeWasm);
   assert.throws(() => vaultPageSide("a.md", huge), beforeWasm);
+});
+
+test("mergeRows merges per field and reports conflicts", () => {
+  assert.deepEqual(mergeRows({ title: "a", n: 1 }, { title: "b", n: 1 }, { title: "a", n: 2 }), {
+    merged: { title: "b", n: 2 },
+    conflicts: [],
+  });
+  assert.deepEqual(mergeRows({ t: "a" }, { t: "b" }, { t: "c" }), {
+    merged: { t: "c" },
+    conflicts: [{ field: "t", base: "a", local: "b", remote: "c" }],
+  });
+  assert.deepEqual(mergeRows({ id: 1 }, { id: 2 }, { id: 3 }).conflicts, []);
+});
+
+test("mergeRows takes rows as plain JSON", () => {
+  const d = new Date("2024-01-02T03:04:05.000Z");
+  assert.equal(mergeRows({}, { at: d }, {}).merged.at, "2024-01-02T03:04:05.000Z");
+  assert.equal("a" in mergeRows({ a: 1 }, { a: undefined }, { a: 1 }).merged, false);
+});
+
+test("sameValue compares as the database does", () => {
+  assert.equal(sameValue("2024-01-01T00:00:00Z", "2024-01-01T01:00:00+01:00"), true);
+  assert.equal(sameValue(null, undefined), true);
+  assert.equal(sameValue({ a: 1, b: 2 }, { b: 2, a: 1 }), true);
+  assert.equal(sameValue(1, "1"), false);
+});
+
+test("ink note header round-trips and rejects unknown papers", () => {
+  const defaults = defaultInkNoteMeta();
+  assert.deepEqual(defaults, { pages: 1, paper: "blank", pageOrder: [], recognised: 0, engine: null, hand: "right" });
+  const meta: InkNoteMeta = { pages: 2, paper: "grid", pageOrder: [], recognised: 0.5, engine: "x", hand: "left" };
+  assert.deepEqual(readInkNoteBody(writeInkNoteBody(meta, "hello")), { meta, text: "hello" });
+  assert.equal(isInkNoteBody(writeInkNoteBody(defaults, "")), true);
+  assert.equal(isInkNoteBody("# plain"), false);
+  assert.throws(() => writeInkNoteBody({ ...meta, paper: "lined" as never }, ""));
+});
+
+test("diffBody lists same, ours and theirs lines with hunks", () => {
+  assert.deepEqual(diffBody("a\nb\nc", "a\nx\nc"), {
+    lines: [
+      { op: "same", text: "a" },
+      { op: "ours", text: "b" },
+      { op: "theirs", text: "x" },
+      { op: "same", text: "c" },
+    ],
+    hunks: [{ index: 0, ours: ["b"], theirs: ["x"] }],
+  });
+});
+
+test("hasConflictMarkers finds git-style markers only", () => {
+  assert.equal(hasConflictMarkers("<<<<<<< this app\na\n=======\nb\n>>>>>>> the folder\n"), true);
+  assert.equal(hasConflictMarkers("plain"), false);
+});
+
+test("entityDir places each type under its project root", () => {
+  assert.equal(entityDir("paper"), "papers");
+  assert.equal(entityDir("paper", "p--1"), "p--1/papers");
+  assert.throws(() => entityDir("nope" as never));
+});
+
+test("jsonKindOfPath returns null for a path that is not a JSON entity", () => {
+  assert.equal(jsonKindOfPath("notes/a.md"), null);
+});
+
+test("imageAltFromFilename accepts no name or null", () => {
+  assert.equal(typeof imageAltFromFilename(), "string");
+  assert.equal(typeof imageAltFromFilename(null), "string");
 });

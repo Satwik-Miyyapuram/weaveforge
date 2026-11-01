@@ -3,8 +3,6 @@
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Fragment, useState } from "react";
 import {
-  diffBody,
-  hasConflictMarkers,
   MARKER_OURS,
   MARKER_THEIRS,
   mergeHunks,
@@ -12,6 +10,7 @@ import {
   type DiffLine,
   type HunkPick,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { OpenConflict } from "../domain/conflicts";
 import { sameValue } from "../domain/merge";
 import { FormError } from "@/components/form-error";
@@ -316,7 +315,7 @@ const HUNK_OPTIONS = [
 function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice; onChoose: (c: Choice) => void }) {
   const ours = text(field.local);
   const theirs = text(field.remote);
-  const { lines, hunks } = diffBody(ours, theirs);
+  const { lines, hunks } = readyCore().diffBody(ours, theirs);
   const hunkPicks = choice?.kind === "hunks" ? choice.picks : {};
   const pickHunk = (index: number, pick: HunkPick) => onChoose({ kind: "hunks", picks: { ...hunkPicks, [index]: pick } });
   const bothAll = hunks.length > 0 && hunks.every((h) => hunkPicks[h.index] === "both");
@@ -353,7 +352,7 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
             rows={Math.min(16, choice.text.split("\n").length + 1)}
             onChange={(e) => onChoose({ kind: "edit", text: e.target.value })}
           />
-          {hasConflictMarkers(choice.text) && (
+          {readyCore().hasConflictMarkers(choice.text) && (
             <p className="muted">Remove the &lt;&lt;&lt;&lt;&lt;&lt;&lt; / ======= / &gt;&gt;&gt;&gt;&gt;&gt;&gt; lines to resolve.</p>
           )}
         </>
@@ -413,9 +412,9 @@ function groupHunks(lines: DiffLine[]): { hunk: number | null; lines: DiffLine[]
 
 function isSettled(field: Field, choice?: Choice): boolean {
   if (!choice) return false;
-  if (choice.kind === "edit") return !hasConflictMarkers(choice.text);
+  if (choice.kind === "edit") return !readyCore().hasConflictMarkers(choice.text);
   if (choice.kind === "hunks") {
-    return diffBody(text(field.local), text(field.remote)).hunks.every((h) => choice.picks[h.index] !== undefined);
+    return readyCore().diffBody(text(field.local), text(field.remote)).hunks.every((h) => choice.picks[h.index] !== undefined);
   }
   return true;
 }

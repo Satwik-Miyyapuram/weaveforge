@@ -36,13 +36,13 @@ import { ToolbarSlot } from "@/components/toolbar-slot";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  readInkNoteBody,
   splitInkTextLayer,
   type InkHand,
   type InkPaper,
   type InkNoteMeta,
   type RecognisedLine,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import {
   INK_RENDER_COLOURS,
@@ -139,13 +139,13 @@ export function InkHost({
    */
   const wrapRef = useRef<HTMLDivElement>(null);
   /** The header, as it will be written back. */
-  const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
+  const metaRef = useRef<InkNoteMeta>(readyCore().readInkNoteBody(body).meta);
   /** The writing hand, mirrored into state so the bar and the gate follow it. */
   const [hand, setHandState] = useState<InkHand>(metaRef.current.hand);
   const [paper, setPaperState] = useState<InkPaper>(metaRef.current.paper);
   /** The text layer's pages, for the body (§4.2). */
   const textPagesRef = useRef<string[]>(
-    splitInkTextLayer(readInkNoteBody(body).text),
+    splitInkTextLayer(readyCore().readInkNoteBody(body).text),
   );
   /** The current page's flowed text, for the print (assigned in render below). */
   const pageTextRef = useRef("");

@@ -4,13 +4,17 @@
 //! the app. Import never trusts a stored path; it re-anchors through
 //! [`ImportedAssetResolver`].
 
+use serde::{Deserialize, Serialize};
+
 use crate::sync::folder_layout::{ASSET_DIR, AssetScope, asset_path};
 use crate::sync::markdown_image::{
     normalize_markdown_image_syntax, replace_image_refs, replace_image_refs_by,
 };
 
 /// Storage scheme of an app blob ref.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
 pub enum BlobScheme {
     /// `vault:`, note images; scope `notes`.
     Vault,
@@ -50,7 +54,9 @@ impl BlobScheme {
 }
 
 /// One blob ref, in both its storage and folder forms.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct BlobAsset {
     /// The scheme the ref used.
     pub scheme: BlobScheme,
@@ -61,7 +67,8 @@ pub struct BlobAsset {
 }
 
 /// A body rewritten to folder-relative refs, with the assets it names.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct RelativeLinks {
     /// The body with every blob ref folder-relative.
     pub body: String,
@@ -70,7 +77,8 @@ pub struct RelativeLinks {
 }
 
 /// A folder-relative asset ref found in a body.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct RelativeAsset {
     /// The asset tree: `notes`, `papers` or `report`.
     pub scope: String,
