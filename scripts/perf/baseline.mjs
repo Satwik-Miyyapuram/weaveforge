@@ -96,9 +96,17 @@ out.idle = await mem("idle dashboard");
     })()`);
     await sleep(300);
   }
+  // The sidebar shows only the current section's links, so a link that is
+  // not on screen is skipped and listed rather than failing the run.
+  out.navSkipped = [];
   for (let round = 0; round < 2; round++)
     for (const href of NAV.slice(1).concat(NAV[0])) {
-      await click(`document.querySelector('a[href="${href}"]')`);
+      const sel = `document.querySelector('a[href="${href}"]')`;
+      if (!(await run(`!!${sel}`))) {
+        if (round === 0) out.navSkipped.push(href);
+        continue;
+      }
+      await click(sel);
       await sleep(2500);
     }
   out.phases.nav = await collect(t0);
@@ -141,7 +149,9 @@ out.idle = await mem("idle dashboard");
 // Ink mode: click "Ink", then flip pages.
 {
   const t0 = await run(OBSERVE);
-  await click(`[...document.querySelectorAll("[aria-label='Document mode'] button")].find((b) => b.textContent.trim() === "Ink")`);
+  // Newer builds open ink notes straight in page view, with no mode toggle.
+  const inkBtn = `[...document.querySelectorAll("[aria-label='Document mode'] button")].find((b) => b.textContent.trim() === "Ink")`;
+  if (await run(`!!${inkBtn}`)) await click(inkBtn);
   await sleep(4000);
   out.inkModeOpen = await mem("ink mode open");
   for (let i = 0; i < 5; i++) {
