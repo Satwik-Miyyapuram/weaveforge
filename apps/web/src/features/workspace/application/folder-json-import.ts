@@ -11,7 +11,6 @@
 
 import {
   JSON_KINDS,
-  changedSide,
   countJsonActions,
   diffJsonData,
   jsonDataPath,
@@ -29,6 +28,7 @@ import {
   vaultPageBase,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 import { activeProjectOrNull } from "./active-project";
 import { baseDigest, readMirrorBase, readMirrorBases, writeMirrorManifest } from "./mirror-manifest";
 
@@ -45,6 +45,7 @@ export async function jsonDiff(
   base: Readonly<Record<string, string>>,
   project: WorkspaceProject,
 ): Promise<JsonDiff> {
+  const core = await loadCore();
   const c = getContainer();
   const [relations, tags, lists] = await Promise.all([
     c.graph.relations.getGraph(),
@@ -71,7 +72,7 @@ export async function jsonDiff(
     entries.push(
       ...diffJsonData(parsed, existing[kind], {
         origin: (changed) =>
-          changedSide({
+          core.changedSide({
             base: base[changed] || undefined,
             folder: baseDigest(text),
             workspace: current[changed] === undefined ? undefined : baseDigest(current[changed]),

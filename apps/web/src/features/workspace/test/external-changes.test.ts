@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { MIRROR_MANIFEST_PATH } from "../application/mirror-manifest";
@@ -16,6 +16,11 @@ import {
   onExternalChange,
   settleExternalChanges,
 } from "../application/workspace-folder";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * A shell that reports folder changes and nothing else.

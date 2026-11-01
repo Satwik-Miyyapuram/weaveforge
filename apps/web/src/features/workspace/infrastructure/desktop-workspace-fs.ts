@@ -1,9 +1,9 @@
 import {
-  safeWorkspacePath,
   walkByList,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
+import { safeWorkspacePath } from "./safe-workspace-path";
 
 /**
  * The desktop bridge's folder calls, wearing the workspace port's face.
@@ -39,7 +39,7 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   constructor(private readonly bridge: VaultFileBridge) {}
 
   async readText(path: string): Promise<string> {
-    const contents = await this.bridge.readVaultFile(safeWorkspacePath(path));
+    const contents = await this.bridge.readVaultFile(await safeWorkspacePath(path));
     // The port's contract is that a missing file throws; the bridge answers
     // null so that asking about one is not an error in itself.
     if (contents === null) throw new Error(`ENOENT: ${path}`);
@@ -47,7 +47,7 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async readFile(path: string): Promise<Uint8Array> {
-    const bytes = await this.bridge.readVaultBytes(safeWorkspacePath(path));
+    const bytes = await this.bridge.readVaultBytes(await safeWorkspacePath(path));
     if (bytes === null) throw new Error(`ENOENT: ${path}`);
     return bytes;
   }
@@ -55,13 +55,13 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   // Bytes and text take different channels: a PDF put through the text one
   // would be decoded as UTF-8 on the way and would not be the same file.
   async writeFile(path: string, data: Uint8Array | string): Promise<void> {
-    const at = safeWorkspacePath(path);
+    const at = await safeWorkspacePath(path);
     if (typeof data === "string") await this.bridge.writeVaultFile(at, data);
     else await this.bridge.writeVaultBytes(at, data);
   }
 
   async remove(path: string): Promise<void> {
-    await this.bridge.removeVaultFile(safeWorkspacePath(path));
+    await this.bridge.removeVaultFile(await safeWorkspacePath(path));
   }
 
   async mkdirp(_path: string): Promise<void> {
@@ -69,7 +69,7 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async list(dir: string): Promise<readonly WorkspaceStat[]> {
-    return this.bridge.listVaultFiles(dir === "" || dir === "." ? "" : safeWorkspacePath(dir));
+    return this.bridge.listVaultFiles(dir === "" || dir === "." ? "" : await safeWorkspacePath(dir));
   }
 
   walk(dir: string): AsyncIterable<WorkspaceStat> {
@@ -80,7 +80,7 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     // The bridge answers null for a missing file. Anything it throws (no folder
     // open, permission denied) is a failure, not "absent": callers that read
     // null as absent go on to write or delete.
-    return this.bridge.statVaultFile(safeWorkspacePath(path));
+    return this.bridge.statVaultFile(await safeWorkspacePath(path));
   }
 
   async rename(from: string, to: string): Promise<void> {

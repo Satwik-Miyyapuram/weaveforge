@@ -2,6 +2,7 @@
 //! sync branch and author, pull and push outcomes, remote URL checks and token
 //! redaction. The async `IWorkspaceGitRemote` port is not here.
 
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::search::js_text::is_js_whitespace;
@@ -20,7 +21,9 @@ const REASON_NO_PATH: &str =
     "The URL needs the repository path, e.g. https://github.com/you/notes.git.";
 
 /// Result of a pull. `conflict` leaves the folder as it was.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum GitPullResult {
     /// Nothing new on the remote.
     UpToDate,
@@ -42,7 +45,9 @@ pub enum GitPullResult {
 }
 
 /// Result of a push. Never forces.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum GitPushResult {
     /// The branch was pushed.
     Pushed,
@@ -149,5 +154,32 @@ pub fn describe_push(result: &GitPushResult) -> String {
         GitPushResult::Pushed => "Pushed.".to_owned(),
         GitPushResult::UpToDate => "Nothing to push.".to_owned(),
         GitPushResult::Rejected { reason } => format!("Not pushed: {reason}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pull_result_deserializes_tagged_kebab_case() {
+        assert_eq!(
+            serde_json::from_str::<GitPullResult>(r#"{"kind":"fast-forward","oid":"abc"}"#)
+                .unwrap(),
+            GitPullResult::FastForward { oid: "abc".into() }
+        );
+        assert_eq!(
+            serde_json::from_str::<GitPullResult>(r#"{"kind":"up-to-date"}"#).unwrap(),
+            GitPullResult::UpToDate
+        );
+        assert!(serde_json::from_str::<GitPullResult>(r#"{"kind":"bogus"}"#).is_err());
+    }
+
+    #[test]
+    fn push_result_deserializes_tagged_kebab_case() {
+        assert_eq!(
+            serde_json::from_str::<GitPushResult>(r#"{"kind":"rejected","reason":"r"}"#).unwrap(),
+            GitPushResult::Rejected { reason: "r".into() }
+        );
     }
 }

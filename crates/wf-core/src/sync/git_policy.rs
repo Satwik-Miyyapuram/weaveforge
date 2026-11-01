@@ -1,6 +1,8 @@
 //! Port of `packages/core/src/workspace/git-sync-policy.ts`: which workspace
 //! paths may enter the git history of the workspace folder.
 
+use serde::Serialize;
+
 use crate::sync::folder_layout::WORKSPACE_META_DIR;
 
 /// A single file above this many bytes is skipped and reported, not committed.
@@ -27,7 +29,9 @@ pub const GIT_SYNC_IGNORED_FILES: &[&str] = &["desktop.ini"];
 pub const GIT_SYNC_IGNORED_EXTENSIONS: &[&str] = &[".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
 /// Why a path is kept out of git. The string form matches the TypeScript.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "kebab-case")]
 pub enum GitSyncSkipReason {
     /// Inside an ignored folder, or a `.git` entry.
     IgnoredDirectory,
@@ -116,4 +120,21 @@ pub fn decide_git_sync_path(
         return GitSyncDecision::Skip(GitSyncSkipReason::TooLarge);
     }
     GitSyncDecision::Include
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skip_reason_serializes_kebab_case() {
+        assert_eq!(
+            serde_json::to_string(&GitSyncSkipReason::IgnoredDirectory).unwrap(),
+            "\"ignored-directory\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GitSyncSkipReason::TooLarge).unwrap(),
+            "\"too-large\""
+        );
+    }
 }

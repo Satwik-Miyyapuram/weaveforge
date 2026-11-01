@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import type { DesktopVaultSync, DesktopVaultSyncAction } from "@/lib/desktop/desktop-bridge";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   describeRemoteSync,
@@ -11,6 +12,10 @@ import {
   remoteSyncAvailable,
   saveRemoteSyncSettings,
 } from "../application/folder-remote-sync";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** A shell with only what this path touches, recording each call. */
 function fakeShell(reply: (action: DesktopVaultSyncAction) => Promise<DesktopVaultSync>) {
@@ -109,20 +114,20 @@ test("without the shell, an action is refused rather than ignored", async () => 
   await assert.rejects(folderRemoteSync("pull"), /desktop app/);
 });
 
-test("the outcome reads as one line, a conflict naming its files", () => {
+test("the outcome reads as one line, a conflict naming its files", async () => {
   const base = { url: "https://x.test/r.git", hasToken: false };
-  assert.match(describeRemoteSync({ ...base, pull: { kind: "conflict", files: ["a.md", "b.md"] } }), /a\.md, b\.md/);
-  assert.match(describeRemoteSync({ ...base, push: { kind: "rejected", reason: "Pull first." } }), /Pull first/);
+  assert.match(await describeRemoteSync({ ...base, pull: { kind: "conflict", files: ["a.md", "b.md"] } }), /a\.md, b\.md/);
+  assert.match(await describeRemoteSync({ ...base, push: { kind: "rejected", reason: "Pull first." } }), /Pull first/);
   assert.equal(
-    describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 2, behind: 1 } }),
+    await describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 2, behind: 1 } }),
     "2 commits to push, 1 to pull on main.",
   );
   assert.equal(
-    describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 0, behind: 0 } }),
+    await describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 0, behind: 0 } }),
     "In step with the remote on main.",
   );
   assert.equal(
-    describeRemoteSync({ ...base, status: { url: null, branch: "main", ahead: 0, behind: 0 } }),
+    await describeRemoteSync({ ...base, status: { url: null, branch: "main", ahead: 0, behind: 0 } }),
     "Not connected yet.",
   );
 });

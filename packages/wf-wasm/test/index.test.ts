@@ -3,19 +3,28 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   buildExcerpt,
+  changedSide,
   coreInfo,
+  decideGitSyncPath,
+  describePull,
+  describePush,
   extractDoi,
   extractPageMetadata,
   fuseRankings,
+  GIT_SYNC_MAX_FILE_BYTES,
   guessBlobContentType,
   indexTerms,
   initSync,
+  isSafeWorkspacePath,
+  isUnderIgnoredFolder,
   maxFusionIds,
   maxIndexTextUtf16,
   normalizeArxivId,
   pageImportRefusal,
   parsePaperRef,
   parseQuery,
+  safeWorkspacePath,
+  stampWorkspaceId,
   tokenize,
   type ParsedQuery,
   type TokenizerOptions,
@@ -277,6 +286,46 @@ test("buildExcerpt rejects a bad maxChars before WASM", () => {
     assert.throws(() => buildExcerpt("x", ["x"], { maxChars: bad }), (e: unknown) => e instanceof RangeError && /^maxChars /.test(e.message));
   }
   assert.equal(buildExcerpt("x", ["x"], { maxChars: 0xffff_ffff }).text, "x");
+});
+
+test("changedSide reports which side moved since the base", () => {
+  assert.equal(changedSide({}), "unknown");
+  assert.equal(changedSide({ base: "x", folder: "x", workspace: "x" }), "neither");
+  assert.equal(changedSide({ base: "a", folder: "b", workspace: "a" }), "folder");
+  assert.equal(changedSide({ base: "a", folder: "a", workspace: "c" }), "workspace");
+  assert.equal(changedSide({ base: "a", folder: "b", workspace: "c" }), "both");
+});
+
+test("isUnderIgnoredFolder matches folders git sync never touches", () => {
+  assert.equal(isUnderIgnoredFolder("node_modules/x.js"), true);
+  assert.equal(isUnderIgnoredFolder("notes/a.md"), false);
+});
+
+test("decideGitSyncPath includes normal files and names the skip reason", () => {
+  assert.deepEqual(decideGitSyncPath("notes/a.md", 10), { include: true });
+  assert.deepEqual(decideGitSyncPath("a.aux", 1), { include: false, reason: "ignored-file" });
+  assert.deepEqual(decideGitSyncPath("a.md", GIT_SYNC_MAX_FILE_BYTES + 1), { include: false, reason: "too-large" });
+  assert.deepEqual(decideGitSyncPath("", 1), { include: false, reason: "invalid-path" });
+  assert.deepEqual(decideGitSyncPath("a.md", Number.NaN), { include: false, reason: "too-large" });
+});
+
+test("describePull and describePush give one settings line", () => {
+  assert.equal(describePull({ kind: "up-to-date" }), "Already up to date.");
+  assert.ok(describePull({ kind: "conflict", files: ["a.md"] }).includes("1 file changed"));
+  assert.equal(describePush({ kind: "rejected", reason: "r" }), "Not pushed: r");
+  assert.throws(() => describePull({ kind: "bogus" } as never));
+});
+
+test("stampWorkspaceId adds the id only when the file has none", () => {
+  assert.equal(stampWorkspaceId("---\nweaveforge-id: a\n---\nx", "b"), null);
+  assert.ok(stampWorkspaceId("hello", "id1")?.includes("weaveforge-id: id1"));
+});
+
+test("safeWorkspacePath normalizes and refuses escapes from the root", () => {
+  assert.equal(safeWorkspacePath("./a\\b//c.md"), "a/b/c.md");
+  assert.throws(() => safeWorkspacePath("../x"), /Unsafe workspace path: \.\.\/x/);
+  assert.equal(isSafeWorkspacePath("/etc"), false);
+  assert.equal(isSafeWorkspacePath("a/b"), true);
 });
 
 test("parsePaperRef normalizes each kind", () => {
