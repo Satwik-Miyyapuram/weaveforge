@@ -2,12 +2,12 @@ import { app, safeStorage } from "electron";
 import { rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { PreferenceStore, pagePreferences } from "./preference-store";
+import { PreferenceStore, pagePreferences } from "../../shell/sidecar/src/preference-store";
 import { readIfPresent } from "./read-if-present";
-import { SecretStore, pageSecrets } from "./secret-store";
+import { SecretStore, pageSecrets } from "../../shell/sidecar/src/secret-store";
 import { parseLinks, type OverleafLink, type OverleafSyncDeps } from "./overleaf-sync";
-import type { VaultSyncSettings } from "./vault-git";
-import { temporaryName } from "./write-queue";
+import type { VaultSyncSettings } from "../../shell/sidecar/src/vault-git";
+import { temporaryName } from "../../shell/sidecar/src/write-queue";
 
 /**
  * The shell's two on-disk stores — settings and secrets — and the whole-file

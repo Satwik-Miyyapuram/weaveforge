@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { LocalDbHost } from "../../../desktop/src/local-db-host";
+import type { LocalDbHost } from "../src/local-db-host";
 import { startLocalApi, type LocalApiStartOptions } from "../src/local-api-start";
 import type { Handlers } from "../src/wire";
 

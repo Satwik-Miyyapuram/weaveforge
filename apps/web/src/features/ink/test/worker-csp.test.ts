@@ -40,7 +40,7 @@ test("the web CSP allows a blob worker, which is what the ink worker is emitted 
 });
 
 test("the desktop shell already allowed it, which is why omitting it fails on web only", () => {
-  const protocol = read("apps/desktop/src/app-protocol.ts");
+  const protocol = read("apps/shell/sidecar/src/app-protocol.ts");
   assert.match(protocol, /worker-src 'self' blob:/);
 });
 

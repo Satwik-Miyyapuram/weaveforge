@@ -11,8 +11,8 @@
 import { errorMessage } from "@weaveforge/core";
 import { randomUUID } from "node:crypto";
 import { BrowserWindow, session, shell, type Cookie } from "electron";
-import { CHANNELS } from "./channels";
-import type { IpcSurface } from "./ipc-guard";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 
 export const SESSION_COOKIE = "MMAUTHTOKEN";
 const GIVE_UP_MS = 10 * 60_000;
