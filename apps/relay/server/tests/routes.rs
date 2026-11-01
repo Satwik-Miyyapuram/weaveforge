@@ -278,6 +278,28 @@ async fn cors_preflight_allows_the_semantic_scholar_key_header() {
 }
 
 #[tokio::test]
+async fn cors_exposes_the_final_url_header() {
+    // The html-proxy reply names the page after redirects in `x-final-url`;
+    // a browser on another origin can only read it if it is exposed.
+    let mut request = get("/healthz", None);
+    let _ = request
+        .headers_mut()
+        .insert("origin", HeaderValue::from_static(ORIGIN));
+    let (_, headers, _) = send(
+        state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
+        request,
+    )
+    .await;
+    let exposed = headers
+        .get("access-control-expose-headers")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    assert!(exposed.contains("x-final-url"), "{exposed}");
+    assert!(exposed.contains("retry-after"), "{exposed}");
+}
+
+#[tokio::test]
 async fn cors_preflight_refuses_other_origin() {
     let (_, headers, _) = send(
         state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
