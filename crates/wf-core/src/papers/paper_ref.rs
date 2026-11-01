@@ -3,38 +3,41 @@
 
 use std::sync::LazyLock;
 
-use regex::Regex;
-use serde::Serialize;
+use regex_lite::Regex;
+
+use super::js_regex::{compile, space_class};
+use serde::{Deserialize, Serialize};
 
 /// Arxiv id core: modern `2305.12345` or legacy `cs.LG/0501001`. Digits are ASCII, as in JS.
 const ARXIV_CORE: &str = r"[a-z-]+(?:\.[A-Z]{2})?/[0-9]{7}|[0-9]{4}\.[0-9]{4,5}";
 
 static DOI_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r#"10\.[0-9]{4,9}/[^\s"'<>]+"#).ok());
+    LazyLock::new(|| compile(&format!(r#"10\.[0-9]{{4,9}}/[^{}"'<>]+"#, space_class())).ok());
 
 static ARXIV_URL_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-    Regex::new(&format!(
+    compile(&format!(
         r"(?i)arxiv\.org/(?:abs|pdf)/({ARXIV_CORE})(v[0-9]+)?(?:\.pdf)?"
     ))
     .ok()
 });
 
 static ARXIV_PREFIXED_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-    Regex::new(&format!(
-        r"(?i)(?-u:\b)arxiv(?:\s*:\s*|\s+)({ARXIV_CORE})(v[0-9]+)?"
+    compile(&format!(
+        r"(?i)\barxiv(?:\s*:\s*|\s+)({ARXIV_CORE})(v[0-9]+)?"
     ))
     .ok()
 });
 
 static ARXIV_BARE_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(&format!(r"(?i)^({ARXIV_CORE})(v[0-9]+)?$")).ok());
+    LazyLock::new(|| compile(&format!(r"(?i)^({ARXIV_CORE})(v[0-9]+)?$")).ok());
 
 /// Scheme-less URL: dotted host with an alphabetic TLD, optional path, no whitespace.
 static HOSTLIKE_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"(?i)^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(/\S*)?$").ok());
+    LazyLock::new(|| compile(r"(?i)^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(/\S*)?$").ok());
 
 /// The kind of paper reference a caller declares for a pasted value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum PaperRefKind {
     /// A Digital Object Identifier.
@@ -49,6 +52,7 @@ pub enum PaperRefKind {
 
 /// A paper reference: what it is and the value that identifies it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PaperRef {
     /// Which source can answer for this reference.
     pub kind: PaperRefKind,
@@ -176,5 +180,33 @@ fn hex_value(byte: u8) -> Option<u8> {
         b'a'..=b'f' => Some(byte - b'a' + 10),
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_static_regex_compiles() {
+        // A pattern regex-lite rejects becomes None and silently never matches.
+        assert!(DOI_RE.is_some());
+        assert!(ARXIV_URL_RE.is_some());
+        assert!(ARXIV_PREFIXED_RE.is_some());
+        assert!(ARXIV_BARE_RE.is_some());
+        assert!(HOSTLIKE_RE.is_some());
+    }
+
+    #[test]
+    fn paper_ref_kind_round_trips_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&PaperRefKind::Arxiv).unwrap(),
+            "\"arxiv\""
+        );
+        assert_eq!(
+            serde_json::from_str::<PaperRefKind>("\"zotero\"").unwrap(),
+            PaperRefKind::Zotero
+        );
+        assert!(serde_json::from_str::<PaperRefKind>("\"bibliographic\"").is_err());
     }
 }

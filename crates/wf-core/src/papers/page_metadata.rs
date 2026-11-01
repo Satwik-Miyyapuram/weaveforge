@@ -4,36 +4,45 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::LazyLock;
 
-use regex::{Captures, Regex};
-use serde::Serialize;
+use regex_lite::{Captures, Regex};
+
+use super::js_regex::compile;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 /// Interstitials that answer 200 with an ordinary-looking title.
 pub const BOT_WALL_PATTERN: &str = r"(?i)client challenge|verifying your browser|just a moment|attention required|are you a robot|access denied|captcha|checking your browser";
 
 /// Everything a page says about the paper it carries.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PageMetadata {
     /// Title with the site's name suffix removed.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub title: Option<String>,
     /// Author names, de-duplicated case-insensitively.
     pub authors: Vec<String>,
     /// Year of the publish date.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = i32))]
     pub year: Option<i32>,
     /// Journal, conference or site name.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub venue: Option<String>,
     /// DOI without its resolver prefix.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub doi: Option<String>,
     /// arXiv id, from the tag or the page address.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub arxiv_id: Option<String>,
     /// Abstract with whitespace collapsed.
-    #[serde(rename = "abstract", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "abstract", default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub r#abstract: Option<String>,
     /// The page address the metadata came from.
     pub url: String,
@@ -57,31 +66,28 @@ const ARTICLE_TYPES: [&str; 9] = [
 ];
 
 // Each pattern is a literal; `None` (never reached) means no match, not a panic.
-static BOT_WALL: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(BOT_WALL_PATTERN).ok());
-static META_TAG: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)<meta\b[^>]*>").ok());
+static BOT_WALL: LazyLock<Option<Regex>> = LazyLock::new(|| compile(BOT_WALL_PATTERN).ok());
+static META_TAG: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"(?i)<meta\b[^>]*>").ok());
 static JSON_LD: LazyLock<Option<Regex>> = LazyLock::new(|| {
-    Regex::new(
-        r#"(?i)<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>([\s\S]*?)</script>"#,
-    )
-    .ok()
+    compile(r#"(?i)<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>([\s\S]*?)</script>"#)
+        .ok()
 });
 static HTML_TITLE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"(?i)<title[^>]*>([\s\S]*?)</title>").ok());
-static WHITESPACE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"\s+").ok());
+    LazyLock::new(|| compile(r"(?i)<title[^>]*>([\s\S]*?)</title>").ok());
+static WHITESPACE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"\s+").ok());
 static YEAR: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"\b(1[89][0-9]{2}|2[0-9]{3})\b").ok());
+    LazyLock::new(|| compile(r"\b(1[89][0-9]{2}|2[0-9]{3})\b").ok());
 static SITE_SUFFIX: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"^(.*\S)\s+[|\-–—·:]\s+([^|\-–—·:]+)$").ok());
+    LazyLock::new(|| compile(r"^(.*\S)\s+[|\-–—·:]\s+([^|\-–—·:]+)$").ok());
 static ARXIV_AT: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"(?i)arxiv\.org/(?:abs|pdf)/").ok());
-static ARXIV_ID: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^[A-Za-z0-9_./-]+$").ok());
-static ARXIV_VERSION: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)v[0-9]+$").ok());
+    LazyLock::new(|| compile(r"(?i)arxiv\.org/(?:abs|pdf)/").ok());
+static ARXIV_ID: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"^[A-Za-z0-9_./-]+$").ok());
+static ARXIV_VERSION: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"(?i)v[0-9]+$").ok());
 static DOI_PREFIX: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:)").ok());
-static HTTP_URL: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)^https?://").ok());
-static HEX_ENTITY: LazyLock<Option<Regex>> =
-    LazyLock::new(|| Regex::new(r"(?i)&#x([0-9a-f]+);").ok());
-static DEC_ENTITY: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"&#([0-9]+);").ok());
+    LazyLock::new(|| compile(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:)").ok());
+static HTTP_URL: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"(?i)^https?://").ok());
+static HEX_ENTITY: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"(?i)&#x([0-9a-f]+);").ok());
+static DEC_ENTITY: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"&#([0-9]+);").ok());
 // Order matters: `&amp;` is last so `&amp;lt;` decodes to `&lt;`, not `<`.
 static NAMED_ENTITIES: LazyLock<Option<Vec<(Regex, &'static str)>>> = LazyLock::new(|| {
     [
@@ -94,7 +100,7 @@ static NAMED_ENTITIES: LazyLock<Option<Vec<(Regex, &'static str)>>> = LazyLock::
         (r"(?i)&amp;", "&"),
     ]
     .into_iter()
-    .map(|(pattern, with)| Regex::new(pattern).ok().map(|re| (re, with)))
+    .map(|(pattern, with)| compile(pattern).ok().map(|re| (re, with)))
     .collect()
 });
 
@@ -234,7 +240,7 @@ fn attr(tag: &str, name: &str) -> Option<String> {
 }
 
 fn capture(pattern: &str, text: &str) -> Option<String> {
-    let re = Regex::new(pattern).ok()?;
+    let re = compile(pattern).ok()?;
     re.captures(text)?.get(1).map(|m| m.as_str().to_string())
 }
 
@@ -445,4 +451,44 @@ pub fn page_import_refusal(meta: &PageMetadata) -> Option<&'static str> {
     Some(
         "That page does not look like a paper or an article — it has no citation tags and does not say it is an article. Import by DOI or arXiv id, or add the paper manually.",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_static_regex_compiles() {
+        // A pattern regex-lite rejects becomes None and silently never matches.
+        for (name, ok) in [
+            ("BOT_WALL", BOT_WALL.is_some()),
+            ("META_TAG", META_TAG.is_some()),
+            ("JSON_LD", JSON_LD.is_some()),
+            ("HTML_TITLE", HTML_TITLE.is_some()),
+            ("WHITESPACE", WHITESPACE.is_some()),
+            ("YEAR", YEAR.is_some()),
+            ("SITE_SUFFIX", SITE_SUFFIX.is_some()),
+            ("ARXIV_AT", ARXIV_AT.is_some()),
+            ("ARXIV_ID", ARXIV_ID.is_some()),
+            ("ARXIV_VERSION", ARXIV_VERSION.is_some()),
+            ("DOI_PREFIX", DOI_PREFIX.is_some()),
+            ("HTTP_URL", HTTP_URL.is_some()),
+            ("HEX_ENTITY", HEX_ENTITY.is_some()),
+            ("DEC_ENTITY", DEC_ENTITY.is_some()),
+            ("NAMED_ENTITIES", NAMED_ENTITIES.is_some()),
+        ] {
+            assert!(ok, "{name} does not compile");
+        }
+    }
+
+    #[test]
+    fn page_metadata_deserializes_camel_case() {
+        let meta: PageMetadata = serde_json::from_str(
+            r#"{"authors":[],"url":"https://x.org","hasCitationMeta":true,"isArticle":false,"arxivId":"2305.12345"}"#,
+        )
+        .unwrap();
+        assert_eq!(meta.arxiv_id.as_deref(), Some("2305.12345"));
+        assert_eq!(meta.title, None);
+        assert!(meta.has_citation_meta);
+    }
 }

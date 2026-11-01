@@ -98,6 +98,7 @@ import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-stor
 import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
 import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
@@ -260,7 +261,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     openAlexSource,
     new UrlMetadataSource(),
   ]);
-  const importPaper = new ImportPaperUseCase(resolver, addPaper);
+  const importPaper = new ImportPaperUseCase(resolver, addPaper, async (kind, value) =>
+    (await loadCore()).parsePaperRef(kind, value),
+  );
 
   // The reader's citation lookup: Semantic Scholar is the first provider for
   // DOI, arXiv and title+author+year alike, with OpenAlex/Crossref behind it.

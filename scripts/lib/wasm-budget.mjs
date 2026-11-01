@@ -27,7 +27,13 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   wasm-release opt-level "s" instead of "z" for speed: indexTerms on 232k
 //   chars of prose takes 17 ms instead of 24 ms (TS: 37 ms) for ~3.2 KB more
 //   gzip. Still under 142 KB, so the budget stays.
-export const WASM_GZIP_BUDGET = 142 * 1024;
+// - Step 0b-1: 201,775 bytes (module 195,978 + glue 5,797), the Windows build
+//   (it matched the Linux one to 46 bytes on the base). The paper exports
+//   (parsePaperRef, extractDoi, extractPageMetadata, ...) bring wf-core's papers
+//   module and regex-lite (~55 KB). The full regex crate's Unicode tables made
+//   it 466 KB, so wf-core uses regex-lite. 200 KB is this batch's ceiling; the
+//   sync exports (0b-2+) raise it again with their own note.
+export const WASM_GZIP_BUDGET = 200 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

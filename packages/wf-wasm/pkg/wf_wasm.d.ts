@@ -24,6 +24,25 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
 export function coreInfo(): any;
 
 /**
+ * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function extractDoi(value: string): string | undefined;
+
+/**
+ * [`wf_core::papers::page_metadata::extract_page_metadata`]: metadata of a
+ * fetched page (`PageMetadata` in `bindings.ts`).
+ *
+ * # Errors
+ *
+ * Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function extractPageMetadata(html: string, url: string): any;
+
+/**
  * [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
  * `k` defaults to [`RRF_K`]; `limit` of `None` or 0 means no limit.
  *
@@ -33,6 +52,16 @@ export function coreInfo(): any;
  * in total, or a weight is not finite and >= 0.
  */
 export function fuseRankings(lists: any, k?: number | null, limit?: number | null): any;
+
+/**
+ * [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
+ * by its extension.
+ *
+ * # Errors
+ *
+ * Fails if `path` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function guessBlobContentType(path: string): string;
 
 /**
  * [`wf_core::search::tokenizer::index_terms`]: what MiniSearch indexes for `text`.
@@ -54,6 +83,37 @@ export function maxFusionIds(): number;
  * text is copied into linear memory.
  */
 export function maxIndexTextUtf16(): number;
+
+/**
+ * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
+ * `value`, or `None`.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function normalizeArxivId(value: string): string | undefined;
+
+/**
+ * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
+ * imported, or `None` when it can.
+ *
+ * # Errors
+ *
+ * Fails if `meta` is not a valid `PageMetadata` object.
+ */
+export function pageImportRefusal(meta: any): string | undefined;
+
+/**
+ * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
+ * (`PaperRef` in `bindings.ts`) of the given `kind`.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if `kind`
+ * is not a valid `PaperRefKind`.
+ */
+export function parsePaperRef(kind: any, value: string): any;
 
 /**
  * [`wf_core::search::query::parse_query`]: the query split into terms, phrases,
@@ -81,10 +141,16 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
+    readonly extractDoi: (a: number, b: number) => [number, number, number, number];
+    readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
+    readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
+    readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
+    readonly pageImportRefusal: (a: any) => [number, number, number, number];
+    readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
@@ -93,6 +159,7 @@ export interface InitOutput {
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

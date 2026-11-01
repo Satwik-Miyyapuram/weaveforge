@@ -13,6 +13,8 @@ use serde::Serialize;
 use std::num::NonZeroUsize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::papers::page_metadata::PageMetadata;
+use wf_core::papers::paper_ref::PaperRefKind;
 use wf_core::search::excerpt::ExcerptOptions;
 use wf_core::search::fusion::{RRF_K, RankedList};
 use wf_core::search::js_text::utf16_len;
@@ -244,4 +246,80 @@ pub fn fuse_rankings(
     debug_assert!(fused.len() <= lists.iter().map(|l| l.ids.len()).sum::<usize>());
     debug_assert!(limit.is_none_or(|n| fused.len() <= n.get()));
     to_js(&fused)
+}
+
+/// [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
+/// (`PaperRef` in `bindings.ts`) of the given `kind`.
+///
+/// # Errors
+///
+/// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if `kind`
+/// is not a valid `PaperRefKind`.
+#[wasm_bindgen(js_name = parsePaperRef)]
+pub fn parse_paper_ref(kind: JsValue, value: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    check_text(value)?;
+    let kind: PaperRefKind = serde_wasm_bindgen::from_value(kind)?;
+    to_js(&wf_core::papers::paper_ref::parse_paper_ref(kind, value))
+}
+
+/// [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
+/// `value`, or `None`.
+///
+/// # Errors
+///
+/// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = normalizeArxivId)]
+pub fn normalize_arxiv_id(value: &str) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+    check_text(value)?;
+    Ok(wf_core::papers::paper_ref::normalize_arxiv_id(value))
+}
+
+/// [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
+///
+/// # Errors
+///
+/// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = extractDoi)]
+pub fn extract_doi(value: &str) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+    check_text(value)?;
+    Ok(wf_core::papers::paper_ref::extract_doi(value))
+}
+
+/// [`wf_core::papers::page_metadata::extract_page_metadata`]: metadata of a
+/// fetched page (`PageMetadata` in `bindings.ts`).
+///
+/// # Errors
+///
+/// Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = extractPageMetadata)]
+pub fn extract_page_metadata(html: &str, url: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    check_text(html)?;
+    check_text(url)?;
+    to_js(&wf_core::papers::page_metadata::extract_page_metadata(
+        html, url,
+    ))
+}
+
+/// [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
+/// imported, or `None` when it can.
+///
+/// # Errors
+///
+/// Fails if `meta` is not a valid `PageMetadata` object.
+#[wasm_bindgen(js_name = pageImportRefusal)]
+pub fn page_import_refusal(meta: JsValue) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+    let meta: PageMetadata = serde_wasm_bindgen::from_value(meta)?;
+    Ok(wf_core::papers::page_metadata::page_import_refusal(&meta).map(str::to_owned))
+}
+
+/// [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
+/// by its extension.
+///
+/// # Errors
+///
+/// Fails if `path` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = guessBlobContentType)]
+pub fn guess_blob_content_type(path: &str) -> Result<String, serde_wasm_bindgen::Error> {
+    check_text(path)?;
+    Ok(wf_core::storage::blob::guess_blob_content_type(path).to_owned())
 }
