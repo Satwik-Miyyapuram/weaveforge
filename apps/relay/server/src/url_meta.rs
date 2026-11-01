@@ -109,15 +109,16 @@ fn error(status: u16, message: impl Into<String>) -> (u16, Value) {
     (status, json!({ "error": message.into() }))
 }
 
-/// The TS scheme test `^[a-z][a-z0-9+.-]*:`, case-insensitive.
+/// The TS scheme test `^[a-z][a-z0-9+.-]*:(?!\d)`, case-insensitive.
 fn has_scheme(input: &str) -> bool {
     let mut chars = input.chars();
     if !chars.next().is_some_and(|c| c.is_ascii_alphabetic()) {
         return false;
     }
-    for c in chars {
+    for c in chars.by_ref() {
         if c == ':' {
-            return true;
+            // `example.com:443/x` is a host and port, not a scheme (the TS `(?!\d)`).
+            return !chars.next().is_some_and(|next| next.is_ascii_digit());
         }
         if !(c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-')) {
             return false;
@@ -244,12 +245,19 @@ async fn crossref(
     let Some(response) = fixed_get(client, &request_url, Some(CROSSREF_AGENT)).await else {
         return not_in_crossref(doi);
     };
-    let body = response.text().await.unwrap_or_default();
-    let envelope: CrossrefEnvelope = match serde_json::from_str(&body) {
-        Ok(envelope) => envelope,
-        Err(_) => return error(500, "Internal error."),
+    // A body that is not JSON (a maintenance page, a dropped connection) or is
+    // JSON `null` counts as a miss, like a non-ok answer, as in the TS.
+    let text = response.text().await.unwrap_or_default();
+    let Some(body) = serde_json::from_str::<Value>(&text)
+        .ok()
+        .filter(|body| !body.is_null())
+    else {
+        return not_in_crossref(doi);
     };
-    let work = envelope.message.unwrap_or_default();
+    let work = serde_json::from_value::<CrossrefEnvelope>(body)
+        .ok()
+        .and_then(|envelope| envelope.message)
+        .unwrap_or_default();
     (200, crossref_meta(&work, doi, target))
 }
 

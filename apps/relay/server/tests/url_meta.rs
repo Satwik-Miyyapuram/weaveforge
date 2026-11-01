@@ -149,6 +149,19 @@ async fn scheme_less_host_is_taken_as_https() {
 }
 
 #[tokio::test]
+async fn host_with_a_port_is_taken_as_https() {
+    // A digit after the colon is a port, not a scheme, so this is not refused as non-http.
+    let (status, body) = call(&no_upstreams(), Some("example.com:443/paper")).await;
+    assert_eq!(status, 502);
+    assert!(
+        body["error"]
+            .as_str()
+            .is_some_and(|text| text.starts_with("That host could not be resolved")),
+        "{body}"
+    );
+}
+
+#[tokio::test]
 async fn arxiv_entry_becomes_meta() {
     let base = serve(|path| {
         if path.contains("id_list=2301.00001") {
@@ -259,6 +272,20 @@ async fn crossref_miss_is_a_404_naming_the_doi() {
             "error": "DOI 10.1234/xyz not found in Crossref (some ACM DOIs are unregistered). Enter the paper manually or try the arXiv id."
         })
     );
+}
+
+#[tokio::test]
+async fn unreadable_crossref_body_is_a_miss() {
+    let base = serve(|_| reply(200, "application/json", "<html>maintenance</html>")).await;
+    let (status, _) = call(&upstreams_at(&base), Some("https://doi.org/10.1234/xyz")).await;
+    assert_eq!(status, 404);
+}
+
+#[tokio::test]
+async fn null_crossref_body_is_a_miss() {
+    let base = serve(|_| reply(200, "application/json", "null")).await;
+    let (status, _) = call(&upstreams_at(&base), Some("https://doi.org/10.1234/xyz")).await;
+    assert_eq!(status, 404);
 }
 
 #[tokio::test]

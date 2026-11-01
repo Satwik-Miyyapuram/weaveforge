@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use axum::body::{Body, to_bytes};
-use axum::http::{HeaderMap, Request, StatusCode};
+use axum::http::{HeaderMap, HeaderValue, Request, StatusCode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tower::ServiceExt;
@@ -254,6 +254,27 @@ async fn cors_preflight_allows_listed_origin() {
             .and_then(|v| v.to_str().ok()),
         Some(ORIGIN)
     );
+}
+
+#[tokio::test]
+async fn cors_preflight_allows_the_semantic_scholar_key_header() {
+    let mut request = preflight("/api/semantic-scholar/graph/v1/paper/x", ORIGIN);
+    let _ = request.headers_mut().insert(
+        "access-control-request-headers",
+        HeaderValue::from_static("authorization,x-api-key"),
+    );
+    let (status, headers, _) = send(
+        state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
+        request,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let allowed = headers
+        .get("access-control-allow-headers")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    assert!(allowed.contains("x-api-key"), "{allowed}");
 }
 
 #[tokio::test]

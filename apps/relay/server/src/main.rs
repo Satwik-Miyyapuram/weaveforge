@@ -42,9 +42,27 @@ async fn run() -> Result<(), String> {
         .map_err(|e| format!("server stopped: {e}"))
 }
 
-/// Resolves on Ctrl-C; if the handler cannot be installed the server keeps running.
+/// Resolves on Ctrl-C, or on SIGTERM on Unix (what `docker stop` sends); a
+/// handler that cannot be installed never resolves, so the server keeps running.
 async fn shutdown_signal() {
-    if tokio::signal::ctrl_c().await.is_err() {
-        std::future::pending::<()>().await;
+    let ctrl_c = async {
+        if tokio::signal::ctrl_c().await.is_err() {
+            std::future::pending::<()>().await;
+        }
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut signal) => {
+                let _ = signal.recv().await;
+            }
+            Err(_) => std::future::pending::<()>().await,
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+    tokio::select! {
+        () = ctrl_c => {}
+        () = terminate => {}
     }
 }
