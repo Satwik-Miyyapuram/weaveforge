@@ -32,9 +32,9 @@
 	# The origin is matched against an allowlist rather than echoed back. Echoing
 	# whatever asks makes the check decorative: any page anywhere could then read
 	# a signed-in user's data with a token it had obtained. These are the app's
-	# own origins — the web hosts and `app://weaveforge`, which is what the
-	# desktop shell's renderer sends as its Origin — plus localhost for
-	# development.
+	# own origins — the web hosts, `app://weaveforge` (the Electron renderer),
+	# `https://app.localhost` and `app://localhost` (the Tauri shell on Windows
+	# and on macOS/Linux) — plus localhost for development.
 	#
 	# `Max-Age` matters more than it looks: without it a preflight is cached for
 	# seconds, and each distinct query URL pays a second round trip. A day is the
@@ -44,13 +44,13 @@
 	# CORS (it exposes Retry-After, which the header block below would replace).
 	@allowed_origin {
 		not path /relay/*
-		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^http://localhost:(3000|3100)$
+		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^https://app\.localhost$|^app://localhost$|^http://localhost:(3000|3100)$
 	}
 
 	@preflight_allowed {
 		not path /relay/*
 		method OPTIONS
-		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^http://localhost:(3000|3100)$
+		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^https://app\.localhost$|^app://localhost$|^http://localhost:(3000|3100)$
 	}
 	handle @preflight_allowed {
 		header {
