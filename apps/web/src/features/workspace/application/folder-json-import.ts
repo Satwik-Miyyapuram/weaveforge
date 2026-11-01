@@ -131,7 +131,6 @@ export async function refreshMirrorBase(
   expected: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   if (!fs || paths.length === 0) return;
-  const core = await loadCore();
   const project = await activeProjectOrNull().catch(() => null);
   if (!project) return;
   const projectRoot = projectDir(project);
