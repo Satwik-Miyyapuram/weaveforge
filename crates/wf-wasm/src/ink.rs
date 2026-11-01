@@ -209,19 +209,34 @@ pub fn pack_ink_stroke_js(
     to_js(&packed)
 }
 
-/// [`segment_ink_lines`] over `strokes` (objects with `points`, `tool`, `t0`;
-/// other fields are ignored), as line indices into `strokes`.
+/// [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
+/// `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
+/// `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
 ///
 /// # Errors
 ///
-/// Fails if `strokes` is not an array of stroke objects.
+/// Fails only if the value cannot be converted to a JS value.
 #[wasm_bindgen(js_name = segmentInkLines)]
 pub fn segment_ink_lines_js(
-    strokes: JsValue,
+    points: &[f64],
+    offsets: &[u32],
+    pen: &[u8],
+    t0s: &[f64],
     window_ms: Option<f64>,
     band_ratio: Option<f64>,
 ) -> JsResult<JsValue> {
-    let strokes: Vec<SegmentStroke> = serde_wasm_bindgen::from_value(strokes)?;
+    let strokes: Vec<SegmentStroke> = offsets
+        .windows(2)
+        .zip(pen.iter().zip(t0s))
+        .map(|(span, (&is_pen, &t0))| SegmentStroke {
+            points: points
+                .get(span[0] as usize..span[1] as usize)
+                .unwrap_or_default()
+                .to_vec(),
+            tool: if is_pen == 1 { "pen" } else { "" }.to_owned(),
+            t0: Some(t0),
+        })
+        .collect();
     to_js(&segment_ink_lines(
         &strokes,
         window_ms.unwrap_or(INK_GROUP_WINDOW_MS),

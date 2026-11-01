@@ -22,8 +22,14 @@ export function segmentInkLines<S extends { points: readonly number[]; tool: str
   strokes: readonly S[],
   options: { windowMs?: number; bandRatio?: number } = {},
 ): { lines: { strokes: S[]; yBand: [number, number] }[]; lineOfStroke: number[] } {
-  const input = strokes.map(({ points, tool, t0 }) => ({ points, tool, t0 }));
-  const raw = rawSegmentInkLines(input, options.windowMs, options.bandRatio) as InkSegmentationIndices;
+  const offsets = new Uint32Array(strokes.length + 1);
+  strokes.forEach((stroke, i) => {
+    offsets[i + 1] = offsets[i]! + stroke.points.length;
+  });
+  const points = Float64Array.from(strokes.flatMap((stroke) => stroke.points));
+  const pen = Uint8Array.from(strokes, (stroke) => (stroke.tool === "pen" ? 1 : 0));
+  const t0s = Float64Array.from(strokes, (stroke) => stroke.t0);
+  const raw = rawSegmentInkLines(points, offsets, pen, t0s, options.windowMs, options.bandRatio) as InkSegmentationIndices;
   return {
     lines: raw.lines.map((line) => ({
       strokes: line.strokeIndices.map((index) => strokes[index]!),

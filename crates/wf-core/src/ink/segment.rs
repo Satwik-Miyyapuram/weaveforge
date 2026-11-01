@@ -5,8 +5,6 @@
 //! starts soon enough after it and sits at the same height. Only pen strokes are
 //! segmented; highlighter and shape strokes are not writing.
 
-use std::cmp::Ordering;
-
 use super::js_math;
 
 /// Idle gap, in ms, after which a stroke starts a new line rather than joining one.
@@ -17,7 +15,7 @@ pub const INK_GROUP_WINDOW_MS: f64 = 2_000.0;
 pub const INK_LINE_BAND_RATIO: f64 = 0.6;
 
 /// The fields of a stroke that segmentation reads.
-#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SegmentStroke {
     /// Flat x,y pairs.
     pub points: Vec<f64>,
@@ -25,7 +23,6 @@ pub struct SegmentStroke {
     pub tool: String,
     /// Stroke start in ms; a missing or non-finite value falls back to the
     /// stroke's index.
-    #[serde(default)]
     pub t0: Option<f64>,
 }
 
@@ -77,9 +74,17 @@ fn start_time(stroke: &SegmentStroke, index: usize) -> f64 {
     }
 }
 
-/// JS `a - b` as a sort comparator: equal when the difference is 0 (so -0 == 0).
-fn js_compare(a: f64, b: f64) -> Ordering {
-    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
+/// A stable sort by a finite key, as JS `sort((a, b) => key(a) - key(b))`
+/// (-0 and 0 tie). Binary insertion instead of `sort_by`: pages hold few
+/// strokes, and each `sort_by` instantiation costs kilobytes of WASM.
+fn stable_sort_by_key<T>(items: Vec<T>, key: impl Fn(&T) -> f64) -> Vec<T> {
+    let mut sorted: Vec<T> = Vec::with_capacity(items.len());
+    for item in items {
+        let k = key(&item);
+        let at = sorted.partition_point(|other| key(other) <= k);
+        sorted.insert(at, item);
+    }
+    sorted
 }
 
 struct Draft {
@@ -106,10 +111,11 @@ pub fn segment_ink_lines(
     let mut line_of_stroke = vec![-1; strokes.len()];
     let mut drafts: Vec<Draft> = Vec::new();
 
-    let mut order: Vec<usize> = (0..strokes.len())
+    // Start times are finite: a missing or non-finite t0 falls back to the index.
+    let order: Vec<usize> = (0..strokes.len())
         .filter(|&i| strokes[i].tool == "pen" && strokes[i].points.len() >= 4)
         .collect();
-    order.sort_by(|&a, &b| js_compare(start_time(&strokes[a], a), start_time(&strokes[b], b)));
+    let order = stable_sort_by_key(order, |&i| start_time(&strokes[i], i));
 
     for index in order {
         let stroke = &strokes[index];
@@ -148,7 +154,8 @@ pub fn segment_ink_lines(
     }
 
     // Reading order is top to bottom, not the order the lines were written in.
-    drafts.sort_by(|a, b| js_compare(a.y_min, b.y_min));
+    // Bands are finite: ink_stroke_band drops a stroke without one.
+    let drafts = stable_sort_by_key(drafts, |draft| draft.y_min);
 
     let lines = drafts
         .into_iter()
