@@ -10,11 +10,11 @@
  */
 
 import {
-  entityDir,
   paperPdfPath,
   type IPdfByteCache,
   type IWorkspaceFs,
 } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 export class WorkspacePdfStore implements IPdfByteCache {
   /**
@@ -49,8 +49,9 @@ export class WorkspacePdfStore implements IPdfByteCache {
   async set(key: string, bytes: ArrayBuffer): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
+    const core = await loadCore();
     const root = await this.projectRoot();
-    await fs.mkdirp(entityDir("paper", root) + "/pdf");
+    await fs.mkdirp(core.entityDir("paper", root) + "/pdf");
     await fs.writeFile(paperPdfPath(key, root), new Uint8Array(bytes));
   }
 
@@ -65,14 +66,16 @@ export class WorkspacePdfStore implements IPdfByteCache {
     const fs = this.fs();
     if (!fs) return;
     // This project's copies only: another project's PDFs are not this cache's.
-    const dir = entityDir("paper", await this.projectRoot()) + "/pdf";
+    const core = await loadCore();
+    const dir = core.entityDir("paper", await this.projectRoot()) + "/pdf";
     if (await fs.stat(dir)) await fs.remove(dir, { recursive: true });
   }
 
   async size(): Promise<number> {
     const fs = this.fs();
     if (!fs) return 0;
-    const dir = entityDir("paper", await this.projectRoot()) + "/pdf";
+    const core = await loadCore();
+    const dir = core.entityDir("paper", await this.projectRoot()) + "/pdf";
     if (!(await fs.stat(dir))) return 0;
     const entries = await fs.list(dir);
     return entries.filter((entry) => entry.kind === "file").length;
