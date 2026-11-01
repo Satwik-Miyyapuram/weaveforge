@@ -19,6 +19,26 @@ export function addCounts(a, b) {
 }
 
 /**
+ * [`apply_comma_placement`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `placement` is not `"inside"` or `"outside"`, or `input` is over the text cap.
+ * @param {string} input
+ * @param {any} placement
+ * @returns {any}
+ */
+export function applyCommaPlacement(input, placement) {
+    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.applyCommaPlacement(ptr0, len0, placement);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -63,6 +83,87 @@ export function changedSide(base, folder, workspace) {
     var ptr2 = isLikeNone(workspace) ? 0 : passStringToWasm0(workspace, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len2 = WASM_VECTOR_LEN;
     const ret = wasm.changedSide(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`clean_pasted_text`] for JS, as `{ text, changed, urlsCleaned }`.
+ *
+ * # Errors
+ *
+ * Fails when `settings` is not a `PasteSettings` object, or `input` is over the text cap.
+ * @param {string} input
+ * @param {any} settings
+ * @returns {any}
+ */
+export function cleanPastedText(input, settings) {
+    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.cleanPastedText(ptr0, len0, settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`clean_pdf_text`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `options` is not a `PdfTextOptions` object, or `input` is over the text cap.
+ * @param {string} input
+ * @param {any} options
+ * @returns {any}
+ */
+export function cleanPdfText(input, options) {
+    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.cleanPdfText(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Cleans the URLs in `text` with the built-in rules plus the user's `rules`
+ * (TS `cleanUrlsInText(text, buildUrlCleanupOptions(rules))`), as `{ text, count }`.
+ *
+ * # Errors
+ *
+ * Fails when `rules` is not a string array, or `text` is over the text cap.
+ * @param {string} text
+ * @param {any} rules
+ * @returns {any}
+ */
+export function cleanUrlsWithRules(text, rules) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.cleanUrlsWithRules(ptr0, len0, rules);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`clean_wrapped_text`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `options` is not a `WrappedTextOptions` object, or `input` is over the text cap.
+ * @param {string} input
+ * @param {any} options
+ * @returns {any}
+ */
+export function cleanWrappedText(input, options) {
+    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.cleanWrappedText(ptr0, len0, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -134,6 +235,22 @@ export function decideGitSyncPath(rel_path, size_bytes, max_file_bytes) {
  */
 export function defaultInkNoteMeta() {
     const ret = wasm.defaultInkNoteMeta();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * The default paste settings (TS `DEFAULT_PASTE_SETTINGS`).
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @returns {any}
+ */
+export function defaultPasteSettings() {
+    const ret = wasm.defaultPasteSettings();
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -884,6 +1001,25 @@ export function normalizeMarkdownImageSyntax(body) {
 }
 
 /**
+ * [`normalize_paste_settings`] for JS. `json` is `JSON.stringify` of whatever was stored.
+ *
+ * # Errors
+ *
+ * Fails when `json` is not valid JSON or is over the text cap.
+ * @param {string} json
+ * @returns {any}
+ */
+export function normalizePasteSettings(json) {
+    const ptr0 = passStringToWasm0(json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.normalizePasteSettings(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
  * imported, or `None` when it can.
  *
@@ -924,6 +1060,25 @@ export function parseJsonData(path, content, kind) {
     const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.parseJsonData(ptr0, len0, ptr1, len1, kind);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_link_removal_text`] for JS: the textarea's rules, one per line.
+ *
+ * # Errors
+ *
+ * Fails when `text` is over the text cap.
+ * @param {string} text
+ * @returns {any}
+ */
+export function parseLinkRemovalText(text) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseLinkRemovalText(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -987,6 +1142,26 @@ export function parseWorkspaceFolder(files) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`paste_lands_in_verbatim_context`] for JS. `offset` is in UTF-16 code units.
+ *
+ * # Errors
+ *
+ * Fails when `document` is over the text cap.
+ * @param {string} document
+ * @param {number} offset
+ * @returns {boolean}
+ */
+export function pasteLandsInVerbatimContext(document, offset) {
+    const ptr0 = passStringToWasm0(document, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pasteLandsInVerbatimContext(ptr0, len0, offset);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -1263,6 +1438,25 @@ export function stripKindSuffix(name) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`tab_separated_to_markdown_table`] for JS, as `{ text, changed }`.
+ *
+ * # Errors
+ *
+ * Fails when `input` is over the text cap.
+ * @param {string} input
+ * @returns {any}
+ */
+export function tabSeparatedToMarkdownTable(input) {
+    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.tabSeparatedToMarkdownTable(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**

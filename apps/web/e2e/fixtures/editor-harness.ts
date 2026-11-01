@@ -18,7 +18,7 @@ import { bindEditorHandle } from "@/components/markdown/markdown-editor-handle";
 import type { EditorHandle } from "@/components/editor-handle";
 import { markdownEditorExtensions } from "@/components/markdown/markdown-editor-extensions";
 import { readPasteSettings, writePasteSettings } from "@/lib/paste-cleanup-preference";
-import { normalizePasteSettings } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { DesktopBridge, DesktopImage } from "@/lib/desktop/desktop-bridge";
 
 const host = document.getElementById("editor")!;
@@ -175,7 +175,7 @@ function dragEvent(kind: string, data: DataTransfer, at: { x: number; y: number 
     uploadCount = 0;
   },
   settings: (partial: Record<string, unknown>) => {
-    const next = normalizePasteSettings({ ...pasteSettingsRef.current, ...partial });
+    const next = readyCore().normalizePasteSettings({ ...pasteSettingsRef.current, ...partial });
     writePasteSettings(next);
     pasteSettingsRef.current = next;
   },

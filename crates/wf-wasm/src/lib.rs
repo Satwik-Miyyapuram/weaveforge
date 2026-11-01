@@ -11,6 +11,7 @@
 
 mod folder;
 mod merge;
+mod paste;
 mod sync;
 mod workspace;
 

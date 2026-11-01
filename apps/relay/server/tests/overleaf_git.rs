@@ -53,16 +53,14 @@ fn make_repo(files: &[(&str, &str)]) -> (PathBuf, String) {
     (base, id)
 }
 
-fn count_temp_entries() -> usize {
+/// Temp clone dirs for one project. Scoped to `project_id` because the other
+/// tests in this binary clone at the same time.
+fn count_temp_entries(project_id: &str) -> usize {
+    let prefix = format!("weaveforge-overleaf-{project_id}-");
     std::fs::read_dir(std::env::temp_dir())
         .unwrap()
         .filter_map(Result::ok)
-        .filter(|entry| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with("weaveforge-overleaf-")
-        })
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
         .count()
 }
 
@@ -158,10 +156,10 @@ fn per_file_size_limit_is_enforced() {
 #[tokio::test]
 async fn no_temp_dir_left_after_failed_read() {
     let (base, id) = make_repo(&[("main.tex", "Hello")]);
-    let before = count_temp_entries();
+    let before = count_temp_entries(&id);
     let result = read_overleaf_project(&slash(&base), &id, "nope.tex", "tok").await;
     assert!(result.is_err());
-    let after = count_temp_entries();
+    let after = count_temp_entries(&id);
     assert!(after <= before, "before={before} after={after}");
     let _ = std::fs::remove_dir_all(&base);
 }

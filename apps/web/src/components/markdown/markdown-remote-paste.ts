@@ -1,7 +1,8 @@
 "use client";
 
 import type { EditorView } from "@codemirror/view";
-import { looksLikeImageUrl, type PasteSettings } from "@weaveforge/core";
+import { looksLikeImageUrl } from "@weaveforge/core";
+import type { PasteSettings } from "@weaveforge/wasm";
 import { outboundFetch } from "@/lib/outbound-fetch";
 import { insertPending, resolvePending, trackPending } from "@/components/markdown/markdown-pending-insert";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";

@@ -49,6 +49,13 @@ export type BodySides = {
 	theirs: string,
 };
 
+/**  What to do with bullet characters such as U+2022. */
+export type Bullets = 
+/**  Leave the bullet characters as written. */
+"preserve" | 
+/**  Rewrite them as Markdown list items. */
+"markdown";
+
 /**  Who changed the file since the two sides last agreed. */
 export type ChangeSide = 
 /**  Nothing moved, or both sides arrived at the same text. */
@@ -61,6 +68,23 @@ export type ChangeSide =
 "both" | 
 /**  Some digest is missing, so no guess is made. */
 "unknown";
+
+/**  The outcome of the automatic paste rules. */
+export type CleanPasteResult = {
+	/**  The text after the rules ran. */
+	text: string,
+	/**  True when `text` differs from the input. */
+	changed: boolean,
+	/**  How many links were shortened, for a caller that wants to say so. */
+	urlsCleaned: number,
+};
+
+/**  Which side of a closing double quote the comma goes on. */
+export type CommaPlacement = 
+/**  Inside the closing quotation mark (American style). */
+"inside" | 
+/**  Outside the closing quotation mark (British style). */
+"outside";
 
 /**  A field that both sides moved to different values. */
 export type Conflict = {
@@ -440,6 +464,44 @@ export type ParsedQuery = {
 	text: string,
 };
 
+/**  What the paste pipeline is allowed to do for one user. */
+export type PasteSettings = {
+	/**  The master switch. Off means the automatic rules never run; on-demand cleanups still do. */
+	cleanOnPaste: boolean,
+	/**  Strip tracking parameters and scroll-to-text fragments from links. */
+	cleanLinks: boolean,
+	/**  Extra removal rules, one per line: `fbclid`, `site.example | a, b`, or `!youtube.com`. */
+	linkRemovals: string[],
+	/**  Drop zero-width characters and normalise exotic spaces. */
+	normalizeInvisible: boolean,
+	/**  Remove blank lines and stray spaces around the paste. */
+	trimWhitespace: boolean,
+	/**  Turn curly quotes and apostrophes into straight ones. */
+	straightenQuotes: boolean,
+	/**  Turn en and em dashes into hyphens. */
+	straightenDashes: boolean,
+	/**  Strip terminal escape sequences from every paste. */
+	stripEscapeSequences: boolean,
+	/**  Turn a tab-separated paste into a Markdown table. Tabs only. */
+	tabsToTable: boolean,
+	/**  Turn a bare DOI or arXiv id into a link to its resolver. */
+	linkIdentifiers: boolean,
+	/**  Fetch the title behind a pasted link and turn it into `[title](url)` (editor-side). */
+	fetchLinkTitles: boolean,
+	/**  Download a picture behind a pasted image URL into the workspace (editor-side). */
+	downloadPastedImages: boolean,
+	/**  Run the PDF repair automatically on a paste that looks like it came from one. */
+	cleanPdfOnPaste: boolean,
+};
+
+/**  Options for [`clean_pdf_text`]. */
+export type PdfTextOptions = {
+	/**  Remove page-number lines along with the page break around them. */
+	removePageNumbers?: boolean,
+	/**  Join the whole selection into a single paragraph. */
+	singleParagraph?: boolean,
+};
+
 /**  One arm's ranking: ids best first, and its relative influence. */
 export type RankedList = {
 	/**  Ids, best first. May repeat; every occurrence counts. */
@@ -447,6 +509,15 @@ export type RankedList = {
 	/**  Relative influence; finite and >= 0. */
 	weight: number | null,
 };
+
+/**  How a rejoin decides which lines belong to the same paragraph. */
+export type Rejoin = 
+/**  Rejoins every line that looks wrapped. */
+"any" | 
+/**  Rejoins only lines indented past their paragraph's first line. */
+"indented" | 
+/**  Strips and dedents without joining anything. */
+"never";
 
 /**  A folder-relative asset ref found in a body. */
 export type RelativeAsset = {
@@ -501,6 +572,17 @@ export type SerializedWorkspace = {
 	assets: SerializedAsset[],
 };
 
+/**
+ *  A rule's output: the new text and whether it differs from the input.
+ *  The TypeScript had one interface per rule with these two fields.
+ */
+export type TextResult = {
+	/**  The text after the rule ran. */
+	text: string,
+	/**  True when `text` differs from the input. */
+	changed: boolean,
+};
+
 /**  Options for term normalization. Callers always pass them explicitly. */
 export type TokenizerOptions = {
 	/**  Fold é→e, ü→u. TS default: `true`. */
@@ -511,6 +593,14 @@ export type TokenizerOptions = {
 	splitCamelCase: boolean,
 	/**  Emit host and path segments of a URL as separate terms. TS default: `true`. */
 	tokenizeUrls: boolean,
+};
+
+/**  The result of cleaning the URLs in a text. */
+export type UrlCleanupResult = {
+	/**  The text with the URLs shortened. */
+	text: string,
+	/**  How many URLs were actually shortened. */
+	count: number,
 };
 
 /**  The note as it stood when the two sides last agreed. */
@@ -587,4 +677,20 @@ export type WorkspaceSnapshotCounts = {
 	relations: number,
 	/**  Number of tag rows. */
 	tags: number,
+};
+
+/**  Options for [`clean_wrapped_text`]. */
+export type WrappedTextOptions = {
+	/**  Which wrapped lines are rejoined. */
+	rejoin: Rejoin,
+	/**  Whether bullets become Markdown list items. */
+	bullets: Bullets,
+	/**  Repairs words the layout hyphenated at a line end. PDF text wants this. */
+	mergeHyphens?: boolean,
+	/**  Collapses the space runs justified text leaves between words. */
+	collapseSpaces?: boolean,
+	/**  Lower bound for the inferred wrap column; `None` uses [`MIN_WRAP_WIDTH`]. */
+	minWrapWidth?: number | null,
+	/**  Treat a lone `$$` line as a maths delimiter. */
+	protectMath?: boolean,
 };
