@@ -26,9 +26,8 @@ static ARXIV_PREFIXED_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     .ok()
 });
 
-static ARXIV_BARE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
-    Regex::new(&format!(r"(?i)^({ARXIV_CORE})(v[0-9]+)?$")).ok()
-});
+static ARXIV_BARE_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(&format!(r"(?i)^({ARXIV_CORE})(v[0-9]+)?$")).ok());
 
 /// Scheme-less URL: dotted host with an alphabetic TLD, optional path, no whitespace.
 static HOSTLIKE_RE: LazyLock<Option<Regex>> =

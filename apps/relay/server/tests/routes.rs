@@ -17,12 +17,16 @@ const ORIGIN: &str = "https://app.weaveforge.org";
 const SESSION: &str = "Bearer a.b.c";
 
 /// Answers every request with one fixed response; returns the base address.
-async fn fake_upstream(status: &'static str, content_type: &'static str, body: &'static str) -> String {
+async fn fake_upstream(
+    status: &'static str,
+    content_type: &'static str,
+    body: &'static str,
+) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
     let addr = listener.local_addr().expect("addr");
-    tokio::spawn(async move {
+    drop(tokio::spawn(async move {
         while let Ok((mut socket, _)) = listener.accept().await {
-            tokio::spawn(async move {
+            drop(tokio::spawn(async move {
                 let mut seen = Vec::new();
                 let mut buf = [0u8; 4096];
                 while !seen.windows(4).any(|w| w == b"\r\n\r\n") {
@@ -37,9 +41,9 @@ async fn fake_upstream(status: &'static str, content_type: &'static str, body: &
                 );
                 let _ = socket.write_all(response.as_bytes()).await;
                 let _ = socket.shutdown().await;
-            });
+            }));
         }
-    });
+    }));
     format!("http://{addr}")
 }
 
@@ -55,7 +59,7 @@ fn config(supabase: &str, origins: &[&str]) -> Config {
         anon_key: "anon".to_string(),
         service_role_key: "service".to_string(),
         jwt_secret: Some("secret".to_string()),
-        allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
+        allowed_origins: origins.iter().map(ToString::to_string).collect(),
         bind: "127.0.0.1:0".parse().expect("addr"),
     }
 }
@@ -81,10 +85,12 @@ async fn send(state: Arc<AppState>, request: Request<Body>) -> (StatusCode, Head
         .expect("router is infallible");
     let status = response.status();
     let headers = response.headers().clone();
-    let bytes = to_bytes(response.into_body(), 1 << 20)
-        .await
-        .expect("body");
-    (status, headers, String::from_utf8_lossy(&bytes).into_owned())
+    let bytes = to_bytes(response.into_body(), 1 << 20).await.expect("body");
+    (
+        status,
+        headers,
+        String::from_utf8_lossy(&bytes).into_owned(),
+    )
 }
 
 fn get(uri: &str, authorization: Option<&str>) -> Request<Body> {
@@ -120,7 +126,10 @@ async fn healthz_answers_ok() {
 async fn pdf_proxy_without_auth_is_401() {
     let (status, _, body) = send(
         state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
-        get("/api/pdf-proxy?url=https%3A%2F%2Farxiv.org%2Fpdf%2F1.pdf", None),
+        get(
+            "/api/pdf-proxy?url=https%3A%2F%2Farxiv.org%2Fpdf%2F1.pdf",
+            None,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -131,7 +140,10 @@ async fn pdf_proxy_without_auth_is_401() {
 async fn bad_session_shape_is_401() {
     let (status, _, body) = send(
         state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
-        get("/api/url-meta?url=https://example.com", Some("Bearer not-a-jwt")),
+        get(
+            "/api/url-meta?url=https://example.com",
+            Some("Bearer not-a-jwt"),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -150,10 +162,7 @@ async fn pdf_proxy_rejects_hosts_off_the_allowlist() {
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(
-        body,
-        r#"{"error":"URL host is not allowed for PDF proxy"}"#
-    );
+    assert_eq!(body, r#"{"error":"URL host is not allowed for PDF proxy"}"#);
 }
 
 #[tokio::test]
@@ -161,7 +170,10 @@ async fn html_proxy_refuses_plain_http() {
     let get_user = fake_get_user().await;
     let (status, _, body) = send(
         state(&get_user, "http://127.0.0.1:1/api/query"),
-        get("/api/html-proxy?url=http%3A%2F%2Fexample.com", Some(SESSION)),
+        get(
+            "/api/html-proxy?url=http%3A%2F%2Fexample.com",
+            Some(SESSION),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -218,7 +230,10 @@ async fn fetch_url_requires_url() {
 async fn fetch_url_rejects_unknown_as() {
     let (status, _, body) = send(
         state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
-        get("/api/fetch-url?url=https%3A%2F%2Fexample.com&as=video", None),
+        get(
+            "/api/fetch-url?url=https%3A%2F%2Fexample.com&as=video",
+            None,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);

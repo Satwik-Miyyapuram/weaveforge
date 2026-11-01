@@ -43,8 +43,8 @@ pub async fn require_user(
     config: &Config,
     authorization: Option<&str>,
 ) -> Result<String, AuthError> {
-    let token = bearer_token(authorization)
-        .ok_or_else(|| AuthError::new(401, NOT_AUTHENTICATED))?;
+    let token =
+        bearer_token(authorization).ok_or_else(|| AuthError::new(401, NOT_AUTHENTICATED))?;
     if is_api_token(token) {
         return api_token_user(client, config, token).await;
     }
@@ -103,9 +103,14 @@ fn bearer_token(authorization: Option<&str>) -> Option<&str> {
 fn is_js_space(c: char) -> bool {
     matches!(
         c,
-        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}'
-            | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}'
-            | '\u{205f}' | '\u{3000}' | '\u{feff}'
+        '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
+            ..='\u{200a}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202f}'
+                | '\u{205f}'
+                | '\u{3000}'
+                | '\u{feff}'
     )
 }
 

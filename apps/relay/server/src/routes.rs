@@ -16,7 +16,7 @@ use base64::engine::general_purpose::STANDARD;
 use reqwest::Url;
 use serde_json::json;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use wf_relay::fetch::remote::{fetch_image_via, fetch_title_via};
+use wf_relay::fetch::remote::{fetch_image_status_via, fetch_title_status_via};
 use wf_relay::fetch::safe::PublicNetwork;
 use wf_relay::relay::arxiv::{ARXIV_PROXY_PATH, proxy_arxiv};
 use wf_relay::relay::html::{HTML_PROXY_PATH, proxy_html};
@@ -31,6 +31,9 @@ use crate::limiter::RateLimiter;
 use crate::url_meta::{MetaUpstreams, url_meta};
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
+/// Same caching as the Next.js arXiv route on success.
+const ARXIV_CACHE_CONTROL: &str =
+    "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400";
 const URL_META_PATH: &str = "/api/url-meta";
 const SEMANTIC_SCHOLAR_ROUTE: &str = "/api/semantic-scholar/{*path}";
 
@@ -51,14 +54,16 @@ pub struct AppState {
 }
 
 /// The router: every route, with CORS for the configured origins.
-#[must_use]
 pub fn app(state: Arc<AppState>) -> Router {
     let cors = cors_layer(&state.config.allowed_origins);
     Router::new()
         .route("/healthz", get(healthz))
         .route(PDF_PROXY_PATH, get(pdf_proxy))
         .route(HTML_PROXY_PATH, get(html_proxy))
-        .route(SEMANTIC_SCHOLAR_ROUTE, get(semantic_scholar).post(semantic_scholar))
+        .route(
+            SEMANTIC_SCHOLAR_ROUTE,
+            get(semantic_scholar).post(semantic_scholar),
+        )
         .route(ARXIV_PROXY_PATH, get(arxiv))
         .route(FETCH_URL_PATH, get(fetch_url))
         .route(URL_META_PATH, get(url_meta_route))
@@ -84,7 +89,7 @@ async fn healthz() -> &'static str {
 
 async fn pdf_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: Uri) -> Response {
     if let Err(response) = authorize(&state, &headers).await {
-        return response;
+        return *response;
     }
     let Some(url) = app_url(PDF_PROXY_PATH, uri.query()) else {
         return refused(400, BAD_ADDRESS);
@@ -95,7 +100,7 @@ async fn pdf_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: 
 async fn html_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: Uri) -> Response {
     let user = match authorize(&state, &headers).await {
         Ok(user) => user,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(url) = app_url(HTML_PROXY_PATH, uri.query()) else {
         return refused(400, BAD_ADDRESS);
@@ -103,11 +108,11 @@ async fn html_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri:
     let Some(target) = query_value(&url, "url").filter(|t| !t.is_empty()) else {
         return refused(400, "url is required");
     };
-    if !is_allowed_pdf_proxy_url(&target) {
-        if let Err(retry_after) = state.pages.take(&user, Instant::now()) {
-            let message = "Too many pages fetched. Try again shortly.";
-            return too_many(message, retry_after);
-        }
+    if !is_allowed_pdf_proxy_url(&target)
+        && let Err(retry_after) = state.pages.take(&user, Instant::now())
+    {
+        let message = "Too many pages fetched. Try again shortly.";
+        return too_many(message, retry_after);
     }
     answer_response(proxy_html(&state.client, &url).await)
 }
@@ -120,7 +125,7 @@ async fn semantic_scholar(
     body: Bytes,
 ) -> Response {
     if let Err(response) = authorize(&state, &headers).await {
-        return response;
+        return *response;
     }
     let Some(url) = app_url(uri.path(), uri.query()) else {
         return refused(400, BAD_ADDRESS);
@@ -154,13 +159,15 @@ async fn arxiv(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
         body: Vec::new(),
     };
     let relay = &state.relay;
-    let answer = proxy_arxiv(
-        &state.client,
-        &request,
-        &relay.arxiv,
-        relay.arxiv_timeout,
-    )
-    .await;
+    let mut answer = proxy_arxiv(&state.client, &request, &relay.arxiv, relay.arxiv_timeout).await;
+    let cache = if answer.status == 200 {
+        ARXIV_CACHE_CONTROL
+    } else {
+        "no-store"
+    };
+    answer
+        .headers
+        .push(("cache-control".to_string(), cache.to_string()));
     answer_response(answer)
 }
 
@@ -177,7 +184,7 @@ async fn fetch_url(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: 
     }
     let user = match authorize(&state, &headers).await {
         Ok(user) => user,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if kind == "image" {
         if let Err(retry_after) = state.pastes.take(&user, Instant::now()) {
@@ -189,9 +196,13 @@ async fn fetch_url(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: 
     answer_response(title_answer(&target).await)
 }
 
-async fn url_meta_route(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: Uri) -> Response {
+async fn url_meta_route(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
     if let Err(response) = authorize(&state, &headers).await {
-        return response;
+        return *response;
     }
     let Some(url) = app_url(URL_META_PATH, uri.query()) else {
         return refused(400, BAD_ADDRESS);
@@ -207,19 +218,19 @@ async fn url_meta_route(State(state): State<Arc<AppState>>, headers: HeaderMap, 
     answer_response(json_answer(status, &body))
 }
 
-/// The page's title as `{title, url}`. The error status is fixed: `fetch_title_via` keeps only the message.
+/// The page's title as `{title, url}`, or the fetch's own error status.
 async fn title_answer(target: &str) -> Answer {
-    match fetch_title_via(&PublicNetwork, target).await {
+    match fetch_title_status_via(&PublicNetwork, target).await {
         Ok(reply) => json_answer(200, &json!({ "title": reply.title, "url": reply.url })),
-        Err(message) => Answer::from(refuse(502, &message)),
+        Err((status, message)) => Answer::from(refuse(status, &message)),
     }
 }
 
-/// The picture's bytes with the headers the page must see. The error status is fixed: `fetch_image_via` keeps only the message.
+/// The picture's bytes with the headers the page must see, or the fetch's own error status.
 async fn image_answer(target: &str) -> Answer {
-    let reply = match fetch_image_via(&PublicNetwork, target).await {
+    let reply = match fetch_image_status_via(&PublicNetwork, target).await {
         Ok(reply) => reply,
-        Err(message) => return Answer::from(refuse(502, &message)),
+        Err((status, message)) => return Answer::from(refuse(status, &message)),
     };
     let Ok(body) = STANDARD.decode(&reply.bytes) else {
         return Answer::from(refuse(502, "Upstream fetch failed"));
@@ -247,11 +258,11 @@ async fn image_answer(target: &str) -> Answer {
 const BAD_ADDRESS: &str = "Bad request address";
 
 /// Checks the bearer token; the user id, or the refusal as a response.
-async fn authorize(state: &AppState, headers: &HeaderMap) -> Result<String, Response> {
+async fn authorize(state: &AppState, headers: &HeaderMap) -> Result<String, Box<Response>> {
     let authorization = headers.get(AUTHORIZATION).and_then(|v| v.to_str().ok());
     require_user(&state.client, &state.config, authorization)
         .await
-        .map_err(|e| refused(e.status, &e.message))
+        .map_err(|e| Box::new(refused(e.status, &e.message)))
 }
 
 /// `app://localhost` plus the path and query, so the relays parse it as the desktop does.

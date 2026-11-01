@@ -46,7 +46,10 @@ fn normalize_arxiv_id_reads_abs_pdf_urls_prefixed_forms_and_bare_ids() {
         Some(id)
     );
     assert_eq!(normalize_arxiv_id("arXiv:2305.12345").as_deref(), Some(id));
-    assert_eq!(normalize_arxiv_id("arXiv: 2305.12345v1").as_deref(), Some(id));
+    assert_eq!(
+        normalize_arxiv_id("arXiv: 2305.12345v1").as_deref(),
+        Some(id)
+    );
     assert_eq!(normalize_arxiv_id("  2305.12345  ").as_deref(), Some(id));
     assert_eq!(normalize_arxiv_id("2305.12345v2").as_deref(), Some(id));
 }
@@ -74,9 +77,18 @@ fn normalize_arxiv_id_handles_legacy_ids_and_rejects_non_ids() {
 fn extract_doi_pulls_a_doi_out_of_urls_prefixes_and_prose() {
     let d = "10.1145/3592979";
     assert_eq!(extract_doi(d).as_deref(), Some(d));
-    assert_eq!(extract_doi("https://doi.org/10.1145/3592979").as_deref(), Some(d));
-    assert_eq!(extract_doi("https://dx.doi.org/10.1145/3592979").as_deref(), Some(d));
-    assert_eq!(extract_doi("https://dl.acm.org/doi/10.1145/3592979").as_deref(), Some(d));
+    assert_eq!(
+        extract_doi("https://doi.org/10.1145/3592979").as_deref(),
+        Some(d)
+    );
+    assert_eq!(
+        extract_doi("https://dx.doi.org/10.1145/3592979").as_deref(),
+        Some(d)
+    );
+    assert_eq!(
+        extract_doi("https://dl.acm.org/doi/10.1145/3592979").as_deref(),
+        Some(d)
+    );
     assert_eq!(extract_doi("doi:10.1145/3592979").as_deref(), Some(d));
     assert_eq!(extract_doi("see (10.1145/3592979).").as_deref(), Some(d));
     assert_eq!(extract_doi("10.1145/3592979").as_deref(), Some(d));
@@ -85,14 +97,23 @@ fn extract_doi_pulls_a_doi_out_of_urls_prefixes_and_prose() {
 
 #[test]
 fn extract_doi_percent_decodes_and_keeps_raw_text_on_bad_escapes() {
-    assert_eq!(extract_doi("10.1145%2F3592979").as_deref(), Some("10.1145/3592979"));
+    assert_eq!(
+        extract_doi("10.1145%2F3592979").as_deref(),
+        Some("10.1145/3592979")
+    );
     // A stray '%' is not worth failing over: the raw text is matched instead.
-    assert_eq!(extract_doi("10.1145/abc%zz").as_deref(), Some("10.1145/abc%zz"));
+    assert_eq!(
+        extract_doi("10.1145/abc%zz").as_deref(),
+        Some("10.1145/abc%zz")
+    );
 }
 
 #[test]
 fn extract_doi_lowercases_dois_are_case_insensitive_dedupe_is_not() {
-    assert_eq!(extract_doi("10.1145/ABC.Def").as_deref(), Some("10.1145/abc.def"));
+    assert_eq!(
+        extract_doi("10.1145/ABC.Def").as_deref(),
+        Some("10.1145/abc.def")
+    );
 }
 
 #[test]
@@ -141,7 +162,10 @@ fn parse_paper_ref_leaves_opaque_and_plain_values_alone() {
         url("https://example.com/papers/x")
     );
     assert_eq!(
-        parse_paper_ref(PaperRefKind::Doi, "www.nature.com/articles/s41586-021-03819-2"),
+        parse_paper_ref(
+            PaperRefKind::Doi,
+            "www.nature.com/articles/s41586-021-03819-2"
+        ),
         url("https://www.nature.com/articles/s41586-021-03819-2")
     );
     assert_eq!(
@@ -172,16 +196,27 @@ fn parse_paper_ref_accepts_http_and_https_alike_and_both_scheme_less_forms() {
         "arxiv.org/abs/2305.12345",
         "www.arxiv.org/abs/2305.12345",
     ] {
-        assert_eq!(parse_paper_ref(PaperRefKind::Url, v), arxiv("2305.12345"), "{v}");
+        assert_eq!(
+            parse_paper_ref(PaperRefKind::Url, v),
+            arxiv("2305.12345"),
+            "{v}"
+        );
     }
     for v in ["http://doi.org/10.1145/3592979", "doi.org/10.1145/3592979"] {
-        assert_eq!(parse_paper_ref(PaperRefKind::Url, v), doi("10.1145/3592979"), "{v}");
+        assert_eq!(
+            parse_paper_ref(PaperRefKind::Url, v),
+            doi("10.1145/3592979"),
+            "{v}"
+        );
     }
 }
 
 #[test]
 fn parse_paper_ref_does_not_mistake_a_bare_id_for_a_hostname() {
-    assert_eq!(parse_paper_ref(PaperRefKind::Arxiv, "2306.09643"), arxiv("2306.09643"));
+    assert_eq!(
+        parse_paper_ref(PaperRefKind::Arxiv, "2306.09643"),
+        arxiv("2306.09643")
+    );
     // Nonsense stays with the declared kind rather than becoming a URL.
     assert_eq!(
         parse_paper_ref(PaperRefKind::Arxiv, "some paper title"),
@@ -198,15 +233,31 @@ fn parsing_stays_linear_on_hostile_input() {
         extract_doi(&format!("10.1234/a{parens}x")),
         Some(format!("10.1234/a{parens}x"))
     );
-    assert_eq!(normalize_arxiv_id("arxiv \t: 2305.12345").as_deref(), Some("2305.12345"));
-    assert_eq!(extract_doi("doi:10.1145/3592979).").as_deref(), Some("10.1145/3592979"));
+    assert_eq!(
+        normalize_arxiv_id("arxiv \t: 2305.12345").as_deref(),
+        Some("2305.12345")
+    );
+    assert_eq!(
+        extract_doi("doi:10.1145/3592979).").as_deref(),
+        Some("10.1145/3592979")
+    );
 }
 
 #[test]
 fn paper_ref_serializes_with_lowercase_kind() {
-    let json = serde_json::to_value(parse_paper_ref(PaperRefKind::Url, "https://arxiv.org/abs/2305.12345"))
-        .expect("serialize");
-    assert_eq!(json, serde_json::json!({ "kind": "arxiv", "value": "2305.12345" }));
-    let zotero = serde_json::to_value(parse_paper_ref(PaperRefKind::Zotero, "ABCD1234")).expect("serialize");
-    assert_eq!(zotero, serde_json::json!({ "kind": "zotero", "value": "ABCD1234" }));
+    let json = serde_json::to_value(parse_paper_ref(
+        PaperRefKind::Url,
+        "https://arxiv.org/abs/2305.12345",
+    ))
+    .expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::json!({ "kind": "arxiv", "value": "2305.12345" })
+    );
+    let zotero =
+        serde_json::to_value(parse_paper_ref(PaperRefKind::Zotero, "ABCD1234")).expect("serialize");
+    assert_eq!(
+        zotero,
+        serde_json::json!({ "kind": "zotero", "value": "ABCD1234" })
+    );
 }

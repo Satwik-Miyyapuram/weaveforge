@@ -20,7 +20,11 @@ const RESOLVE: &str = "/rest/v1/rpc/resolve_api_token";
 const GET_USER: &str = "/auth/v1/user";
 
 fn json_reply(status: u16, body: &str) -> Reply {
-    response(status, &[("Content-Type", "application/json")], body.as_bytes())
+    response(
+        status,
+        &[("Content-Type", "application/json")],
+        body.as_bytes(),
+    )
 }
 
 fn refused(status: u16, message: &str) -> AuthError {
@@ -79,7 +83,13 @@ async fn bad_jwt_shape_is_invalid_session_without_upstream_call() {
     let up = serve(vec![]).await;
     let cfg = config(&up, Some(SECRET));
     let client = reqwest::Client::new();
-    for header in ["Bearer abc", "Bearer a.b", "Bearer a.b.c.d", "Bearer a..c", "Bearer a.b.c!"] {
+    for header in [
+        "Bearer abc",
+        "Bearer a.b",
+        "Bearer a.b.c.d",
+        "Bearer a..c",
+        "Bearer a.b.c!",
+    ] {
         assert_eq!(
             require_user(&client, &cfg, Some(header)).await,
             Err(refused(401, "Invalid session."))
@@ -90,22 +100,36 @@ async fn bad_jwt_shape_is_invalid_session_without_upstream_call() {
 
 #[tokio::test]
 async fn session_jwt_is_checked_with_get_user() {
-    let up = serve(vec![(GET_USER, vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))])]).await;
+    let up = serve(vec![(
+        GET_USER,
+        vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))],
+    )])
+    .await;
     let cfg = config(&up, Some(SECRET));
     let client = reqwest::Client::new();
     let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln";
     let header = format!("Bearer {jwt}");
-    assert_eq!(require_user(&client, &cfg, Some(header.as_str())).await, Ok(USER.to_owned()));
+    assert_eq!(
+        require_user(&client, &cfg, Some(header.as_str())).await,
+        Ok(USER.to_owned())
+    );
     let seen = up.seen();
     assert_eq!(seen[0].method, "GET");
     assert_eq!(seen[0].target, GET_USER);
     assert_eq!(seen[0].header("apikey"), Some(ANON));
-    assert_eq!(seen[0].header("authorization"), Some(format!("Bearer {jwt}").as_str()));
+    assert_eq!(
+        seen[0].header("authorization"),
+        Some(format!("Bearer {jwt}").as_str())
+    );
 }
 
 #[tokio::test]
 async fn session_jwt_refused_by_get_user_is_invalid_session() {
-    let rejected = serve(vec![(GET_USER, vec![json_reply(401, r#"{"message":"bad"}"#)])]).await;
+    let rejected = serve(vec![(
+        GET_USER,
+        vec![json_reply(401, r#"{"message":"bad"}"#)],
+    )])
+    .await;
     let no_id = serve(vec![(GET_USER, vec![json_reply(200, "{}")])]).await;
     let client = reqwest::Client::new();
     for up in [&rejected, &no_id] {
@@ -122,13 +146,19 @@ async fn api_token_is_exchanged_then_checked_with_get_user() {
     let up = serve(vec![
         (SCOPES, vec![json_reply(200, r#"["mcp_relay","sdk"]"#)]),
         (RESOLVE, vec![json_reply(200, &format!("\"{USER}\""))]),
-        (GET_USER, vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))]),
+        (
+            GET_USER,
+            vec![json_reply(200, &format!(r#"{{"id":"{USER}"}}"#))],
+        ),
     ])
     .await;
     let cfg = config(&up, Some(SECRET));
     let client = reqwest::Client::new();
     let header = format!("Bearer {API_TOKEN}");
-    assert_eq!(require_user(&client, &cfg, Some(header.as_str())).await, Ok(USER.to_owned()));
+    assert_eq!(
+        require_user(&client, &cfg, Some(header.as_str())).await,
+        Ok(USER.to_owned())
+    );
 
     let seen = up.seen();
     assert_eq!(seen.len(), 3);
@@ -138,11 +168,17 @@ async fn api_token_is_exchanged_then_checked_with_get_user() {
     assert_eq!(seen[0].header("authorization"), Some("Bearer service-key"));
     assert_eq!(seen[0].header("content-type"), Some("application/json"));
     let body: serde_json::Value = serde_json::from_slice(&seen[0].body).unwrap();
-    assert_eq!(body["p_token_hash"], format!("\\x{}", token_hash(API_TOKEN)));
+    assert_eq!(
+        body["p_token_hash"],
+        format!("\\x{}", token_hash(API_TOKEN))
+    );
     assert_eq!(seen[1].target, RESOLVE);
     assert_eq!(seen[1].body, seen[0].body);
 
-    let minted = seen[2].header("authorization").unwrap().trim_start_matches("Bearer ");
+    let minted = seen[2]
+        .header("authorization")
+        .unwrap()
+        .trim_start_matches("Bearer ");
     let parts: Vec<&str> = minted.split('.').collect();
     assert_eq!(parts.len(), 3);
     let claims: serde_json::Value = serde_json::from_str(&decode(parts[1])).unwrap();
@@ -198,7 +234,11 @@ async fn api_token_without_jwt_secret_is_503() {
 
 #[tokio::test]
 async fn scopes_rpc_failure_is_500() {
-    let up = serve(vec![(SCOPES, vec![response(500, &[], br#"{"message":"boom"}"#)])]).await;
+    let up = serve(vec![(
+        SCOPES,
+        vec![response(500, &[], br#"{"message":"boom"}"#)],
+    )])
+    .await;
     let cfg = config(&up, Some(SECRET));
     let client = reqwest::Client::new();
     let header = format!("Bearer {API_TOKEN}");
@@ -229,5 +269,8 @@ fn mint_jwt_matches_hs256_vector() {
             r#"{{"aud":"authenticated","exp":1700003600,"iat":1700000000,"sub":"{USER}","role":"authenticated"}}"#
         )
     );
-    assert_eq!(parts[2], hs256_b64(SECRET, &format!("{}.{}", parts[0], parts[1])));
+    assert_eq!(
+        parts[2],
+        hs256_b64(SECRET, &format!("{}.{}", parts[0], parts[1]))
+    );
 }

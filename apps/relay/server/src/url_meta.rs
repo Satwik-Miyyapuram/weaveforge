@@ -185,11 +185,7 @@ async fn fetch_arxiv(
     id: &str,
     url: &str,
 ) -> Option<Value> {
-    let request_url = format!(
-        "{}?id_list={}",
-        upstreams.arxiv_query,
-        encode_component(id)
-    );
+    let request_url = format!("{}?id_list={}", upstreams.arxiv_query, encode_component(id));
     let response = fixed_get(client, &request_url, None).await?;
     let xml = response.text().await.ok()?;
     arxiv_meta(&xml, id, url)
@@ -211,9 +207,7 @@ fn arxiv_meta(xml: &str, id: &str, url: &str) -> Option<Value> {
         .parse::<i32>()
         .ok()
         .filter(|year| *year != 0);
-    let doi = doi_text(entry)
-        .map(str::trim)
-        .filter(|doi| !doi.is_empty());
+    let doi = doi_text(entry).map(str::trim).filter(|doi| !doi.is_empty());
     let authors: Vec<String> = elements(entry, "name")
         .into_iter()
         .map(|name| decode_html_entities(name.trim()))
@@ -240,7 +234,12 @@ fn arxiv_meta(xml: &str, id: &str, url: &str) -> Option<Value> {
 }
 
 /// The Crossref record for `doi`, or the 404 the TS gives when Crossref has none.
-async fn crossref(client: &Client, upstreams: &MetaUpstreams, doi: &str, target: &str) -> (u16, Value) {
+async fn crossref(
+    client: &Client,
+    upstreams: &MetaUpstreams,
+    doi: &str,
+    target: &str,
+) -> (u16, Value) {
     let request_url = format!("{}/{}", upstreams.crossref_works, encode_component(doi));
     let Some(response) = fixed_get(client, &request_url, Some(CROSSREF_AGENT)).await else {
         return not_in_crossref(doi);

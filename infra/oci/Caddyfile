@@ -39,9 +39,16 @@
 	# `Max-Age` matters more than it looks: without it a preflight is cached for
 	# seconds, and each distinct query URL pays a second round trip. A day is the
 	# most Chrome honours.
-	@allowed_origin header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^http://localhost:(3000|3100)$
+	#
+	# /relay/* is left out of all of this: the relay server answers its own
+	# CORS (it exposes Retry-After, which the header block below would replace).
+	@allowed_origin {
+		not path /relay/*
+		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^http://localhost:(3000|3100)$
+	}
 
 	@preflight_allowed {
+		not path /relay/*
 		method OPTIONS
 		header_regexp Origin ^https://(www\.|app\.)?weaveforge\.org$|^app://weaveforge$|^http://localhost:(3000|3100)$
 	}
@@ -61,7 +68,10 @@
 
 	# An unlisted origin gets no allow-origin header, which is what makes the
 	# browser refuse the request.
-	@preflight_other method OPTIONS
+	@preflight_other {
+		not path /relay/*
+		method OPTIONS
+	}
 	handle @preflight_other {
 		respond 403
 	}

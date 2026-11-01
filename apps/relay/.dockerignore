@@ -1,7 +1,0 @@
-# Keep local build output and secrets out of the build context. Docker reads
-# this file only when the context is apps/relay itself; with the repo-root
-# context used by apps/relay/Dockerfile, the root .dockerignore (or
-# apps/relay/Dockerfile.dockerignore) applies instead.
-**/target
-**/.env
-**/.env.*

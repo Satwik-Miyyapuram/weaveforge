@@ -60,7 +60,10 @@ const ARTICLE_TYPES: [&str; 9] = [
 static BOT_WALL: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(BOT_WALL_PATTERN).ok());
 static META_TAG: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)<meta\b[^>]*>").ok());
 static JSON_LD: LazyLock<Option<Regex>> = LazyLock::new(|| {
-    Regex::new(r#"(?i)<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>([\s\S]*?)</script>"#).ok()
+    Regex::new(
+        r#"(?i)<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>([\s\S]*?)</script>"#,
+    )
+    .ok()
 });
 static HTML_TITLE: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"(?i)<title[^>]*>([\s\S]*?)</title>").ok());
@@ -76,7 +79,8 @@ static ARXIV_VERSION: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?
 static DOI_PREFIX: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:)").ok());
 static HTTP_URL: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)^https?://").ok());
-static HEX_ENTITY: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)&#x([0-9a-f]+);").ok());
+static HEX_ENTITY: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"(?i)&#x([0-9a-f]+);").ok());
 static DEC_ENTITY: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"&#([0-9]+);").ok());
 // Order matters: `&amp;` is last so `&amp;lt;` decodes to `&lt;`, not `<`.
 static NAMED_ENTITIES: LazyLock<Option<Vec<(Regex, &'static str)>>> = LazyLock::new(|| {
@@ -295,7 +299,10 @@ fn authors_of(meta: &Tags, ld_authors: Vec<String>) -> Vec<String> {
 }
 
 fn doi_of(meta: &Tags) -> Option<String> {
-    let raw = first(meta, &["citation_doi", "dc.identifier.doi", "doi", "prism.doi"])?;
+    let raw = first(
+        meta,
+        &["citation_doi", "dc.identifier.doi", "doi", "prism.doi"],
+    )?;
     let stripped = match DOI_PREFIX.as_ref() {
         Some(re) => re.replace(&raw, "").into_owned(),
         None => raw,
@@ -323,6 +330,45 @@ fn arxiv_id_from_url(url: &str) -> Option<String> {
     (!id.is_empty()).then_some(id)
 }
 
+/// The publication date: citation tags, then JSON-LD, then generic article tags.
+fn publication_date(meta: &Tags, ld: Option<&Map<String, Value>>) -> Option<String> {
+    first(
+        meta,
+        &[
+            "citation_publication_date",
+            "citation_date",
+            "citation_online_date",
+            "dc.date",
+        ],
+    )
+    .or_else(|| text(field(ld, "datePublished")))
+    .or_else(|| {
+        first(
+            meta,
+            &[
+                "article:published_time",
+                "og:published_time",
+                "date",
+                "parsely-pub-date",
+            ],
+        )
+    })
+    .or_else(|| text(field(ld, "dateCreated")))
+}
+
+/// The abstract, whitespace collapsed: citation tags, then JSON-LD, then generic descriptions.
+fn abstract_of(meta: &Tags, ld: Option<&Map<String, Value>>) -> Option<String> {
+    first(meta, &["citation_abstract", "dc.description"])
+        .or_else(|| text(field(ld, "description")))
+        .or_else(|| {
+            first(
+                meta,
+                &["og:description", "description", "twitter:description"],
+            )
+        })
+        .map(|a| collapse(&a))
+}
+
 /// Everything a page says about the paper it carries.
 #[must_use]
 pub fn extract_page_metadata(html: &str, url: &str) -> PageMetadata {
@@ -343,18 +389,7 @@ pub fn extract_page_metadata(html: &str, url: &str) -> PageMetadata {
         .into_iter()
         .filter_map(|v| name_of(Some(v)))
         .collect();
-    let date = first(
-        &meta,
-        &["citation_publication_date", "citation_date", "citation_online_date", "dc.date"],
-    )
-    .or_else(|| text(field(ld, "datePublished")))
-    .or_else(|| {
-        first(
-            &meta,
-            &["article:published_time", "og:published_time", "date", "parsely-pub-date"],
-        )
-    })
-    .or_else(|| text(field(ld, "dateCreated")));
+    let date = publication_date(&meta, ld);
 
     let has_citation_meta = meta
         .keys()
@@ -362,19 +397,23 @@ pub fn extract_page_metadata(html: &str, url: &str) -> PageMetadata {
     let is_article = ld.is_some()
         || first(&meta, &["og:type"]).is_some_and(|t| t.to_lowercase() == "article")
         || first(&meta, &["article:published_time"]).is_some();
-    let venue = first(&meta, &["citation_journal_title", "citation_conference_title", "dc.source"])
-        .or_else(|| {
-            if is_article && !has_citation_meta {
-                site_name.clone()
-            } else {
-                None
-            }
-        });
+    let venue = first(
+        &meta,
+        &[
+            "citation_journal_title",
+            "citation_conference_title",
+            "dc.source",
+        ],
+    )
+    .or_else(|| {
+        if is_article && !has_citation_meta {
+            site_name.clone()
+        } else {
+            None
+        }
+    });
 
-    let abstract_text = first(&meta, &["citation_abstract", "dc.description"])
-        .or_else(|| text(field(ld, "description")))
-        .or_else(|| first(&meta, &["og:description", "description", "twitter:description"]))
-        .map(|a| collapse(&a));
+    let abstract_text = abstract_of(&meta, ld);
 
     PageMetadata {
         title,
@@ -403,5 +442,7 @@ pub fn page_import_refusal(meta: &PageMetadata) -> Option<&'static str> {
     if meta.has_citation_meta || meta.is_article {
         return None;
     }
-    Some("That page does not look like a paper or an article — it has no citation tags and does not say it is an article. Import by DOI or arXiv id, or add the paper manually.")
+    Some(
+        "That page does not look like a paper or an article — it has no citation tags and does not say it is an article. Import by DOI or arXiv id, or add the paper manually.",
+    )
 }

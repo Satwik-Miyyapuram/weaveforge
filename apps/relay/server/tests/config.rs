@@ -88,7 +88,10 @@ fn allowed_origins_are_split_trimmed_and_empty_items_dropped() {
     let config = Config::from_env(env(&pairs)).expect("valid config");
     assert_eq!(
         config.allowed_origins,
-        vec!["https://a.example".to_string(), "https://b.example".to_string()]
+        vec![
+            "https://a.example".to_string(),
+            "https://b.example".to_string()
+        ]
     );
 }
 

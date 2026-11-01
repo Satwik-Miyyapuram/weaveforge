@@ -2,7 +2,9 @@
 
 use std::time::Instant;
 
-use wf_core::papers::page_metadata::{decode_html_entities, extract_page_metadata, page_import_refusal};
+use wf_core::papers::page_metadata::{
+    decode_html_entities, extract_page_metadata, page_import_refusal,
+};
 
 const URL: &str = "https://example.org/post";
 
@@ -82,7 +84,10 @@ fn a_broken_json_ld_block_is_ignored_not_thrown() {
     );
     assert!(!meta.is_article);
     let refusal = page_import_refusal(&meta).unwrap_or_default();
-    assert!(refusal.contains("does not look like a paper or an article"), "{refusal}");
+    assert!(
+        refusal.contains("does not look like a paper or an article"),
+        "{refusal}"
+    );
 }
 
 #[test]
@@ -105,15 +110,21 @@ fn an_arxiv_id_is_read_from_the_page_address() {
 fn arxiv_id_from_url_handles_versions_pdf_and_old_style_ids_in_linear_time() {
     let page = "<html></html>";
     assert_eq!(
-        extract_page_metadata(page, "https://arxiv.org/abs/2305.12345v2").arxiv_id.as_deref(),
+        extract_page_metadata(page, "https://arxiv.org/abs/2305.12345v2")
+            .arxiv_id
+            .as_deref(),
         Some("2305.12345")
     );
     assert_eq!(
-        extract_page_metadata(page, "https://arxiv.org/pdf/2305.12345.pdf").arxiv_id.as_deref(),
+        extract_page_metadata(page, "https://arxiv.org/pdf/2305.12345.pdf")
+            .arxiv_id
+            .as_deref(),
         Some("2305.12345")
     );
     assert_eq!(
-        extract_page_metadata(page, "https://arxiv.org/abs/cs/0501001").arxiv_id.as_deref(),
+        extract_page_metadata(page, "https://arxiv.org/abs/cs/0501001")
+            .arxiv_id
+            .as_deref(),
         Some("cs/0501001")
     );
     let started = Instant::now();
@@ -127,7 +138,10 @@ fn decode_html_entities_decodes_ampersand_last_and_drops_bad_code_points() {
     assert_eq!(decode_html_entities("&amp;lt;"), "&lt;");
     assert_eq!(decode_html_entities("&#x2014;"), "—");
     assert_eq!(decode_html_entities("&#999999999;"), "");
-    assert_eq!(decode_html_entities("Tom &amp; Jerry &#8212; a study"), "Tom & Jerry — a study");
+    assert_eq!(
+        decode_html_entities("Tom &amp; Jerry &#8212; a study"),
+        "Tom & Jerry — a study"
+    );
 }
 
 #[test]

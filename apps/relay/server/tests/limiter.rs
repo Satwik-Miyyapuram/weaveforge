@@ -79,8 +79,15 @@ fn partial_refill_is_not_enough() {
     let limiter = limiter(1.0, 1.0);
     let start = Instant::now();
     assert!(limiter.take("u", start).is_ok());
-    assert_eq!(limiter.take("u", start + Duration::from_millis(500)), Err(1));
-    assert!(limiter.take("u", start + Duration::from_millis(1000)).is_ok());
+    assert_eq!(
+        limiter.take("u", start + Duration::from_millis(500)),
+        Err(1)
+    );
+    assert!(
+        limiter
+            .take("u", start + Duration::from_millis(1000))
+            .is_ok()
+    );
 }
 
 #[test]

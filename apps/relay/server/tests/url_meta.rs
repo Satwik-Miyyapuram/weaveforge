@@ -32,7 +32,7 @@ fn reply(status: u16, content_type: &'static str, body: &str) -> Reply {
 async fn serve(handler: fn(&str) -> Reply) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
     let port = listener.local_addr().expect("local addr").port();
-    let _ = tokio::spawn(async move {
+    drop(tokio::spawn(async move {
         while let Ok((mut socket, _)) = listener.accept().await {
             let mut buffer = vec![0_u8; 8192];
             let read = socket.read(&mut buffer).await.unwrap_or(0);
@@ -49,7 +49,7 @@ async fn serve(handler: fn(&str) -> Reply) -> String {
             let _ = socket.write_all(raw.as_bytes()).await;
             let _ = socket.shutdown().await;
         }
-    });
+    }));
     format!("http://127.0.0.1:{port}")
 }
 
@@ -227,22 +227,22 @@ async fn crossref_record_becomes_meta() {
 #[tokio::test]
 async fn sparse_crossref_record_falls_back_to_the_doi() {
     let base = serve(|path| {
-        if path.starts_with("/works/10.9%2Fabc") {
+        if path.starts_with("/works/10.9999%2Fabc") {
             reply(200, "application/json", r#"{"message":{}}"#)
         } else {
             reply(404, "text/plain", "")
         }
     })
     .await;
-    let target = "https://doi.org/10.9/abc";
+    let target = "https://doi.org/10.9999/abc";
     let (status, body) = call(&upstreams_at(&base), Some(target)).await;
     assert_eq!(status, 200);
     assert_eq!(
         body,
         json!({
-            "title": "10.9/abc",
+            "title": "10.9999/abc",
             "authors": [],
-            "doi": "10.9/abc",
+            "doi": "10.9999/abc",
             "url": target
         })
     );
@@ -251,12 +251,12 @@ async fn sparse_crossref_record_falls_back_to_the_doi() {
 #[tokio::test]
 async fn crossref_miss_is_a_404_naming_the_doi() {
     let base = serve(|_| reply(404, "text/plain", "")).await;
-    let (status, body) = call(&upstreams_at(&base), Some("https://doi.org/10.1/xyz")).await;
+    let (status, body) = call(&upstreams_at(&base), Some("https://doi.org/10.1234/xyz")).await;
     assert_eq!(status, 404);
     assert_eq!(
         body,
         json!({
-            "error": "DOI 10.1/xyz not found in Crossref (some ACM DOIs are unregistered). Enter the paper manually or try the arXiv id."
+            "error": "DOI 10.1234/xyz not found in Crossref (some ACM DOIs are unregistered). Enter the paper manually or try the arXiv id."
         })
     );
 }

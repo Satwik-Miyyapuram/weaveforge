@@ -25,7 +25,6 @@ pub struct Config {
 
 impl Config {
     /// Reads the config through `get`; errors name the variable that is missing or invalid.
-    #[must_use]
     pub fn from_env(get: impl Fn(&str) -> Option<String>) -> Result<Config, String> {
         let value = |name: &str| {
             get(name)

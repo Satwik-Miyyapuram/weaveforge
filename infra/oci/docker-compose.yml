@@ -286,18 +286,26 @@ services:
   #
   # Build context is the repo root, so the compose file must sit in a checkout
   # (../.. is the repo root from infra/oci). A VM with only this file needs the
-  # image built elsewhere and referenced by `image:` instead.
+  # image built elsewhere (`docker build -f apps/relay/Dockerfile .` from a
+  # checkout, then `docker save | ssh ... docker load`) and referenced by
+  # `image:` instead.
+  #
+  # Behind the `relay` profile so the rest of the stack starts without its keys:
+  #   docker compose --profile relay up -d weaveforge-relay
+  # Missing keys are not checked here (`:?` would fail every compose command);
+  # the server refuses to start and names the missing variable instead.
   weaveforge-relay:
+    profiles: ["relay"]
     build:
       context: ../..
       dockerfile: apps/relay/Dockerfile
     container_name: weaveforge-relay
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL in .env}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set NEXT_PUBLIC_SUPABASE_ANON_KEY in .env}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env}
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:?Set SUPABASE_JWT_SECRET in .env}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
       # PostgREST over the compose network, not the public hostname.
       NEXT_PUBLIC_DATA_URL: http://postgrest:3000
       RELAY_ALLOWED_ORIGINS: "${RELAY_ALLOWED_ORIGINS:-https://weaveforge.org,https://www.weaveforge.org,https://app.weaveforge.org,app://weaveforge,http://localhost:3000,http://localhost:3100}"
