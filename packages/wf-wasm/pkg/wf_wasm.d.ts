@@ -218,7 +218,7 @@ export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file
 export function decodeInkWords(words: any, vocabulary: any, engine_text?: string | null): any;
 
 /**
- * [`decode_locus`] as a locus object, or `null` when malformed.
+ * [`decode_locus_value`] as a locus object, or `null` when malformed.
  *
  * # Errors
  *

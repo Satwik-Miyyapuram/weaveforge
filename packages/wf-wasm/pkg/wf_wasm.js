@@ -500,7 +500,7 @@ export function decodeInkWords(words, vocabulary, engine_text) {
 }
 
 /**
- * [`decode_locus`] as a locus object, or `null` when malformed.
+ * [`decode_locus_value`] as a locus object, or `null` when malformed.
  *
  * # Errors
  *

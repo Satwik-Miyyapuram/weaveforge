@@ -32,9 +32,10 @@ export function isZoteroLibrarySyncMode(
  */
 export function decideAnnotationSync(
   row: ZoteroAnnotationSyncRow,
-  mode: "bidirectional" | "read_only" | "ignored",
+  mode: "bidirectional" | "read_only" | "ignored" | undefined,
 ): ZoteroAnnotationDecision {
-  return rawDecideAnnotationSync(row, mode) as ZoteroAnnotationDecision;
+  // A missing mode acts as `bidirectional` in TS; "" does the same in Rust.
+  return rawDecideAnnotationSync(row, mode ?? "") as ZoteroAnnotationDecision;
 }
 
 /** The fields that differ between local and remote, in TS order (Rust `diff_annotation_fields`). */

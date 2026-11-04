@@ -21,7 +21,9 @@ export function selectionToAnchor(
   selection: TextSelectionRange,
   page: Omit<PageTextGeometry, "items"> & { items?: readonly PageTextItem[] },
 ): CombinedPdfAnchor | null {
-  return rawSelectionToAnchor(selection, page) as CombinedPdfAnchor | null;
+  const anchor = rawSelectionToAnchor(selection, page) as CombinedPdfAnchor | null;
+  // TS always sets the contentHash key, undefined when the page has none.
+  return anchor && { contentHash: undefined, ...anchor };
 }
 
 /**
