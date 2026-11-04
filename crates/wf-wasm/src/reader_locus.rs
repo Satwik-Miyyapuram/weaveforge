@@ -4,7 +4,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::anchor::AnchorPdfLocus;
-use wf_core::reader::locus::{decode_locus, encode_locus};
+use wf_core::reader::locus::{decode_locus_value, encode_locus};
 
 use super::to_js;
 
@@ -21,7 +21,7 @@ pub fn encode_locus_js(locus: JsValue) -> JsResult<String> {
     Ok(encode_locus(&locus))
 }
 
-/// [`decode_locus`] as a locus object, or `null` when malformed.
+/// [`decode_locus_value`] as a locus object, or `null` when malformed.
 ///
 /// # Errors
 ///
@@ -32,5 +32,5 @@ pub fn encode_locus_js(locus: JsValue) -> JsResult<String> {
 )]
 #[wasm_bindgen(js_name = decodeLocus)]
 pub fn decode_locus_js(raw: Option<String>) -> JsResult<JsValue> {
-    to_js(&decode_locus(raw.as_deref()))
+    to_js(&decode_locus_value(raw.as_deref()))
 }

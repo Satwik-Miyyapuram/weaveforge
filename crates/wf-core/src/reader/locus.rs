@@ -222,6 +222,29 @@ pub fn decode_locus(raw: Option<&str>) -> Option<AnchorPdfLocus> {
     Some(AnchorPdfLocus { quote, position })
 }
 
+/// [`decode_locus`], but keeping the parsed selector objects as they came, extra
+/// keys included, as the TS copy returns them. The wasm layer uses this.
+#[must_use]
+pub fn decode_locus_value(raw: Option<&str>) -> Option<Value> {
+    let raw = raw.filter(|r| !r.is_empty())?;
+    if utf16_len(raw) > MAX_LOCUS_PARAM_CHARS {
+        return None;
+    }
+    let parsed = parse_locus_json(raw)?;
+    let candidate = parsed.as_object()?;
+    let quote = candidate.get("quote")?;
+    let _: AnchorQuoteSelector = decode_quote(quote)?;
+    let mut locus = serde_json::Map::new();
+    let _: Option<Value> = locus.insert("quote".to_owned(), quote.clone());
+    if let Some(position) = candidate
+        .get("position")
+        .filter(|p| decode_position(p).is_some())
+    {
+        let _: Option<Value> = locus.insert("position".to_owned(), position.clone());
+    }
+    Some(Value::Object(locus))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
