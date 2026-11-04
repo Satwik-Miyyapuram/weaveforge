@@ -1,4 +1,5 @@
-import { encodeLocus, type PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { sanitizePdfUrl } from "./sanitize-reader-url";
 
 /**
@@ -19,7 +20,7 @@ export function buildLocusLink(input: {
   if (input.paperId) params.set("paper", input.paperId);
   const safePdf = sanitizePdfUrl(input.pdfUrl);
   if (safePdf) params.set("pdf", safePdf);
-  if (input.locus) params.set("locus", encodeLocus(input.locus));
+  if (input.locus) params.set("locus", readyCore().encodeLocus(input.locus));
   if (typeof input.page === "number" && Number.isInteger(input.page) && input.page >= 0) {
     params.set("page", String(input.page));
   }

@@ -1,4 +1,4 @@
-import { isBibliographicMatch, normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 import { loadCore, type RustCore } from "@/lib/rust-core";
 
@@ -65,7 +65,7 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     const body = await response.json() as { data?: MatchPaper[] };
     const core = await loadCore();
     for (const paper of body.data ?? []) {
-      if (!paper.title || !isBibliographicMatch(ref.hints ?? {}, { title: paper.title, year: paper.year })) continue;
+      if (!paper.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: paper.title, year: paper.year })) continue;
       return toMetadata(paper, core);
     }
     throw new Error("No sufficiently similar Semantic Scholar match");

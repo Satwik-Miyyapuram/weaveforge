@@ -4,7 +4,8 @@ import type {
   Paper,
   ReaderAnnotation,
 } from "@weaveforge/core";
-import { errorMessage, zoteroWriteBackAnnotations } from "@weaveforge/core";
+import { errorMessage } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { ZoteroAnnotationWriteResult } from "../infrastructure/zotero-annotation-write-back";
 
 /**
@@ -46,7 +47,7 @@ export interface ZoteroAnnotationWriteBackSummary {
 
 /** The local annotations a write-back owes Zotero. */
 export function annotationsOwedToZotero(annotations: readonly ReaderAnnotation[]): ReaderAnnotation[] {
-  return zoteroWriteBackAnnotations(
+  return readyCore().zoteroWriteBackAnnotations(
     annotations.filter(
       (a) => a.origin === "local" && (a.zoteroKey == null || a.syncState === "pending"),
     ),

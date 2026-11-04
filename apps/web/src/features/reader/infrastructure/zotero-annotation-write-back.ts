@@ -1,10 +1,9 @@
 import {
-  toZoteroWritePayload,
-  zoteroWriteBackAnnotations,
   type IZoteroAnnotationWriteBack,
   type ReaderAnnotation,
   type ZoteroAnnotationWritePayload,
 } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 import type { ZoteroCredentialsProvider } from "@/features/papers/infrastructure/zotero-metadata-source";
 import {
   zoteroHeaders,
@@ -73,8 +72,12 @@ export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack 
     annotations: readonly ReaderAnnotation[],
     options?: { live?: boolean },
   ): Promise<ZoteroAnnotationPushResult> {
-    const syncable = zoteroWriteBackAnnotations(annotations);
-    const payloads = syncable.map((a) => toZoteroWritePayload(a, parentItemKey));
+    const core = await loadCore();
+    const syncable = core.zoteroWriteBackAnnotations(annotations);
+    // Rust types itemType as string; it is always "annotation".
+    const payloads = syncable.map(
+      (a) => core.toZoteroWritePayload(a, parentItemKey) as ZoteroAnnotationWritePayload,
+    );
     if (!options?.live) {
       return { dryRun: true, payloads, results: [] };
     }
