@@ -13,11 +13,16 @@ mod folder;
 mod ink;
 mod merge;
 mod paste;
+mod reader_analysis_lines;
+mod reader_analysis_text;
 mod reader_anchor;
 mod reader_annotation;
 mod reader_ink_stroke;
 mod reader_locate;
+mod reader_locus;
+mod reader_selection;
 mod reader_viewport;
+mod reader_zotero_sync;
 mod sync;
 mod workspace;
 

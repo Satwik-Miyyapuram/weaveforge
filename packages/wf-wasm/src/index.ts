@@ -222,7 +222,12 @@ export * from "./reader-anchor.js";
 export * from "./reader-annotation.js";
 export * from "./reader-ink-stroke.js";
 export * from "./reader-locate.js";
+export * from "./reader-analysis-lines.js";
+export * from "./reader-analysis-text.js";
+export * from "./reader-locus.js";
+export * from "./reader-selection.js";
 export * from "./reader-viewport.js";
+export * from "./reader-zotero-sync.js";
 
 
 /** Facts about this core build, such as its version. */

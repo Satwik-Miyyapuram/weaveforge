@@ -87,7 +87,13 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   search and lasso, viewport fit and projection, the keyboard map) add
 //   ~30 KB: five wf-core reader modules, serde for their selector and state
 //   objects, and the glue for ~60 new exports. 440 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 440 * 1024;
+// - Step 5.2f: 469,372 bytes (module 451,720 + glue 17,652), local build.
+//   Locus links, selection anchors, Zotero annotation sync, line and column
+//   reconstruction and the citation text helpers add ~39 KB: five wf-core
+//   modules, NFKC/NFKD composition tables for searchTextFromItems and
+//   surnameKey, serde for the Zotero rows and ~35 new exports. 480 KB is this
+//   batch's ceiling.
+export const WASM_GZIP_BUDGET = 480 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

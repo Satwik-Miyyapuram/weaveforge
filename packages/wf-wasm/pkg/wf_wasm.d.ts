@@ -66,6 +66,16 @@ export function changedSide(base?: string | null, folder?: string | null, worksp
 export function chooseAnchorStrategy(anchor: any, current_content_hash: string): any;
 
 /**
+ * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
+ * exported as `citationItemToRect` because `itemToRect` belongs to another lane).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
+ */
+export function citationItemToRect(item: any, from: number, to: number): any;
+
+/**
  * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
  */
 export function clampInkNoteWidth(width: number, fallback?: number | null): number;
@@ -138,6 +148,11 @@ export function cleanWrappedText(input: string, options: any): any;
 export function compactInkPath(path: Float64Array, options: any): Float64Array;
 
 /**
+ * [`compose_spacing_accents`](analysis_text::compose_spacing_accents) (TS `composeSpacingAccents`).
+ */
+export function composeSpacingAccents(text: string): string;
+
+/**
  * [`compute_fit_page_scale`] (TS `computeFitPageScale`).
  *
  * # Errors
@@ -174,6 +189,15 @@ export function coreInfo(): any;
 export function countJsonActions(entries: any): any;
 
 /**
+ * [`decide_annotation_sync`] for a row and a mode string (unknown modes act as `bidirectional`).
+ *
+ * # Errors
+ *
+ * Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
+ */
+export function decideAnnotationSync(row: any, mode: string): any;
+
+/**
  * [`wf_core::sync::git_policy::decide_git_sync_path`] for JS, as `{ include, reason? }`.
  *
  * # Errors
@@ -192,6 +216,15 @@ export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file
  * Fails if `words` or `vocabulary` is not such an array.
  */
 export function decodeInkWords(words: any, vocabulary: any, engine_text?: string | null): any;
+
+/**
+ * [`decode_locus`] as a locus object, or `null` when malformed.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function decodeLocus(raw?: string | null): any;
 
 /**
  * [`wf_core::sync::ink_note::default_ink_note_meta`] for JS.
@@ -230,6 +263,24 @@ export function describePull(result: any): string;
 export function describePush(result: any): string;
 
 /**
+ * [`detect_columns`] as an array of 0-based column indices.
+ *
+ * # Errors
+ *
+ * Fails if `lines` is not an array of `TextLine` objects.
+ */
+export function detectColumns(lines: any): any;
+
+/**
+ * [`diff_annotation_fields`] for a row: the fields that differ, in TS order.
+ *
+ * # Errors
+ *
+ * Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
+ */
+export function diffAnnotationFields(row: any): any;
+
+/**
  * [`wf_core::sync::text_diff::diff_body`] for JS, as `BodyDiff`.
  *
  * # Errors
@@ -258,6 +309,15 @@ export function diffJsonData(parsed: any, existing_json: string, side: any): any
  * Fails when an argument does not match its shape.
  */
 export function diffWorkspace(parsed: any, existing: any, sides: any): any;
+
+/**
+ * [`encode_locus`] as raw JSON (encode at the URL layer, not here).
+ *
+ * # Errors
+ *
+ * Fails if `locus` is not a locus object.
+ */
+export function encodeLocus(locus: any): string;
 
 /**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
@@ -305,6 +365,20 @@ export function findDocumentMatches(pages: any, query: string): any;
  * Fails if `quote` is not a quote selector object.
  */
 export function findQuoteMatches(text: string, quote: any): any;
+
+/**
+ * [`font_size_of`](analysis_text::font_size_of) (TS `fontSizeOf`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
+ */
+export function fontSizeOf(item: any): number;
+
+/**
+ * [`furniture_key`].
+ */
+export function furnitureKey(s: string): string;
 
 /**
  * [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
@@ -501,6 +575,20 @@ export function isAnnotationSyncState(value: any): boolean;
 export function isAppOwnedPath(path: string): boolean;
 
 /**
+ * [`is_bibliographic_match`](analysis_text::is_bibliographic_match) (TS `isBibliographicMatch`).
+ *
+ * # Errors
+ *
+ * Fails if `hints` or `candidate` is not an object of the expected shape.
+ */
+export function isBibliographicMatch(hints: any, candidate: any): boolean;
+
+/**
+ * [`is_bold_font`]; `fontName` may be undefined.
+ */
+export function isBoldFont(font_name?: string | null): boolean;
+
+/**
  * [`is_highlighter_ink`]; `undefined` is `None`.
  */
 export function isHighlighterInk(width?: number | null): boolean;
@@ -552,6 +640,20 @@ export function isUnderIgnoredFolder(rel_path: string): boolean;
 export function isUnsureConfidence(conf: number): boolean;
 
 /**
+ * [`is_zotero_library_sync_mode`] for any JS value: false unless `value` is a string.
+ */
+export function isZoteroLibrarySyncMode(value: any): boolean;
+
+/**
+ * [`item_to_rect`] as `[x1, y1, x2, y2]`, or `null`. Omitted bounds take the TS defaults (`0` and `Infinity`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a text item object, or the result cannot be converted.
+ */
+export function itemToRect(item: any, char_from?: number | null, char_to?: number | null): any;
+
+/**
  * [`wf_core::sync::json_entities::json_data_path`] for JS.
  *
  * # Errors
@@ -599,6 +701,15 @@ export function maxIndexTextUtf16(): number;
  * [`mean_pressure`]; `undefined` when no sample reports pressure.
  */
 export function meanPressure(samples: Float64Array): number | undefined;
+
+/**
+ * [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of text items.
+ */
+export function mentionRects(items: any, start: number, end: number): any;
 
 /**
  * [`wf_core::sync::text_diff::merge_hunks`] for JS. Picks are keyed by hunk
@@ -688,6 +799,15 @@ export function normalizeMarkdownImageSyntax(body: string): string;
 export function normalizePasteSettings(json: string): any;
 
 /**
+ * [`original_range`](analysis_text::original_range) as `[start, end]` (TS `originalRange`).
+ *
+ * # Errors
+ *
+ * Fails if `view` is not a search text with `text`, `starts` and `ends`.
+ */
+export function originalRange(view: any, start: number, end: number): any;
+
+/**
  * [`pack_ink_stroke`] as `{ points, pressures }`; `options` is the TS
  * `InkStrokePackerOptions` or undefined.
  *
@@ -706,6 +826,15 @@ export function packInkStroke(points: Float64Array, pressures: Float64Array, opt
  * Fails if `meta` is not a valid `PageMetadata` object.
  */
 export function pageImportRefusal(meta: any): string | undefined;
+
+/**
+ * [`page_text_from_items`] over `{ str, hasEOL? }[]`.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of run objects.
+ */
+export function pageTextFromItems(items: any): string;
 
 /**
  * [`wf_core::sync::json_entities::parse_json_data`] for JS, as `null` when it is not a JSON array.
@@ -871,6 +1000,21 @@ export function readInkNoteBody(body: string): any;
 export function readerKeyboardCommand(event: any): any;
 
 /**
+ * [`reconstruct_lines`] as an array of `TextLine`. `keep` is an array of
+ * per-item flags (the TS predicate, already applied) or undefined to keep all.
+ *
+ * # Errors
+ *
+ * Fails if `items` or `keep` is not an array of the expected shape.
+ */
+export function reconstructLines(page: number, items: any, keep: any): any;
+
+/**
+ * [`rectangles_overlap`](analysis_text::rectangles_overlap) (TS `rectanglesOverlap`).
+ */
+export function rectanglesOverlap(a: Float64Array, b: Float64Array): boolean;
+
+/**
  * [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
  *
  * # Errors
@@ -887,6 +1031,15 @@ export function relativeAssetPaths(body: string): any;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function resampleInkStroke(points: Float64Array, pressures: Float64Array, spacing?: number | null): any;
+
+/**
+ * [`resolve_annotation_conflict`] for a row and a choice string (any other choice merges).
+ *
+ * # Errors
+ *
+ * Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
+ */
+export function resolveAnnotationConflict(row: any, choice: string): any;
 
 /**
  * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
@@ -944,6 +1097,15 @@ export function sameValue(a: any, b: any): boolean;
 export function screenPointToPdf(sx: number, sy: number, p: any): any;
 
 /**
+ * [`search_text_from_items`](analysis_text::search_text_from_items) (TS `searchTextFromItems`).
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of text items.
+ */
+export function searchTextFromItems(items: any): any;
+
+/**
  * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
  * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
  * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
@@ -953,6 +1115,15 @@ export function screenPointToPdf(sx: number, sy: number, p: any): any;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function segmentInkLines(points: Float64Array, offsets: Uint32Array, pen: Uint8Array, t0s: Float64Array, window_ms?: number | null, band_ratio?: number | null): any;
+
+/**
+ * [`selection_to_anchor`] as a `CombinedPdfAnchor`, or `null` when the selection is empty or out of range.
+ *
+ * # Errors
+ *
+ * Fails if `selection` or `page` is not the expected object shape, or the result cannot be converted.
+ */
+export function selectionToAnchor(selection: any, page: any): any;
 
 /**
  * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
@@ -990,6 +1161,15 @@ export function simplifyPathIndices(path: Float64Array, tolerance?: number | nul
 export function smoothInkStroke(points: Float64Array, pressures: Float64Array, options: any): any;
 
 /**
+ * [`sort_by_reading_order_indices`] as an array of input indices in reading order.
+ *
+ * # Errors
+ *
+ * Fails if `tagged` is not an array of `{ line, column }` objects.
+ */
+export function sortByReadingOrderIndices(tagged: any): any;
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -997,6 +1177,11 @@ export function smoothInkStroke(points: Float64Array, pressures: Float64Array, o
  * Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function stampWorkspaceId(content: string, id: string): string | undefined;
+
+/**
+ * [`strip_invisible`](analysis_text::strip_invisible) (TS `stripInvisible`).
+ */
+export function stripInvisible(text: string): string;
 
 /**
  * [`wf_core::sync::folder_layout::strip_kind_suffix`] for JS.
@@ -1013,6 +1198,11 @@ export function stripKindSuffix(name: string): string;
 export function strokeBaseWidth(samples: Float64Array, base: number): number;
 
 /**
+ * [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
+ */
+export function surnameKey(name: string): string;
+
+/**
  * [`tab_separated_to_markdown_table`] for JS, as `{ text, changed }`.
  *
  * # Errors
@@ -1020,6 +1210,20 @@ export function strokeBaseWidth(samples: Float64Array, base: number): number;
  * Fails when `input` is over the text cap.
  */
 export function tabSeparatedToMarkdownTable(input: string): any;
+
+/**
+ * [`text_fingerprint`](analysis_text::text_fingerprint) (TS `textFingerprint`).
+ *
+ * # Errors
+ *
+ * Fails if `texts` is not an array of strings.
+ */
+export function textFingerprint(texts: any): string;
+
+/**
+ * [`title_similarity`](analysis_text::title_similarity) (TS `titleSimilarity`).
+ */
+export function titleSimilarity(left: string, right: string): number;
 
 /**
  * [`wf_core::sync::blob_links::to_relative_blob_links`] for JS, as
@@ -1030,6 +1234,15 @@ export function tabSeparatedToMarkdownTable(input: string): any;
  * Fails when `body` or `file_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function toRelativeBlobLinks(body: string, file_path: string): any;
+
+/**
+ * [`to_zotero_write_payload`] for one annotation under a parent item key.
+ *
+ * # Errors
+ *
+ * Fails if `ann` is not a `ZoteroAnnotationLocal` object.
+ */
+export function toZoteroWritePayload(ann: any, parent_item_key: string): any;
 
 /**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
@@ -1122,6 +1335,15 @@ export function zoomIn(scale: number, step: number): number;
  */
 export function zoomOut(scale: number, step: number): number;
 
+/**
+ * [`zotero_write_back_annotations`]: indices of the annotations a write-back sends.
+ *
+ * # Errors
+ *
+ * Fails if `annotations` is not an array of `ZoteroAnnotationLocal` objects.
+ */
+export function zoteroWriteBackAnnotations(annotations: any): any;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -1134,6 +1356,7 @@ export interface InitOutput {
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
+    readonly citationItemToRect: (a: any, b: number, c: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
     readonly clampInkWidth: (a: number) => number;
     readonly clampInkZoom: (a: number) => number;
@@ -1145,24 +1368,32 @@ export interface InitOutput {
     readonly cleanUrlsWithRules: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanWrappedText: (a: number, b: number, c: any) => [number, number, number];
     readonly compactInkPath: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly composeSpacingAccents: (a: number, b: number) => [number, number];
     readonly computeFitPageScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly computeFitWidthScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
+    readonly decideAnnotationSync: (a: any, b: number, c: number) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly decodeLocus: (a: number, b: number) => [number, number, number];
     readonly defaultInkNoteMeta: () => [number, number, number];
     readonly defaultPasteSettings: () => [number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
+    readonly detectColumns: (a: any) => [number, number, number];
+    readonly diffAnnotationFields: (a: any) => [number, number, number];
     readonly diffBody: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly diffJsonData: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly diffWorkspace: (a: any, b: any, c: any) => [number, number, number];
+    readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly findDocumentMatches: (a: any, b: number, c: number) => [number, number, number];
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
+    readonly fontSizeOf: (a: any) => [number, number, number];
+    readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
@@ -1190,6 +1421,8 @@ export interface InitOutput {
     readonly inkZoomOut: (a: number) => number;
     readonly isAnnotationSyncState: (a: any) => number;
     readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
+    readonly isBibliographicMatch: (a: any, b: any) => [number, number, number];
+    readonly isBoldFont: (a: number, b: number) => number;
     readonly isHighlighterInk: (a: number, b: number) => number;
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
@@ -1197,6 +1430,8 @@ export interface InitOutput {
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
+    readonly isZoteroLibrarySyncMode: (a: any) => number;
+    readonly itemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
     readonly mapInkConfidence: (a: number, b: number, c: number) => number;
@@ -1204,6 +1439,7 @@ export interface InitOutput {
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
     readonly meanPressure: (a: number, b: number) => [number, number];
+    readonly mentionRects: (a: any, b: number, c: number) => [number, number, number];
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
@@ -1215,8 +1451,10 @@ export interface InitOutput {
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
+    readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
     readonly packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
+    readonly pageTextFromItems: (a: any) => [number, number, number, number];
     readonly parseJsonData: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly parseLinkRemovalText: (a: number, b: number) => [number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
@@ -1235,25 +1473,36 @@ export interface InitOutput {
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly readerKeyboardCommand: (a: any) => [number, number, number];
+    readonly reconstructLines: (a: number, b: any, c: any) => [number, number, number];
+    readonly rectanglesOverlap: (a: number, b: number, c: number, d: number) => number;
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly resolveAnnotationConflict: (a: any, b: number, c: number) => [number, number, number];
     readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveTextAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
     readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
+    readonly searchTextFromItems: (a: any) => [number, number, number];
     readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
+    readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shouldAppendInkPoint: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly sortByReadingOrderIndices: (a: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly stripInvisible: (a: number, b: number) => [number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
     readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
+    readonly surnameKey: (a: number, b: number) => [number, number];
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
+    readonly textFingerprint: (a: any) => [number, number, number, number];
+    readonly titleSimilarity: (a: number, b: number, c: number, d: number) => number;
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly toZoteroWritePayload: (a: any, b: number, c: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -1265,6 +1514,7 @@ export interface InitOutput {
     readonly writeInkNoteBody: (a: any, b: number, c: number) => [number, number, number, number];
     readonly zoomIn: (a: number, b: number) => number;
     readonly zoomOut: (a: number, b: number) => number;
+    readonly zoteroWriteBackAnnotations: (a: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

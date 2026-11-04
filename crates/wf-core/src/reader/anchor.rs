@@ -162,12 +162,15 @@ pub struct AnchorZoteroPosition {
 pub struct AnchorCombinedPdf {
     /// Hash of the PDF the rects were captured against.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = String))]
     pub content_hash: Option<String>,
     /// Zotero rects.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = AnchorZoteroPosition))]
     pub zotero_position: Option<AnchorZoteroPosition>,
     /// W3C locus.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = AnchorPdfLocus))]
     pub locus: Option<AnchorPdfLocus>,
 }
 
