@@ -82,7 +82,12 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   decodeInkWords adds ~8 KB: wf-core's ink decode module (reading choice,
 //   UTF-16 edit distance, joins and line alternatives), the vocabulary
 //   HashSet and serde for the word readings. 400 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 400 * 1024;
+// - Step 5.2e: 430,523 bytes (module 415,000 + glue 15,523), local build.
+//   The PDF reader exports (anchor resolution, ink stroke geometry, document
+//   search and lasso, viewport fit and projection, the keyboard map) add
+//   ~30 KB: five wf-core reader modules, serde for their selector and state
+//   objects, and the glue for ~60 new exports. 440 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 440 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

@@ -55,6 +55,26 @@ export function binomialSmooth(values, stride, passes) {
 }
 
 /**
+ * [`build_annotation_sort_index`] (TS `buildAnnotationSortIndex`).
+ * @param {number} page_index
+ * @param {number} char_offset
+ * @param {number} top_pdf_units
+ * @returns {string}
+ */
+export function buildAnnotationSortIndex(page_index, char_offset, top_pdf_units) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.buildAnnotationSortIndex(page_index, char_offset, top_pdf_units);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -78,6 +98,21 @@ export function buildExcerpt(body, terms, max_chars, single_line) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
+ * @param {any} group
+ * @param {any} next
+ * @param {number | null} [window_ms]
+ * @returns {boolean}
+ */
+export function canJoinInkGroup(group, next, window_ms) {
+    const ret = wasm.canJoinInkGroup(group, next, !isLikeNone(window_ms), isLikeNone(window_ms) ? 0 : window_ms);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -106,6 +141,26 @@ export function changedSide(base, folder, workspace) {
 }
 
 /**
+ * [`choose_anchor_strategy`] as `{ kind, position | locus, confidence }`.
+ *
+ * # Errors
+ *
+ * Fails if `anchor` is not a combined anchor object, or the result cannot be converted.
+ * @param {any} anchor
+ * @param {string} current_content_hash
+ * @returns {any}
+ */
+export function chooseAnchorStrategy(anchor, current_content_hash) {
+    const ptr0 = passStringToWasm0(current_content_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.chooseAnchorStrategy(anchor, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
  * @param {number} width
  * @param {number | null} [fallback]
@@ -117,12 +172,54 @@ export function clampInkNoteWidth(width, fallback) {
 }
 
 /**
+ * [`clamp_ink_width`].
+ * @param {number} width
+ * @returns {number}
+ */
+export function clampInkWidth(width) {
+    const ret = wasm.clampInkWidth(width);
+    return ret;
+}
+
+/**
  * [`clamp_ink_zoom`].
  * @param {number} zoom
  * @returns {number}
  */
 export function clampInkZoom(zoom) {
     const ret = wasm.clampInkZoom(zoom);
+    return ret;
+}
+
+/**
+ * [`clamp_page`] (TS `clampPage`).
+ * @param {number} page
+ * @param {number} num_pages
+ * @returns {number}
+ */
+export function clampPage(page, num_pages) {
+    const ret = wasm.clampPage(page, num_pages);
+    return ret;
+}
+
+/**
+ * [`clamp_scale`]: a non-finite or non-positive scale gives 1, else clamps to the zoom range.
+ * @param {number} scale
+ * @returns {number}
+ */
+export function clampScale(scale) {
+    const ret = wasm.clampScale(scale);
+    return ret;
+}
+
+/**
+ * [`clamp_zoom_factor`] (TS `clampZoomFactor`).
+ * @param {number} factor
+ * @param {number} base_scale
+ * @returns {number}
+ */
+export function clampZoomFactor(factor, base_scale) {
+    const ret = wasm.clampZoomFactor(factor, base_scale);
     return ret;
 }
 
@@ -205,6 +302,64 @@ export function cleanWrappedText(input, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`compact_ink_path`]; `options` is `{ tolerance?, maxPoints?, decimals? }` or absent.
+ * @param {Float64Array} path
+ * @param {any} options
+ * @returns {Float64Array}
+ */
+export function compactInkPath(path, options) {
+    const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.compactInkPath(ptr0, len0, options);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
+ * [`compute_fit_page_scale`] (TS `computeFitPageScale`).
+ *
+ * # Errors
+ *
+ * Fails if `page` or `container` is not an object with `width` and `height`.
+ * @param {any} page
+ * @param {any} container
+ * @param {number} rotation
+ * @param {number} gutter_px
+ * @returns {number}
+ */
+export function computeFitPageScale(page, container, rotation, gutter_px) {
+    const ret = wasm.computeFitPageScale(page, container, rotation, gutter_px);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * [`compute_fit_width_scale`] (TS `computeFitWidthScale`).
+ *
+ * # Errors
+ *
+ * Fails if `page` or `container` is not an object with `width` and `height`.
+ * @param {any} page
+ * @param {any} container
+ * @param {number} rotation
+ * @param {number} gutter_px
+ * @returns {number}
+ */
+export function computeFitWidthScale(page, container, rotation, gutter_px) {
+    const ret = wasm.computeFitWidthScale(page, container, rotation, gutter_px);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
 }
 
 /**
@@ -519,6 +674,46 @@ export function extractPageMetadata(html, url) {
 }
 
 /**
+ * [`find_document_matches`] as an array of `{ pageIndex, start, end }`; `pages` is `{ pageIndex, text }[]`.
+ *
+ * # Errors
+ *
+ * Fails if `pages` is not an array of `{ pageIndex, text }` objects.
+ * @param {any} pages
+ * @param {string} query
+ * @returns {any}
+ */
+export function findDocumentMatches(pages, query) {
+    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.findDocumentMatches(pages, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`find_quote_matches`] as an array of `{ start, end }`.
+ *
+ * # Errors
+ *
+ * Fails if `quote` is not a quote selector object.
+ * @param {string} text
+ * @param {any} quote
+ * @returns {any}
+ */
+export function findQuoteMatches(text, quote) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.findQuoteMatches(ptr0, len0, quote);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
  * `k` defaults to [`RRF_K`]; `limit` of `None` or 0 means no limit.
  *
@@ -727,6 +922,23 @@ export function indexTerms(text, options) {
 }
 
 /**
+ * [`initial_reader_viewport`] as `{ scale, fit, rotation, page }` (TS `initialReaderViewport`).
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {number} page
+ * @returns {any}
+ */
+export function initialReaderViewport(page) {
+    const ret = wasm.initialReaderViewport(page);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`ink_curve_at`] as `[x, y]`. A span past the end gives `[NaN, NaN]`, as
  * the TS copy's out-of-range reads do.
  * @param {Float64Array} xs
@@ -772,6 +984,16 @@ export function inkLineRecords(counts, bands, recognised) {
 }
 
 /**
+ * [`ink_note_width_to_pdf_points`].
+ * @param {number} tenths
+ * @returns {number}
+ */
+export function inkNoteWidthToPdfPoints(tenths) {
+    const ret = wasm.inkNoteWidthToPdfPoints(tenths);
+    return ret;
+}
+
+/**
  * [`ink_page_confidence`] over the lines' `conf` values.
  * @param {Float64Array} confs
  * @returns {number}
@@ -781,6 +1003,67 @@ export function inkPageConfidence(confs) {
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.inkPageConfidence(ptr0, len0);
     return ret;
+}
+
+/**
+ * [`ink_path_json_size`].
+ * @param {Float64Array} path
+ * @returns {number}
+ */
+export function inkPathJsonSize(path) {
+    const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.inkPathJsonSize(ptr0, len0);
+    return ret >>> 0;
+}
+
+/**
+ * [`ink_paths_bounds`]; `[x1, y1, x2, y2]` or `null`.
+ * @param {any} paths
+ * @returns {any}
+ */
+export function inkPathsBounds(paths) {
+    const ret = wasm.inkPathsBounds(paths);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`ink_paths_hit_test`]; `paths` is an array of number arrays.
+ * @param {any} paths
+ * @param {number} x
+ * @param {number} y
+ * @param {number} radius
+ * @returns {boolean}
+ */
+export function inkPathsHitTest(paths, x, y, radius) {
+    const ret = wasm.inkPathsHitTest(paths, x, y, radius);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`ink_paths_in_polygon`]. `paths` is every path's flat `x, y` pairs back to back; `pathLengths`
+ * gives each path's value count. A length that runs past `paths` is skipped.
+ * @param {Float64Array} paths
+ * @param {Uint32Array} path_lengths
+ * @param {Float64Array} polygon
+ * @param {number} share
+ * @returns {boolean}
+ */
+export function inkPathsInPolygon(paths, path_lengths, polygon, share) {
+    const ptr0 = passArrayF64ToWasm0(paths, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray32ToWasm0(path_lengths, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArrayF64ToWasm0(polygon, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.inkPathsInPolygon(ptr0, len0, ptr1, len1, ptr2, len2, share);
+    return ret !== 0;
 }
 
 /**
@@ -860,6 +1143,17 @@ export function inkVocabularyHints(sources, limit) {
 }
 
 /**
+ * [`ink_width_for_pressure`]; `base` defaults to `INK_DEFAULT_WIDTH`.
+ * @param {number | null} [pressure]
+ * @param {number | null} [base]
+ * @returns {number}
+ */
+export function inkWidthForPressure(pressure, base) {
+    const ret = wasm.inkWidthForPressure(!isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure, !isLikeNone(base), isLikeNone(base) ? 0 : base);
+    return ret;
+}
+
+/**
  * [`ink_zoom_in`].
  * @param {number} zoom
  * @returns {number}
@@ -880,6 +1174,16 @@ export function inkZoomOut(zoom) {
 }
 
 /**
+ * [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
+ * @param {any} value
+ * @returns {boolean}
+ */
+export function isAnnotationSyncState(value) {
+    const ret = wasm.isAnnotationSyncState(value);
+    return ret !== 0;
+}
+
+/**
  * [`wf_core::sync::json_entities::is_app_owned_path`] for JS.
  *
  * # Errors
@@ -896,6 +1200,16 @@ export function isAppOwnedPath(path) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`is_highlighter_ink`]; `undefined` is `None`.
+ * @param {number | null} [width]
+ * @returns {boolean}
+ */
+export function isHighlighterInk(width) {
+    const ret = wasm.isHighlighterInk(!isLikeNone(width), isLikeNone(width) ? 0 : width);
+    return ret !== 0;
 }
 
 /**
@@ -934,6 +1248,16 @@ export function isInkNoteBody(body) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`is_reader_annotation_type`] for any JS value: false unless `value` is a string.
+ * @param {any} value
+ * @returns {boolean}
+ */
+export function isReaderAnnotationType(value) {
+    const ret = wasm.isReaderAnnotationType(value);
+    return ret !== 0;
 }
 
 /**
@@ -1104,6 +1428,18 @@ export function maxIndexTextUtf16() {
 }
 
 /**
+ * [`mean_pressure`]; `undefined` when no sample reports pressure.
+ * @param {Float64Array} samples
+ * @returns {number | undefined}
+ */
+export function meanPressure(samples) {
+    const ptr0 = passArrayF64ToWasm0(samples, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.meanPressure(ptr0, len0);
+    return ret[0] === 0 ? undefined : ret[1];
+}
+
+/**
  * [`wf_core::sync::text_diff::merge_hunks`] for JS. Picks are keyed by hunk
  * index; only canonical decimal keys (`"0"`, not `"00"`) count, as in the TS.
  *
@@ -1179,6 +1515,29 @@ export function mergeVaultPage(base, folder, workspace) {
 }
 
 /**
+ * [`next_match_index`]: wraparound step; -1 when `total` is 0.
+ * @param {number} current
+ * @param {number} total
+ * @param {number} direction
+ * @returns {number}
+ */
+export function nextMatchIndex(current, total, direction) {
+    const ret = wasm.nextMatchIndex(current, total, direction);
+    return ret;
+}
+
+/**
+ * [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90 in the TS wrapper.
+ * @param {number} current
+ * @param {number} delta
+ * @returns {number}
+ */
+export function nextRotation(current, delta) {
+    const ret = wasm.nextRotation(current, delta);
+    return ret;
+}
+
+/**
  * [`nib_width`]; `velocity` defaults to 0.
  * @param {number} base
  * @param {number | null} [pressure]
@@ -1189,6 +1548,36 @@ export function mergeVaultPage(base, folder, workspace) {
 export function nibWidth(base, pressure, velocity, full_taper) {
     const ret = wasm.nibWidth(base, !isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure, !isLikeNone(velocity), isLikeNone(velocity) ? 0 : velocity, !isLikeNone(full_taper), isLikeNone(full_taper) ? 0 : full_taper);
     return ret;
+}
+
+/**
+ * [`normalise_page_rotation`] (TS `normalisePageRotation`): 0, 90, 180 or 270.
+ * @param {number} rotation
+ * @returns {number}
+ */
+export function normalisePageRotation(rotation) {
+    const ret = wasm.normalisePageRotation(rotation);
+    return ret;
+}
+
+/**
+ * [`normalise_whitespace`] as `{ normalised, map }`; `options` is `{ trim? }` or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object, or the result cannot be converted.
+ * @param {string} text
+ * @param {any} options
+ * @returns {any}
+ */
+export function normaliseWhitespace(text, options) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.normaliseWhitespace(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1435,6 +1824,64 @@ export function pasteLandsInVerbatimContext(document, offset) {
 }
 
 /**
+ * [`pdf_point_to_screen`] as `{ x, y }` (TS `pdfPointToScreen`).
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ * @param {number} x
+ * @param {number} y
+ * @param {any} p
+ * @returns {any}
+ */
+export function pdfPointToScreen(x, y, p) {
+    const ret = wasm.pdfPointToScreen(x, y, p);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pdf_rect_to_screen_box`] as `{ left, top, width, height }` (TS `pdfRectToScreenBox`).
+ * `rect` is flat `[x1, y1, x2, y2]`; a short array reads missing entries as NaN.
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ * @param {Float64Array} rect
+ * @param {any} p
+ * @returns {any}
+ */
+export function pdfRectToScreenBox(rect, p) {
+    const ptr0 = passArrayF64ToWasm0(rect, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pdfRectToScreenBox(ptr0, len0, p);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pick_nearest_match`] as `{ start, end }`, or `null` when there is no match.
+ *
+ * # Errors
+ *
+ * Fails if `matches` or `position` has the wrong shape.
+ * @param {any} matches
+ * @param {any} position
+ * @returns {any}
+ */
+export function pickNearestMatch(matches, position) {
+    const ret = wasm.pickNearestMatch(matches, position);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
  * `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
  * `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
@@ -1456,6 +1903,20 @@ export function planMirror(files, asset_paths, previous_paths, base, disk) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`point_in_polygon`]: is `(x, y)` inside the flat `x, y` polygon.
+ * @param {Float64Array} polygon
+ * @param {number} x
+ * @param {number} y
+ * @returns {boolean}
+ */
+export function pointInPolygon(polygon, x, y) {
+    const ptr0 = passArrayF64ToWasm0(polygon, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pointInPolygon(ptr0, len0, x, y);
+    return ret !== 0;
 }
 
 /**
@@ -1522,6 +1983,38 @@ export function projectMetaDir(project_root) {
 }
 
 /**
+ * [`projected_page_size`] as `{ width, height }` (TS `projectedPageSize`).
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ * @param {any} p
+ * @returns {any}
+ */
+export function projectedPageSize(p) {
+    const ret = wasm.projectedPageSize(p);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`quantize_ink_path`]; `decimals` defaults to 2.
+ * @param {Float64Array} path
+ * @param {number | null} [decimals]
+ * @returns {Float64Array}
+ */
+export function quantizeInkPath(path, decimals) {
+    const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.quantizeInkPath(ptr0, len0, !isLikeNone(decimals), isLikeNone(decimals) ? 0 : decimals);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
  * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
  *
  * # Errors
@@ -1553,6 +2046,24 @@ export function readInkNoteBody(body) {
     const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.readInkNoteBody(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`reader_keyboard_command`]: the `ReaderKeyboardCommand` for `event`, or `null`
+ * when the event passes through.
+ *
+ * # Errors
+ *
+ * Fails if `event` is not a `ReaderKeyEvent` object.
+ * @param {any} event
+ * @returns {any}
+ */
+export function readerKeyboardCommand(event) {
+    const ret = wasm.readerKeyboardCommand(event);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1602,6 +2113,65 @@ export function resampleInkStroke(points, pressures, spacing) {
 }
 
 /**
+ * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
+ *
+ * # Errors
+ *
+ * Fails if `position` is not a position selector object.
+ * @param {string} text
+ * @param {any} position
+ * @returns {any}
+ */
+export function resolvePositionSelector(text, position) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.resolvePositionSelector(ptr0, len0, position);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`resolve_text_anchor`] as `{ start, end, via, confidence }`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `locus` is not a locus object.
+ * @param {string} text
+ * @param {any} locus
+ * @returns {any}
+ */
+export function resolveTextAnchor(text, locus) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.resolveTextAnchor(ptr0, len0, locus);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`resolve_viewport_scale`] (TS `resolveViewportScale`); `state` is `{ scale, fit, rotation }`.
+ *
+ * # Errors
+ *
+ * Fails if an argument is not an object of the expected shape.
+ * @param {any} state
+ * @param {any} page
+ * @param {any} container
+ * @returns {number}
+ */
+export function resolveViewportScale(state, page, container) {
+    const ret = wasm.resolveViewportScale(state, page, container);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
  *
  * # Errors
@@ -1648,6 +2218,25 @@ export function sameValue(a, b) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`screen_point_to_pdf`] as `{ x, y }` (TS `screenPointToPdf`).
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ * @param {number} sx
+ * @param {number} sy
+ * @param {any} p
+ * @returns {any}
+ */
+export function screenPointToPdf(sx, sy, p) {
+    const ret = wasm.screenPointToPdf(sx, sy, p);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1702,6 +2291,52 @@ export function serializeWorkspace(snapshot_json, project_id, project_name) {
     const ptr2 = passStringToWasm0(project_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len2 = WASM_VECTOR_LEN;
     const ret = wasm.serializeWorkspace(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`should_append_ink_point`]; `minDistance` defaults to 0.75.
+ * @param {Float64Array} path
+ * @param {number} x
+ * @param {number} y
+ * @param {number | null} [min_distance]
+ * @returns {boolean}
+ */
+export function shouldAppendInkPoint(path, x, y, min_distance) {
+    const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.shouldAppendInkPoint(ptr0, len0, x, y, !isLikeNone(min_distance), isLikeNone(min_distance) ? 0 : min_distance);
+    return ret !== 0;
+}
+
+/**
+ * [`simplify_ink_path`]; `tolerance` defaults to 0.35.
+ * @param {Float64Array} path
+ * @param {number | null} [tolerance]
+ * @returns {Float64Array}
+ */
+export function simplifyInkPath(path, tolerance) {
+    const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.simplifyInkPath(ptr0, len0, !isLikeNone(tolerance), isLikeNone(tolerance) ? 0 : tolerance);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
+ * [`simplify_path_indices`]; `tolerance` defaults to 0.35. Returns a JS array of indices.
+ * @param {Float64Array} path
+ * @param {number | null} [tolerance]
+ * @returns {any}
+ */
+export function simplifyPathIndices(path, tolerance) {
+    const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.simplifyPathIndices(ptr0, len0, !isLikeNone(tolerance), isLikeNone(tolerance) ? 0 : tolerance);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1866,6 +2501,22 @@ export function tokenize(text, options) {
 }
 
 /**
+ * [`translate_ink_paths`]; `decimals` defaults to 2. Returns an array of number arrays.
+ * @param {any} paths
+ * @param {number} dx
+ * @param {number} dy
+ * @param {number | null} [decimals]
+ * @returns {any}
+ */
+export function translateInkPaths(paths, dx, dy, decimals) {
+    const ret = wasm.translateInkPaths(paths, dx, dy, !isLikeNone(decimals), isLikeNone(decimals) ? 0 : decimals);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::merge_vault_page::vault_page_base`] for JS; `null` when the file is not a note.
  *
  * # Errors
@@ -1903,6 +2554,24 @@ export function vaultPageSide(path, content) {
     const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.vaultPageSide(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`visual_page_size`] as `{ width, height }` (TS `visualPageSize`).
+ *
+ * # Errors
+ *
+ * Fails if `page` is not an object with `width` and `height`.
+ * @param {any} page
+ * @param {number} rotation
+ * @returns {any}
+ */
+export function visualPageSize(page, rotation) {
+    const ret = wasm.visualPageSize(page, rotation);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2024,6 +2693,28 @@ export function writeInkNoteBody(meta, text) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
+ * @param {number} scale
+ * @param {number} step
+ * @returns {number}
+ */
+export function zoomIn(scale, step) {
+    const ret = wasm.zoomIn(scale, step);
+    return ret;
+}
+
+/**
+ * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25 in the TS wrapper.
+ * @param {number} scale
+ * @param {number} step
+ * @returns {number}
+ */
+export function zoomOut(scale, step) {
+    const ret = wasm.zoomOut(scale, step);
+    return ret;
 }
 function __wbg_get_imports() {
     const import0 = {

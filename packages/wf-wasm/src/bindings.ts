@@ -14,6 +14,130 @@ export type ActionCounts = {
 	removed: number,
 };
 
+/**  Dual anchor (TS `CombinedPdfAnchor`). */
+export type AnchorCombinedPdf = {
+	/**  Hash of the PDF the rects were captured against. */
+	contentHash?: string | null,
+	/**  Zotero rects. */
+	zoteroPosition?: AnchorZoteroPosition | null,
+	/**  W3C locus. */
+	locus?: AnchorPdfLocus | null,
+};
+
+/**  `high` or `low` (TS `AnchorConfidence`). */
+export type AnchorConfidence = 
+/**  Quote matched (unique or disambiguated) or rects trusted. */
+"high" | 
+/**  Position fallback, ambiguous quote, or quote-only strategy. */
+"low";
+
+/**  `normaliseWhitespace` options (TS `NormaliseWhitespaceOptions`). */
+export type AnchorNormaliseOptions = {
+	/**  Absent or `true` trims; `false` keeps boundary whitespace. */
+	trim: boolean | null,
+};
+
+/**  Output of `normaliseWhitespace` (TS return value). */
+export type AnchorNormalised = {
+	/**  Whitespace-collapsed text. */
+	normalised: string,
+	/**
+	 *  `map[i]` is the UTF-16 offset in the original of normalised unit `i`;
+	 *  `map[normalised.length]` is the exclusive end.
+	 */
+	map: (number | null)[],
+};
+
+/**  Stored locus (TS `PdfLocus`). */
+export type AnchorPdfLocus = {
+	/**  Quote selector. */
+	quote?: AnchorQuoteSelector,
+	/**  Optional position fallback. */
+	position?: AnchorPositionSelector | null,
+};
+
+/**  W3C TextPositionSelector (TS `TextPositionSelector`). Missing bounds are NaN. */
+export type AnchorPositionSelector = {
+	/**  Selector type tag, kept so round-trips keep it. */
+	type?: string | null,
+	/**  UTF-16 start offset. */
+	start?: number | null,
+	/**  UTF-16 exclusive end offset. */
+	end?: number | null,
+};
+
+/**  W3C TextQuoteSelector (TS `TextQuoteSelector`). A missing `exact` acts as `""`. */
+export type AnchorQuoteSelector = {
+	/**  Selector type tag, kept so round-trips keep it. */
+	type?: string | null,
+	/**  Text to find. */
+	exact?: string | null,
+	/**  Text required immediately before `exact`. */
+	prefix?: string | null,
+	/**  Text required immediately after `exact`. */
+	suffix?: string | null,
+};
+
+/**  A resolved span with provenance (TS `ResolvedAnchor`). */
+export type AnchorResolved = {
+	/**  UTF-16 start offset. */
+	start: number | null,
+	/**  UTF-16 exclusive end offset. */
+	end: number | null,
+	/**  How the span was obtained. */
+	via: AnchorVia,
+	/**  Trust level of the span. */
+	confidence: AnchorConfidence,
+};
+
+/**  Which anchor to trust (TS `AnchorStrategy`). */
+export type AnchorStrategy = 
+/**  Trust the Zotero rects. */
+{ kind: "rects"; 
+/**  The position to render. */
+position: AnchorZoteroPosition; 
+/**  Always high. */
+confidence: AnchorConfidence } | 
+/**  Re-resolve the quote. */
+{ kind: "quote"; 
+/**  The locus to resolve. */
+locus: AnchorPdfLocus; 
+/**  Always low. */
+confidence: AnchorConfidence } | 
+/**  Nothing usable. */
+{ kind: "none"; 
+/**  Always low. */
+confidence: AnchorConfidence };
+
+/**  Character span in extracted text, as UTF-16 offsets (TS `TextSpan`). */
+export type AnchorTextSpan = {
+	/**  UTF-16 start offset. */
+	start: number | null,
+	/**  UTF-16 exclusive end offset. */
+	end: number | null,
+};
+
+/**  How a span was obtained (TS `ResolvedAnchor.via`). */
+export type AnchorVia = 
+/**  Matched by quote. */
+"quote" | 
+/**  Position fallback. */
+"position";
+
+/**  Zotero `annotationPosition` (TS `ZoteroRectPosition`). */
+export type AnchorZoteroPosition = {
+	/**  Zero-based page index; must be a non-negative integer to be usable. */
+	pageIndex?: number | null,
+	/**  PDF user-space rects `[x1, y1, x2, y2]`. */
+	rects?: ((number | null)[])[] | null,
+	/**  Ink strokes as flat point lists. */
+	paths?: ((number | null)[])[] | null,
+	/**  Nib width for `paths`. */
+	width?: number | null,
+	/**  Tail of a highlight that crosses onto the next page. */
+	nextPageRects?: ((number | null)[])[] | null,
+};
+
 /**  One blob ref, in both its storage and folder forms. */
 export type BlobAsset = {
 	/**  The scheme the ref used. */
@@ -139,6 +263,24 @@ export type DiffOp =
 "ours" | 
 /**  Only in theirs. */
 "theirs";
+
+/**  One page's extracted text (TS `DocumentPageText`). */
+export type DocumentPageText = {
+	/**  Zero-based page index, passed through unchanged. */
+	pageIndex: number | null,
+	/**  The page's text. */
+	text: string,
+};
+
+/**  A hit in a page's text (TS `DocumentSearchMatch`). Offsets are UTF-16 code units. */
+export type DocumentSearchMatch = {
+	/**  The page the hit is on. */
+	pageIndex: number | null,
+	/**  Inclusive start offset into that page's text. */
+	start: number | null,
+	/**  Exclusive end offset. */
+	end: number | null,
+};
 
 /**  A highlight, as UTF-16 offsets into `Excerpt::text`. */
 export type ExcerptRange = {
@@ -561,6 +703,159 @@ export type RankedList = {
 	ids: string[],
 	/**  Relative influence; finite and >= 0. */
 	weight: number | null,
+};
+
+/**  Stroke input of `compactInkPath`'s `options` object. Each field may be absent. */
+export type ReaderCompactInkOptions = {
+	/**  Simplification tolerance; `None` uses the default. */
+	tolerance?: number | null,
+	/**  Maximum point count; `None` uses `INK_MAX_POINTS`. */
+	maxPoints?: number | null,
+	/**  Coordinate decimals; `None` uses the default. */
+	decimals?: number | null,
+};
+
+/**  Container size in CSS pixels. Mirrors `ReaderContainerSize` in the TS copy. */
+export type ReaderContainerSize = {
+	/**  Container width. */
+	width: number | null,
+	/**  Container height. */
+	height: number | null,
+};
+
+/**  How the reader sizes the page. Mirrors `ReaderFitMode` in the TS copy. */
+export type ReaderFitMode = 
+/**  Fill the container width. */
+"width" | 
+/**  Fit the whole page in the container. */
+"page" | 
+/**  Use the stored scale. */
+"custom";
+
+/**  The ink group a new stroke may join, mirrors TS `InkGroupCandidate`. */
+export type ReaderInkGroupCandidate = {
+	/**  Page the group sits on. */
+	pageIndex: number | null,
+	/**  Colour of the group's strokes. */
+	color: string,
+	/**  Nib width of the group's strokes. */
+	width: number | null,
+	/**  Strokes the target annotation already holds. */
+	pathCount: number | null,
+	/**  When the group last took a stroke. */
+	lastAt: number | null,
+};
+
+/**  The stroke being tested against a group, mirrors the TS `canJoinInkGroup` `next` argument. */
+export type ReaderInkGroupNext = {
+	/**  Page the stroke was drawn on. */
+	pageIndex: number | null,
+	/**  Colour of the stroke. */
+	color: string,
+	/**  Nib width of the stroke. */
+	width: number | null,
+	/**  When the stroke was drawn. */
+	at: number | null,
+};
+
+/**
+ *  The keyboard event fields `readerKeyboardCommand` reads (TS `ReaderKeyEvent`).
+ *  Missing fields take the TS `undefined` meaning: no key, no code, no modifier.
+ */
+export type ReaderKeyEvent = {
+	/**  `KeyboardEvent.key`. */
+	key?: string | null,
+	/**  `KeyboardEvent.code`. */
+	code?: string | null,
+	/**  Ctrl held. */
+	ctrlKey?: boolean,
+	/**  Meta (Cmd) held. */
+	metaKey?: boolean,
+	/**  Alt held. */
+	altKey?: boolean,
+	/**  The event came from an editable field, so the reader ignores it. */
+	fromEditable?: boolean,
+};
+
+/**  A viewport command (TS `ReaderKeyboardCommand`), tagged by `type` as in TS. */
+export type ReaderKeyboardCommand = 
+/**  Move by `delta` pages. */
+{ type: "page_delta"; 
+/**  Pages to move; negative goes back. */
+delta: number } | 
+/**  Go to the first page. */
+{ type: "page_home" } | 
+/**  Go to the last page. */
+{ type: "page_end" } | 
+/**  Zoom in one step. */
+{ type: "zoom_in" } | 
+/**  Zoom out one step. */
+{ type: "zoom_out" } | 
+/**  Fit the page width. */
+{ type: "fit_width" } | 
+/**  Rotate the page. */
+{ type: "rotate" };
+
+/**  Input to the page projection. Mirrors `PageProjection` in the TS copy. */
+export type ReaderPageProjection = {
+	/**  Unrotated page width in PDF user-space units. */
+	pageWidth: number | null,
+	/**  Unrotated page height in PDF user-space units. */
+	pageHeight: number | null,
+	/**  Render scale. */
+	scale: number | null,
+	/**  Rotation in degrees; other values are normalised. */
+	rotation: number | null,
+};
+
+/**  PDF page size in user-space units. Mirrors `ReaderPageSize` in the TS copy. */
+export type ReaderPageSize = {
+	/**  Page width. */
+	width: number | null,
+	/**  Page height. */
+	height: number | null,
+};
+
+/**  A box in CSS pixels. Mirrors the object `pdfRectToScreenBox` returns. */
+export type ReaderScreenBox = {
+	/**  Left edge. */
+	left: number | null,
+	/**  Top edge. */
+	top: number | null,
+	/**  Width. */
+	width: number | null,
+	/**  Height. */
+	height: number | null,
+};
+
+/**  A point in CSS pixels. Mirrors the `{ x, y }` returned by the TS projection functions. */
+export type ReaderScreenPoint = {
+	/**  Horizontal position. */
+	x: number | null,
+	/**  Vertical position. */
+	y: number | null,
+};
+
+/**  The fields `resolve_viewport_scale` reads. Mirrors the `Pick` in the TS copy. */
+export type ReaderViewportScaleState = {
+	/**  Stored zoom scale. */
+	scale: number | null,
+	/**  Fit mode. */
+	fit: ReaderFitMode,
+	/**  Rotation in degrees. */
+	rotation: number | null,
+};
+
+/**  The viewport state. Mirrors `ReaderViewportState` in the TS copy. */
+export type ReaderViewportState = {
+	/**  Stored zoom scale. */
+	scale: number | null,
+	/**  Fit mode. */
+	fit: ReaderFitMode,
+	/**  Rotation in degrees. */
+	rotation: number | null,
+	/**  1-based current page. */
+	page: number | null,
 };
 
 /**  How a rejoin decides which lines belong to the same paragraph. */
