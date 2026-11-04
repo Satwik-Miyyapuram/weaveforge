@@ -5,13 +5,13 @@ import {
   INK_DEFAULT_WIDTH,
   INK_MAX_PATHS_PER_ANNOTATION,
   inkPathsHitTest,
-  selectionToAnchor,
   type CombinedPdfAnchor,
   type NewReaderAnnotation,
   type PageTextGeometry,
   type ReaderAnnotationType,
   type TextSelectionRange,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { PDF_INK_SAVE_TOLERANCE } from "./pdf-ink-sampler";
 
 export function draftFromTextSelection(input: {
@@ -24,7 +24,7 @@ export function draftFromTextSelection(input: {
   nextPageRects?: readonly number[][] | null;
   fullText?: string;
 }): NewReaderAnnotation | null {
-  const anchor = selectionToAnchor(input.selection, input.page);
+  const anchor = readyCore().selectionToAnchor(input.selection, input.page) as CombinedPdfAnchor | null;
   if (!anchor) return null;
   if (input.exactRects && input.exactRects.length > 0 && anchor.zoteroPosition) {
     anchor.zoteroPosition.rects = [...input.exactRects];

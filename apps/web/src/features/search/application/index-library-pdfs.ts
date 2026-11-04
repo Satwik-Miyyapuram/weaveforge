@@ -1,4 +1,5 @@
-import { errorMessage, pageTextFromItems, type DocumentPageText, type Paper } from "@weaveforge/core";
+import { errorMessage, type DocumentPageText, type Paper } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import {
@@ -121,7 +122,7 @@ async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
  * content items carry no text and are skipped.
  */
 export function pdfPageText(items: readonly unknown[]): string {
-  return pageTextFromItems(
+  return readyCore().pageTextFromItems(
     items.filter(
       (item): item is { str: string; hasEOL?: boolean } =>
         typeof (item as { str?: unknown }).str === "string",

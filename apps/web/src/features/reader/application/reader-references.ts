@@ -12,7 +12,6 @@ import {
   analyzePdfDocument,
   outlineItemOf,
   bodyFontSize,
-  mentionRects,
   type CitationSource,
   type DocumentAnalysis,
   type OutlineTextItem,
@@ -21,9 +20,9 @@ import {
   type PdfLink,
   type ReaderOutlineItem,
   coveredTextSpans,
-  pageTextFromItems,
 } from "@weaveforge/core";
 import type { FigureTarget } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** A clickable thing found in the page text. */
 export interface MentionHit {
@@ -138,7 +137,7 @@ function splitNumericCluster(
       start,
       end,
       referenceIndexes: [index],
-      rects: mentionRects(items, start, end),
+      rects: readyCore().mentionRects(items, start, end),
     });
   }
   return parts;
@@ -154,7 +153,7 @@ export function indexFromAnalysis(
   pages: readonly ReferencePage[],
 ): ReaderReferenceIndex {
   const byIndex = new Map(analysis.references.map((ref) => [ref.index, ref]));
-  const texts = new Map(pages.map((page) => [page.pageNumber, pageTextFromItems(page.items)]));
+  const texts = new Map(pages.map((page) => [page.pageNumber, readyCore().pageTextFromItems(page.items)]));
 
   const mentionsByPage = new Map<number, MentionHit[]>();
   const hitsFor = (page: number) => {

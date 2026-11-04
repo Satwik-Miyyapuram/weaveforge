@@ -1,4 +1,5 @@
-import { isBibliographicMatch, normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 interface OpenAlexWork {
   id?: string;
@@ -28,8 +29,9 @@ export class OpenAlexMetadataSource implements IMetadataSource {
     const response = await this.fetchFn(`${this.baseUrl}?${params}`);
     if (!response.ok) throw new Error(`OpenAlex metadata failed: ${response.status}`);
     const body = await response.json() as { results?: OpenAlexWork[] };
+    const core = await loadCore();
     for (const work of body.results ?? []) {
-      if (!work.title || !isBibliographicMatch(ref.hints ?? {}, { title: work.title, year: work.publication_year })) continue;
+      if (!work.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: work.title, year: work.publication_year })) continue;
       return {
         title: work.title,
         authors: (work.authorships ?? []).flatMap((entry) => entry.author?.display_name ? [entry.author.display_name] : []),

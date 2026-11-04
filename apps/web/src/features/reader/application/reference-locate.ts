@@ -13,7 +13,8 @@
  * without a PDF.
  */
 
-import { itemToRect, type PageTextItem } from "@weaveforge/core";
+import { type PageTextItem } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** `[x0, y0, x1, y1]` in PDF user space, origin bottom-left. */
 export type PdfRect = [number, number, number, number];
@@ -53,7 +54,7 @@ export function locateMention(
 
     const from = Math.max(0, start - itemStart);
     const to = Math.min(length, end - itemStart);
-    const rect = itemToRect(item, from, to) as PdfRect | null;
+    const rect = readyCore().itemToRect(item, from, to) as PdfRect | null;
     if (rect) rects.push(rect);
   }
 
