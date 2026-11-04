@@ -5,4 +5,7 @@ pub mod anchor;
 pub mod annotation;
 pub mod ink_stroke;
 pub mod locate;
+pub mod locus;
+pub mod selection;
 pub mod viewport;
+pub mod zotero_sync;
