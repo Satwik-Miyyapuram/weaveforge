@@ -11,6 +11,8 @@ use crate::app_log::{AppLog, LogLevel};
 use crate::commands::LocalDb;
 use crate::host::{Opener, ShellHost};
 use crate::launch::without_verbatim_prefix;
+use crate::local_artifacts::write_local_artifact;
+use crate::local_http::{BoxFuture, SaveArtifact, SdkQuery};
 use crate::prefs::Prefs;
 use crate::secrets::Secrets;
 use crate::sidecar::SidecarHost;
@@ -46,6 +48,40 @@ impl Opener for TauriOpener {
             .opener()
             .open_path(text, None::<&str>)
             .map_err(|e| e.to_string())
+    }
+}
+
+/// Runs the local API's SQL on the sidecar's local database.
+pub struct AppQuery(pub tauri::AppHandle);
+
+impl SdkQuery for AppQuery {
+    fn query<'a>(
+        &'a self,
+        sql: &'a str,
+        params: Vec<Value>,
+    ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
+        Box::pin(async move {
+            let Some(db) = self.0.try_state::<LocalDb>() else {
+                return Err("no local database".to_owned());
+            };
+            db.query(sql.to_owned(), params)
+                .await
+                .map_err(|e| e.message)
+        })
+    }
+}
+
+/// Saves SDK artifacts under the app's local artifacts folder.
+pub struct AppArtifacts(pub PathBuf);
+
+impl SaveArtifact for AppArtifacts {
+    fn save<'a>(
+        &'a self,
+        experiment_id: &'a str,
+        name: &'a str,
+        bytes: Vec<u8>,
+    ) -> BoxFuture<'a, Result<String, String>> {
+        Box::pin(async move { write_local_artifact(&self.0, experiment_id, name, &bytes) })
     }
 }
 

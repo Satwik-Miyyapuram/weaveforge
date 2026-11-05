@@ -114,6 +114,7 @@ pub fn run() -> tauri::Result<()> {
             start_vault_watch(app.handle());
             start_routes(app.handle());
             start_local_db(app.handle());
+            start_local_api(app.handle());
             open_main_window(app.handle())?;
             start_sign_in(app.handle());
             Ok(())
@@ -140,6 +141,7 @@ pub fn run() -> tauri::Result<()> {
         .build(tauri::generate_context!())?;
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
+            stop_local_api(handle);
             stop_local_db(handle);
             stop_helpers(handle);
         }
@@ -343,6 +345,105 @@ fn start_local_db(app: &tauri::AppHandle) {
     let _task = tauri::async_runtime::spawn(async move {
         local_api::forward_vault_root(&handle).await;
     });
+}
+
+/// What the local API needs from the app, or `None` when the stores are not managed yet.
+fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalApiDeps, bool)> {
+    use tauri::Manager;
+    let prefs = app.try_state::<prefs::Prefs>()?.inner().clone();
+    let secrets = app.try_state::<secrets::Secrets>()?.inner().clone();
+    let vault = app.try_state::<vault::VaultState>()?.inner().clone();
+    let paths = app.path();
+    let product = app.package_info().name.clone();
+    // Without a resource dir the build is unknown, so it is treated as Dev: it must never
+    // touch the installed app's MCP home or configs.
+    let variant = paths
+        .resource_dir()
+        .ok()
+        .map(launch::sidecar_source)
+        .map_or(Some("dev"), |s| launch::home_variant(&s, &product));
+    let release = !cfg!(debug_assertions) && variant.is_none();
+    let home = paths.home_dir().unwrap_or_default();
+    let mcp_paths = local_http::connect::mcp_paths(&home, variant, None);
+    let log = app.clone();
+    let ranker = Arc::new(local_http::control::WindowRanker::new(
+        Arc::new(app.clone()),
+        Arc::new(move |line: &str| local_api::warn(&log, line)),
+    ));
+    let query: Arc<dyn local_http::SdkQuery> = Arc::new(local_api::AppQuery(app.clone()));
+    let mcp = local_http::mcp::LocalMcp::new(
+        vault.clone(),
+        Some(query.clone()),
+        Some(ranker.clone()),
+        Some(local_http::McpHome {
+            api_url: format!("http://127.0.0.1:{}", local_http::server::LOCAL_API_PORT),
+            token_file: mcp_paths.file.to_string_lossy().into_owned(),
+        }),
+    );
+    let artifacts = paths.app_data_dir().unwrap_or_default().join("artifacts");
+    let deps = local_http::control::LocalApiDeps {
+        vault,
+        prefs: Arc::new(prefs),
+        secrets: Arc::new(secrets),
+        opener: Arc::new(local_api::TauriOpener(app.clone())),
+        query: Some(query),
+        save_artifact: Some(Arc::new(local_api::AppArtifacts(artifacts))),
+        mcp: Some(Arc::new(mcp)),
+        ranker,
+        paths: mcp_paths,
+        exe: std::env::current_exe().unwrap_or_default(),
+        version: app.package_info().version.to_string(),
+        tools: Arc::new(|| local_http::mcp::listed_tools(true)),
+        port: local_http::server::LOCAL_API_PORT,
+    };
+    Some((deps, release))
+}
+
+/// Manages the local API switch and turns the API on if the user left it on. A release build
+/// also points the MCP clients' configs at this app.
+fn start_local_api(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let Some((deps, release)) = local_api_deps(app) else {
+        local_api::warn(app, "no prefs, secrets or vault: the local API is off");
+        return;
+    };
+    let launch = local_http::connect::mcp_launch(&deps.paths, &deps.exe);
+    let _ = app.manage(local_http::control::LocalApiControl::new(deps));
+    let handle = app.clone();
+    let _task = tauri::async_runtime::spawn(async move {
+        if let Some(control) = handle.try_state::<local_http::control::LocalApiControl>() {
+            control.resume().await;
+        }
+        if !release {
+            return;
+        }
+        let paths = handle.path();
+        let home = paths.home_dir().unwrap_or_default();
+        let data = paths.data_dir().ok();
+        let targets =
+            local_http::rewrite::mcp_client_configs(&home, std::env::consts::OS, data.as_deref());
+        let (changed, skipped) = local_http::rewrite::rewrite_mcp_client_configs(&targets, &launch);
+        for file in changed {
+            local_api::warn(
+                &handle,
+                &format!("pointed MCP config at this app: {}", file.display()),
+            );
+        }
+        for file in skipped {
+            local_api::warn(
+                &handle,
+                &format!("left MCP config alone: {}", file.display()),
+            );
+        }
+    });
+}
+
+/// Stops the local API server, if it runs.
+fn stop_local_api(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(control) = app.try_state::<local_http::control::LocalApiControl>() {
+        tauri::async_runtime::block_on(control.close());
+    }
 }
 
 /// Closes the sidecar's stdin and waits up to `SHUTDOWN_GRACE` for it to exit.

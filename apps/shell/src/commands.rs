@@ -371,19 +371,17 @@ fn ipc_reply(reply: Value) -> Result<Value, ShellError> {
     }
 }
 
-/// Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron.
+/// Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron.
 #[tauri::command]
 #[specta::specta]
 pub async fn local_api_call(
-    db: tauri::State<'_, LocalDb>,
+    control: tauri::State<'_, crate::local_http::control::LocalApiControl>,
     channel: String,
     args: Vec<Json>,
 ) -> Result<Json, ShellError> {
     check_channel(&channel)?;
     let args = json_params(args)?;
-    let reply = db
-        .call(&format!("ipc:{channel}"), Value::Array(args))
-        .await?;
+    let reply = control.call(&channel, &args).await;
     json_row(ipc_reply(reply)?)
 }
 
