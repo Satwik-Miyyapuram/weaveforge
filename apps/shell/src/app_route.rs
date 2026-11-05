@@ -26,6 +26,10 @@ pub struct AppRoutes {
     pub relay_client: Option<reqwest::Client>,
     /// Relay upstreams and timeouts.
     pub relay_config: RelayConfig,
+    /// Where the GitHub file route reads the sync remote; None in tests.
+    pub prefs: Option<crate::prefs::Prefs>,
+    /// Where it reads the sync token; None in tests.
+    pub secrets: Option<crate::secrets::Secrets>,
 }
 
 /// The host the page wrote: Windows webviews turn `app://x/` into `http://app.x/`.
@@ -106,6 +110,15 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     if let Some(rest) = path.strip_prefix(SAME_ORIGIN_PREFIX) {
         let (root, rest) = (routes.artifacts.clone(), format!("/{rest}"));
         return blocking(move || serve_local_artifact(&root, &rest)).await;
+    }
+    if path == crate::github_file::ROUTE
+        && let (Some(client), Some(prefs), Some(secrets)) = (
+            routes.relay_client.as_ref(),
+            routes.prefs.as_ref(),
+            routes.secrets.as_ref(),
+        )
+    {
+        return crate::github_file::serve(client, prefs, secrets, parts.uri.query()).await;
     }
     if path.starts_with("/api/")
         && let Some(client) = routes.relay_client.as_ref()
