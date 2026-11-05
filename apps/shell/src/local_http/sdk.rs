@@ -162,6 +162,18 @@ fn form_decode(raw: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// Decodes base64 like TS's `Buffer.from(x, "base64")` for well-formed input: whitespace
+/// and missing padding are fine; other bad input is refused rather than guessed at.
+fn decode_base64(data: &str) -> Option<Vec<u8>> {
+    use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
+    const LENIENT: GeneralPurpose = GeneralPurpose::new(
+        &base64::alphabet::STANDARD,
+        GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent),
+    );
+    let clean: String = data.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    LENIENT.decode(clean).ok()
+}
+
 /// The value of one ASCII hex digit.
 #[allow(
     clippy::cast_possible_truncation,
@@ -463,8 +475,7 @@ async fn save_artifact_request(
     if !is_safe_segment(experiment_id) || !is_safe_segment(name) {
         return bad(400, BODY_HINT);
     }
-    // TS's Buffer.from is lenient; invalid base64 is refused here instead.
-    let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data) else {
+    let Some(bytes) = decode_base64(data) else {
         return bad(400, BODY_HINT);
     };
     if bytes.len() > MAX_LOCAL_ARTIFACT_BYTES {
@@ -939,6 +950,14 @@ mod tests {
         .expect("answers");
         assert_eq!(response.status, 400);
         assert!(save.saved.lock().expect("lock").is_empty());
+    }
+
+    #[test]
+    fn base64_with_line_breaks_or_no_padding_decodes() {
+        assert_eq!(decode_base64("cG\n5n\r\n"), Some(b"png".to_vec()));
+        assert_eq!(decode_base64("aGk"), Some(b"hi".to_vec()));
+        assert_eq!(decode_base64("aGk="), Some(b"hi".to_vec()));
+        assert_eq!(decode_base64("!!!!"), None);
     }
 
     #[test]
