@@ -7,12 +7,10 @@ import {
   GitHubRepoPdfResolver,
   OpenAccessPdfResolver,
   PdfByteCacheResolver,
-  StoredPdfResolver,
   WebDavPdfResolver,
   resolvePdfSource,
   type GitHubRepoPdfResolverOptions,
   type IPdfByteCache,
-  type StoredPdfResolverOptions,
   type IPdfSourceResolver,
   type PdfSourcePaper,
   type PdfSourceResolution,
@@ -59,13 +57,11 @@ const webDavResolver = new WebDavPdfResolver({
 export interface RemotePdfSources {
   /** URL for a file in the workspace's GitHub repo, or null when none is set up. */
   githubFileUrl?: GitHubRepoPdfResolverOptions["buildFileUrl"];
-  /** Signed URL for the PDF in our storage, or null when none is stored. */
-  storedPdfUrl?: StoredPdfResolverOptions["signedUrl"];
 }
 
 /**
- * Resolvers in priority order: cache, open access, GitHub repo, WebDAV, then
- * our storage last because it costs us bandwidth.
+ * Resolvers in priority order: cache, open access, GitHub repo, WebDAV.
+ * PDFs are never stored on our server, so there is no our-storage step.
  */
 function defaultPdfSourceResolvers(
   cache?: IPdfByteCache,
@@ -76,7 +72,6 @@ function defaultPdfSourceResolvers(
   resolvers.push(openAccessResolver);
   if (remote.githubFileUrl) resolvers.push(new GitHubRepoPdfResolver({ buildFileUrl: remote.githubFileUrl }));
   resolvers.push(webDavResolver);
-  if (remote.storedPdfUrl) resolvers.push(new StoredPdfResolver({ signedUrl: remote.storedPdfUrl }));
   return resolvers;
 }
 
