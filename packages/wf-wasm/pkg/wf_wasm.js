@@ -170,6 +170,23 @@ export function buildExcerpt(body, terms, max_chars, single_line) {
 }
 
 /**
+ * [`build_lab_snapshot_content`](lab_snapshot::build_lab_snapshot_content).
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @returns {any}
+ */
+export function buildLabSnapshotContent(input) {
+    const ret = wasm.buildLabSnapshotContent(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -184,6 +201,40 @@ export function buildSectionTree(sections) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`build_wiki_index`](wiki_index::build_wiki_index); `heading` defaults to `Index` when `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `pages` is not an array of `{ title, aliases? }` objects.
+ * @param {any} pages
+ * @param {string | null | undefined} heading
+ * @param {string} generated_at
+ * @returns {string}
+ */
+export function buildWikiIndex(pages, heading, generated_at) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        var ptr0 = isLikeNone(heading) ? 0 : passStringToWasm0(heading, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(generated_at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.buildWikiIndex(pages, ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
 }
 
 /**
@@ -986,6 +1037,23 @@ export function exclusionReasons(decisions, stage) {
 }
 
 /**
+ * [`experiment_activity_at`](experiment_status::experiment_activity_at).
+ *
+ * # Errors
+ *
+ * Fails if `experiment` has the wrong shape.
+ * @param {any} experiment
+ * @returns {number}
+ */
+export function experimentActivityAt(experiment) {
+    const ret = wasm.experimentActivityAt(experiment);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
  *
  * # Errors
@@ -1099,6 +1167,37 @@ export function extractWikilinks(body) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`fence_untrusted`](untrusted_context::fence_untrusted).
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of `{ label, text }` objects.
+ * @param {any} items
+ * @param {string} nonce
+ * @returns {string}
+ */
+export function fenceUntrusted(items, nonce) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(nonce, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.fenceUntrusted(items, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -1216,6 +1315,58 @@ export function formatCitation(key, format) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`format_metric_cell`](experiment_status::format_metric_cell).
+ *
+ * # Errors
+ *
+ * Fails if `value` cannot be read as JSON.
+ * @param {string} metric
+ * @param {any} value
+ * @returns {string}
+ */
+export function formatMetricCell(metric, value) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(metric, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatMetricCell(ptr0, len0, value);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`format_metric_value`](experiment_status::format_metric_value).
+ * @param {string} metric
+ * @param {number} value
+ * @returns {string}
+ */
+export function formatMetricValue(metric, value) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(metric, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatMetricValue(ptr0, len0, value);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -1985,6 +2136,26 @@ export function isSafeWorkspacePath(path) {
 }
 
 /**
+ * [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last metric time means none.
+ *
+ * # Errors
+ *
+ * Fails if `experiment` has the wrong shape.
+ * @param {any} experiment
+ * @param {number} now_ms
+ * @param {number} stale_ms
+ * @param {number | null} [last_metric_at_ms]
+ * @returns {boolean}
+ */
+export function isStaleRunningExperiment(experiment, now_ms, stale_ms, last_metric_at_ms) {
+    const ret = wasm.isStaleRunningExperiment(experiment, now_ms, stale_ms, !isLikeNone(last_metric_at_ms), isLikeNone(last_metric_at_ms) ? 0 : last_metric_at_ms);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
  *
  * # Errors
@@ -2363,6 +2534,29 @@ export function mergeVaultPage(base, folder, workspace) {
 }
 
 /**
+ * [`neutralise_context`](untrusted_context::neutralise_context).
+ * @param {string} text
+ * @param {string} nonce
+ * @returns {string}
+ */
+export function neutraliseContext(text, nonce) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(nonce, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.neutraliseContext(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`next_match_index`]: wraparound step; -1 when `total` is 0.
  * @param {number} current
  * @param {number} total
@@ -2429,6 +2623,24 @@ export function normaliseWhitespace(text, options) {
 }
 
 /**
+ * [`normalize_appearance`](user_appearance::normalize_appearance); `undefined` when
+ * nothing is valid.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function normalizeAppearance(raw) {
+    const ret = wasm.normalizeAppearance(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
  * `value`, or `None`.
  *
@@ -2454,6 +2666,22 @@ export function normalizeArxivId(value) {
 }
 
 /**
+ * [`normalize_color_value`](theme_config::normalize_color_value); `undefined` for a
+ * non-string or a rejected color.
+ * @param {any} raw
+ * @returns {string | undefined}
+ */
+export function normalizeColorValue(raw) {
+    const ret = wasm.normalizeColorValue(raw);
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
  * [`normalize_doi`](paper::normalize_doi) (TS `normalizeDoi`). `None` becomes `undefined`.
  * @param {string | null} [doi]
  * @returns {string | undefined}
@@ -2471,6 +2699,22 @@ export function normalizeDoi(doi) {
 }
 
 /**
+ * [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
+ * non-string or a rejected stack.
+ * @param {any} raw
+ * @returns {string | undefined}
+ */
+export function normalizeFontStack(raw) {
+    const ret = wasm.normalizeFontStack(raw);
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
  * [`normalize_graph_view_settings`](graph_settings::normalize_graph_view_settings).
  *
  * # Errors
@@ -2485,6 +2729,22 @@ export function normalizeGraphViewSettings(raw) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * A length from a number (px) or a string, limited to `max_px` (default 64).
+ * @param {any} raw
+ * @param {number | null} [max_px]
+ * @returns {string | undefined}
+ */
+export function normalizeLengthValue(raw, max_px) {
+    const ret = wasm.normalizeLengthValue(raw, !isLikeNone(max_px), isLikeNone(max_px) ? 0 : max_px);
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
 }
 
 /**
@@ -2566,6 +2826,24 @@ export function normalizeTags(tags) {
     var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v2;
+}
+
+/**
+ * [`normalize_theme_config`](theme_config::normalize_theme_config): a stored config
+ * re-checked, `null` when it no longer passes.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function normalizeThemeConfig(raw) {
+    const ret = wasm.normalizeThemeConfig(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -2789,6 +3067,24 @@ export function parseBibliographyEntry(lines, index, with_offsets) {
 }
 
 /**
+ * [`parse_dashboard_layout`](layout::parse_dashboard_layout); `null` when `lg` or `sm`
+ * is not an array.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function parseDashboardLayout(raw) {
+    const ret = wasm.parseDashboardLayout(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`parse_graph_persisted_state`](graph_settings::parse_graph_persisted_state); `null` when absent.
  *
  * # Errors
@@ -2903,6 +3199,23 @@ export function parseRollupOptions(options) {
     const ptr0 = passArrayJsValueToWasm0(options, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.parseRollupOptions(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_theme_config`](theme_config::parse_theme_config); a non-string reads as empty.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {any} text
+ * @returns {any}
+ */
+export function parseThemeConfig(text) {
+    const ret = wasm.parseThemeConfig(text);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3339,6 +3652,29 @@ export function relativeAssetPaths(body) {
 }
 
 /**
+ * [`replace_wiki_index`](wiki_index::replace_wiki_index).
+ * @param {string} body
+ * @param {string} index
+ * @returns {string}
+ */
+export function replaceWikiIndex(body, index) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(index, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.replaceWikiIndex(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`validate_report_section_input`](report_section::validate_report_section_input): the
  * validation message, or `undefined` when the input is valid.
  *
@@ -3489,6 +3825,29 @@ export function resolveViewportScale(state, page, container) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`safe_label`](untrusted_context::safe_label).
+ * @param {string} label
+ * @param {string} nonce
+ * @returns {string}
+ */
+export function safeLabel(label, nonce) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(label, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(nonce, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.safeLabel(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -3674,6 +4033,23 @@ export function serializeWorkspace(snapshot_json, project_id, project_name) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
+ * @param {string | null} [sha]
+ * @returns {string | undefined}
+ */
+export function shortSha(sha) {
+    var ptr0 = isLikeNone(sha) ? 0 : passStringToWasm0(sha, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.shortSha(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
 }
 
 /**
@@ -3893,6 +4269,27 @@ export function stampWorkspaceId(content, id) {
 }
 
 /**
+ * [`status_patch_for_experiment`](experiment_status::status_patch_for_experiment).
+ *
+ * # Errors
+ *
+ * Fails if `experiment` or `status` has the wrong shape.
+ * @param {any} experiment
+ * @param {any} status
+ * @param {string} now
+ * @returns {any}
+ */
+export function statusPatchForExperiment(experiment, status, now) {
+    const ptr0 = passStringToWasm0(now, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.statusPatchForExperiment(experiment, status, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`strip_frontmatter`](page::strip_frontmatter) (TS `stripFrontmatter`).
  *
  * # Errors
@@ -4038,6 +4435,23 @@ export function textFingerprint(texts) {
         return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`theme_config_template`](theme_config::theme_config_template): the starter file.
+ * @returns {string}
+ */
+export function themeConfigTemplate() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.themeConfigTemplate();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
     }
 }
 
@@ -4223,6 +4637,23 @@ export function uniqueTitle(base, used) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`UNTRUSTED_CONTEXT_RULE`](untrusted_context::UNTRUSTED_CONTEXT_RULE).
+ * @returns {string}
+ */
+export function untrustedContextRule() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.untrustedContextRule();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
     }
 }
 
