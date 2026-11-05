@@ -2,11 +2,11 @@
 
 import { memo, useMemo, useRef, type ReactNode } from "react";
 import {
-  pdfRectToScreenBox,
   type FigureGeometry,
   type FigureOrderStep,
   type ReaderAnnotation,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import {
   INK_SELECTION_HALO_PX,
   InkFigureEditor,
@@ -328,7 +328,7 @@ export function TextBoxEditor({
 }) {
   // Enter saves and unmounts, which blurs: without this the box saves twice.
   const done = useRef(false);
-  const box = pdfRectToScreenBox(edit.rect, projection);
+  const box = readyCore().pdfRectToScreenBox(edit.rect, projection);
   // Only an upright (or upside-down) page grows the box along its PDF height.
   const upright = projection.rotation % 180 === 0;
   const finish = (el: { value: string; scrollHeight: number }) => {

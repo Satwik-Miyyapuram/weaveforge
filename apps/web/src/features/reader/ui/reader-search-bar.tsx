@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  findDocumentMatches,
-  nextMatchIndex,
   type DocumentPageText,
   type DocumentSearchMatch,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { Button, CloseButton, IconButton } from "@/components/button";
@@ -35,7 +34,7 @@ export function ReaderSearchBar({
   };
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(-1);
-  const matches = useMemo(() => findDocumentMatches(pages, query), [pages, query]);
+  const matches = useMemo(() => readyCore().findDocumentMatches(pages, query), [pages, query]);
   useEffect(() => {
     onMatches?.(matches, active);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,7 +42,7 @@ export function ReaderSearchBar({
 
   function jump(direction: 1 | -1) {
     if (matches.length === 0) return;
-    const next = nextMatchIndex(active, matches.length, direction);
+    const next = readyCore().nextMatchIndex(active, matches.length, direction);
     setActive(next);
     const match = matches[next];
     if (match) onJump(match);

@@ -8,14 +8,11 @@
  */
 
 import {
-  chooseAnchorStrategy,
-  isHighlighterInk,
   INK_DEFAULT_WIDTH,
-  pdfPointToScreen,
-  pdfRectToScreenBox,
   type PageProjection,
   type ReaderAnnotation,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import { picturePath } from "./reader-picture";
 import { normalizeHighlightRects } from "./normalize-highlight-rects";
@@ -123,11 +120,11 @@ export function projectPageAnnotationGeometry(
     // Stored geometry — rects and ink paths alike — only means anything against
     // the file it was captured on. Painting it after the file changed puts the
     // highlight over the wrong words, which is worse than showing nothing.
-    if (chooseAnchorStrategy(ann.anchor, contentHash).kind !== "rects") continue;
+    if (readyCore().chooseAnchorStrategy(ann.anchor, contentHash).kind !== "rects") continue;
 
     if (position.pageIndex === pageIndex && position.paths?.length) {
       const inkWidth = typeof position.width === "number" ? position.width : INK_DEFAULT_WIDTH;
-      const highlighter = isHighlighterInk(position.width);
+      const highlighter = readyCore().isHighlighterInk(position.width);
       for (const path of position.paths) {
         if (!Array.isArray(path) || path.length < 4) continue;
         const points: number[] = [];
@@ -136,7 +133,7 @@ export function projectPageAnnotationGeometry(
           const y = path[i + 1];
           if (typeof x !== "number" || typeof y !== "number") continue;
           if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-          const screen = pdfPointToScreen(x, y, projection);
+          const screen = readyCore().pdfPointToScreen(x, y, projection);
           points.push(screen.x, screen.y);
         }
         if (points.length >= 4) {
@@ -171,7 +168,7 @@ export function projectPageAnnotationGeometry(
       const rects = textMark ? normalizeHighlightRects(stored.filter(isRect)) : stored;
       for (const rect of rects) {
         if (!isRect(rect)) continue;
-        const box = pdfRectToScreenBox(rect as [number, number, number, number], projection);
+        const box = readyCore().pdfRectToScreenBox(rect as [number, number, number, number], projection);
         boxes.push({
           id: ann.id,
           left: box.left,

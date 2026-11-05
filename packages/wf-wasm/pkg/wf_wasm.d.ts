@@ -25,6 +25,11 @@ export function applyCommaPlacement(input: string, placement: any): any;
 export function binomialSmooth(values: Float64Array, stride: number, passes: number): Float64Array;
 
 /**
+ * [`build_annotation_sort_index`] (TS `buildAnnotationSortIndex`).
+ */
+export function buildAnnotationSortIndex(page_index: number, char_offset: number, top_pdf_units: number): string;
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -38,6 +43,11 @@ export function binomialSmooth(values: Float64Array, stride: number, passes: num
 export function buildExcerpt(body: string, terms: any, max_chars?: number | null, single_line?: boolean | null): any;
 
 /**
+ * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
+ */
+export function canJoinInkGroup(group: any, next: any, window_ms?: number | null): boolean;
+
+/**
  * [`wf_core::sync::change_origin::changed_side`] for JS, as a `ChangeSide` string.
  *
  * # Errors
@@ -47,14 +57,43 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
 export function changedSide(base?: string | null, folder?: string | null, workspace?: string | null): any;
 
 /**
+ * [`choose_anchor_strategy`] as `{ kind, position | locus, confidence }`.
+ *
+ * # Errors
+ *
+ * Fails if `anchor` is not a combined anchor object, or the result cannot be converted.
+ */
+export function chooseAnchorStrategy(anchor: any, current_content_hash: string): any;
+
+/**
  * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
  */
 export function clampInkNoteWidth(width: number, fallback?: number | null): number;
 
 /**
+ * [`clamp_ink_width`].
+ */
+export function clampInkWidth(width: number): number;
+
+/**
  * [`clamp_ink_zoom`].
  */
 export function clampInkZoom(zoom: number): number;
+
+/**
+ * [`clamp_page`] (TS `clampPage`).
+ */
+export function clampPage(page: number, num_pages: number): number;
+
+/**
+ * [`clamp_scale`]: a non-finite or non-positive scale gives 1, else clamps to the zoom range.
+ */
+export function clampScale(scale: number): number;
+
+/**
+ * [`clamp_zoom_factor`] (TS `clampZoomFactor`).
+ */
+export function clampZoomFactor(factor: number, base_scale: number): number;
 
 /**
  * [`clean_pasted_text`] for JS, as `{ text, changed, urlsCleaned }`.
@@ -92,6 +131,29 @@ export function cleanUrlsWithRules(text: string, rules: any): any;
  * Fails when `options` is not a `WrappedTextOptions` object, or `input` is over the text cap.
  */
 export function cleanWrappedText(input: string, options: any): any;
+
+/**
+ * [`compact_ink_path`]; `options` is `{ tolerance?, maxPoints?, decimals? }` or absent.
+ */
+export function compactInkPath(path: Float64Array, options: any): Float64Array;
+
+/**
+ * [`compute_fit_page_scale`] (TS `computeFitPageScale`).
+ *
+ * # Errors
+ *
+ * Fails if `page` or `container` is not an object with `width` and `height`.
+ */
+export function computeFitPageScale(page: any, container: any, rotation: number, gutter_px: number): number;
+
+/**
+ * [`compute_fit_width_scale`] (TS `computeFitWidthScale`).
+ *
+ * # Errors
+ *
+ * Fails if `page` or `container` is not an object with `width` and `height`.
+ */
+export function computeFitWidthScale(page: any, container: any, rotation: number, gutter_px: number): number;
 
 /**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
@@ -227,6 +289,24 @@ export function extractDoi(value: string): string | undefined;
 export function extractPageMetadata(html: string, url: string): any;
 
 /**
+ * [`find_document_matches`] as an array of `{ pageIndex, start, end }`; `pages` is `{ pageIndex, text }[]`.
+ *
+ * # Errors
+ *
+ * Fails if `pages` is not an array of `{ pageIndex, text }` objects.
+ */
+export function findDocumentMatches(pages: any, query: string): any;
+
+/**
+ * [`find_quote_matches`] as an array of `{ start, end }`.
+ *
+ * # Errors
+ *
+ * Fails if `quote` is not a quote selector object.
+ */
+export function findQuoteMatches(text: string, quote: any): any;
+
+/**
  * [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
  * `k` defaults to [`RRF_K`]; `limit` of `None` or 0 means no limit.
  *
@@ -305,6 +385,15 @@ export function imagePathsInBody(body: string, prefix: string): string[];
 export function indexTerms(text: string, options: any): any;
 
 /**
+ * [`initial_reader_viewport`] as `{ scale, fit, rotation, page }` (TS `initialReaderViewport`).
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function initialReaderViewport(page: number): any;
+
+/**
  * [`ink_curve_at`] as `[x, y]`. A span past the end gives `[NaN, NaN]`, as
  * the TS copy's out-of-range reads do.
  */
@@ -322,9 +411,35 @@ export function inkCurveAt(xs: Float64Array, ys: Float64Array, i: number, u: num
 export function inkLineRecords(counts: Uint32Array, bands: Float64Array, recognised: any): any;
 
 /**
+ * [`ink_note_width_to_pdf_points`].
+ */
+export function inkNoteWidthToPdfPoints(tenths: number): number;
+
+/**
  * [`ink_page_confidence`] over the lines' `conf` values.
  */
 export function inkPageConfidence(confs: Float64Array): number;
+
+/**
+ * [`ink_path_json_size`].
+ */
+export function inkPathJsonSize(path: Float64Array): number;
+
+/**
+ * [`ink_paths_bounds`]; `[x1, y1, x2, y2]` or `null`.
+ */
+export function inkPathsBounds(paths: any): any;
+
+/**
+ * [`ink_paths_hit_test`]; `paths` is an array of number arrays.
+ */
+export function inkPathsHitTest(paths: any, x: number, y: number, radius: number): boolean;
+
+/**
+ * [`ink_paths_in_polygon`]. `paths` is every path's flat `x, y` pairs back to back; `pathLengths`
+ * gives each path's value count. A length that runs past `paths` is skipped.
+ */
+export function inkPathsInPolygon(paths: Float64Array, path_lengths: Uint32Array, polygon: Float64Array, share: number): boolean;
 
 /**
  * [`ink_pressure_factor`].
@@ -357,6 +472,11 @@ export function inkVelocityFactor(velocity: number, full_taper?: number | null):
 export function inkVocabularyHints(sources: any, limit?: number | null): any;
 
 /**
+ * [`ink_width_for_pressure`]; `base` defaults to `INK_DEFAULT_WIDTH`.
+ */
+export function inkWidthForPressure(pressure?: number | null, base?: number | null): number;
+
+/**
  * [`ink_zoom_in`].
  */
 export function inkZoomIn(zoom: number): number;
@@ -367,6 +487,11 @@ export function inkZoomIn(zoom: number): number;
 export function inkZoomOut(zoom: number): number;
 
 /**
+ * [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
+ */
+export function isAnnotationSyncState(value: any): boolean;
+
+/**
  * [`wf_core::sync::json_entities::is_app_owned_path`] for JS.
  *
  * # Errors
@@ -374,6 +499,11 @@ export function inkZoomOut(zoom: number): number;
  * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function isAppOwnedPath(path: string): boolean;
+
+/**
+ * [`is_highlighter_ink`]; `undefined` is `None`.
+ */
+export function isHighlighterInk(width?: number | null): boolean;
 
 /**
  * [`wf_core::sync::ink_note::is_ink_chunk_id`] for JS.
@@ -392,6 +522,11 @@ export function isInkChunkId(text: string): boolean;
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function isInkNoteBody(body: string): boolean;
+
+/**
+ * [`is_reader_annotation_type`] for any JS value: false unless `value` is a string.
+ */
+export function isReaderAnnotationType(value: any): boolean;
 
 /**
  * [`wf_core::workspace::is_safe_workspace_path`] for JS.
@@ -461,6 +596,11 @@ export function maxFusionIds(): number;
 export function maxIndexTextUtf16(): number;
 
 /**
+ * [`mean_pressure`]; `undefined` when no sample reports pressure.
+ */
+export function meanPressure(samples: Float64Array): number | undefined;
+
+/**
  * [`wf_core::sync::text_diff::merge_hunks`] for JS. Picks are keyed by hunk
  * index; only canonical decimal keys (`"0"`, not `"00"`) count, as in the TS.
  *
@@ -491,9 +631,33 @@ export function mergeRows(base: any, local: any, remote: any): any;
 export function mergeVaultPage(base: any, folder: any, workspace: any): any;
 
 /**
+ * [`next_match_index`]: wraparound step; -1 when `total` is 0.
+ */
+export function nextMatchIndex(current: number, total: number, direction: number): number;
+
+/**
+ * [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90 in the TS wrapper.
+ */
+export function nextRotation(current: number, delta: number): number;
+
+/**
  * [`nib_width`]; `velocity` defaults to 0.
  */
 export function nibWidth(base: number, pressure?: number | null, velocity?: number | null, full_taper?: number | null): number;
+
+/**
+ * [`normalise_page_rotation`] (TS `normalisePageRotation`): 0, 90, 180 or 270.
+ */
+export function normalisePageRotation(rotation: number): number;
+
+/**
+ * [`normalise_whitespace`] as `{ normalised, map }`; `options` is `{ trim? }` or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object, or the result cannot be converted.
+ */
+export function normaliseWhitespace(text: string, options: any): any;
 
 /**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
@@ -602,6 +766,34 @@ export function parseWorkspaceFolder(files: any): any;
 export function pasteLandsInVerbatimContext(document: string, offset: number): boolean;
 
 /**
+ * [`pdf_point_to_screen`] as `{ x, y }` (TS `pdfPointToScreen`).
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ */
+export function pdfPointToScreen(x: number, y: number, p: any): any;
+
+/**
+ * [`pdf_rect_to_screen_box`] as `{ left, top, width, height }` (TS `pdfRectToScreenBox`).
+ * `rect` is flat `[x1, y1, x2, y2]`; a short array reads missing entries as NaN.
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ */
+export function pdfRectToScreenBox(rect: Float64Array, p: any): any;
+
+/**
+ * [`pick_nearest_match`] as `{ start, end }`, or `null` when there is no match.
+ *
+ * # Errors
+ *
+ * Fails if `matches` or `position` has the wrong shape.
+ */
+export function pickNearestMatch(matches: any, position: any): any;
+
+/**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
  * `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
  * `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
@@ -612,6 +804,11 @@ export function pasteLandsInVerbatimContext(document: string, offset: number): b
  * Fails when an argument has the wrong shape.
  */
 export function planMirror(files: any, asset_paths: any, previous_paths: any, base: any, disk: any): any;
+
+/**
+ * [`point_in_polygon`]: is `(x, y)` inside the flat `x, y` polygon.
+ */
+export function pointInPolygon(polygon: Float64Array, x: number, y: number): boolean;
 
 /**
  * [`wf_core::sync::folder_layout::project_dir`] for JS.
@@ -632,6 +829,20 @@ export function projectDir(id: string, name: string): string;
 export function projectMetaDir(project_root: string): string;
 
 /**
+ * [`projected_page_size`] as `{ width, height }` (TS `projectedPageSize`).
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ */
+export function projectedPageSize(p: any): any;
+
+/**
+ * [`quantize_ink_path`]; `decimals` defaults to 2.
+ */
+export function quantizeInkPath(path: Float64Array, decimals?: number | null): Float64Array;
+
+/**
  * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
  *
  * # Errors
@@ -650,6 +861,16 @@ export function readFrontmatter(content: string): any;
 export function readInkNoteBody(body: string): any;
 
 /**
+ * [`reader_keyboard_command`]: the `ReaderKeyboardCommand` for `event`, or `null`
+ * when the event passes through.
+ *
+ * # Errors
+ *
+ * Fails if `event` is not a `ReaderKeyEvent` object.
+ */
+export function readerKeyboardCommand(event: any): any;
+
+/**
  * [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
  *
  * # Errors
@@ -666,6 +887,33 @@ export function relativeAssetPaths(body: string): any;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function resampleInkStroke(points: Float64Array, pressures: Float64Array, spacing?: number | null): any;
+
+/**
+ * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
+ *
+ * # Errors
+ *
+ * Fails if `position` is not a position selector object.
+ */
+export function resolvePositionSelector(text: string, position: any): any;
+
+/**
+ * [`resolve_text_anchor`] as `{ start, end, via, confidence }`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `locus` is not a locus object.
+ */
+export function resolveTextAnchor(text: string, locus: any): any;
+
+/**
+ * [`resolve_viewport_scale`] (TS `resolveViewportScale`); `state` is `{ scale, fit, rotation }`.
+ *
+ * # Errors
+ *
+ * Fails if an argument is not an object of the expected shape.
+ */
+export function resolveViewportScale(state: any, page: any, container: any): number;
 
 /**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
@@ -687,6 +935,15 @@ export function safeWorkspacePath(path: string): string;
 export function sameValue(a: any, b: any): boolean;
 
 /**
+ * [`screen_point_to_pdf`] as `{ x, y }` (TS `screenPointToPdf`).
+ *
+ * # Errors
+ *
+ * Fails if `p` is not a page projection object.
+ */
+export function screenPointToPdf(sx: number, sy: number, p: any): any;
+
+/**
  * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
  * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
  * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
@@ -706,6 +963,21 @@ export function segmentInkLines(points: Float64Array, offsets: Uint32Array, pen:
  * `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function serializeWorkspace(snapshot_json: string, project_id: string, project_name: string): any;
+
+/**
+ * [`should_append_ink_point`]; `minDistance` defaults to 0.75.
+ */
+export function shouldAppendInkPoint(path: Float64Array, x: number, y: number, min_distance?: number | null): boolean;
+
+/**
+ * [`simplify_ink_path`]; `tolerance` defaults to 0.35.
+ */
+export function simplifyInkPath(path: Float64Array, tolerance?: number | null): Float64Array;
+
+/**
+ * [`simplify_path_indices`]; `tolerance` defaults to 0.35. Returns a JS array of indices.
+ */
+export function simplifyPathIndices(path: Float64Array, tolerance?: number | null): any;
 
 /**
  * [`smooth_ink_stroke`] as `{ points, pressures }`; `options` is
@@ -770,6 +1042,11 @@ export function toRelativeBlobLinks(body: string, file_path: string): any;
 export function tokenize(text: string, options: any): any;
 
 /**
+ * [`translate_ink_paths`]; `decimals` defaults to 2. Returns an array of number arrays.
+ */
+export function translateInkPaths(paths: any, dx: number, dy: number, decimals?: number | null): any;
+
+/**
  * [`wf_core::sync::merge_vault_page::vault_page_base`] for JS; `null` when the file is not a note.
  *
  * # Errors
@@ -786,6 +1063,15 @@ export function vaultPageBase(path: string, content: string): any;
  * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function vaultPageSide(path: string, content: string): any;
+
+/**
+ * [`visual_page_size`] as `{ width, height }` (TS `visualPageSize`).
+ *
+ * # Errors
+ *
+ * Fails if `page` is not an object with `width` and `height`.
+ */
+export function visualPageSize(page: any, rotation: number): any;
 
 /**
  * [`wf_core::sync::workspace_snapshot::workspace_snapshot_counts`] for JS.
@@ -826,6 +1112,16 @@ export function writeFrontmatter(fields: any, body: string): string;
  */
 export function writeInkNoteBody(meta: any, text: string): string;
 
+/**
+ * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
+ */
+export function zoomIn(scale: number, step: number): number;
+
+/**
+ * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25 in the TS wrapper.
+ */
+export function zoomOut(scale: number, step: number): number;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -833,14 +1129,24 @@ export interface InitOutput {
     readonly addCounts: (a: any, b: any) => [number, number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
     readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
+    readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
+    readonly clampInkWidth: (a: number) => number;
     readonly clampInkZoom: (a: number) => number;
+    readonly clampPage: (a: number, b: number) => number;
+    readonly clampScale: (a: number) => number;
+    readonly clampZoomFactor: (a: number, b: number) => number;
     readonly cleanPastedText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanPdfText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanUrlsWithRules: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanWrappedText: (a: number, b: number, c: any) => [number, number, number];
+    readonly compactInkPath: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly computeFitPageScale: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly computeFitWidthScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -855,6 +1161,8 @@ export interface InitOutput {
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly findDocumentMatches: (a: any, b: number, c: number) => [number, number, number];
+    readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
@@ -863,19 +1171,29 @@ export interface InitOutput {
     readonly imageExtensionForMime: (a: number, b: number) => [number, number, number, number];
     readonly imagePathsInBody: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly initialReaderViewport: (a: number) => [number, number, number];
     readonly inkCurveAt: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly inkLineRecords: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly inkNoteWidthToPdfPoints: (a: number) => number;
     readonly inkPageConfidence: (a: number, b: number) => number;
+    readonly inkPathJsonSize: (a: number, b: number) => number;
+    readonly inkPathsBounds: (a: any) => [number, number, number];
+    readonly inkPathsHitTest: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly inkPathsInPolygon: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly inkPressureFactor: (a: number, b: number) => number;
     readonly inkTangentAt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
     readonly inkVelocityBetween: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly inkVelocityFactor: (a: number, b: number, c: number) => number;
     readonly inkVocabularyHints: (a: any, b: number, c: number) => [number, number, number];
+    readonly inkWidthForPressure: (a: number, b: number, c: number, d: number) => number;
     readonly inkZoomIn: (a: number) => number;
     readonly inkZoomOut: (a: number) => number;
+    readonly isAnnotationSyncState: (a: any) => number;
     readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
+    readonly isHighlighterInk: (a: number, b: number) => number;
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
+    readonly isReaderAnnotationType: (a: any) => number;
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
@@ -885,10 +1203,15 @@ export interface InitOutput {
     readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
+    readonly meanPressure: (a: number, b: number) => [number, number];
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
+    readonly nextMatchIndex: (a: number, b: number, c: number) => number;
+    readonly nextRotation: (a: number, b: number) => number;
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+    readonly normalisePageRotation: (a: number) => number;
+    readonly normaliseWhitespace: (a: number, b: number, c: any) => [number, number, number];
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
@@ -900,17 +1223,31 @@ export interface InitOutput {
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly parseWorkspaceFolder: (a: any) => [number, number, number];
     readonly pasteLandsInVerbatimContext: (a: number, b: number, c: number) => [number, number, number];
+    readonly pdfPointToScreen: (a: number, b: number, c: any) => [number, number, number];
+    readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
+    readonly pickNearestMatch: (a: any, b: any) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
+    readonly projectedPageSize: (a: any) => [number, number, number];
+    readonly quantizeInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
+    readonly readerKeyboardCommand: (a: any) => [number, number, number];
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
+    readonly resolveTextAnchor: (a: number, b: number, c: any) => [number, number, number];
+    readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
+    readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
     readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly shouldAppendInkPoint: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
@@ -918,12 +1255,16 @@ export interface InitOutput {
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
+    readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly visualPageSize: (a: any, b: number) => [number, number, number];
     readonly workspaceSnapshotCounts: (a: number, b: number) => [number, number, number];
     readonly writeConflictMarkers: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly writeFrontmatter: (a: any, b: number, c: number) => [number, number, number, number];
     readonly writeInkNoteBody: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly zoomIn: (a: number, b: number) => number;
+    readonly zoomOut: (a: number, b: number) => number;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

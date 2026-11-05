@@ -2,13 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  canJoinInkGroup,
-  inkPathsHitTest,
-  inkPathsInPolygon,
-  inkNoteWidthToPdfPoints,
-  screenPointToPdf,
-  shouldAppendInkPoint,
-  translateInkPaths,
   INK_HIGHLIGHTER_WIDTH,
   INK_DEFAULT_WIDTH,
   type PageProjection,
@@ -16,6 +9,7 @@ import {
   type ReaderAnnotation,
   type ReaderPageSize,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
@@ -219,7 +213,7 @@ export function usePagePointer({
     // Rotation is part of the mapping, not a reason to refuse to draw: the
     // create tools used to switch off entirely at 90/180/270, which is exactly
     // the orientation a scanned landscape page is read in.
-    return screenPointToPdf(clientX - rect.left, clientY - rect.top, pageProjection(pageNumber));
+    return readyCore().screenPointToPdf(clientX - rect.left, clientY - rect.top, pageProjection(pageNumber));
   }
 
   /**
@@ -267,7 +261,7 @@ export function usePagePointer({
       const position = ann.anchor.zoteroPosition;
       if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
       const nib = typeof position.width === "number" ? position.width : INK_DEFAULT_WIDTH;
-      return inkPathsHitTest(position.paths, x, y, radius + nib / 2);
+      return readyCore().inkPathsHitTest(position.paths, x, y, radius + nib / 2);
     });
   }
 
@@ -311,7 +305,7 @@ export function usePagePointer({
     const group = inkGroup.current;
 
     if (
-      canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
+      readyCore().canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
       group
     ) {
       const existing = annotations.find((a) => a.id === group.annotationId);
@@ -365,7 +359,7 @@ export function usePagePointer({
         ...ann.anchor,
         zoteroPosition: {
           ...position,
-          paths: translateInkPaths(position.paths, move.dx, move.dy),
+          paths: readyCore().translateInkPaths(position.paths, move.dx, move.dy),
         },
       });
     }
@@ -395,7 +389,7 @@ export function usePagePointer({
         if (ann.type !== "ink") return false;
         const position = ann.anchor.zoteroPosition;
         if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
-        return inkPathsInPolygon(position.paths, polygon);
+        return readyCore().inkPathsInPolygon(position.paths, polygon);
       })
       .map((ann) => ann.id);
   }
@@ -409,7 +403,7 @@ export function usePagePointer({
    */
   const nibBase =
     createTool === "highlighter"
-      ? inkNoteWidthToPdfPoints(highlighterWidth)
+      ? readyCore().inkNoteWidthToPdfPoints(highlighterWidth)
       : inkWidth;
 
   function startErase(pageNumber: number, event: React.PointerEvent<HTMLDivElement>, pt: { x: number; y: number }) {
@@ -535,7 +529,7 @@ export function usePagePointer({
     if (lassoPointerId.current === event.pointerId) {
       // A loop is a shape, and samples inside the pointer's own jitter carry
       // none of it: the rule the stroke path uses keeps the polygon short too.
-      if (shouldAppendInkPoint(lasso.current, pt.x, pt.y)) {
+      if (readyCore().shouldAppendInkPoint(lasso.current, pt.x, pt.y)) {
         lasso.current.push(pt.x, pt.y);
         publishLasso(lasso.current);
       }

@@ -218,6 +218,11 @@ export type {
 export { init, initSync };
 export * from "./ink.js";
 export * from "./ink-lines.js";
+export * from "./reader-anchor.js";
+export * from "./reader-annotation.js";
+export * from "./reader-ink-stroke.js";
+export * from "./reader-locate.js";
+export * from "./reader-viewport.js";
 
 
 /** Facts about this core build, such as its version. */
