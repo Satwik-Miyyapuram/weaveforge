@@ -272,6 +272,7 @@ impl PgServer {
             .kill_on_drop(true)
             .args(dump_args(self.port, file))
             .env("PGPASSWORD", &self.password)
+            .envs(super::comspec::env())
             .stdin(Stdio::null());
         #[cfg(windows)]
         let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
@@ -297,7 +298,8 @@ impl PgServer {
             .arg("stop")
             .arg("-D")
             .arg(&self.data)
-            .args(["-m", "fast", "-t", "15"]);
+            .args(["-m", "fast", "-t", "15"])
+            .envs(super::comspec::env());
         #[cfg(windows)]
         let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
         // A failed or hung pg_ctl is covered by the kill below.
@@ -319,7 +321,7 @@ impl PgServer {
 /// Builds the `postgres` command, wrapped so it dies with the shell; stderr goes to `log`.
 fn wrapped_command(program: PathBuf, args: Vec<OsString>, log: fs::File) -> CommandWrap {
     let mut wrap = CommandWrap::with_new(program, move |c| {
-        let _ = c.args(&args);
+        let _ = c.args(&args).envs(super::comspec::env());
         let _ = c.stdin(Stdio::null());
         let _ = c.stdout(Stdio::null());
         let _ = c.stderr(Stdio::from(log));
@@ -339,7 +341,10 @@ fn wrapped_command(program: PathBuf, args: Vec<OsString>, log: fs::File) -> Comm
 /// Runs `initdb` and returns its error with the tail of stderr on failure.
 async fn run_initdb(bin: &Path, data: &Path, pwfile: &Path) -> Result<(), PgError> {
     let mut cmd = tokio::process::Command::new(bin.join(exe_name("initdb")));
-    let _ = cmd.kill_on_drop(true).args(initdb_args(data, pwfile));
+    let _ = cmd
+        .kill_on_drop(true)
+        .args(initdb_args(data, pwfile))
+        .envs(super::comspec::env());
     #[cfg(windows)]
     let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
     let out = tokio::time::timeout(READY_TIMEOUT, cmd.output())
@@ -447,12 +452,17 @@ mod tests {
         );
     }
 
-    /// Real Postgres: set `WF_REAL_PG_BIN` to a folder with initdb, postgres and pg_dump.
+    /// Real Postgres: set `WF_REAL_PG_BIN` to a folder with initdb, postgres and pg_dump, and
+    /// `WF_COMSPEC_SHIM_EXE` to a built shell exe if cmd has an AutoRun.
     #[tokio::test]
     async fn real_dump_writes_a_custom_format_file() -> Result<(), PgError> {
         let Some(bin) = std::env::var_os("WF_REAL_PG_BIN").map(PathBuf::from) else {
             return Ok(());
         };
+        // A built shell exe, when cmd has an AutoRun that would break initdb.
+        if let Some(exe) = std::env::var_os("WF_COMSPEC_SHIM_EXE") {
+            super::super::comspec::enable(exe.into());
+        }
         let root = std::env::temp_dir().join(format!("wf-dump-test-{}", std::process::id()));
         let server = PgServer::start(&bin, &root).await?;
         let file = root.join("x.dump");
