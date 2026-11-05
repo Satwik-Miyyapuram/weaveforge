@@ -619,10 +619,7 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |d| d.as_nanos())
         ));
-        let engine = PgEngine {
-            bin: tmp.join("no-such-bin"),
-            root: tmp.join("pg"),
-        };
+        let engine = PgEngine::new(tmp.join("no-such-bin"), tmp.join("pg"), None);
         let native = Arc::new(PgHost::new(engine, Vec::new()));
         // The sidecar failed, so anything it served would say "failed to start".
         let db =

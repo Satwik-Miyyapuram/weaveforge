@@ -8,6 +8,7 @@
 //! - `host`: the database as the app sees it: lazy open, queries as the device user, state, reset.
 //! - `import`: a one-time copy of an old PGlite database into the new one.
 //! - `backup`: `pg_dump` copies of the database and which of them to keep.
+//! - `restore`: rebuilds a missing database from the newest backup that loads.
 //! - `comspec`: runs `initdb`'s shell commands without the user's cmd AutoRun.
 
 pub mod backup;
@@ -15,6 +16,7 @@ pub mod comspec;
 pub mod db;
 pub mod host;
 pub mod import;
+pub mod restore;
 pub mod server;
 pub mod value;
 pub mod wire;

@@ -74,6 +74,16 @@ create or replace function realtime.topic() returns text language sql stable as 
   select current_setting('realtime.topic', true) $$;
 "#;
 
+/// The cluster-wide roles the schema grants to; `pg_dump` leaves roles out, so a restore makes
+/// them first (the same statements as in `LOCAL_BOOTSTRAP_SQL`).
+pub const ROLES_SQL: &str = r#"
+do $$ begin
+  if not exists (select from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+  if not exists (select from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
+end $$;
+"#;
+
 /// Sets the claim and the role together, inside the transaction the query runs in.
 const SET_CONFIG_SQL: &str =
     "select set_config('request.jwt.claims', $1, true), set_config('role', 'authenticated', true)";

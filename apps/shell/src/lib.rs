@@ -326,14 +326,13 @@ fn native_db(
     db_lock::acquire(&root, NATIVE_LOCK_APP, std::time::SystemTime::now())
         .map_err(|e| e.to_string())?;
     let log = app.clone();
+    let backups = local_pg::backup::Backups::new(vec![data.join("local-db-backups")]);
     let mut host = local_pg::host::PgHost::new(
-        local_pg::host::PgEngine { bin, root },
+        local_pg::host::PgEngine::new(bin, root, Some(backups.clone())),
         launch::migration_dirs(source),
     )
     .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
-    .with_backups(local_pg::backup::Backups::new(vec![
-        data.join("local-db-backups"),
-    ]));
+    .with_backups(backups);
     if data.join("local-db").join("PG_VERSION").is_file() {
         host = host.with_first_open(Arc::new(old_db_import(app, data)));
     }
