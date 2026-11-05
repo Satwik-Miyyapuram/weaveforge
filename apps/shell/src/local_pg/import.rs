@@ -133,6 +133,16 @@ pub async fn import<S: SourceDb, C: Conn>(
     target: &mut C,
     page_rows: u64,
 ) -> Result<ImportReport, PgError> {
+    import_then(source, target, page_rows, None).await
+}
+
+/// Like [`import`], and runs `before_commit` (if any) in the same transaction, just before COMMIT.
+pub async fn import_then<S: SourceDb, C: Conn>(
+    source: &mut S,
+    target: &mut C,
+    page_rows: u64,
+    before_commit: Option<&str>,
+) -> Result<ImportReport, PgError> {
     let source_tables: Vec<(String, String)> = source
         .rows(TABLES_SQL)
         .await?
@@ -158,7 +168,13 @@ pub async fn import<S: SourceDb, C: Conn>(
     )
     .await
     {
-        Ok(()) => target.exec("COMMIT").await,
+        Ok(()) => match before_commit {
+            Some(sql) => match target.exec(sql).await {
+                Ok(()) => target.exec("COMMIT").await,
+                Err(e) => Err(e),
+            },
+            None => target.exec("COMMIT").await,
+        },
         Err(e) => Err(e),
     };
     match outcome {
@@ -186,10 +202,23 @@ impl SourceDb for FnSource {
     }
 }
 
-/// Copies the old database into the new one once, on first open. Skipped when `marker` exists;
-/// the marker is written after the copy commits.
+/// Records the copy in the new database, in the copy's own transaction, so a committed copy is
+/// never run twice (tables without a key would get their rows twice).
+const RECORD_SQL: &str = "create schema if not exists weaveforge_meta; \
+create table if not exists weaveforge_meta.pglite_import (done_at timestamptz not null default now()); \
+insert into weaveforge_meta.pglite_import default values";
+
+/// Whether the new database already holds a copy.
+const RECORDED_SQL: &str = "select 1 from pg_catalog.pg_tables where schemaname = 'weaveforge_meta' and tablename = 'pglite_import'";
+
+/// Copies the old database into the new one once, on first open. Skipped when the new database
+/// records a copy, or when `marker` exists.
+///
+/// Needs the old database to answer: while it cannot, the job fails and the native database stays
+/// closed, rather than open empty and look like the data is gone.
 pub struct OnceImport {
-    /// Written after a copy commits; while it exists, nothing is copied.
+    /// Written after a copy commits. It sits outside the native folder, so a discarded (rebuilt)
+    /// native database does not copy the old, older data again.
     pub marker: PathBuf,
     /// Reads the old database.
     pub source: RowsFn,
@@ -203,8 +232,12 @@ impl<C: Conn> FirstOpen<C> for OnceImport {
             if self.marker.exists() {
                 return Ok(None);
             }
+            if !conn.query(RECORDED_SQL, &[]).await?.rows.is_empty() {
+                let _ = std::fs::write(&self.marker, "");
+                return Ok(None);
+            }
             let mut source = FnSource(Arc::clone(&self.source));
-            let report = import(&mut source, conn, self.page_rows)
+            let report = import_then(&mut source, conn, self.page_rows, Some(RECORD_SQL))
                 .await
                 .map_err(|e| PgError {
                     code: e.code,
@@ -216,11 +249,9 @@ impl<C: Conn> FirstOpen<C> for OnceImport {
                 report.tables.len(),
                 report.skipped.len()
             );
-            // The copy is committed; a missing marker only means it runs again, skipping kept rows.
+            // The database records the copy too, so a missing marker never copies twice.
             if let Err(e) = std::fs::write(&self.marker, "") {
-                line.push_str(&format!(
-                    "; could not record it, so it runs again next start: {e}"
-                ));
+                line.push_str(&format!("; could not write {}: {e}", self.marker.display()));
             }
             Ok(Some(line))
         })
@@ -438,10 +469,15 @@ mod tests {
         log: Vec<String>,
         inserted: Vec<String>,
         fail_insert: bool,
+        /// Set by RECORD_SQL once COMMIT follows it.
+        recorded: bool,
     }
 
     impl Conn for FakeTarget {
         async fn exec(&mut self, sql: &str) -> Result<(), PgError> {
+            if sql == "COMMIT" && self.log.last().map(String::as_str) == Some(RECORD_SQL) {
+                self.recorded = true;
+            }
             self.log.push(sql.to_owned());
             Ok(())
         }
@@ -460,7 +496,13 @@ mod tests {
                 }
                 return Ok(TextRows::default());
             }
-            let rows = if sql == TABLES_SQL {
+            let rows = if sql == RECORDED_SQL {
+                if self.recorded {
+                    vec![row(&["1"])]
+                } else {
+                    Vec::new()
+                }
+            } else if sql == TABLES_SQL {
                 vec![row(&["public", "papers"])]
             } else if sql == columns_sql("public", "papers") {
                 vec![
@@ -628,8 +670,16 @@ mod tests {
         let line = job.run(&mut target).await?.unwrap_or_default();
         assert!(line.contains("1 tables, 2 rows, 2 skipped"), "{line}");
         assert!(job.marker.is_file());
+        assert!(target.recorded);
+        let commit_at = target.log.iter().rposition(|s| s == "COMMIT");
+        let record_at = target.log.iter().position(|s| s == RECORD_SQL);
+        assert!(record_at.is_some() && record_at.map(|i| i + 1) == commit_at);
         let before = calls.load(std::sync::atomic::Ordering::SeqCst);
         assert_eq!(job.run(&mut target).await?, None);
+        // A lost marker: the database's own record still stops a second copy, and rewrites it.
+        let _ = std::fs::remove_file(&job.marker);
+        assert_eq!(job.run(&mut target).await?, None);
+        assert!(job.marker.is_file());
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), before);
         let _ = std::fs::remove_file(&job.marker);
         Ok(())
@@ -655,6 +705,8 @@ mod tests {
         );
         assert_eq!(err.code, "23505");
         assert!(!job.marker.exists());
+        assert!(!target.recorded);
+        assert!(!target.log.iter().any(|s| s == RECORD_SQL));
         Ok(())
     }
 
