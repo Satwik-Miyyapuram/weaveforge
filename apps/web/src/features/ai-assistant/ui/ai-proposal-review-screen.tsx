@@ -17,7 +17,10 @@ import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
+import { groupProposals, runBulk, type ProposalGrouping } from "../application/proposal-groups";
+import { useUndoWindow } from "./use-undo-window";
 import { Button } from "@/components/button";
+import { Chip } from "@/components/controls";
 
 /** A proposal's text, rendered so its `[[links]]` are links, not brackets (E36). */
 function ProposalMarkdown({ text }: { text: string }) {
@@ -242,15 +245,68 @@ export function AiProposalReviewScreen() {
     catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
+  const [grouping, setGrouping] = useState<ProposalGrouping>("document");
+  const undoWindow = useUndoWindow();
+  // Proposals waiting out the undo window leave the list, so the bulk action
+  // reads as done; undo brings them back.
+  const visible = useMemo(
+    () => items.filter((item) => !undoWindow.scheduled?.ids.has(item.id)),
+    [items, undoWindow.scheduled],
+  );
+  const groups = useMemo(() => groupProposals(visible, grouping), [visible, grouping]);
+  function groupLabel(key: string): string {
+    if (grouping === "kind") return label[key as AiWriteProposal["kind"]] ?? key;
+    return sourceTargets.get(key)?.title ?? unresolvedSourceLabel(key);
+  }
+  function bulk(ids: readonly string[], action: "approve" | "reject") {
+    if (!ids.length) return;
+    const count = `${ids.length} suggestion${ids.length === 1 ? "" : "s"}`;
+    setError(null); setCreated(null);
+    undoWindow.schedule(`${action === "approve" ? "Approving" : "Rejecting"} ${count}…`, ids, () => void (async () => {
+      setBusy("all");
+      const facade = getContainer().aiProposals;
+      const result = await runBulk(ids, (id) => (action === "approve" ? facade.approve(id) : facade.reject(id)));
+      changed(); await reload();
+      const problems: string[] = [];
+      if (result.conflicted.length) problems.push(`${result.conflicted.length} not applied: the target changed since it was suggested.`);
+      if (result.failed) {
+        problems.push(`Stopped: ${formatError(result.failed.error)} ${result.untouched.length + 1} still pending.`);
+      }
+      setError(problems.length ? problems.join(" ") : null);
+      setBusy(null);
+    })());
+  }
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
     <ScreenHead title="AI suggestions" eyebrow="AI safety"><Button href="/settings">AI settings</Button></ScreenHead>
     <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
+    {undoWindow.scheduled && <div className="card ai-review-undo" role="status"><span>{undoWindow.scheduled.label}</span><Button variant="secondary" size="sm" onClick={undoWindow.undo}>Undo</Button></div>}
     {!items.length ? <EmptyState variant="first-run" icon={<NavIcon name="sparkle" />} title="Nothing to review" body="New AI suggestions will appear here before they can change your research workspace." /> : <>
-      <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <Button variant="primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}</div>
-      <div className="ai-review-list">{items.map((item) => {
+      <div className="card ai-review-toolbar"><div><strong>{visible.length} pending suggestion{visible.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>
+        <div className="ai-review-bulk">
+          {appendOnly.length > 1 && <Button variant="secondary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}
+          {visible.length > 1 && <>
+            <Button variant="cancel" disabled={busy !== null} onClick={() => bulk(visible.map((item) => item.id), "reject")}>Reject all</Button>
+            <Button variant="primary" disabled={busy !== null} onClick={() => bulk(visible.map((item) => item.id), "approve")}>Approve all</Button>
+          </>}
+        </div>
+      </div>
+      {visible.length > 1 && <div className="ai-review-grouping" role="group" aria-label="Group suggestions">
+        <span className="muted">Group by</span>
+        <Chip pressed={grouping === "document"} onClick={() => setGrouping("document")}>Document</Chip>
+        <Chip pressed={grouping === "kind"} onClick={() => setGrouping("kind")}>Kind</Chip>
+      </div>}
+      {groups.map((group) => <section key={group.key} className="ai-review-group" aria-label={groupLabel(group.key)}>
+        <div className="ai-review-group-head">
+          <h3>{groupLabel(group.key)} <span className="muted">({group.items.length})</span></h3>
+          {group.items.length > 1 && <div className="ai-review-bulk">
+            <Button variant="cancel" size="sm" disabled={busy !== null} onClick={() => bulk(group.items.map((item) => item.id), "reject")}>Reject {group.items.length}</Button>
+            <Button variant="primary" size="sm" disabled={busy !== null} onClick={() => bulk(group.items.map((item) => item.id), "approve")}>Approve {group.items.length}</Button>
+          </div>}
+        </div>
+      <div className="ai-review-list">{group.items.map((item) => {
         const evidence = item.evidence ?? [];
         const preview = splitProposalContent(item.content);
         return <EntityCard
@@ -294,6 +350,7 @@ export function AiProposalReviewScreen() {
           <div className="ai-review-actions"><Button variant="cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</Button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
         </EntityCard>;
       })}</div>
+      </section>)}
     </>}
   </section>;
 }
