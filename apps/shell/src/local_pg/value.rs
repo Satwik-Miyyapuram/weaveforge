@@ -461,6 +461,37 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn rows_keep_column_and_json_key_order() {
+        let col = |name: &str, type_oid| Column {
+            name: name.to_owned(),
+            type_oid,
+        };
+        let columns = [
+            col("zeta", 25),
+            col("alpha", 3802),
+            col("mid", 25),
+            col("zeta", 25),
+        ];
+        let cells = [
+            Some("first".to_owned()),
+            Some(r#"{"b": 1, "a": 2}"#.to_owned()),
+            None,
+            Some("last".to_owned()),
+        ];
+        let row = row_to_json(&columns, &cells);
+        let keys: Vec<&str> = row.keys().map(String::as_str).collect();
+        // A JS object keeps a duplicate key where it first appeared, with the later value.
+        assert_eq!(keys, ["zeta", "alpha", "mid"]);
+        assert_eq!(row.get("zeta"), Some(&json!("last")));
+        let inner: Vec<&str> = row
+            .get("alpha")
+            .and_then(Value::as_object)
+            .map(|o| o.keys().map(String::as_str).collect())
+            .unwrap_or_default();
+        assert_eq!(inner, ["b", "a"]);
+    }
+
+    #[test]
     fn scalar_numbers() -> Result<(), PgError> {
         assert_eq!(cell_to_json("42", 23), json!(42));
         assert_eq!(
