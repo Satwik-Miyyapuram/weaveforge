@@ -1,11 +1,8 @@
 import {
   LexicalConceptExtractor,
-  buildWikiIndex,
   lintWiki,
-  mergeWikiPages,
   planFixOrder,
   planWikiPages,
-  replaceWikiIndex,
   wikiProposalContent,
   type ExtractionDocument,
   type IConceptExtractor,
@@ -16,6 +13,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-session";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Driving concept extraction and wiki maintenance from the app.
@@ -218,7 +216,7 @@ export async function previewMerge(
   return {
     primaryTitle: primary.title,
     secondaryTitle: secondary.title,
-    result: mergeWikiPages(
+    result: typedCore().mergeWikiPages(
       { id: primary.id, title: primary.title, body: primary.body },
       { id: secondary.id, title: secondary.title, body: secondary.body },
     ),
@@ -274,7 +272,7 @@ export async function regenerateWikiIndex(): Promise<{ pages: number }> {
   const pages = wikiPageRefs(all);
   await container.vault.manageVaultPage.update(root.id, {
     title: root.title,
-    body: replaceWikiIndex(root.body, buildWikiIndex(pages)),
+    body: typedCore().replaceWikiIndex(root.body, typedCore().buildWikiIndex(pages)),
   });
   return { pages: pages.length };
 }

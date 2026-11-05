@@ -36,3 +36,15 @@ export function readyCore(): RustCore {
   if (!ready) throw new Error("Rust core not loaded yet: await loadCore() first");
   return ready;
 }
+
+type CoreModule = typeof import("@weaveforge/core");
+
+/**
+ * The loaded core under the TypeScript core's signatures, limited to names the
+ * Rust core exports. The generated binding types are looser in places (mutable
+ * arrays, `null` for absent numbers); parity tests hold both cores to the same
+ * results, so callers that keep the app's core types use this.
+ */
+export function typedCore(): Pick<CoreModule, keyof CoreModule & keyof RustCore> {
+  return readyCore() as unknown as Pick<CoreModule, keyof CoreModule & keyof RustCore>;
+}

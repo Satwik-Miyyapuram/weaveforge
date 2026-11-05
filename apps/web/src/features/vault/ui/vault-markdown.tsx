@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { VAULT_IMAGE_PREFIX, vaultAssetPathsInBody } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { readyCore } from "@/lib/rust-core";
@@ -37,7 +36,7 @@ function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls
   let next = stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
   for (const path of paths) {
     if (urls.has(path)) continue;
-    const ref = `${VAULT_IMAGE_PREFIX}${path}`;
+    const ref = `${readyCore().VAULT_IMAGE_PREFIX}${path}`;
     next = next.replace(new RegExp(`!\\[[^\\]]*\\]\\(${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`, "g"), "");
   }
   return next;
@@ -76,7 +75,7 @@ export function VaultMarkdown({
 
   const onClick = useWikilinkClick(onCreateNote);
 
-  const paths = useMemo(() => vaultAssetPathsInBody(source), [source]);
+  const paths = useMemo(() => readyCore().vaultAssetPathsInBody(source), [source]);
 
   const fetchers = useMemo(
     () => ({
@@ -94,7 +93,7 @@ export function VaultMarkdown({
     for (const path of paths) {
       const url = urls.get(path);
       if (!url) continue;
-      next = next.replaceAll(`${VAULT_IMAGE_PREFIX}${path}`, url);
+      next = next.replaceAll(`${readyCore().VAULT_IMAGE_PREFIX}${path}`, url);
     }
     return next;
   }, [source, paths, urls]);

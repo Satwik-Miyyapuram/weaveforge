@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, isRotatedText, outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import { errorMessage, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
@@ -37,6 +37,7 @@ import {
 } from "./pdf-document";
 import type { PageTextGeometry } from "@weaveforge/core";
 import { relayPath } from "@/lib/relay-url";
+import { typedCore } from "@/lib/rust-core";
 
 export interface PdfRenderingDeps {
   url: string;
@@ -404,7 +405,7 @@ useEffect(() => {
               x: item.transform[4] ?? 0,
               y: item.transform[5] ?? 0,
               page: n,
-              ...(isRotatedText(item.transform) ? { rotated: true } : {}),
+              ...(typedCore().isRotatedText(item.transform) ? { rotated: true } : {}),
             }));
           };
 
@@ -430,7 +431,7 @@ useEffect(() => {
           await idle(cancelSignal);
           if (cancelled) return;
 
-          detected = outlineFromText(outlinePages);
+          detected = typedCore().outlineFromText(outlinePages);
           publishOutline();
           setPageTexts(texts);
           setPageItems(itemsByPage);

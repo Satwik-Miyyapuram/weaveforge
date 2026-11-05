@@ -2,11 +2,12 @@
 
 import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
-import { RELATION_TYPES, type GraphViewSettings, type RelationType } from "@weaveforge/core";
+import { type GraphViewSettings, type RelationType } from "@weaveforge/core";
 import { RELATION_COLORS, WIKILINK_COLOR, EXPERIMENT_LINK_COLOR } from "../domain/graph-palette";
 import { CLUSTER_PALETTE, RAMP_GRADIENT, UNCOLOURED } from "../application/node-colouring";
 import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
 import { FoldButton } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 /** Modes that colour every node from the whole graph; kinds then show by shape alone. */
 const GRAPH_WIDE = new Set(["year", "degree", "cluster", "groups"]);
@@ -82,7 +83,7 @@ export function GraphLegend({
           )}
           <div className="graph-legend-group">
             <span className="muted graph-legend-heading">Relations</span>
-            {RELATION_TYPES.map((t) => (
+            {readyCore().RELATION_TYPES.map((t) => (
               <span key={t} className="legend-item">
                 <span className="legend-swatch" style={{ background: RELATION_COLORS[t as RelationType] }} />
                 {enumLabel("relation", t)}

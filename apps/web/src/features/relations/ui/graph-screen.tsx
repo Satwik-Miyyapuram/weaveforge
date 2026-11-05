@@ -22,7 +22,6 @@ import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
 import { useHiddenKeys } from "@/lib/toast";
 import { relationKey } from "./remove-relation";
-import { graphFilterCount } from "@weaveforge/core";
 import { experimentHref } from "@/features/experiments";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
@@ -33,6 +32,7 @@ import { FormError } from "@/components/form-error";
 import { Button, IconButton } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
+import { readyCore } from "@/lib/rust-core";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -125,7 +125,7 @@ export function GraphScreen() {
   const hasGraphItems = papers.length > 0 || notes.length > 0 || sections.length > 0;
   const hasVisibleItems = visiblePapers.length > 0 || visibleNotes.length > 0 || sections.length > 0;
 
-  const activeFilters = graphFilterCount(selectedTags, selectedLists, settings);
+  const activeFilters = readyCore().graphFilterCount(selectedTags, selectedLists, settings);
   const selectedPaper = selectedPaperId ? papers.find((p) => p.id === selectedPaperId) ?? null : null;
   const selectedNote = selectedNoteId ? notes.find((n) => n.id === selectedNoteId) ?? null : null;
   const selectedSection = selectedSectionId

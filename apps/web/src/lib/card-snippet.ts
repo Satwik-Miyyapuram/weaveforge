@@ -1,4 +1,4 @@
-import { isEmptyPaperSummary } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Plain-text preview of a markdown body, for entity list cards.
@@ -25,6 +25,6 @@ export function cardSnippet(body: string, max = 180): string {
     .replace(/[#>*_`~]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (isEmptyPaperSummary(text)) return "";
+  if (readyCore().isEmptyPaperSummary(text)) return "";
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }

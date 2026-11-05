@@ -1,8 +1,9 @@
-import { extractHashtags, type Paper, type ReadingList, type VaultPage } from "@weaveforge/core";
+import { type Paper, type ReadingList, type VaultPage } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** A note's tags: the hashtags in its title and body, as the graph's edges read them. */
 export function noteTags(note: Pick<VaultPage, "title" | "body">): string[] {
-  return extractHashtags(`${note.title}\n${note.body}`);
+  return readyCore().extractHashtags(`${note.title}\n${note.body}`);
 }
 
 /** Every tag the graph can filter by, sorted: paper tags, note hashtags and, when shown as concepts, list names. */

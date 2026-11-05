@@ -1,5 +1,5 @@
-import { shouldAppendInkPoint } from "@weaveforge/core";
 import { NibFilter } from "@/features/ink";
+import { readyCore } from "@/lib/rust-core";
 
 /** 0.1 mm per PDF point: the notes' filter is tuned in tenths of a millimetre. */
 const TENTHS_PER_PT = (25.4 / 72) * 10;
@@ -31,14 +31,14 @@ export class PdfInkSampler {
     const out = this.filter.filter({ x: x * TENTHS_PER_PT, y: y * TENTHS_PER_PT, pressure: 0, t: at });
     const fx = out.x / TENTHS_PER_PT;
     const fy = out.y / TENTHS_PER_PT;
-    if (!shouldAppendInkPoint(this.path, fx, fy, PDF_INK_MIN_POINT_DISTANCE)) return false;
+    if (!readyCore().shouldAppendInkPoint(this.path, fx, fy, PDF_INK_MIN_POINT_DISTANCE)) return false;
     this.path.push(fx, fy);
     return true;
   }
 
   /** Append an exact point (the page-edge cut), unfiltered. */
   pushExact(x: number, y: number): void {
-    if (shouldAppendInkPoint(this.path, x, y, PDF_INK_MIN_POINT_DISTANCE)) this.path.push(x, y);
+    if (readyCore().shouldAppendInkPoint(this.path, x, y, PDF_INK_MIN_POINT_DISTANCE)) this.path.push(x, y);
   }
 
   clear(): void {

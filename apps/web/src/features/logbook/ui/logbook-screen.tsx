@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LOG_KINDS, type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
+import { type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { removeLater, useHiddenKeys } from "@/lib/toast";
 import { Modal } from "@/components/modal";
@@ -28,6 +28,7 @@ import { bestEffort, removeLogEntry } from "../application/log-side-effects";
 import { Button, IconButton } from "@/components/button";
 import { RowButton } from "@/components/controls";
 import { PastCheckIns } from "./past-check-ins";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -349,7 +350,7 @@ function EditLogForm({
       <div className="field">
         <label htmlFor={`kind-${entry.id}`}>Kind</label>
         <Select id={`kind-${entry.id}`} value={kind} onChange={(e) => setKind(e.target.value as LogKind)}>
-          {LOG_KINDS.map((k) => (
+          {readyCore().LOG_KINDS.map((k) => (
             <option key={k} value={k}>{statusLabel(k)}</option>
           ))}
         </Select>
@@ -536,7 +537,7 @@ function LogKinds({
     <div className="card log-kinds">
       <h2>Kinds</h2>
       <ul>
-        {LOG_KINDS.map((k) => (
+        {readyCore().LOG_KINDS.map((k) => (
           <li key={k}>
             <RowButton current={active === k} aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
               <span className={`status status-${k}`}>{statusLabel(k)}</span>

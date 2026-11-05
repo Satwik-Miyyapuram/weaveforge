@@ -1,4 +1,4 @@
-import { normalizeTitleKey } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface CreateNoteFromLinkDeps {
   /** Notes already known, matched by title the way titles are kept unique. */
@@ -18,9 +18,9 @@ export async function createNoteFromLink(
   opts: { open?: boolean } | undefined,
   deps: CreateNoteFromLinkDeps,
 ): Promise<string | null> {
-  const key = normalizeTitleKey(title);
+  const key = readyCore().normalizeTitleKey(title);
   if (!key) return null;
-  const found = deps.existing.find((p) => normalizeTitleKey(p.title) === key);
+  const found = deps.existing.find((p) => readyCore().normalizeTitleKey(p.title) === key);
   let id = found?.id;
   if (!id) {
     id = (await deps.add(title)).id;
