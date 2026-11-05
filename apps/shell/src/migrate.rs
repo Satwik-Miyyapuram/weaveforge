@@ -144,6 +144,16 @@ fn workspace_db_dir(old_dir: &Path) -> Option<PathBuf> {
     db.exists().then_some(db)
 }
 
+/// The old PGlite database to copy into the native one: the workspace's when it holds one
+/// (Electron moves it there once a folder is chosen), else the app's own `local-db`.
+#[must_use]
+pub fn old_pglite_dir(data_dir: &Path) -> Option<PathBuf> {
+    let is_db = |dir: &PathBuf| dir.join("PG_VERSION").is_file();
+    workspace_db_dir(data_dir)
+        .filter(is_db)
+        .or_else(|| Some(data_dir.join("local-db")).filter(is_db))
+}
+
 /// Locks each dir. `Ok(Err(reason))` when one is busy, after releasing the ones taken.
 fn take_locks(dirs: &[PathBuf], now: SystemTime) -> io::Result<Result<Locks, String>> {
     let mut taken = Locks(Vec::new());
@@ -300,6 +310,69 @@ mod tests {
 
     fn read(path: &Path) -> String {
         fs::read_to_string(path).unwrap_or_default()
+    }
+
+    /// An app data dir whose prefs name `workspace`, with a database in each place asked for.
+    fn data_with(name: &str, app_db: bool, ws_db: bool) -> (PathBuf, PathBuf) {
+        let (data, _) = temp(name);
+        let workspace = data.parent().map(|p| p.join("ws")).unwrap_or_default();
+        let prefs = serde_json::json!({ "vault-root": workspace.to_string_lossy() });
+        let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        for (on, dir) in [
+            (app_db, data.join("local-db")),
+            (ws_db, workspace.join(WORKSPACE_META_DIR).join("db")),
+        ] {
+            if on {
+                let _ = fs::create_dir_all(&dir);
+                let _ = fs::write(dir.join("PG_VERSION"), "16");
+            }
+        }
+        (data, workspace)
+    }
+
+    #[test]
+    fn old_db_is_the_workspace_one_when_both_exist() {
+        let (data, ws) = data_with("old-both", true, true);
+        assert_eq!(
+            old_pglite_dir(&data),
+            Some(ws.join(WORKSPACE_META_DIR).join("db"))
+        );
+    }
+
+    #[test]
+    fn old_db_falls_back_to_the_app_one_without_a_workspace_db() {
+        let (data, _) = data_with("old-app", true, false);
+        assert_eq!(old_pglite_dir(&data), Some(data.join("local-db")));
+    }
+
+    #[test]
+    fn old_db_is_found_in_the_workspace_alone() {
+        let (data, ws) = data_with("old-ws", false, true);
+        assert_eq!(
+            old_pglite_dir(&data),
+            Some(ws.join(WORKSPACE_META_DIR).join("db"))
+        );
+    }
+
+    #[test]
+    fn old_db_is_none_for_a_new_user() {
+        let (data, _) = data_with("old-none", false, false);
+        assert_eq!(old_pglite_dir(&data), None);
+    }
+
+    #[test]
+    fn old_db_ignores_an_empty_workspace_db_folder() {
+        let (data, ws) = data_with("old-empty-ws", true, false);
+        let _ = fs::create_dir_all(ws.join(WORKSPACE_META_DIR).join("db"));
+        assert_eq!(old_pglite_dir(&data), Some(data.join("local-db")));
+    }
+
+    #[test]
+    fn old_db_without_prefs_uses_the_app_one() {
+        let (data, _) = temp("old-noprefs");
+        let _ = fs::create_dir_all(data.join("local-db"));
+        let _ = fs::write(data.join("local-db").join("PG_VERSION"), "16");
+        assert_eq!(old_pglite_dir(&data), Some(data.join("local-db")));
     }
 
     #[test]
