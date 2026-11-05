@@ -98,11 +98,17 @@ this machine: it would migrate from the installed app's data.
 ```powershell
 cd apps\desktop; node scripts/build-web.mjs; cd ..\..
 node apps/shell/sidecar/scripts/stage.mjs <out> --node (Get-Command node).Source
+node apps/shell/scripts/stage-postgres.mjs <extracted postgres dist> <out>
 cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
 ```
 
 `stage.mjs` copies the `LICENSE` beside `node.exe`. If that install has none,
 pass `--node-license <Node's LICENSE>`, never the repo's own `LICENSE`.
+
+`stage-postgres.mjs` takes the extracted
+`postgresql-18.6.1-x86_64-pc-windows-msvc` release of
+theseus-rs/postgresql-binaries (the one CI pins) and writes `<out>\postgres`,
+where the native local database looks for it.
 
 Copy `target\release\weaveforge-shell.exe` into `<out>`, and
 `apps\desktop\dist\web` to `<out>\web`. Run the exe from `<out>` unbundled, so
