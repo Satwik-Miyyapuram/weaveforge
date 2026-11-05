@@ -214,7 +214,8 @@ mod tests {
                  create table notes (id int primary key, body text);
                  alter table notes enable row level security;
                  grant select on notes to authenticated;
-                 insert into notes values (1, 'kept');",
+                 insert into notes values (1, 'kept');
+                 select digest('loads pgcrypto', 'sha256');",
             )
             .await?;
             server.dump(&dump).await
