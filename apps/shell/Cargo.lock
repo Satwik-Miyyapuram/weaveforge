@@ -5692,6 +5692,7 @@ dependencies = [
  "process-wrap",
  "regex",
  "reqwest",
+ "rustix",
  "rustls",
  "serde",
  "serde_json",

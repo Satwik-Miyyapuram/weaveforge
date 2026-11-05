@@ -668,7 +668,7 @@ fn iso_ms(ms: u64) -> String {
 }
 
 /// Epoch ms of `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS[.fff]]Z`, as the page sends them.
-fn parse_iso_ms(text: &str) -> Option<u64> {
+pub(crate) fn parse_iso_ms(text: &str) -> Option<u64> {
     let (date, time) = match text.split_once('T') {
         Some((date, time)) => (date, Some(time)),
         None => (text, None),
