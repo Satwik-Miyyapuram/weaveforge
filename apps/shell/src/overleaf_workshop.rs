@@ -210,17 +210,21 @@ async fn list_projects(client: &reqwest::Client, cookies: &str) -> Result<Vec<Va
 }
 
 /// Signs in and compiles; a LaTeX failure is data (status "failure").
+/// With no `root`, Overleaf compiles the project's main document.
 async fn compile(
     client: &reqwest::Client,
     cookies: &str,
     project: &str,
-    root: &str,
+    root: Option<&str>,
 ) -> Result<(Identity, Value), String> {
     let who = login(client, cookies).await?;
-    let body = json!({
+    let mut body = json!({
         "_csrf": who.csrf, "check": "silent", "draft": false, "incrementalCompilesEnabled": true,
-        "rootResourcePath": root, "stopOnFirstError": false,
+        "stopOnFirstError": false,
     });
+    if let Some(root) = root {
+        body["rootResourcePath"] = json!(root);
+    }
     let request = client
         .post(format!("{BASE}project/{project}/compile?auto_compile=true"))
         .header("cookie", &who.cookies)
@@ -239,7 +243,7 @@ async fn fetch_pdf(
     client: &reqwest::Client,
     cookies: &str,
     project: &str,
-    root: &str,
+    root: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let (who, reply) = compile(client, cookies, project, root).await?;
     let request = match pdf_source(&reply)? {
@@ -367,7 +371,7 @@ async fn compile_route(
     let Some(cookies) = sessions.get(&req.session_id) else {
         return error(401, NOT_FOUND);
     };
-    let (project, root) = (&req.project_id, &req.root_resource_path);
+    let (project, root) = (&req.project_id, req.root_resource_path.as_deref());
     let result = if want_pdf {
         fetch_pdf(client, &cookies, project, root)
             .await

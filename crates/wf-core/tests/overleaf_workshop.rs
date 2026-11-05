@@ -2,7 +2,7 @@
 
 use serde_json::json;
 use wf_core::overleaf_workshop::{
-    BODY_REQUIRED, OverleafMeta, PROJECT_ID_INVALID, ROOT_REQUIRED, SESSION_ID_INVALID,
+    BODY_REQUIRED, OverleafMeta, PROJECT_ID_INVALID, ROOT_INVALID, SESSION_ID_INVALID,
     WorkshopRequest, cdn_pdf_url, encode_uri_component, parse_overleaf_meta, read_workshop_request,
     read_workshop_session_id, safe_overleaf_error,
 };
@@ -18,7 +18,7 @@ fn valid_request_is_trimmed_and_copied() {
         WorkshopRequest {
             session_id: SID.into(),
             project_id: "abc123".into(),
-            root_resource_path: "main.tex".into(),
+            root_resource_path: Some("main.tex".into()),
         }
     );
 }
@@ -62,10 +62,26 @@ fn bad_project_id_is_rejected() {
 }
 
 #[test]
-fn blank_or_non_string_root_is_rejected() {
-    for root in [json!("  "), json!(5), json!(null)] {
+fn missing_null_or_blank_root_means_project_main_document() {
+    for root in [json!("  "), json!(null)] {
         let body = json!({"sessionId": SID, "projectId": "p1", "rootResourcePath": root});
-        assert_eq!(read_workshop_request(&body).unwrap_err(), ROOT_REQUIRED);
+        assert_eq!(
+            read_workshop_request(&body).unwrap().root_resource_path,
+            None
+        );
+    }
+    let body = json!({"sessionId": SID, "projectId": "p1"});
+    assert_eq!(
+        read_workshop_request(&body).unwrap().root_resource_path,
+        None
+    );
+}
+
+#[test]
+fn non_string_root_is_rejected() {
+    for root in [json!(5), json!(["a.tex"])] {
+        let body = json!({"sessionId": SID, "projectId": "p1", "rootResourcePath": root});
+        assert_eq!(read_workshop_request(&body).unwrap_err(), ROOT_INVALID);
     }
 }
 

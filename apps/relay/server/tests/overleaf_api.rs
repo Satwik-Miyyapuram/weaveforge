@@ -111,7 +111,7 @@ async fn compile_posts_csrf_body_and_header() {
     )])
     .await;
     let result = api(&up)
-        .compile(&identity("a=1"), "p1", "main.tex")
+        .compile(&identity("a=1"), "p1", Some("main.tex"))
         .await
         .expect("compile");
     assert_eq!(result, json!({"status": "success"}));
@@ -133,6 +133,22 @@ async fn compile_posts_csrf_body_and_header() {
             "stopOnFirstError": false
         })
     );
+}
+
+#[tokio::test]
+async fn compile_without_root_leaves_main_document_to_overleaf() {
+    let up = serve(vec![(
+        "/project/p1/compile",
+        vec![json_reply(200, r#"{"status":"success"}"#)],
+    )])
+    .await;
+    let reply = api(&up)
+        .compile(&identity("a=1"), "p1", None)
+        .await
+        .expect("compile");
+    assert_eq!(reply["status"], "success");
+    let body: Value = serde_json::from_slice(&up.seen()[0].body).expect("json body");
+    assert!(body.get("rootResourcePath").is_none(), "{body}");
 }
 
 #[tokio::test]
