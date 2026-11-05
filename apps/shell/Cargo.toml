@@ -64,6 +64,12 @@ subtle = "=2.6.1"
 httparse = "=1.10.1"
 # The .mcpb bundle is a store-only zip.
 crc32fast = "=1.5.3"
+# Local database (step 5.3d): a native Postgres child replaces PGlite. A small wire
+# client on postgres-protocol asks for text results, so values come back in the same
+# shape PGlite gave (tokio-postgres always asks for binary).
+postgres-protocol = "=0.6.12"
+bytes = "=1.12.1"
+fallible-iterator = "=0.2.0"
 
 # Desktop: git over https and ssh, and TLS from the platform (phase 4 design, decision 1).
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
