@@ -5,6 +5,7 @@ import type { DesktopEvents } from "../desktop";
 import {
   createSignInInbox,
   desktopBridge,
+  hideSystemMenu,
   install,
   MENU_CHANGE_EVENT,
   SIGN_IN_EVENT,
@@ -285,4 +286,34 @@ test("install sets window.weaveforge and keeps one that is already set", () => {
     listen: fakeEvents().events.listen,
   });
   assert.equal(target.weaveforge, existing);
+});
+
+function menuEvent(target: unknown, defaultPrevented = false) {
+  const event = { defaultPrevented, target, prevented: false, preventDefault() { event.prevented = true; } };
+  return event;
+}
+const inside = (match: boolean) => ({ closest: () => (match ? {} : null) });
+
+test("hideSystemMenu cancels the webview menu on plain page content", () => {
+  const event = menuEvent(inside(false));
+  hideSystemMenu(event, "");
+  assert.equal(event.prevented, true);
+});
+
+test("hideSystemMenu keeps the system menu in text fields and on selected text", () => {
+  const field = menuEvent(inside(true));
+  hideSystemMenu(field, "");
+  assert.equal(field.prevented, false);
+  const selection = menuEvent(inside(false));
+  hideSystemMenu(selection, "some words");
+  assert.equal(selection.prevented, false);
+});
+
+test("hideSystemMenu leaves a menu the page already handled alone, and tolerates odd targets", () => {
+  const handled = menuEvent(inside(false), true);
+  hideSystemMenu(handled, "");
+  assert.equal(handled.prevented, false);
+  const bare = menuEvent(null);
+  hideSystemMenu(bare, "   ");
+  assert.equal(bare.prevented, true);
 });
