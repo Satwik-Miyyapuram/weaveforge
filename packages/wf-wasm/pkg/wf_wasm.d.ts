@@ -1779,6 +1779,15 @@ export function personalizedPageRank(graph: any, seed: string, options: any, rng
 export function pickNearestMatch(matches: any, position: any): any;
 
 /**
+ * [`plan_bib_import`](bib_import::plan_bib_import) (TS `planBibImport`).
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function planBibImport(file_name: string, text: string, existing_dois: string[], existing_keys: string[]): any;
+
+/**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
  * `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
  * `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
@@ -2761,6 +2770,7 @@ export interface InitOutput {
     readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
     readonly personalizedPageRank: (a: any, b: number, c: number, d: any, e: any) => [number, number, number];
     readonly pickNearestMatch: (a: any, b: any) => [number, number, number];
+    readonly planBibImport: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
     readonly prismaCaveat: (a: any) => [number, number, number, number];

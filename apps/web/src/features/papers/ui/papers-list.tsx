@@ -40,6 +40,7 @@ import { showToast, useHiddenKeys } from "@/lib/toast";
 import { paperKey } from "./remove-paper";
 import { PdfDropZone } from "./pdf-drop-zone";
 import { summarizePdfDrop, type PdfDropOutcome } from "../application/paper-from-pdf";
+import { bibImportMessage } from "../application/paper-from-bib";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -452,6 +453,12 @@ export function PapersScreen() {
         <Modal title="Add paper" onClose={() => setComposeOpen(false)}>
           <AddPaperForm
             onPdfs={onPdfsAdded}
+            onBib={(outcome) => {
+              // Keep the form open while it lists skipped or broken entries.
+              if (outcome.skipped.length === 0 && outcome.problems.length === 0) setComposeOpen(false);
+              void load();
+              showToast(bibImportMessage(outcome));
+            }}
             onAdded={(paper, created) => {
               setComposeOpen(false);
               void load();
