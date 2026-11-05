@@ -30,7 +30,7 @@ pub enum BindingsError {
 /// Every type exported to TypeScript. Add new types here.
 #[must_use]
 pub fn types() -> Types {
-    Types::default()
+    reader_types(Types::default())
         .register::<wf_core::CoreInfo>()
         .register::<wf_core::search::tokenizer::TokenizerOptions>()
         .register::<wf_core::search::query::SearchKind>()
@@ -87,6 +87,38 @@ pub fn types() -> Types {
         .register::<wf_core::ink::stroke_packer::InkStrokePackerOptions>()
         .register::<wf_core::ink::segment::InkSegmentationIndices>()
         .register::<wf_core::ink::segment::InkLineRecord>()
+}
+
+/// The PDF reader types (`wf_core::reader`).
+fn reader_types(types: Types) -> Types {
+    types
+        .register::<wf_core::reader::annotation::ReaderKeyEvent>()
+        .register::<wf_core::reader::annotation::ReaderKeyboardCommand>()
+        .register::<wf_core::reader::locate::DocumentPageText>()
+        .register::<wf_core::reader::locate::DocumentSearchMatch>()
+        .register::<wf_core::reader::viewport::ReaderFitMode>()
+        .register::<wf_core::reader::viewport::ReaderPageSize>()
+        .register::<wf_core::reader::viewport::ReaderContainerSize>()
+        .register::<wf_core::reader::viewport::ReaderViewportState>()
+        .register::<wf_core::reader::viewport::ReaderViewportScaleState>()
+        .register::<wf_core::reader::viewport::ReaderPageProjection>()
+        .register::<wf_core::reader::viewport::ReaderScreenPoint>()
+        .register::<wf_core::reader::viewport::ReaderScreenBox>()
+        .register::<wf_core::reader::anchor::AnchorTextSpan>()
+        .register::<wf_core::reader::anchor::AnchorConfidence>()
+        .register::<wf_core::reader::anchor::AnchorVia>()
+        .register::<wf_core::reader::anchor::AnchorResolved>()
+        .register::<wf_core::reader::anchor::AnchorNormalised>()
+        .register::<wf_core::reader::anchor::AnchorNormaliseOptions>()
+        .register::<wf_core::reader::anchor::AnchorQuoteSelector>()
+        .register::<wf_core::reader::anchor::AnchorPositionSelector>()
+        .register::<wf_core::reader::anchor::AnchorPdfLocus>()
+        .register::<wf_core::reader::anchor::AnchorZoteroPosition>()
+        .register::<wf_core::reader::anchor::AnchorCombinedPdf>()
+        .register::<wf_core::reader::anchor::AnchorStrategy>()
+        .register::<wf_core::reader::ink_stroke::ReaderCompactInkOptions>()
+        .register::<wf_core::reader::ink_stroke::ReaderInkGroupCandidate>()
+        .register::<wf_core::reader::ink_stroke::ReaderInkGroupNext>()
 }
 
 /// Render the full bindings file.

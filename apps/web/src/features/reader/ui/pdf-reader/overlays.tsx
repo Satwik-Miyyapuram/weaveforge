@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { pdfPointToScreen, pdfRectToScreenBox, type PageProjection } from "@weaveforge/core";
+import {   type PageProjection } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
 import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
@@ -41,7 +42,7 @@ export function DraftShapeOverlay({
     if (shape.kind === "rect") return [];
     const out: number[] = [];
     for (let i = 0; i + 1 < shape.path.length; i += 2) {
-      const screen = pdfPointToScreen(shape.path[i]!, shape.path[i + 1]!, projection);
+      const screen = readyCore().pdfPointToScreen(shape.path[i]!, shape.path[i + 1]!, projection);
       out.push(screen.x, screen.y);
     }
     return out;
@@ -91,7 +92,7 @@ export function DraftShapeOverlay({
     );
   }
 
-  const box = pdfRectToScreenBox(
+  const box = readyCore().pdfRectToScreenBox(
     [
       Math.min(shape.x0, shape.x1),
       Math.min(shape.y0, shape.y1),
