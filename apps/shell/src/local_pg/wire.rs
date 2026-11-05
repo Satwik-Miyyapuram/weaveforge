@@ -18,7 +18,7 @@ pub struct PgConn {
 
 #[allow(clippy::needless_pass_by_value, reason = "passed to map_err")]
 fn io(e: std::io::Error) -> PgError {
-    PgError::local(e.to_string())
+    PgError::connection(e.to_string())
 }
 
 fn error_from(body: &backend::ErrorResponseBody) -> PgError {
@@ -149,7 +149,7 @@ impl PgConn {
             }
             let n = self.stream.read_buf(&mut self.read).await.map_err(io)?;
             if n == 0 {
-                return Err(PgError::local("Postgres closed the connection"));
+                return Err(PgError::connection("Postgres closed the connection"));
             }
         }
     }

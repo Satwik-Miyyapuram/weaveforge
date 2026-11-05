@@ -247,13 +247,26 @@ impl<E: Engine> PgHost<E> {
         let Some(open) = inner.open.as_mut() else {
             return Err(PgError::local(OPEN_FAILED));
         };
-        let user = match inner.user.take() {
-            Some(user) => user,
-            None => db::device_user(&mut open.conn).await?,
+        let result = match inner.user.take() {
+            Some(user) => Ok(user),
+            None => db::device_user(&mut open.conn).await,
         };
-        let result = db::query_as(&mut open.conn, sql, params, Some(Some(&user))).await;
-        if !(result.is_ok() && db::resets_device_user(sql)) {
-            inner.user = Some(user);
+        let result = match result {
+            Ok(user) => {
+                let result = db::query_as(&mut open.conn, sql, params, Some(Some(&user))).await;
+                if !(result.is_ok() && db::resets_device_user(sql)) {
+                    inner.user = Some(user);
+                }
+                result
+            }
+            Err(err) => Err(err),
+        };
+        // A broken connection (Postgres crashed, socket gone) is dropped, so the next query reopens.
+        if result.as_ref().is_err_and(PgError::is_connection)
+            && let Some(open) = inner.open.take()
+        {
+            inner.user = None;
+            self.engine.close(open.conn, open.handle).await;
         }
         Ok(value::rows_to_json(&result?))
     }
@@ -332,6 +345,9 @@ mod tests {
                     code: "42601".to_owned(),
                     message: "syntax error".to_owned(),
                 });
+            }
+            if sql.contains("lost") {
+                return Err(PgError::connection("gone"));
             }
             Ok(TextRows::default())
         }
@@ -476,6 +492,17 @@ mod tests {
         assert_eq!(host.state().failure, None);
         let _ = host.query("select 1", &[]).await;
         assert_eq!(engine.opens.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn connection_errors_reopen_on_next_query() -> Result<(), String> {
+        let (engine, host) = host();
+        assert_eq!(host.query("lost", &[]).await, Err("gone".to_owned()));
+        assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
+        let _ = host.query("select 1", &[]).await?;
+        assert_eq!(engine.opens.load(Ordering::SeqCst), 2);
+        assert_eq!(count(&engine, "select account_id"), 2);
+        Ok(())
     }
 
     #[tokio::test]
