@@ -233,19 +233,30 @@ fn write_rewrite(
     write_backup(file, original, mode)?;
     let mut text = serde_json::to_string_pretty(config)?;
     text.push('\n');
-    fs::write(tmp, text)?;
+    open_new(tmp, mode)?.write_all(text.as_bytes())?;
     set_mode_bits(tmp, mode)?;
     fs::rename(tmp, file)
+}
+
+/// Creates a file that has `mode` from the start, so a copy of a config holding API keys
+/// is never readable by others, not even briefly. Fails if the file already exists.
+fn open_new(path: &Path, mode: Option<u32>) -> io::Result<fs::File> {
+    let mut options = fs::OpenOptions::new();
+    let _ = options.write(true).create_new(true);
+    #[cfg(unix)]
+    if let Some(bits) = mode {
+        use std::os::unix::fs::OpenOptionsExt;
+        let _ = options.mode(bits);
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
+    options.open(path)
 }
 
 /// Writes the original text once; an existing backup is kept as it is.
 fn write_backup(file: &Path, original: &str, mode: Option<u32>) -> io::Result<()> {
     let backup = with_suffix(file, BACKUP_SUFFIX);
-    let mut handle = match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&backup)
-    {
+    let mut handle = match open_new(&backup, mode) {
         Ok(handle) => handle,
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => return Ok(()),
         Err(error) => return Err(error),

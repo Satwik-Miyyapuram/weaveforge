@@ -149,14 +149,8 @@ async fn handle(mut stream: TcpStream, handler: Handler, port: u16) {
     ) {
         return;
     }
-    let Ok(text) = String::from_utf8(body) else {
-        write_response(
-            &mut stream,
-            &LocalApiResponse::fail(400, "The body is not UTF-8 text."),
-        )
-        .await;
-        return;
-    };
+    // Lossy like TS's Buffer.toString("utf8"): bad bytes become U+FFFD.
+    let text = String::from_utf8_lossy(&body).into_owned();
 
     let request = LocalApiRequest {
         method: head.method,
@@ -450,7 +444,7 @@ mod tests {
     }
 
     #[test]
-    fn non_utf8_body_is_400() {
+    fn non_utf8_body_bytes_become_replacement_chars() {
         run(async {
             let (port, _stop) = start(echo_handler()).await;
             let mut request =
@@ -458,8 +452,8 @@ mod tests {
                     .into_bytes();
             request.push(0xff);
             let out = exchange(port, &request).await;
-            assert!(out.starts_with("HTTP/1.1 400 Bad Request\r\n"), "{out}");
-            assert!(out.ends_with("The body is not UTF-8 text.\"}"), "{out}");
+            assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+            assert!(out.ends_with("POST /x  \u{fffd}"), "{out}");
         });
     }
 
