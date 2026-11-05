@@ -28,6 +28,215 @@ export type Agreement = {
 	kappa: number | null,
 };
 
+/**  Persisted AI access settings (TS `AiAccessSettings`). Field order matches `normalize_ai_access_settings`. */
+export type AiAccessSettings = {
+	/**  Whether AI access is on. */
+	enabled: boolean,
+	/**  Read categories that are on. */
+	readCategories: AiReadCategory[],
+	/**  Proposal kinds that are on. */
+	proposalKinds: AiProposalKind[],
+	/**  Categories that new sources are added to automatically. */
+	autoIncludeNewSourceCategories?: AiReadCategory[] | null,
+	/**  When the disclosure was accepted, ISO 8601. */
+	disclosureAcceptedAt?: string | null,
+};
+
+/**  Untrusted, partial settings as stored (TS `Partial<AiAccessSettings>`). Unknown list values are dropped. */
+export type AiAccessSettingsInput = {
+	/**  Only `true` enables AI access. */
+	enabled?: boolean | null,
+	/**  Trimmed; blank means not accepted. */
+	disclosureAcceptedAt?: string | null,
+	/**  Raw read category names. */
+	readCategories?: string[] | null,
+	/**  Raw proposal kind names. */
+	proposalKinds?: string[] | null,
+	/**  Raw auto-include category names. */
+	autoIncludeNewSourceCategories?: string[] | null,
+};
+
+/**  Allowed, or the reason it was denied (TS `AiPolicyDecision`). */
+export type AiPolicyDecision = {
+	/**  Whether the request is allowed. */
+	allowed: boolean,
+	/**  Set only when `allowed` is false. */
+	reason?: AiPolicyDenyReason | null,
+};
+
+/**  Why a request is denied (TS `AiPolicyDenyReason`). */
+export type AiPolicyDenyReason = 
+/**  AI is switched off. */
+"ai_disabled" | 
+/**  The disclosure was never accepted. */
+"disclosure_missing" | 
+/**  The encryption key is locked. */
+"encryption_locked" | 
+/**  The session grant is expired or its date does not parse. */
+"grant_expired" | 
+/**  The resource is not in the grant. */
+"source_not_granted" | 
+/**  The read category is turned off. */
+"category_disabled" | 
+/**  The tool is not in the grant. */
+"tool_not_allowed" | 
+/**  The proposal kind is not allowed. */
+"proposal_not_allowed" | 
+/**  The proposal needs credential protection. */
+"credential_protection_required";
+
+/**  Inputs to one policy check (TS `AiPolicyInput`). The clock is passed to `evaluate_ai_access` separately. */
+export type AiPolicyInput = {
+	/**  Current settings. */
+	settings: AiAccessSettings,
+	/**  Current session grant. */
+	grant: AiSessionGrant,
+	/**  Resource being read, if any. */
+	resourceType?: AiResourceType | null,
+	/**  Id of the resource being read. */
+	resourceId?: string | null,
+	/**  Tool being called. */
+	tool: AiToolName,
+	/**  Whether the encryption key is unlocked. */
+	encryptionUnlocked: boolean,
+	/**  Proposal being made, if any. */
+	proposalKind?: AiProposalKind | null,
+};
+
+/**  Kinds of change the assistant may propose (TS `AiProposalKind`). */
+export type AiProposalKind = 
+/**  Append a paper note. */
+"append_paper_note" | 
+/**  Create a vault note. */
+"create_vault_note" | 
+/**  Create a log entry. */
+"create_log_entry" | 
+/**  Update a paper. */
+"paper_update" | 
+/**  Set a paper field value. */
+"paper_field_value" | 
+/**  Change a reading list. */
+"reading_list_change" | 
+/**  Add a relation. */
+"relation" | 
+/**  Import from Zotero. */
+"zotero_import" | 
+/**  Follow up on a milestone. */
+"milestone_follow_up" | 
+/**  Follow up on an experiment. */
+"experiment_follow_up" | 
+/**  Edit a vault note. */
+"edit_vault_note" | 
+/**  Append to a vault note. */
+"append_vault_note" | 
+/**  Edit a report. */
+"report_edit" | 
+/**  Change a milestone status. */
+"milestone_status" | 
+/**  Update an experiment. */
+"experiment_update" | 
+/**  Annotate a paper. */
+"paper_annotation";
+
+/**  Categories of content an AI session may read (TS `AiReadCategory`). */
+export type AiReadCategory = 
+/**  Paper metadata. */
+"paper_metadata" | 
+/**  Paper notes. */
+"paper_notes" | 
+/**  Zotero annotations. */
+"zotero_annotations" | 
+/**  Reading lists. */
+"reading_lists" | 
+/**  Vault notes. */
+"vault_notes" | 
+/**  Logbook. */
+"logbook" | 
+/**  Experiments. */
+"experiments";
+
+/**  Kinds of workspace resource (TS `AiResourceType`). */
+export type AiResourceType = 
+/**  A paper. */
+"paper" | 
+/**  A note on a paper. */
+"paper_note" | 
+/**  A Zotero annotation. */
+"zotero_annotation" | 
+/**  A Zotero note. */
+"zotero_note" | 
+/**  A reading list. */
+"reading_list" | 
+/**  A citation graph. */
+"citation_graph" | 
+/**  A vault page. */
+"vault_page" | 
+/**  A logbook entry. */
+"log_entry" | 
+/**  An experiment. */
+"experiment" | 
+/**  A milestone. */
+"milestone";
+
+/**  A session grant (TS `AiSessionGrant`, without the literal `requiresConfirmationForWrites`). */
+export type AiSessionGrant = {
+	/**  Grant id. */
+	id: string,
+	/**  Workspace the grant belongs to. */
+	workspaceId: string,
+	/**  Expiry, ISO 8601. */
+	expiresAt: string,
+	/**  Resources the grant can read. */
+	readable: AiWorkspaceSource[],
+	/**  Tools the grant allows. */
+	allowedTools: AiToolName[],
+	/**  Proposal kinds the grant allows. */
+	proposalCapabilities: AiProposalKind[],
+};
+
+/**  Tools the assistant can call (TS `AiToolName`). */
+export type AiToolName = 
+/**  Search the workspace. */
+"search_workspace" | 
+/**  Read an excerpt of a source. */
+"get_source_excerpt" | 
+/**  Read the workspace outline. */
+"get_workspace_outline" | 
+/**  Suggest an appended paper note. */
+"suggest_append_paper_note" | 
+/**  Suggest a new vault note. */
+"suggest_create_vault_note" | 
+/**  Suggest a new log entry. */
+"suggest_create_log_entry" | 
+/**  Suggest a paper update. */
+"suggest_paper_update" | 
+/**  Suggest a paper field value. */
+"suggest_paper_field_value" | 
+/**  Suggest a reading list change. */
+"suggest_reading_list_change" | 
+/**  Suggest a relation. */
+"suggest_relation" | 
+/**  Suggest a Zotero import. */
+"suggest_zotero_import" | 
+/**  Suggest a milestone follow-up. */
+"suggest_milestone_follow_up" | 
+/**  Suggest an experiment follow-up. */
+"suggest_experiment_follow_up";
+
+/**  A resource the grant can read (TS `AiWorkspaceSource`). */
+export type AiWorkspaceSource = {
+	/**  Stable id of the source. */
+	sourceId: string,
+	/**  Kind of resource. */
+	resourceType: AiResourceType,
+	/**  Id of the resource. */
+	resourceId: string,
+	/**  Display label. */
+	label?: string | null,
+	/**  Same-origin deep link. */
+	href?: string | null,
+};
+
 /**  The `candidate` argument of `isBibliographicMatch`. Mirrors its TS shape. */
 export type AnalysisBibliographicCandidate = {
 	/**  Candidate title. */
@@ -555,6 +764,16 @@ export type ChangeSide =
 /**  Some digest is missing, so no guess is made. */
 "unknown";
 
+/**  Options for [`chunk_for_embedding`]; unset fields take the TS defaults. */
+export type ChunkOptions = {
+	/**  Characters per passage. Roughly four per token, so 1 000 sits under the 256-token window. */
+	maxChars?: number | null,
+	/**  Characters repeated between neighbours, so a sentence spanning a boundary lands whole. */
+	overlapChars?: number | null,
+	/**  Below this a trailing fragment is merged back rather than embedded alone. */
+	minChars?: number | null,
+};
+
 /**  A candidate citation span in the page text (`CitationCandidate`). */
 export type CitationCandidate = {
 	/**  Start offset in the raw page text, in UTF-16 units. */
@@ -643,6 +862,28 @@ export type CommaPlacement =
 /**  Outside the closing quotation mark (British style). */
 "outside";
 
+/**  A passage with a little context either side (TS `CommentAnchor`, W3C TextQuoteSelector). */
+export type CommentAnchor = {
+	/**  The quoted text. */
+	quote: string,
+	/**  Text just before the quote. */
+	prefix: string,
+	/**  Text just after the quote. */
+	suffix: string,
+};
+
+/**  A compute requirement (TS `ComputeNeed`). */
+export type ComputeNeed = {
+	/**  Resource name: GPU model, cluster partition, "CPU", "storage", ... */
+	resource: string,
+	/**  Number of units (GPUs, nodes). */
+	count?: number | null,
+	/**  Estimated hours of use. */
+	hours?: number | null,
+	/**  Free-form note. */
+	notes?: string | null,
+};
+
 /**  A field that both sides moved to different values. */
 export type Conflict = {
 	/**  Column name. */
@@ -664,6 +905,14 @@ export type ConflictKind =
 /**  The file still holds this app's conflict markers. */
 "markers";
 
+/**  A statement the two pages disagree on, kept from both sides (TS `Contradiction`). */
+export type Contradiction = {
+	/**  The statement from the page being kept. */
+	fromPrimary: string,
+	/**  The conflicting statement from the page being merged in. */
+	fromSecondary: string,
+};
+
 /**  Icon and toggle button scale across the app. */
 export type ControlSize = 
 /**  Smaller controls. */
@@ -678,6 +927,47 @@ export type CoreInfo = {
 	/**  Semver version of the core crate. */
 	version: string,
 };
+
+/**  A span of page text one link covers (TS `CoveredTextSpan`). */
+export type CoveredTextSpan = {
+	/**  The link the span was measured from. */
+	link: AnalysisPdfLink,
+	/**  Start offset into the page text, trimmed of separators. */
+	start: number | null,
+	/**  End offset into the page text, trimmed of separators. */
+	end: number | null,
+};
+
+/**  The spans a set of links cover, with the page text they index (TS `coveredTextSpans` result). */
+export type CoveredTextSpans = {
+	/**  One span per link that covers text, in link order. */
+	spans: CoveredTextSpan[],
+	/**  The page text: items concatenated, `\n` after each `hasEOL` item. */
+	text: string,
+};
+
+/**  The settings fields the credential helpers read (TS `UserSettings`, credential part). */
+export type CredentialSettings = {
+	/**  Provider-keyed credential bags. */
+	integrations?: { [key in string]: { [key in string]: string } } | null,
+	/**  Zotero Web API key. */
+	zoteroApiKey?: string | null,
+	/**  Zotero library path. */
+	zoteroLibrary?: string | null,
+	/**  Semantic Scholar API key. */
+	semanticScholarKey?: string | null,
+};
+
+/**  What a dependency points at (TS `DependencyKind`). */
+export type DependencyKind = 
+/**  Another milestone, by id. */
+"milestone" | 
+/**  An experiment, by id. */
+"experiment" | 
+/**  A paper, by id. */
+"paper" | 
+/**  Free-form, carried as a label only. */
+"external";
 
 /**  A run of disagreeing lines; either side may be empty. */
 export type DiffHunk = {
@@ -720,6 +1010,16 @@ export type DocumentAnalysis = {
 	figures: FigureMention[],
 	/**  Fingerprint of the page texts. */
 	fingerprint: string,
+};
+
+/**  Tuning for `document_boost` (TS `DocumentBoostOptions`, without the reference time). */
+export type DocumentBoostOptions = {
+	/**  Half-life for the recency tiebreak, in days. */
+	recencyHalfLifeDays?: number | null,
+	/**  Multiplier from user settings (kind downranking). Defaults to 1. */
+	kindMultiplier?: number | null,
+	/**  `Some(false)` drops the recency tiebreak entirely. */
+	recency?: boolean | null,
 };
 
 /**  One page's extracted text (TS `DocumentPageText`). */
@@ -822,6 +1122,22 @@ export type ExperimentStatusPatch = {
 	finishedAt?: string | null,
 };
 
+/**  Effective per-field boosts (TS `Record<SearchField, number>`). */
+export type FieldBoosts = {
+	/**  Title boost. */
+	title: number | null,
+	/**  Aliases boost. */
+	aliases: number | null,
+	/**  Headings boost. */
+	headings: number | null,
+	/**  Tags boost. */
+	tags: number | null,
+	/**  Path boost. */
+	path: number | null,
+	/**  Body boost. */
+	body: number | null,
+};
+
 /**  One mention of a figure, table, equation, section or algorithm (`FigureMention`). */
 export type FigureMention = {
 	/**  1-based page number the mention is on. */
@@ -903,6 +1219,18 @@ export type GitSyncSkipReason =
 "too-large" | 
 /**  The path has no segments (empty or `.`). */
 "invalid-path";
+
+/**  Measured shape of a graph (TS `GraphDensity`). */
+export type GraphDensity = {
+	/**  Node count. */
+	nodes: number | null,
+	/**  Undirected edge count. */
+	edges: number | null,
+	/**  Mean degree; the reference cascade uses density to pick an arm. */
+	meanDegree: number | null,
+	/**  Fraction of nodes in the largest connected component. */
+	largestComponentRatio: number | null,
+};
 
 /**  Per-project graph UI state synced across devices (TS `GraphPersistedState`). */
 export type GraphPersistedState = {
@@ -1113,6 +1441,73 @@ export type InkStrokePackerOptions = {
 	pressureTolerance?: number | null,
 };
 
+/**  One undoable step (TS `InkUndoEntry`). */
+export type InkUndoEntry = 
+/**  A stroke was created; undo removes it, redo creates it again. */
+{ kind: "create"; 
+/**  The created mark. */
+annotation: ZoteroAnnotationLocal } | 
+/**  A stroke was erased; undo creates it again, redo removes it. */
+{ kind: "remove"; 
+/**  The erased mark. */
+annotation: ZoteroAnnotationLocal } | 
+/**  Several marks were deleted together; undo recreates all, redo removes all. */
+{ kind: "removeMany"; 
+/**  The deleted marks. */
+annotations: ZoteroAnnotationLocal[] } | 
+/**  A mark's paths were rewritten (a stroke joined it, or it was moved). */
+{ kind: "anchor"; 
+/**  The mark's id. */
+id: string; 
+/**  Anchor before the rewrite. */
+before: AnchorCombinedPdf; 
+/**  Anchor after the rewrite. */
+after: AnchorCombinedPdf } | 
+/**  A mark's colour, comment, tags or text changed; each side holds the fields it set. */
+{ kind: "update"; 
+/**  The mark's id. */
+id: string; 
+/**  Fields before the edit. */
+before: InkUndoPatch; 
+/**  Fields after the edit. */
+after: InkUndoPatch };
+
+/**  The fields an edit can change (TS `InkUndoPatch`). `None` means the field is not part of the edit. */
+export type InkUndoPatch = {
+	/**  New colour. */
+	color?: string | null,
+	/**  New researcher comment. */
+	comment?: string | null,
+	/**  New tags. */
+	tags?: string[] | null,
+	/**  New selected text. */
+	text?: string | null,
+};
+
+/**  The undo and redo stacks (TS `InkUndoState`). The last element is the next step. */
+export type InkUndoState = {
+	/**  Steps that can be undone. */
+	undo: InkUndoEntry[],
+	/**  Steps that can be redone. */
+	redo: InkUndoEntry[],
+};
+
+/**  A step taken off a stack, with the stacks after taking it (TS `{ state, entry }`). */
+export type InkUndoStep = {
+	/**  The stacks after the step moved. */
+	state: InkUndoState,
+	/**  The step that moved. */
+	entry: InkUndoEntry,
+};
+
+/**  The integrations bag built from legacy columns (TS `integrationsBagFromLegacy` output). */
+export type IntegrationsBag = {
+	/**  Zotero fields (`apiKey`, `library`), present when any is non-empty. */
+	zotero?: { [key in string]: string } | null,
+	/**  Semantic Scholar fields (`apiKey`), present when non-empty. */
+	"semantic-scholar"?: { [key in string]: string } | null,
+};
+
 /**  Where one item stands at one stage. */
 export type ItemVerdict = {
 	/**  The item. */
@@ -1235,6 +1630,30 @@ export type LayoutMode =
 /**  x pinned to the publication year. */
 "timeline";
 
+/**  One page's text items (TS `{ number, items }` argument of `coveredTextSpans`). */
+export type LinkCitationPage = {
+	/**  1-based page number. */
+	number: number | null,
+	/**  Text items in reading order. */
+	items: SelectionPageTextItem[],
+};
+
+/**  A stored log entry (TS `LogEntry`). */
+export type LogEntry = {
+	/**  Entry id. */
+	id: string,
+	/**  Calendar date (yyyy-mm-dd) the entry is about. */
+	entryDate: string,
+	/**  Daily or weekly. */
+	kind: LogKind,
+	/**  Markdown body, trimmed. */
+	body: string,
+	/**  References to experiments / papers / sections. */
+	links: LogLink[],
+	/**  Creation time, ISO 8601 UTC. */
+	createdAt: string,
+};
+
 /**  A live log entry, as the snapshot reads it (TS `LogEntry`, subset). */
 export type LogEntryInput = {
 	/**  Log entry id. */
@@ -1247,12 +1666,20 @@ export type LogEntryInput = {
 	body: string,
 };
 
-/**  A log entry's kind (TS `LogKind`). */
+/**  Kind of log entry (TS `LogKind`). */
 export type LogKind = 
-/**  A day's entry. */
+/**  One entry per day. */
 "daily" | 
-/**  A week's entry. */
+/**  One entry per week. */
 "weekly";
+
+/**  A reference from a log entry to another entity (TS `LogLink`). */
+export type LogLink = {
+	/**  Kind of entity referenced (experiment, paper, section). */
+	type: string,
+	/**  Id of the referenced entity. */
+	id: string,
+};
 
 /**  One `reportimg:` figure: the storage path and the safe file name it is written under. */
 export type MarkdownToLatexImageRef = {
@@ -1283,6 +1710,18 @@ export type MarkdownToLatexResult = {
 	citedKeys: string[],
 };
 
+/**  One bounded, fenced result (TS `McpResult`). */
+export type McpResult = {
+	/**  Ready to send as the tool's text content. */
+	text: string,
+	/**  The fence marker, so a transport can repeat it in structured metadata. */
+	nonce: string,
+	/**  Items left out entirely because the result was already full. */
+	omitted: number | null,
+	/**  Items included but cut short. */
+	truncated: number | null,
+};
+
 /**
  *  One key both sides moved, with all three sides so a person can pick.
  *  `ours` is the workspace's value, `theirs` the folder's.
@@ -1298,12 +1737,56 @@ export type MergeFieldDispute = {
 	theirs: unknown,
 };
 
+/**  A page as the merge reads it (TS `MergeInput`). */
+export type MergeInput = {
+	/**  Page id; the merge does not read it. */
+	id: string,
+	/**  The page title; the primary title is kept. */
+	title: string,
+	/**  The page body as markdown. */
+	body: string,
+	/**  Other names the page answers to. */
+	aliases?: string[] | null,
+	/**  Source references for the page. */
+	sources?: string[] | null,
+};
+
 /**  A merged row and the conflicts the reader has to decide. */
 export type MergeResult = {
 	/**  The row with the server's values, overridden by local-only edits. */
 	merged: { [key in string]: unknown },
 	/**  Conflicts in field order: local keys, then remote-only keys. */
 	conflicts: Conflict[],
+};
+
+/**  A forward-looking unit of the thesis plan (TS `Milestone`). */
+export type Milestone = {
+	/**  Unique id. */
+	id: string,
+	/**  Trimmed title. */
+	title: string,
+	/**  Optional description. */
+	description?: string | null,
+	/**  Current status. */
+	status: MilestoneStatus,
+	/**  Target date (yyyy-mm-dd). */
+	targetDate?: string | null,
+	/**  Structured dependencies. */
+	dependencies: MilestoneDependency[],
+	/**  Compute needs. */
+	compute: ComputeNeed[],
+	/**  Creation time, ISO 8601 UTC. */
+	createdAt: string,
+};
+
+/**  A structured dependency (TS `MilestoneDependency`). */
+export type MilestoneDependency = {
+	/**  What the dependency points at. */
+	kind: DependencyKind,
+	/**  Referenced entity id (internal kinds). */
+	refId?: string | null,
+	/**  Human label; required for `external`. */
+	label?: string | null,
 };
 
 /**  A live milestone, as the snapshot reads it (TS `Milestone`, subset). */
@@ -1347,6 +1830,62 @@ export type MirrorResult = {
 	bases: ([string, VaultPageBase])[],
 };
 
+/**  A comment request (TS `NewCommentInput`). Optional fields may be absent. */
+export type NewCommentInput = {
+	/**  The type of item commented on. */
+	resourceType: string,
+	/**  The item commented on. */
+	resourceId: string,
+	/**  The comment text. */
+	body: string,
+	/**  The passage commented on, if any. */
+	anchor?: CommentAnchor | null,
+	/**  The thread root this answers, if a reply. */
+	parentId?: string | null,
+};
+
+/**  Fields accepted when creating a log entry; the rest are defaulted (TS `NewLogEntryInput`). */
+export type NewLogEntryInput = {
+	/**  Markdown body; blank after trimming is rejected. Missing reads as blank. */
+	body?: string,
+	/**  Calendar date; defaults to the date of `now`. */
+	entryDate?: string | null,
+	/**  Defaults to `daily`. */
+	kind?: LogKind | null,
+	/**  Defaults to no links. */
+	links?: LogLink[] | null,
+};
+
+/**  Input for a new milestone (TS `NewMilestoneInput`). */
+export type NewMilestoneInput = {
+	/**  Title; trimmed and required. */
+	title: string,
+	/**  Optional description. */
+	description?: string | null,
+	/**  Status; defaults to `planned`. */
+	status?: MilestoneStatus | null,
+	/**  Target date (yyyy-mm-dd). */
+	targetDate?: string | null,
+	/**  Structured dependencies. */
+	dependencies?: MilestoneDependency[],
+	/**  Compute needs. */
+	compute?: ComputeNeed[],
+};
+
+/**  Caller input for a new relation (TS `NewPaperRelationInput`). */
+export type NewPaperRelationInput = {
+	/**  The paper the edge starts from. Missing reads as blank, which is rejected. */
+	fromPaper?: string,
+	/**  The paper the edge points to. Missing reads as blank, which is rejected. */
+	toPaper?: string,
+	/**  The kind of relation. */
+	relation: RelationType,
+	/**  Optional free-text note. */
+	note?: string | null,
+	/**  How the edge was created; defaults to manual. */
+	source?: RelationSource | null,
+};
+
 /**  What a caller supplies to create a section. */
 export type NewReportSectionInput = {
 	/**  Title; required after trimming. */
@@ -1371,6 +1910,18 @@ export type NewReportSectionInput = {
 	sortOrder?: number | null,
 };
 
+/**  A grant request (TS `NewShareInput`). `access` defaults to comment when absent. */
+export type NewShareInput = {
+	/**  The member receiving the grant. */
+	recipientId: string,
+	/**  The type of item shared. */
+	resourceType: ShareableType,
+	/**  The item shared; `None` shares every item of the type. */
+	resourceId: string | null,
+	/**  The access level; absent means comment. */
+	access?: ShareAccess | null,
+};
+
 /**  Per-kind colour overrides, as lower-case `#rrggbb`. Missing keys follow the palette. */
 export type NodeColors = {
 	paper?: string | null,
@@ -1389,6 +1940,40 @@ export type NodePalette =
 "theme" | 
 /**  The muted original palette. */
 "classic";
+
+/**  A node's visit probability (one entry of the TS score `Map`). */
+export type NodeScore = {
+	/**  The node id. */
+	node: string,
+	/**  Visits to the node divided by total visits. */
+	score: number | null,
+};
+
+/**  A normalized comment: every field present, `null` when unset. */
+export type NormalizedComment = {
+	/**  The type of item commented on. */
+	resourceType: string,
+	/**  The item commented on. */
+	resourceId: string,
+	/**  The trimmed comment text. */
+	body: string,
+	/**  The passage commented on; `None` for a reply or a page-level comment. */
+	anchor: CommentAnchor | null,
+	/**  The thread root this answers; `None` on a root. */
+	parentId: string | null,
+};
+
+/**  A normalized grant (TS `Required<NewShareInput>`). */
+export type NormalizedShareInput = {
+	/**  The member receiving the grant. */
+	recipientId: string,
+	/**  The type of item shared. */
+	resourceType: ShareableType,
+	/**  The item shared; `None` shares every item of the type. */
+	resourceId: string | null,
+	/**  The access level, never absent. */
+	access: ShareAccess,
+};
 
 /**  Only the page of a heading (`{ page: number }`), as `outlineIsPlausible` reads it. */
 export type OutlinePageRef = {
@@ -1536,6 +2121,24 @@ export type PaperRefKind =
 /**  An opaque Zotero item key. */
 "zotero";
 
+/**  A typed, directed edge between two papers (TS `PaperRelation`). */
+export type PaperRelation = {
+	/**  Relation id. */
+	id: string,
+	/**  The paper the edge starts from. */
+	fromPaper: string,
+	/**  The paper the edge points to. */
+	toPaper: string,
+	/**  The kind of relation. */
+	relation: RelationType,
+	/**  Optional free-text note. */
+	note?: string | null,
+	/**  How the edge was created. */
+	source: RelationSource,
+	/**  Creation time, ISO 8601 UTC. */
+	createdAt: string,
+};
+
 /**  Reading status of a paper. */
 export type PaperStatus = 
 /**  Not started. */
@@ -1649,6 +2252,16 @@ export type PdfTextOptions = {
 	singleParagraph?: boolean,
 };
 
+/**  Walk settings (TS `PprOptions` without the injected `rng`). Unset fields take the defaults. */
+export type PprOptions = {
+	/**  Walks per seed. */
+	numWalks?: number | null,
+	/**  Steps per walk. */
+	maxSteps?: number | null,
+	/**  Teleport probability back to the seed. */
+	damping?: number | null,
+};
+
 /**  PRISMA box counts, derived from the screening decisions every time they are asked for. */
 export type PrismaCounts = {
 	/**  Everything the searches turned up, before anything was thrown away. */
@@ -1691,6 +2304,14 @@ export type QuotationType =
 "paraphrase" | 
 /**  Condensed. */
 "summary";
+
+/**  The document fields `document_boost` reads (TS `SearchDoc` subset). */
+export type RankedDoc = {
+	/**  Wiki-graph link degree; `0` until the graph phase fills it in. */
+	degree: number | null,
+	/**  ISO 8601 timestamp of the last update. Missing reads as blank: no recency boost. */
+	updatedAt?: string,
+};
 
 /**  One arm's ranking: ids best first, and its relative influence. */
 export type RankedList = {
@@ -1853,6 +2474,52 @@ export type ReaderViewportState = {
 	page: number | null,
 };
 
+/**  A named, nestable grouping of papers (TS `ReadingList`). */
+export type ReadingList = {
+	/**  Stable id. */
+	id: string,
+	/**  Display name, trimmed. */
+	name: string,
+	/**  Free text. */
+	description?: string | null,
+	/**  Parent list id for nesting; absent = top level. */
+	parentId?: string | null,
+	/**  Position among siblings. */
+	sortOrder: number | null,
+	/**  Display colour. */
+	color?: string | null,
+	/**  Creation time, ISO 8601 UTC. */
+	createdAt: string,
+};
+
+/**  A paper or note membership in a list (TS `ReadingListItem`). */
+export type ReadingListItem = {
+	/**  Stable id. */
+	id: string,
+	/**  The list this row belongs to. */
+	listId: string,
+	/**  Paper id; exactly one of this and `vault_page_id` is set. */
+	paperId?: string | null,
+	/**  Vault page id; exactly one of this and `paper_id` is set. */
+	vaultPageId?: string | null,
+	/**  Position among the list's items. */
+	sortOrder: number | null,
+	/**  Why this item is in this list. */
+	note?: string | null,
+	/**  Set when membership was propagated from a descendant list. */
+	inheritedFromListId?: string | null,
+	/**  Set during screening when this item duplicates another in the same list. */
+	duplicateOfItemId?: string | null,
+};
+
+/**  A list with its nested children (TS `ReadingListTreeNode`). */
+export type ReadingListTreeNode = {
+	/**  The list at this node. */
+	list: ReadingList,
+	/**  Child lists, sorted by `sort_order` then `name`. */
+	children: ReadingListTreeNode[],
+};
+
 /**  How a rejoin decides which lines belong to the same paragraph. */
 export type Rejoin = 
 /**  Rejoins every line that looks wrapped. */
@@ -1861,6 +2528,48 @@ export type Rejoin =
 "indented" | 
 /**  Strips and dedents without joining anything. */
 "never";
+
+/**  The method that found a related document (TS `RelatedArm`). */
+export type RelatedArm = 
+/**  Links between notes and papers. */
+"graph" | 
+/**  Similar wording. */
+"lexical" | 
+/**  Similar meaning. */
+"semantic" | 
+/**  Shared tags. */
+"tags" | 
+/**  Nothing related found. */
+"none";
+
+/**  A related node (TS `RelatedNode`). */
+export type RelatedNode = {
+	/**  The node id. */
+	id: string,
+	/**  Its personalized PageRank score. */
+	score: number | null,
+};
+
+/**  One related document (TS `RelatedResult`). */
+export type RelatedResult = {
+	/**  Document id. */
+	id: string,
+	/**  Rank-blend score; not a number with meaning on its own. */
+	score: number | null,
+	/**  The method that ranked it first. */
+	arm: RelatedArm,
+	/**  Every method that found it, strongest first, when more than one ran. */
+	arms?: RelatedArm[] | null,
+	/**  Cosine similarity to the seed, 0–1, when the meaning arm found it. */
+	similarity?: number | null,
+};
+
+/**  How a relation edge was created (TS `source`). */
+export type RelationSource = 
+/**  Entered by hand. */
+"manual" | 
+/**  Matched from a citation. */
+"auto";
 
 /**  A paper relation kind (`RELATION_TYPES` in `paper-relation.ts`). */
 export type RelationType = 
@@ -2011,6 +2720,37 @@ export type ScreeningState =
 /**  Could not tell; goes on to the full text. */
 "unsure";
 
+/**  Searchable field (TS `SearchField`). Declaration order matches `SEARCH_FIELDS`. */
+export type SearchField = 
+/**  Document title. */
+"title" | 
+/**  Wikilink aliases and short names. */
+"aliases" | 
+/**  Markdown h1–h3 headings. */
+"headings" | 
+/**  Tags. */
+"tags" | 
+/**  Ancestor-title breadcrumb. */
+"path" | 
+/**  Body text. */
+"body";
+
+/**  Per-field overrides (TS `SearchFieldWeights`); an absent field keeps its default. */
+export type SearchFieldWeights = {
+	/**  Title override. */
+	title?: number | null,
+	/**  Aliases override. */
+	aliases?: number | null,
+	/**  Headings override. */
+	headings?: number | null,
+	/**  Tags override. */
+	tags?: number | null,
+	/**  Path override. */
+	path?: number | null,
+	/**  Body override. */
+	body?: number | null,
+};
+
 /**  Every entity kind the workspace index covers (TS `SEARCH_KINDS`). */
 export type SearchKind = 
 /**  Note. */
@@ -2031,6 +2771,23 @@ export type SearchKind =
 "pdf" | 
 /**  Annotation. */
 "annotation";
+
+/**
+ *  User-tunable ranking (TS `SearchSettings`). Not `Deserialize`: `SearchKind` has no
+ *  `Deserialize`, so JS input goes through `normalize_search_settings` instead.
+ */
+export type SearchSettings = {
+	/**  Overrides for the field boosts; absent fields keep their default. */
+	weights?: SearchFieldWeights | null,
+	/**  Kinds pushed down the results without being excluded. */
+	downrankedKinds?: SearchKind[] | null,
+	/**  Recency tiebreak; on by default. */
+	recencyBoost?: boolean | null,
+	/**  Fold diacritics when tokenizing; on by default. */
+	ignoreDiacritics?: boolean | null,
+	/**  Additionally fold Arabic harakat. */
+	ignoreArabicDiacritics?: boolean | null,
+};
 
 /**  One page's text geometry (TS `PageTextGeometry`). `pageWidth`/`pageHeight` are ignored. */
 export type SelectionPageTextGeometry = {
@@ -2086,12 +2843,68 @@ export type SerializedWorkspace = {
 	assets: SerializedAsset[],
 };
 
+/**  How much a share lets the recipient do (TS `ShareAccess`). */
+export type ShareAccess = 
+/**  Read only. */
+"view" | 
+/**  Read and comment. */
+"comment" | 
+/**  Read, comment and collaboratively edit. */
+"edit";
+
+/**  The fields of TS `Share` that access reads (`ShareScope` plus `access`). */
+export type ShareGrant = {
+	/**  The type of item shared. */
+	resourceType: ShareableType,
+	/**  The item shared; `None` shares every item of the type. */
+	resourceId: string | null,
+	/**  The sharer. */
+	ownerId: string,
+	/**  The access level. */
+	access: ShareAccess,
+};
+
+/**  The fields of TS `Share` that coverage reads (`Pick` of type, resource and owner). */
+export type ShareScope = {
+	/**  The type of item shared. */
+	resourceType: ShareableType,
+	/**  The item shared; `None` shares every item of the type. */
+	resourceId: string | null,
+	/**  The sharer. */
+	ownerId: string,
+};
+
+/**  A type a share can cover (TS `ShareableType`). */
+export type ShareableType = 
+/**  A milestone. */
+"milestone" | 
+/**  An experiment. */
+"experiment" | 
+/**  A report section. */
+"report_section" | 
+/**  A reading list. */
+"reading_list" | 
+/**  A paper. */
+"paper" | 
+/**  A vault page. */
+"vault_page";
+
 /**  How surfaces are separated from each other. */
 export type SurfaceStyle = 
 /**  No borders between surfaces. */
 "borderless" | 
 /**  Bordered surfaces (high contrast). */
 "bordered";
+
+/**  One passage of a document (TS `TextChunk`). */
+export type TextChunk = {
+	/**  The passage, trimmed. */
+	text: string,
+	/**  UTF-16 offset in the trimmed source, so a hit can point at the passage it matched. */
+	start: number | null,
+	/**  UTF-16 offset just past the passage in the trimmed source. */
+	end: number | null,
+};
 
 /**
  *  A rule's output: the new text and whether it differs from the input.
@@ -2160,6 +2973,14 @@ export type UntrustedItem = {
 	text: string,
 };
 
+/**  Result of a URL shape check (TS `UrlCheck`). */
+export type UrlCheck = {
+	/**  True when the URL may be fetched. */
+	ok: boolean,
+	/**  Why it was refused, absent when `ok`. */
+	reason?: UrlRejection | null,
+};
+
 /**  The result of cleaning the URLs in a text. */
 export type UrlCleanupResult = {
 	/**  The text with the URLs shortened. */
@@ -2167,6 +2988,21 @@ export type UrlCleanupResult = {
 	/**  How many URLs were actually shortened. */
 	count: number,
 };
+
+/**  Why a URL was refused (TS `UrlRejection`). */
+export type UrlRejection = 
+/**  Could not be parsed as a URL. Produced by the TS wrapper, not by this module. */
+"not-a-url" | 
+/**  Protocol is not http or https. */
+"scheme" | 
+/**  Carries a username or password. */
+"credentials" | 
+/**  Port is not on the allowlist. */
+"port" | 
+/**  Literal address is private, reserved or local. */
+"private-address" | 
+/**  Hostname names this machine or network. */
+"hostname";
 
 /**  The appearance preferences that survived checking; absent fields are unset. */
 export type UserAppearance = {
@@ -2194,6 +3030,28 @@ export type UserAppearance = {
 	customTheme?: ThemeConfig | null,
 };
 
+/**  The settings row (TS `UserSettings`), for the generated bindings. */
+export type UserSettings = {
+	/**  Provider-keyed credential bags; legacy flat columns stay in sync. */
+	integrations?: { [key in string]: { [key in string]: string } } | null,
+	/**  Zotero Web API key. */
+	zoteroApiKey?: string | null,
+	/**  Zotero library path, e.g. `users/123456`. */
+	zoteroLibrary?: string | null,
+	/**  Semantic Scholar API key. */
+	semanticScholarKey?: string | null,
+	/**  When the user accepted the disclaimer, ISO 8601. */
+	disclaimerAcceptedAt?: string | null,
+	/**  Version of the accepted disclaimer. */
+	disclaimerVersion?: number | null,
+	/**  Theme and control preferences. */
+	appearance?: UserAppearance | null,
+	/**  Fail-closed AI assistant access. */
+	aiAccess?: AiAccessSettings | null,
+	/**  Workspace search ranking. */
+	search?: SearchSettings | null,
+};
+
 /**  The note as it stood when the two sides last agreed. */
 export type VaultPageBase = {
 	/**  Frontmatter fields, with `title` included. */
@@ -2218,6 +3076,44 @@ export type VaultPageSide = {
 	fields: { [key in string]: unknown },
 	/**  Body text after the frontmatter. */
 	body: string,
+};
+
+/**  The wiki-link graph over a workspace (TS `WikiGraph`). */
+export type WikiGraph = {
+	/**  Nodes in insertion order. */
+	nodes: string[],
+	/**  Adjacency, undirected: a link implies relatedness in both directions. */
+	edges: WikiGraphEdges[],
+};
+
+/**  Link count for one node (one TS `graphDegrees` entry). */
+export type WikiGraphDegree = {
+	/**  The node, `kind:id`. */
+	node: string,
+	/**  Number of neighbours. */
+	degree: number | null,
+};
+
+/**  One node and its neighbours, in insertion order (one TS `edges` entry). */
+export type WikiGraphEdges = {
+	/**  The node, `kind:id`. */
+	node: string,
+	/**  Undirected neighbours, in insertion order. */
+	neighbours: string[],
+};
+
+/**  The merged page (TS `WikiMergeResult`). */
+export type WikiMergeResult = {
+	/**  The primary page's title. */
+	title: string,
+	/**  The merged markdown body. */
+	body: string,
+	/**  Aliases of both pages, plus the absorbed title. */
+	aliases: string[],
+	/**  Sources of both pages, de-duplicated. */
+	sources: string[],
+	/**  Statements that disagree, kept side by side. */
+	contradictions: Contradiction[],
 };
 
 /**  The fields of a wiki page the index reads (TS `WikiPageRef`, from `wiki-lint.ts`). */

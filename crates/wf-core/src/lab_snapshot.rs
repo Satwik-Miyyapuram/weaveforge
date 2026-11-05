@@ -18,16 +18,7 @@ pub enum MilestoneStatus {
     Blocked,
 }
 
-/// A log entry's kind (TS `LogKind`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-pub enum LogKind {
-    /// A day's entry.
-    Daily,
-    /// A week's entry.
-    Weekly,
-}
+pub use crate::logbook::log_entry::LogKind;
 
 /// A live milestone, as the snapshot reads it (TS `Milestone`, subset).
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]

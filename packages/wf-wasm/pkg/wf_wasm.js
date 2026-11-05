@@ -1,6 +1,25 @@
 /* @ts-self-types="./wf_wasm.d.ts" */
 
 /**
+ * [`acronyms_for_title`](acronyms::acronyms_for_title) as a JS array of strings.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ * @param {string} title
+ * @returns {any}
+ */
+export function acronymsForTitle(title) {
+    const ptr0 = passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.acronymsForTitle(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::json_entities::add_counts`] for JS.
  *
  * # Errors
@@ -31,6 +50,23 @@ export function addCounts(a, b) {
  */
 export function agreementBetween(decisions, reviewers, stage) {
     const ret = wasm.agreementBetween(decisions, reviewers, stage);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`ai_read_category_for_resource`](access_policy::ai_read_category_for_resource).
+ *
+ * # Errors
+ *
+ * Fails if `resourceType` is not a known resource type.
+ * @param {any} resource_type
+ * @returns {any}
+ */
+export function aiReadCategoryForResource(resource_type) {
+    const ret = wasm.aiReadCategoryForResource(resource_type);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -69,6 +105,27 @@ export function applyCommaPlacement(input, placement) {
     const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.applyCommaPlacement(ptr0, len0, placement);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`apply_user_integration_fields`](user_settings::apply_user_integration_fields).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON or `fields` is not a string map.
+ * @param {any} settings
+ * @param {string} provider_id
+ * @param {any} fields
+ * @returns {any}
+ */
+export function applyUserIntegrationFields(settings, provider_id, fields) {
+    const ptr0 = passStringToWasm0(provider_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.applyUserIntegrationFields(settings, ptr0, len0, fields);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -187,6 +244,23 @@ export function buildLabSnapshotContent(input) {
 }
 
 /**
+ * [`build_list_tree`](reading_list::build_list_tree).
+ *
+ * # Errors
+ *
+ * Fails if `lists` has the wrong shape.
+ * @param {any} lists
+ * @returns {any}
+ */
+export function buildListTree(lists) {
+    const ret = wasm.buildListTree(lists);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -197,6 +271,23 @@ export function buildLabSnapshotContent(input) {
  */
 export function buildSectionTree(sections) {
     const ret = wasm.buildSectionTree(sections);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`build_wiki_graph`](wiki_graph::build_wiki_graph).
+ *
+ * # Errors
+ *
+ * Fails if `snapshot` has the wrong shape.
+ * @param {any} snapshot
+ * @returns {any}
+ */
+export function buildWikiGraph(snapshot) {
+    const ret = wasm.buildWikiGraph(snapshot);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -296,6 +387,32 @@ export function checkBibliography(input) {
 }
 
 /**
+ * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to a JS value.
+ * @param {string} protocol
+ * @param {boolean} has_credentials
+ * @param {string} port
+ * @param {string} hostname
+ * @returns {any}
+ */
+export function checkUrlShape(protocol, has_credentials, port, hostname) {
+    const ptr0 = passStringToWasm0(protocol, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(port, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(hostname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.checkUrlShape(ptr0, len0, has_credentials, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`choose_anchor_strategy`] as `{ kind, position | locus, confidence }`.
  *
  * # Errors
@@ -309,6 +426,26 @@ export function chooseAnchorStrategy(anchor, current_content_hash) {
     const ptr0 = passStringToWasm0(current_content_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.chooseAnchorStrategy(anchor, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`chunk_for_embedding`](text_chunks::chunk_for_embedding); `undefined` options take the defaults.
+ *
+ * # Errors
+ *
+ * Fails if `options` has the wrong shape.
+ * @param {string} text
+ * @param {any} options
+ * @returns {any}
+ */
+export function chunkForEmbedding(text, options) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.chunkForEmbedding(ptr0, len0, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -584,6 +721,115 @@ export function coreInfo() {
  */
 export function countJsonActions(entries) {
     const ret = wasm.countJsonActions(entries);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`covered_hit_mask`](hybrid_fusion::covered_hit_mask) as a boolean array.
+ *
+ * # Errors
+ *
+ * Fails if `query_term_counts` is not an array of numbers or `null`.
+ * @param {any} query_term_counts
+ * @param {number} term_count
+ * @param {number} min_coverage
+ * @returns {any}
+ */
+export function coveredHitMask(query_term_counts, term_count, min_coverage) {
+    const ret = wasm.coveredHitMask(query_term_counts, term_count, min_coverage);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`covered_text_spans`](link_citations::covered_text_spans) (TS `coveredTextSpans`).
+ *
+ * # Errors
+ *
+ * Fails if `page` or `links` do not have the expected shape.
+ * @param {any} page
+ * @param {any} links
+ * @returns {any}
+ */
+export function coveredTextSpans(page, links) {
+    const ret = wasm.coveredTextSpans(page, links);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`create_log_entry`](log_entry::create_log_entry). `id` and `now` come from the TS clock and
+ * id generator, which the caller runs before this call.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape, or the body is blank after trimming.
+ * @param {any} input
+ * @param {string} id
+ * @param {string} now
+ * @returns {any}
+ */
+export function createLogEntry(input, id, now) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(now, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.createLogEntry(input, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`create_milestone`](milestone::create_milestone) with the id and time supplied. Call
+ * [`milestone_input_error_js`] first: invalid input fails here.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or is invalid.
+ * @param {any} input
+ * @param {string} id
+ * @param {string} created_at
+ * @returns {any}
+ */
+export function createMilestoneWith(input, id, created_at) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(created_at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.createMilestoneWith(input, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`create_paper_relation`](paper_relation::create_paper_relation) with the id and time
+ * supplied. Call [`paper_relation_input_error_js`] first: invalid input fails here.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or does not validate.
+ * @param {any} input
+ * @param {string} id
+ * @param {string} created_at
+ * @returns {any}
+ */
+export function createPaperRelationWith(input, id, created_at) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(created_at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.createPaperRelationWith(input, ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -901,6 +1147,42 @@ export function diffWorkspace(parsed, existing, sides) {
 }
 
 /**
+ * [`document_boost`](search_tuning::document_boost). `now` is epoch milliseconds.
+ *
+ * # Errors
+ *
+ * Fails if `doc` or `options` has the wrong shape.
+ * @param {any} doc
+ * @param {any} options
+ * @param {number} now
+ * @returns {number}
+ */
+export function documentBoost(doc, options, now) {
+    const ret = wasm.documentBoost(doc, options, now);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * [`effective_field_boosts`](search_settings::effective_field_boosts).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ * @param {any} settings
+ * @returns {any}
+ */
+export function effectiveFieldBoosts(settings) {
+    const ret = wasm.effectiveFieldBoosts(settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`effective_relation_types`](graph_settings::effective_relation_types).
  *
  * # Errors
@@ -1019,6 +1301,26 @@ export function escapeLatexText(s) {
 }
 
 /**
+ * [`evaluate_ai_access`](access_policy::evaluate_ai_access); `now` is the ISO 8601 clock time.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @param {string} now
+ * @returns {any}
+ */
+export function evaluateAiAccess(input, now) {
+    const ptr0 = passStringToWasm0(now, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.evaluateAiAccess(input, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`exclusion_reasons`](screening::exclusion_reasons) (TS `exclusionReasons`).
  *
  * # Errors
@@ -1030,6 +1332,25 @@ export function escapeLatexText(s) {
  */
 export function exclusionReasons(decisions, stage) {
     const ret = wasm.exclusionReasons(decisions, stage);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`expand_ipv6`](url_safety::expand_ipv6); `undefined` when the text is not IPv6.
+ *
+ * # Errors
+ *
+ * Fails if the groups cannot be converted to a JS value.
+ * @param {string} value
+ * @returns {any}
+ */
+export function expandIpv6(value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.expandIpv6(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1051,6 +1372,34 @@ export function experimentActivityAt(experiment) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`explain_arm`](related::explain_arm).
+ *
+ * # Errors
+ *
+ * Fails if `arm` is not a known arm name.
+ * @param {any} arm
+ * @returns {string}
+ */
+export function explainArm(arm) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.explainArm(arm);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -1443,6 +1792,95 @@ export function fuseRankings(lists, k, limit) {
 }
 
 /**
+ * [`fuzziness_for_term`](search_tuning::fuzziness_for_term).
+ * @param {string} term
+ * @returns {number}
+ */
+export function fuzzinessForTerm(term) {
+    const ptr0 = passStringToWasm0(term, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.fuzzinessForTerm(ptr0, len0);
+    return ret;
+}
+
+/**
+ * [`gate_vector_mask`](hybrid_fusion::gate_vector_mask) as a boolean array.
+ *
+ * # Errors
+ *
+ * Fails if `scores` is not an array of numbers.
+ * @param {any} scores
+ * @param {number} floor
+ * @param {number} keep_top
+ * @returns {any}
+ */
+export function gateVectorMask(scores, floor, keep_top) {
+    const ret = wasm.gateVectorMask(scores, floor, keep_top);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`get_user_integration_field`](integration_credentials::get_user_integration_field);
+ * `undefined` when empty.
+ *
+ * # Errors
+ *
+ * Fails if `settings` has the wrong shape.
+ * @param {any} settings
+ * @param {string} provider_id
+ * @param {string} field_id
+ * @returns {any}
+ */
+export function getUserIntegrationField(settings, provider_id, field_id) {
+    const ptr0 = passStringToWasm0(provider_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(field_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.getUserIntegrationField(settings, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`graph_degrees`](wiki_graph::graph_degrees), as `{ node, degree }` rows.
+ *
+ * # Errors
+ *
+ * Fails if `graph` has the wrong shape.
+ * @param {any} graph
+ * @returns {any}
+ */
+export function graphDegrees(graph) {
+    const ret = wasm.graphDegrees(graph);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`graph_density`](wiki_graph::graph_density).
+ *
+ * # Errors
+ *
+ * Fails if `graph` has the wrong shape.
+ * @param {any} graph
+ * @returns {any}
+ */
+export function graphDensity(graph) {
+    const ret = wasm.graphDensity(graph);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`graph_filter_count`](graph_settings::graph_filter_count), given the two selection sizes.
  *
  * # Errors
@@ -1528,6 +1966,23 @@ export function hasConflictMarkers(text) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`hydrate_user_settings`](user_settings::hydrate_user_settings).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ * @param {any} settings
+ * @returns {any}
+ */
+export function hydrateUserSettings(settings) {
+    const ret = wasm.hydrateUserSettings(settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1940,6 +2395,24 @@ export function inkZoomOut(zoom) {
 }
 
 /**
+ * [`integrations_bag_from_legacy`](integration_credentials::integrations_bag_from_legacy);
+ * `undefined` when no legacy field is set.
+ *
+ * # Errors
+ *
+ * Fails if `settings` has the wrong shape.
+ * @param {any} settings
+ * @returns {any}
+ */
+export function integrationsBagFromLegacy(settings) {
+    const ret = wasm.integrationsBagFromLegacy(settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
  * @param {any} value
  * @returns {boolean}
@@ -1984,6 +2457,18 @@ export function isBibliographicMatch(hints, candidate) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`is_blanket_share`](sharing::is_blanket_share); `null` or `undefined` means every resource.
+ * @param {string | null} [resource_id]
+ * @returns {boolean}
+ */
+export function isBlanketShare(resource_id) {
+    var ptr0 = isLikeNone(resource_id) ? 0 : passStringToWasm0(resource_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isBlanketShare(ptr0, len0);
+    return ret !== 0;
 }
 
 /**
@@ -2059,6 +2544,30 @@ export function isInkNoteBody(body) {
 }
 
 /**
+ * [`is_ip_address`](url_safety::is_ip_address).
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isIpAddress(value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isIpAddress(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`is_iso_day`](milestone::is_iso_day).
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isIsoDay(value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isIsoDay(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_paper_field_kind`](paper_field::is_paper_field_kind) (TS `isPaperFieldKind`).
  * @param {string} value
  * @returns {boolean}
@@ -2079,6 +2588,18 @@ export function isPlaceholderTitle(title) {
     var ptr0 = isLikeNone(title) ? 0 : passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.isPlaceholderTitle(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`is_public_address`](url_safety::is_public_address).
+ * @param {string} address
+ * @returns {boolean}
+ */
+export function isPublicAddress(address) {
+    const ptr0 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isPublicAddress(ptr0, len0);
     return ret !== 0;
 }
 
@@ -2185,6 +2706,27 @@ export function isUnsureConfidence(conf) {
 }
 
 /**
+ * [`is_user_integration_connected`](integration_credentials::is_user_integration_connected).
+ *
+ * # Errors
+ *
+ * Fails if `settings` or `field_ids` has the wrong shape.
+ * @param {any} settings
+ * @param {string} provider_id
+ * @param {any} field_ids
+ * @returns {boolean}
+ */
+export function isUserIntegrationConnected(settings, provider_id, field_ids) {
+    const ptr0 = passStringToWasm0(provider_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isUserIntegrationConnected(settings, ptr0, len0, field_ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`is_zotero_library_sync_mode`] for any JS value: false unless `value` is a string.
  * @param {any} value
  * @returns {boolean}
@@ -2270,6 +2812,26 @@ export function jsonKindOfPath(path) {
 }
 
 /**
+ * [`kind_multiplier`](search_settings::kind_multiplier); an unknown `kind` reads as `1`.
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ * @param {string} kind
+ * @param {any} settings
+ * @returns {number}
+ */
+export function kindMultiplier(kind, settings) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindMultiplier(ptr0, len0, settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
  * [`labelNumber`](bibliography::label_number): entry number from the exec groups.
  *
  * # Errors
@@ -2322,6 +2884,48 @@ export function levenshtein(a, b, limit) {
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.levenshtein(ptr0, len0, ptr1, len1, limit);
     return ret;
+}
+
+/**
+ * [`link_citation_mentions`](link_citations::link_citation_mentions) (TS
+ * `linkCitationMentions`).
+ *
+ * # Errors
+ *
+ * Fails if `page`, `links` or `refs` do not have the expected shape.
+ * @param {any} page
+ * @param {any} links
+ * @param {any} refs
+ * @returns {any}
+ */
+export function linkCitationMentions(page, links, refs) {
+    const ret = wasm.linkCitationMentions(page, links, refs);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`validate_new_log_entry`](log_entry::validate_new_log_entry): the error message, or `None`.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @returns {string | undefined}
+ */
+export function logEntryInputError(input) {
+    const ret = wasm.logEntryInputError(input);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
 }
 
 /**
@@ -2425,6 +3029,28 @@ export function maxFusionIds() {
 export function maxIndexTextUtf16() {
     const ret = wasm.maxIndexTextUtf16();
     return ret >>> 0;
+}
+
+/**
+ * [`mcp_read_result`](mcp_result::mcp_read_result), as a plain JS `McpResult` object.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of `{ label, text }` objects.
+ * @param {any} items
+ * @param {number | null | undefined} max_item_chars
+ * @param {number | null | undefined} max_result_chars
+ * @param {string} nonce
+ * @returns {any}
+ */
+export function mcpReadResult(items, max_item_chars, max_result_chars, nonce) {
+    const ptr0 = passStringToWasm0(nonce, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.mcpReadResult(items, !isLikeNone(max_item_chars), isLikeNone(max_item_chars) ? 0 : max_item_chars, !isLikeNone(max_result_chars), isLikeNone(max_result_chars) ? 0 : max_result_chars, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -2534,6 +3160,47 @@ export function mergeVaultPage(base, folder, workspace) {
 }
 
 /**
+ * [`merge_wiki_pages`](wiki_merge::merge_wiki_pages).
+ *
+ * # Errors
+ *
+ * Fails if `primary` or `secondary` is not a `{ id, title, body, aliases?, sources? }` object.
+ * @param {any} primary
+ * @param {any} secondary
+ * @returns {any}
+ */
+export function mergeWikiPages(primary, secondary) {
+    const ret = wasm.mergeWikiPages(primary, secondary);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`validate_new_milestone`](milestone::validate_new_milestone): the validation message, or
+ * `undefined` when the input is valid.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @returns {string | undefined}
+ */
+export function milestoneInputError(input) {
+    const ret = wasm.milestoneInputError(input);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
  * [`neutralise_context`](untrusted_context::neutralise_context).
  * @param {string} text
  * @param {string} nonce
@@ -2623,6 +3290,23 @@ export function normaliseWhitespace(text, options) {
 }
 
 /**
+ * [`normalize_ai_access_settings`](access_policy::normalize_ai_access_settings); `undefined` reads as none.
+ *
+ * # Errors
+ *
+ * Fails if a field has the wrong JS type (for example a non-boolean `enabled`).
+ * @param {any} input
+ * @returns {any}
+ */
+export function normalizeAiAccessSettings(input) {
+    const ret = wasm.normalizeAiAccessSettings(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`normalize_appearance`](user_appearance::normalize_appearance); `undefined` when
  * nothing is valid.
  *
@@ -2679,6 +3363,23 @@ export function normalizeColorValue(raw) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v1;
+}
+
+/**
+ * [`normalize_comment_input`](sharing::normalize_comment_input); a message throws as text.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or does not validate.
+ * @param {any} input
+ * @returns {any}
+ */
+export function normalizeCommentInput(input) {
+    const ret = wasm.normalizeCommentInput(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -2815,6 +3516,40 @@ export function normalizeProjectPath(path) {
 }
 
 /**
+ * [`normalize_search_settings`](search_settings::normalize_search_settings); `undefined` when nothing valid remains.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function normalizeSearchSettings(raw) {
+    const ret = wasm.normalizeSearchSettings(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`normalize_share_input`](sharing::normalize_share_input); a validation message throws as text.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or does not validate.
+ * @param {any} input
+ * @returns {any}
+ */
+export function normalizeShareInput(input) {
+    const ret = wasm.normalizeShareInput(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`normalize_tags`](paper::normalize_tags) (TS `normalizeTags`).
  * @param {string[]} tags
  * @returns {string[]}
@@ -2864,6 +3599,23 @@ export function normalizeTitleKey(title) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`normalize_user_settings`](user_settings::normalize_user_settings).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ * @param {any} settings
+ * @returns {any}
+ */
+export function normalizeUserSettings(settings) {
+    const ret = wasm.normalizeUserSettings(settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -3010,6 +3762,29 @@ export function pageTextFromItems(items) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`validate_new_paper_relation`](paper_relation::validate_new_paper_relation): the
+ * validation message, or `undefined` when the input is valid.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @returns {string | undefined}
+ */
+export function paperRelationInputError(input) {
+    const ret = wasm.paperRelationInputError(input);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
 }
 
 /**
@@ -3322,6 +4097,29 @@ export function pdfRectToScreenBox(rect, p) {
 }
 
 /**
+ * [`personalized_page_rank`](personalized_pagerank::personalized_page_rank); `[{ node, score }]`
+ * in first-visit order.
+ *
+ * # Errors
+ *
+ * Fails if `graph` or `options` has the wrong shape.
+ * @param {any} graph
+ * @param {string} seed
+ * @param {any} options
+ * @param {() => number} rng
+ * @returns {any}
+ */
+export function personalizedPageRank(graph, seed, options, rng) {
+    const ptr0 = passStringToWasm0(seed, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.personalizedPageRank(graph, ptr0, len0, options, rng);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`pick_nearest_match`] as `{ start, end }`, or `null` when there is no match.
  *
  * # Errors
@@ -3527,6 +4325,24 @@ export function projectedPageSize(p) {
 }
 
 /**
+ * [`push_ink_undo`](ink_undo::push_ink_undo).
+ *
+ * # Errors
+ *
+ * Fails if `state` or `entry` has the wrong shape.
+ * @param {any} state
+ * @param {any} entry
+ * @returns {any}
+ */
+export function pushInkUndo(state, entry) {
+    const ret = wasm.pushInkUndo(state, entry);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`quantize_ink_path`]; `decimals` defaults to 2.
  * @param {Float64Array} path
  * @param {number | null} [decimals]
@@ -3539,6 +4355,23 @@ export function quantizeInkPath(path, decimals) {
     var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
     return v2;
+}
+
+/**
+ * [`query_term_count`](hybrid_fusion::query_term_count).
+ *
+ * # Errors
+ *
+ * Fails if `terms` is not an array of strings.
+ * @param {any} terms
+ * @returns {number}
+ */
+export function queryTermCount(terms) {
+    const ret = wasm.queryTermCount(terms);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
 }
 
 /**
@@ -3633,6 +4466,66 @@ export function rectanglesOverlap(a, b) {
 }
 
 /**
+ * [`reference_for_destination`](link_citations::reference_for_destination) (TS
+ * `referenceForDestination`); `null` when no entry is found.
+ *
+ * # Errors
+ *
+ * Fails if `dest` or `refs` do not have the expected shape.
+ * @param {any} dest
+ * @param {any} refs
+ * @returns {any}
+ */
+export function referenceForDestination(dest, refs) {
+    const ret = wasm.referenceForDestination(dest, refs);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`refresh_ink_undo_annotation`](ink_undo::refresh_ink_undo_annotation).
+ *
+ * # Errors
+ *
+ * Fails if `state` or `annotation` has the wrong shape.
+ * @param {any} state
+ * @param {any} annotation
+ * @returns {any}
+ */
+export function refreshInkUndoAnnotation(state, annotation) {
+    const ret = wasm.refreshInkUndoAnnotation(state, annotation);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`related_by_ppr`](personalized_pagerank::related_by_ppr); `[{ id, score }]`, best first.
+ *
+ * # Errors
+ *
+ * Fails if `graph` or `options` has the wrong shape.
+ * @param {any} graph
+ * @param {string} seed
+ * @param {number} limit
+ * @param {any} options
+ * @param {() => number} rng
+ * @returns {any}
+ */
+export function relatedByPpr(graph, seed, limit, options, rng) {
+    const ptr0 = passStringToWasm0(seed, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.relatedByPpr(graph, ptr0, len0, limit, options, rng);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
  *
  * # Errors
@@ -3645,6 +4538,29 @@ export function relativeAssetPaths(body) {
     const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.relativeAssetPaths(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rename_ink_undo_id`](ink_undo::rename_ink_undo_id).
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ * @param {any} state
+ * @param {string} from
+ * @param {string} to
+ * @returns {any}
+ */
+export function renameInkUndoId(state, from, to) {
+    const ptr0 = passStringToWasm0(from, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.renameInkUndoId(state, ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4036,6 +4952,98 @@ export function serializeWorkspace(snapshot_json, project_id, project_name) {
 }
 
 /**
+ * [`share_allows_comment`](sharing::share_allows_comment).
+ *
+ * # Errors
+ *
+ * Fails if `share` or `resource_type` has the wrong shape.
+ * @param {any} share
+ * @param {any} resource_type
+ * @param {string} resource_id
+ * @param {string} owner_id
+ * @returns {boolean}
+ */
+export function shareAllowsComment(share, resource_type, resource_id, owner_id) {
+    const ptr0 = passStringToWasm0(resource_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(owner_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.shareAllowsComment(share, resource_type, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`share_allows_edit`](sharing::share_allows_edit).
+ *
+ * # Errors
+ *
+ * Fails if `share` or `resource_type` has the wrong shape.
+ * @param {any} share
+ * @param {any} resource_type
+ * @param {string} resource_id
+ * @param {string} owner_id
+ * @returns {boolean}
+ */
+export function shareAllowsEdit(share, resource_type, resource_id, owner_id) {
+    const ptr0 = passStringToWasm0(resource_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(owner_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.shareAllowsEdit(share, resource_type, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`share_covers_resource`](sharing::share_covers_resource).
+ *
+ * # Errors
+ *
+ * Fails if `share` or `resource_type` has the wrong shape.
+ * @param {any} share
+ * @param {any} resource_type
+ * @param {string} resource_id
+ * @param {string} owner_id
+ * @returns {boolean}
+ */
+export function shareCoversResource(share, resource_type, resource_id, owner_id) {
+    const ptr0 = passStringToWasm0(resource_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(owner_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.shareCoversResource(share, resource_type, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`share_supports_edit_access`](sharing::share_supports_edit_access).
+ *
+ * # Errors
+ *
+ * Fails if `resource_type` is not a shareable type.
+ * @param {any} resource_type
+ * @param {string | null} [resource_id]
+ * @returns {boolean}
+ */
+export function shareSupportsEditAccess(resource_type, resource_id) {
+    var ptr0 = isLikeNone(resource_id) ? 0 : passStringToWasm0(resource_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.shareSupportsEditAccess(resource_type, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
  * @param {string | null} [sha]
  * @returns {string | undefined}
@@ -4359,6 +5367,26 @@ export function stripKindSuffix(name) {
 }
 
 /**
+ * [`strip_stopwords`](hybrid_fusion::strip_stopwords).
+ * @param {string} query
+ * @returns {string}
+ */
+export function stripStopwords(query) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.stripStopwords(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`stroke_base_width`].
  * @param {Float64Array} samples
  * @param {number} base
@@ -4404,6 +5432,40 @@ export function tabSeparatedToMarkdownTable(input) {
     const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.tabSeparatedToMarkdownTable(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`take_ink_redo`](ink_undo::take_ink_redo); `null` when there is no step.
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ * @param {any} state
+ * @returns {any}
+ */
+export function takeInkRedo(state) {
+    const ret = wasm.takeInkRedo(state);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`take_ink_undo`](ink_undo::take_ink_undo); `null` when there is no step.
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ * @param {any} state
+ * @returns {any}
+ */
+export function takeInkUndo(state) {
+    const ret = wasm.takeInkUndo(state);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4655,6 +5717,52 @@ export function untrustedContextRule() {
     } finally {
         wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
     }
+}
+
+/**
+ * [`validate_compute`](milestone::validate_compute): the validation message, or `undefined`
+ * when the list is valid.
+ *
+ * # Errors
+ *
+ * Fails if `compute` has the wrong shape.
+ * @param {any} compute
+ * @returns {string | undefined}
+ */
+export function validateComputeError(compute) {
+    const ret = wasm.validateComputeError(compute);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
+ * [`validate_dependencies`](milestone::validate_dependencies): the validation message, or
+ * `undefined` when the list is valid.
+ *
+ * # Errors
+ *
+ * Fails if `deps` has the wrong shape.
+ * @param {any} deps
+ * @returns {string | undefined}
+ */
+export function validateDependenciesError(deps) {
+    const ret = wasm.validateDependenciesError(deps);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
 }
 
 /**
@@ -5041,6 +6149,10 @@ function __wbg_get_imports() {
             const ret = arg0.call(arg1);
             return ret;
         }, arguments); },
+        __wbg_call_76331f27d05f75b0: function(arg0, arg1) {
+            const ret = arg0.call(arg1);
+            return ret;
+        },
         __wbg_done_b41a1d26cdb37fb6: function(arg0) {
             const ret = arg0.done;
             return ret;

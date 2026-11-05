@@ -113,7 +113,13 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   appearance settings, dashboard layout, AI context and wiki index,
 //   experiment status and lab snapshot add ~36 KB, mostly serde for their
 //   record shapes. 700 KB is the ceiling for these and the next batch (5.2m).
-export const WASM_GZIP_BUDGET = 700 * 1024;
+// - Steps 5.2m-5.2p: ~747.4 KB gzipped, local build. Search (acronyms,
+//   settings, tuning, chunks, fusion, PageRank, wiki graph), AI access policy,
+//   MCP result shaping, wiki merge, ink undo, link citations, sharing, plan,
+//   logbook, reading lists, relations, URL safety and settings rows add
+//   ~106 KB over 21 wf-core modules, mostly serde for their record shapes.
+//   760 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 760 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
