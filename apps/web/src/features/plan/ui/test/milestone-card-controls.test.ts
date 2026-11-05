@@ -23,7 +23,7 @@ test("the checkbox is the one control on the card face for done", () => {
 
 test("the other statuses live in the card menu", () => {
   assert.match(card, /id: "status",\s*label: "Status",/);
-  assert.match(card, /submenu: MILESTONE_STATUSES\.map\(\(st\) => \(\{/);
+  assert.match(card, /submenu: (?:readyCore\(\)\.)?MILESTONE_STATUSES\.map\(\(st\) => \(\{/);
   assert.match(card, /kind: "check",\s*checked: st === m\.status,/);
 });
 

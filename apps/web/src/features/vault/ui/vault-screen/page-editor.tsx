@@ -3,7 +3,6 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  extractHashtags,
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -183,7 +182,7 @@ export function PageEditor({
 
   const words = wordCount(readBody);
   const wordsLabel = `${words} ${words === 1 ? "word" : "words"}`;
-  const tags = extractHashtags(readBody);
+  const tags = readyCore().extractHashtags(readBody);
   const linksOut = new Set([...readBody.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1]!.trim().toLowerCase())).size;
   const edited = recordDate(page.updatedAt);
   const created = recordDate(page.createdAt);

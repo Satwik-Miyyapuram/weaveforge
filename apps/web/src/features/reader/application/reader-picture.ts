@@ -8,12 +8,12 @@
  */
 
 import {
-  buildAnnotationSortIndex,
   parseFigureCrop,
   type FigureGeometry,
   type NewReaderAnnotation,
   type ReaderAnnotation,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * `![picture](path)`, with the placement the rectangle cannot hold after the
@@ -142,6 +142,6 @@ export function draftPicture(input: {
     anchor: {
       zoteroPosition: { pageIndex: input.pageIndex, rects: [[x1, y1, x1 + width, y1 + height]] },
     },
-    sortIndex: buildAnnotationSortIndex(input.pageIndex, 0, pageHeight - (y1 + height)),
+    sortIndex: readyCore().buildAnnotationSortIndex(input.pageIndex, 0, pageHeight - (y1 + height)),
   };
 }

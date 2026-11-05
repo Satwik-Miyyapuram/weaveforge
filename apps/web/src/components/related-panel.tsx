@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { explainArm, type RelatedArm } from "@weaveforge/core";
+import { type RelatedArm } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { semanticEnabled, semanticSupported } from "@/features/search/application/semantic-search";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import type { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { readyCore } from "@/lib/rust-core";
 
 interface RelatedItem {
   id: string;
@@ -37,7 +38,7 @@ export function armsText(arms: readonly RelatedArm[]): string {
 /** Which methods ran, for the line under the heading. */
 function methodsLine(items: readonly RelatedItem[]): string {
   const used = new Set(items.flatMap((item) => item.arms));
-  if (used.size === 1) return explainArm([...used][0]!);
+  if (used.size === 1) return readyCore().explainArm([...used][0]!);
   const parts: string[] = [];
   if (used.has("graph")) parts.push("links between your notes and papers");
   if (used.has("semantic")) parts.push("similar meaning");

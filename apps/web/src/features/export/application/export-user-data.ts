@@ -1,6 +1,5 @@
 import { zipSync, strToU8 } from "fflate";
 import {
-  vaultAssetPathsInBody,
   type WorkspaceProject,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
@@ -8,6 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { activeProject } from "@/features/workspace/application/active-project";
 import { downloadBlob, zipToBlob } from "@/lib/blob-output";
 import { loadCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));
@@ -91,7 +91,7 @@ export async function buildExportFiles(
   // Vault assets referenced in note bodies.
   const vaultPaths = new Set<string>();
   for (const page of snapshot.vaultPages) {
-    for (const path of vaultAssetPathsInBody(page.body)) vaultPaths.add(path);
+    for (const path of readyCore().vaultAssetPathsInBody(page.body)) vaultPaths.add(path);
   }
   if (vaultPaths.size > 0) {
     const blobs = await assets.fetchVaultAssets([...vaultPaths]);

@@ -13,7 +13,6 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { search, searchKeymap } from "@codemirror/search";
 import type { Compartment, Extension } from "@codemirror/state";
-import { extractWikilinks, normalizeTitleKey } from "@weaveforge/core";
 import {
   EditorView,
   drawSelection,
@@ -30,8 +29,9 @@ import { pendingInsertSupport } from "@/components/markdown/markdown-pending-ins
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
-import { formatPaperCitation, type Paper } from "@weaveforge/core";
+import { type Paper } from "@weaveforge/core";
 import type { PasteSettings } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;
@@ -57,14 +57,14 @@ function filterCompletions(items: readonly CiteCompletion[], query: string) {
 }
 
 function hasExactTitle(items: readonly CiteCompletion[], title: string): boolean {
-  const key = normalizeTitleKey(title);
-  return items.some((c) => normalizeTitleKey(c.title) === key);
+  const key = readyCore().normalizeTitleKey(title);
+  return items.some((c) => readyCore().normalizeTitleKey(c.title) === key);
 }
 
 /** How an `@` cite completion inserts under the chosen format (Phase C2). */
 function insertForCompletion(c: CiteCompletion, format: EditorCitationFormat): string {
   if (format === "wikilink" || !c.paper) return `[[${c.title}]]`;
-  return formatPaperCitation(c.paper as Paper, format);
+  return readyCore().formatPaperCitation(c.paper as Paper, format);
 }
 
 /**
@@ -104,7 +104,7 @@ export function finishedLinks(doc: string, caret: number): string[] {
     if (caret > m.index && caret < m.index + m[0].length) continue;
     // Only links `extractWikilinks` reads: `[[title|alias]]` and
     // `[[title#heading]]` name `title`.
-    const [ref] = extractWikilinks(m[0]);
+    const [ref] = readyCore().extractWikilinks(m[0]);
     if (ref) out.push(ref.target);
   }
   return out;
@@ -121,7 +121,7 @@ function createTypedLinks(
     if (!create) return;
     const caret = update.view.hasFocus ? update.state.selection.main.head : -1;
     for (const title of finishedLinks(update.state.doc.toString(), caret)) {
-      const key = normalizeTitleKey(title);
+      const key = readyCore().normalizeTitleKey(title);
       if (!key || offered.has(key)) continue;
       offered.add(key);
       if (hasExactTitle(completionsRef.current, title)) continue;

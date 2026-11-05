@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { normalizeTitleKey, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import { type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -35,6 +35,7 @@ import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
+import { readyCore } from "@/lib/rust-core";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -258,8 +259,8 @@ export function VaultScreen() {
    */
   const resolveEmbed = useCallback(
     (title: string) => {
-      const key = normalizeTitleKey(title);
-      const page = flat.find((p) => normalizeTitleKey(p.title) === key);
+      const key = readyCore().normalizeTitleKey(title);
+      const page = flat.find((p) => readyCore().normalizeTitleKey(p.title) === key);
       return page && isHydratedPage(page) ? page.body : null;
     },
     [flat],

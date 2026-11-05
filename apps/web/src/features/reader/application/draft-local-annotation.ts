@@ -1,10 +1,6 @@
 import {
-  buildAnnotationSortIndex,
-  clampInkWidth,
-  compactInkPath,
   INK_DEFAULT_WIDTH,
   INK_MAX_PATHS_PER_ANNOTATION,
-  inkPathsHitTest,
   type CombinedPdfAnchor,
   type NewReaderAnnotation,
   type PageTextGeometry,
@@ -48,7 +44,7 @@ export function draftFromTextSelection(input: {
     comment: input.comment ?? "",
     pageIndex: input.page.pageIndex,
     anchor,
-    sortIndex: buildAnnotationSortIndex(input.page.pageIndex, charStart, top),
+    sortIndex: readyCore().buildAnnotationSortIndex(input.page.pageIndex, charStart, top),
   };
 }
 
@@ -63,7 +59,7 @@ export function draftInkAnnotation(input: {
 }): NewReaderAnnotation | null {
   // Compact before storing, never after: the raw capture is the thing that is
   // hundreds of times larger than the stroke's shape needs (see ink-stroke.ts).
-  const path = compactInkPath(input.path, { tolerance: PDF_INK_SAVE_TOLERANCE });
+  const path = readyCore().compactInkPath(input.path, { tolerance: PDF_INK_SAVE_TOLERANCE });
   if (path.length < 4) return null;
   const ys = path.filter((_, i) => i % 2 === 1);
   const topPdf = Math.max(...ys);
@@ -72,7 +68,7 @@ export function draftInkAnnotation(input: {
     zoteroPosition: {
       pageIndex: input.pageIndex,
       paths: [path],
-      width: clampInkWidth(input.width ?? INK_DEFAULT_WIDTH),
+      width: readyCore().clampInkWidth(input.width ?? INK_DEFAULT_WIDTH),
     },
   };
   return {
@@ -81,7 +77,7 @@ export function draftInkAnnotation(input: {
     text: "",
     pageIndex: input.pageIndex,
     anchor,
-    sortIndex: buildAnnotationSortIndex(input.pageIndex, 0, top),
+    sortIndex: readyCore().buildAnnotationSortIndex(input.pageIndex, 0, top),
   };
 }
 
@@ -104,7 +100,7 @@ export function appendInkStroke(
   const position = anchor.zoteroPosition;
   if (!position || !Array.isArray(position.paths)) return null;
   if (position.paths.length >= INK_MAX_PATHS_PER_ANNOTATION) return null;
-  const compact = compactInkPath(path, { tolerance: PDF_INK_SAVE_TOLERANCE });
+  const compact = readyCore().compactInkPath(path, { tolerance: PDF_INK_SAVE_TOLERANCE });
   if (compact.length < 4) return null;
   return {
     ...anchor,
@@ -130,7 +126,7 @@ export function eraseInkPaths(
 ): CombinedPdfAnchor | null {
   const position = anchor.zoteroPosition;
   if (!position?.paths?.length) return anchor;
-  const kept = position.paths.filter((path) => !inkPathsHitTest([path], x, y, radius));
+  const kept = position.paths.filter((path) => !readyCore().inkPathsHitTest([path], x, y, radius));
   if (kept.length === position.paths.length) return anchor;
   if (kept.length === 0) return null;
   return { ...anchor, zoteroPosition: { ...position, paths: kept } };
@@ -162,7 +158,7 @@ export function draftImageRegion(input: {
         rects: [[Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2)]],
       },
     },
-    sortIndex: buildAnnotationSortIndex(input.pageIndex, 0, top),
+    sortIndex: readyCore().buildAnnotationSortIndex(input.pageIndex, 0, top),
   };
 }
 
@@ -211,6 +207,6 @@ export function draftTextBox(input: {
         quote: { type: "TextQuoteSelector", exact: input.text },
       },
     },
-    sortIndex: buildAnnotationSortIndex(input.pageIndex, 0, top),
+    sortIndex: readyCore().buildAnnotationSortIndex(input.pageIndex, 0, top),
   };
 }

@@ -3,7 +3,7 @@
 import { experimentHref } from "../application/experiment-href";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
+import { type Experiment, type MetricPoint } from "@weaveforge/core";
 import { artifactItems } from "./artifact-items";
 import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
@@ -16,6 +16,7 @@ import { Chip } from "@/components/controls";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 import { warnOnce } from "@/lib/error-report/warn-once";
+import { readyCore } from "@/lib/rust-core";
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const chips = [
@@ -23,10 +24,10 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
     exp.commitSha ? (
       commitUrl(exp.repoUrl, exp.commitSha) ? (
         <Chip key="commit" href={commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
-          <em>commit</em> {shortSha(exp.commitSha)}
+          <em>commit</em> {readyCore().shortSha(exp.commitSha)}
         </Chip>
       ) : (
-        <Chip key="commit"><em>commit</em> {shortSha(exp.commitSha)}</Chip>
+        <Chip key="commit"><em>commit</em> {readyCore().shortSha(exp.commitSha)}</Chip>
       )
     ) : null,
     exp.repoUrl ? (

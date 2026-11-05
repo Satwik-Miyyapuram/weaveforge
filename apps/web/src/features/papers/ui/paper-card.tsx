@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PAPER_STATUSES, isPlaceholderTitle, titleFromFileName, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { paperKey, removePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
@@ -12,6 +12,7 @@ import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
 import { removeLater } from "@/lib/toast";
+import { readyCore } from "@/lib/rust-core";
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 export function PaperCard({
@@ -69,7 +70,7 @@ export function PaperCard({
   const metaBits = [
     // A page name ("Catalog Page", "PDF Full Text") is not the paper's title;
     // saying so beats letting it pass for one. Opening the paper lets it be fixed.
-    isPlaceholderTitle(paper.title) ? "Title not found — open to set it" : null,
+    readyCore().isPlaceholderTitle(paper.title) ? "Title not found — open to set it" : null,
     authorsLine || null,
     paper.year != null ? String(paper.year) : null,
   ].filter(Boolean) as string[];
@@ -82,7 +83,7 @@ export function PaperCard({
       tone={paper.status}
       onActivate={onOpen}
       // Rows imported before titles were cleaned still carry the filename.
-      title={titleFromFileName(paper.title)}
+      title={readyCore().titleFromFileName(paper.title)}
       badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       status={
         <StatusSelect

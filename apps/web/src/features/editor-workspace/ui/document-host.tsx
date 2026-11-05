@@ -22,7 +22,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EditorView } from "@codemirror/view";
-import { vaultImageMarkdown } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -179,7 +178,7 @@ function imageStore(kind: string, id: string): ImageStore | null {
     case "ink_page":
       return {
         store: (blob, ext) => getContainer().vault.uploadAsset(id, blob, ext),
-        toMarkdown: vaultImageMarkdown,
+        toMarkdown: readyCore().vaultImageMarkdown,
       };
     case "paper":
       return {

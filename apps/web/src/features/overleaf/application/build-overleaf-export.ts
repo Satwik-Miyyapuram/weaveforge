@@ -3,12 +3,12 @@ import {
   PRISMA_FIGURE_PACKAGES,
   formatCitation,
   formatPaperCitation,
-  markdownToLatex,
   resolveCiteKey,
   uniqueFigureName,
 } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 import { buildCiteByTitle, collectCitedKeys, paperToBibtex } from "./bibtex-export";
+import { readyCore } from "@/lib/rust-core";
 
 export interface OverleafExportOptions {
   /** Document title for `\title{}`. */
@@ -120,7 +120,7 @@ function walkSections(
     out.push(`% status: ${s.status}; words: ${s.wordCount}${s.targetWords != null ? ` / ${s.targetWords}` : ""}`);
 
     if (includeNotes && s.notes?.trim()) {
-      const converted = markdownToLatex(s.notes, citeByTitle ? { citeByTitle } : undefined);
+      const converted = readyCore().markdownToLatex(s.notes, citeByTitle ? { citeByTitle } : undefined);
       warnings.push(...converted.warnings.map((w) => `Section "${s.title}": ${w}`));
       stats.equationsApprox += (s.notes.match(/\$/g) ?? []).length;
       const renamed = new Map<string, string>();

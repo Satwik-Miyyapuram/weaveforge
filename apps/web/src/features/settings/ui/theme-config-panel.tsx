@@ -2,13 +2,12 @@
 
 import { useRef, useState } from "react";
 import {
-  parseThemeConfig,
-  themeConfigTemplate,
   THEME_CONFIG_MAX_BYTES,
   type ThemeConfig,
 } from "@weaveforge/core";
 import { persistThemeChange } from "@/lib/theme/theme-persistence";
 import { Button } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Upload / remove a `config.json` theme file.
@@ -45,7 +44,7 @@ export function ThemeConfigPanel({
       setErrors(["file: could not be read"]);
       return;
     }
-    const { config, errors: problems } = parseThemeConfig(text);
+    const { config, errors: problems } = typedCore().parseThemeConfig(text);
     if (!config) {
       setErrors(problems);
       return;
@@ -67,7 +66,7 @@ export function ThemeConfigPanel({
   }
 
   function downloadTemplate() {
-    const blob = new Blob([themeConfigTemplate()], { type: "application/json" });
+    const blob = new Blob([typedCore().themeConfigTemplate()], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

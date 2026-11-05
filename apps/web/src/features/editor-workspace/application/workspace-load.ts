@@ -8,7 +8,6 @@
  * already hydrated, and the screen only has to put the result into state.
  */
 
-import { normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
@@ -24,6 +23,7 @@ import {
   type WorkspaceTreeNode,
 } from "./workspace-tree";
 import { sectionOr } from "./section-fallback";
+import { readyCore } from "@/lib/rust-core";
 
 export interface Document {
   kind: string;
@@ -159,7 +159,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
   const seen = new Set<string>();
   const rows: CiteCompletion[] = [];
   for (const paper of paperRows) {
-    const key = normalizeTitleKey(paper.title);
+    const key = readyCore().normalizeTitleKey(paper.title);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     rows.push(paperCiteLabel(paper));
@@ -169,7 +169,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     ...sectionRows.map((section) => ({ title: section.title, detail: "section" })),
   ];
   for (const row of titled) {
-    const key = normalizeTitleKey(row.title);
+    const key = readyCore().normalizeTitleKey(row.title);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     rows.push({ title: row.title, label: row.title, detail: row.detail });
