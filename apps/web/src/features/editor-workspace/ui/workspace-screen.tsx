@@ -638,9 +638,8 @@ export function WorkspaceScreen() {
       const command = commandForChord(event, focusedTabCount(layoutRef.current));
       if (!command) return;
       if (isTypingTarget(event.target as HTMLElement | null)) return;
-      // A key the document already handled is the document's: `⌘/` toggles a
-      // comment, `⌘B` bolds, `⌘\` clears formatting. Outside the text, or when
-      // the editor passes on a key, the workspace meaning applies.
+      // A key the document already handled (`⌘/` comment, `⌘B` bold, `⌘\`
+      // clear) is the document's; elsewhere the workspace meaning applies.
       if (event.defaultPrevented) return;
       event.preventDefault();
 
