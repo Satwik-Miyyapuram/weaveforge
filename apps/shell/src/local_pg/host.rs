@@ -9,7 +9,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
@@ -53,14 +53,62 @@ pub trait Engine: Send + Sync {
 
     /// Where the data lives, as `DbState.dataDir` reports it.
     fn data_dir(&self) -> String;
+
+    /// The backup this run's database was rebuilt from, when it was.
+    fn restored_from(&self) -> Option<String> {
+        None
+    }
 }
 
 /// The real engine: a private Postgres server under `root`, from the binaries in `bin`.
 pub struct PgEngine {
-    /// The Postgres bin dir.
-    pub bin: PathBuf,
-    /// The folder holding `data/`, the password file and the server log.
-    pub root: PathBuf,
+    bin: PathBuf,
+    root: PathBuf,
+    backups: Option<Backups>,
+    restored: Mutex<Option<String>>,
+}
+
+impl PgEngine {
+    /// Postgres from `bin` (its bin dir) with `root` holding `data/`, the password file and the
+    /// server log. With `backups`, a missing database is rebuilt from the newest one that loads.
+    #[must_use]
+    pub fn new(bin: PathBuf, root: PathBuf, backups: Option<Backups>) -> Self {
+        Self {
+            bin,
+            root,
+            backups,
+            restored: Mutex::new(None),
+        }
+    }
+
+    /// Rebuilds `root` from a backup when it has no database; a fresh one starts when no backup
+    /// loads, as the sidecar did. The backups are left as they are either way.
+    async fn restore_if_missing(&self) -> Result<(), PgError> {
+        super::restore::clear_leftovers(&self.root);
+        let Some(backups) = &self.backups else {
+            return Ok(());
+        };
+        if self.root.join("data").join("PG_VERSION").is_file() {
+            return Ok(());
+        }
+        let dumps = backups.all();
+        if dumps.is_empty() {
+            return Ok(());
+        }
+        // A root with no database (a failed first start, say) is kept aside, never deleted.
+        self.discard()?;
+        let bin = &self.bin;
+        let from =
+            super::restore::restore_newest_good(&self.root, &dumps, |dir, dump| async move {
+                super::restore::load_dump(bin, &dir, &dump).await
+            })
+            .await?;
+        if let Some(from) = from {
+            *self.restored.lock().unwrap_or_else(PoisonError::into_inner) =
+                Some(from.to_string_lossy().into_owned());
+        }
+        Ok(())
+    }
 }
 
 impl Engine for PgEngine {
@@ -68,6 +116,7 @@ impl Engine for PgEngine {
     type Handle = PgServer;
 
     async fn open(&self) -> Result<(PgConn, PgServer), PgError> {
+        self.restore_if_missing().await?;
         let server = PgServer::start(&self.bin, &self.root).await?;
         match server.connect().await {
             Ok(conn) => Ok((conn, server)),
@@ -107,6 +156,13 @@ impl Engine for PgEngine {
 
     fn data_dir(&self) -> String {
         self.root.join("data").to_string_lossy().into_owned()
+    }
+
+    fn restored_from(&self) -> Option<String> {
+        self.restored
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 }
 
@@ -391,7 +447,7 @@ impl<E: Engine> PgHost<E> {
         DbState {
             failure: self.failure(),
             data_dir: self.engine.data_dir(),
-            restored_from: None,
+            restored_from: self.engine.restored_from(),
         }
     }
 
@@ -843,10 +899,7 @@ mod tests {
         let root = tmp.join("local-pg");
         std::fs::create_dir_all(root.join("data")).map_err(|e| e.to_string())?;
         std::fs::write(root.join("data").join("PG_VERSION"), "17").map_err(|e| e.to_string())?;
-        let engine = PgEngine {
-            bin: PathBuf::new(),
-            root: root.clone(),
-        };
+        let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
         engine.discard().map_err(|e| e.message)?;
         assert!(!root.exists());
         let moved: Vec<_> = std::fs::read_dir(&tmp)

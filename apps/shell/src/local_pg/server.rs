@@ -131,6 +131,25 @@ pub fn dump_args(port: u16, file: &Path) -> Vec<OsString> {
     ]
 }
 
+/// Arguments for `pg_restore`: `file` into the database on `port`, all or nothing.
+#[must_use]
+pub fn restore_args(port: u16, file: &Path) -> Vec<OsString> {
+    vec![
+        "-h".into(),
+        "127.0.0.1".into(),
+        "-p".into(),
+        port.to_string().into(),
+        "-U".into(),
+        SUPERUSER.into(),
+        "-d".into(),
+        DATABASE.into(),
+        "--no-password".into(),
+        "--exit-on-error".into(),
+        "--single-transaction".into(),
+        file.into(),
+    ]
+}
+
 /// Arguments for `postgres`: data dir, loopback port, and the tuning.
 #[must_use]
 pub fn postgres_args(data: &Path, port: u16) -> Vec<OsString> {
@@ -267,10 +286,24 @@ impl PgServer {
     /// # Errors
     /// `pg_dump` is missing, fails (with the tail of its stderr), or takes over `DUMP_TIMEOUT`.
     pub async fn dump(&self, file: &Path) -> Result<(), PgError> {
-        let mut cmd = tokio::process::Command::new(self.bin.join(exe_name("pg_dump")));
+        self.run_client("pg_dump", dump_args(self.port, file)).await
+    }
+
+    /// Loads a `pg_dump` custom-format `file` into the database in one transaction.
+    ///
+    /// # Errors
+    /// `pg_restore` is missing, fails (with the tail of its stderr), or takes over `DUMP_TIMEOUT`.
+    pub async fn restore(&self, file: &Path) -> Result<(), PgError> {
+        self.run_client("pg_restore", restore_args(self.port, file))
+            .await
+    }
+
+    /// Runs a client tool against this server with the password, and no console window.
+    async fn run_client(&self, tool: &str, args: Vec<OsString>) -> Result<(), PgError> {
+        let mut cmd = tokio::process::Command::new(self.bin.join(exe_name(tool)));
         let _ = cmd
             .kill_on_drop(true)
-            .args(dump_args(self.port, file))
+            .args(args)
             .env("PGPASSWORD", &self.password)
             .envs(super::comspec::env())
             .stdin(Stdio::null());
@@ -278,14 +311,14 @@ impl PgServer {
         let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
         let out = tokio::time::timeout(DUMP_TIMEOUT, cmd.output())
             .await
-            .map_err(|_| PgError::local("pg_dump did not finish within 10 min"))?
-            .map_err(|e| PgError::local(format!("pg_dump did not run: {e}")))?;
+            .map_err(|_| PgError::local(format!("{tool} did not finish within 10 min")))?
+            .map_err(|e| PgError::local(format!("{tool} did not run: {e}")))?;
         if out.status.success() {
             return Ok(());
         }
         let stderr = String::from_utf8_lossy(&out.stderr);
         Err(PgError::local(format!(
-            "pg_dump failed: {}",
+            "{tool} failed: {}",
             tail(&stderr, 500)
         )))
     }
