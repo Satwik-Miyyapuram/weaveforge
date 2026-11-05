@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { desktop, type DesktopUpdate } from "@/lib/desktop/desktop-bridge";
 import { Button } from "@/components/button";
+import { FormError } from "@/components/form-error";
 
 /**
  * Updates, for the desktop window only.
@@ -30,9 +31,32 @@ import { Button } from "@/components/button";
 let cached: { at: number; update: DesktopUpdate | null } | null = null;
 const FRESH_MS = 60 * 60 * 1000;
 
-export function useDesktopUpdate(): { checked: boolean; update: DesktopUpdate | null; recheck: () => void } {
-  const [state, setState] = useState<{ checked: boolean; update: DesktopUpdate | null }>(
-    () => (cached ? { checked: true, update: cached.update } : { checked: false, update: null }),
+/** "off" here stops the check that runs when Settings opens; Check now still works. */
+const AUTO_CHECK_KEY = "weaveforge.desktop.autoUpdateCheck";
+
+function readAutoCheck(): boolean {
+  try { return window.localStorage.getItem(AUTO_CHECK_KEY) !== "off"; } catch { return true; }
+}
+
+function writeAutoCheck(on: boolean): void {
+  try {
+    if (on) window.localStorage.removeItem(AUTO_CHECK_KEY);
+    else window.localStorage.setItem(AUTO_CHECK_KEY, "off");
+  } catch { /* not remembered; the check stays on next time */ }
+}
+
+/** idle: the automatic check is off and nobody has asked yet. */
+type CheckStatus = "idle" | "checking" | "done" | "failed";
+
+export function useDesktopUpdate(): {
+  checked: boolean;
+  failed: boolean;
+  idle: boolean;
+  update: DesktopUpdate | null;
+  recheck: () => void;
+} {
+  const [state, setState] = useState<{ status: CheckStatus; update: DesktopUpdate | null }>(
+    () => (cached ? { status: "done", update: cached.update } : { status: "checking", update: null }),
   );
 
   const run = useCallback((force: boolean) => {
@@ -40,37 +64,47 @@ export function useDesktopUpdate(): { checked: boolean; update: DesktopUpdate | 
     // In a browser there is no window to update, so there is nothing to say
     // and nothing to ask.
     if (!bridge) {
-      setState({ checked: true, update: null });
+      setState({ status: "done", update: null });
       return;
     }
     if (!force && cached && Date.now() - cached.at < FRESH_MS) {
-      setState({ checked: true, update: cached.update });
+      setState({ status: "done", update: cached.update });
       return;
     }
-    setState((s) => ({ ...s, checked: false }));
+    if (!force && !readAutoCheck()) {
+      setState({ status: "idle", update: null });
+      return;
+    }
+    setState((s) => ({ ...s, status: "checking" }));
     void bridge
       .checkUpdate()
       .then((update) => {
         cached = { at: Date.now(), update };
-        setState({ checked: true, update });
+        setState({ status: "done", update });
       })
       .catch(() => {
-        // Unreachable GitHub is not an error worth showing. The honest state
-        // is "nothing to report", which is what an up-to-date app looks like.
-        cached = { at: Date.now(), update: null };
-        setState({ checked: true, update: null });
+        // A failed check is not "up to date", and is not cached: the next
+        // look asks again.
+        setState({ status: "failed", update: null });
       });
   }, []);
 
   useEffect(() => run(false), [run]);
 
-  return { ...state, recheck: () => run(true) };
+  return {
+    checked: state.status !== "checking",
+    failed: state.status === "failed",
+    idle: state.status === "idle",
+    update: state.update,
+    recheck: () => run(true),
+  };
 }
 
 export function DesktopUpdatePanel() {
   const bridge = desktop();
-  const { checked, update, recheck } = useDesktopUpdate();
+  const { checked, failed, idle, update, recheck } = useDesktopUpdate();
   const [asked, setAsked] = useState(false);
+  const [autoCheck, setAutoCheck] = useState(readAutoCheck);
 
   const check = () => {
     setAsked(true);
@@ -109,19 +143,37 @@ export function DesktopUpdatePanel() {
             Get {update.version}
           </Button>
         </div>
+      ) : failed ? (
+        <FormError reportable={false}>Could not check for updates. Try again.</FormError>
       ) : (
         <p className="muted">
           {!checked
             ? "Checking…"
-            : asked
-              ? "No newer version. This is the current desktop window."
-              : "No newer version."}
+            : idle
+              ? "The automatic check is off."
+              : asked
+                ? "No newer version. This is the current desktop window."
+                : "No newer version."}
         </p>
       )}
 
       <Button onClick={check} disabled={!checked}>
         {checked ? "Check now" : "Checking…"}
       </Button>
+
+      <label className="ai-permission-row">
+        <span>Check when Settings opens</span>
+        <input
+          className="wf-check"
+          type="checkbox"
+          name="autoUpdateCheck"
+          checked={autoCheck}
+          onChange={(e) => {
+            writeAutoCheck(e.target.checked);
+            setAutoCheck(e.target.checked);
+          }}
+        />
+      </label>
     </div>
   );
 }

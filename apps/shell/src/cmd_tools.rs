@@ -168,7 +168,7 @@ pub async fn zotero_local(url: String) -> Result<ZoteroLocalReply, ShellError> {
 /// Looks for a newer release; only a packaged build checks.
 ///
 /// # Errors
-/// Never in practice; the `Err` arm is kept for the Tauri wiring.
+/// When the releases could not be fetched, so the page can say the check failed.
 #[tauri::command]
 #[specta::specta]
 pub async fn update_check(app: tauri::AppHandle) -> Result<Option<Update>, ShellError> {

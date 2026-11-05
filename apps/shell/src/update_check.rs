@@ -12,7 +12,7 @@ pub const RELEASES_URL: &str =
 pub const UPDATE_TIMEOUT: Duration = Duration::from_secs(8);
 /// Largest releases body read (new; TS had none). 4 MiB.
 pub const MAX_RELEASES_BYTES: usize = 4 * 1024 * 1024;
-/// The message the Tauri wiring uses when the check itself breaks. `check_update_reply` never returns it: a failed fetch is `None`, as in TS.
+/// The error a failed check answers with, so the page does not read a failure as "up to date".
 pub const UPDATE_CHECK_FAILED: &str = "Could not check for an update.";
 
 /// One GitHub release (only the fields read). Unknown fields ignored.
@@ -131,31 +131,41 @@ fn releases_from_body(body: &[u8]) -> Result<Vec<Release>, String> {
         .collect())
 }
 
-/// The update to announce from `url`'s releases, or `None`: up to date, unreadable current version, or a failed fetch.
-pub async fn find_update_at(current: &str, url: &str) -> Option<Update> {
-    let current = parse_version(current)?;
-    let releases = fetch_releases(url).await.ok()?;
-    let (version, release) = newest_release(&releases)?;
+/// The update to announce from `url`'s releases, or `None`: up to date, or an unreadable current version (no request).
+/// # Errors
+/// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
+pub async fn find_update_at(current: &str, url: &str) -> Result<Option<Update>, String> {
+    let Some(current) = parse_version(current) else {
+        return Ok(None);
+    };
+    let releases = fetch_releases(url)
+        .await
+        .map_err(|_| UPDATE_CHECK_FAILED.to_string())?;
+    let Some((version, release)) = newest_release(&releases) else {
+        return Ok(None);
+    };
     if !is_newer(version, current) {
-        return None;
+        return Ok(None);
     }
-    Some(Update {
+    Ok(Some(Update {
         version: format!("{}.{}.{}", version.0, version.1, version.2),
         url: release.html_url.clone(),
-    })
+    }))
 }
 
 /// The update to announce from the real releases list.
-pub async fn find_update(current: &str) -> Option<Update> {
+/// # Errors
+/// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
+pub async fn find_update(current: &str) -> Result<Option<Update>, String> {
     find_update_at(current, RELEASES_URL).await
 }
 
-/// What the check channel answers. A dev build asks nothing and gets `None`. The check itself never fails: a failed fetch is `None`.
+/// What the check channel answers. A dev build asks nothing and gets `None`.
 /// # Errors
-/// Never in practice; the `Err` arm is kept for the Tauri wiring.
+/// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
 pub async fn check_update_reply(packaged: bool, current: &str) -> Result<Option<Update>, String> {
     if !packaged {
         return Ok(None);
     }
-    Ok(find_update(current).await)
+    find_update(current).await
 }
