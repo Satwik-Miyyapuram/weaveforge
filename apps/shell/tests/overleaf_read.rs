@@ -9,7 +9,7 @@ use std::sync::{Arc, LazyLock};
 use common::{TempDir, put};
 use keyring_core::CredentialStore;
 use weaveforge_shell_lib::overleaf_read::{
-    collect_text_files, overleaf_read_with, read_project, safe_error,
+    TOKEN_REFUSED, collect_text_files, overleaf_read_with, read_project, safe_error,
 };
 use weaveforge_shell_lib::secrets::Secrets;
 
@@ -367,11 +367,63 @@ async fn refused_token_is_asked_once_and_never_echoed() {
         Ok(_) => panic!("a 401 must not read"),
     };
     assert!(!error.contains("tok-SECRET-123"), "{error:?}");
+    assert_eq!(error, TOKEN_REFUSED);
     assert_eq!(
         basic.load(Ordering::SeqCst),
         1,
         "the token is offered exactly once"
     );
+}
+
+/*
+ * Overleaf's git bridge answers a wrong token or project id with a 401 that
+ * carries no WWW-Authenticate header. On Windows that surfaced as WinHTTP's
+ * "failed to parse supported auth schemes"; the reader must get one sentence.
+ */
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn overleaf_style_refusal_without_auth_header_is_one_sentence() {
+    use std::time::Duration;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    let _guard = CLONES.lock().await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let server = tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            let (read, mut write) = stream.into_split();
+            let mut lines = BufReader::new(read).lines();
+            let mut with_auth = false;
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.is_empty() {
+                    break;
+                }
+                if line.to_ascii_lowercase().starts_with("authorization:") {
+                    with_auth = true;
+                }
+            }
+            let reply = if with_auth {
+                "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            } else {
+                "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"Git Bridge\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            };
+            let _ = write.write_all(reply.as_bytes()).await;
+            let _ = write.shutdown().await;
+        }
+    });
+    let url = format!("http://127.0.0.1:{port}/abc123");
+    let result = tokio::time::timeout(
+        Duration::from_secs(15),
+        read_project(&url, "abc123", "main.tex", "tok-SECRET-123"),
+    )
+    .await
+    .expect("refused clone returns within 15 s");
+    server.abort();
+    match result {
+        Err(error) => assert_eq!(error, TOKEN_REFUSED),
+        Ok(_) => panic!("a 401 must not read"),
+    }
 }
 
 // ---- overleaf_read_with and safe_error (overleaf-error.test.ts) ----
