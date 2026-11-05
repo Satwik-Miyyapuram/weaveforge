@@ -202,10 +202,10 @@ async fn find_update_newer() {
     let update = find_update_at("0.5.2", &url).await;
     assert_eq!(
         update,
-        Some(Update {
+        Ok(Some(Update {
             version: "0.6.0".to_string(),
             url: "https://example.invalid/v0.6.0".to_string()
-        })
+        }))
     );
 }
 
@@ -214,7 +214,7 @@ async fn find_update_same_or_ahead() {
     let body = format!("[{},{}]", rel("v0.6.0", ""), rel("v0.5.2", ""));
     let (_up, url) = serve_releases(200, &body).await;
     for current in ["0.6.0", "0.7.0"] {
-        assert_eq!(find_update_at(current, &url).await, None, "{current}");
+        assert_eq!(find_update_at(current, &url).await, Ok(None), "{current}");
     }
 }
 
@@ -224,32 +224,42 @@ async fn find_update_keeps_offering_same_release() {
     let body = format!("[{}]", rel("v0.6.0", ""));
     let (_up, url) = serve_releases(200, &body).await;
     assert_eq!(
-        find_update_at("0.5.2", &url).await.map(|u| u.version),
-        Some("0.6.0".to_string())
+        find_update_at("0.5.2", &url)
+            .await
+            .map(|u| u.map(|u| u.version)),
+        Ok(Some("0.6.0".to_string()))
     );
     assert_eq!(
-        find_update_at("0.5.2", &url).await.map(|u| u.version),
-        Some("0.6.0".to_string())
+        find_update_at("0.5.2", &url)
+            .await
+            .map(|u| u.map(|u| u.version)),
+        Ok(Some("0.6.0".to_string()))
     );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn find_update_fetch_fails() {
+    // A failed check is an error, so the page does not read it as "up to date".
     let (_up, url) = serve_releases(500, "{}").await;
-    assert_eq!(find_update_at("0.5.2", &url).await, None);
+    assert_eq!(
+        find_update_at("0.5.2", &url).await,
+        Err(UPDATE_CHECK_FAILED.to_string())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn find_update_unreachable_is_none() {
-    // A courtesy, not a dependency: an unreachable network is not an error.
-    assert_eq!(find_update_at("0.5.2", NO_HOST).await, None);
+async fn find_update_unreachable_is_an_error() {
+    assert_eq!(
+        find_update_at("0.5.2", NO_HOST).await,
+        Err(UPDATE_CHECK_FAILED.to_string())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn find_update_bad_current_makes_no_request() {
     let body = format!("[{}]", rel("v0.6.0", ""));
     let (up, url) = serve_releases(200, &body).await;
-    assert_eq!(find_update_at("not-a-version", &url).await, None);
+    assert_eq!(find_update_at("not-a-version", &url).await, Ok(None));
     assert!(up.seen().is_empty());
 }
 
