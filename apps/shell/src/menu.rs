@@ -289,7 +289,7 @@ fn file_entries(host: &impl MenuHost) -> Vec<Entry> {
 fn workspace_entries(host: &impl MenuHost) -> Vec<Entry> {
     let Some(root) = host.workspace_root() else {
         return vec![
-            Entry::new("Choose workspace folder…", None, Action::ChooseWorkspace),
+            choose_workspace("Choose workspace folder…"),
             Entry::separator(),
         ];
     };
@@ -302,10 +302,16 @@ fn workspace_entries(host: &impl MenuHost) -> Vec<Entry> {
     info.enabled = false;
     vec![
         info,
-        Entry::new("Show in file explorer", None, Action::ShowInExplorer),
-        Entry::new("Change workspace folder…", None, Action::ChooseWorkspace),
+        Entry::new("Show in file explorer", None, Action::ShowInExplorer)
+            .with_id("action:show-in-explorer".to_owned()),
+        choose_workspace("Change workspace folder…"),
         Entry::separator(),
     ]
+}
+
+/// The pick-a-folder entry; the command palette runs it by this id.
+fn choose_workspace(label: &str) -> Entry {
+    Entry::new(label, None, Action::ChooseWorkspace).with_id("action:choose-workspace".to_owned())
 }
 
 /// The Help menu, as the TS has it: docs, a divider, updates, then the disabled version label.
@@ -317,9 +323,11 @@ fn help_entries(host: &impl MenuHost) -> Vec<Entry> {
     );
     version.enabled = false;
     vec![
-        Entry::new("Documentation", None, Action::OpenDocs),
+        Entry::new("Documentation", None, Action::OpenDocs).with_id("action:docs".to_owned()),
+        Entry::page("Keyboard shortcuts", "shortcuts", None),
         Entry::separator(),
-        Entry::new("Check for updates…", None, Action::CheckUpdates),
+        Entry::new("Check for updates…", None, Action::CheckUpdates)
+            .with_id("action:check-updates".to_owned()),
         version,
     ]
 }

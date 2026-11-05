@@ -26,7 +26,10 @@ import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { useTheme } from "@/lib/hooks/use-theme";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform, shortcutLabel } from "@/lib/shortcut-label";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { DOCS_URL, menuPaletteActions, requestShortcuts, type MenuPaletteAction } from "@/lib/palette-actions";
+import { shortcutTable } from "@/features/editor-workspace/application/keybindings";
 import {
   commandMatches,
   groupPaletteRows,
@@ -76,6 +79,8 @@ interface Entry {
   label: string;
   meta?: string;
   excerpt?: SearchExcerpt;
+  /** The command's own shortcut, shown at the row's end. */
+  hint?: string;
   run: () => void;
 }
 
@@ -139,6 +144,8 @@ export function JumpToPalette() {
   const theme = useTheme();
   const [mac, setMac] = useState(false);
   useEffect(() => setMac(isMacPlatform()), []);
+  // The shell menu's workspace, docs and update entries; none in a browser.
+  const [menuActions, setMenuActions] = useState<MenuPaletteAction[]>([]);
   const saveHistory = useCallback((next: string[]) => {
     setHistory(next);
     writeHistory(next);
@@ -183,6 +190,11 @@ export function JumpToPalette() {
     setActive(0);
     setHistory(readHistory());
     void reload();
+    // Read on each open: the workspace entries change with the folder.
+    void desktop()
+      ?.menuModel?.()
+      .then((groups) => setMenuActions(menuPaletteActions(groups)))
+      .catch(() => setMenuActions([]));
   }, [reload]);
 
   useEffect(() => {
@@ -324,13 +336,41 @@ export function JumpToPalette() {
       setOpen(false);
       then();
     };
-    const actions = [
+    const keys = shortcutTable();
+    const fromMenu = menuActions.map((action) => ({
+      key: action.id,
+      label: action.label,
+      run: leave(() => void desktop()?.invokeMenuItem?.(action.id).catch(() => undefined)),
+    }));
+    // In a browser there is no menu to borrow Documentation from.
+    const docs = menuActions.some((action) => action.id === "action:docs")
+      ? []
+      : [{ key: "docs", label: "Documentation", run: leave(() => window.open(DOCS_URL, "_blank", "noopener")) }];
+    const actions: Omit<Entry, "group">[] = [
       { key: "new-project", label: "New project", run: leave(() => showNewProject(setProject)) },
       {
         key: "theme",
         label: theme.dark ? "Switch to light theme" : "Switch to dark theme",
         run: leave(theme.toggle),
       },
+      {
+        key: "shortcuts",
+        label: "Keyboard shortcuts",
+        hint: shortcutLabel(keys["show-shortcuts"], mac),
+        run: leave(() => requestShortcuts()),
+      },
+      {
+        key: "workspace-search",
+        label: "Search workspace",
+        hint: shortcutLabel(keys["workspace-search"], mac),
+        run: () => {
+          setMode("search");
+          setQuery("");
+          setActive(0);
+        },
+      },
+      ...fromMenu,
+      ...docs,
     ];
     const toPage = (page: (typeof pages)[number]): Entry => ({
       group: "Pages",
@@ -365,7 +405,7 @@ export function JumpToPalette() {
     return groupPaletteRows(rows);
     // `go` reads the same state as these dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, pages, query, filtered, theme.dark, theme.toggle, setProject, router]);
+  }, [mode, pages, query, filtered, theme.dark, theme.toggle, setProject, router, menuActions, mac]);
   const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
 
   function go(item: JumpItem) {
@@ -478,6 +518,7 @@ export function JumpToPalette() {
                       </div>
                     )}
                     {c.meta && <div className="jump-to-meta">{c.meta}</div>}
+                    {c.hint && <kbd className="jump-to-hint">{c.hint}</kbd>}
                   </RowButton>
                 </li>
                 );

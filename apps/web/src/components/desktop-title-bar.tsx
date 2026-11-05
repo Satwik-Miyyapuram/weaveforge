@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { openSearchPalette } from "./jump-to-palette";
+import { requestShortcuts } from "@/lib/palette-actions";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -36,6 +37,7 @@ function logCommandFailure(command: string, error: unknown): void {
 
 function runCommand(command: string): void {
   if (command === "search") openSearchPalette();
+  else if (command === "shortcuts") requestShortcuts();
   else if (command === "choose-workspace") {
     void desktop()
       ?.chooseVaultRoot()

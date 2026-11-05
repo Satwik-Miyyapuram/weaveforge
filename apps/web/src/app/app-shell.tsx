@@ -23,6 +23,7 @@ import { TabBar } from "./tabbar";
 import { SubNav } from "./sub-nav";
 import { PageTransition } from "./page-transition";
 import { JumpToPalette } from "@/components/jump-to-palette";
+import { ShortcutsHost } from "@/components/shortcuts-host";
 import { NavPendingProvider } from "@/lib/nav-pending";
 import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
 import { RoutePending } from "./route-pending";
@@ -224,6 +225,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
       )}
       <main id="main" className="app-shell">
         <JumpToPalette />
+        <ShortcutsHost />
         {/* Mobile's home for the account controls; on desktop they live in the
             nav. Rendered for one breakpoint only — mounting both and hiding one
             with CSS gave every switcher a second copy holding its own state.
