@@ -64,7 +64,7 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
 
 /* The Rust shell's window has no frame: the empty middle drags, the buttons sit at the right end. */
 .title-bar-drag { flex: 1; align-self: stretch; }
-.title-bar-window { display: flex; align-self: stretch; margin-right: -12px; }
+.title-bar-window { display: flex; align-self: stretch; }
 /* Shared IconButtons restyled as OS caption buttons; the :root chain beats theme button rules. */
 :root:root:root .title-bar-window > .wf-btn {
   -webkit-app-region: no-drag;
