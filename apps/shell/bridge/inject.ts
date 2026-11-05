@@ -32,6 +32,12 @@ export interface ShellInfo {
 export const SIGN_IN_EVENT = "sign-in";
 
 /**
+ * Tauri's own resize event. Maximise and restore resize the window, and the
+ * Window menu's Maximize/Restore label follows that state.
+ */
+export const MENU_CHANGE_EVENT = "tauri://resize";
+
+/**
  * Holds the newest sign-in that arrived while nobody listened and hands it to
  * the next subscriber, once. Live sign-ins go straight to the listeners.
  */
@@ -79,6 +85,23 @@ export function desktopBridge(
     menuModel: async () => unwrap(await cmds.menuModel()),
     invokeMenuItem: async (id) => {
       unwrap(await cmds.menuInvoke(id));
+    },
+    onMenuChange: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | undefined;
+      void events
+        .listen(MENU_CHANGE_EVENT, () => cb())
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("The menu will not follow window changes:", error);
+        });
+      return () => {
+        stopped = true;
+        unlisten?.();
+      };
     },
     // Fire and forget, like the Electron ipc send: a failed colour set is logged.
     setTitleBarColors: ({ background, ink }) => {

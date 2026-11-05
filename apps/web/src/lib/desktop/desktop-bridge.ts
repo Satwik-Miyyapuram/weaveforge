@@ -364,7 +364,9 @@ export interface DesktopBridge {
    * The window's menu, for the menu bar the page draws itself.
    *
    * On Windows and Linux the window has no title bar: the page draws one, with
-   * the menu in it, and the window buttons are the system's, drawn over the
+   * the menu in it. The Rust shell's window has no frame, so the page also
+   * draws the window buttons, running the `window:minimize`, `window:maximize`
+   * and `window:close` entries; Electron's are the system's, drawn over the
    * right-hand end. The menu stays in the shell, so its shortcuts work whether
    * or not the bar is showing; `menuModel` is a picture of it, `null` where the
    * shell keeps the native menu bar (macOS), and `invokeMenuItem` runs one

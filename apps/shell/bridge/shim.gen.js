@@ -667,6 +667,7 @@
   // apps/shell/bridge/inject.ts
   init_tauri_core();
   var SIGN_IN_EVENT = "sign-in";
+  var MENU_CHANGE_EVENT = "tauri://resize";
   function createSignInInbox() {
     const listeners = /* @__PURE__ */ new Set();
     let pending = null;
@@ -702,6 +703,20 @@
       menuModel: async () => unwrap(await cmds.menuModel()),
       invokeMenuItem: async (id) => {
         unwrap(await cmds.menuInvoke(id));
+      },
+      onMenuChange: (cb) => {
+        let stopped = false;
+        let unlisten;
+        void events.listen(MENU_CHANGE_EVENT, () => cb()).then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        }).catch((error) => {
+          console.warn("The menu will not follow window changes:", error);
+        });
+        return () => {
+          stopped = true;
+          unlisten?.();
+        };
       },
       // Fire and forget, like the Electron ipc send: a failed colour set is logged.
       setTitleBarColors: ({ background, ink }) => {

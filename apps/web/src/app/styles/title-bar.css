@@ -2,8 +2,9 @@
  * The desktop window's title bar, on Windows and Linux
  * (components/desktop-title-bar.tsx).
  *
- * The shell hides the system title bar and draws only its window buttons, over
- * the right-hand end; the page draws the rest. `data-titlebar` is set on
+ * The Rust shell's window has no system frame, so the page draws the whole bar,
+ * window buttons included. Electron hides the system title bar and draws only
+ * its window buttons over the right-hand end; the page draws the rest. `data-titlebar` is set on
  * <html> before the first paint when the shell will want the bar, so
  * `--titlebar-h` is right from the start and nothing jumps when it mounts.
  * Everything pinned to the top of the viewport reads the variable.
@@ -60,6 +61,21 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   background: none; border: 0; padding: 0; white-space: nowrap;
 }
 .title-bar-sep { height: 1px; margin: 4px 8px; background: var(--line); }
+
+/* The Rust shell's window has no frame: the empty middle drags, the buttons sit at the right end. */
+.title-bar-drag { flex: 1; align-self: stretch; }
+.title-bar-window { display: flex; align-self: stretch; margin-right: -12px; }
+.title-bar-window-btn {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 100%;
+  padding: 0; border: 0; border-radius: 0;
+  background: transparent; color: inherit; cursor: default;
+}
+.title-bar-window-btn:hover { background: var(--hover-bg, color-mix(in srgb, currentColor 10%, transparent)); }
+.title-bar-window-btn:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
+.title-bar-window-btn.is-close:hover { background: #c42b1c; color: #fff; }
 
 /* Neo-brutalist themes: the bar's rule is the theme's heavy line. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .title-bar {

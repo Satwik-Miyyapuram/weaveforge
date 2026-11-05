@@ -602,6 +602,9 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             open_outside(&popup_app, &url);
             tauri::webview::NewWindowResponse::Deny
         });
+    // Windows and Linux: no system frame; the page's title bar draws the menu and window buttons.
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    let builder = builder.decorations(false);
     // A cold-start sign-in waits until the page (and the shim's listener) exists.
     #[cfg(mobile)]
     let builder = builder.on_page_load(|window, payload| {
