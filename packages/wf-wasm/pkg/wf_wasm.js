@@ -2769,8 +2769,8 @@ export function smoothInkStroke(points, pressures, options) {
  * @param {any} tagged
  * @returns {any}
  */
-export function sortByReadingOrderIndices(tagged) {
-    const ret = wasm.sortByReadingOrderIndices(tagged);
+export function sortByReadingOrder(tagged) {
+    const ret = wasm.sortByReadingOrder(tagged);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

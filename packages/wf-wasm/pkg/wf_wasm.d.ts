@@ -1167,7 +1167,7 @@ export function smoothInkStroke(points: Float64Array, pressures: Float64Array, o
  *
  * Fails if `tagged` is not an array of `{ line, column }` objects.
  */
-export function sortByReadingOrderIndices(tagged: any): any;
+export function sortByReadingOrder(tagged: any): any;
 
 /**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
@@ -1492,7 +1492,7 @@ export interface InitOutput {
     readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
-    readonly sortByReadingOrderIndices: (a: any) => [number, number, number];
+    readonly sortByReadingOrder: (a: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly stripInvisible: (a: number, b: number) => [number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];

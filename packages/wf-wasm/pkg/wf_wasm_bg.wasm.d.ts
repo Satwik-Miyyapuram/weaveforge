@@ -145,7 +145,7 @@ export const shouldAppendInkPoint: (a: number, b: number, c: number, d: number, 
 export const simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
 export const simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
-export const sortByReadingOrderIndices: (a: any) => [number, number, number];
+export const sortByReadingOrder: (a: any) => [number, number, number];
 export const stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const stripInvisible: (a: number, b: number) => [number, number];
 export const stripKindSuffix: (a: number, b: number) => [number, number, number, number];
