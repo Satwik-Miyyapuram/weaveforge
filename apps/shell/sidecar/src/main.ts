@@ -95,7 +95,7 @@ function migrateOldData(oldDir: string, newDir: string): boolean {
 
 /** The calls the shell can make. */
 export function sidecarHandlers(db: {
-  host: Pick<LocalDbHost, "query" | "state" | "reset">;
+  host: Pick<LocalDbHost, "query" | "state" | "reset"> & Partial<Pick<LocalDbHost, "exportRows">>;
   restartWanted(): boolean;
 }): Handlers {
   return {
@@ -108,6 +108,17 @@ export function sidecarHandlers(db: {
       // A deferred move is waiting for a fresh process: opening here would only fail and move again.
       if (db.restartWanted()) throw new Error("local database: restarting");
       const r = await db.host.query(p.sql, p.params ?? []);
+      if (r.ok) return r.value;
+      throw new Error(r.message);
+    },
+    exportRows: async (params) => {
+      const p = params as { sql?: unknown } | null;
+      if (typeof p !== "object" || p === null || typeof p.sql !== "string") {
+        throw new Error("exportRows needs { sql }");
+      }
+      if (!db.host.exportRows) throw new Error("exportRows is not available");
+      if (db.restartWanted()) throw new Error("local database: restarting");
+      const r = await db.host.exportRows(p.sql);
       if (r.ok) return r.value;
       throw new Error(r.message);
     },

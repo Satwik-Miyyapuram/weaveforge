@@ -326,12 +326,43 @@ fn native_db(
     db_lock::acquire(&root, NATIVE_LOCK_APP, std::time::SystemTime::now())
         .map_err(|e| e.to_string())?;
     let log = app.clone();
-    let host = local_pg::host::PgHost::new(
+    let mut host = local_pg::host::PgHost::new(
         local_pg::host::PgEngine { bin, root },
         launch::migration_dirs(source),
     )
     .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)));
+    if data.join("local-db").join("PG_VERSION").is_file() {
+        host = host.with_first_open(Arc::new(old_db_import(app, data)));
+    }
     Ok(Some(Arc::new(host)))
+}
+
+/// Copies the old PGlite database (still opened by the sidecar) into the native one on its first
+/// open. The marker sits beside the native folder, so discarding that folder does not copy again.
+fn old_db_import(app: &tauri::AppHandle, data: &std::path::Path) -> local_pg::import::OnceImport {
+    let app = app.clone();
+    let source: local_pg::import::RowsFn = Arc::new(move |sql: String| {
+        let app = app.clone();
+        Box::pin(async move {
+            use tauri::Manager as _;
+            let db = app
+                .try_state::<commands::LocalDb>()
+                .ok_or_else(|| "the old local database is not running".to_owned())?;
+            let value = db
+                .call("exportRows", serde_json::json!({ "sql": sql }))
+                .await
+                .map_err(|e| e.message)?;
+            match value {
+                serde_json::Value::Array(rows) => Ok(rows),
+                _ => Err("the old local database sent no rows".to_owned()),
+            }
+        })
+    });
+    local_pg::import::OnceImport {
+        marker: data.join("local-pg.imported"),
+        source,
+        page_rows: 500,
+    }
 }
 
 /// Gives `db` what it needs from the app: the vault root and warnings for restarts, the native

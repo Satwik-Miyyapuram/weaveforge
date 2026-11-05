@@ -68,6 +68,16 @@ describe("the local database", () => {
     assert.deepEqual(rows, []);
   });
 
+  it("reads every user's rows read-only for the export", async () => {
+    const db = await migrated();
+    await db.query("insert into notes (body) values ($1)", ["mine"]);
+    await db.query("insert into notes (body) values ($1)", ["theirs"], "00000000-0000-4000-8000-0000000000ff");
+    const rows = await db.readRows<{ body: string }>("select body from notes order by body");
+    assert.deepEqual(rows, [{ body: "mine" }, { body: "theirs" }]);
+    await assert.rejects(db.readRows("delete from notes"), /read-only/);
+    assert.equal((await db.readRows("select 1 as one")).length, 1);
+  });
+
   it("gives the local user a row, so foreign keys to auth.users hold", async () => {
     const client = await PGlite.create({ extensions: { pgcrypto } });
     opened.push(client);
