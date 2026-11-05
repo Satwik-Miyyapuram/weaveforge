@@ -46,11 +46,6 @@ import init, {
   writeFrontmatter as rawWriteFrontmatter,
   mergeRows as rawMergeRows,
   sameValue as rawSameValue,
-  isInkChunkId as rawIsInkChunkId,
-  isInkNoteBody as rawIsInkNoteBody,
-  readInkNoteBody as rawReadInkNoteBody,
-  writeInkNoteBody as rawWriteInkNoteBody,
-  defaultInkNoteMeta as rawDefaultInkNoteMeta,
   diffBody as rawDiffBody,
   hasConflictMarkers as rawHasConflictMarkers,
   markdownImage as rawMarkdownImage,
@@ -218,6 +213,7 @@ export type {
 export { init, initSync };
 export * from "./ink.js";
 export * from "./ink-lines.js";
+export * from "./ink-note.js";
 export * from "./reader-anchor.js";
 export * from "./reader-annotation.js";
 export * from "./reader-ink-stroke.js";
@@ -519,38 +515,6 @@ export function mergeRows(
 /** Equality as the database means it (Rust `same_value`). */
 export function sameValue(a: unknown, b: unknown): boolean {
   return rawSameValue(plainJson(a), plainJson(b));
-}
-
-/** Whether `text` is an ink chunk id (Rust `is_ink_chunk_id`). */
-export function isInkChunkId(text: string): boolean {
-  checkIndexText(text);
-  return rawIsInkChunkId(text);
-}
-
-/** Whether `body` is an ink note body (Rust `is_ink_note_body`). */
-export function isInkNoteBody(body: string): boolean {
-  checkIndexText(body);
-  return rawIsInkNoteBody(body);
-}
-
-/** The header and text of an ink note body (Rust `read_ink_note_body`). */
-export function readInkNoteBody(body: string): { meta: InkNoteMeta; text: string } {
-  checkIndexText(body);
-  return rawReadInkNoteBody(body) as { meta: InkNoteMeta; text: string };
-}
-
-/** An ink note body: the header for `meta`, then `text` (Rust `write_ink_note_body`). */
-export function writeInkNoteBody(
-  meta: Omit<InkNoteMeta, "pageOrder"> & { readonly pageOrder: readonly string[] },
-  text: string,
-): string {
-  checkIndexText(text);
-  return rawWriteInkNoteBody(meta, text);
-}
-
-/** The header of a new, empty ink note (Rust `default_ink_note_meta`). */
-export function defaultInkNoteMeta(): InkNoteMeta {
-  return rawDefaultInkNoteMeta() as InkNoteMeta;
 }
 
 /** Line and hunk diff of two bodies (Rust `diff_body`). */
