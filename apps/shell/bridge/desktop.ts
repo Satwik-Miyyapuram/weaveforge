@@ -67,6 +67,13 @@ export interface DesktopCommands {
   vaultList(path: string | null): Promise<Result<DesktopVaultEntry[]>>;
   vaultStat(path: string): Promise<Result<DesktopVaultEntry | null>>;
   vaultRemove(path: string): Promise<Result<null>>;
+  localFileRead(bucket: string, path: string): Promise<Result<string | null>>; // base64
+  localFileWrite(
+    bucket: string,
+    path: string,
+    bytes: string, // base64
+  ): Promise<Result<null>>;
+  localFileRemove(bucket: string, path: string): Promise<Result<null>>;
   vaultCommit(): Promise<Result<DesktopCommitResult>>;
   vaultLog(limit: number | null): Promise<Result<DesktopCommit[]>>;
   vaultSync(action: string): Promise<Result<DesktopVaultSync>>;
@@ -228,6 +235,9 @@ export type DesktopShim = Pick<
   | "listVaultFiles"
   | "statVaultFile"
   | "removeVaultFile"
+  | "readLocalFile"
+  | "writeLocalFile"
+  | "removeLocalFile"
   | "commitVault"
   | "vaultLog"
   | "vaultSync"
@@ -426,6 +436,16 @@ export function desktopShim(
     statVaultFile: async (path) => unwrap(await cmds.vaultStat(path)),
     removeVaultFile: async (path) => {
       unwrap(await cmds.vaultRemove(path));
+    },
+    readLocalFile: async (bucket, path) => {
+      const data = unwrap(await cmds.localFileRead(bucket, path));
+      return data === null ? null : fromBase64(data);
+    },
+    writeLocalFile: async (bucket, path, bytes) => {
+      unwrap(await cmds.localFileWrite(bucket, path, toBase64(bytes)));
+    },
+    removeLocalFile: async (bucket, path) => {
+      unwrap(await cmds.localFileRemove(bucket, path));
     },
     commitVault: async () => unwrap(await cmds.vaultCommit()),
     vaultLog: async (limit) => unwrap(await cmds.vaultLog(limit)),

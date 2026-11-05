@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyWorkspaceChange } from "@/lib/workspace-changes";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { watchWrites } from "../postgrest/watch-writes";
 import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import { LocalAuthService, LocalSessionProvider } from "./local-identity";
-import { LocalBlobStore } from "./local-blob-store";
+import { LocalBlobStore, localFiles } from "./local-blob-store";
 import { localRunnerQuery } from "./local-runner";
 import { DeviceSecretsStore } from "./device-secrets-store";
 
@@ -30,6 +31,6 @@ export function localBackendParts(query: LocalQuery = localRunnerQuery()): Backe
     session,
     settingsRepository: new PostgrestSettingsRepository(db, session, new DeviceSecretsStore(query)),
     auth: new LocalAuthService(),
-    blobStore: new LocalBlobStore(query),
+    blobStore: new LocalBlobStore(query, localFiles(desktop())),
   };
 }

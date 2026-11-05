@@ -15,6 +15,17 @@ export const commands = {
 	dbReset: () => typedError<null, ShellError>(__TAURI_INVOKE("db_reset")),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError>(__TAURI_INVOKE("local_api_call", { channel, args })),
+	/**  Reads one offline file as standard base64; `null` when it is missing. */
+	localFileRead: (bucket: string, path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("local_file_read", { bucket, path })),
+	/**
+	 *  Writes one offline file from standard base64.
+	 * 
+	 *  # Errors
+	 *  Invalid base64, or the write failed.
+	 */
+	localFileWrite: (bucket: string, path: string, bytes: string) => typedError<null, ShellError>(__TAURI_INVOKE("local_file_write", { bucket, path, bytes })),
+	/**  Removes one offline file; a missing one is fine. */
+	localFileRemove: (bucket: string, path: string) => typedError<null, ShellError>(__TAURI_INVOKE("local_file_remove", { bucket, path })),
 	/**  Stores a preference the page may write; `null` removes it. */
 	preferenceWrite: (name: string, value: unknown) => typedError<null, ShellError>(__TAURI_INVOKE("preference_write", { name, value })),
 	/**  Reads a secret the page may read. */

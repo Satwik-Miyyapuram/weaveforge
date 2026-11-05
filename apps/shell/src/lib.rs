@@ -27,6 +27,7 @@ pub mod ink;
 pub mod launch;
 pub mod local_api;
 pub mod local_artifacts;
+pub mod local_files;
 pub mod local_http;
 pub mod local_pg;
 pub mod mattermost;
@@ -163,7 +164,8 @@ fn install_tls_provider() {
 #[cfg(desktop)]
 const fn install_tls_provider() {}
 
-/// Manages the preferences, keychain secrets, app log, git queue and the chosen vault folder.
+/// Manages the preferences, keychain secrets, app log, git queue, offline files and the chosen
+/// vault folder.
 ///
 /// A missing app folder leaves preferences and the log in the working directory; startup never aborts.
 fn start_stores(app: &tauri::AppHandle) {
@@ -185,6 +187,7 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
     let _ = app.manage(embed::EmbedSlot::default());
+    let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
 }
 
 /// The event that carries folder-relative paths changed by other programs to the page.

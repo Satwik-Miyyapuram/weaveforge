@@ -76,8 +76,19 @@
         dbState: () => typedError(invoke("db_state")),
         /**  Resets the local database. */
         dbReset: () => typedError(invoke("db_reset")),
-        /**  Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron. */
+        /**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
         localApiCall: (channel, args) => typedError(invoke("local_api_call", { channel, args })),
+        /**  Reads one offline file as standard base64; `null` when it is missing. */
+        localFileRead: (bucket, path) => typedError(invoke("local_file_read", { bucket, path })),
+        /**
+         *  Writes one offline file from standard base64.
+         * 
+         *  # Errors
+         *  Invalid base64, or the write failed.
+         */
+        localFileWrite: (bucket, path, bytes) => typedError(invoke("local_file_write", { bucket, path, bytes })),
+        /**  Removes one offline file; a missing one is fine. */
+        localFileRemove: (bucket, path) => typedError(invoke("local_file_remove", { bucket, path })),
         /**  Stores a preference the page may write; `null` removes it. */
         preferenceWrite: (name, value) => typedError(invoke("preference_write", { name, value })),
         /**  Reads a secret the page may read. */
@@ -585,6 +596,16 @@
       statVaultFile: async (path) => unwrap(await cmds.vaultStat(path)),
       removeVaultFile: async (path) => {
         unwrap(await cmds.vaultRemove(path));
+      },
+      readLocalFile: async (bucket, path) => {
+        const data = unwrap(await cmds.localFileRead(bucket, path));
+        return data === null ? null : fromBase64(data);
+      },
+      writeLocalFile: async (bucket, path, bytes) => {
+        unwrap(await cmds.localFileWrite(bucket, path, toBase64(bytes)));
+      },
+      removeLocalFile: async (bucket, path) => {
+        unwrap(await cmds.localFileRemove(bucket, path));
       },
       commitVault: async () => unwrap(await cmds.vaultCommit()),
       vaultLog: async (limit) => unwrap(await cmds.vaultLog(limit)),
