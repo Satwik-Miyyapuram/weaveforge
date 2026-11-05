@@ -1,6 +1,6 @@
 "use client";
 
-import { LOCAL_USER_ID, parseLatexSectionTree } from "@weaveforge/core";
+import { parseLatexSectionTree } from "@weaveforge/core";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
@@ -29,6 +29,10 @@ import {
  * account could be shared between machines. This copy is one person at one
  * machine, and a picker for a list that is always length one is a worse offer
  * than no picker.
+ *
+ * The user is `auth.uid()`, the claim the shell sets per query: the local-only
+ * id before sign-in, the account once the device has adopted one. Passing a
+ * fixed id would fail the row policies on an adopted device.
  */
 
 /** What the row keeps in place of a ciphertext it has no key to make. */
@@ -55,9 +59,9 @@ export class LocalOverleafGateway {
   async listReports(projectId: string): Promise<OverleafReportRow[]> {
     return this.run.query<OverleafReportRow>(
       `select ${ROW_FIELDS} from overleaf_linked_reports
-       where user_id = $1 and project_id = $2 and enabled
+       where user_id = auth.uid() and project_id = $1 and enabled
        order by updated_at desc`,
-      [LOCAL_USER_ID, projectId],
+      [projectId],
     );
   }
 
@@ -74,8 +78,8 @@ export class LocalOverleafGateway {
     await shell.writeSecret("overleaf-token", token);
     const [row] = await this.run.query<{ id: string }>(
       `insert into overleaf_connections (user_id, name, token_ciphertext, token_prefix)
-       values ($1, $2, $3, $4) returning id`,
-      [LOCAL_USER_ID, name, KEYCHAIN, token.slice(0, 4)],
+       values (auth.uid(), $1, $2, $3) returning id`,
+      [name, KEYCHAIN, token.slice(0, 4)],
     );
     if (!row) throw new Error("Could not save the Overleaf connection.");
     return row.id;
@@ -97,9 +101,8 @@ export class LocalOverleafGateway {
     await this.run.exec(
       `insert into overleaf_linked_reports
          (user_id, project_id, connection_id, title, overleaf_project_id, entry_file, external_url)
-       values ($1, $2, $3, $4, $5, $6, $7)`,
+       values (auth.uid(), $1, $2, $3, $4, $5, $6)`,
       [
-        LOCAL_USER_ID,
         input.projectId,
         input.connectionId,
         input.title.trim(),
@@ -164,19 +167,16 @@ export class LocalOverleafGateway {
       sets.push("last_error = null");
     }
 
-    params.push(input.id, LOCAL_USER_ID);
+    params.push(input.id);
     await this.run.exec(
       `update overleaf_linked_reports set ${sets.join(", ")}, updated_at = now()
-       where id = $${params.length - 1} and user_id = $${params.length}`,
+       where id = $${params.length} and user_id = auth.uid()`,
       params,
     );
   }
 
   async deleteReport(id: string): Promise<void> {
-    await this.run.exec("delete from overleaf_linked_reports where id = $1 and user_id = $2", [
-      id,
-      LOCAL_USER_ID,
-    ]);
+    await this.run.exec("delete from overleaf_linked_reports where id = $1 and user_id = auth.uid()", [id]);
   }
 
   /** Clones through the shell, parses here, and records that it worked. */
@@ -186,8 +186,8 @@ export class LocalOverleafGateway {
     const source = await shell.readOverleafProject(report.overleaf_project_id, report.entry_file);
     await this.run.exec(
       `update overleaf_linked_reports set last_fetched_at = now(), last_error = null
-       where id = $1 and user_id = $2`,
-      [report.id, LOCAL_USER_ID],
+       where id = $1 and user_id = auth.uid()`,
+      [report.id],
     );
     return {
       files: source.files,
