@@ -17,8 +17,11 @@ import {
   type PaneLeaf,
   type PaneNode,
   type PaneSplit,
+  type TabMenuCommand,
   type TabRef,
 } from "../application/pane-tree";
+import { openContextMenu } from "@/components/context-menu-store";
+import type { MenuItem } from "@/components/menu";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PaneModeSwitch, WorkspaceToolbar } from "./workspace-toolbar";
 import { kindIcon, kindSuffix, kindTintClass } from "./kind";
@@ -39,6 +42,29 @@ export interface PaneActions {
   onSetMode: (tab: TabRef, mode: DocumentMode) => void;
   /** Split: open or close the preview of the focused document. */
   onTogglePreview: () => void;
+  /** A tab's right-click item. */
+  onTabMenu?: (paneId: string, index: number, command: TabMenuCommand) => void;
+}
+
+/** A tab's right-click menu, in VS Code's order. */
+export function tabMenuItems(
+  index: number,
+  count: number,
+  run: (command: TabMenuCommand) => void,
+): MenuItem[] {
+  return [
+    { id: "close", label: "Close", accelerator: keyLabel("Mod-w"), onSelect: () => run("close") },
+    { id: "close-others", label: "Close others", disabled: count < 2, onSelect: () => run("close-others") },
+    {
+      id: "close-right",
+      label: "Close to the right",
+      disabled: index >= count - 1,
+      onSelect: () => run("close-right"),
+    },
+    { id: "sep", label: "", kind: "separator" },
+    { id: "split-right", label: "Split right", onSelect: () => run("split-right") },
+    { id: "split-down", label: "Split down", onSelect: () => run("split-down") },
+  ];
 }
 
 export interface PaneViewProps extends PaneActions {
@@ -147,6 +173,7 @@ function PaneLeafView({
   onFocus,
   onDropTab,
   onSetMode,
+  onTabMenu,
   focus,
   slot,
 }: TreeProps & { leaf: PaneLeaf }) {
@@ -186,6 +213,13 @@ function PaneLeafView({
               onAuxClick={(event) => {
                 // Middle-click closes, as every tabbed editor does.
                 if (event.button === 1) onClose(leaf.id, index);
+              }}
+              onContextMenu={(event) => {
+                if (!onTabMenu) return;
+                openContextMenu(
+                  event,
+                  tabMenuItems(index, leaf.tabs.length, (command) => onTabMenu(leaf.id, index, command)),
+                );
               }}
             >
               <TabButton

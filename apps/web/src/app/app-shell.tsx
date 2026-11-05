@@ -30,6 +30,7 @@ import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
+import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
 import { loadCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
@@ -88,6 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
                 <ToastHost />
+                <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}

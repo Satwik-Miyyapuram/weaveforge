@@ -177,7 +177,12 @@ export function JumpToPalette() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      // In a document `⌘K` inserts a link; the editor has handled it already.
+      if (e.defaultPrevented) return;
+      // `⌘⇧P` too, as in VS Code: it works inside a document, where `⌘K` is a link.
+      const key = e.key.toLowerCase();
+      const palette = (key === "k" && !e.shiftKey) || (key === "p" && e.shiftKey);
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && palette) {
         e.preventDefault();
         openPalette();
       }
