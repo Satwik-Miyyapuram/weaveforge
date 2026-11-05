@@ -36,12 +36,12 @@ function harness(route: Route, stored: string | null = null) {
 const projectsOk: Route = (url) =>
   url.endsWith("/session") ? json({ sessionId: SESSION }, 201) : json({ projects: [{ id: "p2", name: "Thesis" }, { id: "p1", name: "Abstract" }] });
 
-async function mount(h: ReturnType<typeof harness>): Promise<ReactTestRenderer> {
+async function mount(h: ReturnType<typeof harness>, inShell = false): Promise<ReactTestRenderer> {
   // The viewer, once shown, fetches with the real browser deps; keep that request pending.
   globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
   let tree: ReactTestRenderer | undefined;
   await act(async () => {
-    tree = create(createElement(WorkshopPanel, { client: h.client, store: h.store }));
+    tree = create(createElement(WorkshopPanel, { client: h.client, store: h.store, inShell }));
   });
   return tree!;
 }
@@ -76,6 +76,16 @@ test("with no stored session the panel asks for the cookie and makes no request"
   assert.equal(h.calls.length, 0);
   assert.equal(tree.root.findAllByType(WorkshopPdfViewer).length, 0);
   await act(async () => tree.unmount());
+});
+
+test("the cookie note says where the cookie is kept: the server, or the app's memory", async () => {
+  const hosted = await mount(harness(projectsOk));
+  assert.ok(text(hosted).includes("stored encrypted on the server"));
+  await act(async () => hosted.unmount());
+  const shell = await mount(harness(projectsOk), true);
+  assert.ok(text(shell).includes("forgotten when you quit"));
+  assert.ok(!text(shell).includes("on the server"));
+  await act(async () => shell.unmount());
 });
 
 test("signing in stores only the session id and lists projects by name", async () => {
