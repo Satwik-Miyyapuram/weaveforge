@@ -10,6 +10,7 @@ import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { MenuItemButton } from "./controls";
+import { IconButton } from "./button";
 import { isEditCommand, runEditCommand } from "@/lib/desktop/menu-edit";
 
 /**
@@ -336,16 +337,9 @@ export function DesktopTitleBar() {
       {windowButtons ? (
         <div className="title-bar-window" role="group" aria-label="Window">
           {windowButtons.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`title-bar-window-btn${item.id === "window:close" ? " is-close" : ""}`}
-              aria-label={windowButtonLabel(item)}
-              title={windowButtonLabel(item)}
-              onClick={() => run(item)}
-            >
+            <IconButton key={item.id} label={windowButtonLabel(item)} onClick={() => run(item)}>
               <WindowGlyph item={item} />
-            </button>
+            </IconButton>
           ))}
         </div>
       ) : null}
