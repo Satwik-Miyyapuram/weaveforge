@@ -1,15 +1,13 @@
-//! Tauri commands for the local database, served by the Node sidecar (design: phase-2-desktop.md § 2.4).
+//! Tauri commands for the local database, served by native Postgres (step 5.3f).
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
 
 use serde_json::Value;
 
 use crate::local_pg::host::{PgEngine, PgHost};
-use crate::sidecar::{AskLimits, Sidecar, SidecarConfig, SidecarError, SidecarHost};
+use crate::sidecar::SidecarError;
 
-/// The native Postgres database, when it serves queries instead of the sidecar.
+/// The native Postgres database.
 pub type NativeDb = Arc<PgHost<PgEngine>>;
 
 /// The error every command returns. The bridge shim throws `new Error(message)`.
@@ -25,7 +23,7 @@ pub struct ShellError {
 pub struct DbState {
     /// Why the database is unusable, or `None` when healthy.
     pub failure: Option<String>,
-    /// The PGlite data directory.
+    /// The database's data directory.
     pub data_dir: String,
     /// The backup this run's database was rebuilt from, when it was.
     #[serde(default)]
@@ -61,268 +59,52 @@ impl From<SidecarError> for ShellError {
     }
 }
 
-/// Spawns the sidecar, with `host` when one is set so its asks keep working.
-///
-/// # Errors
-/// The spawn error, as from [`Sidecar::spawn`].
-pub fn spawn(
-    config: SidecarConfig,
-    host: Option<&Arc<dyn SidecarHost>>,
-) -> Result<Sidecar, SidecarError> {
-    match host {
-        Some(host) => Sidecar::spawn_with_host(config, Arc::clone(host), AskLimits::default()),
-        None => Sidecar::spawn(config),
-    }
-}
-
-/// Whether a sidecar reply asks for the sidecar to be restarted.
-fn asks_restart(reply: &Value) -> bool {
-    reply.get("restart") == Some(&Value::Bool(true))
-}
-
-/// Gives the current `vault.root` params.
-pub type VaultRootSource = Arc<dyn Fn() -> Value + Send + Sync>;
-
-/// Takes a warning line, such as a restarted sidecar refusing the vault root.
-pub type WarnSink = Arc<dyn Fn(&str) + Send + Sync>;
-
-/// Tauri-managed handle to the sidecar. A failed spawn is kept, so every command can report it.
+/// Tauri-managed handle to the native database. A failed start is kept, so every command can report it.
 pub struct LocalDb {
-    sidecar: tokio::sync::RwLock<Result<Sidecar, ShellError>>,
-    config: Option<SidecarConfig>,
-    host: Option<Arc<dyn SidecarHost>>,
-    /// Gives the `vault.root` params a respawned sidecar is sent, read at each restart.
-    vault_root: Option<VaultRootSource>,
-    /// Orders `vault.root` sends, so a restart's send never lands after, and undoes, a newer folder's.
-    vault_root_send: tokio::sync::Mutex<()>,
-    /// Gets the warnings a restart logs; stderr when unset.
-    warn: Option<WarnSink>,
-    /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
-    /// gone is skipped, so concurrent callers restart once.
-    generation: AtomicU64,
-    /// Set by `shutdown`: a restart that was waiting must not spawn a sidecar while the app quits.
-    closed: AtomicBool,
+    native: Result<NativeDb, ShellError>,
     data_dir: String,
-    /// When set, `query`, `state` and `reset` go to the native database; the sidecar keeps the rest.
-    native: Option<NativeDb>,
 }
 
 impl LocalDb {
-    /// Wraps the spawn result; a spawn error is reported by every command.
+    /// Wraps the native database, or why it could not be made.
     #[must_use]
-    pub fn new(sidecar: Result<Sidecar, SidecarError>, data_dir: String) -> Self {
+    pub fn new(native: Result<NativeDb, String>, data_dir: String) -> Self {
         Self {
-            sidecar: tokio::sync::RwLock::new(sidecar.map_err(ShellError::from)),
-            config: None,
-            host: None,
-            vault_root: None,
-            vault_root_send: tokio::sync::Mutex::new(()),
-            warn: None,
-            generation: AtomicU64::new(0),
-            closed: AtomicBool::new(false),
+            native: native.map_err(ShellError::from),
             data_dir,
-            native: None,
         }
     }
 
-    /// Lets the handle respawn the sidecar from `config`. Only a restartable database can finish a reset
-    /// that needs a fresh sidecar.
-    #[must_use]
-    pub fn restartable(mut self, config: SidecarConfig) -> Self {
-        self.config = Some(config);
-        self
-    }
-
-    /// Respawns the sidecar with this host, so its asks keep working after a restart.
-    #[must_use]
-    pub fn with_host(mut self, host: Arc<dyn SidecarHost>) -> Self {
-        self.host = Some(host);
-        self
-    }
-
-    /// Sends each respawned sidecar `vault.root` with the params `source` gives at that moment, so a restart
-    /// keeps the open folder.
-    #[must_use]
-    pub fn with_vault_root(mut self, source: VaultRootSource) -> Self {
-        self.vault_root = Some(source);
-        self
-    }
-
-    /// Sends the warnings a restart logs to `sink`, such as the app log, instead of stderr.
-    #[must_use]
-    pub fn with_warn(mut self, sink: WarnSink) -> Self {
-        self.warn = Some(sink);
-        self
-    }
-
-    /// Serves `query`, `state` and `reset` from the native database `native`.
-    #[must_use]
-    pub fn with_native(mut self, native: NativeDb) -> Self {
-        self.native = Some(native);
-        self
-    }
-
-    /// Sends `vault.root` with the params `params` gives, read only once earlier sends are done.
-    ///
-    /// # Errors
-    ///
-    /// The sidecar's error when it is down or refuses the folder.
-    pub async fn send_vault_root(&self, params: impl FnOnce() -> Value) -> Result<(), ShellError> {
-        let _order = self.vault_root_send.lock().await;
-        self.call("vault.root", params()).await.map(|_| ())
-    }
-
-    /// Calls the sidecar's `method` with `params` and returns its reply.
-    pub async fn call(&self, method: &str, params: Value) -> Result<Value, ShellError> {
-        let sidecar = self.sidecar.read().await;
-        let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
-        sidecar.call(method, params).await.map_err(ShellError::from)
+    fn native(&self) -> Result<&NativeDb, ShellError> {
+        self.native.as_ref().map_err(Clone::clone)
     }
 
     /// Runs `sql` with `params` and returns the rows.
     pub async fn query(&self, sql: String, params: Vec<Value>) -> Result<Vec<Value>, ShellError> {
-        if let Some(native) = &self.native {
-            return native.query(&sql, &params).await.map_err(ShellError::from);
-        }
-        let sidecar = self.sidecar.read().await;
-        let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
-        let reply = sidecar
-            .call("query", serde_json::json!({"sql": sql, "params": params}))
+        self.native()?
+            .query(&sql, &params)
             .await
-            .map_err(ShellError::from)?;
-        match reply {
-            Value::Array(rows) => Ok(rows),
-            _ => Err(shell_error("local database: reply is not a list")),
+            .map_err(ShellError::from)
+    }
+
+    /// The database's health; a database that cannot be used is reported in `failure`.
+    #[must_use]
+    pub fn state(&self) -> DbState {
+        match &self.native {
+            Ok(native) => native.state(),
+            Err(e) => self.down(e.message.clone()),
         }
     }
 
-    /// The database's health. A database that cannot be used (spawn failed, sidecar gone, bad reply) is
-    /// reported in `failure`; a transient error (busy, timeout, too large, an error reply) is returned as `Err`
-    /// so the caller retries instead of showing the reset screen.
-    pub async fn state(&self) -> Result<DbState, ShellError> {
-        if let Some(native) = &self.native {
-            return Ok(native.state());
-        }
-        let (state, restart) = self.read_state().await?;
-        let Some(asked_by) = restart else {
-            return Ok(state);
-        };
-        // A failed restart is not transient: the state read next reports it (a failed spawn is stored).
-        if self.restart(asked_by).await.is_ok() {
-            // The new sidecar opens lazily. Open it now (applying the move, restoring a backup) so the state
-            // says how that went; a failed open is reported in `failure`.
-            let _ = self.query("select 1".to_owned(), Vec::new()).await;
-        }
-        self.read_state().await.map(|(state, _)| state)
-    }
-
-    /// Reads the state and, when the sidecar asks to be restarted to finish a move, its generation.
-    async fn read_state(&self) -> Result<(DbState, Option<u64>), ShellError> {
-        let sidecar = self.sidecar.read().await;
-        let generation = self.generation.load(Ordering::Acquire);
-        let sidecar = match &*sidecar {
-            Ok(sidecar) => sidecar,
-            Err(e) => return Ok((self.down(e.message.clone()), None)),
-        };
-        match sidecar.call("state", Value::Null).await {
-            Err(e @ SidecarError::Exited) => {
-                let failure = match sidecar.exit_reason().await {
-                    Some(reason) => format!("local database stopped: {reason}"),
-                    None => ShellError::from(e).message,
-                };
-                Ok((self.down(failure), None))
-            }
-            Err(e) => Err(ShellError::from(e)),
-            Ok(reply) => {
-                let restart = asks_restart(&reply).then_some(generation);
-                let state = serde_json::from_value::<DbState>(reply)
-                    .unwrap_or_else(|_| self.down("local database: bad state reply".to_owned()));
-                Ok((state, restart))
-            }
-        }
-    }
-
-    /// Replaces the sidecar of generation `asked_by` with a fresh one from the saved config, then sends it the
-    /// open vault root; does nothing when it was already replaced. A failed spawn is stored, as at startup.
-    async fn restart(&self, asked_by: u64) -> Result<(), ShellError> {
-        if !self.respawn(asked_by).await? {
-            return Ok(());
-        }
-        // After the write lock is released: `call` takes the read lock. The restart itself worked, so a
-        // failed send is logged, not returned.
-        if let Some(source) = &self.vault_root
-            && let Err(e) = self.send_vault_root(&**source).await
-        {
-            let line = format!(
-                "the restarted sidecar did not get the workspace folder: {}",
-                e.message
-            );
-            match &self.warn {
-                Some(warn) => warn(&line),
-                None => eprintln!("[local-api] {line}"),
-            }
-        }
-        Ok(())
-    }
-
-    /// The respawn half of `restart`. Returns whether it spawned a new sidecar.
-    async fn respawn(&self, asked_by: u64) -> Result<bool, ShellError> {
-        let Some(config) = &self.config else {
-            return Err(shell_error(
-                "local database: restart the app to finish the reset",
-            ));
-        };
-        let mut sidecar = self.sidecar.write().await;
-        if self.closed.load(Ordering::Acquire) {
-            return Err(shell_error("local database: closed"));
-        }
-        if self.generation.load(Ordering::Acquire) != asked_by {
-            return Ok(false);
-        }
-        if let Ok(old) = &*sidecar {
-            let _ = old.shutdown(crate::launch::SHUTDOWN_GRACE).await;
-        }
-        *sidecar = spawn(config.clone(), self.host.as_ref()).map_err(ShellError::from);
-        let _ = self.generation.fetch_add(1, Ordering::AcqRel);
-        sidecar.as_ref().map(|_| true).map_err(Clone::clone)
-    }
-
-    /// Resets the database. A reset that can only finish in a fresh process restarts the sidecar, which then
-    /// applies it; the sidecar may be restarted by this call.
+    /// Resets the database.
     pub async fn reset(&self) -> Result<(), ShellError> {
-        if let Some(native) = &self.native {
-            return native.reset().await.map_err(ShellError::from);
-        }
-        let (reply, generation) = {
-            let sidecar = self.sidecar.read().await;
-            let generation = self.generation.load(Ordering::Acquire);
-            let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
-            let reply = sidecar
-                .call("reset", Value::Null)
-                .await
-                .map_err(ShellError::from)?;
-            (reply, generation)
-        };
-        if !reply.is_object() {
-            return Err(shell_error("local database: bad reset reply"));
-        }
-        if asks_restart(&reply) {
-            self.restart(generation).await?;
-        }
-        Ok(())
+        self.native()?.reset().await.map_err(ShellError::from)
     }
 
-    /// Stops the sidecar, waiting up to `grace`, and closes the native database. Returns whether the
-    /// sidecar exited cleanly.
-    pub async fn shutdown(&self, grace: Duration) -> bool {
-        self.closed.store(true, Ordering::Release);
-        if let Some(native) = &self.native {
+    /// Closes the native database.
+    pub async fn shutdown(&self) {
+        if let Ok(native) = &self.native {
             native.close().await;
-        }
-        let sidecar = self.sidecar.read().await;
-        match &*sidecar {
-            Ok(sidecar) => sidecar.shutdown(grace).await,
-            Err(_) => false,
         }
     }
 
@@ -349,7 +131,7 @@ pub async fn db_query(
     rows.into_iter().map(json_row).collect()
 }
 
-/// Unwraps the TypeScript-facing params into plain JSON for the sidecar.
+/// Unwraps the TypeScript-facing params into plain JSON.
 fn json_params(params: Vec<Json>) -> Result<Vec<Value>, ShellError> {
     params
         .into_iter()
@@ -358,7 +140,7 @@ fn json_params(params: Vec<Json>) -> Result<Vec<Value>, ShellError> {
         .map_err(|e| shell_error(format!("local database: bad params: {e}")))
 }
 
-/// Wraps a row from the sidecar for the TypeScript side.
+/// Wraps a row for the TypeScript side.
 fn json_row(row: Value) -> Result<Json, ShellError> {
     serde_json::from_value(row).map_err(|_| shell_error("local database: bad reply"))
 }
@@ -416,7 +198,7 @@ pub async fn local_api_call(
 #[tauri::command]
 #[specta::specta]
 pub async fn db_state(db: tauri::State<'_, LocalDb>) -> Result<DbState, ShellError> {
-    db.state().await
+    Ok(db.state())
 }
 
 /// Resets the local database.
@@ -494,28 +276,6 @@ pub fn export_bindings(path: &std::path::Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn no_restart_after_shutdown() {
-        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/fake-sidecar.mjs");
-        let config = SidecarConfig {
-            program: "node".into(),
-            args: vec![fixture.into_os_string()],
-            cwd: None,
-            call_timeout: Duration::from_secs(5),
-            max_in_flight: 8,
-            max_request_bytes: 4096,
-            max_reply_bytes: 1 << 20,
-        };
-        let db = LocalDb::new(Sidecar::spawn(config.clone()), "/d".to_owned()).restartable(config);
-        assert!(db.shutdown(Duration::from_secs(5)).await);
-        assert_eq!(
-            db.restart(0).await,
-            Err(shell_error("local database: closed"))
-        );
-        assert_eq!(db.generation.load(Ordering::Acquire), 0);
-    }
 
     #[test]
     fn error_mapping() {
@@ -605,12 +365,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn call_on_failed_spawn_returns_stored_error() {
-        let db = LocalDb::new(Err(SidecarError::Spawn("x".into())), "/d".to_owned());
+    async fn a_failed_start_is_reported_by_every_command() {
+        let db = LocalDb::new(Err("no postgres".to_owned()), "/d".to_owned());
         assert_eq!(
-            db.call("ipc:weaveforge:local-api-state", Value::Null).await,
-            Err(shell_error("local database failed to start: x"))
+            db.query("select 1".to_owned(), Vec::new()).await,
+            Err(shell_error("no postgres"))
         );
+        assert_eq!(db.reset().await, Err(shell_error("no postgres")));
+        let state = db.state();
+        assert_eq!(state.failure.as_deref(), Some("no postgres"));
+        assert_eq!(state.data_dir, "/d");
+        db.shutdown().await;
     }
 
     #[tokio::test]
@@ -624,10 +389,8 @@ mod tests {
         ));
         let engine = PgEngine::new(tmp.join("no-such-bin"), tmp.join("pg"), None);
         let native = Arc::new(PgHost::new(engine, Vec::new()));
-        // The sidecar failed, so anything it served would say "failed to start".
-        let db =
-            LocalDb::new(Err(SidecarError::Spawn("x".into())), "/d".to_owned()).with_native(native);
-        assert_eq!(db.state().await.map(|s| s.failure), Ok(None));
+        let db = LocalDb::new(Ok(native), "/d".to_owned());
+        assert_eq!(db.state().failure, None);
         let error = db.query("select 1".to_owned(), Vec::new()).await;
         assert!(
             error.as_ref().is_err_and(|e| e
@@ -635,11 +398,10 @@ mod tests {
                 .starts_with("The local database could not be opened.")),
             "{error:?}"
         );
-        let failure = db.state().await.map(|s| s.failure);
-        assert!(failure.as_ref().is_ok_and(Option::is_some), "{failure:?}");
+        assert!(db.state().failure.is_some());
         assert_eq!(db.reset().await, Ok(()));
-        assert_eq!(db.state().await.map(|s| s.failure), Ok(None));
-        assert!(!db.shutdown(Duration::from_millis(10)).await);
+        assert_eq!(db.state().failure, None);
+        db.shutdown().await;
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }
