@@ -5,6 +5,9 @@ use super::{Column, PgError, TextRows};
 use base64::Engine;
 use serde_json::Value;
 
+/// Largest integer a JS number holds exactly (`Number.MAX_SAFE_INTEGER`).
+const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
 /// Converts one text-format cell to the JSON value PGlite returned for its type OID.
 #[must_use]
 pub fn cell_to_json(text: &str, type_oid: u32) -> Value {
@@ -12,8 +15,14 @@ pub fn cell_to_json(text: &str, type_oid: u32) -> Value {
         return parse_array(text, elem_oid).unwrap_or_else(|| text_value(text));
     }
     match type_oid {
-        21 | 23 | 26 | 20 => match text.parse::<i64>() {
+        21 | 23 | 26 => match text.parse::<i64>() {
             Ok(n) => Value::from(n),
+            Err(_) => text_value(text),
+        },
+        // PGlite gives a number when JS can hold it exactly, else a BigInt (sent as `$bigint`).
+        20 => match text.parse::<i64>() {
+            Ok(n) if (-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&n) => Value::from(n),
+            Ok(_) => serde_json::json!({ "$bigint": text }),
             Err(_) => text_value(text),
         },
         // NaN and infinities have no JSON form, so `from_f64` gives None and they become null.
@@ -454,7 +463,18 @@ mod tests {
     #[test]
     fn scalar_numbers() -> Result<(), PgError> {
         assert_eq!(cell_to_json("42", 23), json!(42));
-        assert!(cell_to_json("9007199254740993", 20).is_number());
+        assert_eq!(
+            cell_to_json("9007199254740991", 20),
+            json!(9_007_199_254_740_991_i64)
+        );
+        assert_eq!(
+            cell_to_json("-9007199254740991", 20),
+            json!(-9_007_199_254_740_991_i64)
+        );
+        assert_eq!(
+            cell_to_json("9007199254740993", 20),
+            json!({ "$bigint": "9007199254740993" })
+        );
         assert_eq!(cell_to_json("NaN", 701), json!(null));
         assert_eq!(cell_to_json("1.5", 701), json!(1.5));
         assert_eq!(cell_to_json("1.50", 1700), json!("1.50"));

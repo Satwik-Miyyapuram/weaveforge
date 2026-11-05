@@ -94,13 +94,25 @@ fn encode_params(
     Ok(texts)
 }
 
-/// Opens a TCP connection and authenticates with SCRAM-SHA-256 or cleartext.
+/// Opens a TCP connection and authenticates with SCRAM-SHA-256 only.
 pub async fn connect(
     host: &str,
     port: u16,
     user: &str,
     password: &str,
     database: &str,
+) -> Result<PgConn, PgError> {
+    connect_with(host, port, user, password, database, true).await
+}
+
+/// `connect`, but `require_proof = false` also accepts a server that skips auth (test fakes).
+async fn connect_with(
+    host: &str,
+    port: u16,
+    user: &str,
+    password: &str,
+    database: &str,
+    require_proof: bool,
 ) -> Result<PgConn, PgError> {
     let stream = TcpStream::connect((host, port)).await.map_err(io)?;
     stream.set_nodelay(true).map_err(io)?;
@@ -119,7 +131,7 @@ pub async fn connect(
     ];
     frontend::startup_message(params, &mut conn.write).map_err(io)?;
     conn.send().await?;
-    conn.authenticate(password).await?;
+    conn.authenticate(password, require_proof).await?;
     Ok(conn)
 }
 
@@ -142,14 +154,19 @@ impl PgConn {
         }
     }
 
-    async fn authenticate(&mut self, password: &str) -> Result<(), PgError> {
+    async fn authenticate(&mut self, password: &str, require_proof: bool) -> Result<(), PgError> {
         let mut scram: Option<ScramSha256> = None;
+        // Only a server that proved it knows the password is trusted.
+        let mut proven = false;
         loop {
             match self.next().await? {
-                backend::Message::AuthenticationOk => {}
+                backend::Message::AuthenticationOk => {
+                    if require_proof && !proven {
+                        return Err(PgError::local("Postgres accepted without a SCRAM proof"));
+                    }
+                }
                 backend::Message::AuthenticationCleartextPassword => {
-                    frontend::password_message(password.as_bytes(), &mut self.write).map_err(io)?;
-                    self.send().await?;
+                    return Err(PgError::local("cleartext auth is not supported"));
                 }
                 backend::Message::AuthenticationMd5Password(_) => {
                     return Err(PgError::local("md5 auth is not supported"));
@@ -183,6 +200,7 @@ impl PgConn {
                     };
                     s.finish(body.data())
                         .map_err(|_| PgError::local("Postgres SCRAM proof did not match"))?;
+                    proven = true;
                 }
                 backend::Message::ErrorResponse(body) => return Err(error_from(&body)),
                 backend::Message::ReadyForQuery(_) => return Ok(()),
@@ -345,7 +363,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn connect_accepts_auth_ok() -> Result<(), Box<dyn std::error::Error>> {
+    async fn connect_rejects_server_without_scram_proof() -> Result<(), Box<dyn std::error::Error>>
+    {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let port = listener.local_addr()?.port();
         let server = tokio::spawn(async move {
@@ -354,7 +373,49 @@ mod tests {
             sock.write_all(&[auth_ok(), ready()].concat()).await?;
             Ok::<(), std::io::Error>(())
         });
-        let _conn = connect("127.0.0.1", port, "u", "p", "db").await?;
+        let err = match connect("127.0.0.1", port, "u", "p", "db").await {
+            Err(e) => e,
+            Ok(_) => return Err("connect should refuse a server that skipped SCRAM".into()),
+        };
+        assert_eq!(err.message, "Postgres accepted without a SCRAM proof");
+        server.await??;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn connect_refuses_cleartext_password() -> Result<(), Box<dyn std::error::Error>> {
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let port = listener.local_addr()?.port();
+        let server = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await?;
+            read_startup(&mut sock).await?;
+            sock.write_all(&msg(b'R', &3_i32.to_be_bytes())).await?;
+            // The client must hang up without sending a password message.
+            let mut rest = Vec::new();
+            let _ = sock.read_to_end(&mut rest).await?;
+            Ok::<Vec<u8>, std::io::Error>(rest)
+        });
+        let err = match connect("127.0.0.1", port, "u", "p", "db").await {
+            Err(e) => e,
+            Ok(_) => return Err("connect should refuse cleartext auth".into()),
+        };
+        assert_eq!(err.message, "cleartext auth is not supported");
+        assert!(server.await??.is_empty(), "no password may be sent");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn connect_with_accepts_auth_ok_when_proof_not_required()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let port = listener.local_addr()?.port();
+        let server = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await?;
+            read_startup(&mut sock).await?;
+            sock.write_all(&[auth_ok(), ready()].concat()).await?;
+            Ok::<(), std::io::Error>(())
+        });
+        let _conn = connect_with("127.0.0.1", port, "u", "p", "db", false).await?;
         server.await??;
         Ok(())
     }
@@ -423,7 +484,7 @@ mod tests {
             sock.write_all(&run_reply).await?;
             Ok::<(), std::io::Error>(())
         });
-        let mut conn = connect("127.0.0.1", port, "u", "p", "db").await?;
+        let mut conn = connect_with("127.0.0.1", port, "u", "p", "db", false).await?;
         let out = conn.query("select $1", &[serde_json::json!(5)]).await?;
         assert_eq!(
             out.columns,
@@ -453,7 +514,7 @@ mod tests {
                 .await?;
             Ok::<(), std::io::Error>(())
         });
-        let mut conn = connect("127.0.0.1", port, "u", "p", "db").await?;
+        let mut conn = connect_with("127.0.0.1", port, "u", "p", "db", false).await?;
         let err = match conn.exec("bad").await {
             Err(e) => e,
             Ok(()) => return Err("exec should fail".into()),
