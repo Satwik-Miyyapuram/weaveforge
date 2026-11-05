@@ -3,9 +3,18 @@
 //! Runs after the new database has its migrations. Every insert uses `on conflict do nothing`, so
 //! rows the new database already has are kept.
 
+use std::future::Future;
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::Arc;
+
 use serde_json::Value;
 
+use super::host::{FirstOpen, FirstOpenFuture};
 use super::{Conn, PgError, TextRows};
+
+/// The migration ledger: never copied, so the new database's record matches its own schema.
+const LEDGER: (&str, &str) = ("public", "weaveforge_migrations");
 
 /// The old database, read-only: runs one SQL statement and returns its rows as JSON objects.
 pub trait SourceDb: Send {
@@ -161,6 +170,63 @@ pub async fn import<S: SourceDb, C: Conn>(
     }
 }
 
+/// Reads the old database's rows for one SQL statement, such as through the sidecar's `exportRows`.
+pub type RowsFn = Arc<
+    dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, String>> + Send>>
+        + Send
+        + Sync,
+>;
+
+/// A [`SourceDb`] that reads through a [`RowsFn`].
+struct FnSource(RowsFn);
+
+impl SourceDb for FnSource {
+    async fn rows(&mut self, sql: &str) -> Result<Vec<Value>, PgError> {
+        (self.0)(sql.to_owned()).await.map_err(PgError::local)
+    }
+}
+
+/// Copies the old database into the new one once, on first open. Skipped when `marker` exists;
+/// the marker is written after the copy commits.
+pub struct OnceImport {
+    /// Written after a copy commits; while it exists, nothing is copied.
+    pub marker: PathBuf,
+    /// Reads the old database.
+    pub source: RowsFn,
+    /// Rows per page read from the old database.
+    pub page_rows: u64,
+}
+
+impl<C: Conn> FirstOpen<C> for OnceImport {
+    fn run<'a>(&'a self, conn: &'a mut C) -> FirstOpenFuture<'a> {
+        Box::pin(async move {
+            if self.marker.exists() {
+                return Ok(None);
+            }
+            let mut source = FnSource(Arc::clone(&self.source));
+            let report = import(&mut source, conn, self.page_rows)
+                .await
+                .map_err(|e| PgError {
+                    code: e.code,
+                    message: format!("copying the old local database failed: {}", e.message),
+                })?;
+            let rows: u64 = report.tables.iter().map(|(_, n)| n).sum();
+            let mut line = format!(
+                "[local-db] copied the old local database: {} tables, {rows} rows, {} skipped",
+                report.tables.len(),
+                report.skipped.len()
+            );
+            // The copy is committed; a missing marker only means it runs again, skipping kept rows.
+            if let Err(e) = std::fs::write(&self.marker, "") {
+                line.push_str(&format!(
+                    "; could not record it, so it runs again next start: {e}"
+                ));
+            }
+            Ok(Some(line))
+        })
+    }
+}
+
 /// Copies all tables and resets sequences, inside the caller's transaction.
 async fn copy_all<S: SourceDb, C: Conn>(
     source: &mut S,
@@ -175,7 +241,8 @@ async fn copy_all<S: SourceDb, C: Conn>(
         .await?;
     for (schema, table) in source_tables {
         let name = qualified(schema, table);
-        if !target_tables.iter().any(|(s, t)| s == schema && t == table) {
+        let is_ledger = (schema.as_str(), table.as_str()) == LEDGER;
+        if is_ledger || !target_tables.iter().any(|(s, t)| s == schema && t == table) {
             report.skipped.push(name);
             continue;
         }
@@ -418,6 +485,7 @@ mod tests {
             tables: vec![
                 serde_json::json!({"schema": "public", "name": "papers"}),
                 serde_json::json!({"schema": "public", "name": "old_only"}),
+                serde_json::json!({"schema": "public", "name": "weaveforge_migrations"}),
             ],
             columns: vec![
                 serde_json::json!({"name": "id", "identity": "", "generated": ""}),
@@ -488,7 +556,10 @@ mod tests {
             report,
             ImportReport {
                 tables: vec![(qualified("public", "papers"), 2)],
-                skipped: vec![qualified("public", "old_only")],
+                skipped: vec![
+                    qualified("public", "old_only"),
+                    qualified("public", "weaveforge_migrations"),
+                ],
             }
         );
         let pages = source
@@ -518,6 +589,72 @@ mod tests {
                 format!("[{}]", r#"{"id":2,"title":"b","extra":"y"}"#),
             ]
         );
+        Ok(())
+    }
+
+    /// A fresh marker path in the temp dir.
+    fn marker(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "wf-once-import-{name}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ))
+    }
+
+    /// A `RowsFn` over `papers_source`, counting its calls.
+    fn rows_fn(calls: Arc<std::sync::atomic::AtomicUsize>) -> RowsFn {
+        let source = Arc::new(tokio::sync::Mutex::new(papers_source()));
+        Arc::new(move |sql: String| {
+            let source = Arc::clone(&source);
+            let calls = Arc::clone(&calls);
+            Box::pin(async move {
+                let _ = calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                source.lock().await.rows(&sql).await.map_err(|e| e.message)
+            })
+        })
+    }
+
+    #[tokio::test]
+    async fn once_import_copies_then_writes_the_marker() -> Result<(), PgError> {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let job = OnceImport {
+            marker: marker("copy"),
+            source: rows_fn(Arc::clone(&calls)),
+            page_rows: 10,
+        };
+        let mut target = FakeTarget::default();
+        let line = job.run(&mut target).await?.unwrap_or_default();
+        assert!(line.contains("1 tables, 2 rows, 2 skipped"), "{line}");
+        assert!(job.marker.is_file());
+        let before = calls.load(std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(job.run(&mut target).await?, None);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), before);
+        let _ = std::fs::remove_file(&job.marker);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn once_import_failure_writes_no_marker() -> Result<(), PgError> {
+        let job = OnceImport {
+            marker: marker("fail"),
+            source: rows_fn(Arc::new(std::sync::atomic::AtomicUsize::new(0))),
+            page_rows: 10,
+        };
+        let mut target = FakeTarget {
+            fail_insert: true,
+            ..Default::default()
+        };
+        let Err(err) = job.run(&mut target).await else {
+            return Err(PgError::local("expected the copy to fail"));
+        };
+        assert!(
+            err.message
+                .starts_with("copying the old local database failed: Import of")
+        );
+        assert_eq!(err.code, "23505");
+        assert!(!job.marker.exists());
         Ok(())
     }
 

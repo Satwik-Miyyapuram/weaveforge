@@ -7,6 +7,7 @@
 
 use std::future::Future;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::{Arc, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -99,6 +100,17 @@ impl Engine for PgEngine {
 /// Takes a log line, such as a failed query's SQL.
 pub type LogSink = Arc<dyn Fn(&str) + Send + Sync>;
 
+/// What a [`FirstOpen`] job returns: a line to log, or nothing.
+pub type FirstOpenFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<Option<String>, PgError>> + Send + 'a>>;
+
+/// A job run on every open, on the migrated connection before any query, such as the one-time
+/// copy of the old PGlite data. A failed job closes the database again, so the next query retries.
+pub trait FirstOpen<C>: Send + Sync {
+    /// Runs the job on `conn`; `Ok(Some(line))` is logged.
+    fn run<'a>(&'a self, conn: &'a mut C) -> FirstOpenFuture<'a>;
+}
+
 /// An open database and what keeps it running.
 struct Open<E: Engine> {
     conn: E::Conn,
@@ -122,6 +134,7 @@ pub struct PgHost<E: Engine> {
     /// The last open failure. Its own lock, so `state` never waits behind a slow query.
     failure: std::sync::Mutex<Option<String>>,
     log: Option<LogSink>,
+    first_open: Option<Arc<dyn FirstOpen<E::Conn>>>,
 }
 
 /// Whether a param is a value the database takes: plain JSON or a tagged `$bigint` / `$bytes`.
@@ -157,7 +170,15 @@ impl<E: Engine> PgHost<E> {
             }),
             failure: std::sync::Mutex::new(None),
             log: None,
+            first_open: None,
         }
+    }
+
+    /// Runs `job` on each open, after the migrations and before any query.
+    #[must_use]
+    pub fn with_first_open(mut self, job: Arc<dyn FirstOpen<E::Conn>>) -> Self {
+        self.first_open = Some(job);
+        self
     }
 
     /// Sends failed-query lines to `sink` instead of stderr.
@@ -190,13 +211,28 @@ impl<E: Engine> PgHost<E> {
         let dirs: Vec<&std::path::Path> = self.migrations.iter().map(PathBuf::as_path).collect();
         let files = db::migration_files(&dirs).map_err(|e| PgError::local(e.to_string()))?;
         let (mut conn, handle) = self.engine.open().await?;
-        match prepare(&mut conn, &files).await {
+        let ready = match prepare(&mut conn, &files).await {
+            Ok(()) => self.run_first_open(&mut conn).await,
+            Err(err) => Err(err),
+        };
+        match ready {
             Ok(()) => Ok(Open { conn, handle }),
             Err(err) => {
                 self.engine.close(conn, handle).await;
                 Err(err)
             }
         }
+    }
+
+    /// Runs the first-open job, if any, and logs its line.
+    async fn run_first_open(&self, conn: &mut E::Conn) -> Result<(), PgError> {
+        let Some(job) = &self.first_open else {
+            return Ok(());
+        };
+        if let Some(line) = job.run(conn).await? {
+            self.log_line(&line);
+        }
+        Ok(())
     }
 
     /// Runs one statement as the device user and returns the rows as JSON objects.
@@ -409,6 +445,58 @@ mod tests {
         let engine = Arc::new(FakeEngine::default());
         let host = PgHost::new(Arc::clone(&engine), Vec::new()).with_log(Arc::new(|_| {}));
         (engine, host)
+    }
+
+    /// Counts its runs; fails while `fails` is above zero.
+    #[derive(Default)]
+    struct FakeJob {
+        runs: AtomicUsize,
+        fails: AtomicUsize,
+    }
+
+    impl FirstOpen<FakeConn> for FakeJob {
+        fn run<'a>(&'a self, conn: &'a mut FakeConn) -> FirstOpenFuture<'a> {
+            Box::pin(async move {
+                let _ = self.runs.fetch_add(1, Ordering::SeqCst);
+                conn.exec("job").await?;
+                if self.fails.load(Ordering::SeqCst) > 0 {
+                    let _ = self.fails.fetch_sub(1, Ordering::SeqCst);
+                    return Err(PgError::local("copy failed"));
+                }
+                Ok(Some("copied".to_owned()))
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn first_open_job_runs_before_queries_and_retries_after_failure() -> Result<(), String> {
+        let job = Arc::new(FakeJob::default());
+        job.fails.store(1, Ordering::SeqCst);
+        let engine = Arc::new(FakeEngine::default());
+        let logged: Seen = Arc::default();
+        let sink = Arc::clone(&logged);
+        let host = PgHost::new(Arc::clone(&engine), Vec::new())
+            .with_log(Arc::new(move |line: &str| {
+                if let Ok(mut lines) = sink.lock() {
+                    lines.push(line.to_owned());
+                }
+            }))
+            .with_first_open(Arc::clone(&job) as Arc<dyn FirstOpen<FakeConn>>);
+        let err = host.query("select 1", &[]).await.err().unwrap_or_default();
+        assert_eq!(err, format!("{OPEN_FAILED} copy failed"));
+        assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
+        assert_eq!(count(&engine, "select 1"), 0);
+        let _ = host.query("select 1", &[]).await?;
+        let _ = host.query("select 2", &[]).await?;
+        assert_eq!(job.runs.load(Ordering::SeqCst), 2);
+        assert_eq!(engine.opens.load(Ordering::SeqCst), 2);
+        let seen = engine.seen.lock().map(|s| s.clone()).unwrap_or_default();
+        let job_at = seen.iter().rposition(|s| s == "job");
+        let query_at = seen.iter().position(|s| s.contains("select 1"));
+        assert!(job_at.is_some() && job_at < query_at);
+        let lines = logged.lock().map(|l| l.clone()).unwrap_or_default();
+        assert!(lines.contains(&"copied".to_owned()));
+        Ok(())
     }
 
     fn count(engine: &FakeEngine, needle: &str) -> usize {

@@ -208,6 +208,20 @@ export class LocalDbHost {
     }
   }
 
+  /**
+   * Read rows as the database owner, read-only, for the shell's one-time copy
+   * into the native database. Never marks the database changed.
+   */
+  async exportRows(sql: unknown): Promise<IpcResult<unknown[]>> {
+    if (typeof sql !== "string" || !sql.trim()) return { ok: false, message: BAD_QUERY };
+    try {
+      const db = await this.database();
+      return { ok: true, value: await db.readRows<unknown>(sql) };
+    } catch (error) {
+      return { ok: false, message: errorMessage(error, OPEN_FAILED) };
+    }
+  }
+
   state(): LocalDbState {
     return {
       failure: this.failure ?? null,

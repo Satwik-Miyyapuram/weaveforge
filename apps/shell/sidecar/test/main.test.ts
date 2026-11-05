@@ -125,6 +125,23 @@ test("query rejects with the host's message on failure", async () => {
   await assert.rejects(() => handlers.query!({ sql: "select 1" }), { message: "nope" });
 });
 
+test("exportRows returns the host's rows and checks its params", async () => {
+  const handlers = sidecarHandlers({
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      exportRows: async (sql) => (sql === "bad" ? { ok: false, message: "nope" } : { ok: true, value: [{ sql }] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => false,
+  });
+  assert.deepEqual(await handlers.exportRows!({ sql: "select 1" }), [{ sql: "select 1" }]);
+  await assert.rejects(() => handlers.exportRows!({ sql: "bad" }), { message: "nope" });
+  for (const bad of ["x", null, {}, { sql: 1 }]) {
+    await assert.rejects(() => handlers.exportRows!(bad), { message: "exportRows needs { sql }" });
+  }
+});
+
 test("state carries the restart flag", async () => {
   let restart = false;
   const handlers = sidecarHandlers({
@@ -195,7 +212,7 @@ test("stats reports a numeric pid and rss", async () => {
   assert.equal(typeof stats.rss, "number");
 });
 
-test("sidecar exposes exactly query, reset, state and stats", () => {
+test("sidecar exposes exactly exportRows, query, reset, state and stats", () => {
   const handlers = sidecarHandlers({
     host: {
       query: async () => ({ ok: true, value: [] }),
@@ -204,7 +221,7 @@ test("sidecar exposes exactly query, reset, state and stats", () => {
     },
     restartWanted: () => false,
   });
-  assert.deepEqual(Object.keys(handlers).sort(), ["query", "reset", "state", "stats"]);
+  assert.deepEqual(Object.keys(handlers).sort(), ["exportRows", "query", "reset", "state", "stats"]);
 });
 
 /** Spawn the sidecar on `dataDir` and return it with a reader over its stdout lines. */
