@@ -246,6 +246,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::overleaf_read::overleaf_read,
         crate::overleaf_links::overleaf_sync,
         crate::mattermost::mattermost_sign_in,
+        crate::overleaf_signin::overleaf_sign_in,
         crate::mattermost::mattermost_post,
         crate::cmd_ink::ink_available,
         crate::cmd_ink::ink_recognise,

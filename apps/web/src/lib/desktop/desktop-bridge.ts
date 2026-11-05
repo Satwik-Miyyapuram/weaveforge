@@ -255,6 +255,12 @@ export interface DesktopBridge {
    */
   mattermostSignIn?(serverUrl: string): Promise<string | null>;
   /**
+   * Opens overleaf.com's login page in a window and answers an Overleaf Workshop
+   * session id once the reader has signed in, or null if they closed it. The
+   * session cookie stays in the shell. Optional: older builds do not have it.
+   */
+  overleafSignIn?(): Promise<string | null>;
+  /**
    * Sends one Mattermost post from the shell, where the server's CORS policy
    * does not apply. Optional: builds before 0.8.9 do not have it.
    */

@@ -36,12 +36,14 @@ function harness(route: Route, stored: string | null = null) {
 const projectsOk: Route = (url) =>
   url.endsWith("/session") ? json({ sessionId: SESSION }, 201) : json({ projects: [{ id: "p2", name: "Thesis" }, { id: "p1", name: "Abstract" }] });
 
-async function mount(h: ReturnType<typeof harness>, inShell = false): Promise<ReactTestRenderer> {
+type ExtraProps = { signInWindow?: () => Promise<string | null>; canEditAsFiles?: boolean };
+
+async function mount(h: ReturnType<typeof harness>, inShell = false, extra: ExtraProps = {}): Promise<ReactTestRenderer> {
   // The viewer, once shown, fetches with the real browser deps; keep that request pending.
   globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
   let tree: ReactTestRenderer | undefined;
   await act(async () => {
-    tree = create(createElement(WorkshopPanel, { client: h.client, store: h.store, inShell }));
+    tree = create(createElement(WorkshopPanel, { client: h.client, store: h.store, inShell, ...extra }));
   });
   return tree!;
 }
@@ -202,6 +204,66 @@ test("a 401 from the app's own sign-in keeps the stored Overleaf session", async
   assert.equal(h.box.id, SESSION);
   assert.ok(button(tree, "Disconnect"));
   await act(async () => tree.unmount());
+});
+
+const radios = (tree: ReactTestRenderer) => tree.root.findAll((n) => n.type === "input" && n.props.type === "radio");
+const optionLabel = (tree: ReactTestRenderer, mode: string) =>
+  tree.root.find((n) => n.type === "label" && n.findAll((c) => c.type === "input" && c.props.value === mode).length > 0);
+
+test("both connect options are offered, each with a hover tip naming its limits", async () => {
+  const tree = await mount(harness(projectsOk));
+  assert.deepEqual(radios(tree).map((r) => r.props.value), ["signin", "git"]);
+  assert.match(optionLabel(tree, "signin").props.title, /any plan/i);
+  assert.match(optionLabel(tree, "signin").props.title, /passwords/i);
+  assert.match(optionLabel(tree, "git").props.title, /institution licence/i);
+  assert.match(optionLabel(tree, "git").props.title, /about a year/);
+  assert.match(optionLabel(tree, "git").props.title, /LaTeX/);
+  await act(async () => tree.unmount());
+});
+
+test("the sign-in window's session id is stored and projects load, with no cookie sent", async () => {
+  const h = harness(projectsOk);
+  const tree = await mount(h, true, { signInWindow: async () => SESSION });
+  await act(async () => button(tree, "Sign in to Overleaf").props.onClick());
+  assert.equal(h.box.id, SESSION);
+  assert.ok(h.calls.every((c) => !c.url.endsWith("/session")));
+  assert.equal(projectOptions(tree).length, 2);
+  await act(async () => tree.unmount());
+});
+
+test("closing the sign-in window stores nothing, and the cookie stays as a fallback", async () => {
+  const h = harness(projectsOk);
+  const tree = await mount(h, true, { signInWindow: async () => null });
+  await act(async () => button(tree, "Sign in to Overleaf").props.onClick());
+  assert.equal(h.box.id, null);
+  assert.equal(h.calls.length, 0);
+  assert.ok(byName(tree, "cookies"));
+  await act(async () => tree.unmount());
+});
+
+test("a sign-in window that fails shows its message", async () => {
+  const tree = await mount(harness(projectsOk), true, {
+    signInWindow: async () => { throw new Error("Could not open the Overleaf sign-in window."); },
+  });
+  await act(async () => button(tree, "Sign in to Overleaf").props.onClick());
+  assert.match(text(tree), /Could not open the Overleaf sign-in window/);
+  await act(async () => tree.unmount());
+});
+
+test("the git option points to Settings, or says it needs the desktop app", async () => {
+  const pick = async (tree: ReactTestRenderer) =>
+    act(async () => radios(tree).find((r) => r.props.value === "git")!.props.onChange());
+  // next/link prefetches through `self`, which node lacks.
+  (globalThis as { self?: unknown }).self ??= globalThis;
+  const desktopApp = await mount(harness(projectsOk), true, { canEditAsFiles: true });
+  await pick(desktopApp);
+  assert.ok(desktopApp.root.findAll((n) => n.props.href === "/settings#settings-workspace").length > 0);
+  assert.equal(desktopApp.root.findAll((n) => n.props.name === "cookies").length, 0);
+  await act(async () => desktopApp.unmount());
+  const browser = await mount(harness(projectsOk), false, { canEditAsFiles: false });
+  await pick(browser);
+  assert.match(text(browser), /needs the WeaveForge desktop app/);
+  await act(async () => browser.unmount());
 });
 
 test("the panel is shown with an account, and in the Tauri shell even without one", () => {

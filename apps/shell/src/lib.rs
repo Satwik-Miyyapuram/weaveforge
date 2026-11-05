@@ -39,6 +39,7 @@ pub mod model_cache;
 pub mod old_db;
 pub mod overleaf_links;
 pub mod overleaf_read;
+pub mod overleaf_signin;
 pub mod overleaf_workshop;
 pub mod paste_commands;
 pub mod plan_widget;
