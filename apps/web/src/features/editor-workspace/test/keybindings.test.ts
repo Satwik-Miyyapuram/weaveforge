@@ -26,7 +26,6 @@ test("⌘N asks for a new note", () => {
   assert.equal(commandForChord({ key: "n", metaKey: true }), "new-note");
   assert.equal(commandForChord({ key: "N", ctrlKey: true }), "new-note");
   assert.equal(commandForChord({ key: "b", metaKey: true }), "toggle-explorer");
-  assert.equal(commandForChord({ key: "F", metaKey: true, shiftKey: true }), "toggle-focus");
   assert.equal(commandForChord({ key: "f", ctrlKey: true }), null);
   assert.equal(commandForChord({ key: "n" }), null);
 });
@@ -99,4 +98,35 @@ test("⌘/ shows the shortcuts and ⌘⇧T reopens the last closed tab", () => {
   assert.equal(commandForChord({ key: "t", ctrlKey: true }), null);
   assert.equal(shortcutTable()["show-shortcuts"], "⌘/");
   assert.equal(shortcutTable()["reopen-tab"], "⌘⇧T");
+});
+
+test("F2 renames the open document and F11 is focus mode, with no modifier", () => {
+  assert.equal(commandForChord({ key: "F2" }), "rename-doc");
+  assert.equal(commandForChord({ key: "F11" }), "toggle-focus");
+  // A modified F-key is someone else's (Alt+F2, Ctrl+F11).
+  assert.equal(commandForChord({ key: "F2", altKey: true }), null);
+  assert.equal(commandForChord({ key: "F11", ctrlKey: true }), null);
+  assert.equal(commandForChord({ key: "F2", shiftKey: true }), null);
+  assert.equal(shortcutTable()["rename-doc"], "F2");
+  assert.equal(shortcutTable()["toggle-focus"], "F11");
+});
+
+test("⌘⇧F searches the workspace, ⌘⇧B toggles the sidebar, ⌘⇧P opens commands", () => {
+  assert.equal(commandForChord({ key: "F", ctrlKey: true, shiftKey: true }), "workspace-search");
+  assert.equal(commandForChord({ key: "B", metaKey: true, shiftKey: true }), "toggle-sidebar");
+  assert.equal(commandForChord({ key: "P", ctrlKey: true, shiftKey: true }), "command-palette");
+  // The unshifted chords keep their meaning.
+  assert.equal(commandForChord({ key: "b", ctrlKey: true }), "toggle-explorer");
+  assert.equal(commandForChord({ key: "p", ctrlKey: true }), "quick-open");
+  assert.equal(shortcutTable()["workspace-search"], "⌘⇧F");
+  assert.equal(shortcutTable()["toggle-sidebar"], "⌘⇧B");
+  assert.equal(shortcutTable()["command-palette"], "⌘⇧P");
+});
+
+test("⌘D duplicates the note; ⌘⇧D is not claimed", () => {
+  assert.equal(commandForChord({ key: "d", ctrlKey: true }), "duplicate-note");
+  assert.equal(commandForChord({ key: "D", metaKey: true }), "duplicate-note");
+  assert.equal(commandForChord({ key: "D", ctrlKey: true, shiftKey: true }), null);
+  assert.equal(commandForChord({ key: "d" }), null);
+  assert.equal(shortcutTable()["duplicate-note"], "⌘D");
 });

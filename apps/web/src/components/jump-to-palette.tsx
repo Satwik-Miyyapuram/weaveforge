@@ -27,7 +27,15 @@ import { JumpToCreateRow } from "@/components/jump-to-create-row";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { isMacPlatform } from "@/lib/shortcut-label";
-import { groupPaletteRows, matchingPages, paletteKeys, type PaletteGroup } from "@/lib/palette-groups";
+import {
+  commandMatches,
+  groupPaletteRows,
+  matchingPages,
+  paletteKeys,
+  paletteModeFor,
+  type PaletteGroup,
+  type PaletteMode,
+} from "@/lib/palette-groups";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";
 import { CloseButton } from "./button";
@@ -113,6 +121,7 @@ export function JumpToPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<PaletteMode>("search");
   const [items, setItems] = useState<JumpItem[]>([]);
   const [active, setActive] = useState(0);
   // Warmed on open, not on mount: the palette is in the shell of every screen.
@@ -166,7 +175,8 @@ export function JumpToPalette() {
     setItems(pinRecentTargets(all, readRecentTargets(projectId)));
   }, []);
 
-  const openPalette = useCallback(() => {
+  const openPalette = useCallback((next: PaletteMode = "search") => {
+    setMode(next);
     setOpen(true);
     setQuery("");
     setCreateError(null);
@@ -179,19 +189,19 @@ export function JumpToPalette() {
     function onKey(e: KeyboardEvent) {
       // In a document `⌘K` inserts a link; the editor has handled it already.
       if (e.defaultPrevented) return;
-      // `⌘⇧P` too, as in VS Code: it works inside a document, where `⌘K` is a link.
-      const key = e.key.toLowerCase();
-      const palette = (key === "k" && !e.shiftKey) || (key === "p" && e.shiftKey);
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && palette) {
+      // `⌘⇧P` lists commands, as in VS Code; `⌘⇧F` searches the workspace.
+      const next = paletteModeFor(e);
+      if (next) {
         e.preventDefault();
-        openPalette();
+        openPalette(next);
       }
     }
+    const onSearch = () => openPalette("search");
     window.addEventListener("keydown", onKey);
-    window.addEventListener(OPEN_SEARCH_EVENT, openPalette);
+    window.addEventListener(OPEN_SEARCH_EVENT, onSearch);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener(OPEN_SEARCH_EVENT, openPalette);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onSearch);
     };
   }, [openPalette]);
 
@@ -322,6 +332,19 @@ export function JumpToPalette() {
         run: leave(theme.toggle),
       },
     ];
+    const toPage = (page: (typeof pages)[number]): Entry => ({
+      group: "Pages",
+      key: `page:${page.path}`,
+      label: `Go to ${page.label}`,
+      run: leave(() => router.push(page.path)),
+    });
+    // Commands: pages and actions only, all of them before anything is typed.
+    if (mode === "commands") {
+      return groupPaletteRows<Entry>([
+        ...commandMatches(pages.map(toPage), query),
+        ...commandMatches(actions, query).map((action) => ({ ...action, group: "Actions" as const })),
+      ]);
+    }
     const rows: Entry[] = [
       ...matchingPages(pages, query).map((page) => ({
         group: "Pages" as const,
@@ -342,7 +365,7 @@ export function JumpToPalette() {
     return groupPaletteRows(rows);
     // `go` reads the same state as these dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages, query, filtered, theme.dark, theme.toggle, setProject, router]);
+  }, [mode, pages, query, filtered, theme.dark, theme.toggle, setProject, router]);
   const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
 
   function go(item: JumpItem) {
@@ -405,7 +428,7 @@ export function JumpToPalette() {
     >
       <input
         autoFocus
-        placeholder="Jump to paper, note, or section…"
+        placeholder={mode === "commands" ? "Run a command…" : "Jump to paper, note, or section…"}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -414,7 +437,7 @@ export function JumpToPalette() {
         }}
         aria-label="Search"
       />
-      {!query.trim() && history.length > 0 && (
+      {mode === "search" && !query.trim() && history.length > 0 && (
         <ul className="jump-to-history" aria-label="Recent searches">
           {history.slice(0, 6).map((entry) => (
             <li key={entry}>
@@ -462,7 +485,7 @@ export function JumpToPalette() {
             </ul>
           </li>
         ))}
-        {filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
+        {mode === "search" && filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
       </ul>
       {createError ? <FormError reportable={false}>{createError}</FormError> : null}
       <p className="muted jump-to-meta jump-to-keys">

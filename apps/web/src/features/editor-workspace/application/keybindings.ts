@@ -19,6 +19,11 @@ export type WorkspaceCommand =
   | "toggle-focus"
   | "show-shortcuts"
   | "reopen-tab"
+  | "rename-doc"
+  | "toggle-sidebar"
+  | "duplicate-note"
+  | "command-palette"
+  | "workspace-search"
   | TabNumberCommand;
 
 /** `⌘1`–`⌘8` pick a tab by position and `⌘9` the last one, as a browser does. */
@@ -46,19 +51,30 @@ export interface KeyChord {
  */
 export function commandForChord(chord: KeyChord, tabCount = Number.POSITIVE_INFINITY): WorkspaceCommand | null {
   const mod = Boolean(chord.ctrlKey || chord.metaKey);
+  // F2 and F11 work bare, as in a file manager and a browser; a modified one
+  // (Alt+F2, Ctrl+F11) belongs to someone else.
+  if (!mod && !chord.altKey && !chord.shiftKey) {
+    if (chord.key === "F2") return "rename-doc";
+    // F11: the document alone — no rail, no explorer, no strip, no status
+    // bar. For a hand on a pen the chrome is inches of page it cannot write on.
+    if (chord.key === "F11") return "toggle-focus";
+  }
   if (!mod || chord.altKey) return null;
 
   const key = chord.key.toLowerCase();
-  if (key === "p" && !chord.shiftKey) return "quick-open";
+  if (key === "p") return chord.shiftKey ? "command-palette" : "quick-open";
+  // `⌘D` duplicates the note; inside the editor CodeMirror takes it first
+  // ("select next match") and the workspace skips a handled key.
+  if (key === "d" && !chord.shiftKey) return "duplicate-note";
   if (key === "e" && !chord.shiftKey) return "toggle-mode";
   // `Ctrl-N` is "new window" to a browser; the workspace claims it the way an
   // editor does, and Electron does not give the browser's meaning a chance.
   if (key === "n" && !chord.shiftKey) return "new-note";
   // `⌘B` is VS Code's "toggle side bar"; the explorer is the side bar here.
-  if (key === "b" && !chord.shiftKey) return "toggle-explorer";
-  // `⌘⇧F`: the document alone — no rail, no explorer, no strip, no status
-  // bar. For a hand on a pen the chrome is inches of page it cannot write on.
-  if (key === "f" && chord.shiftKey) return "toggle-focus";
+  // `⌘⇧B` hides the app's own sidebar, the one around the workspace.
+  if (key === "b") return chord.shiftKey ? "toggle-sidebar" : "toggle-explorer";
+  // `⌘⇧F` is an editor's "search the workspace".
+  if (key === "f" && chord.shiftKey) return "workspace-search";
   // `⌘/` is read by physical key: on many layouts `/` needs Shift and types `?`.
   if (key === "/" || chord.code === "Slash") return "show-shortcuts";
   // `⌘⇧T` is a browser's "reopen closed tab"; plain `⌘T` stays its "new tab".
@@ -97,9 +113,14 @@ const CHORDS: Record<WorkspaceCommand, string> = {
   "toggle-mode": "⌘E",
   "new-note": "⌘N",
   "toggle-explorer": "⌘B",
-  "toggle-focus": "⌘⇧F",
+  "toggle-focus": "F11",
   "show-shortcuts": "⌘/",
   "reopen-tab": "⌘⇧T",
+  "rename-doc": "F2",
+  "toggle-sidebar": "⌘⇧B",
+  "duplicate-note": "⌘D",
+  "command-palette": "⌘⇧P",
+  "workspace-search": "⌘⇧F",
   "split-right": "⌘\\",
   "close-tab": "⌘W",
   "next-tab": "⌘⇥",
