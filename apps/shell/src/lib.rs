@@ -323,8 +323,13 @@ fn native_db(
     )
     .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
     .with_backups(backups);
-    if data.join("local-db").join("PG_VERSION").is_file() {
-        host = host.with_first_open(Arc::new(old_db_import(app, data, source)));
+    // A failed copy fails the open, so old data is never hidden behind an empty database.
+    if let Some(old) = migrate::old_pglite_dir(data) {
+        local_api::warn(
+            app,
+            &format!("[local-db] old database to copy: {}", old.display()),
+        );
+        host = host.with_first_open(Arc::new(old_db_import(app, data, &old, source)));
     }
     let host = Arc::new(host);
     spawn_backups(app, &host);
@@ -357,6 +362,7 @@ fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
 fn old_db_import(
     app: &tauri::AppHandle,
     data: &std::path::Path,
+    old_dir: &std::path::Path,
     source: &launch::SidecarSource,
 ) -> old_db::StopAfter<local_pg::import::OnceImport> {
     use tauri::Manager as _;
@@ -365,13 +371,8 @@ fn old_db_import(
         app_version: app.package_info().version.to_string(),
         product_name: app.package_info().name.clone(),
     };
-    let config = launch::sidecar_config(
-        source,
-        &data.join("local-db"),
-        &data.join("local-db-backups"),
-        &api,
-        None,
-    );
+    let config =
+        launch::sidecar_config(source, old_dir, &data.join("local-db-backups"), &api, None);
     let old = Arc::new(old_db::OldDb::new(config));
     let _ = app.manage(Arc::clone(&old));
     let reader = Arc::clone(&old);
