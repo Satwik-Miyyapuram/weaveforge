@@ -13,7 +13,7 @@ export const commands = {
 	dbState: () => typedError<DbState_Serialize, ShellError>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
 	dbReset: () => typedError<null, ShellError>(__TAURI_INVOKE("db_reset")),
-	/**  Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron. */
+	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Stores a preference the page may write; `null` removes it. */
 	preferenceWrite: (name: string, value: unknown) => typedError<null, ShellError>(__TAURI_INVOKE("preference_write", { name, value })),
