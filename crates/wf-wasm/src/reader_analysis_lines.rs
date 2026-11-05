@@ -76,7 +76,7 @@ pub fn detect_columns_js(lines: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `tagged` is not an array of `{ line, column }` objects.
-#[wasm_bindgen(js_name = sortByReadingOrderIndices)]
+#[wasm_bindgen(js_name = sortByReadingOrder)]
 pub fn sort_by_reading_order_indices_js(tagged: JsValue) -> JsResult<JsValue> {
     let tagged: Vec<AnalysisTaggedLine> = serde_wasm_bindgen::from_value(tagged)?;
     to_js(&sort_by_reading_order_indices(&tagged))

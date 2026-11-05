@@ -11,7 +11,7 @@ import {
   furnitureKey as rawFurnitureKey,
   reconstructLines as rawReconstructLines,
   detectColumns as rawDetectColumns,
-  sortByReadingOrderIndices as rawSortByReadingOrderIndices,
+  sortByReadingOrder as rawSortByReadingOrderIndices,
 } from "../pkg/wf_wasm.js";
 import type { AnalysisTextLine as TextLine } from "./bindings.js";
 
