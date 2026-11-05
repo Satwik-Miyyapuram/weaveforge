@@ -95,6 +95,13 @@
 .linked-overleaf-form { display: grid; gap: 12px; padding: 16px 0; }
 .linked-overleaf-form label { display: grid; gap: 4px; font-weight: 600; }
 .linked-overleaf-form input { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }
+.overleaf-connect { display: grid; gap: 12px; padding-top: 8px; }
+.overleaf-connect__choice { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.overleaf-connect__choice legend { margin-bottom: 4px; font-weight: 600; }
+.overleaf-connect__option { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface-alt); cursor: pointer; }
+.overleaf-connect__option:has(input:checked) { border-color: var(--accent); }
+.overleaf-connect__option .muted { font-size: var(--fs-sm); }
+.overleaf-connect__fallback summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
 .linked-overleaf-content { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .linked-overleaf-content h3 { margin: 16px 0 8px; }
 .linked-overleaf-tree { display: grid; gap: 8px; margin: 0; }

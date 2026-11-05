@@ -6,6 +6,9 @@ import { authHeaders } from "@/lib/auth-headers";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { formatError } from "@/lib/format-error";
+import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
 import {
   listWorkshopProjects,
   signInToWorkshop,
@@ -53,17 +56,46 @@ export function canShowWorkshop({ localMode, shell = false }: { localMode: boole
   return !localMode || shell;
 }
 
+type ConnectMode = "signin" | "git";
+
+const SIGN_IN_TIP =
+  "Opens overleaf.com in an app window. Works on any plan; Overleaf compiles the PDF; view and compile only. " +
+  "Saved browser passwords don't fill in there, but Google/ORCID sign-in and desktop password managers work. " +
+  "Google may refuse embedded windows.";
+
+const GIT_TIP =
+  "Pull and push the project as files in your vault and compile locally. Needs an Overleaf plan or institution " +
+  "licence with Git (TU Delft has one); the git token lasts about a year; needs local LaTeX " +
+  "(MiKTeX, TeX Live or Tectonic).";
+
+/** The two ways to connect. The tip holds the details; the hint is the one line always shown. */
+const CONNECT_OPTIONS: readonly { mode: ConnectMode; label: string; hint: string; tip: string }[] = [
+  { mode: "signin", label: "Sign in to Overleaf", hint: "Any plan. View and compile the PDF.", tip: SIGN_IN_TIP },
+  { mode: "git", label: "Edit as files (Git token)", hint: "Paid or institution plan. Edit in your vault, compile locally.", tip: GIT_TIP },
+];
+
 /**
  * Overleaf Workshop: sign in with an Overleaf session cookie, pick a project and
  * its root .tex file, and see the PDF Overleaf compiles. The cookie is sent once
  * and kept by the routes (sealed on the server, or in the shell's memory when
  * `inShell`); this panel only ever holds the session id.
  */
-export function WorkshopPanel({ client = browserClient, store = browserStore, inShell = false }: {
+export function WorkshopPanel({
+  client = browserClient,
+  store = browserStore,
+  inShell = false,
+  signInWindow = desktop()?.overleafSignIn,
+  canEditAsFiles = overleafSyncAvailable(),
+}: {
   client?: WorkshopClientDeps;
   store?: WorkshopSessionStore;
   inShell?: boolean;
+  /** Opens Overleaf's own sign-in in an app window; answers a session id, or null if closed. */
+  signInWindow?: () => Promise<string | null>;
+  /** Git pull/push into the vault is available (desktop app only). */
+  canEditAsFiles?: boolean;
 }) {
+  const [mode, setMode] = useState<ConnectMode>("signin");
   const [sessionId, setSessionId] = useState<string | null>(() => store.get());
   const [projects, setProjects] = useState<WorkshopProject[] | null>(null);
   const [cookies, setCookies] = useState("");
@@ -133,35 +165,100 @@ export function WorkshopPanel({ client = browserClient, store = browserStore, in
     setShown({ sessionId, projectId, rootResourcePath: rootFile });
   }
 
+  async function openSignIn() {
+    if (!signInWindow) return;
+    setBusy(true);
+    setError("");
+    try {
+      const id = await signInWindow();
+      if (id) {
+        store.set(id);
+        setSessionId(id);
+      }
+    } catch (cause) {
+      setError(formatError(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cookieForm = (
+    <form className="linked-overleaf-form" onSubmit={(event) => void signIn(event)}>
+      <label>
+        Overleaf session cookie
+        <input
+          name="cookies"
+          type="password"
+          autoComplete="off"
+          placeholder="overleaf_session2=…"
+          value={cookies}
+          onChange={(event) => setCookies(event.target.value)}
+        />
+      </label>
+      <p className="muted">
+        Copy the <code>overleaf_session2</code> cookie from overleaf.com.{" "}
+        {inShell
+          ? "It stays in this app's memory, is never shown again, and is forgotten when you quit."
+          : "It is stored encrypted on the server and never shown again."}
+      </p>
+      <div className="linked-overleaf-form__actions">
+        <Button variant="primary" type="submit" disabled={busy || !cookies.trim()}>
+          {busy ? "Connecting…" : "Connect Overleaf"}
+        </Button>
+      </div>
+    </form>
+  );
+
   return (
     <section className="workshop-panel" aria-label="Overleaf PDF">
       <h2>Overleaf PDF</h2>
       {error && <FormError>{error}</FormError>}
       {!sessionId ? (
-        <form className="linked-overleaf-form" onSubmit={(event) => void signIn(event)}>
-          <label>
-            Overleaf session cookie
-            <input
-              name="cookies"
-              type="password"
-              autoComplete="off"
-              placeholder="overleaf_session2=…"
-              value={cookies}
-              onChange={(event) => setCookies(event.target.value)}
-            />
-          </label>
-          <p className="muted">
-            Copy the <code>overleaf_session2</code> cookie from overleaf.com.{" "}
-            {inShell
-              ? "It stays in this app's memory, is never shown again, and is forgotten when you quit."
-              : "It is stored encrypted on the server and never shown again."}
-          </p>
-          <div className="linked-overleaf-form__actions">
-            <Button variant="primary" type="submit" disabled={busy || !cookies.trim()}>
-              {busy ? "Connecting…" : "Connect Overleaf"}
-            </Button>
-          </div>
-        </form>
+        <div className="overleaf-connect">
+          <fieldset className="overleaf-connect__choice">
+            <legend>How do you want to connect?</legend>
+            {CONNECT_OPTIONS.map((option) => (
+              <label key={option.mode} title={option.tip} className="overleaf-connect__option">
+                <input
+                  type="radio"
+                  name="overleafConnect"
+                  value={option.mode}
+                  checked={mode === option.mode}
+                  onChange={() => setMode(option.mode)}
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <span className="muted"> {option.hint}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          {mode === "git" ? (
+            canEditAsFiles ? (
+              <div className="linked-overleaf-form__actions">
+                <Button href="/settings#settings-workspace" title="Save your Overleaf git token and link a project to a vault folder">
+                  Open Overleaf projects in Settings
+                </Button>
+              </div>
+            ) : (
+              <p className="muted">Editing as files needs the WeaveForge desktop app.</p>
+            )
+          ) : signInWindow ? (
+            <>
+              <div className="linked-overleaf-form__actions">
+                <Button variant="primary" disabled={busy} onClick={() => void openSignIn()} title={SIGN_IN_TIP}>
+                  {busy ? "Waiting for sign-in…" : "Sign in to Overleaf"}
+                </Button>
+              </div>
+              <details className="overleaf-connect__fallback">
+                <summary>Paste a session cookie instead</summary>
+                {cookieForm}
+              </details>
+            </>
+          ) : (
+            cookieForm
+          )}
+        </div>
       ) : projects === null && loadFailed ? (
         <div className="linked-overleaf-form__actions">
           <Button variant="primary" onClick={() => setAttempt((n) => n + 1)}>Retry</Button>

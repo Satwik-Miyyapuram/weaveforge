@@ -159,7 +159,7 @@ export const commands = {
 	 *  Looks for a newer release; only a packaged build checks.
 	 * 
 	 *  # Errors
-	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+	 *  When the releases could not be fetched, so the page can say the check failed.
 	 */
 	updateCheck: () => typedError<Update | null, ShellError>(__TAURI_INVOKE("update_check")),
 	/**
@@ -197,6 +197,13 @@ export const commands = {
 	 *  The message the page shows; see `mattermost_sign_in_with`.
 	 */
 	mattermostSignIn: (serverUrl: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("mattermost_sign_in", { serverUrl })),
+	/**
+	 *  Opens the Overleaf sign-in window and answers a Workshop session id, or null if it was closed.
+	 * 
+	 *  # Errors
+	 *  `SIGN_IN_NOT_OPENED` or `OVERLEAF_UNREACHABLE`, as the message the page shows.
+	 */
+	overleafSignIn: () => typedError<string | null, ShellError>(__TAURI_INVOKE("overleaf_sign_in")),
 	/**
 	 *  Sends one Mattermost post from the shell.
 	 * 

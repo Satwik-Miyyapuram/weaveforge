@@ -222,7 +222,7 @@
          *  Looks for a newer release; only a packaged build checks.
          * 
          *  # Errors
-         *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+         *  When the releases could not be fetched, so the page can say the check failed.
          */
         updateCheck: () => typedError(invoke("update_check")),
         /**
@@ -260,6 +260,13 @@
          *  The message the page shows; see `mattermost_sign_in_with`.
          */
         mattermostSignIn: (serverUrl) => typedError(invoke("mattermost_sign_in", { serverUrl })),
+        /**
+         *  Opens the Overleaf sign-in window and answers a Workshop session id, or null if it was closed.
+         * 
+         *  # Errors
+         *  `SIGN_IN_NOT_OPENED` or `OVERLEAF_UNREACHABLE`, as the message the page shows.
+         */
+        overleafSignIn: () => typedError(invoke("overleaf_sign_in")),
         /**
          *  Sends one Mattermost post from the shell.
          * 
@@ -565,6 +572,7 @@
         });
       },
       mattermostSignIn: async (serverUrl) => unwrap(await cmds.mattermostSignIn(serverUrl)),
+      overleafSignIn: async () => unwrap(await cmds.overleafSignIn()),
       mattermostPost: async (req) => unwrap(
         await cmds.mattermostPost({
           serverUrl: req.serverUrl,

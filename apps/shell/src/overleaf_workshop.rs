@@ -294,13 +294,29 @@ async fn sign_in(client: &reqwest::Client, sessions: &WorkshopSessions, body: &[
     if cookies.is_empty() {
         return error(400, "An Overleaf session cookie is required.");
     }
+    match start_session(client, sessions, cookies).await {
+        Ok(id) => json_answer(201, &json!({ "sessionId": id }), true),
+        Err((status, message)) => error(status, &message),
+    }
+}
+
+/// Verifies the cookie with Overleaf and keeps it, answering only the new session id.
+/// Shared by the paste route and the in-app sign-in window (`overleaf_signin`).
+///
+/// # Errors
+/// The HTTP status and a message with the cookie redacted: 401 when Overleaf refuses it,
+/// 502 when it cannot be stored.
+pub(crate) async fn start_session(
+    client: &reqwest::Client,
+    sessions: &WorkshopSessions,
+    cookies: &str,
+) -> Result<String, (u16, String)> {
     if let Err(message) = login(client, cookies).await {
-        return error(401, &safe_overleaf_error(&message, Some(cookies)));
+        return Err((401, safe_overleaf_error(&message, Some(cookies))));
     }
-    match sessions.insert(cookies.to_owned()) {
-        Some(id) => json_answer(201, &json!({ "sessionId": id }), true),
-        None => error(502, "The Overleaf session could not be stored."),
-    }
+    sessions
+        .insert(cookies.to_owned())
+        .ok_or_else(|| (502, "The Overleaf session could not be stored.".to_owned()))
 }
 
 /// DELETE session?id=…: forgets the session.

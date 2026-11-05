@@ -114,6 +114,7 @@ export interface DesktopCommands {
     Result<{ links: { projectId: string; folder: string }[]; hasToken: boolean }>
   >;
   mattermostSignIn(serverUrl: string): Promise<Result<string | null>>;
+  overleafSignIn(): Promise<Result<string | null>>;
   mattermostPost(post: {
     serverUrl: string;
     token: string;
@@ -223,6 +224,7 @@ export type DesktopShim = Pick<
   | "inkRecognise"
   | "inkHaptics"
   | "mattermostSignIn"
+  | "overleafSignIn"
   | "mattermostPost"
   | "readOverleafProject"
   | "overleafSync"
@@ -402,6 +404,7 @@ export function desktopShim(
     },
     mattermostSignIn: async (serverUrl) =>
       unwrap(await cmds.mattermostSignIn(serverUrl)),
+    overleafSignIn: async () => unwrap(await cmds.overleafSignIn()),
     mattermostPost: async (req) =>
       unwrap(
         await cmds.mattermostPost({
