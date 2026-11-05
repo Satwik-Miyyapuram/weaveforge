@@ -28,6 +28,7 @@ pub mod launch;
 pub mod local_api;
 pub mod local_artifacts;
 pub mod local_http;
+pub mod local_pg;
 pub mod mattermost;
 pub mod mcp_bridge;
 pub mod menu;
