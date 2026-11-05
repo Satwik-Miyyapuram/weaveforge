@@ -733,6 +733,11 @@ useEffect(() => {
               hasEOL: Boolean(it.hasEOL),
             });
           }
+          // Another render of this page may have filled the layer while this one
+          // waited; without this both sets of words stack in it and a selection
+          // jumps between the copies.
+          textLayers.current.get(pageNumber)?.cancel();
+          textLayer.replaceChildren();
           const layer = createPdfTextLayer(lib, textLayer, content, viewport);
           textLayers.current.set(pageNumber, layer);
           await layer.render();
