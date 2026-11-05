@@ -12,6 +12,7 @@ const WS: &str = "\t\n\u{0B}\u{0C}\r \u{a0}\u{1680}\u{2000}-\u{200a}\u{2028}\u{2
 /// One source file of a LaTeX project.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LatexSourceFile {
     /// Path relative to the project root.
     pub path: String,

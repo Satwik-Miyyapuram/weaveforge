@@ -4,6 +4,7 @@
 pub mod error_report;
 pub mod experiments;
 pub mod ink;
+pub mod js_collate;
 pub mod latex_section_tree;
 pub mod mcp;
 pub mod member;
@@ -15,10 +16,15 @@ pub mod paste;
 pub mod plan;
 pub mod reader;
 pub mod reader_analysis;
+pub mod reading_lists;
+pub mod relations;
+pub mod report;
 pub mod search;
 pub mod storage;
 pub mod sync;
+pub mod tree;
 pub mod units;
+pub mod vault;
 pub mod workspace;
 pub mod zotero;
 

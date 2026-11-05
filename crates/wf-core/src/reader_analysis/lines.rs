@@ -101,7 +101,7 @@ pub struct AnalysisTaggedLine {
 }
 
 /// JS `\s` and `trim()` set.
-fn is_js_space(c: char) -> bool {
+pub(crate) fn is_js_space(c: char) -> bool {
     matches!(
         c,
         '\t' | '\n' | '\u{0B}' | '\u{0C}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
@@ -115,15 +115,15 @@ fn is_js_space(c: char) -> bool {
     )
 }
 
-fn js_trim(s: &str) -> &str {
+pub(crate) fn js_trim(s: &str) -> &str {
     s.trim_matches(is_js_space)
 }
 
-fn js_trim_start(s: &str) -> &str {
+pub(crate) fn js_trim_start(s: &str) -> &str {
     s.trim_start_matches(is_js_space)
 }
 
-fn js_trim_end(s: &str) -> &str {
+pub(crate) fn js_trim_end(s: &str) -> &str {
     s.trim_end_matches(is_js_space)
 }
 

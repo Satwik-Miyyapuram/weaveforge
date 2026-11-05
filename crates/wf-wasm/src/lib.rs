@@ -10,10 +10,17 @@
 #![deny(unsafe_code)]
 
 mod folder;
+mod graph_settings;
 mod ink;
 mod merge;
+mod papers_paper_title;
+mod papers_records;
 mod paste;
+mod reader_analysis_bibliography;
+mod reader_analysis_citations;
+mod reader_analysis_document;
 mod reader_analysis_lines;
+mod reader_analysis_outline;
 mod reader_analysis_text;
 mod reader_anchor;
 mod reader_annotation;
@@ -23,7 +30,13 @@ mod reader_locus;
 mod reader_selection;
 mod reader_viewport;
 mod reader_zotero_sync;
+mod report_bib_entries;
+mod report_cite_key;
+mod report_markdown_to_latex;
+mod report_records;
+mod screening_records;
 mod sync;
+mod vault_page;
 mod workspace;
 
 use serde::Serialize;
