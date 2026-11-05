@@ -39,6 +39,7 @@ pub mod model_cache;
 pub mod old_db;
 pub mod overleaf_links;
 pub mod overleaf_read;
+pub mod overleaf_workshop;
 pub mod paste_commands;
 pub mod plan_widget;
 pub mod prefs;
@@ -552,6 +553,7 @@ fn start_routes(app: &tauri::AppHandle) {
         secrets: app
             .try_state::<secrets::Secrets>()
             .map(|s| s.inner().clone()),
+        workshop: overleaf_workshop::WorkshopSessions::default(),
     };
     let _ = app.manage(routes);
 }

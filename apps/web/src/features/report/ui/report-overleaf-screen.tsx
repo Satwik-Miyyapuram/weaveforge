@@ -14,14 +14,15 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
 import { Button } from "@/components/button";
+import { isTauriShell } from "@/features/experiments/infrastructure/experiment-artifact-store";
 
 /**
  * Overleaf tab — linked Overleaf projects + browser ZIP export.
  * Outline sections live on `/report` (Sections).
  *
  * The Workshop panel (sign in, pick a project, see the compiled PDF) needs the
- * app's API routes, so a copy with no account does not show it; the desktop
- * shell relays them (see `canShowWorkshop`).
+ * app's API routes, so a browser copy with no account does not show it; the
+ * Tauri shell serves them itself (see `canShowWorkshop`).
  */
 export function ReportOverleafScreen() {
   /*
@@ -50,7 +51,7 @@ export function ReportOverleafScreen() {
   // Decided after mount, so the server render and first paint agree.
   const [workshop, setWorkshop] = useState(false);
   useEffect(() => {
-    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode() }));
+    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), shell: isTauriShell() }));
   }, []);
 
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();

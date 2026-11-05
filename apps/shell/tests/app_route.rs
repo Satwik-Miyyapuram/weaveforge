@@ -6,6 +6,7 @@ mod common;
 use common::{TempDir, put};
 use weaveforge_shell_lib::app_route::{AppRoutes, from_reply, page_host, route};
 use weaveforge_shell_lib::local_artifacts::{ARTIFACT_CSP, write_local_artifact};
+use weaveforge_shell_lib::overleaf_workshop::WorkshopSessions;
 use weaveforge_shell_lib::protocol::Reply;
 use weaveforge_shell_lib::relay::route::RelayConfig;
 use weaveforge_shell_lib::relay::shared::Answer;
@@ -20,6 +21,7 @@ fn routes(web: &TempDir, data: &TempDir) -> AppRoutes {
         relay_config: RelayConfig::production(),
         prefs: None,
         secrets: None,
+        workshop: WorkshopSessions::default(),
     }
 }
 

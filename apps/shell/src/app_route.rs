@@ -30,6 +30,8 @@ pub struct AppRoutes {
     pub prefs: Option<crate::prefs::Prefs>,
     /// Where it reads the sync token; None in tests.
     pub secrets: Option<crate::secrets::Secrets>,
+    /// Overleaf Workshop sign-ins, in memory for this run.
+    pub workshop: crate::overleaf_workshop::WorkshopSessions,
 }
 
 /// The host the page wrote: Windows webviews turn `app://x/` into `http://app.x/`.
@@ -119,6 +121,20 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
         )
     {
         return crate::github_file::serve(client, prefs, secrets, parts.uri.query()).await;
+    }
+    if path.starts_with(crate::overleaf_workshop::PREFIX)
+        && let Some(client) = routes.relay_client.as_ref()
+    {
+        let (method, query) = (parts.method.as_str(), parts.uri.query());
+        return crate::overleaf_workshop::serve(
+            client,
+            &routes.workshop,
+            method,
+            &path,
+            query,
+            &body,
+        )
+        .await;
     }
     if path.starts_with("/api/")
         && let Some(client) = routes.relay_client.as_ref()
