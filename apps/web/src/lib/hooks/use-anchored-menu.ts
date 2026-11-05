@@ -13,6 +13,31 @@ export interface MenuRect {
 
 const MARGIN = 8;
 
+interface Box {
+  left: number;
+  top: number;
+  bottom: number;
+  width: number;
+}
+
+function px(value: string | undefined): number {
+  if (!value || !value.endsWith("px")) return 0;
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * The trigger's box at rest. Themes press or lift an open trigger with CSS
+ * `translate`, which getBoundingClientRect includes; removing it keeps the menu
+ * lined up with the trigger's edge in every theme. Shadows are not in the box.
+ */
+export function restingBox(r: Box, translate: string | undefined): Box {
+  const [x, y] = (translate ?? "").trim().split(/\s+/);
+  const dx = px(x);
+  const dy = px(y);
+  return { left: r.left - dx, top: r.top - dy, bottom: r.bottom - dy, width: r.width };
+}
+
 /**
  * Pins a portalled `position: fixed` menu to its trigger in viewport coordinates.
  *
@@ -32,8 +57,9 @@ export function useAnchoredMenu(
   const [rect, setRect] = useState<MenuRect | null>(null);
 
   const place = useCallback(() => {
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (!r) return;
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = restingBox(el.getBoundingClientRect(), getComputedStyle(el).translate);
     const below = window.innerHeight - r.bottom;
     const up = below < maxHeight && r.top > below;
     setRect({
