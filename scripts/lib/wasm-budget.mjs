@@ -93,7 +93,23 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   modules, NFKC/NFKD composition tables for searchTextFromItems and
 //   surnameKey, serde for the Zotero rows and ~35 new exports. 480 KB is this
 //   batch's ceiling.
-export const WASM_GZIP_BUDGET = 480 * 1024;
+// - Step 5.2g: 526,813 bytes (module 506,509 + glue 20,304), local build.
+//   Citation candidates, the text outline, bibliography parsing, cite keys,
+//   .bib entries, paper titles and vault page rules add ~57 KB: seven wf-core
+//   modules, each with its own regex-lite patterns (the bibliography alone
+//   builds ~30), serde for the analysis objects and ~45 new exports. 540 KB
+//   is this batch's ceiling.
+// - Step 5.2g (document analysis): 567,695 bytes (module 547,306 + glue
+//   20,389), local build. analyzePdfDocument and markdownToLatex add ~41 KB:
+//   the document analysis pipeline (sections, figures, equations, citation
+//   assembly) and the Markdown to LaTeX converter, each with its own
+//   regex-lite patterns and serde for their nested results. 580 KB is this
+//   batch's ceiling.
+// - Steps 5.2h-5.2j: ~606.2 KB gzipped, local build. Paper and report records,
+//   JS locale collation, screening records and relation graph settings add
+//   ~38 KB: five wf-core modules with serde for their record shapes and the
+//   collation tables. 640 KB is this batch's ceiling.
+export const WASM_GZIP_BUDGET = 640 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

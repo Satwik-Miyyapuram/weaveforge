@@ -228,6 +228,19 @@ export * from "./reader-locus.js";
 export * from "./reader-selection.js";
 export * from "./reader-viewport.js";
 export * from "./reader-zotero-sync.js";
+export * from "./reader-analysis-bibliography.js";
+export * from "./reader-analysis-citations.js";
+export * from "./reader-analysis-document.js";
+export * from "./reader-analysis-outline.js";
+export * from "./papers-paper-title.js";
+export * from "./papers-records.js";
+export * from "./report-bib-entries.js";
+export * from "./report-cite-key.js";
+export * from "./report-markdown-to-latex.js";
+export * from "./report-records.js";
+export * from "./screening-records.js";
+export * from "./graph-settings.js";
+export * from "./vault-page.js";
 
 
 /** Facts about this core build, such as its version. */
