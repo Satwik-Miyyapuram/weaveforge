@@ -34,6 +34,22 @@ impl PgError {
             message: message.into(),
         }
     }
+
+    /// The connection broke (socket error, server gone, stream out of sync). SQLSTATE `08006`,
+    /// connection failure, so callers can tell it from a statement error.
+    #[must_use]
+    pub fn connection(message: impl Into<String>) -> Self {
+        Self {
+            code: "08006".to_owned(),
+            message: message.into(),
+        }
+    }
+
+    /// Whether the connection is unusable after this error (SQLSTATE class `08`).
+    #[must_use]
+    pub fn is_connection(&self) -> bool {
+        self.code.starts_with("08")
+    }
 }
 
 /// One result column: its name and Postgres type OID.
