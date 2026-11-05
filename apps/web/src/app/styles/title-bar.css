@@ -74,6 +74,7 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   padding: 0; border: 0; border-radius: 0; box-shadow: none; transform: none;
   background: transparent; color: inherit; cursor: default;
 }
+:root:root:root .title-bar-window > .wf-btn > svg { width: 10px; height: 10px; stroke-width: 1; }
 :root:root:root .title-bar-window > .wf-btn:hover { background: var(--hover-bg, color-mix(in srgb, currentColor 10%, transparent)); }
 :root:root:root .title-bar-window > .wf-btn:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
 :root:root:root .title-bar-window > .wf-btn:last-child:hover { background: #c42b1c; color: #fff; }
