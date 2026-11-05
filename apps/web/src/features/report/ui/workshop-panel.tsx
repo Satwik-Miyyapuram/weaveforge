@@ -56,11 +56,13 @@ export function canShowWorkshop({ localMode, shell = false }: { localMode: boole
 /**
  * Overleaf Workshop: sign in with an Overleaf session cookie, pick a project and
  * its root .tex file, and see the PDF Overleaf compiles. The cookie is sent once
- * and sealed server-side; this panel only ever holds the session id.
+ * and kept by the routes (sealed on the server, or in the shell's memory when
+ * `inShell`); this panel only ever holds the session id.
  */
-export function WorkshopPanel({ client = browserClient, store = browserStore }: {
+export function WorkshopPanel({ client = browserClient, store = browserStore, inShell = false }: {
   client?: WorkshopClientDeps;
   store?: WorkshopSessionStore;
+  inShell?: boolean;
 }) {
   const [sessionId, setSessionId] = useState<string | null>(() => store.get());
   const [projects, setProjects] = useState<WorkshopProject[] | null>(null);
@@ -149,7 +151,10 @@ export function WorkshopPanel({ client = browserClient, store = browserStore }: 
             />
           </label>
           <p className="muted">
-            Copy the <code>overleaf_session2</code> cookie from overleaf.com. It is stored encrypted on the server and never shown again.
+            Copy the <code>overleaf_session2</code> cookie from overleaf.com.{" "}
+            {inShell
+              ? "It stays in this app's memory, is never shown again, and is forgotten when you quit."
+              : "It is stored encrypted on the server and never shown again."}
           </p>
           <div className="linked-overleaf-form__actions">
             <Button variant="primary" type="submit" disabled={busy || !cookies.trim()}>

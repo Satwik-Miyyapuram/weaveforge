@@ -49,9 +49,10 @@ export function ReportOverleafScreen() {
   const { data, loading, error } = useScreenData("report-overleaf", loadScreen);
   const [exportOpen, setExportOpen] = useState(false);
   // Decided after mount, so the server render and first paint agree.
-  const [workshop, setWorkshop] = useState(false);
+  const [workshop, setWorkshop] = useState<{ shell: boolean } | null>(null);
   useEffect(() => {
-    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), shell: isTauriShell() }));
+    const shell = isTauriShell();
+    if (canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), shell })) setWorkshop({ shell });
   }, []);
 
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();
@@ -86,7 +87,7 @@ export function ReportOverleafScreen() {
 
       <LinkedOverleafReports />
 
-      {workshop && <WorkshopPanel />}
+      {workshop && <WorkshopPanel inShell={workshop.shell} />}
     </section>
   );
 }
