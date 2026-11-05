@@ -73,6 +73,10 @@ pub struct AnalysisPdfItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub font_descent: Option<f64>,
+    /// pdf.js font name, when the caller carries it; used for weight checks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub font_name: Option<String>,
 }
 
 /// Normalised search text with the raw span of each UTF-16 unit. Mirrors `SearchText` in the TS copy.
@@ -531,6 +535,7 @@ mod tests {
             has_eol,
             font_ascent: None,
             font_descent: None,
+            font_name: None,
         }
     }
 

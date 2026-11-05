@@ -14,6 +14,20 @@ export type ActionCounts = {
 	removed: number,
 };
 
+/**  How much two reviewers agree, and how much of that is not luck. */
+export type Agreement = {
+	/**  The two reviewers compared, in the order given. */
+	reviewers: [string, string],
+	/**  Items both of them screened at this stage. */
+	compared: number,
+	/**  Items they answered identically. */
+	agreed: number,
+	/**  `agreed / compared`, or null when they screened nothing in common. */
+	proportion: number | null,
+	/**  Cohen's kappa, or null when there is nothing to compare or chance agreement is total. */
+	kappa: number | null,
+};
+
 /**  The `candidate` argument of `isBibliographicMatch`. Mirrors its TS shape. */
 export type AnalysisBibliographicCandidate = {
 	/**  Candidate title. */
@@ -28,6 +42,46 @@ export type AnalysisBibliographicHints = {
 	title: string | null,
 	/**  Publication year, when known. */
 	year: number | null,
+};
+
+/**  One citation found in the text layer (`CitationMention`). Field order is the TS key order. */
+export type AnalysisCitationMention = {
+	/**  Unique within the document. */
+	id: string,
+	/**  1-based page. */
+	page: number | null,
+	/**  Start offset in the page text. */
+	start: number | null,
+	/**  End offset in the page text. */
+	end: number | null,
+	/**  The mention text. */
+	text: string,
+	/**  PDF user-space rects. */
+	rects: ((number | null)[])[],
+	/**  Cited entries by `ParsedReference.index`. */
+	referenceIndexes: (number | null)[],
+	/**  `internal-pdf-link`, `numeric`, `superscript` or `author-year`. */
+	source: string,
+	/**  1 for a link-named entry, lower for pattern matches. */
+	confidence: number | null,
+	/**  Link destination. */
+	target?: AnalysisLinkDest,
+	/**  Named destination. */
+	destinationName?: string,
+	/**  Rects of the native link box. */
+	nativeRects?: ((number | null)[])[],
+	/**  `text` or `annotation`. */
+	spanSource?: string,
+};
+
+/**  Where an internal `/Link` goes: a 1-based page and, when named, a point. */
+export type AnalysisLinkDest = {
+	/**  1-based page. */
+	page: number | null,
+	/**  Destination x, when named. */
+	x?: number | null,
+	/**  Destination y, when named. */
+	y?: number | null,
 };
 
 /**
@@ -47,6 +101,52 @@ export type AnalysisPageTextItem = {
 	fontName?: string | null,
 };
 
+/**  A page range (`PageTextRange`). */
+export type AnalysisPageTextRange = {
+	/**  1-based page. */
+	page: number | null,
+	/**  Start offset. */
+	start: number | null,
+	/**  End offset. */
+	end: number | null,
+};
+
+/**  One bibliography entry (`ParsedReference`). Field order is the TS key order. */
+export type AnalysisParsedReference = {
+	/**  Entry number. */
+	index: number | null,
+	/**  Printed label (`[12]`). */
+	label?: string,
+	/**  Entry text. */
+	raw: string,
+	/**  1-based page. */
+	page: number | null,
+	/**  Left edge of the first line. */
+	x: number | null,
+	/**  Baseline of the first line. */
+	y: number | null,
+	/**  Start offset in the page text. */
+	start?: number | null,
+	/**  End offset in the page text. */
+	end?: number | null,
+	/**  Author names. */
+	authors: string[],
+	/**  Publication year. */
+	year?: number | null,
+	/**  `a` in `2020a`. */
+	yearSuffix?: string,
+	/**  Title. */
+	title?: string,
+	/**  Venue. */
+	venue?: string,
+	/**  DOI, normalised. */
+	doi?: string,
+	/**  arXiv id. */
+	arxivId?: string,
+	/**  URL. */
+	url?: string,
+};
+
 /**  A PDF text item with optional font metrics. Mirrors `PdfItem` in the TS copy. */
 export type AnalysisPdfItem = {
 	/**  The glyph run's text. */
@@ -63,6 +163,32 @@ export type AnalysisPdfItem = {
 	fontAscent?: number | null,
 	/**  Font descent as a fraction of the size, when known. */
 	fontDescent?: number | null,
+	/**  pdf.js font name, when the caller carries it; used for weight checks. */
+	fontName?: string | null,
+};
+
+/**  A `/Link` annotation (`PdfLink`). */
+export type AnalysisPdfLink = {
+	/**  `[x1, y1, x2, y2]` in PDF user space. */
+	rect: [(number | null), (number | null), (number | null), (number | null)],
+	/**  External target. */
+	url?: string,
+	/**  Internal target. */
+	dest?: AnalysisLinkDest,
+	/**  Measured page-text ranges under the box. */
+	textRanges?: AnalysisTextSpan[],
+	/**  Named destination (`cite.kingma2014`). */
+	destName?: string,
+};
+
+/**  One page handed to analysis (`AnalyzePdfPage`). */
+export type AnalysisPdfPage = {
+	/**  1-based. */
+	pageNumber: number | null,
+	/**  pdf.js text items. */
+	items: AnalysisPdfItem[],
+	/**  The page's own `/Link` annotations. */
+	links?: AnalysisPdfLink[],
 };
 
 /**  Normalised search text with the raw span of each UTF-16 unit. Mirrors `SearchText` in the TS copy. */
@@ -111,6 +237,14 @@ export type AnalysisTextRun = {
 	str: string,
 	/**  pdf.js `hasEOL`: a line break follows the run. */
 	hasEOL?: boolean | null,
+};
+
+/**  A page-text range a link box covers. */
+export type AnalysisTextSpan = {
+	/**  Start offset. */
+	start: number | null,
+	/**  End offset. */
+	end: number | null,
 };
 
 /**  Dual anchor (TS `CombinedPdfAnchor`). */
@@ -237,6 +371,110 @@ export type AnchorZoteroPosition = {
 	nextPageRects?: ((number | null)[])[] | null,
 };
 
+/**  One `@type{key, ...}` entry. */
+export type BibEntry = {
+	/**  Lower-cased entry type: `article`, `inproceedings`, `misc`. */
+	type: string,
+	/**  Citation key, trimmed. */
+	key: string,
+	/**  Fields in source order. Names are lower-cased; values are the literal text, braces stripped. */
+	fields: BibField[],
+	/**  Path of the `.bib` file. */
+	file: string,
+	/**  1-based line of the `@`. */
+	line: number,
+};
+
+/**  One field of an entry. The TS wrapper rebuilds these into a record. */
+export type BibField = {
+	/**  Lower-cased field name. */
+	name: string,
+	/**  Literal value, braces and quotes stripped, whitespace collapsed. */
+	value: string,
+};
+
+/**  One problem found by [`check_bibliography`]. */
+export type BibFinding = {
+	/**  What was found. */
+	kind: BibFindingKind,
+	/**  How serious it is. */
+	severity: BibSeverity,
+	/**  Path of the file the finding is in. */
+	file: string,
+	/**  1-based. */
+	line: number | null,
+	/**  Human-readable message. */
+	message: string,
+	/**  The cite key the finding is about, when it is about one. */
+	key?: string | null,
+};
+
+/**  Kinds of bibliography finding. The strings match the TS `BibFindingKind`. */
+export type BibFindingKind = 
+/**  A key is cited but defined in no `.bib` file. */
+"cited-not-defined" | 
+/**  An entry is defined but never cited. */
+"defined-not-cited" | 
+/**  A key is defined more than once; the first definition wins. */
+"duplicate-key" | 
+/**  An entry lacks a field its type needs to render. */
+"missing-field" | 
+/**  A DOI field that is not a DOI. */
+"malformed-doi" | 
+/**  A URL field that will not resolve. */
+"malformed-url" | 
+/**  Authors written the other way round from the rest of the file. */
+"author-format" | 
+/**  A bibliography file is named but not in the project. */
+"missing-bib-file" | 
+/**  A problem found while reading a `.bib`. */
+"parse-warning";
+
+/**  Entries and warnings read from a set of files. */
+export type BibParseResult = {
+	/**  Every reference entry, in file then source order. */
+	entries: BibEntry[],
+	/**  Every problem found, in the order it was found. */
+	warnings: BibWarning[],
+};
+
+/**  Severity of a finding. Errors break the document or bibliography; warnings are untidy. */
+export type BibSeverity = 
+/**  Breaks the document or the bibliography. */
+"error" | 
+/**  Untidy, but renders. */
+"warning";
+
+/**  A problem found while reading a `.bib`, reported instead of thrown. */
+export type BibWarning = {
+	/**  Path of the `.bib` file. */
+	file: string,
+	/**  1-based line of the `@` the warning is about. */
+	line: number,
+	/**  Human-readable message. */
+	message: string,
+};
+
+/**  Every source file of a project and the parsed bibliography. */
+export type BibliographyInput = {
+	/**  Every text file of the project, `.tex` and `.bib` alike. */
+	sources: LatexSourceFile[],
+	/**  Entries and warnings from the `.bib` files. */
+	bibliography: BibParseResult,
+};
+
+/**  Result of [`check_bibliography`]. */
+export type BibliographyReport = {
+	/**  Errors first, then warnings; by file and line within each. */
+	findings: BibFinding[],
+	/**  Distinct keys cited anywhere in the document, sorted. */
+	citedKeys: string[],
+	/**  Number of entries read. */
+	entryCount: number | null,
+	/**  True when `\nocite{*}` makes every entry cited by definition. */
+	citesEverything: boolean,
+};
+
 /**  One blob ref, in both its storage and folder forms. */
 export type BlobAsset = {
 	/**  The scheme the ref used. */
@@ -292,6 +530,50 @@ export type ChangeSide =
 /**  Some digest is missing, so no guess is made. */
 "unknown";
 
+/**  A candidate citation span in the page text (`CitationCandidate`). */
+export type CitationCandidate = {
+	/**  Start offset in the raw page text, in UTF-16 units. */
+	start: number | null,
+	/**  End offset in the raw page text, in UTF-16 units. */
+	end: number | null,
+	/**  The raw text of the span. */
+	text: string,
+	/**  `numeric` or `author-year`. */
+	source: string,
+	/**  The authors part of an author-year candidate. */
+	authors?: string,
+	/**  The year part of an author-year candidate, with any suffix letter. */
+	year?: string,
+};
+
+/**  The `page` argument of `findPatternCitationMentions`: its number, text and text items. */
+export type CitationPage = {
+	/**  1-based page number. */
+	number: number | null,
+	/**  The page text, items concatenated with `\n` after each `hasEOL` item. */
+	text: string,
+	/**  The page's text items. */
+	items: AnalysisPdfItem[],
+};
+
+/**  The paper fields cite-key resolution reads. The TS `metadata` keys are flattened to the top. */
+export type CiteKeyPaper = {
+	/**  The paper id. The last fallback key is derived from it. */
+	id: string,
+	/**  `paper.doi`. */
+	doi?: string,
+	/**  `paper.arxivId`. */
+	arxivId?: string,
+	/**  `paper.bibtex`. */
+	bibtex?: string,
+	/**  `metadata.citeKey`. */
+	citeKey?: string,
+	/**  `metadata.citationKey`. */
+	citationKey?: string,
+	/**  `metadata.extra`. */
+	extra?: string,
+};
+
 /**  The outcome of the automatic paste rules. */
 export type CleanPasteResult = {
 	/**  The text after the rules ran. */
@@ -300,6 +582,33 @@ export type CleanPasteResult = {
 	changed: boolean,
 	/**  How many links were shortened, for a caller that wants to say so. */
 	urlsCleaned: number,
+};
+
+/**  What a node's colour says. */
+export type ColorBy = 
+/**  Reading status. */
+"status" | 
+/**  First tag. */
+"tag" | 
+/**  Reading list. */
+"list" | 
+/**  Node kind. */
+"type" | 
+/**  Publication year ramp. */
+"year" | 
+/**  Link count ramp. */
+"degree" | 
+/**  Label-propagation community. */
+"cluster" | 
+/**  The person's own query rules. */
+"groups";
+
+/**  One custom colour rule: `tag:x`, `list:x`, `status:x`, or words in the title. */
+export type ColorGroup = {
+	/**  The rule. */
+	query: string,
+	/**  Lower-case `#rrggbb`. */
+	color: string,
 };
 
 /**  Which side of a closing double quote the comma goes on. */
@@ -363,6 +672,22 @@ export type DiffOp =
 /**  Only in theirs. */
 "theirs";
 
+/**  Everything one analysis pass yields (`DocumentAnalysis`). Plain data only. */
+export type DocumentAnalysis = {
+	/**  One entry per input page. */
+	pages: PageAnalysis[],
+	/**  The PDF's own outline, or the inferred one when it has none. */
+	sections: OutlineReaderItem[],
+	/**  Parsed bibliography entries. */
+	references: AnalysisParsedReference[],
+	/**  Every citation mention, page by page. */
+	citations: AnalysisCitationMention[],
+	/**  Every figure, table, equation, section and algorithm mention. */
+	figures: FigureMention[],
+	/**  Fingerprint of the page texts. */
+	fingerprint: string,
+};
+
 /**  One page's extracted text (TS `DocumentPageText`). */
 export type DocumentPageText = {
 	/**  Zero-based page index, passed through unchanged. */
@@ -381,12 +706,29 @@ export type DocumentSearchMatch = {
 	end: number | null,
 };
 
+/**  Which links the graph draws. */
+export type EdgeMode = 
+/**  Paper relations. */
+"cites" | 
+/**  Shared tags (concepts). */
+"tags" | 
+/**  Both. */
+"both";
+
 /**  A highlight, as UTF-16 offsets into `Excerpt::text`. */
 export type ExcerptRange = {
 	/**  First unit. */
 	start: number,
 	/**  One past the last unit. */
 	end: number,
+};
+
+/**  One exclusion reason and how many full texts it accounts for. */
+export type ExclusionReasonCount = {
+	/**  The reason, as a reviewer typed it. */
+	reason: string,
+	/**  Full texts excluded for this reason. */
+	count: number | null,
 };
 
 /**  An entity as the workspace stores it. */
@@ -399,6 +741,49 @@ export type ExistingEntity = {
 	title: string,
 	/**  The stored body. */
 	body: string,
+};
+
+/**  One mention of a figure, table, equation, section or algorithm (`FigureMention`). */
+export type FigureMention = {
+	/**  1-based page number the mention is on. */
+	page: number | null,
+	/**  UTF-16 offset where the mention starts in the page text. */
+	start: number | null,
+	/**  UTF-16 offset just past the end of the mention in the page text. */
+	end: number | null,
+	/**  What the mention refers to. */
+	kind: FigureMentionKind,
+	/**  The caption, equation or heading the mention resolves to. */
+	target: FigureTarget,
+};
+
+/**  What a mention refers to (`FigureMention["kind"]`). */
+export type FigureMentionKind = 
+/**  `Figure`, `Fig.`, and their plurals. */
+"figure" | 
+/**  `Table` and its plurals. */
+"table" | 
+/**  `Equation` or `Eq.`, and their plurals. */
+"equation" | 
+/**  `Section` or `Sec.`, and their plurals. */
+"section" | 
+/**  `Algorithm` or `Alg.`, and their plurals. */
+"algorithm";
+
+/**  Where a mention points: the caption, equation or heading it names (`FigureTarget`). */
+export type FigureTarget = {
+	/**  1-based page number of the target. */
+	page: number | null,
+	/**  Baseline y of the target line. */
+	y: number | null,
+	/**  Left edge of the target line, when it is a caption or equation. */
+	x?: number | null,
+	/**  Font size of the target line, when it is a caption or equation. */
+	height?: number | null,
+	/**  Display label, such as `Figure 2` or `Equation (3)`. */
+	label?: string | null,
+	/**  Kind of the target, as the mention kind names it. */
+	kind?: string | null,
 };
 
 /**  Result of a pull. `conflict` leaves the folder as it was. */
@@ -439,6 +824,70 @@ export type GitSyncSkipReason =
 "too-large" | 
 /**  The path has no segments (empty or `.`). */
 "invalid-path";
+
+/**  Per-project graph UI state synced across devices (TS `GraphPersistedState`). */
+export type GraphPersistedState = {
+	settings: GraphViewSettings,
+	selectedLists: string[],
+	selectedTags: string[],
+	localSeed: string | null,
+	localDepth: number | null,
+	/**  Node id to position, in the order the JSON gave them. */
+	pinned: { [key in string]: GraphPinnedPosition },
+};
+
+/**  A pinned node's position. */
+export type GraphPinnedPosition = {
+	x: number | null,
+	y: number | null,
+};
+
+/**  The graph's view settings (TS `GraphViewSettings`). */
+export type GraphViewSettings = {
+	edgeMode: EdgeMode,
+	colorBy: ColorBy,
+	groupBy: GroupBy,
+	layout: LayoutMode,
+	showConcepts: boolean,
+	minConceptDegree: number | null,
+	hideOrphans: boolean,
+	relationTypes: RelationType[],
+	showConceptCooccurrence: boolean,
+	searchQuery: string,
+	textFadeThreshold: number | null,
+	nodeSize: number | null,
+	linkThickness: number | null,
+	showAutoStyle: boolean,
+	centerStrength: number | null,
+	chargeStrength: number | null,
+	linkDistance: number | null,
+	nodePalette: NodePalette,
+	nodeColors: NodeColors,
+	colorGroups: ColorGroup[],
+	/**  Optional in TS; read as `true` when absent. */
+	includeListsAsConcepts?: boolean,
+	/**  Optional in TS; read as `true` when absent. */
+	boundedZoomScale?: boolean,
+};
+
+/**  The colouring `groupBy` picks (it never moves nodes). */
+export type GroupBy = 
+/**  No grouping. */
+"none" | 
+/**  By status. */
+"status" | 
+/**  By list. */
+"list";
+
+/**  A hashtag with the offset it was found at, for evidence that points at it. */
+export type HashtagRef = {
+	/**  Normalized: no leading '#', lowercased. */
+	tag: string,
+	/**  UTF-16 index of the '#' in the text it was read from. */
+	index: number | null,
+	/**  UTF-16 length of the matched text, including the '#'. */
+	length: number | null,
+};
 
 /**  What a hunk may be resolved to. */
 export type HunkPick = 
@@ -585,6 +1034,20 @@ export type InkStrokePackerOptions = {
 	pressureTolerance?: number | null,
 };
 
+/**  Where one item stands at one stage. */
+export type ItemVerdict = {
+	/**  The item. */
+	itemId: string,
+	/**  The stage. */
+	stage: ScreeningStage,
+	/**  What the reviewers agree on, or null while they do not. */
+	state: ScreeningState | null,
+	/**  True when reviewers recorded different states. */
+	conflict: boolean,
+	/**  How many reviewers have answered at all. */
+	answered: number,
+};
+
 /**  The entries for one file, with their counts. */
 export type JsonDiff = {
 	/**  Every row and removal, in comparison order. */
@@ -609,6 +1072,50 @@ export type JsonDiffEntry = {
 	reason?: string,
 	/**  Which conflict, when the entry is one. */
 	conflictKind?: ConflictKind,
+};
+
+/**  One source file of a LaTeX project. */
+export type LatexSourceFile = {
+	/**  Path relative to the project root. */
+	path: string,
+	/**  Full file text. */
+	content: string,
+};
+
+/**  How nodes are arranged. */
+export type LayoutMode = 
+/**  Physics layout. */
+"force" | 
+/**  x pinned to the publication year. */
+"timeline";
+
+/**  One `reportimg:` figure: the storage path and the safe file name it is written under. */
+export type MarkdownToLatexImageRef = {
+	/**  Storage path after `reportimg:`. */
+	path: string,
+	/**  Relative path used in `\includegraphics{...}` (under `figures/`). */
+	fileName: string,
+};
+
+/**  Options for [`markdown_to_latex`]. */
+export type MarkdownToLatexOptions = {
+	/**
+	 *  Map of `normalizeTitleKey(paper.title)` to biblatex cite key. When set, matching
+	 *  `[[wikilinks]]` become `\cite{key}`.
+	 */
+	citeByTitle?: { [key in string]: string },
+};
+
+/**  Converted body plus everything the export needs to package it. */
+export type MarkdownToLatexResult = {
+	/**  LaTeX body, no document wrapper. */
+	latex: string,
+	/**  Human-readable notes on anything left as text, commented or omitted. */
+	warnings: string[],
+	/**  Report figures in document order. */
+	images: MarkdownToLatexImageRef[],
+	/**  Bib keys emitted via `\cite{...}` (unique, insertion order). */
+	citedKeys: string[],
 };
 
 /**
@@ -650,6 +1157,95 @@ export type MirrorResult = {
 	bases: ([string, VaultPageBase])[],
 };
 
+/**  What a caller supplies to create a section. */
+export type NewReportSectionInput = {
+	/**  Title; required after trimming. */
+	title?: string | null,
+	/**  Outline number. */
+	sectionNo?: string | null,
+	/**  Parent section id. */
+	parentId?: string | null,
+	/**  Status; defaults to not started. */
+	status?: ReportStatus | null,
+	/**  Words written; defaults to 0. */
+	wordCount?: number | null,
+	/**  Words aimed for. */
+	targetWords?: number | null,
+	/**  ISO date. */
+	deadline?: string | null,
+	/**  Draft link. */
+	draftUrl?: string | null,
+	/**  Free notes. */
+	notes?: string | null,
+	/**  Order among siblings; defaults to 0. */
+	sortOrder?: number | null,
+};
+
+/**  Per-kind colour overrides, as lower-case `#rrggbb`. Missing keys follow the palette. */
+export type NodeColors = {
+	paper?: string | null,
+	to_read?: string | null,
+	reading?: string | null,
+	read?: string | null,
+	skimmed?: string | null,
+	note?: string | null,
+	report?: string | null,
+	experiment?: string | null,
+};
+
+/**  Where node colours come from. */
+export type NodePalette = 
+/**  The active theme's chip colours. */
+"theme" | 
+/**  The muted original palette. */
+"classic";
+
+/**  Only the page of a heading (`{ page: number }`), as `outlineIsPlausible` reads it. */
+export type OutlinePageRef = {
+	/**  1-based page number. */
+	page: number | null,
+};
+
+/**  A bookmark-shaped outline node (`ReaderOutlineItem`). `pageNumber` is always set here. */
+export type OutlineReaderItem = {
+	/**  Heading text. */
+	title: string,
+	/**  1-based page number, or null. */
+	pageNumber: number | null,
+	/**  Baseline y of the heading. */
+	y?: number | null,
+	/**  Child sections, present only when there are some. */
+	items?: OutlineReaderItem[] | null,
+};
+
+/**  A recurring group with members as indices into the caller's array (wasm boundary form). */
+export type OutlineRecurringGroupIndices = {
+	/**  Furniture key shared by the members. */
+	key: string,
+	/**  Distinct pages in first-seen order. */
+	pages: (number | null)[],
+	/**  Indices of the member lines. */
+	members: (number | null)[],
+};
+
+/**  A pdf.js text item for outline inference (`OutlineTextItem`). */
+export type OutlineTextItem = {
+	/**  Item text. */
+	str: string,
+	/**  Font size in user-space units. */
+	fontSize: number | null,
+	/**  pdf.js font name, used for bold detection. */
+	fontName?: string | null,
+	/**  Left edge. */
+	x: number | null,
+	/**  Baseline y. */
+	y: number | null,
+	/**  1-based page number. */
+	page: number | null,
+	/**  Set on text not laid out left to right, such as arXiv's vertical side stamp. */
+	rotated?: boolean | null,
+};
+
 /**
  *  One stroke ready for storage: flat x,y pairs and one pressure byte per point.
  *  The smoothing functions return this shape too.
@@ -659,6 +1255,16 @@ export type PackedInkStroke = {
 	points: (number | null)[],
 	/**  One 0-255 pressure byte per point. */
 	pressures: (number | null)[],
+};
+
+/**  Per-page facts the rest of the app may want (`PageAnalysis`). */
+export type PageAnalysis = {
+	/**  1-based page number. */
+	pageNumber: number | null,
+	/**  The page text, items concatenated with `\n` after each `hasEOL` item. */
+	text: string,
+	/**  Columns detected on the page; 1 for a single-column page. */
+	columns: number | null,
 };
 
 /**  Everything a page says about the paper it carries. */
@@ -685,6 +1291,42 @@ export type PageMetadata = {
 	isArticle: boolean,
 };
 
+/**  Supported custom field kinds on papers. */
+export type PaperFieldKind = 
+/**  Free text. */
+"text" | 
+/**  A finite number. */
+"number" | 
+/**  One option from a list. */
+"select" | 
+/**  Several options from a list. */
+"multi_select" | 
+/**  Links to other papers. */
+"relation" | 
+/**  Computed from a relation. */
+"rollup";
+
+/**  Aggregation a rollup field applies to its related papers. */
+export type PaperFieldRollupAgg = 
+/**  Number of related papers. */
+"count" | 
+/**  The related values, listed. */
+"values" | 
+/**  Sum of the related values. */
+"sum" | 
+/**  Mean of the related values. */
+"avg";
+
+/**  Rollup config encoded in `options` for kind=rollup. */
+export type PaperFieldRollupConfig = {
+	/**  Id of the relation field to follow. */
+	relationFieldId: string,
+	/**  How the related values are combined. */
+	agg: PaperFieldRollupAgg,
+	/**  Required for values/sum/avg: the related paper's field to aggregate. */
+	sourceFieldId?: string | null,
+};
+
 /**  A paper reference: what it is and the value that identifies it. */
 export type PaperRef = {
 	/**  Which source can answer for this reference. */
@@ -703,6 +1345,17 @@ export type PaperRefKind =
 "url" | 
 /**  An opaque Zotero item key. */
 "zotero";
+
+/**  Reading status of a paper. */
+export type PaperStatus = 
+/**  Not started. */
+"to_read" | 
+/**  In progress. */
+"reading" | 
+/**  Finished. */
+"read" | 
+/**  Skimmed only. */
+"skimmed";
 
 /**  A note split into its frontmatter map and the text after the fence. */
 export type ParsedDocument = {
@@ -726,6 +1379,16 @@ export type ParsedEntity = {
 	path: string,
 	/**  Every frontmatter field except the id, type and title. */
 	fields: { [key in string]: unknown },
+};
+
+/**  Frontmatter split from a note body (`ParsedFrontmatter`). */
+export type ParsedFrontmatter = {
+	/**  The body after the frontmatter block, or the whole input when there is none. */
+	body: string,
+	/**  `tags:` values in first-seen order; spaces become `-`. */
+	tags: string[],
+	/**  `aliases:` values, whole (multi-word names stay one entry). */
+	aliases: string[],
 };
 
 /**  One of the three files, read: its rows that have a non-empty string id. */
@@ -795,6 +1458,49 @@ export type PdfTextOptions = {
 	/**  Join the whole selection into a single paragraph. */
 	singleParagraph?: boolean,
 };
+
+/**  PRISMA box counts, derived from the screening decisions every time they are asked for. */
+export type PrismaCounts = {
+	/**  Everything the searches turned up, before anything was thrown away. */
+	identified: number | null,
+	/**  Records removed as duplicates of another record. */
+	duplicates: number | null,
+	/**  What was left to screen on title and abstract. */
+	screened: number | null,
+	/**  Records excluded on title and abstract. */
+	excludedAtScreening: number | null,
+	/**  Full texts sought and assessed. */
+	eligible: number | null,
+	/**  Full texts excluded at full-text screening. */
+	excludedAtFullText: number | null,
+	/**  Studies included. */
+	included: number | null,
+	/**  Items nobody has decided yet. A warning, not a box. */
+	undecided: number | null,
+	/**  Items where reviewers disagree. A warning, not a box. */
+	conflicts: number | null,
+};
+
+/**  Optional inputs to the figure. `Default` gives the TS defaults. */
+export type PrismaFigureOptions = {
+	/**  `\label{...}`, so the prose can `\ref` it. */
+	label?: string | null,
+	/**  Caption text, escaped on output. */
+	caption?: string | null,
+	/**  Exclusion reasons, as `exclusionReasons` returns them. */
+	reasons?: ExclusionReasonCount[] | null,
+	/**  The database or register the records came from, if it is worth naming. */
+	source?: string | null,
+};
+
+/**  Citavi-style taxonomy for how an annotation will be used in writing. */
+export type QuotationType = 
+/**  Quoted word for word. */
+"direct" | 
+/**  Restated in other words. */
+"paraphrase" | 
+/**  Condensed. */
+"summary";
 
 /**  One arm's ranking: ids best first, and its relative influence. */
 export type RankedList = {
@@ -966,6 +1672,21 @@ export type Rejoin =
 /**  Strips and dedents without joining anything. */
 "never";
 
+/**  A paper relation kind (`RELATION_TYPES` in `paper-relation.ts`). */
+export type RelationType = 
+/**  Cites. */
+"cites" | 
+/**  Extends. */
+"extends" | 
+/**  Contradicts. */
+"contradicts" | 
+/**  Similar. */
+"similar" | 
+/**  Builds on. */
+"builds_on" | 
+/**  Uses the method of. */
+"uses_method";
+
 /**  A folder-relative asset ref found in a body. */
 export type RelativeAsset = {
 	/**  The asset tree: `notes`, `papers` or `report`. */
@@ -981,6 +1702,112 @@ export type RelativeLinks = {
 	/**  Every rewritten blob ref, in body order. */
 	assets: BlobAsset[],
 };
+
+/**  One node of the thesis outline. */
+export type ReportSection = {
+	/**  Section id. */
+	id: string,
+	/**  Title, trimmed. */
+	title: string,
+	/**  Outline number, e.g. "3.2". */
+	sectionNo?: string | null,
+	/**  Parent section id; absent = top level. */
+	parentId?: string | null,
+	/**  Writing status. */
+	status: ReportStatus,
+	/**  Words written. */
+	wordCount: number | null,
+	/**  Words aimed for. */
+	targetWords?: number | null,
+	/**  ISO date (yyyy-mm-dd). */
+	deadline?: string | null,
+	/**  Overleaf / Google Doc / repo path. */
+	draftUrl?: string | null,
+	/**  Free notes. */
+	notes?: string | null,
+	/**  Order among siblings. */
+	sortOrder: number | null,
+	/**  ISO creation time. */
+	createdAt: string,
+	/**  When the section last changed; absent until first read back. */
+	updatedAt?: string | null,
+};
+
+/**  A section with its descendants resolved. */
+export type ReportSectionTreeNode = {
+	/**  The section. */
+	section: ReportSection,
+	/**  Child sections, sorted. */
+	children: ReportSectionTreeNode[],
+};
+
+/**  A section's writing status, in workflow order. */
+export type ReportStatus = 
+/**  Not begun. */
+"not_started" | 
+/**  Being written. */
+"drafting" | 
+/**  Waiting for review. */
+"review" | 
+/**  Finished. */
+"done";
+
+/**  One reviewer's decision on one item at one stage. */
+export type ScreeningDecision = {
+	/**  Row id. */
+	id: string,
+	/**  The `reading_list_items` row: this paper, in this review. */
+	itemId: string,
+	/**  Who decided. */
+	reviewerId: string,
+	/**  Which pass. */
+	stage: ScreeningStage,
+	/**  What they decided. */
+	state: ScreeningState,
+	/**  Why. Expected for an exclusion at full text. */
+	reason?: string | null,
+	/**  ISO time of the decision. */
+	decidedAt: string,
+};
+
+/**
+ *  The decision a reviewer is about to record. Stage and state stay strings, because
+ *  [`decision_error`] is what rejects a state that is not one.
+ */
+export type ScreeningDecisionDraft = {
+	/**  The item being screened. */
+	itemId: string,
+	/**  Who is deciding. */
+	reviewerId: string,
+	/**  Which pass, as sent. */
+	stage: string,
+	/**  The decision, as sent. */
+	state: string,
+};
+
+/**  A list item as the PRISMA counts see it. */
+export type ScreeningItem = {
+	/**  The `reading_list_items` row id. */
+	id: string,
+	/**  Marked as a duplicate of another record in the same list. */
+	duplicateOfItemId?: string | null,
+};
+
+/**  The two passes of a screen. Full text is only reached by surviving the first. */
+export type ScreeningStage = 
+/**  Title and abstract. */
+"title_abstract" | 
+/**  Full text. */
+"full_text";
+
+/**  What one reviewer decided. `unsure` is an answer, not an absent one. */
+export type ScreeningState = 
+/**  Kept. */
+"included" | 
+/**  Dropped. */
+"excluded" | 
+/**  Could not tell; goes on to the full text. */
+"unsure";
 
 /**  Every entity kind the workspace index covers (TS `SEARCH_KINDS`). */
 export type SearchKind = 
@@ -1112,6 +1939,24 @@ export type VaultPageSide = {
 	fields: { [key in string]: unknown },
 	/**  Body text after the frontmatter. */
 	body: string,
+};
+
+/**  One `[[...]]` link read from a note body (`WikilinkRef`). */
+export type WikilinkRef = {
+	/**  Link target, trimmed. Empty for `[[|alias]]`. */
+	target: string,
+	/**  Text after `|`, when non-empty. */
+	alias?: string,
+	/**  Text after `#`, when it is a heading. */
+	heading?: string,
+	/**  Text after `#^`, when it is a block id. */
+	block?: string,
+	/**  The full matched text, e.g. `[[Note#Heading|alias]]`. */
+	raw: string,
+	/**  UTF-16 offset of `raw` in the body it was read from. Absent on refs built by hand. */
+	index?: number | null,
+	/**  UTF-16 length of `raw`. */
+	length?: number | null,
 };
 
 /**  Kinds of entity the folder holds. */
