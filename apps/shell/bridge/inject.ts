@@ -133,9 +133,32 @@ export function install(
   target.weaveforge = desktopBridge(deps.commands, { listen: deps.listen }, info);
 }
 
+type MenuEvent = {
+  defaultPrevented: boolean;
+  target: unknown;
+  preventDefault(): void;
+};
+
+/**
+ * Hides the webview's own right-click menu (Back, Refresh, Print), which
+ * does not match the app's theme. The page's own menus have already
+ * cancelled the event. Text fields and selected text keep the system menu
+ * so cut, copy and paste still work.
+ */
+export function hideSystemMenu(event: MenuEvent, selectedText: string): void {
+  if (event.defaultPrevented || selectedText.trim()) return;
+  const target = event.target as { closest?: (selector: string) => unknown } | null;
+  if (target?.closest?.("input, textarea, [contenteditable]:not([contenteditable='false'])")) return;
+  event.preventDefault();
+}
+
 const shellInfo = (globalThis as { __WEAVEFORGE_SHELL__?: ShellInfo })
   .__WEAVEFORGE_SHELL__;
 if (shellInfo) {
+  // Bubble phase, so the page's own menus see the event first.
+  globalThis.addEventListener("contextmenu", (event) =>
+    hideSystemMenu(event, globalThis.getSelection?.()?.toString() ?? ""),
+  );
   // Loaded on demand so importing this file in tests never loads the generated bindings.
   void import("./bindings").then(({ commands: generated }) =>
     install(globalThis as { weaveforge?: DesktopBridge }, shellInfo, {

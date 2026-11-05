@@ -735,8 +735,18 @@
     if (target.weaveforge) return;
     target.weaveforge = desktopBridge(deps.commands, { listen: deps.listen }, info);
   }
+  function hideSystemMenu(event, selectedText) {
+    if (event.defaultPrevented || selectedText.trim()) return;
+    const target = event.target;
+    if (target?.closest?.("input, textarea, [contenteditable]:not([contenteditable='false'])")) return;
+    event.preventDefault();
+  }
   var shellInfo = globalThis.__WEAVEFORGE_SHELL__;
   if (shellInfo) {
+    globalThis.addEventListener(
+      "contextmenu",
+      (event) => hideSystemMenu(event, globalThis.getSelection?.()?.toString() ?? "")
+    );
     void Promise.resolve().then(() => (init_bindings(), bindings_exports)).then(
       ({ commands: generated }) => install(globalThis, shellInfo, {
         commands: generated,
