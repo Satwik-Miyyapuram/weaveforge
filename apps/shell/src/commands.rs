@@ -371,7 +371,7 @@ fn ipc_reply(reply: Value) -> Result<Value, ShellError> {
     }
 }
 
-/// Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron.
+/// Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron.
 #[tauri::command]
 #[specta::specta]
 pub async fn local_api_call(
