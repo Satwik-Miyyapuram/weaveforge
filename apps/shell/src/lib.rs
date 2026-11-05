@@ -299,6 +299,65 @@ fn migration_blocker(old: &std::path::Path, data: &std::path::Path) -> Option<St
     }
 }
 
+/// The lock name the native database holds while this app has it open.
+const NATIVE_LOCK_APP: &str = "weaveforge-native-db";
+
+/// The native database's folder under the app data dir.
+fn native_root(data: &std::path::Path) -> PathBuf {
+    data.join("local-pg")
+}
+
+/// The native Postgres database, when `WEAVEFORGE_NATIVE_DB=1` asks for it. `Ok(None)` keeps PGlite in
+/// the sidecar. `Err` says why the asked-for database cannot run; the caller reports it rather than
+/// fall back to PGlite, whose data is a different database.
+fn native_db(
+    app: &tauri::AppHandle,
+    data: &std::path::Path,
+    resources: &std::path::Path,
+    source: &launch::SidecarSource,
+) -> Result<Option<commands::NativeDb>, String> {
+    if !launch::native_db_wanted(std::env::var("WEAVEFORGE_NATIVE_DB").ok().as_deref()) {
+        return Ok(None);
+    }
+    let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
+    let bin = local_pg::server::locate_bin(bin_override.as_deref(), Some(resources))
+        .map_err(|e| format!("the native database has no Postgres: {e}"))?;
+    let root = native_root(data);
+    db_lock::acquire(&root, NATIVE_LOCK_APP, std::time::SystemTime::now())
+        .map_err(|e| e.to_string())?;
+    let log = app.clone();
+    let host = local_pg::host::PgHost::new(
+        local_pg::host::PgEngine { bin, root },
+        launch::migration_dirs(source),
+    )
+    .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)));
+    Ok(Some(Arc::new(host)))
+}
+
+/// Gives `db` what it needs from the app: the vault root and warnings for restarts, the native
+/// database when there is one, and the host that answers the sidecar's asks.
+fn wire_local_db(
+    app: &tauri::AppHandle,
+    db: commands::LocalDb,
+    native: Option<commands::NativeDb>,
+    host: Option<Arc<dyn sidecar::SidecarHost>>,
+) -> commands::LocalDb {
+    let db = match vault_root_source(app) {
+        Some(source) => db.with_vault_root(source),
+        None => db,
+    };
+    let log = app.clone();
+    let db = db.with_warn(Arc::new(move |line: &str| local_api::warn(&log, line)));
+    let db = match native {
+        Some(native) => db.with_native(native),
+        None => db,
+    };
+    match host {
+        Some(h) => db.with_host(h),
+        None => db,
+    }
+}
+
 /// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.
 fn start_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
@@ -307,7 +366,7 @@ fn start_local_db(app: &tauri::AppHandle) {
         (Ok(data), Ok(resources)) => 'arm: {
             let data_dir = data.join("local-db");
             let backups_dir = data.join("local-db-backups");
-            let source = launch::sidecar_source(resources);
+            let source = launch::sidecar_source(resources.clone());
             let product = app.package_info().name.clone();
             let old = paths
                 .config_dir()
@@ -321,6 +380,19 @@ fn start_local_db(app: &tauri::AppHandle) {
                     data_dir.to_string_lossy().into_owned(),
                 );
             }
+            let native = match native_db(app, &data, &resources, &source) {
+                Ok(native) => native,
+                Err(reason) => {
+                    local_api::warn(app, &reason);
+                    break 'arm commands::LocalDb::new(
+                        Err(sidecar::SidecarError::Spawn(reason)),
+                        native_root(&data)
+                            .join("data")
+                            .to_string_lossy()
+                            .into_owned(),
+                    );
+                }
+            };
             let api = launch::ApiArgs {
                 artifacts: data.join("artifacts"),
                 app_version: app.package_info().version.to_string(),
@@ -347,16 +419,7 @@ fn start_local_db(app: &tauri::AppHandle) {
             });
             let db = commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
                 .restartable(config);
-            let db = match vault_root_source(app) {
-                Some(source) => db.with_vault_root(source),
-                None => db,
-            };
-            let log = app.clone();
-            let db = db.with_warn(Arc::new(move |line: &str| local_api::warn(&log, line)));
-            match host {
-                Some(h) => db.with_host(h),
-                None => db,
-            }
+            wire_local_db(app, db, native, host)
         }
         (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(
             Err(sidecar::SidecarError::Spawn(e.to_string())),
@@ -474,6 +537,10 @@ fn stop_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
         let _ = tauri::async_runtime::block_on(db.shutdown(launch::SHUTDOWN_GRACE));
+    }
+    // Drops only this process's lock, after Postgres stopped; a no-op when the native database was off.
+    if let Ok(data) = app.path().app_data_dir() {
+        db_lock::release(&native_root(&data));
     }
 }
 

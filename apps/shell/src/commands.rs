@@ -6,7 +6,11 @@ use std::time::Duration;
 
 use serde_json::Value;
 
+use crate::local_pg::host::{PgEngine, PgHost};
 use crate::sidecar::{AskLimits, Sidecar, SidecarConfig, SidecarError, SidecarHost};
+
+/// The native Postgres database, when it serves queries instead of the sidecar.
+pub type NativeDb = Arc<PgHost<PgEngine>>;
 
 /// The error every command returns. The bridge shim throws `new Error(message)`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -99,6 +103,8 @@ pub struct LocalDb {
     /// Set by `shutdown`: a restart that was waiting must not spawn a sidecar while the app quits.
     closed: AtomicBool,
     data_dir: String,
+    /// When set, `query`, `state` and `reset` go to the native database; the sidecar keeps the rest.
+    native: Option<NativeDb>,
 }
 
 impl LocalDb {
@@ -115,6 +121,7 @@ impl LocalDb {
             generation: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             data_dir,
+            native: None,
         }
     }
 
@@ -148,6 +155,13 @@ impl LocalDb {
         self
     }
 
+    /// Serves `query`, `state` and `reset` from the native database `native`.
+    #[must_use]
+    pub fn with_native(mut self, native: NativeDb) -> Self {
+        self.native = Some(native);
+        self
+    }
+
     /// Sends `vault.root` with the params `params` gives, read only once earlier sends are done.
     ///
     /// # Errors
@@ -167,6 +181,9 @@ impl LocalDb {
 
     /// Runs `sql` with `params` and returns the rows.
     pub async fn query(&self, sql: String, params: Vec<Value>) -> Result<Vec<Value>, ShellError> {
+        if let Some(native) = &self.native {
+            return native.query(&sql, &params).await.map_err(ShellError::from);
+        }
         let sidecar = self.sidecar.read().await;
         let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
         let reply = sidecar
@@ -183,6 +200,9 @@ impl LocalDb {
     /// reported in `failure`; a transient error (busy, timeout, too large, an error reply) is returned as `Err`
     /// so the caller retries instead of showing the reset screen.
     pub async fn state(&self) -> Result<DbState, ShellError> {
+        if let Some(native) = &self.native {
+            return Ok(native.state());
+        }
         let (state, restart) = self.read_state().await?;
         let Some(asked_by) = restart else {
             return Ok(state);
@@ -270,6 +290,9 @@ impl LocalDb {
     /// Resets the database. A reset that can only finish in a fresh process restarts the sidecar, which then
     /// applies it; the sidecar may be restarted by this call.
     pub async fn reset(&self) -> Result<(), ShellError> {
+        if let Some(native) = &self.native {
+            return native.reset().await.map_err(ShellError::from);
+        }
         let (reply, generation) = {
             let sidecar = self.sidecar.read().await;
             let generation = self.generation.load(Ordering::Acquire);
@@ -289,9 +312,13 @@ impl LocalDb {
         Ok(())
     }
 
-    /// Stops the sidecar, waiting up to `grace`. Returns whether it exited cleanly.
+    /// Stops the sidecar, waiting up to `grace`, and closes the native database. Returns whether the
+    /// sidecar exited cleanly.
     pub async fn shutdown(&self, grace: Duration) -> bool {
         self.closed.store(true, Ordering::Release);
+        if let Some(native) = &self.native {
+            native.close().await;
+        }
         let sidecar = self.sidecar.read().await;
         match &*sidecar {
             Ok(sidecar) => sidecar.shutdown(grace).await,
@@ -581,5 +608,38 @@ mod tests {
             db.call("ipc:weaveforge:local-api-state", Value::Null).await,
             Err(shell_error("local database failed to start: x"))
         );
+    }
+
+    #[tokio::test]
+    async fn native_db_serves_query_state_and_reset() {
+        let tmp = std::env::temp_dir().join(format!(
+            "wf-native-route-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ));
+        let engine = PgEngine {
+            bin: tmp.join("no-such-bin"),
+            root: tmp.join("pg"),
+        };
+        let native = Arc::new(PgHost::new(engine, Vec::new()));
+        // The sidecar failed, so anything it served would say "failed to start".
+        let db =
+            LocalDb::new(Err(SidecarError::Spawn("x".into())), "/d".to_owned()).with_native(native);
+        assert_eq!(db.state().await.map(|s| s.failure), Ok(None));
+        let error = db.query("select 1".to_owned(), Vec::new()).await;
+        assert!(
+            error.as_ref().is_err_and(|e| e
+                .message
+                .starts_with("The local database could not be opened.")),
+            "{error:?}"
+        );
+        let failure = db.state().await.map(|s| s.failure);
+        assert!(failure.as_ref().is_ok_and(Option::is_some), "{failure:?}");
+        assert_eq!(db.reset().await, Ok(()));
+        assert_eq!(db.state().await.map(|s| s.failure), Ok(None));
+        assert!(!db.shutdown(Duration::from_millis(10)).await);
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

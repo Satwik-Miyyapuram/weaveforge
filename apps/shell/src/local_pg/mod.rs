@@ -5,9 +5,11 @@
 //! - `wire`: a small client that asks for text results, so values match what PGlite returned.
 //! - `value`: turns Postgres text values into the JSON the app already reads, and JSON params into text.
 //! - `db`: the app's database rules: migrations, queries run as a user under RLS, the device user.
+//! - `host`: the database as the app sees it: lazy open, queries as the device user, state, reset.
 //! - `import`: a one-time copy of an old PGlite database into the new one.
 
 pub mod db;
+pub mod host;
 pub mod import;
 pub mod server;
 pub mod value;
