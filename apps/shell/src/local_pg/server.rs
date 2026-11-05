@@ -46,6 +46,9 @@ const READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long a stop waits for a clean exit before killing.
 const STOP_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// How long one backup dump may take.
+const DUMP_TIMEOUT: Duration = Duration::from_secs(600);
+
 /// Longest wait for one connection attempt during start.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -106,6 +109,25 @@ pub fn initdb_args(data: &Path, pwfile: &Path) -> Vec<OsString> {
         "UTF8".into(),
         "--no-locale".into(),
         "--no-instructions".into(),
+    ]
+}
+
+/// Arguments for `pg_dump`: the whole database on `port`, custom format, into `file`.
+#[must_use]
+pub fn dump_args(port: u16, file: &Path) -> Vec<OsString> {
+    vec![
+        "-h".into(),
+        "127.0.0.1".into(),
+        "-p".into(),
+        port.to_string().into(),
+        "-U".into(),
+        SUPERUSER.into(),
+        "-d".into(),
+        DATABASE.into(),
+        "--no-password".into(),
+        "-Fc".into(),
+        "-f".into(),
+        file.into(),
     ]
 }
 
@@ -238,6 +260,33 @@ impl PgServer {
     /// A new connection to this server as the superuser.
     pub async fn connect(&self) -> Result<super::wire::PgConn, PgError> {
         wire::connect("127.0.0.1", self.port, SUPERUSER, &self.password, DATABASE).await
+    }
+
+    /// Writes the whole database to `file` with `pg_dump`, in the custom format `pg_restore` reads.
+    ///
+    /// # Errors
+    /// `pg_dump` is missing, fails (with the tail of its stderr), or takes over `DUMP_TIMEOUT`.
+    pub async fn dump(&self, file: &Path) -> Result<(), PgError> {
+        let mut cmd = tokio::process::Command::new(self.bin.join(exe_name("pg_dump")));
+        let _ = cmd
+            .kill_on_drop(true)
+            .args(dump_args(self.port, file))
+            .env("PGPASSWORD", &self.password)
+            .stdin(Stdio::null());
+        #[cfg(windows)]
+        let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
+        let out = tokio::time::timeout(DUMP_TIMEOUT, cmd.output())
+            .await
+            .map_err(|_| PgError::local("pg_dump did not finish within 10 min"))?
+            .map_err(|e| PgError::local(format!("pg_dump did not run: {e}")))?;
+        if out.status.success() {
+            return Ok(());
+        }
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        Err(PgError::local(format!(
+            "pg_dump failed: {}",
+            tail(&stderr, 500)
+        )))
     }
 
     /// Stops the server with `pg_ctl`, killing it if it has not exited within `STOP_TIMEOUT`.
@@ -395,6 +444,50 @@ mod tests {
         assert!(
             args.windows(2)
                 .any(|w| matches!(w, [a, b] if a == "-U" && b == "wf"))
+        );
+    }
+
+    /// Real Postgres: set `WF_REAL_PG_BIN` to a folder with initdb, postgres and pg_dump.
+    #[tokio::test]
+    async fn real_dump_writes_a_custom_format_file() -> Result<(), PgError> {
+        let Some(bin) = std::env::var_os("WF_REAL_PG_BIN").map(PathBuf::from) else {
+            return Ok(());
+        };
+        let root = std::env::temp_dir().join(format!("wf-dump-test-{}", std::process::id()));
+        let server = PgServer::start(&bin, &root).await?;
+        let file = root.join("x.dump");
+        let dumped = server.dump(&file).await;
+        let stopped = server.stop().await;
+        let head = std::fs::read(&file).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&root);
+        dumped?;
+        stopped?;
+        assert!(head.starts_with(b"PGDMP"));
+        Ok(())
+    }
+
+    #[test]
+    fn dump_args_name_the_server_format_and_file() {
+        let args: Vec<String> = dump_args(5_432, Path::new("/b/x.dump"))
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                "-h",
+                "127.0.0.1",
+                "-p",
+                "5432",
+                "-U",
+                "wf",
+                "-d",
+                "postgres",
+                "--no-password",
+                "-Fc",
+                "-f",
+                "/b/x.dump"
+            ]
         );
     }
 

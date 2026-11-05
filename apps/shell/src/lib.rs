@@ -330,11 +330,36 @@ fn native_db(
         local_pg::host::PgEngine { bin, root },
         launch::migration_dirs(source),
     )
-    .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)));
+    .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
+    .with_backups(local_pg::backup::Backups::new(vec![
+        data.join("local-db-backups"),
+    ]));
     if data.join("local-db").join("PG_VERSION").is_file() {
         host = host.with_first_open(Arc::new(old_db_import(app, data)));
     }
-    Ok(Some(Arc::new(host)))
+    let host = Arc::new(host);
+    spawn_backups(app, &host);
+    Ok(Some(host))
+}
+
+/// How often the native database is backed up while it changes (the sidecar's `BACKUP_EVERY_MS`).
+const BACKUP_EVERY: std::time::Duration = std::time::Duration::from_secs(600);
+
+/// Backs up the native database every `BACKUP_EVERY` when it changed; quitting takes the last one.
+fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
+    let app = app.clone();
+    let host = Arc::downgrade(host);
+    let _task = tauri::async_runtime::spawn(async move {
+        let start = tokio::time::Instant::now() + BACKUP_EVERY;
+        let mut every = tokio::time::interval_at(start, BACKUP_EVERY);
+        loop {
+            let _ = every.tick().await;
+            let Some(host) = host.upgrade() else { return };
+            if let Err(e) = host.backup_if_changed(std::time::SystemTime::now()).await {
+                local_api::warn(&app, &format!("[local-db] backup failed: {}", e.message));
+            }
+        }
+    });
 }
 
 /// Copies the old PGlite database (still opened by the sidecar) into the native one on its first

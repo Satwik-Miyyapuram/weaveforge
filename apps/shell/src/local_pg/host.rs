@@ -8,11 +8,13 @@
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
+use super::backup::Backups;
 use super::server::PgServer;
 use super::wire::PgConn;
 use super::{Conn, PgError, db, value};
@@ -41,6 +43,13 @@ pub trait Engine: Send + Sync {
     /// # Errors
     /// The move's error.
     fn discard(&self) -> Result<(), PgError>;
+
+    /// Writes the whole open database to `file`, as a backup.
+    fn dump(
+        &self,
+        handle: &Self::Handle,
+        file: PathBuf,
+    ) -> impl Future<Output = Result<(), PgError>> + Send;
 
     /// Where the data lives, as `DbState.dataDir` reports it.
     fn data_dir(&self) -> String;
@@ -92,6 +101,10 @@ impl Engine for PgEngine {
             .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))
     }
 
+    async fn dump(&self, server: &PgServer, file: PathBuf) -> Result<(), PgError> {
+        server.dump(&file).await
+    }
+
     fn data_dir(&self) -> String {
         self.root.join("data").to_string_lossy().into_owned()
     }
@@ -135,6 +148,20 @@ pub struct PgHost<E: Engine> {
     failure: std::sync::Mutex<Option<String>>,
     log: Option<LogSink>,
     first_open: Option<Arc<dyn FirstOpen<E::Conn>>>,
+    backups: Option<Backups>,
+    /// Set by a statement that may have written; a backup is only worth taking after one.
+    changed: AtomicBool,
+}
+
+/// Whether a statement can change anything (the sidecar's `writes`).
+fn writes(sql: &str) -> bool {
+    let word: String = sql
+        .trim_start()
+        .chars()
+        .take_while(char::is_ascii_alphabetic)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    !matches!(word.as_str(), "select" | "with" | "show" | "explain")
 }
 
 /// Whether a param is a value the database takes: plain JSON or a tagged `$bigint` / `$bytes`.
@@ -171,7 +198,47 @@ impl<E: Engine> PgHost<E> {
             failure: std::sync::Mutex::new(None),
             log: None,
             first_open: None,
+            backups: None,
+            changed: AtomicBool::new(false),
         }
+    }
+
+    /// Keeps backups in `backups`: after writes (`backup_if_changed`) and on close.
+    #[must_use]
+    pub fn with_backups(mut self, backups: Backups) -> Self {
+        self.backups = Some(backups);
+        self
+    }
+
+    /// Backs up the open database if a statement may have written since the last backup. Never
+    /// opens: a database nobody used has nothing new. Holds the query lock while it dumps, as
+    /// PGlite's dump did. A failed backup leaves the flag set, so the next call tries again.
+    ///
+    /// # Errors
+    /// The dump's error, when no place got a backup.
+    pub async fn backup_if_changed(&self, now: SystemTime) -> Result<Vec<PathBuf>, PgError> {
+        let inner = self.inner.lock().await;
+        self.backup_locked(&inner, now).await
+    }
+
+    async fn backup_locked(
+        &self,
+        inner: &Inner<E>,
+        now: SystemTime,
+    ) -> Result<Vec<PathBuf>, PgError> {
+        let (Some(backups), Some(open)) = (&self.backups, &inner.open) else {
+            return Ok(Vec::new());
+        };
+        if !self.changed.swap(false, Ordering::AcqRel) {
+            return Ok(Vec::new());
+        }
+        let result = backups
+            .take(now, |file| self.engine.dump(&open.handle, file))
+            .await;
+        if result.is_err() {
+            self.changed.store(true, Ordering::Release);
+        }
+        result
     }
 
     /// Runs `job` on each open, after the migrations and before any query.
@@ -230,6 +297,8 @@ impl<E: Engine> PgHost<E> {
             return Ok(());
         };
         if let Some(line) = job.run(conn).await? {
+            // The job wrote (such as a copy of the old data): worth a backup.
+            self.changed.store(true, Ordering::Release);
             self.log_line(&line);
         }
         Ok(())
@@ -304,6 +373,9 @@ impl<E: Engine> PgHost<E> {
             }
             Err(err) => Err(err),
         };
+        if result.is_ok() && writes(sql) {
+            self.changed.store(true, Ordering::Release);
+        }
         // A broken connection (Postgres crashed, socket gone) is dropped, so the next query reopens.
         if result.as_ref().is_err_and(PgError::is_connection)
             && let Some(open) = inner.open.take()
@@ -345,9 +417,16 @@ impl<E: Engine> PgHost<E> {
         Ok(())
     }
 
-    /// Closes the database if it was opened; quitting never starts one, and no later call reopens it.
+    /// Closes the database if it was opened, backing it up first when it changed; quitting never
+    /// starts one, and no later call reopens it.
     pub async fn close(&self) {
         let mut inner = self.inner.lock().await;
+        if inner.closed {
+            return;
+        }
+        if let Err(e) = self.backup_locked(&inner, SystemTime::now()).await {
+            self.log_line(&format!("[local-db] backup on quit failed: {}", e.message));
+        }
         inner.closed = true;
         inner.user = None;
         if let Some(open) = inner.open.take() {
@@ -407,6 +486,8 @@ mod tests {
         closes: AtomicUsize,
         discards: AtomicUsize,
         fail_opens: AtomicUsize,
+        dumps: AtomicUsize,
+        fail_dumps: AtomicUsize,
     }
 
     impl Engine for Arc<FakeEngine> {
@@ -434,6 +515,15 @@ mod tests {
         fn discard(&self) -> Result<(), PgError> {
             let _ = self.discards.fetch_add(1, Ordering::SeqCst);
             Ok(())
+        }
+
+        async fn dump(&self, _handle: &(), file: PathBuf) -> Result<(), PgError> {
+            let _ = self.dumps.fetch_add(1, Ordering::SeqCst);
+            if self.fail_dumps.load(Ordering::SeqCst) > 0 {
+                let _ = self.fail_dumps.fetch_sub(1, Ordering::SeqCst);
+                return Err(PgError::local("pg_dump failed"));
+            }
+            std::fs::write(file, b"dump").map_err(|e| PgError::local(e.to_string()))
         }
 
         fn data_dir(&self) -> String {
@@ -611,6 +701,121 @@ mod tests {
         host.close().await;
         host.close().await;
         assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
+        Ok(())
+    }
+
+    fn backed_up(tag: &str) -> (Arc<FakeEngine>, PgHost<Arc<FakeEngine>>, PathBuf) {
+        let dir = std::env::temp_dir().join(format!(
+            "wf-host-backup-{tag}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ));
+        let (engine, host) = host();
+        let host = host.with_backups(Backups::new(vec![dir.clone()]));
+        (engine, host, dir)
+    }
+
+    #[test]
+    fn only_reads_are_not_writes() {
+        for sql in [
+            "select 1",
+            "  WITH x as (select 1) select * from x",
+            "show search_path",
+            "explain select 1",
+        ] {
+            assert!(!writes(sql), "{sql}");
+        }
+        for sql in [
+            "insert into t values (1)",
+            "update t set a = 1",
+            "set role x",
+            "selectx",
+            "",
+        ] {
+            assert!(writes(sql), "{sql}");
+        }
+    }
+
+    #[tokio::test]
+    async fn backs_up_only_after_a_write_and_never_opens() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("write");
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(1_000);
+        assert_eq!(
+            host.backup_if_changed(t).await.map_err(|e| e.message)?,
+            Vec::<PathBuf>::new()
+        );
+        assert_eq!(engine.opens.load(Ordering::SeqCst), 0);
+        let _ = host.query("select 1", &[]).await?;
+        assert!(
+            host.backup_if_changed(t)
+                .await
+                .map_err(|e| e.message)?
+                .is_empty()
+        );
+        let _ = host.query("insert into t values (1)", &[]).await?;
+        let written = host.backup_if_changed(t).await.map_err(|e| e.message)?;
+        assert_eq!(written.len(), 1);
+        assert!(
+            host.backup_if_changed(t)
+                .await
+                .map_err(|e| e.message)?
+                .is_empty()
+        );
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_copy_on_first_open_is_backed_up() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("copy");
+        let host =
+            host.with_first_open(Arc::new(FakeJob::default()) as Arc<dyn FirstOpen<FakeConn>>);
+        let _ = host.query("select 1", &[]).await?;
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(3_000);
+        assert_eq!(
+            host.backup_if_changed(t)
+                .await
+                .map_err(|e| e.message)?
+                .len(),
+            1
+        );
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn failed_backup_is_retried_next_time() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("retry");
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(2_000);
+        let _ = host.query("delete from t", &[]).await?;
+        engine.fail_dumps.store(1, Ordering::SeqCst);
+        assert!(host.backup_if_changed(t).await.is_err());
+        assert_eq!(
+            host.backup_if_changed(t)
+                .await
+                .map_err(|e| e.message)?
+                .len(),
+            1
+        );
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn close_backs_up_a_changed_database_first() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("close");
+        let _ = host.query("update t set a = 1", &[]).await?;
+        host.close().await;
+        host.close().await;
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 1);
+        assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
+        assert_eq!(super::super::backup::list(&dir).len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
         Ok(())
     }
 
