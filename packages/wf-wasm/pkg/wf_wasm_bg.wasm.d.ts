@@ -221,6 +221,7 @@ export const pdfPointToScreen: (a: number, b: number, c: any) => [number, number
 export const pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
 export const personalizedPageRank: (a: any, b: number, c: number, d: any, e: any) => [number, number, number];
 export const pickNearestMatch: (a: any, b: any) => [number, number, number];
+export const planBibImport: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number];
 export const planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
 export const pointInPolygon: (a: number, b: number, c: number, d: number) => number;
 export const prismaCaveat: (a: any) => [number, number, number, number];

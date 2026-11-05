@@ -228,6 +228,7 @@ export * from "./reader-analysis-bibliography.js";
 export * from "./reader-analysis-citations.js";
 export * from "./reader-analysis-document.js";
 export * from "./reader-analysis-outline.js";
+export * from "./papers-bib-import.js";
 export * from "./papers-paper-title.js";
 export * from "./papers-records.js";
 export * from "./report-bib-entries.js";

@@ -23,6 +23,7 @@ mod log_entry;
 mod merge;
 mod milestone;
 mod paper_relation;
+mod papers_bib_import;
 mod papers_paper_title;
 mod papers_records;
 mod paste;

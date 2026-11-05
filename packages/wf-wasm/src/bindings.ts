@@ -639,6 +639,52 @@ export type BibFindingKind =
 /**  A problem found while reading a `.bib`. */
 "parse-warning";
 
+/**  One paper ready to save, read from one `.bib` entry. */
+export type BibImportPaper = {
+	/**  Plain-text title. */
+	title: string,
+	/**  Authors as "First Last", in order. `and others` is dropped. */
+	authors: string[],
+	/**  Publication year, from `year` or the start of `date`. */
+	year: number | null,
+	/**  Journal, proceedings or publisher. */
+	venue: string | null,
+	/**  Normalized DOI (lower-case, no URL prefix). */
+	doi: string | null,
+	/**  arXiv id from `eprint` when the entry says it is an arXiv eprint. */
+	arxivId: string | null,
+	/**  Link from `url`. */
+	url: string | null,
+	/**  Citation key as written in the file. */
+	citationKey: string,
+	/**  1-based line of the entry's `@`. */
+	line: number,
+	/**  Plain-text abstract. */
+	abstract: string | null,
+	/**  The entry rewritten as BibTeX, kept so exports reuse it. */
+	bibtex: string,
+};
+
+/**  What importing a `.bib` would do. */
+export type BibImportPlan = {
+	/**  New papers, in file order. */
+	papers: BibImportPaper[],
+	/**  Duplicates left out. */
+	skipped: BibImportSkip[],
+	/**  Broken entries and other problems, in the order found. */
+	problems: BibWarning[],
+};
+
+/**  An entry left out because the library (or an earlier entry in the file) already has it. */
+export type BibImportSkip = {
+	/**  Citation key of the skipped entry. */
+	key: string,
+	/**  1-based line of its `@`. */
+	line: number,
+	/**  Why it was skipped, for the person importing. */
+	reason: string,
+};
+
 /**  Entries and warnings read from a set of files. */
 export type BibParseResult = {
 	/**  Every reference entry, in file then source order. */

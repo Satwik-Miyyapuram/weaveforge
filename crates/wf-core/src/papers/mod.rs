@@ -1,6 +1,7 @@
 //! Paper imports: reading a paper's details from a page and parsing DOIs and arXiv ids.
 
 pub mod annotation_quotation_type;
+pub mod bib_import;
 pub(crate) mod js_regex;
 pub mod page_metadata;
 pub mod paper;
