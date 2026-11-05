@@ -1,11 +1,9 @@
 import {
-  bodyLinksTo,
-  extractHashtags,
-  normalizeTitleKey,
   type VaultPage,
   type VaultPageSummary,
 } from "@weaveforge/core";
 import { noteBodyText } from "@/lib/page-text";
+import { readyCore } from "@/lib/rust-core";
 
 /** What the notes screen derives from its list, kept out of the component. */
 type Note = VaultPageSummary | VaultPage;
@@ -18,16 +16,16 @@ export function noteBacklinks(
   if (!selectedId) return [];
   const target = notes.find((p) => p.id === selectedId);
   if (!target) return [];
-  const key = normalizeTitleKey(target.title);
+  const key = readyCore().normalizeTitleKey(target.title);
   return notes
-    .filter((p) => p.id !== target.id && bodyLinksTo(noteBodyText(p), key))
+    .filter((p) => p.id !== target.id && readyCore().bodyLinksTo(noteBodyText(p), key))
     .map((p) => ({ id: p.id, title: p.title }));
 }
 
 /** Every hashtag used across the notes, distinct and sorted. */
 export function noteTags(notes: readonly Note[]): string[] {
   const set = new Set<string>();
-  for (const p of notes) for (const t of extractHashtags(noteBodyText(p))) set.add(t);
+  for (const p of notes) for (const t of readyCore().extractHashtags(noteBodyText(p))) set.add(t);
   return [...set].sort();
 }
 
@@ -45,7 +43,7 @@ export function scopeNotes<N extends Note>(
 ): N[] {
   const { listFilter, tagFilter, membership } = filter;
   const inAnyList = (id: string) => listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
-  const hasAnyTag = (p: N) => tagFilter.some((t) => extractHashtags(noteBodyText(p)).includes(t));
+  const hasAnyTag = (p: N) => tagFilter.some((t) => readyCore().extractHashtags(noteBodyText(p)).includes(t));
   return notes.filter(
     (p) => (listFilter.length === 0 || inAnyList(p.id)) && (tagFilter.length === 0 || hasAnyTag(p)),
   );

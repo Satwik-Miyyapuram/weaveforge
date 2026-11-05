@@ -2,7 +2,6 @@
 
 import { useState, type SyntheticEvent } from "react";
 import {
-  MILESTONE_STATUSES,
   type Experiment,
   type Milestone,
   type MilestoneStatus,
@@ -22,6 +21,7 @@ import { statusLabel } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";
 import { Chip } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 /** Chip clicks stay on the chip: the card under them opens on click. */
 const stop = (e: SyntheticEvent) => e.stopPropagation();
@@ -159,7 +159,7 @@ export function MilestoneCard({
                   {
                     id: "status",
                     label: "Status",
-                    submenu: MILESTONE_STATUSES.map((st) => ({
+                    submenu: readyCore().MILESTONE_STATUSES.map((st) => ({
                       id: `status-${st}`,
                       label: statusLabel(st),
                       kind: "check",

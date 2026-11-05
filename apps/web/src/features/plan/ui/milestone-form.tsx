@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { DatePicker } from "@/components/date-picker";
 import {
-  DEPENDENCY_KINDS,
-  MILESTONE_STATUSES,
   type ComputeNeed,
   type DependencyKind,
   type Experiment,
@@ -20,6 +18,7 @@ import { formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
 import { statusLabel } from "@/components/status-select";
 import { Button } from "@/components/button";
+import { readyCore } from "@/lib/rust-core";
 
 export interface DepDraft {
   kind: DependencyKind;
@@ -193,7 +192,7 @@ export function MilestoneForm({
             value={status}
             onChange={(e) => setStatus(e.target.value as MilestoneStatus)}
           >
-            {MILESTONE_STATUSES.map((s) => (
+            {readyCore().MILESTONE_STATUSES.map((s) => (
               <option key={s} value={s}>{statusLabel(s)}</option>
             ))}
           </Select>
@@ -209,7 +208,7 @@ export function MilestoneForm({
               onChange={(e) => patchDep(i, { kind: e.target.value as DependencyKind, refId: "" })}
               aria-label="Dependency kind"
             >
-              {DEPENDENCY_KINDS.map((k) => (
+              {readyCore().DEPENDENCY_KINDS.map((k) => (
                 <option key={k} value={k}>{k}</option>
               ))}
             </Select>

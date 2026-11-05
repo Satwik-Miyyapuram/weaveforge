@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  experimentActivityAt,
   type Experiment,
   type MetricPoint,
 } from "@weaveforge/core";
@@ -16,6 +15,7 @@ import { usePolledLoad } from "./use-polled-load";
 import {
   ExperimentTitleLink,
 } from "./experiment-panels";
+import { readyCore } from "@/lib/rust-core";
 
 const PALETTE = [
   "#3e5a78", "#c2410c", "#0f766e", "#7c3aed",
@@ -125,7 +125,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
 function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
   /** Oldest first so uPlot draws newer runs on top of older ones. */
   const ordered = useMemo(
-    () => [...experiments].sort((a, b) => experimentActivityAt(a) - experimentActivityAt(b)),
+    () => [...experiments].sort((a, b) => readyCore().experimentActivityAt(a) - readyCore().experimentActivityAt(b)),
     [experiments],
   );
   const ids = ordered.map((e) => e.id).join(",");
@@ -155,7 +155,7 @@ function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
           id: e.id,
           label: e.name,
           color: PALETTE[i % PALETTE.length] ?? "#3e5a78",
-          zOrder: experimentActivityAt(e),
+          zOrder: readyCore().experimentActivityAt(e),
           points: (hist[e.id] ?? []).filter((p) => p.metric === m),
         }))
         .filter((s) => s.points.length > 0),

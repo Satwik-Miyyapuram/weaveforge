@@ -3,10 +3,7 @@
  * keys the body actually cites, and one `references.bib` entry per paper.
  */
 import type { Paper } from "@weaveforge/core";
-import {
-  normalizeTitleKey,
-  uniqueCiteKey,
-} from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** Build title→cite-key map used by markdown→LaTeX wikilink conversion. */
 export function buildCiteByTitle(
@@ -16,9 +13,9 @@ export function buildCiteByTitle(
   const citeByTitle = new Map<string, string>();
   const keyByPaperId = new Map<string, string>();
   for (const p of papers) {
-    const key = uniqueCiteKey(p, used);
+    const key = readyCore().uniqueCiteKey(p, used);
     keyByPaperId.set(p.id, key);
-    const titleKey = normalizeTitleKey(p.title);
+    const titleKey = readyCore().normalizeTitleKey(p.title);
     if (titleKey && !citeByTitle.has(titleKey)) citeByTitle.set(titleKey, key);
   }
   return { citeByTitle, keyByPaperId };

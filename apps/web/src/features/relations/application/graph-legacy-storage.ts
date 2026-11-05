@@ -1,7 +1,8 @@
 import type { GraphPersistedState } from "@weaveforge/core";
-import { DEFAULT_GRAPH_PERSISTED_STATE, parseGraphPersistedState } from "@weaveforge/core";
+import { DEFAULT_GRAPH_PERSISTED_STATE } from "@weaveforge/core";
 
 import { readStored, readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
+import { typedCore } from "@/lib/rust-core";
 
 const LEGACY_KEYS = {
   lists: "thesis.graph.lists",
@@ -20,7 +21,7 @@ export function readLegacyGraphPersistedState(): GraphPersistedState | null {
   const hasLegacy = Object.values(LEGACY_KEYS).some((key) => readStored(key) != null);
   if (!hasLegacy) return null;
 
-  const parsed = parseGraphPersistedState({
+  const parsed = typedCore().parseGraphPersistedState({
     settings: readJson(LEGACY_KEYS.settings),
     selectedLists: readJson(LEGACY_KEYS.lists),
     selectedTags: readJson(LEGACY_KEYS.tags),
@@ -39,7 +40,7 @@ function graphStateCacheKey(projectId: string): string {
 }
 
 export function readGraphStateCache(projectId: string): GraphPersistedState | null {
-  return parseGraphPersistedState(readJson(graphStateCacheKey(projectId)));
+  return typedCore().parseGraphPersistedState(readJson(graphStateCacheKey(projectId)));
 }
 
 export function writeGraphStateCache(projectId: string, state: GraphPersistedState): void {

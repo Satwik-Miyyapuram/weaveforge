@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { checkBibliography, parseBibEntries, type BibFinding } from "@weaveforge/core";
+import { type BibFinding } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { DesktopTexCompileResult, DesktopTexError } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 type SourceFile = { path: string; content: string };
 
@@ -22,7 +23,7 @@ type SourceFile = { path: string; content: string };
  */
 export function ProjectChecks({ files, entryFile }: { files: readonly SourceFile[]; entryFile: string }) {
   const report = useMemo(
-    () => checkBibliography({ sources: files, bibliography: parseBibEntries(files) }),
+    () => typedCore().checkBibliography({ sources: files, bibliography: typedCore().parseBibEntries(files) }),
     [files],
   );
 

@@ -12,10 +12,6 @@ import type {
 } from "@weaveforge/core";
 import {
   SCREENING_STAGES,
-  agreementBetween,
-  prismaCaveat,
-  prismaFigureTex,
-  verdictFor,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
@@ -23,6 +19,7 @@ import { latestGate } from "@/lib/latest-gate";
 import { collectListIds } from "./list-ui";
 import { Button } from "@/components/button";
 import { ToggleButton } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
   title_abstract: "Title & abstract",
@@ -137,7 +134,7 @@ export function ScreeningPanel({
 
   const copyFigure = async () => {
     if (!summary) return;
-    const tex = prismaFigureTex(summary.counts, {
+    const tex = readyCore().prismaFigureTex(summary.counts, {
       label: "fig:prisma",
       caption: `Screening of ${node.list.name}.`,
       reasons: summary.reasons,
@@ -153,7 +150,7 @@ export function ScreeningPanel({
   const decisionsFor = (itemId: string) =>
     (summary?.decisions ?? []).filter((d) => d.itemId === itemId && d.stage === stage);
 
-  const caveat = summary ? prismaCaveat(summary.counts) : null;
+  const caveat = summary ? readyCore().prismaCaveat(summary.counts) : null;
 
   // Computed here rather than asked for: the decisions are already loaded, and
   // a second read of the same rows to answer a question about them would be a
@@ -162,7 +159,7 @@ export function ScreeningPanel({
     const pair = (summary?.reviewers ?? []).slice(0, 2);
     const [first, second] = pair;
     if (!first || !second || !summary) return null;
-    return agreementBetween(summary.decisions, [first, second], stage);
+    return readyCore().agreementBetween(summary.decisions, [first, second], stage);
   }, [summary, stage]);
 
   return (
@@ -188,7 +185,7 @@ export function ScreeningPanel({
       ) : (
         <ul className="screening-rows">
           {items.map((item) => {
-            const verdict = summary ? verdictFor(summary.decisions, item.id, stage) : null;
+            const verdict = summary ? readyCore().verdictFor(summary.decisions, item.id, stage) : null;
             const mine = decisionsFor(item.id).find((d) => d.reviewerId === me);
             const others = decisionsFor(item.id).filter((d) => d.reviewerId !== me);
             return (

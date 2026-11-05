@@ -3,10 +3,7 @@
 import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/embedding-models";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  MAX_FIELD_WEIGHT,
-  MIN_FIELD_WEIGHT,
   SEARCH_KINDS,
-  effectiveFieldBoosts,
   type SearchField,
   type SearchKind,
   type SearchSettings,
@@ -26,6 +23,7 @@ import {
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
 import { LibraryPdfIndexing, IndexSize } from "./library-pdf-indexing";
+import { typedCore } from "@/lib/rust-core";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -56,7 +54,7 @@ export function SearchSettingsPanel({
   value: SearchSettings | undefined;
   onChange: (next: SearchSettings) => void;
 }) {
-  const boosts = effectiveFieldBoosts(value);
+  const boosts = typedCore().effectiveFieldBoosts(value);
 
   const setWeight = (field: SearchField, weight: number) => {
     onChange({ ...value, weights: { ...(value?.weights ?? {}), [field]: weight } });
@@ -83,8 +81,8 @@ export function SearchSettingsPanel({
             <input
               id={`search-weight-${field}`}
               type="range"
-              min={MIN_FIELD_WEIGHT}
-              max={MAX_FIELD_WEIGHT}
+              min={typedCore().MIN_FIELD_WEIGHT}
+              max={typedCore().MAX_FIELD_WEIGHT}
               step={1}
               value={boosts[field]}
               onChange={(e) => setWeight(field, Number(e.target.value))}

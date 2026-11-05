@@ -4,13 +4,13 @@
  * without destroying researcher edits.
  */
 
-import { resolveCiteKey, type Paper } from "@weaveforge/core";
-import { isEmptyPaperSummary } from "@weaveforge/core";
+import { type Paper } from "@weaveforge/core";
 import { applyTemplate } from "@/features/vault/application/note-template-engine";
 import {
   DEFAULT_SOURCE_NOTE_TEMPLATE,
   sourceNoteTemplateContext,
 } from "@/features/vault/application/default-source-note-template";
+import { readyCore } from "@/lib/rust-core";
 
 export function paperSourceNoteScaffold(input: {
   title: string;
@@ -47,14 +47,14 @@ export async function scaffoldNewPaperNote(
   paper: Paper,
   papers: { setSummary(id: string, summary: string): Promise<Paper> },
 ): Promise<Paper> {
-  if (!isEmptyPaperSummary(paper.summary)) return paper;
+  if (!readyCore().isEmptyPaperSummary(paper.summary)) return paper;
   const scaffold = paperSourceNoteScaffold({
     title: paper.title,
     authors: paper.authors,
     year: paper.year,
     venue: paper.venue,
     doi: paper.doi,
-    citeKey: resolveCiteKey(paper),
+    citeKey: readyCore().resolveCiteKey(paper),
   });
   return papers.setSummary(paper.id, scaffold);
 }

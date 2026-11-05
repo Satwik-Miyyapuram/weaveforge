@@ -2,7 +2,7 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PAPER_STATUSES, isEmptyPaperSummary, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { removePaper } from "./remove-paper";
 import { describeRejection, formatError } from "@/lib/format-error";
@@ -132,7 +132,7 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const hasSummary = !isEmptyPaperSummary(paper.summary);
+  const hasSummary = !readyCore().isEmptyPaperSummary(paper.summary);
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
@@ -368,7 +368,7 @@ export function PaperNote({
       </nav>
 
       <header className="record-head">
-        <h1 className="record-title">{titleFromFileName(paper.title)}</h1>
+        <h1 className="record-title">{readyCore().titleFromFileName(paper.title)}</h1>
         {paper.authors.length > 0 && (
           <p className="record-by">
             {paper.authors.slice(0, 6).join(", ")}

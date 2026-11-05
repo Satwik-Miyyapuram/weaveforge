@@ -1,6 +1,7 @@
 import { unzipSync } from "fflate";
-import { mapLimit, normalizeTitleKey, stripFrontmatter, stripKindSuffix, uniqueTitle } from "@weaveforge/core";
+import { mapLimit, stripKindSuffix } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readyCore } from "@/lib/rust-core";
 
 export interface ImportResult {
   created: number;
@@ -65,7 +66,7 @@ function rewriteWikilinks(body: string, renames: Map<string, string>): string {
     const hash = link.indexOf("#");
     const target = (hash === -1 ? link : link.slice(0, hash)).trim();
     const rest = hash === -1 ? "" : link.slice(hash);
-    const next = renames.get(normalizeTitleKey(target));
+    const next = renames.get(readyCore().normalizeTitleKey(target));
     if (!next) return raw;
     return `[[${next}${rest}${alias}]]`;
   });
@@ -94,7 +95,7 @@ export async function importNotesFromFiles(
   const skipped = expanded.length - mdFiles.length;
 
   // Seed the used-title set with existing project notes so imports don't clash.
-  const used = new Set<string>((await vault.pageTitles()).map(normalizeTitleKey));
+  const used = new Set<string>((await vault.pageTitles()).map(readyCore().normalizeTitleKey));
   const renamed: { from: string; to: string }[] = [];
   /** normalizeTitleKey(old) → new title (for wikilink rewrite). */
   const renameMap = new Map<string, string>();
@@ -112,10 +113,10 @@ export async function importNotesFromFiles(
     const segs = key.split("/");
     const base = segs[segs.length - 1]!;
     const parentKey = segs.slice(0, -1).join("/");
-    const title = uniqueTitle(base, used);
+    const title = readyCore().uniqueTitle(base, used);
     if (title !== base) {
       renamed.push({ from: base, to: title });
-      renameMap.set(normalizeTitleKey(base), title);
+      renameMap.set(readyCore().normalizeTitleKey(base), title);
     }
     const page = await vault.manageVaultPage.add({
       title,
@@ -130,10 +131,10 @@ export async function importNotesFromFiles(
   for (const f of mdFiles) {
     const raw = await f.text();
     const base = stripKindSuffix(f.name);
-    const title = uniqueTitle(base, used);
+    const title = readyCore().uniqueTitle(base, used);
     if (title !== base) {
       renamed.push({ from: base, to: title });
-      renameMap.set(normalizeTitleKey(base), title);
+      renameMap.set(readyCore().normalizeTitleKey(base), title);
     }
     planned.push({
       file: f,
@@ -147,7 +148,7 @@ export async function importNotesFromFiles(
   // only point at folders, so they can go in parallel (34-24).
   let created = 0;
   await mapLimit(planned, NOTE_ADD_CONCURRENCY, async (item) => {
-    const { body, tags } = stripFrontmatter(item.raw);
+    const { body, tags } = readyCore().stripFrontmatter(item.raw);
     const withTags = tags.length ? `${body.trimEnd()}\n\n${tags.map((t) => `#${t}`).join(" ")}\n` : body;
     const rewritten = rewriteWikilinks(withTags, renameMap);
     await vault.manageVaultPage.add({

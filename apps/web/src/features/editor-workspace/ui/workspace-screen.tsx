@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extractHashtags, normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -361,7 +360,7 @@ export function WorkspaceScreen() {
   const tags = useMemo(() => {
     const all = new Set<string>();
     for (const doc of documents ?? []) {
-      for (const tag of extractHashtags(doc.body)) all.add(tag);
+      for (const tag of readyCore().extractHashtags(doc.body)) all.add(tag);
       for (const tag of doc.tags ?? []) all.add(tag);
     }
     return [...all].sort();
@@ -387,9 +386,9 @@ export function WorkspaceScreen() {
       input: { title: string; parentId?: string; ink?: boolean; folder?: boolean },
       opts: { open?: boolean } = {},
     ) => {
-      const wanted = normalizeTitleKey(input.title);
+      const wanted = readyCore().normalizeTitleKey(input.title);
       const existing = (documents ?? []).find(
-        (doc) => isCreatableKind(doc.kind) && normalizeTitleKey(doc.title) === wanted,
+        (doc) => isCreatableKind(doc.kind) && readyCore().normalizeTitleKey(doc.title) === wanted,
       );
       // An ink note is born with its header and no text layer; the host writes
       // the first page's chunk when there is a first stroke.

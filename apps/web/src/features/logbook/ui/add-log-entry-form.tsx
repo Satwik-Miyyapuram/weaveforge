@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSubmit } from "@/lib/hooks/use-submit";
-import { LOG_KINDS, type LogKind } from "@weaveforge/core";
+import { type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
@@ -10,6 +10,7 @@ import { bestEffort } from "../application/log-side-effects";
 import { Button } from "@/components/button";
 import { MarkdownField } from "@/components/markdown-field";
 import { logImageUpload } from "./log-image-upload";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -53,7 +54,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
           value={kind}
           onChange={(e) => setKind(e.target.value as LogKind)}
         >
-          {LOG_KINDS.map((k) => (
+          {readyCore().LOG_KINDS.map((k) => (
             <option key={k} value={k}>
               {k.charAt(0).toUpperCase() + k.slice(1)}
             </option>

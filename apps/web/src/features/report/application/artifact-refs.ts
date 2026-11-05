@@ -10,10 +10,9 @@
  */
 
 import {
-  isStaleRunningExperiment,
   type Experiment,
-  STALE_RUNNING_MS,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 const EXPERIMENT_ARTIFACT_PREFIX = "expartifact:";
 
@@ -178,10 +177,10 @@ export function resolveArtifactRef(
     return { status: "artifact_not_found", experiment, ref };
   }
 
-  const stale = isStaleRunningExperiment(
+  const stale = readyCore().isStaleRunningExperiment(
     experiment,
     lookup.nowMs ?? Date.now(),
-    lookup.staleMs ?? STALE_RUNNING_MS,
+    lookup.staleMs ?? readyCore().STALE_RUNNING_MS,
     lookup.lastMetricAtMs?.(ref.experimentId),
   );
   if (stale) {

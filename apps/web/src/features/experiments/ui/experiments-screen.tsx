@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   EXPERIMENT_STATUSES,
-  isStaleRunningExperiment,
   type Experiment,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -38,6 +37,7 @@ import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
 import { showToast } from "@/lib/toast";
 import { experimentHref } from "../application/experiment-href";
+import { readyCore } from "@/lib/rust-core";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -109,7 +109,7 @@ export function ExperimentsScreen() {
   // every tick asked the loader to re-fetch a cached payload — see the wording
   // on the live badge, which has to match what this actually does.
   const hasLiveRunning = useMemo(
-    () => items.some((e) => e.status === "running" && !isStaleRunningExperiment(e)),
+    () => items.some((e) => e.status === "running" && !readyCore().isStaleRunningExperiment(e)),
     [items],
   );
   useEffect(() => {

@@ -4,11 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
-import {
-  applyUserIntegrationFields,
-  getUserIntegrationField,
-  isUserIntegrationConnected,
-} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
@@ -43,6 +38,7 @@ import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { RowButton, TabButton } from "@/components/controls";
+import { typedCore } from "@/lib/rust-core";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
@@ -244,7 +240,7 @@ export function SettingsScreen() {
     }
     const entries = activeProvider.fields.map(
       (field) =>
-        [field.id, getUserIntegrationField(settings, bibliographyProviderId, field.id) ?? ""] as const,
+        [field.id, typedCore().getUserIntegrationField(settings, bibliographyProviderId, field.id) ?? ""] as const,
     );
     if (entries.some(([, value]) => value.trim() === "")) return null;
     return Object.fromEntries(entries);
@@ -298,7 +294,7 @@ export function SettingsScreen() {
   }
 
   function patchProviderField(providerId: string, fieldId: string, value: string) {
-    setSettings((s) => applyUserIntegrationFields(s, providerId, { [fieldId]: value }));
+    setSettings((s) => typedCore().applyUserIntegrationFields(s, providerId, { [fieldId]: value }));
   }
 
   const showBibliographyCollection =
@@ -477,7 +473,7 @@ export function SettingsScreen() {
               ) : null}
               <div className="integration-list">
                 {userIntegrations.map((d) => {
-                  const connected = isUserIntegrationConnected(
+                  const connected = typedCore().isUserIntegrationConnected(
                     settings,
                     d.providerId,
                     d.fields.map((f) => f.id),
@@ -514,7 +510,7 @@ export function SettingsScreen() {
                 <input
                   id={`${activeProvider.providerId}-${field.id}`}
                   type={field.type}
-                  value={getUserIntegrationField(settings, activeProvider.providerId, field.id) ?? ""}
+                  value={typedCore().getUserIntegrationField(settings, activeProvider.providerId, field.id) ?? ""}
                   onChange={(e) => patchProviderField(activeProvider.providerId, field.id, e.target.value)}
                   placeholder={field.placeholder}
                   autoComplete="off"

@@ -1,4 +1,4 @@
-import { extractWikilinks, normalizeTitleKey } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** Pandoc-style keys: `[@smith2020]`, `[@a; @b]`, or a bare `@smith2020` after a space. */
 const CITE_KEY = /(?:^|[\s[;])@([A-Za-z][\w:.-]*\w)/g;
@@ -10,7 +10,7 @@ const CITE_KEY = /(?:^|[\s[;])@([A-Za-z][\w:.-]*\w)/g;
 export function countSectionSources(body?: string): number {
   if (!body) return 0;
   const seen = new Set<string>();
-  for (const ref of extractWikilinks(body)) seen.add(`w:${normalizeTitleKey(ref.target)}`);
+  for (const ref of readyCore().extractWikilinks(body)) seen.add(`w:${readyCore().normalizeTitleKey(ref.target)}`);
   for (const m of body.matchAll(CITE_KEY)) seen.add(`k:${m[1]!.toLowerCase()}`);
   return seen.size;
 }

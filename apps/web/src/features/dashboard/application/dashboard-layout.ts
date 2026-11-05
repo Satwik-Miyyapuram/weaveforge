@@ -7,7 +7,6 @@ import type {
   DashboardLayout,
   DashboardLayoutItem,
 } from "@weaveforge/core";
-import { parseDashboardLayout as parseDashboardLayoutCore } from "@weaveforge/core";
 
 import { removeStored } from "@/lib/safe-storage";
 
@@ -19,6 +18,7 @@ import {
   normalizeSmLayout,
   packSmLayout,
 } from "./dashboard-layout-packing";
+import { typedCore } from "@/lib/rust-core";
 
 export {
   closeLayoutGaps,
@@ -244,6 +244,6 @@ export function finalizeDashboardLayout(layout: DashboardLayout): DashboardLayou
 
 /** Parse layout JSON and apply compaction defaults for the active breakpoints. */
 export function parseDashboardLayout(raw: unknown): DashboardLayout | null {
-  const parsed = parseDashboardLayoutCore(raw);
+  const parsed = typedCore().parseDashboardLayout(raw);
   return parsed ? finalizeDashboardLayout(parsed) : null;
 }

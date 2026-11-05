@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
 import { CardMenu } from "@/components/card-menu";
 import { axisSpec, plotHeight, plotTier } from "./plot-size";
@@ -19,6 +18,7 @@ import {
   type Prefs,
 } from "./metric-chart-data";
 import { Chip } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 export type { MetricSeries };
 
@@ -267,16 +267,16 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       meta={
         <span className="metric-chart-stats" ref={statsRef}>
           <span>
-            last <b>{formatMetricValue(metric, stats.last)}</b>
+            last <b>{readyCore().formatMetricValue(metric, stats.last)}</b>
           </span>
           {fit.stats >= 2 && (
             <span className="metric-chart-range">
-              min <b>{formatMetricValue(metric, stats.min)}</b>
+              min <b>{readyCore().formatMetricValue(metric, stats.min)}</b>
             </span>
           )}
           {fit.stats >= 3 && (
             <span className="metric-chart-range">
-              max <b>{formatMetricValue(metric, stats.max)}</b>
+              max <b>{readyCore().formatMetricValue(metric, stats.max)}</b>
             </span>
           )}
         </span>
@@ -307,7 +307,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
               <div key={row.label} className="metric-chart-tip-row">
                 <span className="metric-chart-swatch" style={{ background: row.color }} />
                 <span>{row.label}</span>
-                <b>{formatMetricValue(metric, row.value)}</b>
+                <b>{readyCore().formatMetricValue(metric, row.value)}</b>
               </div>
             ))}
           </div>

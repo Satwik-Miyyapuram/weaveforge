@@ -20,13 +20,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { VAULT_IMAGE_PREFIX } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "@/features/papers/lib/paper-images-md";
 import { fetchPaperImageBlob, fetchPaperImageBlobs } from "@/features/papers/lib/image-variants";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
 import type { InkHostDeps } from "./ink-host-types";
+import { readyCore } from "@/lib/rust-core";
 
 /** Every `vault:` path the text references. Kept local: core owns the writer. */
 function vaultImagePaths(text: string): string[] {
@@ -39,7 +39,7 @@ function vaultImagePaths(text: string): string[] {
 
 /** `vault:<path>` from a src the renderer captured, or null for another prefix. */
 function vaultPathOf(src: string): string | null {
-  return src.startsWith(VAULT_IMAGE_PREFIX) ? src.slice(VAULT_IMAGE_PREFIX.length) : null;
+  return src.startsWith(readyCore().VAULT_IMAGE_PREFIX) ? src.slice(readyCore().VAULT_IMAGE_PREFIX.length) : null;
 }
 
 /**

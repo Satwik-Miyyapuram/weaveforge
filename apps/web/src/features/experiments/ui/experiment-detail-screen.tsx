@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  EXPERIMENT_STATUSES, isStaleRunningExperiment, shortSha, type Experiment, type ExperimentStatus } from "@weaveforge/core";
+  EXPERIMENT_STATUSES,
+  type Experiment,
+  type ExperimentStatus,
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
@@ -28,6 +31,7 @@ import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { Button, IconButton, IconLink } from "@/components/button";
+import { readyCore } from "@/lib/rust-core";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -78,7 +82,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
     void load();
   }, [load]);
 
-  const live = exp?.status === "running" && !isStaleRunningExperiment(exp);
+  const live = exp?.status === "running" && !readyCore().isStaleRunningExperiment(exp);
   useEffect(() => {
     if (!live) return;
     const t = setInterval(() => { void load(); }, 5000);
@@ -149,7 +153,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
     started ? `Started ${started}` : null,
     finished ? `Finished ${finished}` : null,
     exp.branch ? `Branch ${exp.branch}` : null,
-    exp.commitSha ? `Commit ${shortSha(exp.commitSha)}` : null,
+    exp.commitSha ? `Commit ${readyCore().shortSha(exp.commitSha)}` : null,
   ].filter(Boolean).join(" / ");
   const activity = [
     exp.finishedAt ? { at: recordDate(exp.finishedAt), what: `Marked ${exp.status}` } : null,
@@ -290,10 +294,10 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                         "Commit",
                         exp.repoUrl ? (
                           <a href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
-                            {shortSha(exp.commitSha)}
+                            {readyCore().shortSha(exp.commitSha)}
                           </a>
                         ) : (
-                          shortSha(exp.commitSha)
+                          readyCore().shortSha(exp.commitSha)
                         ),
                       ]
                     : null,

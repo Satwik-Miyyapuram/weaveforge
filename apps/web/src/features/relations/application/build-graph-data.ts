@@ -1,6 +1,4 @@
 import {
-  extractWikilinks,
-  normalizeTitleKey,
   type GraphExperimentEntry,
   type Paper,
   type PaperRelation,
@@ -26,13 +24,11 @@ import {
 import { recolourNodes } from "./node-colouring";
 import { noteTags } from "./graph-tags";
 import {
-  effectiveRelationTypes,
-  showConceptEdges,
-  showRelationEdges,
   type ColorBy,
   type GraphViewSettings,
   type GroupBy,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface GNode {
   id: string;
@@ -124,7 +120,7 @@ export function buildGraphData(
     if (rel) relDegree.set(id, (relDegree.get(id) ?? 0) + 1);
   };
 
-  const allowedTypes = new Set(effectiveRelationTypes(settings));
+  const allowedTypes = new Set(readyCore().effectiveRelationTypes(settings));
   const paperIds = new Set(papers.map((p) => p.id));
 
   /**
@@ -139,7 +135,7 @@ export function buildGraphData(
   const isLinkedRun = (e: ExperimentEntry) =>
     e.relatedPaper !== undefined && paperIds.has(e.relatedPaper);
 
-  if (showRelationEdges(settings)) {
+  if (readyCore().showRelationEdges(settings)) {
     for (const e of relations) {
       if (!paperIds.has(e.fromPaper) || !paperIds.has(e.toPaper)) continue;
       if (!allowedTypes.has(e.relation)) continue;
@@ -166,7 +162,7 @@ export function buildGraphData(
   const noteIds = new Set(notes.map((n) => n.id));
   const includeLists = settings.includeListsAsConcepts !== false;
 
-  if (showConceptEdges(settings)) {
+  if (readyCore().showConceptEdges(settings)) {
     for (const p of papers) {
       for (const t of p.tags) {
         tagUse.set(t, (tagUse.get(t) ?? 0) + 1);
@@ -321,11 +317,11 @@ export function buildGraphData(
   const wikiLinked = new Set<string>();
   {
     const noteByTitle = new Map<string, string>();
-    for (const n of notes) noteByTitle.set(normalizeTitleKey(n.title), n.id);
+    for (const n of notes) noteByTitle.set(readyCore().normalizeTitleKey(n.title), n.id);
     const paperByTitle = new Map<string, string>();
-    for (const p of papers) paperByTitle.set(normalizeTitleKey(p.title), p.id);
+    for (const p of papers) paperByTitle.set(readyCore().normalizeTitleKey(p.title), p.id);
     const sectionByTitle = new Map<string, string>();
-    for (const s of sections) sectionByTitle.set(normalizeTitleKey(s.title), s.id);
+    for (const s of sections) sectionByTitle.set(readyCore().normalizeTitleKey(s.title), s.id);
     const resolveTarget = (key: string, sourceId: string): string | undefined => {
       const noteId = noteByTitle.get(key);
       if (noteId && noteId !== sourceId) return noteId;
@@ -338,8 +334,8 @@ export function buildGraphData(
     const seen = new Set<string>();
     const addWikiEdges = (sourceId: string, body: string | undefined) => {
       if (!body) return;
-      for (const ref of extractWikilinks(body)) {
-        const key = normalizeTitleKey(ref.target);
+      for (const ref of readyCore().extractWikilinks(body)) {
+        const key = readyCore().normalizeTitleKey(ref.target);
         if (!key) continue;
         const targetId = resolveTarget(key, sourceId);
         if (!targetId) continue;
@@ -367,9 +363,9 @@ export function buildGraphData(
   }
 
   for (const p of papers) {
-    const tagsOnPaper = p.tags.filter((t) => !showConceptEdges(settings) || visibleTags.has(t));
+    const tagsOnPaper = p.tags.filter((t) => !readyCore().showConceptEdges(settings) || visibleTags.has(t));
     const inVisibleList =
-      showConceptEdges(settings) &&
+      readyCore().showConceptEdges(settings) &&
       includeLists &&
       lists.some((l) => membership.get(l.id)?.has(p.id) ?? false);
     if (
@@ -393,9 +389,9 @@ export function buildGraphData(
   }
 
   for (const n of notes) {
-    const tagsOnNote = noteTags(n).filter((t) => !showConceptEdges(settings) || visibleTags.has(t));
+    const tagsOnNote = noteTags(n).filter((t) => !readyCore().showConceptEdges(settings) || visibleTags.has(t));
     const inVisibleList =
-      showConceptEdges(settings) &&
+      readyCore().showConceptEdges(settings) &&
       includeLists &&
       lists.some((l) => membership.get(l.id)?.has(n.id) ?? false);
     if (
@@ -472,7 +468,7 @@ export function buildGraphData(
     });
   }
 
-  if (showConceptEdges(settings)) {
+  if (readyCore().showConceptEdges(settings)) {
     for (const t of visibleTags) {
       nodes.push({
         id: `tag:${t}`,

@@ -2,8 +2,9 @@
  * Fetch related / recommended papers from Semantic Scholar for a seed library paper.
  * Filters out items already in the local library (by DOI / arXiv / title).
  */
-import { normalizeDoi, normalizeTitleKey, type PaperSummary } from "@weaveforge/core";
+import { type PaperSummary } from "@weaveforge/core";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
+import { readyCore } from "@/lib/rust-core";
 
 export type RelatedPaperHit = {
   title: string;
@@ -29,7 +30,7 @@ type S2Paper = {
 
 export function resolveRelatedPaperUrl(hit: Pick<RelatedPaperHit, "url" | "doi" | "arxivId">): string | undefined {
   if (hit.url?.trim()) return hit.url.trim();
-  const doi = normalizeDoi(hit.doi);
+  const doi = readyCore().normalizeDoi(hit.doi);
   if (doi) return `https://doi.org/${doi}`;
   if (hit.arxivId?.trim()) return `https://arxiv.org/abs/${hit.arxivId.trim()}`;
   return undefined;
@@ -38,7 +39,7 @@ export function resolveRelatedPaperUrl(hit: Pick<RelatedPaperHit, "url" | "doi" 
 function s2ToHit(p: S2Paper): RelatedPaperHit | null {
   const title = p.title?.trim();
   if (!title) return null;
-  const doi = p.externalIds?.DOI ? normalizeDoi(p.externalIds.DOI) : undefined;
+  const doi = p.externalIds?.DOI ? readyCore().normalizeDoi(p.externalIds.DOI) : undefined;
   const arxivId = p.externalIds?.ArXiv?.trim() || undefined;
   const citationCount =
     typeof p.citationCount === "number" && Number.isFinite(p.citationCount)
@@ -68,19 +69,19 @@ function localKeys(papers: readonly PaperSummary[]) {
   const arxivs = new Set<string>();
   const titles = new Set<string>();
   for (const p of papers) {
-    const doi = normalizeDoi(p.doi);
+    const doi = readyCore().normalizeDoi(p.doi);
     if (doi) dois.add(doi);
     if (p.arxivId) arxivs.add(p.arxivId.toLowerCase());
-    titles.add(normalizeTitleKey(p.title));
+    titles.add(readyCore().normalizeTitleKey(p.title));
   }
   return { dois, arxivs, titles };
 }
 
 function isLocal(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): boolean {
-  const doi = normalizeDoi(hit.doi);
+  const doi = readyCore().normalizeDoi(hit.doi);
   if (doi && keys.dois.has(doi)) return true;
   if (hit.arxivId && keys.arxivs.has(hit.arxivId.toLowerCase())) return true;
-  if (keys.titles.has(normalizeTitleKey(hit.title))) return true;
+  if (keys.titles.has(readyCore().normalizeTitleKey(hit.title))) return true;
   return false;
 }
 
@@ -89,10 +90,10 @@ function isLocal(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): bool
  * one) is skipped like a library paper. The panel keys rows by these ids.
  */
 function remember(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): void {
-  const doi = normalizeDoi(hit.doi);
+  const doi = readyCore().normalizeDoi(hit.doi);
   if (doi) keys.dois.add(doi);
   if (hit.arxivId) keys.arxivs.add(hit.arxivId.toLowerCase());
-  keys.titles.add(normalizeTitleKey(hit.title));
+  keys.titles.add(readyCore().normalizeTitleKey(hit.title));
 }
 
 const S2_FIELDS = "title,authors,year,externalIds,url,abstract,citationCount";
@@ -115,7 +116,7 @@ export async function fetchRelatedPapers(
 
   const paperId =
     (seed.arxivId && `ARXIV:${seed.arxivId}`) ||
-    (seed.doi && `DOI:${normalizeDoi(seed.doi)}`) ||
+    (seed.doi && `DOI:${readyCore().normalizeDoi(seed.doi)}`) ||
     null;
   if (!paperId) {
     throw new Error("Add a DOI or arXiv id to this paper before finding related work.");

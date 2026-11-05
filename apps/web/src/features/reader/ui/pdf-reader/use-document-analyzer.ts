@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { analyzePdfDocument, type DocumentAnalysis, type ReaderOutlineItem } from "@weaveforge/core";
+import { type DocumentAnalysis, type ReaderOutlineItem } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import {
@@ -14,6 +14,7 @@ import type {
   AnalysisResponse,
   AnalysisWorkerPage,
 } from "../../infrastructure/analysis.worker";
+import { typedCore } from "@/lib/rust-core";
 
 const EMPTY_INDEX: ReaderReferenceIndex = {
   references: [],
@@ -61,7 +62,7 @@ export function analyzeInThread(
   outline: readonly ReaderOutlineItem[],
 ): { analysis: DocumentAnalysis; index: ReaderReferenceIndex } | null {
   try {
-    const analysis = analyzePdfDocument(
+    const analysis = typedCore().analyzePdfDocument(
       pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
       outline,
     );
