@@ -149,6 +149,16 @@ export interface DesktopBridge {
   resetLocalDb(): Promise<void>;
 
   /**
+   * Offline attachment bytes as files in the app's data folder, one per
+   * `(bucket, path)`, so the local database holds only the index. The shell
+   * names each file by a hash of the pair; the page never names a disk path.
+   * Optional: a shell without them keeps the bytes in the database.
+   */
+  readLocalFile?(bucket: string, path: string): Promise<Uint8Array | null>;
+  writeLocalFile?(bucket: string, path: string, bytes: Uint8Array): Promise<void>;
+  removeLocalFile?(bucket: string, path: string): Promise<void>;
+
+  /**
    * The workspace folder on disk: the same markdown the export produces, but
    * live, so an outside editor can open it while the app is running.
    *
