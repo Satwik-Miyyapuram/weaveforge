@@ -2,7 +2,11 @@
 //!
 //! Native Postgres cannot open PGlite's files, so the Node sidecar runs only to copy them: it starts on
 //! the copy's first read and stops when the copy job ends. Once the copy is recorded it never starts.
+//!
+//! The sidecar migrates whatever folder it opens, so it never opens the old folder itself: it reads
+//! a throwaway copy, and the user's old database stays exactly as it was.
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,6 +20,13 @@ use crate::sidecar::{Sidecar, SidecarConfig};
 pub struct OldDb {
     config: SidecarConfig,
     sidecar: tokio::sync::Mutex<Option<Sidecar>>,
+    snapshot: Option<Snapshot>,
+}
+
+/// The old folder and the copy of it the sidecar opens instead.
+struct Snapshot {
+    from: PathBuf,
+    to: PathBuf,
 }
 
 impl OldDb {
@@ -25,7 +36,16 @@ impl OldDb {
         Self {
             config,
             sidecar: tokio::sync::Mutex::new(None),
+            snapshot: None,
         }
+    }
+
+    /// Before each start, copies `from` into a fresh `to`, which `config` must point the sidecar
+    /// at; `stop` removes `to`. `from` is only ever read.
+    #[must_use]
+    pub fn with_snapshot(mut self, from: PathBuf, to: PathBuf) -> Self {
+        self.snapshot = Some(Snapshot { from, to });
+        self
     }
 
     /// Runs `sql` on the old database through the sidecar's `exportRows`, starting it if needed.
@@ -35,6 +55,14 @@ impl OldDb {
     pub async fn rows(&self, sql: String) -> Result<Vec<Value>, String> {
         let mut sidecar = self.sidecar.lock().await;
         if sidecar.is_none() {
+            if let Some(snap) = &self.snapshot {
+                let (from, to) = (snap.from.clone(), snap.to.clone());
+                tokio::task::spawn_blocking(move || fresh_copy(&from, &to))
+                    .await
+                    .map_err(|e| e.to_string())
+                    .and_then(|r| r)
+                    .map_err(|e| format!("could not copy the old local database: {e}"))?;
+            }
             let spawned = Sidecar::spawn(self.config.clone())
                 .map_err(|e| format!("the old local database: {}", ShellError::from(e).message))?;
             *sidecar = Some(spawned);
@@ -60,7 +88,52 @@ impl OldDb {
         if let Some(sidecar) = sidecar {
             let _ = sidecar.shutdown(grace).await;
         }
+        if let Some(snap) = &self.snapshot {
+            let to = snap.to.clone();
+            let _ = tokio::task::spawn_blocking(move || remove_copy(&to)).await;
+        }
     }
+}
+
+/// Whether one path is inside the other (or the same), so removing one could touch the other.
+fn overlaps(a: &Path, b: &Path) -> bool {
+    a.starts_with(b) || b.starts_with(a)
+}
+
+/// Replaces `to` with a full copy of `from`. Refuses overlapping paths, so `from` is never removed.
+fn fresh_copy(from: &Path, to: &Path) -> Result<(), String> {
+    if overlaps(from, to) {
+        return Err(format!("{} and {} overlap", from.display(), to.display()));
+    }
+    if !from.is_dir() {
+        return Err(format!("{} is not a folder", from.display()));
+    }
+    remove_copy(to)?;
+    copy_dir(from, to).map_err(|e| e.to_string())
+}
+
+/// Removes our copy folder, if there is one.
+fn remove_copy(to: &Path) -> Result<(), String> {
+    match std::fs::remove_dir_all(to) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            Err(format!("could not remove {}: {e}", to.display()))
+        }
+        _ => Ok(()),
+    }
+}
+
+fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            let _ = std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
 }
 
 /// Runs `job`, then stops the old database's sidecar, so it never idles after the copy.
@@ -159,6 +232,58 @@ mod tests {
             "{error:?}"
         );
         assert!(!old.running().await);
+    }
+
+    fn scratch(tag: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("wf-old-db-snap-{tag}-{}", std::process::id()))
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_sidecar_reads_a_copy_and_the_original_is_untouched() {
+        let root = scratch("copy");
+        let _ = std::fs::remove_dir_all(&root);
+        let (from, to) = (root.join("old"), root.join("copy"));
+        let _ = std::fs::create_dir_all(from.join("base/5"));
+        let _ = std::fs::write(from.join("PG_VERSION"), "16");
+        let _ = std::fs::write(from.join("base/5/1"), "rows");
+        // A stale copy from a crashed run is replaced, not reused.
+        let _ = std::fs::create_dir_all(&to);
+        let _ = std::fs::write(to.join("stale"), "x");
+        let old = OldDb::new(config(&[])).with_snapshot(from.clone(), to.clone());
+        assert!(old.rows("select 1".to_owned()).await.is_ok());
+        assert_eq!(
+            std::fs::read_to_string(to.join("base/5/1")).ok().as_deref(),
+            Some("rows")
+        );
+        assert!(!to.join("stale").exists());
+        old.stop(Duration::from_secs(5)).await;
+        assert!(!to.exists());
+        assert_eq!(
+            std::fs::read_to_string(from.join("base/5/1"))
+                .ok()
+                .as_deref(),
+            Some("rows")
+        );
+        assert!(from.join("PG_VERSION").is_file());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn an_overlapping_copy_is_refused_and_nothing_starts() {
+        let root = scratch("overlap");
+        let _ = std::fs::create_dir_all(&root);
+        let _ = std::fs::write(root.join("keep"), "x");
+        for to in [root.clone(), root.join("inside")] {
+            let old = OldDb::new(config(&[])).with_snapshot(root.clone(), to);
+            let error = old.rows("select 1".to_owned()).await;
+            assert!(
+                error.as_ref().is_err_and(|e| e.contains("overlap")),
+                "{error:?}"
+            );
+            assert!(!old.running().await);
+        }
+        assert!(root.join("keep").is_file());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// Reads once through the old database, then returns `result`.

@@ -49,6 +49,14 @@ pub struct ImportReport {
     pub tables: Vec<(String, u64)>,
     /// Source tables that the target does not have, qualified.
     pub skipped: Vec<String>,
+    /// Source tables whose data file is gone from the old database, so none of their rows can be
+    /// read. Reported, never hidden.
+    pub unreadable: Vec<String>,
+}
+
+/// Whether a source error says the table's data file is missing on disk.
+fn missing_file(e: &PgError) -> bool {
+    e.code == "58P01" || e.message.contains("could not open file")
 }
 
 /// Quotes an identifier with double quotes, doubling any inner double quote.
@@ -249,8 +257,15 @@ impl<C: Conn> FirstOpen<C> for OnceImport {
                 report.tables.len(),
                 report.skipped.len()
             );
+            // Named in the log and kept in the marker, so a lost table is never silent.
+            let unreadable = report.unreadable.join(", ");
+            if !unreadable.is_empty() {
+                line.push_str(&format!(
+                    "; old data file missing, nothing to read: {unreadable}"
+                ));
+            }
             // The database records the copy too, so a missing marker never copies twice.
-            if let Err(e) = std::fs::write(&self.marker, "") {
+            if let Err(e) = std::fs::write(&self.marker, &unreadable) {
                 line.push_str(&format!("; could not write {}: {e}", self.marker.display()));
             }
             Ok(Some(line))
@@ -277,35 +292,45 @@ async fn copy_all<S: SourceDb, C: Conn>(
             report.skipped.push(name);
             continue;
         }
-        let copied = copy_table(source, target, schema, table, page_rows)
+        match copy_table(source, target, schema, table, page_rows)
             .await
-            .map_err(|e| prefix(&name, e))?;
-        report.tables.push((name, copied));
+            .map_err(|e| prefix(&name, e))?
+        {
+            Some(copied) => report.tables.push((name, copied)),
+            None => report.unreadable.push(name),
+        }
     }
     reset_sequences(target).await
 }
 
-/// Copies one table's shared columns, a page at a time. Returns the rows copied.
+/// Copies one table's shared columns, a page at a time. Returns the rows copied, or `None` when
+/// the old table's data file is missing, so there is nothing on disk to read.
 async fn copy_table<S: SourceDb, C: Conn>(
     source: &mut S,
     target: &mut C,
     schema: &str,
     table: &str,
     page_rows: u64,
-) -> Result<u64, PgError> {
+) -> Result<Option<u64>, PgError> {
     let src_cols = source_columns(&source.rows(&columns_sql(schema, table)).await?);
     let tgt_cols = target_columns(&target.query(&columns_sql(schema, table), &[]).await?);
     let (cols, identity) = copy_columns(&tgt_cols, &src_cols);
     if cols.is_empty() {
-        return Ok(0);
+        return Ok(Some(0));
     }
     let sql = insert_sql(schema, table, &cols, identity);
     let mut copied: u64 = 0;
     let mut offset: u64 = 0;
     loop {
-        let page = source
+        let page = match source
             .rows(&page_sql(schema, table, page_rows, offset))
-            .await?;
+            .await
+        {
+            Ok(page) => page,
+            // Only before any row: a file lost mid-table is a broken copy, not an empty table.
+            Err(e) if offset == 0 && missing_file(&e) => return Ok(None),
+            Err(e) => return Err(e),
+        };
         if page.is_empty() {
             break;
         }
@@ -318,7 +343,7 @@ async fn copy_table<S: SourceDb, C: Conn>(
         }
         offset += page_rows;
     }
-    Ok(copied)
+    Ok(Some(copied))
 }
 
 /// Moves each serial or identity sequence past its column's largest value.
@@ -422,11 +447,13 @@ mod tests {
         tables: Vec<Value>,
         columns: Vec<Value>,
         papers: Vec<String>,
+        /// Page reads from this offset on fail as if the table's data file were gone.
+        missing_from: Option<usize>,
     }
 
     impl FakeSource {
         /// Rows of a `page_sql` query, by its limit and offset.
-        fn page(&self, sql: &str) -> Vec<Value> {
+        fn page(&self, sql: &str) -> Result<Vec<Value>, PgError> {
             let offset = sql
                 .rsplit(' ')
                 .next()
@@ -438,12 +465,19 @@ mod tests {
                 .and_then(|s| s.split(' ').next())
                 .and_then(|t| t.parse::<usize>().ok())
                 .unwrap_or(0);
-            self.papers
+            if self.missing_from.is_some_and(|m| offset >= m) {
+                // How the sidecar reports it: message only, no SQLSTATE.
+                return Err(PgError::local(
+                    "could not open file \"base/5/17629\": No such file or directory",
+                ));
+            }
+            Ok(self
+                .papers
                 .iter()
                 .skip(offset)
                 .take(limit)
                 .map(|t| serde_json::json!({ "j": t }))
-                .collect()
+                .collect())
         }
     }
 
@@ -457,7 +491,7 @@ mod tests {
                 return Ok(self.columns.clone());
             }
             if sql.starts_with("select row_to_json") {
-                return Ok(self.page(sql));
+                return self.page(sql);
             }
             Err(PgError::local(format!("unexpected source sql: {sql}")))
         }
@@ -538,6 +572,7 @@ mod tests {
                 r#"{"id":1,"title":"a","extra":"x"}"#.to_owned(),
                 r#"{"id":2,"title":"b","extra":"y"}"#.to_owned(),
             ],
+            missing_from: None,
         }
     }
 
@@ -602,6 +637,7 @@ mod tests {
                     qualified("public", "old_only"),
                     qualified("public", "weaveforge_migrations"),
                 ],
+                unreadable: Vec::new(),
             }
         );
         let pages = source
@@ -707,6 +743,68 @@ mod tests {
         assert!(!job.marker.exists());
         assert!(!target.recorded);
         assert!(!target.log.iter().any(|s| s == RECORD_SQL));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_table_whose_file_is_gone_is_reported_and_the_rest_copies() -> Result<(), PgError> {
+        let mut source = FakeSource {
+            missing_from: Some(0),
+            ..papers_source()
+        };
+        let mut target = FakeTarget::default();
+        let report = import(&mut source, &mut target, 1).await?;
+        assert_eq!(report.unreadable, vec![qualified("public", "papers")]);
+        assert!(report.tables.is_empty());
+        assert!(target.inserted.is_empty());
+        assert_eq!(target.log.last().map(String::as_str), Some("COMMIT"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_file_lost_after_some_rows_fails_the_copy() -> Result<(), PgError> {
+        let mut source = FakeSource {
+            missing_from: Some(1),
+            ..papers_source()
+        };
+        let mut target = FakeTarget::default();
+        let Err(err) = import(&mut source, &mut target, 1).await else {
+            return Err(PgError::local("expected import to fail"));
+        };
+        assert!(
+            err.message.contains("could not open file"),
+            "{}",
+            err.message
+        );
+        assert_eq!(target.log.last().map(String::as_str), Some("ROLLBACK"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn the_marker_names_unreadable_tables() -> Result<(), PgError> {
+        let source = Arc::new(tokio::sync::Mutex::new(FakeSource {
+            missing_from: Some(0),
+            ..papers_source()
+        }));
+        let job = OnceImport {
+            marker: marker("unreadable"),
+            source: Arc::new(move |sql: String| {
+                let source = Arc::clone(&source);
+                Box::pin(async move { source.lock().await.rows(&sql).await.map_err(|e| e.message) })
+            }),
+            page_rows: 10,
+        };
+        let line = job
+            .run(&mut FakeTarget::default())
+            .await?
+            .unwrap_or_default();
+        assert!(
+            line.contains("nothing to read: \"public\".\"papers\""),
+            "{line}"
+        );
+        let kept = std::fs::read_to_string(&job.marker).unwrap_or_default();
+        assert_eq!(kept, qualified("public", "papers"));
+        let _ = std::fs::remove_file(&job.marker);
         Ok(())
     }
 

@@ -310,7 +310,9 @@ fn native_db(
     source: &launch::SidecarSource,
 ) -> Result<commands::NativeDb, String> {
     let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
-    let bin = local_pg::server::locate_bin(bin_override.as_deref(), Some(resources))
+    // initdb cannot run postgres from a `\\?\` path, which Tauri's resource dir has on Windows.
+    let resources = launch::without_verbatim_prefix(resources);
+    let bin = local_pg::server::locate_bin(bin_override.as_deref(), Some(&resources))
         .map_err(|e| format!("the native database has no Postgres: {e}"))?;
     let root = native_root(data);
     db_lock::acquire(&root, NATIVE_LOCK_APP, std::time::SystemTime::now())
@@ -371,9 +373,10 @@ fn old_db_import(
         app_version: app.package_info().version.to_string(),
         product_name: app.package_info().name.clone(),
     };
-    let config =
-        launch::sidecar_config(source, old_dir, &data.join("local-db-backups"), &api, None);
-    let old = Arc::new(old_db::OldDb::new(config));
+    // The sidecar migrates the folder it opens, so it gets a copy; the old folder is only read.
+    let copy = data.join("local-pg-import-src");
+    let config = launch::sidecar_config(source, &copy, &data.join("local-db-backups"), &api, None);
+    let old = Arc::new(old_db::OldDb::new(config).with_snapshot(old_dir.to_path_buf(), copy));
     let _ = app.manage(Arc::clone(&old));
     let reader = Arc::clone(&old);
     let rows: local_pg::import::RowsFn = Arc::new(move |sql: String| {
