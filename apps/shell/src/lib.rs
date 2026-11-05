@@ -355,11 +355,14 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let vault = app.try_state::<vault::VaultState>()?.inner().clone();
     let paths = app.path();
     let product = app.package_info().name.clone();
+    // Without a resource dir the build is unknown, so it is treated as Dev: it must never
+    // touch the installed app's MCP home or configs.
     let variant = paths
         .resource_dir()
         .ok()
         .map(launch::sidecar_source)
-        .and_then(|s| launch::home_variant(&s, &product));
+        .map_or(Some("dev"), |s| launch::home_variant(&s, &product));
+    let release = !cfg!(debug_assertions) && variant.is_none();
     let home = paths.home_dir().unwrap_or_default();
     let mcp_paths = local_http::connect::mcp_paths(&home, variant, None);
     let log = app.clone();
@@ -393,7 +396,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
         tools: Arc::new(|| local_http::mcp::listed_tools(true)),
         port: local_http::server::LOCAL_API_PORT,
     };
-    Some((deps, variant.is_none()))
+    Some((deps, release))
 }
 
 /// Manages the local API switch and turns the API on if the user left it on. A release build

@@ -261,7 +261,12 @@ fn write_backup(file: &Path, original: &str, mode: Option<u32>) -> io::Result<()
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => return Ok(()),
         Err(error) => return Err(error),
     };
-    handle.write_all(original.as_bytes())?;
+    if let Err(error) = handle.write_all(original.as_bytes()) {
+        // Drop the partial backup this call created, so a later run writes it again.
+        drop(handle);
+        let _ = fs::remove_file(&backup);
+        return Err(error);
+    }
     set_mode_bits(&backup, mode)
 }
 
