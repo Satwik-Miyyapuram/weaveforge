@@ -113,7 +113,7 @@ pub fn bridge_source(source: &SidecarSource) -> PathBuf {
 }
 
 /// The sidecar command for `source`, opening the database in `data_dir` and keeping its backups in `backups_dir`.
-/// Then the API args (`--artifacts`, `--bridge`, `--app-version`, and `--home-variant` for `Dev`), then
+/// Then the API args (`--artifacts`, `--bridge`, `--app-version`, `--no-local-api`, and `--home-variant` for `Dev`), then
 /// `migrate_from` (Electron's data dir) as `--migrate-from` last, when set.
 #[must_use]
 pub fn sidecar_config(
@@ -167,6 +167,8 @@ pub fn sidecar_config(
     args.push(bridge_source(source).into_os_string());
     args.push("--app-version".into());
     args.push(api.app_version.clone().into());
+    // The shell serves the local API itself now.
+    args.push("--no-local-api".into());
     if let Some(variant) = home_variant(source, &api.product_name) {
         args.push("--home-variant".into());
         args.push(variant.into());
@@ -229,6 +231,7 @@ mod tests {
                 .into_os_string(),
             "--app-version".into(),
             "1.2.3".into(),
+            "--no-local-api".into(),
             "--home-variant".into(),
             "dev".into(),
         ];
@@ -269,6 +272,7 @@ mod tests {
             dir.join("weaveforge-mcp.mjs").into_os_string(),
             "--app-version".into(),
             "1.2.3".into(),
+            "--no-local-api".into(),
         ];
         assert_eq!(config.args, expected);
     }
@@ -302,6 +306,7 @@ mod tests {
             dir.join("weaveforge-mcp.mjs").into_os_string(),
             "--app-version".into(),
             "1.2.3".into(),
+            "--no-local-api".into(),
             "--migrate-from".into(),
             "old".into(),
         ];
@@ -323,6 +328,7 @@ mod tests {
         let tail: Vec<OsString> = vec![
             "--app-version".into(),
             "1.2.3".into(),
+            "--no-local-api".into(),
             "--home-variant".into(),
             "dev".into(),
         ];

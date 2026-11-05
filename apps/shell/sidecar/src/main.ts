@@ -21,6 +21,8 @@ export interface SidecarArgs {
   bridge?: string;
   appVersion?: string;
   homeVariant?: string;
+  /** The Rust shell serves the local API itself, so the sidecar only runs the database. */
+  noLocalApi?: true;
 }
 
 /** `--data-dir <dir>` and `--backups <dir>` once (required), `--migrations <dir>` one or more times (at least one). */
@@ -32,10 +34,13 @@ export function parseArgs(argv: readonly string[]): SidecarArgs | string {
   let bridge: string | undefined;
   let appVersion: string | undefined;
   let homeVariant: string | undefined;
+  let noLocalApi = false;
   const migrations: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (
+    if (arg === "--no-local-api") {
+      noLocalApi = true;
+    } else if (
       arg === "--data-dir" || arg === "--migrations" || arg === "--backups" || arg === "--migrate-from" ||
       arg === "--artifacts" || arg === "--bridge" || arg === "--app-version" || arg === "--home-variant"
     ) {
@@ -63,6 +68,7 @@ export function parseArgs(argv: readonly string[]): SidecarArgs | string {
   if (bridge !== undefined) parsed.bridge = bridge;
   if (appVersion !== undefined) parsed.appVersion = appVersion;
   if (homeVariant !== undefined) parsed.homeVariant = homeVariant;
+  if (noLocalApi) parsed.noLocalApi = true;
   return parsed;
 }
 
@@ -157,9 +163,10 @@ async function main(): Promise<void> {
     log: (l) => process.stderr.write(l + "\n"),
   });
   const peer = createPeer(process.stdout);
-  let api: LocalApiStart;
+  const base = sidecarHandlers({ host: lc.host, restartWanted: lc.restartWanted });
+  let api: Pick<LocalApiStart, "handlers" | "close">;
   try {
-    api = startLocalApi(sidecarHandlers({ host: lc.host, restartWanted: lc.restartWanted }), {
+    api = parsed.noLocalApi ? { handlers: base, close: async () => {} } : startLocalApi(base, {
       peer,
       localDb: lc.host,
       artifactRoot: parsed.artifacts ?? path.join(path.dirname(dataDir), "artifacts"),

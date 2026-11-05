@@ -78,7 +78,13 @@ test("parseArgs names a trailing --home-variant with no value", () => {
 
 test("parseArgs leaves the app fields out when their flags are absent", () => {
   const parsed = parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b"]) as object;
-  for (const key of ["artifacts", "bridge", "appVersion", "homeVariant"]) assert.equal(key in parsed, false);
+  for (const key of ["artifacts", "bridge", "appVersion", "homeVariant", "noLocalApi"]) assert.equal(key in parsed, false);
+});
+
+test("parseArgs reads --no-local-api as a bare flag", () => {
+  const parsed = parseArgs(["--no-local-api", "--data-dir", "d", "--migrations", "m", "--backups", "b"]);
+  assert.equal(typeof parsed === "object" && parsed.noLocalApi, true);
+  assert.equal(typeof parsed === "object" && parsed.dataDir, path.resolve("d"));
 });
 
 test("query passes [] as params when none are given", async () => {
