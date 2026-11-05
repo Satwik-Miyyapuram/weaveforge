@@ -57,7 +57,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/open-notes";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
-import { ShortcutsDialog } from "./shortcuts-dialog";
+import { requestShortcuts } from "@/lib/palette-actions";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
@@ -108,7 +108,6 @@ export function WorkspaceScreen() {
   layoutRef.current = layout;
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   /** Tabs closed this session, newest last, for `⌘⇧T`. */
   const closedRef = useRef<TabRef[]>([]);
   // The explorer's draft row: what it will make and where. Owned here so the
@@ -644,7 +643,7 @@ export function WorkspaceScreen() {
       if (command === "quick-open") return setPaletteOpen(true);
       if (command === "duplicate-note") return void duplicateActive().catch((e) => setError(formatError(e)));
       if (command === "rename-doc") return void (setExplorerHidden(false), setRenameRequest((n) => n + 1));
-      if (command === "show-shortcuts") return setShortcutsOpen((open) => !open);
+      if (command === "show-shortcuts") return requestShortcuts("toggle");
       if (command === "reopen-tab") return reopenTab();
       if (command === "toggle-explorer") return toggleExplorer();
       if (command === "toggle-focus") return toggleFocus();
@@ -780,7 +779,6 @@ export function WorkspaceScreen() {
           onClose={() => setPaletteOpen(false)}
         />
       ) : null}
-      {shortcutsOpen ? <ShortcutsDialog onClose={() => setShortcutsOpen(false)} /> : null}
     </div>
   );
 }

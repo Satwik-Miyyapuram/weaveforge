@@ -280,7 +280,13 @@ fn help_group_matches_ts_labels_and_version_is_disabled() {
         .collect();
     assert_eq!(
         labels,
-        ["Documentation", "", "Check for updates…", "Version 1.2.3"]
+        [
+            "Documentation",
+            "Keyboard shortcuts",
+            "",
+            "Check for updates…",
+            "Version 1.2.3"
+        ]
     );
     let version = item(&groups, "Help", "Version 1.2.3");
     assert!(!version.enabled);
@@ -293,7 +299,43 @@ fn help_entries_invoke_their_host_methods() {
     let groups = menu_model(&host);
     menu_invoke(&host, &id_of(&groups, "Help", "Documentation")).expect("invoke");
     menu_invoke(&host, &id_of(&groups, "Help", "Check for updates…")).expect("invoke");
-    assert_eq!(calls(&host), ["open_docs", "check_updates"]);
+    menu_invoke(&host, &id_of(&groups, "Help", "Keyboard shortcuts")).expect("invoke");
+    assert_eq!(
+        calls(&host),
+        ["open_docs", "check_updates", "page_command:shortcuts"]
+    );
+}
+
+/// The command palette runs these by id, so the ids must not move with the menu's order.
+#[test]
+fn palette_actions_have_stable_ids() {
+    let host = FakeHost {
+        root: Some("/home/u/vault".to_owned()),
+        ..Default::default()
+    };
+    let groups = menu_model(&host);
+    assert_eq!(id_of(&groups, "Help", "Documentation"), "action:docs");
+    assert_eq!(
+        id_of(&groups, "Help", "Check for updates…"),
+        "action:check-updates"
+    );
+    assert_eq!(
+        id_of(&groups, "Help", "Keyboard shortcuts"),
+        "page:shortcuts"
+    );
+    assert_eq!(
+        id_of(&groups, "File", "Show in file explorer"),
+        "action:show-in-explorer"
+    );
+    assert_eq!(
+        id_of(&groups, "File", "Change workspace folder…"),
+        "action:choose-workspace"
+    );
+    let bare = menu_model(&FakeHost::default());
+    assert_eq!(
+        id_of(&bare, "File", "Choose workspace folder…"),
+        "action:choose-workspace"
+    );
 }
 
 #[test]
