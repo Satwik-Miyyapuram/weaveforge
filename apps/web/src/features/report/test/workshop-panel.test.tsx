@@ -194,7 +194,9 @@ test("a 401 from the app's own sign-in keeps the stored Overleaf session", async
   await act(async () => tree.unmount());
 });
 
-test("the panel is shown with an account, in the browser and in the desktop shell alike", () => {
+test("the panel is shown with an account, and in the Tauri shell even without one", () => {
   assert.equal(canShowWorkshop({ localMode: false }), true);
   assert.equal(canShowWorkshop({ localMode: true }), false);
+  assert.equal(canShowWorkshop({ localMode: true, shell: true }), true);
+  assert.equal(canShowWorkshop({ localMode: false, shell: true }), true);
 });

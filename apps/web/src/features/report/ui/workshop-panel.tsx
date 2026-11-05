@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getContainer } from "@/bootstrap";
 import { authHeaders } from "@/lib/auth-headers";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
@@ -35,15 +36,21 @@ const browserStore: WorkshopSessionStore = {
   },
 };
 
-const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, init), authHeaders };
+/** A copy with no account calls the shell's own routes, which take no bearer token. */
+async function workshopHeaders(extra?: HeadersInit): Promise<HeadersInit> {
+  if (getContainer().auth.isLocalMode()) return { ...(extra as Record<string, string> | undefined) };
+  return authHeaders(extra);
+}
+
+const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, init), authHeaders: workshopHeaders };
 
 /**
- * The panel needs the app's /api/overleaf/workshop routes. A copy with no account
- * has none. The desktop shell relays them to the hosted app
- * (apps/desktop/src/overleaf-proxy.ts), so it shows the panel too.
+ * The panel needs /api/overleaf/workshop routes. The hosted app has them, and the
+ * Tauri shell serves them itself (apps/shell/src/overleaf_workshop.rs), so only a
+ * browser copy with no account goes without.
  */
-export function canShowWorkshop({ localMode }: { localMode: boolean }): boolean {
-  return !localMode;
+export function canShowWorkshop({ localMode, shell = false }: { localMode: boolean; shell?: boolean }): boolean {
+  return !localMode || shell;
 }
 
 /**
