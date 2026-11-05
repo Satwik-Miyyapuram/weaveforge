@@ -121,5 +121,26 @@
   gap: 2px;
 }
 
+/* Shift+Space preview of the highlighted result. */
+.jump-to-preview {
+  border-top: 1px solid var(--line);
+  padding: 8px 0 0;
+  margin-top: 8px;
+  max-height: 30vh;
+  overflow: auto;
+}
+
+.jump-to-preview p {
+  margin: 6px 0 0;
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+}
+
+.jump-to-preview mark {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+}
+
 /* ---- Related panel (graph / lexical suggestions) ---- */
 .related-panel { margin-top: 16px; }

@@ -39,6 +39,7 @@ import {
   type PaletteGroup,
   type PaletteMode,
 } from "@/lib/palette-groups";
+import { HIT_SORTS, isPreviewKey, sortHits, type HitSort } from "@/lib/palette-sort";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";
 import { CloseButton } from "./button";
@@ -70,6 +71,8 @@ type JumpItem = CiteCompletion & {
   href: string;
   recent?: boolean;
   excerpt?: SearchExcerpt;
+  /** ISO time the hit last changed, for the "Newest" sort and the preview. */
+  updatedAt?: string;
 };
 
 /** One palette row: a search hit, a page or an action, under its heading. */
@@ -79,9 +82,31 @@ interface Entry {
   label: string;
   meta?: string;
   excerpt?: SearchExcerpt;
+  updatedAt?: string;
   /** The command's own shortcut, shown at the row's end. */
   hint?: string;
   run: () => void;
+}
+
+/** The highlighted row in full: name, kind, last change and the whole snippet. */
+function JumpPreview({ entry }: { entry: Entry }) {
+  const changed = entry.updatedAt ? new Date(entry.updatedAt) : null;
+  return (
+    <aside className="jump-to-preview" aria-label="Preview" aria-live="polite">
+      <strong>{entry.label}</strong>
+      {entry.meta && <div className="jump-to-meta">{entry.meta}</div>}
+      {changed && !Number.isNaN(changed.getTime()) && (
+        <div className="jump-to-meta">Changed {changed.toLocaleString()}</div>
+      )}
+      {entry.excerpt?.text && (
+        <p>
+          {excerptSegments(entry.excerpt).map((segment, index) =>
+            segment.highlighted ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>,
+          )}
+        </p>
+      )}
+    </aside>
+  );
 }
 
 const HIT_GROUP: Record<JumpItem["kind"], PaletteGroup> = {
@@ -129,6 +154,8 @@ export function JumpToPalette() {
   const [mode, setMode] = useState<PaletteMode>("search");
   const [items, setItems] = useState<JumpItem[]>([]);
   const [active, setActive] = useState(0);
+  const [sort, setSort] = useState<HitSort>("relevance");
+  const [preview, setPreview] = useState(false);
   // Warmed on open, not on mount: the palette is in the shell of every screen.
   //
   // The hybrid variant, so a query can reach the semantic arm when the reader has
@@ -188,6 +215,8 @@ export function JumpToPalette() {
     setQuery("");
     setCreateError(null);
     setActive(0);
+    setSort("relevance");
+    setPreview(false);
     setHistory(readHistory());
     void reload();
     // Read on each open: the workspace entries change with the folder.
@@ -255,7 +284,7 @@ export function JumpToPalette() {
           kind,
           href: hit.href,
         };
-        return { ...base, excerpt: hit.excerpt };
+        return { ...base, excerpt: hit.excerpt, updatedAt: hit.updatedAt };
       }).filter((row, index, rows) =>
         // One row per key: two hits resolving to the same entity (a note found
         // by its title and its body) would otherwise render twice.
@@ -325,6 +354,12 @@ export function JumpToPalette() {
     return bySubstring();
   }, [items, query, searchIndex, rowsFromHits, semanticRows]);
 
+  /** The chosen order applies to search results only, not the empty-query list. */
+  const sorted = useMemo(
+    () => (mode === "search" && query.trim() ? sortHits(filtered, sort) : filtered),
+    [mode, query, filtered, sort],
+  );
+
   /** Pages the nav reaches, plus Settings, which lives in the account menu. */
   const pages = useMemo(() => {
     const all = [registry.homeNavItem, ...registry.navItems, { key: "settings", label: "Settings", path: "/settings" }];
@@ -392,12 +427,13 @@ export function JumpToPalette() {
         label: page.label,
         run: leave(() => router.push(page.path)),
       })),
-      ...filtered.map((c) => ({
+      ...sorted.map((c) => ({
         group: c.recent ? ("Recent" as const) : HIT_GROUP[c.kind],
         key: `${c.kind}-${c.id}`,
         label: c.label,
         meta: c.detail,
         excerpt: c.excerpt,
+        updatedAt: c.updatedAt,
         run: () => go(c),
       })),
       ...matchingPages(actions, query).map((action) => ({ ...action, group: "Actions" as const })),
@@ -405,7 +441,7 @@ export function JumpToPalette() {
     return groupPaletteRows(rows);
     // `go` reads the same state as these dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, pages, query, filtered, theme.dark, theme.toggle, setProject, router, menuActions, mac]);
+  }, [mode, pages, query, sorted, theme.dark, theme.toggle, setProject, router, menuActions, mac]);
   const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
 
   function go(item: JumpItem) {
@@ -454,7 +490,16 @@ export function JumpToPalette() {
         // home row. Ctrl is required: plain j/k must still type.
         const vimDown = e.ctrlKey && (e.key === "j" || e.key === "n");
         const vimUp = e.ctrlKey && (e.key === "k" || e.key === "p");
-        if (e.key === "ArrowDown" || vimDown) {
+        if (preview && e.key === "Escape") {
+          // Close the preview, not the palette; React stops this before the
+          // Modal's document listener sees it.
+          e.preventDefault();
+          e.stopPropagation();
+          setPreview(false);
+        } else if (mode === "search" && isPreviewKey(e, e.target instanceof HTMLInputElement)) {
+          e.preventDefault();
+          setPreview((now) => !now);
+        } else if (e.key === "ArrowDown" || vimDown) {
           e.preventDefault();
           setActive((i) => Math.min(i + 1, flat.length - 1));
         } else if (e.key === "ArrowUp" || vimUp) {
@@ -477,6 +522,22 @@ export function JumpToPalette() {
         }}
         aria-label="Search"
       />
+      {mode === "search" && query.trim() && filtered.length > 1 && (
+        <div className="jump-to-history" role="group" aria-label="Sort results">
+          {HIT_SORTS.map((option) => (
+            <Chip
+              key={option.value}
+              pressed={sort === option.value}
+              onClick={() => {
+                setSort(option.value);
+                setActive(0);
+              }}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </div>
+      )}
       {mode === "search" && !query.trim() && history.length > 0 && (
         <ul className="jump-to-history" aria-label="Recent searches">
           {history.slice(0, 6).map((entry) => (
@@ -529,6 +590,7 @@ export function JumpToPalette() {
         {mode === "search" && filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
       </ul>
       {createError ? <FormError reportable={false}>{createError}</FormError> : null}
+      {preview && flat[active] && <JumpPreview entry={flat[active]!} />}
       <p className="muted jump-to-meta jump-to-keys">
         {paletteKeys(mac).map((hint) => (
           <span key={hint.label}>
@@ -538,6 +600,12 @@ export function JumpToPalette() {
             {hint.label}
           </span>
         ))}
+        {mode === "search" && (
+          <span>
+            <kbd>Shift</kbd>
+            <kbd>Space</kbd> preview
+          </span>
+        )}
       </p>
     </Modal>
   );
