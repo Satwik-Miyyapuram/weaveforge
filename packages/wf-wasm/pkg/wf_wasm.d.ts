@@ -2,6 +2,15 @@
 /* eslint-disable */
 
 /**
+ * [`acronyms_for_title`](acronyms::acronyms_for_title) as a JS array of strings.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function acronymsForTitle(title: string): any;
+
+/**
  * [`wf_core::sync::json_entities::add_counts`] for JS.
  *
  * # Errors
@@ -20,6 +29,15 @@ export function addCounts(a: any, b: any): any;
 export function agreementBetween(decisions: any, reviewers: any, stage: any): any;
 
 /**
+ * [`ai_read_category_for_resource`](access_policy::ai_read_category_for_resource).
+ *
+ * # Errors
+ *
+ * Fails if `resourceType` is not a known resource type.
+ */
+export function aiReadCategoryForResource(resource_type: any): any;
+
+/**
  * [`analyze_pdf_document`](document_analysis::analyze_pdf_document) (TS `analyzePdfDocument`).
  *
  * # Errors
@@ -36,6 +54,15 @@ export function analyzePdfDocument(pages: any, outline: any): any;
  * Fails when `placement` is not `"inside"` or `"outside"`, or `input` is over the text cap.
  */
 export function applyCommaPlacement(input: string, placement: any): any;
+
+/**
+ * [`apply_user_integration_fields`](user_settings::apply_user_integration_fields).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON or `fields` is not a string map.
+ */
+export function applyUserIntegrationFields(settings: any, provider_id: string, fields: any): any;
 
 /**
  * [`binomial_smooth`].
@@ -84,6 +111,15 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
 export function buildLabSnapshotContent(input: any): any;
 
 /**
+ * [`build_list_tree`](reading_list::build_list_tree).
+ *
+ * # Errors
+ *
+ * Fails if `lists` has the wrong shape.
+ */
+export function buildListTree(lists: any): any;
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -91,6 +127,15 @@ export function buildLabSnapshotContent(input: any): any;
  * Fails if `sections` is not a list of sections.
  */
 export function buildSectionTree(sections: any): any;
+
+/**
+ * [`build_wiki_graph`](wiki_graph::build_wiki_graph).
+ *
+ * # Errors
+ *
+ * Fails if `snapshot` has the wrong shape.
+ */
+export function buildWikiGraph(snapshot: any): any;
 
 /**
  * [`build_wiki_index`](wiki_index::build_wiki_index); `heading` defaults to `Index` when `undefined`.
@@ -126,6 +171,15 @@ export function changedSide(base?: string | null, folder?: string | null, worksp
 export function checkBibliography(input: any): any;
 
 /**
+ * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to a JS value.
+ */
+export function checkUrlShape(protocol: string, has_credentials: boolean, port: string, hostname: string): any;
+
+/**
  * [`choose_anchor_strategy`] as `{ kind, position | locus, confidence }`.
  *
  * # Errors
@@ -133,6 +187,15 @@ export function checkBibliography(input: any): any;
  * Fails if `anchor` is not a combined anchor object, or the result cannot be converted.
  */
 export function chooseAnchorStrategy(anchor: any, current_content_hash: string): any;
+
+/**
+ * [`chunk_for_embedding`](text_chunks::chunk_for_embedding); `undefined` options take the defaults.
+ *
+ * # Errors
+ *
+ * Fails if `options` has the wrong shape.
+ */
+export function chunkForEmbedding(text: string, options: any): any;
 
 /**
  * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
@@ -256,6 +319,54 @@ export function coreInfo(): any;
  * Fails when `entries` does not match the diff entry shape.
  */
 export function countJsonActions(entries: any): any;
+
+/**
+ * [`covered_hit_mask`](hybrid_fusion::covered_hit_mask) as a boolean array.
+ *
+ * # Errors
+ *
+ * Fails if `query_term_counts` is not an array of numbers or `null`.
+ */
+export function coveredHitMask(query_term_counts: any, term_count: number, min_coverage: number): any;
+
+/**
+ * [`covered_text_spans`](link_citations::covered_text_spans) (TS `coveredTextSpans`).
+ *
+ * # Errors
+ *
+ * Fails if `page` or `links` do not have the expected shape.
+ */
+export function coveredTextSpans(page: any, links: any): any;
+
+/**
+ * [`create_log_entry`](log_entry::create_log_entry). `id` and `now` come from the TS clock and
+ * id generator, which the caller runs before this call.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape, or the body is blank after trimming.
+ */
+export function createLogEntry(input: any, id: string, now: string): any;
+
+/**
+ * [`create_milestone`](milestone::create_milestone) with the id and time supplied. Call
+ * [`milestone_input_error_js`] first: invalid input fails here.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or is invalid.
+ */
+export function createMilestoneWith(input: any, id: string, created_at: string): any;
+
+/**
+ * [`create_paper_relation`](paper_relation::create_paper_relation) with the id and time
+ * supplied. Call [`paper_relation_input_error_js`] first: invalid input fails here.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or does not validate.
+ */
+export function createPaperRelationWith(input: any, id: string, created_at: string): any;
 
 /**
  * [`create_report_section`](report_section::create_report_section) with the id and time
@@ -399,6 +510,24 @@ export function diffJsonData(parsed: any, existing_json: string, side: any): any
 export function diffWorkspace(parsed: any, existing: any, sides: any): any;
 
 /**
+ * [`document_boost`](search_tuning::document_boost). `now` is epoch milliseconds.
+ *
+ * # Errors
+ *
+ * Fails if `doc` or `options` has the wrong shape.
+ */
+export function documentBoost(doc: any, options: any, now: number): number;
+
+/**
+ * [`effective_field_boosts`](search_settings::effective_field_boosts).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ */
+export function effectiveFieldBoosts(settings: any): any;
+
+/**
  * [`effective_relation_types`](graph_settings::effective_relation_types).
  *
  * # Errors
@@ -441,6 +570,15 @@ export function entityDir(entity: string, project_root: string): string;
 export function escapeLatexText(s: string): string;
 
 /**
+ * [`evaluate_ai_access`](access_policy::evaluate_ai_access); `now` is the ISO 8601 clock time.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function evaluateAiAccess(input: any, now: string): any;
+
+/**
  * [`exclusion_reasons`](screening::exclusion_reasons) (TS `exclusionReasons`).
  *
  * # Errors
@@ -450,6 +588,15 @@ export function escapeLatexText(s: string): string;
 export function exclusionReasons(decisions: any, stage: any): any;
 
 /**
+ * [`expand_ipv6`](url_safety::expand_ipv6); `undefined` when the text is not IPv6.
+ *
+ * # Errors
+ *
+ * Fails if the groups cannot be converted to a JS value.
+ */
+export function expandIpv6(value: string): any;
+
+/**
  * [`experiment_activity_at`](experiment_status::experiment_activity_at).
  *
  * # Errors
@@ -457,6 +604,15 @@ export function exclusionReasons(decisions: any, stage: any): any;
  * Fails if `experiment` has the wrong shape.
  */
 export function experimentActivityAt(experiment: any): number;
+
+/**
+ * [`explain_arm`](related::explain_arm).
+ *
+ * # Errors
+ *
+ * Fails if `arm` is not a known arm name.
+ */
+export function explainArm(arm: any): string;
 
 /**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
@@ -605,6 +761,48 @@ export function furnitureKey(s: string): string;
 export function fuseRankings(lists: any, k?: number | null, limit?: number | null): any;
 
 /**
+ * [`fuzziness_for_term`](search_tuning::fuzziness_for_term).
+ */
+export function fuzzinessForTerm(term: string): number;
+
+/**
+ * [`gate_vector_mask`](hybrid_fusion::gate_vector_mask) as a boolean array.
+ *
+ * # Errors
+ *
+ * Fails if `scores` is not an array of numbers.
+ */
+export function gateVectorMask(scores: any, floor: number, keep_top: number): any;
+
+/**
+ * [`get_user_integration_field`](integration_credentials::get_user_integration_field);
+ * `undefined` when empty.
+ *
+ * # Errors
+ *
+ * Fails if `settings` has the wrong shape.
+ */
+export function getUserIntegrationField(settings: any, provider_id: string, field_id: string): any;
+
+/**
+ * [`graph_degrees`](wiki_graph::graph_degrees), as `{ node, degree }` rows.
+ *
+ * # Errors
+ *
+ * Fails if `graph` has the wrong shape.
+ */
+export function graphDegrees(graph: any): any;
+
+/**
+ * [`graph_density`](wiki_graph::graph_density).
+ *
+ * # Errors
+ *
+ * Fails if `graph` has the wrong shape.
+ */
+export function graphDensity(graph: any): any;
+
+/**
  * [`graph_filter_count`](graph_settings::graph_filter_count), given the two selection sizes.
  *
  * # Errors
@@ -641,6 +839,15 @@ export function guessBlobContentType(path: string): string;
  * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function hasConflictMarkers(text: string): boolean;
+
+/**
+ * [`hydrate_user_settings`](user_settings::hydrate_user_settings).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ */
+export function hydrateUserSettings(settings: any): any;
 
 /**
  * [`wf_core::sync::folder_layout::id_suffix`] for JS.
@@ -802,6 +1009,16 @@ export function inkZoomIn(zoom: number): number;
 export function inkZoomOut(zoom: number): number;
 
 /**
+ * [`integrations_bag_from_legacy`](integration_credentials::integrations_bag_from_legacy);
+ * `undefined` when no legacy field is set.
+ *
+ * # Errors
+ *
+ * Fails if `settings` has the wrong shape.
+ */
+export function integrationsBagFromLegacy(settings: any): any;
+
+/**
  * [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
  */
 export function isAnnotationSyncState(value: any): boolean;
@@ -823,6 +1040,11 @@ export function isAppOwnedPath(path: string): boolean;
  * Fails if `hints` or `candidate` is not an object of the expected shape.
  */
 export function isBibliographicMatch(hints: any, candidate: any): boolean;
+
+/**
+ * [`is_blanket_share`](sharing::is_blanket_share); `null` or `undefined` means every resource.
+ */
+export function isBlanketShare(resource_id?: string | null): boolean;
 
 /**
  * [`is_bold_font`]; `fontName` may be undefined.
@@ -858,6 +1080,16 @@ export function isInkChunkId(text: string): boolean;
 export function isInkNoteBody(body: string): boolean;
 
 /**
+ * [`is_ip_address`](url_safety::is_ip_address).
+ */
+export function isIpAddress(value: string): boolean;
+
+/**
+ * [`is_iso_day`](milestone::is_iso_day).
+ */
+export function isIsoDay(value: string): boolean;
+
+/**
  * [`is_paper_field_kind`](paper_field::is_paper_field_kind) (TS `isPaperFieldKind`).
  */
 export function isPaperFieldKind(value: string): boolean;
@@ -866,6 +1098,11 @@ export function isPaperFieldKind(value: string): boolean;
  * [`is_placeholder_title`](paper_title::is_placeholder_title) (TS `isPlaceholderTitle`).
  */
 export function isPlaceholderTitle(title?: string | null): boolean;
+
+/**
+ * [`is_public_address`](url_safety::is_public_address).
+ */
+export function isPublicAddress(address: string): boolean;
 
 /**
  * [`is_quotation_type`](annotation_quotation_type::is_quotation_type) (TS `isQuotationType`).
@@ -915,6 +1152,15 @@ export function isUnderIgnoredFolder(rel_path: string): boolean;
 export function isUnsureConfidence(conf: number): boolean;
 
 /**
+ * [`is_user_integration_connected`](integration_credentials::is_user_integration_connected).
+ *
+ * # Errors
+ *
+ * Fails if `settings` or `field_ids` has the wrong shape.
+ */
+export function isUserIntegrationConnected(settings: any, provider_id: string, field_ids: any): boolean;
+
+/**
  * [`is_zotero_library_sync_mode`] for any JS value: false unless `value` is a string.
  */
 export function isZoteroLibrarySyncMode(value: any): boolean;
@@ -948,6 +1194,15 @@ export function jsonDataPath(project_root: string, kind: any): string;
 export function jsonKindOfPath(path: string): string | undefined;
 
 /**
+ * [`kind_multiplier`](search_settings::kind_multiplier); an unknown `kind` reads as `1`.
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ */
+export function kindMultiplier(kind: string, settings: any): number;
+
+/**
  * [`labelNumber`](bibliography::label_number): entry number from the exec groups.
  *
  * # Errors
@@ -970,6 +1225,25 @@ export function latestByReviewerList(decisions: any, item_id: string, stage: any
  * [`levenshtein`](analysis_outline::levenshtein) (TS `levenshtein`).
  */
 export function levenshtein(a: string, b: string, limit: number): number;
+
+/**
+ * [`link_citation_mentions`](link_citations::link_citation_mentions) (TS
+ * `linkCitationMentions`).
+ *
+ * # Errors
+ *
+ * Fails if `page`, `links` or `refs` do not have the expected shape.
+ */
+export function linkCitationMentions(page: any, links: any, refs: any): any;
+
+/**
+ * [`validate_new_log_entry`](log_entry::validate_new_log_entry): the error message, or `None`.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function logEntryInputError(input: any): string | undefined;
 
 /**
  * [`map_ink_confidence`]; `scale` defaults to 1.
@@ -1013,6 +1287,15 @@ export function maxFusionIds(): number;
  * text is copied into linear memory.
  */
 export function maxIndexTextUtf16(): number;
+
+/**
+ * [`mcp_read_result`](mcp_result::mcp_read_result), as a plain JS `McpResult` object.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of `{ label, text }` objects.
+ */
+export function mcpReadResult(items: any, max_item_chars: number | null | undefined, max_result_chars: number | null | undefined, nonce: string): any;
 
 /**
  * [`mean_pressure`]; `undefined` when no sample reports pressure.
@@ -1059,6 +1342,25 @@ export function mergeRows(base: any, local: any, remote: any): any;
 export function mergeVaultPage(base: any, folder: any, workspace: any): any;
 
 /**
+ * [`merge_wiki_pages`](wiki_merge::merge_wiki_pages).
+ *
+ * # Errors
+ *
+ * Fails if `primary` or `secondary` is not a `{ id, title, body, aliases?, sources? }` object.
+ */
+export function mergeWikiPages(primary: any, secondary: any): any;
+
+/**
+ * [`validate_new_milestone`](milestone::validate_new_milestone): the validation message, or
+ * `undefined` when the input is valid.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function milestoneInputError(input: any): string | undefined;
+
+/**
  * [`neutralise_context`](untrusted_context::neutralise_context).
  */
 export function neutraliseContext(text: string, nonce: string): string;
@@ -1093,6 +1395,15 @@ export function normalisePageRotation(rotation: number): number;
 export function normaliseWhitespace(text: string, options: any): any;
 
 /**
+ * [`normalize_ai_access_settings`](access_policy::normalize_ai_access_settings); `undefined` reads as none.
+ *
+ * # Errors
+ *
+ * Fails if a field has the wrong JS type (for example a non-boolean `enabled`).
+ */
+export function normalizeAiAccessSettings(input: any): any;
+
+/**
  * [`normalize_appearance`](user_appearance::normalize_appearance); `undefined` when
  * nothing is valid.
  *
@@ -1117,6 +1428,15 @@ export function normalizeArxivId(value: string): string | undefined;
  * non-string or a rejected color.
  */
 export function normalizeColorValue(raw: any): string | undefined;
+
+/**
+ * [`normalize_comment_input`](sharing::normalize_comment_input); a message throws as text.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or does not validate.
+ */
+export function normalizeCommentInput(input: any): any;
 
 /**
  * [`normalize_doi`](paper::normalize_doi) (TS `normalizeDoi`). `None` becomes `undefined`.
@@ -1168,6 +1488,24 @@ export function normalizePasteSettings(json: string): any;
 export function normalizeProjectPath(path: string): string | undefined;
 
 /**
+ * [`normalize_search_settings`](search_settings::normalize_search_settings); `undefined` when nothing valid remains.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ */
+export function normalizeSearchSettings(raw: any): any;
+
+/**
+ * [`normalize_share_input`](sharing::normalize_share_input); a validation message throws as text.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or does not validate.
+ */
+export function normalizeShareInput(input: any): any;
+
+/**
  * [`normalize_tags`](paper::normalize_tags) (TS `normalizeTags`).
  */
 export function normalizeTags(tags: string[]): string[];
@@ -1186,6 +1524,15 @@ export function normalizeThemeConfig(raw: any): any;
  * [`normalize_title_key`](page::normalize_title_key) (TS `normalizeTitleKey`).
  */
 export function normalizeTitleKey(title: string): string;
+
+/**
+ * [`normalize_user_settings`](user_settings::normalize_user_settings).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ */
+export function normalizeUserSettings(settings: any): any;
 
 /**
  * [`original_range`](analysis_text::original_range) as `[start, end]` (TS `originalRange`).
@@ -1251,6 +1598,16 @@ export function pageImportRefusal(meta: any): string | undefined;
  * Fails if `items` is not an array of run objects.
  */
 export function pageTextFromItems(items: any): string;
+
+/**
+ * [`validate_new_paper_relation`](paper_relation::validate_new_paper_relation): the
+ * validation message, or `undefined` when the input is valid.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function paperRelationInputError(input: any): string | undefined;
 
 /**
  * [`parse_bib_entries`](bib_entries::parse_bib_entries) (TS `parseBibEntries`).
@@ -1403,6 +1760,16 @@ export function pdfPointToScreen(x: number, y: number, p: any): any;
 export function pdfRectToScreenBox(rect: Float64Array, p: any): any;
 
 /**
+ * [`personalized_page_rank`](personalized_pagerank::personalized_page_rank); `[{ node, score }]`
+ * in first-visit order.
+ *
+ * # Errors
+ *
+ * Fails if `graph` or `options` has the wrong shape.
+ */
+export function personalizedPageRank(graph: any, seed: string, options: any, rng: () => number): any;
+
+/**
  * [`pick_nearest_match`] as `{ start, end }`, or `null` when there is no match.
  *
  * # Errors
@@ -1483,9 +1850,27 @@ export function projectMetaDir(project_root: string): string;
 export function projectedPageSize(p: any): any;
 
 /**
+ * [`push_ink_undo`](ink_undo::push_ink_undo).
+ *
+ * # Errors
+ *
+ * Fails if `state` or `entry` has the wrong shape.
+ */
+export function pushInkUndo(state: any, entry: any): any;
+
+/**
  * [`quantize_ink_path`]; `decimals` defaults to 2.
  */
 export function quantizeInkPath(path: Float64Array, decimals?: number | null): Float64Array;
+
+/**
+ * [`query_term_count`](hybrid_fusion::query_term_count).
+ *
+ * # Errors
+ *
+ * Fails if `terms` is not an array of strings.
+ */
+export function queryTermCount(terms: any): number;
 
 /**
  * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
@@ -1531,6 +1916,34 @@ export function reconstructLines(page: number, items: any, keep: any): any;
 export function rectanglesOverlap(a: Float64Array, b: Float64Array): boolean;
 
 /**
+ * [`reference_for_destination`](link_citations::reference_for_destination) (TS
+ * `referenceForDestination`); `null` when no entry is found.
+ *
+ * # Errors
+ *
+ * Fails if `dest` or `refs` do not have the expected shape.
+ */
+export function referenceForDestination(dest: any, refs: any): any;
+
+/**
+ * [`refresh_ink_undo_annotation`](ink_undo::refresh_ink_undo_annotation).
+ *
+ * # Errors
+ *
+ * Fails if `state` or `annotation` has the wrong shape.
+ */
+export function refreshInkUndoAnnotation(state: any, annotation: any): any;
+
+/**
+ * [`related_by_ppr`](personalized_pagerank::related_by_ppr); `[{ id, score }]`, best first.
+ *
+ * # Errors
+ *
+ * Fails if `graph` or `options` has the wrong shape.
+ */
+export function relatedByPpr(graph: any, seed: string, limit: number, options: any, rng: () => number): any;
+
+/**
  * [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
  *
  * # Errors
@@ -1538,6 +1951,15 @@ export function rectanglesOverlap(a: Float64Array, b: Float64Array): boolean;
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function relativeAssetPaths(body: string): any;
+
+/**
+ * [`rename_ink_undo_id`](ink_undo::rename_ink_undo_id).
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ */
+export function renameInkUndoId(state: any, from: string, to: string): any;
 
 /**
  * [`replace_wiki_index`](wiki_index::replace_wiki_index).
@@ -1691,6 +2113,42 @@ export function selectionToAnchor(selection: any, page: any): any;
 export function serializeWorkspace(snapshot_json: string, project_id: string, project_name: string): any;
 
 /**
+ * [`share_allows_comment`](sharing::share_allows_comment).
+ *
+ * # Errors
+ *
+ * Fails if `share` or `resource_type` has the wrong shape.
+ */
+export function shareAllowsComment(share: any, resource_type: any, resource_id: string, owner_id: string): boolean;
+
+/**
+ * [`share_allows_edit`](sharing::share_allows_edit).
+ *
+ * # Errors
+ *
+ * Fails if `share` or `resource_type` has the wrong shape.
+ */
+export function shareAllowsEdit(share: any, resource_type: any, resource_id: string, owner_id: string): boolean;
+
+/**
+ * [`share_covers_resource`](sharing::share_covers_resource).
+ *
+ * # Errors
+ *
+ * Fails if `share` or `resource_type` has the wrong shape.
+ */
+export function shareCoversResource(share: any, resource_type: any, resource_id: string, owner_id: string): boolean;
+
+/**
+ * [`share_supports_edit_access`](sharing::share_supports_edit_access).
+ *
+ * # Errors
+ *
+ * Fails if `resource_type` is not a shareable type.
+ */
+export function shareSupportsEditAccess(resource_type: any, resource_id?: string | null): boolean;
+
+/**
  * [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
  */
 export function shortSha(sha?: string | null): string | undefined;
@@ -1825,6 +2283,11 @@ export function stripInvisible(text: string): string;
 export function stripKindSuffix(name: string): string;
 
 /**
+ * [`strip_stopwords`](hybrid_fusion::strip_stopwords).
+ */
+export function stripStopwords(query: string): string;
+
+/**
  * [`stroke_base_width`].
  */
 export function strokeBaseWidth(samples: Float64Array, base: number): number;
@@ -1842,6 +2305,24 @@ export function surnameKey(name: string): string;
  * Fails when `input` is over the text cap.
  */
 export function tabSeparatedToMarkdownTable(input: string): any;
+
+/**
+ * [`take_ink_redo`](ink_undo::take_ink_redo); `null` when there is no step.
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ */
+export function takeInkRedo(state: any): any;
+
+/**
+ * [`take_ink_undo`](ink_undo::take_ink_undo); `null` when there is no step.
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ */
+export function takeInkUndo(state: any): any;
 
 /**
  * [`text_fingerprint`](analysis_text::text_fingerprint) (TS `textFingerprint`).
@@ -1925,6 +2406,26 @@ export function uniqueTitle(base: string, used: string[]): string;
  * [`UNTRUSTED_CONTEXT_RULE`](untrusted_context::UNTRUSTED_CONTEXT_RULE).
  */
 export function untrustedContextRule(): string;
+
+/**
+ * [`validate_compute`](milestone::validate_compute): the validation message, or `undefined`
+ * when the list is valid.
+ *
+ * # Errors
+ *
+ * Fails if `compute` has the wrong shape.
+ */
+export function validateComputeError(compute: any): string | undefined;
+
+/**
+ * [`validate_dependencies`](milestone::validate_dependencies): the validation message, or
+ * `undefined` when the list is valid.
+ *
+ * # Errors
+ *
+ * Fails if `deps` has the wrong shape.
+ */
+export function validateDependenciesError(deps: any): string | undefined;
 
 /**
  * [`vault_asset_paths_in_body`](page::vault_asset_paths_in_body) (TS `vaultAssetPathsInBody`).
@@ -2040,22 +2541,29 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly acronymsForTitle: (a: number, b: number) => [number, number, number];
     readonly addCounts: (a: any, b: any) => [number, number, number];
     readonly agreementBetween: (a: any, b: any, c: any) => [number, number, number];
+    readonly aiReadCategoryForResource: (a: any) => [number, number, number];
     readonly analyzePdfDocument: (a: any, b: any) => [number, number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
+    readonly applyUserIntegrationFields: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
     readonly bodyFontSize: (a: any) => [number, number, number];
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
     readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly buildLabSnapshotContent: (a: any) => [number, number, number];
+    readonly buildListTree: (a: any) => [number, number, number];
     readonly buildSectionTree: (a: any) => [number, number, number];
+    readonly buildWikiGraph: (a: any) => [number, number, number];
     readonly buildWikiIndex: (a: any, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly checkBibliography: (a: any) => [number, number, number];
+    readonly checkUrlShape: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
+    readonly chunkForEmbedding: (a: number, b: number, c: any) => [number, number, number];
     readonly citationItemToRect: (a: any, b: number, c: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
     readonly clampInkWidth: (a: number) => number;
@@ -2073,6 +2581,11 @@ export interface InitOutput {
     readonly computeFitWidthScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
+    readonly coveredHitMask: (a: any, b: number, c: number) => [number, number, number];
+    readonly coveredTextSpans: (a: any, b: any) => [number, number, number];
+    readonly createLogEntry: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly createMilestoneWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly createPaperRelationWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createReportSectionWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly decideAnnotationSync: (a: any, b: number, c: number) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -2088,13 +2601,18 @@ export interface InitOutput {
     readonly diffBody: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly diffJsonData: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly diffWorkspace: (a: any, b: any, c: any) => [number, number, number];
+    readonly documentBoost: (a: any, b: any, c: number) => [number, number, number];
+    readonly effectiveFieldBoosts: (a: any) => [number, number, number];
     readonly effectiveRelationTypes: (a: any) => [number, number, number];
     readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly escapeLatexText: (a: number, b: number) => [number, number];
+    readonly evaluateAiAccess: (a: any, b: number, c: number) => [number, number, number];
     readonly exclusionReasons: (a: any, b: any) => [number, number, number];
+    readonly expandIpv6: (a: number, b: number) => [number, number, number];
     readonly experimentActivityAt: (a: any) => [number, number, number];
+    readonly explainArm: (a: any) => [number, number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractHashtagRefs: (a: number, b: number) => [number, number, number];
     readonly extractHashtags: (a: number, b: number) => [number, number];
@@ -2113,10 +2631,16 @@ export interface InitOutput {
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
     readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
+    readonly fuzzinessForTerm: (a: number, b: number) => number;
+    readonly gateVectorMask: (a: any, b: number, c: number) => [number, number, number];
+    readonly getUserIntegrationField: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly graphDegrees: (a: any) => [number, number, number];
+    readonly graphDensity: (a: any) => [number, number, number];
     readonly graphFilterCountFor: (a: number, b: number, c: any) => [number, number, number];
     readonly groupRecurringLines: (a: any, b: any) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
+    readonly hydrateUserSettings: (a: any) => [number, number, number];
     readonly idSuffix: (a: number, b: number) => [number, number, number, number];
     readonly imageAltFromFilename: (a: number, b: number) => [number, number, number, number];
     readonly imageExtensionForMime: (a: number, b: number) => [number, number, number, number];
@@ -2140,16 +2664,21 @@ export interface InitOutput {
     readonly inkWidthForPressure: (a: number, b: number, c: number, d: number) => number;
     readonly inkZoomIn: (a: number) => number;
     readonly inkZoomOut: (a: number) => number;
+    readonly integrationsBagFromLegacy: (a: any) => [number, number, number];
     readonly isAnnotationSyncState: (a: any) => number;
     readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
     readonly isBibliographicMatch: (a: any, b: any) => [number, number, number];
+    readonly isBlanketShare: (a: number, b: number) => number;
     readonly isBoldFont: (a: number, b: number) => number;
     readonly isEmptyPaperSummary: (a: number, b: number) => number;
     readonly isHighlighterInk: (a: number, b: number) => number;
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
+    readonly isIpAddress: (a: number, b: number) => number;
+    readonly isIsoDay: (a: number, b: number) => number;
     readonly isPaperFieldKind: (a: number, b: number) => number;
     readonly isPlaceholderTitle: (a: number, b: number) => number;
+    readonly isPublicAddress: (a: number, b: number) => number;
     readonly isQuotationType: (a: number, b: number) => number;
     readonly isReaderAnnotationType: (a: any) => number;
     readonly isRotatedText: (a: number, b: number) => number;
@@ -2157,33 +2686,42 @@ export interface InitOutput {
     readonly isStaleRunningExperiment: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
+    readonly isUserIntegrationConnected: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly isZoteroLibrarySyncMode: (a: any) => number;
     readonly itemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
+    readonly kindMultiplier: (a: number, b: number, c: any) => [number, number, number];
     readonly labelNumber: (a: any) => [number, number, number];
     readonly latestByReviewerList: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly levenshtein: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
+    readonly logEntryInputError: (a: any) => [number, number, number, number];
     readonly mapInkConfidence: (a: number, b: number, c: number) => number;
     readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly markdownToLatex: (a: number, b: number, c: any) => [number, number, number];
     readonly matchAuthorYearText: (a: number, b: number, c: any) => [number, number, number];
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
+    readonly mcpReadResult: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly meanPressure: (a: number, b: number) => [number, number];
     readonly mentionRects: (a: any, b: number, c: number) => [number, number, number];
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
+    readonly mergeWikiPages: (a: any, b: any) => [number, number, number];
+    readonly milestoneInputError: (a: any) => [number, number, number, number];
     readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
     readonly nextRotation: (a: number, b: number) => number;
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly normalisePageRotation: (a: number) => number;
     readonly normaliseWhitespace: (a: number, b: number, c: any) => [number, number, number];
+    readonly normalizeAiAccessSettings: (a: any) => [number, number, number];
     readonly normalizeAppearance: (a: any) => [number, number, number];
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
     readonly normalizeColorValue: (a: any) => [number, number];
+    readonly normalizeCommentInput: (a: any) => [number, number, number];
     readonly normalizeDoi: (a: number, b: number) => [number, number];
     readonly normalizeFontStack: (a: any) => [number, number];
     readonly normalizeGraphViewSettings: (a: any) => [number, number, number];
@@ -2191,9 +2729,12 @@ export interface InitOutput {
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
     readonly normalizeProjectPath: (a: number, b: number) => [number, number];
+    readonly normalizeSearchSettings: (a: any) => [number, number, number];
+    readonly normalizeShareInput: (a: any) => [number, number, number];
     readonly normalizeTags: (a: number, b: number) => [number, number];
     readonly normalizeThemeConfig: (a: any) => [number, number, number];
     readonly normalizeTitleKey: (a: number, b: number) => [number, number];
+    readonly normalizeUserSettings: (a: any) => [number, number, number];
     readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
     readonly outlineFromText: (a: any) => [number, number, number];
     readonly outlineIsPlausible: (a: any, b: number) => [number, number, number];
@@ -2201,6 +2742,7 @@ export interface InitOutput {
     readonly packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly pageTextFromItems: (a: any) => [number, number, number, number];
+    readonly paperRelationInputError: (a: any) => [number, number, number, number];
     readonly parseBibEntries: (a: any) => [number, number, number];
     readonly parseBibliography: (a: any, b: number) => [number, number, number];
     readonly parseBibliographyEntry: (a: any, b: number, c: number) => [number, number, number];
@@ -2217,6 +2759,7 @@ export interface InitOutput {
     readonly pasteLandsInVerbatimContext: (a: number, b: number, c: number) => [number, number, number];
     readonly pdfPointToScreen: (a: number, b: number, c: any) => [number, number, number];
     readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
+    readonly personalizedPageRank: (a: any, b: number, c: number, d: any, e: any) => [number, number, number];
     readonly pickNearestMatch: (a: any, b: any) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
@@ -2226,13 +2769,19 @@ export interface InitOutput {
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly projectedPageSize: (a: any) => [number, number, number];
+    readonly pushInkUndo: (a: any, b: any) => [number, number, number];
     readonly quantizeInkPath: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly queryTermCount: (a: any) => [number, number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly readerKeyboardCommand: (a: any) => [number, number, number];
     readonly reconstructLines: (a: number, b: any, c: any) => [number, number, number];
     readonly rectanglesOverlap: (a: number, b: number, c: number, d: number) => number;
+    readonly referenceForDestination: (a: any, b: any) => [number, number, number];
+    readonly refreshInkUndoAnnotation: (a: any, b: any) => [number, number, number];
+    readonly relatedByPpr: (a: any, b: number, c: number, d: number, e: any, f: any) => [number, number, number];
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
+    readonly renameInkUndoId: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
     readonly reportSectionInputError: (a: any) => [number, number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
@@ -2250,6 +2799,10 @@ export interface InitOutput {
     readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
     readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly shareAllowsComment: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly shareAllowsEdit: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly shareCoversResource: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly shareSupportsEditAccess: (a: any, b: number, c: number) => [number, number, number];
     readonly shortSha: (a: number, b: number) => [number, number];
     readonly shouldAppendInkPoint: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly showConceptEdges: (a: any) => [number, number, number];
@@ -2267,9 +2820,12 @@ export interface InitOutput {
     readonly stripFrontmatter: (a: number, b: number) => [number, number, number];
     readonly stripInvisible: (a: number, b: number) => [number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
+    readonly stripStopwords: (a: number, b: number) => [number, number];
     readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
     readonly surnameKey: (a: number, b: number) => [number, number];
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
+    readonly takeInkRedo: (a: any) => [number, number, number];
+    readonly takeInkUndo: (a: any) => [number, number, number];
     readonly textFingerprint: (a: any) => [number, number, number, number];
     readonly themeConfigTemplate: () => [number, number];
     readonly titleFromFileName: (a: number, b: number) => [number, number];
@@ -2282,6 +2838,8 @@ export interface InitOutput {
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];
     readonly uniqueTitle: (a: number, b: number, c: number, d: number) => [number, number];
     readonly untrustedContextRule: () => [number, number];
+    readonly validateComputeError: (a: any) => [number, number, number, number];
+    readonly validateDependenciesError: (a: any) => [number, number, number, number];
     readonly vaultAssetPathsInBody: (a: number, b: number) => [number, number];
     readonly vaultBodyPreview: (a: number, b: number, c: number) => [number, number];
     readonly vaultImageMarkdown: (a: number, b: number, c: number, d: number) => [number, number];
