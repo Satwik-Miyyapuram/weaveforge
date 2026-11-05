@@ -7,7 +7,9 @@
 //! - `db`: the app's database rules: migrations, queries run as a user under RLS, the device user.
 //! - `host`: the database as the app sees it: lazy open, queries as the device user, state, reset.
 //! - `import`: a one-time copy of an old PGlite database into the new one.
+//! - `backup`: `pg_dump` copies of the database and which of them to keep.
 
+pub mod backup;
 pub mod db;
 pub mod host;
 pub mod import;
