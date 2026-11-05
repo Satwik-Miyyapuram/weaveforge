@@ -67,17 +67,25 @@ pub fn migrate_from_electron(
         write_done_marker(old_dir, new_dir, now, &[])?;
         return Ok(Outcome::Nothing);
     }
-    let locked = match take_locks(&db_dirs_to_lock(old_dir), now)? {
-        Ok(locked) => locked,
+    let _locks = match take_locks(&db_dirs_to_lock(old_dir), now)? {
+        Ok(locks) => locks,
         Err(reason) => return Ok(Outcome::Busy(reason)),
     };
     // Markers are written while Electron is still locked out, so it cannot change its data unwarned in between.
-    let result = stage_and_publish(old_dir, new_dir, &present, now)
-        .and_then(|copied| write_done_marker(old_dir, new_dir, now, &copied).map(|()| copied));
-    for dir in &locked {
-        db_lock::release(dir);
+    let copied = stage_and_publish(old_dir, new_dir, &present, now)?;
+    write_done_marker(old_dir, new_dir, now, &copied)?;
+    Ok(Outcome::Done(copied))
+}
+
+/// Locks held on Electron's database dirs; released on drop, so an error or panic never leaves one behind.
+struct Locks(Vec<PathBuf>);
+
+impl Drop for Locks {
+    fn drop(&mut self) {
+        for dir in &self.0 {
+            db_lock::release(dir);
+        }
     }
-    result.map(Outcome::Done)
 }
 
 /// Lexical absolute form: `.` and `..` resolved without touching the disk, as Node's `path.resolve` does.
@@ -137,28 +145,25 @@ fn workspace_db_dir(old_dir: &Path) -> Option<PathBuf> {
 }
 
 /// Locks each dir. `Ok(Err(reason))` when one is busy, after releasing the ones taken.
-fn take_locks(dirs: &[PathBuf], now: SystemTime) -> io::Result<Result<Vec<PathBuf>, String>> {
-    let mut taken: Vec<PathBuf> = Vec::new();
+fn take_locks(dirs: &[PathBuf], now: SystemTime) -> io::Result<Result<Locks, String>> {
+    let mut taken = Locks(Vec::new());
     for dir in dirs {
         match db_lock::acquire(dir, LOCK_APP, now) {
-            Ok(()) => taken.push(dir.clone()),
-            Err(error) => {
-                for done in &taken {
-                    db_lock::release(done);
-                }
-                return match error {
-                    LockError::InUse { .. } => Ok(Err(error.to_string())),
-                    LockError::Io(e) => Err(e),
-                };
-            }
+            Ok(()) => taken.0.push(dir.clone()),
+            Err(error @ LockError::InUse { .. }) => return Ok(Err(error.to_string())),
+            Err(LockError::Io(e)) => return Err(e),
         }
     }
     Ok(Ok(taken))
 }
 
-/// `fs.cpSync` with `errorOnExist`, `force: false`, `preserveTimestamps`: never overwrites; files keep their times.
+/// `fs.cpSync` with `errorOnExist`, `force: false`, `preserveTimestamps`: never overwrites; files keep their times;
+/// symlinks are recreated as links, not followed (so a loop or a dangling link cannot break the copy).
 fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
-    let meta = fs::metadata(from)?;
+    let meta = fs::symlink_metadata(from)?;
+    if meta.is_symlink() {
+        return copy_link(from, to);
+    }
     if meta.is_dir() {
         fs::create_dir(to)?;
         for entry in fs::read_dir(from)? {
@@ -178,10 +183,44 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
     if let Ok(accessed) = meta.accessed() {
         times = times.set_accessed(accessed);
     }
-    fs::OpenOptions::new()
-        .write(true)
-        .open(to)?
-        .set_times(times)
+    open_for_times(to)?.set_times(times)
+}
+
+/// Opens a file only to set its times, so a read-only copy (`fs::copy` keeps the read-only bit) still works.
+fn open_for_times(path: &Path) -> io::Result<fs::File> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_WRITE_ATTRIBUTES: u32 = 0x100;
+        fs::OpenOptions::new()
+            .access_mode(FILE_WRITE_ATTRIBUTES)
+            .open(path)
+    }
+    #[cfg(not(windows))]
+    {
+        fs::File::open(path)
+    }
+}
+
+fn copy_link(from: &Path, to: &Path) -> io::Result<()> {
+    let target = fs::read_link(from)?;
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(&target, to)
+    }
+    #[cfg(windows)]
+    {
+        if fs::metadata(from).is_ok_and(|m| m.is_dir()) {
+            std::os::windows::fs::symlink_dir(&target, to)
+        } else {
+            std::os::windows::fs::symlink_file(&target, to)
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (target, to);
+        Err(io::Error::other("symlinks are not supported here"))
+    }
 }
 
 /// Removes `dir` and everything in it; a missing dir is fine.
@@ -351,6 +390,34 @@ mod tests {
             .and_then(|m| m.modified())
             .ok();
         assert_eq!(copied, Some(then));
+    }
+
+    #[test]
+    fn read_only_file_is_copied_with_its_time() {
+        let (old, new) = temp("readonly");
+        let file = old.join("weaveforge.log");
+        let _ = fs::write(&file, "log");
+        let then = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+        let _ = fs::OpenOptions::new()
+            .write(true)
+            .open(&file)
+            .and_then(|f| f.set_times(fs::FileTimes::new().set_modified(then)));
+        let set_read_only = |p: &Path, on: bool| {
+            if let Ok(meta) = fs::metadata(p) {
+                let mut perms = meta.permissions();
+                #[allow(clippy::permissions_set_readonly_false)]
+                perms.set_readonly(on);
+                let _ = fs::set_permissions(p, perms);
+            }
+        };
+        set_read_only(&file, true);
+        let outcome = migrate_from_electron(&old, &new, SystemTime::now());
+        let copied = new.join("weaveforge.log");
+        let time = fs::metadata(&copied).and_then(|m| m.modified()).ok();
+        set_read_only(&file, false);
+        set_read_only(&copied, false);
+        assert!(outcome.is_ok(), "{outcome:?}");
+        assert_eq!(time, Some(then));
     }
 
     #[test]

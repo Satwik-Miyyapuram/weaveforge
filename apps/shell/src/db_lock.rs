@@ -38,7 +38,7 @@ pub enum LockError {
         holder: LockHolder,
     },
     /// The lock file could not be read or written.
-    #[error("database lock: {0}")]
+    #[error("{0}")]
     Io(#[from] io::Error),
 }
 
@@ -293,7 +293,9 @@ mod tests {
             })
             .stdout(std::process::Stdio::null())
             .spawn();
-        let Ok(mut child) = child else { return };
+        let Ok(mut child) = child else {
+            panic!("could not spawn the helper process")
+        };
         let body = serde_json::json!({ "pid": child.id(), "app": "Other", "at": iso_utc(SystemTime::now()) });
         write_lock(&dir, &body.to_string());
         let result = acquire(&dir, "test-app", SystemTime::now());
@@ -317,7 +319,9 @@ mod tests {
                 vec![]
             })
             .spawn();
-        let Ok(mut child) = child else { return };
+        let Ok(mut child) = child else {
+            panic!("could not spawn the helper process")
+        };
         let pid = child.id();
         let _ = child.wait();
         let body =
