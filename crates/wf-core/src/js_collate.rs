@@ -56,16 +56,39 @@ fn collated(s: &str) -> impl Iterator<Item = char> + '_ {
     })
 }
 
-/// Primary weight of a char: its place in [`COLLATION`], case and accent folded;
-/// any other char after every ASCII one, by code point.
+/// Room for every code point between two [`COLLATION`] places.
+const SLOT: u32 = 1 << 21;
+
+/// Weight just below the [`COLLATION`] place of `anchor`, ordered by code point.
+fn before(anchor: char, key: char) -> u32 {
+    let at = COLLATION
+        .find(anchor)
+        .and_then(|at| u32::try_from(at).ok())
+        .unwrap_or(0);
+    at * SLOT - 0x11_0000 + u32::from(key)
+}
+
+/// Primary weight of a char: its place in [`COLLATION`], case and accent folded.
+/// Like ICU, other symbols (emoji, arrows) sort just before `$`, other currency
+/// signs between `$` and the digits, and any other char after every ASCII one.
+/// Within each group, by code point.
 fn primary_weight(c: char) -> u32 {
     let (lower, base) = fold(c);
     let key = base.unwrap_or(lower);
-    COLLATION
-        .find(key)
-        .and_then(|at| u32::try_from(at).ok())
-        .unwrap_or_else(|| 0x100 + u32::from(key))
+    if let Some(at) = COLLATION.find(key).and_then(|at| u32::try_from(at).ok()) {
+        return at * SLOT;
+    }
+    match key.general_category() {
+        GeneralCategory::CurrencySymbol => before('0', key),
+        GeneralCategory::OtherSymbol
+        | GeneralCategory::MathSymbol
+        | GeneralCategory::ModifierSymbol => before('$', key),
+        _ => u32::try_from(COLLATION.len()).unwrap_or(0) * SLOT + u32::from(key),
+    }
 }
+
+/// Accent weight of `\u{df}`, above every code point.
+const SHARP_S_ACCENT: u32 = 0x11_0000;
 
 /// Secondary weight: 0 for a plain char, else the accented letter's code point.
 fn accent_weight(c: char) -> u32 {
@@ -93,7 +116,11 @@ fn elements(s: &str) -> Vec<Element> {
             continue;
         }
         if c == '\u{df}' {
-            out.extend([(primary_weight('s'), 0, 0), (primary_weight('s'), 0, 0)]);
+            // ICU sorts `\u{df}` as `ss` but after any accented or upper-case `ss`.
+            out.extend([
+                (primary_weight('s'), SHARP_S_ACCENT, 0),
+                (primary_weight('s'), 0, 0),
+            ]);
             continue;
         }
         for d in c.nfkd() {
@@ -174,5 +201,22 @@ mod tests {
         assert_eq!(locale_compare("stra\u{df}e", "strasz"), Ordering::Less);
         assert_eq!(locale_compare("\u{17e}", "z"), Ordering::Greater);
         assert_eq!(locale_compare("\u{17e}", "za"), Ordering::Less);
+        assert_eq!(locale_compare("stra\u{df}e", "Strasse"), Ordering::Greater);
+        assert_eq!(locale_compare("\u{df}a", "Ssa"), Ordering::Greater);
+        assert_eq!(locale_compare("\u{df}a", "s\u{161}a"), Ordering::Greater);
+        assert_eq!(locale_compare("\u{df}a", "\u{15b}sa"), Ordering::Greater);
+        assert_eq!(
+            locale_compare("Stra\u{df}e", "stra\u{df}e"),
+            Ordering::Greater
+        );
+    }
+
+    #[test]
+    fn symbols_sort_before_dollar_and_currency_before_digits() {
+        assert_eq!(locale_compare("\u{1f642}", "$"), Ordering::Less);
+        assert_eq!(locale_compare("\u{1f642}", "~"), Ordering::Greater);
+        assert_eq!(locale_compare("\u{1f642}", "\u{20ac}"), Ordering::Less);
+        assert_eq!(locale_compare("\u{20ac}", "0"), Ordering::Less);
+        assert_eq!(locale_compare("\u{1f642} smile", "a"), Ordering::Less);
     }
 }

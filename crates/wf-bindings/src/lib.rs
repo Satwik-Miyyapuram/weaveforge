@@ -30,9 +30,9 @@ pub enum BindingsError {
 /// Every type exported to TypeScript. Add new types here.
 #[must_use]
 pub fn types() -> Types {
-    settings_lab_types(writing_types(analysis_types(
-        reader_types(Types::default()),
-    )))
+    port_types_2(port_types_1(settings_lab_types(writing_types(
+        analysis_types(reader_types(Types::default())),
+    ))))
     .register::<wf_core::CoreInfo>()
     .register::<wf_core::search::tokenizer::TokenizerOptions>()
     .register::<wf_core::search::query::SearchKind>()
@@ -234,7 +234,6 @@ fn settings_lab_types(types: Types) -> Types {
         .register::<wf_core::experiment_status::Experiment>()
         .register::<wf_core::experiment_status::ExperimentStatusPatch>()
         .register::<wf_core::lab_snapshot::MilestoneStatus>()
-        .register::<wf_core::lab_snapshot::LogKind>()
         .register::<wf_core::lab_snapshot::MilestoneInput>()
         .register::<wf_core::lab_snapshot::LogEntryInput>()
         .register::<wf_core::lab_snapshot::ExperimentInput>()
@@ -245,6 +244,84 @@ fn settings_lab_types(types: Types) -> Types {
         .register::<wf_core::lab_snapshot::LabSnapshotExperiment>()
         .register::<wf_core::lab_snapshot::LabSnapshotReportSection>()
         .register::<wf_core::lab_snapshot::LabSnapshotContent>()
+}
+
+/// Rust port types, part 1 (search, AI, sharing, plan, logbook and settings).
+fn port_types_1(types: Types) -> Types {
+    types
+        .register::<wf_core::sharing::ShareableType>()
+        .register::<wf_core::sharing::ShareAccess>()
+        .register::<wf_core::sharing::NewShareInput>()
+        .register::<wf_core::sharing::NormalizedShareInput>()
+        .register::<wf_core::sharing::ShareScope>()
+        .register::<wf_core::sharing::ShareGrant>()
+        .register::<wf_core::sharing::CommentAnchor>()
+        .register::<wf_core::sharing::NewCommentInput>()
+        .register::<wf_core::sharing::NormalizedComment>()
+        .register::<wf_core::ai::access_policy::AiResourceType>()
+        .register::<wf_core::ai::access_policy::AiReadCategory>()
+        .register::<wf_core::ai::access_policy::AiProposalKind>()
+        .register::<wf_core::ai::access_policy::AiToolName>()
+        .register::<wf_core::ai::access_policy::AiPolicyDenyReason>()
+        .register::<wf_core::ai::access_policy::AiAccessSettings>()
+        .register::<wf_core::ai::access_policy::AiAccessSettingsInput>()
+        .register::<wf_core::ai::access_policy::AiWorkspaceSource>()
+        .register::<wf_core::ai::access_policy::AiSessionGrant>()
+        .register::<wf_core::ai::access_policy::AiPolicyInput>()
+        .register::<wf_core::ai::access_policy::AiPolicyDecision>()
+        .register::<wf_core::logbook::log_entry::LogKind>()
+        .register::<wf_core::logbook::log_entry::LogLink>()
+        .register::<wf_core::logbook::log_entry::LogEntry>()
+        .register::<wf_core::logbook::log_entry::NewLogEntryInput>()
+        .register::<wf_core::plan::milestone::DependencyKind>()
+        .register::<wf_core::plan::milestone::MilestoneDependency>()
+        .register::<wf_core::plan::milestone::ComputeNeed>()
+        .register::<wf_core::plan::milestone::Milestone>()
+        .register::<wf_core::plan::milestone::NewMilestoneInput>()
+        .register::<wf_core::reader::ink_undo::InkUndoPatch>()
+        .register::<wf_core::reader::ink_undo::InkUndoEntry>()
+        .register::<wf_core::reader::ink_undo::InkUndoState>()
+        .register::<wf_core::reader::ink_undo::InkUndoStep>()
+        .register::<wf_core::reading_lists::reading_list::ReadingList>()
+        .register::<wf_core::reading_lists::reading_list::ReadingListItem>()
+        .register::<wf_core::reading_lists::reading_list::ReadingListTreeNode>()
+        .register::<wf_core::relations::paper_relation::RelationSource>()
+        .register::<wf_core::relations::paper_relation::PaperRelation>()
+        .register::<wf_core::relations::paper_relation::NewPaperRelationInput>()
+        .register::<wf_core::search::related::RelatedArm>()
+        .register::<wf_core::search::related::RelatedResult>()
+        .register::<wf_core::search::search_settings::SearchFieldWeights>()
+        .register::<wf_core::search::search_settings::FieldBoosts>()
+        .register::<wf_core::search::search_settings::SearchSettings>()
+        .register::<wf_core::ai::mcp_result::McpResult>()
+        .register::<wf_core::ai::wiki_merge::MergeInput>()
+        .register::<wf_core::ai::wiki_merge::Contradiction>()
+        .register::<wf_core::ai::wiki_merge::WikiMergeResult>()
+        .register::<wf_core::net::url_safety::UrlRejection>()
+        .register::<wf_core::net::url_safety::UrlCheck>()
+        .register::<wf_core::reader::link_citations::LinkCitationPage>()
+        .register::<wf_core::reader::link_citations::CoveredTextSpan>()
+        .register::<wf_core::reader::link_citations::CoveredTextSpans>()
+        .register::<wf_core::search::personalized_pagerank::PprOptions>()
+        .register::<wf_core::search::personalized_pagerank::NodeScore>()
+        .register::<wf_core::search::personalized_pagerank::RelatedNode>()
+        .register::<wf_core::search::search_tuning::SearchField>()
+        .register::<wf_core::search::search_tuning::RankedDoc>()
+        .register::<wf_core::search::search_tuning::DocumentBoostOptions>()
+        .register::<wf_core::search::text_chunks::ChunkOptions>()
+}
+
+/// Rust port types, part 2 (search, AI, sharing, plan, logbook and settings).
+fn port_types_2(types: Types) -> Types {
+    types
+        .register::<wf_core::search::text_chunks::TextChunk>()
+        .register::<wf_core::search::wiki_graph::WikiGraphEdges>()
+        .register::<wf_core::search::wiki_graph::WikiGraph>()
+        .register::<wf_core::search::wiki_graph::WikiGraphDegree>()
+        .register::<wf_core::search::wiki_graph::GraphDensity>()
+        .register::<wf_core::settings::integration_credentials::CredentialSettings>()
+        .register::<wf_core::settings::integration_credentials::IntegrationsBag>()
+        .register::<wf_core::settings::user_settings::UserSettings>()
 }
 
 /// Render the full bindings file.

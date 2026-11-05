@@ -244,6 +244,27 @@ export * from "./wiki-index.js";
 export * from "./dashboard-layout.js";
 export * from "./theme-config.js";
 export * from "./user-appearance.js";
+export * from "./ai-access-policy.js";
+export * from "./log-entry.js";
+export * from "./milestone.js";
+export * from "./paper-relation.js";
+export * from "./reader-ink-undo.js";
+export * from "./reading-list.js";
+export * from "./search-acronyms.js";
+export * from "./search-related.js";
+export * from "./search-settings.js";
+export * from "./sharing.js";
+export * from "./ai-mcp-result.js";
+export * from "./hybrid-fusion.js";
+export * from "./personalized-pagerank.js";
+export * from "./reader-link-citations.js";
+export * from "./search-tuning.js";
+export * from "./text-chunks.js";
+export * from "./url-safety.js";
+export * from "./user-integration-credentials.js";
+export * from "./wiki-graph.js";
+export * from "./wiki-merge.js";
+export * from "./user-settings.js";
 
 
 /** Facts about this core build, such as its version. */

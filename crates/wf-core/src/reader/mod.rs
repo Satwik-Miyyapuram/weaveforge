@@ -4,6 +4,8 @@
 pub mod anchor;
 pub mod annotation;
 pub mod ink_stroke;
+pub mod ink_undo;
+pub mod link_citations;
 pub mod locate;
 pub mod locus;
 pub mod selection;
