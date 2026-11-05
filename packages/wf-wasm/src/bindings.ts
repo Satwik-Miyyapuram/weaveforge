@@ -510,12 +510,37 @@ export type BodySides = {
 	theirs: string,
 };
 
+/**  The live records `buildLabSnapshotContent` freezes (its TS parameter object). */
+export type BuildLabSnapshotInput = {
+	/**  Milestones to freeze. */
+	milestones: MilestoneInput[],
+	/**  Log entries to freeze. */
+	logs: LogEntryInput[],
+	/**  Experiments to freeze. */
+	experiments: ExperimentInput[],
+	/**  Report sections to freeze. */
+	report: ReportSectionInput[],
+	/**  AI suggestions the student accepted in this project. */
+	aiAssisted?: number | null,
+};
+
 /**  What to do with bullet characters such as U+2022. */
 export type Bullets = 
 /**  Leave the bullet characters as written. */
 "preserve" | 
 /**  Rewrite them as Markdown list items. */
 "markdown";
+
+/**  How the brutal and CRT themes colour a paper card by its reading status. */
+export type CardTint = 
+/**  The whole card tinted. */
+"full" | 
+/**  A bar down the card's edge. */
+"bar" | 
+/**  A coloured border. */
+"border" | 
+/**  No status colour. */
+"none";
 
 /**  Who changed the file since the two sides last agreed. */
 export type ChangeSide = 
@@ -639,6 +664,15 @@ export type ConflictKind =
 /**  The file still holds this app's conflict markers. */
 "markers";
 
+/**  Icon and toggle button scale across the app. */
+export type ControlSize = 
+/**  Smaller controls. */
+"compact" | 
+/**  The standard size. */
+"default" | 
+/**  Larger controls. */
+"comfortable";
+
 /**  Facts about this core build that every shell can show. */
 export type CoreInfo = {
 	/**  Semver version of the core crate. */
@@ -741,6 +775,51 @@ export type ExistingEntity = {
 	title: string,
 	/**  The stored body. */
 	body: string,
+};
+
+/**  The fields of TS `Experiment` that the status helpers read. */
+export type Experiment = {
+	/**  Current status. */
+	status: ExperimentStatus,
+	/**  First start, ISO 8601 UTC. */
+	startedAt?: string | null,
+	/**  Creation time, ISO 8601 UTC. */
+	createdAt: string,
+};
+
+/**  A live experiment, as the snapshot reads it (TS `Experiment`, subset). */
+export type ExperimentInput = {
+	/**  Experiment id. */
+	id: string,
+	/**  Display name. */
+	name: string,
+	/**  Current status. */
+	status: ExperimentStatus,
+	/**  Optional result note. */
+	resultNote?: string | null,
+};
+
+/**  Experiment lifecycle status (TS `ExperimentStatus`). */
+export type ExperimentStatus = 
+/**  Not started yet. */
+"planned" | 
+/**  In progress. */
+"running" | 
+/**  Finished successfully. */
+"done" | 
+/**  Finished with an error. */
+"failed" | 
+/**  Stopped without finishing. */
+"abandoned";
+
+/**  The status-related fields after a transition (TS `Pick<Experiment, "status" | "startedAt" | "finishedAt">`). */
+export type ExperimentStatusPatch = {
+	/**  The new status. */
+	status: ExperimentStatus,
+	/**  First start, kept across restarts. */
+	startedAt?: string | null,
+	/**  Set only while the status is terminal. */
+	finishedAt?: string | null,
 };
 
 /**  One mention of a figure, table, equation, section or algorithm (`FigureMention`). */
@@ -1074,6 +1153,73 @@ export type JsonDiffEntry = {
 	conflictKind?: ConflictKind,
 };
 
+/**
+ *  Snapshots published before experiments, report and AI counts existed lack those fields
+ *  (TS `LabSnapshotContent`).
+ */
+export type LabSnapshotContent = {
+	/**  Frozen milestones. */
+	milestones: LabSnapshotMilestone[],
+	/**  Frozen log entries. */
+	logs: LabSnapshotLog[],
+	/**  Frozen experiments; absent in older snapshots. */
+	experiments?: LabSnapshotExperiment[] | null,
+	/**  Frozen report sections; absent in older snapshots. */
+	report?: LabSnapshotReportSection[] | null,
+	/**  AI suggestions accepted; absent in older snapshots. */
+	aiAssisted?: number | null,
+};
+
+/**  Frozen experiment fields in a lab snapshot (TS `LabSnapshotExperiment`). */
+export type LabSnapshotExperiment = {
+	/**  Experiment id. */
+	id: string,
+	/**  Display name. */
+	name: string,
+	/**  Status at freeze time. */
+	status: ExperimentStatus,
+	/**  Result note, when set. */
+	resultNote?: string | null,
+};
+
+/**  Frozen log entry fields in a lab snapshot (TS `LabSnapshotLog`). */
+export type LabSnapshotLog = {
+	/**  Log entry id. */
+	id: string,
+	/**  Calendar date (yyyy-mm-dd). */
+	entryDate: string,
+	/**  Daily or weekly. */
+	kind: LogKind,
+	/**  Markdown body. */
+	body: string,
+};
+
+/**  Frozen milestone fields in a lab snapshot (TS `LabSnapshotMilestone`). */
+export type LabSnapshotMilestone = {
+	/**  Milestone id. */
+	id: string,
+	/**  Display title. */
+	title: string,
+	/**  Description, when the milestone has one. */
+	description?: string | null,
+	/**  Status at freeze time. */
+	status: MilestoneStatus,
+	/**  Target date, when set. */
+	targetDate?: string | null,
+};
+
+/**  Frozen report section progress in a lab snapshot (TS `LabSnapshotReportSection`). */
+export type LabSnapshotReportSection = {
+	/**  Section id. */
+	id: string,
+	/**  Section title. */
+	title: string,
+	/**  Writing status at freeze time. */
+	status: ReportStatus,
+	/**  Words written at freeze time. */
+	wordCount: number | null,
+};
+
 /**  One source file of a LaTeX project. */
 export type LatexSourceFile = {
 	/**  Path relative to the project root. */
@@ -1088,6 +1234,25 @@ export type LayoutMode =
 "force" | 
 /**  x pinned to the publication year. */
 "timeline";
+
+/**  A live log entry, as the snapshot reads it (TS `LogEntry`, subset). */
+export type LogEntryInput = {
+	/**  Log entry id. */
+	id: string,
+	/**  Calendar date (yyyy-mm-dd) the entry is about. */
+	entryDate: string,
+	/**  Daily or weekly. */
+	kind: LogKind,
+	/**  Markdown body. */
+	body: string,
+};
+
+/**  A log entry's kind (TS `LogKind`). */
+export type LogKind = 
+/**  A day's entry. */
+"daily" | 
+/**  A week's entry. */
+"weekly";
 
 /**  One `reportimg:` figure: the storage path and the safe file name it is written under. */
 export type MarkdownToLatexImageRef = {
@@ -1140,6 +1305,31 @@ export type MergeResult = {
 	/**  Conflicts in field order: local keys, then remote-only keys. */
 	conflicts: Conflict[],
 };
+
+/**  A live milestone, as the snapshot reads it (TS `Milestone`, subset). */
+export type MilestoneInput = {
+	/**  Milestone id. */
+	id: string,
+	/**  Display title. */
+	title: string,
+	/**  Optional description. */
+	description?: string | null,
+	/**  Current status. */
+	status: MilestoneStatus,
+	/**  Target date (yyyy-mm-dd). */
+	targetDate?: string | null,
+};
+
+/**  A milestone's status (TS `MilestoneStatus`). */
+export type MilestoneStatus = 
+/**  Not started. */
+"planned" | 
+/**  Being worked on. */
+"in_progress" | 
+/**  Finished. */
+"done" | 
+/**  Waiting on something. */
+"blocked";
 
 /**  What one run did. */
 export type MirrorResult = {
@@ -1733,6 +1923,18 @@ export type ReportSection = {
 	updatedAt?: string | null,
 };
 
+/**  A live report section, as the snapshot reads it (TS `ReportSection`, subset). */
+export type ReportSectionInput = {
+	/**  Section id. */
+	id: string,
+	/**  Section title. */
+	title: string,
+	/**  Writing status. */
+	status: ReportStatus,
+	/**  Words written so far. */
+	wordCount: number | null,
+};
+
 /**  A section with its descendants resolved. */
 export type ReportSectionTreeNode = {
 	/**  The section. */
@@ -1884,6 +2086,13 @@ export type SerializedWorkspace = {
 	assets: SerializedAsset[],
 };
 
+/**  How surfaces are separated from each other. */
+export type SurfaceStyle = 
+/**  No borders between surfaces. */
+"borderless" | 
+/**  Bordered surfaces (high contrast). */
+"bordered";
+
 /**
  *  A rule's output: the new text and whether it differs from the input.
  *  The TypeScript had one interface per rule with these two fields.
@@ -1894,6 +2103,42 @@ export type TextResult = {
 	/**  True when `text` differs from the input. */
 	changed: boolean,
 };
+
+/**  A validated theme config. */
+export type ThemeConfig = {
+	/**  Display name, shown in settings once the file is applied. */
+	name: string,
+	/**  Which mode the palette is written for. */
+	mode: ThemeMode,
+	/**  Border treatment the theme prefers. */
+	surfaces: SurfaceStyle,
+	/**  Whether the pointer-reactive animation layer is on. */
+	reactiveMotion: boolean,
+	/**  Global animation duration multiplier, 0.5 to 2. */
+	motionScale: number | null,
+	/**  Whether paper and note cards lean a little; unset leaves it to the theme. */
+	cardTilt?: boolean | null,
+	/**
+	 *  CSS custom properties to set, keys with the leading `--`; every value is
+	 *  a string.
+	 */
+	vars: { [key in string]: string },
+};
+
+/**  The config, or null with every problem found, each prefixed with its path. */
+export type ThemeConfigParseResult = {
+	/**  The config when the file had no problems. */
+	config: ThemeConfig | null,
+	/**  Human-readable problems, at most 50. */
+	errors: string[],
+};
+
+/**  Which mode the palette is written for. */
+export type ThemeMode = 
+/**  Light base. */
+"light" | 
+/**  Dark base. */
+"dark";
 
 /**  Options for term normalization. Callers always pass them explicitly. */
 export type TokenizerOptions = {
@@ -1907,12 +2152,46 @@ export type TokenizerOptions = {
 	tokenizeUrls: boolean,
 };
 
+/**  One piece of untrusted text to fence (TS `UntrustedItem`). */
+export type UntrustedItem = {
+	/**  Shown to the model and cited back; itself untrusted, so kept to one line. */
+	label: string,
+	/**  The document text. */
+	text: string,
+};
+
 /**  The result of cleaning the URLs in a text. */
 export type UrlCleanupResult = {
 	/**  The text with the URLs shortened. */
 	text: string,
 	/**  How many URLs were actually shortened. */
 	count: number,
+};
+
+/**  The appearance preferences that survived checking; absent fields are unset. */
+export type UserAppearance = {
+	/**  Light or dark mode. */
+	mode?: ThemeMode | null,
+	/**  Theme variant used in light mode. */
+	lightTheme?: string | null,
+	/**  Theme variant used in dark mode. */
+	darkTheme?: string | null,
+	/**  Icon and toggle button scale. */
+	controlSize?: ControlSize | null,
+	/**  Surface separation. */
+	surfaces?: SurfaceStyle | null,
+	/**  Pointer-reactive animation layer. */
+	reactiveMotion?: boolean | null,
+	/**  Every animation's speed, one of [`ANIMATION_SPEEDS`]; absent means 1x. */
+	animationSpeed?: number | null,
+	/**  Paper card status colour on the brutal and CRT themes. */
+	cardTint?: CardTint | null,
+	/**  CRT's leaning cards. */
+	cardTilt?: boolean | null,
+	/**  CRT's scanline overlay. */
+	scanlines?: boolean | null,
+	/**  Uploaded theme: absent means unchanged, `null` means remove it. */
+	customTheme?: ThemeConfig | null,
 };
 
 /**  The note as it stood when the two sides last agreed. */
@@ -1939,6 +2218,14 @@ export type VaultPageSide = {
 	fields: { [key in string]: unknown },
 	/**  Body text after the frontmatter. */
 	body: string,
+};
+
+/**  The fields of a wiki page the index reads (TS `WikiPageRef`, from `wiki-lint.ts`). */
+export type WikiPageRef = {
+	/**  The page title; the index groups and sorts by it. */
+	title: string,
+	/**  Other names the page answers to. Absent or empty adds no `also` suffix. */
+	aliases?: string[] | null,
 };
 
 /**  One `[[...]]` link read from a note body (`WikilinkRef`). */

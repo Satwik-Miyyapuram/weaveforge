@@ -75,6 +75,15 @@ export function buildAnnotationSortIndex(page_index: number, char_offset: number
 export function buildExcerpt(body: string, terms: any, max_chars?: number | null, single_line?: boolean | null): any;
 
 /**
+ * [`build_lab_snapshot_content`](lab_snapshot::build_lab_snapshot_content).
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function buildLabSnapshotContent(input: any): any;
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -82,6 +91,15 @@ export function buildExcerpt(body: string, terms: any, max_chars?: number | null
  * Fails if `sections` is not a list of sections.
  */
 export function buildSectionTree(sections: any): any;
+
+/**
+ * [`build_wiki_index`](wiki_index::build_wiki_index); `heading` defaults to `Index` when `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `pages` is not an array of `{ title, aliases? }` objects.
+ */
+export function buildWikiIndex(pages: any, heading: string | null | undefined, generated_at: string): string;
 
 /**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
@@ -432,6 +450,15 @@ export function escapeLatexText(s: string): string;
 export function exclusionReasons(decisions: any, stage: any): any;
 
 /**
+ * [`experiment_activity_at`](experiment_status::experiment_activity_at).
+ *
+ * # Errors
+ *
+ * Fails if `experiment` has the wrong shape.
+ */
+export function experimentActivityAt(experiment: any): number;
+
+/**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
  *
  * # Errors
@@ -477,6 +504,15 @@ export function extractVenue(after_title: string): string | undefined;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function extractWikilinks(body: string): any;
+
+/**
+ * [`fence_untrusted`](untrusted_context::fence_untrusted).
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of `{ label, text }` objects.
+ */
+export function fenceUntrusted(items: any, nonce: string): string;
 
 /**
  * [`find_citation_candidates`](analysis_citations::find_citation_candidates) (TS `findCitationCandidates`).
@@ -528,6 +564,20 @@ export function fontSizeOf(item: any): number;
  * [`format_citation`](cite_key::format_citation) (TS `formatCitation`).
  */
 export function formatCitation(key: string, format: string): string;
+
+/**
+ * [`format_metric_cell`](experiment_status::format_metric_cell).
+ *
+ * # Errors
+ *
+ * Fails if `value` cannot be read as JSON.
+ */
+export function formatMetricCell(metric: string, value: any): string;
+
+/**
+ * [`format_metric_value`](experiment_status::format_metric_value).
+ */
+export function formatMetricValue(metric: string, value: number): string;
 
 /**
  * [`format_paper_citation`](cite_key::format_paper_citation) (TS `formatPaperCitation`).
@@ -842,6 +892,15 @@ export function isRotatedText(transform: Float64Array): boolean;
 export function isSafeWorkspacePath(path: string): boolean;
 
 /**
+ * [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last metric time means none.
+ *
+ * # Errors
+ *
+ * Fails if `experiment` has the wrong shape.
+ */
+export function isStaleRunningExperiment(experiment: any, now_ms: number, stale_ms: number, last_metric_at_ms?: number | null): boolean;
+
+/**
  * [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
  *
  * # Errors
@@ -1000,6 +1059,11 @@ export function mergeRows(base: any, local: any, remote: any): any;
 export function mergeVaultPage(base: any, folder: any, workspace: any): any;
 
 /**
+ * [`neutralise_context`](untrusted_context::neutralise_context).
+ */
+export function neutraliseContext(text: string, nonce: string): string;
+
+/**
  * [`next_match_index`]: wraparound step; -1 when `total` is 0.
  */
 export function nextMatchIndex(current: number, total: number, direction: number): number;
@@ -1029,6 +1093,16 @@ export function normalisePageRotation(rotation: number): number;
 export function normaliseWhitespace(text: string, options: any): any;
 
 /**
+ * [`normalize_appearance`](user_appearance::normalize_appearance); `undefined` when
+ * nothing is valid.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ */
+export function normalizeAppearance(raw: any): any;
+
+/**
  * [`wf_core::papers::paper_ref::normalize_arxiv_id`]: the bare arXiv id in
  * `value`, or `None`.
  *
@@ -1039,9 +1113,21 @@ export function normaliseWhitespace(text: string, options: any): any;
 export function normalizeArxivId(value: string): string | undefined;
 
 /**
+ * [`normalize_color_value`](theme_config::normalize_color_value); `undefined` for a
+ * non-string or a rejected color.
+ */
+export function normalizeColorValue(raw: any): string | undefined;
+
+/**
  * [`normalize_doi`](paper::normalize_doi) (TS `normalizeDoi`). `None` becomes `undefined`.
  */
 export function normalizeDoi(doi?: string | null): string | undefined;
+
+/**
+ * [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
+ * non-string or a rejected stack.
+ */
+export function normalizeFontStack(raw: any): string | undefined;
 
 /**
  * [`normalize_graph_view_settings`](graph_settings::normalize_graph_view_settings).
@@ -1051,6 +1137,11 @@ export function normalizeDoi(doi?: string | null): string | undefined;
  * Fails if `raw` cannot be read as JSON.
  */
 export function normalizeGraphViewSettings(raw: any): any;
+
+/**
+ * A length from a number (px) or a string, limited to `max_px` (default 64).
+ */
+export function normalizeLengthValue(raw: any, max_px?: number | null): string | undefined;
 
 /**
  * [`wf_core::sync::markdown_image::normalize_markdown_image_syntax`] for JS.
@@ -1080,6 +1171,16 @@ export function normalizeProjectPath(path: string): string | undefined;
  * [`normalize_tags`](paper::normalize_tags) (TS `normalizeTags`).
  */
 export function normalizeTags(tags: string[]): string[];
+
+/**
+ * [`normalize_theme_config`](theme_config::normalize_theme_config): a stored config
+ * re-checked, `null` when it no longer passes.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ */
+export function normalizeThemeConfig(raw: any): any;
 
 /**
  * [`normalize_title_key`](page::normalize_title_key) (TS `normalizeTitleKey`).
@@ -1179,6 +1280,16 @@ export function parseBibliography(lines: any, with_offsets: boolean): any;
 export function parseBibliographyEntry(lines: any, index: number, with_offsets: boolean): any;
 
 /**
+ * [`parse_dashboard_layout`](layout::parse_dashboard_layout); `null` when `lg` or `sm`
+ * is not an array.
+ *
+ * # Errors
+ *
+ * Fails if `raw` cannot be read as JSON.
+ */
+export function parseDashboardLayout(raw: any): any;
+
+/**
  * [`parse_graph_persisted_state`](graph_settings::parse_graph_persisted_state); `null` when absent.
  *
  * # Errors
@@ -1235,6 +1346,15 @@ export function parseQuery(query: string): any;
  * Fails only if the result cannot be converted to a JS value.
  */
 export function parseRollupOptions(options: string[]): any;
+
+/**
+ * [`parse_theme_config`](theme_config::parse_theme_config); a non-string reads as empty.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function parseThemeConfig(text: any): any;
 
 /**
  * [`parse_wikilink_inner`](page::parse_wikilink_inner) (TS `parseWikilinkInner`).
@@ -1420,6 +1540,11 @@ export function rectanglesOverlap(a: Float64Array, b: Float64Array): boolean;
 export function relativeAssetPaths(body: string): any;
 
 /**
+ * [`replace_wiki_index`](wiki_index::replace_wiki_index).
+ */
+export function replaceWikiIndex(body: string, index: string): string;
+
+/**
  * [`validate_report_section_input`](report_section::validate_report_section_input): the
  * validation message, or `undefined` when the input is valid.
  *
@@ -1482,6 +1607,11 @@ export function resolveTextAnchor(text: string, locus: any): any;
  * Fails if an argument is not an object of the expected shape.
  */
 export function resolveViewportScale(state: any, page: any, container: any): number;
+
+/**
+ * [`safe_label`](untrusted_context::safe_label).
+ */
+export function safeLabel(label: string, nonce: string): string;
 
 /**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
@@ -1559,6 +1689,11 @@ export function selectionToAnchor(selection: any, page: any): any;
  * `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function serializeWorkspace(snapshot_json: string, project_id: string, project_name: string): any;
+
+/**
+ * [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
+ */
+export function shortSha(sha?: string | null): string | undefined;
 
 /**
  * [`should_append_ink_point`]; `minDistance` defaults to 0.75.
@@ -1658,6 +1793,15 @@ export function splitNumberedEntries(lines: any): any;
 export function stampWorkspaceId(content: string, id: string): string | undefined;
 
 /**
+ * [`status_patch_for_experiment`](experiment_status::status_patch_for_experiment).
+ *
+ * # Errors
+ *
+ * Fails if `experiment` or `status` has the wrong shape.
+ */
+export function statusPatchForExperiment(experiment: any, status: any, now: string): any;
+
+/**
  * [`strip_frontmatter`](page::strip_frontmatter) (TS `stripFrontmatter`).
  *
  * # Errors
@@ -1707,6 +1851,11 @@ export function tabSeparatedToMarkdownTable(input: string): any;
  * Fails if `texts` is not an array of strings.
  */
 export function textFingerprint(texts: any): string;
+
+/**
+ * [`theme_config_template`](theme_config::theme_config_template): the starter file.
+ */
+export function themeConfigTemplate(): string;
 
 /**
  * [`title_from_file_name`](paper_title::title_from_file_name) (TS `titleFromFileName`).
@@ -1771,6 +1920,11 @@ export function uniqueCiteKey(paper: any, used: any): string;
  * [`unique_title`](page::unique_title) (TS `uniqueTitle`). `used` holds normalized keys.
  */
 export function uniqueTitle(base: string, used: string[]): string;
+
+/**
+ * [`UNTRUSTED_CONTEXT_RULE`](untrusted_context::UNTRUSTED_CONTEXT_RULE).
+ */
+export function untrustedContextRule(): string;
 
 /**
  * [`vault_asset_paths_in_body`](page::vault_asset_paths_in_body) (TS `vaultAssetPathsInBody`).
@@ -1895,7 +2049,9 @@ export interface InitOutput {
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
     readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
+    readonly buildLabSnapshotContent: (a: any) => [number, number, number];
     readonly buildSectionTree: (a: any) => [number, number, number];
+    readonly buildWikiIndex: (a: any, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly checkBibliography: (a: any) => [number, number, number];
@@ -1938,18 +2094,22 @@ export interface InitOutput {
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly escapeLatexText: (a: number, b: number) => [number, number];
     readonly exclusionReasons: (a: any, b: any) => [number, number, number];
+    readonly experimentActivityAt: (a: any) => [number, number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractHashtagRefs: (a: number, b: number) => [number, number, number];
     readonly extractHashtags: (a: number, b: number) => [number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly extractVenue: (a: number, b: number) => [number, number];
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
+    readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
     readonly findCitationCandidates: (a: any) => [number, number, number];
     readonly findDocumentMatches: (a: any, b: number, c: number) => [number, number, number];
     readonly findPatternCitationMentions: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
     readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
@@ -1994,6 +2154,7 @@ export interface InitOutput {
     readonly isReaderAnnotationType: (a: any) => number;
     readonly isRotatedText: (a: number, b: number) => number;
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
+    readonly isStaleRunningExperiment: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
     readonly isZoteroLibrarySyncMode: (a: any) => number;
@@ -2014,18 +2175,24 @@ export interface InitOutput {
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
+    readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
     readonly nextRotation: (a: number, b: number) => number;
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly normalisePageRotation: (a: number) => number;
     readonly normaliseWhitespace: (a: number, b: number, c: any) => [number, number, number];
+    readonly normalizeAppearance: (a: any) => [number, number, number];
     readonly normalizeArxivId: (a: number, b: number) => [number, number, number, number];
+    readonly normalizeColorValue: (a: any) => [number, number];
     readonly normalizeDoi: (a: number, b: number) => [number, number];
+    readonly normalizeFontStack: (a: any) => [number, number];
     readonly normalizeGraphViewSettings: (a: any) => [number, number, number];
+    readonly normalizeLengthValue: (a: any, b: number, c: number) => [number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
     readonly normalizeProjectPath: (a: number, b: number) => [number, number];
     readonly normalizeTags: (a: number, b: number) => [number, number];
+    readonly normalizeThemeConfig: (a: any) => [number, number, number];
     readonly normalizeTitleKey: (a: number, b: number) => [number, number];
     readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
     readonly outlineFromText: (a: any) => [number, number, number];
@@ -2037,12 +2204,14 @@ export interface InitOutput {
     readonly parseBibEntries: (a: any) => [number, number, number];
     readonly parseBibliography: (a: any, b: number) => [number, number, number];
     readonly parseBibliographyEntry: (a: any, b: number, c: number) => [number, number, number];
+    readonly parseDashboardLayout: (a: any) => [number, number, number];
     readonly parseGraphPersistedState: (a: any) => [number, number, number];
     readonly parseJsonData: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly parseLinkRemovalText: (a: number, b: number) => [number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly parseRollupOptions: (a: number, b: number) => [number, number, number];
+    readonly parseThemeConfig: (a: any) => [number, number, number];
     readonly parseWikilinkInner: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly parseWorkspaceFolder: (a: any) => [number, number, number];
     readonly pasteLandsInVerbatimContext: (a: number, b: number, c: number) => [number, number, number];
@@ -2064,6 +2233,7 @@ export interface InitOutput {
     readonly reconstructLines: (a: number, b: any, c: any) => [number, number, number];
     readonly rectanglesOverlap: (a: number, b: number, c: number, d: number) => number;
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
+    readonly replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
     readonly reportSectionInputError: (a: any) => [number, number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resolveAnnotationConflict: (a: any, b: number, c: number) => [number, number, number];
@@ -2071,6 +2241,7 @@ export interface InitOutput {
     readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveTextAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
+    readonly safeLabel: (a: number, b: number, c: number, d: number) => [number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
     readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
@@ -2079,6 +2250,7 @@ export interface InitOutput {
     readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
     readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly shortSha: (a: number, b: number) => [number, number];
     readonly shouldAppendInkPoint: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly showConceptEdges: (a: any) => [number, number, number];
     readonly showRelationEdges: (a: any) => [number, number, number];
@@ -2091,6 +2263,7 @@ export interface InitOutput {
     readonly splitByMargins: (a: any) => [number, number, number];
     readonly splitNumberedEntries: (a: any) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly statusPatchForExperiment: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly stripFrontmatter: (a: number, b: number) => [number, number, number];
     readonly stripInvisible: (a: number, b: number) => [number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
@@ -2098,6 +2271,7 @@ export interface InitOutput {
     readonly surnameKey: (a: number, b: number) => [number, number];
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
     readonly textFingerprint: (a: any) => [number, number, number, number];
+    readonly themeConfigTemplate: () => [number, number];
     readonly titleFromFileName: (a: number, b: number) => [number, number];
     readonly titleKey: (a: number, b: number) => [number, number];
     readonly titleSimilarity: (a: number, b: number, c: number, d: number) => number;
@@ -2107,6 +2281,7 @@ export interface InitOutput {
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];
     readonly uniqueTitle: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly untrustedContextRule: () => [number, number];
     readonly vaultAssetPathsInBody: (a: number, b: number) => [number, number];
     readonly vaultBodyPreview: (a: number, b: number, c: number) => [number, number];
     readonly vaultImageMarkdown: (a: number, b: number, c: number, d: number) => [number, number];

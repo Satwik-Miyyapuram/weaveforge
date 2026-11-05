@@ -3,10 +3,14 @@
 
 use std::cmp::Ordering;
 
-/// ASCII in ICU root collation order: whitespace and punctuation, then symbols,
-/// digits, letters.
-const COLLATION: &str =
-    "\t\n\u{0B}\u{0C}\r _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
+use unicode_normalization::UnicodeNormalization;
+use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
+
+use crate::reader_analysis::lines::is_js_space;
+
+/// ASCII in ICU root collation order: whitespace (with the next-line, line and
+/// paragraph separators after CR) and punctuation, then symbols, digits, letters.
+const COLLATION: &str = "\t\n\u{0B}\u{0C}\r\u{85}\u{2028}\u{2029} _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
 
 /// Latin-1 accented letters (lower case) and the base letter ICU sorts each with.
 const ACCENTED: [(&str, char); 8] = [
@@ -30,6 +34,28 @@ fn fold(c: char) -> (char, Option<char>) {
     (lower, base)
 }
 
+/// True for chars ICU collation ignores: controls outside [`COLLATION`] and
+/// zero-width format chars.
+fn is_ignorable(c: char) -> bool {
+    (c.is_control() && !COLLATION.contains(c))
+        || matches!(
+            c,
+            '\u{ad}' | '\u{200b}'..='\u{200f}' | '\u{2060}' | '\u{feff}'
+        )
+}
+
+/// The chars that take part in collation, with non-ASCII spaces outside
+/// [`COLLATION`] read as a space.
+fn collated(s: &str) -> impl Iterator<Item = char> + '_ {
+    s.chars().filter(|&c| !is_ignorable(c)).map(|c| {
+        if !c.is_ascii() && is_js_space(c) && !COLLATION.contains(c) {
+            ' '
+        } else {
+            c
+        }
+    })
+}
+
 /// Primary weight of a char: its place in [`COLLATION`], case and accent folded;
 /// any other char after every ASCII one, by code point.
 fn primary_weight(c: char) -> u32 {
@@ -49,23 +75,50 @@ fn accent_weight(c: char) -> u32 {
     }
 }
 
+/// One collation element: primary weight, accent weight, 1 when upper case.
+type Element = (u32, u32, u8);
+
+/// Collation elements of a string. ASCII and Latin-1 letters map one to one; other chars
+/// expand by NFKD (ICU sorts `\u{1c6}` as `dz` with a caron, `\u{fb01}` as `fi`), with
+/// combining marks raising the accent weight of the letter before them.
+fn elements(s: &str) -> Vec<Element> {
+    let mut out: Vec<Element> = Vec::new();
+    for c in collated(s) {
+        if c.is_ascii() || fold(c).1.is_some() || c == '\u{f8}' || c == '\u{d8}' {
+            out.push((
+                primary_weight(c),
+                accent_weight(c),
+                u8::from(c.is_uppercase()),
+            ));
+            continue;
+        }
+        if c == '\u{df}' {
+            out.extend([(primary_weight('s'), 0, 0), (primary_weight('s'), 0, 0)]);
+            continue;
+        }
+        for d in c.nfkd() {
+            let is_mark = d.general_category() == GeneralCategory::NonspacingMark;
+            match out.last_mut() {
+                Some(last) if is_mark => last.1 = last.1.max(u32::from(d)),
+                _ => out.push((primary_weight(d), 0, u8::from(d.is_uppercase()))),
+            }
+        }
+    }
+    out
+}
+
 /// `a.localeCompare(b)` as an ordering: by collation weight with case and Latin-1
 /// accents folded, then unaccented before accented, then lower case before upper
-/// case. Exact for ASCII; other non-ASCII is by code point.
+/// case. Controls and zero-width chars are ignored and Unicode spaces read as a
+/// space, and other letters expand by NFKD. Exact for printable ASCII; chars with no
+/// decomposition sort by code point.
 #[must_use]
 pub fn locale_compare(a: &str, b: &str) -> Ordering {
-    a.chars()
-        .map(primary_weight)
-        .cmp(b.chars().map(primary_weight))
-        .then_with(|| {
-            a.chars()
-                .map(accent_weight)
-                .cmp(b.chars().map(accent_weight))
-        })
-        .then_with(|| {
-            let case = |c: char| u8::from(c.is_uppercase());
-            a.chars().map(case).cmp(b.chars().map(case))
-        })
+    let (a, b) = (elements(a), elements(b));
+    let by = |key: fn(&Element) -> u32| a.iter().map(key).cmp(b.iter().map(key));
+    by(|e| e.0)
+        .then_with(|| by(|e| e.1))
+        .then_with(|| by(|e| u32::from(e.2)))
 }
 
 #[cfg(test)]
@@ -98,5 +151,28 @@ mod tests {
             Ordering::Less
         );
         assert_eq!(locale_compare("\u{e9}", "f"), Ordering::Less);
+    }
+
+    #[test]
+    fn controls_ignored_and_unicode_spaces_sort_as_space() {
+        assert_eq!(locale_compare("a\u{7}b", "ab"), Ordering::Equal);
+        assert_eq!(locale_compare("\u{200b}b", "a"), Ordering::Greater);
+        assert_eq!(locale_compare("\u{2003}z", "\u{1c6}a"), Ordering::Less);
+        assert_eq!(locale_compare("\u{2028}<x", "\u{a0}\u{a0}"), Ordering::Less);
+        assert_eq!(locale_compare("\r\n#", "\u{2028}\n"), Ordering::Less);
+    }
+
+    #[test]
+    fn compatibility_letters_expand_as_icu_does() {
+        assert_eq!(
+            locale_compare("\u{1c6}a", "\u{f1}and\u{fa}"),
+            Ordering::Less
+        );
+        assert_eq!(locale_compare("dza", "\u{1c6}a"), Ordering::Less);
+        assert_eq!(locale_compare("\u{1c6}a", "dzb"), Ordering::Less);
+        assert_eq!(locale_compare("\u{fb01}x", "fiy"), Ordering::Less);
+        assert_eq!(locale_compare("stra\u{df}e", "strasz"), Ordering::Less);
+        assert_eq!(locale_compare("\u{17e}", "z"), Ordering::Greater);
+        assert_eq!(locale_compare("\u{17e}", "za"), Ordering::Less);
     }
 }

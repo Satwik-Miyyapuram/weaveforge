@@ -9,9 +9,12 @@
 //! written here may not use `unsafe`.
 #![deny(unsafe_code)]
 
+mod dashboard_layout;
+mod experiment_status;
 mod folder;
 mod graph_settings;
 mod ink;
+mod lab_snapshot;
 mod merge;
 mod papers_paper_title;
 mod papers_records;
@@ -36,7 +39,11 @@ mod report_markdown_to_latex;
 mod report_records;
 mod screening_records;
 mod sync;
+mod theme_config;
+mod untrusted_context;
+mod user_appearance;
 mod vault_page;
+mod wiki_index;
 mod workspace;
 
 use serde::Serialize;
