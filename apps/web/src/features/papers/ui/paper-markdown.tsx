@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { normalizeMarkdownImageSyntax } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { stripRegionMarkers } from "@/features/vault/application/note-template-engine";
@@ -14,7 +14,7 @@ import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
 const PAPER_IMAGES_BUCKET = "paper-images";
 
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  const normalized = stripRegionMarkers(normalizeMarkdownImageSyntax(body));
+  const normalized = stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
   return stripUnresolvedImageRefs(normalized, PAPER_IMAGE_PREFIX, paths, urls);
 }
 

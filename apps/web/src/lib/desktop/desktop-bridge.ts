@@ -37,8 +37,8 @@ export interface DesktopLocalDbState {
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
-  /** The platform, for the few places a keyboard hint differs. */
-  readonly platform: "darwin" | "win32" | "linux";
+  /** The platform, for the few places a keyboard hint or the sign-in return differs. */
+  readonly platform: "darwin" | "win32" | "linux" | "android" | "ios";
 
   /**
    * Reads a page's title without a server round trip.
@@ -262,6 +262,17 @@ export interface DesktopBridge {
       candidates: string[],
     ) => Promise<string[] | null> | string[] | null,
   ): () => void;
+  /** Loads a sentence encoder natively, downloading missing files once. Desktop shell only. */
+  embedLoad?(model: string): Promise<{ dimensions: number }>;
+  /**
+   * Embeds texts with `model`, which `embedLoad` loaded; vectors are unit length.
+   * Rejects with "The model is not loaded." once the shell dropped it while idle.
+   */
+  embedTexts?(model: string, texts: string[], kind: "passage" | "query"): Promise<number[][]>;
+  /** Drops `model` from the shell now instead of when it goes idle. */
+  embedUnload?(model: string): Promise<void>;
+  /** Model files ready so far, per model, while `embedLoad` runs; returns an unsubscribe. */
+  onEmbedProgress?(listener: (loaded: number, total: number, model: string) => void): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
     entryFile: string,
@@ -535,7 +546,7 @@ export interface DesktopVaultSync {
     | { kind: "up-to-date" }
     | { kind: "fast-forward"; oid: string }
     | { kind: "merged"; oid: string }
-    | { kind: "conflict"; files: readonly string[] };
+    | { kind: "conflict"; files: string[] };
   push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
 }
 
@@ -576,7 +587,7 @@ export interface DesktopVaultEntry {
 }
 
 /**
- * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`
+ * The secrets the page may name. Mirrored in `apps/shell/sidecar/src/secret-store.ts`
  * (`PAGE_WRITABLE`, held equal by its typecheck), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
@@ -584,7 +595,7 @@ export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-tok
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
- * `apps/desktop/src/preference-store.ts`; a desktop test holds them equal.
+ * `apps/shell/sidecar/src/preference-store.ts`; a desktop test holds them equal.
  */
 export type DesktopPreferenceName = "vault-git" | "vault-git-remote";
 export type DesktopPreferenceValue = string | boolean | null;

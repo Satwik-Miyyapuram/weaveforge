@@ -8,7 +8,7 @@ import type { EditorHandleRef } from "@/components/editor-handle";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import { defaultInkNoteMeta, writeInkNoteBody } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import { useProject } from "@/features/projects";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
@@ -53,6 +53,7 @@ import { ExplorerPanel } from "./explorer-panel";
 import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
 import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
+import { holdOpenNotes } from "@/features/workspace/application/open-notes";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
@@ -149,6 +150,9 @@ export function WorkspaceScreen() {
     return () => query.removeEventListener("change", sync);
   }, []);
   const hasOpenTab = openTabs(layout).length > 0;
+  // A note open here can hold typing not yet saved; an outside edit to it waits for review.
+  const openNoteIds = openTabs(layout).flatMap((tab) => (hasInkView(tab.kind) ? [tab.id] : [])).join(" ");
+  useEffect(() => (openNoteIds ? holdOpenNotes(openNoteIds.split(" ")) : undefined), [openNoteIds]);
   useEffect(() => {
     if (phone && hasOpenTab) setExplorerHidden(true);
     // Only when the width crosses, or the first document arrives: the drawer
@@ -389,7 +393,7 @@ export function WorkspaceScreen() {
       );
       // An ink note is born with its header and no text layer; the host writes
       // the first page's chunk when there is a first stroke.
-      const body = input.ink ? writeInkNoteBody(defaultInkNoteMeta(), "") : undefined;
+      const body = input.ink ? readyCore().writeInkNoteBody(readyCore().defaultInkNoteMeta(), "") : undefined;
       const id = existing
         ? existing.id
         : (

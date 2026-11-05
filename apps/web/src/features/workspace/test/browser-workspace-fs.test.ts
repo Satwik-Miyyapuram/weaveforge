@@ -4,9 +4,15 @@
  * and must reach the caller (29-05).
  */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
+
+before(async () => {
+  await loadTestCore();
+});
 
 type Entry = FakeDir | FakeFile;
 

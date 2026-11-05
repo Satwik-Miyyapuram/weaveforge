@@ -3,7 +3,6 @@ import {
   buildWikiGraph,
   HYBRID_VECTOR_WEIGHT,
   coveredHits,
-  fuseRankings,
   gateVectorHits,
   queryTermCount,
   stripStopwords,
@@ -25,7 +24,9 @@ import {
   type WikiGraph,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
-import { applySearchSettings, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
+import { loadCore } from "@/lib/rust-core";
+import { indexTermsOf } from "../infrastructure/search-core";
+import { applySearchSettings, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
 import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
@@ -140,9 +141,10 @@ export class WorkspaceSearch {
     // and the check is what stops a stale index answering with deleted rows.
     const docs = this.projectDocuments(snapshot);
     const revision = searchRevision(docs);
+    const core = await loadCore();
     const cached = await idbGetSearchIndex(projectId);
     if (cached) {
-      const restored = miniSearchIndexFactory.load(cached, revision);
+      const restored = createMiniSearchIndexFactory(core).load(cached, revision);
       if (restored) {
         this.state.documentCount = docs.length;
         applySearchSettings(restored, this.settings);
@@ -153,14 +155,16 @@ export class WorkspaceSearch {
     if (supportsIndexWorker()) {
       try {
         return await this.buildViaWorker(snapshot, projectId);
-      } catch {
+      } catch (error) {
         // A worker that cannot start is not a reason to leave search broken;
-        // the in-thread path below still works, it merely blocks.
+        // the in-thread path below still works, it merely blocks. Say so, or a
+        // worker that never loads the WASM core goes unnoticed.
+        console.warn("Search index worker failed; indexing on the main thread", error);
       }
     }
 
     this.state.documentCount = docs.length;
-    const index = buildSearchIndex(docs, revision, this.settings);
+    const index = buildSearchIndex(core, docs, revision, this.settings);
     void persistSearchIndex(projectId, () => index.serialize(), docs.length);
     return index;
   }
@@ -178,7 +182,8 @@ export class WorkspaceSearch {
     projectId: string | null,
   ): Promise<IWorkspaceSearchIndex> {
     const built = await buildIndexInWorker(snapshot, projectId, this.settings);
-    const index = miniSearchIndexFactory.load(built.serialized, built.revision);
+    const core = await loadCore();
+    const index = createMiniSearchIndexFactory(core).load(built.serialized, built.revision);
     if (!index) throw new Error("The built index could not be rehydrated.");
 
     applySearchSettings(index, this.settings);
@@ -373,14 +378,15 @@ export class WorkspaceSearch {
     // function words out, and a hit must match half of what is left. Measured
     // on 98 queries this is the difference between fusion hurting and helping
     // (see `hybrid-fusion.ts`).
+    const core = await loadCore();
     const content = stripStopwords(query);
     const fusedKeyword = coveredHits(
       content === query ? keyword : this.search(content, options),
-      queryTermCount(content),
+      queryTermCount(indexTermsOf(core, content)),
     ).map((hit) => known.get(hit.id) ?? hit);
 
     // Keyword first, so its excerpt is the one that survives fusion.
-    return fuseRankings(
+    return core.fuseRankings(
       [{ items: fusedKeyword }, { items: vectorHits, weight: HYBRID_VECTOR_WEIGHT }],
       (hit) => hit.id,
       { limit: options.limit ?? 30 },
@@ -465,7 +471,7 @@ export class WorkspaceSearch {
 
     const baseArm = new Map(base.map((hit) => [hit.id, hit.arm]));
     const byMeaning = new Map(vector.map((hit) => [hit.id, hit.score]));
-    const fused = fuseRankings([{ items: base }, { items: vector }], (hit) => hit.id, { limit: limit * 2 });
+    const fused = (await loadCore()).fuseRankings([{ items: base }, { items: vector }], (hit) => hit.id, { limit: limit * 2 });
     const results = fused.map((hit) => {
       const arms: RelatedArm[] = [];
       const found = baseArm.get(hit.id);

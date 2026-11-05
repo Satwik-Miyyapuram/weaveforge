@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  RRF_K,
   VectorDimensionError,
   VectorIndex,
   chunkForEmbedding,
-  fuseRankings,
   normalizeVector,
 } from "../../src/index.js";
 
@@ -199,75 +197,4 @@ test("offsets point back into the source", () => {
   for (const chunk of chunkForEmbedding(text, { maxChars: 300 })) {
     assert.ok(text.slice(chunk.start, chunk.end).includes(chunk.text.slice(0, 20)));
   }
-});
-
-// ------------------------------------------------------------- rank fusion
-
-const id = (x: { id: string }) => x.id;
-
-test("a document both arms rank outranks one only a single arm found", () => {
-  const keyword = [{ id: "a" }, { id: "b" }, { id: "c" }];
-  const vectors = [{ id: "c" }, { id: "d" }, { id: "a" }];
-
-  const fused = fuseRankings([{ items: keyword }, { items: vectors }], id);
-  assert.equal(fused[0]!.id, "a", "first in one list and third in the other beats first in one");
-  assert.ok(fused.findIndex((x) => x.id === "c") < fused.findIndex((x) => x.id === "d"));
-});
-
-test("a document only one arm found still appears", () => {
-  const fused = fuseRankings([{ items: [{ id: "a" }] }, { items: [{ id: "b" }] }], id);
-  assert.deepEqual(fused.map(id).sort(), ["a", "b"]);
-});
-
-test("the first list supplies the object, so excerpts survive fusion", () => {
-  const keyword = [{ id: "a", excerpt: "…matched here…" }];
-  const vectors = [{ id: "a", excerpt: undefined }];
-
-  const fused = fuseRankings<{ id: string; excerpt?: string }>(
-    [{ items: keyword }, { items: vectors }],
-    id,
-  );
-  assert.equal(fused[0]!.excerpt, "…matched here…");
-});
-
-test("weighting shifts the balance without needing score calibration", () => {
-  const keyword = [{ id: "k" }, { id: "shared" }];
-  const vectors = [{ id: "v" }, { id: "shared" }];
-
-  const keywordHeavy = fuseRankings([{ items: keyword, weight: 4 }, { items: vectors }], id).map(id);
-  const vectorHeavy = fuseRankings([{ items: keyword }, { items: vectors, weight: 4 }], id).map(id);
-
-  // `shared` leads both: it is in both lists, which is the whole point. What
-  // the weight decides is which arm's exclusive find comes next.
-  assert.equal(keywordHeavy[0], "shared");
-  assert.ok(keywordHeavy.indexOf("k") < keywordHeavy.indexOf("v"));
-  assert.ok(vectorHeavy.indexOf("v") < vectorHeavy.indexOf("k"));
-});
-
-test("fusing one list preserves its order", () => {
-  const only = [{ id: "a" }, { id: "b" }, { id: "c" }];
-  assert.deepEqual(fuseRankings([{ items: only }], id).map(id), ["a", "b", "c"]);
-});
-
-test("an empty arm does not disturb the other", () => {
-  const keyword = [{ id: "a" }, { id: "b" }];
-  assert.deepEqual(fuseRankings([{ items: keyword }, { items: [] }], id).map(id), ["a", "b"]);
-});
-
-test("the limit is applied after fusion, not before", () => {
-  const keyword = [{ id: "a" }, { id: "b" }, { id: "c" }];
-  const vectors = [{ id: "c" }, { id: "c2" }];
-
-  const fused = fuseRankings([{ items: keyword }, { items: vectors }], id, { limit: 2 });
-  assert.equal(fused.length, 2);
-  assert.ok(fused.some((x) => x.id === "c"), "a document lifted by both arms makes the cut");
-});
-
-test("the rank constant flattens the top of each list", () => {
-  // With k = 60, being first rather than second is a small edge; with k = 0 it
-  // is a large one. The default exists so one confident arm cannot dominate.
-  const lists = [{ items: [{ id: "first" }, { id: "second" }] }];
-  const flat = fuseRankings(lists, id, { k: RRF_K });
-  const sharp = fuseRankings(lists, id, { k: 0 });
-  assert.deepEqual(flat.map(id), sharp.map(id), "order is the same; the margin is not");
 });

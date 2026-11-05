@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  buildUrlCleanupOptions,
-  cleanUrlsInText,
-  DEFAULT_PASTE_SETTINGS,
-  parseLinkRemovalText,
-  type PasteSettings,
-} from "@weaveforge/core";
+import type { PasteSettings } from "@weaveforge/wasm";
 import { readPasteSettings, writePasteSettings } from "@/lib/paste-cleanup-preference";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The paste rules, with a live tester for the link rules.
@@ -111,7 +106,7 @@ const SHORTCUTS: [string, string][] = [
 ];
 
 export function PasteSettingsPanel() {
-  const [settings, setSettings] = useState<PasteSettings>(DEFAULT_PASTE_SETTINGS);
+  const [settings, setSettings] = useState<PasteSettings>(() => readyCore().defaultPasteSettings());
   const [removalText, setRemovalText] = useState("");
   const [sample, setSample] = useState(SAMPLE_LINKS);
 
@@ -130,16 +125,17 @@ export function PasteSettingsPanel() {
 
   const commitRemovals = (text: string) => {
     setRemovalText(text);
-    update({ ...settings, linkRemovals: parseLinkRemovalText(text) });
+    update({ ...settings, linkRemovals: readyCore().parseLinkRemovalText(text) });
   };
 
   const preview = useMemo(() => {
-    const options = buildUrlCleanupOptions(parseLinkRemovalText(removalText));
+    const core = readyCore();
+    const rules = core.parseLinkRemovalText(removalText);
     return sample
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => ({ before: line, after: cleanUrlsInText(line, options).text }));
+      .map((line) => ({ before: line, after: core.cleanUrlsWithRules(line, rules).text }));
   }, [removalText, sample]);
 
   const renderRule = (rule: Rule) => (

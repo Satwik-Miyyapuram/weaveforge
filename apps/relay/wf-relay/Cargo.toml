@@ -1,0 +1,45 @@
+[package]
+name = "wf-relay"
+description = "Relays and pasted-link fetches shared by the desktop shell and the relay server."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# TypeScript types for the paste replies; the shell turns it on for its generated bindings.
+specta = ["dep:specta"]
+
+# Exact pins, the same versions apps/shell locks, so the shell builds one copy of each.
+[dependencies]
+tokio = { version = "=1.54.1", features = ["io-util", "net", "rt", "time"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+specta = { version = "=2.0.0-rc.26", features = ["derive"], optional = true }
+# The HTML relay decodes a page by the charset it declares: the same WHATWG labels
+# the TS relay's TextDecoder takes.
+encoding_rs = "=0.8.35"
+# Page titles for paste: the same patterns as packages/core page-title.ts.
+regex = "=1.13.1"
+base64 = "=0.23.1"
+
+# Desktops and the server: TLS from the platform. native-tls, not rustls: rustls's
+# default aws-lc-rs needs cmake and nasm to build; native-tls uses schannel on Windows,
+# Security.framework on macOS and a vendored OpenSSL on Linux.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
+
+# Phones: rustls on ring with Mozilla's roots (see src/tls.rs).
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
+webpki-root-certs = "=1.0.11"
+
+[dev-dependencies]
+# tls.rs tests the phone roots on desktops too.
+webpki-root-certs = "=1.0.11"
+tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+
+[lints]
+workspace = true

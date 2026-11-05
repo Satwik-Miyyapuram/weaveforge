@@ -7,24 +7,25 @@
  * workspace folder and the promise that says it has been restored — as
  * functions, because both are decided after this is created.
  */
-import { app } from "electron";
+import { app, dialog } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
-import { CHANNELS } from "./channels";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
 import { collectGarbage } from "./collect-garbage";
-import type { IpcSurface } from "./ipc-guard";
-import type { LocalClient } from "./local-db";
-import { LocalDbBackups, readBackup } from "./local-db-backup";
-import { dumpOnDisk } from "./local-db-tar";
-import { engineStartParams } from "./local-db-engine-params";
-import { LocalDbHost } from "./local-db-host";
-import { openWithRetry } from "./local-db-retry";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
+import type { LocalClient } from "../../shell/sidecar/src/local-db";
+import { LocalDbBackups, readBackup } from "../../shell/sidecar/src/local-db-backup";
+import { dumpOnDisk } from "../../shell/sidecar/src/local-db-tar";
+import { engineStartParams } from "../../shell/sidecar/src/local-db-engine-params";
+import { LocalDbHost } from "../../shell/sidecar/src/local-db-host";
+import { openWithRetry } from "../../shell/sidecar/src/local-db-retry";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
-import { prepareDataDir } from "./local-db-prepare";
-import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
-import { applyDeferredMove, claimRelaunch, clearRelaunch, moveAside } from "./local-db-reset";
-import { clearRestoreLeftovers, restoreNewestGood } from "./local-db-restore";
+import { prepareDataDir } from "../../shell/sidecar/src/local-db-prepare";
+import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "../../shell/sidecar/src/local-db-lock";
+import { applyDeferredMove, claimRelaunch, clearRelaunch, moveAside } from "../../shell/sidecar/src/local-db-reset";
+import { clearRestoreLeftovers, restoreNewestGood } from "../../shell/sidecar/src/local-db-restore";
+import { showMigratedNotice } from "../../shell/sidecar/src/migrated-notice";
 
 export interface MainLocalDbDeps {
   ipc: IpcSurface;
@@ -54,6 +55,14 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
    * load it.
    */
   const appDbDir = path.join(app.getPath("userData"), "local-db");
+  // The new app copied this data dir: say so, so changes made here are not silently stranded.
+  void app.whenReady().then(() =>
+    showMigratedNotice(
+      app.getPath("userData"),
+      (options) => dialog.showMessageBox(options),
+      () => app.hasSingleInstanceLock(),
+    ),
+  );
   /**
    * Where the database lives: the workspace folder when a move has landed,
    * otherwise the app's own directory.

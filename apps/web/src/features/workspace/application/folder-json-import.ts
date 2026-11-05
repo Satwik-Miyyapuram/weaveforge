@@ -11,12 +11,6 @@
 
 import {
   JSON_KINDS,
-  changedSide,
-  countJsonActions,
-  diffJsonData,
-  jsonDataPath,
-  parseJsonData,
-  projectDir,
   type IWorkspaceFs,
   type JsonDiff,
   type JsonDiffEntry,
@@ -26,9 +20,9 @@ import {
   type Tag,
   type WorkspaceJsonKind,
   type WorkspaceProject,
-  vaultPageBase,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 import { activeProjectOrNull } from "./active-project";
 import { baseDigest, readMirrorBase, readMirrorBases, writeMirrorManifest } from "./mirror-manifest";
 
@@ -45,6 +39,7 @@ export async function jsonDiff(
   base: Readonly<Record<string, string>>,
   project: WorkspaceProject,
 ): Promise<JsonDiff> {
+  const core = await loadCore();
   const c = getContainer();
   const [relations, tags, lists] = await Promise.all([
     c.graph.relations.getGraph(),
@@ -58,28 +53,29 @@ export async function jsonDiff(
     reading_list_items: items as unknown as JsonRow[],
   };
 
-  const projectRoot = projectDir(project);
+  const projectRoot = core.projectDir(project);
   const entries: JsonDiffEntry[] = [];
   for (const kind of JSON_KINDS) {
-    const path = jsonDataPath(projectRoot, kind);
+    const path = core.jsonDataPath(projectRoot, kind);
     const text = folderFiles[path];
     if (text === undefined) continue;
-    const parsed = parseJsonData(path, text, kind);
+    const parsed = core.parseJsonData(path, text, kind);
     // A file that will not parse says nothing. Reporting it as "no rows" would
     // read a syntax error as a removal of everything it held.
     if (!parsed) continue;
     entries.push(
-      ...diffJsonData(parsed, existing[kind], {
+      ...(core.diffJsonData(parsed, existing[kind], {
         origin: (changed) =>
-          changedSide({
+          core.changedSide({
             base: base[changed] || undefined,
             folder: baseDigest(text),
             workspace: current[changed] === undefined ? undefined : baseDigest(current[changed]),
           }),
-      }).entries,
+        // The generated row type is a plain record; the rows are the ones passed in.
+      }).entries as JsonDiffEntry[]),
     );
   }
-  return { entries, counts: countJsonActions(entries) };
+  return { entries, counts: core.countJsonActions(entries) };
 }
 
 /**
@@ -120,23 +116,36 @@ export async function applyJsonEntries(json: JsonDiff | undefined): Promise<stri
  * held was the one the app would have written, not the one the reader's edit
  * produced, and leaving it would keep the mirror holding those files back
  * forever — the folder would never be brought back into step.
+ *
+ * A path whose text no longer matches its `expected` digest moved after the preview;
+ * its base is left alone so the next look treats that newer edit as the folder's.
  */
 export async function refreshMirrorBase(
   fs: IWorkspaceFs | null,
   paths: readonly string[],
+  expected: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   if (!fs || paths.length === 0) return;
   const project = await activeProjectOrNull().catch(() => null);
   if (!project) return;
-  const projectRoot = projectDir(project);
+  const core = await loadCore();
+  const projectRoot = core.projectDir(project);
   const base = await readMirrorBase(fs, projectRoot);
   const bases = await readMirrorBases(fs, projectRoot);
   let touched = false;
   for (const path of paths) {
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
+    if (expected[path] !== undefined && baseDigest(text) !== expected[path]) continue;
     base[path] = baseDigest(text);
-    const pageBase = vaultPageBase(path, text);
+    // A note over the WASM text limit keeps no field base; the next merge
+    // of it then reports a conflict instead of guessing.
+    let pageBase: ReturnType<typeof core.vaultPageBase> = null;
+    try {
+      pageBase = core.vaultPageBase(path, text);
+    } catch {
+      pageBase = null;
+    }
     if (pageBase) bases[path] = pageBase;
     touched = true;
   }

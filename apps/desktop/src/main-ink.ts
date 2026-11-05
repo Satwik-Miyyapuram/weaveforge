@@ -14,8 +14,8 @@ import {
   type InkHapticsMessage,
   readInkRequest,
 } from "./ink-recogniser";
-import { CHANNELS } from "./channels";
-import type { IpcSurface } from "./ipc-guard";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 
 /** What the helper's door needs from the shell. */
 export interface MainInkDeps {

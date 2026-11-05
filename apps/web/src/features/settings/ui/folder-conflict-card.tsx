@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { diffBody, type HunkPick, type ImportDiffEntry } from "@weaveforge/core";
+import { type HunkPick, type ImportDiffEntry } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import {
   keepBothTitle,
   type ConflictPicks,
@@ -39,7 +40,7 @@ export function FolderConflictCard({
 
   const detail = entry.merge;
   const unresolved = entry.kind === "markers";
-  const body = detail?.bodySides ? diffBody(detail.bodySides.ours, detail.bodySides.theirs) : null;
+  const body = detail?.bodySides ? readyCore().diffBody(detail.bodySides.ours, detail.bodySides.theirs) : null;
 
   const pick = (next: Partial<ConflictPicks>) => {
     onChoose({ kind: "picks", fields, hunks, ...next });

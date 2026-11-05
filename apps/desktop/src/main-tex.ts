@@ -1,7 +1,7 @@
 /** Finding a LaTeX engine, and compiling a project the page hands over in a directory of its own. */
 import { errorMessage } from "@weaveforge/core";
-import { CHANNELS } from "./channels";
-import type { IpcSurface } from "./ipc-guard";
+import { CHANNELS } from "../../shell/sidecar/src/channels";
+import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 import { compileTex, probeTex, type TexSourceFile, type TexTool } from "./tex";
 
 export function registerMainTex(deps: { ipc: IpcSurface; probe?: () => Promise<TexTool | null> }): void {

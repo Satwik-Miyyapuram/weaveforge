@@ -280,6 +280,57 @@ services:
       - caddy-data:/data
       - caddy-config:/config
 
+  # The relay server (apps/relay): the outside fetches the browser cannot make
+  # itself (papers, page metadata, arXiv, Semantic Scholar, pasted links). Caddy
+  # sends /relay/* here, with the prefix stripped. Not published to the host.
+  #
+  # Build context is the repo root, so the compose file must sit in a checkout
+  # (../.. is the repo root from infra/oci). A VM with only this file needs the
+  # image built elsewhere (`docker build -f apps/relay/Dockerfile .` from a
+  # checkout, then `docker save | ssh ... docker load`) and referenced by
+  # `image:` instead.
+  #
+  # Behind the `relay` profile so the rest of the stack starts without its keys:
+  #   docker compose --profile relay up -d weaveforge-relay
+  # Missing keys are not checked here (`:?` would fail every compose command);
+  # the server refuses to start and names the missing variable instead.
+  weaveforge-relay:
+    profiles: ["relay"]
+    build:
+      context: ../..
+      dockerfile: apps/relay/Dockerfile
+    container_name: weaveforge-relay
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      # PostgREST over the compose network, not the public hostname.
+      NEXT_PUBLIC_DATA_URL: http://postgrest:3000
+      RELAY_ALLOWED_ORIGINS: "${RELAY_ALLOWED_ORIGINS:-https://weaveforge.org,https://www.weaveforge.org,https://app.weaveforge.org,app://weaveforge,https://app.localhost,app://localhost,http://localhost:3000,http://localhost:3100}"
+      RELAY_BIND: 0.0.0.0:8787
+      # Tiered blob storage (/api/blobs/*, /api/sdk/artifacts).
+      NEXT_PUBLIC_BLOB_PROVIDER: ${NEXT_PUBLIC_BLOB_PROVIDER:-}
+      BLOB_PROVIDER: ${BLOB_PROVIDER:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      BLOB_COLD_ENDPOINT: ${BLOB_COLD_ENDPOINT:-}
+      BLOB_COLD_ACCESS_KEY_ID: ${BLOB_COLD_ACCESS_KEY_ID:-}
+      BLOB_COLD_SECRET_ACCESS_KEY: ${BLOB_COLD_SECRET_ACCESS_KEY:-}
+      BLOB_COLD_BUCKET: ${BLOB_COLD_BUCKET:-}
+      BLOB_VIEW_SECRET: ${BLOB_VIEW_SECRET:-}
+      # /api/settings/*: MCP token switch ("false" or "0" turns it off) and the credential-sealing key.
+      RELAY_MCP_ENABLED: ${RELAY_MCP_ENABLED:-true}
+      OVERLEAF_CREDENTIAL_KEY: ${OVERLEAF_CREDENTIAL_KEY:-}
+      GITHUB_ISSUES_TOKEN: ${GITHUB_ISSUES_TOKEN:-}
+      GITHUB_ISSUES_REPO: ${GITHUB_ISSUES_REPO:-}
+    mem_limit: 128m
+    # No healthcheck: the image is debian-slim with ca-certificates only, so it
+    # has neither curl nor wget to probe /healthz with.
+
   minio:
     image: minio/minio:latest
     container_name: weaveforge-minio

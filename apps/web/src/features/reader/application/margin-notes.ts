@@ -1,4 +1,5 @@
-import { pdfRectToScreenBox, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import {  type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { picturePath } from "./reader-picture";
 
 /** One comment card in the writing margin beside a page, and where it sits. */
@@ -21,7 +22,7 @@ function markTop(annotation: ReaderAnnotation, projection: PageProjection): numb
   let top = Number.POSITIVE_INFINITY;
   for (const rect of position.rects ?? []) {
     if (rect.length < 4) continue;
-    const box = pdfRectToScreenBox([rect[0]!, rect[1]!, rect[2]!, rect[3]!], projection);
+    const box = readyCore().pdfRectToScreenBox([rect[0]!, rect[1]!, rect[2]!, rect[3]!], projection);
     top = Math.min(top, box.top);
   }
   for (const path of position.paths ?? []) {
@@ -31,7 +32,7 @@ function markTop(annotation: ReaderAnnotation, projection: PageProjection): numb
       x0 = Math.min(x0, path[i]!); x1 = Math.max(x1, path[i]!);
       y0 = Math.min(y0, path[i + 1]!); y1 = Math.max(y1, path[i + 1]!);
     }
-    if (x0 <= x1) top = Math.min(top, pdfRectToScreenBox([x0, y0, x1, y1], projection).top);
+    if (x0 <= x1) top = Math.min(top, readyCore().pdfRectToScreenBox([x0, y0, x1, y1], projection).top);
   }
   return Number.isFinite(top) ? top : null;
 }

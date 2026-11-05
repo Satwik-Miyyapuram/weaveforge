@@ -14,7 +14,6 @@
  * function words are dropped from the keyword arm's query, a keyword hit must
  * match at least half the remaining terms, and the vector arm counts for 1.5×.
  */
-import { processTerm, tokenize } from "./search-tokenizer.js";
 
 /** Weight of the vector list in fusion; the keyword list is 1. */
 export const HYBRID_VECTOR_WEIGHT = 1.5;
@@ -55,14 +54,9 @@ export function stripStopwords(query: string): string {
   return kept.length ? kept.join(" ") : query;
 }
 
-/** Distinct index terms in a query, as the tokenizer produces them. */
-export function queryTermCount(query: string): number {
-  const terms = new Set<string>();
-  for (const token of tokenize(query)) {
-    const term = processTerm(token);
-    if (term) terms.add(term);
-  }
-  return terms.size;
+/** Distinct non-empty terms; callers pass the query's index terms (the Rust `indexTerms`). */
+export function queryTermCount(terms: readonly string[]): number {
+  return new Set(terms.filter((term) => term !== "")).size;
 }
 
 /**

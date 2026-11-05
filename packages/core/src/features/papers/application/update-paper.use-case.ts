@@ -26,6 +26,9 @@ export interface UpdatePaperDeps {
 }
 
 export class UpdatePaperUseCase {
+  /** Tail of the update queue per paper id; see `enqueue`. */
+  private readonly queues = new Map<string, Promise<unknown>>();
+
   constructor(private readonly deps: UpdatePaperDeps) {}
 
   async setStatus(id: string, status: PaperStatus): Promise<Paper> {
@@ -125,10 +128,35 @@ export class UpdatePaperUseCase {
   }
 
   async remove(id: string): Promise<void> {
-    await this.deps.repository.delete(id);
+    return this.enqueue(id, () => this.deps.repository.delete(id));
   }
 
-  private async mutate(
+  private mutate(id: string, change: (p: Paper) => Paper): Promise<Paper> {
+    return this.enqueue(id, () => this.apply(id, change));
+  }
+
+  /**
+   * Updates to one paper run one after another. Two at once (a note save and a
+   * status change) each read the row, and the later save wrote the earlier,
+   * stale row back over the other's change. Different papers never wait.
+   * A delete waits for parked updates, so an update cannot write the row back after it.
+   */
+  private enqueue<T>(id: string, job: () => Promise<T>): Promise<T> {
+    const previous = this.queues.get(id) ?? Promise.resolve();
+    const run = previous.then(job);
+    // The tail never rejects, so one failed update does not block the next.
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.queues.set(id, tail);
+    void tail.then(() => {
+      if (this.queues.get(id) === tail) this.queues.delete(id);
+    });
+    return run;
+  }
+
+  private async apply(
     id: string,
     change: (p: Paper) => Paper,
   ): Promise<Paper> {

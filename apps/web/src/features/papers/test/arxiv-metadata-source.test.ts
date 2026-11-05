@@ -1,6 +1,11 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { ArxivMetadataSource } from "../infrastructure/arxiv-metadata-source";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const feed = (entries: string) =>
   `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Query</title>${entries}</feed>`;

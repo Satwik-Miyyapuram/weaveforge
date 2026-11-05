@@ -7,8 +7,9 @@ on:
     # `feat/offline-first` is a long-lived integration branch that main is
     # protected from until it is finished, so the pull requests into it need
     # the same checks main's do — otherwise the branch merges to main in one
-    # untested lump.
-    branches: [main, feat/offline-first]
+    # untested lump. `feat/rust-port` is the same kind of branch for the Rust
+    # port (docs/plans/current/rust-port/plan.md).
+    branches: [main, feat/offline-first, feat/rust-port]
   # Nightly paused: burns private-repo Actions minutes and was red on Playwright.
   # Re-enable after billing/minutes are healthy:
   # schedule:
@@ -73,6 +74,16 @@ jobs:
       - name: Run Desktop tests
         run: npm run test:desktop
 
+      # The phase-2 Node sidecar: its JSON-lines wire, and one real PGlite
+      # open through the desktop's local-db code (the Tauri shell spawns it).
+      - name: Run Sidecar tests
+        run: npm run test:sidecar
+
+      # The Tauri bridge shim (window.weaveforge over typed commands) and the
+      # generated bindings it wraps.
+      - name: Run Bridge tests
+        run: npm run test:bridge
+
       # Schema and RLS, against the shipped migrations on an in-process
       # Postgres. It used to live in the opt-in job because it needed a live
       # project and two accounts; it needs neither now, so it runs on every PR.
@@ -100,6 +111,46 @@ jobs:
 
       - name: Run editor paste tests
         run: npm run test:e2e:editor
+
+      # packages/wf-wasm/pkg is committed so the web and mobile builds need no
+      # Rust. Its stamp must match the Rust inputs before anything is built.
+      - name: Check the committed WASM package is fresh
+        run: npm run wasm:fresh
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      # Must equal the wasm-bindgen crate in Cargo.lock; build-wasm.mjs checks.
+      - name: Install wasm-bindgen CLI
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
+
+      - name: Build the Rust core to WASM
+        run: npm run build:wasm
+
+      # Glue, types and stamp must match exactly, and so must the module: the
+      # committed one is this Linux build (Windows rustc can emit other code).
+      - name: Check the rebuilt WASM package matches the committed one
+        run: npm run wasm:pkg
+
+      # The Linux-built package: the committed module comes from here.
+      - name: Keep the rebuilt WASM package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf-wasm-pkg
+          path: packages/wf-wasm/pkg/
+          retention-days: 7
+
+      - name: Run WASM package tests
+        run: npm test --workspace @weaveforge/wasm
+
+      - name: Check WASM size budget
+        run: npm run wasm:budget
 
       - name: Run Typechecks
         run: npm run typecheck
@@ -383,6 +434,371 @@ jobs:
           node scripts/check-dco.mjs
           "${{ github.event.pull_request.base.sha }}"
           "${{ github.event.pull_request.head.sha }}"
+
+  rust:
+    # Rust gates for crates/ (plan §4.5). The gate list lives once, in
+    # scripts/lib/rust-gates.mjs; pre-push runs the same script.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Install the toolchain pinned in rust-toolchain.toml before the cache
+      # keys on `rustc -vV`.
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      # Pinned so a new release cannot change gate behaviour without a repo change.
+      - name: Install cargo-nextest and cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.150,cargo-deny@0.20.2
+
+      - name: Rust gates (fmt, clippy, nextest, doctest, deny, advisories)
+        run: node scripts/check-rust.mjs
+
+      # fuzz/ is its own workspace, so the gates above never build it. Building the
+      # target on stable keeps it from rotting; running it needs nightly (nightly.yml).
+      - name: Check the fuzz target compiles
+        run: cargo check --locked --manifest-path fuzz/Cargo.toml
+
+  shell:
+    # The Tauri shell (apps/shell) is its own Cargo workspace with its own
+    # deny.toml: Tauri's graph has duplicate crate versions that wf-core's
+    # strict bans must not inherit (phase-2-desktop.md, step 2.2). Linux
+    # needs the WebKitGTK headers to compile it.
+    runs-on: ubuntu-latest
+    # Bounds a real-sidecar test that hangs (it reads the helper's pid with no deadline).
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/shell
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
+
+      - name: Install WebKitGTK build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev libdbus-1-dev
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/shell
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Real sidecar (database lock and orphan)
+        run: cargo test --locked --test launch -- --ignored
+
+      - name: Dependency policy
+        run: cargo deny --locked check
+
+  relay:
+    # The relay crate (apps/relay) is shared by the shell and the relay server.
+    # It is its own Cargo workspace for the same reason the shell is: reqwest's
+    # graph has duplicate versions that wf-core's strict bans must not inherit.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/relay
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/relay
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Phone build check
+        # Phones take the rustls path (src/tls.rs); check it compiles there too.
+        run: |
+          rustup target add aarch64-linux-android
+          cargo check --locked -p wf-relay --target aarch64-linux-android
+
+      - name: Dependency policy
+        run: cargo deny --locked check
+
+  shell-windows:
+    # Windows-only shell code: the sidecar's Job Object (kill-on-close) and its
+    # orphan test run only here (phase-2-desktop.md, step 2.4). The real-sidecar
+    # lock/orphan test runs here and in the Linux job. fmt and cargo-deny are
+    # platform-independent and stay in the Linux job.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/shell
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/shell
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Real sidecar (database lock and orphan)
+        run: cargo test --locked --test launch -- --ignored
+
+  shell-bundle-windows:
+    # Windows x64 release bundles (MSI and NSIS) with the sidecar and the web
+    # export, and their sizes in the step summary (phase 2 done-when: installer
+    # size measured on x64). This is the release product ("WeaveForge"), built
+    # only to measure; the installers are not uploaded or installed anywhere.
+    # Skipped on fork PRs, which get no secrets for the web export.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      # The web export refuses to build without these (scripts/build-web.mjs).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_BACKEND_PROVIDER: postgrest
+    defaults:
+      run:
+        working-directory: apps/shell
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/shell
+
+      - name: Build web export
+        working-directory: apps/desktop
+        run: node scripts/build-web.mjs
+
+      - name: Stage sidecar
+        working-directory: .
+        shell: pwsh
+        # The Rust cache can restore a stage folder from an earlier run, and stage.mjs refuses a non-empty one.
+        run: |
+          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
+          node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
+
+      - name: Bundle
+        run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json
+
+      - name: Report bundle sizes
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem target/release/bundle -Recurse -Include *.msi, *-setup.exe
+          if (-not $files) { throw "no bundles found" }
+          "| Bundle | MiB |" >> $env:GITHUB_STEP_SUMMARY
+          "| --- | --- |" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($f in $files) { "| $($f.Name) | $([math]::Round($f.Length / 1MB, 2)) |" >> $env:GITHUB_STEP_SUMMARY; "$($f.Name) $([math]::Round($f.Length / 1MB, 2)) MiB" }
+
+      # rust-cache saves target/ after the job; keep the staged sidecar (100+ MB) out of it.
+      - name: Drop staged sidecar before cache save
+        if: always()
+        shell: pwsh
+        run: Remove-Item target/stage -Recurse -Force -ErrorAction SilentlyContinue
+
+  shell-android:
+    # The phone build of the Tauri shell (phase-4-phones.md, step 4.6): Android
+    # clippy, the ink plugin's Kotlin unit tests, and a debug APK. gen/android is
+    # git-ignored, so `tauri android init` makes it fresh on every run.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/shell
+    env:
+      NDK_VERSION: 27.2.12479018
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain and Android target
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-linux-android
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # v4, as in android.yml: v3 fails asking for the retired 'tools' package.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android NDK
+        run: |
+          # Accept the licences first so the install cannot stop at a prompt.
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "ndk;${NDK_VERSION}"
+          ndk="$ANDROID_HOME/ndk/${NDK_VERSION}"
+          bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          {
+            echo "NDK_HOME=$ndk"
+            echo "CC_aarch64_linux_android=$bin/aarch64-linux-android29-clang"
+            echo "AR_aarch64_linux_android=$bin/llvm-ar"
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$bin/aarch64-linux-android29-clang"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/shell
+
+      - name: Clippy (Android)
+        run: cargo clippy --all-targets --locked --target aarch64-linux-android -- -D warnings
+
+      # The CLI is pinned in apps/shell/package.json. Gradle's Rust task calls
+      # `npm run tauri`, which writes the plugin and Wry glue into gen/android.
+      - name: Generate the Android project
+        run: npm run tauri -- android init --ci
+
+      - name: Debug APK
+        run: npm run tauri -- android build --debug --apk --target aarch64 --ci
+
+      # Fail loudly if the build left out a plugin's Android library.
+      - name: Check the Android plugin glue
+        run: |
+          for plugin in tauri-plugin-ink tauri-plugin-deep-link; do
+            grep -q "$plugin" gen/android/tauri.settings.gradle \
+              || { echo "missing $plugin in tauri.settings.gradle"; exit 1; }
+          done
+
+      - name: Ink plugin unit tests
+        working-directory: apps/shell/gen/android
+        run: ./gradlew --no-daemon :tauri-plugin-ink:testDebugUnitTest
+
+  wasm-parity:
+    # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
+    # the fixtures were generated on: its ICU fixes toLowerCase and \p{...}
+    # behaviour, so another Node could fail on the TS side, not the port.
+    # Uses the committed pkg/; build-and-test's wasm:fresh proves it current.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Core package
+        run: npm run build:core
+
+      - name: TS/Rust parity on fixtures
+        run: npm run parity --workspace @weaveforge/wasm
 
   python-sdk:
     runs-on: ubuntu-latest

@@ -1,0 +1,280 @@
+{
+  "input": {
+    "texts": [
+      "",
+      "   ",
+      "hello world",
+      "Hello, World! hello",
+      "parseHTTPResponse myVariable XMLHttpRequest getID2Name",
+      "a1B2C3 ABCDefGHIjk aB ABCdEFg aBCd HTTPServer2Go",
+      "my_var snake_Case_X __",
+      "café Müller naïve ΣΑΣ İstanbul ǅemal",
+      "VAE編碼器 日本語テキスト 한국어 x日y",
+      "𠀀𠀁 𝐀𝐁𝐂",
+      "see https://arxiv.org/abs/2305.12345 now",
+      "foo.com/bar?x=1 sub.example.io",
+      "a.comx b.co .com x.COM. HTTPS://Ex.Org",
+      "prefix(https://x.y/z) ftp://a.b",
+      "http:// http://a hhttp://ab",
+      "e.g. i.e. v1.2.3 3.14",
+      "x.dev_y x.dev-y a.io_b.com x..com",
+      "a.comé a.com𝐀",
+      "a.İo b.ıo c.Kom",
+      "﻿wordnext tail x y.com",
+      "émile.com/Été",
+      "مُحَمَّد قُرْآن",
+      "x:y a:b.org",
+      "parseHTTPResponse café https://Ex.org/Été مُحَمَّد VAE編碼器",
+      "myVar x.io ÅngströmLab",
+      "ۥ x.io/ۥۦ a",
+      "Café CAFE cafe"
+    ],
+    "options": {
+      "foldDiacritics": true,
+      "foldArabicDiacritics": false,
+      "splitCamelCase": true,
+      "tokenizeUrls": false
+    }
+  },
+  "expected": [
+    [],
+    [],
+    [
+      "hello",
+      "world"
+    ],
+    [
+      "hello",
+      "world"
+    ],
+    [
+      "parse",
+      "http",
+      "response",
+      "parsehttpresponse",
+      "my",
+      "variable",
+      "myvariable",
+      "xml",
+      "request",
+      "xmlhttprequest",
+      "get",
+      "id2",
+      "name",
+      "getid2name"
+    ],
+    [
+      "a1",
+      "b2",
+      "c3",
+      "a1b2c3",
+      "abc",
+      "def",
+      "gh",
+      "ijk",
+      "abcdefghijk",
+      "ab",
+      "cd",
+      "fg",
+      "abcdefg",
+      "abcd",
+      "http",
+      "server2",
+      "go",
+      "httpserver2go"
+    ],
+    [
+      "my_var",
+      "snake_case_x",
+      "__"
+    ],
+    [
+      "cafe",
+      "muller",
+      "muller",
+      "naive",
+      "σας",
+      "istanbul",
+      "ǆemal"
+    ],
+    [
+      "vae",
+      "編",
+      "碼",
+      "器",
+      "編碼",
+      "碼器",
+      "日",
+      "本",
+      "語",
+      "テ",
+      "キ",
+      "ス",
+      "ト",
+      "日本",
+      "本語",
+      "語テ",
+      "テキ",
+      "キス",
+      "スト",
+      "한",
+      "국",
+      "어",
+      "한국",
+      "국어",
+      "x",
+      "y"
+    ],
+    [
+      "𠀀𠀁",
+      "𝐀𝐁𝐂"
+    ],
+    [
+      "see",
+      "https",
+      "arxiv",
+      "org",
+      "abs",
+      "2305",
+      "12345",
+      "now"
+    ],
+    [
+      "foo",
+      "com",
+      "bar",
+      "x",
+      "1",
+      "sub",
+      "example",
+      "io"
+    ],
+    [
+      "a",
+      "comx",
+      "b",
+      "co",
+      "com",
+      "x",
+      "https",
+      "ex",
+      "org"
+    ],
+    [
+      "prefix",
+      "https",
+      "x",
+      "y",
+      "z",
+      "ftp",
+      "a",
+      "b"
+    ],
+    [
+      "http",
+      "a",
+      "hhttp",
+      "ab"
+    ],
+    [
+      "e",
+      "g",
+      "i",
+      "v1",
+      "2",
+      "3",
+      "14"
+    ],
+    [
+      "x",
+      "dev_y",
+      "dev",
+      "y",
+      "a",
+      "io_b",
+      "com"
+    ],
+    [
+      "a",
+      "come",
+      "com𝐀"
+    ],
+    [
+      "a",
+      "io",
+      "b",
+      "ıo",
+      "c",
+      "kom"
+    ],
+    [
+      "word",
+      "next",
+      "tail",
+      "x",
+      "y",
+      "com"
+    ],
+    [
+      "emile",
+      "com",
+      "ete"
+    ],
+    [
+      "م",
+      "ح",
+      "د",
+      "ق",
+      "ر",
+      "آن"
+    ],
+    [
+      "x",
+      "y",
+      "a",
+      "b",
+      "org"
+    ],
+    [
+      "parse",
+      "http",
+      "response",
+      "parsehttpresponse",
+      "cafe",
+      "https",
+      "ex",
+      "org",
+      "ete",
+      "م",
+      "ح",
+      "د",
+      "vae",
+      "編",
+      "碼",
+      "器",
+      "編碼",
+      "碼器"
+    ],
+    [
+      "my",
+      "var",
+      "myvar",
+      "x",
+      "io",
+      "angstrom",
+      "lab",
+      "angstromlab"
+    ],
+    [
+      "ۥ",
+      "x",
+      "io",
+      "ۥۦ",
+      "a"
+    ],
+    [
+      "cafe",
+      "cafe"
+    ]
+  ]
+}

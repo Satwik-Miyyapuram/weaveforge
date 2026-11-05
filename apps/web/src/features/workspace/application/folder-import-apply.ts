@@ -1,13 +1,13 @@
 import {
   ASSET_DIR,
   fromRelativeBlobLinks,
-  projectDir,
   type ImportDiff,
   type ImportDiffEntry,
   type IWorkspaceFs,
   type JsonDiff,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 import { activeProject } from "./active-project";
 import {
   assetExtension,
@@ -33,6 +33,14 @@ export function clearPendingAssets(): void {
   pendingAssets = new Map();
 }
 
+/** For a run started in the background against one folder. */
+export interface ApplyOptions {
+  /** The folder the diff was read from; the apply refuses if another is connected now. */
+  fs?: IWorkspaceFs;
+  /** Digest per path when previewed; a file that moved since keeps its old base. */
+  expected?: Readonly<Record<string, string>>;
+}
+
 /**
  * Apply what the user chose from the preview: create and update notes.
  *
@@ -43,9 +51,11 @@ export function clearPendingAssets(): void {
 export async function applyFolderImport(
   diff: ImportDiff & { json?: JsonDiff },
   resolutions: Readonly<Record<string, ConflictResolution>> = {},
+  options: ApplyOptions = {},
 ): Promise<{ created: number; updated: number }> {
   const fs = activeWorkspaceFs();
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
+  if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
 
   const result = await applyEntries(fs, diff, resolutions);
   const appliedJson = await applyJsonEntries(diff.json);
@@ -55,16 +65,17 @@ export async function applyFolderImport(
   await refreshMirrorBase(fs, [
     ...result.appliedPaths,
     ...appliedJson,
-  ]);
+  ], options.expected ?? {});
 
   await syncToFolder().catch(() => undefined);
   return { created: result.created, updated: result.updated };
 }
 
 /** See `writeConflictMarkersTo`: this window's folder gets the markers. */
-export function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
+export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
   const fs = activeWorkspaceFs();
-  return fs ? writeConflictMarkersTo(fs, entry) : Promise.resolve(false);
+  if (!fs) return false;
+  return writeConflictMarkersTo(await loadCore(), fs, entry);
 }
 
 async function applyEntries(
@@ -72,15 +83,16 @@ async function applyEntries(
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
 ): Promise<{ created: number; updated: number; appliedPaths: string[] }> {
+  const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
-  const projectRoot = projectDir(await activeProject());
+  const projectRoot = core.projectDir(await activeProject());
   let created = 0;
   let updated = 0;
   const appliedPaths: string[] = [];
 
   for (const raw of diff.entries) {
-    const entry = raw.action === "conflict" ? settleConflict(raw, resolutions) : raw;
+    const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
     if (!entry) continue;
 
     if (entry.action === "conflict" || entry.action === "unchanged" || entry.action === "removed") {

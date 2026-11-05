@@ -11,19 +11,13 @@ import {
 } from "react";
 import {
   errorMessage,
-  clampScale,
-  readerKeyboardCommand,
-  resolveTextAnchor,
-  inkNoteWidthToPdfPoints,
-  screenPointToPdf,
-  translateInkPaths,
-  clampZoomFactor,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
   type ReaderAnnotationType,
   type FigureTarget,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { InkColour, TextSelectionRange } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
@@ -222,7 +216,7 @@ export function PdfReader({
   /** The swatches a mark is recoloured from: the list of the tool that made it. */
   const markQuickHexes = (type: string) => toolColours[markColourTool(type)].quick.map(hexOf);
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
-  const penWidth = inkNoteWidthToPdfPoints(pen.prefs.width);
+  const penWidth = readyCore().inkNoteWidthToPdfPoints(pen.prefs.width);
   // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
   // session, not persisted — a reader that reopens with every control hidden
   // looks broken, not focused.
@@ -315,7 +309,7 @@ export function PdfReader({
           ...ann.anchor,
           zoteroPosition: {
             ...position,
-            paths: translateInkPaths(position.paths, movePreview.dx, movePreview.dy),
+            paths: readyCore().translateInkPaths(position.paths, movePreview.dx, movePreview.dy),
           },
         },
       };
@@ -422,7 +416,7 @@ export function PdfReader({
         return;
       }
 
-      const command = readerKeyboardCommand({
+      const command = readyCore().readerKeyboardCommand({
         key: event.key,
         code: event.code,
         ctrlKey: event.ctrlKey,
@@ -466,7 +460,7 @@ export function PdfReader({
    * its on-screen size, and the eraser's block. The pointer tool is left
    * alone — it is the arrow and the text I-beam the page already gives it.
    */
-  const nibPoints = createTool === "highlighter" ? inkNoteWidthToPdfPoints(pen.prefs.highlighterWidth) : penWidth;
+  const nibPoints = createTool === "highlighter" ? readyCore().inkNoteWidthToPdfPoints(pen.prefs.highlighterWidth) : penWidth;
   const pageCursor = canCreate
     ? inkCursorFor(createTool, { hex: createColor, diameterPx: nibPoints * scale })
     : undefined;
@@ -732,7 +726,7 @@ export function PdfReader({
     (factor: number, focusX: number, focusY: number) => {
       const scroller = containerRef.current;
       const before = viewport.renderScale;
-      const applied = clampScale(before * factor) / before;
+      const applied = readyCore().clampScale(before * factor) / before;
       if (!Number.isFinite(applied) || applied === 1) {
         setZoomPreview(null);
         return;
@@ -936,7 +930,7 @@ export function PdfReader({
 
       // Negative dy zooms in (> 1), positive dy zooms out (< 1)
       const factorDelta = Math.exp(-dy * 0.002);
-      accumulatedFactor = clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
+      accumulatedFactor = readyCore().clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
 
       showPreview();
 
@@ -965,7 +959,7 @@ export function PdfReader({
       const ge = e as unknown as { scale?: number };
       if (!isPinching) return;
       const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
-      accumulatedFactor = clampZoomFactor(scaleVal, baseScale);
+      accumulatedFactor = readyCore().clampZoomFactor(scaleVal, baseScale);
       showPreview();
     };
 
@@ -1072,7 +1066,7 @@ export function PdfReader({
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
-      const anchor = resolveTextAnchor(pageText.text, pageScopedLocus(locus));
+      const anchor = readyCore().resolveTextAnchor(pageText.text, pageScopedLocus(locus));
       return anchor?.confidence ?? null;
     },
     [pdf, locus],
@@ -1087,7 +1081,7 @@ export function PdfReader({
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
-      const anchor = resolveTextAnchor(pageText.text, pageScopedLocus(locus));
+      const anchor = readyCore().resolveTextAnchor(pageText.text, pageScopedLocus(locus));
       if (!anchor) return;
 
       const host = containerRef.current?.querySelector<HTMLDivElement>(
@@ -1331,8 +1325,8 @@ export function PdfReader({
           if (isCrossPage && endBox && midY >= endBox.top - 1) {
             const left = cr.left - endBox.left;
             const top = cr.top - endBox.top;
-            const p1 = screenPointToPdf(left, top, pEnd);
-            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pEnd);
+            const p1 = readyCore().screenPointToPdf(left, top, pEnd);
+            const p2 = readyCore().screenPointToPdf(left + cr.width, top + cr.height, pEnd);
             nextPageRects.push([
               Math.min(p1.x, p2.x),
               Math.min(p1.y, p2.y),
@@ -1342,8 +1336,8 @@ export function PdfReader({
           } else {
             const left = cr.left - startBox.left;
             const top = cr.top - startBox.top;
-            const p1 = screenPointToPdf(left, top, pStart);
-            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pStart);
+            const p1 = readyCore().screenPointToPdf(left, top, pStart);
+            const p2 = readyCore().screenPointToPdf(left + cr.width, top + cr.height, pStart);
             exactRects.push([
               Math.min(p1.x, p2.x),
               Math.min(p1.y, p2.y),

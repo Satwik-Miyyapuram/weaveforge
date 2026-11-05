@@ -18,7 +18,7 @@ From the repo root (Git Bash or PowerShell):
 One file or one test, faster:
 
 ```bash
-cd apps/desktop && node --import tsx --test test/home-config.test.ts
+node --import tsx --test apps/shell/sidecar/test/home-config.test.ts
 cd packages/core && node --import tsx --test test/features/reader/references.test.ts
 npm run test:web -- --test-name-pattern "find overlay"
 ```
@@ -86,6 +86,29 @@ Stop it only by path, as in the first line. Never `taskkill /IM WeaveForge.exe`.
   the DB aside.
 - Sign-in loopback port 53682 is shared, so Dev logs `EADDRINUSE` while the
   main app runs. Harmless for local-only checks.
+
+### Tauri Dev build (Rust port)
+
+The Tauri shell becomes the Dev build only through the `tauri.dev.json`
+overlay (productName `WeaveForge Dev`, identifier
+`dev.weaveforge.desktop.dev`). It then migrates from the Electron Dev profile
+and leaves editor MCP configs alone. Never run a Tauri build without it on
+this machine: it would migrate from the installed app's data.
+
+```powershell
+cd apps\desktop; node scripts/build-web.mjs; cd ..\..
+node apps/shell/sidecar/scripts/stage.mjs <out> --node (Get-Command node).Source
+cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
+```
+
+`stage.mjs` copies the `LICENSE` beside `node.exe`. If that install has none,
+pass `--node-license <Node's LICENSE>`, never the repo's own `LICENSE`.
+
+Copy `target\release\weaveforge-shell.exe` into `<out>`, and
+`apps\desktop\dist\web` to `<out>\web`. Run the exe from `<out>` unbundled, so
+it registers no URL scheme. For CDP set
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`; the page
+origin is `https://app.localhost`.
 
 ## 4. Drive it over CDP
 

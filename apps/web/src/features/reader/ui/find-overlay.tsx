@@ -2,11 +2,11 @@
 
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  pdfRectToScreenBox,
   type DocumentSearchMatch,
   type PageProjection,
   type PageTextItem,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { locateMention } from "../application/reference-locate";
 import type { FindMark } from "../application/find-marks";
 
@@ -151,7 +151,7 @@ function FindOverlayInner({ matches, active, pageIndex, items, projection }: Fin
       if (match.pageIndex !== pageIndex) return;
       const { rects } = locateMention(items, match.start, match.end);
       rects.forEach((rect, i) => {
-        const box = pdfRectToScreenBox(rect, projection);
+        const box = readyCore().pdfRectToScreenBox(rect, projection);
         if (box.width < 1 || box.height < 1) return;
         out.push({ key: `${index}:${i}`, current: index === active, ...box });
       });

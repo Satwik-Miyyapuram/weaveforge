@@ -1,9 +1,13 @@
-// Speed baseline against WeaveForge Dev (CDP 9223). Usage: node scripts/perf/baseline.mjs [out-dir]. See docs/plans/speed-plan.md.
+// Speed baseline against WeaveForge Dev (CDP 9223). Usage: node scripts/perf/baseline.mjs [out-dir]. Env: PERF_ORIGIN (Tauri on Windows: https://app.localhost), PERF_APP_DIR (Tauri: folder of the Tauri exe). See docs/plans/speed-plan.md.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { send, run, shot, close } from "./cdp.mjs";
 
 const PAPER = process.env.PERF_PAPER ?? "e7b08520-e2e6-4dfc-b903-bc431b14c858";
+// Origin the app serves pages from: Electron `app://weaveforge`, Tauri on Windows `https://app.localhost` (useHttpsScheme).
+const ORIGIN = process.env.PERF_ORIGIN ?? "app://weaveforge";
+// Install folder of the app under test; its processes and all their descendants are measured.
+const APP_DIR = process.env.PERF_APP_DIR ?? `${process.env.LOCALAPPDATA}\\Programs\\WeaveForge Dev`;
 const OUT = process.argv[2] ?? ".";
 mkdirSync(OUT, { recursive: true });
 const NOTE_TITLE = process.env.PERF_NOTE ?? "Perf dense ink";
@@ -25,7 +29,8 @@ const out = { at: new Date().toISOString(), phases: {} };
 await send("Performance.enable");
 
 function rss() {
-  const ps = `$p = Get-Process | ? { $_.Path -like "$env:LOCALAPPDATA\\Programs\\WeaveForge Dev\\*" }; @{ n = $p.Count; ws = ($p | Measure-Object WorkingSet64 -Sum).Sum; priv = ($p | Measure-Object PrivateMemorySize64 -Sum).Sum } | ConvertTo-Json -Compress`;
+  const appPs = APP_DIR.replace(/'/g, "''");
+  const ps = `$all = Get-CimInstance Win32_Process; $set = @{}; foreach ($p in $all) { if ($p.ExecutablePath -like '${appPs}\\*') { $set[[int]$p.ProcessId] = 1 } }; $n = -1; while ($set.Count -ne $n) { $n = $set.Count; foreach ($p in $all) { if ($set.ContainsKey([int]$p.ParentProcessId)) { $set[[int]$p.ProcessId] = 1 } } }; $s = @($all | ? { $set.ContainsKey([int]$_.ProcessId) }); @{ n = $s.Count; ws = ($s | Measure-Object WorkingSetSize -Sum).Sum; priv = ($s | Measure-Object PrivatePageCount -Sum).Sum } | ConvertTo-Json -Compress`;
   const r = JSON.parse(execSync(`powershell -NoProfile -Command "${ps.replace(/"/g, '\\"')}"`).toString());
   return { procs: r.n, workingSetMB: +(r.ws / 2 ** 20).toFixed(1), privateMB: +(r.priv / 2 ** 20).toFixed(1) };
 }
@@ -37,7 +42,7 @@ async function mem(label) {
 }
 async function goto(path) {
   // Page.navigate reports a failed load; setting location.href from an eval did not.
-  const { result, error } = await send("Page.navigate", { url: `app://weaveforge${path}` });
+  const { result, error } = await send("Page.navigate", { url: `${ORIGIN}${path}` });
   if (error || result?.errorText) throw new Error(`could not open ${path}: ${error?.message ?? result.errorText}`);
   await sleep(5000);
 }
@@ -91,9 +96,17 @@ out.idle = await mem("idle dashboard");
     })()`);
     await sleep(300);
   }
+  // The sidebar shows only the current section's links, so a link that is
+  // not on screen is skipped and listed rather than failing the run.
+  out.navSkipped = [];
   for (let round = 0; round < 2; round++)
     for (const href of NAV.slice(1).concat(NAV[0])) {
-      await click(`document.querySelector('a[href="${href}"]')`);
+      const sel = `document.querySelector('a[href="${href}"]')`;
+      if (!(await run(`!!${sel}`))) {
+        out.navSkipped.push({ round, href });
+        continue;
+      }
+      await click(sel);
       await sleep(2500);
     }
   out.phases.nav = await collect(t0);
@@ -136,8 +149,14 @@ out.idle = await mem("idle dashboard");
 // Ink mode: click "Ink", then flip pages.
 {
   const t0 = await run(OBSERVE);
-  await click(`[...document.querySelectorAll("[aria-label='Document mode'] button")].find((b) => b.textContent.trim() === "Ink")`);
+  // Newer builds open ink notes straight in page view, with no mode toggle.
+  const inkBtn = `[...document.querySelectorAll("[aria-label='Document mode'] button")].find((b) => b.textContent.trim() === "Ink")`;
+  out.inkToggle = await run(`!!${inkBtn}`);
+  if (out.inkToggle) await click(inkBtn);
   await sleep(4000);
+  // Without the toggle, the page view must already be open.
+  if (!(await run(`!!document.querySelector("button[aria-label='Next page']")`)))
+    throw new Error("ink page view did not open");
   out.inkModeOpen = await mem("ink mode open");
   for (let i = 0; i < 5; i++) {
     await click(`document.querySelector("button[aria-label='Next page']")`);

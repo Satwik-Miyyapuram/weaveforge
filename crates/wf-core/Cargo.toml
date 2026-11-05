@@ -1,0 +1,34 @@
+[package]
+name = "wf-core"
+description = "WeaveForge core: pure logic shared by every shell. No I/O."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+# Row values for the three-way merge (phase 3): rows are JSON maps.
+serde_json.workspace = true
+# Only wf-bindings needs the TypeScript types; the shell pins another specta rc.
+specta = { workspace = true, optional = true }
+# `Unknown` types the JSON values in the merge types: specta rejects serde_json's i64.
+specta-typescript = { workspace = true, optional = true }
+unicode-normalization.workspace = true
+unicode-properties.workspace = true
+# Git remote URL checks match the JS `URL` class.
+url.workspace = true
+# Paper pages and refs (papers module) use the same patterns as the TypeScript.
+regex-lite.workspace = true
+
+[features]
+# Derives specta::Type on the IPC types, for wf-bindings.
+specta = ["dep:specta", "dep:specta-typescript"]
+
+[dev-dependencies]
+proptest.workspace = true

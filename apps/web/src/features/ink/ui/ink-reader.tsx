@@ -18,11 +18,7 @@ import {
   INK_COLOURS,
   INK_PEN_WIDTHS,
   clampInkPageSize,
-  clampInkZoom,
   inkPageFigures,
-  inkZoomIn,
-  inkZoomOut,
-  readInkNoteBody,
   splitInkTextLayer,
 } from "@weaveforge/core";
 import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
@@ -43,6 +39,7 @@ import {
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 import { InkBar } from "./ink-bar";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
@@ -69,7 +66,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   const [pages, setPages] = useState<readonly InkStoredPage[] | null>(null);
 
-  const parsed = useMemo(() => readInkNoteBody(body), [body]);
+  const parsed = useMemo(() => readyCore().readInkNoteBody(body), [body]);
   const meta = parsed.meta;
   const textPages = useMemo(
     () => splitInkTextLayer(parsed.text),
@@ -206,7 +203,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         else if (e.deltaMode === 2) dy *= 100;
         dy = Math.max(-200, Math.min(200, dy));
         const factor = Math.exp(-dy * 0.002);
-        setZoom((z) => clampInkZoom(z * factor));
+        setZoom((z) => readyCore().clampInkZoom(z * factor));
       }
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
@@ -221,10 +218,10 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         const key = e.key.toLowerCase();
         if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {
           e.preventDefault();
-          setZoom(inkZoomIn);
+          setZoom((z) => readyCore().inkZoomIn(z));
         } else if (key === "-" || key === "_" || e.code === "Minus" || e.code === "NumpadSubtract" || e.key === "Subtract") {
           e.preventDefault();
-          setZoom(inkZoomOut);
+          setZoom((z) => readyCore().inkZoomOut(z));
         } else if (key === "0" || e.code === "Digit0" || e.code === "Numpad0") {
           e.preventDefault();
           setZoom(1);

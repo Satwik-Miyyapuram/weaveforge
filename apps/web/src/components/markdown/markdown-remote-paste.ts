@@ -1,10 +1,12 @@
 "use client";
 
 import type { EditorView } from "@codemirror/view";
-import { imageAltFromFilename, looksLikeImageUrl, type PasteSettings } from "@weaveforge/core";
+import { looksLikeImageUrl } from "@weaveforge/core";
+import type { PasteSettings } from "@weaveforge/wasm";
 import { outboundFetch } from "@/lib/outbound-fetch";
 import { insertPending, resolvePending, trackPending } from "@/components/markdown/markdown-pending-insert";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * What happens after a URL has been pasted.
@@ -46,7 +48,7 @@ function markdownLink(label: string, url: string): string {
 
 /** The dimmed stand-in shown while a picture downloads. */
 function downloadingPlaceholder(name: string): string {
-  return `![Downloading ${imageAltFromFilename(name)}…]()`;
+  return `![Downloading ${readyCore().imageAltFromFilename(name)}…]()`;
 }
 
 function describe(error: unknown): string {

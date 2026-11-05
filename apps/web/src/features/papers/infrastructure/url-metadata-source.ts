@@ -1,7 +1,5 @@
 import {
-  extractPageMetadata,
   isPlaceholderTitle,
-  pageImportRefusal,
   titleFromFileName,
   type IMetadataSource,
   type PaperMetadata,
@@ -10,7 +8,9 @@ import {
 import { authHeaders } from "@/lib/auth-headers";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "@/features/reader/application/paper-html-rules";
+import { relayUrl } from "@/lib/relay-url";
 
 /**
  * URL metadata source. Resolves an arbitrary paper URL to metadata by reading
@@ -46,7 +46,7 @@ export class UrlMetadataSource implements IMetadataSource {
 
   constructor(
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
-    private readonly baseUrl = "/api/url-meta",
+    private readonly baseUrl = relayUrl("/api/url-meta"),
     /** Injected so a test can drive this without a session. */
     private readonly headers: () => Promise<HeadersInit> = authHeaders,
     /** Whether to read the page here, through the shell's relay. */
@@ -85,8 +85,10 @@ export class UrlMetadataSource implements IMetadataSource {
       throw new Error(`Could not read that page${detail ? `: ${detail}` : ` (${res.status})`}.`);
     }
     const html = await res.text();
-    const meta = extractPageMetadata(html, res.headers.get(HTML_FINAL_URL_HEADER) || target);
-    const refusal = pageImportRefusal(meta);
+    const core = await loadCore();
+    // The meta tags are in the head, so a page over the Rust input limit is cut, not refused.
+    const meta = core.extractPageMetadata(html.slice(0, core.maxIndexTextUtf16()), res.headers.get(HTML_FINAL_URL_HEADER) || target);
+    const refusal = core.pageImportRefusal(meta);
     if (refusal) throw new Error(refusal);
     return meta;
   }

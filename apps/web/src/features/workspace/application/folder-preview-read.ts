@@ -1,10 +1,10 @@
 import {
   ASSET_DIR,
   WORKSPACE_META_DIR,
-  jsonKindOfPath,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 import { IMPORT_LIMITS, ImportLimitError } from "./import-limits";
 
 /** What a folder preview reads: notes, the project's data files and the shared assets. */
@@ -56,6 +56,7 @@ export async function readPreviewFolder(
   projectRoot: string,
   hasProjectDir: boolean,
 ): Promise<PreviewFolderRead> {
+  const core = await loadCore();
   const files: Record<string, string> = {};
   const jsonFiles: Record<string, string> = {};
   const assets = new Map<string, Uint8Array>();
@@ -70,7 +71,7 @@ export async function readPreviewFolder(
     }
     // The project's own data files. Read from the folder rather than assumed,
     // so a file somebody added by hand is diffed like any other.
-    if (entry.path.endsWith(".json") && jsonKindOfPath(entry.path) !== null) {
+    if (entry.path.endsWith(".json") && core.jsonKindOfPath(entry.path) !== null) {
       if (ours) jsonFiles[entry.path] = await fs.readText(entry.path);
       continue;
     }

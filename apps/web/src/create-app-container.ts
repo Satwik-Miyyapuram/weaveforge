@@ -98,6 +98,7 @@ import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-stor
 import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
 import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
@@ -114,6 +115,7 @@ import { createCredentialReader } from "@/integrations/credentials";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
 import { closeFolder } from "@/features/workspace/application/workspace-folder";
+import { relayUrl } from "@/lib/relay-url";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -248,7 +250,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const openAlexSource = new OpenAlexMetadataSource();
 
   const resolver = new MetadataResolver([
-    new ArxivMetadataSource(undefined, "/api/arxiv"),
+    new ArxivMetadataSource(undefined, relayUrl("/api/arxiv")),
     new CrossrefMetadataSource(),
     ...(wiredIntegrations.bibliographyMetadataSource
       ? [wiredIntegrations.bibliographyMetadataSource]
@@ -259,7 +261,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     openAlexSource,
     new UrlMetadataSource(),
   ]);
-  const importPaper = new ImportPaperUseCase(resolver, addPaper);
+  const importPaper = new ImportPaperUseCase(resolver, addPaper, async (kind, value) =>
+    (await loadCore()).parsePaperRef(kind, value),
+  );
 
   // The reader's citation lookup: Semantic Scholar is the first provider for
   // DOI, arXiv and title+author+year alike, with OpenAlex/Crossref behind it.
@@ -267,7 +271,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // `semanticScholarUrl`), not a second direct network path. Identifier refs
   // cascade so a DOI Semantic Scholar does not know still lands in Crossref.
   const readerResolver = new MetadataResolver(
-    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, "/api/arxiv")],
+    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, relayUrl("/api/arxiv"))],
     true,
   );
 

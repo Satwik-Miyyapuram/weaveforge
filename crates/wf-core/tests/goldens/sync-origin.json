@@ -1,0 +1,477 @@
+{
+ "digest": [
+  [
+   "",
+   "811c9dc501000193"
+  ],
+  [
+   "a",
+   "e40c292cefafc426"
+  ],
+  [
+   "ab",
+   "4d2505cae3ac7ad7"
+  ],
+  [
+   "hello world",
+   "d58b3fa7d3025c56"
+  ],
+  [
+   "héllo",
+   "f1e5b55fec13d51f"
+  ],
+  [
+   "日本語",
+   "5406374ef94592a7"
+  ],
+  [
+   "😀",
+   "cb31c4b88e7ecf29"
+  ],
+  [
+   "𐀀",
+   "36215bcd2bc474d0"
+  ],
+  [
+   "a\r\nb",
+   "c40663dbf6933c33"
+  ],
+  [
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "07d181652dc67853"
+  ],
+  [
+   "\u0000",
+   "050c5d1f3d2fa671"
+  ],
+  [
+   "￿",
+   "79aea14edd4f8f24"
+  ]
+ ],
+ "side": [
+  [
+   {},
+   "unknown"
+  ],
+  [
+   {
+    "base": "a"
+   },
+   "unknown"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "a"
+   },
+   "unknown"
+  ],
+  [
+   {
+    "base": "a",
+    "workspace": "a"
+   },
+   "unknown"
+  ],
+  [
+   {
+    "folder": "a",
+    "workspace": "a"
+   },
+   "neither"
+  ],
+  [
+   {
+    "folder": "a",
+    "workspace": "b"
+   },
+   "unknown"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "a",
+    "workspace": "a"
+   },
+   "neither"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "b",
+    "workspace": "a"
+   },
+   "folder"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "a",
+    "workspace": "b"
+   },
+   "workspace"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "b",
+    "workspace": "c"
+   },
+   "both"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "b",
+    "workspace": "b"
+   },
+   "neither"
+  ],
+  [
+   {
+    "base": "a",
+    "folder": "",
+    "workspace": ""
+   },
+   "neither"
+  ],
+  [
+   {
+    "base": "",
+    "folder": "",
+    "workspace": "x"
+   },
+   "workspace"
+  ]
+ ],
+ "plan": [
+  {
+   "remote": [],
+   "held": [],
+   "out": {
+    "fetch": [],
+    "drop": [],
+    "unchanged": true
+   }
+  },
+  {
+   "remote": [
+    {
+     "id": "a",
+     "updatedAt": "1"
+    }
+   ],
+   "held": [],
+   "out": {
+    "fetch": [
+     "a"
+    ],
+    "drop": [],
+    "unchanged": false
+   }
+  },
+  {
+   "remote": [],
+   "held": [
+    [
+     "a",
+     "1"
+    ]
+   ],
+   "out": {
+    "fetch": [],
+    "drop": [
+     "a"
+    ],
+    "unchanged": false
+   }
+  },
+  {
+   "remote": [
+    {
+     "id": "a",
+     "updatedAt": "1"
+    }
+   ],
+   "held": [
+    [
+     "a",
+     "1"
+    ]
+   ],
+   "out": {
+    "fetch": [],
+    "drop": [],
+    "unchanged": true
+   }
+  },
+  {
+   "remote": [
+    {
+     "id": "a",
+     "updatedAt": "2"
+    }
+   ],
+   "held": [
+    [
+     "a",
+     "1"
+    ]
+   ],
+   "out": {
+    "fetch": [
+     "a"
+    ],
+    "drop": [],
+    "unchanged": false
+   }
+  },
+  {
+   "remote": [
+    {
+     "id": "a",
+     "updatedAt": "1"
+    },
+    {
+     "id": "b",
+     "updatedAt": "1"
+    },
+    {
+     "id": "c",
+     "updatedAt": "1"
+    }
+   ],
+   "held": [
+    [
+     "c",
+     "1"
+    ],
+    [
+     "d",
+     "1"
+    ],
+    [
+     "a",
+     "0"
+    ]
+   ],
+   "out": {
+    "fetch": [
+     "a",
+     "b"
+    ],
+    "drop": [
+     "d"
+    ],
+    "unchanged": false
+   }
+  },
+  {
+   "remote": [
+    {
+     "id": "a",
+     "updatedAt": "1"
+    },
+    {
+     "id": "a",
+     "updatedAt": "1"
+    }
+   ],
+   "held": [
+    [
+     "a",
+     "1"
+    ]
+   ],
+   "out": {
+    "fetch": [],
+    "drop": [],
+    "unchanged": true
+   }
+  },
+  {
+   "remote": [
+    {
+     "id": "a",
+     "updatedAt": "1"
+    },
+    {
+     "id": "a",
+     "updatedAt": "2"
+    }
+   ],
+   "held": [
+    [
+     "a",
+     "1"
+    ]
+   ],
+   "out": {
+    "fetch": [
+     "a"
+    ],
+    "drop": [],
+    "unchanged": false
+   }
+  }
+ ],
+ "apply": [
+  {
+   "held": [],
+   "fetched": [],
+   "order": [],
+   "out": []
+  },
+  {
+   "held": [
+    {
+     "id": "a",
+     "v": 1
+    }
+   ],
+   "fetched": [],
+   "order": [
+    {
+     "id": "a",
+     "updatedAt": ""
+    }
+   ],
+   "out": [
+    {
+     "id": "a",
+     "v": 1
+    }
+   ]
+  },
+  {
+   "held": [
+    {
+     "id": "a",
+     "v": 1
+    },
+    {
+     "id": "b",
+     "v": 1
+    }
+   ],
+   "fetched": [
+    {
+     "id": "b",
+     "v": 2
+    },
+    {
+     "id": "c",
+     "v": 2
+    }
+   ],
+   "order": [
+    {
+     "id": "c",
+     "updatedAt": ""
+    },
+    {
+     "id": "b",
+     "updatedAt": ""
+    },
+    {
+     "id": "a",
+     "updatedAt": ""
+    }
+   ],
+   "out": [
+    {
+     "id": "c",
+     "v": 2
+    },
+    {
+     "id": "b",
+     "v": 2
+    },
+    {
+     "id": "a",
+     "v": 1
+    }
+   ]
+  },
+  {
+   "held": [
+    {
+     "id": "a",
+     "v": 1
+    }
+   ],
+   "fetched": [],
+   "order": [
+    {
+     "id": "z",
+     "updatedAt": ""
+    }
+   ],
+   "out": []
+  },
+  {
+   "held": [
+    {
+     "id": "a",
+     "v": 1
+    },
+    {
+     "id": "a",
+     "v": 2
+    }
+   ],
+   "fetched": [],
+   "order": [
+    {
+     "id": "a",
+     "updatedAt": ""
+    }
+   ],
+   "out": [
+    {
+     "id": "a",
+     "v": 2
+    }
+   ]
+  },
+  {
+   "held": [
+    {
+     "id": "a",
+     "v": 1
+    }
+   ],
+   "fetched": [
+    {
+     "id": "a",
+     "v": 2
+    },
+    {
+     "id": "a",
+     "v": 3
+    }
+   ],
+   "order": [
+    {
+     "id": "a",
+     "updatedAt": ""
+    },
+    {
+     "id": "a",
+     "updatedAt": ""
+    }
+   ],
+   "out": [
+    {
+     "id": "a",
+     "v": 3
+    },
+    {
+     "id": "a",
+     "v": 3
+    }
+   ]
+  }
+ ]
+}

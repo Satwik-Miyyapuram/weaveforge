@@ -4,7 +4,10 @@
     "contexts": [
       "build-and-test",
       "python-sdk",
-      "dco"
+      "dco",
+      "rust",
+      "shell",
+      "wasm-parity"
     ]
   },
   "enforce_admins": true,

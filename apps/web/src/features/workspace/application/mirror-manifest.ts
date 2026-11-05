@@ -2,13 +2,12 @@ import {
   WORKSPACE_META_DIR,
   digestText,
   idSuffix,
-  projectDir,
   projectMetaDir,
-  stampWorkspaceId,
   type IWorkspaceFs,
   type VaultPageBase,
   type WorkspaceProject,
 } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -165,7 +164,8 @@ export async function followProjectRename(
   fs: IWorkspaceFs,
   project: WorkspaceProject,
 ): Promise<string | null> {
-  const root = projectDir(project);
+  const core = await loadCore();
+  const root = core.projectDir(project);
   if (await fs.stat(root)) return null;
   const tail = `--${idSuffix(project.id)}`;
   const found = (await fs.list("")).filter((e) => e.kind === "dir" && e.path.endsWith(tail));
@@ -205,7 +205,11 @@ export async function followProjectRename(
   return old;
 }
 
-/** The digest a file's text is recorded under. Change detection only. */
+/**
+ * The digest a file's text is recorded under. Change detection only.
+ * Stays TS: it hashes UTF-16 units, so WASM would only add an input limit and
+ * change how lone surrogates hash against digests other TS code still writes.
+ */
 export function baseDigest(text: string): string {
   return digestText(text);
 }
@@ -362,7 +366,8 @@ export async function claimImportedFile(
     return false;
   }
 
-  const stamped = stampWorkspaceId(content, id);
+  const core = await loadCore();
+  const stamped = core.stampWorkspaceId(content, id);
   if (stamped === null) return false;
 
   await fs.writeFile(path, stamped);

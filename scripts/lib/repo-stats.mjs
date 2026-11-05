@@ -153,7 +153,7 @@ export function switchCases(rel) {
 /** The assistant's tools by kind, read from the dispatch and the desktop server. */
 export function mcpToolNames() {
   const relay = switchCases("apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts");
-  const workspace = [...read("apps/desktop/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g)]
+  const workspace = [...read("apps/shell/sidecar/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g)]
     .map((match) => match[1])
     .filter((name) => name !== "weaveforge-workspace");
   return {

@@ -18,14 +18,13 @@
  */
 
 import {
-  decodeInkWords,
   INK_ENGINE_MAX_CONFIDENCE,
-  mapInkConfidence,
   type InkLine,
   type InkRecogniser,
   type InkRecognitionHints,
   type RecognisedLine,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import type {
   DesktopBridge,
@@ -95,12 +94,16 @@ export function createDesktopInkRecogniser(
         // helper that predates them, and is capped the same way either way:
         // `1` is a person's correction, never an engine's.
         if (line.text && line.words?.length) {
-          return decodeInkWords(line.words, hints.vocabulary, line.text);
+          return readyCore().decodeInkWords(
+            line.words,
+            hints.vocabulary,
+            line.text,
+          );
         }
         return {
           text: line.text,
           conf: Math.min(
-            mapInkConfidence(line.confidence),
+            readyCore().mapInkConfidence(line.confidence),
             INK_ENGINE_MAX_CONFIDENCE,
           ),
           ...(line.alternatives?.length

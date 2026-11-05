@@ -10,6 +10,7 @@ import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/loc
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "@/lib/rust-core";
 import { logToApp, type AppLogInput } from "@/lib/error-report/app-log";
 import { alreadyRecorded } from "@/lib/error-report/log-buffer";
 import { LOCAL_USER_ID } from "@weaveforge/core";
@@ -225,6 +226,9 @@ export function SyncLoop() {
     const boot = async (user: { id: string; email?: string | null } | null) => {
       if (cancelled) return;
       if (user && drivenBy === user.id) return;
+      // Sync runs above CoreGate, and settling a conflict merges rows in the
+      // Rust core. A failed load throws here, and the boot queue tries again.
+      if (user) await loadCore();
       halt();
       let current = await state.read();
       let action = sessionAction(user?.id ?? null, current.accountId);

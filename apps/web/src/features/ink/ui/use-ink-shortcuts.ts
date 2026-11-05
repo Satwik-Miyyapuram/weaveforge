@@ -10,9 +10,10 @@
  */
 
 import { useEffect } from "react";
-import { clampInkZoom, inkZoomIn, inkZoomOut, type InkColour } from "@weaveforge/core";
+import type { InkColour } from "@weaveforge/core";
 
 import { isEditableTarget } from "@/lib/editable-target";
+import { readyCore } from "@/lib/rust-core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkBarTool } from "./ink-bar";
@@ -91,10 +92,10 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
           onExportSvg();
         } else if (key === "+" || key === "=" || event.code === "Equal" || event.code === "NumpadAdd" || event.key === "Add") {
           event.preventDefault();
-          setZoom(inkZoomIn);
+          setZoom((value) => readyCore().inkZoomIn(value));
         } else if (key === "-" || key === "_" || event.code === "Minus" || event.code === "NumpadSubtract" || event.key === "Subtract") {
           event.preventDefault();
-          setZoom(inkZoomOut);
+          setZoom((value) => readyCore().inkZoomOut(value));
         } else if (key === "0" || event.code === "Digit0" || event.code === "Numpad0") {
           event.preventDefault();
           setZoom(() => 1);
@@ -186,7 +187,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
       else if (event.deltaMode === 2) dy *= 100;
       dy = Math.max(-200, Math.min(200, dy));
       const factor = Math.exp(-dy * 0.002);
-      setZoom((value: number) => clampInkZoom(value * factor));
+      setZoom((value: number) => readyCore().clampInkZoom(value * factor));
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);

@@ -5,7 +5,8 @@ import type {
   ManageVaultPageUseCase, NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
   PaperStatus, UpdatePaperUseCase,
 } from "@weaveforge/core";
-import { EXPERIMENT_STATUSES, MILESTONE_STATUSES, isInkNoteBody, parsePaperFieldValue, proposalApplies } from "@weaveforge/core";
+import { EXPERIMENT_STATUSES, MILESTONE_STATUSES, parsePaperFieldValue, proposalApplies } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
 export function createAiProposalExecutors(deps: {
@@ -30,7 +31,7 @@ export function createAiProposalExecutors(deps: {
   const editableNote = async (proposal: AiWriteProposal) => {
     const page = await deps.vaultPages.getById(proposal.resourceId);
     if (!proposalApplies(page, proposal.expectedRevision)) return null;
-    if (isInkNoteBody(page.body)) throw new Error("Ink notes cannot be edited by a suggestion.");
+    if (readyCore().isInkNoteBody(page.body)) throw new Error("Ink notes cannot be edited by a suggestion.");
     return page;
   };
   return [

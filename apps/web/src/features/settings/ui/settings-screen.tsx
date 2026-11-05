@@ -25,6 +25,7 @@ import { LocalApiPanel } from "./local-api-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { ExportDataPanel } from "./export-data-panel";
+import { CoreVersion } from "./core-version";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
@@ -599,6 +600,7 @@ export function SettingsScreen() {
           {/* Linking a provider and deleting an account both need the account. */}
           {hasAccount && <GitHubLinkCard />}
           {hasAccount && <DeleteAccountPanel />}
+          <CoreVersion />
         </div>
       )}
       </div>

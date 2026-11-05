@@ -1,6 +1,6 @@
 import path from "node:path";
 import { app, Menu, shell, type BrowserWindow, type MenuItem, type MenuItemConstructorOptions } from "electron";
-import type { MenuGroupPayload, MenuItemPayload } from "./channels";
+import type { MenuGroupPayload, MenuItemPayload } from "../../shell/sidecar/src/channels";
 
 /**
  * The window's own menu.

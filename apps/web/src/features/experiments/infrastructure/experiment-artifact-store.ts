@@ -56,19 +56,53 @@ export class ExperimentArtifactStore {
     const signed = paths.length ? await this.blobs.signedUrls(BUCKET, paths, SIGNED_TTL_S) : [];
 
     const byPath = new Map(paths.map((path, index) => [path, signed[index] ?? null]));
-    return entries.map((entry) => (isAbsoluteUrl(entry) ? entry : (byPath.get(entry) ?? null)));
+    return entries.map((entry) =>
+      isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : (byPath.get(entry) ?? null),
+    );
   }
 }
 
+const LOCAL_ARTIFACT_PREFIX = "app://artifacts/";
+/** Same rule as `is_safe_segment` in `apps/shell/src/local_artifacts.rs`. */
+const SAFE_SEGMENT = /^[A-Za-z0-9._-]{1,128}$/;
+
 /** `http(s)`, or a desktop-local `app://artifacts/` upload; a bare path must not pass as a link. */
 export function isAbsoluteUrl(value: string): boolean {
-  if (value.startsWith("app://artifacts/")) return true;
+  if (value.startsWith(LOCAL_ARTIFACT_PREFIX)) return true;
   try {
     const { protocol } = new URL(value);
     return protocol === "http:" || protocol === "https:";
   } catch {
     return false;
   }
+}
+
+/** True inside the Tauri shell, which defines `__TAURI_INTERNALS__` on the page. */
+export function isTauriShell(scope: object = globalThis): boolean {
+  return "__TAURI_INTERNALS__" in scope;
+}
+
+/**
+ * The URL to render for a stored entry. The Tauri shell serves desktop-local
+ * uploads on the page's own origin under `/artifacts/`, because its webview
+ * cannot load the separate `app://artifacts` origin that Electron records.
+ * The path must be exactly `{experiment}/{folder}/{name}` of safe segments,
+ * or null: the browser resolves `..` and `%2e%2e` before the request leaves,
+ * so an unchecked entry could reach any route on the app origin. The prefix
+ * matches `SAME_ORIGIN_PREFIX` in `apps/shell/src/local_artifacts.rs`.
+ */
+export function viewableArtifactUrl(
+  entry: string,
+  inShell: boolean = isTauriShell(),
+): string | null {
+  if (!inShell || !entry.startsWith(LOCAL_ARTIFACT_PREFIX)) return entry;
+  const segments = entry.slice(LOCAL_ARTIFACT_PREFIX.length).split("/");
+  const safe = segments.length === 3 && segments.every(isSafeSegment);
+  return safe ? `/artifacts/${segments.join("/")}` : null;
+}
+
+function isSafeSegment(segment: string): boolean {
+  return SAFE_SEGMENT.test(segment) && segment !== "." && segment !== "..";
 }
 
 /**

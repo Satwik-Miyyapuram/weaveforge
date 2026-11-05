@@ -129,7 +129,7 @@ const securityHeaders = [
       // `script-src`, which has no `blob:` — so a bundler that emits the worker
       // from a blob URL makes **ink work on desktop and fail on the web**, which
       // is the most confusing shape a bug can take. The desktop shell already
-      // allows it (`apps/desktop/src/app-protocol.ts`); this is the web half.
+      // allows it (`apps/shell/sidecar/src/app-protocol.ts`); this is the web half.
       "worker-src 'self' blob:",
       // The Workshop PDF viewer embeds the compiled PDF as `<iframe src="blob:...">`.
       // Without this, frame-src falls back to default-src 'self' and refuses the blob.
@@ -197,7 +197,7 @@ const exportOnly = {
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@weaveforge/core"],
+  transpilePackages: ["@weaveforge/core", "@weaveforge/wasm"],
   ...(DESKTOP ? exportOnly : servedOnly),
   webpack: (config, { isServer, dev }) => {
     // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
