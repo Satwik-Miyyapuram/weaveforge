@@ -109,7 +109,11 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   JS locale collation, screening records and relation graph settings add
 //   ~38 KB: five wf-core modules with serde for their record shapes and the
 //   collation tables. 640 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 640 * 1024;
+// - Steps 5.2k-5.2l: ~641.7 KB gzipped, local build. Theme file parsing,
+//   appearance settings, dashboard layout, AI context and wiki index,
+//   experiment status and lab snapshot add ~36 KB, mostly serde for their
+//   record shapes. 700 KB is the ceiling for these and the next batch (5.2m).
+export const WASM_GZIP_BUDGET = 700 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

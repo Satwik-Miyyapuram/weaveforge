@@ -1,10 +1,14 @@
 //! WeaveForge core: pure logic shared by every shell (desktop, phone, browser via WASM). No I/O.
 #![forbid(unsafe_code)]
 
+pub mod ai;
+pub mod dashboard;
 pub mod error_report;
+pub mod experiment_status;
 pub mod experiments;
 pub mod ink;
 pub mod js_collate;
+pub mod lab_snapshot;
 pub mod latex_section_tree;
 pub mod mcp;
 pub mod member;
@@ -20,6 +24,7 @@ pub mod reading_lists;
 pub mod relations;
 pub mod report;
 pub mod search;
+pub mod settings;
 pub mod storage;
 pub mod sync;
 pub mod tree;

@@ -237,6 +237,13 @@ export * from "./report-records.js";
 export * from "./screening-records.js";
 export * from "./graph-settings.js";
 export * from "./vault-page.js";
+export * from "./experiment-status.js";
+export * from "./lab-snapshot.js";
+export * from "./untrusted-context.js";
+export * from "./wiki-index.js";
+export * from "./dashboard-layout.js";
+export * from "./theme-config.js";
+export * from "./user-appearance.js";
 
 
 /** Facts about this core build, such as its version. */
