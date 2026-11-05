@@ -17,6 +17,7 @@ import { useIsDetailView } from "@/lib/hooks/use-detail-view";
 import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { titleForPath } from "@/lib/route-title";
+import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/keybindings";
 import { HeaderActions } from "./header-actions";
 import { TabBar } from "./tabbar";
 import { SubNav } from "./sub-nav";
@@ -154,6 +155,17 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   const [override, setOverride] = useState<boolean | null>(null);
   const collapsed = override ?? (editorRoute || railByDefault);
   useEffect(() => setOverride(null), [editorRoute]);
+  // `⌘⇧B` folds the app sidebar from any screen, the hamburger's keyboard twin.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isTypingTarget(e.target as HTMLElement | null)) return;
+      if (commandForChord(e) !== "toggle-sidebar") return;
+      e.preventDefault();
+      setOverride((current) => !(current ?? (editorRoute || railByDefault)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editorRoute, railByDefault]);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
   // around. Collapse-toggle animations still play once this is on.

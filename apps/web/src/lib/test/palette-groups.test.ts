@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { groupPaletteRows, matchingPages, paletteKeys, type PaletteRow } from "../palette-groups";
+import { commandMatches, groupPaletteRows, matchingPages, paletteKeys, paletteModeFor, type PaletteRow } from "../palette-groups";
 
 const row = (group: PaletteRow["group"], key: string): PaletteRow => ({ group, key });
 
@@ -55,4 +55,29 @@ test("the footer names the arrows and the platform's own modifier", () => {
   assert.ok(!win.some((k) => k.includes("Cmd") || k.includes("⌘")), "no Mac key on Windows");
   assert.ok(mac.includes("⌘K"));
   assert.ok(!mac.some((k) => k.includes("Ctrl")), "no Ctrl on a Mac");
+});
+
+const chord = (key: string, over: Partial<Parameters<typeof paletteModeFor>[0]> = {}) => ({
+  key, shiftKey: false, ctrlKey: true, metaKey: false, altKey: false, ...over,
+});
+
+test("Ctrl+K and Ctrl+Shift+F open search; Ctrl+Shift+P opens commands", () => {
+  assert.equal(paletteModeFor(chord("k")), "search");
+  assert.equal(paletteModeFor(chord("F", { shiftKey: true })), "search");
+  assert.equal(paletteModeFor(chord("P", { shiftKey: true })), "commands");
+  assert.equal(paletteModeFor(chord("k", { ctrlKey: false, metaKey: true })), "search");
+  // Not the palette's: no modifier, Alt, Ctrl+P (quick open), Ctrl+F (find), Ctrl+Shift+K.
+  assert.equal(paletteModeFor(chord("k", { ctrlKey: false })), null);
+  assert.equal(paletteModeFor(chord("k", { altKey: true })), null);
+  assert.equal(paletteModeFor(chord("p")), null);
+  assert.equal(paletteModeFor(chord("f")), null);
+  assert.equal(paletteModeFor(chord("K", { shiftKey: true })), null);
+});
+
+test("commands mode lists every command until something is typed, then filters", () => {
+  const rows = [{ label: "Settings" }, { label: "New project" }, { label: "Switch to dark theme" }];
+  assert.deepEqual(commandMatches(rows, "").map((r) => r.label), ["Settings", "New project", "Switch to dark theme"]);
+  assert.equal(commandMatches(rows, "  ").length, 3);
+  assert.deepEqual(commandMatches(rows, "pro").map((r) => r.label), ["New project"]);
+  assert.deepEqual(commandMatches(rows, "zzz"), []);
 });

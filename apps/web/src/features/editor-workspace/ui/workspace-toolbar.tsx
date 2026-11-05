@@ -91,7 +91,7 @@ export function WorkspaceToolbar({
           <SplitGlyph direction="column" />
         </IconButton>
         {onToggleFocus ? (
-          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("⌘⇧F")})`} onClick={onToggleFocus}>
+          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("F11")})`} onClick={onToggleFocus}>
             <FocusGlyph on={false} />
           </IconButton>
         ) : null}
@@ -134,7 +134,7 @@ function LayoutMenu({
           {focusIn ? (
             <MenuItemButton onClick={choose(focusIn)}>
               <span>Focus</span>
-              <kbd>{shortcutLabel("⌘⇧F")}</kbd>
+              <kbd>{shortcutLabel("F11")}</kbd>
             </MenuItemButton>
           ) : null}
         </BarMenuList>

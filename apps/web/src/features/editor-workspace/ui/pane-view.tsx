@@ -35,7 +35,7 @@ export interface PaneActions {
   onClose: (paneId: string, index: number) => void;
   onFocus: (paneId: string) => void;
   onSplit: (paneId: string, direction: PaneSplit["direction"]) => void;
-  /** Hide every piece of chrome around the document (`⌘⇧F`). */
+  /** Hide every piece of chrome around the document (`F11`). */
   onToggleFocus?: () => void;
   onDropTab: (from: { paneId: string; index: number }, toPaneId: string) => void;
   onRatio: (split: PaneSplit, ratio: number) => void;
@@ -394,6 +394,11 @@ const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
   "toggle-focus": "Focus: document only",
   "show-shortcuts": "Keyboard shortcuts",
   "reopen-tab": "Reopen closed tab",
+  "rename-doc": "Rename document",
+  "toggle-sidebar": "Hide / show sidebar",
+  "duplicate-note": "Duplicate note",
+  "command-palette": "Commands",
+  "workspace-search": "Search workspace",
   "toggle-mode": "Preview",
   "split-right": "Split right",
   "close-tab": "Close tab",

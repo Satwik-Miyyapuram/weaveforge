@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
-import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { readyCore } from "@/lib/rust-core";
@@ -50,6 +49,8 @@ import { flattenTree, folderIdsOf, type WorkspaceTreeNode } from "../application
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
+import { useFocusMode } from "./use-focus-mode";
+import { duplicatePlan } from "../application/duplicate-note";
 import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
 import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
@@ -114,23 +115,9 @@ export function WorkspaceScreen() {
   // `⌘N` chord and the panel's own buttons start the same thing.
   const [draft, setDraft] = useState<Draft | null>(null);
   const [explorerHidden, setExplorerHidden] = useState(false);
-  // Focus: the document and nothing else. Per session, not per device — a
-  // window that reopens with every control hidden looks broken, not focused.
-  const [focus, setFocus] = useState(false);
-  const toggleFocus = useCallback(() => setFocus((current) => !current), []);
-  // The primary nav rail lives outside this screen (app-shell), so the flag is
-  // also put on the root element for nav.css to read.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (focus) root.dataset.workspaceFocus = "";
-    else delete root.dataset.workspaceFocus;
-    // The desktop shell's own chrome — menu bar, title bar — goes with it.
-    desktop()?.setWindowFocus?.(focus);
-    return () => {
-      delete root.dataset.workspaceFocus;
-      desktop()?.setWindowFocus?.(false);
-    };
-  }, [focus]);
+  const { focus, toggleFocus } = useFocusMode();
+  // `F2`: a count, so the explorer's rename starts once per press.
+  const [renameRequest, setRenameRequest] = useState(0);
   // The chord handler is bound once; it reads the document on screen through
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
@@ -411,6 +398,16 @@ export function WorkspaceScreen() {
     [apply, documents, layout, reload],
   );
 
+  // `⌘D`: a copy of the note on screen, beside it, opened.
+  const duplicateActive = useCallback(async () => {
+    const doc = activeDocRef.current;
+    const plan = duplicatePlan(doc, documents ?? [], readyCore().normalizeTitleKey);
+    if (!doc || !plan) return;
+    const { id } = await getContainer().vault.manageVaultPage.add(plan);
+    await reload();
+    apply(openTab(layoutRef.current, { kind: doc.kind === "ink_page" ? "ink_page" : "vault_page", id }));
+  }, [apply, documents, reload]);
+
   /**
    * The explorer's draft row, submitted. A note or folder goes through
    * `createNote` — a folder *is* a note, one that will hold children — and a
@@ -628,9 +625,8 @@ export function WorkspaceScreen() {
     }
   }, [apply, byKey]);
 
-  // Bound on the window rather than on the shell so a shortcut still works
-  // while focus is inside a CodeMirror instance, which stops propagation of
-  // plenty of keys on its way to handling them.
+  // On the window, not the shell: CodeMirror stops propagation of many keys,
+  // and a shortcut must still work with focus inside it.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Only a chord this screen acts on is claimed: a ⌘-number with no tab
@@ -641,32 +637,34 @@ export function WorkspaceScreen() {
       // A key the document already handled (`⌘/` comment, `⌘B` bold, `⌘\`
       // clear) is the document's; elsewhere the workspace meaning applies.
       if (event.defaultPrevented) return;
+      // The palette and the app sidebar own these and listen for them unhandled.
+      if (command === "command-palette" || command === "workspace-search" || command === "toggle-sidebar") return;
       event.preventDefault();
 
       if (command === "quick-open") return setPaletteOpen(true);
+      if (command === "duplicate-note") return void duplicateActive().catch((e) => setError(formatError(e)));
+      if (command === "rename-doc") return void (setExplorerHidden(false), setRenameRequest((n) => n + 1));
       if (command === "show-shortcuts") return setShortcutsOpen((open) => !open);
       if (command === "reopen-tab") return reopenTab();
       if (command === "toggle-explorer") return toggleExplorer();
       if (command === "toggle-focus") return toggleFocus();
       if (command === "new-note") {
-        // Into the folder of the document on screen when it is a note or a
-        // section; otherwise the top of Notes. Never Papers. Which kind that is
-        // comes from the create table, so a new root states its own default.
+        // Into the on-screen note's or section's folder, else the top of Notes;
+        // never Papers. The create table picks the kind, so a root sets its own.
         const doc = activeDocRef.current;
         const kind = creationKindFor(doc);
         setDraft({ kind, ...creationTarget(kind, doc, folderIdsRef.current) });
         return;
       }
 
-      // Computed outside a state updater, so the storage write in `apply`
-      // runs once per chord (an updater may run twice).
+      // Outside a state updater, so `apply`'s storage write runs once per chord.
       const next = layoutForCommand(layoutRef.current, command);
       if (next !== layoutRef.current) apply(next);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [apply, toggleExplorer, toggleFocus, reopenTab]);
+  }, [apply, duplicateActive, toggleExplorer, toggleFocus, reopenTab]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <ScreenLoader status="Loading workspace…" />;
@@ -696,7 +694,7 @@ export function WorkspaceScreen() {
     >
       {focus ? (
         <span className="focus-exit">
-          <IconButton size="sm" label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+          <IconButton size="sm" label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
@@ -715,6 +713,7 @@ export function WorkspaceScreen() {
         sections={sections}
         activeKey={activeKeyOf}
         activeDoc={activeDoc}
+        renameRequest={renameRequest}
         listNames={membership}
         onOpen={(selection) => {
           // Opening a document reads it: a note with ink in it opens on the

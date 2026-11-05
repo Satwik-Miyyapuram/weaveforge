@@ -217,7 +217,7 @@ export function PdfReader({
   const markQuickHexes = (type: string) => toolColours[markColourTool(type)].quick.map(hexOf);
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
   const penWidth = readyCore().inkNoteWidthToPdfPoints(pen.prefs.width);
-  // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
+  // Focus, the workspace's way (`F11`): the paper and nothing else. Per
   // session, not persisted — a reader that reopens with every control hidden
   // looks broken, not focused.
   const [focus, setFocus] = useState(false);
@@ -387,7 +387,7 @@ export function PdfReader({
       const key = event.key.toLowerCase();
       const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
 
-      if (mod && event.shiftKey && key === "f") {
+      if (event.key === "F11" && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         k.toggleFocus();
         return;
@@ -1494,7 +1494,7 @@ export function PdfReader({
     >
       {focus && (
         <span className="focus-exit">
-          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={toggleFocus}>
+          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} size="sm" onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
@@ -1533,7 +1533,7 @@ export function PdfReader({
             {toolbarExtra}
           </div>
           <span className="pdf-reader-focus-btn">
-            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("F11")})`} onClick={toggleFocus}>
               <FocusGlyph on={false} />
             </IconButton>
           </span>

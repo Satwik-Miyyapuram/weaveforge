@@ -437,7 +437,7 @@
   padding-inline-start: 24px;
 }
 
-/* `⌘⇧F`, focus: the document and nothing else. The explorer, the tab strip,
+/* `F11`, focus: the document and nothing else. The explorer, the tab strip,
    the crumbs and the status bar all go; the primary nav rail goes too, from
    nav.css, off the same flag on `<html>`. One control stays — a corner button
    to come back — because a shortcut nobody can see is a trap. The ink toolbar

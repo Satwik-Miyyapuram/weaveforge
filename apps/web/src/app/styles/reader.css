@@ -94,7 +94,7 @@
   /* Less page chrome above the document, and room for the bottom tab bar. */
   .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 12px; }
 }
-/* `⌘⇧F`, focus: the paper and nothing else, the workspace's way. The reader
+/* `F11`, focus: the paper and nothing else, the workspace's way. The reader
    lifts out of whatever hosts it — the reader screen, a workspace tab — and
    fills the window, so the host's headers, nav and split panes all go without
    each host needing its own rule. The toolbar rows, the outline and the

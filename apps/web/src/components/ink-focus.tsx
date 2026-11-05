@@ -7,7 +7,7 @@ import { shortcutLabel } from "@/lib/shortcut-label";
 import { IconButton } from "./button";
 
 /**
- * Focus for ink on a record page, the Editor's way (`⌘⇧F`): the sheet
+ * Focus for ink on a record page, the Editor's way (`F11`): the sheet
  * full-bleed and the pen palette floating over it, nothing else. Only while
  * Ink is on — leaving Ink leaves focus too. Per visit, never persisted.
  */
@@ -23,7 +23,7 @@ export function useInkFocus(inkOn: boolean) {
   useEffect(() => {
     if (!inkOn) return;
     const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
+      if (event.key === "F11" && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         setWanted((current) => !current);
       }
@@ -50,7 +50,7 @@ export function useInkFocus(inkOn: boolean) {
 /** The way into focus, beside the Edit / Read / Ink switch. */
 export function InkFocusButton({ onClick }: { onClick: () => void }) {
   return (
-    <IconButton label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={onClick}>
+    <IconButton label="Focus" tip={`Focus (${shortcutLabel("F11")})`} size="sm" onClick={onClick}>
       <FocusGlyph on={false} />
     </IconButton>
   );
@@ -60,7 +60,7 @@ export function InkFocusButton({ onClick }: { onClick: () => void }) {
 export function InkFocusExit({ onClick }: { onClick: () => void }) {
   return (
     <span className="focus-exit">
-      <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={onClick}>
+      <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} size="sm" onClick={onClick}>
         <FocusGlyph on />
       </IconButton>
     </span>
