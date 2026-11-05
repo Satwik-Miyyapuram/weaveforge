@@ -38,6 +38,33 @@ test("resolvePaperPdfSource fails closed when nothing looks like a PDF", async (
   assert.equal(miss.ok, false);
 });
 
+test("resolvePaperPdfSource prefers open access over the GitHub repo and our storage", async () => {
+  const calls: string[] = [];
+  const hit = await resolvePaperPdfSource({ id: "p1", arxivId: "2301.00001" }, undefined, {
+    githubFileUrl: (path) => (calls.push("github"), `https://gh.example/${path}`),
+    storedPdfUrl: async () => (calls.push("stored"), "https://files.example/p1.pdf"),
+  });
+  assert.equal(hit.ok && hit.resolverId, "open-access");
+  assert.deepEqual(calls, []);
+});
+
+test("resolvePaperPdfSource tries the GitHub repo before our storage", async () => {
+  const hit = await resolvePaperPdfSource({ id: "p1" }, undefined, {
+    githubFileUrl: (path) => `https://gh.example/${path}`,
+    storedPdfUrl: async () => "https://files.example/p1.pdf",
+  });
+  assert.equal(hit.ok && hit.resolverId, "github-repo");
+  assert.equal(hit.ok && hit.hit.url, "https://gh.example/papers/pdf/p1.pdf");
+});
+
+test("resolvePaperPdfSource falls back to our storage last", async () => {
+  const hit = await resolvePaperPdfSource({ id: "p1" }, undefined, {
+    githubFileUrl: () => null,
+    storedPdfUrl: async () => "https://files.example/p1.pdf",
+  });
+  assert.equal(hit.ok && hit.resolverId, "server-blob");
+});
+
 test("resolvePaperPdfSource skips WebDAV until a sealed proxy exists", async () => {
   const hit = await resolvePaperPdfSource({
     id: "p1",
