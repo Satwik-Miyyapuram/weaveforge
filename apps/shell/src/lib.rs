@@ -22,6 +22,7 @@ pub mod embed;
 #[path = "embed_phone.rs"]
 pub mod embed;
 pub mod git;
+pub mod github_file;
 pub mod host;
 pub mod ink;
 pub mod launch;
@@ -547,6 +548,10 @@ fn start_routes(app: &tauri::AppHandle) {
         model_client: model_cache::model_client(model_cache::is_upstream_url).ok(),
         relay_client: relay::shared::relay_client().ok(),
         relay_config: relay::route::RelayConfig::production(),
+        prefs: app.try_state::<prefs::Prefs>().map(|s| s.inner().clone()),
+        secrets: app
+            .try_state::<secrets::Secrets>()
+            .map(|s| s.inner().clone()),
     };
     let _ = app.manage(routes);
 }

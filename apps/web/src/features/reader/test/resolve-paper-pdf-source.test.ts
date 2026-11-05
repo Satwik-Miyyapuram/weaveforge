@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  githubRemotePdfSources,
   paperToPdfSourcePaper,
   resolvePaperPdfSource,
 } from "../application/resolve-paper-pdf-source.js";
@@ -68,4 +69,39 @@ test("resolvePaperPdfSource skips WebDAV until a sealed proxy exists", async () 
     metadata: { webdavPath: "/library/paper.pdf" },
   });
   assert.equal(hit.ok, false);
+});
+
+const answer = (status: number) => (async () => new Response(null, { status })) as unknown as typeof fetch;
+
+test("githubRemotePdfSources is empty outside the desktop shell", async () => {
+  let asked = false;
+  const fetchFn = (async () => ((asked = true), new Response(null, { status: 204 }))) as unknown as typeof fetch;
+  assert.deepEqual(await githubRemotePdfSources({ isDesktop: false, fetchFn, now: () => 0 }), {});
+  assert.equal(asked, false);
+});
+
+test("githubRemotePdfSources points at the shell route when a GitHub remote is set", async () => {
+  const remote = await githubRemotePdfSources({ isDesktop: true, fetchFn: answer(204), now: () => 1e9 });
+  assert.equal(remote.githubFileUrl?.("papers/pdf/a b.pdf"), "/api/github-file?path=papers%2Fpdf%2Fa%20b.pdf");
+});
+
+test("githubRemotePdfSources is empty when the shell has no GitHub remote", async () => {
+  assert.deepEqual(await githubRemotePdfSources({ isDesktop: true, fetchFn: answer(404), now: () => 2e9 }), {});
+});
+
+test("githubRemotePdfSources is empty when the probe throws", async () => {
+  const fetchFn = (async () => {
+    throw new Error("down");
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await githubRemotePdfSources({ isDesktop: true, fetchFn, now: () => 3e9 }), {});
+});
+
+test("githubRemotePdfSources asks the shell once a minute", async () => {
+  let calls = 0;
+  const fetchFn = (async () => (calls++, new Response(null, { status: 204 }))) as unknown as typeof fetch;
+  await githubRemotePdfSources({ isDesktop: true, fetchFn, now: () => 4e9 });
+  await githubRemotePdfSources({ isDesktop: true, fetchFn, now: () => 4e9 + 30_000 });
+  assert.equal(calls, 1);
+  await githubRemotePdfSources({ isDesktop: true, fetchFn, now: () => 4e9 + 61_000 });
+  assert.equal(calls, 2);
 });

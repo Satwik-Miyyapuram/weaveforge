@@ -18,6 +18,8 @@ fn routes(web: &TempDir, data: &TempDir) -> AppRoutes {
         model_client: None,
         relay_client: None,
         relay_config: RelayConfig::production(),
+        prefs: None,
+        secrets: None,
     }
 }
 
