@@ -419,6 +419,7 @@ fn view_entries() -> Vec<Entry> {
 }
 
 /// No shortcuts on these: Ctrl+W would close the app from the editor, and the OS has its own keys for both.
+/// Fixed ids, because the page's title bar draws the window buttons and calls them.
 fn window_entries(host: &impl MenuHost) -> Vec<Entry> {
     let maximize_label = if host.is_maximized() {
         "Restore"
@@ -426,10 +427,10 @@ fn window_entries(host: &impl MenuHost) -> Vec<Entry> {
         "Maximize"
     };
     vec![
-        Entry::role("Minimize", MenuRole::Minimize, None),
+        Entry::role("Minimize", MenuRole::Minimize, None).with_id("window:minimize".to_owned()),
         Entry::role(maximize_label, MenuRole::Maximize, None).with_id("window:maximize".to_owned()),
         Entry::separator(),
-        Entry::role("Close window", MenuRole::Close, None),
+        Entry::role("Close window", MenuRole::Close, None).with_id("window:close".to_owned()),
     ]
 }
 

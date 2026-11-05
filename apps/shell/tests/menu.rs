@@ -439,6 +439,18 @@ fn minimize_and_close_have_no_accelerator() {
     assert_eq!(item(&groups, "Window", "Close window").accelerator, None);
 }
 
+/// The page's own window buttons call these ids, since the window has no OS frame.
+#[test]
+fn window_buttons_have_fixed_ids() {
+    let host = FakeHost::default();
+    let groups = menu_model(&host);
+    assert_eq!(item(&groups, "Window", "Minimize").id, "window:minimize");
+    assert_eq!(item(&groups, "Window", "Close window").id, "window:close");
+    menu_invoke(&host, "window:minimize").expect("invoke");
+    menu_invoke(&host, "window:close").expect("invoke");
+    assert_eq!(calls(&host), ["role:Minimize", "role:Close"]);
+}
+
 #[test]
 fn title_bar_colours_must_be_six_digit_hex() {
     assert_eq!(check_title_bar_colors("#1a2B3c", "#1A2B3C"), Ok(()));

@@ -6,6 +6,7 @@ import {
   createSignInInbox,
   desktopBridge,
   install,
+  MENU_CHANGE_EVENT,
   SIGN_IN_EVENT,
   type ShellInfo,
 } from "../inject";
@@ -183,6 +184,37 @@ test("setWindowFocus forwards the boolean", async () => {
   bridge.setWindowFocus!(true);
   await tick();
   assert.deepEqual(calls, [{ cmd: "windowFocus", args: [true] }]);
+});
+
+test("onMenuChange fires when the window is resized, as maximise and restore do", async () => {
+  const fake = fakeEvents();
+  const bridge = desktopBridge(fakeCommands().cmds, fake.events, info);
+  let fired = 0;
+  bridge.onMenuChange!(() => fired++);
+  await tick();
+  const resize = fake.listens.filter((l) => l.event === MENU_CHANGE_EVENT);
+  assert.equal(resize.length, 1);
+  resize[0]!.handler({ width: 800, height: 600 });
+  assert.equal(fired, 1);
+});
+
+test("onMenuChange stops listening when unsubscribed, even before the listen settles", async () => {
+  let unlistened = 0;
+  let release: (() => void) | undefined;
+  const events: DesktopEvents = {
+    listen: (event) =>
+      event === MENU_CHANGE_EVENT
+        ? new Promise((resolve) => {
+            release = () => resolve(() => unlistened++);
+          })
+        : Promise.resolve(() => {}),
+  };
+  const bridge = desktopBridge(fakeCommands().cmds, events, info);
+  const stop = bridge.onMenuChange!(() => {});
+  stop();
+  release!();
+  await tick();
+  assert.equal(unlistened, 1);
 });
 
 test("tauriCore invoke forwards the command and args and answers the reply", async () => {
