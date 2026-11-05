@@ -364,7 +364,7 @@ export type DbState = DbState_Serialize | DbState_Deserialize;
 export type DbState_Deserialize = {
 	/**  Why the database is unusable, or `None` when healthy. */
 	failure?: string | null,
-	/**  The PGlite data directory. */
+	/**  The database's data directory. */
 	dataDir: string,
 	/**  The backup this run's database was rebuilt from, when it was. */
 	restoredFrom?: string | null,
@@ -374,7 +374,7 @@ export type DbState_Deserialize = {
 export type DbState_Serialize = {
 	/**  Why the database is unusable, or `None` when healthy. */
 	failure: string | null,
-	/**  The PGlite data directory. */
+	/**  The database's data directory. */
 	dataDir: string,
 	/**  The backup this run's database was rebuilt from, when it was. */
 	restoredFrom: string | null,

@@ -35,6 +35,7 @@ pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
 pub mod model_cache;
+pub mod old_db;
 pub mod overleaf_links;
 pub mod overleaf_read;
 pub mod paste_commands;
@@ -280,15 +281,6 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     store
 }
 
-/// Reads the open vault root's `vault.root` params, for a respawned sidecar; `None` without a vault session.
-fn vault_root_source(app: &tauri::AppHandle) -> Option<commands::VaultRootSource> {
-    use tauri::Manager;
-    let vault = app.try_state::<vault::VaultState>()?.inner().clone();
-    Some(Arc::new(move || {
-        local_api::vault_root_params(vault.lock().root().as_ref())
-    }))
-}
-
 /// Copies the old Electron app's data into `data` once. `Some(reason)` when the database must stay closed.
 fn migration_blocker(old: &std::path::Path, data: &std::path::Path) -> Option<String> {
     match migrate::migrate_from_electron(old, data, std::time::SystemTime::now()) {
@@ -310,18 +302,13 @@ fn native_root(data: &std::path::Path) -> PathBuf {
     data.join("local-pg")
 }
 
-/// The native Postgres database, when `WEAVEFORGE_NATIVE_DB=1` asks for it. `Ok(None)` keeps PGlite in
-/// the sidecar. `Err` says why the asked-for database cannot run; the caller reports it rather than
-/// fall back to PGlite, whose data is a different database.
+/// The native Postgres database. `Err` says why it cannot run; the caller reports it.
 fn native_db(
     app: &tauri::AppHandle,
     data: &std::path::Path,
     resources: &std::path::Path,
     source: &launch::SidecarSource,
-) -> Result<Option<commands::NativeDb>, String> {
-    if !launch::native_db_wanted(std::env::var("WEAVEFORGE_NATIVE_DB").ok().as_deref()) {
-        return Ok(None);
-    }
+) -> Result<commands::NativeDb, String> {
     let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
     let bin = local_pg::server::locate_bin(bin_override.as_deref(), Some(resources))
         .map_err(|e| format!("the native database has no Postgres: {e}"))?;
@@ -337,11 +324,11 @@ fn native_db(
     .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
     .with_backups(backups);
     if data.join("local-db").join("PG_VERSION").is_file() {
-        host = host.with_first_open(Arc::new(old_db_import(app, data)));
+        host = host.with_first_open(Arc::new(old_db_import(app, data, source)));
     }
     let host = Arc::new(host);
     spawn_backups(app, &host);
-    Ok(Some(host))
+    Ok(host)
 }
 
 /// How often the native database is backed up while it changes (the sidecar's `BACKUP_EVERY_MS`).
@@ -364,131 +351,71 @@ fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
     });
 }
 
-/// Copies the old PGlite database (still opened by the sidecar) into the native one on its first
-/// open. The marker sits beside the native folder, so discarding that folder does not copy again.
-fn old_db_import(app: &tauri::AppHandle, data: &std::path::Path) -> local_pg::import::OnceImport {
-    let app = app.clone();
-    let source: local_pg::import::RowsFn = Arc::new(move |sql: String| {
-        let app = app.clone();
-        Box::pin(async move {
-            use tauri::Manager as _;
-            let db = app
-                .try_state::<commands::LocalDb>()
-                .ok_or_else(|| "the old local database is not running".to_owned())?;
-            let value = db
-                .call("exportRows", serde_json::json!({ "sql": sql }))
-                .await
-                .map_err(|e| e.message)?;
-            match value {
-                serde_json::Value::Array(rows) => Ok(rows),
-                _ => Err("the old local database sent no rows".to_owned()),
-            }
-        })
-    });
-    local_pg::import::OnceImport {
-        marker: data.join("local-pg.imported"),
-        source,
-        page_rows: 500,
-    }
-}
-
-/// Gives `db` what it needs from the app: the vault root and warnings for restarts, the native
-/// database when there is one, and the host that answers the sidecar's asks.
-fn wire_local_db(
+/// Copies the old PGlite database into the native one on its first open, through a sidecar that
+/// runs only for the copy. The marker sits beside the native folder, so discarding that folder does
+/// not copy again.
+fn old_db_import(
     app: &tauri::AppHandle,
-    db: commands::LocalDb,
-    native: Option<commands::NativeDb>,
-    host: Option<Arc<dyn sidecar::SidecarHost>>,
-) -> commands::LocalDb {
-    let db = match vault_root_source(app) {
-        Some(source) => db.with_vault_root(source),
-        None => db,
+    data: &std::path::Path,
+    source: &launch::SidecarSource,
+) -> old_db::StopAfter<local_pg::import::OnceImport> {
+    use tauri::Manager as _;
+    let api = launch::ApiArgs {
+        artifacts: data.join("artifacts"),
+        app_version: app.package_info().version.to_string(),
+        product_name: app.package_info().name.clone(),
     };
-    let log = app.clone();
-    let db = db.with_warn(Arc::new(move |line: &str| local_api::warn(&log, line)));
-    let db = match native {
-        Some(native) => db.with_native(native),
-        None => db,
-    };
-    match host {
-        Some(h) => db.with_host(h),
-        None => db,
+    let config = launch::sidecar_config(
+        source,
+        &data.join("local-db"),
+        &data.join("local-db-backups"),
+        &api,
+        None,
+    );
+    let old = Arc::new(old_db::OldDb::new(config));
+    let _ = app.manage(Arc::clone(&old));
+    let reader = Arc::clone(&old);
+    let rows: local_pg::import::RowsFn = Arc::new(move |sql: String| {
+        let reader = Arc::clone(&reader);
+        Box::pin(async move { reader.rows(sql).await })
+    });
+    old_db::StopAfter {
+        job: local_pg::import::OnceImport {
+            marker: data.join("local-pg.imported"),
+            source: rows,
+            page_rows: 500,
+        },
+        old,
     }
 }
 
-/// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.
+/// Opens the native database and manages its `LocalDb`. Any failure is reported through
+/// `db_state`, never aborts startup.
 fn start_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     let paths = app.path();
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
-        (Ok(data), Ok(resources)) => 'arm: {
-            let data_dir = data.join("local-db");
-            let backups_dir = data.join("local-db-backups");
+        (Ok(data), Ok(resources)) => {
             let source = launch::sidecar_source(resources.clone());
             let product = app.package_info().name.clone();
             let old = paths
                 .config_dir()
                 .ok()
                 .and_then(|c| launch::electron_data_dir(&source, &product, &c));
-            // Copied before the sidecar starts, so it never opens a half-copied or empty database.
-            if let Some(reason) = old.as_deref().and_then(|old| migration_blocker(old, &data)) {
-                local_api::warn(app, &reason);
-                break 'arm commands::LocalDb::new(
-                    Err(sidecar::SidecarError::Spawn(reason)),
-                    data_dir.to_string_lossy().into_owned(),
-                );
-            }
-            let native = match native_db(app, &data, &resources, &source) {
-                Ok(native) => native,
-                Err(reason) => {
-                    local_api::warn(app, &reason);
-                    break 'arm commands::LocalDb::new(
-                        Err(sidecar::SidecarError::Spawn(reason)),
-                        native_root(&data)
-                            .join("data")
-                            .to_string_lossy()
-                            .into_owned(),
-                    );
-                }
+            // Copied before the database opens, so it never reads a half-copied or empty one.
+            let native = match old.as_deref().and_then(|old| migration_blocker(old, &data)) {
+                Some(reason) => Err(reason),
+                None => native_db(app, &data, &resources, &source),
             };
-            let api = launch::ApiArgs {
-                artifacts: data.join("artifacts"),
-                app_version: app.package_info().version.to_string(),
-                product_name: product.clone(),
-            };
-            let config = launch::sidecar_config(&source, &data_dir, &backups_dir, &api, None);
-            let home = paths.home_dir().unwrap_or_else(|_| {
-                local_api::warn(app, "no home folder: the MCP folder is relative");
-                PathBuf::new()
-            });
-            let host = local_api::shell_host(
-                app,
-                local_api::mcp_dir(&home, launch::home_variant(&source, &product)),
-            );
-            if host.is_none() {
-                local_api::warn(
-                    app,
-                    "no prefs or secrets yet: the sidecar's asks go unanswered",
-                );
+            if let Err(reason) = &native {
+                local_api::warn(app, reason);
             }
-            // Sidecar::spawn needs a Tokio runtime; setup runs outside one.
-            let sidecar = tauri::async_runtime::block_on(async {
-                commands::spawn(config.clone(), host.as_ref())
-            });
-            let db = commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
-                .restartable(config);
-            wire_local_db(app, db, native, host)
+            let data_dir = native_root(&data).join("data");
+            commands::LocalDb::new(native, data_dir.to_string_lossy().into_owned())
         }
-        (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(
-            Err(sidecar::SidecarError::Spawn(e.to_string())),
-            String::new(),
-        ),
+        (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(Err(e.to_string()), String::new()),
     };
     let _ = app.manage(db);
-    let handle = app.clone();
-    let _task = tauri::async_runtime::spawn(async move {
-        local_api::forward_vault_root(&handle).await;
-    });
 }
 
 /// What the local API needs from the app, or `None` when the stores are not managed yet.
@@ -590,13 +517,16 @@ fn stop_local_api(app: &tauri::AppHandle) {
     }
 }
 
-/// Closes the sidecar's stdin and waits up to `SHUTDOWN_GRACE` for it to exit.
+/// Stops Postgres and an import sidecar still running, then drops the database lock.
 fn stop_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
-        let _ = tauri::async_runtime::block_on(db.shutdown(launch::SHUTDOWN_GRACE));
+        tauri::async_runtime::block_on(db.shutdown());
     }
-    // Drops only this process's lock, after Postgres stopped; a no-op when the native database was off.
+    if let Some(old) = app.try_state::<Arc<old_db::OldDb>>() {
+        tauri::async_runtime::block_on(old.stop(launch::SHUTDOWN_GRACE));
+    }
+    // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
     if let Ok(data) = app.path().app_data_dir() {
         db_lock::release(&native_root(&data));
     }

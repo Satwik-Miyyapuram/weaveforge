@@ -85,6 +85,16 @@ if (noRead) {
       case "big":
         reply({ id, ok: true, value: "x".repeat(params.n) });
         break;
+      case "exportRows":
+        // The old database's rows: `fail` errors, `scalar` is not a list, anything else echoes the sql.
+        if (params.sql === "fail") {
+          reply({ id, ok: false, error: "relation missing" });
+        } else if (params.sql === "scalar") {
+          reply({ id, ok: true, value: 5 });
+        } else {
+          reply({ id, ok: true, value: [{ sql: params.sql }] });
+        }
+        break;
       case "query":
         opened = true;
         if (params.sql === "fail") {

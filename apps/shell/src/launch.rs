@@ -123,13 +123,6 @@ pub fn migration_dirs(source: &SidecarSource) -> Vec<PathBuf> {
     vec![base.join("migrations"), base.join("migrations-local")]
 }
 
-/// Whether `WEAVEFORGE_NATIVE_DB` asks for the native Postgres database instead of the sidecar's
-/// PGlite. Only `1` does; the sidecar stays the default until the native one is tested in Dev.
-#[must_use]
-pub fn native_db_wanted(value: Option<&str>) -> bool {
-    value == Some("1")
-}
-
 /// The sidecar command for `source`, opening the database in `data_dir` and keeping its backups in `backups_dir`.
 /// Then the API args (`--artifacts`, `--bridge`, `--app-version`, `--no-local-api`, and `--home-variant` for `Dev`), then
 /// `migrate_from` (Electron's data dir) as `--migrate-from` last, when set.
@@ -243,14 +236,6 @@ mod tests {
             .map(|w| PathBuf::from(&w[1]))
             .collect();
         assert_eq!(migration_dirs(&bundled), given);
-    }
-
-    #[test]
-    fn only_one_turns_the_native_db_on() {
-        assert!(native_db_wanted(Some("1")));
-        for value in [None, Some(""), Some("0"), Some("true"), Some(" 1")] {
-            assert!(!native_db_wanted(value), "{value:?}");
-        }
     }
 
     #[test]
