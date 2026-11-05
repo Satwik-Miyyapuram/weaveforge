@@ -14,14 +14,113 @@ export type ActionCounts = {
 	removed: number,
 };
 
+/**  The `candidate` argument of `isBibliographicMatch`. Mirrors its TS shape. */
+export type AnalysisBibliographicCandidate = {
+	/**  Candidate title. */
+	title: string,
+	/**  Candidate publication year, when known. */
+	year: number | null,
+};
+
+/**  The `hints` argument of `isBibliographicMatch`. Mirrors its TS shape. */
+export type AnalysisBibliographicHints = {
+	/**  Title to match; an empty title never matches. */
+	title: string | null,
+	/**  Publication year, when known. */
+	year: number | null,
+};
+
+/**
+ *  A pdf.js text item as the reader reads it (`PageTextItem`). `transform` is
+ *  `[a,b,c,d,e,f]`; `height` is not read, so it does not cross.
+ */
+export type AnalysisPageTextItem = {
+	/**  Item text. */
+	str: string,
+	/**  PDF text matrix `[a, b, c, d, e, f]`. */
+	transform: (number | null)[],
+	/**  Advance width in user space. */
+	width: number | null,
+	/**  pdf.js `hasEOL`: a line break follows the item. */
+	hasEOL?: boolean | null,
+	/**  pdf.js font name, used for bold detection. */
+	fontName?: string | null,
+};
+
+/**  A PDF text item with optional font metrics. Mirrors `PdfItem` in the TS copy. */
+export type AnalysisPdfItem = {
+	/**  The glyph run's text. */
+	str: string,
+	/**  pdf.js transform `[a, b, c, d, e, f]`. A missing entry reads as the TS default. */
+	transform: (number | null)[],
+	/**  Advance width of the run. */
+	width: number | null,
+	/**  Font height, used when the transform gives no size. */
+	height: number | null,
+	/**  Whether a line break follows the run. */
+	hasEOL?: boolean,
+	/**  Font ascent as a fraction of the size, when known. */
+	fontAscent?: number | null,
+	/**  Font descent as a fraction of the size, when known. */
+	fontDescent?: number | null,
+};
+
+/**  Normalised search text with the raw span of each UTF-16 unit. Mirrors `SearchText` in the TS copy. */
+export type AnalysisSearchText = {
+	/**  The normalised text. */
+	text: string,
+	/**  Raw UTF-16 offset where each unit of `text` starts. */
+	starts: (number | null)[],
+	/**  Raw UTF-16 offset where each unit of `text` ends. */
+	ends: (number | null)[],
+};
+
+/**  A line with its column (`{ line, column }`) for `sortByReadingOrder`. */
+export type AnalysisTaggedLine = {
+	/**  The line. */
+	line: AnalysisTextLine,
+	/**  Column index from `detectColumns`. */
+	column: number | null,
+};
+
+/**  One reconstructed line (`TextLine`). Field order is the TS object's key order. */
+export type AnalysisTextLine = {
+	/**  1-based page number. */
+	page: number | null,
+	/**  Line text. */
+	text: string,
+	/**  Left edge. */
+	x: number | null,
+	/**  Baseline y. */
+	y: number | null,
+	/**  Right edge. */
+	right: number | null,
+	/**  Largest font size on the line. */
+	fontSize: number | null,
+	/**  True when the line's font is bold. */
+	bold: boolean,
+	/**  Start offset in the page text. */
+	start: number | null,
+	/**  End offset in the page text. */
+	end: number | null,
+};
+
+/**  The `{ str, hasEOL? }` shape `pageTextFromItems` takes. */
+export type AnalysisTextRun = {
+	/**  Run text. */
+	str: string,
+	/**  pdf.js `hasEOL`: a line break follows the run. */
+	hasEOL?: boolean | null,
+};
+
 /**  Dual anchor (TS `CombinedPdfAnchor`). */
 export type AnchorCombinedPdf = {
 	/**  Hash of the PDF the rects were captured against. */
-	contentHash?: string | null,
+	contentHash?: string,
 	/**  Zotero rects. */
-	zoteroPosition?: AnchorZoteroPosition | null,
+	zoteroPosition?: AnchorZoteroPosition,
 	/**  W3C locus. */
-	locus?: AnchorPdfLocus | null,
+	locus?: AnchorPdfLocus,
 };
 
 /**  `high` or `low` (TS `AnchorConfidence`). */
@@ -904,6 +1003,44 @@ export type SearchKind =
 /**  Annotation. */
 "annotation";
 
+/**  One page's text geometry (TS `PageTextGeometry`). `pageWidth`/`pageHeight` are ignored. */
+export type SelectionPageTextGeometry = {
+	/**  Zero-based page index. */
+	pageIndex: number | null,
+	/**  Text items in reading order. */
+	items?: SelectionPageTextItem[],
+	/**  Hash of the PDF the geometry came from. */
+	contentHash?: string,
+};
+
+/**  One pdf.js text item in PDF user space (TS `PageTextItem`). */
+export type SelectionPageTextItem = {
+	/**  Glyph run text. */
+	str?: string,
+	/**  pdf.js transform `[a,b,c,d,e,f]`; `e,f` are the origin. Missing reads as empty. */
+	transform?: (number | null)[],
+	/**  Run advance width; missing is non-finite. */
+	width: number | null,
+	/**  Run height; missing or zero falls back to the transform's scale. */
+	height: number | null,
+	/**  Whether a line break follows this item. */
+	hasEOL?: boolean,
+	/**  pdf.js font name, unused here. */
+	fontName?: string,
+};
+
+/**  A text-layer selection (TS `TextSelectionRange`). Offsets are UTF-16 code units. */
+export type SelectionTextRange = {
+	/**  Index of the item where the selection starts. */
+	startItemIndex: number | null,
+	/**  Offset into that item's text. */
+	startOffset: number | null,
+	/**  Index of the item where the selection ends. */
+	endItemIndex: number | null,
+	/**  Offset into that item's text. */
+	endOffset: number | null,
+};
+
 /**  An asset the mirror copies into `assets/`. */
 export type SerializedAsset = {
 	/**  The path after the app's blob scheme. */
@@ -1041,4 +1178,196 @@ export type WrappedTextOptions = {
 	minWrapWidth?: number | null,
 	/**  Treat a lone `$$` line as a maths delimiter. */
 	protectMath?: boolean,
+};
+
+/**  What a sync should do with one annotation (TS `AnnotationSyncDecision`). */
+export type ZoteroAnnotationDecision = 
+/**  Send the local row. */
+{ kind: "push"; 
+/**  Why. */
+reason: string } | 
+/**  Take the remote row. */
+{ kind: "pull"; 
+/**  Why. */
+reason: string } | 
+/**  Nothing to do. */
+{ kind: "noop"; 
+/**  Why. */
+reason: string } | 
+/**  Fields differ in a way that needs a choice. */
+{ kind: "conflict"; 
+/**  The differing fields. */
+fields: ZoteroAnnotationFieldConflict[]; 
+/**  Why. */
+reason: string } | 
+/**  Leave the row alone. */
+{ kind: "skip"; 
+/**  Why. */
+reason: string };
+
+/**  A field a sync can compare (TS `AnnotationConflictField`), in TS comparison order. */
+export type ZoteroAnnotationField = 
+/**  Colour. */
+"color" | 
+/**  Selected text. */
+"text" | 
+/**  Comment. */
+"comment" | 
+/**  Tags. */
+"tags" | 
+/**  Anchor. */
+"anchor" | 
+/**  Annotation type. */
+"type" | 
+/**  Sort index. */
+"sortIndex";
+
+/**  One differing field (TS `AnnotationFieldConflict`). */
+export type ZoteroAnnotationFieldConflict = {
+	/**  Which field differs. */
+	field: ZoteroAnnotationField,
+	/**  Local value. */
+	local: ZoteroAnnotationFieldValue,
+	/**  Remote value. */
+	remote: ZoteroAnnotationFieldValue,
+};
+
+/**  A field value on one side of a conflict (TS `unknown` in `AnnotationFieldConflict`). */
+export type ZoteroAnnotationFieldValue = 
+/**  A string field. */
+string | 
+/**  The tag list. */
+string[] | 
+/**  The annotation type. */
+ZoteroAnnotationType | 
+/**  The anchor. */
+AnchorCombinedPdf;
+
+/**
+ *  A local reader annotation with its R5 bookkeeping (TS `ReaderAnnotation` and the
+ *  `AnnotationSyncRow.local` shape). Both sync fields are optional here; the TS
+ *  row requires them, and a missing value behaves as the TS `undefined` does.
+ */
+export type ZoteroAnnotationLocal = {
+	/**  Local row id. */
+	id: string,
+	/**  Where the row came from. */
+	origin: ZoteroAnnotationOrigin,
+	/**  Zotero item key when pulled from Zotero; `null` for local-only rows. */
+	zoteroKey: string | null,
+	/**  Annotation type (`type` in TS). */
+	type: ZoteroAnnotationType,
+	/**  Colour as written. */
+	color: string,
+	/**  Selected text. */
+	text: string,
+	/**  Researcher comment. */
+	comment: string,
+	/**  Tags, in order. */
+	tags: string[],
+	/**  Rects and locus. */
+	anchor: AnchorCombinedPdf,
+	/**  Zotero's ordering key. */
+	sortIndex: string,
+	/**  ISO creation time. */
+	createdAt: string,
+	/**  ISO update time. */
+	updatedAt: string,
+	/**  Absent until sync touches the row. */
+	syncState?: ZoteroAnnotationSyncState | null,
+	/**  Absent, `null`, or Zotero's version for the item. */
+	zoteroVersion?: number | null,
+};
+
+/**  Zotero's annotation provenance (TS `AnnotationOrigin`). */
+export type ZoteroAnnotationOrigin = 
+/**  Pulled from Zotero. */
+"zotero" | 
+/**  Made in this app. */
+"local";
+
+/**  The Zotero-side copy of an annotation (TS `ZoteroAnnotationRemote`). */
+export type ZoteroAnnotationRemote = {
+	/**  Zotero item key. */
+	key: string,
+	/**  Zotero item version. */
+	version: number | null,
+	/**  Annotation type (`type` in TS). */
+	type: ZoteroAnnotationType,
+	/**  Colour as written. */
+	color: string,
+	/**  Selected text. */
+	text: string,
+	/**  Comment. */
+	comment: string,
+	/**  Tags, in order. */
+	tags: string[],
+	/**  Rects and locus. */
+	anchor: AnchorCombinedPdf,
+	/**  Zotero's ordering key. */
+	sortIndex: string,
+	/**  ISO update time. */
+	updatedAt: string,
+};
+
+/**  One local annotation with its Zotero counterpart, if any (TS `AnnotationSyncRow`). */
+export type ZoteroAnnotationSyncRow = {
+	/**  The local row. */
+	local: ZoteroAnnotationLocal,
+	/**  The Zotero copy, or `null`. */
+	remote?: ZoteroAnnotationRemote | null,
+};
+
+/**  R5 write-back state of a local row (TS `AnnotationSyncState`). */
+export type ZoteroAnnotationSyncState = 
+/**  Never synced. */
+"local" | 
+/**  In step with Zotero. */
+"synced" | 
+/**  Edited since the last sync. */
+"pending" | 
+/**  Needs a conflict resolution. */
+"conflict";
+
+/**  One tag in a write payload (TS `{ tag: string }`). */
+export type ZoteroAnnotationTag = {
+	/**  Tag text. */
+	tag: string,
+};
+
+/**  Zotero's annotation types (TS `ReaderAnnotationType`). */
+export type ZoteroAnnotationType = 
+/**  Text highlight. */
+"highlight" | 
+/**  Text underline. */
+"underline" | 
+/**  Note. */
+"note" | 
+/**  Image region. */
+"image" | 
+/**  Pen ink. */
+"ink" | 
+/**  Text box. */
+"text";
+
+/**  Payload for a Zotero Web API annotation create/update (TS `ZoteroAnnotationWritePayload`). */
+export type ZoteroAnnotationWritePayload = {
+	/**  Always `annotation`. */
+	itemType: string,
+	/**  Parent item key. */
+	parentItem: string,
+	/**  Annotation type. */
+	annotationType: ZoteroAnnotationType,
+	/**  Only on highlights and underlines. */
+	annotationText?: string | null,
+	/**  Comment. */
+	annotationComment: string,
+	/**  Colour. */
+	annotationColor: string,
+	/**  Sort index. */
+	annotationSortIndex: string,
+	/**  `JSON.stringify` of the Zotero position, as a string. */
+	annotationPosition: string,
+	/**  Tags as `{ tag }` objects. */
+	tags: ZoteroAnnotationTag[],
 };

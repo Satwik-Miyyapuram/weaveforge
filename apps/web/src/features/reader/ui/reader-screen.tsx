@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/back-button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { decodeLocus, type PdfLocus, type ReaderAnnotation } from "@weaveforge/core";
+import type { PdfLocus, ReaderAnnotation } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { PaperPdfPane } from "./paper-pdf-pane";
@@ -28,7 +29,7 @@ export function ReaderScreen() {
   const pane = parseReaderSplitPane(params.get("pane"));
   const sectionId = params.get("section");
   const noteId = params.get("note");
-  const locus: PdfLocus | null = useMemo(() => decodeLocus(locusRaw), [locusRaw]);
+  const locus: PdfLocus | null = useMemo(() => readyCore().decodeLocus(locusRaw) as PdfLocus | null, [locusRaw]);
   const page = useMemo(() => {
     const n = pageParam ? Number(pageParam) : NaN;
     return Number.isInteger(n) && n >= 0 ? n : undefined;

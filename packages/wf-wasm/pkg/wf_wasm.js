@@ -161,6 +161,26 @@ export function chooseAnchorStrategy(anchor, current_content_hash) {
 }
 
 /**
+ * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
+ * exported as `citationItemToRect` because `itemToRect` belongs to another lane).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
+ * @param {any} item
+ * @param {number} from
+ * @param {number} to
+ * @returns {any}
+ */
+export function citationItemToRect(item, from, to) {
+    const ret = wasm.citationItemToRect(item, from, to);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
  * @param {number} width
  * @param {number | null} [fallback]
@@ -323,6 +343,26 @@ export function compactInkPath(path, options) {
 }
 
 /**
+ * [`compose_spacing_accents`](analysis_text::compose_spacing_accents) (TS `composeSpacingAccents`).
+ * @param {string} text
+ * @returns {string}
+ */
+export function composeSpacingAccents(text) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.composeSpacingAccents(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`compute_fit_page_scale`] (TS `computeFitPageScale`).
  *
  * # Errors
@@ -396,6 +436,26 @@ export function countJsonActions(entries) {
 }
 
 /**
+ * [`decide_annotation_sync`] for a row and a mode string (unknown modes act as `bidirectional`).
+ *
+ * # Errors
+ *
+ * Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
+ * @param {any} row
+ * @param {string} mode
+ * @returns {any}
+ */
+export function decideAnnotationSync(row, mode) {
+    const ptr0 = passStringToWasm0(mode, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decideAnnotationSync(row, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::git_policy::decide_git_sync_path`] for JS, as `{ include, reason? }`.
  *
  * # Errors
@@ -433,6 +493,25 @@ export function decodeInkWords(words, vocabulary, engine_text) {
     var ptr0 = isLikeNone(engine_text) ? 0 : passStringToWasm0(engine_text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.decodeInkWords(words, vocabulary, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`decode_locus_value`] as a locus object, or `null` when malformed.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string | null} [raw]
+ * @returns {any}
+ */
+export function decodeLocus(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decodeLocus(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -528,6 +607,40 @@ export function describePush(result) {
 }
 
 /**
+ * [`detect_columns`] as an array of 0-based column indices.
+ *
+ * # Errors
+ *
+ * Fails if `lines` is not an array of `TextLine` objects.
+ * @param {any} lines
+ * @returns {any}
+ */
+export function detectColumns(lines) {
+    const ret = wasm.detectColumns(lines);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`diff_annotation_fields`] for a row: the fields that differ, in TS order.
+ *
+ * # Errors
+ *
+ * Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
+ * @param {any} row
+ * @returns {any}
+ */
+export function diffAnnotationFields(row) {
+    const ret = wasm.diffAnnotationFields(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::text_diff::diff_body`] for JS, as `BodyDiff`.
  *
  * # Errors
@@ -590,6 +703,34 @@ export function diffWorkspace(parsed, existing, sides) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`encode_locus`] as raw JSON (encode at the URL layer, not here).
+ *
+ * # Errors
+ *
+ * Fails if `locus` is not a locus object.
+ * @param {any} locus
+ * @returns {string}
+ */
+export function encodeLocus(locus) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.encodeLocus(locus);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -711,6 +852,43 @@ export function findQuoteMatches(text, quote) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`font_size_of`](analysis_text::font_size_of) (TS `fontSizeOf`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
+ * @param {any} item
+ * @returns {number}
+ */
+export function fontSizeOf(item) {
+    const ret = wasm.fontSizeOf(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * [`furniture_key`].
+ * @param {string} s
+ * @returns {string}
+ */
+export function furnitureKey(s) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(s, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.furnitureKey(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -1203,6 +1381,36 @@ export function isAppOwnedPath(path) {
 }
 
 /**
+ * [`is_bibliographic_match`](analysis_text::is_bibliographic_match) (TS `isBibliographicMatch`).
+ *
+ * # Errors
+ *
+ * Fails if `hints` or `candidate` is not an object of the expected shape.
+ * @param {any} hints
+ * @param {any} candidate
+ * @returns {boolean}
+ */
+export function isBibliographicMatch(hints, candidate) {
+    const ret = wasm.isBibliographicMatch(hints, candidate);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`is_bold_font`]; `fontName` may be undefined.
+ * @param {string | null} [font_name]
+ * @returns {boolean}
+ */
+export function isBoldFont(font_name) {
+    var ptr0 = isLikeNone(font_name) ? 0 : passStringToWasm0(font_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isBoldFont(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_highlighter_ink`]; `undefined` is `None`.
  * @param {number | null} [width]
  * @returns {boolean}
@@ -1306,6 +1514,35 @@ export function isUnderIgnoredFolder(rel_path) {
 export function isUnsureConfidence(conf) {
     const ret = wasm.isUnsureConfidence(conf);
     return ret !== 0;
+}
+
+/**
+ * [`is_zotero_library_sync_mode`] for any JS value: false unless `value` is a string.
+ * @param {any} value
+ * @returns {boolean}
+ */
+export function isZoteroLibrarySyncMode(value) {
+    const ret = wasm.isZoteroLibrarySyncMode(value);
+    return ret !== 0;
+}
+
+/**
+ * [`item_to_rect`] as `[x1, y1, x2, y2]`, or `null`. Omitted bounds take the TS defaults (`0` and `Infinity`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a text item object, or the result cannot be converted.
+ * @param {any} item
+ * @param {number | null} [char_from]
+ * @param {number | null} [char_to]
+ * @returns {any}
+ */
+export function itemToRect(item, char_from, char_to) {
+    const ret = wasm.itemToRect(item, !isLikeNone(char_from), isLikeNone(char_from) ? 0 : char_from, !isLikeNone(char_to), isLikeNone(char_to) ? 0 : char_to);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1437,6 +1674,25 @@ export function meanPressure(samples) {
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.meanPressure(ptr0, len0);
     return ret[0] === 0 ? undefined : ret[1];
+}
+
+/**
+ * [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of text items.
+ * @param {any} items
+ * @param {number} start
+ * @param {number} end
+ * @returns {any}
+ */
+export function mentionRects(items, start, end) {
+    const ret = wasm.mentionRects(items, start, end);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1655,6 +1911,25 @@ export function normalizePasteSettings(json) {
 }
 
 /**
+ * [`original_range`](analysis_text::original_range) as `[start, end]` (TS `originalRange`).
+ *
+ * # Errors
+ *
+ * Fails if `view` is not a search text with `text`, `starts` and `ends`.
+ * @param {any} view
+ * @param {number} start
+ * @param {number} end
+ * @returns {any}
+ */
+export function originalRange(view, start, end) {
+    const ret = wasm.originalRange(view, start, end);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`pack_ink_stroke`] as `{ points, pressures }`; `options` is the TS
  * `InkStrokePackerOptions` or undefined.
  *
@@ -1699,6 +1974,34 @@ export function pageImportRefusal(meta) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v1;
+}
+
+/**
+ * [`page_text_from_items`] over `{ str, hasEOL? }[]`.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of run objects.
+ * @param {any} items
+ * @returns {string}
+ */
+export function pageTextFromItems(items) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.pageTextFromItems(items);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -2071,6 +2374,41 @@ export function readerKeyboardCommand(event) {
 }
 
 /**
+ * [`reconstruct_lines`] as an array of `TextLine`. `keep` is an array of
+ * per-item flags (the TS predicate, already applied) or undefined to keep all.
+ *
+ * # Errors
+ *
+ * Fails if `items` or `keep` is not an array of the expected shape.
+ * @param {number} page
+ * @param {any} items
+ * @param {any} keep
+ * @returns {any}
+ */
+export function reconstructLines(page, items, keep) {
+    const ret = wasm.reconstructLines(page, items, keep);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rectangles_overlap`](analysis_text::rectangles_overlap) (TS `rectanglesOverlap`).
+ * @param {Float64Array} a
+ * @param {Float64Array} b
+ * @returns {boolean}
+ */
+export function rectanglesOverlap(a, b) {
+    const ptr0 = passArrayF64ToWasm0(a, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(b, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.rectanglesOverlap(ptr0, len0, ptr1, len1);
+    return ret !== 0;
+}
+
+/**
  * [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
  *
  * # Errors
@@ -2106,6 +2444,26 @@ export function resampleInkStroke(points, pressures, spacing) {
     const ptr1 = passArrayF64ToWasm0(pressures, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.resampleInkStroke(ptr0, len0, ptr1, len1, !isLikeNone(spacing), isLikeNone(spacing) ? 0 : spacing);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`resolve_annotation_conflict`] for a row and a choice string (any other choice merges).
+ *
+ * # Errors
+ *
+ * Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
+ * @param {any} row
+ * @param {string} choice
+ * @returns {any}
+ */
+export function resolveAnnotationConflict(row, choice) {
+    const ptr0 = passStringToWasm0(choice, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.resolveAnnotationConflict(row, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2240,6 +2598,23 @@ export function screenPointToPdf(sx, sy, p) {
 }
 
 /**
+ * [`search_text_from_items`](analysis_text::search_text_from_items) (TS `searchTextFromItems`).
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of text items.
+ * @param {any} items
+ * @returns {any}
+ */
+export function searchTextFromItems(items) {
+    const ret = wasm.searchTextFromItems(items);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
  * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
  * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
@@ -2265,6 +2640,24 @@ export function segmentInkLines(points, offsets, pen, t0s, window_ms, band_ratio
     const ptr3 = passArrayF64ToWasm0(t0s, wasm.__wbindgen_malloc);
     const len3 = WASM_VECTOR_LEN;
     const ret = wasm.segmentInkLines(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, !isLikeNone(window_ms), isLikeNone(window_ms) ? 0 : window_ms, !isLikeNone(band_ratio), isLikeNone(band_ratio) ? 0 : band_ratio);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`selection_to_anchor`] as a `CombinedPdfAnchor`, or `null` when the selection is empty or out of range.
+ *
+ * # Errors
+ *
+ * Fails if `selection` or `page` is not the expected object shape, or the result cannot be converted.
+ * @param {any} selection
+ * @param {any} page
+ * @returns {any}
+ */
+export function selectionToAnchor(selection, page) {
+    const ret = wasm.selectionToAnchor(selection, page);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2368,6 +2761,23 @@ export function smoothInkStroke(points, pressures, options) {
 }
 
 /**
+ * [`sort_by_reading_order_indices`] as an array of input indices in reading order.
+ *
+ * # Errors
+ *
+ * Fails if `tagged` is not an array of `{ line, column }` objects.
+ * @param {any} tagged
+ * @returns {any}
+ */
+export function sortByReadingOrder(tagged) {
+    const ret = wasm.sortByReadingOrder(tagged);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -2392,6 +2802,26 @@ export function stampWorkspaceId(content, id) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v3;
+}
+
+/**
+ * [`strip_invisible`](analysis_text::strip_invisible) (TS `stripInvisible`).
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripInvisible(text) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.stripInvisible(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -2438,6 +2868,26 @@ export function strokeBaseWidth(samples, base) {
 }
 
 /**
+ * [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
+ * @param {string} name
+ * @returns {string}
+ */
+export function surnameKey(name) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.surnameKey(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`tab_separated_to_markdown_table`] for JS, as `{ text, changed }`.
  *
  * # Errors
@@ -2457,6 +2907,49 @@ export function tabSeparatedToMarkdownTable(input) {
 }
 
 /**
+ * [`text_fingerprint`](analysis_text::text_fingerprint) (TS `textFingerprint`).
+ *
+ * # Errors
+ *
+ * Fails if `texts` is not an array of strings.
+ * @param {any} texts
+ * @returns {string}
+ */
+export function textFingerprint(texts) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.textFingerprint(texts);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`title_similarity`](analysis_text::title_similarity) (TS `titleSimilarity`).
+ * @param {string} left
+ * @param {string} right
+ * @returns {number}
+ */
+export function titleSimilarity(left, right) {
+    const ptr0 = passStringToWasm0(left, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(right, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.titleSimilarity(ptr0, len0, ptr1, len1);
+    return ret;
+}
+
+/**
  * [`wf_core::sync::blob_links::to_relative_blob_links`] for JS, as
  * `{ body, assets: [{ scheme, storagePath, folderPath }] }`.
  *
@@ -2473,6 +2966,26 @@ export function toRelativeBlobLinks(body, file_path) {
     const ptr1 = passStringToWasm0(file_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.toRelativeBlobLinks(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_zotero_write_payload`] for one annotation under a parent item key.
+ *
+ * # Errors
+ *
+ * Fails if `ann` is not a `ZoteroAnnotationLocal` object.
+ * @param {any} ann
+ * @param {string} parent_item_key
+ * @returns {any}
+ */
+export function toZoteroWritePayload(ann, parent_item_key) {
+    const ptr0 = passStringToWasm0(parent_item_key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.toZoteroWritePayload(ann, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2715,6 +3228,23 @@ export function zoomIn(scale, step) {
 export function zoomOut(scale, step) {
     const ret = wasm.zoomOut(scale, step);
     return ret;
+}
+
+/**
+ * [`zotero_write_back_annotations`]: indices of the annotations a write-back sends.
+ *
+ * # Errors
+ *
+ * Fails if `annotations` is not an array of `ZoteroAnnotationLocal` objects.
+ * @param {any} annotations
+ * @returns {any}
+ */
+export function zoteroWriteBackAnnotations(annotations) {
+    const ret = wasm.zoteroWriteBackAnnotations(annotations);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 function __wbg_get_imports() {
     const import0 = {

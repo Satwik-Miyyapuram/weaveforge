@@ -14,6 +14,7 @@ pub mod papers;
 pub mod paste;
 pub mod plan;
 pub mod reader;
+pub mod reader_analysis;
 pub mod search;
 pub mod storage;
 pub mod sync;

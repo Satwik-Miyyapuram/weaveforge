@@ -30,7 +30,7 @@ pub enum BindingsError {
 /// Every type exported to TypeScript. Add new types here.
 #[must_use]
 pub fn types() -> Types {
-    reader_types(Types::default())
+    analysis_types(reader_types(Types::default()))
         .register::<wf_core::CoreInfo>()
         .register::<wf_core::search::tokenizer::TokenizerOptions>()
         .register::<wf_core::search::query::SearchKind>()
@@ -119,6 +119,34 @@ fn reader_types(types: Types) -> Types {
         .register::<wf_core::reader::ink_stroke::ReaderCompactInkOptions>()
         .register::<wf_core::reader::ink_stroke::ReaderInkGroupCandidate>()
         .register::<wf_core::reader::ink_stroke::ReaderInkGroupNext>()
+        .register::<wf_core::reader::selection::SelectionPageTextItem>()
+        .register::<wf_core::reader::selection::SelectionPageTextGeometry>()
+        .register::<wf_core::reader::selection::SelectionTextRange>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationOrigin>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationType>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationSyncState>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationLocal>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationRemote>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationSyncRow>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationField>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationFieldValue>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationFieldConflict>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationDecision>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationWritePayload>()
+        .register::<wf_core::reader::zotero_sync::ZoteroAnnotationTag>()
+}
+
+/// The PDF text analysis types (`wf_core::reader_analysis`).
+fn analysis_types(types: Types) -> Types {
+    types
+        .register::<wf_core::reader_analysis::lines::AnalysisPageTextItem>()
+        .register::<wf_core::reader_analysis::lines::AnalysisTextRun>()
+        .register::<wf_core::reader_analysis::lines::AnalysisTextLine>()
+        .register::<wf_core::reader_analysis::lines::AnalysisTaggedLine>()
+        .register::<wf_core::reader_analysis::text::AnalysisPdfItem>()
+        .register::<wf_core::reader_analysis::text::AnalysisSearchText>()
+        .register::<wf_core::reader_analysis::text::AnalysisBibliographicHints>()
+        .register::<wf_core::reader_analysis::text::AnalysisBibliographicCandidate>()
 }
 
 /// Render the full bindings file.
