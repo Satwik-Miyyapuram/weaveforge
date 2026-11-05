@@ -20,6 +20,7 @@ use crate::commands::DbState;
 const OPEN_FAILED: &str = "The local database could not be opened.";
 const HEALTHY: &str = "The local database opened normally; there is nothing to reset.";
 const BAD_QUERY: &str = "A query is a string of SQL and a list of plain values.";
+const CLOSED: &str = "local database: closed";
 
 /// Opens, closes and moves aside one database. [`PgEngine`] is the real one; tests use a fake.
 pub trait Engine: Send + Sync {
@@ -109,6 +110,8 @@ struct Inner<E: Engine> {
     open: Option<Open<E>>,
     /// Who queries run as; re-read after a statement that may change it.
     user: Option<String>,
+    /// Set by `close`; the app is quitting and the lock is about to go, so nothing reopens.
+    closed: bool,
 }
 
 /// The local database: lazy open, queries as the device user, state and reset.
@@ -150,6 +153,7 @@ impl<E: Engine> PgHost<E> {
             inner: tokio::sync::Mutex::new(Inner {
                 open: None,
                 user: None,
+                closed: false,
             }),
             failure: std::sync::Mutex::new(None),
             log: None,
@@ -227,6 +231,9 @@ impl<E: Engine> PgHost<E> {
         sql: &str,
         params: &[Value],
     ) -> Result<Vec<Value>, PgError> {
+        if inner.closed {
+            return Err(PgError::local(CLOSED));
+        }
         if inner.open.is_none() {
             match self.open_db().await {
                 Ok(open) => {
@@ -287,6 +294,9 @@ impl<E: Engine> PgHost<E> {
     /// error, which keeps the failure so the person can try again.
     pub async fn reset(&self) -> Result<(), String> {
         let mut inner = self.inner.lock().await;
+        if inner.closed {
+            return Err(CLOSED.to_owned());
+        }
         if self.failure().is_none() {
             return Err(HEALTHY.to_owned());
         }
@@ -299,9 +309,10 @@ impl<E: Engine> PgHost<E> {
         Ok(())
     }
 
-    /// Closes the database if it was opened; quitting never starts one.
+    /// Closes the database if it was opened; quitting never starts one, and no later call reopens it.
     pub async fn close(&self) {
         let mut inner = self.inner.lock().await;
+        inner.closed = true;
         inner.user = None;
         if let Some(open) = inner.open.take() {
             self.engine.close(open.conn, open.handle).await;
@@ -508,13 +519,23 @@ mod tests {
     #[tokio::test]
     async fn close_never_opens_and_closes_once() -> Result<(), String> {
         let (engine, host) = host();
-        host.close().await;
-        assert_eq!(engine.opens.load(Ordering::SeqCst), 0);
         let _ = host.query("select 1", &[]).await?;
         host.close().await;
         host.close().await;
         assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn closed_host_never_reopens() {
+        let (engine, host) = host();
+        host.close().await;
+        assert_eq!(engine.closes.load(Ordering::SeqCst), 0);
+        assert_eq!(host.query("select 1", &[]).await, Err(CLOSED.to_owned()));
+        engine.fail_opens.store(1, Ordering::SeqCst);
+        assert_eq!(host.reset().await, Err(CLOSED.to_owned()));
+        assert_eq!(engine.opens.load(Ordering::SeqCst), 0);
+        assert_eq!(engine.discards.load(Ordering::SeqCst), 0);
     }
 
     #[test]
