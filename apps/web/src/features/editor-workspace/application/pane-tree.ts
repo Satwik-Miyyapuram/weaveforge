@@ -385,6 +385,36 @@ export function layoutForCommand(layout: PaneLayout, command: PaneCommand): Pane
   return activateTab(layout, pane, (leaf.activeIndex + step + leaf.tabs.length) % leaf.tabs.length);
 }
 
+/** The items of a tab's right-click menu, as VS Code names them. */
+export type TabMenuCommand = "close" | "close-others" | "close-right" | "split-right" | "split-down";
+
+/**
+ * The layout after a tab's right-click item. Pure and in one step, because the
+ * screen writes the layout once: "close others" as many single closes would
+ * each start from the same stale layout.
+ */
+export function layoutForTabMenu(
+  layout: PaneLayout,
+  paneId: string,
+  index: number,
+  command: TabMenuCommand,
+): PaneLayout {
+  const leaf = findLeaf(layout.root, paneId);
+  const clicked = leaf?.tabs[index];
+  if (!leaf || !clicked) return layout;
+  if (command === "close") return closeTab(layout, paneId, index);
+  // A split carries the active tab, so the clicked tab becomes active first.
+  if (command === "split-right") return splitPane(activateTab(layout, paneId, index), paneId, "row");
+  if (command === "split-down") return splitPane(activateTab(layout, paneId, index), paneId, "column");
+  if (command === "close-right" && index === leaf.tabs.length - 1) return layout;
+  const root = replaceLeaf(layout.root, paneId, (current) =>
+    command === "close-others"
+      ? { ...current, tabs: [clicked], activeIndex: 0 }
+      : { ...current, tabs: current.tabs.slice(0, index + 1), activeIndex: Math.min(current.activeIndex, index) },
+  );
+  return settleFocus(root ?? layout.root, paneId);
+}
+
 /**
  * Drop tabs whose entity no longer exists, then collapse whatever that empties.
  *

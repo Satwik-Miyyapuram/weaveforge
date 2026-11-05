@@ -36,6 +36,7 @@ import {
   setRatio,
   setTabMode,
   splitPane,
+  layoutForTabMenu,
   tabKey,
   tabMode,
   togglePreview,
@@ -637,9 +638,10 @@ export function WorkspaceScreen() {
       const command = commandForChord(event, focusedTabCount(layoutRef.current));
       if (!command) return;
       if (isTypingTarget(event.target as HTMLElement | null)) return;
-      // Inside a document `⌘/` is CodeMirror's "toggle comment"; it has already
-      // run, so the sheet opens only from outside the text.
-      if (command === "show-shortcuts" && event.defaultPrevented) return;
+      // A key the document already handled is the document's: `⌘/` toggles a
+      // comment, `⌘B` bolds, `⌘\` clears formatting. Outside the text, or when
+      // the editor passes on a key, the workspace meaning applies.
+      if (event.defaultPrevented) return;
       event.preventDefault();
 
       if (command === "quick-open") return setPaletteOpen(true);
@@ -756,6 +758,7 @@ export function WorkspaceScreen() {
         onClose={(paneId, index) => apply(closeTab(layout, paneId, index))}
         onFocus={(paneId) => apply(focusPane(layout, paneId))}
         onSplit={(paneId, direction) => apply(splitPane(layout, paneId, direction))}
+        onTabMenu={(paneId, index, command) => apply(layoutForTabMenu(layout, paneId, index, command))}
         onToggleFocus={toggleFocus}
         onDropTab={(from, toPaneId) => apply(moveTab(layout, from, toPaneId))}
         onRatio={(split: PaneSplit, ratio) => apply(setRatio(layout, split, ratio))}

@@ -59,7 +59,7 @@ export function useAnchoredMenu(
   const place = useCallback(() => {
     const el = triggerRef.current;
     if (!el) return;
-    const r = restingBox(el.getBoundingClientRect(), getComputedStyle(el).translate);
+    const r = restingBox(el.getBoundingClientRect(), typeof getComputedStyle === "function" ? getComputedStyle(el).translate : undefined);
     const below = window.innerHeight - r.bottom;
     const up = below < maxHeight && r.top > below;
     setRect({

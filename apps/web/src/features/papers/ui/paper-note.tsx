@@ -45,6 +45,9 @@ import { TagEditor } from "./tag-editor";
 import { Modal, ModalActions } from "@/components/modal";
 import { Button, IconButton, IconLink } from "@/components/button";
 import { RowButton } from "@/components/controls";
+import { useRouter } from "next/navigation";
+import { isEditableTarget, openContextMenu } from "@/components/context-menu-store";
+import { paperNoteMenuItems } from "./paper-note-menu";
 
 /** The modes the switch offers, as the Editor's toolbar does. */
 const NOTE_MODES = ["edit", "ink"] as const;
@@ -96,6 +99,7 @@ export function PaperNote({
   onDeleted?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
   // Text or Ink, as in the Editor's toolbar: a handwritten note opens on its
   // sheet, any other in Text. Only a reader without edit rights reads.
   const [mode, setMode] = useState<NoteMode>(() =>
@@ -308,9 +312,36 @@ export function PaperNote({
     { at: recordDate(paper.createdAt), what: fileName ? `Imported from ${fileName}` : "Added to the library" },
   ].filter((event): event is { at: string; what: string } => event !== null);
 
+  // The record bar's actions on right-click of the bar or the title. The note,
+  // annotations and cards below keep their own menus.
+  const openMenu = (event: React.MouseEvent) => {
+    if (event.defaultPrevented || isEditableTarget(event.target)) return;
+    openContextMenu(
+      event,
+      paperNoteMenuItems({
+        readOnly,
+        busy,
+        hasReader: Boolean(readerHref),
+        watching: Boolean(trackingCitations),
+        canWatch: canTrackCitations && trackingCitations != null && !trackingBusy,
+        status: paper.status,
+        statuses: PAPER_STATUSES,
+        statusLabel: (status) => statusLabel(status as PaperStatus),
+        openInEditor: () => router.push(`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`),
+        openReader: () => readerHref && router.push(readerHref),
+        copyCitation: () => void copyCitation(),
+        copyTitle: () => void navigator.clipboard.writeText(readyCore().titleFromFileName(paper.title)),
+        setStatus: (status) => void changeStatus(status as PaperStatus),
+        toggleWatch: () => void toggleCitationTracking(),
+        editIdentifiers: () => setEditingIds(true),
+        remove: () => void remove(),
+      }),
+    );
+  };
+
   return (
     <article className="record">
-      <nav className="record-bar" aria-label="Paper">
+      <nav className="record-bar" aria-label="Paper" onContextMenu={openMenu}>
         <BackButton label="Papers" onClick={onBack} />
         <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
         {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
@@ -367,7 +398,7 @@ export function PaperNote({
         </div>
       </nav>
 
-      <header className="record-head">
+      <header className="record-head" onContextMenu={openMenu}>
         <h1 className="record-title">{readyCore().titleFromFileName(paper.title)}</h1>
         {paper.authors.length > 0 && (
           <p className="record-by">
