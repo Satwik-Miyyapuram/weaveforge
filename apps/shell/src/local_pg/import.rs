@@ -89,9 +89,27 @@ pub fn page_sql(schema: &str, table: &str, limit: u64, offset: u64) -> String {
     )
 }
 
-/// Inserts JSON rows into a table's listed columns, skipping rows that already exist.
+/// Lists a table's primary key columns, in key order; no rows when it has none.
 #[must_use]
-pub fn insert_sql(schema: &str, table: &str, columns: &[String], identity_always: bool) -> String {
+pub fn key_sql(schema: &str, table: &str) -> String {
+    format!(
+        "select a.attname from pg_index i join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey) where i.indrelid = '{}'::regclass and i.indisprimary order by array_position(i.indkey::int2[], a.attnum)",
+        escape_literal(&qualified(schema, table))
+    )
+}
+
+/// Inserts JSON rows into a table's listed columns.
+///
+/// The new database holds only rows its migrations seeded (such as `sync_state`'s single row), so
+/// an old row with the same primary key replaces it. Without a usable key, existing rows are kept.
+#[must_use]
+pub fn insert_sql(
+    schema: &str,
+    table: &str,
+    columns: &[String],
+    key: &[String],
+    identity_always: bool,
+) -> String {
     let q = qualified(schema, table);
     let cols = columns
         .iter()
@@ -104,8 +122,26 @@ pub fn insert_sql(schema: &str, table: &str, columns: &[String], identity_always
     } else {
         ""
     };
+    let rest: Vec<&String> = columns.iter().filter(|c| !key.contains(c)).collect();
+    let keyed = !key.is_empty() && key.iter().all(|k| columns.contains(k)) && !rest.is_empty();
+    let conflict = if keyed {
+        let keys = key
+            .iter()
+            .map(String::as_str)
+            .map(quote_ident)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sets = rest
+            .iter()
+            .map(|c| format!("{0} = excluded.{0}", quote_ident(c)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("on conflict ({keys}) do update set {sets}")
+    } else {
+        "on conflict do nothing".to_owned()
+    };
     format!(
-        "insert into {q} ({cols}) {overriding}select {cols} from json_populate_recordset(null::{q}, $1::json) on conflict do nothing"
+        "insert into {q} ({cols}) {overriding}select {cols} from json_populate_recordset(null::{q}, $1::json) {conflict}"
     )
 }
 
@@ -318,7 +354,14 @@ async fn copy_table<S: SourceDb, C: Conn>(
     if cols.is_empty() {
         return Ok(Some(0));
     }
-    let sql = insert_sql(schema, table, &cols, identity);
+    let key: Vec<String> = target
+        .query(&key_sql(schema, table), &[])
+        .await?
+        .rows
+        .iter()
+        .map(|r| cell(r, 0))
+        .collect();
+    let sql = insert_sql(schema, table, &cols, &key, identity);
     let mut copied: u64 = 0;
     let mut offset: u64 = 0;
     loop {
@@ -538,6 +581,8 @@ mod tests {
                 }
             } else if sql == TABLES_SQL {
                 vec![row(&["public", "papers"])]
+            } else if sql == key_sql("public", "papers") {
+                vec![row(&["id"])]
             } else if sql == columns_sql("public", "papers") {
                 vec![
                     row(&["id", "", ""]),
@@ -591,15 +636,45 @@ mod tests {
     #[test]
     fn insert_sql_overrides_identity_only_when_asked() {
         let cols = vec!["id".to_owned()];
-        let always = insert_sql("public", "crdt_updates", &cols, true);
+        let always = insert_sql("public", "crdt_updates", &cols, &[], true);
         let over = always.find("overriding system value");
         let select = always.find("select");
         assert!(over.is_some() && over < select);
         assert!(always.ends_with("on conflict do nothing"));
 
-        let plain = insert_sql("public", "papers", &cols, false);
+        let plain = insert_sql("public", "papers", &cols, &[], false);
         assert!(!plain.contains("overriding"));
         assert!(plain.ends_with("on conflict do nothing"));
+    }
+
+    #[test]
+    fn insert_sql_lets_the_old_row_replace_a_seeded_one() {
+        // The new database seeds rows such as sync_state's single row; the old row must win, or the
+        // signed-in account is forgotten and its projects vanish from view.
+        let cols = vec![
+            "id".to_owned(),
+            "account_id".to_owned(),
+            "watermark".to_owned(),
+        ];
+        let key = vec!["id".to_owned()];
+        assert!(
+            insert_sql("public", "sync_state", &cols, &key, false).ends_with(
+                "on conflict (\"id\") do update set \"account_id\" = excluded.\"account_id\", \"watermark\" = excluded.\"watermark\""
+            )
+        );
+        // Nothing but the key to set, or a key column not copied: keep skipping.
+        assert!(insert_sql("public", "t", &key, &key, false).ends_with("on conflict do nothing"));
+        let other = vec!["other".to_owned()];
+        assert!(
+            insert_sql("public", "t", &cols, &other, false).ends_with("on conflict do nothing")
+        );
+    }
+
+    #[test]
+    fn key_sql_reads_the_primary_key_in_order() {
+        let sql = key_sql("public", "o'x");
+        assert!(sql.contains("'\"public\".\"o''x\"'::regclass"));
+        assert!(sql.contains("indisprimary"));
     }
 
     #[test]
@@ -655,10 +730,11 @@ mod tests {
         );
         assert_eq!(target.log.last().map(String::as_str), Some("COMMIT"));
         let cols = vec!["id".to_owned(), "title".to_owned()];
+        let key = vec!["id".to_owned()];
         assert!(
             target
                 .log
-                .contains(&insert_sql("public", "papers", &cols, false))
+                .contains(&insert_sql("public", "papers", &cols, &key, false))
         );
         assert_eq!(
             target.inserted,
