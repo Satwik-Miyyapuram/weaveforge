@@ -142,8 +142,8 @@ fn moved_entry(entry: &Value, launch: &McpLaunch) -> Value {
 
 /// The config with every bridge entry for this launch's MCP file moved to `launch`; `None` when nothing moved.
 ///
-/// Divergence from TS: without serde_json's `preserve_order` feature, object keys come out sorted,
-/// not in input order. Other servers and top-level keys keep their values.
+/// Keys keep their input order, as in TS (serde_json's `preserve_order` feature is on). Other
+/// servers and top-level keys keep their values.
 #[must_use]
 pub fn rewrite_mcp_config(config: &Value, key: McpServersKey, launch: &McpLaunch) -> Option<Value> {
     let servers = config.get(key.as_str())?.as_object()?;
