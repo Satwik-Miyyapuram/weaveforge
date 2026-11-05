@@ -15,6 +15,7 @@ pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
+pub mod db_lock;
 #[cfg(desktop)]
 pub mod embed;
 #[cfg(mobile)]
@@ -30,6 +31,7 @@ pub mod local_http;
 pub mod mattermost;
 pub mod mcp_bridge;
 pub mod menu;
+pub mod migrate;
 pub mod model_cache;
 pub mod overleaf_links;
 pub mod overleaf_read;
@@ -283,12 +285,25 @@ fn vault_root_source(app: &tauri::AppHandle) -> Option<commands::VaultRootSource
     }))
 }
 
+/// Copies the old Electron app's data into `data` once. `Some(reason)` when the database must stay closed.
+fn migration_blocker(old: &std::path::Path, data: &std::path::Path) -> Option<String> {
+    match migrate::migrate_from_electron(old, data, std::time::SystemTime::now()) {
+        Ok(migrate::Outcome::Busy(reason)) => Some(format!(
+            "the old WeaveForge app is running; close it, then restart WeaveForge so its data can be copied ({reason})"
+        )),
+        Ok(_) => None,
+        Err(e) => Some(format!(
+            "could not copy the old WeaveForge app's data, so the database stays closed: {e}"
+        )),
+    }
+}
+
 /// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.
 fn start_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     let paths = app.path();
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
-        (Ok(data), Ok(resources)) => {
+        (Ok(data), Ok(resources)) => 'arm: {
             let data_dir = data.join("local-db");
             let backups_dir = data.join("local-db-backups");
             let source = launch::sidecar_source(resources);
@@ -297,13 +312,20 @@ fn start_local_db(app: &tauri::AppHandle) {
                 .config_dir()
                 .ok()
                 .and_then(|c| launch::electron_data_dir(&source, &product, &c));
+            // Copied before the sidecar starts, so it never opens a half-copied or empty database.
+            if let Some(reason) = old.as_deref().and_then(|old| migration_blocker(old, &data)) {
+                local_api::warn(app, &reason);
+                break 'arm commands::LocalDb::new(
+                    Err(sidecar::SidecarError::Spawn(reason)),
+                    data_dir.to_string_lossy().into_owned(),
+                );
+            }
             let api = launch::ApiArgs {
                 artifacts: data.join("artifacts"),
                 app_version: app.package_info().version.to_string(),
                 product_name: product.clone(),
             };
-            let config =
-                launch::sidecar_config(&source, &data_dir, &backups_dir, &api, old.as_deref());
+            let config = launch::sidecar_config(&source, &data_dir, &backups_dir, &api, None);
             let home = paths.home_dir().unwrap_or_else(|_| {
                 local_api::warn(app, "no home folder: the MCP folder is relative");
                 PathBuf::new()
