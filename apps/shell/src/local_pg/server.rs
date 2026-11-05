@@ -46,6 +46,9 @@ const READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long a stop waits for a clean exit before killing.
 const STOP_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// Longest wait for one connection attempt during start.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// A running private Postgres server. Dropping it kills the child.
 pub struct PgServer {
     child: Box<dyn ChildWrapper>,
@@ -221,7 +224,7 @@ impl PgServer {
                     tail(&log, 500)
                 )));
             }
-            if let Ok(conn) = self.connect().await {
+            if let Ok(Ok(conn)) = tokio::time::timeout(CONNECT_TIMEOUT, self.connect()).await {
                 let _ = conn.close().await;
                 return Ok(());
             }
@@ -241,14 +244,15 @@ impl PgServer {
     pub async fn stop(mut self) -> Result<(), PgError> {
         let mut cmd = tokio::process::Command::new(self.bin.join(exe_name("pg_ctl")));
         let _ = cmd
+            .kill_on_drop(true)
             .arg("stop")
             .arg("-D")
             .arg(&self.data)
             .args(["-m", "fast", "-t", "15"]);
         #[cfg(windows)]
         let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
-        // A failed pg_ctl is covered by the kill below.
-        let _ = cmd.output().await;
+        // A failed or hung pg_ctl is covered by the kill below.
+        let _ = tokio::time::timeout(STOP_TIMEOUT, cmd.output()).await;
 
         let deadline = Instant::now() + STOP_TIMEOUT;
         while Instant::now() < deadline {
@@ -286,10 +290,13 @@ fn wrapped_command(program: PathBuf, args: Vec<OsString>, log: fs::File) -> Comm
 /// Runs `initdb` and returns its error with the tail of stderr on failure.
 async fn run_initdb(bin: &Path, data: &Path, pwfile: &Path) -> Result<(), PgError> {
     let mut cmd = tokio::process::Command::new(bin.join(exe_name("initdb")));
-    let _ = cmd.args(initdb_args(data, pwfile));
+    let _ = cmd.kill_on_drop(true).args(initdb_args(data, pwfile));
     #[cfg(windows)]
     let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
-    let out = cmd.output().await.map_err(|e| io(&e))?;
+    let out = tokio::time::timeout(READY_TIMEOUT, cmd.output())
+        .await
+        .map_err(|_| PgError::local("initdb did not finish within 60 s"))?
+        .map_err(|e| io(&e))?;
     if out.status.success() {
         return Ok(());
     }
@@ -302,7 +309,11 @@ async fn run_initdb(bin: &Path, data: &Path, pwfile: &Path) -> Result<(), PgErro
 
 /// Reads the password file, trimmed; missing or empty is an error.
 fn read_password(path: &Path) -> Result<String, PgError> {
-    let text = fs::read_to_string(path).unwrap_or_default();
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(io(&e)),
+    };
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Err(PgError::local("database password file is missing"));
@@ -312,9 +323,20 @@ fn read_password(path: &Path) -> Result<String, PgError> {
 
 /// Writes the password file, readable by the owner only on unix.
 fn write_password(path: &Path, password: &str) -> Result<(), PgError> {
-    fs::write(path, password).map_err(|e| io(&e))?;
+    use std::io::Write as _;
+    let mut options = OpenOptions::new();
+    let _ = options.write(true).create(true).truncate(true);
     #[cfg(unix)]
     {
+        // Owner-only from the moment the file exists.
+        use std::os::unix::fs::OpenOptionsExt;
+        let _ = options.mode(0o600);
+    }
+    let mut file = options.open(path).map_err(|e| io(&e))?;
+    file.write_all(password.as_bytes()).map_err(|e| io(&e))?;
+    #[cfg(unix)]
+    {
+        // An old file keeps its mode on open, so tighten it too.
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|e| io(&e))?;
     }
