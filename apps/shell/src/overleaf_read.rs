@@ -21,6 +21,9 @@ pub const SIZE_LIMIT: &str = "Overleaf project exceeds the supported text size l
 pub const UNSAFE_PATH: &str = "Overleaf checkout contained an unsafe path.";
 /// The start of the message when the entry file is missing; the file name follows it.
 pub const ENTRY_NOT_FOUND: &str = "Entry file not found: ";
+/// Shown when Overleaf refuses the token or the project id.
+pub const TOKEN_REFUSED: &str =
+    "Overleaf refused the token or project id. Check both, then link the report again.";
 /// Shown when no free checkout folder name was found in 16 tries.
 pub const NO_CHECKOUT: &str = "Could not make a folder for the Overleaf checkout.";
 
@@ -126,8 +129,30 @@ fn error_text<E: std::fmt::Display>(error: E) -> String {
     error.to_string()
 }
 
+/// The clone failure as the page shows it; a refused token or project id is one sentence.
 fn git_text(error: &git2::Error) -> String {
-    error.message().to_owned()
+    let message = error.message();
+    if is_refusal(message) {
+        TOKEN_REFUSED.to_owned()
+    } else {
+        message.to_owned()
+    }
+}
+
+/// Overleaf refuses a wrong token or id with a 401 that has no WWW-Authenticate
+/// header, which WinHTTP reports as unparsable auth schemes and libgit2's own
+/// transport as a bare 401; our callback refuses a second ask (see `credentials`).
+fn is_refusal(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    [
+        "auth scheme",
+        "token was refused",
+        "status code: 401",
+        "status code: 403",
+        "authentication replays",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
 }
 
 /// Answers the token once; a second request is refused so libgit2 does not loop.
