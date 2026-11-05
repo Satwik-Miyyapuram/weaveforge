@@ -139,25 +139,21 @@ test("an account with no projects says so and offers no PDF button", async () =>
   await act(async () => tree.unmount());
 });
 
-test("picking a project and root file shows the viewer for them", async () => {
+test("picking a project shows the viewer with the panel's own headers", async () => {
   const h = harness(projectsOk, SESSION);
   const tree = await mount(h);
-  assert.equal(byName(tree, "rootResourcePath").props.value, "main.tex", "main.tex is the default root file");
   await type(byName(tree, "projectId"), "p2");
-  await type(byName(tree, "rootResourcePath"), " chapters/thesis.tex ");
   await submit(tree);
   const viewer = tree.root.findByType(WorkshopPdfViewer);
-  assert.deepEqual(viewer.props, { sessionId: SESSION, projectId: "p2", rootResourcePath: "chapters/thesis.tex" });
+  assert.deepEqual(viewer.props, { sessionId: SESSION, projectId: "p2", authHeaders: h.client.authHeaders });
   await act(async () => tree.unmount());
 });
 
-test("a blank root file disables Show PDF", async () => {
+test("there is no root file field: Overleaf compiles the project's main document", async () => {
   const h = harness(projectsOk, SESSION);
   const tree = await mount(h);
-  await type(byName(tree, "rootResourcePath"), "   ");
-  assert.equal(button(tree, "Show PDF").props.disabled, true);
-  await submit(tree);
-  assert.equal(tree.root.findAllByType(WorkshopPdfViewer).length, 0);
+  assert.equal(tree.root.findAll((n) => n.props.name === "rootResourcePath").length, 0);
+  assert.equal(button(tree, "Show PDF").props.disabled, false);
   await act(async () => tree.unmount());
 });
 

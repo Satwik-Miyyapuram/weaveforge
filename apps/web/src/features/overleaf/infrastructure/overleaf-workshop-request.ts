@@ -1,7 +1,8 @@
 export interface WorkshopRequest {
   sessionId: string;
   projectId: string;
-  rootResourcePath: string;
+  /** Null lets Overleaf compile the project's main document. */
+  rootResourcePath: string | null;
 }
 
 export type WorkshopRequestResult =
@@ -23,8 +24,12 @@ export function readWorkshopRequest(body: unknown): WorkshopRequestResult {
   if (typeof projectId !== "string" || !PROJECT_ID.test(projectId)) {
     return { ok: false, message: "A valid Overleaf project id is required." };
   }
-  const root = typeof rootResourcePath === "string" ? rootResourcePath.trim() : "";
-  if (!root) return { ok: false, message: "The root .tex file is required." };
+  let root: string | null = null;
+  if (typeof rootResourcePath === "string") {
+    root = rootResourcePath.trim() || null;
+  } else if (rootResourcePath !== undefined && rootResourcePath !== null) {
+    return { ok: false, message: "The root .tex file must be a text path." };
+  }
   return { ok: true, value: { sessionId, projectId, rootResourcePath: root } };
 }
 

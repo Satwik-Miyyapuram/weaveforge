@@ -75,8 +75,8 @@ const CONNECT_OPTIONS: readonly { mode: ConnectMode; label: string; hint: string
 ];
 
 /**
- * Overleaf Workshop: sign in with an Overleaf session cookie, pick a project and
- * its root .tex file, and see the PDF Overleaf compiles. The cookie is sent once
+ * Overleaf Workshop: sign in to Overleaf, pick a project and see the PDF Overleaf
+ * compiles from the project's main document. The cookie is sent once
  * and kept by the routes (sealed on the server, or in the shell's memory when
  * `inShell`); this panel only ever holds the session id.
  */
@@ -100,7 +100,6 @@ export function WorkshopPanel({
   const [projects, setProjects] = useState<WorkshopProject[] | null>(null);
   const [cookies, setCookies] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [root, setRoot] = useState("main.tex");
   const [shown, setShown] = useState<WorkshopPdfViewerProps | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -158,11 +157,10 @@ export function WorkshopPanel({
     forget();
   }
 
-  const rootFile = root.trim();
   function showPdf(event: { preventDefault(): void }) {
     event.preventDefault();
-    if (!sessionId || !projectId || !rootFile) return;
-    setShown({ sessionId, projectId, rootResourcePath: rootFile });
+    if (!sessionId || !projectId) return;
+    setShown({ sessionId, projectId });
   }
 
   async function openSignIn() {
@@ -271,28 +269,29 @@ export function WorkshopPanel({
           {projects.length === 0 ? (
             <p className="muted">No Overleaf projects found for this account.</p>
           ) : (
-            <>
-              <label>
-                Project
-                <Select name="projectId" aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </Select>
-              </label>
-              <label>
-                Root file
-                <input name="rootResourcePath" value={root} onChange={(event) => setRoot(event.target.value)} />
-              </label>
-            </>
+            <label>
+              Project
+              <Select name="projectId" aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </Select>
+            </label>
           )}
           <div className="linked-overleaf-form__actions">
             {projects.length > 0 && (
-              <Button variant="primary" type="submit" disabled={!projectId || !rootFile}>Show PDF</Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={!projectId}
+                title="Overleaf compiles the project's main document (set in Overleaf's Menu)"
+              >
+                Show PDF
+              </Button>
             )}
             <Button variant="cancel" onClick={() => void disconnect()}>Disconnect</Button>
           </div>
         </form>
       )}
-      {shown && <WorkshopPdfViewer {...shown} />}
+      {shown && <WorkshopPdfViewer {...shown} authHeaders={client.authHeaders} />}
     </section>
   );
 }

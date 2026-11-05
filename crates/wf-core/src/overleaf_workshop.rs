@@ -9,8 +9,8 @@ pub const SESSION_ID_INVALID: &str =
 pub const BODY_REQUIRED: &str = "A JSON body is required.";
 /// Message for a missing or malformed project id.
 pub const PROJECT_ID_INVALID: &str = "A valid Overleaf project id is required.";
-/// Message for a missing root `.tex` path.
-pub const ROOT_REQUIRED: &str = "The root .tex file is required.";
+/// Message for a root `.tex` path that is not text.
+pub const ROOT_INVALID: &str = "The root .tex file must be a text path.";
 
 /// Replacement for a secret in error text.
 const REDACTED: &str = "[redacted]";
@@ -26,8 +26,8 @@ pub struct WorkshopRequest {
     pub session_id: String,
     /// Overleaf project id, ASCII alphanumeric.
     pub project_id: String,
-    /// Root `.tex` path, trimmed.
-    pub root_resource_path: String,
+    /// Root `.tex` path, trimmed. `None` lets Overleaf use the project's main document.
+    pub root_resource_path: Option<String>,
 }
 
 /// Overleaf user and CSRF values scraped from the project page.
@@ -51,16 +51,15 @@ pub fn read_workshop_request(body: &Value) -> Result<WorkshopRequest, &'static s
         Some(id) if is_project_id(id) => id.to_owned(),
         _ => return Err(PROJECT_ID_INVALID),
     };
-    let root = body
-        .get("rootResourcePath")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|root| !root.is_empty())
-        .ok_or(ROOT_REQUIRED)?;
+    let root = match body.get("rootResourcePath") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(root)) => Some(root.trim()).filter(|root| !root.is_empty()),
+        Some(_) => return Err(ROOT_INVALID),
+    };
     Ok(WorkshopRequest {
         session_id,
         project_id,
-        root_resource_path: root.to_owned(),
+        root_resource_path: root.map(str::to_owned),
     })
 }
 

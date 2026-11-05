@@ -46,6 +46,12 @@ test("the request POSTs the ids as JSON with the bearer header to the PDF route"
   assert.deepEqual(JSON.parse(String(call.init.body)), { sessionId: SESSION, projectId: "p1", rootResourcePath: "main.tex" });
 });
 
+test("a null root file is left out so Overleaf compiles the main document", async () => {
+  const { deps, calls } = makeDeps(pdfResponse());
+  await fetchWorkshopPdf(deps, SESSION, "p1", null);
+  assert.deepEqual(JSON.parse(String(calls[0]?.init.body)), { sessionId: SESSION, projectId: "p1" });
+});
+
 test("a 200 application/pdf response becomes an object URL", async () => {
   const { deps, created } = makeDeps(pdfResponse());
   const result = await fetchWorkshopPdf(deps, SESSION, "p1", "main.tex");

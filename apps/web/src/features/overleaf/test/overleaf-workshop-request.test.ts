@@ -19,9 +19,16 @@ test("a raw cookie in the body is not accepted in place of a session id", () => 
   assert.equal(readWorkshopRequest({ cookies: "overleaf_session2=abc", projectId: "p1", rootResourcePath: "main.tex" }).ok, false);
 });
 
-test("missing project id or blank root file are rejected", () => {
-  for (const bad of [{ ...valid, projectId: undefined }, { ...valid, rootResourcePath: " " }]) {
+test("missing project id or a non-text root file are rejected", () => {
+  for (const bad of [{ ...valid, projectId: undefined }, { ...valid, rootResourcePath: 5 }]) {
     assert.equal(readWorkshopRequest(bad).ok, false, JSON.stringify(bad));
+  }
+});
+
+test("a missing, null or blank root file leaves the main document to Overleaf", () => {
+  for (const rootResourcePath of [undefined, null, " "]) {
+    const result = readWorkshopRequest({ ...valid, rootResourcePath });
+    assert.deepEqual(result, { ok: true, value: { sessionId: SESSION, projectId: "p1", rootResourcePath: null } });
   }
 });
 
