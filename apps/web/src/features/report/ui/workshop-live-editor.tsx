@@ -1,15 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { defaultHighlightStyle, LanguageDescription, syntaxHighlighting } from "@codemirror/language";
+import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
+import { defaultHighlightStyle, foldGutter, foldKeymap, foldService, LanguageDescription, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
-import { searchKeymap } from "@codemirror/search";
+import { openSearchPanel, searchKeymap } from "@codemirror/search";
 import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/state";
 import { EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
+import { latexFoldEnd } from "../lib/latex-fold";
+import { headingOf, latexFormat, type LatexFormat } from "../lib/latex-format";
+import { latexOutline, sectionAt, type OutlineItem } from "../lib/latex-outline";
+import { OverleafEditorToolbar } from "./overleaf-editor-toolbar";
 import { OverleafFileTree } from "./overleaf-file-tree";
+import { OverleafOutline } from "./overleaf-outline";
+import { OverleafPanes, type PaneLayout } from "./overleaf-panes";
+import { OverleafSidebar } from "./overleaf-sidebar";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
 import { changesFromOp, opFromChanges } from "@/features/overleaf/application/codemirror-ops";
 import { LiveDoc, otUpdateOf } from "@/features/overleaf/application/live-doc";
@@ -28,6 +35,13 @@ const remoteEdit = Annotation.define<boolean>();
 
 type Project = { liveId: string; name: string; docs: LiveDocEntry[]; canEdit: boolean };
 
+/** Folds LaTeX as Overleaf does: sections to the next heading, environments to their \end. */
+const latexFolding = foldService.of((state, from) => {
+  const line = state.doc.lineAt(from);
+  const end = latexFoldEnd((i) => state.doc.line(i + 1).text, state.doc.lines, line.number - 1);
+  return end === null ? null : { from: line.to, to: state.doc.line(end + 1).to };
+});
+
 /**
  * Edits an Overleaf project's files live, in our editor: the desktop app holds the
  * connection to Overleaf (apps/shell/src/overleaf_live.rs), local edits are sent
@@ -38,13 +52,16 @@ export function WorkshopLiveEditor({
   sessionId,
   projectId,
   layout,
+  onLayout,
   pdf,
 }: {
   client: WorkshopClientDeps;
   sessionId: string;
   projectId: string;
   /** Which panes show next to the file tree, as Overleaf's layout menu. */
-  layout: "split" | "editor" | "pdf";
+  layout: PaneLayout;
+  /** Folding a pane from its divider picks another layout. */
+  onLayout: (layout: PaneLayout) => void;
   /** The compiled PDF pane. Hidden panes stay mounted, so the connection and the PDF survive a switch. */
   pdf: ReactNode;
 }) {
@@ -57,6 +74,10 @@ export function WorkshopLiveEditor({
   const [attempt, setAttempt] = useState(0);
   /** Bumped to load the open doc again after the editor and Overleaf disagree. */
   const [reloads, setReloads] = useState(0);
+  /** The open .tex file's headings, for the outline and the breadcrumbs. */
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  /** The cursor's 1-based line and its text, for the outline mark and the style menu. */
+  const [cursor, setCursor] = useState({ line: 1, text: "" });
   const parentRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const liveRef = useRef<{ docId: string; doc: LiveDoc } | null>(null);
@@ -169,6 +190,13 @@ export function WorkshopLiveEditor({
       liveRef.current = live;
       const themeCompartment = new Compartment();
       const languageCompartment = new Compartment();
+      const path = project.docs.find((d) => d.id === docId)?.path ?? "";
+      const isTex = path.toLowerCase().endsWith(".tex");
+      const track = (state: EditorState, docChanged: boolean) => {
+        const line = state.doc.lineAt(state.selection.main.head);
+        setCursor({ line: line.number, text: line.text });
+        if (docChanged) setOutline(isTex ? latexOutline(state.doc.toString()) : []);
+      };
       const view = new EditorView({
         parent,
         state: EditorState.create({
@@ -177,7 +205,9 @@ export function WorkshopLiveEditor({
             lineNumbers(),
             highlightActiveLine(),
             history(),
-            keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+            keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...foldKeymap]),
+            foldGutter(),
+            isTex ? latexFolding : [],
             EditorView.lineWrapping,
             EditorState.readOnly.of(!project.canEdit),
             EditorView.editable.of(project.canEdit),
@@ -185,6 +215,7 @@ export function WorkshopLiveEditor({
             themeCompartment.of(createCodeMirrorThemeForSite()),
             languageCompartment.of([]),
             EditorView.updateListener.of((update) => {
+              if (update.docChanged || update.selectionSet) track(update.state, update.docChanged);
               let changed = false;
               for (const tr of update.transactions) {
                 if (!tr.docChanged || tr.annotation(remoteEdit)) continue;
@@ -197,11 +228,11 @@ export function WorkshopLiveEditor({
         }),
       });
       viewRef.current = view;
+      track(view.state, true);
       stopThemeWatch = watchSiteTheme(() => {
         view.dispatch({ effects: themeCompartment.reconfigure(createCodeMirrorThemeForSite()) });
       });
       setStatus(project.canEdit ? "Saved" : "Read only: your Overleaf access is view only.");
-      const path = project.docs.find((d) => d.id === docId)?.path ?? "";
       const language = LanguageDescription.matchFilename(languages, path);
       if (language) {
         const support = await language.load();
@@ -217,18 +248,62 @@ export function WorkshopLiveEditor({
     };
   }, [client, project, docId, reloads]);
 
+  /** Runs a command on the editor, then hands it the focus back. */
+  const withView = (run: (view: EditorView) => void) => {
+    const view = viewRef.current;
+    if (!view) return;
+    run(view);
+    view.focus();
+  };
+  const jump = (line: number) => withView((view) => {
+    const pos = view.state.doc.line(Math.min(line, view.state.doc.lines)).from;
+    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+  });
+  const format = (kind: LatexFormat) => withView((view) => {
+    const { from, to } = view.state.selection.main;
+    const edit = latexFormat(kind, view.state.doc.toString(), from, to);
+    view.dispatch({ changes: { from: edit.from, to: edit.to, insert: edit.insert }, selection: { anchor: edit.anchor, head: edit.head } });
+  });
+
+  const path = project?.docs.find((d) => d.id === docId)?.path ?? "";
+  const section = sectionAt(outline, cursor.line);
+  const crumbs = [...path.split("/").filter(Boolean), ...(section ? [section.title] : [])];
+  const readOnly = !project?.canEdit || closed;
+
   return (
     <div className="workshop-live">
-      <div className="workshop-live__bar">
-        <span className="muted" role="status">{closed ? "Disconnected" : status}</span>
-        {closed && <Button size="sm" variant="primary" onClick={() => setAttempt((n) => n + 1)}>Reconnect</Button>}
-      </div>
       {error && <FormError>{error}</FormError>}
-      <div className={`workshop-live__body workshop-live__body--${layout}`}>
-        <OverleafFileTree docs={project?.docs ?? []} activeId={docId} onOpen={setDocId} />
-        <div className="workshop-live__editor" ref={parentRef} />
-        <div className="workshop-live__pdf">{pdf}</div>
-      </div>
+      <OverleafPanes
+        layout={layout}
+        onLayout={onLayout}
+        sidebar={
+          <OverleafSidebar
+            files={<OverleafFileTree docs={project?.docs ?? []} activeId={docId} onOpen={setDocId} />}
+            outline={<OverleafOutline items={outline} activeLine={cursor.line} onJump={jump} />}
+          />
+        }
+        editor={
+          <div className="workshop-live__source">
+            <OverleafEditorToolbar
+              style={headingOf(cursor.text)}
+              disabled={readOnly}
+              onFormat={format}
+              onUndo={() => withView(undo)}
+              onRedo={() => withView(redo)}
+              onSearch={() => withView(openSearchPanel)}
+            />
+            <div className="overleaf-crumbs">
+              <ol aria-label="Location">
+                {crumbs.map((c, i) => <li key={`${i}:${c}`} aria-current={i === crumbs.length - 1 ? "location" : undefined}>{c}</li>)}
+              </ol>
+              <span className="muted" role="status">{closed ? "Disconnected" : status}</span>
+              {closed && <Button size="sm" variant="primary" onClick={() => setAttempt((n) => n + 1)}>Reconnect</Button>}
+            </div>
+            <div className="workshop-live__editor" ref={parentRef} />
+          </div>
+        }
+        pdf={pdf}
+      />
     </div>
   );
 }
