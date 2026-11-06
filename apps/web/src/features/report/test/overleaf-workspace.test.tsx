@@ -420,17 +420,33 @@ test("tab blockers: Write needs the desktop app, both tabs need sign-in and the 
   assert.match(elsewhere.pdf ?? "", /not in the signed-in/);
 });
 
-test("opening an account project in the browser starts on PDF, with the workspace's headers", async () => {
+/** The layout switch's tab labels; empty when there is no switch. */
+const layoutTabs = (tree: ReactTestRenderer) =>
+  tree.root.findAll((n) => n.type === "button" && n.props.role === "tab").map(textOf);
+
+test("opening an account project in the browser shows the PDF and says editing needs the desktop app", async () => {
   const h = harness(projectsOk, SESSION);
   const tree = await mount(h);
   await openRow(tree, "Thesis");
   const viewer = tree.root.findByType(WorkshopPdfViewer);
   assert.deepEqual(viewer.props, { sessionId: SESSION, projectId: "p2", authHeaders: h.client.authHeaders });
   assert.ok(tree.root.findAll((n) => n.props.href === "https://www.overleaf.com/project/p2").length > 0, "Open in Overleaf");
-  await tab(tree, "Write");
   assert.match(text(tree), /Live editing needs the WeaveForge desktop app/);
+  assert.deepEqual(layoutTabs(tree), [], "no layout switch without the editor");
   await act(async () => button(tree, "Overleaf").props.onClick());
   assert.equal(rows(tree).length, 2);
+  await act(async () => tree.unmount());
+});
+
+test("in the desktop app a project opens as Overleaf does: split layout, switchable to editor or PDF", async () => {
+  const tree = await mount(harness(projectsOk, SESSION), { inShell: true });
+  await openRow(tree, "Thesis");
+  assert.deepEqual(layoutTabs(tree), ["Split", "Editor", "PDF"]);
+  const selected = () => tree.root.find((n) => n.type === "button" && n.props.role === "tab" && n.props["aria-selected"] === true);
+  assert.equal(textOf(selected()), "Split");
+  await tab(tree, "PDF");
+  assert.equal(textOf(selected()), "PDF");
+  assert.doesNotMatch(text(tree), /desktop app/);
   await act(async () => tree.unmount());
 });
 

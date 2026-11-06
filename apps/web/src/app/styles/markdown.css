@@ -76,6 +76,8 @@
 .overleaf-empty h2 { margin: 0; }
 /* Full width from the first paint: shrinking to content made the page widen when the code loaded. */
 .overleaf-detail { display: grid; gap: 12px; width: 100%; padding-bottom: 16px; }
+/* The panes fill the window, as Overleaf's do; the record's tall bottom padding made the page scroll. */
+.record.overleaf-detail { padding-bottom: 0; }
 /* An open project is its own record page, as a paper is: no list title above it. */
 .report-overleaf-screen:has(.overleaf-detail) > .screen-head { display: none; }
 /* The record title block, tighter: the editor below is the content. */
@@ -100,7 +102,11 @@
 .workshop-live { margin-top: 12px; display: grid; gap: 8px; }
 .workshop-live__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .workshop-live__bar { justify-content: flex-end; }
-.workshop-live__body { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); gap: 12px; height: 70vh; min-height: 0; }
+/* Overleaf's layout: files | editor | PDF. Hidden panes stay mounted (display none) so the connection and PDF survive a switch. */
+.workshop-live__body { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; height: calc(100vh - 368px); min-height: 420px; }
+.workshop-live__body--editor, .workshop-live__body--pdf { grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); }
+.workshop-live__body--editor .workshop-live__pdf, .workshop-live__body--pdf .workshop-live__editor { display: none; }
+.workshop-live__pdf { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
 .workshop-live__files { overflow-y: auto; min-height: 0; padding: 6px 4px; background: var(--surface-alt, var(--surface)); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .overleaf-tree, .overleaf-tree ul { list-style: none; margin: 0; padding: 0; }
 .overleaf-tree .wf-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 26px; padding-block: 2px; padding-inline-end: 8px; font-size: var(--fs-sm); text-align: start; justify-content: flex-start; }
@@ -109,8 +115,18 @@
 .overleaf-tree__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workshop-live__editor { min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
 .workshop-live__editor .cm-editor { height: 100%; }
-@media (max-width: 699px) { .workshop-live__body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .workshop-live__files { max-height: 25vh; } }
-.workshop-pdf { height: 80vh; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); margin-top: 12px; }
+@media (max-width: 699px) {
+  .workshop-live__body, .workshop-live__body--editor, .workshop-live__body--pdf { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; height: auto; }
+  .workshop-live__files { max-height: 25vh; }
+  .workshop-live__editor, .workshop-live__pdf { height: 70vh; }
+}
+.workshop-pdf { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; }
+.workshop-pdf__bar { display: flex; align-items: center; gap: 8px 12px; }
+.workshop-pdf__view { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+/* The browser shows the PDF alone, under the line saying editing needs the app. */
+.overleaf-detail__body > .workshop-pdf { margin-top: 12px; height: calc(100vh - 368px); min-height: 420px; }
+/* The pane scrolls itself; the reader's title-bar offset left a gap above its toolbar. */
+.workshop-pdf .pdf-reader-chrome { top: 0; }
 .linked-overleaf-content { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .linked-overleaf-content h3 { margin: 16px 0 8px; }
 .linked-overleaf-tree { display: grid; gap: 8px; margin: 0; }
