@@ -13,6 +13,7 @@ import { describeRejection } from "@/lib/format-error";
 import { MenuItemButton } from "./controls";
 import { IconButton } from "./button";
 import { isEditCommand, runEditCommand } from "@/lib/desktop/menu-edit";
+import { showToast } from "@/lib/toast";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the
@@ -44,6 +45,17 @@ function runCommand(command: string): void {
     void desktop()
       ?.chooseVaultRoot()
       .catch((error: unknown) => logCommandFailure(command, error));
+  } else if (command === "check-updates") {
+    void desktop()
+      ?.checkUpdate()
+      .then(
+        (update) =>
+          showToast(update ? `WeaveForge ${update.version} is out — see Settings to get it` : "WeaveForge is up to date"),
+        (error: unknown) => {
+          showToast("Could not check for updates");
+          logCommandFailure(command, error);
+        },
+      );
   } else if (isEditCommand(command)) {
     runEditCommand(command, document, navigator.clipboard).catch((error: unknown) =>
       logCommandFailure(command, error),

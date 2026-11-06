@@ -4,8 +4,8 @@ import { test } from "node:test";
 
 // Page commands the native menu sends to the page (apps/shell/src/menu.rs) and
 // the page handles (menu-edit.ts, desktop-title-bar.tsx) must spell the same
-// ids. Only the edit-*, choose-workspace and search family is checked here.
-const COMMAND = /"(edit-[a-z-]+|choose-workspace|search)"/g;
+// ids. Only the edit-*, choose-workspace, check-updates and search family is checked here.
+const COMMAND = /"(edit-[a-z-]+|choose-workspace|check-updates|search)"/g;
 
 function commandsIn(source: string): Set<string> {
   return new Set([...source.matchAll(COMMAND)].map((match) => String(match[1])));
