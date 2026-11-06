@@ -30,6 +30,21 @@ export function nativeEmbedBridge(bridge: DesktopBridge | null = desktop()): Nat
     : null;
 }
 
+/**
+ * Embedders holding each model, per bridge: the shell keeps one copy of a model,
+ * so it is unloaded only when the last embedder using it is disposed.
+ */
+const holders = new WeakMap<NativeEmbedBridge, Map<string, number>>();
+
+function holdersOf(bridge: NativeEmbedBridge): Map<string, number> {
+  let counts = holders.get(bridge);
+  if (!counts) {
+    counts = new Map();
+    holders.set(bridge, counts);
+  }
+  return counts;
+}
+
 export class NativeEmbedder implements IEmbedder {
   readonly id: string;
   dimensions = 0;
@@ -37,6 +52,8 @@ export class NativeEmbedder implements IEmbedder {
   readonly minScore: number;
   private readonly profile: EmbeddingModelProfile;
   private ready: Promise<void> | null = null;
+  /** Counted in `holders` since the first load and until `dispose`. */
+  private held = false;
 
   constructor(
     private readonly bridge: NativeEmbedBridge,
@@ -53,6 +70,11 @@ export class NativeEmbedder implements IEmbedder {
    */
   load(): Promise<void> {
     if (this.ready) return this.ready;
+    if (!this.held) {
+      this.held = true;
+      const counts = holdersOf(this.bridge);
+      counts.set(this.profile.id, (counts.get(this.profile.id) ?? 0) + 1);
+    }
     const ready = this.start();
     this.ready = ready;
     // Clear only our own promise: a later load must not be dropped by an older failure.
@@ -73,9 +95,21 @@ export class NativeEmbedder implements IEmbedder {
     return rows.map((row) => new Float32Array(row));
   }
 
-  /** Release the shell's copy of this model now instead of when it goes idle. */
+  /**
+   * Release the shell's copy of this model now instead of when it goes idle, once
+   * no other embedder of the same model still uses it.
+   */
   dispose(): void {
     this.ready = null;
+    if (!this.held) return;
+    this.held = false;
+    const counts = holdersOf(this.bridge);
+    const left = (counts.get(this.profile.id) ?? 1) - 1;
+    if (left > 0) {
+      counts.set(this.profile.id, left);
+      return;
+    }
+    counts.delete(this.profile.id);
     this.bridge.embedUnload?.(this.profile.id).catch(() => {});
   }
 
