@@ -10,11 +10,25 @@ use crate::sidecar::SidecarError;
 /// The native Postgres database.
 pub type NativeDb = Arc<PgHost<PgEngine>>;
 
-/// The error every command returns. The bridge shim throws `new Error(message)`.
+/// The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
 pub struct ShellError {
     /// Human-readable message, shown as-is by the UI.
     pub message: String,
+    /// A stable name the page matches on instead of the message, when the error has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+}
+
+impl ShellError {
+    /// An error the page can tell apart by `code`.
+    #[must_use]
+    pub fn coded(code: &str, message: &str) -> Self {
+        Self {
+            message: message.to_owned(),
+            code: Some(code.to_owned()),
+        }
+    }
 }
 
 /// The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts.
@@ -37,12 +51,16 @@ pub type Json = specta_typescript::Unknown<Value>;
 fn shell_error(message: impl Into<String>) -> ShellError {
     ShellError {
         message: message.into(),
+        code: None,
     }
 }
 
 impl From<String> for ShellError {
     fn from(message: String) -> Self {
-        Self { message }
+        Self {
+            message,
+            code: None,
+        }
     }
 }
 

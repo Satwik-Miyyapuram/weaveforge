@@ -238,9 +238,9 @@ pub async fn app_log_reveal(
     log: tauri::State<'_, AppLog>,
 ) -> Result<(), ShellError> {
     use tauri_plugin_opener::OpenerExt as _;
-    app.opener()
-        .reveal_item_in_dir(log.path())
-        .map_err(|_| ShellError {
-            message: "Could not show the log file. It may not have been written yet.".to_owned(),
-        })
+    app.opener().reveal_item_in_dir(log.path()).map_err(|_| {
+        ShellError::from(
+            "Could not show the log file. It may not have been written yet.".to_owned(),
+        )
+    })
 }

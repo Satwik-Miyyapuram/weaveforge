@@ -20,8 +20,8 @@ export interface NativeEmbedderOptions {
   onProgress?(loaded: number, total: number): void;
 }
 
-/** The shell's message when the model was dropped while idle (apps/shell/src/embed.rs `NOT_LOADED`). */
-export const NOT_LOADED = "The model is not loaded.";
+/** The shell's error code when the model was dropped while idle (apps/shell/src/embed.rs `NOT_LOADED_CODE`). */
+export const NOT_LOADED_CODE = "NOT_LOADED";
 
 /** The shell's encoder, when this build has one; null in the browser. */
 export function nativeEmbedBridge(bridge: DesktopBridge | null = desktop()): NativeEmbedBridge | null {
@@ -84,7 +84,7 @@ export class NativeEmbedder implements IEmbedder {
     try {
       return await this.bridge.embedTexts(this.profile.id, texts, kind);
     } catch (error) {
-      if (!(error instanceof Error) || error.message !== NOT_LOADED) throw error;
+      if (!isNotLoaded(error)) throw error;
       this.ready = null;
       await this.load();
       return this.bridge.embedTexts(this.profile.id, texts, kind);
@@ -103,6 +103,10 @@ export class NativeEmbedder implements IEmbedder {
       unsubscribe?.();
     }
   }
+}
+
+function isNotLoaded(error: unknown): boolean {
+  return error instanceof Error && (error as { code?: unknown }).code === NOT_LOADED_CODE;
 }
 
 function abortReason(signal: AbortSignal): unknown {

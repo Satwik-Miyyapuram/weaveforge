@@ -142,9 +142,7 @@ pub async fn plan_widget_data(db: tauri::State<'_, LocalDb>) -> Result<Json, She
         .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
     let data =
         wf_core::plan::feed::plan_widget_data(&items, false, Some(PLAN_WIDGET_LIMIT), now_ms);
-    serde_json::from_value(data).map_err(|_| ShellError {
-        message: "plan widget: bad data".to_owned(),
-    })
+    serde_json::from_value(data).map_err(|_| ShellError::from("plan widget: bad data".to_owned()))
 }
 
 /// Brings the app forward on its plan page, opening the main window if it is closed.
@@ -154,9 +152,7 @@ pub async fn plan_widget_data(db: tauri::State<'_, LocalDb>) -> Result<Json, She
 #[tauri::command]
 #[specta::specta]
 pub async fn plan_widget_open(app: tauri::AppHandle) -> Result<(), ShellError> {
-    window::show_plan(&app).map_err(|e| ShellError {
-        message: format!("Could not open the plan: {e}"),
-    })
+    window::show_plan(&app).map_err(|e| ShellError::from(format!("Could not open the plan: {e}")))
 }
 
 /// Opens the widget at start when it is on and the build is Windows.
