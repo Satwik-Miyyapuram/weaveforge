@@ -36,6 +36,8 @@ const SAVED_SESSION: &str = "overleaf-session";
 pub struct WorkshopSessions {
     map: Mutex<HashMap<String, String>>,
     keychain: Option<crate::secrets::Secrets>,
+    /// Open live-edit connections.
+    live: crate::overleaf_live::Rooms,
 }
 
 impl WorkshopSessions {
@@ -55,6 +57,7 @@ impl WorkshopSessions {
         Self {
             map: Mutex::new(map),
             keychain: Some(secrets),
+            live: crate::overleaf_live::Rooms::default(),
         }
     }
 
@@ -135,6 +138,11 @@ pub fn format_uuid_v4(mut bytes: [u8; 16]) -> String {
 }
 
 /// A fresh random session id.
+/// A random id for a live-edit connection.
+pub(crate) fn new_live_id() -> Option<String> {
+    new_session_id()
+}
+
 fn new_session_id() -> Option<String> {
     let mut bytes = [0u8; 16];
     getrandom::fill(&mut bytes).ok()?;
@@ -461,6 +469,36 @@ async fn compile_route(
     result.unwrap_or_else(|message| error(502, &safe_overleaf_error(&message, Some(&cookies))))
 }
 
+/// POST live/<action>: live editing (`overleaf_live`). `open` signs in again for the socket cookie.
+async fn live_route(
+    client: &reqwest::Client,
+    sessions: &WorkshopSessions,
+    action: &str,
+    body: &[u8],
+) -> Answer {
+    let body = match parse_body(body) {
+        Ok(v) => v,
+        Err(answer) => return answer,
+    };
+    let mut cookies = None;
+    if action == "open"
+        && let Some(saved) = read_workshop_session_id(&body)
+            .ok()
+            .and_then(|id| sessions.get(&id))
+    {
+        match login(client, &saved).await {
+            Ok(who) => cookies = Some(who.cookies),
+            Err(message) => return error(502, &safe_overleaf_error(&message, Some(&saved))),
+        }
+    }
+    let opener = crate::overleaf_live::Opener {
+        client,
+        base: BASE,
+        rooms: &sessions.live,
+    };
+    crate::overleaf_live::serve(&opener, action, &body, cookies).await
+}
+
 /// The answer to one Workshop request; `path` starts with `PREFIX`.
 pub async fn serve(
     client: &reqwest::Client,
@@ -477,6 +515,9 @@ pub async fn serve(
         ("POST", "projects") => projects(client, sessions, body).await,
         ("POST", "compile") => compile_route(client, sessions, body, false).await,
         ("POST", "pdf") => compile_route(client, sessions, body, true).await,
+        ("POST", live) if live.starts_with("live/") => {
+            live_route(client, sessions, &live["live/".len()..], body).await
+        }
         (_, "session" | "projects" | "compile" | "pdf") => error(405, "Method not allowed."),
         _ => error(404, "Not found."),
     }

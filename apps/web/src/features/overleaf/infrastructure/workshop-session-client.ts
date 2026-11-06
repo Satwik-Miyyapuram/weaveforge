@@ -70,9 +70,10 @@ export async function signOutOfWorkshop(deps: WorkshopClientDeps, sessionId: str
   }
 }
 
-type Posted = { ok: true; body: unknown } | { ok: false; status: number; expired: boolean; message: string };
+export type Posted = { ok: true; body: unknown } | { ok: false; status: number; expired: boolean; message: string };
 
-async function post(deps: WorkshopClientDeps, path: string, payload: unknown): Promise<Posted> {
+/** POSTs JSON to one of the app's Workshop routes; every failure is a message. */
+export async function post(deps: WorkshopClientDeps, path: string, payload: unknown): Promise<Posted> {
   let res: Response;
   try {
     res = await deps.fetch(path, {

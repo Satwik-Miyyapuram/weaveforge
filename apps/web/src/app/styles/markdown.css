@@ -103,6 +103,15 @@
 .overleaf-connect__option .muted { font-size: var(--fs-sm); }
 .overleaf-connect__fallback summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
 /* Compiled Overleaf PDF in the in-app reader. */
+.workshop-live { margin-top: 12px; display: grid; gap: 8px; }
+.workshop-live__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.workshop-live__bar > strong { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.workshop-live__body { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr); gap: 12px; height: 70vh; min-height: 0; }
+.workshop-live__files { display: flex; flex-direction: column; align-items: stretch; gap: 2px; overflow-y: auto; min-height: 0; }
+.workshop-live__files > * { justify-content: flex-start; text-align: left; overflow-wrap: anywhere; }
+.workshop-live__editor { min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.workshop-live__editor .cm-editor { height: 100%; }
+@media (max-width: 699px) { .workshop-live__body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .workshop-live__files { max-height: 25vh; } }
 .workshop-pdf { height: 80vh; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); margin-top: 12px; }
 .linked-overleaf-content { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .linked-overleaf-content h3 { margin: 16px 0 8px; }
