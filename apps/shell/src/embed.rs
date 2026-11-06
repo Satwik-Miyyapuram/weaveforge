@@ -10,7 +10,10 @@ use wf_store::embed::{EmbedKind, Encoder, MODEL_FILES, profile_for};
 
 use crate::app_route::AppRoutes;
 use crate::commands::ShellError;
-use crate::model_cache::{UPSTREAM, is_cache_part, serve_model_file};
+use crate::model_cache::{
+    FOLDER_FULL, ModelDownload, STOPPED, UPSTREAM, cancel_downloads_under, is_cache_part,
+    serve_model_file,
+};
 
 /// A model is dropped after this long without an embed.
 pub const IDLE_EVICT: Duration = Duration::from_secs(5 * 60);
@@ -25,6 +28,11 @@ pub const NOT_LOADED: &str = "The model is not loaded.";
 pub const BAD_MODEL: &str = "That model name cannot be used.";
 /// Said when a model file could not be downloaded.
 pub const DOWNLOAD_FAILED: &str = "The model files could not be downloaded.";
+/// Said when the models folder has no room for another model.
+pub const FOLDER_FULL_MESSAGE: &str =
+    "The models folder is full. Free space in Settings › Data, then try again.";
+/// Said when the reader stopped the download.
+pub const DOWNLOAD_STOPPED: &str = "Download stopped.";
 /// Said when a model file is missing and no client can fetch it.
 pub const NO_CLIENT: &str = "Models cannot be downloaded in this build.";
 /// Said when the blocking task that embeds or loads the model panicked.
@@ -232,8 +240,11 @@ async fn ensure_files(
             let client = client.ok_or_else(|| ShellError::from(NO_CLIENT.to_owned()))?;
             let path = file_path(model, file);
             let reply = serve_model_file(client, models, &path, UPSTREAM, Some("bytes=0-0")).await;
-            if !matches!(reply.status, 200 | 206) {
-                return Err(ShellError::from(DOWNLOAD_FAILED.to_owned()));
+            match reply.status {
+                200 | 206 => {}
+                FOLDER_FULL => return Err(ShellError::from(FOLDER_FULL_MESSAGE.to_owned())),
+                STOPPED => return Err(ShellError::from(DOWNLOAD_STOPPED.to_owned())),
+                _ => return Err(ShellError::from(DOWNLOAD_FAILED.to_owned())),
             }
         }
         let loaded = u32::try_from(i + 1).unwrap_or(0);
@@ -355,6 +366,29 @@ pub async fn embed_unload(
     let gate = slot.gates.gate(&model);
     let _gate = gate.lock().await;
     slot.models.remove(&model);
+    Ok(())
+}
+
+/// The model files downloading now, with bytes done and the full size when known.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn model_downloads() -> Result<Vec<ModelDownload>, ShellError> {
+    Ok(crate::model_cache::model_downloads())
+}
+
+/// Stops the model downloads in flight; each keeps what it has, and the next load resumes it.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn cancel_model_downloads(app: tauri::AppHandle) -> Result<(), ShellError> {
+    if let Some(routes) = app.try_state::<AppRoutes>() {
+        cancel_downloads_under(&routes.models);
+    }
     Ok(())
 }
 

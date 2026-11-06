@@ -260,6 +260,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::embed::embed_load,
         crate::embed::embed_texts,
         crate::embed::embed_unload,
+        crate::embed::model_downloads,
+        crate::embed::cancel_model_downloads,
         crate::menu::commands::menu_model,
         crate::menu::commands::menu_invoke,
         crate::menu::commands::title_bar_colors,

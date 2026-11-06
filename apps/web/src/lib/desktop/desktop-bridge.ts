@@ -292,6 +292,10 @@ export interface DesktopBridge {
   embedTexts?(model: string, texts: string[], kind: "passage" | "query"): Promise<number[][]>;
   /** Drops `model` from the shell now instead of when it goes idle. */
   embedUnload?(model: string): Promise<void>;
+  /** Model files downloading now, with bytes so far and in all (null when unknown). */
+  modelDownloads?(): Promise<{ file: string; done: number; total: number | null }[]>;
+  /** Stops every model download; each keeps what it has to resume next time. */
+  cancelModelDownloads?(): Promise<void>;
   /** Model files ready so far, per model, while `embedLoad` runs; returns an unsubscribe. */
   onEmbedProgress?(listener: (loaded: number, total: number, model: string) => void): () => void;
   compileTex(

@@ -23,6 +23,7 @@ import {
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
 import { LibraryPdfIndexing, IndexSize } from "./library-pdf-indexing";
+import { ModelDownloadLine } from "./model-download-line";
 import { typedCore } from "@/lib/rust-core";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
@@ -285,6 +286,7 @@ function SemanticStatusLine({ status }: { status: SemanticStatus }) {
   return (
     <div className="semantic-status" data-phase={status.phase} aria-live="polite">
       <p className={status.phase === "error" ? "form-error" : "muted"}>{text}</p>
+      {status.phase === "downloading" && <ModelDownloadLine />}
     </div>
   );
 }
