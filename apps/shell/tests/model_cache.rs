@@ -348,6 +348,47 @@ async fn two_asks_for_one_file_at_once_download_it_once() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_joiner_whose_leader_could_not_store_the_file_downloads_it_itself() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    // The rename cannot land, so the leader serves its bytes but leaves no file to share.
+    put(&root.join(CONFIG_FILE).join("blocker"), b"x");
+    let up = serve(vec![(
+        CONFIG,
+        vec![response(200, &[], b"{}"), response(200, &[], b"{}")],
+    )])
+    .await;
+    let client = client();
+    let target = base(&up);
+
+    let (a, b) = tokio::join!(
+        serve_model_file(&client, &root, CONFIG, &target, None),
+        serve_model_file(&client, &root, CONFIG, &target, None),
+    );
+
+    assert_eq!([a.status, b.status], [200, 200], "the joiner is not 502");
+    assert_eq!(b.body, b"{}".to_vec());
+    assert_eq!(up.seen().len(), 2, "the joiner made its own download");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_joiner_whose_leader_got_404_is_404_without_asking_again() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    let up = serve(vec![(CONFIG, vec![response(404, &[], b"")])]).await;
+    let client = client();
+    let target = base(&up);
+
+    let (a, b) = tokio::join!(
+        serve_model_file(&client, &root, CONFIG, &target, None),
+        serve_model_file(&client, &root, CONFIG, &target, None),
+    );
+
+    assert_eq!([a.status, b.status], [404, 404]);
+    assert_eq!(up.seen().len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_later_ask_after_a_finished_download_downloads_again() {
     let dir = TempDir::new();
     let root = dir.path().join("models");
