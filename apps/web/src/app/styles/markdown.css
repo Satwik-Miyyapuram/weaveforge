@@ -153,11 +153,13 @@
   .overleaf-toolbar__extra { display: none; }
   .overleaf-toolbar__more { display: inline-flex; }
 }
-@container (max-width: 300px) {
+@container (max-width: 440px) {
   .overleaf-toolbar .custom-select-container, .overleaf-toolbar .custom-select-container + .overleaf-toolbar__sep { display: none; }
 }
 .overleaf-toolbar__sep { flex: none; width: 1px; height: 18px; margin-inline: 4px; background: var(--line); }
 .overleaf-toolbar__grow { flex: 1; }
+.overleaf-toolbar__mode.view-switch { flex: none; margin-left: 0; }
+:root:root .overleaf-toolbar__mode button { min-height: 28px; padding: 0 8px; font-size: var(--fs-sm); }
 .overleaf-crumbs { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: var(--fs-sm); color: var(--muted); border-bottom: 1px solid var(--line); }
 .overleaf-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .overleaf-crumbs li + li::before { content: "\203A"; margin-inline-end: 4px; }
@@ -172,6 +174,16 @@
 :root:root .workshop-live__editor :is(.cm-tex-math, .cm-tex-math *) { color: color-mix(in srgb, var(--st-positive-bg) 55%, var(--ink)); }
 :root:root .workshop-live__editor :is(.cm-tex-comment, .cm-tex-comment *) { color: var(--faint); font-style: italic; }
 :root:root .workshop-live__editor :is(.cm-tex-bracket, .cm-tex-bracket *) { color: var(--muted); }
+/* Visual Editor (ui/latex-visual-mode.ts): the source drawn as it prints. */
+.workshop-live__editor .cm-line:is(.cm-vis-h1, .cm-vis-h2, .cm-vis-h3, .cm-vis-h4) { font-family: var(--font-serif, Georgia, serif); font-weight: 700; color: var(--ink); }
+.workshop-live__editor .cm-line.cm-vis-h1 { font-size: 1.6em; }
+.workshop-live__editor .cm-line.cm-vis-h2 { font-size: 1.35em; }
+.workshop-live__editor .cm-line.cm-vis-h3 { font-size: 1.15em; }
+.workshop-live__editor .cm-line:is(.cm-vis-h1, .cm-vis-h2, .cm-vis-h3, .cm-vis-h4) * { color: inherit; }
+.workshop-live__editor .cm-vis-bold { font-weight: 700; }
+.workshop-live__editor .cm-vis-italic { font-style: italic; }
+.workshop-live__editor .cm-vis-bullet { display: inline-block; width: 1.2em; color: var(--ink); font-weight: 700; }
+.workshop-live__editor .cm-vis-math { padding-inline: 1px; color: var(--ink); }
 .workshop-live__editor .cm-foldGutter .cm-gutterElement { padding-inline: 2px; color: var(--muted); cursor: pointer; }
 @media (max-width: 699px) {
   .record.overleaf-detail { height: auto; }
