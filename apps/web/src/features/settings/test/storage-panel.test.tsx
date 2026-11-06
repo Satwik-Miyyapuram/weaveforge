@@ -14,7 +14,7 @@ const g = globalThis as { window?: unknown };
 const original = g.window;
 after(() => { g.window = original; });
 
-type Area = { id: string; bytes: number; files: number };
+type Area = { id: string; bytes: number; files: number; limit?: number | null };
 
 function stubWindow(areas: Area[], clear: (id: string) => Promise<void> = async () => {}) {
   const calls = { usage: 0, cleared: [] as string[] };
@@ -67,15 +67,17 @@ test("shows nothing without the bridge", async () => {
 test("lists each folder with its size", async () => {
   stubWindow([
     { id: "artifacts", bytes: 0, files: 0 },
-    { id: "models", bytes: 5 * 1024 * 1024, files: 2 },
-    { id: "log", bytes: 2048, files: 1 },
+    { id: "models", bytes: 5 * 1024 * 1024, files: 2, limit: 4 * 1024 ** 3 },
+    { id: "log", bytes: 2048, files: 1, limit: null },
   ]);
   const tree = await mount();
   const text = textOf(tree.root);
   assert.match(text, /Space on this computer/);
   assert.match(text, /Saved artifacts.*Empty/);
-  assert.match(text, /Downloaded models.*5\.0 MB/);
+  assert.match(text, /Downloaded models.*5\.0 MB of 4\.0 GB/);
   assert.match(text, /Application log.*2\.0 KB/);
+  // Only a capped folder names its cap.
+  assert.doesNotMatch(text, /KB of/);
   // An empty folder has nothing to clear.
   assert.equal(buttons(tree, "Clear").length, 2);
   await act(async () => tree.unmount());

@@ -827,7 +827,8 @@
       storageUsage: async () => unwrap(await cmds.appStorageUsage()).map((area) => ({
         id: area.id,
         bytes: area.bytes ?? 0,
-        files: area.files ?? 0
+        files: area.files ?? 0,
+        limit: area.limit ?? null
       })),
       clearStorage: async (id) => {
         unwrap(await cmds.appStorageClear(id));
