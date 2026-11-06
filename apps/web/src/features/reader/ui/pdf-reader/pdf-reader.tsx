@@ -159,8 +159,10 @@ export function PdfReader({
   // The writing page beside each PDF page is a setting, not the pen's: when it
   // followed the pen, every time the pen came out the pages halved and the
   // layout jumped from one page to two and back.
-  const [writingPage, setWritingPage] = useState(true);
+  const [writingPageSetting, setWritingPage] = useState(true);
   useEffect(() => setWritingPage(readWritingPage()), []);
+  // Nothing gets written on a view-only PDF, so it never has the writing page.
+  const writingPage = writingPageSetting && !viewOnly;
   const toggleWritingPage = useCallback((on: boolean) => {
     writeWritingPage(on);
     setWritingPage(on);
@@ -1524,13 +1526,15 @@ export function PdfReader({
         <div className="pdf-reader-tools">
           {/* Wide screens switch tabs in the expanded sidebar. */}
           <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
-            <ViewSwitch
-              label="Sidebar view"
-              className="pdf-reader-side-seg pdf-reader-narrow-only"
-              value={sideCollapsed ? null : activeSideTab}
-              onChange={selectSideTab}
-              options={sideTabs}
-            />
+            {!viewOnly && (
+              <ViewSwitch
+                label="Sidebar view"
+                className="pdf-reader-side-seg pdf-reader-narrow-only"
+                value={sideCollapsed ? null : activeSideTab}
+                onChange={selectSideTab}
+                options={sideTabs}
+              />
+            )}
             {toolbarExtra}
           </div>
           <span className="pdf-reader-focus-btn">
@@ -1567,7 +1571,7 @@ export function PdfReader({
             onFitWidth: penOpen ? undefined : viewport.fitWidth,
             onRotate: viewport.rotateClockwise,
             writingPage,
-            onWritingPage: toggleWritingPage,
+            onWritingPage: viewOnly ? undefined : toggleWritingPage,
           }}
           find={
             <ReaderSearchBar
@@ -1930,7 +1934,7 @@ export function PdfReader({
             hiding it moved the page under the pen. Focus gives the full width. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <span className="pdf-reader-side-rail">
           <RowButton
             aria-expanded={false}
@@ -1952,7 +1956,7 @@ export function PdfReader({
           </RowButton>
           </span>
         )}
-        {!sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
               <ViewSwitch

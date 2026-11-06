@@ -74,7 +74,8 @@
 .overleaf-star { color: var(--accent); }
 .overleaf-empty { display: grid; gap: 12px; justify-items: start; padding: 24px; border: 1px dashed var(--line); border-radius: var(--r-control); }
 .overleaf-empty h2 { margin: 0; }
-.overleaf-detail { display: grid; gap: 12px; padding-bottom: 16px; }
+/* Full width from the first paint: shrinking to content made the page widen when the code loaded. */
+.overleaf-detail { display: grid; gap: 12px; width: 100%; padding-bottom: 16px; }
 /* An open project is its own record page, as a paper is: no list title above it. */
 .report-overleaf-screen:has(.overleaf-detail) > .screen-head { display: none; }
 /* The record title block, tighter: the editor below is the content. */
