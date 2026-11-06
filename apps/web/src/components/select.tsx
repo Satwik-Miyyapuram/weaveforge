@@ -74,6 +74,7 @@ export function Select({
   onChange,
   className = "",
   disabled,
+  title,
   children,
   "aria-label": ariaLabel,
   "aria-describedby": ariaDescribedBy,
@@ -248,6 +249,7 @@ export function Select({
         id={id}
         data-status={isStatus ? val : undefined}
         disabled={disabled}
+        title={title}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid}

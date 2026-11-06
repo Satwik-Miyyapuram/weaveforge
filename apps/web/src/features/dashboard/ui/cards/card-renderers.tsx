@@ -83,7 +83,7 @@ function AttentionList({
       {visible.map((a) => (
         <li key={`${a.href}:${a.label}`}>
           <Link href={a.href} className="dashboard-list-row">
-            <span>{a.label}</span>
+            <span title={a.label}>{a.label}</span>
             <span className="dashboard-list-arrow" aria-hidden>→</span>
           </Link>
         </li>
@@ -158,7 +158,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
           <li key={e.id}>
             <Link href={e.href} className="dashboard-list-row dashboard-log-row">
               <span className="dashboard-log-date">{e.date}</span>
-              <span className="dashboard-log-preview">{e.preview}</span>
+              <span className="dashboard-log-preview" title={e.preview}>{e.preview}</span>
             </Link>
           </li>
         ))}
@@ -256,7 +256,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
         {/* The whole card opens the student (the link's ::after covers it). */}
         <Link href={`/supervision?member=${member.id}`} className="dashboard-stat-link dashboard-supervisee-link">
           {picker ? null : (
-            <p className="dashboard-supervisee-name">{member.fullName || member.email}</p>
+            <p className="dashboard-supervisee-name" title={member.fullName || member.email}>{member.fullName || member.email}</p>
           )}
           <p className="dashboard-card-meta">
             Milestones: {summary.milestonesDone}/{summary.milestonesTotal}

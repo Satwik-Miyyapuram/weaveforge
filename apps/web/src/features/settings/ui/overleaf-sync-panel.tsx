@@ -19,6 +19,11 @@ const ACTIONS = {
   push: ["Push", "Pushing…"],
 } as const;
 
+const TIPS: Partial<Record<keyof typeof ACTIONS, string>> = {
+  pull: "Bring Overleaf's changes into this folder. Commits your edits first; stops if a file changed on both sides.",
+  push: "Send your edits to Overleaf. Never overwrites changes made on Overleaf.",
+};
+
 /**
  * Overleaf projects synced into folders of the vault over Overleaf's git
  * bridge. Desktop only; the caller renders it when the shell can sync.
@@ -158,6 +163,7 @@ export function OverleafSyncPanel({ onPulled }: { onPulled?: () => void }) {
                     key={action}
                     variant="secondary"
                     disabled={busy !== null || !hasToken}
+                    title={TIPS[action]}
                     onClick={() => void act(link, action)}
                   >
                     {busy === `${action}:${link.projectId}` ? ACTIONS[action][1] : ACTIONS[action][0]}

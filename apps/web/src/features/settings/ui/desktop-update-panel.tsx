@@ -157,7 +157,7 @@ export function DesktopUpdatePanel() {
         </p>
       )}
 
-      <Button onClick={check} disabled={!checked}>
+      <Button onClick={check} disabled={!checked} title={!checked ? "A check is already running" : undefined}>
         {checked ? "Check now" : "Checking…"}
       </Button>
 

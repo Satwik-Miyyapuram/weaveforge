@@ -15,18 +15,21 @@ export function StatusSelect<S extends string>({
   onChange,
   disabled,
   label,
+  title,
 }: {
   value: S;
   statuses: readonly S[];
   onChange: (status: S) => void;
   disabled?: boolean;
   label: string;
+  title?: string;
 }) {
   return (
     <Select
       className="status-select"
       value={value}
       disabled={disabled}
+      title={title}
       onChange={(e) => onChange(e.target.value as S)}
       aria-label={label}
     >
