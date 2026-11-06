@@ -176,7 +176,8 @@ const MATTERMOST_WINDOW: SignInWindow = SignInWindow {
 };
 
 /// Opens a login page in a fresh in-memory window. Popups are always denied; http(s)
-/// ones open in the OS browser instead, so no script-driven window is ever created.
+/// ones open in the OS browser instead (at most one a second, shared with the main window), so no
+/// script-driven window is ever created.
 ///
 /// # Errors
 /// `()` when the window cannot be built; each caller answers its own message.
@@ -193,6 +194,7 @@ pub(crate) fn open_window(
         .incognito(true)
         .on_new_window(move |url, _features| {
             if popup_opens_in_browser(&url)
+                && crate::outside_gate::admit_now()
                 && let Err(error) = popup_app.opener().open_url(url.as_str(), None::<&str>)
                 && let Some(log) = popup_app.try_state::<crate::app_log::AppLog>()
             {
