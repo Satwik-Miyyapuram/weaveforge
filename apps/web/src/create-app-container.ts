@@ -116,6 +116,7 @@ import { WorkspaceSearch } from "@/features/search/application/workspace-search"
 import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
 import { closeFolder } from "@/features/workspace/application/workspace-folder";
 import { relayUrl } from "@/lib/relay-url";
+import { readInkHapticsOn } from "@/lib/ink-haptics-preference";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -654,6 +655,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       chunks: inkChunkStore,
       assets: vaultAssetStore,
       bridge: desktop,
+      hapticsOn: readInkHapticsOn,
       vocabulary: async () => {
         const [pages, papers] = await Promise.all([
           // Titles only — the projection is the right read, now that the port

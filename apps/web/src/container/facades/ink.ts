@@ -43,6 +43,8 @@ export class InkFacade {
       bridge: () => DesktopBridge | null;
       /** Titles the vocabulary hints are built from. */
       vocabulary: () => Promise<readonly (readonly string[])[]>;
+      /** The Settings switch for pen haptics; on when absent. */
+      hapticsOn?: () => boolean;
     },
   ) {}
 
@@ -92,6 +94,8 @@ export class InkFacade {
    * machine's, not the note's.
    */
   haptics(): Promise<PenHaptics | null> {
+    // Read on each call, not cached: the pen asks when an ink page opens, so a change applies from the next one.
+    if (this.deps.hapticsOn && !this.deps.hapticsOn()) return Promise.resolve(null);
     this.hapticsProbe ??= (async () => {
       const bridge = this.deps.bridge();
       if (!bridge || typeof bridge.inkHapticsAvailable !== "function")

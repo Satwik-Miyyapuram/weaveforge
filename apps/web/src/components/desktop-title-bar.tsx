@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { openSearchPalette } from "./jump-to-palette";
 import { requestShortcuts } from "@/lib/palette-actions";
+import { goToRoute } from "@/lib/go-to-route";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -131,7 +132,7 @@ export function DesktopTitleBar() {
       const detail = (event as CustomEvent<{ route?: unknown; command?: unknown }>).detail;
       if (typeof detail?.route === "string") {
         event.preventDefault();
-        router.push(detail.route);
+        goToRoute(detail.route, (to) => router.push(to));
       } else if (typeof detail?.command === "string") runCommand(detail.command);
     };
     window.addEventListener(MENU_COMMAND_EVENT, onCommand);
@@ -167,7 +168,7 @@ export function DesktopTitleBar() {
       if (item.kind === "separator" || !item.enabled) return;
       close();
       if (item.route) {
-        router.push(item.route);
+        goToRoute(item.route, (to) => router.push(to));
         return;
       }
       if (item.command) {

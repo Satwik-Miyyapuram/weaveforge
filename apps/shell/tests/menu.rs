@@ -163,6 +163,16 @@ fn route_entries_call_go_to_with_their_route() {
     }
 }
 
+#[cfg(windows)]
+#[test]
+fn view_menu_opens_the_desktop_widget_settings() {
+    let host = FakeHost::default();
+    let groups = menu_model(&host);
+    let id = id_of(&groups, "View", "Desktop deadlines widget…");
+    menu_invoke(&host, &id).expect("invoke");
+    assert_eq!(calls(&host), ["go_to:/settings#settings-calendar"]);
+}
+
 #[test]
 fn search_entry_calls_page_command_search() {
     let host = FakeHost::default();

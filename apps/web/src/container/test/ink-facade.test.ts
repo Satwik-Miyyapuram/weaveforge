@@ -32,3 +32,17 @@ test("ink facade: assets methods survive being passed around unbound", async () 
   // Stable across reads, so a hook keyed on the function does not refetch.
   assert.equal(facade.assets.fetchBlob, fetchBlob);
 });
+
+test("ink facade: haptics follow the setting, read on each call", async () => {
+  let on = false;
+  const facade = new InkFacade({
+    chunks: {} as never,
+    assets: new Store(),
+    bridge: () => ({ inkHapticsAvailable: async () => true, inkHaptics: () => undefined }) as never,
+    vocabulary: async () => [],
+    hapticsOn: () => on,
+  });
+  assert.equal(await facade.haptics(), null);
+  on = true;
+  assert.notEqual(await facade.haptics(), null);
+});
