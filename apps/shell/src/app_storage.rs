@@ -88,6 +88,8 @@ pub struct StorageArea {
     pub bytes: f64,
     /// How many files.
     pub files: f64,
+    /// The most the folder may hold, when the app caps it (only `models`).
+    pub limit: Option<f64>,
 }
 
 fn folder(app: &tauri::AppHandle, id: &str) -> Option<PathBuf> {
@@ -101,6 +103,7 @@ fn shown(id: &str, usage: Usage) -> StorageArea {
         id: id.to_owned(),
         bytes: usage.bytes as f64,
         files: usage.files as f64,
+        limit: (id == "models").then_some(crate::model_cache::MAX_FOLDER_BYTES as f64),
     }
 }
 

@@ -439,6 +439,8 @@ export interface DesktopStorageArea {
   id: string;
   bytes: number;
   files: number;
+  /** The most the folder may hold before downloads into it are refused; null when uncapped. */
+  limit?: number | null;
 }
 
 /**

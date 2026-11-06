@@ -239,7 +239,7 @@ export const commands = {
 	 *  # Errors
 	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
 	 */
-	appStorageUsage: () => typedError<StorageArea[], ShellError>(__TAURI_INVOKE("app_storage_usage")),
+	appStorageUsage: () => typedError<StorageArea_Serialize[], ShellError>(__TAURI_INVOKE("app_storage_usage")),
 	/**
 	 *  Empties one of the app's folders, named by id.
 	 * 
@@ -874,13 +874,30 @@ export type ShellError = {
 };
 
 /**  One area's size, as the page shows it. */
-export type StorageArea = {
+export type StorageArea = StorageArea_Serialize | StorageArea_Deserialize;
+
+/**  One area's size, as the page shows it. */
+export type StorageArea_Deserialize = {
 	/**  `artifacts`, `models` or `log`. */
 	id: string,
 	/**  Total size in bytes. */
 	bytes: number | null,
 	/**  How many files. */
 	files: number | null,
+	/**  The most the folder may hold, when the app caps it (only `models`). */
+	limit?: number | null,
+};
+
+/**  One area's size, as the page shows it. */
+export type StorageArea_Serialize = {
+	/**  `artifacts`, `models` or `log`. */
+	id: string,
+	/**  Total size in bytes. */
+	bytes: number | null,
+	/**  How many files. */
+	files: number | null,
+	/**  The most the folder may hold, when the app caps it (only `models`). */
+	limit: number | null,
 };
 
 /**  What a pull did, as the page sees it. */

@@ -79,6 +79,7 @@ export function StoragePanel() {
           <div key={area.id} className="storage-row">
             <p>
               <strong>{label.name}</strong> · {formatBytes(area.bytes)}
+              {area.limit ? ` of ${formatBytes(area.limit)}` : ""}
               <br />
               <span className="muted">{label.note}</span>
             </p>

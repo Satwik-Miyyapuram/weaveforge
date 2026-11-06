@@ -855,7 +855,10 @@ test("setPlanWidgetTheme returns undefined synchronously and swallows failures",
 });
 
 test("storageUsage returns the areas and clearStorage sends the id", async () => {
-  const areas = [{ id: "models", bytes: 12, files: 1 }];
+  const areas = [
+    { id: "models", bytes: 12, files: 1, limit: 4096 },
+    { id: "log", bytes: 3, files: 1, limit: null },
+  ];
   const ok = fakeCommands({ appStorageUsage: { status: "ok", data: areas } });
   const shim = desktopShim(ok.cmds, fakeEvents().events);
   assert.deepEqual(await shim.storageUsage?.(), areas);

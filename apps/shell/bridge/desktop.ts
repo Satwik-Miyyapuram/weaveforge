@@ -121,7 +121,7 @@ export interface DesktopCommands {
   appLogReveal(): Promise<Result<null>>;
   /** Sizes are `f64` in Rust, so the generated type allows `null` (NaN); never sent in practice. */
   appStorageUsage(): Promise<
-    Result<{ id: string; bytes: number | null; files: number | null }[]>
+    Result<{ id: string; bytes: number | null; files: number | null; limit: number | null }[]>
   >;
   appStorageClear(id: string): Promise<Result<null>>;
   localArtifactsDelete(experimentId: string): Promise<Result<null>>;
@@ -594,6 +594,7 @@ export function desktopShim(
         id: area.id,
         bytes: area.bytes ?? 0,
         files: area.files ?? 0,
+        limit: area.limit ?? null,
       })),
     clearStorage: async (id) => {
       unwrap(await cmds.appStorageClear(id));
