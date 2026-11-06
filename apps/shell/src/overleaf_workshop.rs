@@ -1,6 +1,7 @@
 //! Overleaf Workshop routes at `/api/overleaf/workshop/*`, served by the shell so the panel works
 //! in a copy with no account. Ports the hosted routes (apps/web/src/app/api/overleaf/workshop) and
-//! the vendored `BaseAPI` flow. Session cookies stay in memory under a random id; quitting forgets them.
+//! the vendored `BaseAPI` flow. Session cookies are kept under a random id; the newest one is also
+//! saved in the OS keychain (`overleaf-session`), so the sign-in survives a restart.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -27,29 +28,95 @@ const MAX_PDF: usize = 200 * 1024 * 1024;
 /// Waits before the two retries of a 5xx, 429 or network failure, as in `BaseAPI.request`.
 const RETRY_DELAYS_MS: [u64; 2] = [1000, 2000];
 
-/// Signed-in Overleaf cookies by session id, in memory only.
+/// The keychain entry holding the newest session as `{"id","cookies"}`.
+const SAVED_SESSION: &str = "overleaf-session";
+
+/// Signed-in Overleaf cookies by session id. With a keychain, the newest is saved there too.
 #[derive(Default)]
-pub struct WorkshopSessions(Mutex<HashMap<String, String>>);
+pub struct WorkshopSessions {
+    map: Mutex<HashMap<String, String>>,
+    keychain: Option<crate::secrets::Secrets>,
+}
 
 impl WorkshopSessions {
+    /// Sessions backed by `secrets`, starting with the one saved before the last quit, if any.
+    /// Reads the keychain, so it blocks briefly.
+    #[must_use]
+    pub fn remembered(secrets: crate::secrets::Secrets) -> Self {
+        let mut map = HashMap::new();
+        if let Some((id, cookies)) = secrets
+            .read(SAVED_SESSION)
+            .ok()
+            .flatten()
+            .and_then(|saved| parse_saved(&saved))
+        {
+            let _ = map.insert(id, cookies);
+        }
+        Self {
+            map: Mutex::new(map),
+            keychain: Some(secrets),
+        }
+    }
+
+    /// Saves `id` as the session to restore after a restart. Without a keychain, or when it
+    /// refuses (too long), the session stays in memory only.
+    async fn save(&self, id: &str, cookies: &str) {
+        let Some(secrets) = &self.keychain else {
+            return;
+        };
+        let saved = json!({ "id": id, "cookies": cookies }).to_string();
+        let _ = secrets
+            .queued(move |s| s.write(SAVED_SESSION, &saved))
+            .await;
+    }
+
+    /// Forgets `id`, and the saved session when it is that one.
+    async fn sign_out(&self, id: &str) {
+        self.remove(id);
+        let Some(secrets) = &self.keychain else {
+            return;
+        };
+        let id = id.to_owned();
+        let _ = secrets
+            .queued(move |s| {
+                let saved = s.read(SAVED_SESSION)?;
+                if saved
+                    .and_then(|v| parse_saved(&v))
+                    .is_some_and(|(saved_id, _)| saved_id == id)
+                {
+                    s.clear(SAVED_SESSION)?;
+                }
+                Ok(())
+            })
+            .await;
+    }
+
     /// Stores `cookies` under a new id; None when no random id could be made.
     fn insert(&self, cookies: String) -> Option<String> {
         let id = new_session_id()?;
-        let _ = self.0.lock().ok()?.insert(id.clone(), cookies);
+        let _ = self.map.lock().ok()?.insert(id.clone(), cookies);
         Some(id)
     }
 
     /// The cookies stored under `id`.
     fn get(&self, id: &str) -> Option<String> {
-        self.0.lock().ok()?.get(id).cloned()
+        self.map.lock().ok()?.get(id).cloned()
     }
 
     /// Forgets `id`.
     fn remove(&self, id: &str) {
-        if let Ok(mut map) = self.0.lock() {
+        if let Ok(mut map) = self.map.lock() {
             let _ = map.remove(id);
         }
     }
+}
+
+/// The `(id, cookies)` in a saved session, or None when it is not one.
+fn parse_saved(saved: &str) -> Option<(String, String)> {
+    let v: Value = serde_json::from_str(saved).ok()?;
+    let id = v.get("id")?.as_str()?.to_owned();
+    let cookies = v.get("cookies")?.as_str()?.to_owned();
+    (!id.is_empty() && !cookies.is_empty()).then_some((id, cookies))
 }
 
 /// A version-4 UUID, lowercase, from 16 random bytes.
@@ -284,7 +351,7 @@ fn parse_body(body: &[u8]) -> Result<Value, Answer> {
     serde_json::from_slice(body).map_err(|e| error(400, &format!("Invalid JSON body: {e}")))
 }
 
-/// POST session: verifies the cookie, keeps it in memory, and answers only its id.
+/// POST session: verifies the cookie, keeps it, and answers only its id.
 async fn sign_in(client: &reqwest::Client, sessions: &WorkshopSessions, body: &[u8]) -> Answer {
     let body = match parse_body(body) {
         Ok(v) => v,
@@ -318,13 +385,15 @@ pub(crate) async fn start_session(
     if let Err(message) = login(client, cookies).await {
         return Err((401, safe_overleaf_error(&message, Some(cookies))));
     }
-    sessions
+    let id = sessions
         .insert(cookies.to_owned())
-        .ok_or_else(|| (502, "The Overleaf session could not be stored.".to_owned()))
+        .ok_or_else(|| (502, "The Overleaf session could not be stored.".to_owned()))?;
+    sessions.save(&id, cookies).await;
+    Ok(id)
 }
 
-/// DELETE session?id=…: forgets the session.
-fn sign_out(sessions: &WorkshopSessions, query: Option<&str>) -> Answer {
+/// DELETE session?id=…: forgets the session, here and in the keychain.
+async fn sign_out(sessions: &WorkshopSessions, query: Option<&str>) -> Answer {
     let id = query
         .and_then(|q| reqwest::Url::parse(&format!("http://x/?{q}")).ok())
         .and_then(|u| {
@@ -336,7 +405,7 @@ fn sign_out(sessions: &WorkshopSessions, query: Option<&str>) -> Answer {
     if id.is_empty() {
         return error(400, "Session id required.");
     }
-    sessions.remove(&id);
+    sessions.sign_out(&id).await;
     json_answer(200, &json!({ "ok": true }), false)
 }
 
@@ -404,7 +473,7 @@ pub async fn serve(
     let action = path.strip_prefix(PREFIX).unwrap_or_default();
     match (method, action) {
         ("POST", "session") => sign_in(client, sessions, body).await,
-        ("DELETE", "session") => sign_out(sessions, query),
+        ("DELETE", "session") => sign_out(sessions, query).await,
         ("POST", "projects") => projects(client, sessions, body).await,
         ("POST", "compile") => compile_route(client, sessions, body, false).await,
         ("POST", "pdf") => compile_route(client, sessions, body, true).await,
@@ -505,6 +574,41 @@ mod tests {
         assert_eq!(sessions.get(&id).as_deref(), Some("a=1"));
         sessions.remove(&id);
         assert_eq!(sessions.get(&id), None);
+    }
+
+    fn keychain() -> crate::secrets::Secrets {
+        crate::secrets::Secrets::new(Some(keyring_core::mock::Store::new().unwrap()), "test")
+    }
+
+    #[tokio::test]
+    async fn saved_session_survives_a_restart_until_sign_out() {
+        let secrets = keychain();
+        let first = WorkshopSessions::remembered(secrets.clone());
+        let id = first.insert("a=1".to_owned()).unwrap();
+        first.save(&id, "a=1").await;
+        let stored = secrets.read(SAVED_SESSION).unwrap().unwrap();
+        assert_eq!(parse_saved(&stored), Some((id.clone(), "a=1".to_owned())));
+
+        let restarted = WorkshopSessions::remembered(secrets.clone());
+        assert_eq!(restarted.get(&id).as_deref(), Some("a=1"));
+
+        restarted.sign_out(ID).await;
+        assert!(secrets.read(SAVED_SESSION).unwrap().is_some(), "another id keeps it");
+        restarted.sign_out(&id).await;
+        assert_eq!(restarted.get(&id), None);
+        assert_eq!(secrets.read(SAVED_SESSION).unwrap(), None);
+        assert_eq!(WorkshopSessions::remembered(secrets).get(&id), None);
+    }
+
+    #[test]
+    fn saved_session_must_have_both_fields() {
+        assert_eq!(parse_saved("not json"), None);
+        assert_eq!(parse_saved(r#"{"id":"x"}"#), None);
+        assert_eq!(parse_saved(r#"{"id":"","cookies":"a=1"}"#), None);
+        assert_eq!(
+            parse_saved(r#"{"id":"x","cookies":"a=1"}"#),
+            Some(("x".to_owned(), "a=1".to_owned()))
+        );
     }
 
     #[tokio::test]

@@ -124,6 +124,11 @@ apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 # Builds need libdbus-1-dev.
 dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-rust"] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# SharedPreferences sealed with an Android Keystore key, for keyring-core. Tauri's
+# activity (tao) sets up the ndk-context it reads.
+android-native-keyring-store = { version = "=1.0.0", default-features = false }
+
 [dev-dependencies]
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
 

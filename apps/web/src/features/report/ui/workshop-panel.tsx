@@ -77,7 +77,7 @@ const CONNECT_OPTIONS: readonly { mode: ConnectMode; label: string; hint: string
 /**
  * Overleaf Workshop: sign in to Overleaf, pick a project and see the PDF Overleaf
  * compiles from the project's main document. The cookie is sent once
- * and kept by the routes (sealed on the server, or in the shell's memory when
+ * and kept by the routes (sealed on the server, or in this device's keychain when
  * `inShell`); this panel only ever holds the session id.
  */
 export function WorkshopPanel({
@@ -196,7 +196,7 @@ export function WorkshopPanel({
       <p className="muted">
         Copy the <code>overleaf_session2</code> cookie from overleaf.com.{" "}
         {inShell
-          ? "It stays in this app's memory, is never shown again, and is forgotten when you quit."
+          ? "It is kept encrypted in this device's keychain, is never shown again, and is removed when you sign out."
           : "It is stored encrypted on the server and never shown again."}
       </p>
       <div className="linked-overleaf-form__actions">

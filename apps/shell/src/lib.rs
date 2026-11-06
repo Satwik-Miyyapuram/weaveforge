@@ -304,7 +304,16 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     let store = dbus_secret_service_keyring_store::Store::new()
         .ok()
         .map(|s| -> Arc<keyring_core::CredentialStore> { s });
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    #[cfg(target_os = "android")]
+    let store = android_native_keyring_store::Store::new()
+        .ok()
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
+    #[cfg(not(any(
+        windows,
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    )))]
     let store = None;
     store
 }
@@ -588,7 +597,10 @@ fn start_routes(app: &tauri::AppHandle) {
         secrets: app
             .try_state::<secrets::Secrets>()
             .map(|s| s.inner().clone()),
-        workshop: overleaf_workshop::WorkshopSessions::default(),
+        workshop: app
+            .try_state::<secrets::Secrets>()
+            .map(|s| overleaf_workshop::WorkshopSessions::remembered(s.inner().clone()))
+            .unwrap_or_default(),
     };
     let _ = app.manage(routes);
 }
