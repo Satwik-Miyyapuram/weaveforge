@@ -11,6 +11,7 @@ import type {
   DesktopPreferenceName,
   DesktopPreferenceValue,
   DesktopSecretName,
+  DesktopStorageArea,
   DesktopTexCompileResult,
   DesktopTexTool,
   DesktopUpdate,
@@ -98,6 +99,11 @@ export interface DesktopCommands {
   }): Promise<Result<null>>;
   appLogRead(): Promise<Result<DesktopAppLog>>;
   appLogReveal(): Promise<Result<null>>;
+  /** Sizes are `f64` in Rust, so the generated type allows `null` (NaN); never sent in practice. */
+  appStorageUsage(): Promise<
+    Result<{ id: string; bytes: number | null; files: number | null }[]>
+  >;
+  appStorageClear(id: string): Promise<Result<null>>;
   preferenceWrite(
     name: DesktopPreferenceName,
     value: DesktopPreferenceValue,
@@ -259,6 +265,8 @@ export type DesktopShim = Pick<
   | "reportAppLog"
   | "readAppLog"
   | "revealAppLog"
+  | "storageUsage"
+  | "clearStorage"
   | "writePreference"
   | "readSecret"
   | "writeSecret"
@@ -504,6 +512,15 @@ export function desktopShim(
     readAppLog: async () => unwrap(await cmds.appLogRead()),
     revealAppLog: async () => {
       unwrap(await cmds.appLogReveal());
+    },
+    storageUsage: async (): Promise<DesktopStorageArea[]> =>
+      unwrap(await cmds.appStorageUsage()).map((area) => ({
+        id: area.id,
+        bytes: area.bytes ?? 0,
+        files: area.files ?? 0,
+      })),
+    clearStorage: async (id) => {
+      unwrap(await cmds.appStorageClear(id));
     },
     writePreference: async (name, value) => {
       unwrap(await cmds.preferenceWrite(name, value));

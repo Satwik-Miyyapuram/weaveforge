@@ -255,6 +255,20 @@
          */
         appLogReveal: () => typedError(invoke("app_log_reveal")),
         /**
+         *  How much space each of the app's folders takes on this computer.
+         * 
+         *  # Errors
+         *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+         */
+        appStorageUsage: () => typedError(invoke("app_storage_usage")),
+        /**
+         *  Empties one of the app's folders, named by id.
+         * 
+         *  # Errors
+         *  An unknown id, or files that could not be deleted (often because they are in use).
+         */
+        appStorageClear: (id) => typedError(invoke("app_storage_clear", { id })),
+        /**
          *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
          * 
          *  # Errors
@@ -714,6 +728,14 @@
       readAppLog: async () => unwrap(await cmds.appLogRead()),
       revealAppLog: async () => {
         unwrap(await cmds.appLogReveal());
+      },
+      storageUsage: async () => unwrap(await cmds.appStorageUsage()).map((area) => ({
+        id: area.id,
+        bytes: area.bytes ?? 0,
+        files: area.files ?? 0
+      })),
+      clearStorage: async (id) => {
+        unwrap(await cmds.appStorageClear(id));
       },
       writePreference: async (name, value) => {
         unwrap(await cmds.preferenceWrite(name, value));

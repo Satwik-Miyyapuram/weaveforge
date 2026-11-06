@@ -21,6 +21,9 @@
  * is still imported last, after motion.css, so it wins remaining ties.
  */
 
+/* The window close button turns the platform's red on hover, in every theme. */
+:root { --window-close-bg: #c42b1c; --window-close-fg: #fff; }
+
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) {
   --radius: 6px;
   --radius-sm: 4px;

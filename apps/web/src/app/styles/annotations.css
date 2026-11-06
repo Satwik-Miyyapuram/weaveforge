@@ -131,7 +131,7 @@
 }
 
 .jump-to-preview p {
-  margin: 6px 0 0;
+  margin: var(--s2) 0 0;
   font-size: var(--fs-sm);
   white-space: pre-wrap;
 }
