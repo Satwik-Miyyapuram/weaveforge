@@ -526,6 +526,9 @@ fn start_local_api(app: &tauri::AppHandle) {
         let targets =
             local_http::rewrite::mcp_client_configs(&home, std::env::consts::OS, data.as_deref());
         let (changed, skipped) = local_http::rewrite::rewrite_mcp_client_configs(&targets, &launch);
+        if let Some(control) = handle.try_state::<local_http::control::LocalApiControl>() {
+            control.set_mcp_rewrites(changed.clone(), skipped.clone());
+        }
         for file in changed {
             local_api::warn(
                 &handle,

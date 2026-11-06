@@ -20,6 +20,7 @@ use super::connect::{
     cursor_install_link, mcp_launch, read_mcp_connection, remove_mcp_connection,
     vscode_install_link, write_mcp_connection, write_mcpb,
 };
+use super::rewrite::kept_backup;
 use super::route::{RouteDeps, route_local_request};
 use super::server::{Handler, bind, serve};
 use super::token::{
@@ -50,6 +51,22 @@ pub type Warn = Arc<dyn Fn(&str) + Send + Sync>;
 /// The tools the MCP server lists, written beside the bridge.
 pub type ToolList = Arc<dyn Fn() -> Vec<Value> + Send + Sync>;
 type Reply = Result<Value, String>;
+
+/// The rewritten configs, each with the original kept beside it when there is one.
+fn shown_rewrites(changed: &[PathBuf], skipped: &[PathBuf]) -> Value {
+    let shown = |p: &PathBuf| json!(p.display().to_string());
+    let changed: Vec<Value> = changed
+        .iter()
+        .map(|file| {
+            let mut entry = json!({ "file": shown(file) });
+            if let Some(backup) = kept_backup(file) {
+                entry["backup"] = shown(&backup);
+            }
+            entry
+        })
+        .collect();
+    json!({ "changed": changed, "skipped": skipped.iter().map(shown).collect::<Vec<_>>() })
+}
 
 /// Locks `mutex`, taking the data back from a panicked holder.
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -234,6 +251,8 @@ pub struct LocalApiControl {
     grants: Arc<Mutex<Vec<TokenRecord>>>,
     /// Held through each handler, so they run one at a time.
     state: tokio::sync::Mutex<State>,
+    /// The client configs this start pointed at the app, and those it left alone.
+    rewrites: Mutex<(Vec<PathBuf>, Vec<PathBuf>)>,
 }
 
 impl LocalApiControl {
@@ -244,7 +263,13 @@ impl LocalApiControl {
             deps,
             grants: Arc::default(),
             state: tokio::sync::Mutex::new(State::default()),
+            rewrites: Mutex::default(),
         }
+    }
+
+    /// Keeps what the start-up config rewrite did, so Settings can say it.
+    pub fn set_mcp_rewrites(&self, changed: Vec<PathBuf>, skipped: Vec<PathBuf>) {
+        *lock(&self.rewrites) = (changed, skipped);
     }
 
     /// The address clients use.
@@ -411,6 +436,10 @@ impl LocalApiControl {
         });
         if let Some(saved) = &saved {
             mcp["tokenId"] = json!(saved.token_id);
+        }
+        let (changed, skipped) = &*lock(&self.rewrites);
+        if !changed.is_empty() || !skipped.is_empty() {
+            mcp["rewrites"] = shown_rewrites(changed, skipped);
         }
         let mut snap = json!({
             "enabled": state.running.is_some() && self.enabled(),
@@ -1004,6 +1033,34 @@ mod tests {
             assert_eq!(
                 refused(c, "local-api-token-revoke", &[json!("")]).await,
                 "That is not a token to revoke."
+            );
+            c.close().await;
+        });
+    }
+
+    #[test]
+    fn state_lists_the_mcp_configs_rewritten_and_left_alone() {
+        let rig = rig("rewrites", 0, true);
+        run(async {
+            let c = &rig.control;
+            assert!(ok(c, "local-api-state", &[]).await["mcp"].get("rewrites").is_none());
+            let dir = rig.file.parent().expect("dir").parent().expect("root").to_path_buf();
+            let kept = dir.join("kept.json");
+            let clean = dir.join("clean.json");
+            let jsonc = dir.join("settings.jsonc");
+            fs::write(dir.join("kept.json.weaveforge.bak"), "{}").expect("backup");
+            c.set_mcp_rewrites(vec![kept.clone(), clean.clone()], vec![jsonc.clone()]);
+            let rewrites = ok(c, "local-api-state", &[]).await["mcp"]["rewrites"].clone();
+            let shown = |p: &Path| json!(p.display().to_string());
+            assert_eq!(
+                rewrites,
+                json!({
+                    "changed": [
+                        { "file": shown(&kept), "backup": shown(&dir.join("kept.json.weaveforge.bak")) },
+                        { "file": shown(&clean) },
+                    ],
+                    "skipped": [shown(&jsonc)],
+                })
             );
             c.close().await;
         });
