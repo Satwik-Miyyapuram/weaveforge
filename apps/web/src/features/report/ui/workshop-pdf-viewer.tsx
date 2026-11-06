@@ -70,6 +70,7 @@ export function WorkshopPdfViewer({
       <div className="workshop-pdf__bar">
         <Button size="sm" variant="primary" disabled={compiling} onClick={() => setRuns((n) => n + 1)}>Recompile</Button>
         <span className="muted" role="status">{compiling ? "Compiling on Overleaf…" : ""}</span>
+        {url && <Button size="sm" variant="ghost" href={url} download="output.pdf">Download PDF</Button>}
       </div>
       {error && <FormError>{error}</FormError>}
       <div className="workshop-pdf__view">

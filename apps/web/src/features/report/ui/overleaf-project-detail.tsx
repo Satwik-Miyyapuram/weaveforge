@@ -151,6 +151,7 @@ export function OverleafProjectDetail({
             sessionId={sessionId}
             projectId={row.id}
             layout={layout}
+            onLayout={setLayout}
             pdf={<WorkshopPdfViewer key={`${sessionId}:${row.id}`} sessionId={sessionId} projectId={row.id} authHeaders={client.authHeaders} />}
           />
         ) : (
