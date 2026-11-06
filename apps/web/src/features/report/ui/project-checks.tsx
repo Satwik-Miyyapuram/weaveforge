@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type BibFinding } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -66,9 +66,23 @@ function Bibliography({ findings, entryCount }: { findings: readonly BibFinding[
 function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile: string }) {
   const [tool, setTool] = useState<string | null | undefined>(undefined);
   const [running, setRunning] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [stopping, setStopping] = useState(false);
+  const [stopped, setStopped] = useState(false);
+  // Read after the compile returns, so a Cancel pressed during it counts.
+  const stopAsked = useRef(false);
   const [result, setResult] = useState<DesktopTexCompileResult | null>(null);
   const [error, setError] = useState("");
   const bridge = desktop();
+
+  // A long compile shows it is still going, counted from when it started.
+  useEffect(() => {
+    if (!running) return;
+    const startedAt = Date.now();
+    setSeconds(0);
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
 
   // Probed once per mount, not once per render. A machine that gains a TeX
   // while the app is open shows the button after the next reload, which is a
@@ -93,11 +107,27 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
   if (!bridge || typeof bridge.probeTex !== "function") return null;
   if (tool === undefined || tool === null) return null;
 
+  const cancel = async () => {
+    stopAsked.current = true;
+    setStopping(true);
+    try {
+      await bridge.cancelTex?.();
+    } catch (cause) {
+      stopAsked.current = false;
+      setStopping(false);
+      setError(formatError(cause));
+    }
+  };
+
   const run = async () => {
     setRunning(true);
+    stopAsked.current = false;
+    setStopping(false);
+    setStopped(false);
     setError("");
     try {
       const compiled = await bridge.compileTex(files, entryFile);
+      setStopped(stopAsked.current && !compiled.ok);
       setResult(compiled);
       if (compiled.pdf) {
         const url = URL.createObjectURL(new Blob([compiled.pdf], { type: "application/pdf" }));
@@ -109,6 +139,7 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
     } catch (cause) {
       setError(formatError(cause));
     } finally {
+      setStopping(false);
       setRunning(false);
     }
   };
@@ -116,11 +147,17 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
   return (
     <div className="project-checks-compile">
       <Button variant="link" disabled={running} onClick={() => void run()}>
-        {running ? "Compiling…" : "Compile here"}
+        {running ? `Compiling…${seconds > 0 ? ` ${seconds} s` : ""}` : "Compile here"}
       </Button>
+      {running && bridge.cancelTex && (
+        <Button variant="ghost" disabled={stopping} onClick={() => void cancel()}>
+          Cancel
+        </Button>
+      )}
       <span className="project-checks-engine">{tool}</span>
       {error && <FormError>{error}</FormError>}
-      {result && !result.ok && (
+      {stopped && <span className="muted">Stopped.</span>}
+      {result && !result.ok && !stopped && (
         <>
           <FormError>
             {result.errors.length} {result.errors.length === 1 ? "error" : "errors"} — no PDF.

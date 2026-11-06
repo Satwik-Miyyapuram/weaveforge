@@ -220,6 +220,13 @@
          */
         texCompile: (files, entryFile) => typedError(invoke("tex_compile", { files, entryFile })),
         /**
+         *  Stops the compiles running now; their replies say the compile was stopped.
+         * 
+         *  # Errors
+         *  Never; the `Err` arm is kept for the Tauri wiring.
+         */
+        texCancel: () => typedError(invoke("tex_cancel")),
+        /**
          *  Fetches a request from Zotero's local API on this computer.
          * 
          *  # Errors
@@ -712,6 +719,9 @@
           ...result,
           pdf: result.pdf === null ? null : exactBytes(fromBase64(result.pdf))
         };
+      },
+      cancelTex: async () => {
+        unwrap(await cmds.texCancel());
       },
       zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
       checkUpdate: async () => unwrap(await cmds.updateCheck()),

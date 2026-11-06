@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod app_log;
-pub mod app_storage;
 pub mod app_route;
+pub mod app_storage;
 pub mod auth_link;
 pub mod auth_loopback;
 pub mod cmd_ink;
@@ -194,6 +194,7 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
     let _ = app.manage(embed::EmbedSlot::default());
+    let _ = app.manage(cmd_tools::TexStop::default());
     let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
 }
 

@@ -89,6 +89,7 @@ export interface DesktopCommands {
     files: { path: string; content: string }[],
     entryFile: string,
   ): Promise<Result<WireTexResult>>;
+  texCancel(): Promise<Result<null>>;
   zoteroLocal(url: string): Promise<Result<DesktopZoteroReply>>;
   updateCheck(): Promise<Result<DesktopUpdate | null>>;
   appLogReport(report: {
@@ -260,6 +261,7 @@ export type DesktopShim = Pick<
   | "fetchImage"
   | "probeTex"
   | "compileTex"
+  | "cancelTex"
   | "zoteroLocal"
   | "checkUpdate"
   | "reportAppLog"
@@ -495,6 +497,9 @@ export function desktopShim(
         ...result,
         pdf: result.pdf === null ? null : exactBytes(fromBase64(result.pdf)),
       };
+    },
+    cancelTex: async () => {
+      unwrap(await cmds.texCancel());
     },
     zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
     checkUpdate: async () => unwrap(await cmds.updateCheck()),
