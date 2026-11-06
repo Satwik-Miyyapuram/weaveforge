@@ -75,7 +75,9 @@ impl DigestCache {
         if self.seen.len() >= DIGEST_CACHE_MAX {
             self.seen.clear();
         }
-        let _ = self.seen.insert(path.to_path_buf(), (len, modified, digest));
+        let _ = self
+            .seen
+            .insert(path.to_path_buf(), (len, modified, digest));
         Ok(digest)
     }
 }

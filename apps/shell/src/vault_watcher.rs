@@ -185,7 +185,10 @@ impl WatchSlot {
     /// Takes the running watch out, still running; the caller halts and drops it.
     #[must_use]
     pub fn take(&self) -> Option<VaultWatcher> {
-        self.running.lock().unwrap_or_else(PoisonError::into_inner).take()
+        self.running
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
     }
 
     /// Whether a watch is running.
@@ -271,7 +274,8 @@ fn run(
     loop {
         let deadline = lock(shared).deadline();
         let wait = deadline.map_or(ROOT_CHECK, |due| {
-            due.saturating_duration_since(Instant::now()).min(ROOT_CHECK)
+            due.saturating_duration_since(Instant::now())
+                .min(ROOT_CHECK)
         });
         let next = rx.recv_timeout(wait);
         if !lost_said

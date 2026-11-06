@@ -1043,8 +1043,18 @@ mod tests {
         let rig = rig("rewrites", 0, true);
         run(async {
             let c = &rig.control;
-            assert!(ok(c, "local-api-state", &[]).await["mcp"].get("rewrites").is_none());
-            let dir = rig.file.parent().expect("dir").parent().expect("root").to_path_buf();
+            assert!(
+                ok(c, "local-api-state", &[]).await["mcp"]
+                    .get("rewrites")
+                    .is_none()
+            );
+            let dir = rig
+                .file
+                .parent()
+                .expect("dir")
+                .parent()
+                .expect("root")
+                .to_path_buf();
             let kept = dir.join("kept.json");
             let clean = dir.join("clean.json");
             let jsonc = dir.join("settings.jsonc");
