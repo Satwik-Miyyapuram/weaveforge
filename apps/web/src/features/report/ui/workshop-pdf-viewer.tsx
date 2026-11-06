@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FormError } from "@/components/form-error";
-import { PdfReader } from "@/features/reader/ui/pdf-reader";
+import { PdfReader } from "@/features/reader";
 import {
   fetchWorkshopPdf,
   type WorkshopPdfDeps,

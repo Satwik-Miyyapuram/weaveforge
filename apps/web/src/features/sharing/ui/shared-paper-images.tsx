@@ -31,10 +31,18 @@ export function SharedPaperImages({ metadata }: { metadata?: Record<string, unkn
         {paths.map((p, i) => (
           <figure key={p} className="image-thumb">
             {urls.get(p) ? (
-              <button type="button" className="image-open" title="Open full size" onClick={() => setOpen(i)}>
+              <a
+                href={urls.get(p)}
+                title="Open full size"
+                onClick={(e) => {
+                  // A blob address cannot open in a new window, so every click opens the viewer.
+                  e.preventDefault();
+                  setOpen(i);
+                }}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={urls.get(p)} alt="Paper figure" loading="lazy" />
-              </button>
+              </a>
             ) : (
               <span className="image-loading" aria-hidden />
             )}

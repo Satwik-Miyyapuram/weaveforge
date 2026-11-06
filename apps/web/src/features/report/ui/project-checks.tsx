@@ -8,7 +8,7 @@ import type { DesktopTexCompileResult, DesktopTexError } from "@/lib/desktop/des
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { typedCore } from "@/lib/rust-core";
-import { PdfReader } from "@/features/reader/ui/pdf-reader";
+import { PdfReader } from "@/features/reader";
 
 type SourceFile = { path: string; content: string };
 
