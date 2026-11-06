@@ -117,8 +117,9 @@ export async function applyJsonEntries(json: JsonDiff | undefined): Promise<stri
  * produced, and leaving it would keep the mirror holding those files back
  * forever — the folder would never be brought back into step.
  *
- * A path whose text no longer matches its `expected` digest moved after the preview;
- * its base is left alone so the next look treats that newer edit as the folder's.
+ * A path whose text no longer matches its `expected` digest moved after the preview.
+ * The workspace now holds the applied text, so that digest becomes the base and
+ * the next look reads the newer edit as the folder's alone, not as both sides'.
  */
 export async function refreshMirrorBase(
   fs: IWorkspaceFs | null,
@@ -136,8 +137,15 @@ export async function refreshMirrorBase(
   for (const path of paths) {
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
-    if (expected[path] !== undefined && baseDigest(text) !== expected[path]) continue;
-    base[path] = baseDigest(text);
+    const applied = expected[path];
+    const digest = baseDigest(text);
+    // A digest the base already holds is a write the apply made itself, such as an id stamp.
+    if (applied !== undefined && digest !== applied && digest !== base[path]) {
+      base[path] = applied;
+      touched = true;
+      continue;
+    }
+    base[path] = digest;
     // A note over the WASM text limit keeps no field base; the next merge
     // of it then reports a conflict instead of guessing.
     let pageBase: ReturnType<typeof core.vaultPageBase> = null;

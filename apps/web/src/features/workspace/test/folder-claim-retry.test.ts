@@ -117,7 +117,7 @@ test("a file claimed the first time is created once, then left alone", async () 
   assert.match(store.get(path) ?? "", /page-1/);
 });
 
-test("refreshMirrorBase records the folder's text, but not a file that moved since", async () => {
+test("refreshMirrorBase records the folder's text, and the applied digest for a file that moved since", async () => {
   const { container } = fakeContainer();
   setContainerForTests(container);
   const kept = `${projectRoot}/notes/kept.md`;
@@ -127,7 +127,22 @@ test("refreshMirrorBase records the folder's text, but not a file that moved sin
   await refreshMirrorBase(fs, [kept, moved], { [moved]: baseDigest("moved then\n") });
   const base = await readMirrorBase(fs, projectRoot);
   assert.equal(base[kept], baseDigest("kept\n"));
-  assert.equal(base[moved], undefined);
+  // The applied text is what the workspace now holds, so the newer edit reads as the folder's alone.
+  assert.equal(base[moved], baseDigest("moved then\n"));
+});
+
+test("refreshMirrorBase keeps the id stamp the apply itself wrote as the base", async () => {
+  const { container } = fakeContainer();
+  setContainerForTests(container);
+  const path = `${projectRoot}/notes/stamped.md`;
+  const { fs } = memoryFs({ [path]: "# Idea\n\nfirst\n" });
+
+  const first = await applyEntries(fs, created(path, "first"), {});
+  assert.deepEqual(first.appliedPaths, [path]);
+  await refreshMirrorBase(fs, first.appliedPaths, { [path]: baseDigest("# Idea\n\nfirst\n") });
+  const stamped = await fs.readText(path);
+  assert.match(stamped, /page-1/);
+  assert.equal((await readMirrorBase(fs, projectRoot))[path], baseDigest(stamped));
 });
 
 function updated(id: string, path: string, body: string): ImportDiff {
