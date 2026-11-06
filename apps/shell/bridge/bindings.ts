@@ -299,6 +299,20 @@ export const commands = {
 	 */
 	embedUnload: (model: string) => typedError<null, ShellError>(__TAURI_INVOKE("embed_unload", { model })),
 	/**
+	 *  The model files downloading now, with bytes done and the full size when known.
+	 * 
+	 *  # Errors
+	 *  Never; the `Err` arm is kept for the Tauri wiring.
+	 */
+	modelDownloads: () => typedError<ModelDownload_Serialize[], ShellError>(__TAURI_INVOKE("model_downloads")),
+	/**
+	 *  Stops the model downloads in flight; each keeps what it has, and the next load resumes it.
+	 * 
+	 *  # Errors
+	 *  Never; the `Err` arm is kept for the Tauri wiring.
+	 */
+	cancelModelDownloads: () => typedError<null, ShellError>(__TAURI_INVOKE("cancel_model_downloads")),
+	/**
 	 *  The window's menu, as the page's menu bar draws it.
 	 * 
 	 *  # Errors
@@ -698,6 +712,29 @@ export type MenuItem_Serialize = {
 	route?: string,
 	/**  A page action the page runs itself. */
 	command?: string,
+};
+
+/**  One download's progress, as the page reads it. Sizes are bytes. */
+export type ModelDownload = ModelDownload_Serialize | ModelDownload_Deserialize;
+
+/**  One download's progress, as the page reads it. Sizes are bytes. */
+export type ModelDownload_Deserialize = {
+	/**  The file's name, such as `model.onnx`. */
+	file: string,
+	/**  Bytes on disk so far, counting a resumed part. */
+	done: number | null,
+	/**  The file's full size, when the upstream said. */
+	total?: number | null,
+};
+
+/**  One download's progress, as the page reads it. Sizes are bytes. */
+export type ModelDownload_Serialize = {
+	/**  The file's name, such as `model.onnx`. */
+	file: string,
+	/**  Bytes on disk so far, counting a resumed part. */
+	done: number | null,
+	/**  The file's full size, when the upstream said. */
+	total: number | null,
 };
 
 /**  One text file of the project. */

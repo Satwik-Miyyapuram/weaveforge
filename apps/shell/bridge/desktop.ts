@@ -150,7 +150,13 @@ export interface DesktopCommands {
     kind: "passage" | "query",
   ): Promise<Result<(number | null)[][]>>;
   embedUnload(model: string): Promise<Result<null>>;
+  // Rust sends a non-finite float as null.
+  modelDownloads(): Promise<Result<{ file: string; done: number | null; total: number | null }[]>>;
+  cancelModelDownloads(): Promise<Result<null>>;
 }
+
+/** One model file downloading now; sizes in bytes. */
+export type ModelDownload = { file: string; done: number; total: number | null };
 
 /** Vector rows with every value a number; Rust sends a non-finite float as null. */
 function finiteRows(rows: (number | null)[][]): number[][] {
@@ -231,6 +237,8 @@ export type DesktopShim = Pick<
   | "embedLoad"
   | "embedTexts"
   | "embedUnload"
+  | "modelDownloads"
+  | "cancelModelDownloads"
   | "onEmbedProgress"
   | "inkAvailable"
   | "inkHapticsAvailable"
@@ -344,6 +352,11 @@ export function desktopShim(
       finiteRows(unwrap(await cmds.embedTexts(model, texts, kind))),
     embedUnload: async (model) => {
       unwrap(await cmds.embedUnload(model));
+    },
+    modelDownloads: async (): Promise<ModelDownload[]> =>
+      unwrap(await cmds.modelDownloads()).map((d) => ({ ...d, done: d.done ?? 0 })),
+    cancelModelDownloads: async () => {
+      unwrap(await cmds.cancelModelDownloads());
     },
     // Same unlisten rule as `onVaultChange`.
     onEmbedProgress: (cb) => {

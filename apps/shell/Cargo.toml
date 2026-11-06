@@ -33,7 +33,7 @@ tauri-plugin-opener = "=2.7.2"
 process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
 # Rows keep column order and JSON keeps key order, as PGlite returned them.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
-tokio = { version = "=1.54.1", features = ["io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
+tokio = { version = "=1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
 # Typed commands: tauri-specta generates bridge/bindings.ts from the command signatures.
 # Specta v2 is a release candidate; the pins must move together.
 serde = { version = "=1.0.229", features = ["derive"] }

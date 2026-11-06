@@ -11,8 +11,9 @@ use std::path::{Path, PathBuf};
 use common::{TempDir, put};
 use upstream::{Reply as Canned, Upstream, redirect, response, serve};
 use weaveforge_shell_lib::model_cache::{
-    MAX_FILE_BYTES, MAX_HOPS, cache_path_for, is_cache_part, is_upstream_host, is_upstream_url,
-    model_client, model_path, serve_model_file, serve_model_file_capped,
+    FOLDER_FULL, Limits, MAX_FILE_BYTES, MAX_HOPS, STOPPED, cache_path_for, cancel_downloads_under,
+    is_cache_part, is_upstream_host, is_upstream_url, model_client, model_downloads, model_path,
+    serve_model_file, serve_model_file_capped, serve_model_file_limited,
 };
 use weaveforge_shell_lib::protocol::Reply as Answer;
 use weaveforge_shell_lib::range::WHOLE_BYTES_MAX;
@@ -587,4 +588,183 @@ async fn cached_file_over_the_model_cap_is_500_without_a_range() {
     assert_eq!(whole.status, 500);
     assert_eq!(part.status, 206);
     assert_eq!(part.body, b"01".to_vec());
+}
+
+// ------------------------------------------------------------ resume, stop, folder cap
+
+fn part_of(root: &Path) -> PathBuf {
+    root.join(format!("{CONFIG_FILE}.part"))
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_part_left_by_a_stopped_download_is_resumed_from_where_it_stopped() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    put(&part_of(&root), b"wei");
+    let up = serve(vec![(
+        CONFIG,
+        vec![response(206, &[("Content-Range", "bytes 3-6/7")], b"ghts")],
+    )])
+    .await;
+
+    let answer = serve_model_file(&client(), &root, CONFIG, &base(&up), None).await;
+
+    assert_eq!(answer.status, 200);
+    assert_eq!(answer.body, b"weights".to_vec());
+    assert_eq!(up.seen()[0].header("range"), Some("bytes=3-"));
+    assert_eq!(fs::read(root.join(CONFIG_FILE)).unwrap(), b"weights");
+    assert!(!part_of(&root).exists());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_resume_answered_with_the_whole_file_starts_over() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    put(&part_of(&root), b"old");
+    let up = serve(vec![(CONFIG, vec![response(200, &[], b"weights")])]).await;
+
+    let answer = serve_model_file(&client(), &root, CONFIG, &base(&up), None).await;
+
+    assert_eq!(answer.status, 200);
+    assert_eq!(fs::read(root.join(CONFIG_FILE)).unwrap(), b"weights");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_resume_whose_range_does_not_match_is_502_and_the_part_goes() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    put(&part_of(&root), b"wei");
+    let up = serve(vec![(
+        CONFIG,
+        vec![response(
+            206,
+            &[("Content-Range", "bytes 0-6/7")],
+            b"weights",
+        )],
+    )])
+    .await;
+
+    let answer = serve_model_file(&client(), &root, CONFIG, &base(&up), None).await;
+
+    assert_eq!(answer.status, 502);
+    assert!(!part_of(&root).exists());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_connection_dropped_mid_file_is_502_and_keeps_the_part() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    let raw = b"HTTP/1.1 200 OK
+Content-Length: 10
+Connection: close
+
+weig"
+        .to_vec();
+    let up = serve(vec![(CONFIG, vec![Canned::Raw(raw)])]).await;
+
+    let answer = serve_model_file(&client(), &root, CONFIG, &base(&up), None).await;
+
+    assert_eq!(answer.status, 502);
+    assert!(!root.join(CONFIG_FILE).exists());
+    assert_eq!(fs::read(part_of(&root)).unwrap(), b"weig");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_full_models_folder_is_507_and_nothing_is_stored() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    put(&root.join("other.onnx"), b"12345678");
+    let up = serve(vec![(CONFIG, vec![response(200, &[], b"weights")])]).await;
+    let limits = Limits {
+        file: MAX_FILE_BYTES,
+        folder: 10,
+    };
+
+    let answer = serve_model_file_limited(&client(), &root, CONFIG, &base(&up), None, limits).await;
+
+    assert_eq!(answer.status, FOLDER_FULL);
+    assert!(!root.join(CONFIG_FILE).exists());
+    assert!(!part_of(&root).exists());
+}
+
+/// Waits until a download of `total` bytes shows in the progress list; how much it has.
+async fn wait_for_download(total: f64) -> f64 {
+    loop {
+        if let Some(d) = model_downloads()
+            .into_iter()
+            .find(|d| d.file == "config.json" && d.total == Some(total))
+        {
+            return d.done;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_running_download_shows_its_progress_and_stops_on_cancel() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    let head = "HTTP/1.1 200 OK
+Content-Length: 12345"
+        .to_string();
+    let up = serve(vec![(CONFIG, vec![Canned::HeadThenStall(head)])]).await;
+    let (client, base, task_root) = (client(), base(&up), root.clone());
+    let task =
+        tokio::spawn(
+            async move { serve_model_file(&client, &task_root, CONFIG, &base, None).await },
+        );
+
+    assert_eq!(wait_for_download(12345.0).await, 0.0);
+    cancel_downloads_under(&root);
+    let answer = task.await.unwrap();
+
+    assert_eq!(answer.status, STOPPED);
+    assert!(!model_downloads().iter().any(|d| d.total == Some(12345.0)));
+    assert!(!part_of(&root).exists(), "an empty part is not kept");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_cancelled_resume_keeps_its_part_for_the_next_try() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    put(&part_of(&root), b"wei");
+    let head = "HTTP/1.1 206 Partial
+Content-Range: bytes 3-12346/12347
+Content-Length: 12344"
+        .to_string();
+    let up = serve(vec![(CONFIG, vec![Canned::HeadThenStall(head)])]).await;
+    let (client, base, task_root) = (client(), base(&up), root.clone());
+    let task =
+        tokio::spawn(
+            async move { serve_model_file(&client, &task_root, CONFIG, &base, None).await },
+        );
+
+    assert_eq!(wait_for_download(12347.0).await, 3.0);
+    cancel_downloads_under(&root);
+
+    assert_eq!(task.await.unwrap().status, STOPPED);
+    assert_eq!(fs::read(part_of(&root)).unwrap(), b"wei");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_leaves_downloads_under_another_root_running() {
+    let dir = TempDir::new();
+    let root = dir.path().join("models");
+    let head = "HTTP/1.1 200 OK
+Content-Length: 23456"
+        .to_string();
+    let up = serve(vec![(CONFIG, vec![Canned::HeadThenStall(head)])]).await;
+    let (client, base, task_root) = (client(), base(&up), root.clone());
+    let task =
+        tokio::spawn(
+            async move { serve_model_file(&client, &task_root, CONFIG, &base, None).await },
+        );
+
+    let _ = wait_for_download(23456.0).await;
+    cancel_downloads_under(&dir.path().join("elsewhere"));
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    assert!(!task.is_finished());
+    cancel_downloads_under(&root);
+    assert_eq!(task.await.unwrap().status, STOPPED);
 }

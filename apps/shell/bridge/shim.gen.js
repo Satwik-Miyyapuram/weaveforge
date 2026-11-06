@@ -362,6 +362,20 @@
          */
         embedUnload: (model) => typedError(invoke("embed_unload", { model })),
         /**
+         *  The model files downloading now, with bytes done and the full size when known.
+         * 
+         *  # Errors
+         *  Never; the `Err` arm is kept for the Tauri wiring.
+         */
+        modelDownloads: () => typedError(invoke("model_downloads")),
+        /**
+         *  Stops the model downloads in flight; each keeps what it has, and the next load resumes it.
+         * 
+         *  # Errors
+         *  Never; the `Err` arm is kept for the Tauri wiring.
+         */
+        cancelModelDownloads: () => typedError(invoke("cancel_model_downloads")),
+        /**
          *  The window's menu, as the page's menu bar draws it.
          * 
          *  # Errors
@@ -580,6 +594,10 @@
       embedTexts: async (model, texts, kind) => finiteRows(unwrap(await cmds.embedTexts(model, texts, kind))),
       embedUnload: async (model) => {
         unwrap(await cmds.embedUnload(model));
+      },
+      modelDownloads: async () => unwrap(await cmds.modelDownloads()).map((d) => ({ ...d, done: d.done ?? 0 })),
+      cancelModelDownloads: async () => {
+        unwrap(await cmds.cancelModelDownloads());
       },
       // Same unlisten rule as `onVaultChange`.
       onEmbedProgress: (cb) => {
