@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/button";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
 
 type Downloads = Pick<DesktopBridge, "modelDownloads" | "cancelModelDownloads">;
@@ -52,9 +53,9 @@ export function ModelDownloadLine({ bridge = desktop() }: { bridge?: Downloads |
   return (
     <p className="muted model-download-line">
       {downloadText(downloads)}{" "}
-      <button type="button" className="btn btn-ghost btn-sm" onClick={cancel} disabled={stopping}>
+      <Button size="sm" onClick={cancel} disabled={stopping}>
         {stopping ? "Stopping…" : "Cancel"}
-      </button>
+      </Button>
     </p>
   );
 }
