@@ -226,14 +226,19 @@ fn start_ink(app: &tauri::AppHandle) {
         ink::ink_recogniser_path(std::env::consts::OS, std::env::consts::ARCH, &resources)
     });
     let log_app = app.clone();
-    let on_diagnostic = Arc::new(move |line: &str| {
+    let on_diagnostic: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(move |line: &str| {
         if let Some(log) = log_app.try_state::<app_log::AppLog>() {
-            log.record(app_log::LogLevel::Warn, "ink", line, None);
+            let level = if line.starts_with(ink::INK_READY) {
+                app_log::LogLevel::Info
+            } else {
+                app_log::LogLevel::Warn
+            };
+            log.record(level, "ink", line, None);
         }
     });
     let _ = app.manage(ink::InkRecogniser::new(ink::InkOptions {
         executable,
-        spawner: ink::process_spawner(),
+        spawner: ink::process_spawner(Arc::clone(&on_diagnostic)),
         timeout: ink::REQUEST_TIMEOUT,
         ready_timeout: ink::READY_TIMEOUT,
         on_diagnostic,

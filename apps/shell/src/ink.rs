@@ -27,7 +27,7 @@ pub const READY_TIMEOUT: Duration = Duration::from_secs(30);
 pub const INK_MAX_LINE_BYTES: usize = 1024 * 1024;
 
 /// Error text when the helper cannot be used on this machine.
-pub const INK_NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not available.";
+pub const INK_NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not available. Turn it on in Windows Settings › Time & language › Language & region: open your language's options and add Handwriting.";
 /// Error text when the helper does not answer within the timeout.
 pub const INK_TIMED_OUT: &str = "The handwriting recogniser did not answer in time.";
 /// Error text when the helper exits before answering.
@@ -46,6 +46,10 @@ pub const INK_UNPARSEABLE_LINE: &str = "ink-recogniser: unparseable line";
 pub const INK_START_FAILED: &str = "ink-recogniser: could not start";
 /// Diagnostic when a protocol line exceeds `INK_MAX_LINE_BYTES`.
 pub const INK_LINE_TOO_LONG: &str = "ink-recogniser: line too long; giving up on this helper";
+/// Diagnostic when the helper says it is ready; the version follows.
+pub const INK_READY: &str = "ink-recogniser: ready";
+/// Prefix of a line the helper printed on stderr.
+pub const INK_STDERR: &str = "ink-recogniser stderr:";
 
 /// Writes and reads of the helper process; the far end is injectable for tests.
 pub type HelperIo = (
@@ -251,16 +255,20 @@ pub struct InkOptions {
     pub on_diagnostic: Arc<dyn Fn(&str) + Send + Sync>,
 }
 
-/// Spawns the helper as a child process with stdin and stdout piped.
+/// Spawns the helper as a child process with stdin and stdout piped; each line it prints
+/// on stderr goes to `on_stderr`.
 #[must_use]
-pub fn process_spawner() -> Spawner {
-    Arc::new(|path: &Path| -> io::Result<HelperIo> {
+pub fn process_spawner(on_stderr: Arc<dyn Fn(&str) + Send + Sync>) -> Spawner {
+    Arc::new(move |path: &Path| -> io::Result<HelperIo> {
         let mut child = Command::new(path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()?;
+        if let Some(stderr) = child.stderr.take() {
+            drop(tokio::spawn(forward_stderr(stderr, Arc::clone(&on_stderr))));
+        }
         let stdin = child
             .stdin
             .take()
@@ -276,6 +284,21 @@ pub fn process_spawner() -> Spawner {
         let reader: Box<dyn AsyncRead + Send + Unpin> = Box::new(stdout);
         Ok((writer, reader))
     })
+}
+
+/// Hands each non-empty stderr line to `diagnostic` as `INK_STDERR line`, cut to 200 chars.
+pub async fn forward_stderr(
+    stderr: impl AsyncRead + Unpin,
+    diagnostic: Arc<dyn Fn(&str) + Send + Sync>,
+) {
+    let mut lines = BufReader::new(stderr).lines();
+    while let Ok(Some(line)) = lines.next_line().await {
+        let line = line.trim();
+        if !line.is_empty() {
+            let snippet: String = line.chars().take(200).collect();
+            diagnostic(&format!("{INK_STDERR} {snippet}"));
+        }
+    }
 }
 
 /// Keeps the child alive for as long as its stdin is written to.
@@ -665,7 +688,13 @@ async fn read_replies(
             continue;
         }
         match serde_json::from_str::<Value>(text) {
-            Ok(reply) => handle_reply(&shared, reply),
+            Ok(reply) => {
+                if reply.get("type").and_then(Value::as_str) == Some("ready") {
+                    let version = reply.get("version").and_then(Value::as_str).unwrap_or("");
+                    diagnostic(format!("{INK_READY} {version}").trim_end());
+                }
+                handle_reply(&shared, reply);
+            }
             Err(_) => {
                 let snippet: String = text.chars().take(200).collect();
                 diagnostic(&format!("{INK_UNPARSEABLE_LINE} {snippet}"));

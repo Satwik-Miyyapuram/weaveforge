@@ -57,21 +57,32 @@ export function desktopInkRequest(
   };
 }
 
-/** Windows Ink, reached over the bridge. `null` bridge means a browser. */
+/** How long a "not available" answer stands before the shell is asked again. */
+export const INK_REPROBE_MS = 30_000;
+
+/**
+ * Windows Ink, reached over the bridge. `null` bridge means a browser.
+ * A yes is kept; a no is asked again after INK_REPROBE_MS, so turning
+ * handwriting on in Windows works without a restart.
+ */
 export function createDesktopInkRecogniser(
   bridge: () => DesktopBridge | null,
+  now: () => number = Date.now,
 ): InkRecogniser {
-  let known: boolean | null = null;
+  let known = false;
+  let saidNoAt: number | null = null;
   return {
     id: WINDOWS_INK_ENGINE_ID,
     offline: true,
     online: true,
     async available() {
-      if (known !== null) return known;
+      if (known) return true;
+      if (saidNoAt !== null && now() - saidNoAt < INK_REPROBE_MS) return false;
       const desktop = bridge();
       if (!desktop || typeof desktop.inkAvailable !== "function") return false;
       try {
         known = await desktop.inkAvailable();
+        saidNoAt = known ? null : now();
         return known;
       } catch {
         // Often the bridge is not ready yet: answer no now, ask again later.
