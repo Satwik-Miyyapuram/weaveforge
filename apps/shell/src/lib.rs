@@ -38,6 +38,7 @@ pub mod menu;
 pub mod migrate;
 pub mod model_cache;
 pub mod old_db;
+pub mod outside_gate;
 pub mod overleaf_links;
 pub mod overleaf_read;
 pub mod overleaf_signin;
@@ -644,16 +645,27 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 /// Opens a public http(s) address in the OS browser, by the same URL-shape rule as Electron's
-/// `mayOpenExternally`. Anything else (credentials, odd ports, local hosts, other schemes) is dropped
-/// and logged, as is a failure to open.
+/// `mayOpenExternally`, and a `mailto:` link in the OS mail app. Anything else (credentials, odd
+/// ports, local hosts, other schemes) is dropped and logged, as is a failure to open. At most one
+/// open per second, shared with the sign-in windows; the rest are dropped and logged.
 fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
     use tauri_plugin_opener::OpenerExt as _;
-    if let Err(rejection) = fetch::url_shape::check_url_shape(url) {
+    let mail = outside_gate::is_mail_link(url);
+    if !mail && let Err(rejection) = fetch::url_shape::check_url_shape(url) {
         log_warn(
             app,
             "shell",
             "A link was not opened",
             &format!("{rejection:?} ({})", url.scheme()),
+        );
+        return;
+    }
+    if !outside_gate::admit_now() {
+        log_warn(
+            app,
+            "shell",
+            "A link was not opened",
+            "more than one outside open in a second",
         );
         return;
     }
