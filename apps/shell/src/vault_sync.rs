@@ -6,8 +6,8 @@ use std::time::Duration;
 use reqwest::Url;
 use wf_store::git::policy::{CommitAction, RepoState, decide_commit};
 use wf_store::git::remote::{
-    PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, SYNC_BRANCH, pull, push,
-    redact_secret_for, remote_status,
+    PullChoice, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, SYNC_BRANCH, pull,
+    pull_resolving, push, redact_secret_for, remote_status,
 };
 use wf_store::git::repo::{FolderRepo, RepoError, probe};
 
@@ -22,8 +22,18 @@ use crate::vault::{NO_ROOT, VaultState};
 
 /// Said when the page asks for an action that is not one of `SYNC_ACTIONS`.
 pub const NOT_AN_ACTION: &str = "That is not a sync action.";
-/// The actions the page may ask for.
-pub const SYNC_ACTIONS: [&str; 5] = ["settings", "status", "connect", "pull", "push"];
+/// The actions the page may ask for. The last three pull again after a
+/// conflict, settling each conflicted file the chosen way.
+pub const SYNC_ACTIONS: [&str; 8] = [
+    "settings",
+    "status",
+    "connect",
+    "pull",
+    "push",
+    "keep-mine",
+    "take-remote",
+    "keep-both",
+];
 /// Said when no remote URL is stored.
 const NO_URL: &str = "Enter the remote's https URL.";
 /// Said when the remote URL has no repository path.
@@ -53,6 +63,8 @@ pub struct SyncOps {
     pub connect: fn(&FolderRepo, &RemoteConfig) -> Result<RemoteStatus, RepoError>,
     /// Brings the remote's changes into the folder.
     pub pull: fn(&FolderRepo, &RemoteConfig) -> Result<PullOutcome, RepoError>,
+    /// Pulls, settling any conflicted file the chosen way.
+    pub resolve: fn(&FolderRepo, &RemoteConfig, PullChoice) -> Result<PullOutcome, RepoError>,
     /// Sends the folder's commits to the remote.
     pub push: fn(&FolderRepo, &RemoteConfig) -> Result<PushOutcome, RepoError>,
 }
@@ -63,6 +75,7 @@ pub const GIT_SYNC_OPS: SyncOps = SyncOps {
     status: remote_status,
     connect: connect_remote,
     pull,
+    resolve: pull_resolving,
     push,
 };
 
@@ -367,9 +380,23 @@ fn run_action(
         "connect" => reply.status = Some(SyncStatus::from((ops.connect)(&repo, config)?)),
         "pull" => reply.pull = Some(SyncPull::from((ops.pull)(&repo, config)?)),
         "push" => reply.push = Some(SyncPush::from((ops.push)(&repo, config)?)),
-        _ => {}
+        other => {
+            if let Some(choice) = pull_choice(other) {
+                reply.pull = Some(SyncPull::from((ops.resolve)(&repo, config, choice)?));
+            }
+        }
     }
     Ok(reply)
+}
+
+/// The conflict choice an action names, if it names one.
+fn pull_choice(action: &str) -> Option<PullChoice> {
+    match action {
+        "keep-mine" => Some(PullChoice::KeepMine),
+        "take-remote" => Some(PullChoice::TakeRemote),
+        "keep-both" => Some(PullChoice::KeepBoth),
+        _ => None,
+    }
 }
 
 /// The folder's path, if a folder is chosen.

@@ -3,12 +3,13 @@
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
 use std::fs;
+use std::path::Path;
 
 use git2::build::CheckoutBuilder;
 use git2::{
-    AutotagOption, CheckoutNotificationType, Cred, ErrorCode, FetchOptions, Index, Object,
-    ObjectType, Oid, PushOptions, RemoteCallbacks, RemoteRedirect, Repository, Signature, Tree,
-    TreeWalkMode, TreeWalkResult,
+    AutotagOption, CheckoutNotificationType, Cred, ErrorCode, FetchOptions, Index, IndexConflict,
+    IndexEntry, Object, ObjectType, Oid, PushOptions, RemoteCallbacks, RemoteRedirect, Repository,
+    Signature, Tree, TreeWalkMode, TreeWalkResult,
 };
 
 use crate::git::policy::{FileState, describe_changes};
@@ -127,10 +128,40 @@ fn status_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteStatus
 /// # Errors
 /// When git cannot read or write the folder, or the remote cannot be reached.
 pub fn pull(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, RepoError> {
-    pull_inner(repo, config).map_err(|e| redact_error(e, config))
+    pull_inner(repo, config, None).map_err(|e| redact_error(e, config))
 }
 
-fn pull_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, RepoError> {
+/// How to settle files changed on both sides.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PullChoice {
+    /// Keep this folder's copy.
+    KeepMine,
+    /// Take the remote's copy.
+    TakeRemote,
+    /// Keep this folder's copy and put the remote's beside it as `name (remote).ext`.
+    KeepBoth,
+}
+
+/// Like [`pull`], but settles files changed on both sides by `choice`.
+///
+/// A file on disk that is not in history (ignored or over the size cap) is still never
+/// overwritten: that case stays a conflict.
+///
+/// # Errors
+/// When git cannot read or write the folder, or the remote cannot be reached.
+pub fn pull_resolving(
+    repo: &FolderRepo,
+    config: &RemoteConfig,
+    choice: PullChoice,
+) -> Result<PullOutcome, RepoError> {
+    pull_inner(repo, config, Some(choice)).map_err(|e| redact_error(e, config))
+}
+
+fn pull_inner(
+    repo: &FolderRepo,
+    config: &RemoteConfig,
+    choice: Option<PullChoice>,
+) -> Result<PullOutcome, RepoError> {
     let r = prepare(repo, config)?;
     commit_pending(repo)?;
     let Some(theirs) = fetch(&r, config, repo.branch())? else {
@@ -157,7 +188,7 @@ fn pull_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, R
     }
     match head {
         Some(ours) if !r.graph_descendant_of(theirs, ours)? => {
-            merge_into_head(&r, ours, theirs, repo.branch())
+            merge_into_head(&r, ours, theirs, repo.branch(), choice)
         }
         _ => fast_forward(&r, theirs),
     }
@@ -189,14 +220,20 @@ fn merge_into_head(
     ours: Oid,
     theirs: Oid,
     branch: &str,
+    choice: Option<PullChoice>,
 ) -> Result<PullOutcome, RepoError> {
     let our_commit = r.find_commit(ours)?;
     let their_commit = r.find_commit(theirs)?;
     let mut index = r.merge_commits(&our_commit, &their_commit, None)?;
     if index.has_conflicts() {
-        return Ok(PullOutcome::Conflict {
-            files: conflict_paths(&index)?,
-        });
+        match choice {
+            Some(choice) => resolve_conflicts(&mut index, choice)?,
+            None => {
+                return Ok(PullOutcome::Conflict {
+                    files: conflict_paths(&index)?,
+                });
+            }
+        }
     }
     let tree_id = index.write_tree_to(r)?;
     let tree = r.find_tree(tree_id)?;
@@ -541,6 +578,74 @@ fn tree_files(tree: &Tree<'_>) -> Result<BTreeSet<String>, git2::Error> {
         TreeWalkResult::Ok
     })?;
     Ok(files)
+}
+
+/// Index entry bits that hold the merge stage.
+const STAGE_MASK: u16 = 0x3000;
+
+/// Replaces every conflict in `index` with the side(s) `choice` keeps.
+fn resolve_conflicts(index: &mut Index, choice: PullChoice) -> Result<(), RepoError> {
+    let conflicts = index
+        .conflicts()?
+        .collect::<Result<Vec<IndexConflict>, git2::Error>>()?;
+    for conflict in conflicts {
+        let Some(path) = [&conflict.our, &conflict.their, &conflict.ancestor]
+            .into_iter()
+            .flatten()
+            .next()
+            .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
+        else {
+            continue;
+        };
+        index.conflict_remove(Path::new(&path))?;
+        let (keep, beside) = match choice {
+            PullChoice::KeepMine => (conflict.our, None),
+            PullChoice::TakeRemote => (conflict.their, None),
+            // With one side deleted, keeping both is keeping the one that is left.
+            PullChoice::KeepBoth => match (conflict.our, conflict.their) {
+                (Some(our), their) => (Some(our), their),
+                (None, their) => (their, None),
+            },
+        };
+        if let Some(entry) = keep {
+            index.add(&unstaged(entry))?;
+        }
+        if let Some(mut entry) = beside {
+            entry.path = free_name(index, &path).into_bytes();
+            index.add(&unstaged(entry))?;
+        }
+    }
+    Ok(())
+}
+
+fn unstaged(mut entry: IndexEntry) -> IndexEntry {
+    entry.flags &= !STAGE_MASK;
+    entry
+}
+
+/// `dir/name (remote).ext`, numbered when that name is taken.
+fn free_name(index: &Index, path: &str) -> String {
+    let (dir, file) = path.rsplit_once('/').map_or(("", path), |(d, f)| (d, f));
+    let (stem, ext) = match file.rfind('.') {
+        Some(dot) if dot > 0 => (&file[..dot], &file[dot..]),
+        _ => (file, ""),
+    };
+    let prefix = if dir.is_empty() {
+        String::new()
+    } else {
+        format!("{dir}/")
+    };
+    (1..)
+        .map(|n| {
+            let tag = if n == 1 {
+                "remote".to_owned()
+            } else {
+                format!("remote {n}")
+            };
+            format!("{prefix}{stem} ({tag}){ext}")
+        })
+        .find(|candidate| index.get_path(Path::new(candidate), 0).is_none())
+        .unwrap_or_default()
 }
 
 /// The our-side and their-side paths of every conflict in `index`, sorted and deduplicated.

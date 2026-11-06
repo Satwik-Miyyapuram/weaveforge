@@ -13,11 +13,24 @@ import {
   saveRemoteSyncSettings,
 } from "@/features/workspace/application/folder-remote-sync";
 
-const LABELS: Record<Exclude<DesktopVaultSyncAction, "settings">, [idle: string, busy: string]> = {
+type Choice = "keep-mine" | "take-remote" | "keep-both";
+
+const LABELS: Record<Exclude<DesktopVaultSyncAction, "settings" | Choice>, [idle: string, busy: string]> = {
   connect: ["Connect", "Connecting…"],
   status: ["Check", "Checking…"],
   pull: ["Pull", "Pulling…"],
   push: ["Push", "Pushing…"],
+};
+
+/** Shown after a pull stops on a conflict: label, busy label, hover help. */
+const CHOICES: Record<Choice, [idle: string, busy: string, help: string]> = {
+  "keep-mine": ["Keep mine", "Merging…", "Pull again, keeping this machine's copy of each conflicted file."],
+  "take-remote": ["Take remote", "Merging…", "Pull again, replacing each conflicted file with the remote's copy."],
+  "keep-both": [
+    "Keep both",
+    "Merging…",
+    "Pull again, keeping this machine's copy and saving the remote's beside it as “name (remote)”.",
+  ],
 };
 
 /**
@@ -33,6 +46,8 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  // The last pull stopped on files edited on both sides.
+  const [conflict, setConflict] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -62,10 +77,12 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
     }
   }
 
-  const act = (action: keyof typeof LABELS) =>
+  const act = (action: keyof typeof LABELS | Choice) =>
     run(action, async () => {
+      setConflict(false);
       const reply = await folderRemoteSync(action);
       setStatus(await describeRemoteSync(reply));
+      setConflict(reply.pull?.kind === "conflict");
       if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
     });
 
@@ -77,7 +94,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       <p className="muted jump-to-meta">
         Push the folder to a git repository and pull it on another machine. Needs folder history on.
         Pull commits your edits first and stops, changing nothing, when a file was edited on both
-        sides. Push never overwrites the remote. Build files, <code>node_modules</code> and files
+        sides; then pick which copy to keep. Push never overwrites the remote. Build files, <code>node_modules</code> and files
         over 25 MB are left out.
       </p>
       <div className="field">
@@ -105,6 +122,21 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       </div>
       {error && <FormError>{error}</FormError>}
       {status && <p className="muted">{status}</p>}
+      {conflict && (
+        <div className="screen-actions screen-actions--start" role="group" aria-label="Settle the conflict">
+          {(Object.keys(CHOICES) as Choice[]).map((choice) => (
+            <Button
+              key={choice}
+              variant="secondary"
+              title={CHOICES[choice][2]}
+              disabled={busy !== null}
+              onClick={() => void act(choice)}
+            >
+              {busy === choice ? CHOICES[choice][1] : CHOICES[choice][0]}
+            </Button>
+          ))}
+        </div>
+      )}
       <div className="screen-actions screen-actions--start">
         <Button
           disabled={busy !== null}
