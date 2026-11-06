@@ -11,6 +11,8 @@
  * while the window is hidden, so a toast never times out unread.
  */
 
+import { formatError } from "@/lib/format-error";
+
 export const TOAST_MS = 8000;
 export const MAX_TOASTS = 3;
 
@@ -185,8 +187,7 @@ export class ToastStore {
   private commit(entry: Entry): void {
     if (!entry.commit) return;
     const id = entry.toast.id;
-    const fail = (error: unknown) =>
-      this.show({ message: `${entry.failure}: ${error instanceof Error ? error.message : String(error)}` });
+    const fail = (error: unknown) => this.show({ message: `${entry.failure}: ${formatError(error)}` });
     let result: unknown;
     try {
       result = entry.commit();
