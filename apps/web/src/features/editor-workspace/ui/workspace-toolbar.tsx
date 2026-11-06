@@ -77,7 +77,7 @@ export function WorkspaceToolbar({
         <IconButton
           size="sm"
           label="Preview"
-          tip={`Preview beside the text (${shortcutLabel("⌘E")})`}
+          tip={previewOff ? "Preview needs a text note focused in Text mode" : `Preview beside the text (${shortcutLabel("⌘E")})`}
           aria-pressed={preview && canSplit(mode)}
           disabled={previewOff}
           onClick={onTogglePreview}
@@ -125,7 +125,11 @@ function LayoutMenu({
       </ToolButton>
       {open ? (
         <BarMenuList label="Layout" listRef={listRef} pos={pos}>
-          <MenuItemButton disabled={previewOff} onClick={choose(onTogglePreview)}>
+          <MenuItemButton
+            disabled={previewOff}
+            title={previewOff ? "Preview needs a text note focused in Text mode" : undefined}
+            onClick={choose(onTogglePreview)}
+          >
             <span>Preview</span>
             <kbd>{shortcutLabel("⌘E")}</kbd>
           </MenuItemButton>

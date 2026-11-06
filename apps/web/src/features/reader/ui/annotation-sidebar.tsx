@@ -243,6 +243,7 @@ export function AnnotationSidebar({
                   <span className="muted">Pin to section</span>
                   <Select
                     aria-label="Pin annotation to report section"
+                    title="Attach this annotation to a report section so it shows there"
                     value={pinnedSection ?? ""}
                     disabled={busyId === a.id}
                     onChange={(e) => {

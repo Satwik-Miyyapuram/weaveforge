@@ -328,7 +328,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                 <ChevronIcon />
               </div>
             </summary>
-            <div className="ai-permission-list ai-list-2col">{typedCore().AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
+            <div className="ai-permission-list ai-list-2col">{typedCore().AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} title={access.readCategories.includes(category) ? undefined : "Turn on this read category first"} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
           </details>
           <section className="ai-section ai-session-section">
             <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions end when the access duration below runs out, or when you revoke them.</p></div></div>
@@ -383,7 +383,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                     </div>
                   </>
                 )}
-                <span className="ai-start-access"><Button onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
+                <span className="ai-start-access"><Button onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)} title={!busy && (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0) ? "Select at least one source to start" : undefined}>
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
                 </Button></span>
                 <FormError>{sessionError}</FormError>

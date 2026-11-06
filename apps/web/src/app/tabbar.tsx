@@ -199,7 +199,7 @@ export function TabBar({
                             <NavIcon name={item.icon ?? group.icon} />
                             <span className="nav-label">{item.label}</span>
                             {"badge" in item && item.badge !== undefined && (
-                              <b className="nav-badge" aria-label={`${item.badge} waiting`}>{item.badge}</b>
+                              <b className="nav-badge" aria-label={`${item.badge} waiting`} title={`${item.badge} waiting for you in ${item.label}`}>{item.badge}</b>
                             )}
                           </NavLink>
                         );

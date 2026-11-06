@@ -74,6 +74,8 @@ export function DeleteAccountPanel() {
     }
   }
 
+  const deleteDisabled = busy || sendingOtp || confirmation !== CONFIRMATION || !otp.trim();
+
   return (
     <div className="add-form delete-account-panel">
       <h3 className="settings-group">Delete account</h3>
@@ -152,7 +154,8 @@ export function DeleteAccountPanel() {
           <Button
             variant="primary"
             style={{ background: "var(--danger)", borderColor: "var(--danger)" }}
-            disabled={busy || sendingOtp || confirmation !== CONFIRMATION || !otp.trim()}
+            disabled={deleteDisabled}
+            title={deleteDisabled ? "Type the confirmation text and enter the emailed code first" : undefined}
             onClick={() => void handleDelete()}
           >
             {busy ? "Deleting…" : "Delete my account permanently"}

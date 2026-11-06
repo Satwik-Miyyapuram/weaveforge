@@ -434,6 +434,7 @@ function ImportPreview({
           variant="primary"
          
           disabled={busy || writable === 0}
+          title={!busy && writable === 0 ? "No changes to import" : undefined}
           onClick={() => {
             setBusy(true);
             setError(null);

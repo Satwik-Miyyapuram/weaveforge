@@ -109,7 +109,7 @@ export function SupervisionScreen() {
                   >
                     <span className={`superv-avatar superv-avatar--${m.role}`} aria-hidden>{initials(m)}</span>
                     <span className="superv-team-info">
-                      <span className="superv-team-name">{m.fullName || m.email || "Unnamed"}</span>
+                      <span className="superv-team-name" title={m.fullName || m.email || "Unnamed"}>{m.fullName || m.email || "Unnamed"}</span>
                       <span className="superv-team-role">{ROLE_LABELS[m.role]}</span>
                     </span>
                   </RowButton>

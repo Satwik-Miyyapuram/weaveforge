@@ -243,6 +243,7 @@ export function AiProviderPanel() {
       <div className="screen-actions">
         <Button
           disabled={testing || !ready}
+          title={testing ? "Testing…" : !ready ? "Enter an endpoint and model first, plus an API key unless using Ollama" : undefined}
           onClick={() => void test()}
         >
           {testing ? "Testing…" : active ? "Test and update" : "Test and use"}
