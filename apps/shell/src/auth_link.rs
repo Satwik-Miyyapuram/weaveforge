@@ -39,10 +39,88 @@ pub fn newest_callback_query(urls: &[tauri::Url]) -> Option<String> {
     urls.iter().rev().find_map(callback_query)
 }
 
+/// Sign-in queries waiting for the page. While the page loads, its listener does not
+/// exist, so queries are held and handed over, oldest first, once it has loaded.
+#[derive(Default)]
+pub struct SignInQueue(std::sync::Mutex<Held>);
+
+#[derive(Default)]
+struct Held {
+    ready: bool,
+    queries: Vec<String>,
+    last: Option<String>,
+}
+
+impl SignInQueue {
+    /// The query to hand over now, or `None` when it is held or repeats the previous one
+    /// (a cold-start link can also arrive as an open event).
+    pub fn offer(&self, query: String) -> Option<String> {
+        let mut held = self.0.lock().ok()?;
+        if held.last.as_deref() == Some(query.as_str()) {
+            return None;
+        }
+        held.last = Some(query.clone());
+        if held.ready {
+            return Some(query);
+        }
+        held.queries.push(query);
+        None
+    }
+
+    /// The page started (re)loading: hold queries until it has loaded.
+    pub fn page_loading(&self) {
+        if let Ok(mut held) = self.0.lock() {
+            held.ready = false;
+        }
+    }
+
+    /// The page has loaded: the held queries, oldest first.
+    pub fn page_loaded(&self) -> Vec<String> {
+        self.0.lock().map_or_else(
+            |_| Vec::new(),
+            |mut held| {
+                held.ready = true;
+                std::mem::take(&mut held.queries)
+            },
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
     use super::*;
+
+    #[test]
+    fn queries_wait_for_the_page_in_order() {
+        let queue = SignInQueue::default();
+        assert_eq!(queue.offer("?code=1".into()), None);
+        assert_eq!(queue.offer("?code=2".into()), None);
+        assert_eq!(
+            queue.page_loaded(),
+            vec!["?code=1".to_string(), "?code=2".to_string()]
+        );
+        assert_eq!(queue.offer("?code=3".into()), Some("?code=3".to_string()));
+        assert!(queue.page_loaded().is_empty());
+    }
+
+    #[test]
+    fn a_reload_holds_queries_again() {
+        let queue = SignInQueue::default();
+        assert!(queue.page_loaded().is_empty());
+        queue.page_loading();
+        assert_eq!(queue.offer("?code=1".into()), None);
+        assert_eq!(queue.page_loaded(), vec!["?code=1".to_string()]);
+    }
+
+    #[test]
+    fn a_repeated_query_is_handed_over_once() {
+        let queue = SignInQueue::default();
+        assert_eq!(queue.offer("?code=1".into()), None);
+        assert_eq!(queue.offer("?code=1".into()), None);
+        assert_eq!(queue.page_loaded(), vec!["?code=1".to_string()]);
+        assert_eq!(queue.offer("?code=1".into()), None);
+    }
 
     fn q(s: &str) -> Option<String> {
         callback_query(&tauri::Url::parse(s).expect("url"))
