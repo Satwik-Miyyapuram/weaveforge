@@ -377,12 +377,17 @@ fn clean_url(url: &str) -> String {
 /// Reads `overleaf-token` from `secrets`, then reads the project from its Overleaf git URL. Every failure comes back redacted.
 ///
 /// # Errors
-/// Returns `NO_TOKEN` when nothing is stored, otherwise the page-safe message of the failure.
+/// Returns `INVALID_PROJECT_ID` for a bad id (checked first, so a bad link is
+/// not blamed on sign-in), `NO_TOKEN` when nothing is stored, otherwise the
+/// page-safe message of the failure.
 pub async fn overleaf_read_with(
     secrets: &Secrets,
     project_id: String,
     entry_file: String,
 ) -> Result<OverleafSource, String> {
+    if !is_project_id(&project_id) {
+        return Err(INVALID_PROJECT_ID.to_owned());
+    }
     let stored = secrets.read("overleaf-token").map_err(error_text)?;
     let Some(token) = stored.filter(|t| !t.is_empty()) else {
         return Err(NO_TOKEN.to_owned());

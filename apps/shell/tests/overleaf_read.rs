@@ -82,6 +82,13 @@ async fn nothing_stored_is_a_sentence_not_a_git_failure() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn bad_project_id_is_named_before_a_missing_token() {
+    let store = mock();
+    let result = overleaf_read_with(&secrets(&store), "../etc".into(), "main.tex".into()).await;
+    assert_eq!(result, Err(INVALID_ID_TEXT.to_owned()));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn bad_project_id_is_refused_before_any_clone_even_with_a_token() {
     let _guard = CLONES.lock().await;
     let store = mock();
