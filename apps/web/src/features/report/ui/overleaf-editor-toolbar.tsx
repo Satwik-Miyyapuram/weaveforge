@@ -3,6 +3,7 @@ import { ToolButton } from "@/components/controls";
 import { Menu } from "@/components/menu";
 import { Popover } from "@/components/popover";
 import { Select } from "@/components/select";
+import { ViewSwitch } from "@/components/view-switch";
 import type { LatexFormat, TextStyle } from "../lib/latex-format";
 
 /** A 16px stroke glyph for a toolbar button. */
@@ -18,6 +19,13 @@ const STYLES: { value: TextStyle; label: string }[] = [
   { value: "subsection", label: "Subsection" },
   { value: "subsubsection", label: "Subsubsection" },
   { value: "paragraph", label: "Paragraph" },
+];
+
+export type EditorMode = "code" | "visual";
+
+const MODES: readonly { value: EditorMode; label: string; title: string }[] = [
+  { value: "code", label: "Code", title: "Code Editor: the LaTeX source" },
+  { value: "visual", label: "Visual", title: "Visual Editor: drawn as it prints, source at the cursor" },
 ];
 
 type Tool = { format: LatexFormat; label: string; icon: ReactNode };
@@ -42,7 +50,7 @@ const EXTRA: (Tool | typeof sep)[] = [
 
 /**
  * Overleaf's editor toolbar, over the source: undo and redo, the text style
- * menu, formatting and search. Each button only reports what was asked; the
+ * menu, formatting and search, and for a .tex file the Code / Visual switch. Each button only reports what was asked; the
  * editor applies it.
  */
 export function OverleafEditorToolbar({
@@ -52,6 +60,8 @@ export function OverleafEditorToolbar({
   onUndo,
   onRedo,
   onSearch,
+  mode,
+  onMode,
 }: {
   /** The cursor line's heading style, or "other" for a part or chapter. */
   style: TextStyle | "other";
@@ -61,9 +71,18 @@ export function OverleafEditorToolbar({
   onUndo: () => void;
   onRedo: () => void;
   onSearch: () => void;
+  /** The editor mode; with onMode, shows the Code / Visual switch. */
+  mode?: EditorMode;
+  onMode?: (mode: EditorMode) => void;
 }) {
   return (
     <div className="overleaf-toolbar" role="toolbar" aria-label="Formatting">
+      {onMode && (
+        <>
+          <ViewSwitch label="Editor mode" value={mode ?? "code"} onChange={onMode} options={MODES} className="overleaf-toolbar__mode" />
+          <span className="overleaf-toolbar__sep" aria-hidden="true" />
+        </>
+      )}
       <ToolButton label="Undo" disabled={disabled} onClick={onUndo}><Glyph><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Glyph></ToolButton>
       <ToolButton label="Redo" disabled={disabled} onClick={onRedo}><Glyph><path d="m15 14 5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></Glyph></ToolButton>
       <span className="overleaf-toolbar__sep" aria-hidden="true" />

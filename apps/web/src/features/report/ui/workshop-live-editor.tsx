@@ -13,7 +13,8 @@ import { latexFoldEnd } from "../lib/latex-fold";
 import { latexHighlight } from "../lib/latex-highlight";
 import { headingOf, latexFormat, type LatexFormat } from "../lib/latex-format";
 import { latexOutline, sectionAt, type OutlineItem } from "../lib/latex-outline";
-import { OverleafEditorToolbar } from "./overleaf-editor-toolbar";
+import { latexVisualMode } from "./latex-visual-mode";
+import { OverleafEditorToolbar, type EditorMode } from "./overleaf-editor-toolbar";
 import { OverleafFileTree } from "./overleaf-file-tree";
 import { OverleafOutline } from "./overleaf-outline";
 import { OverleafPanes, type PaneLayout } from "./overleaf-panes";
@@ -81,6 +82,11 @@ export function WorkshopLiveEditor({
   const [cursor, setCursor] = useState({ line: 1, text: "" });
   const parentRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  /** Code shows the LaTeX source; Visual draws it as it prints (.tex only). */
+  const [mode, setMode] = useState<EditorMode>("code");
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const visualRef = useRef(new Compartment());
   const liveRef = useRef<{ docId: string; doc: LiveDoc } | null>(null);
   const onEventRef = useRef<(event: { name: string; args: unknown[] }) => void>(() => {});
 
@@ -215,6 +221,7 @@ export function WorkshopLiveEditor({
             isTex ? syntaxHighlighting(latexHighlight) : syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
             themeCompartment.of(createCodeMirrorThemeForSite()),
             languageCompartment.of([]),
+            visualRef.current.of(isTex && modeRef.current === "visual" ? latexVisualMode : []),
             EditorView.updateListener.of((update) => {
               if (update.docChanged || update.selectionSet) track(update.state, update.docChanged);
               let changed = false;
@@ -249,6 +256,11 @@ export function WorkshopLiveEditor({
     };
   }, [client, project, docId, reloads]);
 
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view) view.dispatch({ effects: visualRef.current.reconfigure(mode === "visual" ? latexVisualMode : []) });
+  }, [mode]);
+
   /** Runs a command on the editor, then hands it the focus back. */
   const withView = (run: (view: EditorView) => void) => {
     const view = viewRef.current;
@@ -270,6 +282,7 @@ export function WorkshopLiveEditor({
   const section = sectionAt(outline, cursor.line);
   const crumbs = [...path.split("/").filter(Boolean), ...(section ? [section.title] : [])];
   const readOnly = !project?.canEdit || closed;
+  const isTex = path.toLowerCase().endsWith(".tex");
 
   return (
     <div className="workshop-live">
@@ -292,6 +305,8 @@ export function WorkshopLiveEditor({
               onUndo={() => withView(undo)}
               onRedo={() => withView(redo)}
               onSearch={() => withView(openSearchPanel)}
+              mode={isTex ? mode : undefined}
+              onMode={isTex ? setMode : undefined}
             />
             <div className="overleaf-crumbs">
               <ol aria-label="Location">

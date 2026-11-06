@@ -169,6 +169,27 @@ test("a narrow toolbar keeps every tool: the ones it hides sit in a More formatt
   await act(async () => { panel.unmount(); tree.unmount(); });
 });
 
+test("a .tex file's toolbar switches between the Code and Visual editors", async () => {
+  const modes: string[] = [];
+  const tree = await render(createElement(OverleafEditorToolbar, {
+    style: "normal", disabled: false, onFormat: () => {}, onUndo: () => {}, onRedo: () => {}, onSearch: () => {},
+    mode: "code", onMode: (m: string) => modes.push(m),
+  }));
+  const tab = (label: string) => tree.root.find((n) => n.type === "button" && n.props.role === "tab" && textOf(n) === label);
+  assert.equal(tab("Code").props["aria-selected"], true);
+  await act(async () => tab("Visual").props.onClick());
+  assert.deepEqual(modes, ["visual"]);
+  await act(async () => tree.unmount());
+});
+
+test("other files have no editor mode switch", async () => {
+  const tree = await render(createElement(OverleafEditorToolbar, {
+    style: "normal", disabled: false, onFormat: () => {}, onUndo: () => {}, onRedo: () => {}, onSearch: () => {},
+  }));
+  assert.equal(tree.root.findAll((n) => n.props.role === "tab").length, 0);
+  await act(async () => tree.unmount());
+});
+
 // ---- PDF pane ----
 
 test("the PDF bar is one row: Recompile shows its progress, and a failed compile keeps it in reach", async () => {
