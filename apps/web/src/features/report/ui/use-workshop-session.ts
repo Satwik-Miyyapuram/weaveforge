@@ -110,7 +110,7 @@ export function useWorkshopSession({
     return () => { cancelled = true; };
   }, [sessionId, client, store, attempt]);
 
-  function use(id: string) {
+  function adopt(id: string) {
     store.set(id);
     setSessionId(id);
   }
@@ -134,7 +134,7 @@ export function useWorkshopSession({
       const result = await signInToWorkshop(client, cookies);
       setBusy(false);
       if (!result.ok) { setError(result.message); return false; }
-      use(result.sessionId);
+      adopt(result.sessionId);
       return true;
     },
     async signInWithWindow() {
@@ -143,7 +143,7 @@ export function useWorkshopSession({
       setError("");
       try {
         const id = await signInWindow();
-        if (id) use(id);
+        if (id) adopt(id);
       } catch (cause) {
         setError(formatError(cause));
       } finally {
