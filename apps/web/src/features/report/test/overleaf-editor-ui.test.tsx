@@ -7,7 +7,9 @@ import { latexOutline } from "../lib/latex-outline";
 import { OverleafEditorToolbar } from "../ui/overleaf-editor-toolbar";
 import { OverleafOutline } from "../ui/overleaf-outline";
 import { OverleafPanes } from "../ui/overleaf-panes";
+import { Popover } from "@/components/popover";
 import { OverleafSidebar } from "../ui/overleaf-sidebar";
+import { WorkshopPdfViewer } from "../ui/workshop-pdf-viewer";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -148,4 +150,45 @@ test("a read-only file disables the formatting tools", async () => {
   assert.equal(byLabel(tree, "Bold").props.disabled, true);
   assert.equal(byLabel(tree, "Search").props.disabled, undefined, "search still works");
   await act(async () => tree.unmount());
+});
+
+test("a narrow toolbar keeps every tool: the ones it hides sit in a More formatting menu", async () => {
+  const calls: string[] = [];
+  const tree = await render(createElement(OverleafEditorToolbar, {
+    style: "normal", disabled: false, onFormat: (f: string) => calls.push(f), onUndo: () => {}, onRedo: () => {}, onSearch: () => {},
+  }));
+  const more = tree.root.findByType(Popover);
+  assert.equal(more.props.ariaLabel, "More formatting");
+  // The panel the menu opens, rendered alone: the popover itself needs a DOM.
+  const panel = await render(createElement(() => more.props.children(() => {})));
+  const items = panel.root.findAll((n) => n.type === "button" && n.props.role === "menuitem");
+  assert.deepEqual(items.map((n) => textOf(n.find((c) => c.props.className === "menu-item-label"))),
+    ["Math", "Display math", "Link", "Bullet list", "Numbered list", "Toggle comment"]);
+  await act(async () => items[3]!.props.onClick());
+  assert.deepEqual(calls, ["itemize"]);
+  await act(async () => { panel.unmount(); tree.unmount(); });
+});
+
+// ---- PDF pane ----
+
+test("the PDF bar is one row: Recompile shows its progress, and a failed compile keeps it in reach", async () => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  let fail: (e: Error) => void = () => {};
+  globalThis.fetch = (() => { calls++; return new Promise((_, reject) => { fail = reject; }); }) as typeof fetch;
+  try {
+    const tree = await render(createElement(WorkshopPdfViewer, { sessionId: "s", projectId: "p", authHeaders: async () => ({}) }));
+    const recompile = () => tree.root.find((n) => n.type === "button" && /^(Recompile|Compiling…)$/.test(textOf(n)));
+    assert.equal(textOf(recompile()), "Compiling…");
+    assert.equal(recompile().props.disabled, true);
+    await act(async () => { fail(new Error("offline")); await Promise.resolve(); });
+    assert.equal(textOf(recompile()), "Recompile");
+    assert.equal(recompile().props.disabled, false);
+    assert.equal(tree.root.findAll((n) => n.props.className === "workshop-pdf__bar").length, 1, "one bar, not a second strip");
+    await act(async () => recompile().props.onClick());
+    assert.equal(calls, 2);
+    await act(async () => tree.unmount());
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
