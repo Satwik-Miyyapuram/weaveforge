@@ -276,7 +276,12 @@ fn parse_jsonc(text: &str) -> Option<Value> {
 /// `original` with each moved server's `command`, `args` and `env` set to their values in
 /// `config`. Everything else, comments included, stays as the user wrote it. `None` when the
 /// edit does not read back as `config`.
-fn edit_jsonc(original: &str, key: McpServersKey, parsed: &Value, config: &Value) -> Option<String> {
+fn edit_jsonc(
+    original: &str,
+    key: McpServersKey,
+    parsed: &Value,
+    config: &Value,
+) -> Option<String> {
     let root = CstRootNode::parse(original, &ParseOptions::default()).ok()?;
     let servers = root.object_value()?.object_value(key.as_str())?;
     for (name, entry) in config.get(key.as_str())?.as_object()? {
@@ -727,7 +732,11 @@ mod tests {
     fn rewrite_file_removes_its_backup_once_the_rewrite_reads_back() {
         let scratch = Scratch::new("backup-gone");
         let file = scratch.0.join("mcp.json");
-        fs::write(&file, json!({ "mcpServers": { "wf": dev_old() } }).to_string()).unwrap();
+        fs::write(
+            &file,
+            json!({ "mcpServers": { "wf": dev_old() } }).to_string(),
+        )
+        .unwrap();
 
         assert_eq!(
             rewrite_mcp_config_file(&cursor_key_config(file.clone()), &launch(true)),
@@ -829,7 +838,10 @@ mod tests {
             "other": { "command": "x" }
         }});
         assert_eq!(parse_jsonc(&out), Some(expected));
-        assert!(!with_suffix(&file, BACKUP_SUFFIX).exists(), "backup gone once it reads back");
+        assert!(
+            !with_suffix(&file, BACKUP_SUFFIX).exists(),
+            "backup gone once it reads back"
+        );
     }
 
     #[test]
