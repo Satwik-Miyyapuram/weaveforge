@@ -307,7 +307,7 @@ export interface DesktopBridge {
   embedLoad?(model: string): Promise<{ dimensions: number }>;
   /**
    * Embeds texts with `model`, which `embedLoad` loaded; vectors are unit length.
-   * Rejects with "The model is not loaded." once the shell dropped it while idle.
+   * Rejects with an Error whose `code` is "NOT_LOADED" once the shell dropped it while idle.
    */
   embedTexts?(model: string, texts: string[], kind: "passage" | "query"): Promise<number[][]>;
   /** Drops `model` from the shell now instead of when it goes idle. */

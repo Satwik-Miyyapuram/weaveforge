@@ -9,11 +9,21 @@ use weaveforge_shell_lib::commands::{DbState, Json, LocalDb, ShellError, export_
 #[tokio::test]
 async fn a_database_that_failed_to_start_says_why() {
     let db = LocalDb::new(Err("no postgres".to_owned()), "/d".to_owned());
-    let failed = Err(ShellError {
-        message: "no postgres".to_owned(),
-    });
+    let failed = Err(ShellError::from("no postgres".to_owned()));
     assert_eq!(db.query("select 1".to_owned(), Vec::new()).await, failed);
     assert_eq!(db.state().failure.as_deref(), Some("no postgres"));
+}
+
+#[test]
+fn a_coded_error_sends_its_code_and_a_plain_one_sends_none() {
+    assert_eq!(
+        serde_json::to_value(ShellError::coded("NOT_LOADED", "gone")).unwrap(),
+        json!({"message": "gone", "code": "NOT_LOADED"})
+    );
+    assert_eq!(
+        serde_json::to_value(ShellError::from("plain".to_owned())).unwrap(),
+        json!({"message": "plain"})
+    );
 }
 
 #[test]

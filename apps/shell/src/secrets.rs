@@ -159,9 +159,7 @@ fn write_error(error: &keyring_core::Error) -> SecretError {
 
 impl From<SecretError> for ShellError {
     fn from(error: SecretError) -> Self {
-        ShellError {
-            message: error.to_string(),
-        }
+        ShellError::from(error.to_string())
     }
 }
 

@@ -152,9 +152,9 @@ pub async fn app_storage_clear(
     id: String,
 ) -> Result<(), ShellError> {
     let Some(area) = area(&id) else {
-        return Err(ShellError {
-            message: "That is not a folder this app can clear.".to_owned(),
-        });
+        return Err(ShellError::from(
+            "That is not a folder this app can clear.".to_owned(),
+        ));
     };
     let done = match area {
         "log" => log.clear(),
@@ -167,9 +167,7 @@ pub async fn app_storage_clear(
             &format!("Could not clear {id}"),
             Some(&e.to_string()),
         );
-        ShellError {
-            message: "Some files could not be deleted. They may be in use; close what uses them and try again.".to_owned(),
-        }
+        ShellError::from("Some files could not be deleted. They may be in use; close what uses them and try again.".to_owned())
     })
 }
 
@@ -183,6 +181,5 @@ pub async fn local_artifacts_delete(
     let Some(root) = folder(&app, "artifacts") else {
         return Ok(());
     };
-    crate::local_artifacts::delete_local_artifacts(&root, &experiment_id)
-        .map_err(|message| ShellError { message })
+    crate::local_artifacts::delete_local_artifacts(&root, &experiment_id).map_err(ShellError::from)
 }

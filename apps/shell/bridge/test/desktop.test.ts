@@ -8,7 +8,7 @@ import {
 
 type Reply =
   | { status: "ok"; data: unknown }
-  | { status: "error"; error: { message: string } };
+  | { status: "error"; error: { message: string; code?: string } };
 
 type Answer = Reply | (() => Promise<Reply>);
 
@@ -110,6 +110,22 @@ test("an error result rejects with the command's exact message", async () => {
       (e: unknown) => e instanceof Error && e.message === messages[i],
     );
   }
+});
+
+test("an error result with a code rejects with that code on the Error", async () => {
+  const { cmds } = fakeCommands({
+    embedTexts: { status: "error", error: { message: "gone", code: "NOT_LOADED" } },
+    vaultRead: error("no read"),
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  await assert.rejects(
+    async () => shim.embedTexts?.("a/b", ["x"], "query"),
+    (e: unknown) => e instanceof Error && e.message === "gone" && (e as { code?: string }).code === "NOT_LOADED",
+  );
+  await assert.rejects(
+    () => shim.readVaultFile("a.md"),
+    (e: unknown) => e instanceof Error && !("code" in e),
+  );
 });
 
 test("chooseVaultRoot answers the folder the shell adopted", async () => {

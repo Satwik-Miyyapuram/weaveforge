@@ -82,11 +82,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
-/** The data of a generated command's result; an error result is thrown as `Error(message)`. */
+/**
+ * The data of a generated command's result; an error result is thrown as `Error(message)`,
+ * with the shell's `code` on it when the error has one.
+ */
 export function unwrap<T>(
   result:
-    { status: "ok"; data: T } | { status: "error"; error: { message: string } },
+    | { status: "ok"; data: T }
+    | { status: "error"; error: { message: string; code?: string | null } },
 ): T {
-  if (result.status === "error") throw new Error(result.error.message);
+  if (result.status === "error") {
+    const { message, code } = result.error;
+    throw code ? Object.assign(new Error(message), { code }) : new Error(message);
+  }
   return result.data;
 }

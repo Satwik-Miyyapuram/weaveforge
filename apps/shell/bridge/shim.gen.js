@@ -540,7 +540,10 @@
     return proto === Object.prototype || proto === null;
   }
   function unwrap(result) {
-    if (result.status === "error") throw new Error(result.error.message);
+    if (result.status === "error") {
+      const { message, code } = result.error;
+      throw code ? Object.assign(new Error(message), { code }) : new Error(message);
+    }
     return result.data;
   }
 

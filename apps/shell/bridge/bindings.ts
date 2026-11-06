@@ -8,39 +8,39 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	/**  Runs a SQL query on the local database. */
-	dbQuery: (sql: string, params: unknown[]) => typedError<unknown[], ShellError>(__TAURI_INVOKE("db_query", { sql, params })),
+	dbQuery: (sql: string, params: unknown[]) => typedError<unknown[], ShellError_Serialize>(__TAURI_INVOKE("db_query", { sql, params })),
 	/**  Reports the local database's health. */
-	dbState: () => typedError<DbState_Serialize, ShellError>(__TAURI_INVOKE("db_state")),
+	dbState: () => typedError<DbState_Serialize, ShellError_Serialize>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
-	dbReset: () => typedError<null, ShellError>(__TAURI_INVOKE("db_reset")),
+	dbReset: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("db_reset")),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
-	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError>(__TAURI_INVOKE("local_api_call", { channel, args })),
+	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Reads one offline file as standard base64; `null` when it is missing. */
-	localFileRead: (bucket: string, path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("local_file_read", { bucket, path })),
+	localFileRead: (bucket: string, path: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("local_file_read", { bucket, path })),
 	/**
 	 *  Writes one offline file from standard base64.
 	 * 
 	 *  # Errors
 	 *  Invalid base64, or the write failed.
 	 */
-	localFileWrite: (bucket: string, path: string, bytes: string) => typedError<null, ShellError>(__TAURI_INVOKE("local_file_write", { bucket, path, bytes })),
+	localFileWrite: (bucket: string, path: string, bytes: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("local_file_write", { bucket, path, bytes })),
 	/**  Removes one offline file; a missing one is fine. */
-	localFileRemove: (bucket: string, path: string) => typedError<null, ShellError>(__TAURI_INVOKE("local_file_remove", { bucket, path })),
+	localFileRemove: (bucket: string, path: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("local_file_remove", { bucket, path })),
 	/**  Stores a preference the page may write; `null` removes it. */
-	preferenceWrite: (name: string, value: unknown) => typedError<null, ShellError>(__TAURI_INVOKE("preference_write", { name, value })),
+	preferenceWrite: (name: string, value: unknown) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("preference_write", { name, value })),
 	/**  Reads a secret the page may read. */
-	secretRead: (name: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("secret_read", { name })),
+	secretRead: (name: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("secret_read", { name })),
 	/**  Stores a secret the page may write. */
-	secretWrite: (name: string, value: string) => typedError<null, ShellError>(__TAURI_INVOKE("secret_write", { name, value })),
+	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
 	/**  Forgets a secret the page may write. */
-	secretClear: (name: string) => typedError<null, ShellError>(__TAURI_INVOKE("secret_clear", { name })),
+	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
 	/**
 	 *  The chosen workspace folder, or nothing when none is chosen.
 	 * 
 	 *  # Errors
 	 *  Never; the answer is always `Ok`.
 	 */
-	vaultRoot: () => typedError<VaultRoot | null, ShellError>(__TAURI_INVOKE("vault_root")),
+	vaultRoot: () => typedError<VaultRoot | null, ShellError_Serialize>(__TAURI_INVOKE("vault_root")),
 	/**
 	 *  Asks the reader for a workspace folder in a native dialog and moves the workspace there.
 	 * 
@@ -49,42 +49,42 @@ export const commands = {
 	 *  # Errors
 	 *  The reason the picked folder cannot hold a workspace; nothing changes.
 	 */
-	vaultChoose: () => typedError<Choice_Serialize, ShellError>(__TAURI_INVOKE("vault_choose")),
+	vaultChoose: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_choose")),
 	/**
 	 *  The remembered folder while none is in use, so the page can say it is not available.
 	 * 
 	 *  # Errors
 	 *  Never; a `Result` for the command shape.
 	 */
-	vaultMissing: () => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_missing")),
+	vaultMissing: () => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("vault_missing")),
 	/**
 	 *  Tries the remembered folder again, after a drive is plugged back in.
 	 * 
 	 *  # Errors
 	 *  The reason the folder still cannot hold a workspace; nothing changes.
 	 */
-	vaultRetry: () => typedError<Choice_Serialize, ShellError>(__TAURI_INVOKE("vault_retry")),
+	vaultRetry: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_retry")),
 	/**
 	 *  Disconnects the workspace folder: no longer used, watched or remembered. The files stay.
 	 * 
 	 *  # Errors
 	 *  Only when the blocking task fails.
 	 */
-	vaultForget: () => typedError<Choice_Serialize, ShellError>(__TAURI_INVOKE("vault_forget")),
+	vaultForget: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_forget")),
 	/**
 	 *  Reads a text file in the chosen folder.
 	 * 
 	 *  # Errors
 	 *  No folder chosen, a refused path, or a file over the size cap.
 	 */
-	vaultRead: (path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_read", { path })),
+	vaultRead: (path: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("vault_read", { path })),
 	/**
 	 *  Writes a text file in the chosen folder.
 	 * 
 	 *  # Errors
 	 *  No folder chosen, a refused path, or contents over the size cap.
 	 */
-	vaultWrite: (path: string, contents: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_write", { path, contents })),
+	vaultWrite: (path: string, contents: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_write", { path, contents })),
 	/**
 	 *  Writes a text file only if it still says `expected` (`None` = still
 	 *  missing); `false` = it changed since it was read, and nothing was written.
@@ -92,205 +92,205 @@ export const commands = {
 	 *  # Errors
 	 *  No folder chosen, a refused path, or contents over the size cap.
 	 */
-	vaultWriteIf: (path: string, contents: string, expected: string | null) => typedError<boolean, ShellError>(__TAURI_INVOKE("vault_write_if", { path, contents, expected })),
+	vaultWriteIf: (path: string, contents: string, expected: string | null) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("vault_write_if", { path, contents, expected })),
 	/**
 	 *  Reads a binary file in the chosen folder as base64.
 	 * 
 	 *  # Errors
 	 *  No folder chosen, a refused path, or a file over the size cap.
 	 */
-	vaultReadBytes: (path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_read_bytes", { path })),
+	vaultReadBytes: (path: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("vault_read_bytes", { path })),
 	/**
 	 *  Writes a binary file in the chosen folder from base64.
 	 * 
 	 *  # Errors
 	 *  Invalid base64, no folder chosen, a refused path, or contents over the size cap.
 	 */
-	vaultWriteBytes: (path: string, bytes: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_write_bytes", { path, bytes })),
+	vaultWriteBytes: (path: string, bytes: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_write_bytes", { path, bytes })),
 	/**
 	 *  Lists a folder in the chosen folder; the root when `path` is absent.
 	 * 
 	 *  # Errors
 	 *  No folder chosen, a refused path, or a folder that cannot be read.
 	 */
-	vaultList: (path: string | null) => typedError<VaultEntry[], ShellError>(__TAURI_INVOKE("vault_list", { path })),
+	vaultList: (path: string | null) => typedError<VaultEntry[], ShellError_Serialize>(__TAURI_INVOKE("vault_list", { path })),
 	/**
 	 *  Metadata for one file or folder in the chosen folder.
 	 * 
 	 *  # Errors
 	 *  No folder chosen.
 	 */
-	vaultStat: (path: string) => typedError<VaultEntry | null, ShellError>(__TAURI_INVOKE("vault_stat", { path })),
+	vaultStat: (path: string) => typedError<VaultEntry | null, ShellError_Serialize>(__TAURI_INVOKE("vault_stat", { path })),
 	/**
 	 *  Removes one file in the chosen folder.
 	 * 
 	 *  # Errors
 	 *  No folder chosen, a refused path, or a folder.
 	 */
-	vaultRemove: (path: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_remove", { path })),
+	vaultRemove: (path: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_remove", { path })),
 	/**
 	 *  Runs a sync action (settings, status, connect, pull or push) on the chosen folder.
 	 * 
 	 *  # Errors
 	 *  The reason to show the reader when the action is refused or git fails.
 	 */
-	vaultSync: (action: string) => typedError<VaultSyncReply_Serialize, ShellError>(__TAURI_INVOKE("vault_sync", { action })),
+	vaultSync: (action: string) => typedError<VaultSyncReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_sync", { action })),
 	/**
 	 *  Mirrors the chosen folder into its history now, when history is on.
 	 * 
 	 *  # Errors
 	 *  The reason to show the reader when no folder is chosen.
 	 */
-	vaultCommit: () => typedError<CommitReply_Serialize, ShellError>(__TAURI_INVOKE("vault_commit")),
+	vaultCommit: () => typedError<CommitReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_commit")),
 	/**
 	 *  The chosen folder's commits, newest first.
 	 * 
 	 *  # Errors
 	 *  The reason to show the reader when no folder is chosen.
 	 */
-	vaultLog: (limit: number | null) => typedError<WorkspaceCommit[], ShellError>(__TAURI_INVOKE("vault_log", { limit })),
+	vaultLog: (limit: number | null) => typedError<WorkspaceCommit[], ShellError_Serialize>(__TAURI_INVOKE("vault_log", { limit })),
 	/**
 	 *  The commits that changed one file of the chosen folder, newest first.
 	 * 
 	 *  # Errors
 	 *  The reason to show the reader when no folder is chosen.
 	 */
-	vaultFileLog: (path: string, limit: number | null) => typedError<WorkspaceCommit[], ShellError>(__TAURI_INVOKE("vault_file_log", { path, limit })),
+	vaultFileLog: (path: string, limit: number | null) => typedError<WorkspaceCommit[], ShellError_Serialize>(__TAURI_INVOKE("vault_file_log", { path, limit })),
 	/**
 	 *  One file of the chosen folder as it was at a commit, as text; null when it is not text.
 	 * 
 	 *  # Errors
 	 *  The reason to show the reader when no folder is chosen.
 	 */
-	vaultReadAt: (oid: string, path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_read_at", { oid, path })),
+	vaultReadAt: (oid: string, path: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("vault_read_at", { oid, path })),
 	/**
 	 *  Fetches the page title of a pasted link from the public internet.
 	 * 
 	 *  # Errors
 	 *  Returns the sentence to show when the address is refused, unreachable or has no usable title.
 	 */
-	fetchTitle: (url: string) => typedError<TitleReply, ShellError>(__TAURI_INVOKE("fetch_title", { url })),
+	fetchTitle: (url: string) => typedError<TitleReply, ShellError_Serialize>(__TAURI_INVOKE("fetch_title", { url })),
 	/**
 	 *  Fetches the image of a pasted link from the public internet.
 	 * 
 	 *  # Errors
 	 *  Returns the sentence to show when the address is refused, unreachable or not a supported image.
 	 */
-	fetchImage: (url: string) => typedError<ImageReply, ShellError>(__TAURI_INVOKE("fetch_image", { url })),
+	fetchImage: (url: string) => typedError<ImageReply, ShellError_Serialize>(__TAURI_INVOKE("fetch_image", { url })),
 	/**
 	 *  Probes for a LaTeX engine; `None` when there is none.
 	 * 
 	 *  # Errors
 	 *  Never: the Rust probe cannot fail, so the `Err` arm is kept for the Tauri wiring.
 	 */
-	texProbe: () => typedError<TexTool | null, ShellError>(__TAURI_INVOKE("tex_probe")),
+	texProbe: () => typedError<TexTool | null, ShellError_Serialize>(__TAURI_INVOKE("tex_probe")),
 	/**
 	 *  Compiles a LaTeX project the page hands over, in a directory of its own.
 	 * 
 	 *  # Errors
 	 *  Never: a failed compile is reported inside the reply.
 	 */
-	texCompile: (files: TexSourceFile[], entryFile: string) => typedError<TexCompileReply_Serialize, ShellError>(__TAURI_INVOKE("tex_compile", { files, entryFile })),
+	texCompile: (files: TexSourceFile[], entryFile: string) => typedError<TexCompileReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("tex_compile", { files, entryFile })),
 	/**
 	 *  Stops the compiles running now; their replies say the compile was stopped.
 	 * 
 	 *  # Errors
 	 *  Never; the `Err` arm is kept for the Tauri wiring.
 	 */
-	texCancel: () => typedError<null, ShellError>(__TAURI_INVOKE("tex_cancel")),
+	texCancel: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("tex_cancel")),
 	/**
 	 *  Fetches a request from Zotero's local API on this computer.
 	 * 
 	 *  # Errors
 	 *  Returns a `ShellError` when the URL is not Zotero's local API or Zotero does not answer.
 	 */
-	zoteroLocal: (url: string) => typedError<ZoteroLocalReply, ShellError>(__TAURI_INVOKE("zotero_local", { url })),
+	zoteroLocal: (url: string) => typedError<ZoteroLocalReply, ShellError_Serialize>(__TAURI_INVOKE("zotero_local", { url })),
 	/**
 	 *  Looks for a newer release; only a packaged build checks.
 	 * 
 	 *  # Errors
 	 *  When the releases could not be fetched, so the page can say the check failed.
 	 */
-	updateCheck: () => typedError<Update | null, ShellError>(__TAURI_INVOKE("update_check")),
+	updateCheck: () => typedError<Update | null, ShellError_Serialize>(__TAURI_INVOKE("update_check")),
 	/**
 	 *  Records a line the page reported; always `Ok`, as the TS handler sends nothing back.
 	 * 
 	 *  # Errors
 	 *  Never: an invalid report is dropped silently.
 	 */
-	appLogReport: (report: AppLogReport_Deserialize) => typedError<null, ShellError>(__TAURI_INVOKE("app_log_report", { report })),
+	appLogReport: (report: AppLogReport_Deserialize) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("app_log_report", { report })),
 	/**
 	 *  The application log, formatted for the panel.
 	 * 
 	 *  # Errors
 	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
 	 */
-	appLogRead: () => typedError<AppLogText, ShellError>(__TAURI_INVOKE("app_log_read")),
+	appLogRead: () => typedError<AppLogText, ShellError_Serialize>(__TAURI_INVOKE("app_log_read")),
 	/**
 	 *  Shows the log file in the system file manager. Takes no path, so the page can open only this file.
 	 * 
 	 *  # Errors
 	 *  When the file manager could not be opened, for example before the log file exists.
 	 */
-	appLogReveal: () => typedError<null, ShellError>(__TAURI_INVOKE("app_log_reveal")),
+	appLogReveal: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("app_log_reveal")),
 	/**
 	 *  How much space each of the app's folders takes on this computer.
 	 * 
 	 *  # Errors
 	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
 	 */
-	appStorageUsage: () => typedError<StorageArea_Serialize[], ShellError>(__TAURI_INVOKE("app_storage_usage")),
+	appStorageUsage: () => typedError<StorageArea_Serialize[], ShellError_Serialize>(__TAURI_INVOKE("app_storage_usage")),
 	/**
 	 *  Empties one of the app's folders, named by id.
 	 * 
 	 *  # Errors
 	 *  An unknown id, or files that could not be deleted (often because they are in use).
 	 */
-	appStorageClear: (id: string) => typedError<null, ShellError>(__TAURI_INVOKE("app_storage_clear", { id })),
+	appStorageClear: (id: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("app_storage_clear", { id })),
 	/**  Removes the files an experiment saved on this computer, once the experiment is deleted. */
-	localArtifactsDelete: (experimentId: string) => typedError<null, ShellError>(__TAURI_INVOKE("local_artifacts_delete", { experimentId })),
+	localArtifactsDelete: (experimentId: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("local_artifacts_delete", { experimentId })),
 	/**
 	 *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
 	 * 
 	 *  # Errors
 	 *  Returns the page-safe message when no token is stored, the id is invalid, or the clone or read fails.
 	 */
-	overleafRead: (projectId: string, entryFile: string) => typedError<OverleafSource, ShellError>(__TAURI_INVOKE("overleaf_read", { projectId, entryFile })),
+	overleafRead: (projectId: string, entryFile: string) => typedError<OverleafSource, ShellError_Serialize>(__TAURI_INVOKE("overleaf_read", { projectId, entryFile })),
 	/**
 	 *  Runs an Overleaf sync action on the chosen folder.
 	 * 
 	 *  # Errors
 	 *  The reason to show the reader when the action is refused or git fails.
 	 */
-	overleafSync: (action: string, projectId: string | null, folder: string | null) => typedError<OverleafSyncReply_Serialize, ShellError>(__TAURI_INVOKE("overleaf_sync", { action, projectId, folder })),
+	overleafSync: (action: string, projectId: string | null, folder: string | null) => typedError<OverleafSyncReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("overleaf_sync", { action, projectId, folder })),
 	/**
 	 *  Opens the Mattermost sign-in window and answers the session token, or null if it was closed.
 	 * 
 	 *  # Errors
 	 *  The message the page shows; see `mattermost_sign_in_with`.
 	 */
-	mattermostSignIn: (serverUrl: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("mattermost_sign_in", { serverUrl })),
+	mattermostSignIn: (serverUrl: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("mattermost_sign_in", { serverUrl })),
 	/**
 	 *  Opens the Overleaf sign-in window and answers a Workshop session id, or null if it was closed.
 	 * 
 	 *  # Errors
 	 *  `SIGN_IN_NOT_OPENED` or `OVERLEAF_UNREACHABLE`, as the message the page shows.
 	 */
-	overleafSignIn: () => typedError<string | null, ShellError>(__TAURI_INVOKE("overleaf_sign_in")),
+	overleafSignIn: () => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("overleaf_sign_in")),
 	/**
 	 *  Sends one Mattermost post from the shell.
 	 * 
 	 *  # Errors
 	 *  The message the page shows; see `post_with`.
 	 */
-	mattermostPost: (post: MattermostPost) => typedError<MattermostReply, ShellError>(__TAURI_INVOKE("mattermost_post", { post })),
+	mattermostPost: (post: MattermostPost) => typedError<MattermostReply, ShellError_Serialize>(__TAURI_INVOKE("mattermost_post", { post })),
 	/**
 	 *  Whether the handwriting helper can start.
 	 * 
 	 *  # Errors
 	 *  Never: an unavailable helper is reported as `false`.
 	 */
-	inkAvailable: () => typedError<boolean, ShellError>(__TAURI_INVOKE("ink_available")),
+	inkAvailable: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("ink_available")),
 	/**
 	 *  Recognises a page of ink.
 	 * 
@@ -298,35 +298,35 @@ export const commands = {
 	 *  Fails when the page is empty or malformed, or when the helper is missing, stopped or does
 	 *  not answer in time.
 	 */
-	inkRecognise: (request: InkRecognitionRequest_Deserialize) => typedError<InkRecognitionResult_Serialize, ShellError>(__TAURI_INVOKE("ink_recognise", { request })),
+	inkRecognise: (request: InkRecognitionRequest_Deserialize) => typedError<InkRecognitionResult_Serialize, ShellError_Serialize>(__TAURI_INVOKE("ink_recognise", { request })),
 	/**
 	 *  Whether the helper can give pen haptics.
 	 * 
 	 *  # Errors
 	 *  Never: an unavailable helper is reported as `false`.
 	 */
-	inkHapticsAvailable: () => typedError<boolean, ShellError>(__TAURI_INVOKE("ink_haptics_available")),
+	inkHapticsAvailable: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("ink_haptics_available")),
 	/**
 	 *  Sends a pen message to the helper for haptic feedback.
 	 * 
 	 *  # Errors
 	 *  Never: the message is dropped when the helper is not running.
 	 */
-	inkHaptics: (message: InkHapticsMessage) => typedError<null, ShellError>(__TAURI_INVOKE("ink_haptics", { message })),
+	inkHaptics: (message: InkHapticsMessage) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("ink_haptics", { message })),
 	/**
 	 *  Loads `model` (`owner/name`) for embedding, downloading its files first when missing.
 	 * 
 	 *  # Errors
 	 *  `BAD_MODEL`, `NO_CLIENT`, `DOWNLOAD_FAILED`, a failed encoder open, or a vector size too large.
 	 */
-	embedLoad: (model: string) => typedError<EmbedInfo, ShellError>(__TAURI_INVOKE("embed_load", { model })),
+	embedLoad: (model: string) => typedError<EmbedInfo, ShellError_Serialize>(__TAURI_INVOKE("embed_load", { model })),
 	/**
 	 *  Embeds texts with `model`, which `embed_load` must have loaded.
 	 * 
 	 *  # Errors
 	 *  `NOT_LOADED` when `model` is not loaded (never loaded, or dropped while idle), or the encoder's own message.
 	 */
-	embedTexts: (model: string, texts: string[], kind: EmbedKindArg) => typedError<((number | null)[])[], ShellError>(__TAURI_INVOKE("embed_texts", { model, texts, kind })),
+	embedTexts: (model: string, texts: string[], kind: EmbedKindArg) => typedError<((number | null)[])[], ShellError_Serialize>(__TAURI_INVOKE("embed_texts", { model, texts, kind })),
 	/**
 	 *  Drops `model` now instead of waiting for it to go idle, after any load of it in flight.
 	 * 
@@ -334,63 +334,63 @@ export const commands = {
 	 * 
 	 *  Never; the `Err` arm is kept for the Tauri wiring.
 	 */
-	embedUnload: (model: string) => typedError<null, ShellError>(__TAURI_INVOKE("embed_unload", { model })),
+	embedUnload: (model: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("embed_unload", { model })),
 	/**
 	 *  The model files downloading now, with bytes done and the full size when known.
 	 * 
 	 *  # Errors
 	 *  Never; the `Err` arm is kept for the Tauri wiring.
 	 */
-	modelDownloads: () => typedError<ModelDownload_Serialize[], ShellError>(__TAURI_INVOKE("model_downloads")),
+	modelDownloads: () => typedError<ModelDownload_Serialize[], ShellError_Serialize>(__TAURI_INVOKE("model_downloads")),
 	/**
 	 *  Stops the model downloads in flight; each keeps what it has, and the next load resumes it.
 	 * 
 	 *  # Errors
 	 *  Never; the `Err` arm is kept for the Tauri wiring.
 	 */
-	cancelModelDownloads: () => typedError<null, ShellError>(__TAURI_INVOKE("cancel_model_downloads")),
+	cancelModelDownloads: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("cancel_model_downloads")),
 	/**
 	 *  The window's menu, as the page's menu bar draws it.
 	 * 
 	 *  # Errors
 	 *  Never fails today; the `Result` keeps the command's shape.
 	 */
-	menuModel: () => typedError<MenuGroup_Serialize[], ShellError>(__TAURI_INVOKE("menu_model")),
+	menuModel: () => typedError<MenuGroup_Serialize[], ShellError_Serialize>(__TAURI_INVOKE("menu_model")),
 	/**
 	 *  Run one menu entry by its id.
 	 * 
 	 *  # Errors
 	 *  Returns an error when the entry is unknown, a separator, or disabled.
 	 */
-	menuInvoke: (id: string) => typedError<null, ShellError>(__TAURI_INVOKE("menu_invoke", { id })),
+	menuInvoke: (id: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("menu_invoke", { id })),
 	/**
 	 *  Set the title bar's background and check its ink colour.
 	 * 
 	 *  # Errors
 	 *  Returns an error when either colour is not `#rrggbb`.
 	 */
-	titleBarColors: (background: string, ink: string) => typedError<null, ShellError>(__TAURI_INVOKE("title_bar_colors", { background, ink })),
+	titleBarColors: (background: string, ink: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("title_bar_colors", { background, ink })),
 	/**
 	 *  Follow the page's focus mode: full screen on or off.
 	 * 
 	 *  # Errors
 	 *  Returns an error when the window refuses the change.
 	 */
-	windowFocus: (focus: boolean) => typedError<null, ShellError>(__TAURI_INVOKE("window_focus", { focus })),
+	windowFocus: (focus: boolean) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("window_focus", { focus })),
 	/**
 	 *  Whether the widget can be shown here, and whether it is on.
 	 * 
 	 *  # Errors
 	 *  Never fails; the `Result` keeps the command's shape.
 	 */
-	planWidgetState: () => typedError<PlanWidgetStatePayload, ShellError>(__TAURI_INVOKE("plan_widget_state")),
+	planWidgetState: () => typedError<PlanWidgetStatePayload, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_state")),
 	/**
 	 *  Turns the widget on or off: saves the choice, then opens or closes its window.
 	 * 
 	 *  # Errors
 	 *  Returns an error when the choice cannot be saved or the window cannot be opened or closed.
 	 */
-	planWidgetSet: (on: boolean) => typedError<PlanWidgetStatePayload, ShellError>(__TAURI_INVOKE("plan_widget_set", { on })),
+	planWidgetSet: (on: boolean) => typedError<PlanWidgetStatePayload, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_set", { on })),
 	/**
 	 *  Takes the app's palette for the widget: saves it, and hands it to an open widget.
 	 *  A palette that is not plain colours and shapes is dropped.
@@ -398,28 +398,28 @@ export const commands = {
 	 *  # Errors
 	 *  Returns an error when the palette cannot be saved.
 	 */
-	planWidgetTheme: (palette: unknown) => typedError<null, ShellError>(__TAURI_INVOKE("plan_widget_theme", { palette })),
+	planWidgetTheme: (palette: unknown) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_theme", { palette })),
 	/**
 	 *  The saved palette, if it is still a clean one.
 	 * 
 	 *  # Errors
 	 *  Never fails; the `Result` keeps the command's shape.
 	 */
-	planWidgetPalette: () => typedError<{ [key in string]: string } | null, ShellError>(__TAURI_INVOKE("plan_widget_palette")),
+	planWidgetPalette: () => typedError<{ [key in string]: string } | null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_palette")),
 	/**
 	 *  The widget's deadlines from the local database, as the web feed's widget JSON.
 	 * 
 	 *  # Errors
 	 *  Returns an error when the local database cannot be read.
 	 */
-	planWidgetData: () => typedError<unknown, ShellError>(__TAURI_INVOKE("plan_widget_data")),
+	planWidgetData: () => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_data")),
 	/**
 	 *  Brings the app forward on its plan page, opening the main window if it is closed.
 	 * 
 	 *  # Errors
 	 *  Returns an error when the main window cannot be opened.
 	 */
-	planWidgetOpen: () => typedError<null, ShellError>(__TAURI_INVOKE("plan_widget_open")),
+	planWidgetOpen: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_open")),
 };
 
 /* Types */
@@ -867,10 +867,23 @@ export type RootKind =
 /**  Already a workspace we wrote. */
 "existing";
 
-/**  The error every command returns. The bridge shim throws `new Error(message)`. */
-export type ShellError = {
+/**  The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one. */
+export type ShellError = ShellError_Serialize | ShellError_Deserialize;
+
+/**  The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one. */
+export type ShellError_Deserialize = {
 	/**  Human-readable message, shown as-is by the UI. */
 	message: string,
+	/**  A stable name the page matches on instead of the message, when the error has one. */
+	code?: string | null,
+};
+
+/**  The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one. */
+export type ShellError_Serialize = {
+	/**  Human-readable message, shown as-is by the UI. */
+	message: string,
+	/**  A stable name the page matches on instead of the message, when the error has one. */
+	code?: string,
 };
 
 /**  One area's size, as the page shows it. */

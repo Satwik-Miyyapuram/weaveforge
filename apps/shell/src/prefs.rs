@@ -202,9 +202,8 @@ pub async fn preference_write(
     name: String,
     value: crate::commands::Json,
 ) -> Result<(), ShellError> {
-    let value = serde_json::to_value(value).map_err(|e| ShellError {
-        message: format!("preference: bad value: {e}"),
-    })?;
+    let value = serde_json::to_value(value)
+        .map_err(|e| ShellError::from(format!("preference: bad value: {e}")))?;
     prefs
         .queued(move |p| p.page_write_json(&name, value))
         .await
@@ -213,8 +212,6 @@ pub async fn preference_write(
 
 impl From<PrefError> for ShellError {
     fn from(error: PrefError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
+        Self::from(error.to_string())
     }
 }
