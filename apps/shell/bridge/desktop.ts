@@ -97,6 +97,7 @@ export interface DesktopCommands {
     detail: string | null;
   }): Promise<Result<null>>;
   appLogRead(): Promise<Result<DesktopAppLog>>;
+  appLogReveal(): Promise<Result<null>>;
   preferenceWrite(
     name: DesktopPreferenceName,
     value: DesktopPreferenceValue,
@@ -257,6 +258,7 @@ export type DesktopShim = Pick<
   | "checkUpdate"
   | "reportAppLog"
   | "readAppLog"
+  | "revealAppLog"
   | "writePreference"
   | "readSecret"
   | "writeSecret"
@@ -500,6 +502,9 @@ export function desktopShim(
         .catch(() => {});
     },
     readAppLog: async () => unwrap(await cmds.appLogRead()),
+    revealAppLog: async () => {
+      unwrap(await cmds.appLogReveal());
+    },
     writePreference: async (name, value) => {
       unwrap(await cmds.preferenceWrite(name, value));
     },

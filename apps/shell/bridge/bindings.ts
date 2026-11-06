@@ -185,6 +185,13 @@ export const commands = {
 	 */
 	appLogRead: () => typedError<AppLogText, ShellError>(__TAURI_INVOKE("app_log_read")),
 	/**
+	 *  Shows the log file in the system file manager. Takes no path, so the page can open only this file.
+	 * 
+	 *  # Errors
+	 *  When the file manager could not be opened, for example before the log file exists.
+	 */
+	appLogReveal: () => typedError<null, ShellError>(__TAURI_INVOKE("app_log_reveal")),
+	/**
 	 *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
 	 * 
 	 *  # Errors

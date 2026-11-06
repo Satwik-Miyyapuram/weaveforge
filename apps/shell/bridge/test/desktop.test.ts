@@ -799,3 +799,14 @@ test("setPlanWidgetTheme returns undefined synchronously and swallows failures",
   assert.deepEqual(calls, [{ cmd: "planWidgetTheme", args: [{ bg: "#000000" }] }]);
   await new Promise((resolve) => setImmediate(resolve));
 });
+
+test("revealAppLog resolves to undefined and throws the shell's message", async () => {
+  const ok = fakeCommands();
+  assert.equal(await desktopShim(ok.cmds, fakeEvents().events).revealAppLog?.(), undefined);
+  assert.deepEqual(ok.calls, [{ cmd: "appLogReveal", args: [] }]);
+  const bad = fakeCommands({ appLogReveal: error("Could not show the log file.") });
+  await assert.rejects(
+    async () => desktopShim(bad.cmds, fakeEvents().events).revealAppLog?.(),
+    /Could not show the log file/,
+  );
+});
