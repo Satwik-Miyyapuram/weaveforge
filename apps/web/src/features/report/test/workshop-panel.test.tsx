@@ -85,7 +85,7 @@ test("the cookie note says where the cookie is kept: the server, or the app's me
   assert.ok(text(hosted).includes("stored encrypted on the server"));
   await act(async () => hosted.unmount());
   const shell = await mount(harness(projectsOk), true);
-  assert.ok(text(shell).includes("forgotten when you quit"));
+  assert.ok(text(shell).includes("encrypted in this device's keychain"));
   assert.ok(!text(shell).includes("on the server"));
   await act(async () => shell.unmount());
 });
