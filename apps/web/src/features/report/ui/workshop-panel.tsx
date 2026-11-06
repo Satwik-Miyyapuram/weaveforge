@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { getContainer } from "@/bootstrap";
 import { authHeaders } from "@/lib/auth-headers";
 import { Button } from "@/components/button";
@@ -16,8 +17,10 @@ import {
   type WorkshopClientDeps,
   type WorkshopProject,
 } from "@/features/overleaf/infrastructure/workshop-session-client";
-import { WorkshopLiveEditor } from "./workshop-live-editor";
 import { WorkshopPdfViewer, type WorkshopPdfViewerProps } from "./workshop-pdf-viewer";
+
+/** The editor pulls in CodeMirror; load it only when someone clicks Edit. */
+const WorkshopLiveEditor = dynamic(() => import("./workshop-live-editor").then((m) => m.WorkshopLiveEditor), { ssr: false });
 
 /** Where this browser remembers its Workshop session id. Only the opaque id, never the cookie. */
 export interface WorkshopSessionStore {
