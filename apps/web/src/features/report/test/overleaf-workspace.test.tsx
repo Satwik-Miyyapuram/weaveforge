@@ -325,11 +325,11 @@ test("search narrows the list by name and says when nothing matches", async () =
   await act(async () => tree.unmount());
 });
 
-test("with no projects at all, Export ZIP opens the export", async () => {
+test("with no projects at all, Export for Overleaf opens the export", async () => {
   let exported = 0;
   const tree = await mount(harness(() => json({ projects: [] }), SESSION), { onExport: () => { exported++; } });
   assert.match(text(tree), /No Overleaf projects yet/);
-  await act(async () => button(tree, "Export ZIP").props.onClick());
+  await act(async () => button(tree, "Export for Overleaf").props.onClick());
   assert.equal(exported, 1);
   await act(async () => tree.unmount());
 });

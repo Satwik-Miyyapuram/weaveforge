@@ -69,7 +69,7 @@ export function ReportOverleafScreen() {
     <section className="screen report-overleaf-screen">
       <ScreenHead title="Overleaf">
         <Button onClick={() => setExportOpen(true)} title="Download this project's report as an Overleaf ZIP">
-          Export ZIP
+          Export for Overleaf
         </Button>
       </ScreenHead>
 
