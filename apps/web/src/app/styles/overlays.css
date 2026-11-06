@@ -483,6 +483,8 @@
   z-index: var(--z-overlay);
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: var(--s2);
   pointer-events: none;
   background: color-mix(in srgb, var(--bg) 80%, transparent);
   outline: 3px dashed var(--accent);
@@ -493,4 +495,8 @@
   font-size: var(--fs-h2);
   font-weight: 600;
   color: var(--ink);
+}
+
+.file-drop-hint {
+  color: var(--muted);
 }

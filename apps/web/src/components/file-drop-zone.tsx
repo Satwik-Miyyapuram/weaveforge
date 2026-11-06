@@ -26,7 +26,10 @@ export function FileDropZone({ label, onFiles }: { label: string; onFiles: (file
       if (depth.current === 0) setOver(false);
     };
     const overHandler = (e: DragEvent) => {
-      if (isFiles(e)) e.preventDefault();
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      // The "+" copy cursor, so the drop reads as an add.
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     };
     const drop = (e: DragEvent) => {
       if (!isFiles(e)) return;
@@ -54,7 +57,8 @@ export function FileDropZone({ label, onFiles }: { label: string; onFiles: (file
     <>
       {over && (
         <div className="file-drop-overlay" aria-hidden>
-          <p className="file-drop-label">{label}</p>
+          <p className="file-drop-label">Drop here</p>
+          <p className="file-drop-hint">{label}</p>
         </div>
       )}
     </>

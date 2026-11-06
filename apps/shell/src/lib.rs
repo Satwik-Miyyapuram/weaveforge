@@ -616,6 +616,8 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let popup_app = app.clone();
     let builder = tauri::WebviewWindowBuilder::from_config(app, config)?
         .initialization_script(script)
+        // Let file drops reach the page (Papers, Notes); Tauri's own handler swallows them.
+        .disable_drag_drop_handler()
         .on_navigation(move |url| {
             let stays = shim::main_window_keeps(url);
             if !stays {
