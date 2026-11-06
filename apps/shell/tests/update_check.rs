@@ -7,7 +7,8 @@ mod upstream;
 use upstream::{Upstream, response, serve};
 use weaveforge_shell_lib::update_check::{
     MAX_RELEASES_BYTES, Release, UPDATE_CHECK_FAILED, Update, Version, check_update_reply,
-    fetch_releases, find_update_at, is_newer, newest_release, parse_tag, parse_version,
+    fetch_releases, find_update_at, find_update_warning, is_newer, newest_release, parse_tag,
+    parse_version,
 };
 
 const NO_HOST: &str = "http://127.0.0.1:9/releases";
@@ -248,6 +249,16 @@ async fn find_update_fetch_fails() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn find_update_hands_the_detail_to_the_log() {
+    let (_up, url) = serve_releases(503, "{}").await;
+    let mut logged = None;
+    let found =
+        find_update_warning("0.5.2", &url, |detail| logged = Some(detail.to_string())).await;
+    assert_eq!(found, Err(UPDATE_CHECK_FAILED.to_string()));
+    assert_eq!(logged.as_deref(), Some("releases: 503"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn find_update_unreachable_is_an_error() {
     assert_eq!(
         find_update_at("0.5.2", NO_HOST).await,
@@ -266,7 +277,7 @@ async fn find_update_bad_current_makes_no_request() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn not_packaged_is_none() {
     // A dev build asks nothing, so the real GitHub URL is never reached.
-    assert_eq!(check_update_reply(false, "0.5.2").await, Ok(None));
+    assert_eq!(check_update_reply(false, "0.5.2", |_| {}).await, Ok(None));
 }
 
 #[test]

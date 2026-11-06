@@ -416,9 +416,27 @@ async fn unresolvable() {
         .unwrap_err();
     assert_eq!(f.kind, FailKind::Unreachable);
     assert_eq!(f.status, 502);
+    assert_eq!(f.message, "That host could not be resolved: gone.test.");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refused_connection_names_only_the_host() {
+    let port = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    };
+    let f = safe_fetch_via(
+        &test_net(),
+        &format!("http://site.test:{port}/"),
+        &defaults(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(f.kind, FailKind::Unreachable);
+    assert_eq!(f.status, 502);
     assert_eq!(
         f.message,
-        "That host could not be resolved: gone.test (no such host)."
+        format!("That site could not be reached: site.test:{port}.")
     );
 }
 

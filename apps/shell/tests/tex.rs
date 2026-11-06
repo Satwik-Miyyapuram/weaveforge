@@ -8,9 +8,9 @@ use std::fs;
 use common::TempDir;
 use tokio::sync::Notify;
 use weaveforge_shell_lib::tex::{
-    COMPILE_FAILED, MAX_FILES, MAX_TOTAL_BYTES, NO_ENGINE, STOPPED, TOO_LARGE, TOO_MANY_FILES,
-    TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, args_for, compile_tex_in,
-    parse_tex_log, probe_engine, safe_relative, tail,
+    COMPILE_FAILED, MAX_FILES, MAX_TOTAL_BYTES, NO_ENGINE, NOT_STARTED, STOPPED, TOO_LARGE,
+    TOO_MANY_FILES, TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, args_for,
+    compile_tex_in, parse_tex_log, probe_engine, safe_relative, tail,
 };
 
 /// The smallest document that is actually a document.
@@ -283,6 +283,7 @@ async fn compile_missing_binary_cleans_up() {
     assert_eq!(result.pdf, None);
     assert_eq!(result.engine, Some(TexEngine::Pdflatex));
     assert_eq!(result.errors, vec![error("main.tex", 0, COMPILE_FAILED)]);
+    assert!(result.log.starts_with(NOT_STARTED), "log: {}", result.log);
     assert!(tmp_is_empty(&tmp));
 }
 
@@ -433,7 +434,7 @@ async fn compile_output_flood_is_stopped() {
     let result = compile_fake(&tmp, &files, &tool).await;
     assert!(!result.ok);
     assert!(
-        result.log.contains("stdout maxBuffer length exceeded"),
+        result.log.contains(weaveforge_shell_lib::tex::OUTPUT_FLOOD),
         "log: {}",
         result.log
     );

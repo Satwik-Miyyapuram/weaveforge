@@ -46,6 +46,8 @@ pub const PROBE_FAILED: &str = "Could not look for a LaTeX engine on this comput
 pub const NOT_A_PROJECT: &str = "That is not a project to compile.";
 /// Reason given when the build directory cannot be made.
 pub const NOT_STARTED: &str = "The compile could not be started.";
+/// Log line when the engine prints past [`MAX_OUTPUT_BYTES`] on one stream.
+pub const OUTPUT_FLOOD: &str = "The engine printed too much output, so the compile was stopped.";
 /// Most the engine may print on each of stdout and stderr (TS `maxBuffer`); past it the compile fails.
 pub const MAX_OUTPUT_BYTES: usize = 32 * 1024 * 1024;
 
@@ -319,8 +321,7 @@ pub async fn probe_engine(kind: TexEngine, command: &str) -> Option<TexTool> {
     let stdout = child.stdout().take();
     let stderr = child.stderr().take();
     let run = async move {
-        let (out, err) =
-            tokio::try_join!(read_stream(stdout, "stdout"), read_stream(stderr, "stderr"))?;
+        let (out, err) = tokio::try_join!(read_stream(stdout), read_stream(stderr))?;
         let status = child.wait().await.map_err(|e| e.to_string())?;
         Ok::<_, String>((status.success(), out, err))
     };
@@ -466,13 +467,12 @@ async fn run_engine(
     let spawned = engine_command(&tool.command, args_for(tool.kind, entry), Some(dir)).spawn();
     let mut child = match spawned {
         Ok(child) => child,
-        Err(err) => return Some((true, format!("\n{err}"))),
+        Err(err) => return Some((true, format!("\n{NOT_STARTED} ({err})"))),
     };
     let stdout = child.stdout().take();
     let stderr = child.stderr().take();
     let run = async move {
-        let (out, err) =
-            tokio::try_join!(read_stream(stdout, "stdout"), read_stream(stderr, "stderr"))?;
+        let (out, err) = tokio::try_join!(read_stream(stdout), read_stream(stderr))?;
         let status = child.wait().await.map_err(|e| e.to_string())?;
         Ok::<_, String>((status.success(), out, err))
     };
@@ -494,11 +494,8 @@ async fn run_engine(
     })
 }
 
-/// Reads one output stream, failing once it passes [`MAX_OUTPUT_BYTES`] (Node's maxBuffer error text).
-async fn read_stream<R: AsyncRead + Unpin>(
-    stream: Option<R>,
-    name: &str,
-) -> Result<Vec<u8>, String> {
+/// Reads one output stream, failing with [`OUTPUT_FLOOD`] once it passes [`MAX_OUTPUT_BYTES`].
+async fn read_stream<R: AsyncRead + Unpin>(stream: Option<R>) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
     let Some(stream) = stream else {
         return Ok(bytes);
@@ -512,7 +509,7 @@ async fn read_stream<R: AsyncRead + Unpin>(
         .await
         .map_err(|e| e.to_string())?;
     if bytes.len() > MAX_OUTPUT_BYTES {
-        return Err(format!("{name} maxBuffer length exceeded"));
+        return Err(OUTPUT_FLOOD.to_string());
     }
     Ok(bytes)
 }
