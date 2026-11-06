@@ -1,4 +1,8 @@
 //! Searching the workspace folder. Ported from apps/shell/sidecar/src/vault-search.ts.
+//!
+//! Serves the local HTTP API and MCP tools only; the app searches its own index,
+//! so this is no Tauri command. Files are read per query on purpose: a capped
+//! grep that cannot go stale beats a cache agents might read old text from.
 
 use crate::vault::{EntryKindPayload, VaultSession};
 
