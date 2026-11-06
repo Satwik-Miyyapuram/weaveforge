@@ -9,6 +9,7 @@ import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/s
 import { EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
+import { OverleafFileTree } from "./overleaf-file-tree";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
 import { changesFromOp, opFromChanges } from "@/features/overleaf/application/codemirror-ops";
 import { LiveDoc, otUpdateOf } from "@/features/overleaf/application/live-doc";
@@ -222,19 +223,7 @@ export function WorkshopLiveEditor({
       </div>
       {error && <FormError>{error}</FormError>}
       <div className="workshop-live__body">
-        <nav className="workshop-live__files" aria-label="Project files">
-          {project?.docs.map((d) => (
-            <Button
-              key={d.id}
-              size="sm"
-              variant={d.id === docId ? "secondary" : "ghost"}
-              aria-current={d.id === docId ? "true" : undefined}
-              onClick={() => setDocId(d.id)}
-            >
-              {d.path}
-            </Button>
-          ))}
-        </nav>
+        <OverleafFileTree docs={project?.docs ?? []} activeId={docId} onOpen={setDocId} />
         <div className="workshop-live__editor" ref={parentRef} />
       </div>
     </div>

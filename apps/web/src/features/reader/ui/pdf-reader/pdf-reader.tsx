@@ -122,6 +122,7 @@ export function PdfReader({
   annotations = [],
   contentHash = "",
   paperTitle = "Paper",
+  viewOnly = false,
   quotationTypes,
   paperId,
   onAnnotationsChange,
@@ -1544,6 +1545,7 @@ export function PdfReader({
             not mark greys its tools and keeps pages, view, find and more. */}
         <InkBar
           readOnly={!canCreate}
+          viewOnly={viewOnly}
           tool={barToolFor(pen.prefs.tool)}
           colour={drawColour}
           width={pen.prefs.width}

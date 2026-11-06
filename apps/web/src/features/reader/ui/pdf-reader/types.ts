@@ -87,6 +87,8 @@ export interface PdfReaderProps {
    */
   contentHash?: string;
   paperTitle?: string;
+  /** Only looked at (a compiled Overleaf PDF): the bar drops its ink tools. */
+  viewOnly?: boolean;
   quotationTypes?: Map<string, QuotationType>;
   /** When set, selection can create local annotations (R3 sink). */
   paperId?: string;
