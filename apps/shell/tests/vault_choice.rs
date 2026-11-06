@@ -273,8 +273,8 @@ fn a_refused_pick_keeps_the_old_folder_reporting() {
     let vault = VaultState::new();
     let prefs = prefs_in(&tmp);
     let slot = WatchSlot::default();
-    let (sink1, _rx1) = sink();
-    let (sink2, rx2) = sink();
+    let (sink1, rx1) = sink();
+    let (sink2, _rx2) = sink();
 
     let root = adopt_choice_with(
         &vault,
@@ -289,11 +289,12 @@ fn a_refused_pick_keeps_the_old_folder_reporting() {
     .root
     .unwrap();
     assert!(adopt_choice_with(&vault, &prefs, &slot, Some(&file), sink2, QUIET, WINDOW).is_err());
-    while rx2.try_recv().is_ok() {}
+    while rx1.try_recv().is_ok() {}
 
     fs::write(Path::new(&root.path).join("still.md"), "s").unwrap();
 
-    assert!(reported(&rx2, "still.md"), "old folder no longer watched");
+    // The old watch is never stopped by a refused pick, so it reports on its own sink.
+    assert!(reported(&rx1, "still.md"), "old folder no longer watched");
 }
 
 #[test]

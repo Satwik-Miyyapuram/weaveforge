@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
@@ -36,6 +37,7 @@ pub struct VaultWatcher {
     tx: Sender<Msg>,
     thread: Option<JoinHandle<()>>,
     shared: Arc<Mutex<VaultWatch>>,
+    halted: Arc<AtomicBool>,
 }
 
 impl VaultWatcher {
@@ -82,16 +84,26 @@ impl VaultWatcher {
         });
         let shared = Arc::new(Mutex::new(VaultWatch::new(normalize, quiet, window)));
         let thread_shared = Arc::clone(&shared);
+        let halted = Arc::new(AtomicBool::new(false));
+        let thread_halted = Arc::clone(&halted);
         let thread = std::thread::Builder::new()
             .name("vault-watcher".into())
-            .spawn(move || run(&rx, &roots, &thread_shared, &sink))
+            .spawn(move || run(&rx, &roots, &thread_shared, &thread_halted, &sink))
             .map_err(|_| CANNOT_WATCH.to_owned())?;
         Ok(Self {
             watcher: Some(watcher),
             tx,
             thread: Some(thread),
             shared,
+            halted,
         })
+    }
+
+    /// Stops reporting at once, without waiting for the thread; dropping still joins it. Lets a
+    /// caller silence the watch under a lock and pay for the join after letting go.
+    pub fn halt(&self) {
+        self.halted.store(true, Ordering::Release);
+        let _ = self.tx.send(Msg::Stop);
     }
 
     /// The app just wrote `bytes` to `rel` (folder-relative); its echo is not reported.
@@ -128,6 +140,12 @@ impl WatchSlot {
         );
         // Dropped outside the lock: stopping joins the watch thread.
         drop(old);
+    }
+
+    /// Takes the running watch out, still running; the caller halts and drops it.
+    #[must_use]
+    pub fn take(&self) -> Option<VaultWatcher> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
     }
 
     /// Whether a watch is running.
@@ -195,7 +213,13 @@ fn lock(shared: &Mutex<VaultWatch>) -> MutexGuard<'_, VaultWatch> {
 }
 
 /// The watch thread: feeds reports to the batcher and releases batches as they come due.
-fn run(rx: &Receiver<Msg>, roots: &[PathBuf], shared: &Mutex<VaultWatch>, sink: &ChangeSink) {
+fn run(
+    rx: &Receiver<Msg>,
+    roots: &[PathBuf],
+    shared: &Mutex<VaultWatch>,
+    halted: &AtomicBool,
+    sink: &ChangeSink,
+) {
     loop {
         let deadline = lock(shared).deadline();
         let next = match deadline {
@@ -211,7 +235,8 @@ fn run(rx: &Receiver<Msg>, roots: &[PathBuf], shared: &Mutex<VaultWatch>, sink: 
             Err(RecvTimeoutError::Timeout) => {}
         }
         let batch = lock(shared).flush(Instant::now());
-        if !batch.is_empty() {
+        // A halted watch belongs to a folder no longer in use: its news must not reach the page.
+        if !batch.is_empty() && !halted.load(Ordering::Acquire) {
             sink(batch);
         }
     }

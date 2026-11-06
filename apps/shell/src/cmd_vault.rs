@@ -11,6 +11,8 @@ use crate::vault_watcher::WatchSlot;
 
 /// Said when the bytes from the page are not valid base64; nothing is written.
 pub const BAD_BYTES: &str = "Those bytes could not be read.";
+/// Said when a folder dialog is already open; the second pick is refused, not read as a cancel.
+pub const PICK_BUSY: &str = "A folder dialog is already open. Finish or close it first.";
 /// Said when the blocking task that ran a file operation panicked.
 pub const TASK_FAILED: &str = "The folder could not be read.";
 
@@ -55,22 +57,6 @@ pub async fn read(state: &VaultState, path: String) -> Result<Option<String>, St
 /// No folder chosen, a refused path, or contents over the size cap.
 pub async fn write(state: &VaultState, path: String, contents: String) -> Result<(), String> {
     blocking(state, move |session| session.write_text(&path, &contents)).await
-}
-
-/// `write` only while the file still says `expected` (`None` = still missing).
-///
-/// # Errors
-/// As `read` and `write`.
-pub async fn write_if(
-    state: &VaultState,
-    path: String,
-    contents: String,
-    expected: Option<String>,
-) -> Result<bool, String> {
-    blocking(state, move |session| {
-        session.write_text_if(&path, &contents, expected.as_deref())
-    })
-    .await
 }
 
 /// Bytes of a file in the chosen folder as standard base64; `None` when the file is missing.
@@ -162,7 +148,7 @@ pub async fn vault_choose(
 ) -> Result<Option<VaultRoot>, ShellError> {
     // The dialog is modal; this also refuses a second pick that slips in while one is open.
     let Some(_choosing) = Choosing::start() else {
-        return Ok(root(vault.inner()).await);
+        return Err(ShellError::from(PICK_BUSY.to_owned()));
     };
     let picked = pick_folder(&app, &window).await;
     let vault = vault.inner().clone();
@@ -261,11 +247,15 @@ pub async fn vault_write(
     path: String,
     contents: String,
 ) -> Result<(), ShellError> {
-    // Noted before writing, so the folder watch can never see the write first.
-    watch.note_self_write(&path, contents.as_bytes());
-    write(state.inner(), path, contents)
-        .await
-        .map_err(ShellError::from)
+    // Noted before writing, so the folder watch can never see the write first, and under the
+    // session lock, so a folder move cannot slip between the note and the write.
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_write(&path, contents.as_bytes());
+        session.write_text(&path, &contents)
+    })
+    .await
+    .map_err(ShellError::from)
 }
 
 /// Writes a text file only if it still says `expected` (`None` = still
@@ -282,10 +272,13 @@ pub async fn vault_write_if(
     contents: String,
     expected: Option<String>,
 ) -> Result<bool, ShellError> {
-    watch.note_self_write(&path, contents.as_bytes());
-    write_if(state.inner(), path, contents, expected)
-        .await
-        .map_err(ShellError::from)
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_write(&path, contents.as_bytes());
+        session.write_text_if(&path, &contents, expected.as_deref())
+    })
+    .await
+    .map_err(ShellError::from)
 }
 
 /// Reads a binary file in the chosen folder as base64.
@@ -316,10 +309,13 @@ pub async fn vault_write_bytes(
     bytes: String,
 ) -> Result<(), ShellError> {
     let bytes = decode_bytes(&bytes)?;
-    watch.note_self_write(&path, &bytes);
-    write_raw(state.inner(), path, bytes)
-        .await
-        .map_err(ShellError::from)
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_write(&path, &bytes);
+        session.write_bytes(&path, &bytes)
+    })
+    .await
+    .map_err(ShellError::from)
 }
 
 /// Lists a folder in the chosen folder; the root when `path` is absent.
@@ -359,6 +355,11 @@ pub async fn vault_remove(
     watch: tauri::State<'_, WatchSlot>,
     path: String,
 ) -> Result<(), ShellError> {
-    watch.note_self_remove(&path);
-    remove(state.inner(), path).await.map_err(ShellError::from)
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_remove(&path);
+        session.remove(&path)
+    })
+    .await
+    .map_err(ShellError::from)
 }

@@ -250,3 +250,29 @@ fn the_main_window_may_listen_for_vault_changes() {
     let permissions = capability["permissions"].as_array().unwrap();
     assert!(permissions.contains(&serde_json::json!("core:event:default")));
 }
+
+#[test]
+fn a_halted_watch_reports_nothing_more() {
+    let dir = TempDir::new();
+    let (watcher, rx, _alive) = start(dir.path());
+    watcher.halt();
+    fs::write(dir.path().join("late.md"), b"l").unwrap();
+    assert_eq!(
+        rx.recv_timeout(Duration::from_millis(800)).err(),
+        Some(RecvTimeoutError::Timeout),
+        "a halted watch must not report"
+    );
+    drop(watcher);
+}
+
+#[test]
+fn taking_the_watch_leaves_the_slot_empty() {
+    let dir = TempDir::new();
+    let (watcher, _rx, _alive) = start(dir.path());
+    let slot = WatchSlot::default();
+    slot.set(Some(watcher));
+    let taken = slot.take();
+    assert!(taken.is_some());
+    assert!(!slot.is_watching());
+    assert!(slot.take().is_none());
+}
