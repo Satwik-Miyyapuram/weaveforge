@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FormError } from "@/components/form-error";
-import { PdfReader } from "@/features/reader";
+import { createPdfObjectUrl, PdfReader, revokePdfObjectUrl } from "@/features/reader";
 import {
   fetchWorkshopPdf,
   type WorkshopPdfDeps,
@@ -39,12 +39,12 @@ export function WorkshopPdfViewer({
     const deps: WorkshopPdfDeps = {
       fetch: (url, init) => fetch(url, init),
       authHeaders,
-      createObjectUrl: (blob) => URL.createObjectURL(blob),
+      createObjectUrl: (blob) => createPdfObjectUrl(blob),
     };
     setState({ status: "loading" });
     void fetchWorkshopPdf(deps, sessionId, projectId, null, () => !cancelled).then((result) => {
       if (cancelled) {
-        if (result.ok) URL.revokeObjectURL(result.url);
+        if (result.ok) revokePdfObjectUrl(result.url);
         return;
       }
       if (result.ok) {
@@ -56,7 +56,7 @@ export function WorkshopPdfViewer({
     });
     return () => {
       cancelled = true;
-      if (shownUrl) URL.revokeObjectURL(shownUrl);
+      if (shownUrl) revokePdfObjectUrl(shownUrl);
     };
   }, [sessionId, projectId, authHeaders]);
 

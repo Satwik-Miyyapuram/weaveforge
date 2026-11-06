@@ -47,7 +47,7 @@ test("the old homes still load after the moves (B69)", async () => {
     "../features/dashboard/application/dashboard-layout",
     "../features/auth/ui/auth-provider",
     "../features/report/ui/report-screen",
-    "../features/report/ui/linked-overleaf-reports",
+    "../features/report/ui/overleaf-workspace",
     "../features/relations/ui/graph-canvas",
     "../features/editor-workspace/ui/explorer-panel",
     "../features/workspace/application/workspace-folder",
