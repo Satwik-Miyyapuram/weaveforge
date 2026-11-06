@@ -272,7 +272,7 @@ impl PgServer {
             if Instant::now() >= deadline {
                 return Err(PgError::local("Postgres did not start within 60 s"));
             }
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
     }
 
