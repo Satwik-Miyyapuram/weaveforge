@@ -37,7 +37,7 @@ import {
 import { activeProject, activeProjectOrNull } from "./active-project";
 import { mirrorWorkspace } from "./folder-mirror";
 import { readPreviewFolder } from "./folder-preview-read";
-import { applyFolderImport } from "./folder-import-apply";
+import { applyFolderImport, keepWorkspaceCopy } from "./folder-import-apply";
 import { isNoteOpen, onNoteClosed } from "./open-notes";
 import { diffAgainstWorkspace, importableEntities } from "./folder-diff";
 import {
@@ -472,6 +472,19 @@ export function settleExternalChanges(diff: FolderDiff, only?: ReadonlySet<strin
 export function onExternalChange(listener: (paths: string[]) => void): () => void {
   externalListeners.add(listener);
   return () => externalListeners.delete(listener);
+}
+
+/**
+ * Settle one held outside edit from its row: "mine" writes the workspace's copy over the folder's file,
+ * "theirs" takes the folder's copy in. The path is then looked at again, so the list drops it.
+ */
+export async function settleHeldEdit(path: string, keep: "mine" | "theirs"): Promise<void> {
+  const fs = activeFs;
+  if (!fs) throw new Error("No folder is connected.");
+  const only = new Set([path]);
+  if (keep === "mine") await keepWorkspaceCopy(fs, path);
+  else await applyFolderImport(await previewFolderImport(only), { [path]: "folder" }, { fs });
+  if (activeFs === fs) settleExternalChanges(await previewFolderImport(only), only);
 }
 
 /** Why a listed outside edit waits for review; none for a path the last look did not see. */
