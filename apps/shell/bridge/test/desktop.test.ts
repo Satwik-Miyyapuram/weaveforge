@@ -115,16 +115,44 @@ test("an error result rejects with the command's exact message", async () => {
 test("chooseVaultRoot answers the folder the shell adopted", async () => {
   const adopted = { path: "C:/notes", state: "empty" };
   const { cmds, calls } = fakeCommands({
-    vaultChoose: { status: "ok", data: adopted },
+    vaultChoose: { status: "ok", data: { root: adopted, warnings: [] } },
   });
   const shim = desktopShim(cmds, fakeEvents().events);
   assert.deepEqual(await shim.chooseVaultRoot(), adopted);
   assert.deepEqual(calls, [{ cmd: "vaultChoose", args: [] }]);
 });
 
+test("a pick's warnings ride on the folder it answers", async () => {
+  const root = { path: "C:/notes", state: "empty" };
+  const { cmds } = fakeCommands({
+    vaultChoose: { status: "ok", data: { root, warnings: ["not watched"] } },
+  });
+  assert.deepEqual(await desktopShim(cmds, fakeEvents().events).chooseVaultRoot(), {
+    ...root,
+    warnings: ["not watched"],
+  });
+});
+
+test("missing, retry and forget pass through to the shell", async () => {
+  const root = { path: "D:/notes", state: "existing" };
+  const { cmds, calls } = fakeCommands({
+    vaultMissing: { status: "ok", data: "D:/notes" },
+    vaultRetry: { status: "ok", data: { root, warnings: [] } },
+    vaultForget: { status: "ok", data: { root: null, warnings: ["kept"] } },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.equal(await shim.missingVaultRoot?.(), "D:/notes");
+  assert.deepEqual(await shim.retryVaultRoot?.(), root);
+  assert.deepEqual(await shim.forgetVaultRoot?.(), ["kept"]);
+  assert.deepEqual(
+    calls.map((c) => c.cmd),
+    ["vaultMissing", "vaultRetry", "vaultForget"],
+  );
+});
+
 test("chooseVaultRoot answers null when no folder is chosen", async () => {
   const { cmds } = fakeCommands({
-    vaultChoose: { status: "ok", data: null },
+    vaultChoose: { status: "ok", data: { root: null, warnings: [] } },
   });
   assert.equal(
     await desktopShim(cmds, fakeEvents().events).chooseVaultRoot(),

@@ -25,33 +25,61 @@ export interface SeenFile {
 
 export type FolderDiff = ImportDiff & { json?: JsonDiff; seen?: Readonly<Record<string, SeenFile>> };
 
-/** The part of a folder diff safe to take in without asking, and the part a person must see. */
+/** Why an outside edit waits for a person, said in the review list beside the file. */
+export type HeldReason =
+  | "removed"
+  | "edited on both sides"
+  | "no record of the app's write"
+  | "a copy of a known note"
+  | "lost its id"
+  | "open in editor"
+  | "a data file that cannot go in whole";
+
+/** Held files by path, each with the first reason that holds it. */
+export type HeldReasons = Readonly<Record<string, HeldReason>>;
+
+/** The reason a note entry is held, or null when it can be taken in. */
+function noteHeldReason(
+  entry: ImportDiffEntry,
+  seen: Readonly<Record<string, SeenFile>>,
+  isOpen: (noteId: string) => boolean,
+): HeldReason | null {
+  const path = entry.entity.path;
+  const known = seen[path];
+  if (entry.action === "removed") return "removed";
+  if (entry.action === "conflict") return "edited on both sides";
+  // An update from a path neither side knew is a copy carrying a known id
+  // ("a copy.md", a sync conflict file): taking it in would overwrite that note.
+  if (entry.action === "updated" && known?.newPath) return "a copy of a known note";
+  // A note "created" at a known path lost its id (a tool rewrote the
+  // frontmatter): taking it in would add a second copy of that note.
+  if (entry.action === "created" && known && !known.newPath) return "lost its id";
+  if (!known || known.side === "unknown") return "no record of the app's write";
+  if (known.side !== "folder") return "edited on both sides";
+  const id = entry.entity.id;
+  if (id && isOpen(id)) return "open in editor";
+  return null;
+}
+
+/** The part of a folder diff safe to take in without asking, the part a person must see, and why. */
 export function splitOutsideEdits(
   diff: FolderDiff,
   isOpen: (noteId: string) => boolean = () => false,
-): { apply: FolderDiff; held: FolderDiff } {
+): { apply: FolderDiff; held: FolderDiff; reasons: HeldReasons } {
   const seen = diff.seen ?? {};
   const folderAlone = (path: string) => seen[path]?.side === "folder";
-  // An update from a path neither side knew is a copy carrying a known id
-  // ("a copy.md", a sync conflict file): taking it in would overwrite that note.
+  // A JSON row: a copy at a new path cannot update a known row (see `noteHeldReason`).
   const takesIn = (action: ImportAction, path: string) =>
     action === "created" || (action === "updated" && !seen[path]?.newPath);
 
-  // A note "created" at a known path lost its id (a tool rewrote the
-  // frontmatter): taking it in would add a second copy of that note.
-  const noteTakesIn = (action: ImportAction, path: string) =>
-    takesIn(action, path) && (action !== "created" || seen[path]?.newPath === true);
-
+  const reasons: Record<string, HeldReason> = {};
   const apply: ImportDiffEntry[] = [];
   const held: ImportDiffEntry[] = [];
   for (const entry of diff.entries) {
     if (entry.action === "unchanged") continue;
-    const id = entry.entity.id;
-    const safe =
-      noteTakesIn(entry.action, entry.entity.path) &&
-      folderAlone(entry.entity.path) &&
-      !(id && isOpen(id));
-    (safe ? apply : held).push(entry);
+    const reason = noteHeldReason(entry, seen, isOpen);
+    if (reason) reasons[entry.entity.path] ??= reason;
+    (reason ? held : apply).push(entry);
   }
 
   const applyOut: FolderDiff = { ...diff, entries: apply, counts: countActions(apply) };
@@ -68,11 +96,17 @@ export function splitOutsideEdits(
     const takenIn = (path: string) => folderAlone(path) && !blocked.has(path);
     const jsonApply: JsonDiffEntry[] = rows.filter((entry) => takenIn(entry.path));
     const jsonHeld: JsonDiffEntry[] = rows.filter((entry) => !takenIn(entry.path));
+    for (const entry of jsonHeld)
+      reasons[entry.path] ??= !folderAlone(entry.path)
+        ? seen[entry.path] && seen[entry.path]?.side !== "unknown"
+          ? "edited on both sides"
+          : "no record of the app's write"
+        : "a data file that cannot go in whole";
     applyOut.json = { ...diff.json, entries: jsonApply, counts: countActions(jsonApply) };
     heldOut.json = { ...diff.json, entries: jsonHeld, counts: countActions(jsonHeld) };
   }
 
-  return { apply: applyOut, held: heldOut };
+  return { apply: applyOut, held: heldOut, reasons };
 }
 
 function countActions(entries: { action: ImportAction }[]): Record<ImportAction, number> {

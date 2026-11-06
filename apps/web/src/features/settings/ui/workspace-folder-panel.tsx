@@ -8,7 +8,10 @@ import {
   applyFolderImport,
   chooseDesktopFolder,
   chooseFolder,
-  closeFolder,
+  disconnectFolder,
+  externalChangeReason,
+  onOutsideEditsTakenIn,
+  missingDesktopFolder,
   folderFileHistory,
   folderHistory,
   folderSession,
@@ -148,14 +151,27 @@ export function WorkspaceFolderPanel() {
     setOutside(externalChanges());
     return onExternalChange(setOutside);
   }, []);
+  // Edits taken in with no click are still said, so nothing changes unseen.
+  useEffect(
+    () =>
+      onOutsideEditsTakenIn((count) =>
+        setStatus(`${count} outside edit${count === 1 ? "" : "s"} taken in from the folder.`),
+      ),
+    [],
+  );
 
-  // Reconnect the folder the shell remembers, without opening a dialog.
+  // Reconnect the folder the shell remembers, without opening a dialog. One
+  // that is remembered but not there (an unplugged drive) is named, with a retry.
+  const [missing, setMissing] = useState<string | null>(null);
   useEffect(() => {
     if (!hasShell || session) return;
     let live = true;
     void chooseDesktopFolder({ git: false, reuse: true })
-      .then((adopted) => {
-        if (live && adopted) setSession(folderSession());
+      .then(async (adopted) => {
+        if (!live) return;
+        if (adopted) return setSession(folderSession());
+        const gone = await missingDesktopFolder();
+        if (live) setMissing(gone);
       })
       .catch(() => {});
     return () => {
@@ -178,6 +194,9 @@ export function WorkspaceFolderPanel() {
       setBusy(null);
     }
   };
+
+  // Problems that did not undo a pick or a disconnect, said where the reader is looking.
+  const showWarnings = (warnings: readonly string[]) => setStatus(warnings.length > 0 ? warnings.join(" ") : null);
 
   const folderValue =
     session === null ? (
@@ -216,6 +235,19 @@ export function WorkspaceFolderPanel() {
             {outside.length === 0
               ? "None"
               : `${outside.length} outside edit${outside.length === 1 ? "" : "s"} to review`}
+            {outside.length > 0 && (
+              <ul className="wiki-lint-list">
+                {outside.slice(0, 10).map((path) => {
+                  const reason = externalChangeReason(path);
+                  return (
+                    <li key={path}>
+                      <code>{path}</code>
+                      {reason && <span className="jump-to-meta"> · held: {reason}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </StatusRow>
         )}
         {database?.dataDir && (
@@ -232,6 +264,30 @@ export function WorkspaceFolderPanel() {
       <h4 className="settings-group">Folder</h4>
       {!session ? (
         <>
+          {missing && (
+            <div role="alert">
+              <p>
+                The folder <PathValue path={missing} /> is not available. Plug its drive back in and try
+                again, or choose another folder below.
+              </p>
+              <div className="screen-actions screen-actions--start">
+                <Button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    void run("retry", async () => {
+                      const back = await chooseDesktopFolder({ git: false, retry: true });
+                      if (!back) return;
+                      setMissing(null);
+                      setSession(folderSession());
+                      showWarnings(back.warnings);
+                    })
+                  }
+                >
+                  {busy === "retry" ? "Trying…" : "Try again"}
+                </Button>
+              </div>
+            </div>
+          )}
           <p className="muted jump-to-meta">
             Pick any folder; if it holds other files, WeaveForge keeps its own in a{" "}
             <strong>WeaveForge</strong> subfolder.
@@ -253,7 +309,10 @@ export function WorkspaceFolderPanel() {
                 onClick={() =>
                   void run("pick", async () => {
                     const picked = hasShell ? await chooseDesktopFolder({ git }) : await chooseFolder({ git });
-                    if (picked) setSession(folderSession());
+                    if (!picked) return;
+                    setMissing(null);
+                    setSession(folderSession());
+                    if (picked !== true) showWarnings(picked.warnings);
                   })
                 }
               >
@@ -299,13 +358,15 @@ export function WorkspaceFolderPanel() {
               variant="ghost"
              
               disabled={busy !== null}
-              onClick={() => {
-                closeFolder();
-                setSession(null);
-                setHistory([]);
-                setDiff(null);
-                setStatus(null);
-              }}
+              onClick={() =>
+                void run("disconnect", async () => {
+                  const warnings = await disconnectFolder();
+                  setSession(null);
+                  setHistory([]);
+                  setDiff(null);
+                  showWarnings(warnings);
+                })
+              }
             >
               Disconnect
             </Button>

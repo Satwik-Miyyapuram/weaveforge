@@ -114,6 +114,27 @@
          */
         vaultChoose: () => typedError(invoke("vault_choose")),
         /**
+         *  The remembered folder while none is in use, so the page can say it is not available.
+         * 
+         *  # Errors
+         *  Never; a `Result` for the command shape.
+         */
+        vaultMissing: () => typedError(invoke("vault_missing")),
+        /**
+         *  Tries the remembered folder again, after a drive is plugged back in.
+         * 
+         *  # Errors
+         *  The reason the folder still cannot hold a workspace; nothing changes.
+         */
+        vaultRetry: () => typedError(invoke("vault_retry")),
+        /**
+         *  Disconnects the workspace folder: no longer used, watched or remembered. The files stay.
+         * 
+         *  # Errors
+         *  Only when the blocking task fails.
+         */
+        vaultForget: () => typedError(invoke("vault_forget")),
+        /**
          *  Reads a text file in the chosen folder.
          * 
          *  # Errors
@@ -534,6 +555,10 @@
       }))
     };
   }
+  function choiceRoot(choice) {
+    if (!choice.root) return null;
+    return choice.warnings.length > 0 ? { ...choice.root, warnings: choice.warnings } : choice.root;
+  }
   function finiteRows(rows) {
     return rows.map(
       (row) => row.map((value) => {
@@ -701,7 +726,10 @@
         return unwrap(await cmds.overleafSync(request.action, projectId, folder));
       },
       vaultRoot: async () => unwrap(await cmds.vaultRoot()),
-      chooseVaultRoot: async () => unwrap(await cmds.vaultChoose()),
+      chooseVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultChoose())),
+      missingVaultRoot: async () => unwrap(await cmds.vaultMissing()),
+      retryVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultRetry())),
+      forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
       readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
       writeVaultFile: async (path, contents) => {
         unwrap(await cmds.vaultWrite(path, contents));

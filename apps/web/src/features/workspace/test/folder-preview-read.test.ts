@@ -105,3 +105,26 @@ test("an empty folder reads nothing", async () => {
   assert.deepEqual(out.jsonFiles, {});
   assert.equal(out.assets.size, 0);
 });
+
+test("a preview of some paths reads those notes and only the assets they name", async () => {
+  const fs = await folder({
+    [`${ROOT}/notes/a.md`]: "# A\n\n![fig](../../assets/vault/fig.png)",
+    [`${ROOT}/notes/b.md`]: "# B",
+    "assets/vault/fig.png": "png",
+    "assets/vault/other.png": "png",
+    "assets/vault/dropped.png": "png",
+  });
+  const { read } = spy(fs);
+  const only = new Set([`${ROOT}/notes/a.md`, "assets/vault/dropped.png"]);
+  const out = await readPreviewFolder(fs, ROOT, true, only);
+  assert.deepEqual(Object.keys(out.files), [`${ROOT}/notes/a.md`]);
+  assert.deepEqual([...out.assets.keys()].sort(), ["assets/vault/dropped.png", "assets/vault/fig.png"]);
+  assert.ok(!read.includes("assets/vault/other.png"), "an asset no read note names is not read");
+});
+
+test("a preview of no paths reads nothing", async () => {
+  const fs = await folder({ [`${ROOT}/notes/a.md`]: "# A", "assets/x.png": "png" });
+  const out = await readPreviewFolder(fs, ROOT, true, new Set());
+  assert.deepEqual(out.files, {});
+  assert.equal(out.assets.size, 0);
+});

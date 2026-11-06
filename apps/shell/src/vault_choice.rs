@@ -1,6 +1,6 @@
 //! Moving the workspace to a folder the reader picked: the session, the remembered folder and the folder watch move together.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::prefs::{PrefValue, Prefs};
@@ -14,12 +14,15 @@ pub const ROOT_PREF: &str = "vault-root";
 pub const NOT_REMEMBERED: &str =
     "The workspace folder could not be remembered; it will be asked for again next time.";
 
+/// Said when the folder was let go for this run but is still remembered for the next start.
+pub const NOT_FORGOTTEN: &str = "The folder was disconnected, but could not be forgotten; it will be taken up again next start.";
+
 /// What a pick did.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
 pub struct Choice {
     /// The folder now in use; `None` when none is chosen.
     pub root: Option<VaultRoot>,
-    /// Problems that do not undo the pick (watch or remembering failed), for the app log.
+    /// Problems that do not undo the pick (watch or remembering failed), for the page and the app log.
     pub warnings: Vec<String>,
 }
 
@@ -99,6 +102,60 @@ pub fn restore_remembered(vault: &VaultState, prefs: &Prefs) -> Option<VaultRoot
         let _ = prefs.write(ROOT_PREF, None);
     }
     restored
+}
+
+/// The remembered folder, as text; `None` when none is remembered.
+fn remembered(prefs: &Prefs) -> Option<String> {
+    match prefs.read(ROOT_PREF) {
+        Ok(Some(PrefValue::Text(path))) if !path.is_empty() => Some(path),
+        _ => None,
+    }
+}
+
+/// The remembered folder while none is in use: it was missing at start (an unplugged drive,
+/// a share not mounted yet). `None` when a folder is in use or none is remembered.
+#[must_use]
+pub fn missing_remembered(vault: &VaultState, prefs: &Prefs) -> Option<String> {
+    if vault.lock().root().is_some() {
+        return None;
+    }
+    remembered(prefs)
+}
+
+/// Tries the remembered folder again, as a pick of that folder; nothing remembered answers the
+/// current folder unchanged.
+/// # Errors
+/// The reader-facing reason the folder still cannot hold a workspace; nothing changes.
+pub fn retry_remembered(
+    vault: &VaultState,
+    prefs: &Prefs,
+    slot: &WatchSlot,
+    sink: ChangeSink,
+) -> Result<Choice, String> {
+    let path = remembered(prefs).map(PathBuf::from);
+    adopt_choice(vault, prefs, slot, path.as_deref(), sink)
+}
+
+/// Stops using the folder: the session lets it go, its watch stops and it is no longer
+/// remembered. The watch is joined after the lock is let go, as in a pick.
+#[must_use]
+pub fn forget_choice(vault: &VaultState, prefs: &Prefs, slot: &WatchSlot) -> Choice {
+    let mut session = vault.lock();
+    session.forget();
+    let old = slot.take();
+    if let Some(old) = &old {
+        old.halt();
+    }
+    let mut warnings = Vec::new();
+    if prefs.write(ROOT_PREF, None).is_err() {
+        warnings.push(NOT_FORGOTTEN.to_owned());
+    }
+    drop(session);
+    drop(old);
+    Choice {
+        root: None,
+        warnings,
+    }
 }
 
 /// Shared pick flow; `start` is the only part that differs between default and given timings.
