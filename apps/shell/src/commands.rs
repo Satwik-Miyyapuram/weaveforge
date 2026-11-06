@@ -266,6 +266,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_tools::tex_cancel,
         crate::cmd_tools::zotero_local,
         crate::cmd_tools::update_check,
+        crate::auth_loopback::sign_in_listening,
         crate::cmd_tools::app_log_report,
         crate::cmd_tools::app_log_read,
         crate::cmd_tools::app_log_reveal,

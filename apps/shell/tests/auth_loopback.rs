@@ -9,7 +9,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use weaveforge_shell_lib::auth_loopback::{
-    Reply, answer, callback_query, is_loopback_host, render, serve,
+    Reply, SignInPort, answer, callback_query, is_loopback_host, render, serve,
 };
 
 const GOOD: &str = "GET /auth/callback?code=a&state=b HTTP/1.1\r\nHost: 127.0.0.1:53682\r\n\r\n";
@@ -239,4 +239,12 @@ async fn serve_drops_an_oversized_head_without_reply_or_hand_over() {
             .await
             .is_err()
     );
+}
+
+#[test]
+fn sign_in_port_counts_as_listening_until_marked_taken() {
+    let port = SignInPort::default();
+    assert!(port.listening());
+    port.mark_taken();
+    assert!(!port.listening());
 }

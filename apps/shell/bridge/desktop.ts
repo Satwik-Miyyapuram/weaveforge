@@ -111,6 +111,7 @@ export interface DesktopCommands {
   texCancel(): Promise<Result<null>>;
   zoteroLocal(url: string): Promise<Result<DesktopZoteroReply>>;
   updateCheck(): Promise<Result<DesktopUpdate | null>>;
+  signInListening(): Promise<Result<boolean>>;
   appLogReport(report: {
     level: string;
     source: string | null;
@@ -301,6 +302,7 @@ export type DesktopShim = Pick<
   | "cancelTex"
   | "zoteroLocal"
   | "checkUpdate"
+  | "signInListening"
   | "reportAppLog"
   | "readAppLog"
   | "revealAppLog"
@@ -574,6 +576,14 @@ export function desktopShim(
     },
     zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
     checkUpdate: async () => unwrap(await cmds.updateCheck()),
+    // A failed question is no reason to ask for a pasted link, so it counts as listening.
+    signInListening: async () => {
+      try {
+        return unwrap(await cmds.signInListening());
+      } catch {
+        return true;
+      }
+    },
     // Logging must never throw into the page, so a failed report is dropped.
     reportAppLog: (entry) => {
       void cmds
