@@ -25,6 +25,10 @@ const NOT_FOUND: &str = "Overleaf session not found. Sign in again.";
 const MAX_TEXT: usize = 16 * 1024 * 1024;
 /// The largest PDF read.
 const MAX_PDF: usize = 200 * 1024 * 1024;
+/// The largest project file (an image) read.
+const MAX_FILE: usize = 50 * 1024 * 1024;
+/// The answer for a missing or malformed file id.
+const FILE_ID_INVALID: &str = "A valid Overleaf file id is required.";
 /// Waits before the two retries of a 5xx, 429 or network failure, as in `BaseAPI.request`.
 const RETRY_DELAYS_MS: [u64; 2] = [1000, 2000];
 
@@ -469,6 +473,52 @@ async fn compile_route(
     result.unwrap_or_else(|message| error(502, &safe_overleaf_error(&message, Some(&cookies))))
 }
 
+/// POST file: one binary file of a project (an image `\includegraphics` names), for the Visual editor.
+async fn file_route(client: &reqwest::Client, sessions: &WorkshopSessions, body: &[u8]) -> Answer {
+    let body = match parse_body(body) {
+        Ok(v) => v,
+        Err(answer) => return answer,
+    };
+    let req = match read_workshop_request(&body) {
+        Ok(req) => req,
+        Err(message) => return error(400, message),
+    };
+    let file_id = match body.get("fileId").and_then(Value::as_str) {
+        Some(id) if is_file_id(id) => id,
+        _ => return error(400, FILE_ID_INVALID),
+    };
+    let Some(cookies) = sessions.get(&req.session_id) else {
+        return error(401, NOT_FOUND);
+    };
+    let url = format!("{BASE}project/{}/file/{file_id}", req.project_id);
+    let failed = || error(502, "The file could not be downloaded.");
+    let Ok(response) = send(client.get(url).header("cookie", &cookies)).await else {
+        return failed();
+    };
+    if response.status().as_u16() != 200 {
+        return failed();
+    }
+    match read_capped(response, MAX_FILE).await {
+        Ok(Some(bytes)) => Answer {
+            status: 200,
+            headers: vec![
+                (
+                    "content-type".to_owned(),
+                    "application/octet-stream".to_owned(),
+                ),
+                ("cache-control".to_owned(), "no-store".to_owned()),
+            ],
+            body: bytes,
+        },
+        _ => failed(),
+    }
+}
+
+/// An Overleaf file id: hex, as Mongo ids are.
+fn is_file_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 /// POST live/<action>: live editing (`overleaf_live`). `open` signs in again for the socket cookie.
 async fn live_route(
     client: &reqwest::Client,
@@ -515,10 +565,13 @@ pub async fn serve(
         ("POST", "projects") => projects(client, sessions, body).await,
         ("POST", "compile") => compile_route(client, sessions, body, false).await,
         ("POST", "pdf") => compile_route(client, sessions, body, true).await,
+        ("POST", "file") => file_route(client, sessions, body).await,
         ("POST", live) if live.starts_with("live/") => {
             live_route(client, sessions, &live["live/".len()..], body).await
         }
-        (_, "session" | "projects" | "compile" | "pdf") => error(405, "Method not allowed."),
+        (_, "session" | "projects" | "compile" | "pdf" | "file") => {
+            error(405, "Method not allowed.")
+        }
         _ => error(404, "Not found."),
     }
 }
@@ -719,6 +772,28 @@ mod tests {
                 "{path}"
             );
         }
+        let file = format!(r#"{{"sessionId":"{ID}","projectId":"abc123","fileId":"f00d"}}"#);
+        let answer = call(&sessions, "POST", "file", None, &file).await;
+        assert_eq!(
+            (answer.status, body_json(&answer)),
+            (401, json!({ "error": NOT_FOUND })),
+            "file"
+        );
+    }
+
+    #[tokio::test]
+    async fn file_needs_a_file_id() {
+        let sessions = WorkshopSessions::default();
+        for file_id in ["", r#","fileId":"../x""#, r#","fileId":7"#] {
+            let body = format!(r#"{{"sessionId":"{ID}","projectId":"abc123"{file_id}}}"#);
+            let answer = call(&sessions, "POST", "file", None, &body).await;
+            assert_eq!(
+                (answer.status, body_json(&answer)),
+                (400, json!({ "error": FILE_ID_INVALID })),
+                "{body}"
+            );
+        }
+        assert_eq!(call(&sessions, "GET", "file", None, "").await.status, 405);
     }
 
     #[tokio::test]

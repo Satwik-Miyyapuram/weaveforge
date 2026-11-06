@@ -26,6 +26,7 @@ import {
   getEnvironmentArguments,
   getEnvironmentName,
   getUnstarredEnvironmentName,
+  parseFigureData,
 } from '../../utils/tree-operations/environments'
 import { MathWidget } from './visual-widgets/math'
 import { IconBraceWidget } from './visual-widgets/icon-brace'
@@ -72,6 +73,9 @@ import {
   parseMathContainer,
 } from '../../utils/tree-operations/math'
 import { lineContainsOnlyNode } from './utils/line'
+import { GraphicsWidget } from './visual-widgets/graphics'
+import { InlineGraphicsWidget } from './visual-widgets/inline-graphics'
+import { previewByPathFacet } from '../file-preview'
 
 function shouldDecorate(
   state: EditorState,
@@ -134,6 +138,7 @@ const createDecorations = (
   state: EditorState,
   tree: Tree
 ): { decorations: DecorationSet; preamble: Preamble } => {
+  const previewByPath = state.facet(previewByPathFacet)
   const decorations: Range<Decoration>[] = []
 
   const listEnvironmentStack: ListEnvironmentName[] = []
@@ -798,6 +803,72 @@ const createDecorations = (
               nodeRef.from
             )
           )
+        }
+      } else if (
+        nodeRef.type.is('IncludeGraphics') ||
+        nodeRef.type.is('IncludeSvg')
+      ) {
+        // \includegraphics or \includesvg with a file path argument
+        const isIncludeSvg = nodeRef.type.is('IncludeSvg')
+        if (shouldDecorate(state, nodeRef)) {
+          const argumentNodeName = isIncludeSvg
+            ? 'IncludeSvgArgument'
+            : 'IncludeGraphicsArgument'
+          const filePathArgument = nodeRef.node
+            .getChild(argumentNodeName)
+            ?.getChild('FilePathArgument')
+            ?.getChild('LiteralArgContent')
+
+          if (filePathArgument) {
+            const filePath = state.doc.sliceString(
+              filePathArgument.from,
+              filePathArgument.to
+            )
+
+            // \includegraphics doesn't support SVG
+            if (!isIncludeSvg && filePath.toLowerCase().endsWith('.svg')) {
+              return false
+            }
+
+            if (isIncludeSvg && previewByPath(filePath)?.extension !== 'svg') {
+              return false
+            }
+
+            if (filePath) {
+              const environmentNode = ancestorNodeOfType(
+                state,
+                nodeRef.from,
+                'FigureEnvironment'
+              )
+              const centered = Boolean(
+                environmentNode && centeringNodeForEnvironment(environmentNode)
+              )
+              const figureData = environmentNode
+                ? parseFigureData(environmentNode, state)
+                : null
+
+              const line = state.doc.lineAt(nodeRef.from)
+
+              if (lineContainsOnlyNode(line, nodeRef)) {
+                const Widget = GraphicsWidget
+                decorations.push(
+                  Decoration.replace({
+                    widget: new Widget(filePath, centered, figureData),
+                    block: true,
+                  }).range(line.from, line.to)
+                )
+              } else {
+                const Widget = InlineGraphicsWidget
+                decorations.push(
+                  Decoration.replace({
+                    widget: new Widget(filePath, centered, figureData),
+                  }).range(nodeRef.from, nodeRef.to)
+                )
+              }
+            }
+
+            return false
+          }
         }
       } else if (nodeRef.type.is('Maketitle')) {
         if (shouldDecorate(state, nodeRef)) {

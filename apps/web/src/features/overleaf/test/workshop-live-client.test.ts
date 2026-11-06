@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  fetchLiveFile,
   flattenDocs,
+  flattenFiles,
   loadLiveDoc,
   openLiveProject,
   sendLiveUpdate,
@@ -85,4 +87,33 @@ test("events keep only named events", async () => {
     ],
     closed: false,
   });
+});
+
+test("the tree's binary files flatten to paths too, for \\includegraphics", () => {
+  assert.deepEqual(flattenFiles(ROOT), [{ id: "f1", path: "figure.png" }]);
+  assert.deepEqual(flattenFiles(null), []);
+});
+
+test("open lists the project's files", async () => {
+  const { deps } = makeDeps(() => ({ status: 200, body: { liveId: "L", rootFolder: ROOT } }));
+  const res = await openLiveProject(deps, "S", "P");
+  assert.ok(res.ok);
+  assert.deepEqual(res.files, [{ id: "f1", path: "figure.png" }]);
+});
+
+test("a project file downloads as a blob, and a failure is null", async () => {
+  const seen: { url: string; body: unknown; auth: unknown }[] = [];
+  let status = 200;
+  const deps: WorkshopClientDeps = {
+    fetch: async (url, init) => {
+      seen.push({ url, body: JSON.parse(String(init.body)), auth: (init.headers as Record<string, string>).Authorization });
+      return new Response(status === 200 ? new Uint8Array([1, 2, 3]) : "{}", { status });
+    },
+    authHeaders: async (extra) => ({ Authorization: "Bearer t", ...(extra as Record<string, string>) }),
+  };
+  const blob = await fetchLiveFile(deps, "S", "P", "f1");
+  assert.deepEqual(seen, [{ url: "/api/overleaf/workshop/file", body: { sessionId: "S", projectId: "P", fileId: "f1" }, auth: "Bearer t" }]);
+  assert.equal(blob?.size, 3);
+  status = 502;
+  assert.equal(await fetchLiveFile(deps, "S", "P", "f1"), null);
 });
