@@ -12,7 +12,7 @@ use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use wf_store::vault::TEMP_SUFFIX;
 
 use crate::vault_watch::{
-    Digest, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
+    Digest, DigestCache, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
 };
 
 /// Receives each batch of changed folder-relative paths ('/'-separated, sorted).
@@ -220,6 +220,7 @@ fn run(
     halted: &AtomicBool,
     sink: &ChangeSink,
 ) {
+    let mut digests = DigestCache::default();
     loop {
         let deadline = lock(shared).deadline();
         let next = match deadline {
@@ -227,7 +228,7 @@ fn run(
             None => rx.recv().map_err(|_| RecvTimeoutError::Disconnected),
         };
         match next {
-            Ok(Msg::Event(res)) => handle_event(roots, shared, res),
+            Ok(Msg::Event(res)) => handle_event(roots, shared, &mut digests, res),
             Ok(Msg::Stop) | Err(RecvTimeoutError::Disconnected) => {
                 lock(shared).stop();
                 return;
@@ -243,7 +244,12 @@ fn run(
 }
 
 /// Reports each relevant path in a notify event to the batcher.
-fn handle_event(roots: &[PathBuf], shared: &Mutex<VaultWatch>, res: notify::Result<notify::Event>) {
+fn handle_event(
+    roots: &[PathBuf],
+    shared: &Mutex<VaultWatch>,
+    digests: &mut DigestCache,
+    res: notify::Result<notify::Event>,
+) {
     // A failed notify report (an unplugged drive, say) must not take the app down.
     let Ok(event) = res else {
         return;
@@ -269,7 +275,7 @@ fn handle_event(roots: &[PathBuf], shared: &Mutex<VaultWatch>, res: notify::Resu
             }
         }
         // Hashed outside the lock: a large file must not stall the app's saves.
-        let found = digest_of(path);
+        let found = digest_of(digests, path);
         let mut watch = lock(shared);
         match found {
             Found::Gone => watch.saw(&rel, None, Instant::now()),
@@ -289,8 +295,9 @@ enum Found {
     Digest(Digest),
 }
 
-/// The content digest of a regular file up to `DIGEST_MAX_BYTES`.
-fn digest_of(path: &Path) -> Found {
+/// The content digest of a regular file up to `DIGEST_MAX_BYTES`; not read again while
+/// its size and modified time match the last read.
+fn digest_of(digests: &mut DigestCache, path: &Path) -> Found {
     let meta = match fs::symlink_metadata(path) {
         Ok(meta) => meta,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Found::Gone,
@@ -299,7 +306,14 @@ fn digest_of(path: &Path) -> Found {
     if !meta.is_file() || meta.len() > DIGEST_MAX_BYTES {
         return Found::Unreadable;
     }
-    fs::File::open(path)
-        .and_then(|mut file| digest_reader(&mut file))
+    let Ok(modified) = meta.modified() else {
+        return fs::File::open(path)
+            .and_then(|mut file| digest_reader(&mut file))
+            .map_or(Found::Unreadable, Found::Digest);
+    };
+    digests
+        .digest(path, meta.len(), modified, || {
+            fs::File::open(path).and_then(|mut file| digest_reader(&mut file))
+        })
         .map_or(Found::Unreadable, Found::Digest)
 }
