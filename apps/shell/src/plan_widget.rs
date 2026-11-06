@@ -114,13 +114,18 @@ pub fn parse_bounds(value: Option<&str>) -> Option<WidgetBounds> {
     })
 }
 
-/// Keeps the saved spot if it is inside an area; otherwise the top-right corner of the first.
+/// Keeps the saved spot if it is inside an area; otherwise the top-right corner
+/// of the primary area (the first area when no primary is known).
 #[must_use]
-pub fn place_widget(saved: Option<WidgetBounds>, areas: &[WorkArea]) -> WidgetBounds {
+pub fn place_widget(
+    saved: Option<WidgetBounds>,
+    areas: &[WorkArea],
+    primary: Option<WorkArea>,
+) -> WidgetBounds {
     if let Some(spot) = saved.filter(|spot| areas.iter().any(|area| fits_in(area, *spot))) {
         return spot;
     }
-    let first = areas.first().copied().unwrap_or(WorkArea {
+    let first = primary.or_else(|| areas.first().copied()).unwrap_or(WorkArea {
         x: 0,
         y: 0,
         width: 1280,
