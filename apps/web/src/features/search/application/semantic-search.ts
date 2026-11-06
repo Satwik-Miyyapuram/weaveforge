@@ -45,12 +45,19 @@ export function createEmbedder(options: WorkerEmbedderOptions): WorkerEmbedder |
 function loadEmbedder(
   options: WorkerEmbedderOptions,
   candidate: WorkerEmbedder | NativeEmbedder = createEmbedder(options),
+  signal?: AbortSignal,
 ): Promise<WorkerEmbedder | NativeEmbedder> {
   return loadWithFallback<WorkerEmbedder | NativeEmbedder>(
     candidate,
     candidate instanceof NativeEmbedder ? () => new WorkerEmbedder(options) : null,
     (error) => console.warn("The native encoder did not load; using the web worker:", error),
+    signal,
   );
+}
+
+/** True when the desktop has a native encoder but `current` is the web worker standing in. */
+function onFallback(current: WorkerEmbedder | NativeEmbedder | null): boolean {
+  return current instanceof WorkerEmbedder && nativeEmbedBridge() !== null;
 }
 
 /**
@@ -74,6 +81,8 @@ export type SemanticStatus =
       model: string;
       /** A newer model is embedding in the background; this one keeps answering until it is done. */
       upgrading?: { to: string; done: number; total: number };
+      /** The desktop's own encoder failed to load, so the web worker answers. */
+      fallback?: boolean;
     }
   | { phase: "error"; message: string };
 
@@ -258,7 +267,12 @@ function attach(projectId: string | null): void {
   announceSemanticChange();
   serveRankingRequests();
   rememberPreference(true);
-  setStatus({ phase: "ready", passages: semantic?.size ?? 0, model: modelName(embedder?.id ?? "") });
+  setStatus({
+    phase: "ready",
+    passages: semantic?.size ?? 0,
+    model: modelName(embedder?.id ?? ""),
+    fallback: onFallback(embedder),
+  });
 }
 
 type StoredVectors = NonNullable<Awaited<ReturnType<ReturnType<typeof vectorStore>["get"]>>>;
@@ -320,7 +334,7 @@ async function upgradeInBackground(projectId: string | null, targetId: string, p
   try {
     showProgress(0, 0);
     const candidate = next;
-    next = await loadEmbedder({ model: targetId }, candidate);
+    next = await loadEmbedder({ model: targetId }, candidate, controller.signal);
     if (upgrade?.embedder === candidate) upgrade.embedder = next;
     const fresh = new SemanticIndex(next);
     const container = getContainer();
@@ -346,7 +360,8 @@ async function upgradeInBackground(projectId: string | null, targetId: string, p
     const latest = await container.search.projectionForSemantic();
     await fresh.sync(latest, () => true);
     persistVectors(fresh, projectId, searchRevision(latest));
-    if (semantic === fresh) setStatus({ phase: "ready", passages: fresh.size, model: modelName(targetId) });
+    if (semantic === fresh)
+      setStatus({ phase: "ready", passages: fresh.size, model: modelName(targetId), fallback: onFallback(next) });
   } catch {
     // The old arm is still attached and still right; the next start retries.
     if (embedder !== next) next.dispose();
