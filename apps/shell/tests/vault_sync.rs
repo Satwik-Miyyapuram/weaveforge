@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
 //! Tests for vault sync: the remote URL check, the stored settings, and the sync, commit and log paths.
-mod common;
+use crate::common;
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};

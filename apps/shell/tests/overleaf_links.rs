@@ -5,7 +5,7 @@
     missing_docs
 )]
 //! Tests for the Overleaf link list: the folder rules, the link rules, the stored links and the list, link and unlink actions.
-mod common;
+use crate::common;
 
 use std::path::{Path, PathBuf};
 

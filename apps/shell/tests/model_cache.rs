@@ -1,9 +1,8 @@
 //! Tests for the encoder weights cache (ported from apps/desktop/test/model-cache.test.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-mod common;
-#[path = "common/upstream.rs"]
-mod upstream;
+use crate::common;
+use crate::upstream;
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -1,7 +1,6 @@
 //! Helpers shared by every shell integration test (plan §4.7: one copy per crate).
 //!
-//! A test file declares it as `mod common;` below its
-//! `#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]` line.
+//! `tests/main.rs` declares it; a test file brings it in with `use crate::common;`.
 #![allow(dead_code, reason = "each test file uses a different subset")]
 
 use std::fs;

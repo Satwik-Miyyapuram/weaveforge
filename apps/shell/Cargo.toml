@@ -11,6 +11,12 @@ rust-version = "1.98"
 license = "AGPL-3.0-only"
 repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
 publish = false
+# One integration test binary (tests/main.rs); see that file.
+autotests = false
+
+[[test]]
+name = "shell"
+path = "tests/main.rs"
 
 [lib]
 # `_lib`, as in Tauri's template: a cdylib and a bin with one name write the same .pdb on

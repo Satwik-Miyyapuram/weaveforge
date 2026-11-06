@@ -1,6 +1,6 @@
 //! Tests for the tool commands (ported from apps/desktop/test/app-log.test.ts and tex.test.ts).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-mod common;
+use crate::common;
 
 use common::TempDir;
 use serde_json::json;

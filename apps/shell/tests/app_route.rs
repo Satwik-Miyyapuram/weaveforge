@@ -1,7 +1,7 @@
 //! The `app://` router: which handler answers which request.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-mod common;
+use crate::common;
 
 use common::{TempDir, put};
 use weaveforge_shell_lib::app_route::{AppRoutes, from_reply, page_host, route};

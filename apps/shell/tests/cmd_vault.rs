@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
-mod common;
+use crate::common;
 
 use std::fs;
 use std::path::Path;

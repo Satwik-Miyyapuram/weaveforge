@@ -1,7 +1,7 @@
 //! Tests for the vault folder watcher: which outside changes reach the page.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-mod common;
+use crate::common;
 
 use std::fs;
 use std::path::Path;
