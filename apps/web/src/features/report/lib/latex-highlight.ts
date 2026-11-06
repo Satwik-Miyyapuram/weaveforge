@@ -7,9 +7,9 @@ import { tags as t } from "@lezer/highlight";
  * from theme tokens in markdown.css, so every site theme gets its own.
  */
 export const latexHighlight = HighlightStyle.define([
-  { tag: t.tagName, class: "cm-tex-command" },
-  { tag: t.atom, class: "cm-tex-arg" },
-  { tag: [t.keyword, t.special(t.variableName), t.number], class: "cm-tex-math" },
+  { tag: [t.tagName, t.keyword], class: "cm-tex-command" },
+  { tag: [t.attributeValue, t.typeName], class: "cm-tex-arg" },
+  { tag: [t.string, t.literal], class: "cm-tex-math" },
   { tag: t.comment, class: "cm-tex-comment" },
-  { tag: t.bracket, class: "cm-tex-bracket" },
+  { tag: [t.brace, t.squareBracket], class: "cm-tex-bracket" },
 ]);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
-import { defaultHighlightStyle, foldGutter, foldKeymap, foldService, LanguageDescription, syntaxHighlighting } from "@codemirror/language";
+import { defaultHighlightStyle, foldGutter, foldKeymap, foldService, LanguageDescription, LanguageSupport, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { openSearchPanel, searchKeymap } from "@codemirror/search";
 import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/state";
@@ -13,7 +13,8 @@ import { latexFoldEnd } from "../lib/latex-fold";
 import { latexHighlight } from "../lib/latex-highlight";
 import { headingOf, latexFormat, type LatexFormat } from "../lib/latex-format";
 import { latexOutline, sectionAt, type OutlineItem } from "../lib/latex-outline";
-import { latexVisualMode } from "./latex-visual-mode";
+import { LaTeXLanguage } from "../vendor/overleaf/languages/latex/latex-language";
+import { latexVisual } from "../vendor/overleaf/extensions/visual/visual";
 import { OverleafEditorToolbar, type EditorMode } from "./overleaf-editor-toolbar";
 import { OverleafFileTree } from "./overleaf-file-tree";
 import { OverleafOutline } from "./overleaf-outline";
@@ -220,8 +221,8 @@ export function WorkshopLiveEditor({
             EditorView.editable.of(project.canEdit),
             isTex ? syntaxHighlighting(latexHighlight) : syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
             themeCompartment.of(createCodeMirrorThemeForSite()),
-            languageCompartment.of([]),
-            visualRef.current.of(isTex && modeRef.current === "visual" ? latexVisualMode : []),
+            languageCompartment.of(isTex ? new LanguageSupport(LaTeXLanguage) : []),
+            visualRef.current.of(isTex && modeRef.current === "visual" ? latexVisual : []),
             EditorView.updateListener.of((update) => {
               if (update.docChanged || update.selectionSet) track(update.state, update.docChanged);
               let changed = false;
@@ -241,7 +242,7 @@ export function WorkshopLiveEditor({
         view.dispatch({ effects: themeCompartment.reconfigure(createCodeMirrorThemeForSite()) });
       });
       setStatus(project.canEdit ? "Saved" : "Read only: your Overleaf access is view only.");
-      const language = LanguageDescription.matchFilename(languages, path);
+      const language = isTex ? null : LanguageDescription.matchFilename(languages, path);
       if (language) {
         const support = await language.load();
         if (!cancelled) view.dispatch({ effects: languageCompartment.reconfigure(support) });
@@ -258,7 +259,7 @@ export function WorkshopLiveEditor({
 
   useEffect(() => {
     const view = viewRef.current;
-    if (view) view.dispatch({ effects: visualRef.current.reconfigure(mode === "visual" ? latexVisualMode : []) });
+    if (view) view.dispatch({ effects: visualRef.current.reconfigure(mode === "visual" ? latexVisual : []) });
   }, [mode]);
 
   /** Runs a command on the editor, then hands it the focus back. */
