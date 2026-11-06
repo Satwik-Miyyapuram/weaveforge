@@ -96,6 +96,8 @@ a.related-paper-url:hover { text-decoration: underline; }
   background: var(--neutral);
 }
 .image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.image-thumb .image-open { all: unset; display: block; width: 100%; height: 100%; cursor: zoom-in; }
+.image-thumb .image-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Card body: preview text and thumbnails share one row so the images cost no
    extra vertical band. Below ~360px of card interior the thumbs wrap under. */

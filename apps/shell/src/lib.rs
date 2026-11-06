@@ -644,11 +644,6 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             stays
         })
         .on_new_window(move |url, _features| {
-            if shim::is_app_blob(&url) {
-                // A file the app made, such as a compiled PDF: show it in its own window.
-                log_blob_popup(&popup_app);
-                return tauri::webview::NewWindowResponse::Allow;
-            }
             open_outside(&popup_app, &url);
             tauri::webview::NewWindowResponse::Deny
         });
@@ -681,19 +676,6 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             );
         })
         .map(|_| ())
-}
-
-/// Notes in the app log that an app-made blob popup opened in its own window.
-fn log_blob_popup(app: &tauri::AppHandle) {
-    use tauri::Manager as _;
-    if let Some(log) = app.try_state::<app_log::AppLog>() {
-        log.record(
-            app_log::LogLevel::Info,
-            "shell",
-            "A blob popup opened in its own window",
-            None,
-        );
-    }
 }
 
 /// Opens a public http(s) address in the OS browser, by the same URL-shape rule as Electron's
