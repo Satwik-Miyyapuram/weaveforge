@@ -40,18 +40,35 @@ test("paste reads the clipboard and inserts its text", async () => {
   assert.deepEqual(doc.calls, [["insertText", false, "from clipboard"]]);
 });
 
-test("pasting an empty clipboard inserts nothing", async () => {
+function spyToast(): ((message: string) => void) & { messages: string[] } {
+  const messages: string[] = [];
+  return Object.assign((message: string) => void messages.push(message), { messages });
+}
+
+test("pasting an empty clipboard inserts nothing and says the clipboard is empty", async () => {
   const doc = fakeDoc();
+  const toast = spyToast();
   const clipboard: EditClipboard = { readText: () => Promise.resolve("") };
-  assert.equal(await runEditCommand("edit-paste", doc, clipboard), false);
+  assert.equal(await runEditCommand("edit-paste", doc, clipboard, toast), false);
   assert.deepEqual(doc.calls, []);
+  assert.deepEqual(toast.messages, ["Clipboard is empty"]);
 });
 
-test("a refused clipboard read rejects so the caller can log it", async () => {
+test("a refused clipboard read says paste was blocked and still rejects for logging", async () => {
   const doc = fakeDoc();
+  const toast = spyToast();
   const clipboard: EditClipboard = { readText: () => Promise.reject(new Error("denied")) };
-  await assert.rejects(runEditCommand("edit-paste", doc, clipboard), /denied/);
+  await assert.rejects(runEditCommand("edit-paste", doc, clipboard, toast), /denied/);
   assert.deepEqual(doc.calls, []);
+  assert.deepEqual(toast.messages, ["Paste was blocked — use Ctrl+V"]);
+});
+
+test("a successful paste shows no toast", async () => {
+  const doc = fakeDoc();
+  const toast = spyToast();
+  const clipboard: EditClipboard = { readText: () => Promise.resolve("text") };
+  assert.equal(await runEditCommand("edit-paste", doc, clipboard, toast), true);
+  assert.deepEqual(toast.messages, []);
 });
 
 test("execCommand's own answer is passed back", async () => {

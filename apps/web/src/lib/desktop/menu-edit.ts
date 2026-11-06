@@ -4,6 +4,8 @@
  * them on whatever has focus, because a webview has no native edit roles.
  */
 
+import { showToast } from "@/lib/toast";
+
 /** The part of `document` the edit commands use. */
 export interface EditDocument {
   execCommand(commandId: string, showUI?: boolean, value?: string): boolean;
@@ -31,15 +33,28 @@ export function isEditCommand(command: string): boolean {
  * Runs one Edit menu command on the focused element. Paste reads the
  * clipboard and inserts its text, since `execCommand("paste")` is refused in
  * a page. Answers whether anything ran; rejects when the clipboard read fails.
+ * A refused paste or an empty clipboard is also said by `toast`, so the user
+ * is not left wondering why nothing happened.
  */
 export async function runEditCommand(
   command: string,
   doc: EditDocument,
   clipboard: EditClipboard,
+  toast: (message: string) => void = showToast,
 ): Promise<boolean> {
   if (command === "edit-paste") {
-    const text = await clipboard.readText();
-    return text === "" ? false : doc.execCommand("insertText", false, text);
+    let text: string;
+    try {
+      text = await clipboard.readText();
+    } catch (error) {
+      toast("Paste was blocked — use Ctrl+V");
+      throw error;
+    }
+    if (text === "") {
+      toast("Clipboard is empty");
+      return false;
+    }
+    return doc.execCommand("insertText", false, text);
   }
   const exec = Object.hasOwn(EXEC, command) ? EXEC[command] : undefined;
   return exec === undefined ? false : doc.execCommand(exec);
