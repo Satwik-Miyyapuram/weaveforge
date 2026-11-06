@@ -4,6 +4,7 @@ import type { ChangeSide, ImportAction, ImportDiffEntry, JsonDiffEntry } from "@
 
 import {
   applyOutsideEdits,
+  renamedPaths,
   splitOutsideEdits,
   type FolderDiff,
   type SeenFile,
@@ -116,6 +117,18 @@ test("a copy at a new path that updates a known note is held; a new note at a ne
   );
   assert.deepEqual(paths(apply.entries), ["b.md"]);
   assert.deepEqual(paths(held.entries), ["a copy.md"]);
+});
+
+test("a rename in the same folder is taken in; a move to another folder is held", () => {
+  const { apply, reasons } = splitOutsideEdits(
+    diffOf([note("updated", "notes/big idea.note.md", "a"), note("updated", "other/b.note.md", "b")], undefined, {
+      "notes/big idea.note.md": { ...seenNew(), renamedFrom: "notes/idea.note.md" },
+      "other/b.note.md": { ...seenNew(), renamedFrom: "notes/b.note.md" },
+    }),
+  );
+  assert.deepEqual(paths(apply.entries), ["notes/big idea.note.md"]);
+  assert.deepEqual(reasons, { "other/b.note.md": "moved to another folder" });
+  assert.deepEqual([...renamedPaths(apply)], ["notes/big idea.note.md"]);
 });
 
 test("a JSON data file at a new path with an updated row is held whole", () => {

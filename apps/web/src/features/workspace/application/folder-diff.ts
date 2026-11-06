@@ -105,7 +105,7 @@ export async function diffAgainstWorkspace(
   // and they are shown in the same preview: one list of what would change, one
   // set of numbers.
   const json = await jsonDiff(jsonFiles, current, base, project);
-  const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base);
+  const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base, renameSources(parsed, files, current));
   const stored = Object.fromEntries(snapshot.vaultPages.map((page) => [page.id, storedDigest(page)]));
   return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen, stored };
 }
@@ -120,6 +120,7 @@ function seenFiles(
   folder: Readonly<Record<string, string>>,
   current: Readonly<Record<string, string>>,
   base: Readonly<Record<string, string>>,
+  renamed: Readonly<Record<string, string>> = {},
 ): Record<string, SeenFile> {
   const seen: Record<string, SeenFile> = {};
   for (const [path, text] of Object.entries(folder)) {
@@ -128,7 +129,33 @@ function seenFiles(
     const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
     const newPath = known === undefined && workspace === undefined;
     const side = newPath ? "folder" : core.changedSide({ base: known, folder: digest, workspace });
-    seen[path] = newPath ? { side, digest, newPath } : { side, digest };
+    const from = renamed[path];
+    seen[path] = newPath ? { side, digest, newPath, ...(from ? { renamedFrom: from } : {}) } : { side, digest };
   }
   return seen;
+}
+
+/**
+ * New folder paths that are renames: the only folder file carrying a note's id,
+ * while the file the mirror wrote for that note is gone. With the old file still
+ * there, the new one is a copy. Maps new path to old.
+ */
+export function renameSources(
+  parsed: readonly { id?: string | null; path: string }[],
+  folder: Readonly<Record<string, string>>,
+  current: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const pathsById = new Map<string, string[]>();
+  for (const entity of parsed) {
+    if (entity.id) pathsById.set(entity.id, [...(pathsById.get(entity.id) ?? []), entity.path]);
+  }
+  const renamed: Record<string, string> = {};
+  for (const [id, paths] of pathsById) {
+    const [path] = paths;
+    if (paths.length !== 1 || !path || current[path] !== undefined) continue;
+    const stamp = `\nweaveforge-id: ${id}\n`;
+    const old = Object.keys(current).find((key) => key.endsWith(".md") && (current[key] ?? "").includes(stamp));
+    if (old && folder[old] === undefined) renamed[path] = old;
+  }
+  return renamed;
 }

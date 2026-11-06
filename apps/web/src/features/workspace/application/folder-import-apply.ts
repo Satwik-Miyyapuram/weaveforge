@@ -53,6 +53,8 @@ export interface ApplyOptions {
    * path comes back in `moved`.
    */
   stored?: Readonly<Record<string, string>>;
+  /** Paths that are renames (`renamedPaths`): retitled from the new name, then left to the mirror to write. */
+  renamed?: ReadonlySet<string>;
 }
 
 /** A note's title and body as one digest: what an update would overwrite. */
@@ -77,7 +79,7 @@ export async function applyFolderImport(
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
   if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
 
-  const result = await applyEntries(fs, diff, resolutions, options.stored);
+  const result = await applyEntries(fs, diff, resolutions, options.stored, options.renamed);
   const appliedJson = await applyJsonEntries(diff.json);
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
@@ -104,6 +106,7 @@ export async function applyEntries(
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
   stored?: Readonly<Record<string, string>>,
+  renamed: ReadonlySet<string> = new Set(),
 ): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[] }> {
   const core = await loadCore();
   const container = getContainer();
@@ -162,12 +165,21 @@ export async function applyEntries(
       moved.push(entry.entity.path);
       continue;
     }
+    const path = entry.entity.path;
+    const rename = renamed.has(path);
+    // A renamed file still carries the old title in its frontmatter; the new name says what it is now.
+    const title = rename && entry.entity.title === page.title ? titleFromFileName(path) : entry.entity.title;
     await container.vault.manageVaultPage.update(page.id, {
-      title: entry.entity.title,
+      title,
       body: await reanchorAssets(entry.entity.body, page.id, owned),
     });
     updated += 1;
-    appliedPaths.push(entry.entity.path);
+    if (!rename) {
+      appliedPaths.push(path);
+      continue;
+    }
+    // The note is whole in the workspace now; the mirror writes it at the path its title gives.
+    await fs.remove(path).catch(() => undefined);
   }
 
   pendingAssets = new Map();
@@ -198,4 +210,10 @@ async function reanchorAssets(
   return fromRelativeBlobLinks(body, {
     resolve: (scope, path) => resolved.get(`${ASSET_DIR}/${scope}/${path}`) ?? null,
   });
+}
+
+/** The title a renamed file's name gives: no folder, kind suffix or id suffix. */
+export function titleFromFileName(path: string): string {
+  const name = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "").replace(/\.(note|ink)$/, "");
+  return name.replace(/--[A-Za-z0-9]{1,8}$/, "").trim() || "Untitled";
 }
