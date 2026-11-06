@@ -8,6 +8,7 @@ import { formatError } from "@/lib/format-error";
 import { isSupervisorRole } from "@weaveforge/core";
 import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
 import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
+import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/device-snapshot";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -40,8 +41,18 @@ import { studentsOf } from "@/features/org/application/students-of";
 const layoutCache = new Map<string, DashboardLayout>();
 registerDashboardUiCacheClear(() => layoutCache.clear());
 
+/** The device copy of a project's last shown layout (desktop and phone only). */
+function layoutSnapshotName(projectId: string): string {
+  return `dashboard-layout:${projectId}`;
+}
+
+function readLayoutSnapshot(projectId: string): DashboardLayout | null {
+  const saved = readDeviceSnapshot<DashboardLayout>(layoutSnapshotName(projectId));
+  return saved && Array.isArray(saved.lg) ? saved : null;
+}
+
 export function DashboardScreen() {
-  const { current: project } = useProject();
+  const { current: project, fromSnapshot: projectsFromSnapshot } = useProject();
   const projectId = project?.id;
   const { profile, team, loading: profileLoading } = useProfile();
   const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
@@ -56,6 +67,9 @@ export function DashboardScreen() {
   const layoutReady = useRef(false);
   const layoutDirty = useRef(false);
   const [cardsEntered, setCardsEntered] = useState(false);
+  // The project whose device copy is on screen while its live layout loads.
+  const snapshotFor = useRef<string | null>(null);
+  const [layoutFromSnapshot, setLayoutFromSnapshot] = useState(false);
 
   const syncLayouts = useMemo(
     () => (layout ? syncDashboardLayouts(layout) : null),
@@ -67,19 +81,36 @@ export function DashboardScreen() {
     [syncLayouts],
   );
 
-  const { stats, supervision, statsLoading, statsError } = useDashboardStats(
+  const { stats, supervision, statsLoading, statsError, fromSnapshot: statsFromSnapshot } = useDashboardStats(
     cardTypes,
     supervisees,
   );
 
   const handleEnterComplete = useCallback(() => setCardsEntered(true), []);
   const contentReady = !statsLoading && !layoutLoading;
+  // Edits wait until project, layout and stats are all live.
+  const fromSnapshot = Boolean(projectsFromSnapshot) || layoutFromSnapshot || statsFromSnapshot;
 
 
   // Load saved layout from the database when project changes (after profile is ready).
   useEffect(() => {
     setCardsEntered(false);
-    if (!projectId || profileLoading) return;
+    if (!projectId) return;
+    // Paints this project's device copy (once) while the live layout is not there yet.
+    const showSnapshot = () => {
+      if (snapshotFor.current === projectId) return true;
+      const saved = readLayoutSnapshot(projectId);
+      if (!saved) return false;
+      snapshotFor.current = projectId;
+      setLayout(saved);
+      setLayoutLoading(false);
+      setLayoutFromSnapshot(true);
+      return true;
+    };
+    if (profileLoading) {
+      showSnapshot();
+      return;
+    }
     let active = true;
     layoutReady.current = false;
     layoutDirty.current = false;
@@ -95,7 +126,9 @@ export function DashboardScreen() {
       setLayout(next);
       setLayoutLoading(false);
       layoutReady.current = true;
-    } else {
+      snapshotFor.current = null;
+      setLayoutFromSnapshot(false);
+    } else if (!showSnapshot()) {
       setLayout(null);
       setLayoutLoading(true);
     }
@@ -111,6 +144,7 @@ export function DashboardScreen() {
         // cards, which packing upward does not close.
         const next = { ...finalized, lg: closeLayoutGaps(finalized.lg) };
         layoutCache.set(cacheKey, next);
+        writeDeviceSnapshot(layoutSnapshotName(projectId), next);
         setLayout(next);
       } catch (err) {
         if (!active) return;
@@ -122,6 +156,8 @@ export function DashboardScreen() {
         if (active) {
           setLayoutLoading(false);
           layoutReady.current = true;
+          snapshotFor.current = null;
+          setLayoutFromSnapshot(false);
         }
       }
     })();
@@ -236,8 +272,12 @@ export function DashboardScreen() {
           onDone={handleDone}
           onReset={handleReset}
           onAdd={() => setPickerOpen(true)}
+          disabled={fromSnapshot}
         />
       </ScreenHead>
+      {fromSnapshot && !editing && (
+        <p className="muted dashboard-snapshot-note">Showing your last saved view. Updating…</p>
+      )}
       {editing && (
         <p className="muted dashboard-edit-hint">Drag a card to move it, drag its corner to resize, or remove it with ✕. Done saves.</p>
       )}
@@ -257,7 +297,7 @@ export function DashboardScreen() {
           title="No cards yet"
           body="Pick what this dashboard shows: papers to read, recent log entries, milestones and more."
           action={
-            <Button variant="primary" onClick={() => setEditing(true)}>
+            <Button variant="primary" onClick={() => setEditing(true)} disabled={fromSnapshot}>
               Customize
             </Button>
           }
