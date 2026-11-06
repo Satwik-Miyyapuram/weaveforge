@@ -6,7 +6,7 @@ use std::collections::HashSet;
 
 use weaveforge_shell_lib::menu::{
     BAD_TITLE_BAR_COLOR, DOCS_URL, MenuGroup, MenuHost, MenuItem, MenuItemKind, MenuRole,
-    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command,
+    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command, page_command_script, page_route_script,
     menu_invoke, menu_model,
 };
 
@@ -102,6 +102,26 @@ fn page_command_event_is_the_name_the_title_bar_listens_for() {
     let title_bar = include_str!("../../web/src/components/desktop-title-bar.tsx");
     assert!(title_bar.contains("const MENU_COMMAND_EVENT = \"weaveforge:menu-command\";"));
     assert_eq!(PAGE_COMMAND_EVENT, "weaveforge:menu-command");
+}
+
+// A Tauri `emit` never reaches the page's `window.addEventListener`; the menu must dispatch a DOM event.
+#[test]
+fn page_scripts_dispatch_the_dom_event_the_title_bar_listens_for() {
+    let command = page_command_script("search");
+    assert_eq!(
+        command,
+        "window.dispatchEvent(new CustomEvent(\"weaveforge:menu-command\",{detail:{command:\"search\"}}))"
+    );
+    let route = page_route_script("/settings");
+    assert!(route.contains("new CustomEvent(\"weaveforge:menu-command\",{cancelable:true,detail:{route:\"/settings\"}})"));
+    assert!(route.contains("window.dispatchEvent(e)"));
+    assert!(route.contains("if(!e.defaultPrevented)window.location.assign(\"/settings\")"));
+}
+
+#[test]
+fn page_scripts_escape_what_they_carry() {
+    let script = page_command_script("a\"b</script>\\");
+    assert!(script.contains("command:\"a\\\"b</script>\\\\\""));
 }
 
 #[test]

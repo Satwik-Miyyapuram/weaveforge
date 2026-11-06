@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use tauri::{Emitter as _, Manager as _, Runtime};
+use tauri::{Manager as _, Runtime};
 use tauri_plugin_opener::OpenerExt as _;
 
 use crate::app_log::{AppLog, LogLevel};
@@ -14,14 +14,32 @@ use crate::vault::VaultState;
 pub const PAGE_COMMAND_EVENT: &str = "weaveforge:menu-command";
 /// The documentation site the Help menu's Documentation entry opens.
 pub const DOCS_URL: &str = "https://www.weaveforge.org/docs/";
-/// The Tauri event that asks the page to route (the page side is wired in 2.13).
-pub const MENU_ROUTE_EVENT: &str = "menu-route";
 /// The error for a menu entry that cannot run (unknown, a separator, or disabled).
 pub const NOT_AVAILABLE: &str = "That menu entry is not available.";
 /// The error for a title bar colour that is not `#rrggbb`.
 pub const BAD_TITLE_BAR_COLOR: &str = "Title bar colours must be #rrggbb.";
 /// The title bar's height in CSS pixels, as the TS sets it. Tauri takes no overlay height here, so nothing reads it yet.
 pub const TITLE_BAR_HEIGHT: u32 = 36;
+
+/// Script that asks the page to route through its router; loads the route itself if no one takes it.
+/// The page listens for a DOM event, so a Tauri `emit` never reaches it.
+#[must_use]
+pub fn page_route_script(route: &str) -> String {
+    let event = serde_json::json!(PAGE_COMMAND_EVENT);
+    let route = serde_json::json!(route);
+    format!(
+        "(()=>{{const e=new CustomEvent({event},{{cancelable:true,detail:{{route:{route}}}}});\
+         window.dispatchEvent(e);if(!e.defaultPrevented)window.location.assign({route})}})()"
+    )
+}
+
+/// Script that asks the page to run one of its own commands (`search`).
+#[must_use]
+pub fn page_command_script(command: &str) -> String {
+    let event = serde_json::json!(PAGE_COMMAND_EVENT);
+    let command = serde_json::json!(command);
+    format!("window.dispatchEvent(new CustomEvent({event},{{detail:{{command:{command}}}}}))")
+}
 
 /// What the menu needs from the window and app. The Tauri impl lives in this file; tests use a fake.
 pub trait MenuHost {
@@ -665,16 +683,11 @@ impl<R: Runtime> TauriMenuHost<R> {
 
 impl<R: Runtime> MenuHost for TauriMenuHost<R> {
     fn go_to(&self, route: &str) {
-        let _ = self
-            .window
-            .emit(MENU_ROUTE_EVENT, serde_json::json!({ "route": route }));
+        let _ = self.window.eval(page_route_script(route));
     }
 
     fn page_command(&self, command: &str) {
-        let _ = self.window.emit(
-            PAGE_COMMAND_EVENT,
-            serde_json::json!({ "command": command }),
-        );
+        let _ = self.window.eval(page_command_script(command));
     }
 
     /// Edit roles go to the page as `edit-*` menu commands, since WebView2 blocks `execCommand('paste')`.
