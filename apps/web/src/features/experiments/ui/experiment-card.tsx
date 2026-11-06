@@ -20,6 +20,8 @@ import {
   ExpMetricChips,
 } from "./experiment-panels";
 import { experimentHref } from "../application/experiment-href";
+import { removeExperiment } from "../application/remove-experiment";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
@@ -62,7 +64,14 @@ export function ExperimentCard({
     removeLater({
       key: experimentKey(exp.id),
       message: deletedMessage(exp.name),
-      remove: () => getContainer().experiments.manageExperiment.remove(exp.id),
+      remove: () => {
+        const bridge = desktop();
+        return removeExperiment(
+          exp.id,
+          (id) => getContainer().experiments.manageExperiment.remove(id),
+          bridge?.deleteLocalArtifacts?.bind(bridge),
+        );
+      },
       onDeleted: onChanged,
     });
   }

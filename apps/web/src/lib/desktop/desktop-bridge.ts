@@ -384,6 +384,8 @@ export interface DesktopBridge {
   storageUsage?(): Promise<DesktopStorageArea[]>;
   /** Empties one of those folders, by its id. */
   clearStorage?(id: string): Promise<void>;
+  /** Removes the files an experiment saved on this computer, after it is deleted. */
+  deleteLocalArtifacts?(experimentId: string): Promise<void>;
 
   /**
    * The window's menu, for the menu bar the page draws itself.

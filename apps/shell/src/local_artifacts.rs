@@ -28,11 +28,14 @@ pub const SAME_ORIGIN_PREFIX: &str = "/artifacts/";
 pub const ARTIFACT_CSP: &str =
     "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'";
 
-/// Matches the web route's 25 MB cap. The writer does not enforce it; the caller does.
+/// Matches the web route's 25 MB cap: the writer refuses more, and a whole read stops there.
 pub const MAX_LOCAL_ARTIFACT_BYTES: usize = 25 * 1024 * 1024;
 
 /// Message for an unsafe experiment id or file name (byte-identical to the TS).
 pub const UNSAFE: &str = "Unsafe artifact path.";
+
+/// Message for a file over [`MAX_LOCAL_ARTIFACT_BYTES`].
+pub const TOO_BIG: &str = "Artifact is over 25 MB.";
 
 /// Longest allowed segment, in bytes (every allowed byte is ASCII, so bytes are characters).
 const SEGMENT_MAX_LEN: usize = 128;
@@ -88,6 +91,9 @@ pub fn write_local_artifact(
     if !is_safe_segment(experiment_id) || !is_safe_segment(name) {
         return Err(UNSAFE.to_owned());
     }
+    if bytes.len() > MAX_LOCAL_ARTIFACT_BYTES {
+        return Err(TOO_BIG.to_owned());
+    }
     let folder = new_folder_name();
     let dir = root.join(experiment_id).join(&folder);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -97,9 +103,22 @@ pub fn write_local_artifact(
     ))
 }
 
+/// Removes every file saved for `experiment_id`, after the experiment is deleted. Nothing saved
+/// is not an error.
+pub fn delete_local_artifacts(root: &Path, experiment_id: &str) -> Result<(), String> {
+    if !is_safe_segment(experiment_id) {
+        return Err(UNSAFE.to_owned());
+    }
+    match std::fs::remove_dir_all(root.join(experiment_id)) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+        _ => Ok(()),
+    }
+}
+
 /// Serves one saved artifact. `path` is the URL path after the host, e.g. `/exp/uuid/name`.
+/// Honours a `Range` header (the PDF viewer reads in parts); a whole read over 25 MB is a 413.
 #[must_use]
-pub fn serve_local_artifact(root: &Path, path: &str) -> Reply {
+pub fn serve_local_artifact(root: &Path, path: &str, range: Option<&str>) -> Reply {
     let Some(segments) = decode_segments(path) else {
         return bare(400);
     };
@@ -110,16 +129,15 @@ pub fn serve_local_artifact(root: &Path, path: &str) -> Reply {
         return bare(404);
     }
     let file = root.join(experiment).join(folder).join(name);
-    match std::fs::read(&file) {
-        Ok(body) => Reply {
-            status: 200,
-            headers: vec![
-                ("content-type", content_type_for(&file).to_owned()),
-                ("x-content-type-options", "nosniff".to_owned()),
-                ("content-security-policy", ARTIFACT_CSP.to_owned()),
-            ],
-            body,
-        },
+    let headers = vec![
+        ("content-type", content_type_for(&file).to_owned()),
+        ("x-content-type-options", "nosniff".to_owned()),
+        ("content-security-policy", ARTIFACT_CSP.to_owned()),
+    ];
+    let cap = MAX_LOCAL_ARTIFACT_BYTES as u64;
+    match crate::range::serve_file_capped(&file, range, headers, cap) {
+        Ok(reply) => reply,
+        Err(e) if e.kind() == std::io::ErrorKind::FileTooLarge => bare(413),
         Err(_) => bare(404),
     }
 }

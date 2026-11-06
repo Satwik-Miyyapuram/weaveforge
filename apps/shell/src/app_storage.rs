@@ -169,3 +169,17 @@ pub async fn app_storage_clear(
         }
     })
 }
+
+/// Removes the files an experiment saved on this computer, once the experiment is deleted.
+#[tauri::command]
+#[specta::specta]
+pub async fn local_artifacts_delete(
+    app: tauri::AppHandle,
+    experiment_id: String,
+) -> Result<(), ShellError> {
+    let Some(root) = folder(&app, "artifacts") else {
+        return Ok(());
+    };
+    crate::local_artifacts::delete_local_artifacts(&root, &experiment_id)
+        .map_err(|message| ShellError { message })
+}

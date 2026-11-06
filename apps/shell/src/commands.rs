@@ -250,6 +250,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_tools::app_log_reveal,
         crate::app_storage::app_storage_usage,
         crate::app_storage::app_storage_clear,
+        crate::app_storage::local_artifacts_delete,
         crate::overleaf_read::overleaf_read,
         crate::overleaf_links::overleaf_sync,
         crate::mattermost::mattermost_sign_in,

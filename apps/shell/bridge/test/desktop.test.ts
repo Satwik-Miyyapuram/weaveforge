@@ -826,6 +826,17 @@ test("storageUsage returns the areas and clearStorage sends the id", async () =>
   );
 });
 
+test("deleteLocalArtifacts sends the experiment id and throws the shell's message", async () => {
+  const ok = fakeCommands();
+  assert.equal(await desktopShim(ok.cmds, fakeEvents().events).deleteLocalArtifacts?.("exp-1"), undefined);
+  assert.deepEqual(ok.calls, [{ cmd: "localArtifactsDelete", args: ["exp-1"] }]);
+  const bad = fakeCommands({ localArtifactsDelete: error("Unsafe artifact path.") });
+  await assert.rejects(
+    async () => desktopShim(bad.cmds, fakeEvents().events).deleteLocalArtifacts?.(".."),
+    /Unsafe artifact path/,
+  );
+});
+
 test("revealAppLog resolves to undefined and throws the shell's message", async () => {
   const ok = fakeCommands();
   assert.equal(await desktopShim(ok.cmds, fakeEvents().events).revealAppLog?.(), undefined);
