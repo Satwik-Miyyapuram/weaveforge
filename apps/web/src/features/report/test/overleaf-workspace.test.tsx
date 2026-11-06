@@ -438,14 +438,10 @@ test("opening an account project in the browser shows the PDF and says editing n
   await act(async () => tree.unmount());
 });
 
-test("in the desktop app a project opens as Overleaf does: split layout, switchable to editor or PDF", async () => {
+test("in the desktop app a project opens split, with no layout switch: the divider arrows fold panes", async () => {
   const tree = await mount(harness(projectsOk, SESSION), { inShell: true });
   await openRow(tree, "Thesis");
-  assert.deepEqual(layoutTabs(tree), ["Split", "Editor", "PDF"]);
-  const selected = () => tree.root.find((n) => n.type === "button" && n.props.role === "tab" && n.props["aria-selected"] === true);
-  assert.equal(textOf(selected()), "Split");
-  await tab(tree, "PDF");
-  assert.equal(textOf(selected()), "PDF");
+  assert.deepEqual(layoutTabs(tree), []);
   assert.doesNotMatch(text(tree), /desktop app/);
   await act(async () => tree.unmount());
 });

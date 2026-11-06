@@ -10,6 +10,7 @@ import { EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirro
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
 import { latexFoldEnd } from "../lib/latex-fold";
+import { latexHighlight } from "../lib/latex-highlight";
 import { headingOf, latexFormat, type LatexFormat } from "../lib/latex-format";
 import { latexOutline, sectionAt, type OutlineItem } from "../lib/latex-outline";
 import { OverleafEditorToolbar } from "./overleaf-editor-toolbar";
@@ -211,7 +212,7 @@ export function WorkshopLiveEditor({
             EditorView.lineWrapping,
             EditorState.readOnly.of(!project.canEdit),
             EditorView.editable.of(project.canEdit),
-            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            isTex ? syntaxHighlighting(latexHighlight) : syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
             themeCompartment.of(createCodeMirrorThemeForSite()),
             languageCompartment.of([]),
             EditorView.updateListener.of((update) => {

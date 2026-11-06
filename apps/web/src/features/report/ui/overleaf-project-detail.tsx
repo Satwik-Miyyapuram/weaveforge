@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/button";
 import { OpenIcon } from "@/components/view-icons";
-import { ViewSwitch } from "@/components/view-switch";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import type { OverleafProjectRow } from "../lib/overleaf-project-list";
 import type { LinkedReport } from "./linked-overleaf-api";
@@ -36,13 +35,6 @@ export function tabBlockers({ signedIn, inAccount, inShell }: {
 }
 
 export type Layout = "split" | "editor" | "pdf";
-
-/** Overleaf's layout menu: the file tree always shows; these pick the panes beside it. */
-const LAYOUTS: readonly { value: Layout; label: string; title: string }[] = [
-  { value: "split", label: "Split", title: "Editor and PDF side by side" },
-  { value: "editor", label: "Editor", title: "Editor only" },
-  { value: "pdf", label: "PDF", title: "PDF only" },
-];
 
 /**
  * One Overleaf project as Overleaf lays it out: files, editor and PDF, with our
@@ -92,7 +84,6 @@ export function OverleafProjectDetail({
       <nav className="record-bar" aria-label="Overleaf project">
         <BackButton label="Overleaf" onClick={onBack} />
         <span className="record-mono record-bar-id">Project {row.id.slice(0, 6)}</span>
-        {canWrite && <ViewSwitch label="Layout" value={layout} onChange={setLayout} options={LAYOUTS} />}
         <div className="record-actions">
           <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf">
             <OpenIcon />

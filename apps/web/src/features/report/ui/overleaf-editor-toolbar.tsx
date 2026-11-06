@@ -37,7 +37,7 @@ const EXTRA: (Tool | typeof sep)[] = [
   { format: "link", label: "Link", icon: <Glyph><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></Glyph> },
   { format: "itemize", label: "Bullet list", icon: <Glyph><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></Glyph> },
   { format: "enumerate", label: "Numbered list", icon: <Glyph><path d="M10 6h10M10 12h10M10 18h10" /><path d="M4 4v4M3 18h3l-3 3h3" /></Glyph> },
-  { format: "comment", label: "Toggle comment", icon: <span>%</span> },
+  { format: "comment", label: "Toggle comment", icon: <Glyph><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></Glyph> },
 ];
 
 /**

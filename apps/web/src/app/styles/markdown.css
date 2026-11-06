@@ -110,12 +110,11 @@
 .overleaf-panes__side { flex: none; min-height: 0; overflow: hidden; background: var(--surface-alt, var(--surface)); }
 .overleaf-panes__editor, .overleaf-panes__pdf { flex-basis: 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .overleaf-panes__pdf { background: var(--surface-alt, var(--surface)); }
-.overleaf-divider { flex: none; width: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--surface-alt, var(--surface)); border-inline: 1px solid var(--line); cursor: col-resize; touch-action: none; }
+.overleaf-divider { flex: none; width: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--surface-alt, var(--surface)); border-inline: 1px solid var(--line); cursor: col-resize; touch-action: none; }
 .overleaf-divider:hover, .overleaf-divider:focus-visible { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); outline: none; }
 .overleaf-divider--fixed { cursor: default; }
-.overleaf-divider button { width: 8px; opacity: 0; transition: opacity var(--dur-base); min-width: 0; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 0; color: var(--muted); background: transparent; }
+.overleaf-divider button { width: 12px; min-width: 0; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: 0; color: var(--muted); background: transparent; }
 .overleaf-divider button:hover { color: var(--accent); }
-.overleaf-divider:hover button, .overleaf-divider:focus-within button, .overleaf-divider--fixed button { opacity: 1; }
 /* Left rail: File tree above File outline, each folding from its header. */
 .overleaf-sidebar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .overleaf-panel { display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid var(--line); }
@@ -166,6 +165,13 @@
 .overleaf-crumbs [role="status"] { margin-inline-start: auto; }
 .workshop-live__editor { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .workshop-live__editor .cm-editor { height: 100%; font-size: var(--fs-sm); }
+/* LaTeX colours, Overleaf's scheme in theme tokens (lib/latex-highlight.ts).
+   Status hues mixed with ink: some themes set every --st-*-fg to ink. */
+:root:root .workshop-live__editor :is(.cm-tex-command, .cm-tex-command *) { color: color-mix(in srgb, var(--st-info-bg) 55%, var(--ink)); }
+:root:root .workshop-live__editor :is(.cm-tex-arg, .cm-tex-arg *) { color: color-mix(in srgb, var(--st-danger-bg) 60%, var(--ink)); }
+:root:root .workshop-live__editor :is(.cm-tex-math, .cm-tex-math *) { color: color-mix(in srgb, var(--st-positive-bg) 55%, var(--ink)); }
+:root:root .workshop-live__editor :is(.cm-tex-comment, .cm-tex-comment *) { color: var(--faint); font-style: italic; }
+:root:root .workshop-live__editor :is(.cm-tex-bracket, .cm-tex-bracket *) { color: var(--muted); }
 .workshop-live__editor .cm-foldGutter .cm-gutterElement { padding-inline: 2px; color: var(--muted); cursor: pointer; }
 @media (max-width: 699px) {
   .record.overleaf-detail { height: auto; }
