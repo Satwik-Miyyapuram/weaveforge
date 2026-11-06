@@ -37,3 +37,23 @@ pub async fn embed_unload(model: String) -> Result<(), ShellError> {
     drop(model);
     Err(ShellError::from(NO_EMBEDDINGS.to_owned()))
 }
+
+/// Phones download no models, so there is never one in flight.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn model_downloads() -> Result<Vec<crate::model_cache::ModelDownload>, ShellError> {
+    Ok(Vec::new())
+}
+
+/// Nothing to stop on a phone.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn cancel_model_downloads() -> Result<(), ShellError> {
+    Ok(())
+}

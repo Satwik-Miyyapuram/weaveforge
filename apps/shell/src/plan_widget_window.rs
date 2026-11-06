@@ -15,6 +15,7 @@ pub const WIDGET_WINDOW: &str = "plan-widget";
 /// Whether the widget is on.
 const ENABLED_PREF: &str = "plan-widget";
 /// Where the widget was left, as `{ x, y }` in logical pixels.
+#[cfg(desktop)]
 const BOUNDS_PREF: &str = "plan-widget-bounds";
 /// The app's palette for the widget, as JSON text.
 const THEME_PREF: &str = "plan-widget-theme";
