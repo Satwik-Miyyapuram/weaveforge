@@ -54,44 +54,41 @@
 .callout--tip, .callout--success, .callout--check { background: color-mix(in srgb, var(--s-good) 12%, var(--surface)); border-left-color: var(--s-good); }
 .callout--info, .callout--note { border-left-color: var(--accent); }
 .markdown .katex-display { margin: 0; }
-.linked-overleaf-card { margin: 16px 0; }
-.linked-overleaf-summary {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
-  list-style: none;
-}
-.linked-overleaf-summary::-webkit-details-marker { display: none; }
-.linked-overleaf-toggle {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-md);
-  height: var(--control-md);
-  margin-top: 2px;
-  color: var(--muted);
-}
-.linked-overleaf-summary-main { flex: 1; min-width: 0; }
-.linked-overleaf-body { margin-top: 12px; }
-@media (min-width: 900px) {
-  .linked-overleaf-summary { cursor: default; }
-  .linked-overleaf-toggle { display: none; }
-}
-.linked-overleaf-head, .linked-overleaf-toolbar { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
-.linked-overleaf-head h2 { margin: 0; }
+/* Overleaf tab: connect bar, one project list, one project's Write / PDF / Outline. */
+.overleaf-workspace { display: grid; gap: 16px; margin: 16px 0; }
+.overleaf-settings { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface-alt); }
+.overleaf-settings__account { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.overleaf-settings__account > span { flex: 1 1 auto; font-weight: 600; }
+.overleaf-settings__picks { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.overleaf-settings__picks legend { margin-bottom: 4px; font-weight: 600; }
+.overleaf-settings__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.overleaf-settings__tools input { flex: 1 1 160px; min-width: 0; }
+.overleaf-settings__picks ul { display: grid; gap: 4px; max-height: 260px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.overleaf-settings__picks label { display: flex; align-items: center; gap: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.overleaf-project-list__hint { margin: 0; font-size: var(--fs-sm); }
+.overleaf-conn-details > summary { cursor: pointer; font-weight: 600; }
+.overleaf-project-list { display: grid; gap: 12px; }
+.overleaf-project-list__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.overleaf-project-list__head h2 { margin: 0; flex: 1 1 auto; }
+.overleaf-project-list__head input { flex: 1 1 220px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }
+.overleaf-project-list ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.overleaf-project-list .wf-row { display: grid; gap: 2px; width: 100%; padding: 12px; text-align: start; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); }
+.overleaf-project-list .wf-row:hover { border-color: var(--accent); }
+.overleaf-project-list .wf-row small { color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.overleaf-star { color: var(--accent); }
+.overleaf-empty { display: grid; gap: 12px; justify-items: start; padding: 24px; border: 1px dashed var(--line); border-radius: var(--r-control); }
+.overleaf-empty h2 { margin: 0; }
+.overleaf-detail { display: grid; gap: 12px; }
+.overleaf-detail__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.overleaf-detail__head h2 { margin: 0; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.overleaf-detail__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.overleaf-detail__body { min-height: 0; }
+.overleaf-detail__blocked { display: grid; gap: 8px; justify-items: start; padding: 24px; border: 1px dashed var(--line); border-radius: var(--r-control); }
+.overleaf-outline { display: grid; gap: 12px; }
 .linked-overleaf-disclosure { padding: 12px 12px; border-radius: var(--r-control); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-size: var(--fs); }
-.linked-overleaf-list { display: grid; gap: 8px; margin-top: 12px; }
-.linked-overleaf-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px; text-align: left; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); flex-wrap: wrap; }
-.linked-overleaf-row.selected { border-color: var(--accent); }
-/* Title block on the left; View / Edit / Unlink stay a tight group on the right. */
-.linked-overleaf-row > .wf-row { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; text-align: start; }
-.linked-overleaf-row__actions { display: flex; align-items: center; gap: 12px 12px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
-.linked-overleaf-row__actions .muted { font-size: var(--fs-sm); flex: 1 1 100%; overflow-wrap: anywhere; }
 .linked-overleaf-form--edit { padding: 16px; border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--surface-alt); }
 .linked-overleaf-form__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.linked-overleaf-row small, .linked-overleaf-tree small { display: block; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.linked-overleaf-tree small { display: block; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .linked-overleaf-form { display: grid; gap: 12px; padding: 16px 0; }
 .linked-overleaf-form label { display: grid; gap: 4px; font-weight: 600; }
 .linked-overleaf-form input { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }

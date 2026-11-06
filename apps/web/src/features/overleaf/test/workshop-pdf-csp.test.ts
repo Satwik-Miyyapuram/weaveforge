@@ -44,6 +44,7 @@ test("the viewer shows a blob URL in the in-app reader, not a frame", () => {
     "apps/web/src/features/report/ui/workshop-pdf-viewer.tsx",
   );
   assert.match(viewer, /<PdfReader[\s\S]*?url=\{/);
-  assert.match(viewer, /URL\.createObjectURL/);
+  // A registered object URL: the reader reads its bytes, since the desktop origin cannot fetch blob: URLs.
+  assert.match(viewer, /createPdfObjectUrl\(/);
   assert.doesNotMatch(viewer, /<iframe/);
 });

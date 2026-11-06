@@ -119,7 +119,7 @@
   .org-node,
   .artifact-card,
   .screening-row,
-  .linked-overleaf-row,
+  .overleaf-project-list .wf-row,
   .popover-panel,
   .custom-select-menu,
   .card-menu-flyout,
