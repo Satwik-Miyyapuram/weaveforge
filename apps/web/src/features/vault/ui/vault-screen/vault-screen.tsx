@@ -6,9 +6,10 @@ import { type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
+import { FileDropZone } from "@/components/file-drop-zone";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
 import { untitledTitle } from "../../application/untitled-title";
-import { importNotesFromFiles } from "../../application/import-notes";
+import { importNotesFromFiles, isNoteImportFile } from "../../application/import-notes";
 import { loadLinkTargets } from "../../application/load-link-targets";
 import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -229,7 +230,7 @@ export function VaultScreen() {
     }
   }
 
-  async function onImportFiles(fileList: FileList | null) {
+  async function onImportFiles(fileList: FileList | readonly File[] | null) {
     if (!fileList || fileList.length === 0) return;
     setImporting(true);
     setImportMsg(null);
@@ -323,6 +324,13 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
+      {/* The list only: an open note's editor takes dropped images itself. */}
+      {!selectedId && !isSharedView && (
+        <FileDropZone
+          label="Drop .md files or a .zip to import notes"
+          onFiles={(files) => void onImportFiles(files.filter((f) => isNoteImportFile(f.name)))}
+        />
+      )}
       {/* An open note is a record page, as a paper is: its own bar carries
           the way back and its actions, so the list head steps aside. */}
       {!selected && (

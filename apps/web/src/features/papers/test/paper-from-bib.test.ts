@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import type { AddPaperResult, NewPaperInput, Paper } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { RustCore } from "@/lib/rust-core";
-import { bibImportMessage, importBibFile, type BibImportDeps } from "../application/paper-from-bib";
+import { bibImportMessage, importBibFile, splitPaperDrop, type BibImportDeps } from "../application/paper-from-bib";
 
 let core: RustCore;
 before(async () => { core = await loadTestCore(); });
@@ -116,4 +116,11 @@ test("an empty or garbage file adds nothing and says so", async () => {
   const out = await importBibFile(file("not a bib file at all"), d);
   assert.equal(added.length, 0);
   assert.equal(bibImportMessage(out).startsWith("Added 0 papers"), true);
+});
+
+test("a drop on Papers sends .bib files to the import and the rest to the PDF add", () => {
+  const files = [{ name: "a.pdf" }, { name: "refs.BIB" }, { name: "b.bibtex" }, { name: "notes.txt" }, { name: "c.pdf" }];
+  const { pdfs, bibs } = splitPaperDrop(files);
+  assert.deepEqual(pdfs.map((f) => f.name), ["a.pdf", "notes.txt", "c.pdf"], "a non-PDF still goes the PDF way, which counts it as skipped");
+  assert.deepEqual(bibs.map((f) => f.name), ["refs.BIB", "b.bibtex"]);
 });
