@@ -65,6 +65,13 @@ export interface DesktopBridge {
   onVaultChange(cb: (paths: string[]) => void): () => void;
 
   /**
+   * Calls back once, with the reason to show, when the watched folder is gone
+   * (renamed, moved or unplugged) and outside changes stop arriving. Absent on
+   * builds that cannot tell.
+   */
+  onVaultWatchLost?(cb: (reason: string) => void): () => void;
+
+  /**
    * Calls back when a provider sign-in returns, with the callback's query
    * string, and answers with the way to stop listening.
    *

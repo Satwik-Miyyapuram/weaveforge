@@ -18,6 +18,16 @@ use crate::vault_watch::{
 /// Receives each batch of changed folder-relative paths ('/'-separated, sorted).
 pub type ChangeSink = Arc<dyn Fn(Vec<String>) + Send + Sync>;
 
+/// Told once, with the reader-facing reason, when the watched folder goes away.
+pub type LostSink = Arc<dyn Fn(String) + Send + Sync>;
+
+/// Said when the watched folder is renamed, moved, deleted or its drive unplugged.
+pub const WATCH_LOST: &str = "The workspace folder is gone (renamed, moved or unplugged); outside changes are no longer seen. Reconnect it to see them again.";
+
+/// How often the watch thread checks the folder is still there; a rename of the folder
+/// itself reports nothing inside it.
+const ROOT_CHECK: Duration = Duration::from_secs(1);
+
 /// Largest file whose content is read to tell our own write from someone else's: the
 /// vault's largest write (`MAX_BLOB_BYTES`). A bigger file is always reported.
 pub const DIGEST_MAX_BYTES: u64 = crate::vault::MAX_BLOB_BYTES;
@@ -38,6 +48,7 @@ pub struct VaultWatcher {
     thread: Option<JoinHandle<()>>,
     shared: Arc<Mutex<VaultWatch>>,
     halted: Arc<AtomicBool>,
+    lost: Arc<Mutex<Option<LostSink>>>,
 }
 
 impl VaultWatcher {
@@ -86,9 +97,17 @@ impl VaultWatcher {
         let thread_shared = Arc::clone(&shared);
         let halted = Arc::new(AtomicBool::new(false));
         let thread_halted = Arc::clone(&halted);
+        let lost: Arc<Mutex<Option<LostSink>>> = Arc::default();
+        let thread_lost = Arc::clone(&lost);
         let thread = std::thread::Builder::new()
             .name("vault-watcher".into())
-            .spawn(move || run(&rx, &roots, &thread_shared, &thread_halted, &sink))
+            .spawn(move || {
+                let sinks = Sinks {
+                    change: &sink,
+                    lost: &thread_lost,
+                };
+                run(&rx, &roots, &thread_shared, &thread_halted, &sinks);
+            })
             .map_err(|_| CANNOT_WATCH.to_owned())?;
         Ok(Self {
             watcher: Some(watcher),
@@ -96,7 +115,13 @@ impl VaultWatcher {
             thread: Some(thread),
             shared,
             halted,
+            lost,
         })
+    }
+
+    /// Where to say the folder went away; a loss seen before this is set is said here once set.
+    pub fn report_loss_to(&self, sink: LostSink) {
+        *self.lost.lock().unwrap_or_else(PoisonError::into_inner) = Some(sink);
     }
 
     /// Stops reporting at once, without waiting for the thread; dropping still joins it. Lets a
@@ -129,13 +154,28 @@ impl Drop for VaultWatcher {
 
 /// The running folder watch, if any; the vault write commands tell it what they wrote.
 #[derive(Clone, Default)]
-pub struct WatchSlot(Arc<Mutex<Option<VaultWatcher>>>);
+pub struct WatchSlot {
+    running: Arc<Mutex<Option<VaultWatcher>>>,
+    lost: Option<LostSink>,
+}
 
 impl WatchSlot {
+    /// A slot whose every watch says through `lost` when its folder goes away.
+    #[must_use]
+    pub fn reporting_loss(lost: LostSink) -> Self {
+        Self {
+            running: Arc::default(),
+            lost: Some(lost),
+        }
+    }
+
     /// Replaces the running watch; the old one stops.
     pub fn set(&self, watcher: Option<VaultWatcher>) {
+        if let (Some(watcher), Some(lost)) = (watcher.as_ref(), self.lost.as_ref()) {
+            watcher.report_loss_to(Arc::clone(lost));
+        }
         let old = std::mem::replace(
-            &mut *self.0.lock().unwrap_or_else(PoisonError::into_inner),
+            &mut *self.running.lock().unwrap_or_else(PoisonError::into_inner),
             watcher,
         );
         // Dropped outside the lock: stopping joins the watch thread.
@@ -145,13 +185,13 @@ impl WatchSlot {
     /// Takes the running watch out, still running; the caller halts and drops it.
     #[must_use]
     pub fn take(&self) -> Option<VaultWatcher> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+        self.running.lock().unwrap_or_else(PoisonError::into_inner).take()
     }
 
     /// Whether a watch is running.
     #[must_use]
     pub fn is_watching(&self) -> bool {
-        self.0
+        self.running
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .is_some()
@@ -160,7 +200,7 @@ impl WatchSlot {
     /// The app is about to write `bytes` to `rel`; does nothing when no watch runs.
     pub fn note_self_write(&self, rel: &str, bytes: &[u8]) {
         if let Some(watcher) = self
-            .0
+            .running
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .as_ref()
@@ -172,7 +212,7 @@ impl WatchSlot {
     /// The app is about to delete `rel`; does nothing when no watch runs.
     pub fn note_self_remove(&self, rel: &str) {
         if let Some(watcher) = self
-            .0
+            .running
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .as_ref()
@@ -212,21 +252,34 @@ fn lock(shared: &Mutex<VaultWatch>) -> MutexGuard<'_, VaultWatch> {
     shared.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Where the watch thread sends its news.
+struct Sinks<'a> {
+    change: &'a ChangeSink,
+    lost: &'a Mutex<Option<LostSink>>,
+}
+
 /// The watch thread: feeds reports to the batcher and releases batches as they come due.
 fn run(
     rx: &Receiver<Msg>,
     roots: &[PathBuf],
     shared: &Mutex<VaultWatch>,
     halted: &AtomicBool,
-    sink: &ChangeSink,
+    sinks: &Sinks<'_>,
 ) {
     let mut digests = DigestCache::default();
+    let mut lost_said = false;
     loop {
         let deadline = lock(shared).deadline();
-        let next = match deadline {
-            Some(due) => rx.recv_timeout(due.saturating_duration_since(Instant::now())),
-            None => rx.recv().map_err(|_| RecvTimeoutError::Disconnected),
-        };
+        let wait = deadline.map_or(ROOT_CHECK, |due| {
+            due.saturating_duration_since(Instant::now()).min(ROOT_CHECK)
+        });
+        let next = rx.recv_timeout(wait);
+        if !lost_said
+            && !halted.load(Ordering::Acquire)
+            && roots.first().is_some_and(|root| !root.is_dir())
+        {
+            lost_said = say_lost(sinks.lost);
+        }
         match next {
             Ok(Msg::Event(res)) => handle_event(roots, shared, &mut digests, res),
             Ok(Msg::Stop) | Err(RecvTimeoutError::Disconnected) => {
@@ -238,9 +291,18 @@ fn run(
         let batch = lock(shared).flush(Instant::now());
         // A halted watch belongs to a folder no longer in use: its news must not reach the page.
         if !batch.is_empty() && !halted.load(Ordering::Acquire) {
-            sink(batch);
+            (sinks.change)(batch);
         }
     }
+}
+
+/// Says the folder is gone, once a sink is there to hear it; true when said.
+fn say_lost(lost: &Mutex<Option<LostSink>>) -> bool {
+    let sink = lost.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    sink.is_some_and(|sink| {
+        sink(WATCH_LOST.to_owned());
+        true
+    })
 }
 
 /// Reports each relevant path in a notify event to the batcher.

@@ -198,6 +198,9 @@ export interface DesktopEvents {
 /** The event the shell emits with folder-relative paths changed by other programs. */
 export const VAULT_CHANGED_EVENT = "vault-changed";
 
+/** The event the shell emits, with the reason, when the folder watch stops seeing changes. */
+export const VAULT_WATCH_LOST_EVENT = "vault-watch-lost";
+
 /** The event the sidecar emits to ask for a semantic ranking: [id, query, candidates]. */
 export const SEMANTIC_RANK_EVENT = "semanticRank";
 
@@ -246,6 +249,7 @@ function isEmbedProgressPayload(
 export type DesktopShim = Pick<
   DesktopBridge,
   | "onVaultChange"
+  | "onVaultWatchLost"
   | "localApiState"
   | "setLocalApi"
   | "createLocalApiToken"
@@ -423,6 +427,29 @@ export function desktopShim(
         })
         .catch((error: unknown) => {
           console.warn("Outside changes to the workspace folder will not show up live:", error);
+        });
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        unlisten?.();
+        unlisten = null;
+      };
+    },
+    // Same unlisten rule as `onVaultChange`.
+    onVaultWatchLost: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | null = null;
+      void events
+        .listen(VAULT_WATCH_LOST_EVENT, (payload) => {
+          if (stopped || typeof payload !== "string") return;
+          cb(payload);
+        })
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("A lost workspace folder watch will not be reported:", error);
         });
       return () => {
         if (stopped) return;

@@ -354,6 +354,23 @@ test("onVaultChange listens to vault-changed and passes string paths on", () => 
   assert.deepEqual(seen, [["a.md", "b/c.md"]]);
 });
 
+test("onVaultWatchLost listens to vault-watch-lost and passes the reason on", async () => {
+  const { cmds } = fakeCommands();
+  const fake = fakeEvents();
+  const seen: string[] = [];
+  const stop = desktopShim(cmds, fake.events).onVaultWatchLost?.((reason) => seen.push(reason));
+  assert.deepEqual(
+    fake.listens.map((l) => l.event),
+    ["vault-watch-lost"],
+  );
+  fake.listens[0]!.handler("gone");
+  fake.listens[0]!.handler(3);
+  await new Promise((resolve) => setImmediate(resolve));
+  stop?.();
+  fake.listens[0]!.handler("late");
+  assert.deepEqual(seen, ["gone"]);
+});
+
 test("onVaultChange drops non-string items and skips an empty batch", () => {
   const { cmds } = fakeCommands();
   const fake = fakeEvents();

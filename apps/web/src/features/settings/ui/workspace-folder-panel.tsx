@@ -40,6 +40,7 @@ import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
+import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/folder-watch-lost";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -160,6 +161,14 @@ export function WorkspaceFolderPanel() {
       ),
     [],
   );
+  // A watch that lost its folder (renamed, unplugged) is said, not left silent.
+  useEffect(() => {
+    const lost = folderWatchLost();
+    if (lost) setStatus(lost);
+    return onFolderWatchLost((reason) => {
+      if (reason) setStatus(reason);
+    });
+  }, []);
 
   // Reconnect the folder the shell remembers, without opening a dialog. One
   // that is remembered but not there (an unplugged drive) is named, with a retry.
