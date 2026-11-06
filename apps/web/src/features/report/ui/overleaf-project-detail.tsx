@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/button";
+import { OpenIcon } from "@/components/view-icons";
 import { ViewSwitch } from "@/components/view-switch";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import type { OverleafProjectRow } from "../lib/overleaf-project-list";
@@ -72,14 +74,27 @@ export function OverleafProjectDetail({
 
   const blocker = blockers[tab];
   const overleafUrl = report?.external_url ?? `https://www.overleaf.com/project/${encodeURIComponent(row.id)}`;
+  const meta = [
+    row.inAccount ? "In your Overleaf account" : "Not in the signed-in account",
+    ...(report ? [`Linked to this project`, report.entry_file] : []),
+  ];
 
   return (
-    <div className="overleaf-detail">
-      <div className="overleaf-detail__head">
-        <Button variant="ghost" size="sm" onClick={onBack}>← All projects</Button>
-        <h2>{report && <span className="overleaf-star" title="Linked to this WeaveForge project">★ </span>}{row.name}</h2>
-        <div className="overleaf-detail__actions">
-          <Button variant="link" href={overleafUrl} target="_blank" rel="noreferrer">Open in Overleaf ↗</Button>
+    <article className="record overleaf-detail">
+      <nav className="record-bar" aria-label="Overleaf project">
+        <BackButton label="Overleaf" onClick={onBack} />
+        <span className="record-mono record-bar-id">Project {row.id.slice(0, 6)}</span>
+        <ViewSwitch
+          label="Project view"
+          value={tab}
+          onChange={setTab}
+          options={TABS.map((t) => ({ ...t, title: blockers[t.value] ?? t.title }))}
+        />
+        <div className="record-actions">
+          <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf">
+            <OpenIcon />
+            <span>Open in Overleaf</span>
+          </Button>
           {report ? (
             confirmUnlink ? (
               <>
@@ -104,7 +119,11 @@ export function OverleafProjectDetail({
             </Button>
           ) : null}
         </div>
-      </div>
+      </nav>
+      <header className="record-head overleaf-detail__head">
+        <h1 className="record-title">{report && <span className="overleaf-star" title="Linked to this WeaveForge project">★ </span>}{row.name}</h1>
+        <p className="record-mono record-meta">{meta.join(" / ")}</p>
+      </header>
       {form === "edit" && report && (
         <EditOverleafReportForm
           report={report}
@@ -121,12 +140,6 @@ export function OverleafProjectDetail({
           onError={onError}
         />
       )}
-      <ViewSwitch
-        label="Project view"
-        value={tab}
-        onChange={setTab}
-        options={TABS.map((t) => ({ ...t, title: blockers[t.value] ?? t.title }))}
-      />
       <div className="overleaf-detail__body" role="tabpanel">
         {blocker ? (
           <div className="overleaf-detail__blocked">
@@ -147,6 +160,6 @@ export function OverleafProjectDetail({
           <WorkshopPdfViewer sessionId={sessionId} projectId={row.id} authHeaders={client.authHeaders} />
         ) : null}
       </div>
-    </div>
+    </article>
   );
 }

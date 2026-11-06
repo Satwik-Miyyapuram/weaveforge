@@ -216,7 +216,6 @@ export function WorkshopLiveEditor({
   return (
     <div className="workshop-live">
       <div className="workshop-live__bar">
-        <strong>{project?.name ?? "Overleaf project"}</strong>
         <span className="muted" role="status">{closed ? "Disconnected" : status}</span>
         {closed && <Button size="sm" variant="primary" onClick={() => setAttempt((n) => n + 1)}>Reconnect</Button>}
         <Button size="sm" variant="cancel" onClick={onClose}>Close editor</Button>

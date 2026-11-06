@@ -429,7 +429,7 @@ test("opening an account project in the browser starts on PDF, with the workspac
   assert.ok(tree.root.findAll((n) => n.props.href === "https://www.overleaf.com/project/p2").length > 0, "Open in Overleaf");
   await tab(tree, "Write");
   assert.match(text(tree), /Live editing needs the WeaveForge desktop app/);
-  await act(async () => button(tree, "All projects").props.onClick());
+  await act(async () => button(tree, "Overleaf").props.onClick());
   assert.equal(rows(tree).length, 2);
   await act(async () => tree.unmount());
 });
