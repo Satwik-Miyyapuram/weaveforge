@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use tauri::Manager;
-use tauri_plugin_opener::OpenerExt as _;
 use tokio::sync::watch;
 
 use crate::commands::ShellError;
@@ -156,28 +155,20 @@ impl CookieSource for WindowCookies {
     }
 }
 
-/// Whether a popup's address opens in the OS browser: only http and https.
-#[must_use]
-pub fn popup_opens_in_browser(url: &tauri::Url) -> bool {
-    matches!(url.scheme(), "http" | "https")
-}
-
-/// What a sign-in window is called: its window label, title, and the log area for popup failures.
+/// What a sign-in window is called: its window label and title.
 pub(crate) struct SignInWindow {
     pub(crate) label: &'static str,
     pub(crate) title: &'static str,
-    pub(crate) area: &'static str,
 }
 
 const MATTERMOST_WINDOW: SignInWindow = SignInWindow {
     label: SIGNIN_LABEL,
     title: SIGNIN_TITLE,
-    area: "mattermost",
 };
 
-/// Opens a login page in a fresh in-memory window. Popups are always denied; http(s)
-/// ones open in the OS browser instead (at most one a second, shared with the main window), so no
-/// script-driven window is ever created.
+/// Opens a login page in a fresh in-memory window. Popups are always denied; each one goes
+/// through the shared outside-open rules (`crate::open_outside`), so no script-driven window is
+/// ever created.
 ///
 /// # Errors
 /// `()` when the window cannot be built; each caller answers its own message.
@@ -187,24 +178,12 @@ pub(crate) fn open_window(
     login: tauri::Url,
 ) -> Result<(), ()> {
     let popup_app = app.clone();
-    let area = spec.area;
     tauri::WebviewWindowBuilder::new(app, spec.label, tauri::WebviewUrl::External(login))
         .title(spec.title)
         .inner_size(520.0, 760.0)
         .incognito(true)
         .on_new_window(move |url, _features| {
-            if popup_opens_in_browser(&url)
-                && crate::outside_gate::admit_now()
-                && let Err(error) = popup_app.opener().open_url(url.as_str(), None::<&str>)
-                && let Some(log) = popup_app.try_state::<crate::app_log::AppLog>()
-            {
-                log.record(
-                    crate::app_log::LogLevel::Warn,
-                    area,
-                    "A sign-in popup could not open in the browser",
-                    Some(&error.to_string()),
-                );
-            }
+            crate::open_outside(&popup_app, &url);
             tauri::webview::NewWindowResponse::Deny
         })
         .build()
@@ -394,24 +373,4 @@ pub async fn mattermost_post(post: MattermostPost) -> Result<MattermostReply, Sh
     post_with(&client, &post, POST_TIMEOUT)
         .await
         .map_err(ShellError::from)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn popup_opens_in_browser_only_for_http_and_https() {
-        let decide = |raw: &str| {
-            tauri::Url::parse(raw)
-                .ok()
-                .map(|u| popup_opens_in_browser(&u))
-        };
-        assert_eq!(decide("https://example.org/a"), Some(true));
-        assert_eq!(decide("http://example.org/a"), Some(true));
-        assert_eq!(decide("javascript:alert(1)"), Some(false));
-        assert_eq!(decide("file:///C:/secret.txt"), Some(false));
-        assert_eq!(decide("data:text/html,hi"), Some(false));
-        assert_eq!(decide("about:blank"), Some(false));
-    }
 }

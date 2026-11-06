@@ -519,3 +519,106 @@ async fn compile_stops_when_asked() {
     assert_eq!(result.pdf, None);
     assert_eq!(result.errors, vec![error("main.tex", 0, STOPPED)]);
 }
+
+/// An engine that starts a long-lived grandchild, writes its pid to `pid_file`, and waits too.
+#[cfg(unix)]
+fn engine_with_grandchild(dir: &TempDir, pid_file: &std::path::Path) -> TexTool {
+    fake_engine(
+        dir,
+        &format!("sleep 60 &\necho $! > '{}'\nsleep 60", pid_file.display()),
+    )
+}
+
+/// Windows counterpart: a `ping` started through PowerShell so that its pid can be written out.
+#[cfg(windows)]
+fn engine_with_grandchild(dir: &TempDir, pid_file: &std::path::Path) -> TexTool {
+    let path = dir.path().join("engine.bat");
+    let script = format!(
+        "@powershell -NoProfile -Command \"$p = Start-Process -PassThru -WindowStyle Hidden ping -ArgumentList '-n 60 127.0.0.1'; Set-Content -Path '{}' -Value $p.Id\"\n@ping -n 60 127.0.0.1 >nul\n",
+        pid_file.display()
+    );
+    fs::write(&path, script).unwrap();
+    TexTool {
+        kind: TexEngine::Pdflatex,
+        command: path.to_string_lossy().into_owned(),
+        version: String::new(),
+    }
+}
+
+/// The grandchild's pid once the engine has written it; `None` before that.
+fn read_pid(pid_file: &std::path::Path) -> Option<u32> {
+    fs::read_to_string(pid_file).ok()?.trim().parse().ok()
+}
+
+/// Whether a process with this pid is still running.
+#[cfg(unix)]
+fn is_running(pid: u32) -> bool {
+    let pid = pid.to_string();
+    std::process::Command::new("kill")
+        .args(["-0", pid.as_str()])
+        .status()
+        .unwrap()
+        .success()
+}
+
+/// Whether a process with this pid is still running.
+#[cfg(windows)]
+fn is_running(pid: u32) -> bool {
+    let filter = format!("PID eq {pid}");
+    let out = std::process::Command::new("tasklist")
+        .args(["/FI", filter.as_str(), "/FO", "CSV", "/NH"])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\""))
+}
+
+/// Compiles with `tool` and asks the compile to stop once the grandchild's pid is on disk.
+/// Gives up waiting after ten seconds, so a missing pid fails the test instead of hanging it.
+async fn compile_then_stop_once_started(
+    tmp: &TempDir,
+    files: &[TexSourceFile],
+    tool: &TexTool,
+    pid_file: &std::path::Path,
+) -> TexCompileResult {
+    let stop = std::sync::Arc::new(Notify::new());
+    let asker = std::sync::Arc::clone(&stop);
+    let watched = pid_file.to_path_buf();
+    let _stopper = tokio::spawn(async move {
+        for _ in 0..200 {
+            if read_pid(&watched).is_some() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        asker.notify_waiters();
+    });
+    compile_tex_in(tmp.path(), files, "main.tex", Some(tool), &stop).await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stop_kills_the_engines_children() {
+    let bin = TempDir::new();
+    let tmp = TempDir::new();
+    let pid_file = bin.path().join("grandchild.pid");
+    let tool = engine_with_grandchild(&bin, &pid_file);
+    let files = [file("main.tex", MINIMAL)];
+    let mut result = compile_then_stop_once_started(&tmp, &files, &tool, &pid_file).await;
+    // A script still held open by another test's fork cannot run yet (unix ETXTBSY).
+    for _ in 0..20 {
+        if !result.log.contains("Text file busy") {
+            break;
+        }
+        result = compile_then_stop_once_started(&tmp, &files, &tool, &pid_file).await;
+    }
+    assert!(!result.ok);
+    assert_eq!(result.errors, vec![error("main.tex", 0, STOPPED)]);
+    let pid = read_pid(&pid_file).expect("the engine never started its grandchild");
+    let started = std::time::Instant::now();
+    while is_running(pid) {
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "grandchild {pid} outlived the stopped engine"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+}

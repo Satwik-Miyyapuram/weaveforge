@@ -102,14 +102,15 @@ pub struct Reply {
 ///
 /// `request_head` is the raw text up to the blank line. Only a loopback `Host` and
 /// the callback path with a query get the page; everything else is a 404 and
-/// nothing is handed on.
+/// nothing is handed on. A callback sent with any method other than `GET` is a 405
+/// with `Allow: GET`, and nothing is handed on either.
 #[must_use]
 pub fn answer(request_head: &str) -> (Reply, Option<String>) {
     let mut lines = request_head.lines();
     let request_line: Vec<&str> = lines.next().unwrap_or("").split(' ').collect();
-    let target = match request_line.as_slice() {
-        [_, target, _] => *target,
-        _ => "",
+    let (method, target) = match request_line.as_slice() {
+        [method, target, _] => (*method, *target),
+        _ => ("", ""),
     };
     let host = lines.find_map(|line| {
         let (name, value) = line.split_once(':')?;
@@ -121,6 +122,14 @@ pub fn answer(request_head: &str) -> (Reply, Option<String>) {
         None
     };
     match query {
+        Some(_) if method != "GET" => (
+            Reply {
+                status: 405,
+                headers: vec![("allow", "GET"), ("content-type", "text/plain")],
+                body: "Method not allowed",
+            },
+            None,
+        ),
         Some(query) => (
             Reply {
                 status: 200,
@@ -149,6 +158,7 @@ pub fn render(reply: &Reply) -> Vec<u8> {
     let reason = match reply.status {
         200 => "OK",
         404 => "Not Found",
+        405 => "Method Not Allowed",
         _ => "",
     };
     let mut head = format!("HTTP/1.1 {} {reason}\r\n", reply.status);
