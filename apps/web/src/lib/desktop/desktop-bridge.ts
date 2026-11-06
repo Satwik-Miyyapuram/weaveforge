@@ -87,6 +87,13 @@ export interface DesktopBridge {
   onSignIn(cb: (query: string) => void): () => void;
 
   /**
+   * Whether a sign-in redirect can reach the app. False when another program
+   * holds the loopback port; the sign-in screen then asks the reader to paste
+   * the address the browser was sent to. Absent on builds that cannot tell.
+   */
+  signInListening?(): Promise<boolean>;
+
+  /**
    * Whether a newer desktop release exists, or null if not — which covers
    * being up to date, being unable to reach GitHub, and running from source.
    *

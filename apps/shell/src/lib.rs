@@ -196,6 +196,7 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(git::GitQueue::default());
     let _ = app.manage(embed::EmbedSlot::default());
     let _ = app.manage(cmd_tools::TexStop::default());
+    let _ = app.manage(auth_loopback::SignInPort::default());
     let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
 }
 
@@ -713,7 +714,7 @@ pub(crate) fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
     }
 }
 
-/// Listens for the sign-in redirect; a taken port is logged and sign-in falls back to pasting the link.
+/// Listens for the sign-in redirect; a taken port is logged and marked, so the page asks for the link.
 #[cfg(desktop)]
 fn start_sign_in(app: &tauri::AppHandle) {
     let app = app.clone();
@@ -723,12 +724,18 @@ fn start_sign_in(app: &tauri::AppHandle) {
                 let handle = app.clone();
                 auth_loopback::serve(listener, move |query| deliver_sign_in(&handle, query)).await;
             }
-            Err(error) => log_warn(
-                &app,
-                "sign-in",
-                "The sign-in listener did not start",
-                &error.to_string(),
-            ),
+            Err(error) => {
+                use tauri::Manager as _;
+                if let Some(port) = app.try_state::<auth_loopback::SignInPort>() {
+                    port.mark_taken();
+                }
+                log_warn(
+                    &app,
+                    "sign-in",
+                    "The sign-in listener did not start",
+                    &error.to_string(),
+                );
+            }
         }
     });
 }

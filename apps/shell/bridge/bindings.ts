@@ -213,6 +213,13 @@ export const commands = {
 	 */
 	updateCheck: () => typedError<Update | null, ShellError_Serialize>(__TAURI_INVOKE("update_check")),
 	/**
+	 *  Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
+	 * 
+	 *  # Errors
+	 *  Never.
+	 */
+	signInListening: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("sign_in_listening")),
+	/**
 	 *  Records a line the page reported; always `Ok`, as the TS handler sends nothing back.
 	 * 
 	 *  # Errors

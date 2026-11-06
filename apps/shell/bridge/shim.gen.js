@@ -276,6 +276,13 @@
          */
         updateCheck: () => typedError(invoke("update_check")),
         /**
+         *  Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
+         * 
+         *  # Errors
+         *  Never.
+         */
+        signInListening: () => typedError(invoke("sign_in_listening")),
+        /**
          *  Records a line the page reported; always `Ok`, as the TS handler sends nothing back.
          * 
          *  # Errors
@@ -813,6 +820,14 @@
       },
       zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
       checkUpdate: async () => unwrap(await cmds.updateCheck()),
+      // A failed question is no reason to ask for a pasted link, so it counts as listening.
+      signInListening: async () => {
+        try {
+          return unwrap(await cmds.signInListening());
+        } catch {
+          return true;
+        }
+      },
       // Logging must never throw into the page, so a failed report is dropped.
       reportAppLog: (entry) => {
         void cmds.appLogReport({

@@ -437,6 +437,14 @@ test("a rejected listen leaves onVaultChange harmless", async () => {
   assert.equal(fake.unlistenCount(), 0);
 });
 
+test("signInListening passes the shell's answer and counts an error as listening", async () => {
+  const taken = fakeCommands({ signInListening: { status: "ok", data: false } });
+  assert.equal(await desktopShim(taken.cmds, fakeEvents().events).signInListening?.(), false);
+  assert.deepEqual(taken.calls.map((c) => c.cmd), ["signInListening"]);
+  const failed = fakeCommands({ signInListening: error("gone") });
+  assert.equal(await desktopShim(failed.cmds, fakeEvents().events).signInListening?.(), true);
+});
+
 test("inkAvailable answers false when the shell errors", async () => {
   const { cmds } = fakeCommands({ inkAvailable: error("no helper") });
   assert.equal(
