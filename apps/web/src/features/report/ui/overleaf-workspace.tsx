@@ -183,7 +183,7 @@ export function OverleafWorkspace({
             Start one from this project&apos;s report as a ZIP, or link an existing one with a Git token.
           </p>
           <div className="linked-overleaf-form__actions">
-            <Button variant="primary" onClick={onExport}>Export ZIP</Button>
+            <Button variant="primary" onClick={onExport}>Export for Overleaf</Button>
             {projectId && !linkOpen && <Button onClick={() => setLinkOpen(true)}>Link a project (Git token)</Button>}
             {accountMenu}
           </div>
