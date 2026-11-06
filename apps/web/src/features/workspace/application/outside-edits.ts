@@ -21,6 +21,8 @@ export interface SeenFile {
   digest: string;
   /** Neither the last agreement nor the workspace knows this path: a new file, or a copy of a known one. */
   newPath?: boolean;
+  /** Where the note this new path carries lived, when that file is gone: a rename, not a copy. */
+  renamedFrom?: string;
 }
 
 export type FolderDiff = ImportDiff & {
@@ -36,6 +38,7 @@ export type HeldReason =
   | "edited on both sides"
   | "no record of the app's write"
   | "a copy of a known note"
+  | "moved to another folder"
   | "lost its id"
   | "open in editor"
   | "a data file that cannot go in whole";
@@ -55,7 +58,11 @@ function noteHeldReason(
   if (entry.action === "conflict") return "edited on both sides";
   // An update from a path neither side knew is a copy carrying a known id
   // ("a copy.md", a sync conflict file): taking it in would overwrite that note.
-  if (entry.action === "updated" && known?.newPath) return "a copy of a known note";
+  if (entry.action === "updated" && known?.newPath) {
+    if (!known.renamedFrom) return "a copy of a known note";
+    // A rename keeps its folder; a move would also change the note's parent.
+    if (dirOf(known.renamedFrom) !== dirOf(path)) return "moved to another folder";
+  }
   // A note "created" at a known path lost its id (a tool rewrote the
   // frontmatter): taking it in would add a second copy of that note.
   if (entry.action === "created" && known && !known.newPath) return "lost its id";
@@ -64,6 +71,16 @@ function noteHeldReason(
   const id = entry.entity.id;
   if (id && isOpen(id)) return "open in editor";
   return null;
+}
+
+function dirOf(path: string): string {
+  return path.slice(0, path.lastIndexOf("/") + 1);
+}
+
+/** Paths of renamed notes in a diff, for the apply to retitle and hand back to the mirror. */
+export function renamedPaths(diff: FolderDiff): Set<string> {
+  const seen = diff.seen ?? {};
+  return new Set(diff.entries.map((entry) => entry.entity.path).filter((path) => seen[path]?.renamedFrom));
 }
 
 /** The part of a folder diff safe to take in without asking, the part a person must see, and why. */

@@ -12,7 +12,8 @@ import type { AppContainer } from "@/bootstrap";
 import { setContainerForTests } from "@/bootstrap";
 import type { IWorkspaceFs, ImportDiff, ImportDiffEntry } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { applyEntries, storedDigest } from "../application/folder-import-apply";
+import { applyEntries, storedDigest, titleFromFileName } from "../application/folder-import-apply";
+import { renameSources } from "../application/folder-diff";
 import { refreshMirrorBase } from "../application/folder-json-import";
 import { baseDigest, readMirrorBase } from "../application/mirror-manifest";
 
@@ -163,4 +164,38 @@ test("an update goes ahead when the note is as the preview saw it", async () => 
   assert.deepEqual(result.moved, []);
   assert.equal(result.updated, 1);
   assert.equal(pages.get("p-1")?.body, "folder");
+});
+
+test("a renamed note takes its title from the new name and leaves the file to the mirror", async () => {
+  const { container, pages } = fakeContainer();
+  setContainerForTests(container);
+  const path = `${projectRoot}/notes/big idea.note.md`;
+  const { fs, store } = memoryFs({ [path]: "# Idea\n\nbody\n" });
+  pages.set("p-1", { id: "p-1", title: "Idea", body: "body" });
+
+  const result = await applyEntries(fs, updated("p-1", path, "body"), {}, undefined, new Set([path]));
+  assert.equal(result.updated, 1);
+  assert.deepEqual(result.appliedPaths, []);
+  assert.equal(pages.get("p-1")?.title, "big idea");
+  assert.equal(store.has(path), false);
+});
+
+test("titleFromFileName drops the folder, kind suffix and id suffix", () => {
+  assert.equal(titleFromFileName("p/notes/Big Idea.note.md"), "Big Idea");
+  assert.equal(titleFromFileName("sketch--ab12cd.ink.md"), "sketch");
+  assert.equal(titleFromFileName("plain.md"), "plain");
+  assert.equal(titleFromFileName("notes/.note.md"), "Untitled");
+});
+
+test("renameSources: the only file with an id whose old file is gone is a rename; with the old file, a copy", () => {
+  const stamp = (id: string) => `---\nweaveforge-id: ${id}\n---\n\nbody\n`;
+  const current = { "n/a.note.md": stamp("a"), "n/b.note.md": stamp("b") };
+  const folder = { "n/a2.note.md": stamp("a"), "n/b.note.md": stamp("b"), "n/b copy.note.md": stamp("b") };
+  const parsed = [
+    { id: "a", path: "n/a2.note.md" },
+    { id: "b", path: "n/b.note.md" },
+    { id: "b", path: "n/b copy.note.md" },
+    { id: null, path: "n/new.note.md" },
+  ];
+  assert.deepEqual(renameSources(parsed, folder, current), { "n/a2.note.md": "n/a.note.md" });
 });

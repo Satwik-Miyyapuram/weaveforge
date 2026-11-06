@@ -42,6 +42,7 @@ import { isNoteOpen } from "./open-notes";
 import { diffAgainstWorkspace, importableEntities } from "./folder-diff";
 import {
   applyOutsideEdits,
+  renamedPaths,
   splitOutsideEdits,
   type FolderDiff,
   type HeldReason,
@@ -509,7 +510,12 @@ function scheduleAutoApply(): void {
           preview: () => previewFolderImport(only),
           isOpen: isNoteOpen,
           apply: async (diff) => {
-            const result = await applyFolderImport(diff, {}, { fs, expected: seenDigests(diff), stored: diff.stored });
+            const result = await applyFolderImport(diff, {}, {
+        fs,
+        expected: seenDigests(diff),
+        stored: diff.stored,
+        renamed: renamedPaths(diff),
+      });
             // A note written in the app since the preview was left alone; the next look sees both sides moved.
             if (result.moved.length > 0) {
               for (const path of result.moved) autoApplyPaths.add(path);
