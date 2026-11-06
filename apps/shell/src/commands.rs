@@ -244,6 +244,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_tools::update_check,
         crate::cmd_tools::app_log_report,
         crate::cmd_tools::app_log_read,
+        crate::cmd_tools::app_log_reveal,
         crate::overleaf_read::overleaf_read,
         crate::overleaf_links::overleaf_sync,
         crate::mattermost::mattermost_sign_in,

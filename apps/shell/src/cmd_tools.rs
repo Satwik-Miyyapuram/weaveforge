@@ -201,3 +201,21 @@ pub async fn app_log_report(
 pub async fn app_log_read(log: tauri::State<'_, AppLog>) -> Result<AppLogText, ShellError> {
     Ok(read_log(log.inner()))
 }
+
+/// Shows the log file in the system file manager. Takes no path, so the page can open only this file.
+///
+/// # Errors
+/// When the file manager could not be opened, for example before the log file exists.
+#[tauri::command]
+#[specta::specta]
+pub async fn app_log_reveal(
+    app: tauri::AppHandle,
+    log: tauri::State<'_, AppLog>,
+) -> Result<(), ShellError> {
+    use tauri_plugin_opener::OpenerExt as _;
+    app.opener()
+        .reveal_item_in_dir(log.path())
+        .map_err(|_| ShellError {
+            message: "Could not show the log file. It may not have been written yet.".to_owned(),
+        })
+}

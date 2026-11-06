@@ -248,6 +248,13 @@
          */
         appLogRead: () => typedError(invoke("app_log_read")),
         /**
+         *  Shows the log file in the system file manager. Takes no path, so the page can open only this file.
+         * 
+         *  # Errors
+         *  When the file manager could not be opened, for example before the log file exists.
+         */
+        appLogReveal: () => typedError(invoke("app_log_reveal")),
+        /**
          *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
          * 
          *  # Errors
@@ -705,6 +712,9 @@
         });
       },
       readAppLog: async () => unwrap(await cmds.appLogRead()),
+      revealAppLog: async () => {
+        unwrap(await cmds.appLogReveal());
+      },
       writePreference: async (name, value) => {
         unwrap(await cmds.preferenceWrite(name, value));
       },
