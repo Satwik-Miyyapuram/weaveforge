@@ -28,7 +28,8 @@ import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { isMacPlatform, shortcutLabel } from "@/lib/shortcut-label";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { DOCS_URL, menuPaletteActions, requestShortcuts, type MenuPaletteAction } from "@/lib/palette-actions";
+import { goToRoute } from "@/lib/go-to-route";
+import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
 import { shortcutTable } from "@/features/editor-workspace/application/keybindings";
 import {
   commandMatches,
@@ -406,6 +407,11 @@ export function JumpToPalette() {
       },
       ...fromMenu,
       ...docs,
+      ...settingsPaletteActions(desktop()).map((row) => ({
+        key: row.key,
+        label: row.label,
+        run: leave(() => goToRoute(row.path, (to) => router.push(to))),
+      })),
     ];
     const toPage = (page: (typeof pages)[number]): Entry => ({
       group: "Pages",

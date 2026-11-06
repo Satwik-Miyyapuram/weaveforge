@@ -417,7 +417,7 @@ fn go_entries() -> Vec<Entry> {
 }
 
 fn view_entries() -> Vec<Entry> {
-    vec![
+    let mut entries = vec![
         Entry::role("Reload", MenuRole::Reload, Some("CommandOrControl+R")),
         Entry::role(
             "Actual size",
@@ -433,7 +433,17 @@ fn view_entries() -> Vec<Entry> {
             MenuRole::DevTools,
             Some("CommandOrControl+Shift+I"),
         ),
-    ]
+    ];
+    // The deadlines widget is Windows-only; its switch lives in Settings, Calendar.
+    if cfg!(windows) {
+        entries.push(Entry::separator());
+        entries.push(Entry::route(
+            "Desktop deadlines widget…",
+            "/settings#settings-calendar",
+            None,
+        ));
+    }
+    entries
 }
 
 /// No shortcuts on these: Ctrl+W would close the app from the editor, and the OS has its own keys for both.

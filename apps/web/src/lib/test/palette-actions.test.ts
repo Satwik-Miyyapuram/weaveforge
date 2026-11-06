@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { DesktopMenuGroup, DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
-import { DOCS_URL, menuPaletteActions, nextShortcutsOpen } from "../palette-actions";
+import { DOCS_URL, menuPaletteActions, nextShortcutsOpen, settingsPaletteActions } from "../palette-actions";
 
 const item = (id: string, label: string, enabled = true): DesktopMenuItem => ({
   id,
@@ -63,4 +63,18 @@ test("a shortcuts request opens the sheet; a toggle flips it", () => {
   assert.equal(nextShortcutsOpen(false, "toggle"), true);
   assert.equal(nextShortcutsOpen(true, "toggle"), false);
   assert.equal(nextShortcutsOpen(false, undefined), true);
+});
+
+test("settingsPaletteActions: none in a browser", () => {
+  assert.deepEqual(settingsPaletteActions(null), []);
+});
+
+test("settingsPaletteActions: the widget and pen rows follow what the bridge offers", () => {
+  const both = settingsPaletteActions({ setPlanWidget: async () => ({}), inkAvailable: async () => true } as never);
+  assert.deepEqual(
+    both.map((action) => action.path),
+    ["/settings#settings-calendar", "/settings#settings-editor"],
+  );
+  const penOnly = settingsPaletteActions({ inkAvailable: async () => true } as never);
+  assert.deepEqual(penOnly.map((action) => action.key), ["settings:pen"]);
 });
