@@ -558,7 +558,16 @@ export interface DesktopLocalApi {
   reason?: string;
 }
 
-export type DesktopVaultSyncAction = "settings" | "status" | "connect" | "pull" | "push";
+/** The last three pull again after a conflict, settling each conflicted file the chosen way. */
+export type DesktopVaultSyncAction =
+  | "settings"
+  | "status"
+  | "connect"
+  | "pull"
+  | "push"
+  | "keep-mine"
+  | "take-remote"
+  | "keep-both";
 
 /** Mirrors `GitRemoteStatus`, `GitPullResult` and `GitPushResult` in `@weaveforge/core`. */
 export interface DesktopVaultSync {

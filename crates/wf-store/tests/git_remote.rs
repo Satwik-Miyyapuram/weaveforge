@@ -11,8 +11,9 @@ use std::path::Path;
 
 use git2::{Oid, Repository};
 use wf_store::git::remote::{
-    PULL_FIRST, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, describe_pull, describe_push,
-    pull, push, redact_secret, redact_secret_for, rejection_reason, remote_status, token_may_go_to,
+    PULL_FIRST, PullChoice, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, describe_pull,
+    describe_push, pull, pull_resolving, push, redact_secret, redact_secret_for, rejection_reason,
+    remote_status, token_may_go_to,
 };
 use wf_store::git::repo::{Author, FolderRepo};
 
@@ -268,6 +269,131 @@ fn pull_conflict_leaves_files_untouched() {
     assert_eq!(head_of(&b), before);
     let git = Repository::open(b.root()).unwrap();
     assert!(!git.index().unwrap().has_conflicts());
+}
+
+/// Both sides edit `notes/a.md`; B is left to resolve.
+fn conflicted() -> (TempDir, String, TempDir, FolderRepo) {
+    let (bare_dir, url) = bare();
+    let (_a_dir, a) = folder();
+    save(&a, "notes/a.md", "one\n", "a1");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let (b_dir, b) = clone_into(&url);
+    save(&a, "notes/a.md", "from a\n", "a2");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    save(&b, "notes/a.md", "from b\n", "b2");
+    (bare_dir, url, b_dir, b)
+}
+
+fn read(repo: &FolderRepo, rel: &str) -> Option<String> {
+    // Checkout follows the machine's core.autocrlf, as git itself does.
+    fs::read_to_string(repo.root().join(rel))
+        .ok()
+        .map(|text| text.replace("\r\n", "\n"))
+}
+
+#[test]
+fn resolving_keep_mine_merges_with_my_copy() {
+    let (_bare, url, _b_dir, b) = conflicted();
+    let outcome = pull_resolving(&b, &cfg(&url), PullChoice::KeepMine).unwrap();
+    assert!(matches!(outcome, PullOutcome::Merged { .. }), "{outcome:?}");
+    assert_eq!(read(&b, "notes/a.md").as_deref(), Some("from b\n"));
+    let git = Repository::open(b.root()).unwrap();
+    assert!(!git.index().unwrap().has_conflicts());
+    assert_eq!(
+        git.head().unwrap().peel_to_commit().unwrap().parent_count(),
+        2
+    );
+    // The merge can now be pushed.
+    assert_eq!(push(&b, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+}
+
+#[test]
+fn resolving_take_remote_merges_with_their_copy() {
+    let (_bare, url, _b_dir, b) = conflicted();
+    let outcome = pull_resolving(&b, &cfg(&url), PullChoice::TakeRemote).unwrap();
+    assert!(matches!(outcome, PullOutcome::Merged { .. }), "{outcome:?}");
+    assert_eq!(read(&b, "notes/a.md").as_deref(), Some("from a\n"));
+}
+
+#[test]
+fn resolving_keep_both_keeps_their_copy_beside_mine() {
+    let (_bare, url, _b_dir, b) = conflicted();
+    let outcome = pull_resolving(&b, &cfg(&url), PullChoice::KeepBoth).unwrap();
+    assert!(matches!(outcome, PullOutcome::Merged { .. }), "{outcome:?}");
+    assert_eq!(read(&b, "notes/a.md").as_deref(), Some("from b\n"));
+    assert_eq!(read(&b, "notes/a (remote).md").as_deref(), Some("from a\n"));
+    let git = Repository::open(b.root()).unwrap();
+    let tree = git.head().unwrap().peel_to_tree().unwrap();
+    assert!(tree.get_path(Path::new("notes/a (remote).md")).is_ok());
+}
+
+#[test]
+fn resolving_keep_both_picks_a_free_name() {
+    let (_bare, url, _b_dir, b) = conflicted();
+    save(&b, "notes/a (remote).md", "older copy\n", "b3");
+    let _ = pull_resolving(&b, &cfg(&url), PullChoice::KeepBoth).unwrap();
+    assert_eq!(
+        read(&b, "notes/a (remote).md").as_deref(),
+        Some("older copy\n")
+    );
+    assert_eq!(
+        read(&b, "notes/a (remote 2).md").as_deref(),
+        Some("from a\n")
+    );
+}
+
+#[test]
+fn resolving_when_one_side_deleted() {
+    let (_bare, url) = bare();
+    let (_a_dir, a) = folder();
+    save(&a, "x.md", "one\n", "a1");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let (_b_dir, b) = clone_into(&url);
+    save(&a, "x.md", "edited by a\n", "a2");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    save(&b, "keep.md", "k", "b keep");
+    fs::remove_file(b.root().join("x.md")).unwrap();
+    commit(&b, "b deletes x");
+    assert!(matches!(
+        pull(&b, &cfg(&url)).unwrap(),
+        PullOutcome::Conflict { .. }
+    ));
+    // Keep mine: the delete stands.
+    let _ = pull_resolving(&b, &cfg(&url), PullChoice::KeepMine).unwrap();
+    assert_eq!(read(&b, "x.md"), None);
+}
+
+#[test]
+fn resolving_never_overwrites_an_untracked_file() {
+    let (_bare, url) = bare();
+    let (_a_dir, a) = folder();
+    save(&a, "notes/x.md", "from a", "a1");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let dir = TempDir::new();
+    let b = FolderRepo::new(dir.path()).with_max_file_bytes(4);
+    write(b.root(), "notes/x.md", "a file too large for the cap");
+    assert!(matches!(
+        pull_resolving(&b, &cfg(&url), PullChoice::TakeRemote).unwrap(),
+        PullOutcome::Conflict { .. }
+    ));
+    assert_eq!(
+        read(&b, "notes/x.md").as_deref(),
+        Some("a file too large for the cap")
+    );
+}
+
+#[test]
+fn resolving_without_a_conflict_is_a_plain_pull() {
+    let (_bare, url) = bare();
+    let (_a_dir, a) = folder();
+    save(&a, "a.md", "one", "a1");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let (_b_dir, b) = folder();
+    assert!(matches!(
+        pull_resolving(&b, &cfg(&url), PullChoice::KeepBoth).unwrap(),
+        PullOutcome::FastForward { .. }
+    ));
+    assert_eq!(read(&b, "a.md").as_deref(), Some("one"));
 }
 
 #[test]
