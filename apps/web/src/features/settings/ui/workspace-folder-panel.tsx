@@ -9,8 +9,10 @@ import {
   chooseDesktopFolder,
   chooseFolder,
   closeFolder,
+  folderFileHistory,
   folderHistory,
   folderSession,
+  restoreFolderFile,
   previewArchiveImport,
   clearExternalChanges,
   writeMarkersFor,
@@ -33,6 +35,7 @@ import { remoteSyncAvailable } from "@/features/workspace/application/folder-rem
 import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
+import { FolderFileHistory } from "./folder-file-history";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -160,6 +163,9 @@ export function WorkspaceFolderPanel() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasShell]);
+
+  // Only once the folder is up; desktop needs the shell, resolved after mount.
+  const fileHistory = session && (session.kind !== "desktop" || hasShell) ? folderFileHistory() : null;
 
   const run = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
@@ -313,6 +319,17 @@ export function WorkspaceFolderPanel() {
                 </li>
               ))}
             </ul>
+          )}
+          {fileHistory && (
+            <FolderFileHistory
+              source={fileHistory}
+              restore={restoreFolderFile}
+              onRestored={() =>
+                void run("preview", async () => {
+                  setDiff(await previewFolderImport());
+                })
+              }
+            />
           )}
           {hasShell && session.kind === "desktop" && remoteSyncAvailable() && (
             <FolderRemoteSyncPanel onPulled={() => void folderHistory().then(setHistory, () => undefined)} />

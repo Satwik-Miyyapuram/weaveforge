@@ -14,7 +14,8 @@ use wf_store::git::repo::{FolderRepo, RepoError, probe};
 use crate::commands::ShellError;
 use crate::git::{
     CommitReply, GIT_TIMED_OUT, GIT_TIMEOUT, GitQueue, GitQueueError, WorkspaceCommit,
-    commit_vault_folder, log_limit, vault_log as git_vault_log,
+    commit_vault_folder, log_limit, vault_file_log as git_vault_file_log,
+    vault_log as git_vault_log, vault_read_at as git_vault_read_at,
 };
 use crate::prefs::{PrefValue, Prefs};
 use crate::secrets::Secrets;
@@ -437,6 +438,39 @@ pub async fn log(vault: &VaultState, limit: Option<f64>) -> Result<Vec<Workspace
     Ok(git_vault_log(root, log_limit(value.as_ref())).await)
 }
 
+/// The commits that changed one file of the chosen folder, newest first.
+///
+/// # Errors
+/// `NO_ROOT` when no folder is chosen.
+pub async fn file_log(
+    vault: &VaultState,
+    path: &str,
+    limit: Option<f64>,
+) -> Result<Vec<WorkspaceCommit>, String> {
+    let root = current_root(vault)
+        .await
+        .ok_or_else(|| NO_ROOT.to_owned())?;
+    let value = limit
+        .and_then(serde_json::Number::from_f64)
+        .map(serde_json::Value::Number);
+    Ok(git_vault_file_log(root, path, log_limit(value.as_ref())).await)
+}
+
+/// One file of the chosen folder as it was at a commit; `None` when it cannot be shown as text.
+///
+/// # Errors
+/// `NO_ROOT` when no folder is chosen.
+pub async fn read_at(
+    vault: &VaultState,
+    oid: String,
+    path: &str,
+) -> Result<Option<String>, String> {
+    let root = current_root(vault)
+        .await
+        .ok_or_else(|| NO_ROOT.to_owned())?;
+    Ok(git_vault_read_at(root, oid, path).await)
+}
+
 /// Runs a sync action (settings, status, connect, pull or push) on the chosen folder.
 ///
 /// # Errors
@@ -496,4 +530,36 @@ pub async fn vault_log(
     limit: Option<f64>,
 ) -> Result<Vec<WorkspaceCommit>, ShellError> {
     log(vault.inner(), limit).await.map_err(ShellError::from)
+}
+
+/// The commits that changed one file of the chosen folder, newest first.
+///
+/// # Errors
+/// The reason to show the reader when no folder is chosen.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_file_log(
+    vault: tauri::State<'_, VaultState>,
+    path: String,
+    limit: Option<f64>,
+) -> Result<Vec<WorkspaceCommit>, ShellError> {
+    file_log(vault.inner(), &path, limit)
+        .await
+        .map_err(ShellError::from)
+}
+
+/// One file of the chosen folder as it was at a commit, as text; null when it is not text.
+///
+/// # Errors
+/// The reason to show the reader when no folder is chosen.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_read_at(
+    vault: tauri::State<'_, VaultState>,
+    oid: String,
+    path: String,
+) -> Result<Option<String>, ShellError> {
+    read_at(vault.inner(), oid, &path)
+        .await
+        .map_err(ShellError::from)
 }

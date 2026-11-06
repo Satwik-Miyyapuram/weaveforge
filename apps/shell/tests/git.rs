@@ -8,7 +8,7 @@ use common::{TempDir, put};
 use serde_json::json;
 use weaveforge_shell_lib::git::{
     CommitReply, GIT_TIMED_OUT, GIT_TIMEOUT, GitQueue, GitQueueError, WorkspaceCommit,
-    commit_vault_folder, log_limit, vault_log,
+    commit_vault_folder, log_limit, vault_file_log, vault_log, vault_read_at,
 };
 use weaveforge_shell_lib::vault::NO_ROOT;
 use wf_store::git::repo::{FolderRepo, MIRROR_AUTHOR};
@@ -158,6 +158,50 @@ async fn log_after_commit() {
     let bare = TempDir::new();
     put(&bare.path().join("a.md"), b"x");
     assert!(vault_log(bare.path().to_path_buf(), 20).await.is_empty());
+}
+
+async fn commit_now(queue: &GitQueue, root: &std::path::Path) -> WorkspaceCommit {
+    commit_vault_folder(queue, Some(root.to_path_buf()), true, GIT_TIMEOUT)
+        .await
+        .unwrap()
+        .commit
+        .unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_file_history_lists_its_commits_and_reads_each_version() {
+    let dir = TempDir::new();
+    let root = dir.path().to_path_buf();
+    let queue = GitQueue::default();
+    put(&root.join("notes/a.md"), b"one");
+    let first = commit_now(&queue, &root).await;
+    put(&root.join("b.md"), b"other");
+    let _other = commit_now(&queue, &root).await;
+    put(&root.join("notes/a.md"), b"two");
+    put(&root.join("blob.bin"), &[0xff, 0xfe, 0x00]);
+    let third = commit_now(&queue, &root).await;
+
+    let oids: Vec<String> = vault_file_log(root.clone(), "notes/a.md", 20)
+        .await
+        .into_iter()
+        .map(|c| c.oid)
+        .collect();
+    assert_eq!(oids, vec![third.oid.clone(), first.oid.clone()]);
+    assert_eq!(
+        vault_file_log(root.clone(), "notes\\a.md", 20).await.len(),
+        2
+    );
+    assert_eq!(vault_file_log(root.clone(), "notes/a.md", 1).await.len(), 1);
+    assert!(vault_file_log(root.clone(), "../a.md", 20).await.is_empty());
+
+    let at = |oid: &str, path: &'static str| vault_read_at(root.clone(), oid.to_owned(), path);
+    assert_eq!(at(&first.oid, "notes/a.md").await.as_deref(), Some("one"));
+    assert_eq!(at(&third.oid, "./notes/a.md").await.as_deref(), Some("two"));
+    assert_eq!(at(&first.oid, "b.md").await, None, "absent at that commit");
+    assert_eq!(at(&third.oid, "blob.bin").await, None, "not text");
+    assert_eq!(at("not-an-oid", "notes/a.md").await, None);
+    assert_eq!(at(&first.oid, "notes/../../a.md").await, None);
+    assert_eq!(at(&first.oid, "C:/a.md").await, None);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

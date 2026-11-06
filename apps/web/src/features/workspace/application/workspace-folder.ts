@@ -25,6 +25,7 @@ import { loadCore, readyCore, type RustCore } from "@/lib/rust-core";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
+import { gitFileHistory, shellFileHistory, type FileHistorySource } from "./folder-file-history";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 import {
   ownedAssetFolderPaths,
@@ -574,6 +575,29 @@ export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommi
   // A log that cannot be read is an error the panel shows, not an empty history.
   if (shell) return shell.vaultLog(limit);
   return activeGit.log({ limit });
+}
+
+/** Earlier versions of the connected folder's files, or null with no folder or an old shell. */
+export function folderFileHistory(): FileHistorySource | null {
+  const session = folderSession();
+  if (!session) return null;
+  if (session.kind !== "desktop") return gitFileHistory(activeGit);
+  const shell = desktop();
+  return shell ? shellFileHistory(shell) : null;
+}
+
+/**
+ * Write a file back into the folder as it was at `oid`.
+ *
+ * Only the folder changes; the caller then shows the import preview so the
+ * reader takes the old version into the workspace, or leaves it.
+ */
+export async function restoreFolderFile(oid: string, path: string): Promise<void> {
+  const source = folderFileHistory();
+  if (!activeFs || !source) throw new Error("No folder is connected.");
+  const text = await source.readAt(oid, path);
+  if (text === null) throw new Error("That version is not text, so it cannot be restored here.");
+  await activeFs.writeFile(path, text);
 }
 
 /**

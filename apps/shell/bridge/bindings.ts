@@ -129,6 +129,20 @@ export const commands = {
 	 */
 	vaultLog: (limit: number | null) => typedError<WorkspaceCommit[], ShellError>(__TAURI_INVOKE("vault_log", { limit })),
 	/**
+	 *  The commits that changed one file of the chosen folder, newest first.
+	 * 
+	 *  # Errors
+	 *  The reason to show the reader when no folder is chosen.
+	 */
+	vaultFileLog: (path: string, limit: number | null) => typedError<WorkspaceCommit[], ShellError>(__TAURI_INVOKE("vault_file_log", { path, limit })),
+	/**
+	 *  One file of the chosen folder as it was at a commit, as text; null when it is not text.
+	 * 
+	 *  # Errors
+	 *  The reason to show the reader when no folder is chosen.
+	 */
+	vaultReadAt: (oid: string, path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_read_at", { oid, path })),
+	/**
 	 *  Fetches the page title of a pasted link from the public internet.
 	 * 
 	 *  # Errors

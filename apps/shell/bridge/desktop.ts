@@ -79,6 +79,8 @@ export interface DesktopCommands {
   localFileRemove(bucket: string, path: string): Promise<Result<null>>;
   vaultCommit(): Promise<Result<DesktopCommitResult>>;
   vaultLog(limit: number | null): Promise<Result<DesktopCommit[]>>;
+  vaultFileLog(path: string, limit: number | null): Promise<Result<DesktopCommit[]>>;
+  vaultReadAt(oid: string, path: string): Promise<Result<string | null>>;
   vaultSync(action: string): Promise<Result<DesktopVaultSync>>;
   fetchTitle(url: string): Promise<Result<{ title: string; url: string }>>;
   fetchImage(
@@ -264,6 +266,8 @@ export type DesktopShim = Pick<
   | "removeLocalFile"
   | "commitVault"
   | "vaultLog"
+  | "vaultFileLog"
+  | "vaultReadAt"
   | "vaultSync"
   | "fetchTitle"
   | "fetchImage"
@@ -488,6 +492,8 @@ export function desktopShim(
     },
     commitVault: async () => unwrap(await cmds.vaultCommit()),
     vaultLog: async (limit) => unwrap(await cmds.vaultLog(limit)),
+    vaultFileLog: async (path, limit) => unwrap(await cmds.vaultFileLog(path, limit)),
+    vaultReadAt: async (oid, path) => unwrap(await cmds.vaultReadAt(oid, path)),
     vaultSync: async (action) => unwrap(await cmds.vaultSync(action)),
     fetchTitle: async (url) => unwrap(await cmds.fetchTitle(url)),
     fetchImage: async (url) => {

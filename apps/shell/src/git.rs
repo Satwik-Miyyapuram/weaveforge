@@ -122,10 +122,56 @@ pub fn log_limit(limit: Option<&serde_json::Value>) -> usize {
 
 /// The folder's own history, newest first; empty unless the folder is its own repository.
 pub async fn vault_log(root: PathBuf, limit: usize) -> Vec<WorkspaceCommit> {
+    folder_log(root, limit, None).await
+}
+
+/// The commits that changed one folder file, newest first.
+///
+/// Empty unless the folder is its own repository, or when `path` leaves the folder.
+pub async fn vault_file_log(root: PathBuf, path: &str, limit: usize) -> Vec<WorkspaceCommit> {
+    match repo_path(path) {
+        Some(path) => folder_log(root, limit, Some(path)).await,
+        None => Vec::new(),
+    }
+}
+
+/// One folder file's text as it was at commit `oid`.
+///
+/// `None` when the folder is not its own repository, the commit or file is missing, the
+/// file is too big to read, it is not UTF-8 text, or `path` leaves the folder.
+pub async fn vault_read_at(root: PathBuf, oid: String, path: &str) -> Option<String> {
+    let path = repo_path(path)?;
+    tokio::task::spawn_blocking(move || {
+        if probe(&root) != RepoState::Own {
+            return None;
+        }
+        let bytes = FolderRepo::new(&root).read_at(&oid, &path)?;
+        String::from_utf8(bytes).ok()
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// A folder-relative path as git names it, or `None` when it is empty or leaves the folder.
+fn repo_path(path: &str) -> Option<String> {
+    let path = path.replace('\\', "/");
+    let parts: Vec<&str> = path
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
+    if parts.is_empty() || parts.iter().any(|part| *part == ".." || part.contains(':')) {
+        return None;
+    }
+    Some(parts.join("/"))
+}
+
+/// The folder's commits, newest first, optionally only those that changed `path`.
+async fn folder_log(root: PathBuf, limit: usize, path: Option<String>) -> Vec<WorkspaceCommit> {
     tokio::task::spawn_blocking(move || {
         if probe(&root) == RepoState::Own {
             FolderRepo::new(&root)
-                .log(Some(limit), None)
+                .log(Some(limit), path.as_deref())
                 .into_iter()
                 .map(WorkspaceCommit::from)
                 .collect()

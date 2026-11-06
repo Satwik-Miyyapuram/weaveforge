@@ -192,6 +192,20 @@
          */
         vaultLog: (limit) => typedError(invoke("vault_log", { limit })),
         /**
+         *  The commits that changed one file of the chosen folder, newest first.
+         * 
+         *  # Errors
+         *  The reason to show the reader when no folder is chosen.
+         */
+        vaultFileLog: (path, limit) => typedError(invoke("vault_file_log", { path, limit })),
+        /**
+         *  One file of the chosen folder as it was at a commit, as text; null when it is not text.
+         * 
+         *  # Errors
+         *  The reason to show the reader when no folder is chosen.
+         */
+        vaultReadAt: (oid, path) => typedError(invoke("vault_read_at", { oid, path })),
+        /**
          *  Fetches the page title of a pasted link from the public internet.
          * 
          *  # Errors
@@ -715,6 +729,8 @@
       },
       commitVault: async () => unwrap(await cmds.vaultCommit()),
       vaultLog: async (limit) => unwrap(await cmds.vaultLog(limit)),
+      vaultFileLog: async (path, limit) => unwrap(await cmds.vaultFileLog(path, limit)),
+      vaultReadAt: async (oid, path) => unwrap(await cmds.vaultReadAt(oid, path)),
       vaultSync: async (action) => unwrap(await cmds.vaultSync(action)),
       fetchTitle: async (url) => unwrap(await cmds.fetchTitle(url)),
       fetchImage: async (url) => {
