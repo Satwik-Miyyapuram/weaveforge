@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement, type ContextType, type ReactElement } from "react";
 import { act, create } from "react-test-renderer";
-import type { Member, Project, TagWithPaperCount } from "@weaveforge/core";
+import type { DashboardCardType, Member, Project, TagWithPaperCount } from "@weaveforge/core";
 
 import { ProjectContext } from "@/features/projects";
 import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
@@ -15,6 +15,8 @@ type ProjectState = NonNullable<ContextType<typeof ProjectContext>>;
 const CARDS = ["top-tags"] as const;
 /** Stable, like the screen's memoised list: a fresh array each render reloads. */
 const NO_SUPERVISEES: Member[] = [];
+/** No card list: the loader fetches every source. */
+const ALL_CARDS: DashboardCardType[] = [];
 
 function project(id: string): ProjectState {
   return {
@@ -47,13 +49,22 @@ function ports(listTags: () => Promise<TagWithPaperCount[]>): DashboardStatsPort
 
 type Seen = ReturnType<typeof useDashboardStats>;
 
-function Probe({ getPorts, out }: { getPorts: () => DashboardStatsPorts; out: { current: Seen | null } }) {
-  out.current = useDashboardStats(CARDS, NO_SUPERVISEES, getPorts);
+function Probe({ getPorts, out, cards = CARDS }: {
+  getPorts: () => DashboardStatsPorts;
+  out: { current: Seen | null };
+  cards?: readonly DashboardCardType[];
+}) {
+  out.current = useDashboardStats(cards, NO_SUPERVISEES, getPorts);
   return null;
 }
 
-function tree(state: ProjectState, getPorts: () => DashboardStatsPorts, out: { current: Seen | null }): ReactElement {
-  return createElement(ProjectContext.Provider, { value: state }, createElement(Probe, { getPorts, out }));
+function tree(
+  state: ProjectState,
+  getPorts: () => DashboardStatsPorts,
+  out: { current: Seen | null },
+  cards?: readonly DashboardCardType[],
+): ReactElement {
+  return createElement(ProjectContext.Provider, { value: state }, createElement(Probe, { getPorts, out, cards }));
 }
 
 const flush = () => act(async () => { await new Promise((r) => setImmediate(r)); });
@@ -115,4 +126,46 @@ test("a good load is cached, so the next visit paints at once", async () => {
   assert.equal(out.current?.statsLoading, false);
   assert.deepEqual(out.current?.stats.topTags.map((t) => t.name), ["cached"]);
   await act(async () => { renderer.unmount(); });
+});
+
+test("on the app, the last stats saved on the device paint while the database starts", async () => {
+  const g = globalThis as { window?: unknown };
+  const hadWindow = "window" in g;
+  const realWindow = g.window;
+  const map = new Map<string, string>();
+  g.window = {
+    localStorage: {
+      getItem: (k: string) => (map.has(k) ? map.get(k)! : null),
+      setItem: (k: string, v: string) => void map.set(k, v),
+      removeItem: (k: string) => void map.delete(k),
+    },
+    weaveforge: { fetchTitle: () => Promise.resolve({}) },
+  };
+  try {
+    const out: { current: Seen | null } = { current: null };
+    const first = ports(async () => [tag("saved")]);
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => { renderer = create(tree(project("snap-p"), () => first, out)); });
+    await flush();
+    assert.equal(out.current?.fromSnapshot, false);
+    await act(async () => { renderer.unmount(); });
+
+    // Next run: nothing in the memory cache for these cards, the database is
+    // still starting. The device copy is per project, so it still paints.
+    let release!: () => void;
+    const slow = ports(() => new Promise((resolve) => { release = () => resolve([tag("live")]); }));
+    await act(async () => { renderer = create(tree(project("snap-p"), () => slow, out, ALL_CARDS)); });
+    assert.equal(out.current?.statsLoading, false);
+    assert.equal(out.current?.fromSnapshot, true);
+    assert.deepEqual(out.current?.stats.topTags.map((t) => t.name), ["saved"]);
+
+    release();
+    await flush();
+    assert.equal(out.current?.fromSnapshot, false);
+    assert.deepEqual(out.current?.stats.topTags.map((t) => t.name), ["live"]);
+    await act(async () => { renderer.unmount(); });
+  } finally {
+    if (hadWindow) g.window = realWindow;
+    else delete g.window;
+  }
 });

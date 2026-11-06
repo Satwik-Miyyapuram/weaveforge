@@ -27,7 +27,7 @@ async function withDesktopLog(run: () => Promise<void>): Promise<Log[]> {
 
 test("a rejected project list ends loading and is logged", async () => {
   let done = 0;
-  const selected: string[] = [];
+  const selected: (string | null)[] = [];
   const logs = await withDesktopLog(() =>
     loadInitialProject({
       refresh: () => Promise.reject(new Error("offline")),
@@ -45,7 +45,7 @@ test("a rejected project list ends loading and is logged", async () => {
 
 test("a stored project that still exists is selected", async () => {
   let done = 0;
-  const selected: string[] = [];
+  const selected: (string | null)[] = [];
   const logs = await withDesktopLog(() =>
     loadInitialProject({
       refresh: async () => [{ id: "p1" } as Project],
@@ -60,7 +60,7 @@ test("a stored project that still exists is selected", async () => {
 });
 
 test("a stored project that is gone is not selected", async () => {
-  const selected: string[] = [];
+  const selected: (string | null)[] = [];
   await withDesktopLog(() =>
     loadInitialProject({
       refresh: async () => [{ id: "p2" } as Project],
@@ -70,4 +70,32 @@ test("a stored project that is gone is not selected", async () => {
     }),
   );
   assert.deepEqual(selected, []);
+});
+
+test("a project already open from the saved list is not selected again", async () => {
+  const selected: (string | null)[] = [];
+  await withDesktopLog(() =>
+    loadInitialProject({
+      refresh: async () => [{ id: "p1" } as Project],
+      storedId: () => "p1",
+      select: (id) => void selected.push(id),
+      selected: () => "p1",
+      done: () => undefined,
+    }),
+  );
+  assert.deepEqual(selected, []);
+});
+
+test("a saved project the live list no longer has is closed", async () => {
+  const selected: (string | null)[] = [];
+  await withDesktopLog(() =>
+    loadInitialProject({
+      refresh: async () => [{ id: "p2" } as Project],
+      storedId: () => "p1",
+      select: (id) => void selected.push(id),
+      selected: () => "p1",
+      done: () => undefined,
+    }),
+  );
+  assert.deepEqual(selected, [null]);
 });
