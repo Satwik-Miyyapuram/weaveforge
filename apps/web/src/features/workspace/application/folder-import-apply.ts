@@ -93,6 +93,20 @@ export async function applyFolderImport(
   return { created: result.created, updated: result.updated, moved: result.moved };
 }
 
+/**
+ * Answer a held outside edit with the workspace's copy: write it over the folder's file and make that
+ * the base, so the edit no longer waits. False when the workspace writes nothing at that path.
+ */
+export async function keepWorkspaceCopy(fs: IWorkspaceFs, path: string): Promise<boolean> {
+  const core = await loadCore();
+  const snapshot = await getContainer().workspace.snapshot();
+  const text = core.serializeWorkspace(snapshot, await activeProject()).files[path];
+  if (text === undefined) return false;
+  await fs.writeFile(path, text);
+  await refreshMirrorBase(fs, [path]);
+  return true;
+}
+
 /** See `writeConflictMarkersTo`: this window's folder gets the markers. */
 export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
   const fs = activeWorkspaceFs();

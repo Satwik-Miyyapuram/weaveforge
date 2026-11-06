@@ -25,6 +25,7 @@ import {
   onExternalChange,
   previewFolderImport,
   settleExternalChanges,
+  settleHeldEdit,
   supportsDirectoryPicker,
   describeSync,
   syncToFolder,
@@ -243,6 +244,18 @@ export function WorkspaceFolderPanel() {
                     <li key={path}>
                       <code>{path}</code>
                       {reason && <span className="jump-to-meta"> · held: {reason}</span>}
+                      {reason && SETTLE_INLINE.has(reason) && (
+                        <span className="screen-actions screen-actions--start">
+                          <Button size="sm" disabled={busy !== null} onClick={() => void run("settle", () => settleHeldEdit(path, "mine"))}>
+                            {reason === "removed" ? "Put back" : "Keep mine"}
+                          </Button>
+                          {reason !== "removed" && (
+                            <Button size="sm" disabled={busy !== null} onClick={() => void run("settle", () => settleHeldEdit(path, "theirs"))}>
+                              Take theirs
+                            </Button>
+                          )}
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -452,6 +465,12 @@ export function WorkspaceFolderPanel() {
     </section>
   );
 }
+
+/**
+ * Held edits a row can settle in one click. A removed file can only be put back: the import never deletes
+ * a note. Copies, lost ids and moves need the full review.
+ */
+const SETTLE_INLINE: ReadonlySet<string> = new Set(["edited on both sides", "no record of the app's write", "removed"]);
 
 function ImportPreview({
   diff,
