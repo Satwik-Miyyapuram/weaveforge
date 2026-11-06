@@ -5,13 +5,15 @@ import {
   type WorkspaceStat,
 } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
-import { IMPORT_LIMITS, ImportLimitError } from "./import-limits";
+import { IMPORT_LIMITS, ImportLimitError, SKIP_TOO_BIG, type SkippedFile } from "./import-limits";
 
 /** What a folder preview reads: notes, the project's data files and the shared assets. */
 export interface PreviewFolderRead {
   files: Record<string, string>;
   jsonFiles: Record<string, string>;
   assets: Map<string, Uint8Array>;
+  /** Assets left out for their size. */
+  skipped: SkippedFile[];
 }
 
 /** A top-level `<slug>--<id6>` folder: some project's, maybe not this one. */
@@ -66,6 +68,7 @@ export async function readPreviewFolder(
   const jsonFiles: Record<string, string> = {};
   const assets = new Map<string, Uint8Array>();
   const assetEntries: WorkspaceStat[] = [];
+  const skipped: SkippedFile[] = [];
   const wanted = (path: string) => !only || only.has(path);
 
   for await (const entry of previewEntries(fs, projectRoot, hasProjectDir)) {
@@ -93,9 +96,11 @@ export async function readPreviewFolder(
   let assetBytes = 0;
   for (const entry of assetEntries) {
     if (only && !only.has(entry.path) && !named(entry.path)) continue;
-    if (entry.size > IMPORT_LIMITS.maxFileBytes) continue;
-    const bytes = await fs.readFile(entry.path);
-    if (bytes.byteLength > IMPORT_LIMITS.maxFileBytes) continue;
+    const bytes = entry.size > IMPORT_LIMITS.maxFileBytes ? null : await fs.readFile(entry.path);
+    if (!bytes || bytes.byteLength > IMPORT_LIMITS.maxFileBytes) {
+      skipped.push({ path: entry.path, reason: SKIP_TOO_BIG });
+      continue;
+    }
     assetBytes += bytes.byteLength;
     if (assetBytes > IMPORT_LIMITS.maxTotalBytes) {
       throw new ImportLimitError(
@@ -105,5 +110,5 @@ export async function readPreviewFolder(
     assets.set(entry.path, bytes);
   }
 
-  return { files, jsonFiles, assets };
+  return { files, jsonFiles, assets, skipped };
 }

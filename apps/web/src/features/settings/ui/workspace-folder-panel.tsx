@@ -40,6 +40,8 @@ import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
+import { SkippedFiles } from "./skipped-files";
+import type { SkippedFile } from "@/features/workspace/application/import-limits";
 import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/folder-watch-lost";
 
 const FolderConflictCard = dynamic(
@@ -125,7 +127,7 @@ export function WorkspaceFolderPanel() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
-  const [diff, setDiff] = useState<(ImportDiff & { skipped?: string[] }) | null>(null);
+  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
   // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
@@ -485,7 +487,7 @@ function ImportPreview({
   diff,
   onApplied,
 }: {
-  diff: ImportDiff & { skipped?: string[] };
+  diff: ImportDiff & { skipped?: SkippedFile[] };
   onApplied: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -511,8 +513,8 @@ function ImportPreview({
         {diff.counts.created} new · {diff.counts.updated} changed · {diff.counts.removed} removed ·{" "}
         {diff.counts.unchanged} unchanged · {diff.counts.conflict} conflict
         {diff.counts.conflict === 1 ? "" : "s"}
-        {diff.skipped?.length ? ` · ${diff.skipped.length} file(s) skipped as unsafe` : ""}
       </p>
+      <SkippedFiles skipped={diff.skipped ?? []} />
 
       {conflicts.length > 0 && (
         <ul className="wiki-lint-list">

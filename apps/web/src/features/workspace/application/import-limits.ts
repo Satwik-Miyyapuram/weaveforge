@@ -84,6 +84,15 @@ export interface ArchiveEntry {
   bytes: Uint8Array;
 }
 
+/** A file an import left out, and why, so the preview can say so. */
+export interface SkippedFile {
+  path: string;
+  reason: string;
+}
+
+export const SKIP_UNSAFE_NAME = "its name could reach outside the folder";
+export const SKIP_TOO_BIG = `it is over the ${Math.round(IMPORT_LIMITS.maxFileBytes / 1024 / 1024)} MB file limit`;
+
 /**
  * Drop unsafe entries and stop if the archive exceeds its budget.
  *
@@ -95,7 +104,7 @@ export interface ArchiveEntry {
 export function sanitizeArchiveEntries(
   core: RustCore,
   entries: Record<string, Uint8Array>,
-): { safe: ArchiveEntry[]; skipped: string[] } {
+): { safe: ArchiveEntry[]; skipped: SkippedFile[] } {
   const names = Object.keys(entries);
   if (names.length > IMPORT_LIMITS.maxEntries) {
     throw new ImportLimitError(
@@ -104,7 +113,7 @@ export function sanitizeArchiveEntries(
   }
 
   const safe: ArchiveEntry[] = [];
-  const skipped: string[] = [];
+  const skipped: SkippedFile[] = [];
   let total = 0;
 
   for (const name of names) {
@@ -113,11 +122,11 @@ export function sanitizeArchiveEntries(
     if (name.endsWith("/") || bytes.byteLength === 0) continue;
 
     if (!core.isSafeWorkspacePath(name)) {
-      skipped.push(name);
+      skipped.push({ path: name, reason: SKIP_UNSAFE_NAME });
       continue;
     }
     if (bytes.byteLength > IMPORT_LIMITS.maxFileBytes) {
-      skipped.push(name);
+      skipped.push({ path: name, reason: SKIP_TOO_BIG });
       continue;
     }
 

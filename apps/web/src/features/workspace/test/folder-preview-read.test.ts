@@ -11,7 +11,7 @@ import test from "node:test";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import { readPreviewFolder } from "../application/folder-preview-read";
-import { IMPORT_LIMITS } from "../application/import-limits";
+import { IMPORT_LIMITS, SKIP_TOO_BIG } from "../application/import-limits";
 
 const ROOT = "thesis--abc123";
 
@@ -97,10 +97,12 @@ test("an oversize asset is skipped without reading it (29-16)", async () => {
   const out = await readPreviewFolder(fs, ROOT, true);
   assert.deepEqual(read, ["assets/ok.png"]);
   assert.deepEqual([...out.assets.keys()], ["assets/ok.png"]);
+  assert.deepEqual(out.skipped, [{ path: "assets/big.bin", reason: SKIP_TOO_BIG }]);
 });
 
 test("an empty folder reads nothing", async () => {
   const out = await readPreviewFolder(new MemoryWorkspaceFs(), ROOT, false);
+  assert.deepEqual(out.skipped, []);
   assert.deepEqual(out.files, {});
   assert.deepEqual(out.jsonFiles, {});
   assert.equal(out.assets.size, 0);
