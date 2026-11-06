@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
 //! Tests for the Overleaf read (ported from apps/desktop/src/overleaf-source.ts and the web reader and error helpers).
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 use std::sync::{Arc, LazyLock};

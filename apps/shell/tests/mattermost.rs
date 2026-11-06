@@ -1,8 +1,7 @@
 //! Tests for Mattermost sign-in and post (ported from apps/desktop/src/mattermost-signin.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-#[path = "common/upstream.rs"]
-mod upstream;
+use crate::upstream;
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};

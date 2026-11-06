@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Tests for `protocol::respond` with a `Range` header: whole, part, 416, and too-large files.
 
-mod common;
+use crate::common;
 
 use std::fs::File;
 

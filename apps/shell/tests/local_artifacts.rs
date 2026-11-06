@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Tests for `local_artifacts`: the port of `apps/shell/sidecar/test/local-artifacts.test.ts` plus the spec's extra cases.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

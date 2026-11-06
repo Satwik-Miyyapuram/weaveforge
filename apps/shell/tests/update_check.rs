@@ -1,8 +1,7 @@
 //! Tests for the update check (ported from apps/desktop/src/update-check.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-#[path = "common/upstream.rs"]
-mod upstream;
+use crate::upstream;
 
 use upstream::{Upstream, response, serve};
 use weaveforge_shell_lib::update_check::{

@@ -1,7 +1,7 @@
 //! Tests for the LaTeX compile (ported from apps/desktop/test/tex.test.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-mod common;
+use crate::common;
 
 use std::fs;
 

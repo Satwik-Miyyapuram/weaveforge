@@ -55,6 +55,6 @@ fn bindings_are_fresh() {
     assert_eq!(
         committed.replace("\r\n", "\n"),
         generated.replace("\r\n", "\n"),
-        "bridge/bindings.ts is stale: run WF_UPDATE_BINDINGS=1 cargo test --test commands"
+        "bridge/bindings.ts is stale: run WF_UPDATE_BINDINGS=1 cargo test --test shell commands::"
     );
 }

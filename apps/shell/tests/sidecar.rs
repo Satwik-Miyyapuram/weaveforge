@@ -74,7 +74,8 @@ fn spawn_orphan_helper(sidecar_args: &str) -> (u32, std::process::Child) {
     let exe = std::env::current_exe().unwrap();
     let mut helper = std::process::Command::new(exe)
         .args([
-            "orphan_helper",
+            // The test's path inside the one test binary (tests/main.rs).
+            "sidecar::orphan_helper",
             "--exact",
             "--nocapture",
             "--test-threads=1",
@@ -88,7 +89,7 @@ fn spawn_orphan_helper(sidecar_args: &str) -> (u32, std::process::Child) {
     let pid = BufReader::new(stdout)
         .lines()
         .map_while(Result::ok)
-        // Under --nocapture the harness prints "test orphan_helper ... " before our line.
+        // Under --nocapture the harness prints "test sidecar::orphan_helper ... " before our line.
         .find_map(|line| line.split("PID ").nth(1)?.trim().parse::<u32>().ok())
         .unwrap();
     (pid, helper)

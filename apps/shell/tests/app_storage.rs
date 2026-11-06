@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
 //! Tests for sizing and clearing the app's own folders.
-mod common;
+use crate::common;
 
 use std::fs;
 

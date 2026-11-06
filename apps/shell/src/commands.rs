@@ -286,7 +286,7 @@ pub fn export_bindings(path: &std::path::Path) -> Result<(), String> {
     specta_builder()
         .export(
             specta_typescript::Typescript::default().header(
-                "// Generated from apps/shell/src/commands.rs by tauri-specta. Do not edit.\n// Regenerate: WF_UPDATE_BINDINGS=1 cargo test --test commands\n",
+                "// Generated from apps/shell/src/commands.rs by tauri-specta. Do not edit.\n// Regenerate: WF_UPDATE_BINDINGS=1 cargo test --test shell commands::\n",
             ),
             path,
         )

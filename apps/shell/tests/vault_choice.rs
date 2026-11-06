@@ -1,7 +1,7 @@
 //! Tests for adopting a picked workspace folder: session, remembered folder and watch move together.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-mod common;
+use crate::common;
 
 use std::fs;
 use std::path::Path;

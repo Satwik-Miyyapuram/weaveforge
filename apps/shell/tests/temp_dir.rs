@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
 //! Tests for the shared test helpers in `tests/common/mod.rs`.
 
-mod common;
+use crate::common;
 
 use common::{TempDir, put};
 
