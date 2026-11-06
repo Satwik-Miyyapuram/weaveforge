@@ -152,6 +152,33 @@ mod tests {
         }
     }
 
+    /// The origins follow from the app scheme and the main window in tauri.conf.json: its
+    /// `scheme://localhost` url, and `https://scheme.localhost` where `useHttpsScheme` maps it.
+    #[test]
+    fn origins_match_the_app_scheme_and_window_config() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("config");
+        let main = config["app"]["windows"]
+            .as_array()
+            .expect("windows")
+            .iter()
+            .find(|w| w["label"] == crate::MAIN_WINDOW)
+            .expect("main window");
+        let scheme = crate::protocol::APP_SCHEME;
+        assert_eq!(
+            main["url"].as_str(),
+            Some(format!("{scheme}://localhost/").as_str())
+        );
+        assert_eq!(main["useHttpsScheme"].as_bool(), Some(true));
+        assert_eq!(
+            APP_ORIGINS,
+            [
+                format!("https://{scheme}.localhost"),
+                format!("{scheme}://localhost")
+            ]
+        );
+    }
+
     #[test]
     fn guard_lists_no_plain_http_origin() {
         assert!(init_script("1", "windows").starts_with(
