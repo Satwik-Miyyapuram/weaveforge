@@ -192,6 +192,20 @@ export const commands = {
 	 */
 	appLogReveal: () => typedError<null, ShellError>(__TAURI_INVOKE("app_log_reveal")),
 	/**
+	 *  How much space each of the app's folders takes on this computer.
+	 * 
+	 *  # Errors
+	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+	 */
+	appStorageUsage: () => typedError<StorageArea[], ShellError>(__TAURI_INVOKE("app_storage_usage")),
+	/**
+	 *  Empties one of the app's folders, named by id.
+	 * 
+	 *  # Errors
+	 *  An unknown id, or files that could not be deleted (often because they are in use).
+	 */
+	appStorageClear: (id: string) => typedError<null, ShellError>(__TAURI_INVOKE("app_storage_clear", { id })),
+	/**
 	 *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
 	 * 
 	 *  # Errors
@@ -757,6 +771,16 @@ export type RootKind =
 export type ShellError = {
 	/**  Human-readable message, shown as-is by the UI. */
 	message: string,
+};
+
+/**  One area's size, as the page shows it. */
+export type StorageArea = {
+	/**  `artifacts`, `models` or `log`. */
+	id: string,
+	/**  Total size in bytes. */
+	bytes: number | null,
+	/**  How many files. */
+	files: number | null,
 };
 
 /**  What a pull did, as the page sees it. */

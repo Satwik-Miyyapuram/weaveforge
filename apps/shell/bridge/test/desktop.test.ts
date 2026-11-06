@@ -800,6 +800,23 @@ test("setPlanWidgetTheme returns undefined synchronously and swallows failures",
   await new Promise((resolve) => setImmediate(resolve));
 });
 
+test("storageUsage returns the areas and clearStorage sends the id", async () => {
+  const areas = [{ id: "models", bytes: 12, files: 1 }];
+  const ok = fakeCommands({ appStorageUsage: { status: "ok", data: areas } });
+  const shim = desktopShim(ok.cmds, fakeEvents().events);
+  assert.deepEqual(await shim.storageUsage?.(), areas);
+  assert.equal(await shim.clearStorage?.("models"), undefined);
+  assert.deepEqual(ok.calls, [
+    { cmd: "appStorageUsage", args: [] },
+    { cmd: "appStorageClear", args: ["models"] },
+  ]);
+  const bad = fakeCommands({ appStorageClear: error("Some files could not be deleted.") });
+  await assert.rejects(
+    async () => desktopShim(bad.cmds, fakeEvents().events).clearStorage?.("log"),
+    /could not be deleted/,
+  );
+});
+
 test("revealAppLog resolves to undefined and throws the shell's message", async () => {
   const ok = fakeCommands();
   assert.equal(await desktopShim(ok.cmds, fakeEvents().events).revealAppLog?.(), undefined);

@@ -370,6 +370,10 @@ export interface DesktopBridge {
   readAppLog?(): Promise<DesktopAppLog>;
   /** Show the log file in the operating system's file browser. */
   revealAppLog?(): Promise<void>;
+  /** How much space the app's own folders take on this computer. */
+  storageUsage?(): Promise<DesktopStorageArea[]>;
+  /** Empties one of those folders, by its id. */
+  clearStorage?(id: string): Promise<void>;
 
   /**
    * The window's menu, for the menu bar the page draws itself.
@@ -400,6 +404,13 @@ export interface DesktopBridge {
   setPlanWidget?(on: boolean): Promise<DesktopPlanWidget>;
   /** The theme's colours for the widget, each a `#rrggbb`, keyed as the widget's own CSS variables. */
   setPlanWidgetTheme?(palette: Record<string, string>): void;
+}
+
+/** One of the app's own folders: `artifacts`, `models` or `log`. */
+export interface DesktopStorageArea {
+  id: string;
+  bytes: number;
+  files: number;
 }
 
 /**

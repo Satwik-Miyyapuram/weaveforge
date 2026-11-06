@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod app_log;
+pub mod app_storage;
 pub mod app_route;
 pub mod auth_link;
 pub mod auth_loopback;

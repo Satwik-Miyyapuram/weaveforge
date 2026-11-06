@@ -223,6 +223,8 @@
 .app-log-path { margin: 4px 0 8px; }
 .app-log-path code { font-size: var(--fs-xs); word-break: break-all; }
 .app-log-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.storage-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 12px; }
+.storage-row p { margin: 0; }
 .app-log-text {
   margin: 0; padding: 12px; max-height: 320px; overflow: auto;
   font: var(--fs-xs)/1.5 var(--font-mono);

@@ -77,7 +77,7 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
 :root:root:root .title-bar-window > .wf-btn > svg { width: 10px; height: 10px; stroke-width: 1; }
 :root:root:root .title-bar-window > .wf-btn:hover { background: var(--hover-bg, color-mix(in srgb, currentColor 10%, transparent)); }
 :root:root:root .title-bar-window > .wf-btn:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
-:root:root:root .title-bar-window > .wf-btn:last-child:hover { background: #c42b1c; color: #fff; }
+:root:root:root .title-bar-window > .wf-btn:last-child:hover { background: var(--window-close-bg); color: var(--window-close-fg); }
 
 /* Neo-brutalist themes: the bar's rule is the theme's heavy line. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .title-bar {
