@@ -5,6 +5,8 @@ import {
   IMPORT_LIMITS,
   ImportLimitError,
   sanitizeArchiveEntries,
+  SKIP_TOO_BIG,
+  SKIP_UNSAFE_NAME,
   stripArchiveRoot,
   unzipWithinLimits,
 } from "../application/import-limits";
@@ -28,6 +30,8 @@ test("traversal entries are skipped, not imported", () => {
 
   assert.deepEqual(safe.map((e) => e.path), ["notes/good.md"]);
   assert.equal(skipped.length, 3);
+  assert.ok(skipped.every((file) => file.reason === SKIP_UNSAFE_NAME));
+  assert.ok(skipped.some((file) => file.path === "../../etc/passwd"));
 });
 
 test("one bad entry does not cost the whole import", () => {
@@ -47,7 +51,7 @@ test("an oversized single file is skipped", () => {
   });
 
   assert.deepEqual(safe.map((e) => e.path), ["notes/ok.md"]);
-  assert.equal(skipped.length, 1);
+  assert.deepEqual(skipped, [{ path: "notes/huge.md", reason: SKIP_TOO_BIG }]);
 });
 
 test("a zip bomb is refused rather than inflated", () => {

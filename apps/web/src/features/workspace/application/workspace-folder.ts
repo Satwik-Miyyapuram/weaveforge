@@ -51,7 +51,9 @@ import {
 } from "./outside-edits";
 import {
   sanitizeArchiveEntries,
+  SKIP_TOO_BIG,
   stripArchiveRoot,
+  type SkippedFile,
   unzipWithinLimits,
 } from "./import-limits";
 
@@ -715,7 +717,9 @@ export async function restoreFolderFile(oid: string, path: string): Promise<void
  * in" direction, and seeing "12 updated, 1 conflict" before committing to it is
  * the whole point.
  */
-export async function previewFolderImport(only?: ReadonlySet<string>): Promise<FolderDiff & { json: JsonDiff }> {
+export async function previewFolderImport(
+  only?: ReadonlySet<string>,
+): Promise<FolderDiff & { json: JsonDiff; skipped: SkippedFile[] }> {
   if (!activeFs) throw new Error("No folder is connected.");
 
   const project = await activeProject();
@@ -726,15 +730,15 @@ export async function previewFolderImport(only?: ReadonlySet<string>): Promise<F
   const bases = await readMirrorBases(activeFs, projectRoot);
 
   const hasProjectDir = (await activeFs.stat(projectRoot).catch(() => null)) !== null;
-  const { files, assets, jsonFiles } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir, only);
+  const { files, assets, jsonFiles, skipped } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir, only);
 
-  return diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles);
+  return { ...(await diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles)), skipped };
 }
 
 /** Diff a ZIP the user picked, without connecting a folder. */
 export async function previewArchiveImport(
   bytes: Uint8Array,
-): Promise<ImportDiff & { skipped: string[]; json: JsonDiff }> {
+): Promise<ImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
   const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
   const { safe, skipped } = sanitizeArchiveEntries(await loadCore(), inflated);
   const entries = stripArchiveRoot(safe);
@@ -749,7 +753,7 @@ export async function previewArchiveImport(
 
   return {
     ...(await diffAgainstWorkspace(files, assets, await activeProject())),
-    skipped: [...oversize, ...skipped],
+    skipped: [...oversize.map((path) => ({ path, reason: SKIP_TOO_BIG })), ...skipped],
   };
 }
 
