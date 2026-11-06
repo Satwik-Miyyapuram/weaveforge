@@ -255,6 +255,38 @@ test("a file edited since the last mirror is left alone and reported", async () 
   assert.deepEqual(second.removed, [], "nor as removed");
 });
 
+/**
+ * An edit that lands between the mirror's read and its write. The mirror decided
+ * on what it read; writing blind would lose the edit, so the write is checked
+ * against that read and refused, and the path held back like any other edit.
+ */
+test("an edit made after the mirror read the file is not overwritten", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const first = await mirrorWorkspace(
+    snapshot({ vaultPages: [note("n1", "Method", "One")] }),
+    fs,
+    { project: THESIS },
+  );
+  const path = at("notes/method.note.md");
+  const racing = "typed in another editor while the mirror ran";
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (p: string) => {
+    const text = await readText(p);
+    if (p === path) await fs.writeFile(path, racing);
+    return text;
+  };
+
+  const second = await mirrorWorkspace(
+    snapshot({ vaultPages: [note("n1", "Method", "One changed in the app")] }),
+    fs,
+    { project: THESIS, previousPaths: first.written, base: first.mirrored },
+  );
+
+  assert.equal(await readText(path), racing, "the late edit survives");
+  assert.deepEqual(second.heldBack, [path]);
+  assert.ok(!second.written.includes(path));
+});
+
 test("a file the mirror never wrote is still written beside, and nothing is held", async () => {
   const fs = new MemoryWorkspaceFs();
   // A note dropped in by hand: no base digest, so the mirror owns nothing here.

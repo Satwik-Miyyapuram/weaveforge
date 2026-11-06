@@ -227,6 +227,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_vault::vault_choose,
         crate::cmd_vault::vault_read,
         crate::cmd_vault::vault_write,
+        crate::cmd_vault::vault_write_if,
         crate::cmd_vault::vault_read_bytes,
         crate::cmd_vault::vault_write_bytes,
         crate::cmd_vault::vault_list,

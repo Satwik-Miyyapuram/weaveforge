@@ -128,6 +128,14 @@
          */
         vaultWrite: (path, contents) => typedError(invoke("vault_write", { path, contents })),
         /**
+         *  Writes a text file only if it still says `expected` (`None` = still
+         *  missing); `false` = it changed since it was read, and nothing was written.
+         * 
+         *  # Errors
+         *  No folder chosen, a refused path, or contents over the size cap.
+         */
+        vaultWriteIf: (path, contents, expected) => typedError(invoke("vault_write_if", { path, contents, expected })),
+        /**
          *  Reads a binary file in the chosen folder as base64.
          * 
          *  # Errors
@@ -593,6 +601,7 @@
       writeVaultFile: async (path, contents) => {
         unwrap(await cmds.vaultWrite(path, contents));
       },
+      writeVaultFileIf: async (path, contents, expected) => unwrap(await cmds.vaultWriteIf(path, contents, expected)),
       readVaultBytes: async (path) => {
         const data = unwrap(await cmds.vaultReadBytes(path));
         return data === null ? null : fromBase64(data);

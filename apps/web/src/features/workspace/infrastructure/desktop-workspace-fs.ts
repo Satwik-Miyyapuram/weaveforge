@@ -24,6 +24,8 @@ import { safeWorkspacePath } from "./safe-workspace-path";
 export interface VaultFileBridge {
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
+  /** Absent on shells without the checked write (Electron). */
+  writeVaultFileIf?(path: string, contents: string, expected: string | null): Promise<boolean>;
   readVaultBytes(path: string): Promise<Uint8Array | null>;
   writeVaultBytes(path: string, bytes: Uint8Array): Promise<void>;
   listVaultFiles(path?: string): Promise<
@@ -58,6 +60,16 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     const at = await safeWorkspacePath(path);
     if (typeof data === "string") await this.bridge.writeVaultFile(at, data);
     else await this.bridge.writeVaultBytes(at, data);
+  }
+
+  // The compare happens in the shell, next to the disk, so the window an
+  // outside edit can slip through is the shell's, not a round trip's.
+  async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
+    const at = await safeWorkspacePath(path);
+    if (this.bridge.writeVaultFileIf) return this.bridge.writeVaultFileIf(at, text, expected);
+    if ((await this.bridge.readVaultFile(at)) !== expected) return false;
+    await this.bridge.writeVaultFile(at, text);
+    return true;
   }
 
   async remove(path: string): Promise<void> {

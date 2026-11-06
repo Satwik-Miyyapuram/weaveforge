@@ -62,6 +62,7 @@ export interface DesktopCommands {
   vaultChoose(): Promise<Result<DesktopVaultRoot | null>>;
   vaultRead(path: string): Promise<Result<string | null>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
+  vaultWriteIf(path: string, contents: string, expected: string | null): Promise<Result<boolean>>;
   vaultReadBytes(path: string): Promise<Result<string | null>>; // base64
   vaultWriteBytes(path: string, bytes: string): Promise<Result<null>>; // base64
   vaultList(path: string | null): Promise<Result<DesktopVaultEntry[]>>;
@@ -232,6 +233,7 @@ export type DesktopShim = Pick<
   | "chooseVaultRoot"
   | "readVaultFile"
   | "writeVaultFile"
+  | "writeVaultFileIf"
   | "readVaultBytes"
   | "writeVaultBytes"
   | "listVaultFiles"
@@ -428,6 +430,8 @@ export function desktopShim(
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));
     },
+    writeVaultFileIf: async (path, contents, expected) =>
+      unwrap(await cmds.vaultWriteIf(path, contents, expected)),
     readVaultBytes: async (path) => {
       const data = unwrap(await cmds.vaultReadBytes(path));
       return data === null ? null : fromBase64(data);

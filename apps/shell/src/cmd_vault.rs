@@ -57,6 +57,22 @@ pub async fn write(state: &VaultState, path: String, contents: String) -> Result
     blocking(state, move |session| session.write_text(&path, &contents)).await
 }
 
+/// `write` only while the file still says `expected` (`None` = still missing).
+///
+/// # Errors
+/// As `read` and `write`.
+pub async fn write_if(
+    state: &VaultState,
+    path: String,
+    contents: String,
+    expected: Option<String>,
+) -> Result<bool, String> {
+    blocking(state, move |session| {
+        session.write_text_if(&path, &contents, expected.as_deref())
+    })
+    .await
+}
+
 /// Bytes of a file in the chosen folder as standard base64; `None` when the file is missing.
 ///
 /// # Errors
@@ -248,6 +264,26 @@ pub async fn vault_write(
     // Noted before writing, so the folder watch can never see the write first.
     watch.note_self_write(&path, contents.as_bytes());
     write(state.inner(), path, contents)
+        .await
+        .map_err(ShellError::from)
+}
+
+/// Writes a text file only if it still says `expected` (`None` = still
+/// missing); `false` = it changed since it was read, and nothing was written.
+///
+/// # Errors
+/// No folder chosen, a refused path, or contents over the size cap.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_write_if(
+    state: tauri::State<'_, VaultState>,
+    watch: tauri::State<'_, WatchSlot>,
+    path: String,
+    contents: String,
+    expected: Option<String>,
+) -> Result<bool, ShellError> {
+    watch.note_self_write(&path, contents.as_bytes());
+    write_if(state.inner(), path, contents, expected)
         .await
         .map_err(ShellError::from)
 }

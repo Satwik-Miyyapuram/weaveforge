@@ -274,6 +274,13 @@ test("writeVaultFile, removeVaultFile, writePreference, writeSecret and clearSec
   );
 });
 
+test("writeVaultFileIf passes the expected text and answers whether it wrote", async () => {
+  const { cmds, calls } = fakeCommands({ vaultWriteIf: { status: "ok", data: false } });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.equal(await shim.writeVaultFileIf?.("a.md", "x", null), false);
+  assert.deepEqual(calls, [{ cmd: "vaultWriteIf", args: ["a.md", "x", null] }]);
+});
+
 test("readSecret passes the name", async () => {
   const { cmds, calls } = fakeCommands({
     secretRead: { status: "ok", data: "tok" },

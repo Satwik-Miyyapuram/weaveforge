@@ -205,6 +205,24 @@ impl VaultSession {
             .map_err(|e| message(&e))
     }
 
+    /// `write_text` only while the file still says `expected` (`None` = still
+    /// missing). `Ok(false)` = it changed since the caller read it; nothing written.
+    ///
+    /// # Errors
+    /// As `read_text` and `write_text`.
+    pub fn write_text_if(
+        &self,
+        rel: &str,
+        contents: &str,
+        expected: Option<&str>,
+    ) -> Result<bool, String> {
+        if self.read_text(rel)?.as_deref() != expected {
+            return Ok(false);
+        }
+        self.write_text(rel, contents)?;
+        Ok(true)
+    }
+
     /// Same as `write_text` with `MAX_BLOB_BYTES`.
     ///
     /// # Errors
