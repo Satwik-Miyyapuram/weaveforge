@@ -18,6 +18,7 @@ import {
   settleExternalChanges,
 } from "../application/workspace-folder";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { holdOpenNotes } from "../application/open-notes";
 
 before(async () => {
   await loadTestCore();
@@ -258,4 +259,19 @@ test("a desktop history that cannot be read is an error, not an empty log (xipc-
   const bridge = (globalThis as unknown as { window?: { weaveforge: Record<string, unknown> } }).window!.weaveforge;
   bridge.vaultLog = () => Promise.reject(new Error("fatal: bad object HEAD"));
   await assert.rejects(() => folderHistory(5), /bad object HEAD/);
+});
+
+test("an edit held because its note was open is taken in once the note closes", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const release = holdOpenNotes(["n1"]);
+  settleExternalChanges({
+    entries: [{ action: "updated", entity: { id: "n1", path: "notes/open.note.md" } }],
+    counts: { created: 0, updated: 1, unchanged: 0, conflict: 0, removed: 0 },
+    seen: { "notes/open.note.md": { side: "folder", digest: "d" } },
+  } as never);
+  assert.equal(externalChangeReason("notes/open.note.md"), "open in editor");
+  assert.equal(autoApplyScheduled(), false);
+  release();
+  assert.equal(autoApplyScheduled(), true);
 });

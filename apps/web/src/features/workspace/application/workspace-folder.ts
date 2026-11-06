@@ -38,7 +38,7 @@ import { activeProject, activeProjectOrNull } from "./active-project";
 import { mirrorWorkspace } from "./folder-mirror";
 import { readPreviewFolder } from "./folder-preview-read";
 import { applyFolderImport } from "./folder-import-apply";
-import { isNoteOpen } from "./open-notes";
+import { isNoteOpen, onNoteClosed } from "./open-notes";
 import { diffAgainstWorkspace, importableEntities } from "./folder-diff";
 import {
   applyOutsideEdits,
@@ -535,6 +535,14 @@ function scheduleAutoApply(): void {
     });
   }, AUTO_APPLY_DEBOUNCE_MS);
 }
+
+// An edit held only because its note was open goes in once the note closes, not at the next folder event.
+onNoteClosed(() => {
+  const waiting = Object.keys(externalReasons).filter((path) => externalReasons[path] === "open in editor");
+  if (!activeFs || waiting.length === 0) return;
+  for (const path of waiting) autoApplyPaths.add(path);
+  scheduleAutoApply();
+});
 
 /** The digest the preview read for each file, so the apply can tell a file that moved since. */
 function seenDigests(diff: FolderDiff): Record<string, string> {
