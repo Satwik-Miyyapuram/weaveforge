@@ -67,7 +67,7 @@
 .overleaf-project-list__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .overleaf-project-list__head h2 { margin: 0; flex: 1 1 auto; }
 .overleaf-project-list__search { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }
-.overleaf-project-list ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.overleaf-project-list ul { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
 .overleaf-project-list .wf-row { display: grid; gap: 2px; width: 100%; padding: 12px; text-align: start; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); }
 .overleaf-project-list .wf-row:hover { border-color: var(--accent); }
 .overleaf-project-list .wf-row small { color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
@@ -82,7 +82,7 @@
 .report-overleaf-screen:has(.overleaf-detail) > .screen-head { display: none; }
 /* The record title block, tighter: the editor below is the content. */
 .overleaf-detail .overleaf-detail__head { margin-top: 4px; padding-bottom: 8px; display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.overleaf-detail__head .record-title { flex: 0 1 auto; min-width: 0; max-width: none; font-size: 1.4rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overleaf-detail__head .record-title { flex: 0 1 auto; min-width: 0; max-width: none; font-size: var(--fs-h2); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .overleaf-detail__head .record-meta { flex: 0 1 auto; min-width: 0; margin: 0; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The editor fills the window below the bar and title; the page itself does not scroll. */
 .record.overleaf-detail { display: flex; flex-direction: column; gap: 8px; height: calc(100dvh - var(--titlebar-h) - 88px); min-height: 520px; }
@@ -122,28 +122,28 @@
 .overleaf-panel--open + .overleaf-panel--open { flex: 0 1 40%; }
 .overleaf-panel__head { margin: 0; flex: none; font-size: var(--fs-sm); line-height: 1.4; }
 .overleaf-panel--open .overleaf-panel__head { border-bottom: 1px solid var(--line); }
-:root:root .overleaf-panel__head .wf-row { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); text-align: start; justify-content: flex-start; }
+:root:root .overleaf-panel__head .wf-row { display: flex; align-items: center; gap: var(--s1); width: 100%; padding: var(--s1) var(--s2); font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); text-align: start; justify-content: flex-start; }
 :root:root .overleaf-panel__head .wf-row:hover { color: var(--ink); }
 .overleaf-panel__body { flex: 1; min-height: 0; overflow: auto; padding: 4px; }
 .workshop-live__files { padding: 0; }
 .overleaf-tree, .overleaf-tree ul { list-style: none; margin: 0; padding: 0; }
-:root:root .overleaf-tree .wf-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 26px; padding-block: 2px; padding-inline-end: 8px; font-size: var(--fs-sm); text-align: start; justify-content: flex-start; }
+:root:root .overleaf-tree .wf-row { display: flex; align-items: center; gap: var(--s1); width: 100%; min-height: 26px; padding-block: 2px; padding-inline-end: 8px; font-size: var(--fs-sm); text-align: start; justify-content: flex-start; }
 .overleaf-tree .wf-row svg { flex: none; color: var(--muted); }
 .overleaf-tree__twisty { display: inline-flex; flex: none; width: 14px; }
 .overleaf-tree__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overleaf-outline, .overleaf-outline ul { list-style: none; margin: 0; padding: 0; }
-.overleaf-outline ul { padding-inline-start: 14px; }
+.overleaf-outline ul { padding-inline-start: var(--s3); }
 .overleaf-outline__row { display: flex; align-items: center; gap: 2px; }
 .overleaf-outline__row > button:first-child:not(.wf-row) { flex: none; width: 20px; height: 20px; min-width: 0; min-height: 0; padding: 0; }
 .overleaf-outline__twisty { flex: none; width: 20px; }
-:root:root .overleaf-outline__row .wf-row { flex: 1; min-width: 0; min-height: 24px; padding: 2px 6px; font-size: var(--fs-sm); text-align: start; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root:root .overleaf-outline__row .wf-row { flex: 1; min-width: 0; min-height: 24px; padding: 2px var(--s1); font-size: var(--fs-sm); text-align: start; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root:root .overleaf-outline__row .wf-row[aria-current="true"] { color: var(--accent); font-weight: 600; }
 .overleaf-outline__empty { margin: 4px 8px; font-size: var(--fs-sm); }
 /* Source pane: toolbar, breadcrumbs, then CodeMirror. */
 .workshop-live__source { display: flex; flex-direction: column; height: 100%; min-height: 0; container-type: inline-size; }
 /* One row always: tools that do not fit fold into the "More formatting" menu. */
-.overleaf-toolbar { flex: none; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; min-width: 0; padding: 3px 6px; border-bottom: 1px solid var(--line); background: var(--surface-alt, var(--surface)); overflow: hidden; }
-:root:root .overleaf-toolbar :is(.wf-tool, .wf-icon) { flex: none; width: 28px; height: 28px; min-width: 28px; min-height: 28px; font: 600 14px/1 var(--font-serif, Georgia, serif); }
+.overleaf-toolbar { flex: none; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; min-width: 0; padding: 2px var(--s1); border-bottom: 1px solid var(--line); background: var(--surface-alt, var(--surface)); overflow: hidden; }
+:root:root .overleaf-toolbar :is(.wf-tool, .wf-icon) { flex: none; width: 28px; height: 28px; min-width: 28px; min-height: 28px; font: 600 var(--fs-sm)/1 var(--font-serif, Georgia, serif); }
 :root:root .overleaf-toolbar :is(.wf-tool, .wf-icon) svg { width: 16px; height: 16px; }
 .overleaf-toolbar .custom-select-container { flex: 0 1 130px; min-width: 84px; }
 :root:root .overleaf-toolbar .wf-select { width: 100%; min-height: 28px; padding-inline: 8px; font-size: var(--fs-sm); }
@@ -160,7 +160,7 @@
 .overleaf-toolbar__grow { flex: 1; }
 .overleaf-toolbar__mode.view-switch { flex: none; margin-left: 0; }
 :root:root .overleaf-toolbar__mode button { min-height: 28px; padding: 0 8px; font-size: var(--fs-sm); }
-.overleaf-crumbs { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: var(--fs-sm); color: var(--muted); border-bottom: 1px solid var(--line); }
+.overleaf-crumbs { flex: none; display: flex; align-items: center; gap: 8px; padding: var(--s1) var(--s2); font-size: var(--fs-sm); color: var(--muted); border-bottom: 1px solid var(--line); }
 .overleaf-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .overleaf-crumbs li + li::before { content: "\203A"; margin-inline-end: 4px; }
 .overleaf-crumbs li[aria-current] { color: var(--ink); }
@@ -174,16 +174,6 @@
 :root:root .workshop-live__editor :is(.cm-tex-math, .cm-tex-math *) { color: color-mix(in srgb, var(--st-positive-bg) 55%, var(--ink)); }
 :root:root .workshop-live__editor :is(.cm-tex-comment, .cm-tex-comment *) { color: var(--faint); font-style: italic; }
 :root:root .workshop-live__editor :is(.cm-tex-bracket, .cm-tex-bracket *) { color: var(--muted); }
-/* Visual Editor (ui/latex-visual-mode.ts): the source drawn as it prints. */
-.workshop-live__editor .cm-line:is(.cm-vis-h1, .cm-vis-h2, .cm-vis-h3, .cm-vis-h4) { font-family: var(--font-serif, Georgia, serif); font-weight: 700; color: var(--ink); }
-.workshop-live__editor .cm-line.cm-vis-h1 { font-size: 1.6em; }
-.workshop-live__editor .cm-line.cm-vis-h2 { font-size: 1.35em; }
-.workshop-live__editor .cm-line.cm-vis-h3 { font-size: 1.15em; }
-.workshop-live__editor .cm-line:is(.cm-vis-h1, .cm-vis-h2, .cm-vis-h3, .cm-vis-h4) * { color: inherit; }
-.workshop-live__editor .cm-vis-bold { font-weight: 700; }
-.workshop-live__editor .cm-vis-italic { font-style: italic; }
-.workshop-live__editor .cm-vis-bullet { display: inline-block; width: 1.2em; color: var(--ink); font-weight: 700; }
-.workshop-live__editor .cm-vis-math { padding-inline: 1px; color: var(--ink); }
 .workshop-live__editor .cm-foldGutter .cm-gutterElement { padding-inline: 2px; color: var(--muted); cursor: pointer; }
 @media (max-width: 699px) {
   .record.overleaf-detail { height: auto; }
@@ -204,7 +194,7 @@
 /* In the pane the reader's chrome is one flush bar like Overleaf's: Recompile and
    Download on the left, page, zoom and find on the right. Pen tools stay in the reader tab. */
 .workshop-pdf .pdf-reader { gap: 0; }
-:root:root .workshop-pdf .pdf-reader-chrome { flex-wrap: nowrap; gap: 4px; min-height: 36px; padding: 2px 6px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: var(--surface-alt, var(--surface)); }
+:root:root .workshop-pdf .pdf-reader-chrome { flex-wrap: nowrap; gap: 4px; min-height: 36px; padding: 2px var(--s1); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: var(--surface-alt, var(--surface)); }
 :root:root .workshop-pdf .pdf-reader-chrome .ink-bar { order: 1; flex: 0 1 auto; min-width: 0; margin-inline-start: auto; overflow: hidden; flex-wrap: nowrap; gap: 4px; padding: 0; border: 0; box-shadow: none; background: transparent; }
 :root:root .workshop-pdf .pdf-reader-tools { order: 0; flex: none; flex-wrap: nowrap; gap: 4px; padding: 0; }
 :root:root .workshop-pdf .pdf-reader-chrome .pdf-reader-more { display: inline-flex; gap: 4px; padding: 0; border: 0; background: transparent; }
