@@ -79,6 +79,8 @@ export class WorkspaceSearch {
   private indexSliceQueue: Promise<void> = Promise.resolve();
   /** Per-document prints of what is indexed, so a refresh skips unchanged ones. */
   private prints: ReadonlyMap<string, string> = new Map();
+  /** The index worker failed to start, so the last build ran on the main thread. */
+  private workerFailed = false;
 
   constructor(
     private readonly deps: {
@@ -165,6 +167,7 @@ export class WorkspaceSearch {
         // the in-thread path below still works, it merely blocks. Say so, or a
         // worker that never loads the WASM core goes unnoticed.
         console.warn("Search index worker failed; indexing on the main thread", error);
+        this.workerFailed = true;
       }
     }
 
@@ -602,6 +605,11 @@ export class WorkspaceSearch {
   get corpusSize(): { documents: number; large: boolean } {
     const documents = this.state.documentCount;
     return { documents, large: documents > LARGE_CORPUS_WARNING };
+  }
+
+  /** True when the index worker could not start and the build blocked the page instead. */
+  get builtOnMainThread(): boolean {
+    return this.workerFailed;
   }
 
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { DesktopVaultSyncAction } from "@/lib/desktop/desktop-bridge";
+import type { DesktopVaultSync, DesktopVaultSyncAction } from "@/lib/desktop/desktop-bridge";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
@@ -10,6 +10,7 @@ import {
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  pullThenPush,
   saveRemoteSyncSettings,
 } from "@/features/workspace/application/folder-remote-sync";
 
@@ -48,6 +49,8 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
   const [status, setStatus] = useState<string | null>(null);
   // The last pull stopped on files edited on both sides.
   const [conflict, setConflict] = useState(false);
+  // The last push was turned away because the remote has commits this machine lacks.
+  const [pushRejected, setPushRejected] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -80,10 +83,27 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
   const act = (action: keyof typeof LABELS | Choice) =>
     run(action, async () => {
       setConflict(false);
+      setPushRejected(false);
       const reply = await folderRemoteSync(action);
-      setStatus(await describeRemoteSync(reply));
-      setConflict(reply.pull?.kind === "conflict");
-      if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
+      settle(reply, await describeRemoteSync(reply));
+    });
+
+  const settle = (reply: DesktopVaultSync, line: string) => {
+    setStatus(line);
+    setConflict(reply.pull?.kind === "conflict");
+    setPushRejected(reply.push?.kind === "rejected");
+    if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
+  };
+
+  const syncBoth = () =>
+    run("pull-push", async () => {
+      setConflict(false);
+      setPushRejected(false);
+      const { pulled, pushed } = await pullThenPush();
+      const pullLine = await describeRemoteSync(pulled);
+      if (!pushed) return settle(pulled, pullLine);
+      if (pulled.pull?.kind === "fast-forward" || pulled.pull?.kind === "merged") onPulled?.();
+      settle(pushed, `${pullLine} ${await describeRemoteSync(pushed)}`);
     });
 
   const unsaved = url.trim() !== savedUrl;
@@ -121,7 +141,21 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
         <p className="muted jump-to-meta">Kept in this machine&apos;s keychain and never shown again.</p>
       </div>
       {error && <FormError>{error}</FormError>}
-      {status && <p className="muted">{status}</p>}
+      <div role="status" aria-live="polite">
+        {status && <p className="muted">{status}</p>}
+      </div>
+      {pushRejected && (
+        <div className="screen-actions screen-actions--start">
+          <Button
+            variant="secondary"
+            title="Pull the remote's commits, then push again. Stops if a file was edited on both sides."
+            disabled={busy !== null}
+            onClick={() => void syncBoth()}
+          >
+            {busy === "pull-push" ? "Pulling, then pushing…" : "Pull, then push"}
+          </Button>
+        </div>
+      )}
       {conflict && (
         <div className="screen-actions screen-actions--start" role="group" aria-label="Settle the conflict">
           {(Object.keys(CHOICES) as Choice[]).map((choice) => (
