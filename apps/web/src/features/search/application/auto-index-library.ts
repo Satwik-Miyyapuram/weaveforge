@@ -36,8 +36,12 @@ const START_DELAY_MS = 20_000;
 
 export interface AutoIndexStatus {
   running: boolean;
+  /** Who started the run going now: the background, or the Settings button. */
+  source: "auto" | "button" | null;
   progress: LibraryIndexProgress | null;
   last: LibraryIndexResult | null;
+  /** The last button run was cancelled, so `last` is partial. */
+  stopped: boolean;
 }
 
 /** What a run reads and calls; tests pass their own. */
@@ -59,7 +63,7 @@ export function setAutoIndexDeps(next: AutoIndexDeps): void {
   currentDeps = next;
 }
 
-let status: AutoIndexStatus = { running: false, progress: null, last: null };
+let status: AutoIndexStatus = { running: false, source: null, progress: null, last: null, stopped: false };
 const listeners = new Set<() => void>();
 let startedFor: string | null | undefined;
 let controller: AbortController | null = null;
@@ -142,7 +146,7 @@ export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDe
   const own = new AbortController();
   controller = own;
   const signal = own.signal;
-  set({ running: true, progress: null });
+  set({ running: true, source: "auto", progress: null });
   try {
     if (delayMs > 0) await abortableDelay(delayMs, signal);
     if (signal.aborted) return;
@@ -169,9 +173,44 @@ export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDe
     // A stopped run's cleanup must not end the run that replaced it.
     if (controller === own) {
       controller = null;
-      set({ running: false, progress: null });
+      set({ running: false, source: null, progress: null });
     }
   }
+}
+
+/**
+ * The Settings button's run. Shares the status and the controller with the
+ * background run, so it outlives the Settings screen, the nav chip shows it,
+ * and either place can stop it. `null` when a run is already going.
+ */
+export async function runLibraryIndex(deps: AutoIndexDeps = currentDeps): Promise<LibraryIndexResult | null> {
+  if (status.running) return null;
+  const own = new AbortController();
+  controller = own;
+  set({ running: true, source: "button", progress: null, stopped: false });
+  try {
+    const papers = await deps.papersNeedingIndex();
+    const result = await deps.indexLibraryPdfs(papers, {
+      signal: own.signal,
+      onProgress: (progress) => set({ progress }),
+    });
+    // A project switch replaced the controller: this result is the old project's.
+    if (controller === own) set({ last: result, stopped: own.signal.aborted });
+    return result;
+  } finally {
+    if (controller === own) {
+      controller = null;
+      set({ running: false, source: null, progress: null });
+    }
+  }
+}
+
+/**
+ * Stop the run going now, keeping what it indexed. The background run is not
+ * started again for this project this session: the reader asked it to stop.
+ */
+export function cancelLibraryIndex(): void {
+  controller?.abort();
 }
 
 /**
@@ -182,7 +221,7 @@ export function stopAutoIndex(): void {
   controller?.abort();
   controller = null;
   startedFor = undefined;
-  set({ running: false, progress: null, last: null });
+  set({ running: false, source: null, progress: null, last: null, stopped: false });
 }
 
 registerSessionReset(stopAutoIndex);

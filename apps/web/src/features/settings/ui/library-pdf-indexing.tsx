@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import {
-  indexLibraryPdfs,
-  papersNeedingIndex,
-  type LibraryIndexProgress,
-} from "@/features/search/application/index-library-pdfs";
+import { papersNeedingIndex } from "@/features/search/application/index-library-pdfs";
 import {
   autoIndexEnabled,
   autoIndexStatus,
+  cancelLibraryIndex,
+  runLibraryIndex,
   setAutoIndexEnabled,
   subscribeAutoIndex,
 } from "@/features/search/application/auto-index-library";
@@ -33,7 +31,6 @@ import { Button } from "@/components/button";
  */
 export function LibraryPdfIndexing() {
   const [pending, setPending] = useState<number | null>(null);
-  const [progress, setProgress] = useState<LibraryIndexProgress | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,7 +50,8 @@ export function LibraryPdfIndexing() {
   useEffect(() => {
     if (background.last) setReasons(background.last.reasons);
   }, [background.last]);
-  const shown = progress ?? background.progress;
+  // One run at a time, the button's or the background's; the store holds it, so it outlives this screen.
+  const shown = background.progress;
 
   async function check() {
     setBusy(true);
@@ -73,12 +71,13 @@ export function LibraryPdfIndexing() {
     setBusy(true);
     setError(null);
     try {
-      const papers = await papersNeedingIndex();
-      const result = await indexLibraryPdfs(papers, { onProgress: setProgress });
-      setProgress(null);
-      setPending(0);
+      const result = await runLibraryIndex();
+      if (!result) return;
+      const stopped = autoIndexStatus().stopped;
+      setPending(stopped ? null : 0);
       setDone(
-        `Indexed ${result.indexed}` +
+        (stopped ? "Stopped. " : "") +
+          `Indexed ${result.indexed}` +
           (result.skipped ? `, skipped ${result.skipped} with no reachable file` : "") +
           (result.failed ? `, ${result.failed} could not be read` : "") +
           ".",
@@ -98,7 +97,7 @@ export function LibraryPdfIndexing() {
       detail: pending !== null && !shown && !done ? `${pending} to index` : undefined,
     },
     {
-      label: background.running && !progress ? "Fetch and index PDFs (background)" : "Fetch and index PDFs",
+      label: background.source === "auto" ? "Fetch and index PDFs (background)" : "Fetch and index PDFs",
       state: shown ? "active" : done || pending === 0 ? "done" : "pending",
       value: shown ? shown.done / Math.max(shown.total, 1) : undefined,
       detail: shown ? `${shown.done} of ${shown.total}${shown.current ? ` — ${shown.current}` : ""}` : undefined,
@@ -129,7 +128,7 @@ export function LibraryPdfIndexing() {
         {error && <FormError>{error}</FormError>}
         {!shown && !done && background.last && (
           <p className="muted">
-            Last background run: indexed {background.last.indexed}
+            Last run: indexed {background.last.indexed}
             {background.last.failed ? `, ${background.last.failed} could not be read (retried in a week)` : ""}.
           </p>
         )}
@@ -154,7 +153,7 @@ export function LibraryPdfIndexing() {
             ))}
           </ul>
         )}
-        {pending !== null && !progress && !done && (
+        {pending !== null && !shown && !done && (
           <p className="muted">
             {pending === 0
               ? "Every PDF in your library is already indexed."
@@ -174,6 +173,11 @@ export function LibraryPdfIndexing() {
           {pending !== null && pending > 0 && (
             <Button disabled={busy || background.running} onClick={() => void run()}>
               {busy ? "Indexing…" : `Index ${pending} PDF${pending === 1 ? "" : "s"}`}
+            </Button>
+          )}
+          {background.running && (
+            <Button variant="ghost" onClick={cancelLibraryIndex}>
+              Cancel
             </Button>
           )}
         </div>
