@@ -7,6 +7,7 @@ import type { TextOp } from "../domain/text-ot";
 import { post, type WorkshopClientDeps } from "./workshop-session-client";
 
 export const WORKSHOP_LIVE_PATH = "/api/overleaf/workshop/live/";
+export const WORKSHOP_FILE_PATH = "/api/overleaf/workshop/file";
 
 /** One editable text file of the project, by its path from the project root. */
 export interface LiveDocEntry {
@@ -15,7 +16,16 @@ export interface LiveDocEntry {
 }
 
 export type LiveOpenResult =
-  | { ok: true; liveId: string; name: string; rootDocId: string | null; docs: LiveDocEntry[]; canEdit: boolean }
+  | {
+      ok: true;
+      liveId: string;
+      name: string;
+      rootDocId: string | null;
+      docs: LiveDocEntry[];
+      /** Binary files (images, PDFs), which Visual shows for `\includegraphics`. */
+      files: LiveDocEntry[];
+      canEdit: boolean;
+    }
   | { ok: false; expired: boolean; message: string };
 
 export type LiveDocResult = { ok: true; text: string; version: number } | { ok: false; message: string };
@@ -26,13 +36,23 @@ export type LiveEventsResult =
   | { ok: true; events: { name: string; args: unknown[] }[]; closed: boolean }
   | { ok: false; closed: boolean; message: string };
 
-type Folder = { name?: unknown; docs?: unknown; folders?: unknown };
+type Folder = { name?: unknown; docs?: unknown; fileRefs?: unknown; folders?: unknown };
 
 /** The project's docs (not binary files) as paths, sorted; Overleaf's root folder has no name in paths. */
 export function flattenDocs(rootFolder: unknown): LiveDocEntry[] {
+  return flatten(rootFolder, "docs");
+}
+
+/** The project's binary files as paths, sorted. */
+export function flattenFiles(rootFolder: unknown): LiveDocEntry[] {
+  return flatten(rootFolder, "fileRefs");
+}
+
+function flatten(rootFolder: unknown, kind: "docs" | "fileRefs"): LiveDocEntry[] {
   const out: LiveDocEntry[] = [];
   const walk = (folder: Folder, prefix: string) => {
-    for (const doc of Array.isArray(folder.docs) ? folder.docs : []) {
+    const entries = folder[kind];
+    for (const doc of Array.isArray(entries) ? entries : []) {
       const d = doc as { _id?: unknown; name?: unknown };
       if (typeof d._id === "string" && typeof d.name === "string") out.push({ id: d._id, path: prefix + d.name });
     }
@@ -57,8 +77,28 @@ export async function openLiveProject(deps: WorkshopClientDeps, sessionId: strin
     name: typeof body.name === "string" ? body.name : "",
     rootDocId: typeof body.rootDocId === "string" ? body.rootDocId : null,
     docs: flattenDocs(body.rootFolder),
+    files: flattenFiles(body.rootFolder),
     canEdit: body.permissionsLevel === "owner" || body.permissionsLevel === "readAndWrite",
   };
+}
+
+/** One binary project file, or null when it could not be downloaded. */
+export async function fetchLiveFile(
+  deps: WorkshopClientDeps,
+  sessionId: string,
+  projectId: string,
+  fileId: string,
+): Promise<Blob | null> {
+  try {
+    const res = await deps.fetch(WORKSHOP_FILE_PATH, {
+      method: "POST",
+      headers: await deps.authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ sessionId, projectId, fileId }),
+    });
+    return res.ok ? await res.blob() : null;
+  } catch {
+    return null;
+  }
 }
 
 /** One doc's text and the version it is at. */

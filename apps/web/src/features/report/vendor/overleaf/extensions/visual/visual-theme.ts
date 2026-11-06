@@ -45,6 +45,8 @@ const mainVisualTheme = EditorView.theme({
     '--font-sans': 'var(--font-serif)',
     '--visual-font-family': 'var(--font-serif, Georgia, serif)',
     '--visual-font-size': 'calc(var(--font-size) * 1.15)',
+    '--content-placeholder': 'var(--muted)',
+    '--content-placeholder-dark': 'var(--muted)',
     '& .cm-content': {
       opacity: 0,
     },

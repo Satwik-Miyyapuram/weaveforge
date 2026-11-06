@@ -169,11 +169,11 @@
 .workshop-live__editor .cm-editor { height: 100%; font-size: var(--fs-sm); }
 /* LaTeX colours, Overleaf's scheme in theme tokens (lib/latex-highlight.ts).
    Status hues mixed with ink: some themes set every --st-*-fg to ink. */
-:root:root .workshop-live__editor :is(.cm-tex-command, .cm-tex-command *) { color: color-mix(in srgb, var(--st-info-bg) 55%, var(--ink)); }
-:root:root .workshop-live__editor :is(.cm-tex-arg, .cm-tex-arg *) { color: color-mix(in srgb, var(--st-danger-bg) 60%, var(--ink)); }
-:root:root .workshop-live__editor :is(.cm-tex-math, .cm-tex-math *) { color: color-mix(in srgb, var(--st-positive-bg) 55%, var(--ink)); }
-:root:root .workshop-live__editor :is(.cm-tex-comment, .cm-tex-comment *) { color: var(--faint); font-style: italic; }
-:root:root .workshop-live__editor :is(.cm-tex-bracket, .cm-tex-bracket *) { color: var(--muted); }
+:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-command, .cm-tex-command *) { color: color-mix(in srgb, var(--st-info-bg) 55%, var(--ink)); }
+:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-arg, .cm-tex-arg *) { color: color-mix(in srgb, var(--st-danger-bg) 60%, var(--ink)); }
+:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-math, .cm-tex-math *) { color: color-mix(in srgb, var(--st-positive-bg) 55%, var(--ink)); }
+:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-comment, .cm-tex-comment *) { color: var(--faint); font-style: italic; }
+:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-bracket, .cm-tex-bracket *) { color: var(--muted); }
 .workshop-live__editor .cm-foldGutter .cm-gutterElement { padding-inline: 2px; color: var(--muted); cursor: pointer; }
 @media (max-width: 699px) {
   .record.overleaf-detail { height: auto; }

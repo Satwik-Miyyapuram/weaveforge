@@ -15,6 +15,8 @@ import { headingOf, latexFormat, type LatexFormat } from "../lib/latex-format";
 import { latexOutline, sectionAt, type OutlineItem } from "../lib/latex-outline";
 import { LaTeXLanguage } from "../vendor/overleaf/languages/latex/latex-language";
 import { latexVisual } from "../vendor/overleaf/extensions/visual/visual";
+import { filePreview, setFilePreview } from "../vendor/overleaf/extensions/file-preview";
+import { useFilePreviews } from "./use-file-previews";
 import { OverleafEditorToolbar, type EditorMode } from "./overleaf-editor-toolbar";
 import { OverleafFileTree } from "./overleaf-file-tree";
 import { OverleafOutline } from "./overleaf-outline";
@@ -36,7 +38,7 @@ import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/work
 /** Marks edits that came from Overleaf, so they are not sent back. */
 const remoteEdit = Annotation.define<boolean>();
 
-type Project = { liveId: string; name: string; docs: LiveDocEntry[]; canEdit: boolean };
+type Project = { liveId: string; name: string; docs: LiveDocEntry[]; files: LiveDocEntry[]; canEdit: boolean };
 
 /** Folds LaTeX as Overleaf does: sections to the next heading, environments to their \end. */
 const latexFolding = foldService.of((state, from) => {
@@ -90,6 +92,10 @@ export function WorkshopLiveEditor({
   const visualRef = useRef(new Compartment());
   const liveRef = useRef<{ docId: string; doc: LiveDoc } | null>(null);
   const onEventRef = useRef<(event: { name: string; args: unknown[] }) => void>(() => {});
+  /** The project's images and PDFs, which Visual draws for \includegraphics. */
+  const previews = useFilePreviews(client, sessionId, projectId, project?.files);
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
 
   const reload = (message: string) => {
     setError(message);
@@ -160,7 +166,7 @@ export function WorkshopLiveEditor({
         return;
       }
       liveId = res.liveId;
-      setProject({ liveId: res.liveId, name: res.name, docs: res.docs, canEdit: res.canEdit });
+      setProject({ liveId: res.liveId, name: res.name, docs: res.docs, files: res.files, canEdit: res.canEdit });
       setDocId((current) =>
         current && res.docs.some((d) => d.id === current) ? current : (res.rootDocId ?? res.docs[0]?.id ?? null),
       );
@@ -222,6 +228,7 @@ export function WorkshopLiveEditor({
             isTex ? syntaxHighlighting(latexHighlight) : syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
             themeCompartment.of(createCodeMirrorThemeForSite()),
             languageCompartment.of(isTex ? new LanguageSupport(LaTeXLanguage) : []),
+            filePreview(previewsRef.current),
             visualRef.current.of(isTex && modeRef.current === "visual" ? latexVisual : []),
             EditorView.updateListener.of((update) => {
               if (update.docChanged || update.selectionSet) track(update.state, update.docChanged);
@@ -261,6 +268,17 @@ export function WorkshopLiveEditor({
     const view = viewRef.current;
     if (view) view.dispatch({ effects: visualRef.current.reconfigure(mode === "visual" ? latexVisual : []) });
   }, [mode]);
+
+  // Fetched images arrive after the editor opens: hand them over, then redraw
+  // Visual, whose widgets read the previews only when they are built.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch(setFilePreview(previews));
+    if (visualRef.current.get(view.state) !== latexVisual) return;
+    view.dispatch({ effects: visualRef.current.reconfigure([]) });
+    view.dispatch({ effects: visualRef.current.reconfigure(latexVisual) });
+  }, [previews]);
 
   /** Runs a command on the editor, then hands it the focus back. */
   const withView = (run: (view: EditorView) => void) => {
