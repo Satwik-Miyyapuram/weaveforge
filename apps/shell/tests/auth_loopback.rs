@@ -118,6 +118,29 @@ fn loopback_host_on_the_wrong_path_gets_404() {
 }
 
 #[test]
+fn post_callback_gets_405_with_allow_and_nothing_is_handed_over() {
+    let head = "POST /auth/callback?code=a HTTP/1.1\r\nHost: 127.0.0.1:53682\r\n\r\n";
+    let (reply, query) = answer(head);
+    assert_eq!(reply.status, 405);
+    assert_eq!(
+        reply.headers,
+        vec![("allow", "GET"), ("content-type", "text/plain")]
+    );
+    assert_eq!(query, None);
+}
+
+#[test]
+fn every_non_get_method_on_the_callback_is_refused() {
+    for method in ["PUT", "HEAD", "DELETE", "PATCH", "OPTIONS"] {
+        let head =
+            format!("{method} /auth/callback?code=a HTTP/1.1\r\nHost: 127.0.0.1:53682\r\n\r\n");
+        let (reply, query) = answer(&head);
+        assert_eq!(reply.status, 405, "{method} should be refused");
+        assert_eq!(query, None, "{method} must not hand a sign-in on");
+    }
+}
+
+#[test]
 fn render_writes_status_headers_and_body() {
     let (reply, _) = answer(GOOD);
     let text = String::from_utf8(render(&reply)).unwrap();
@@ -180,6 +203,23 @@ async fn serve_404_hands_nothing_on() {
     )
     .await;
     assert!(reply.starts_with("HTTP/1.1 404 Not Found\r\n"));
+    assert!(
+        timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn serve_405_for_a_post_callback_hands_nothing_on() {
+    let (addr, mut rx) = start().await;
+    let reply = send(
+        addr,
+        b"POST /auth/callback?code=x HTTP/1.1\r\nHost: 127.0.0.1:53682\r\n\r\n",
+    )
+    .await;
+    assert!(reply.starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
+    assert!(reply.contains("allow: GET\r\n"));
     assert!(
         timeout(Duration::from_millis(200), rx.recv())
             .await

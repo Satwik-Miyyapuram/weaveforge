@@ -8,7 +8,9 @@ use tauri::Manager;
 
 use crate::app_route::AppRoutes;
 use crate::commands::ShellError;
-use crate::mattermost::{SignInSlot, SignInWindow, WindowCookies, open_window, shared_sign_in, wait_for_token};
+use crate::mattermost::{
+    SignInSlot, SignInWindow, WindowCookies, open_window, shared_sign_in, wait_for_token,
+};
 
 /// The sign-in window could not be opened.
 pub const SIGN_IN_NOT_OPENED: &str = "Could not open the Overleaf sign-in window.";
@@ -21,7 +23,6 @@ const SESSION_COOKIE: &str = "overleaf_session2";
 const WINDOW: SignInWindow = SignInWindow {
     label: "overleaf-signin",
     title: "Sign in to Overleaf",
-    area: "overleaf",
 };
 const POLL: Duration = Duration::from_secs(1);
 const GIVE_UP: Duration = Duration::from_secs(10 * 60);
@@ -62,7 +63,13 @@ async fn sign_in_window(app: &tauri::AppHandle) -> Result<Option<String>, String
     let accepted = wait_for_token(
         &cookies,
         |value: String| async move {
-            match crate::overleaf_workshop::start_session(client_ref, workshop, &cookie_header(&value)).await {
+            match crate::overleaf_workshop::start_session(
+                client_ref,
+                workshop,
+                &cookie_header(&value),
+            )
+            .await
+            {
                 Ok(id) => {
                     if let Ok(mut slot) = kept_ref.lock() {
                         *slot = Some(id);
