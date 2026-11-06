@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { ToolButton } from "@/components/controls";
+import { Menu } from "@/components/menu";
+import { Popover } from "@/components/popover";
 import { Select } from "@/components/select";
 import type { LatexFormat, TextStyle } from "../lib/latex-format";
 
@@ -21,10 +23,14 @@ const STYLES: { value: TextStyle; label: string }[] = [
 type Tool = { format: LatexFormat; label: string; icon: ReactNode };
 const sep = "sep" as const;
 
-const TOOLS: (Tool | typeof sep)[] = [
+/** Always on the bar. */
+const CORE: Tool[] = [
   { format: "bold", label: "Bold", icon: <b>B</b> },
   { format: "italic", label: "Italic", icon: <i>I</i> },
-  sep,
+];
+
+/** On the bar when it is wide; in the More formatting menu when it is narrow. */
+const EXTRA: (Tool | typeof sep)[] = [
   { format: "math", label: "Math", icon: <span>π</span> },
   { format: "displayMath", label: "Display math", icon: <span>Σ</span> },
   sep,
@@ -66,13 +72,29 @@ export function OverleafEditorToolbar({
         {STYLES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
       </Select>
       <span className="overleaf-toolbar__sep" aria-hidden="true" />
-      {TOOLS.map((tool, i) =>
-        tool === sep ? (
-          <span key={`sep-${i}`} className="overleaf-toolbar__sep" aria-hidden="true" />
-        ) : (
-          <ToolButton key={tool.format} label={tool.label} disabled={disabled} onClick={() => onFormat(tool.format)}>{tool.icon}</ToolButton>
-        ),
-      )}
+      {CORE.map((tool) => (
+        <ToolButton key={tool.format} label={tool.label} disabled={disabled} onClick={() => onFormat(tool.format)}>{tool.icon}</ToolButton>
+      ))}
+      <span className="overleaf-toolbar__extra">
+        {EXTRA.map((tool, i) =>
+          tool === sep ? (
+            <span key={`sep-${i}`} className="overleaf-toolbar__sep" aria-hidden="true" />
+          ) : (
+            <ToolButton key={tool.format} label={tool.label} disabled={disabled} onClick={() => onFormat(tool.format)}>{tool.icon}</ToolButton>
+          ),
+        )}
+      </span>
+      <span className="overleaf-toolbar__more">
+        <Popover trigger="icon" label={<Glyph><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Glyph>} ariaLabel="More formatting" disabled={disabled}>
+          {(close) => (
+            <Menu
+              ariaLabel="More formatting"
+              onClose={close}
+              items={EXTRA.filter((t): t is Tool => t !== sep).map((t) => ({ id: t.format, label: t.label, icon: t.icon, onSelect: () => onFormat(t.format) }))}
+            />
+          )}
+        </Popover>
+      </span>
       <span className="overleaf-toolbar__grow" />
       <ToolButton label="Search" onClick={onSearch}><Glyph><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Glyph></ToolButton>
     </div>

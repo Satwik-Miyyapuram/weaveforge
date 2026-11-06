@@ -65,17 +65,34 @@ export function WorkshopPdfViewer({
     return () => revokePdfObjectUrl(url);
   }, [url]);
 
+  // One bar, as Overleaf has: once a PDF is shown, Recompile and Download sit
+  // in the reader's own toolbar instead of a second strip above it.
+  const controls = (
+    <>
+      <Button size="sm" variant="primary" disabled={compiling} onClick={() => setRuns((n) => n + 1)}>
+        {compiling ? "Compiling…" : "Recompile"}
+      </Button>
+      {url && (
+        <Button size="sm" variant="ghost" href={url} download="output.pdf" title="Download PDF" aria-label="Download PDF">
+          <DownloadIcon />
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <div className="workshop-pdf" aria-label="Compiled Overleaf PDF">
-      <div className="workshop-pdf__bar">
-        <Button size="sm" variant="primary" disabled={compiling} onClick={() => setRuns((n) => n + 1)}>Recompile</Button>
-        <span className="muted" role="status">{compiling ? "Compiling on Overleaf…" : ""}</span>
-        {url && <Button size="sm" variant="ghost" href={url} download="output.pdf">Download PDF</Button>}
-      </div>
+      {!url && <div className="workshop-pdf__bar">{controls}</div>}
       {error && <FormError>{error}</FormError>}
       <div className="workshop-pdf__view">
-        {url && <PdfReader url={url} paperTitle="Compiled Overleaf PDF" viewOnly />}
+        {url && <PdfReader url={url} paperTitle="Compiled Overleaf PDF" viewOnly toolbarExtra={controls} />}
       </div>
     </div>
   );
 }
+
+const DownloadIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+  </svg>
+);
