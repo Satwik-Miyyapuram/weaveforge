@@ -259,7 +259,13 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::menu::commands::menu_model,
         crate::menu::commands::menu_invoke,
         crate::menu::commands::title_bar_colors,
-        crate::menu::commands::window_focus
+        crate::menu::commands::window_focus,
+        crate::plan_widget_window::plan_widget_state,
+        crate::plan_widget_window::plan_widget_set,
+        crate::plan_widget_window::plan_widget_theme,
+        crate::plan_widget_window::plan_widget_palette,
+        crate::plan_widget_window::plan_widget_data,
+        crate::plan_widget_window::plan_widget_open
     ])
 }
 

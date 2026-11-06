@@ -298,6 +298,49 @@ export const commands = {
 	 *  Returns an error when the window refuses the change.
 	 */
 	windowFocus: (focus: boolean) => typedError<null, ShellError>(__TAURI_INVOKE("window_focus", { focus })),
+	/**
+	 *  Whether the widget can be shown here, and whether it is on.
+	 * 
+	 *  # Errors
+	 *  Never fails; the `Result` keeps the command's shape.
+	 */
+	planWidgetState: () => typedError<PlanWidgetStatePayload, ShellError>(__TAURI_INVOKE("plan_widget_state")),
+	/**
+	 *  Turns the widget on or off: saves the choice, then opens or closes its window.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the choice cannot be saved or the window cannot be opened or closed.
+	 */
+	planWidgetSet: (on: boolean) => typedError<PlanWidgetStatePayload, ShellError>(__TAURI_INVOKE("plan_widget_set", { on })),
+	/**
+	 *  Takes the app's palette for the widget: saves it, and hands it to an open widget.
+	 *  A palette that is not plain colours and shapes is dropped.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the palette cannot be saved.
+	 */
+	planWidgetTheme: (palette: unknown) => typedError<null, ShellError>(__TAURI_INVOKE("plan_widget_theme", { palette })),
+	/**
+	 *  The saved palette, if it is still a clean one.
+	 * 
+	 *  # Errors
+	 *  Never fails; the `Result` keeps the command's shape.
+	 */
+	planWidgetPalette: () => typedError<{ [key in string]: string } | null, ShellError>(__TAURI_INVOKE("plan_widget_palette")),
+	/**
+	 *  The widget's deadlines from the local database, as the web feed's widget JSON.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the local database cannot be read.
+	 */
+	planWidgetData: () => typedError<unknown, ShellError>(__TAURI_INVOKE("plan_widget_data")),
+	/**
+	 *  Brings the app forward on its plan page, opening the main window if it is closed.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the main window cannot be opened.
+	 */
+	planWidgetOpen: () => typedError<null, ShellError>(__TAURI_INVOKE("plan_widget_open")),
 };
 
 /* Types */
@@ -686,6 +729,14 @@ export type OverleafSyncReply_Serialize = {
 	pull?: SyncPull,
 	/**  The push's outcome, for `push`. */
 	push?: SyncPush,
+};
+
+/**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
+export type PlanWidgetStatePayload = {
+	/**  False where the shell cannot put a window on the desktop (not Windows). */
+	supported: boolean,
+	/**  Whether the widget is on. */
+	enabled: boolean,
 };
 
 /**  Whether a chosen root is brand new or already holds a workspace. */

@@ -84,6 +84,22 @@ fn relay_request(parts: &Parts, body: Vec<u8>) -> Option<RelayRequest> {
     })
 }
 
+/// The plan widget's page or font for `path`, served with the widget's CSP.
+fn widget_answer(path: &str) -> Option<Answer> {
+    let (kind, bytes) = crate::plan_widget::widget_asset(path)?;
+    Some(Answer {
+        status: 200,
+        headers: vec![
+            ("content-type".to_owned(), kind.to_owned()),
+            (
+                "content-security-policy".to_owned(),
+                crate::plan_widget::WIDGET_CSP.to_owned(),
+            ),
+        ],
+        body: bytes.to_vec(),
+    })
+}
+
 /// The answer to one `app://` request.
 pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -> Answer {
     let (parts, body) = request.into_parts();
@@ -108,6 +124,9 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     }
     if !APP_HOSTS.contains(&host.as_str()) {
         return bare(404);
+    }
+    if let Some(answer) = widget_answer(&path) {
+        return answer;
     }
     if let Some(rest) = path.strip_prefix(SAME_ORIGIN_PREFIX) {
         let (root, rest) = (routes.artifacts.clone(), format!("/{rest}"));
