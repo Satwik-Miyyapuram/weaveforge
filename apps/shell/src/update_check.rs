@@ -135,12 +135,25 @@ fn releases_from_body(body: &[u8]) -> Result<Vec<Release>, String> {
 /// # Errors
 /// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
 pub async fn find_update_at(current: &str, url: &str) -> Result<Option<Update>, String> {
+    find_update_warning(current, url, |_| {}).await
+}
+
+/// [`find_update_at`], handing `warn` the fetch's own error (`releases: 503`) for the log
+/// while the page gets only `UPDATE_CHECK_FAILED`.
+/// # Errors
+/// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
+pub async fn find_update_warning(
+    current: &str,
+    url: &str,
+    warn: impl FnOnce(&str) + Send,
+) -> Result<Option<Update>, String> {
     let Some(current) = parse_version(current) else {
         return Ok(None);
     };
-    let releases = fetch_releases(url)
-        .await
-        .map_err(|_| UPDATE_CHECK_FAILED.to_string())?;
+    let releases = fetch_releases(url).await.map_err(|detail| {
+        warn(&detail);
+        UPDATE_CHECK_FAILED.to_string()
+    })?;
     let Some((version, release)) = newest_release(&releases) else {
         return Ok(None);
     };
@@ -153,19 +166,17 @@ pub async fn find_update_at(current: &str, url: &str) -> Result<Option<Update>, 
     }))
 }
 
-/// The update to announce from the real releases list.
+/// What the check channel answers from the real releases list. A dev build asks nothing
+/// and gets `None`. `warn` gets the fetch's own error for the log.
 /// # Errors
 /// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
-pub async fn find_update(current: &str) -> Result<Option<Update>, String> {
-    find_update_at(current, RELEASES_URL).await
-}
-
-/// What the check channel answers. A dev build asks nothing and gets `None`.
-/// # Errors
-/// `UPDATE_CHECK_FAILED` when the releases could not be fetched.
-pub async fn check_update_reply(packaged: bool, current: &str) -> Result<Option<Update>, String> {
+pub async fn check_update_reply(
+    packaged: bool,
+    current: &str,
+    warn: impl FnOnce(&str) + Send,
+) -> Result<Option<Update>, String> {
     if !packaged {
         return Ok(None);
     }
-    find_update(current).await
+    find_update_warning(current, RELEASES_URL, warn).await
 }

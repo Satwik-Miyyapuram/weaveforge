@@ -8,7 +8,7 @@ use crate::commands::ShellError;
 use crate::tex::{
     TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, compile_tex, probe_tex,
 };
-use crate::update_check::{Update, check_update_reply};
+use crate::update_check::{UPDATE_CHECK_FAILED, Update, check_update_reply};
 use crate::zotero_local::{ZoteroLocalReply, fetch_zotero_local};
 
 /// A compile's outcome for the page: the PDF as base64.
@@ -193,7 +193,12 @@ pub async fn zotero_local(url: String) -> Result<ZoteroLocalReply, ShellError> {
 #[specta::specta]
 pub async fn update_check(app: tauri::AppHandle) -> Result<Option<Update>, ShellError> {
     let current = app.package_info().version.to_string();
-    check_update_reply(!tauri::is_dev(), &current)
+    let warn = |detail: &str| {
+        if let Some(log) = tauri::Manager::try_state::<AppLog>(&app) {
+            log.record(LogLevel::Warn, "update", UPDATE_CHECK_FAILED, Some(detail));
+        }
+    };
+    check_update_reply(!tauri::is_dev(), &current, warn)
         .await
         .map_err(ShellError::from)
 }
