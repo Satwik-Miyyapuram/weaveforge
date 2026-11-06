@@ -8,6 +8,7 @@ import type { DesktopTexCompileResult, DesktopTexError } from "@/lib/desktop/des
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { typedCore } from "@/lib/rust-core";
+import { PdfReader } from "@/features/reader/ui/pdf-reader";
 
 type SourceFile = { path: string; content: string };
 
@@ -73,7 +74,15 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
   const stopAsked = useRef(false);
   const [result, setResult] = useState<DesktopTexCompileResult | null>(null);
   const [error, setError] = useState("");
+  // The compiled PDF, shown in our own viewer instead of a blob popup.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const bridge = desktop();
+
+  // A new PDF or leaving the page frees the old blob.
+  useEffect(() => {
+    if (!pdfUrl) return;
+    return () => URL.revokeObjectURL(pdfUrl);
+  }, [pdfUrl]);
 
   // A long compile shows it is still going, counted from when it started.
   useEffect(() => {
@@ -130,11 +139,7 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
       setStopped(stopAsked.current && !compiled.ok);
       setResult(compiled);
       if (compiled.pdf) {
-        const url = URL.createObjectURL(new Blob([compiled.pdf], { type: "application/pdf" }));
-        window.open(url, "_blank", "noreferrer");
-        // Revoked once the new tab has had time to take it; holding the blob
-        // for the life of the session would keep a thesis-sized PDF in memory.
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        setPdfUrl(URL.createObjectURL(new Blob([compiled.pdf], { type: "application/pdf" })));
       }
     } catch (cause) {
       setError(formatError(cause));
@@ -157,6 +162,11 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
       <span className="project-checks-engine">{tool}</span>
       {error && <FormError>{error}</FormError>}
       {stopped && <span className="muted">Stopped.</span>}
+      {pdfUrl && (
+        <div className="workshop-pdf">
+          <PdfReader url={pdfUrl} paperTitle="Compiled PDF" />
+        </div>
+      )}
       {result && !result.ok && !stopped && (
         <>
           <FormError>
