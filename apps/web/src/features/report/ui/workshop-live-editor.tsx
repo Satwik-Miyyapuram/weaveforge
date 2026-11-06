@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { defaultHighlightStyle, LanguageDescription, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
@@ -37,12 +37,16 @@ export function WorkshopLiveEditor({
   client,
   sessionId,
   projectId,
-  onClose,
+  layout,
+  pdf,
 }: {
   client: WorkshopClientDeps;
   sessionId: string;
   projectId: string;
-  onClose: () => void;
+  /** Which panes show next to the file tree, as Overleaf's layout menu. */
+  layout: "split" | "editor" | "pdf";
+  /** The compiled PDF pane. Hidden panes stay mounted, so the connection and the PDF survive a switch. */
+  pdf: ReactNode;
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
@@ -218,12 +222,12 @@ export function WorkshopLiveEditor({
       <div className="workshop-live__bar">
         <span className="muted" role="status">{closed ? "Disconnected" : status}</span>
         {closed && <Button size="sm" variant="primary" onClick={() => setAttempt((n) => n + 1)}>Reconnect</Button>}
-        <Button size="sm" variant="cancel" onClick={onClose}>Close editor</Button>
       </div>
       {error && <FormError>{error}</FormError>}
-      <div className="workshop-live__body">
+      <div className={`workshop-live__body workshop-live__body--${layout}`}>
         <OverleafFileTree docs={project?.docs ?? []} activeId={docId} onOpen={setDocId} />
         <div className="workshop-live__editor" ref={parentRef} />
+        <div className="workshop-live__pdf">{pdf}</div>
       </div>
     </div>
   );

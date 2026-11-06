@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
 import { createPdfObjectUrl, PdfReader, revokePdfObjectUrl } from "@/features/reader";
 import {
@@ -13,8 +14,6 @@ export interface WorkshopPdfViewerProps {
   projectId: string;
 }
 
-type ViewState = { status: "loading" } | { status: "ready"; url: string } | { status: "error"; message: string };
-
 /**
  * Shows the PDF Overleaf compiled for a stored Workshop session. Overleaf picks
  * the project's main document.
@@ -23,48 +22,59 @@ type ViewState = { status: "loading" } | { status: "ready"; url: string } | { st
  * shell's routes without a bearer token.
  *
  * Each load owns the object URL it creates. A change of inputs or an unmount marks
- * the load cancelled and revokes the URL on screen; a response that lands after
- * that is revoked on arrival and never shown.
+ * the load cancelled; a response that lands after that is revoked on arrival and
+ * never shown. A shown URL is revoked once a newer PDF replaces it or on unmount.
+ * Recompile keeps the last PDF on screen until the new one arrives.
  */
 export function WorkshopPdfViewer({
   sessionId,
   projectId,
   authHeaders,
 }: WorkshopPdfViewerProps & { authHeaders: WorkshopPdfDeps["authHeaders"] }) {
-  const [state, setState] = useState<ViewState>({ status: "loading" });
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [compiling, setCompiling] = useState(true);
+  /** Recompile bumps this to fetch again. */
+  const [runs, setRuns] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    let shownUrl: string | null = null;
     const deps: WorkshopPdfDeps = {
       fetch: (url, init) => fetch(url, init),
       authHeaders,
       createObjectUrl: (blob) => createPdfObjectUrl(blob),
     };
-    setState({ status: "loading" });
+    setCompiling(true);
+    setError(null);
     void fetchWorkshopPdf(deps, sessionId, projectId, null, () => !cancelled).then((result) => {
       if (cancelled) {
         if (result.ok) revokePdfObjectUrl(result.url);
         return;
       }
-      if (result.ok) {
-        shownUrl = result.url;
-        setState({ status: "ready", url: result.url });
-      } else {
-        setState({ status: "error", message: result.message });
-      }
+      setCompiling(false);
+      if (result.ok) setUrl(result.url);
+      else setError(result.message);
     });
     return () => {
       cancelled = true;
-      if (shownUrl) revokePdfObjectUrl(shownUrl);
     };
-  }, [sessionId, projectId, authHeaders]);
+  }, [sessionId, projectId, authHeaders, runs]);
 
-  if (state.status === "error") return <FormError>{state.message}</FormError>;
-  if (state.status === "loading") return <p className="muted">Compiling on Overleaf…</p>;
+  useEffect(() => {
+    if (!url) return;
+    return () => revokePdfObjectUrl(url);
+  }, [url]);
+
   return (
     <div className="workshop-pdf" aria-label="Compiled Overleaf PDF">
-      <PdfReader url={state.url} paperTitle="Compiled Overleaf PDF" viewOnly />
+      <div className="workshop-pdf__bar">
+        <Button size="sm" variant="primary" disabled={compiling} onClick={() => setRuns((n) => n + 1)}>Recompile</Button>
+        <span className="muted" role="status">{compiling ? "Compiling on Overleaf…" : ""}</span>
+      </div>
+      {error && <FormError>{error}</FormError>}
+      <div className="workshop-pdf__view">
+        {url && <PdfReader url={url} paperTitle="Compiled Overleaf PDF" viewOnly />}
+      </div>
     </div>
   );
 }

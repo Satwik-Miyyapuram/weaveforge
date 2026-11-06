@@ -13,7 +13,7 @@ import { EditOverleafReportForm, LinkOverleafForm } from "./overleaf-report-form
 import type { WorkshopSession } from "./use-workshop-session";
 import { WorkshopPdfViewer } from "./workshop-pdf-viewer";
 
-/** The editor pulls in CodeMirror; load it only when the Write tab opens. */
+/** The editor pulls in CodeMirror; load it only when a project opens in the desktop app. */
 const WorkshopLiveEditor = dynamic(() => import("./workshop-live-editor").then((m) => m.WorkshopLiveEditor), { ssr: false });
 
 export type DetailTab = "write" | "pdf";
@@ -35,12 +35,20 @@ export function tabBlockers({ signedIn, inAccount, inShell }: {
   };
 }
 
-const TABS: readonly { value: DetailTab; label: string; title: string }[] = [
-  { value: "write", label: "Write", title: "Edit the files here; edits reach Overleaf as you type" },
-  { value: "pdf", label: "PDF", title: "The PDF Overleaf compiles from the project's main document" },
+export type Layout = "split" | "editor" | "pdf";
+
+/** Overleaf's layout menu: the file tree always shows; these pick the panes beside it. */
+const LAYOUTS: readonly { value: Layout; label: string; title: string }[] = [
+  { value: "split", label: "Split", title: "Editor and PDF side by side" },
+  { value: "editor", label: "Editor", title: "Editor only" },
+  { value: "pdf", label: "PDF", title: "PDF only" },
 ];
 
-/** One Overleaf project: Write and PDF tabs, and its link to this WeaveForge project. */
+/**
+ * One Overleaf project as Overleaf lays it out: files, editor and PDF, with our
+ * record header and its link to this WeaveForge project. Without the desktop app
+ * it shows the PDF alone.
+ */
 export function OverleafProjectDetail({
   row,
   session,
@@ -68,11 +76,11 @@ export function OverleafProjectDetail({
   const report = row.report;
   const sessionId = session.sessionId;
   const blockers = tabBlockers({ signedIn: Boolean(sessionId), inAccount: row.inAccount, inShell });
-  const [tab, setTab] = useState<DetailTab>(() => TABS.find((t) => blockers[t.value] === null)?.value ?? "write");
+  const [layout, setLayout] = useState<Layout>("split");
   const [form, setForm] = useState<"link" | "edit" | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
 
-  const blocker = blockers[tab];
+  const canWrite = blockers.write === null && Boolean(sessionId);
   const overleafUrl = report?.external_url ?? `https://www.overleaf.com/project/${encodeURIComponent(row.id)}`;
   const meta = [
     row.inAccount ? "In your Overleaf account" : "Not in the signed-in account",
@@ -84,12 +92,7 @@ export function OverleafProjectDetail({
       <nav className="record-bar" aria-label="Overleaf project">
         <BackButton label="Overleaf" onClick={onBack} />
         <span className="record-mono record-bar-id">Project {row.id.slice(0, 6)}</span>
-        <ViewSwitch
-          label="Project view"
-          value={tab}
-          onChange={setTab}
-          options={TABS.map((t) => ({ ...t, title: blockers[t.value] ?? t.title }))}
-        />
+        {canWrite && <ViewSwitch label="Layout" value={layout} onChange={setLayout} options={LAYOUTS} />}
         <div className="record-actions">
           <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf">
             <OpenIcon />
@@ -140,25 +143,29 @@ export function OverleafProjectDetail({
           onError={onError}
         />
       )}
-      <div className="overleaf-detail__body" role="tabpanel">
-        {blocker ? (
-          <div className="overleaf-detail__blocked">
-            <p className="muted">{blocker}</p>
-            {tab === "write" && canEditAsFiles && (
-              <Button variant="link" href="/settings#settings-workspace">Edit as files with a Git token (Settings)</Button>
-            )}
-          </div>
-        ) : tab === "write" && sessionId ? (
+      <div className="overleaf-detail__body">
+        {canWrite && sessionId ? (
           <WorkshopLiveEditor
             key={`${sessionId}:${row.id}`}
             client={client}
             sessionId={sessionId}
             projectId={row.id}
-            onClose={() => setTab("pdf")}
+            layout={layout}
+            pdf={<WorkshopPdfViewer key={`${sessionId}:${row.id}`} sessionId={sessionId} projectId={row.id} authHeaders={client.authHeaders} />}
           />
-        ) : sessionId ? (
-          <WorkshopPdfViewer sessionId={sessionId} projectId={row.id} authHeaders={client.authHeaders} />
-        ) : null}
+        ) : (
+          <>
+            <div className="overleaf-detail__blocked">
+              <p className="muted">{blockers.pdf ?? blockers.write}</p>
+              {blockers.pdf === null && canEditAsFiles && (
+                <Button variant="link" href="/settings#settings-workspace">Edit as files with a Git token (Settings)</Button>
+              )}
+            </div>
+            {blockers.pdf === null && sessionId && (
+              <WorkshopPdfViewer key={`${sessionId}:${row.id}`} sessionId={sessionId} projectId={row.id} authHeaders={client.authHeaders} />
+            )}
+          </>
+        )}
       </div>
     </article>
   );
