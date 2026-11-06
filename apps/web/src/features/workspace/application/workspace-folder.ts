@@ -508,7 +508,15 @@ function scheduleAutoApply(): void {
         const { applied } = await applyOutsideEdits({
           preview: () => previewFolderImport(only),
           isOpen: isNoteOpen,
-          apply: (diff) => applyFolderImport(diff, {}, { fs, expected: seenDigests(diff) }),
+          apply: async (diff) => {
+            const result = await applyFolderImport(diff, {}, { fs, expected: seenDigests(diff), stored: diff.stored });
+            // A note written in the app since the preview was left alone; the next look sees both sides moved.
+            if (result.moved.length > 0) {
+              for (const path of result.moved) autoApplyPaths.add(path);
+              scheduleAutoApply();
+            }
+            return result;
+          },
           settle: (held) => {
             if (activeFs === fs) settleExternalChanges(held, only);
           },

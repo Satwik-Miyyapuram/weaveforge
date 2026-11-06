@@ -12,7 +12,7 @@ import type { AppContainer } from "@/bootstrap";
 import { setContainerForTests } from "@/bootstrap";
 import type { IWorkspaceFs, ImportDiff, ImportDiffEntry } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { applyEntries } from "../application/folder-import-apply";
+import { applyEntries, storedDigest } from "../application/folder-import-apply";
 import { refreshMirrorBase } from "../application/folder-json-import";
 import { baseDigest, readMirrorBase } from "../application/mirror-manifest";
 
@@ -127,4 +127,40 @@ test("refreshMirrorBase records the folder's text, but not a file that moved sin
   const base = await readMirrorBase(fs, projectRoot);
   assert.equal(base[kept], baseDigest("kept\n"));
   assert.equal(base[moved], undefined);
+});
+
+function updated(id: string, path: string, body: string): ImportDiff {
+  const entry: ImportDiffEntry = {
+    action: "updated",
+    entity: { id, type: "vault_page", title: "Idea", body, path, fields: {} },
+  };
+  return { entries: [entry], counts: { updated: 1 } } as ImportDiff;
+}
+
+test("an update is skipped and reported moved when the note changed since the preview", async () => {
+  const { container, pages } = fakeContainer();
+  setContainerForTests(container);
+  const path = `${projectRoot}/notes/idea.md`;
+  const { fs } = memoryFs({ [path]: "# Idea\n\nfolder\n" });
+  pages.set("p-1", { id: "p-1", title: "Idea", body: "typed in app" });
+
+  const stale = { "p-1": storedDigest({ title: "Idea", body: "before" }) };
+  const result = await applyEntries(fs, updated("p-1", path, "folder"), {}, stale);
+  assert.deepEqual(result.moved, [path]);
+  assert.equal(result.updated, 0);
+  assert.equal(pages.get("p-1")?.body, "typed in app");
+});
+
+test("an update goes ahead when the note is as the preview saw it", async () => {
+  const { container, pages } = fakeContainer();
+  setContainerForTests(container);
+  const path = `${projectRoot}/notes/idea.md`;
+  const { fs } = memoryFs({ [path]: "# Idea\n\nfolder\n" });
+  pages.set("p-1", { id: "p-1", title: "Idea", body: "before" });
+
+  const fresh = { "p-1": storedDigest({ title: "Idea", body: "before" }) };
+  const result = await applyEntries(fs, updated("p-1", path, "folder"), {}, fresh);
+  assert.deepEqual(result.moved, []);
+  assert.equal(result.updated, 1);
+  assert.equal(pages.get("p-1")?.body, "folder");
 });

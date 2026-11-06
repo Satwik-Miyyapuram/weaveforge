@@ -23,7 +23,12 @@ export interface SeenFile {
   newPath?: boolean;
 }
 
-export type FolderDiff = ImportDiff & { json?: JsonDiff; seen?: Readonly<Record<string, SeenFile>> };
+export type FolderDiff = ImportDiff & {
+  json?: JsonDiff;
+  seen?: Readonly<Record<string, SeenFile>>;
+  /** Each note's stored title and body digest when the preview was taken, by id (`storedDigest`). */
+  stored?: Readonly<Record<string, string>>;
+};
 
 /** Why an outside edit waits for a person, said in the review list beside the file. */
 export type HeldReason =
@@ -126,7 +131,8 @@ export interface OutsideEditDeps {
   preview(): Promise<FolderDiff>;
   /** True for a note open in an editor: its edits wait for review rather than land under the cursor. */
   isOpen(noteId: string): boolean;
-  apply(diff: FolderDiff): Promise<unknown>;
+  /** `moved`: paths not applied because their note changed in the app after the preview. */
+  apply(diff: FolderDiff): Promise<{ moved?: readonly string[] } | void>;
   settle(held: FolderDiff): void;
 }
 
@@ -137,8 +143,8 @@ export async function applyOutsideEdits(
   const diff = await deps.preview();
   const { apply, held } = splitOutsideEdits(diff, (noteId) => deps.isOpen(noteId));
 
-  const applied = apply.entries.length + (apply.json?.entries.length ?? 0);
-  if (applied > 0) await deps.apply(apply);
+  let applied = apply.entries.length + (apply.json?.entries.length ?? 0);
+  if (applied > 0) applied -= (await deps.apply(apply))?.moved?.length ?? 0;
   deps.settle(held);
 
   return { applied, held: held.entries.length + (held.json?.entries.length ?? 0) };
