@@ -249,6 +249,7 @@ export function closeFolder(): void {
   unwatchFolder = null;
   if (autoApplyTimer) clearTimeout(autoApplyTimer);
   autoApplyTimer = null;
+  autoApplyFirstAt = null;
   autoApplyPaths = new Set();
   clearExternalChanges();
   clearPendingAssets();
@@ -421,7 +422,11 @@ const externalListeners = new Set<(paths: string[]) => void>();
 const takenInListeners = new Set<(count: number) => void>();
 /** Wait after the last outside edit before taking edits in, so a burst of saves is read once. */
 export const AUTO_APPLY_DEBOUNCE_MS = 800;
+/** Longest a waiting edit is put off by later ones, so a folder that never goes quiet is still read. */
+export const AUTO_APPLY_MAX_WAIT_MS = 2000;
 let autoApplyTimer: ReturnType<typeof setTimeout> | null = null;
+/** When the waiting auto-apply was first asked for; null when none waits. */
+let autoApplyFirstAt: number | null = null;
 let autoApplyRun: Promise<unknown> = Promise.resolve();
 /** The paths seen changing since the last auto-apply started; the next one previews only these. */
 let autoApplyPaths = new Set<string>();
@@ -495,8 +500,12 @@ function announceExternal(): void {
  */
 function scheduleAutoApply(): void {
   if (autoApplyTimer) clearTimeout(autoApplyTimer);
+  const now = Date.now();
+  autoApplyFirstAt ??= now;
+  const delay = Math.min(AUTO_APPLY_DEBOUNCE_MS, Math.max(0, autoApplyFirstAt + AUTO_APPLY_MAX_WAIT_MS - now));
   autoApplyTimer = setTimeout(() => {
     autoApplyTimer = null;
+    autoApplyFirstAt = null;
     const fs = activeFs;
     autoApplyRun = autoApplyRun.then(async () => {
       // No check on `external` here: a settle from the run before may have cleared a path that changed
@@ -533,7 +542,7 @@ function scheduleAutoApply(): void {
         logToApp({ level: "warn", source: "workspace-sync", message: "outside edits not taken in", detail: formatError(error) });
       }
     });
-  }, AUTO_APPLY_DEBOUNCE_MS);
+  }, delay);
 }
 
 // An edit held only because its note was open goes in once the note closes, not at the next folder event.

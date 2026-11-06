@@ -275,3 +275,18 @@ test("an edit held because its note was open is taken in once the note closes", 
   release();
   assert.equal(autoApplyScheduled(), true);
 });
+
+test("a folder that never goes quiet is still read within the max wait", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const started = Date.now();
+  // A save every 400 ms keeps restarting the 800 ms debounce; without the cap it would fire at 2400 ms.
+  for (let i = 0; i < 5; i += 1) {
+    shell.changed(["notes/busy.note.md"]);
+    await settle();
+    await wait(400);
+  }
+  await wait(Math.max(0, started + 2200 - Date.now()));
+  assert.equal(autoApplyScheduled(), false);
+});
