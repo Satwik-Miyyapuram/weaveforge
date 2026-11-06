@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FormError } from "@/components/form-error";
+import { PdfReader } from "@/features/reader/ui/pdf-reader";
 import {
   fetchWorkshopPdf,
   type WorkshopPdfDeps,
@@ -62,10 +63,8 @@ export function WorkshopPdfViewer({
   if (state.status === "error") return <FormError>{state.message}</FormError>;
   if (state.status === "loading") return <p className="muted">Compiling on Overleaf…</p>;
   return (
-    <iframe
-      title="Compiled Overleaf PDF"
-      src={state.url}
-      style={{ width: "100%", height: "80vh", border: 0 }}
-    />
+    <div className="workshop-pdf" aria-label="Compiled Overleaf PDF">
+      <PdfReader url={state.url} paperTitle="Compiled Overleaf PDF" />
+    </div>
   );
 }
