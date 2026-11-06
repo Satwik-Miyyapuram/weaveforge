@@ -61,3 +61,30 @@ test("a fallback that also fails is disposed and rejects with its own error", as
   );
   assert.deepEqual(log, ["load native", "dispose native", "load worker", "dispose worker"]);
 });
+
+test("an abort before the primary fails builds no fallback and leaves the primary to the caller", async () => {
+  const log: string[] = [];
+  const controller = new AbortController();
+  controller.abort(new Error("superseded"));
+  await assert.rejects(
+    loadWithFallback(fake("native", log, new Error("no runtime")), () => fake("worker", log), undefined, controller.signal),
+    { message: "superseded" },
+  );
+  assert.deepEqual(log, ["load native"]);
+});
+
+test("an abort while the fallback loads disposes it and rejects with the reason", async () => {
+  const log: string[] = [];
+  const controller = new AbortController();
+  const worker = fake("worker", log);
+  const load = worker.load;
+  worker.load = async () => {
+    await load();
+    controller.abort(new Error("superseded"));
+  };
+  await assert.rejects(
+    loadWithFallback(fake("native", log, new Error("no runtime")), () => worker, undefined, controller.signal),
+    { message: "superseded" },
+  );
+  assert.deepEqual(log, ["load native", "dispose native", "load worker", "dispose worker"]);
+});
