@@ -16,6 +16,7 @@ import {
   type WorkshopClientDeps,
   type WorkshopProject,
 } from "@/features/overleaf/infrastructure/workshop-session-client";
+import { WorkshopLiveEditor } from "./workshop-live-editor";
 import { WorkshopPdfViewer, type WorkshopPdfViewerProps } from "./workshop-pdf-viewer";
 
 /** Where this browser remembers its Workshop session id. Only the opaque id, never the cookie. */
@@ -59,7 +60,7 @@ export function canShowWorkshop({ localMode, shell = false }: { localMode: boole
 type ConnectMode = "signin" | "git";
 
 const SIGN_IN_TIP =
-  "Opens overleaf.com in an app window. Works on any plan; Overleaf compiles the PDF; view and compile only. " +
+  "Opens overleaf.com in an app window. Works on any plan; Overleaf compiles the PDF; in the desktop app you can also edit the files live. " +
   "Saved browser passwords don't fill in there, but Google/ORCID sign-in and desktop password managers work. " +
   "Google may refuse embedded windows.";
 
@@ -70,7 +71,7 @@ const GIT_TIP =
 
 /** The two ways to connect. The tip holds the details; the hint is the one line always shown. */
 const CONNECT_OPTIONS: readonly { mode: ConnectMode; label: string; hint: string; tip: string }[] = [
-  { mode: "signin", label: "Sign in to Overleaf", hint: "Any plan. View and compile the PDF.", tip: SIGN_IN_TIP },
+  { mode: "signin", label: "Sign in to Overleaf", hint: "Any plan. View the PDF; edit live in the desktop app.", tip: SIGN_IN_TIP },
   { mode: "git", label: "Edit as files (Git token)", hint: "Paid or institution plan. Edit in your vault, compile locally.", tip: GIT_TIP },
 ];
 
@@ -101,6 +102,8 @@ export function WorkshopPanel({
   const [cookies, setCookies] = useState("");
   const [projectId, setProjectId] = useState("");
   const [shown, setShown] = useState<WorkshopPdfViewerProps | null>(null);
+  /** The project open in the live editor (desktop app only). */
+  const [editing, setEditing] = useState<{ sessionId: string; projectId: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   /** The project list failed for the stored session; Retry bumps `attempt` to load again. */
@@ -137,6 +140,7 @@ export function WorkshopPanel({
     setProjects(null);
     setLoadFailed(false);
     setShown(null);
+    setEditing(null);
   }
 
   async function signIn(event: { preventDefault(): void }) {
@@ -208,8 +212,8 @@ export function WorkshopPanel({
   );
 
   return (
-    <section className="workshop-panel" aria-label="Overleaf PDF">
-      <h2>Overleaf PDF</h2>
+    <section className="workshop-panel" aria-label="Overleaf">
+      <h2>Overleaf</h2>
       {error && <FormError>{error}</FormError>}
       {!sessionId ? (
         <div className="overleaf-connect">
@@ -287,9 +291,27 @@ export function WorkshopPanel({
                 Show PDF
               </Button>
             )}
+            {inShell && projects.length > 0 && (
+              <Button
+                disabled={!projectId}
+                title="Edit the project's files here; edits reach Overleaf as you type"
+                onClick={() => sessionId && projectId && setEditing({ sessionId, projectId })}
+              >
+                Edit
+              </Button>
+            )}
             <Button variant="cancel" onClick={() => void disconnect()}>Disconnect</Button>
           </div>
         </form>
+      )}
+      {editing && (
+        <WorkshopLiveEditor
+          key={`${editing.sessionId}:${editing.projectId}`}
+          client={client}
+          sessionId={editing.sessionId}
+          projectId={editing.projectId}
+          onClose={() => setEditing(null)}
+        />
       )}
       {shown && <WorkshopPdfViewer {...shown} authHeaders={client.authHeaders} />}
     </section>

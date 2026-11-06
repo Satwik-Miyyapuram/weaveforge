@@ -39,10 +39,11 @@ test("the frame-src directive is not weakened to allow any origin", () => {
   assert.doesNotMatch(directive![1]!, /\*|https?:/);
 });
 
-test("the viewer frames only a blob URL, which the CSP now allows", () => {
+test("the viewer shows a blob URL in the in-app reader, not a frame", () => {
   const viewer = read(
     "apps/web/src/features/report/ui/workshop-pdf-viewer.tsx",
   );
-  assert.match(viewer, /<iframe[\s\S]*?src=\{/);
+  assert.match(viewer, /<PdfReader[\s\S]*?url=\{/);
   assert.match(viewer, /URL\.createObjectURL/);
+  assert.doesNotMatch(viewer, /<iframe/);
 });

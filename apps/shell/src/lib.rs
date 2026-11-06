@@ -40,6 +40,7 @@ pub mod model_cache;
 pub mod old_db;
 pub mod outside_gate;
 pub mod overleaf_links;
+pub mod overleaf_live;
 pub mod overleaf_read;
 pub mod overleaf_signin;
 pub mod overleaf_workshop;
