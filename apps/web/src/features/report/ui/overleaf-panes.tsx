@@ -1,7 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ToolButton } from "@/components/controls";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
-import { followPointer } from "@/features/editor-workspace/ui/follow-pointer";
 
 export type PaneLayout = "split" | "editor" | "pdf";
 
@@ -31,7 +30,10 @@ function Divider({
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!onDrag || event.target !== event.currentTarget) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    followPointer(window, (move) => onDrag(move.clientX));
+  };
+  /** Captured moves are the drag; capture ends on release or cancel. */
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (onDrag && event.currentTarget.hasPointerCapture(event.pointerId)) onDrag(event.clientX);
   };
   return (
     <div
@@ -43,6 +45,7 @@ function Divider({
       tabIndex={onDrag ? 0 : -1}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
     >
       {children}
     </div>
