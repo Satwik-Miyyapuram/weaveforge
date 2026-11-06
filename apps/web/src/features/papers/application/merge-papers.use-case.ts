@@ -102,7 +102,10 @@ export class MergePapersUseCase {
     const anns = await annotations.list(dup.id);
 
     const merged: Paper = { ...mergePaperInto(keep, dup), updatedAt: this.deps.now?.() ?? new Date().toISOString() };
-    await this.deps.papers.save(merged);
+    // A DOI or arXiv id only the duplicate has is unique per project, so the
+    // kept row takes it once the duplicate is gone (the save below would be refused).
+    const idsMove = merged.doi !== keep.doi || merged.arxivId !== keep.arxivId;
+    await this.deps.papers.save(idsMove ? { ...merged, doi: keep.doi, arxivId: keep.arxivId } : merged);
 
     // Annotations: a new id on the kept paper, so pins keyed by the old id follow.
     // A copy an earlier, interrupted run already made is reused, each at most
@@ -192,6 +195,7 @@ export class MergePapersUseCase {
         `Everything from “${dup.title}” was moved, but the copy itself could not be removed. Delete it from the list by hand.`,
       );
     }
+    if (idsMove) await this.deps.papers.save(merged);
     return merged;
   }
 }
