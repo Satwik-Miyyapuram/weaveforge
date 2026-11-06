@@ -53,8 +53,8 @@ pub fn adopt_choice(
     chosen: Option<&Path>,
     sink: ChangeSink,
 ) -> Result<Choice, String> {
-    adopt_inner(vault, prefs, slot, chosen, sink, |slot, root, sink| {
-        watch_root(slot, root, sink)
+    adopt_inner(vault, prefs, slot, chosen, sink, |root, sink| {
+        VaultWatcher::start(root, sink)
     })
 }
 
@@ -70,8 +70,8 @@ pub fn adopt_choice_with(
     quiet: Duration,
     window: Duration,
 ) -> Result<Choice, String> {
-    adopt_inner(vault, prefs, slot, chosen, sink, |slot, root, sink| {
-        watch_root_with(slot, root, sink, quiet, window)
+    adopt_inner(vault, prefs, slot, chosen, sink, |root, sink| {
+        VaultWatcher::start_with(root, sink, quiet, window)
     })
 }
 
@@ -101,17 +101,20 @@ pub fn restore_remembered(vault: &VaultState, prefs: &Prefs) -> Option<VaultRoot
     restored
 }
 
-/// Shared pick flow; `watch` is the only part that differs between default and given timings.
+/// Shared pick flow; `start` is the only part that differs between default and given timings.
 ///
 /// The session stays locked for the whole pick, so two picks run one after the other and the
-/// session, remembered folder and watch always end on the same folder.
+/// session, remembered folder and watch always end on the same folder. A refused pick never
+/// touches the old watch, so the old folder is watched without a gap. On a good pick the old
+/// watch is halted under the lock (its news must not be read against the new folder) and
+/// joined only after the lock is let go, so a slow stop never stalls the vault commands.
 fn adopt_inner(
     vault: &VaultState,
     prefs: &Prefs,
     slot: &WatchSlot,
     chosen: Option<&Path>,
     sink: ChangeSink,
-    watch: impl FnOnce(&WatchSlot, &Path, ChangeSink) -> Result<(), String>,
+    start: impl FnOnce(&Path, ChangeSink) -> Result<VaultWatcher, String>,
 ) -> Result<Choice, String> {
     let Some(chosen) = chosen else {
         return Ok(Choice {
@@ -120,18 +123,11 @@ fn adopt_inner(
         });
     };
     let mut session = vault.lock();
-    let old = session.root();
-    // Stop the old folder first: its reports must never be read against the new folder.
-    slot.set(None);
-    let root = match session.choose(Some(chosen)) {
-        Ok(root) => root,
-        Err(reason) => {
-            if let Some(old) = old {
-                let _ = watch(slot, Path::new(&old.path), sink);
-            }
-            return Err(reason);
-        }
-    };
+    let root = session.choose(Some(chosen))?;
+    let old = slot.take();
+    if let Some(old) = &old {
+        old.halt();
+    }
     let mut warnings = Vec::new();
     if let Some(picked) = &root {
         if prefs
@@ -140,9 +136,12 @@ fn adopt_inner(
         {
             warnings.push(NOT_REMEMBERED.to_owned());
         }
-        if let Err(reason) = watch(slot, Path::new(&picked.path), sink) {
-            warnings.push(reason);
+        match start(Path::new(&picked.path), sink) {
+            Ok(watcher) => slot.set(Some(watcher)),
+            Err(reason) => warnings.push(reason),
         }
     }
+    drop(session);
+    drop(old);
     Ok(Choice { root, warnings })
 }
