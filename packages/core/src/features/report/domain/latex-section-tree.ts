@@ -124,7 +124,7 @@ export function parseLatexSectionTree(
         localSections.push(node);
         stack.push(node);
       }
-      const includeRe = /\\(?:input|include)\s*(?:\{([^}]+)\}|([^\s%]+))/g;
+      const includeRe = /\\(?:input|include)\b\s*(?:\{([^}]+)\}|([^\s%]+))/g;
       let include: RegExpExecArray | null;
       while ((include = includeRe.exec(lines[index]!)) !== null) {
         const child = resolveInclude(normalized, include[1] ?? include[2] ?? "");
