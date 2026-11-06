@@ -570,6 +570,7 @@
     );
   }
   var VAULT_CHANGED_EVENT = "vault-changed";
+  var VAULT_WATCH_LOST_EVENT = "vault-watch-lost";
   var SEMANTIC_RANK_EVENT = "semanticRank";
   var EMBED_PROGRESS_EVENT = "embedProgress";
   var LOCAL_API = {
@@ -673,6 +674,26 @@
           else unlisten = stop;
         }).catch((error) => {
           console.warn("Outside changes to the workspace folder will not show up live:", error);
+        });
+        return () => {
+          if (stopped) return;
+          stopped = true;
+          unlisten?.();
+          unlisten = null;
+        };
+      },
+      // Same unlisten rule as `onVaultChange`.
+      onVaultWatchLost: (cb) => {
+        let stopped = false;
+        let unlisten = null;
+        void events.listen(VAULT_WATCH_LOST_EVENT, (payload) => {
+          if (stopped || typeof payload !== "string") return;
+          cb(payload);
+        }).then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        }).catch((error) => {
+          console.warn("A lost workspace folder watch will not be reported:", error);
         });
         return () => {
           if (stopped) return;

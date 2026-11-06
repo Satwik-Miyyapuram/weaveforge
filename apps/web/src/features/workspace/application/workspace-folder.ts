@@ -36,6 +36,7 @@ import {
 } from "./mirror-manifest";
 import { activeProject, activeProjectOrNull } from "./active-project";
 import { mirrorWorkspace } from "./folder-mirror";
+import { watchForLoss } from "./folder-watch-lost";
 import { readPreviewFolder } from "./folder-preview-read";
 import { applyFolderImport, keepWorkspaceCopy } from "./folder-import-apply";
 import { isNoteOpen, onNoteClosed } from "./open-notes";
@@ -582,9 +583,14 @@ function watchFolderForChanges(): void {
   unwatchFolder = null;
   const bridge = desktop();
   if (!bridge || folderSession()?.kind !== "desktop") return;
-  unwatchFolder = bridge.onVaultChange((paths) => {
+  const stopChanges = bridge.onVaultChange((paths) => {
     void reportFolderChanges(paths);
   });
+  const stopLoss = watchForLoss(bridge);
+  unwatchFolder = () => {
+    stopChanges();
+    stopLoss();
+  };
 }
 
 /**

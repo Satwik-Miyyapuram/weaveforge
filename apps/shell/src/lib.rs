@@ -211,6 +211,21 @@ pub(crate) fn change_sink(app: &tauri::AppHandle) -> vault_watcher::ChangeSink {
     })
 }
 
+/// The event that tells the page, with the reason, that the folder watch has stopped seeing changes.
+pub const VAULT_WATCH_LOST_EVENT: &str = "vault-watch-lost";
+
+/// Where a watch says its folder went away: the page hears it and the app log keeps it.
+fn lost_sink(app: &tauri::AppHandle) -> vault_watcher::LostSink {
+    use tauri::{Emitter as _, Manager as _};
+    let emitter = app.clone();
+    Arc::new(move |reason: String| {
+        if let Some(log) = emitter.try_state::<app_log::AppLog>() {
+            log.record(app_log::LogLevel::Warn, "vault-watch", &reason, None);
+        }
+        let _ = emitter.emit(VAULT_WATCH_LOST_EVENT, reason);
+    })
+}
+
 /// Logs a vault-watch or remembering problem; the folder still works without it.
 pub(crate) fn log_vault_warning(app: &tauri::AppHandle, reason: &str, path: &str) {
     use tauri::Manager as _;
@@ -251,7 +266,7 @@ fn start_ink(app: &tauri::AppHandle) {
 /// A folder that cannot be watched is logged; the app still runs without the watch.
 fn start_vault_watch(app: &tauri::AppHandle) {
     use tauri::Manager as _;
-    let slot = vault_watcher::WatchSlot::default();
+    let slot = vault_watcher::WatchSlot::reporting_loss(lost_sink(app));
     let root = app
         .try_state::<vault::VaultState>()
         .and_then(|vault| vault.lock().root());
