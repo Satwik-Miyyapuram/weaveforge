@@ -94,3 +94,12 @@ export function bibImportMessage(outcome: BibImportOutcome): string {
   if (outcome.problems.length) parts.push(`${outcome.problems.length} could not be read`);
   return `${parts.join(", ")}.`;
 }
+
+export function isBibFile(name: string): boolean {
+  return /\.(bib|bibtex)$/i.test(name);
+}
+
+/** A drop on Papers: `.bib` files are imported, everything else goes the PDF way (which skips non-PDFs). */
+export function splitPaperDrop<F extends { readonly name: string }>(files: readonly F[]): { pdfs: F[]; bibs: F[] } {
+  return { pdfs: files.filter((f) => !isBibFile(f.name)), bibs: files.filter((f) => isBibFile(f.name)) };
+}

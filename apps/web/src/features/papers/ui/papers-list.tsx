@@ -38,9 +38,9 @@ import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
 import { showToast, useHiddenKeys } from "@/lib/toast";
 import { paperKey } from "./remove-paper";
-import { PdfDropZone } from "./pdf-drop-zone";
+import { PaperDropZone } from "./pdf-drop-zone";
 import { summarizePdfDrop, type PdfDropOutcome } from "../application/paper-from-pdf";
-import { bibImportMessage } from "../application/paper-from-bib";
+import { bibImportMessage, type BibImportOutcome } from "../application/paper-from-bib";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -195,6 +195,14 @@ export function PapersScreen() {
       showToast(message, open ? { label: "Open", run: () => openPaperById(open.id) } : undefined);
     },
     [load, openPaperById],
+  );
+
+  const onBibImported = useCallback(
+    (outcome: BibImportOutcome) => {
+      void load();
+      showToast(bibImportMessage(outcome));
+    },
+    [load],
   );
 
   const replace = useCallback(
@@ -393,7 +401,7 @@ export function PapersScreen() {
 
   return (
     <section className="screen papers-screen">
-      {!isSharedView && <PdfDropZone onDropped={onPdfsAdded} />}
+      {!isSharedView && <PaperDropZone onPdfs={onPdfsAdded} onBib={onBibImported} />}
       <ScreenHead
         eyebrow={papers.length > 0 ? `${papers.length} ${papers.length === 1 ? "paper" : "papers"} · ${readCount} read` : undefined}
         search={papers.length > 0 ? { value: search, onChange: setSearch, label: "Search papers" } : undefined}
@@ -456,8 +464,7 @@ export function PapersScreen() {
             onBib={(outcome) => {
               // Keep the form open while it lists skipped or broken entries.
               if (outcome.skipped.length === 0 && outcome.problems.length === 0) setComposeOpen(false);
-              void load();
-              showToast(bibImportMessage(outcome));
+              onBibImported(outcome);
             }}
             onAdded={(paper, created) => {
               setComposeOpen(false);
