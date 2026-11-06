@@ -1076,6 +1076,10 @@
   box-shadow: inset 0 -3px 0 var(--accent);
 }
 
+/* The slot's rule spans the tab and its ×; the tab's own shorter one would
+   sit on top of it and step where the × begins. */
+:root:root .pane-tab-slot > .wf-tab::after { display: none; }
+
 /* The suffix always shows here: two tabs can share a title, and the tab is the
    one place the path is gone entirely (§3.2). */
 .pane-tab-ext {
