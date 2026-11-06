@@ -151,8 +151,19 @@ pub async fn serve_model_file_capped(
         return reply;
     }
     match claim(&file) {
-        Claim::Join(rx) => join(rx, file, range, cap).await,
         Claim::Lead(leader) => lead_download(&leader, client, path, upstream, range, cap).await,
+        Claim::Join(rx) => match join(rx, file.clone(), range.clone(), cap).await {
+            Some(reply) => reply,
+            // The leader left nothing to share: download it ourselves, once.
+            None => match claim(&file) {
+                Claim::Lead(leader) => {
+                    lead_download(&leader, client, path, upstream, range, cap).await
+                }
+                Claim::Join(rx) => join(rx, file, range, cap)
+                    .await
+                    .unwrap_or_else(|| bare(BAD_GATEWAY)),
+            },
+        },
     }
 }
 
@@ -215,23 +226,23 @@ async fn lead_download(
     reply
 }
 
-/// A joiner's answer: the file from disk once the leader succeeded, else the leader's status.
+/// A joiner's answer: the file from disk once the leader stored it, or the
+/// upstream's own refusal (such as 404). `None` when the leader left nothing to
+/// share: it was cancelled, could not store the file, or got no answer upstream.
 async fn join(
     mut rx: watch::Receiver<Option<u16>>,
     file: PathBuf,
     range: Option<String>,
     cap: u64,
-) -> Reply {
+) -> Option<Reply> {
     let state = match rx.wait_for(Option::is_some).await {
         Ok(state) => *state,
         Err(_) => None,
     };
     match state {
-        Some(status) if (200..300).contains(&status) => serve_disk(file, range, cap)
-            .await
-            .unwrap_or_else(|| bare(BAD_GATEWAY)),
-        Some(status) => bare(status),
-        None => bare(BAD_GATEWAY),
+        Some(status) if (200..300).contains(&status) => serve_disk(file, range, cap).await,
+        Some(status) if status != BAD_GATEWAY => Some(bare(status)),
+        _ => None,
     }
 }
 
