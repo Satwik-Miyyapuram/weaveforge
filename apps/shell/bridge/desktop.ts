@@ -107,6 +107,7 @@ export interface DesktopCommands {
     Result<{ id: string; bytes: number | null; files: number | null }[]>
   >;
   appStorageClear(id: string): Promise<Result<null>>;
+  localArtifactsDelete(experimentId: string): Promise<Result<null>>;
   preferenceWrite(
     name: DesktopPreferenceName,
     value: DesktopPreferenceValue,
@@ -281,6 +282,7 @@ export type DesktopShim = Pick<
   | "revealAppLog"
   | "storageUsage"
   | "clearStorage"
+  | "deleteLocalArtifacts"
   | "writePreference"
   | "readSecret"
   | "writeSecret"
@@ -545,6 +547,9 @@ export function desktopShim(
       })),
     clearStorage: async (id) => {
       unwrap(await cmds.appStorageClear(id));
+    },
+    deleteLocalArtifacts: async (experimentId) => {
+      unwrap(await cmds.localArtifactsDelete(experimentId));
     },
     writePreference: async (name, value) => {
       unwrap(await cmds.preferenceWrite(name, value));

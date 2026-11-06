@@ -120,7 +120,7 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     }
     if page_host(&host) == ARTIFACT_HOST {
         let root = routes.artifacts.clone();
-        return blocking(move || serve_local_artifact(&root, &path)).await;
+        return blocking(move || serve_local_artifact(&root, &path, range.as_deref())).await;
     }
     if !APP_HOSTS.contains(&host.as_str()) {
         return bare(404);
@@ -130,7 +130,7 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     }
     if let Some(rest) = path.strip_prefix(SAME_ORIGIN_PREFIX) {
         let (root, rest) = (routes.artifacts.clone(), format!("/{rest}"));
-        return blocking(move || serve_local_artifact(&root, &rest)).await;
+        return blocking(move || serve_local_artifact(&root, &rest, range.as_deref())).await;
     }
     if path == crate::github_file::ROUTE
         && let (Some(client), Some(prefs), Some(secrets)) = (

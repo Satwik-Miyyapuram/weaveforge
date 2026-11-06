@@ -226,6 +226,8 @@ export const commands = {
 	 *  An unknown id, or files that could not be deleted (often because they are in use).
 	 */
 	appStorageClear: (id: string) => typedError<null, ShellError>(__TAURI_INVOKE("app_storage_clear", { id })),
+	/**  Removes the files an experiment saved on this computer, once the experiment is deleted. */
+	localArtifactsDelete: (experimentId: string) => typedError<null, ShellError>(__TAURI_INVOKE("local_artifacts_delete", { experimentId })),
 	/**
 	 *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
 	 * 

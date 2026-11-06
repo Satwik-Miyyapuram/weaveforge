@@ -289,6 +289,8 @@
          *  An unknown id, or files that could not be deleted (often because they are in use).
          */
         appStorageClear: (id) => typedError(invoke("app_storage_clear", { id })),
+        /**  Removes the files an experiment saved on this computer, once the experiment is deleted. */
+        localArtifactsDelete: (experimentId) => typedError(invoke("local_artifacts_delete", { experimentId })),
         /**
          *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
          * 
@@ -780,6 +782,9 @@
       })),
       clearStorage: async (id) => {
         unwrap(await cmds.appStorageClear(id));
+      },
+      deleteLocalArtifacts: async (experimentId) => {
+        unwrap(await cmds.localArtifactsDelete(experimentId));
       },
       writePreference: async (name, value) => {
         unwrap(await cmds.preferenceWrite(name, value));

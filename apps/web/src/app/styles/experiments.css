@@ -53,6 +53,26 @@
   text-decoration: none;
 }
 
+/* A figure or file that could not load, or one kept on the desktop app only. */
+.artifact-missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-control);
+  font-size: var(--fs-xs);
+}
+.artifact-missing-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A PDF artifact opens in the pdf.js reader, sized for reading. */
+.modal.artifact-pdf-modal { width: min(1100px, 100%); height: 86vh; grid-template-rows: auto minmax(0, 1fr); }
+
 /* Experiment metric curves (experiment_metrics, written by the Python SDK) */
 .metric-curves {
   display: grid; grid-template-columns: minmax(0, 1fr);
