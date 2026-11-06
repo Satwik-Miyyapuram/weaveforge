@@ -583,6 +583,8 @@ export interface DesktopMcp {
   /** Streamable HTTP endpoint, for clients that take a URL. */
   url: string;
   launch: { command: string; args: string[]; env: Record<string, string> };
+  /** Client configs this start pointed at the app, and those it left alone. Absent when none. */
+  rewrites?: { changed: { file: string; backup?: string }[]; skipped: string[] };
 }
 
 export interface DesktopLocalApi {

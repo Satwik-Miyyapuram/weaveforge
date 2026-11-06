@@ -64,6 +64,26 @@ describe("McpClients", () => {
     assert.match(text(render({ ...on, enabled: false, reason: "Another program is using port 27123." })), /Another program is using port 27123/);
   });
 
+  it("lists the client configs the app pointed at itself and the ones it left alone", () => {
+    assert.doesNotMatch(text(render(on)), /Pointed at this app|Left alone/);
+    const t = text(
+      render({
+        ...on,
+        mcp: {
+          ...on.mcp!,
+          rewrites: {
+            changed: [{ file: "/h/.cursor/mcp.json", backup: "/h/.cursor/mcp.json.weaveforge.bak" }, { file: "/h/.gemini/settings.json" }],
+            skipped: ["/h/Code/User/mcp.json"],
+          },
+        },
+      }),
+    );
+    assert.ok(t.includes("Pointed at this app: /h/.cursor/mcp.json (original kept at /h/.cursor/mcp.json.weaveforge.bak)"));
+    assert.ok(t.includes("Pointed at this app: /h/.gemini/settings.json"));
+    assert.ok(!t.includes("settings.json (original"));
+    assert.ok(t.includes("Left alone (not plain JSON, or could not be written): /h/Code/User/mcp.json"));
+  });
+
   it("renders nothing on shells without MCP", () => {
     assert.equal(render({ enabled: true, url: off.url }), "");
   });

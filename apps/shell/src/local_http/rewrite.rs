@@ -285,6 +285,12 @@ fn write_backup(file: &Path, original: &str, mode: Option<u32>) -> io::Result<bo
     Ok(true)
 }
 
+/// The original a rewrite kept beside `file`, when it is still there.
+#[must_use]
+pub fn kept_backup(file: &Path) -> Option<PathBuf> {
+    Some(with_suffix(file, BACKUP_SUFFIX)).filter(|backup| backup.exists())
+}
+
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_owned();
     name.push(suffix);
