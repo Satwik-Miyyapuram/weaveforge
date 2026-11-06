@@ -64,7 +64,7 @@ export function WorkshopPdfViewer({
   if (state.status === "loading") return <p className="muted">Compiling on Overleaf…</p>;
   return (
     <div className="workshop-pdf" aria-label="Compiled Overleaf PDF">
-      <PdfReader url={state.url} paperTitle="Compiled Overleaf PDF" />
+      <PdfReader url={state.url} paperTitle="Compiled Overleaf PDF" viewOnly />
     </div>
   );
 }

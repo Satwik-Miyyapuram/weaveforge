@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
 import { FormError } from "@/components/form-error";
+import { Menu, type MenuItem } from "@/components/menu";
+import { Popover } from "@/components/popover";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
@@ -18,7 +20,6 @@ import { OverleafConnect } from "./overleaf-connect";
 import { OverleafProjectDetail } from "./overleaf-project-detail";
 import { browserPicksStore, type ProjectPicksStore } from "./overleaf-project-picks";
 import { LinkOverleafForm } from "./overleaf-report-forms";
-import { OverleafSettings } from "./overleaf-settings";
 import { linkedReportsGateway, useLinkedReports, type LinkedReportsGateway } from "./use-linked-reports";
 import { browserClient, browserStore, useWorkshopSession, type WorkshopSessionStore } from "./use-workshop-session";
 
@@ -32,7 +33,8 @@ function rowMeta(row: OverleafProjectRow, signedIn: boolean): string {
 /**
  * The Overleaf tab: connect once, then one list of projects (the signed-in
  * account's, plus the ones linked to this WeaveForge project with a Git token,
- * marked ★). Opening one shows Write, PDF and Outline.
+ * marked ★). "Choose projects" turns the list into checkboxes for which
+ * account projects show. Opening one shows Write and PDF.
  *
  * The sign-in cookie is sent once and kept by the routes (sealed on the server,
  * or in this device's keychain when `inShell`); this screen holds only the
@@ -72,7 +74,8 @@ export function OverleafWorkspace({
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  /** The ticked ids while choosing which projects show; null when not choosing. */
+  const [draft, setDraft] = useState<Set<string> | null>(null);
   const [picked, setPicked] = useState<Set<string> | null>(() => {
     const ids = picks.get();
     return ids ? new Set(ids) : null;
@@ -90,19 +93,31 @@ export function OverleafWorkspace({
   const loading = signedIn && session.projects === null && !session.loadFailed;
   const error = [session.error, linked.error].filter(Boolean).join(" ");
 
-  const settingsButton = signedIn && (
-    <Button size="sm" variant="ghost" title="Overleaf account, and which projects show" onClick={() => setSettingsOpen((v) => !v)}>
-      {settingsOpen ? "Close settings" : "Settings"}
-    </Button>
-  );
-  const settings = signedIn && settingsOpen && (
-    <OverleafSettings
-      session={session}
-      accountRows={rows.filter((row) => row.inAccount && !row.report)}
-      picked={picked}
-      onPick={pick}
-      onClose={() => setSettingsOpen(false)}
-    />
+  const accountIds = rows.filter((row) => !row.report).map((row) => row.id);
+  const choosing = draft !== null;
+  const startChoosing = () => { setDraft(new Set(visible.filter((row) => !row.report).map((row) => row.id))); setQuery(""); };
+  const toggle = (id: string) => setDraft((was) => {
+    const next = new Set(was);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+  const finishChoosing = () => {
+    if (draft) pick(accountIds.every((id) => draft.has(id)) ? null : draft);
+    setDraft(null);
+  };
+
+  const menuItems: MenuItem[] = [
+    ...(signedIn ? [{ id: "account", kind: "header" as const, label: "Signed in to Overleaf" }] : []),
+    ...(projectId
+      ? [{ id: "link", label: "Link a project (Git token)", title: "Link a project you can't sign in to", onSelect: () => setLinkOpen(true) }]
+      : []),
+    ...(signedIn ? [{ id: "disconnect", label: "Disconnect", danger: true, onSelect: () => void session.disconnect() }] : []),
+  ];
+  const accountMenu = menuItems.length > 0 && (
+    <Popover trigger="icon" label="⋯" ariaLabel="Overleaf account" align="right">
+      {(close) => <Menu onClose={close} ariaLabel="Overleaf account" items={menuItems} />}
+    </Popover>
   );
 
   const connect = workshop && !signedIn && (
@@ -122,6 +137,9 @@ export function OverleafWorkspace({
         onLinked={() => { setLinkOpen(false); void linked.reload(); }}
         onError={linked.setError}
       />
+      <div>
+        <Button size="sm" variant="cancel" onClick={() => setLinkOpen(false)}>Cancel</Button>
+      </div>
     </>
   );
 
@@ -152,9 +170,7 @@ export function OverleafWorkspace({
           inShell={inShell}
           canEditAsFiles={canEditAsFiles}
           projectId={projectId}
-          gateway={gateway}
           onUnlink={linked.unlink}
-          onSaveTargets={linked.saveTargets}
           onLinksChanged={() => void linked.reload()}
           onError={linked.setError}
           onBack={() => setOpenId(null)}
@@ -168,37 +184,65 @@ export function OverleafWorkspace({
           </p>
           <div className="linked-overleaf-form__actions">
             <Button variant="primary" onClick={onExport}>Export ZIP</Button>
-            {projectId && <Button onClick={() => setLinkOpen((v) => !v)}>{linkOpen ? "Cancel" : "Link a project (Git token)"}</Button>}
-            {settingsButton}
+            {projectId && !linkOpen && <Button onClick={() => setLinkOpen(true)}>Link a project (Git token)</Button>}
+            {accountMenu}
           </div>
-          {settings}
           {linkForm}
         </div>
       ) : rows.length > 0 ? (
         <div className="overleaf-project-list">
           <div className="overleaf-project-list__head">
-            <h2>Your projects</h2>
-            <input
-              type="search"
-              aria-label="Search projects"
-              placeholder="Search projects"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            {projectId && (
-              <Button size="sm" onClick={() => setLinkOpen((v) => !v)} title="Link a project you can't sign in to, or keep word targets">
-                {linkOpen ? "Cancel" : "Link a project (Git token)"}
-              </Button>
+            <h2>{choosing ? "Choose projects to show" : "Overleaf projects"}</h2>
+            {choosing ? (
+              <>
+                <Button size="sm" variant="ghost" onClick={() => setDraft(new Set(accountIds))}>All</Button>
+                <Button size="sm" variant="ghost" onClick={() => setDraft(new Set())}>None</Button>
+                <Button size="sm" variant="cancel" onClick={() => setDraft(null)}>Cancel</Button>
+                <Button size="sm" variant="primary" onClick={finishChoosing}>Done</Button>
+              </>
+            ) : (
+              <>
+                {signedIn && accountIds.length > 0 && (
+                  <Button size="sm" onClick={startChoosing} title="Pick which of your Overleaf projects show here">Choose projects</Button>
+                )}
+                {accountMenu}
+              </>
             )}
-            {settingsButton}
           </div>
-          {settings}
           {linkForm}
-          {visible.length < rows.length && (
-            <p className="muted overleaf-project-list__hint">{`Showing ${visible.length} of ${rows.length} projects. Choose which in Settings.`}</p>
-          )}
-          {visible.length === 0 ? (
-            <p className="muted">No projects chosen to show. Pick some in Settings.</p>
+          <input
+            className="overleaf-project-list__search"
+            type="search"
+            aria-label="Search projects"
+            placeholder="Search projects"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {choosing ? (
+            <ul className="overleaf-picks">
+              {filterOverleafProjects(rows, query).map((row) => (
+                <li key={row.id}>
+                  <label className="overleaf-pick">
+                    <input
+                      type="checkbox"
+                      className="wf-check"
+                      checked={Boolean(row.report) || draft.has(row.id)}
+                      disabled={Boolean(row.report)}
+                      onChange={() => toggle(row.id)}
+                    />
+                    <span>
+                      <strong>
+                        {row.report && <span className="overleaf-star" title="Linked to this WeaveForge project">★ </span>}
+                        {row.name}
+                      </strong>
+                      <small>{row.report ? "Linked, always shown" : "In your Overleaf account"}</small>
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : visible.length === 0 ? (
+            <p className="muted">No projects shown. Use Choose projects to pick some.</p>
           ) : shown.length === 0 ? (
             <p className="muted">No projects match “{query.trim()}”.</p>
           ) : (
@@ -215,6 +259,9 @@ export function OverleafWorkspace({
                 </li>
               ))}
             </ul>
+          )}
+          {!choosing && visible.length > 0 && visible.length < rows.length && (
+            <p className="muted overleaf-project-list__hint">{`${rows.length - visible.length} hidden`}</p>
           )}
         </div>
       ) : null}

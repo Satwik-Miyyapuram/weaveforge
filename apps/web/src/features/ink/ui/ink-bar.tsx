@@ -202,6 +202,11 @@ export interface InkBarProps {
    * keeps one shape on every surface.
    */
   readOnly?: boolean;
+  /**
+   * A PDF that is only looked at (a compiled Overleaf PDF): the ink tools,
+   * colours, undo, Insert and Recognise are dropped, not greyed.
+   */
+  viewOnly?: boolean;
 }
 
 export function InkBar({
@@ -263,6 +268,7 @@ export function InkBar({
   moreSections,
   children,
   readOnly = false,
+  viewOnly = false,
 }: InkBarProps) {
   // The highlighter keeps its own five quick colours; every other tool uses the pen's.
   const [ownQuickColours, setOwnQuickColour] = useQuickColours(
@@ -340,6 +346,7 @@ export function InkBar({
         <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
       </div>
 
+      {!viewOnly && (<>
       {/* 1. Drawing Tools Segmented Pill */}
       <div
         className="ink-bar-group ink-bar-tools"
@@ -430,6 +437,7 @@ export function InkBar({
 
       {/* 4. Undo / Redo */}
       {history}
+      </>)}
 
       {/* 5. Page Switcher & Add Page */}
       {pagePill}
@@ -439,6 +447,7 @@ export function InkBar({
       {/* 5b. Find: the reader's search, or its place held greyed */}
       {find ?? <FindPlaceholder />}
 
+      {!viewOnly && (<>
       {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
       <InsertMenu {...insert} disabled={!hasInsertItems(insert)} />
 
@@ -450,6 +459,7 @@ export function InkBar({
       >
         <RecogniseGlyph />
       </ToolButton>
+      </>)}
 
       <span className="ink-bar-spacer" />
 

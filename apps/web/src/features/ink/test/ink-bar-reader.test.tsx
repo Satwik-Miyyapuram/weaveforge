@@ -230,6 +230,20 @@ test("a paper the reader cannot mark keeps pages and view, greys tools and Inser
   });
 });
 
+test("a view-only PDF drops the ink tools; pages, view and find stay", () => {
+  withWindow(new Map(), () => {
+    const tree = render(readerBar({ readOnly: true, viewOnly: true }));
+    assert.equal(byLabel(tree, "Drawing tools").length, 0);
+    assert.equal(byLabel(tree, "Pen colour and nib").length, 0);
+    assert.equal(byLabel(tree, "Undo").length, 0);
+    assert.equal(tree.root.findAllByType(InsertMenu).length, 0);
+    assert.equal(byLabel(tree, "Recognise").length, 0);
+    assert.equal(tree.root.findAllByType(PageField).length, 1);
+    assert.equal(tree.root.findAllByType(ViewMenu).length, 1);
+    act(() => tree.unmount());
+  });
+});
+
 test("two bars share one dock key", () => {
   const store = new Map([["weaveforge.ink.palette-dock", "bottom-right"]]);
   withWindow(store, () => {

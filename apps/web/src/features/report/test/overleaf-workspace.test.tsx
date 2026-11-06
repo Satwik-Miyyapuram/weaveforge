@@ -4,9 +4,8 @@ import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
-import type { LinkedReport, ReportContent } from "../ui/linked-overleaf-api";
+import type { LinkedReport } from "../ui/linked-overleaf-api";
 import { OverleafWorkspace } from "../ui/overleaf-workspace";
-import { OverleafOutline } from "../ui/overleaf-outline";
 import type { ProjectPicksStore } from "../ui/overleaf-project-picks";
 import { tabBlockers } from "../ui/overleaf-project-detail";
 import type { LinkedReportsGateway } from "../ui/use-linked-reports";
@@ -60,22 +59,12 @@ function report(id: string, overleafProjectId: string, title: string): LinkedRep
   };
 }
 
-const GIT_CONTENT: ReportContent = {
-  files: [{ path: "main.tex", content: "\\section{Git intro}\nfour five" }],
-  entryFile: "main.tex",
-  sectionTree: { roots: [], files: ["main.tex"], warnings: [] },
-  overleafUrl: "https://www.overleaf.com/project/p9",
-};
-
 function fakeGateway(reports: LinkedReport[] = []) {
-  const reads: string[] = [];
   const gateway: LinkedReportsGateway = {
     list: async () => [...reports],
     unlink: async () => {},
-    setTargets: async () => {},
-    readContent: async (r) => { reads.push(r.id); return GIT_CONTENT; },
   };
-  return { gateway, reads };
+  return { gateway };
 }
 
 type Extra = {
@@ -140,8 +129,18 @@ const tab = async (tree: ReactTestRenderer, label: string) => {
   const found = tree.root.find((n) => n.type === "button" && n.props.role === "tab" && textOf(n) === label);
   await act(async () => found.props.onClick());
 };
-/** Lets the outline's load (several awaited requests) settle. */
-const settle = async () => { for (let i = 0; i < 5; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
+/** Opens the ⋯ account menu. Its outside-click hook listens on `document`, which node lacks. */
+const openMenu = async (tree: ReactTestRenderer) => {
+  (globalThis as { document?: unknown }).document ??= { addEventListener() {}, removeEventListener() {}, activeElement: null, body: {} };
+  const trigger = tree.root.find((n) => n.type === "button" && n.props["aria-label"] === "Overleaf account");
+  await act(async () => trigger.props.onClick({ detail: 0 }));
+};
+/** Opens the ⋯ account menu and picks one item. */
+const menuPick = async (tree: ReactTestRenderer, label: string) => {
+  await openMenu(tree);
+  const item = tree.root.find((n) => n.type === "button" && String(n.props.role ?? "").startsWith("menuitem") && textOf(n).includes(label));
+  await act(async () => item.props.onClick());
+};
 
 async function type(node: ReactTestInstance, value: string) {
   await act(async () => node.props.onChange({ target: { value } }));
@@ -183,8 +182,8 @@ test("signing in stores only the session id and lists the projects by name", asy
   assert.ok(!text(tree).includes("overleaf_session2=abc"), "the cookie is not kept on screen");
   assert.equal(tree.root.findAll((n) => n.props.name === "cookies").length, 0, "the connect step is gone");
   assert.ok(!text(tree).includes("Signed in to Overleaf"), "no account bar on the page");
-  await act(async () => button(tree, "Settings").props.onClick());
-  assert.match(text(tree), /Signed in to Overleaf/);
+  await openMenu(tree);
+  assert.match(text(tree), /Signed in to Overleaf/, "the account line lives in the ⋯ menu");
   await act(async () => tree.unmount());
 });
 
@@ -211,8 +210,7 @@ test("an expired stored session is forgotten and the connect step returns", asyn
 test("disconnecting deletes the session server-side and forgets it locally", async () => {
   const h = harness((url, init) => (init.method === "DELETE" ? json({ ok: true }) : projectsOk(url, init)), SESSION);
   const tree = await mount(h);
-  await act(async () => button(tree, "Settings").props.onClick());
-  await act(async () => button(tree, "Disconnect").props.onClick());
+  await menuPick(tree, "Disconnect");
   assert.equal(h.box.id, null);
   assert.deepEqual(h.calls.at(-1), { url: `/api/overleaf/workshop/session?id=${SESSION}`, method: "DELETE", body: null });
   assert.ok(byName(tree, "cookies"));
@@ -336,64 +334,68 @@ test("with no projects at all, Export ZIP opens the export", async () => {
   await act(async () => tree.unmount());
 });
 
-// ---- Settings: which projects show ----
+// ---- Choose projects: which ones show ----
 
 const checkboxes = (tree: ReactTestRenderer) =>
   tree.root.findAll((n) => n.type === "input" && n.props.type === "checkbox");
 const checkbox = (tree: ReactTestRenderer, name: string) =>
   tree.root.find((n) => n.type === "label" && textOf(n).includes(name)).find((n) => n.type === "input");
 
-test("Settings picks which account projects show; linked ones always show; the pick is remembered", async () => {
+test("Choose projects turns the list into checkboxes; linked ones stay ticked; Done saves", async () => {
   const { gateway } = fakeGateway([report("r2", "p9", "Old draft")]);
   const { picks, box } = memoryPicks();
   const tree = await mount(harness(projectsOk, SESSION), { gateway, picks });
   assert.equal(rows(tree).length, 3, "nothing picked yet: all show");
-  await act(async () => button(tree, "Settings").props.onClick());
-  assert.equal(checkboxes(tree).length, 2, "only unlinked account projects are offered");
-  assert.ok(checkboxes(tree).every((c) => c.props.checked));
+  await act(async () => button(tree, "Choose projects").props.onClick());
+  assert.equal(rows(tree).length, 0, "the rows became checkboxes");
+  assert.equal(checkboxes(tree).length, 3);
+  assert.ok(checkboxes(tree).every((c) => c.props.className === "wf-check" && c.props.checked));
+  assert.equal(checkbox(tree, "Old draft").props.disabled, true, "linked: always shown");
 
-  await act(async () => button(tree, "Hide all").props.onClick());
-  assert.deepEqual(box.ids, []);
-  assert.equal(rows(tree).length, 1);
-  assert.ok(rows(tree)[0]!.includes("Old draft"));
-  assert.match(text(tree), /Showing 1 of 3 projects/);
-
-  await act(async () => checkbox(tree, "Thesis").props.onChange());
+  await act(async () => checkbox(tree, "Abstract").props.onChange());
+  assert.equal(box.ids, null, "nothing saved before Done");
+  await act(async () => button(tree, "Done").props.onClick());
   assert.deepEqual(box.ids, ["p2"]);
   assert.equal(rows(tree).length, 2);
+  assert.match(text(tree), /1 hidden/);
 
-  await act(async () => button(tree, "Show all").props.onClick());
-  assert.equal(box.ids, null);
-  assert.equal(rows(tree).length, 3);
-  assert.ok(!text(tree).includes("Showing"));
-
+  await act(async () => button(tree, "Choose projects").props.onClick());
+  await act(async () => button(tree, "All").props.onClick());
   await act(async () => button(tree, "Done").props.onClick());
-  assert.ok(!text(tree).includes("Signed in to Overleaf"), "Done closes the settings");
+  assert.equal(box.ids, null, "all ticked: back to showing everything");
+  assert.equal(rows(tree).length, 3);
   await act(async () => tree.unmount());
 });
 
-test("a saved pick applies when the tab opens; unticking one hides it", async () => {
+test("Cancel drops the changes", async () => {
   const { picks, box } = memoryPicks(["p1", "p2"]);
   const tree = await mount(harness(projectsOk, SESSION), { picks });
+  await act(async () => button(tree, "Choose projects").props.onClick());
+  await act(async () => button(tree, "None").props.onClick());
+  assert.ok(checkboxes(tree).every((c) => !c.props.checked));
+  await act(async () => button(tree, "Cancel").props.onClick());
+  assert.deepEqual(box.ids, ["p1", "p2"]);
   assert.equal(rows(tree).length, 2);
-  await act(async () => button(tree, "Settings").props.onClick());
-  await act(async () => checkbox(tree, "Abstract").props.onChange());
-  assert.deepEqual(box.ids, ["p2"]);
+  await act(async () => tree.unmount());
+});
+
+test("a saved pick applies when the tab opens", async () => {
+  const tree = await mount(harness(projectsOk, SESSION), { picks: memoryPicks(["p2"]).picks });
   assert.deepEqual(rows(tree).map((r) => r.split("In your")[0]), ["Thesis"]);
   await act(async () => tree.unmount());
 });
 
-test("with every project hidden the list says to pick some", async () => {
+test("with every project hidden the list says to choose some", async () => {
   const tree = await mount(harness(projectsOk, SESSION), { picks: memoryPicks([]).picks });
   assert.equal(rows(tree).length, 0);
-  assert.match(text(tree), /No projects chosen to show/);
-  assert.ok(button(tree, "Settings"), "Settings stays reachable");
+  assert.match(text(tree), /No projects shown/);
+  assert.ok(button(tree, "Choose projects"), "Choose projects stays reachable");
   await act(async () => tree.unmount());
 });
 
-test("signed out there is no Settings button", async () => {
+test("signed out there is no Choose projects button", async () => {
   const tree = await mount(harness(projectsOk));
-  assert.equal(buttons(tree, "Settings").length, 0);
+  assert.equal(buttons(tree, "Choose projects").length, 0);
   await act(async () => tree.unmount());
 });
 
@@ -407,17 +409,15 @@ test("linked projects tuck the connect step into a details block", async () => {
 
 // ---- Project detail ----
 
-test("tab blockers: Write needs the desktop app, live tabs need sign-in and the account", () => {
-  assert.deepEqual(tabBlockers({ signedIn: true, inAccount: true, inShell: true, linked: false }), { write: null, pdf: null, outline: null });
-  const browser = tabBlockers({ signedIn: true, inAccount: true, inShell: false, linked: false });
+test("tab blockers: Write needs the desktop app, both tabs need sign-in and the account", () => {
+  assert.deepEqual(tabBlockers({ signedIn: true, inAccount: true, inShell: true }), { write: null, pdf: null });
+  const browser = tabBlockers({ signedIn: true, inAccount: true, inShell: false });
   assert.match(browser.write ?? "", /desktop app/);
   assert.equal(browser.pdf, null);
-  const linkedOnly = tabBlockers({ signedIn: false, inAccount: false, inShell: true, linked: true });
-  assert.match(linkedOnly.pdf ?? "", /Sign in/);
-  assert.equal(linkedOnly.outline, null);
-  const elsewhere = tabBlockers({ signedIn: true, inAccount: false, inShell: true, linked: false });
+  const signedOut = tabBlockers({ signedIn: false, inAccount: false, inShell: true });
+  assert.match(signedOut.pdf ?? "", /Sign in/);
+  const elsewhere = tabBlockers({ signedIn: true, inAccount: false, inShell: true });
   assert.match(elsewhere.pdf ?? "", /not in the signed-in/);
-  assert.match(elsewhere.outline ?? "", /link this project/);
 });
 
 test("opening an account project in the browser starts on PDF, with the workspace's headers", async () => {
@@ -432,28 +432,6 @@ test("opening an account project in the browser starts on PDF, with the workspac
   await act(async () => button(tree, "All projects").props.onClick());
   assert.equal(rows(tree).length, 2);
   await act(async () => tree.unmount());
-});
-
-test("Outline reads live text when signed in, and the git link otherwise", async () => {
-  const { gateway, reads } = fakeGateway([report("r1", "p2", "MSc thesis")]);
-  const h = harness(projectsOk, SESSION);
-  const live = await mount(h, { gateway });
-  await openRow(live, "Thesis");
-  await tab(live, "Outline");
-  await settle();
-  assert.ok(h.calls.some((c) => c.url.endsWith("/open")), "the live route was used");
-  assert.ok(h.calls.some((c) => c.url.endsWith("/close")), "and closed again");
-  assert.equal(reads.length, 0);
-  assert.match(text(live), /Live intro/);
-  assert.equal(live.root.findByType(OverleafOutline).props.targets.initial["Git intro"], 500, "linked: targets apply");
-  await act(async () => live.unmount());
-
-  const git = await mount(harness(projectsOk), { gateway });
-  await openRow(git, "MSc thesis");
-  await settle();
-  assert.deepEqual(reads, ["r1"], "signed out: Outline is the default and reads the git link");
-  assert.match(text(git), /From the Git link/);
-  await act(async () => git.unmount());
 });
 
 test("an unlinked project offers Link prefilled with its name and id", async () => {
