@@ -64,7 +64,7 @@ static SECTION_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
 });
 static INCLUDE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     Regex::new(&format!(
-        r"\\(?:input|include)[{WS}]*(?:\{{([^}}]+)\}}|([^{WS}%]+))"
+        r"\\(?:input|include)\b[{WS}]*(?:\{{([^}}]+)\}}|([^{WS}%]+))"
     ))
     .ok()
 });

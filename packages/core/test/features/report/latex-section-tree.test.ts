@@ -51,3 +51,12 @@ test("reads a heading with a short title in brackets (05-04)", () => {
     ],
   );
 });
+
+test("commands that start with include or input are not includes", () => {
+  const result = parseLatexSectionTree([
+    { path: "main.tex", content: "\\section{A}\n\\includegraphics[width=\\linewidth]{aa.png}\n\\inputencoding{utf8}\n\\includeonly{x}" },
+  ]);
+
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.files, ["main.tex"]);
+});

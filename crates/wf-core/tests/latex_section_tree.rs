@@ -192,3 +192,12 @@ fn json_uses_camel_case_keys() {
     assert!(value.get("files").is_some());
     assert!(value.get("warnings").is_some());
 }
+
+#[test]
+fn commands_that_start_with_include_or_input_are_not_includes() {
+    let tree = parse(&[(
+        "main.tex",
+        "\\section{A}\n\\includegraphics[width=\\linewidth]{aa.png}\n\\inputencoding{utf8}\n\\includeonly{x}",
+    )]);
+    assert!(tree.warnings.is_empty(), "{:?}", tree.warnings);
+}
