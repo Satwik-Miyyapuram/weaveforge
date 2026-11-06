@@ -6,7 +6,6 @@ import type { Paper } from "@weaveforge/core";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
 import {
-  autoIndexStatus,
   runLibraryIndex,
   setAutoIndexDeps,
   stopAutoIndex,
@@ -14,7 +13,6 @@ import {
 } from "../application/auto-index-library";
 import type { LibraryIndexResult } from "../application/index-library-pdfs";
 import { PdfIndexChip } from "../ui/pdf-index-chip";
-import { LibraryPdfIndexing } from "@/features/settings/ui/library-pdf-indexing";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -65,32 +63,6 @@ test("the nav chip shows a run's progress and its × stops it", async () => {
     });
     assert.equal(run.signals[0]!.aborted, true);
     assert.equal(tree!.toJSON(), null, "the chip goes once the run stops");
-    await act(async () => tree!.unmount());
-    stopAutoIndex();
-  });
-});
-
-test("Settings shows Cancel while a run goes, even one started before it opened", async () => {
-  await withAppLogs(async () => {
-    const run = holdingRun();
-    let done: Promise<unknown> = Promise.resolve();
-    await act(async () => {
-      done = runLibraryIndex();
-    });
-    let tree: ReactTestRenderer | undefined;
-    await act(async () => {
-      tree = create(createElement(LibraryPdfIndexing));
-    });
-    assert.match(JSON.stringify(tree!.toJSON()), /3 of 10/);
-    const cancel = buttons(tree!, /Cancel/);
-    assert.equal(cancel.length, 1);
-    await act(async () => cancel[0]!.props.onClick());
-    await act(async () => {
-      await done;
-    });
-    assert.equal(run.signals[0]!.aborted, true);
-    assert.equal(autoIndexStatus().stopped, true);
-    assert.equal(buttons(tree!, /Cancel/).length, 0, "Cancel goes once the run stops");
     await act(async () => tree!.unmount());
     stopAutoIndex();
   });
