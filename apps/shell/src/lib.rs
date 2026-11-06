@@ -651,19 +651,21 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     // Windows and Linux: no system frame; the page's title bar draws the menu and window buttons.
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     let builder = builder.decorations(false);
-    // A cold-start sign-in waits until the page (and the shim's listener) exists.
+    // Sign-in links wait until the page (and the shim's listener) exists.
     #[cfg(mobile)]
     let builder = builder.on_page_load(|window, payload| {
         use tauri::Manager as _;
-        if payload.event() != tauri::webview::PageLoadEvent::Finished {
-            return;
-        }
         let app = window.app_handle();
-        let query = app
-            .try_state::<PendingSignIn>()
-            .and_then(|pending| pending.0.lock().ok().and_then(|mut slot| slot.take()));
-        if let Some(query) = query {
-            deliver_sign_in(app, query);
+        let Some(queue) = app.try_state::<auth_link::SignInQueue>() else {
+            return;
+        };
+        match payload.event() {
+            tauri::webview::PageLoadEvent::Started => queue.page_loading(),
+            tauri::webview::PageLoadEvent::Finished => {
+                for query in queue.page_loaded() {
+                    deliver_sign_in(app, query);
+                }
+            }
         }
     });
     builder
@@ -740,30 +742,33 @@ fn start_sign_in(app: &tauri::AppHandle) {
     });
 }
 
-/// A sign-in App Link that cold-started the app, held until the page has loaded.
-#[cfg(mobile)]
-#[derive(Default)]
-struct PendingSignIn(std::sync::Mutex<Option<String>>);
-
 /// Hands each sign-in App Link the OS opens to the page; phones have no loopback port.
-/// A link that cold-starts the app is held and handed over once the page has loaded.
+/// Links that arrive before the page has loaded (a cold start, a reload) are held in a
+/// `SignInQueue` and handed over once it has.
 #[cfg(mobile)]
 fn start_sign_in(app: &tauri::AppHandle) {
     use tauri::Manager as _;
     use tauri_plugin_deep_link::DeepLinkExt as _;
+    let _ = app.manage(auth_link::SignInQueue::default());
     let handle = app.clone();
     // The listener lives as long as the app, so its id is never needed to remove it.
     let _listener = app.deep_link().on_open_url(move |event| {
+        let Some(queue) = handle.try_state::<auth_link::SignInQueue>() else {
+            return;
+        };
         for url in event.urls() {
-            if let Some(query) = auth_link::callback_query(&url) {
+            if let Some(query) = auth_link::callback_query(&url).and_then(|q| queue.offer(q)) {
                 deliver_sign_in(&handle, query);
             }
         }
     });
     match app.deep_link().get_current() {
         Ok(Some(urls)) => {
-            if let Some(query) = auth_link::newest_callback_query(&urls) {
-                let _ = app.manage(PendingSignIn(std::sync::Mutex::new(Some(query))));
+            let queue = app.state::<auth_link::SignInQueue>();
+            if let Some(query) =
+                auth_link::newest_callback_query(&urls).and_then(|q| queue.offer(q))
+            {
+                deliver_sign_in(app, query);
             }
         }
         Ok(None) => {}
