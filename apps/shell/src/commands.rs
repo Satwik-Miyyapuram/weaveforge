@@ -236,6 +236,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::vault_sync::vault_sync,
         crate::vault_sync::vault_commit,
         crate::vault_sync::vault_log,
+        crate::vault_sync::vault_file_log,
+        crate::vault_sync::vault_read_at,
         crate::paste_commands::fetch_title,
         crate::paste_commands::fetch_image,
         crate::cmd_tools::tex_probe,

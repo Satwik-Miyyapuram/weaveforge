@@ -202,6 +202,10 @@ export interface DesktopBridge {
   commitVault(): Promise<DesktopCommitResult>;
   /** The folder's own commits, newest first; empty when it has no repository of its own. */
   vaultLog(limit: number): Promise<DesktopCommit[]>;
+  /** The commits that changed one folder file, newest first. Absent on older shells. */
+  vaultFileLog?(path: string, limit: number): Promise<DesktopCommit[]>;
+  /** One folder file's text at a commit; null when missing, too big or not text. Absent on older shells. */
+  vaultReadAt?(oid: string, path: string): Promise<string | null>;
   /**
    * Sync the folder with the git remote set in Settings. The shell reads the
    * URL and token from its own stores; `settings` only reports them (the token
