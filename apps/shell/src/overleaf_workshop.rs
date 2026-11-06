@@ -593,7 +593,10 @@ mod tests {
         assert_eq!(restarted.get(&id).as_deref(), Some("a=1"));
 
         restarted.sign_out(ID).await;
-        assert!(secrets.read(SAVED_SESSION).unwrap().is_some(), "another id keeps it");
+        assert!(
+            secrets.read(SAVED_SESSION).unwrap().is_some(),
+            "another id keeps it"
+        );
         restarted.sign_out(&id).await;
         assert_eq!(restarted.get(&id), None);
         assert_eq!(secrets.read(SAVED_SESSION).unwrap(), None);
