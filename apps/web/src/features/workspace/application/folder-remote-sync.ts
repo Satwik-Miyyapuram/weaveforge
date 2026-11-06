@@ -70,6 +70,16 @@ export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<Deskto
   return bridge.vaultSync(action);
 }
 
+/**
+ * After a rejected push: pull, then push again, in one go. Stops after the
+ * pull when it hits a conflict, so nothing is pushed until that is settled.
+ */
+export async function pullThenPush(): Promise<{ pulled: DesktopVaultSync; pushed: DesktopVaultSync | null }> {
+  const pulled = await folderRemoteSync("pull");
+  if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
+  return { pulled, pushed: await folderRemoteSync("push") };
+}
+
 /** One line for the panel. */
 export async function describeRemoteSync(reply: DesktopVaultSync): Promise<string> {
   const core = await loadCore();

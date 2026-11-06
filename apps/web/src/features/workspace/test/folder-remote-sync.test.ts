@@ -9,6 +9,7 @@ import {
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  pullThenPush,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
 } from "../application/folder-remote-sync";
@@ -143,4 +144,23 @@ test("the outcome reads as one line, a conflict naming its files", async () => {
     await describeRemoteSync({ ...base, status: { url: null, branch: "main", ahead: 0, behind: 0 } }),
     "Not connected yet.",
   );
+});
+
+test("pullThenPush pulls, then pushes, in one call", async () => {
+  const calls = fakeShell(async (action) =>
+    action === "pull"
+      ? { url: "u", hasToken: true, pull: { kind: "fast-forward", oid: "abc" } }
+      : { url: "u", hasToken: true, push: { kind: "pushed" } },
+  );
+  const { pulled, pushed } = await pullThenPush();
+  assert.deepEqual(calls, [["sync", "pull"], ["sync", "push"]]);
+  assert.equal(pulled.pull?.kind, "fast-forward");
+  assert.equal(pushed?.push?.kind, "pushed");
+});
+
+test("pullThenPush stops after a conflicted pull and pushes nothing", async () => {
+  const calls = fakeShell(async () => ({ url: "u", hasToken: true, pull: { kind: "conflict", files: ["a.md"] } }));
+  const { pushed } = await pullThenPush();
+  assert.deepEqual(calls, [["sync", "pull"]]);
+  assert.equal(pushed, null);
 });

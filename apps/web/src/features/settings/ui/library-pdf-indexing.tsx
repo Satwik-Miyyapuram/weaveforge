@@ -197,13 +197,16 @@ export function LibraryPdfIndexing() {
  */
 export function IndexSize() {
   const [size, setSize] = useState<{ documents: number; large: boolean } | null>(null);
+  const [mainThread, setMainThread] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void getContainer()
       .search.ensure()
       .then(() => {
-        if (!cancelled) setSize(getContainer().search.corpusSize);
+        if (cancelled) return;
+        setSize(getContainer().search.corpusSize);
+        setMainThread(getContainer().search.builtOnMainThread);
       })
       .catch(() => {
         /* the panel is informational; a failed build surfaces where search is used */
@@ -225,6 +228,12 @@ export function IndexSize() {
           ? " — large enough that searching may feel slow on a modest device. PDF pages are usually most of it."
           : "."}
       </p>
+      {mainThread && (
+        <p className="muted jump-to-meta">
+          The background indexer could not start, so the index was built in the page itself. Search
+          works, but the app may pause while it rebuilds. Reloading usually fixes this.
+        </p>
+      )}
       {!cached && (
         <p className="muted jump-to-meta">
           Too large to keep between visits in a browser tab, so it is rebuilt each session — in
