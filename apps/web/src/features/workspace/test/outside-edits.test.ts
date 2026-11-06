@@ -286,6 +286,20 @@ test("applyOutsideEdits calls apply before settle with only the applyable part",
   assert.deepEqual(result, { applied: 2, held: 2 });
 });
 
+test("notes the apply reports as moved are not counted as taken in", async () => {
+  const result = await applyOutsideEdits({
+    preview: async () =>
+      diffOf([note("created", "a.md"), note("created", "b.md")], undefined, {
+        "a.md": seenNew(),
+        "b.md": seenNew(),
+      }),
+    isOpen: () => false,
+    apply: async () => ({ moved: ["b.md"] }),
+    settle: () => undefined,
+  });
+  assert.deepEqual(result, { applied: 1, held: 0 });
+});
+
 test("a throwing preview or apply rejects and skips settle", async () => {
   let settleCalls = 0;
   const settle = () => {

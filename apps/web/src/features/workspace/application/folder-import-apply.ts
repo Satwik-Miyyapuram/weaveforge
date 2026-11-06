@@ -17,7 +17,7 @@ import {
   workspaceBodies,
 } from "./asset-reanchor";
 import { refreshMirrorBase, applyJsonEntries } from "./folder-json-import";
-import { claimImportedFile } from "./mirror-manifest";
+import { baseDigest, claimImportedFile } from "./mirror-manifest";
 import { writeConflictMarkersTo, type ConflictResolution, settleConflict } from "./folder-merge";
 import { activeWorkspaceFs, syncToFolder } from "./workspace-folder";
 
@@ -47,6 +47,18 @@ export interface ApplyOptions {
   fs?: IWorkspaceFs;
   /** Digest per path when previewed; a file that moved since keeps its old base. */
   expected?: Readonly<Record<string, string>>;
+  /**
+   * Each note's `storedDigest` when previewed, by id. A note written in the app
+   * since (server sync, an agent, a late editor flush) is not overwritten; its
+   * path comes back in `moved`.
+   */
+  stored?: Readonly<Record<string, string>>;
+}
+
+/** A note's title and body as one digest: what an update would overwrite. */
+export function storedDigest(page: { title: string; body: string }): string {
+  return baseDigest(`${page.title}
+${page.body}`);
 }
 
 /**
@@ -60,12 +72,12 @@ export async function applyFolderImport(
   diff: ImportDiff & { json?: JsonDiff },
   resolutions: Readonly<Record<string, ConflictResolution>> = {},
   options: ApplyOptions = {},
-): Promise<{ created: number; updated: number }> {
+): Promise<{ created: number; updated: number; moved: string[] }> {
   const fs = activeWorkspaceFs();
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
   if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
 
-  const result = await applyEntries(fs, diff, resolutions);
+  const result = await applyEntries(fs, diff, resolutions, options.stored);
   const appliedJson = await applyJsonEntries(diff.json);
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
@@ -76,7 +88,7 @@ export async function applyFolderImport(
   ], options.expected ?? {});
 
   await syncToFolder().catch(() => undefined);
-  return { created: result.created, updated: result.updated };
+  return { created: result.created, updated: result.updated, moved: result.moved };
 }
 
 /** See `writeConflictMarkersTo`: this window's folder gets the markers. */
@@ -91,7 +103,8 @@ export async function applyEntries(
   fs: IWorkspaceFs,
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
-): Promise<{ created: number; updated: number; appliedPaths: string[] }> {
+  stored?: Readonly<Record<string, string>>,
+): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[] }> {
   const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
@@ -99,6 +112,7 @@ export async function applyEntries(
   let created = 0;
   let updated = 0;
   const appliedPaths: string[] = [];
+  const moved: string[] = [];
 
   for (const raw of diff.entries) {
     const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
@@ -143,6 +157,11 @@ export async function applyEntries(
     if (!entry.entity.id) continue;
     const page = await container.vault.getPage(entry.entity.id);
     if (!page) continue;
+    const seen = stored?.[page.id];
+    if (seen !== undefined && storedDigest(page) !== seen) {
+      moved.push(entry.entity.path);
+      continue;
+    }
     await container.vault.manageVaultPage.update(page.id, {
       title: entry.entity.title,
       body: await reanchorAssets(entry.entity.body, page.id, owned),
@@ -152,7 +171,7 @@ export async function applyEntries(
   }
 
   pendingAssets = new Map();
-  return { created, updated, appliedPaths };
+  return { created, updated, appliedPaths, moved };
 }
 
 /**

@@ -10,7 +10,7 @@ import { getContainer } from "@/bootstrap";
 import { loadCore, type RustCore } from "@/lib/rust-core";
 import { ownedAssetFolderPaths, workspaceBodies } from "./asset-reanchor";
 import { jsonDiff } from "./folder-json-import";
-import { setPendingAssets } from "./folder-import-apply";
+import { setPendingAssets, storedDigest } from "./folder-import-apply";
 import { countActions, mergeBothChanged } from "./folder-merge";
 import { baseDigest } from "./mirror-manifest";
 import type { FolderDiff, SeenFile } from "./outside-edits";
@@ -106,7 +106,8 @@ export async function diffAgainstWorkspace(
   // set of numbers.
   const json = await jsonDiff(jsonFiles, current, base, project);
   const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base);
-  return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen };
+  const stored = Object.fromEntries(snapshot.vaultPages.map((page) => [page.id, storedDigest(page)]));
+  return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen, stored };
 }
 
 /**
