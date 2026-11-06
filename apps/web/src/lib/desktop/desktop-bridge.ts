@@ -298,6 +298,8 @@ export interface DesktopBridge {
     files: readonly { path: string; content: string }[],
     entryFile: string,
   ): Promise<DesktopTexCompileResult>;
+  /** Stops the compiles running now; each answers "The compile was stopped.". */
+  cancelTex?(): Promise<void>;
 
   /**
    * The LaTeX source of one linked Overleaf project, cloned on this machine.

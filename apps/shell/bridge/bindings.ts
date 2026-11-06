@@ -157,6 +157,13 @@ export const commands = {
 	 */
 	texCompile: (files: TexSourceFile[], entryFile: string) => typedError<TexCompileReply_Serialize, ShellError>(__TAURI_INVOKE("tex_compile", { files, entryFile })),
 	/**
+	 *  Stops the compiles running now; their replies say the compile was stopped.
+	 * 
+	 *  # Errors
+	 *  Never; the `Err` arm is kept for the Tauri wiring.
+	 */
+	texCancel: () => typedError<null, ShellError>(__TAURI_INVOKE("tex_cancel")),
+	/**
 	 *  Fetches a request from Zotero's local API on this computer.
 	 * 
 	 *  # Errors

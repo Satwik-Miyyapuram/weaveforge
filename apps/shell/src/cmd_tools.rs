@@ -128,9 +128,17 @@ pub fn read_log(log: &AppLog) -> AppLogText {
 ///
 /// A non-array project never gets here: the typed shim only sends arrays, and
 /// serde rejects anything else before the command runs.
-pub async fn compile(files: Vec<TexSourceFile>, entry_file: String) -> TexCompileReply {
-    TexCompileReply::from(compile_tex(&files, &entry_file).await)
+pub async fn compile(
+    files: Vec<TexSourceFile>,
+    entry_file: String,
+    stop: &TexStop,
+) -> TexCompileReply {
+    TexCompileReply::from(compile_tex(&files, &entry_file, &stop.0).await)
 }
+
+/// Stops the compiles running now when notified; held as app state.
+#[derive(Debug, Default)]
+pub struct TexStop(pub tokio::sync::Notify);
 
 /// Probes for a LaTeX engine; `None` when there is none.
 ///
@@ -149,10 +157,22 @@ pub async fn tex_probe() -> Result<Option<TexTool>, ShellError> {
 #[tauri::command]
 #[specta::specta]
 pub async fn tex_compile(
+    stop: tauri::State<'_, TexStop>,
     files: Vec<TexSourceFile>,
     entry_file: String,
 ) -> Result<TexCompileReply, ShellError> {
-    Ok(compile(files, entry_file).await)
+    Ok(compile(files, entry_file, stop.inner()).await)
+}
+
+/// Stops the compiles running now; their replies say the compile was stopped.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn tex_cancel(stop: tauri::State<'_, TexStop>) -> Result<(), ShellError> {
+    stop.0.notify_waiters();
+    Ok(())
 }
 
 /// Fetches a request from Zotero's local API on this computer.

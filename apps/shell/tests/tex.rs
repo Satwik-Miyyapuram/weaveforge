@@ -6,8 +6,9 @@ mod common;
 use std::fs;
 
 use common::TempDir;
+use tokio::sync::Notify;
 use weaveforge_shell_lib::tex::{
-    COMPILE_FAILED, MAX_FILES, MAX_TOTAL_BYTES, NO_ENGINE, TOO_LARGE, TOO_MANY_FILES,
+    COMPILE_FAILED, MAX_FILES, MAX_TOTAL_BYTES, NO_ENGINE, STOPPED, TOO_LARGE, TOO_MANY_FILES,
     TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, args_for, compile_tex_in,
     parse_tex_log, probe_engine, safe_relative, tail,
 };
@@ -258,7 +259,7 @@ async fn probe_real_binary() {
 async fn compile_without_engine() {
     let tmp = TempDir::new();
     let files = [file("main.tex", MINIMAL)];
-    let result = compile_tex_in(tmp.path(), &files, "main.tex", None).await;
+    let result = compile_tex_in(tmp.path(), &files, "main.tex", None, &Notify::new()).await;
     assert_eq!(
         result,
         TexCompileResult {
@@ -277,7 +278,7 @@ async fn compile_missing_binary_cleans_up() {
     let tmp = TempDir::new();
     let tool = pdflatex_missing();
     let files = [file("main.tex", MINIMAL)];
-    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool), &Notify::new()).await;
     assert!(!result.ok);
     assert_eq!(result.pdf, None);
     assert_eq!(result.engine, Some(TexEngine::Pdflatex));
@@ -289,7 +290,7 @@ async fn compile_missing_binary_cleans_up() {
 async fn compile_refuses_traversal_entry() {
     let tmp = TempDir::new();
     let tool = pdflatex_missing();
-    let result = compile_tex_in(tmp.path(), &[], "../main.tex", Some(&tool)).await;
+    let result = compile_tex_in(tmp.path(), &[], "../main.tex", Some(&tool), &Notify::new()).await;
     assert!(!result.ok);
     assert_eq!(
         result.errors,
@@ -307,7 +308,7 @@ async fn compile_refuses_traversal_source() {
     let tmp = TempDir::new();
     let tool = pdflatex_missing();
     let files = [file("../escape.tex", "x")];
-    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool), &Notify::new()).await;
     assert_eq!(
         result.errors,
         vec![error(
@@ -325,7 +326,8 @@ async fn compile_refuses_latexmkrc_file() {
     for path in [".latexmkrc", "latexmkrc", "sub/.LatexMkRc"] {
         let tmp = TempDir::new();
         let files = [file(path, "system('id')")];
-        let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+        let result =
+            compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool), &Notify::new()).await;
         let message = format!("Refusing to write '{path}': latexmk would run it as a script.");
         assert_eq!(
             result.errors,
@@ -344,7 +346,7 @@ async fn compile_refuses_501_files() {
     let files: Vec<TexSourceFile> = (0..=MAX_FILES)
         .map(|i| file(&format!("f{i}.tex"), "x"))
         .collect();
-    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool), &Notify::new()).await;
     assert_eq!(result.errors, vec![error("main.tex", 0, TOO_MANY_FILES)]);
     assert!(tmp_is_empty(&tmp));
 }
@@ -354,7 +356,7 @@ async fn compile_refuses_over_40mb() {
     let tmp = TempDir::new();
     let tool = pdflatex_missing();
     let files = [file("main.tex", &"x".repeat(MAX_TOTAL_BYTES + 1))];
-    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool), &Notify::new()).await;
     assert_eq!(result.errors, vec![error("main.tex", 0, TOO_LARGE)]);
     assert!(tmp_is_empty(&tmp));
 }
@@ -409,13 +411,14 @@ fn fake_engine(dir: &TempDir, body: &str) -> TexTool {
 /// child keeps that handle until it execs, and running the script then fails with ETXTBSY.
 #[cfg(unix)]
 async fn compile_fake(tmp: &TempDir, files: &[TexSourceFile], tool: &TexTool) -> TexCompileResult {
-    let mut result = compile_tex_in(tmp.path(), files, "main.tex", Some(tool)).await;
+    let mut result =
+        compile_tex_in(tmp.path(), files, "main.tex", Some(tool), &Notify::new()).await;
     for _ in 0..20 {
         if !result.log.contains("Text file busy") {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        result = compile_tex_in(tmp.path(), files, "main.tex", Some(tool)).await;
+        result = compile_tex_in(tmp.path(), files, "main.tex", Some(tool), &Notify::new()).await;
     }
     result
 }
@@ -452,4 +455,66 @@ async fn build_dir_is_private() {
     let _ = compile_fake(&tmp, &files, &tool).await;
     assert_eq!(fs::read_to_string(&out).unwrap().trim(), "drwx------");
     assert!(tmp_is_empty(&tmp));
+}
+
+/// An engine that runs for half a minute unless it is stopped.
+fn slow_engine(dir: &TempDir) -> TexTool {
+    #[cfg(unix)]
+    {
+        fake_engine(dir, "sleep 30")
+    }
+    #[cfg(windows)]
+    {
+        let path = dir.path().join("engine.bat");
+        fs::write(
+            &path,
+            "@ping -n 30 127.0.0.1 >nul
+",
+        )
+        .unwrap();
+        TexTool {
+            kind: TexEngine::Pdflatex,
+            command: path.to_string_lossy().into_owned(),
+            version: String::new(),
+        }
+    }
+}
+
+/// Compiles with `tool` and asks the compile to stop half a second in.
+async fn compile_then_stop(
+    tmp: &TempDir,
+    files: &[TexSourceFile],
+    tool: &TexTool,
+) -> TexCompileResult {
+    let stop = std::sync::Arc::new(Notify::new());
+    let asker = std::sync::Arc::clone(&stop);
+    let _stopper = tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        asker.notify_waiters();
+    });
+    compile_tex_in(tmp.path(), files, "main.tex", Some(tool), &stop).await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn compile_stops_when_asked() {
+    let bin = TempDir::new();
+    let tmp = TempDir::new();
+    let tool = slow_engine(&bin);
+    let files = [file("main.tex", MINIMAL)];
+    let started = std::time::Instant::now();
+    let mut result = compile_then_stop(&tmp, &files, &tool).await;
+    // A script still held open by another test's fork cannot run yet (unix ETXTBSY).
+    for _ in 0..20 {
+        if !result.log.contains("Text file busy") {
+            break;
+        }
+        result = compile_then_stop(&tmp, &files, &tool).await;
+    }
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(20),
+        "the engine was not stopped"
+    );
+    assert!(!result.ok);
+    assert_eq!(result.pdf, None);
+    assert_eq!(result.errors, vec![error("main.tex", 0, STOPPED)]);
 }

@@ -14,6 +14,7 @@ use process_wrap::tokio::JobObject;
 use process_wrap::tokio::{CommandWrap, KillOnDrop};
 use regex::Regex;
 use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::sync::Notify;
 
 use crate::fetch::is_js_space;
 
@@ -37,6 +38,8 @@ pub const TOO_LARGE: &str = "That project is too large to compile here.";
 pub const COMPILE_FAILED: &str = "The compile failed; the log below is the whole of it.";
 /// Reason given when a compile runs past `COMPILE_TIMEOUT`.
 pub const TIMED_OUT: &str = "The compile ran past the time limit.";
+/// Reason given when the page stops a compile.
+pub const STOPPED: &str = "The compile was stopped.";
 /// Reason given when the engine probe itself breaks.
 pub const PROBE_FAILED: &str = "Could not look for a LaTeX engine on this computer.";
 /// Reason given when the request is not a project.
@@ -371,12 +374,14 @@ fn refused(file: &str, message: &str) -> TexCompileResult {
 }
 
 /// Compiles `files` with `tool` in a fresh directory under `base_tmp`, or explains why not.
+/// A `notify_waiters` on `stop` while the engine runs kills it and answers [`STOPPED`].
 #[must_use]
 pub async fn compile_tex_in(
     base_tmp: &Path,
     files: &[TexSourceFile],
     entry: &str,
     tool: Option<&TexTool>,
+    stop: &Notify,
 ) -> TexCompileResult {
     let Some(tool) = tool else {
         return refused(entry, NO_ENGINE);
@@ -392,7 +397,9 @@ pub async fn compile_tex_in(
     if let Err(message) = write_sources(build.path(), files) {
         return refused(entry, &message);
     }
-    let (failed, output) = run_engine(tool, build.path(), &relative_entry).await;
+    let Some((failed, output)) = run_engine(tool, build.path(), &relative_entry, stop).await else {
+        return refused(&relative_entry, STOPPED);
+    };
     let stem = without_tex(&relative_entry);
     let file_log = read_text(&build.path().join(format!("{stem}.log")));
     let log = tail(
@@ -420,9 +427,9 @@ pub async fn compile_tex_in(
 
 /// Compiles `files` with the best engine on this machine, in the system temp directory.
 #[must_use]
-pub async fn compile_tex(files: &[TexSourceFile], entry: &str) -> TexCompileResult {
+pub async fn compile_tex(files: &[TexSourceFile], entry: &str, stop: &Notify) -> TexCompileResult {
     let tool = probe_tex().await;
-    compile_tex_in(&std::env::temp_dir(), files, entry, tool.as_ref()).await
+    compile_tex_in(&std::env::temp_dir(), files, entry, tool.as_ref(), stop).await
 }
 
 /// Writes each source under `root`, refusing a project that is too big or too many.
@@ -445,13 +452,21 @@ fn write_sources(root: &Path, files: &[TexSourceFile]) -> Result<(), String> {
     Ok(())
 }
 
-/// Runs the engine in `dir`; answers whether it failed and its combined output.
-/// Output past [`MAX_OUTPUT_BYTES`] on either stream stops the engine (dropping the child kills it).
-async fn run_engine(tool: &TexTool, dir: &Path, entry: &str) -> (bool, String) {
+/// Runs the engine in `dir`; answers whether it failed and its combined output, or `None`
+/// when `stop` was notified. Output past [`MAX_OUTPUT_BYTES`] on either stream, the time
+/// limit, or a stop ends the engine (dropping the child kills it and its children).
+async fn run_engine(
+    tool: &TexTool,
+    dir: &Path,
+    entry: &str,
+    stop: &Notify,
+) -> Option<(bool, String)> {
+    // Made before the spawn, so a stop asked while the engine starts is not missed.
+    let stopped = stop.notified();
     let spawned = engine_command(&tool.command, args_for(tool.kind, entry), Some(dir)).spawn();
     let mut child = match spawned {
         Ok(child) => child,
-        Err(err) => return (true, format!("\n{err}")),
+        Err(err) => return Some((true, format!("\n{err}"))),
     };
     let stdout = child.stdout().take();
     let stderr = child.stderr().take();
@@ -461,7 +476,11 @@ async fn run_engine(tool: &TexTool, dir: &Path, entry: &str) -> (bool, String) {
         let status = child.wait().await.map_err(|e| e.to_string())?;
         Ok::<_, String>((status.success(), out, err))
     };
-    match tokio::time::timeout(COMPILE_TIMEOUT, run).await {
+    let finished = tokio::select! {
+        () = stopped => return None,
+        finished = tokio::time::timeout(COMPILE_TIMEOUT, run) => finished,
+    };
+    Some(match finished {
         Err(_) => (true, TIMED_OUT.to_string()),
         Ok(Err(message)) => (true, format!("\n{message}")),
         Ok(Ok((success, out, err))) => (
@@ -472,7 +491,7 @@ async fn run_engine(tool: &TexTool, dir: &Path, entry: &str) -> (bool, String) {
                 String::from_utf8_lossy(&err)
             ),
         ),
-    }
+    })
 }
 
 /// Reads one output stream, failing once it passes [`MAX_OUTPUT_BYTES`] (Node's maxBuffer error text).

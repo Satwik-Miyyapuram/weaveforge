@@ -215,6 +215,15 @@ test("compileTex sends a plain array copy of the files and the entry file", asyn
   assert.equal(sentEntry, "main.tex");
 });
 
+test("cancelTex calls tex_cancel and resolves to nothing", async () => {
+  const { cmds, calls } = fakeCommands({ texCancel: { status: "ok", data: null } });
+  const { cancelTex } = desktopShim(cmds, fakeEvents().events);
+  assert.ok(cancelTex);
+  const result = await cancelTex();
+  assert.equal(result, undefined);
+  assert.deepEqual(calls.map((c) => c.cmd), ["texCancel"]);
+});
+
 test("reportAppLog returns undefined synchronously and sends detail null when missing", () => {
   const { cmds, calls } = fakeCommands();
   const result = desktopShim(cmds, fakeEvents().events).reportAppLog?.({

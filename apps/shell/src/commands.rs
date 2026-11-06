@@ -240,6 +240,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::paste_commands::fetch_image,
         crate::cmd_tools::tex_probe,
         crate::cmd_tools::tex_compile,
+        crate::cmd_tools::tex_cancel,
         crate::cmd_tools::zotero_local,
         crate::cmd_tools::update_check,
         crate::cmd_tools::app_log_report,
