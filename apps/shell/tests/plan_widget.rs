@@ -153,11 +153,11 @@ fn place_widget_keeps_a_position_on_a_screen_and_rescues_one_that_is_not() {
         height: 1040,
     }];
     let kept = WidgetBounds { x: 100, y: 100 };
-    assert_eq!(place_widget(Some(kept), &areas), kept);
-    let rescued = place_widget(Some(WidgetBounds { x: 3000, y: 100 }), &areas);
+    assert_eq!(place_widget(Some(kept), &areas, None), kept);
+    let rescued = place_widget(Some(WidgetBounds { x: 3000, y: 100 }), &areas, None);
     assert_eq!(rescued.x, 1920 - PLAN_WIDGET_WIDTH - 32);
     assert_eq!(rescued.y, 32);
-    assert_eq!(place_widget(None, &areas), rescued);
+    assert_eq!(place_widget(None, &areas, None), rescued);
 }
 
 #[test]
@@ -177,7 +177,7 @@ fn place_widget_keeps_a_spot_inside_a_second_monitor_at_negative_coordinates() {
         },
     ];
     let spot = WidgetBounds { x: -1200, y: 50 };
-    assert_eq!(place_widget(Some(spot), &areas), spot);
+    assert_eq!(place_widget(Some(spot), &areas, None), spot);
 }
 
 #[test]
@@ -196,7 +196,7 @@ fn place_widget_moves_a_spot_straddling_two_areas_to_the_first_corner() {
             height: 1000,
         },
     ];
-    let placed = place_widget(Some(WidgetBounds { x: 1800, y: 100 }), &areas);
+    let placed = place_widget(Some(WidgetBounds { x: 1800, y: 100 }), &areas, None);
     assert_eq!(
         placed,
         WidgetBounds {
@@ -209,7 +209,7 @@ fn place_widget_moves_a_spot_straddling_two_areas_to_the_first_corner() {
 #[test]
 fn place_widget_with_no_areas_uses_the_default_screen() {
     assert_eq!(
-        place_widget(None, &[]),
+        place_widget(None, &[], None),
         WidgetBounds {
             x: 1280 - 320 - 32,
             y: 32
@@ -458,4 +458,30 @@ async fn switch_plan_widget_saves_then_applies_in_that_order() {
     .await;
     assert_eq!(result, Ok(()));
     assert_eq!(*steps.borrow(), ["save false", "apply false"]);
+}
+
+#[test]
+fn place_widget_falls_back_to_the_primary_area_even_when_it_is_not_first() {
+    let left = WorkArea {
+        x: -1280,
+        y: 0,
+        width: 1280,
+        height: 1000,
+    };
+    let primary = WorkArea {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1040,
+    };
+    let areas = [left, primary];
+    let corner = WidgetBounds {
+        x: 1920 - PLAN_WIDGET_WIDTH - 32,
+        y: 32,
+    };
+    assert_eq!(place_widget(None, &areas, Some(primary)), corner);
+    assert_eq!(
+        place_widget(Some(WidgetBounds { x: 5000, y: 0 }), &areas, Some(primary)),
+        corner
+    );
 }
