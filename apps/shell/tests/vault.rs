@@ -209,6 +209,42 @@ fn text_round_trips_through_nested_folders() {
     );
 }
 
+// 9b. Checked writes refuse to overwrite an edit made since the caller read
+#[test]
+fn a_checked_write_is_refused_when_the_file_changed_since_it_was_read() {
+    let dir = TempDir::new();
+    let session = session_at(dir.path());
+    session.write_text("a.md", "read").unwrap();
+    fs::write(dir.path().join("a.md"), "edited outside").unwrap();
+
+    assert_eq!(session.write_text_if("a.md", "app", Some("read")), Ok(false));
+    assert_eq!(
+        fs::read_to_string(dir.path().join("a.md")).unwrap(),
+        "edited outside"
+    );
+}
+
+#[test]
+fn a_checked_write_lands_when_the_file_is_as_read() {
+    let dir = TempDir::new();
+    let session = session_at(dir.path());
+    session.write_text("a.md", "read").unwrap();
+
+    assert_eq!(session.write_text_if("a.md", "app", Some("read")), Ok(true));
+    assert_eq!(session.read_text("a.md"), Ok(Some("app".to_owned())));
+}
+
+#[test]
+fn a_checked_write_expecting_no_file_is_refused_when_one_appeared() {
+    let dir = TempDir::new();
+    let session = session_at(dir.path());
+    fs::write(dir.path().join("new.md"), "made outside").unwrap();
+
+    assert_eq!(session.write_text_if("new.md", "app", None), Ok(false));
+    assert_eq!(session.write_text_if("other/b.md", "app", None), Ok(true));
+    assert_eq!(session.read_text("other/b.md"), Ok(Some("app".to_owned())));
+}
+
 // 10. Missing files read as None
 #[test]
 fn reading_a_missing_file_is_none() {

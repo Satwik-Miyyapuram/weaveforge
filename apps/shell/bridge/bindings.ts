@@ -65,6 +65,14 @@ export const commands = {
 	 */
 	vaultWrite: (path: string, contents: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_write", { path, contents })),
 	/**
+	 *  Writes a text file only if it still says `expected` (`None` = still
+	 *  missing); `false` = it changed since it was read, and nothing was written.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or contents over the size cap.
+	 */
+	vaultWriteIf: (path: string, contents: string, expected: string | null) => typedError<boolean, ShellError>(__TAURI_INVOKE("vault_write_if", { path, contents, expected })),
+	/**
 	 *  Reads a binary file in the chosen folder as base64.
 	 * 
 	 *  # Errors

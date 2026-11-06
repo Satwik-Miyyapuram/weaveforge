@@ -35,6 +35,14 @@ export class MemoryWorkspaceFs implements IWorkspaceFs {
     for (let i = 1; i < parts.length; i += 1) this.dirs.add(parts.slice(0, i).join("/"));
   }
 
+  async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
+    const bytes = this.files.get(safeWorkspacePath(path));
+    const current = bytes ? new TextDecoder().decode(bytes) : null;
+    if (current !== expected) return false;
+    await this.writeFile(path, text);
+    return true;
+  }
+
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
     const safe = safeWorkspacePath(path);
     this.files.delete(safe);

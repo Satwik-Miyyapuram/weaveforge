@@ -178,6 +178,11 @@ export interface DesktopBridge {
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
+  /**
+   * Write only while the file still says `expected` (null = still missing);
+   * false = it changed since it was read. Absent on the Electron shell.
+   */
+  writeVaultFileIf?(path: string, contents: string, expected: string | null): Promise<boolean>;
   /** The same pair for bytes (PDFs), which must not pass through a text decode. */
   readVaultBytes(path: string): Promise<Uint8Array | null>;
   writeVaultBytes(path: string, bytes: Uint8Array): Promise<void>;

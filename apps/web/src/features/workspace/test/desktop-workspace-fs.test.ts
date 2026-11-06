@@ -58,6 +58,29 @@ test("the adapter round trips a file through the bridge", async () => {
   assert.equal((await fs.stat("notes/one.note.md"))?.kind, "file");
 });
 
+test("a checked write is passed to the shell when it has one", async () => {
+  const calls: unknown[][] = [];
+  const fs = new DesktopWorkspaceFs({
+    ...bridgeOver(new MemoryWorkspaceFs()),
+    async writeVaultFileIf(...args) {
+      calls.push(args);
+      return false;
+    },
+  });
+  assert.equal(await fs.writeTextIf("notes/a.note.md", "app", "read"), false);
+  assert.deepEqual(calls, [["notes/a.note.md", "app", "read"]]);
+});
+
+test("without the shell's checked write, the file is compared before writing", async () => {
+  const fs = adapter();
+  await fs.writeFile("notes/a.note.md", "edited outside");
+  assert.equal(await fs.writeTextIf("notes/a.note.md", "app", "read"), false);
+  assert.equal(await fs.readText("notes/a.note.md"), "edited outside");
+  assert.equal(await fs.writeTextIf("notes/a.note.md", "app", "edited outside"), true);
+  assert.equal(await fs.writeTextIf("notes/new.note.md", "app", null), true);
+  assert.equal(await fs.readText("notes/new.note.md"), "app");
+});
+
 test("bytes survive the trip in both directions", async () => {
   const fs = adapter();
   await fs.writeFile("notes/two.note.md", new TextEncoder().encode("héllo"));
