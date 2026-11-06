@@ -25,6 +25,14 @@ export type { ConflictResolution };
 
 let pendingAssets = new Map<string, Uint8Array>();
 
+/**
+ * Notes made from a hand-written file whose id could not be written back into
+ * it, by path. That file still has no id, so the next preview offers it as new
+ * again; this lets the next apply update the note it made instead of adding a
+ * second one.
+ */
+const unclaimed = new Map<string, string>();
+
 export function setPendingAssets(assets: Map<string, Uint8Array>): void {
   pendingAssets = assets;
 }
@@ -78,7 +86,8 @@ export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> 
   return writeConflictMarkersTo(await loadCore(), fs, entry);
 }
 
-async function applyEntries(
+/** @internal exported for tests */
+export async function applyEntries(
   fs: IWorkspaceFs,
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
@@ -100,17 +109,34 @@ async function applyEntries(
     }
 
     if (entry.action === "created") {
-      const page = await container.vault.manageVaultPage.add({
-        title: entry.entity.title,
-        body: await reanchorAssets(entry.entity.body, "new", owned),
-      });
-      if (entry.entity.path) {
-        await claimImportedFile(fs, entry.entity.path, page.id, projectRoot).catch(
-          () => false,
-        );
+      const path = entry.entity.path;
+      const earlier = path ? unclaimed.get(path) : undefined;
+      const made = earlier ? await container.vault.getPage(earlier) : null;
+      let id: string;
+      if (made) {
+        await container.vault.manageVaultPage.update(made.id, {
+          title: entry.entity.title,
+          body: await reanchorAssets(entry.entity.body, made.id, owned),
+        });
+        id = made.id;
+        updated += 1;
+      } else {
+        const page = await container.vault.manageVaultPage.add({
+          title: entry.entity.title,
+          body: await reanchorAssets(entry.entity.body, "new", owned),
+        });
+        id = page.id;
+        created += 1;
       }
-      created += 1;
-      appliedPaths.push(entry.entity.path);
+      if (path) {
+        try {
+          await claimImportedFile(fs, path, id, projectRoot);
+          unclaimed.delete(path);
+        } catch {
+          unclaimed.set(path, id);
+        }
+      }
+      appliedPaths.push(path);
       continue;
     }
 

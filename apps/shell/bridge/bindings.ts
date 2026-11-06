@@ -49,7 +49,28 @@ export const commands = {
 	 *  # Errors
 	 *  The reason the picked folder cannot hold a workspace; nothing changes.
 	 */
-	vaultChoose: () => typedError<VaultRoot | null, ShellError>(__TAURI_INVOKE("vault_choose")),
+	vaultChoose: () => typedError<Choice_Serialize, ShellError>(__TAURI_INVOKE("vault_choose")),
+	/**
+	 *  The remembered folder while none is in use, so the page can say it is not available.
+	 * 
+	 *  # Errors
+	 *  Never; a `Result` for the command shape.
+	 */
+	vaultMissing: () => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_missing")),
+	/**
+	 *  Tries the remembered folder again, after a drive is plugged back in.
+	 * 
+	 *  # Errors
+	 *  The reason the folder still cannot hold a workspace; nothing changes.
+	 */
+	vaultRetry: () => typedError<Choice_Serialize, ShellError>(__TAURI_INVOKE("vault_retry")),
+	/**
+	 *  Disconnects the workspace folder: no longer used, watched or remembered. The files stay.
+	 * 
+	 *  # Errors
+	 *  Only when the blocking task fails.
+	 */
+	vaultForget: () => typedError<Choice_Serialize, ShellError>(__TAURI_INVOKE("vault_forget")),
 	/**
 	 *  Reads a text file in the chosen folder.
 	 * 
@@ -452,6 +473,25 @@ export type AppLogText = {
 	text: string,
 	/**  False when the in-memory log has dropped entries it once held. */
 	complete: boolean,
+};
+
+/**  What a pick did. */
+export type Choice = Choice_Serialize | Choice_Deserialize;
+
+/**  What a pick did. */
+export type Choice_Deserialize = {
+	/**  The folder now in use; `None` when none is chosen. */
+	root?: VaultRoot | null,
+	/**  Problems that do not undo the pick (watch or remembering failed), for the page and the app log. */
+	warnings: string[],
+};
+
+/**  What a pick did. */
+export type Choice_Serialize = {
+	/**  The folder now in use; `None` when none is chosen. */
+	root: VaultRoot | null,
+	/**  Problems that do not undo the pick (watch or remembering failed), for the page and the app log. */
+	warnings: string[],
 };
 
 /**  The answer to a commit request (TS `{ commit, reason? }`). */

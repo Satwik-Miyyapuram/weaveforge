@@ -13,7 +13,8 @@ use common::TempDir;
 use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
 use weaveforge_shell_lib::vault::VaultState;
 use weaveforge_shell_lib::vault_choice::{
-    NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, restore_remembered, watch_root_with,
+    NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, forget_choice, missing_remembered,
+    restore_remembered, retry_remembered, watch_root_with,
 };
 use weaveforge_shell_lib::vault_watcher::{ChangeSink, WatchSlot};
 
@@ -394,4 +395,99 @@ fn restoring_a_folder_that_is_no_longer_ours_forgets_it() {
     assert_eq!(restore_remembered(&vault, &prefs), None);
     assert_eq!(vault.lock().root(), None);
     assert_eq!(prefs.read(ROOT_PREF), Ok(None));
+}
+
+#[test]
+fn a_missing_remembered_folder_is_named_until_it_is_back() {
+    let tmp = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let slot = WatchSlot::default();
+    assert_eq!(
+        missing_remembered(&vault, &prefs),
+        None,
+        "nothing remembered"
+    );
+
+    let drive = tmp.path().join("unplugged");
+    let path = drive.to_string_lossy().into_owned();
+    prefs
+        .write(ROOT_PREF, Some(PrefValue::Text(path.clone())))
+        .unwrap();
+    assert_eq!(restore_remembered(&vault, &prefs), None);
+    assert_eq!(missing_remembered(&vault, &prefs), Some(path.clone()));
+
+    // Still unplugged: retry says why and changes nothing.
+    let (sink1, _rx1) = sink();
+    assert!(retry_remembered(&vault, &prefs, &slot, sink1).is_err());
+    assert_eq!(vault.lock().root(), None);
+    assert!(!slot.is_watching());
+    assert_eq!(
+        prefs.read(ROOT_PREF),
+        Ok(Some(PrefValue::Text(path.clone())))
+    );
+
+    // Plugged back in: retry takes it up and watches it.
+    fs::create_dir(&drive).unwrap();
+    let (sink2, _rx2) = sink();
+    let choice = retry_remembered(&vault, &prefs, &slot, sink2).unwrap();
+    assert!(choice.root.is_some());
+    assert!(slot.is_watching());
+    assert_eq!(
+        missing_remembered(&vault, &prefs),
+        None,
+        "a folder is in use"
+    );
+}
+
+#[test]
+fn retrying_with_nothing_remembered_changes_nothing() {
+    let tmp = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let slot = WatchSlot::default();
+    let (sink, _rx) = sink();
+
+    let choice = retry_remembered(&vault, &prefs, &slot, sink).unwrap();
+    assert_eq!(choice.root, None);
+    assert!(!slot.is_watching());
+}
+
+#[test]
+fn forgetting_lets_the_folder_go_stops_the_watch_and_the_pref() {
+    let tmp = TempDir::new();
+    let folder = TempDir::new();
+    let vault = VaultState::new();
+    let prefs = prefs_in(&tmp);
+    let slot = WatchSlot::default();
+    let (sink, rx) = sink();
+    let _ = adopt_choice_with(
+        &vault,
+        &prefs,
+        &slot,
+        Some(folder.path()),
+        sink,
+        QUIET,
+        WINDOW,
+    )
+    .unwrap();
+
+    let choice = forget_choice(&vault, &prefs, &slot);
+
+    assert_eq!(choice.root, None);
+    assert!(choice.warnings.is_empty());
+    assert_eq!(vault.lock().root(), None);
+    assert!(!slot.is_watching());
+    assert_eq!(prefs.read(ROOT_PREF), Ok(None));
+    assert_eq!(
+        missing_remembered(&vault, &prefs),
+        None,
+        "nothing to call missing"
+    );
+    fs::write(folder.path().join("late.md"), "x").unwrap();
+    assert!(
+        !reported(&rx, "late.md"),
+        "the old folder no longer reports"
+    );
+    assert!(folder.path().exists(), "the files stay");
 }

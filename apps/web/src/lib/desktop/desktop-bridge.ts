@@ -175,6 +175,15 @@ export interface DesktopBridge {
   chooseVaultRoot(): Promise<DesktopVaultRoot | null>;
   /** The folder currently in use, or null when none has been chosen. */
   vaultRoot(): Promise<DesktopVaultRoot | null>;
+  /**
+   * The remembered folder while none is in use (an unplugged drive), or null.
+   * Absent on the Electron shell.
+   */
+  missingVaultRoot?(): Promise<string | null>;
+  /** Try the remembered folder again; rejects with why it still cannot be used. */
+  retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
+  /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
+  forgetVaultRoot?(): Promise<readonly string[]>;
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
@@ -631,6 +640,8 @@ export interface DesktopVaultRoot {
   path: string;
   /** Whether the folder already held a workspace when it was chosen. */
   state: "empty" | "existing";
+  /** Problems that did not undo the pick, such as the folder not being watched. */
+  warnings?: readonly string[];
 }
 
 /** One entry of a folder listing, flattened for the wire. */

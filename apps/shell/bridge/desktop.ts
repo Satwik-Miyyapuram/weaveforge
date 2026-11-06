@@ -58,10 +58,27 @@ function toInkResult(wire: WireInkResult): DesktopInkResult {
   };
 }
 
+/** What a folder pick, retry or disconnect did; warnings do not undo it. */
+interface VaultChoice {
+  root: DesktopVaultRoot | null;
+  warnings: string[];
+}
+
+/** The folder a choice left in use, carrying its warnings for the page to show. */
+function choiceRoot(choice: VaultChoice): DesktopVaultRoot | null {
+  if (!choice.root) return null;
+  return choice.warnings.length > 0
+    ? { ...choice.root, warnings: choice.warnings }
+    : choice.root;
+}
+
 /** The generated commands this part of the shim calls (names as tauri-specta camelCases them). */
 export interface DesktopCommands {
   vaultRoot(): Promise<Result<DesktopVaultRoot | null>>;
-  vaultChoose(): Promise<Result<DesktopVaultRoot | null>>;
+  vaultChoose(): Promise<Result<VaultChoice>>;
+  vaultMissing(): Promise<Result<string | null>>;
+  vaultRetry(): Promise<Result<VaultChoice>>;
+  vaultForget(): Promise<Result<VaultChoice>>;
   vaultRead(path: string): Promise<Result<string | null>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
   vaultWriteIf(path: string, contents: string, expected: string | null): Promise<Result<boolean>>;
@@ -254,6 +271,9 @@ export type DesktopShim = Pick<
   | "overleafSync"
   | "vaultRoot"
   | "chooseVaultRoot"
+  | "missingVaultRoot"
+  | "retryVaultRoot"
+  | "forgetVaultRoot"
   | "readVaultFile"
   | "writeVaultFile"
   | "writeVaultFileIf"
@@ -463,7 +483,10 @@ export function desktopShim(
       return unwrap(await cmds.overleafSync(request.action, projectId, folder));
     },
     vaultRoot: async () => unwrap(await cmds.vaultRoot()),
-    chooseVaultRoot: async () => unwrap(await cmds.vaultChoose()),
+    chooseVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultChoose())),
+    missingVaultRoot: async () => unwrap(await cmds.vaultMissing()),
+    retryVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultRetry())),
+    forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
     readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));

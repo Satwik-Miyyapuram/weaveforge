@@ -6,7 +6,9 @@ use base64::engine::general_purpose::STANDARD;
 use crate::commands::ShellError;
 use crate::prefs::Prefs;
 use crate::vault::{VaultEntry, VaultRoot, VaultSession, VaultState};
-use crate::vault_choice::adopt_choice;
+use crate::vault_choice::{
+    Choice, adopt_choice, forget_choice, missing_remembered, retry_remembered,
+};
 use crate::vault_watcher::WatchSlot;
 
 /// Said when the bytes from the page are not valid base64; nothing is written.
@@ -145,7 +147,7 @@ pub async fn vault_choose(
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
-) -> Result<Option<VaultRoot>, ShellError> {
+) -> Result<Choice, ShellError> {
     // The dialog is modal; this also refuses a second pick that slips in while one is open.
     let Some(_choosing) = Choosing::start() else {
         return Err(ShellError::from(PICK_BUSY.to_owned()));
@@ -161,12 +163,80 @@ pub async fn vault_choose(
     .await
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
     .map_err(ShellError::from)?;
-    if let Some(root) = &choice.root {
-        for warning in &choice.warnings {
-            crate::log_vault_warning(&app, warning, &root.path);
-        }
+    log_warnings(&app, &choice);
+    Ok(choice)
+}
+
+/// Keeps a pick's warnings in the app log as well as showing them on the page.
+fn log_warnings(app: &tauri::AppHandle, choice: &Choice) {
+    let path = choice.root.as_ref().map_or("", |root| root.path.as_str());
+    for warning in &choice.warnings {
+        crate::log_vault_warning(app, warning, path);
     }
-    Ok(choice.root)
+}
+
+/// The remembered folder while none is in use, so the page can say it is not available.
+///
+/// # Errors
+/// Never; a `Result` for the command shape.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_missing(
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+) -> Result<Option<String>, ShellError> {
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    tokio::task::spawn_blocking(move || missing_remembered(&vault, &prefs))
+        .await
+        .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))
+}
+
+/// Tries the remembered folder again, after a drive is plugged back in.
+///
+/// # Errors
+/// The reason the folder still cannot hold a workspace; nothing changes.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_retry(
+    app: tauri::AppHandle,
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+    watch: tauri::State<'_, WatchSlot>,
+) -> Result<Choice, ShellError> {
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    let watch = watch.inner().clone();
+    let sink = crate::change_sink(&app);
+    let choice =
+        tokio::task::spawn_blocking(move || retry_remembered(&vault, &prefs, &watch, sink))
+            .await
+            .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
+            .map_err(ShellError::from)?;
+    log_warnings(&app, &choice);
+    Ok(choice)
+}
+
+/// Disconnects the workspace folder: no longer used, watched or remembered. The files stay.
+///
+/// # Errors
+/// Only when the blocking task fails.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_forget(
+    app: tauri::AppHandle,
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+    watch: tauri::State<'_, WatchSlot>,
+) -> Result<Choice, ShellError> {
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    let watch = watch.inner().clone();
+    let choice = tokio::task::spawn_blocking(move || forget_choice(&vault, &prefs, &watch))
+        .await
+        .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
+    log_warnings(&app, &choice);
+    Ok(choice)
 }
 
 /// Set while a folder dialog is open.

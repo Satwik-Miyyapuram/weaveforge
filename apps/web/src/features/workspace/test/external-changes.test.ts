@@ -11,6 +11,7 @@ import {
   clearExternalChanges,
   closeFolder,
   describeSync,
+  externalChangeReason,
   externalChanges,
   folderHistory,
   onExternalChange,
@@ -57,7 +58,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function connected() {
   const shell = fakeShell();
-  assert.equal(await chooseDesktopFolder({ git: false, reuse: true }), true);
+  assert.deepEqual(await chooseDesktopFolder({ git: false, reuse: true }), { warnings: [] });
   return shell;
 }
 
@@ -179,6 +180,40 @@ test("after a preview the outside list is what the preview found changed, no mor
     json: { entries: [{ action: "removed", path: "data/tags.json" }, { action: "unchanged", path: "data/lists.json" }] },
   } as never);
   assert.deepEqual(externalChanges(), ["data/tags.json", "notes/two.note.md"]);
+});
+
+test("a preview of some paths settles those and leaves the rest of the list", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  settleExternalChanges({
+    entries: [
+      { action: "removed", entity: { path: "notes/gone.note.md" } },
+      { action: "removed", entity: { path: "notes/also.note.md" } },
+    ],
+  } as never);
+  settleExternalChanges(
+    { entries: [{ action: "unchanged", entity: { path: "notes/also.note.md" } }] } as never,
+    new Set(["notes/also.note.md"]),
+  );
+  assert.deepEqual(externalChanges(), ["notes/gone.note.md"]);
+  assert.equal(externalChangeReason("notes/gone.note.md"), "removed");
+  assert.equal(externalChangeReason("notes/also.note.md"), undefined);
+});
+
+test("a listed outside edit says why it waits, until the list is cleared", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  settleExternalChanges({
+    entries: [
+      { action: "removed", entity: { path: "notes/gone.note.md" } },
+      { action: "unchanged", entity: { path: "notes/same.note.md" } },
+    ],
+    counts: { created: 0, updated: 0, unchanged: 1, conflict: 0, removed: 1 },
+  } as never);
+  assert.equal(externalChangeReason("notes/gone.note.md"), "removed");
+  assert.equal(externalChangeReason("notes/same.note.md"), undefined);
+  clearExternalChanges();
+  assert.equal(externalChangeReason("notes/gone.note.md"), undefined);
 });
 
 test("a failed commit is reported, not read as up to date", () => {

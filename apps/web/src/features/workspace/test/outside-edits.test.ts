@@ -315,3 +315,47 @@ test("a throwing preview or apply rejects and skips settle", async () => {
   );
   assert.equal(settleCalls, 0);
 });
+
+test("each held file says why it was held; a file taken in has no reason", () => {
+  const seen: Record<string, SeenFile> = {
+    "open.md": seenAs("folder"),
+    "both.md": seenAs("both"),
+    "unknown.md": seenAs("unknown"),
+    "gone.md": seenAs("folder"),
+    "copy.md": seenNew(),
+    "stripped.md": seenAs("folder"),
+    "fine.md": seenAs("folder"),
+    "data/tags.json": seenAs("folder"),
+    "data/both.json": seenAs("both"),
+  };
+  const { reasons } = splitOutsideEdits(
+    diffOf(
+      [
+        note("updated", "open.md", "n1"),
+        note("updated", "both.md", "n2"),
+        note("updated", "unknown.md", "n3"),
+        note("updated", "unseen.md", "n4"),
+        note("removed", "gone.md", "n5"),
+        note("conflict", "fine-but-conflict.md", "n6"),
+        note("updated", "copy.md", "n7"),
+        note("created", "stripped.md"),
+        note("updated", "fine.md", "n8"),
+      ],
+      [row("removed", "data/tags.json", "t1"), row("created", "data/both.json", "t2")],
+      seen,
+    ),
+    (id) => id === "n1",
+  );
+  assert.deepEqual(reasons, {
+    "open.md": "open in editor",
+    "both.md": "edited on both sides",
+    "unknown.md": "no record of the app's write",
+    "unseen.md": "no record of the app's write",
+    "gone.md": "removed",
+    "fine-but-conflict.md": "edited on both sides",
+    "copy.md": "a copy of a known note",
+    "stripped.md": "lost its id",
+    "data/tags.json": "a data file that cannot go in whole",
+    "data/both.json": "edited on both sides",
+  });
+});

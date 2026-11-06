@@ -38,8 +38,16 @@ export async function ensureContainer(): Promise<AppContainer> {
   return (await slot.ensure(containerKey())).container;
 }
 
+let testContainer: AppContainer | null = null;
+
+/** @internal for tests: a stand-in container `getContainer()` returns, or null to clear it. */
+export function setContainerForTests(container: AppContainer | null): void {
+  testContainer = container;
+}
+
 /** Sync accessor — throws if `ensureContainer()` has not completed for the current config. */
 export function getContainer(): AppContainer {
+  if (testContainer) return testContainer;
   const built = slot.get(containerKey());
   if (built) return built.container;
   throw new Error(
