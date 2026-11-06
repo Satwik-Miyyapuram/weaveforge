@@ -448,6 +448,12 @@ fn start_local_db(app: &tauri::AppHandle) {
         (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(Err(e.to_string()), String::new()),
     };
     let _ = app.manage(db);
+    // Boot Postgres now, beside the webview, so the page's first query does not wait ~1.5 s for it.
+    let app = app.clone();
+    drop(tauri::async_runtime::spawn(async move {
+        let db = app.state::<commands::LocalDb>();
+        let _ = db.query("select 1".to_owned(), Vec::new()).await;
+    }));
 }
 
 /// What the local API needs from the app, or `None` when the stores are not managed yet.
