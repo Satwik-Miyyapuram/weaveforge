@@ -15,7 +15,7 @@ import { isAbsoluteUrl, isTauriShell, viewableArtifactUrl } from "../infrastruct
 import { FormError } from "@/components/form-error";
 import { Chip } from "@/components/controls";
 import { Modal } from "@/components/modal";
-import { PdfReader } from "@/features/reader/ui/pdf-reader";
+import { PdfReader } from "@/features/reader";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 import { warnOnce } from "@/lib/error-report/warn-once";
