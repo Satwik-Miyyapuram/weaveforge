@@ -205,14 +205,43 @@ test("dispose unloads this model in the shell, and a later embed loads it again"
   assert.deepEqual(calls.loads, [MODEL, MODEL]);
 });
 
+test("two embedders of one model unload it only when the last one is disposed", async () => {
+  const { bridge, calls } = fakeBridge();
+  const a = new NativeEmbedder(bridge, { model: MODEL });
+  const b = new NativeEmbedder(bridge, { model: MODEL });
+  await a.embed({ texts: ["a"], kind: "query" });
+  await b.embed({ texts: ["b"], kind: "query" });
+  a.dispose();
+  assert.deepEqual(calls.unloads, []);
+  b.dispose();
+  assert.deepEqual(calls.unloads, [MODEL]);
+});
+
+test("disposing twice unloads once", async () => {
+  const { bridge, calls } = fakeBridge();
+  const a = new NativeEmbedder(bridge, { model: MODEL });
+  const b = new NativeEmbedder(bridge, { model: MODEL });
+  await a.load();
+  await b.load();
+  a.dispose();
+  a.dispose();
+  assert.deepEqual(calls.unloads, []);
+  b.dispose();
+  assert.deepEqual(calls.unloads, [MODEL]);
+});
+
 test("dispose swallows a failed unload and works without embedUnload", async () => {
   const { bridge } = fakeBridge();
   bridge.embedUnload = async () => {
     throw new Error("gone");
   };
-  new NativeEmbedder(bridge).dispose();
+  const failing = new NativeEmbedder(bridge);
+  await failing.load();
+  failing.dispose();
   delete bridge.embedUnload;
-  new NativeEmbedder(bridge).dispose();
+  const missing = new NativeEmbedder(bridge);
+  await missing.load();
+  missing.dispose();
   await new Promise((resolve) => setImmediate(resolve));
 });
 
