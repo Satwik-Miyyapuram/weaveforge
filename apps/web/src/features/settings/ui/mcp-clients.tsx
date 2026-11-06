@@ -209,7 +209,7 @@ export function McpClients({
             ))}
             {mcp.rewrites.skipped.map((file) => (
               <div key={file}>
-                Left alone (not plain JSON, or could not be written): <span className="mono">{file}</span>
+                Left alone (could not be read or written): <span className="mono">{file}</span>
               </div>
             ))}
           </div>

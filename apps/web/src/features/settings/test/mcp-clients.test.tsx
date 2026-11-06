@@ -81,7 +81,7 @@ describe("McpClients", () => {
     assert.ok(t.includes("Pointed at this app: /h/.cursor/mcp.json (original kept at /h/.cursor/mcp.json.weaveforge.bak)"));
     assert.ok(t.includes("Pointed at this app: /h/.gemini/settings.json"));
     assert.ok(!t.includes("settings.json (original"));
-    assert.ok(t.includes("Left alone (not plain JSON, or could not be written): /h/Code/User/mcp.json"));
+    assert.ok(t.includes("Left alone (could not be read or written): /h/Code/User/mcp.json"));
   });
 
   it("renders nothing on shells without MCP", () => {
