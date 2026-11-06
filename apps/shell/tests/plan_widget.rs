@@ -12,7 +12,8 @@ use serde_json::{Value, json};
 use weaveforge_shell_lib::plan_widget::{
     PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WidgetBounds, WorkArea,
     clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created, pin_script,
-    place_widget, powershell_args, switch_plan_widget,
+    place_widget, powershell_args, rows_to_milestones, switch_plan_widget, theme_push_script,
+    widget_asset,
 };
 
 /// The palette object with every colour key set to `colour`.
@@ -483,5 +484,71 @@ fn place_widget_falls_back_to_the_primary_area_even_when_it_is_not_first() {
     assert_eq!(
         place_widget(Some(WidgetBounds { x: 5000, y: 0 }), &areas, Some(primary)),
         corner
+    );
+}
+#[test]
+fn widget_asset_serves_the_page_at_its_folder_and_index() {
+    let (kind, bytes) = widget_asset("/plan-widget/").unwrap();
+    assert_eq!(kind, "text/html; charset=utf-8");
+    assert!(std::str::from_utf8(bytes).unwrap().contains("<html"));
+    assert_eq!(widget_asset("/plan-widget/index.html").unwrap().1, bytes);
+}
+
+#[test]
+fn widget_asset_serves_both_fonts() {
+    for font in ["rubik-latin.woff2", "rubik-latin-ext.woff2"] {
+        let (kind, bytes) = widget_asset(&format!("/plan-widget/fonts/{font}")).unwrap();
+        assert_eq!(kind, "font/woff2");
+        assert!(bytes.starts_with(b"wOF2"), "{font}");
+    }
+}
+
+#[test]
+fn widget_asset_refuses_unknown_and_outside_paths() {
+    assert!(widget_asset("/plan-widget/fonts/OFL.txt").is_none());
+    assert!(widget_asset("/plan-widget/../index.html").is_none());
+    assert!(widget_asset("/plan-widget").is_none());
+    assert!(widget_asset("/index.html").is_none());
+    assert!(widget_asset("/x/plan-widget/").is_none());
+}
+
+#[test]
+fn rows_to_milestones_drops_rows_without_an_id_and_keeps_nulls() {
+    let rows = vec![
+        json!({"title": "no id"}),
+        json!({"id": null, "title": "null id"}),
+        json!({"id": "m1", "title": null, "description": null, "status": null, "target_date": null, "project_name": null}),
+        json!({"id": "m2", "title": "T", "description": "D", "status": "done", "target_date": "2026-11-06", "project_name": "P"}),
+    ];
+    let got = rows_to_milestones(&rows);
+    assert_eq!(got.len(), 2);
+    assert_eq!(got[0].id, "m1");
+    assert_eq!(got[0].title, "");
+    assert_eq!(got[0].status, "");
+    assert!(
+        got[0].description.is_none()
+            && got[0].target_date.is_none()
+            && got[0].project_name.is_none()
+    );
+    assert_eq!(got[1].title, "T");
+    assert_eq!(got[1].description.as_deref(), Some("D"));
+    assert_eq!(got[1].status, "done");
+    assert_eq!(got[1].target_date.as_deref(), Some("2026-11-06"));
+    assert_eq!(got[1].project_name.as_deref(), Some("P"));
+}
+
+#[test]
+fn theme_push_script_embeds_the_palette_as_escaped_json() {
+    let palette = BTreeMap::from([("bg".to_owned(), "</script>\"\\".to_owned())]);
+    let script = theme_push_script(&palette);
+    let json = script
+        .strip_prefix("window.__wfPlanWidgetTheme && window.__wfPlanWidgetTheme(")
+        .and_then(|rest| rest.strip_suffix(");"))
+        .unwrap();
+    let back: BTreeMap<String, String> = serde_json::from_str(json).unwrap();
+    assert_eq!(back, palette);
+    assert_eq!(
+        theme_push_script(&BTreeMap::new()),
+        "window.__wfPlanWidgetTheme && window.__wfPlanWidgetTheme({});"
     );
 }

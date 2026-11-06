@@ -43,6 +43,7 @@ pub mod overleaf_signin;
 pub mod overleaf_workshop;
 pub mod paste_commands;
 pub mod plan_widget;
+pub mod plan_widget_window;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
@@ -124,6 +125,7 @@ pub fn run() -> tauri::Result<()> {
             start_local_db(app.handle());
             start_local_api(app.handle());
             open_main_window(app.handle())?;
+            plan_widget_window::open_at_start(app.handle());
             start_sign_in(app.handle());
             Ok(())
         })
@@ -560,11 +562,11 @@ fn start_routes(app: &tauri::AppHandle) {
 }
 
 /// The label of the one app window, as `tauri.conf.json` names it.
-const MAIN_WINDOW: &str = "main";
+pub(crate) const MAIN_WINDOW: &str = "main";
 
 /// Opens the main window from its `tauri.conf.json` entry (`create: false`), with the bridge as its init script.
 /// The window stays on the app's own pages: other http(s) links and popups open in the OS browser, as in Electron.
-fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let Some(config) = app
         .config()
         .app

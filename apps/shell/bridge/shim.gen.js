@@ -360,7 +360,50 @@
          *  # Errors
          *  Returns an error when the window refuses the change.
          */
-        windowFocus: (focus) => typedError(invoke("window_focus", { focus }))
+        windowFocus: (focus) => typedError(invoke("window_focus", { focus })),
+        /**
+         *  Whether the widget can be shown here, and whether it is on.
+         * 
+         *  # Errors
+         *  Never fails; the `Result` keeps the command's shape.
+         */
+        planWidgetState: () => typedError(invoke("plan_widget_state")),
+        /**
+         *  Turns the widget on or off: saves the choice, then opens or closes its window.
+         * 
+         *  # Errors
+         *  Returns an error when the choice cannot be saved or the window cannot be opened or closed.
+         */
+        planWidgetSet: (on) => typedError(invoke("plan_widget_set", { on })),
+        /**
+         *  Takes the app's palette for the widget: saves it, and hands it to an open widget.
+         *  A palette that is not plain colours and shapes is dropped.
+         * 
+         *  # Errors
+         *  Returns an error when the palette cannot be saved.
+         */
+        planWidgetTheme: (palette) => typedError(invoke("plan_widget_theme", { palette })),
+        /**
+         *  The saved palette, if it is still a clean one.
+         * 
+         *  # Errors
+         *  Never fails; the `Result` keeps the command's shape.
+         */
+        planWidgetPalette: () => typedError(invoke("plan_widget_palette")),
+        /**
+         *  The widget's deadlines from the local database, as the web feed's widget JSON.
+         * 
+         *  # Errors
+         *  Returns an error when the local database cannot be read.
+         */
+        planWidgetData: () => typedError(invoke("plan_widget_data")),
+        /**
+         *  Brings the app forward on its plan page, opening the main window if it is closed.
+         * 
+         *  # Errors
+         *  Returns an error when the main window cannot be opened.
+         */
+        planWidgetOpen: () => typedError(invoke("plan_widget_open"))
       };
     }
   });
@@ -671,6 +714,12 @@
       },
       clearSecret: async (name) => {
         unwrap(await cmds.secretClear(name));
+      },
+      planWidgetState: async () => unwrap(await cmds.planWidgetState()),
+      setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
+      setPlanWidgetTheme: (palette) => {
+        void cmds.planWidgetTheme(palette).catch(() => {
+        });
       }
     };
   }

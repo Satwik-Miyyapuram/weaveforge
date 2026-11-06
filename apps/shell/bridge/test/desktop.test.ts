@@ -766,3 +766,36 @@ test("onEmbedProgress forwards loaded, total and model, and stops on unsubscribe
   assert.deepEqual(seen, [[1, 4, "m"]]);
   assert.equal(fake.unlistenCount(), 1);
 });
+
+test("planWidgetState and setPlanWidget answer the widget state", async () => {
+  const state = { supported: true, enabled: true };
+  const { cmds, calls } = fakeCommands({
+    planWidgetState: { status: "ok", data: state },
+    planWidgetSet: { status: "ok", data: state },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.planWidgetState?.(), state);
+  assert.deepEqual(await shim.setPlanWidget?.(true), state);
+  assert.deepEqual(calls, [
+    { cmd: "planWidgetState", args: [] },
+    { cmd: "planWidgetSet", args: [true] },
+  ]);
+});
+
+test("setPlanWidget throws the shell's message", async () => {
+  const { cmds } = fakeCommands({ planWidgetSet: error("no widget") });
+  await assert.rejects(
+    async () => desktopShim(cmds, fakeEvents().events).setPlanWidget?.(true),
+    /no widget/,
+  );
+});
+
+test("setPlanWidgetTheme returns undefined synchronously and swallows failures", async () => {
+  const { cmds, calls } = fakeCommands({
+    planWidgetTheme: () => Promise.reject(new Error("ipc down")),
+  });
+  const result = desktopShim(cmds, fakeEvents().events).setPlanWidgetTheme?.({ bg: "#000000" });
+  assert.equal(result, undefined);
+  assert.deepEqual(calls, [{ cmd: "planWidgetTheme", args: [{ bg: "#000000" }] }]);
+  await new Promise((resolve) => setImmediate(resolve));
+});

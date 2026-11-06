@@ -118,6 +118,35 @@ async fn an_app_page_comes_from_the_web_export() {
 }
 
 #[tokio::test]
+async fn the_plan_widget_page_is_built_in_and_carries_its_csp() {
+    let (web, data) = (TempDir::new(), TempDir::new());
+    let routes = routes(&web, &data);
+    for uri in [
+        "app://localhost/plan-widget/",
+        "http://app.localhost/plan-widget/index.html",
+    ] {
+        let answer = ask(&routes, uri).await;
+        assert_eq!(answer.status, 200, "{uri}");
+        let csp = answer
+            .headers
+            .iter()
+            .find(|(name, _)| name == "content-security-policy")
+            .map(|(_, value)| value.as_str());
+        assert_eq!(
+            csp,
+            Some(weaveforge_shell_lib::plan_widget::WIDGET_CSP),
+            "{uri}"
+        );
+    }
+    let font = ask(
+        &routes,
+        "app://localhost/plan-widget/fonts/rubik-latin.woff2",
+    )
+    .await;
+    assert_eq!(font.status, 200);
+}
+
+#[tokio::test]
 async fn an_api_path_without_a_relay_client_falls_through_to_the_export() {
     let (web, data) = (TempDir::new(), TempDir::new());
     put(&web.path().join("index.html"), b"<html>home</html>");
