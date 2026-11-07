@@ -34,8 +34,6 @@ export function tabBlockers({ signedIn, inAccount, inShell }: {
   };
 }
 
-export type Layout = "split" | "editor" | "pdf";
-
 /**
  * One Overleaf project as Overleaf lays it out: files, editor and PDF, with our
  * record header and its link to this WeaveForge project. Without the desktop app
@@ -68,7 +66,6 @@ export function OverleafProjectDetail({
   const report = row.report;
   const sessionId = session.sessionId;
   const blockers = tabBlockers({ signedIn: Boolean(sessionId), inAccount: row.inAccount, inShell });
-  const [layout, setLayout] = useState<Layout>("split");
   const [form, setForm] = useState<"link" | "edit" | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
 
@@ -141,9 +138,6 @@ export function OverleafProjectDetail({
             client={client}
             sessionId={sessionId}
             projectId={row.id}
-            layout={layout}
-            onLayout={setLayout}
-            pdf={<WorkshopPdfViewer key={`${sessionId}:${row.id}`} sessionId={sessionId} projectId={row.id} authHeaders={client.authHeaders} />}
           />
         ) : (
           <>

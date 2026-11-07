@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  emitLive,
   fetchLiveFile,
   flattenDocs,
   flattenFiles,
@@ -116,4 +117,37 @@ test("a project file downloads as a blob, and a failure is null", async () => {
   assert.equal(blob?.size, 3);
   status = 502;
   assert.equal(await fetchLiveFile(deps, "S", "P", "f1"), null);
+});
+
+test("open keeps Overleaf's join reply as sent, for the vendored IDE", async () => {
+  const join = [{ project: { name: "Thesis" }, permissionsLevel: "owner", protocolVersion: 2, publicId: "p" }];
+  const { deps } = makeDeps(() => ({ status: 200, body: { liveId: "L", name: "Thesis", rootFolder: ROOT, join } }));
+  const res = await openLiveProject(deps, "S", "P");
+  assert.ok(res.ok);
+  assert.deepEqual(res.join, join);
+});
+
+test("open without a join reply gives an empty one", async () => {
+  const { deps } = makeDeps(() => ({ status: 200, body: { liveId: "L", rootFolder: ROOT } }));
+  const res = await openLiveProject(deps, "S", "P");
+  assert.ok(res.ok);
+  assert.deepEqual(res.join, []);
+});
+
+test("an emit relays the event and returns Overleaf's reply", async () => {
+  const { deps, calls } = makeDeps(() => ({ status: 200, body: { reply: [null, ["a"], 7] } }));
+  const res = await emitLive(deps, "L", "joinDoc", ["d1", { encodeRanges: true }]);
+  assert.deepEqual(calls, [
+    { url: "/api/overleaf/workshop/live/emit", body: { liveId: "L", name: "joinDoc", args: ["d1", { encodeRanges: true }] } },
+  ]);
+  assert.deepEqual(res, { ok: true, reply: [null, ["a"], 7] });
+});
+
+test("a refused emit says why, and a gone connection is closed", async () => {
+  const { deps } = makeDeps(() => ({ status: 410, body: { error: "The live connection closed.", closed: true } }));
+  assert.deepEqual(await emitLive(deps, "L", "leaveDoc", ["d1"]), {
+    ok: false,
+    closed: true,
+    message: "The live connection closed.",
+  });
 });

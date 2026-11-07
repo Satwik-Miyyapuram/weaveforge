@@ -1,0 +1,26 @@
+{
+  // The vendored Overleaf IDE is checked here, with Overleaf's own strictness,
+  // so its source stays unchanged. The web app sees it only through ol-host's
+  // typed entry (see apps/web/tsconfig.json "paths").
+  "extends": "../../../../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "preserve",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false,
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2024", "ESNext.Iterator", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "WebWorker"],
+    // Overleaf's pinned versions, for this tree only (next.config.mjs does the
+    // same for the bundle). The app keeps its own pdfjs-dist 4.
+    "paths": {
+      "pdfjs-dist": ["./node_modules/pdfjs-dist-overleaf", "../../../../../../../node_modules/pdfjs-dist-overleaf"],
+      "pdfjs-dist/*": ["./node_modules/pdfjs-dist-overleaf/*", "../../../../../../../node_modules/pdfjs-dist-overleaf/*"],
+      "@replit/codemirror-vim": ["./ol-shims/codemirror-vim.d.ts"]
+    }
+  },
+  "include": ["app", "frontend", "libraries", "types", "ol-shims", "ol-host"],
+  "exclude": ["node_modules", "codemirror"]
+}

@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
 use wf_core::overleaf_workshop::{
     cdn_pdf_url, parse_overleaf_meta, read_workshop_request, read_workshop_session_id,
@@ -29,6 +31,30 @@ const MAX_PDF: usize = 200 * 1024 * 1024;
 const MAX_FILE: usize = 50 * 1024 * 1024;
 /// The answer for a missing or malformed file id.
 const FILE_ID_INVALID: &str = "A valid Overleaf file id is required.";
+/// Where Overleaf serves compiled output; requests there carry no cookie.
+const OUTPUT_HOST: &str = "compiles.overleafusercontent.com";
+/// Overleaf server routes the vendored IDE may reach besides its own project's.
+const IDE_PATHS: [&str; 7] = [
+    "/user/",
+    "/spelling/",
+    "/system/messages",
+    "/notifications/",
+    "/editingSession/",
+    "/tutorial/",
+    "/error/client",
+];
+/// Request headers the IDE's own are narrowed to.
+const IDE_REQUEST_HEADERS: [&str; 3] = ["accept", "content-type", "range"];
+/// Overleaf reply headers handed back to the IDE.
+const IDE_REPLY_HEADERS: [&str; 6] = [
+    "content-type",
+    "content-range",
+    "accept-ranges",
+    "content-disposition",
+    "etag",
+    "last-modified",
+];
+const HTTP_DENIED: &str = "That Overleaf address is not allowed.";
 /// Waits before the two retries of a 5xx, 429 or network failure, as in `BaseAPI.request`.
 const RETRY_DELAYS_MS: [u64; 2] = [1000, 2000];
 
@@ -549,6 +575,136 @@ async fn live_route(
     crate::overleaf_live::serve(&opener, action, &body, cookies).await
 }
 
+/// Where an IDE request goes: `(full url, carries the session cookie)`. Only the open project's
+/// routes, the IDE's user routes on Overleaf, and the output host; None for anything else.
+fn ide_target(url: &str, project_id: &str) -> Option<(reqwest::Url, bool)> {
+    if url.starts_with("https://") {
+        let parsed = reqwest::Url::parse(url).ok()?;
+        let plain =
+            parsed.username().is_empty() && parsed.password().is_none() && parsed.port().is_none();
+        return (plain && parsed.host_str() == Some(OUTPUT_HOST)).then_some((parsed, false));
+    }
+    if !url.starts_with('/') || url.starts_with("//") || url.contains('\\') {
+        return None;
+    }
+    let base = reqwest::Url::parse(BASE).ok()?;
+    let parsed = base.join(url).ok()?;
+    if parsed.origin() != base.origin() {
+        return None;
+    }
+    // Checked after parsing, so `..` and its escapes are already resolved.
+    let path = parsed.path();
+    let own = format!("/project/{project_id}");
+    let allowed = path == own
+        || path.starts_with(&format!("{own}/"))
+        || IDE_PATHS.iter().any(|p| path.starts_with(p));
+    allowed.then_some((parsed, true))
+}
+
+/// POST http: one request of the vendored IDE (`ol-host/fetch-bridge.ts`), sent to Overleaf signed
+/// in. Body: `{sessionId, projectId, method, url, headers, body}` with `body` base64 or null;
+/// answer: `{status, headers, body}` with `body` base64.
+async fn http_route(client: &reqwest::Client, sessions: &WorkshopSessions, body: &[u8]) -> Answer {
+    let body = match parse_body(body) {
+        Ok(v) => v,
+        Err(answer) => return answer,
+    };
+    let req = match read_workshop_request(&body) {
+        Ok(req) => req,
+        Err(message) => return error(400, message),
+    };
+    let method = match body.get("method").and_then(Value::as_str) {
+        Some(m @ ("GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE")) => m,
+        _ => return error(400, "A valid method is required."),
+    };
+    let Some((url, signed)) = body
+        .get("url")
+        .and_then(Value::as_str)
+        .and_then(|url| ide_target(url, &req.project_id))
+    else {
+        return error(403, HTTP_DENIED);
+    };
+    let payload = match body.get("body") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(b64)) => match STANDARD.decode(b64) {
+            Ok(bytes) => Some(bytes),
+            Err(_) => return error(400, "The body must be base64."),
+        },
+        Some(_) => return error(400, "The body must be base64."),
+    };
+    let Some(cookies) = sessions.get(&req.session_id) else {
+        return error(401, NOT_FOUND);
+    };
+    let Ok(verb) = reqwest::Method::from_bytes(method.as_bytes()) else {
+        return error(400, "A valid method is required.");
+    };
+    let mut request = client.request(verb, url);
+    if let Some(headers) = body.get("headers").and_then(Value::as_object) {
+        for name in IDE_REQUEST_HEADERS {
+            if let Some(value) = headers.get(name).and_then(Value::as_str) {
+                request = request.header(name, value);
+            }
+        }
+    }
+    if signed {
+        request = request.header("cookie", &cookies);
+        // Overleaf checks a CSRF token on every change, so a change signs in for a fresh one.
+        if !matches!(method, "GET" | "HEAD") {
+            match login(client, &cookies).await {
+                Ok(who) => request = request.header("x-csrf-token", who.csrf),
+                Err(message) => return error(502, &safe_overleaf_error(&message, Some(&cookies))),
+            }
+        }
+    }
+    match with_body(request, method, payload).send().await {
+        Ok(response) => ide_reply(response).await,
+        Err(e) => error(502, &safe_overleaf_error(&e.to_string(), Some(&cookies))),
+    }
+}
+
+/// `request` with the body sent on, if any.
+fn with_body(
+    request: reqwest::RequestBuilder,
+    method: &str,
+    payload: Option<Vec<u8>>,
+) -> reqwest::RequestBuilder {
+    match outgoing_body(method, payload) {
+        // Set by hand: hyper leaves the length out of an empty body.
+        Some(bytes) => request
+            .header(reqwest::header::CONTENT_LENGTH, bytes.len())
+            .body(bytes),
+        None => request,
+    }
+}
+
+/// The body sent on: a change without one still sends an empty body, since Overleaf answers a
+/// change with no length 411.
+fn outgoing_body(method: &str, payload: Option<Vec<u8>>) -> Option<Vec<u8>> {
+    match (method, payload) {
+        ("GET" | "HEAD", _) => None,
+        (_, payload) => Some(payload.unwrap_or_default()),
+    }
+}
+
+/// Overleaf's reply as the IDE's bridge reads it: `{status, headers, body}`, `body` base64.
+async fn ide_reply(response: reqwest::Response) -> Answer {
+    let status = response.status().as_u16();
+    let mut headers = serde_json::Map::new();
+    for name in IDE_REPLY_HEADERS {
+        if let Some(value) = response.headers().get(name).and_then(|v| v.to_str().ok()) {
+            let _ = headers.insert(name.to_owned(), Value::from(value));
+        }
+    }
+    let Ok(Some(bytes)) = read_capped(response, MAX_PDF).await else {
+        return error(502, "The Overleaf reply could not be read.");
+    };
+    json_answer(
+        200,
+        &json!({ "status": status, "headers": headers, "body": STANDARD.encode(bytes) }),
+        true,
+    )
+}
+
 /// The answer to one Workshop request; `path` starts with `PREFIX`.
 pub async fn serve(
     client: &reqwest::Client,
@@ -566,10 +722,11 @@ pub async fn serve(
         ("POST", "compile") => compile_route(client, sessions, body, false).await,
         ("POST", "pdf") => compile_route(client, sessions, body, true).await,
         ("POST", "file") => file_route(client, sessions, body).await,
+        ("POST", "http") => http_route(client, sessions, body).await,
         ("POST", live) if live.starts_with("live/") => {
             live_route(client, sessions, &live["live/".len()..], body).await
         }
-        (_, "session" | "projects" | "compile" | "pdf" | "file") => {
+        (_, "session" | "projects" | "compile" | "pdf" | "file" | "http") => {
             error(405, "Method not allowed.")
         }
         _ => error(404, "Not found."),
@@ -807,6 +964,127 @@ mod tests {
             call(&sessions, "POST", "compile", None, r#"{"sessionId":"x"}"#)
                 .await
                 .status,
+            400
+        );
+    }
+
+    /// The head of the request `with_body` makes, as a server reads it.
+    async fn sent_head(method: &str, payload: Option<Vec<u8>>) -> String {
+        use tokio::io::AsyncReadExt as _;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/x", listener.local_addr().unwrap());
+        let verb = reqwest::Method::from_bytes(method.as_bytes()).unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let send = tokio::spawn(with_body(client.request(verb, url), method, payload).send());
+        let read = async {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut head = Vec::new();
+            let mut buf = [0u8; 1024];
+            while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+                let n = socket.read(&mut buf).await.unwrap();
+                assert!(n > 0, "connection closed before the head ended");
+                head.extend_from_slice(&buf[..n]);
+            }
+            head
+        };
+        let head = tokio::time::timeout(Duration::from_secs(5), read)
+            .await
+            .expect("the request head arrives");
+        send.abort();
+        String::from_utf8_lossy(&head).to_ascii_lowercase()
+    }
+
+    #[tokio::test]
+    async fn changes_without_a_body_still_send_a_length() {
+        for method in ["POST", "DELETE", "PUT"] {
+            let head = sent_head(method, None).await;
+            assert!(head.contains("content-length: 0\r\n"), "{method}: {head}");
+        }
+        assert!(
+            sent_head("POST", Some(vec![1, 2]))
+                .await
+                .contains("content-length: 2\r\n")
+        );
+        assert!(!sent_head("GET", None).await.contains("content-length"));
+    }
+
+    #[test]
+    fn changes_always_carry_a_body_and_reads_never_do() {
+        assert_eq!(outgoing_body("POST", None), Some(Vec::new()));
+        assert_eq!(outgoing_body("DELETE", None), Some(Vec::new()));
+        assert_eq!(outgoing_body("PUT", Some(vec![1, 2])), Some(vec![1, 2]));
+        assert_eq!(outgoing_body("GET", None), None);
+        assert_eq!(outgoing_body("HEAD", Some(vec![1])), None);
+    }
+
+    #[test]
+    fn ide_targets_are_the_open_project_user_routes_and_output_host() {
+        let ok = |url: &str| ide_target(url, "abc123").map(|(u, signed)| (u.to_string(), signed));
+        let overleaf = |path: &str| Some((format!("https://www.overleaf.com{path}"), true));
+        assert_eq!(
+            ok("/project/abc123/compile?auto_compile=true"),
+            overleaf("/project/abc123/compile?auto_compile=true")
+        );
+        assert_eq!(ok("/project/abc123"), overleaf("/project/abc123"));
+        assert_eq!(ok("/user/settings"), overleaf("/user/settings"));
+        let pdf =
+            "https://compiles.overleafusercontent.com/project/abc123/build/1/output/output.pdf";
+        assert_eq!(ok(pdf), Some((pdf.to_owned(), false)));
+    }
+
+    #[test]
+    fn ide_targets_refuse_other_projects_hosts_and_escapes() {
+        for url in [
+            "/project/other/compile",
+            "/project/abc1234/x",
+            "/project/abc123/../other/x",
+            "/project/abc123/%2e%2e/other",
+            "/project",
+            "/admin",
+            "//evil.example/project/abc123",
+            "/\\evil.example",
+            "project/abc123",
+            "https://evil.example/project/abc123",
+            "https://user@compiles.overleafusercontent.com/x",
+            "https://compiles.overleafusercontent.com:8443/x",
+            "http://compiles.overleafusercontent.com/x",
+            "https://www.overleaf.com/project/abc123",
+            "",
+        ] {
+            assert_eq!(ide_target(url, "abc123"), None, "{url}");
+        }
+    }
+
+    #[tokio::test]
+    async fn http_checks_method_address_and_body_before_the_session() {
+        let sessions = WorkshopSessions::default();
+        let req = |extra: &str| format!(r#"{{"sessionId":"{ID}","projectId":"abc123"{extra}}}"#);
+        let cases = [
+            (r#","method":"TRACE","url":"/project/abc123""#, 400),
+            (r#","url":"/project/abc123""#, 400),
+            (r#","method":"GET","url":"/project/other""#, 403),
+            (r#","method":"GET""#, 403),
+            (
+                r#","method":"POST","url":"/project/abc123","body":"***""#,
+                400,
+            ),
+            (r#","method":"POST","url":"/project/abc123","body":7"#, 400),
+            (
+                r#","method":"GET","url":"/project/abc123","body":null"#,
+                401,
+            ),
+            (
+                r#","method":"POST","url":"/project/abc123/compile","body":"e30=""#,
+                401,
+            ),
+        ];
+        for (extra, status) in cases {
+            let answer = call(&sessions, "POST", "http", None, &req(extra)).await;
+            assert_eq!(answer.status, status, "{extra}");
+        }
+        assert_eq!(call(&sessions, "GET", "http", None, "").await.status, 405);
+        assert_eq!(
+            call(&sessions, "POST", "http", None, "{}").await.status,
             400
         );
     }
