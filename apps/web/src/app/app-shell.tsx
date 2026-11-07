@@ -15,6 +15,7 @@ import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { useIsDetailView } from "@/lib/hooks/use-detail-view";
 import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
+import { useNavFolded } from "@/lib/hooks/use-nav-fold";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { titleForPath } from "@/lib/route-title";
 import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/keybindings";
@@ -146,6 +147,9 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // tabs supersede it). It is the one screen that is a workspace rather than a
   // page, and the only one that must reach the window's bottom edge.
   const editorRoute = useWorkspaceRoute();
+  // A screen without its own route, like the live Overleaf editor, can ask for
+  // the rail too (use-nav-fold.ts).
+  const navFolded = useNavFolded();
   // The route picks the default and the hamburger overrides it: the rail on
   // `/workspace`, the wide sidebar elsewhere, either way until the person
   // toggles. `null` is "no override", and a route change clears it, so the
@@ -159,19 +163,19 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // *default*, not a rule — the toggle above still wins, and widening the window
   // past the threshold puts the sidebar back on its own.
   const [override, setOverride] = useState<boolean | null>(null);
-  const collapsed = override ?? (editorRoute || railByDefault);
-  useEffect(() => setOverride(null), [editorRoute]);
+  const collapsed = override ?? (editorRoute || navFolded || railByDefault);
+  useEffect(() => setOverride(null), [editorRoute, navFolded]);
   // `⌘⇧B` folds the app sidebar from any screen, the hamburger's keyboard twin.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || isTypingTarget(e.target as HTMLElement | null)) return;
       if (commandForChord(e) !== "toggle-sidebar") return;
       e.preventDefault();
-      setOverride((current) => !(current ?? (editorRoute || railByDefault)));
+      setOverride((current) => !(current ?? (editorRoute || navFolded || railByDefault)));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editorRoute, railByDefault]);
+  }, [editorRoute, navFolded, railByDefault]);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
   // around. Collapse-toggle animations still play once this is on.

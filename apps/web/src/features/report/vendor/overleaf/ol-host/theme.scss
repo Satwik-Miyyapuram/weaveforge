@@ -165,7 +165,28 @@
 
 // Visual mode centres the text at 95 characters a line with at least 8% each
 // side (visual-theme.ts), which wastes the width of a small screen. Text runs to
-// the pane's edges instead, as in Code mode.
+// the pane's edges instead; each line keeps CodeMirror's own few pixels.
 .cm-editor.ol-cm-parsed .cm-content.cm-content.cm-content {
-  padding: 0 12px;
+  padding: 0;
+}
+
+// The 7px dotted strips between the panes become a 1px line. The grip dots go.
+// Overleaf hit-tests the handle's own box (hitAreaMargins 0), so the box keeps
+// its 7px and overlaps each pane by 3px instead; the line is drawn in its middle.
+[data-resize-handle]:has(> .horizontal-resize-handle) {
+  position: relative;
+  z-index: 11;
+  display: flex;
+  justify-content: center;
+  width: 7px;
+  margin-inline: -3px;
+}
+
+.horizontal-resize-handle.horizontal-resize-handle {
+  width: 1px !important;
+
+  &::before,
+  &::after {
+    display: none;
+  }
 }
