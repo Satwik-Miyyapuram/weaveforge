@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -311,9 +311,21 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
 function SessionExpiredPrompt() {
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  useEffect(() => {
+    if (open) dialogRef.current?.querySelector<HTMLElement>("button, a, input")?.focus();
+  }, [open]);
   if (open) {
     return (
-      <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
+      <div ref={dialogRef} className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
         <CloseButton label="Not now" onClick={() => setOpen(false)} />
         <LoginScreen />
       </div>

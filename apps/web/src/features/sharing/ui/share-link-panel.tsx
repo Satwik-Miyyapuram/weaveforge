@@ -34,7 +34,7 @@ export function ShareLinkPanel({
   }, [enabled, resourceType, resourceId]);
 
   useEffect(() => {
-    void reload();
+    reload().catch((e: unknown) => setError(formatError(e)));
   }, [reload]);
 
   if (!enabled) return null;
@@ -50,6 +50,13 @@ export function ShareLinkPanel({
       });
       const url = `${window.location.origin}/link?t=${encodeURIComponent(urlToken)}`;
       setCreatedUrl(url);
+    } catch (e) {
+      setError(formatError(e));
+      setBusy(false);
+      return;
+    }
+    // Own try: a reload failure after a created link is not a create failure.
+    try {
       await reload();
     } catch (e) {
       setError(formatError(e));

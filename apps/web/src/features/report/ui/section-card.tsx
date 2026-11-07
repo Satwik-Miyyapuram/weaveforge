@@ -209,7 +209,11 @@ export function SectionCard({
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === "Enter") e.currentTarget.blur();
-                if (e.key === "Escape") setRenaming(false);
+                // Set before closing so the blur from unmounting the input does not commit the typed title.
+                if (e.key === "Escape") {
+                  cancelled.current = true;
+                  setRenaming(false);
+                }
               }}
               onKeyUp={(e) => e.stopPropagation()}
               onBlur={(e) => finishRename(e.currentTarget.value)}

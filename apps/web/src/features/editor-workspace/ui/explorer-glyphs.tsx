@@ -57,8 +57,15 @@ export function InlineTitle({
   const finish = (submit: boolean) => {
     if (done.current) return;
     done.current = true;
-    if (submit) void onSubmit(value);
-    else onCancel();
+    if (!submit) {
+      onCancel();
+      return;
+    }
+    // A failed submit reopens the box so the person can fix the name and retry.
+    // Called now, not a tick later, so the submit lands before the box unmounts.
+    void Promise.resolve(onSubmit(value)).catch(() => {
+        done.current = false;
+      });
   };
   return (
     <input

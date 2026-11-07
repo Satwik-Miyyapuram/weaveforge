@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
@@ -164,6 +164,8 @@ export function SettingsScreen() {
   const [projectCollection, setProjectCollection] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
+  // Settings as they were when the AI modal opened; Cancel puts them back.
+  const aiAccessSnapshot = useRef<UserSettings | null>(null);
   const [tab, setTab] = useState<SettingsTabId>("account");
   const [findQuery, setFindQuery] = useState("");
 
@@ -179,6 +181,16 @@ export function SettingsScreen() {
   function selectTab(next: SettingsTabId) {
     setTab(next);
     history.replaceState(null, "", `#settings-${next}`);
+  }
+
+  function openAiAccess() {
+    aiAccessSnapshot.current = settings;
+    setAiAccessOpen(true);
+  }
+
+  function cancelAiAccess() {
+    if (aiAccessSnapshot.current) setSettings(aiAccessSnapshot.current);
+    setAiAccessOpen(false);
   }
 
   /** Saved first, so leaving the dialog keeps what the reader set in it (DA-132). */
@@ -290,8 +302,15 @@ export function SettingsScreen() {
   }, [credentialsKey]);
 
   async function saveCollection(key: string) {
+    const previous = projectCollection;
     setProjectCollection(key);
-    if (current) await getContainer().settings.setProjectCollection(current.id, key || null);
+    try {
+      if (current) await getContainer().settings.setProjectCollection(current.id, key || null);
+    } catch (err) {
+      // Show the old choice again: the select must match what was stored.
+      setProjectCollection(previous);
+      setError(formatError(err));
+    }
   }
 
   function patchProviderField(providerId: string, fieldId: string, value: string) {
@@ -436,7 +455,7 @@ export function SettingsScreen() {
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
           <div className="integration-item">
-            <RowButton onClick={() => setAiAccessOpen(true)}>
+            <RowButton onClick={() => openAiAccess()}>
               <span className="integration-logo ai-access-launcher-icon">✦</span>
               <span className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></span>
               <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
@@ -562,11 +581,11 @@ export function SettingsScreen() {
       )}
 
       {aiAccessOpen && (
-        <Modal title="AI & MCP access" onClose={() => !busy && setAiAccessOpen(false)}>
+        <Modal title="AI & MCP access" onClose={() => !busy && cancelAiAccess()}>
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} onManageTokens={() => void openTokensFromAiAccess()} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><Button variant="cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
+            <ModalActions><Button variant="cancel" onClick={() => cancelAiAccess()}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}

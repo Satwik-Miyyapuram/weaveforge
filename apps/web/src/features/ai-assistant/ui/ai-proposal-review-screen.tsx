@@ -208,29 +208,35 @@ export function AiProposalReviewScreen() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; title: string } | null>(null);
   const sourceTargets = useSourceTargets();
+  // Keeps the current list on screen while reloading; no loading flash.
   const reload = useCallback(async () => {
-    setLoading(true);
     try { setItems(await getContainer().aiProposals.listPending()); setError(null); }
     catch (err) { setError(formatError(err)); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void reload(); }, [reload]);
-  const appendOnly = useMemo(() => items.filter((item) => item.kind === "append_paper_note"), [items]);
   const changed = () => announceAiProposalsChanged(getContainer().aiProposals);
   async function run(id: string, action: "approve" | "reject") {
     setBusy(id); setError(null); setCreated(null);
     const item = items.find((entry) => entry.id === id);
     try {
       let conflicted = false;
+      let refreshFailed = false;
       if (action === "reject") await getContainer().aiProposals.reject(id);
       else {
         conflicted = (await getContainer().aiProposals.approve(id)) === "conflicted";
         // E27: a new note gets a link, not just a vanished card.
-        const page = !conflicted && item ? createdPageOf(item, await getContainer().vault.listPages()) : null;
-        if (page) setCreated({ id: page.id, title: page.title });
+        // The approve already landed, so a failed page lookup must not read as a failed approve.
+        if (!conflicted && item) {
+          try {
+            const page = createdPageOf(item, await getContainer().vault.listPages());
+            if (page) setCreated({ id: page.id, title: page.title });
+          } catch { refreshFailed = true; }
+        }
       }
       changed(); await reload();
       if (conflicted) setError("Not applied: the target changed since this was suggested.");
+      else if (refreshFailed) setError("Approved, but the page list could not refresh.");
     } catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
@@ -253,6 +259,8 @@ export function AiProposalReviewScreen() {
     () => items.filter((item) => !undoWindow.scheduled?.ids.has(item.id)),
     [items, undoWindow.scheduled],
   );
+  // Bulk approve only touches what the user sees, so it follows the filtered list.
+  const appendOnly = visible.filter((item) => item.kind === "append_paper_note");
   const groups = useMemo(() => groupProposals(visible, grouping), [visible, grouping]);
   function groupLabel(key: string): string {
     if (grouping === "kind") return label[key as AiWriteProposal["kind"]] ?? key;
@@ -264,16 +272,18 @@ export function AiProposalReviewScreen() {
     setError(null); setCreated(null);
     undoWindow.schedule(`${action === "approve" ? "Approving" : "Rejecting"} ${count}…`, ids, () => void (async () => {
       setBusy("all");
-      const facade = getContainer().aiProposals;
-      const result = await runBulk(ids, (id) => (action === "approve" ? facade.approve(id) : facade.reject(id)));
-      changed(); await reload();
-      const problems: string[] = [];
-      if (result.conflicted.length) problems.push(`${result.conflicted.length} not applied: the target changed since it was suggested.`);
-      if (result.failed) {
-        problems.push(`Stopped: ${formatError(result.failed.error)} ${result.untouched.length + 1} still pending.`);
-      }
-      setError(problems.length ? problems.join(" ") : null);
-      setBusy(null);
+      try {
+        const facade = getContainer().aiProposals;
+        const result = await runBulk(ids, (id) => (action === "approve" ? facade.approve(id) : facade.reject(id)));
+        changed(); await reload();
+        const problems: string[] = [];
+        if (result.conflicted.length) problems.push(`${result.conflicted.length} not applied: the target changed since it was suggested.`);
+        if (result.failed) {
+          problems.push(`Stopped: ${formatError(result.failed.error)} ${result.untouched.length + 1} still pending.`);
+        }
+        setError(problems.length ? problems.join(" ") : null);
+      } catch (err) { setError(formatError(err)); }
+      finally { setBusy(null); }
     })());
   }
   if (loading) return <ScreenLoader />;
