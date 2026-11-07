@@ -6,6 +6,7 @@
 import type { Meta } from '../frontend/js/utils/meta'
 import type { ExposedSettings } from '../types/exposed-settings'
 import type { User } from '../types/user'
+import type { UserSettings } from '../types/user-settings'
 
 export type HostMeta = Pick<
   Meta,
@@ -23,6 +24,7 @@ export type HostMeta = Pick<
   | 'ol-editorThemes'
   | 'ol-legacyEditorThemes'
   | 'ol-overallThemes'
+  | 'ol-userSettings'
   | 'ol-languages'
   | 'ol-learnedWords'
   | 'ol-imageNames'
@@ -72,7 +74,15 @@ const SETTINGS: ExposedSettings = {
   enablePandocConversions: false,
 }
 
-export function buildMeta({ projectId }: { projectId: string }): HostMeta {
+type BuildOptions = {
+  projectId: string
+  /** The app's mode; the IDE and its editor follow it. */
+  dark?: boolean
+  /** Overleaf's defaultSettings, passed in: its module reads window on load. */
+  settings?: UserSettings
+}
+
+export function buildMeta({ projectId, dark = false, settings }: BuildOptions): HostMeta {
   return {
     'ol-project_id': projectId,
     // The bridge on window.io ignores the URL; the live link knows Overleaf's.
@@ -87,9 +97,18 @@ export function buildMeta({ projectId }: { projectId: string }): HostMeta {
     // History OT is shimmed out, so stay on ShareJS ops.
     'ol-otMigrationStage': 0,
     'ol-compileSettings': { compileTimeout: 180 },
-    'ol-editorThemes': [{ name: 'textmate', dark: false }],
+    'ol-editorThemes': [
+      { name: 'textmate', dark: false },
+      { name: 'overleaf_dark', dark: true },
+    ],
     'ol-legacyEditorThemes': [],
     'ol-overallThemes': [],
+    // Overleaf's own names: '' is its dark theme, 'light-' its light one.
+    'ol-userSettings': {
+      ...(settings as UserSettings),
+      overallTheme: dark ? '' : 'light-',
+      editorTheme: dark ? 'overleaf_dark' : 'textmate',
+    },
     'ol-languages': [],
     'ol-learnedWords': [],
     'ol-imageNames': [],
