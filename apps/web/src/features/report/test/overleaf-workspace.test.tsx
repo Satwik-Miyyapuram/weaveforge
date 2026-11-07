@@ -446,6 +446,20 @@ test("in the desktop app a project opens split, with no layout switch: the divid
   await act(async () => tree.unmount());
 });
 
+test("in the desktop app the editor fills the page: no record header; Open and Link sit in its toolbar", async () => {
+  const tree = await mount(harness(projectsOk, SESSION), { inShell: true });
+  await openRow(tree, "Thesis");
+  assert.doesNotMatch(text(tree), /In your Overleaf account|Project p2/);
+  assert.equal(tree.root.findAll((n) => n.type === "h1").length, 0);
+  const [editor] = tree.root.findAll((n) => typeof n.type !== "string" && n.props.toolbar !== undefined && n.props.onHome);
+  assert.ok(editor, "the live editor gets toolbar buttons and a home action");
+  let inToolbar: ReactTestRenderer | undefined;
+  await act(async () => { inToolbar = create(createElement("div", null, editor.props.toolbar)); });
+  assert.match(text(inToolbar!), /Open in Overleaf/);
+  assert.match(text(inToolbar!), /Link to this project/);
+  await act(async () => tree.unmount());
+});
+
 test("an unlinked project offers Link prefilled with its name and id", async () => {
   const tree = await mount(harness(projectsOk, SESSION));
   await openRow(tree, "Abstract");

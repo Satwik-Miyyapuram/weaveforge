@@ -76,45 +76,56 @@ export function OverleafProjectDetail({
     ...(report ? [`Linked to this project`, report.entry_file] : []),
   ];
 
+  const live = canWrite && sessionId;
+  // Open in Overleaf and the link controls; in the live editor they sit in Overleaf's toolbar.
+  const actions = (
+    <>
+      <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf">
+        <OpenIcon />
+        <span>Open in Overleaf</span>
+      </Button>
+      {report ? (
+        confirmUnlink ? (
+          <>
+            <span className="muted">Remove the link? Overleaf keeps the project.</span>
+            <Button variant="ghost" size="sm" onClick={() => void onUnlink(report).then((ok) => ok && setConfirmUnlink(false))}>Confirm</Button>
+            <Button variant="cancel" size="sm" onClick={() => setConfirmUnlink(false)}>Cancel</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setForm(form === "edit" ? null : "edit")}>Edit link</Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmUnlink(true)}>Unlink</Button>
+          </>
+        )
+      ) : projectId ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          title="Link with a Git token, so it shows here as ★ even when you are not signed in"
+          onClick={() => setForm(form === "link" ? null : "link")}
+        >
+          {form === "link" ? "Cancel" : "Link to this project"}
+        </Button>
+      ) : null}
+    </>
+  );
+
   return (
-    <article className="record overleaf-detail">
-      <nav className="record-bar" aria-label="Overleaf project">
-        <BackButton label="Overleaf" onClick={onBack} />
-        <span className="record-mono record-bar-id">Project {row.id.slice(0, 6)}</span>
-        <div className="record-actions">
-          <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf">
-            <OpenIcon />
-            <span>Open in Overleaf</span>
-          </Button>
-          {report ? (
-            confirmUnlink ? (
-              <>
-                <span className="muted">Remove the link? Overleaf keeps the project.</span>
-                <Button variant="ghost" size="sm" onClick={() => void onUnlink(report).then((ok) => ok && setConfirmUnlink(false))}>Confirm</Button>
-                <Button variant="cancel" size="sm" onClick={() => setConfirmUnlink(false)}>Cancel</Button>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => setForm(form === "edit" ? null : "edit")}>Edit link</Button>
-                <Button variant="ghost" size="sm" onClick={() => setConfirmUnlink(true)}>Unlink</Button>
-              </>
-            )
-          ) : projectId ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Link with a Git token, so it shows here as ★ even when you are not signed in"
-              onClick={() => setForm(form === "link" ? null : "link")}
-            >
-              {form === "link" ? "Cancel" : "Link to this project"}
-            </Button>
-          ) : null}
-        </div>
-      </nav>
-      <header className="record-head overleaf-detail__head">
-        <h1 className="record-title">{report && <span className="overleaf-star" title="Linked to this WeaveForge project">★ </span>}{row.name}</h1>
-        <p className="record-mono record-meta">{meta.join(" / ")}</p>
-      </header>
+    <article className={live ? "record overleaf-detail overleaf-detail--ide" : "record overleaf-detail"}>
+      {/* The live editor is the whole page, as on Overleaf: its home button goes back. */}
+      {!live && (
+        <>
+          <nav className="record-bar" aria-label="Overleaf project">
+            <BackButton label="Overleaf" onClick={onBack} />
+            <span className="record-mono record-bar-id">Project {row.id.slice(0, 6)}</span>
+            <div className="record-actions">{actions}</div>
+          </nav>
+          <header className="record-head overleaf-detail__head">
+            <h1 className="record-title">{report && <span className="overleaf-star" title="Linked to this WeaveForge project">★ </span>}{row.name}</h1>
+            <p className="record-mono record-meta">{meta.join(" / ")}</p>
+          </header>
+        </>
+      )}
       {form === "edit" && report && (
         <EditOverleafReportForm
           report={report}
@@ -132,12 +143,14 @@ export function OverleafProjectDetail({
         />
       )}
       <div className="overleaf-detail__body">
-        {canWrite && sessionId ? (
+        {live ? (
           <WorkshopLiveEditor
             key={`${sessionId}:${row.id}`}
             client={client}
             sessionId={sessionId}
             projectId={row.id}
+            toolbar={actions}
+            onHome={onBack}
           />
         ) : (
           <>
