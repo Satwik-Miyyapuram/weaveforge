@@ -30,3 +30,11 @@ test("data-theme deeper in a selector is left as written", () => {
   const css = ".ol-ide .uppy [data-theme=default] button{c:1}";
   assert.equal(scopeRoots(css), css);
 });
+
+test("an html or body rule styles the IDE's container, never an overlay tagged ol-ide", () => {
+  const notOverlay = ":not(.modal,.modal-backdrop,.tooltip,.popover,.dropdown-menu,.context-menu)";
+  assert.equal(scopeRoots(".ol-ide body{height:100%}"), `.ol-ide${notOverlay}{height:100%}`);
+  assert.equal(scopeRoots(".ol-ide html,.ol-ide body{h:1}"), `.ol-ide${notOverlay},.ol-ide${notOverlay}{h:1}`);
+  // Deeper selectors keep matching inside overlays, as before.
+  assert.equal(scopeRoots(".ol-ide body .x{c:1}"), ".ol-ide .x{c:1}");
+});
