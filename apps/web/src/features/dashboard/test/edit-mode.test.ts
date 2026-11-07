@@ -23,7 +23,7 @@ test("edit mode says how it works", () => {
 test("Reset layout can be undone instead of asked about", () => {
   assert.doesNotMatch(bar, /Reset default/);
   assert.match(bar, />\s*Reset layout\s*</);
-  assert.match(screen, /showToast\("Layout reset", \{ label: "Undo", run: \(\) => setLayout\(before\) \}\)/);
+  assert.match(screen, /showToast\("Layout reset", \{ label: "Undo", run: \(\) => \{ markDirty\(\); setLayout\(before\); \} \}\)/);
 });
 
 test("a card's ✕ is a CloseButton and its handle a full-size grip", () => {

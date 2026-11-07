@@ -7,7 +7,7 @@ import { type Experiment, type MetricPoint } from "@weaveforge/core";
 import { artifactItems } from "./artifact-items";
 import { ArtifactPlaceholder } from "./artifact-placeholder";
 import { getContainer } from "@/bootstrap";
-import { commitUrl } from "@/features/sync";
+import { commitUrl, repoWebUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
@@ -33,8 +33,8 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
         <Chip key="commit"><em>commit</em> {readyCore().shortSha(exp.commitSha)}</Chip>
       )
     ) : null,
-    exp.repoUrl ? (
-      <Chip key="repo" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</Chip>
+    repoWebUrl(exp.repoUrl) ? (
+      <Chip key="repo" href={repoWebUrl(exp.repoUrl) ?? ""} target="_blank" rel="noreferrer">repo</Chip>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);

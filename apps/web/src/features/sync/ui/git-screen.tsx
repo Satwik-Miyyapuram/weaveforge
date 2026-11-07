@@ -1,7 +1,7 @@
 "use client";
 
 import { formatRelative } from "@/lib/format-date";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import type { Integration, SyncProvider } from "../domain/integration";
@@ -34,6 +34,10 @@ export function GitScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tracking, setTracking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Drops a slower earlier load so it cannot overwrite a newer branch's commits.
+  const seq = useRef(0);
 
   const pickIntegration = useCallback(async (): Promise<Integration | null> => {
     if (!current) return null;
@@ -47,6 +51,7 @@ export function GitScreen() {
   }, [current]);
 
   const load = useCallback(async (br?: string) => {
+    const mine = ++seq.current;
     setLoading(true);
     setError(null);
     try {
@@ -60,26 +65,35 @@ export function GitScreen() {
         client.listBranches(i).catch(() => []),
         client.listCommits(i, useBranch),
       ]);
+      if (mine !== seq.current) return;
       setBranches(bs);
       setCommits(cs);
     } catch (err) {
+      if (mine !== seq.current) return;
       setError(formatError(err));
     } finally {
-      setLoading(false);
+      if (mine === seq.current) setLoading(false);
     }
   }, [pickIntegration]);
 
   useEffect(() => { void load(); }, [load]);
 
   async function track(c: GitCommit) {
-    if (!integration) return;
-    await getContainer().sync.manageExperiment.add({
-      name: c.message || c.shortSha,
-      branch,
-      commitSha: c.sha,
-      repoUrl: repoWebUrl(integration),
-    });
-    setError(`Tracked “${c.message}” as an experiment.`);
+    if (!integration || busy) return;
+    setBusy(true);
+    try {
+      await getContainer().sync.manageExperiment.add({
+        name: c.message || c.shortSha,
+        branch,
+        commitSha: c.sha,
+        repoUrl: repoWebUrl(integration),
+      });
+      setNotice(`Tracked “${c.message}” as an experiment.`);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   // An experiment often spans a whole branch, not one commit. Track the branch
@@ -135,6 +149,7 @@ export function GitScreen() {
         />
       )}
       {error && <p className="muted">{error}</p>}
+      {notice && <p className="muted" role="status">{notice}</p>}
 
       {integration && (
         <>
@@ -175,7 +190,7 @@ export function GitScreen() {
                         {c.date ? ` · ${shortDate(c.date)}` : ""}
                       </span>
                     </div>
-                    <Button size="sm" onClick={() => void track(c)}>
+                    <Button size="sm" onClick={() => void track(c)} disabled={busy}>
                       Track
                     </Button>
                   </li>
