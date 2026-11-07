@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildMeta, installMeta } from "../meta";
+import type { UserSettings } from "../../types/user-settings";
 
 test("meta names the project and the app, and asks for English", () => {
   const meta = buildMeta({ projectId: "0123456789abcdef01234567" });
@@ -29,4 +30,18 @@ test("installMeta fills the cache getMeta reads, replacing a previous project", 
   assert.equal(cache.get("ol-project_id"), "new");
   assert.equal(cache.get("ol-other"), 1);
   assert.equal(cache.get("ol-ExposedSettings") !== undefined, true);
+});
+
+test("meta follows the app's mode: Overleaf's dark IDE and editor in dark mode", () => {
+  const meta = buildMeta({ projectId: "p", dark: true });
+  assert.equal(meta["ol-userSettings"].overallTheme, "");
+  assert.equal(meta["ol-userSettings"].editorTheme, "overleaf_dark");
+  assert.ok(meta["ol-editorThemes"].some((t) => t.name === "overleaf_dark" && t.dark));
+});
+
+test("meta follows the app's mode: Overleaf's light IDE and editor in light mode", () => {
+  const meta = buildMeta({ projectId: "p", dark: false, settings: { pdfViewer: "pdfjs" } as UserSettings });
+  assert.equal(meta["ol-userSettings"].overallTheme, "light-");
+  assert.equal(meta["ol-userSettings"].editorTheme, "textmate");
+  assert.equal(meta["ol-userSettings"].pdfViewer, "pdfjs", "the other settings are Overleaf's defaults, passed in");
 });

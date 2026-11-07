@@ -28,7 +28,15 @@ export async function mountOverleafIde(container: HTMLElement, { projectId, tran
   container.classList.add('ol-ide')
   const overlays = tagOverlays(document.body)
   window.metaAttributesCache = window.metaAttributesCache || new Map()
-  installMeta(buildMeta({ projectId }), window.metaAttributesCache)
+  const { defaultSettings } = await import('../frontend/js/shared/context/user-settings-context')
+  installMeta(
+    buildMeta({
+      projectId,
+      dark: document.documentElement.dataset.mode === 'dark',
+      settings: defaultSettings,
+    }),
+    window.metaAttributesCache,
+  )
 
   // Loaded only now: the socket shim reads window.io when its module runs.
   const { default: IdeRoot } = await import('../frontend/js/features/ide-react/components/ide-root')
@@ -39,6 +47,8 @@ export async function mountOverleafIde(container: HTMLElement, { projectId, tran
     overlays.disconnect()
     container.classList.remove('ol-ide')
     style.remove()
+    // Set by Overleaf's useThemedPage while the IDE is up.
+    delete document.body.dataset.theme
     uninstallFetch()
   }
 }

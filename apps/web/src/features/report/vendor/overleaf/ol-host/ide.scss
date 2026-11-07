@@ -21,3 +21,6 @@
 @import '../frontend/stylesheets/components/editor-toolbar';
 @import '../frontend/stylesheets/components/billing-period-toggle';
 @import '../frontend/stylesheets/components/compile-time-paywall-modal';
+
+// Ours, last: the app's theme on Overleaf's colour variables.
+@import 'theme';

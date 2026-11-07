@@ -13,6 +13,7 @@ import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopeRoots } from "./lib/overleaf-css-scope.mjs";
 
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const vendor = join(web, "src/features/report/vendor/overleaf");
@@ -53,15 +54,3 @@ for (const [from, to] of [
   cpSync(join(pdfjs, from), join(pub, to), { recursive: true });
 }
 console.log(`Built the Overleaf IDE's stylesheet and assets → ${pub}`);
-
-/**
- * Rules Overleaf writes for `:root`, `html` or `body` apply to the `.ol-ide`
- * element itself. Overlays the IDE appends to document.body carry `ol-ide`
- * themselves, so a rule aimed at one (`.ol-ide .modal …`) also gets a form
- * that matches it directly (`.ol-ide.modal …`).
- */
-function scopeRoots(text) {
-  return text
-    .replace(/\.ol-ide (?::root|html|body)(?=[\s,{.:[>~+])/g, ".ol-ide")
-    .replace(/(^|[{},])\.ol-ide (\.(?:modal|modal-backdrop|tooltip|popover|dropdown-menu|context-menu)(?![\w-])[^,{()]*)(?=[,{])/g, "$1.ol-ide $2,.ol-ide$2");
-}
