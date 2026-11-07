@@ -11,11 +11,13 @@ import { fileURLToPath } from "node:url";
 
 const src = fileURLToPath(new URL("../../", import.meta.url));
 const PRIMITIVES = ["components/button.tsx", "components/controls.tsx"];
+// Overleaf's IDE, vendored as it ships (AGPL-3.0): its own controls, not ours to restyle.
+const VENDORED = join(src, "features/report/vendor/overleaf");
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === "test" ? [] : sources(path);
+    if (statSync(path).isDirectory()) return name === "test" || path === VENDORED ? [] : sources(path);
     return /\.tsx?$/.test(name) ? [path] : [];
   });
 }

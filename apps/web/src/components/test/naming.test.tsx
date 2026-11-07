@@ -10,12 +10,14 @@ import { ROLE_LABELS } from "@weaveforge/core";
 import { LIST_COLOR_NAMES, LIST_COLOR_PRESETS } from "../../features/reading-lists/ui/list-ui";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+// Overleaf's IDE, vendored as it ships (AGPL-3.0): its own controls, not ours to restyle.
+const VENDORED = join(root, "features/report/vendor/overleaf");
 const src = (rel: string) => readFileSync(join(root, rel), "utf8");
 
 function uiFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
-    if (statSync(p).isDirectory()) return name === "test" ? [] : uiFiles(p);
+    if (statSync(p).isDirectory()) return name === "test" || p === VENDORED ? [] : uiFiles(p);
     return /\.tsx?$/.test(p) ? [p] : [];
   });
 }
