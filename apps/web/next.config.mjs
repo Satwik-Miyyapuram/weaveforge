@@ -199,7 +199,7 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@weaveforge/core", "@weaveforge/wasm"],
   ...(DESKTOP ? exportOnly : servedOnly),
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config, { isServer, dev, webpack }) => {
     // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
     // specifiers (NodeNext style). Teach webpack to resolve ".js" -> ".ts".
     config.resolve.extensionAlias = {
@@ -221,6 +221,50 @@ const nextConfig = {
       type: "javascript/auto",
       resolve: { fullySpecified: false },
     });
+
+    // The vendored Overleaf IDE keeps Overleaf's pinned pieces, for that tree
+    // only: pdfjs-dist 5 (the app keeps 4), Overleaf's vim fork, and no
+    // add-on modules in place of its babel macro.
+    const overleaf = path.resolve(__dirname, "src/features/report/vendor/overleaf");
+    config.module.rules.push({
+      include: overleaf,
+      resolve: {
+        alias: {
+          "pdfjs-dist": "pdfjs-dist-overleaf",
+          "@replit/codemirror-vim$": path.join(overleaf, "codemirror/vim/index.ts"),
+          [path.join(overleaf, "frontend/macros/import-overleaf-module.macro")]:
+            path.join(overleaf, "ol-shims/import-overleaf-module.ts"),
+        },
+      },
+    });
+    // Overleaf's webpack ships its wasm and media as plain files.
+    config.module.rules.push({
+      test: /\.(wasm|mp4)$/,
+      include: overleaf,
+      type: "asset/resource",
+    });
+    // pdf.js's worker names its wasm with `new URL(...)` beside itself, where
+    // the package has none; the IDE passes `wasmUrl` instead, as Overleaf does.
+    config.module.rules.push({
+      test: /pdf\.worker\.mjs$/,
+      include: overleaf,
+      parser: { url: false },
+    });
+    // Overleaf's components import their own stylesheets; the build script
+    // compiles those into `public/overleaf/ide.css` with Overleaf's Sass, so
+    // the imports here only need to resolve.
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(/\.scss$/, (resource) => {
+        if (resource.context?.startsWith(overleaf)) {
+          resource.request = path.join(overleaf, "ol-host/no-style.js");
+        }
+      }),
+    );
+    // The app's one way in; tsc sees `ol-host/api.d.ts` instead (tsconfig paths).
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@overleaf-ide$": path.join(overleaf, "ol-host/mount.tsx"),
+    };
 
     // Records which package copies the browser build holds, for
     // `npm run bundle:duplicates`; a production build drops module paths.

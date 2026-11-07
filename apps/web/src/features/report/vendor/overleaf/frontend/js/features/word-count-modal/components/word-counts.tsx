@@ -1,0 +1,54 @@
+import { FC } from 'react'
+import { ServerWordCountData } from './word-count-data'
+import { useTranslation } from 'react-i18next'
+import { Container, Row, Col } from 'react-bootstrap'
+import Notification from '../../../shared/components/notification'
+
+export const WordCounts: FC<{
+  data: ServerWordCountData
+}> = ({ data }) => {
+  const { t } = useTranslation()
+
+  return (
+    <Container fluid>
+      {data.messages && (
+        <Row>
+          <Col xs={12}>
+            <div className="notification-list">
+              <Notification
+                type="error"
+                content={
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{data.messages}</p>
+                }
+              />
+            </div>
+          </Col>
+        </Row>
+      )}
+      <Row>
+        <Col xs={4}>
+          <div className="float-end">{t('total_words')}:</div>
+        </Col>
+        <Col xs={6}>{data.textWords}</Col>
+      </Row>
+      <Row>
+        <Col xs={4}>
+          <div className="float-end">{t('headers')}:</div>
+        </Col>
+        <Col xs={6}>{data.headers}</Col>
+      </Row>
+      <Row>
+        <Col xs={4}>
+          <div className="float-end">{t('math_inline')}:</div>
+        </Col>
+        <Col xs={6}>{data.mathInline}</Col>
+      </Row>
+      <Row>
+        <Col xs={4}>
+          <div className="float-end">{t('math_display')}:</div>
+        </Col>
+        <Col xs={6}>{data.mathDisplay}</Col>
+      </Row>
+    </Container>
+  )
+}

@@ -1,7 +1,8 @@
 //! Overleaf live editing at `/api/overleaf/workshop/live/*`. Overleaf's editor talks
 //! socket.io 0.9; this speaks it over xhr-polling (plain HTTP, no extra dependency):
 //! the handshake joins the project, a background loop long-polls for frames, and the
-//! page sends edits as ShareJS text ops. The page keeps the OT state; this only relays.
+//! page sends edits as ShareJS text ops, or relays the vendored IDE's own events through
+//! `emit`. The page keeps the OT state; this only relays.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -284,7 +285,6 @@ impl Room {
                 }
                 self.notify.notify_waiters();
             }
-            Frame::Event { name, .. } if name.starts_with("clientTracking.") => {}
             Frame::Event { name, args } => self.push(json!({ "name": name, "args": args })),
             Frame::Disconnect => self.lost(),
             Frame::Error(reason) => self.push(json!({ "name": "error", "args": [reason] })),
@@ -450,6 +450,16 @@ fn error_text(err: &Value) -> String {
         .map_or_else(|| err.to_string(), str::to_owned)
 }
 
+/// The events the vendored Overleaf IDE may send through `emit`: the ones its
+/// editor and collaborator list use, nothing that changes the project tree.
+const EMITTABLE: [&str; 5] = [
+    "joinDoc",
+    "leaveDoc",
+    "applyOtUpdate",
+    "clientTracking.getConnectedUsers",
+    "clientTracking.updatePosition",
+];
+
 /// Open rooms by live id.
 #[derive(Default)]
 pub struct Rooms(Mutex<HashMap<String, Arc<Room>>>);
@@ -570,6 +580,18 @@ pub async fn serve(
                 Err(message) => fail(409, &message),
             }
         }
+        "emit" => {
+            let (Some(name), Some(args)) = (
+                text_field(body, "name").filter(|n| EMITTABLE.contains(n)),
+                body.get("args").and_then(Value::as_array),
+            ) else {
+                return fail(400, "An allowed event name and args are required.");
+            };
+            match room.emit(name, args).await {
+                Ok(reply) => answer(200, &json!({ "reply": reply })),
+                Err(message) => fail(502, &message),
+            }
+        }
         "events" => {
             let (events, closed) = room.take_events(EVENTS_WAIT).await;
             answer(200, &json!({ "events": events, "closed": closed }))
@@ -613,6 +635,8 @@ async fn open(opener: &Opener<'_>, cookies: &str, project: &str) -> Answer {
     opener.rooms.insert(id.clone(), room);
     let mut reply = joined_project(&joined);
     reply["liveId"] = json!(id);
+    // As Overleaf sent it, for the vendored IDE's own `joinProjectResponse`.
+    reply["join"] = json!(joined);
     answer(200, &reply)
 }
 
@@ -819,6 +843,30 @@ mod tests {
         serde_json::from_slice(&answer.body).unwrap()
     }
 
+    /// The IDE's own events go through as they are, reply and all; others are refused.
+    async fn assert_ide_events_pass(opener: &Opener<'_>, live: &str) {
+        let raw = serve(
+            opener,
+            "emit",
+            &json!({ "liveId": live, "name": "joinDoc", "args": [DOC, { "encodeRanges": true }] }),
+            None,
+        )
+        .await;
+        assert_eq!(raw.status, 200);
+        assert_eq!(
+            body_of(&raw)["reply"],
+            json!([null, ["h\u{c3}\u{a9}", "b"], 7, [], {}])
+        );
+        let refused = serve(
+            opener,
+            "emit",
+            &json!({ "liveId": live, "name": "joinProject", "args": [] }),
+            None,
+        )
+        .await;
+        assert_eq!(refused.status, 400);
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn a_room_opens_reads_a_doc_and_sends_an_edit() {
         let (base, sent) = fake_overleaf().await;
@@ -841,7 +889,11 @@ mod tests {
         let opened = body_of(&opened);
         assert_eq!(opened["name"], "Thesis");
         assert_eq!(opened["rootDocId"], DOC);
+        assert_eq!(opened["join"][0]["project"]["name"], "Thesis");
+        assert_eq!(opened["join"][0]["permissionsLevel"], "owner");
         let live = opened["liveId"].as_str().unwrap().to_owned();
+
+        assert_ide_events_pass(&opener, &live).await;
 
         let doc = serve(
             &opener,

@@ -25,12 +25,16 @@ export type LiveOpenResult =
       /** Binary files (images, PDFs), which Visual shows for `\includegraphics`. */
       files: LiveDocEntry[];
       canEdit: boolean;
+      /** `joinProjectResponse` args as Overleaf sent them, for the vendored IDE. */
+      join: unknown[];
     }
   | { ok: false; expired: boolean; message: string };
 
 export type LiveDocResult = { ok: true; text: string; version: number } | { ok: false; message: string };
 
 export type LiveSendResult = { ok: true } | { ok: false; closed: boolean; message: string };
+
+export type LiveEmitResult = { ok: true; reply: unknown[] } | { ok: false; closed: boolean; message: string };
 
 export type LiveEventsResult =
   | { ok: true; events: { name: string; args: unknown[] }[]; closed: boolean }
@@ -69,7 +73,7 @@ function flatten(rootFolder: unknown, kind: "docs" | "fileRefs"): LiveDocEntry[]
 export async function openLiveProject(deps: WorkshopClientDeps, sessionId: string, projectId: string): Promise<LiveOpenResult> {
   const res = await post(deps, `${WORKSHOP_LIVE_PATH}open`, { sessionId, projectId });
   if (!res.ok) return { ok: false, expired: res.status === 401 && res.expired, message: res.message };
-  const body = res.body as { liveId?: unknown; name?: unknown; rootDocId?: unknown; rootFolder?: unknown; permissionsLevel?: unknown };
+  const body = res.body as { liveId?: unknown; name?: unknown; rootDocId?: unknown; rootFolder?: unknown; permissionsLevel?: unknown; join?: unknown };
   if (typeof body.liveId !== "string") return { ok: false, expired: false, message: "The server did not open the project." };
   return {
     ok: true,
@@ -79,6 +83,7 @@ export async function openLiveProject(deps: WorkshopClientDeps, sessionId: strin
     docs: flattenDocs(body.rootFolder),
     files: flattenFiles(body.rootFolder),
     canEdit: body.permissionsLevel === "owner" || body.permissionsLevel === "readAndWrite",
+    join: Array.isArray(body.join) ? body.join : [],
   };
 }
 
@@ -123,6 +128,14 @@ export async function sendLiveUpdate(
   const res = await post(deps, `${WORKSHOP_LIVE_PATH}update`, { liveId, docId, op, version });
   if (!res.ok) return { ok: false, closed: res.status === 410, message: res.message };
   return { ok: true };
+}
+
+/** Relays one of the vendored IDE's socket events; the reply is its callback's args. */
+export async function emitLive(deps: WorkshopClientDeps, liveId: string, name: string, args: unknown[]): Promise<LiveEmitResult> {
+  const res = await post(deps, `${WORKSHOP_LIVE_PATH}emit`, { liveId, name, args });
+  if (!res.ok) return { ok: false, closed: res.status === 410, message: res.message };
+  const body = res.body as { reply?: unknown };
+  return { ok: true, reply: Array.isArray(body.reply) ? body.reply : [] };
 }
 
 /** The events Overleaf sent since the last call; waits for one when there are none. */
