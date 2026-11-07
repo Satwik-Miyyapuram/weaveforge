@@ -78,3 +78,23 @@ test("a reject (void result) counts as done", async () => {
   const result = await runBulk(["a"], async () => undefined);
   assert.deepEqual(result.done, ["a"]);
 });
+
+// A "create" suggestion has no document yet: its resource id is a fresh random
+// id, so grouping by it gave one group per suggestion, headed by that id.
+// Ids that resolve to nothing are grouped under their kind instead.
+test("by document, unknown targets are grouped under their kind", () => {
+  const known = (id: string) => id === "paper-1";
+  const groups = groupProposals([
+    proposal("a", "create_log_entry", "rand-1"),
+    proposal("b", "append_paper_note", "paper-1"),
+    proposal("c", "create_log_entry", "rand-2"),
+  ], "document", known);
+  assert.deepEqual(
+    groups.map((group) => [group.key, group.items.map((item) => item.id)]),
+    [["kind:create_log_entry", ["a", "c"]], ["paper-1", ["b"]]],
+  );
+});
+
+test("by document with no lookup keeps resource ids", () => {
+  assert.deepEqual(groupProposals(items, "document").map((group) => group.key), ["paper-1", "paper-2"]);
+});
