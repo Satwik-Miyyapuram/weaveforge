@@ -6,6 +6,8 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use jsonc_parser::ParseOptions;
+use jsonc_parser::cst::{CstInputValue, CstRootNode};
 use serde_json::{Map, Value};
 
 use super::connect::{MCP_BRIDGE_FILE, McpLaunch};
@@ -142,8 +144,8 @@ fn moved_entry(entry: &Value, launch: &McpLaunch) -> Value {
 
 /// The config with every bridge entry for this launch's MCP file moved to `launch`; `None` when nothing moved.
 ///
-/// Divergence from TS: without serde_json's `preserve_order` feature, object keys come out sorted,
-/// not in input order. Other servers and top-level keys keep their values.
+/// Keys keep their input order, as in TS (serde_json's `preserve_order` feature is on). Other
+/// servers and top-level keys keep their values.
 #[must_use]
 pub fn rewrite_mcp_config(config: &Value, key: McpServersKey, launch: &McpLaunch) -> Option<Value> {
     let servers = config.get(key.as_str())?.as_object()?;
@@ -166,8 +168,9 @@ pub fn rewrite_mcp_config(config: &Value, key: McpServersKey, launch: &McpLaunch
     Some(Value::Object(out))
 }
 
-/// Rewrites one config file in place. A missing file is `Unchanged`; an unreadable or non-JSON file
-/// (e.g. JSONC with comments) is `Skipped` and left alone.
+/// Rewrites one config file in place. A missing file is `Unchanged`; an unreadable file, or one that
+/// is not even JSONC, is `Skipped` and left alone. Plain JSON is pretty-printed; JSONC is edited in
+/// place, so its comments survive (except any inside a moved entry's `command`, `args` or `env`).
 #[must_use]
 pub fn rewrite_mcp_config_file(target: &McpClientConfig, launch: &McpLaunch) -> McpRewriteOutcome {
     let file = target.file.as_path();
@@ -180,17 +183,29 @@ pub fn rewrite_mcp_config_file(target: &McpClientConfig, launch: &McpLaunch) -> 
         Ok(meta) => mode_bits(&meta),
         Err(error) => return outcome_for_read_error(&error),
     };
-    let Ok(parsed) = serde_json::from_str::<Value>(&original) else {
+    let plain = serde_json::from_str::<Value>(&original).ok();
+    let Some(parsed) = plain.clone().or_else(|| parse_jsonc(&original)) else {
         return McpRewriteOutcome::Skipped;
     };
     let Some(config) = rewrite_mcp_config(&parsed, target.key, launch) else {
         return McpRewriteOutcome::Unchanged;
     };
+    let text = if plain.is_some() {
+        match serde_json::to_string_pretty(&config) {
+            Ok(text) => text + "\n",
+            Err(_) => return McpRewriteOutcome::Skipped,
+        }
+    } else {
+        match edit_jsonc(&original, target.key, &parsed, &config) {
+            Some(text) => text,
+            None => return McpRewriteOutcome::Skipped,
+        }
+    };
     let tmp = with_suffix(
         file,
         &format!(".{}.{}.tmp", std::process::id(), nanos_now()),
     );
-    if write_rewrite(file, &tmp, &original, &config, mode).is_err() {
+    if write_rewrite(file, &tmp, &original, &text, &config, mode).is_err() {
         let _ = fs::remove_file(&tmp);
         return McpRewriteOutcome::Skipped;
     }
@@ -227,15 +242,80 @@ fn write_rewrite(
     file: &Path,
     tmp: &Path,
     original: &str,
+    text: &str,
     config: &Value,
     mode: Option<u32>,
 ) -> io::Result<()> {
-    write_backup(file, original, mode)?;
-    let mut text = serde_json::to_string_pretty(config)?;
-    text.push('\n');
+    let made_backup = write_backup(file, original, mode)?;
     open_new(tmp, mode)?.write_all(text.as_bytes())?;
     set_mode_bits(tmp, mode)?;
-    fs::rename(tmp, file)
+    fs::rename(tmp, file)?;
+    // The backup can hold other servers' API keys; once the rewrite reads back it is not needed.
+    // One an earlier run made is not this run's to remove.
+    if made_backup && reads_back(file, config) {
+        let _ = fs::remove_file(with_suffix(file, BACKUP_SUFFIX));
+    }
+    Ok(())
+}
+
+/// Whether `file` now parses to exactly `config`.
+fn reads_back(file: &Path, config: &Value) -> bool {
+    fs::read_to_string(file)
+        .ok()
+        .and_then(|text| parse_jsonc(&text))
+        .is_some_and(|read| &read == config)
+}
+
+/// The value of a JSON or JSONC text; `None` when it is neither.
+fn parse_jsonc(text: &str) -> Option<Value> {
+    CstRootNode::parse(text, &ParseOptions::default())
+        .ok()?
+        .to_serde_value()
+}
+
+/// `original` with each moved server's `command`, `args` and `env` set to their values in
+/// `config`. Everything else, comments included, stays as the user wrote it. `None` when the
+/// edit does not read back as `config`.
+fn edit_jsonc(
+    original: &str,
+    key: McpServersKey,
+    parsed: &Value,
+    config: &Value,
+) -> Option<String> {
+    let root = CstRootNode::parse(original, &ParseOptions::default()).ok()?;
+    let servers = root.object_value()?.object_value(key.as_str())?;
+    for (name, entry) in config.get(key.as_str())?.as_object()? {
+        if parsed.get(key.as_str())?.get(name) == Some(entry) {
+            continue;
+        }
+        let target = servers.object_value(name)?;
+        for field in ["command", "args", "env"] {
+            let value = cst_value(entry.get(field)?);
+            match target.get(field) {
+                Some(prop) => prop.set_value(value),
+                None => {
+                    let _ = target.append(field, value);
+                }
+            }
+        }
+    }
+    let text = root.to_string();
+    (parse_jsonc(&text).as_ref() == Some(config)).then_some(text)
+}
+
+fn cst_value(value: &Value) -> CstInputValue {
+    match value {
+        Value::Null => CstInputValue::Null,
+        Value::Bool(flag) => CstInputValue::Bool(*flag),
+        Value::Number(number) => CstInputValue::Number(number.to_string()),
+        Value::String(text) => CstInputValue::String(text.clone()),
+        Value::Array(items) => CstInputValue::Array(items.iter().map(cst_value).collect()),
+        Value::Object(map) => CstInputValue::Object(
+            map.iter()
+                .map(|(name, item)| (name.clone(), cst_value(item)))
+                .collect(),
+        ),
+    }
 }
 
 /// Creates a file that has `mode` from the start, so a copy of a config holding API keys
@@ -253,12 +333,12 @@ fn open_new(path: &Path, mode: Option<u32>) -> io::Result<fs::File> {
     options.open(path)
 }
 
-/// Writes the original text once; an existing backup is kept as it is.
-fn write_backup(file: &Path, original: &str, mode: Option<u32>) -> io::Result<()> {
+/// Writes the original text once; an existing backup is kept as it is. Says whether this call made it.
+fn write_backup(file: &Path, original: &str, mode: Option<u32>) -> io::Result<bool> {
     let backup = with_suffix(file, BACKUP_SUFFIX);
     let mut handle = match open_new(&backup, mode) {
         Ok(handle) => handle,
-        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => return Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => return Ok(false),
         Err(error) => return Err(error),
     };
     if let Err(error) = handle.write_all(original.as_bytes()) {
@@ -267,7 +347,14 @@ fn write_backup(file: &Path, original: &str, mode: Option<u32>) -> io::Result<()
         let _ = fs::remove_file(&backup);
         return Err(error);
     }
-    set_mode_bits(&backup, mode)
+    set_mode_bits(&backup, mode)?;
+    Ok(true)
+}
+
+/// The original a rewrite kept beside `file`, when it is still there.
+#[must_use]
+pub fn kept_backup(file: &Path) -> Option<PathBuf> {
+    Some(with_suffix(file, BACKUP_SUFFIX)).filter(|backup| backup.exists())
 }
 
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
@@ -617,7 +704,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn rewrite_file_keeps_the_mode_on_the_config_and_its_backup() {
+    fn rewrite_file_keeps_the_mode_on_the_config() {
         use std::os::unix::fs::PermissionsExt;
         for mode in [0o600_u32, 0o640] {
             let scratch = Scratch::new(&format!("mode-{mode:o}"));
@@ -634,41 +721,59 @@ mod tests {
                 McpRewriteOutcome::Changed
             );
 
-            let backup = with_suffix(&file, BACKUP_SUFFIX);
             assert_eq!(
                 fs::metadata(&file).unwrap().permissions().mode() & 0o777,
-                mode
-            );
-            assert_eq!(
-                fs::metadata(&backup).unwrap().permissions().mode() & 0o777,
                 mode
             );
         }
     }
 
     #[test]
-    fn rewrite_file_keeps_the_first_original_in_the_backup_only() {
+    fn rewrite_file_removes_its_backup_once_the_rewrite_reads_back() {
+        let scratch = Scratch::new("backup-gone");
+        let file = scratch.0.join("mcp.json");
+        fs::write(
+            &file,
+            json!({ "mcpServers": { "wf": dev_old() } }).to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            rewrite_mcp_config_file(&cursor_key_config(file.clone()), &launch(true)),
+            McpRewriteOutcome::Changed
+        );
+        assert!(!with_suffix(&file, BACKUP_SUFFIX).exists());
+    }
+
+    #[test]
+    fn rewrite_file_leaves_a_backup_an_earlier_run_made() {
         let scratch = Scratch::new("backup");
         let file = scratch.0.join("mcp.json");
         let backup = with_suffix(&file, BACKUP_SUFFIX);
         let first = json!({ "mcpServers": { "wf": dev_old() } }).to_string();
-        fs::write(&file, &first).unwrap();
-        let target = cursor_key_config(file.clone());
-
-        assert_eq!(
-            rewrite_mcp_config_file(&target, &launch(true)),
-            McpRewriteOutcome::Changed
-        );
-        assert_eq!(fs::read_to_string(&backup).unwrap(), first);
-
+        fs::write(&backup, &first).unwrap();
         let second = json!({ "mcpServers": { "wf": dev_old(), "extra": dev_old() } }).to_string();
         fs::write(&file, &second).unwrap();
 
         assert_eq!(
-            rewrite_mcp_config_file(&target, &launch(true)),
+            rewrite_mcp_config_file(&cursor_key_config(file.clone()), &launch(true)),
             McpRewriteOutcome::Changed
         );
         assert_eq!(fs::read_to_string(&backup).unwrap(), first);
+    }
+
+    #[test]
+    fn reads_back_only_the_config_that_was_written() {
+        let scratch = Scratch::new("reads-back");
+        let file = scratch.0.join("mcp.json");
+        let config = json!({ "mcpServers": { "wf": dev_rewritten() } });
+        assert!(!reads_back(&file, &config));
+        fs::write(&file, "{not json").unwrap();
+        assert!(!reads_back(&file, &config));
+        fs::write(&file, json!({ "mcpServers": {} }).to_string()).unwrap();
+        assert!(!reads_back(&file, &config));
+        fs::write(&file, config.to_string()).unwrap();
+        assert!(reads_back(&file, &config));
     }
 
     #[test]
@@ -702,13 +807,65 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_file_skips_jsonc_and_leaves_it_byte_identical() {
+    fn rewrite_file_moves_a_jsonc_entry_and_keeps_the_comments() {
         let scratch = Scratch::new("jsonc");
         let file = scratch.0.join("mcp.json");
         let text = format!(
-            "// user config\n{{ \"servers\": {{ \"wf\": {} }} }}\n",
+            "// user config\n{{\n  \"servers\": {{\n    // the app\n    \"wf\": {},\n    \"other\": {{ \"command\": \"x\" }}, // keep me\n  }},\n}}\n",
             dev_old()
         );
+        fs::write(&file, &text).unwrap();
+        let target = McpClientConfig {
+            file: file.clone(),
+            key: McpServersKey::Servers,
+        };
+
+        let (changed, skipped) = rewrite_mcp_client_configs(&[target], &launch(true));
+
+        assert_eq!(changed, vec![file.clone()]);
+        assert!(skipped.is_empty());
+        let out = fs::read_to_string(&file).unwrap();
+        for comment in ["// user config", "// the app", "// keep me"] {
+            assert!(out.contains(comment), "{comment} kept in {out}");
+        }
+        let expected = json!({ "servers": {
+            "wf": {
+                "command": "/app/node",
+                "args": [BRIDGE_ARG],
+                "env": { "KEEP": "x", "WEAVEFORGE_MCP_FILE": DEV_FILE },
+                "type": "stdio"
+            },
+            "other": { "command": "x" }
+        }});
+        assert_eq!(parse_jsonc(&out), Some(expected));
+        assert!(
+            !with_suffix(&file, BACKUP_SUFFIX).exists(),
+            "backup gone once it reads back"
+        );
+    }
+
+    #[test]
+    fn rewrite_file_leaves_a_jsonc_file_without_bridge_entries_untouched() {
+        let scratch = Scratch::new("jsonc-none");
+        let file = scratch.0.join("mcp.json");
+        let text = "// mine\n{ \"servers\": { \"other\": { \"command\": \"x\" } } }\n";
+        fs::write(&file, text).unwrap();
+        let target = McpClientConfig {
+            file: file.clone(),
+            key: McpServersKey::Servers,
+        };
+        assert_eq!(
+            rewrite_mcp_config_file(&target, &launch(true)),
+            McpRewriteOutcome::Unchanged
+        );
+        assert_eq!(fs::read_to_string(&file).unwrap(), text);
+    }
+
+    #[test]
+    fn rewrite_file_skips_a_broken_file_and_leaves_it_byte_identical() {
+        let scratch = Scratch::new("broken");
+        let file = scratch.0.join("mcp.json");
+        let text = format!("{{ \"servers\": {{ \"wf\": {} ", dev_old());
         fs::write(&file, &text).unwrap();
         let target = McpClientConfig {
             file: file.clone(),
@@ -720,6 +877,7 @@ mod tests {
         assert!(changed.is_empty());
         assert_eq!(skipped, vec![file.clone()]);
         assert_eq!(fs::read_to_string(&file).unwrap(), text);
+        assert!(!with_suffix(&file, BACKUP_SUFFIX).exists());
     }
 
     #[test]

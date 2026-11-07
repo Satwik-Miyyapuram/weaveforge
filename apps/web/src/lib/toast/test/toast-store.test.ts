@@ -234,3 +234,17 @@ test("a failed commit can name its own verb", async () => {
   await new Promise((r) => setTimeout(r, 0));
   assert.match(store.snapshot()[0]?.message ?? "", /^Could not merge: locked$/);
 });
+
+test("a failed commit that rejects with a plain object shows its message, not [object Object]", async () => {
+  const { store } = setup();
+  const id = store.deferDelete({
+    keys: ["a"],
+    message: "a",
+    failure: "Could not merge",
+    commit: () => Promise.reject({ message: "row is locked" }),
+  });
+  store.dismiss(id);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.doesNotMatch(store.snapshot()[0]?.message ?? "", /object Object/);
+  assert.match(store.snapshot()[0]?.message ?? "", /^Could not merge: /);
+});

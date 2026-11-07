@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
 //! Tests for `range::pick` and `range::serve_file`.
 
-mod common;
+use crate::common;
 
 use std::path::{Path, PathBuf};
 

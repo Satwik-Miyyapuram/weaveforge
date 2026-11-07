@@ -99,19 +99,22 @@ impl OverleafApi {
     }
 
     /// Starts a compile of `root` in `project_id`; returns the reply object.
+    /// With no `root`, Overleaf compiles the project's main document.
     pub async fn compile(
         &self,
         identity: &Identity,
         project_id: &str,
-        root: &str,
+        root: Option<&str>,
     ) -> Result<Value, String> {
-        let body = json!({
+        let mut body = json!({
             "check": "silent",
             "draft": false,
             "incrementalCompilesEnabled": true,
-            "rootResourcePath": root,
             "stopOnFirstError": false
         });
+        if let Some(root) = root {
+            body["rootResourcePath"] = json!(root);
+        }
         let route = format!("project/{project_id}/compile?auto_compile=true");
         let csrf = [("X-Csrf-Token", identity.csrf_token.as_str())];
         self.request(identity, &route, Some(&body), &csrf).await

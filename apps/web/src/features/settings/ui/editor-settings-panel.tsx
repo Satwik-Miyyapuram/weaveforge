@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Select } from "@/components/select";
+import { PenSettingsSection } from "./pen-settings-section";
 import {
   WIKILINK_CREATE_LABELS,
   WIKILINK_CREATE_MODES,
@@ -57,6 +58,8 @@ export function EditorSettingsPanel() {
         unknown title, and clicking an unresolved link in Read mode makes the note and opens it.
         Off, the link stays a placeholder.
       </p>
+
+      <PenSettingsSection />
     </div>
   );
 }

@@ -21,5 +21,8 @@ export function keyLabel(key: string, mac = isMacPlatform()): string {
 /** A whole chord: `⌘⇧F` → `Ctrl+Shift+F` off a Mac. */
 export function shortcutLabel(chord: string, mac = isMacPlatform()): string {
   if (mac) return chord;
-  return [...chord].map((key) => WORDS[key] ?? key).join("+");
+  // Modifiers are one glyph each; the key after them is one cap, so `F11` stays whole.
+  const mods = /^[⌘⌃⇧⌥]*/.exec(chord)![0];
+  const rest = chord.slice(mods.length);
+  return [...mods, ...(rest ? [rest] : [])].map((key) => WORDS[key] ?? key).join("+");
 }

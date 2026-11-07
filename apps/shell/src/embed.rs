@@ -8,9 +8,13 @@ use std::time::{Duration, Instant};
 use tauri::{Emitter as _, Manager as _};
 use wf_store::embed::{EmbedKind, Encoder, MODEL_FILES, profile_for};
 
+use crate::app_log::{AppLog, LogLevel};
 use crate::app_route::AppRoutes;
 use crate::commands::ShellError;
-use crate::model_cache::{UPSTREAM, is_cache_part, serve_model_file};
+use crate::model_cache::{
+    FOLDER_FULL, ModelDownload, STOPPED, UPSTREAM, cancel_downloads_under, is_cache_part,
+    serve_model_file,
+};
 
 /// A model is dropped after this long without an embed.
 pub const IDLE_EVICT: Duration = Duration::from_secs(5 * 60);
@@ -19,12 +23,21 @@ pub const PROGRESS_EVENT: &str = "embedProgress";
 /// How often the idle watcher checks the loaded models.
 const WATCH_EVERY: Duration = Duration::from_secs(60);
 
+/// At most this many models stay loaded; a new one drops the least recently used one not in use.
+const MAX_LOADED: usize = 2;
 /// Said when the model asked for is not loaded.
 pub const NOT_LOADED: &str = "The model is not loaded.";
+/// The `ShellError` code for `NOT_LOADED`; the page reloads on it (native-embedder.ts).
+pub const NOT_LOADED_CODE: &str = "NOT_LOADED";
 /// Said when the model name is not `owner/name` of safe parts.
 pub const BAD_MODEL: &str = "That model name cannot be used.";
 /// Said when a model file could not be downloaded.
 pub const DOWNLOAD_FAILED: &str = "The model files could not be downloaded.";
+/// Said when the models folder has no room for another model.
+pub const FOLDER_FULL_MESSAGE: &str =
+    "The models folder is full. Free space in Settings › Data, then try again.";
+/// Said when the reader stopped the download.
+pub const DOWNLOAD_STOPPED: &str = "Download stopped.";
 /// Said when a model file is missing and no client can fetch it.
 pub const NO_CLIENT: &str = "Models cannot be downloaded in this build.";
 /// Said when the blocking task that embeds or loads the model panicked.
@@ -149,12 +162,23 @@ impl<T> Models<T> {
         Some(Arc::clone(&entry.value))
     }
 
-    /// Adds or replaces `model`, used at `now`.
+    /// Adds or replaces `model`, used at `now`, dropping older models not in use past `MAX_LOADED`.
     ///
     /// Returns `true` when no watcher is running, so the caller must start one.
     #[must_use]
     pub fn store(&self, model: String, value: T, dimensions: usize, now: Instant) -> bool {
         let mut shelf = self.lock();
+        while shelf.entries.len() >= MAX_LOADED && !shelf.entries.contains_key(&model) {
+            // Only the shelf holds an unused value; an embed in flight holds another reference.
+            let oldest = shelf
+                .entries
+                .iter()
+                .filter(|(_, entry)| Arc::strong_count(&entry.value) == 1)
+                .min_by_key(|(_, entry)| entry.last_used)
+                .map(|(name, _)| name.clone());
+            let Some(oldest) = oldest else { break };
+            let _ = shelf.entries.remove(&oldest);
+        }
         let _ = shelf.entries.insert(
             model,
             Entry {
@@ -193,11 +217,19 @@ impl<T> Models<T> {
 pub struct LoadGates(Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>);
 
 impl LoadGates {
-    /// The gate for `model`, made on first use and shared after that.
+    /// The gate for `model`, made on first use and shared while anyone holds it.
     #[must_use]
     pub fn gate(&self, model: &str) -> Arc<tokio::sync::Mutex<()>> {
         let mut gates = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        // A gate only the map holds guards nothing; forget it so the map stays small.
+        gates.retain(|_, gate| Arc::strong_count(gate) > 1);
         Arc::clone(gates.entry(model.to_owned()).or_default())
+    }
+
+    /// How many gates are kept.
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).len()
     }
 }
 
@@ -232,8 +264,11 @@ async fn ensure_files(
             let client = client.ok_or_else(|| ShellError::from(NO_CLIENT.to_owned()))?;
             let path = file_path(model, file);
             let reply = serve_model_file(client, models, &path, UPSTREAM, Some("bytes=0-0")).await;
-            if !matches!(reply.status, 200 | 206) {
-                return Err(ShellError::from(DOWNLOAD_FAILED.to_owned()));
+            match reply.status {
+                200 | 206 => {}
+                FOLDER_FULL => return Err(ShellError::from(FOLDER_FULL_MESSAGE.to_owned())),
+                STOPPED => return Err(ShellError::from(DOWNLOAD_STOPPED.to_owned())),
+                _ => return Err(ShellError::from(DOWNLOAD_FAILED.to_owned())),
             }
         }
         let loaded = u32::try_from(i + 1).unwrap_or(0);
@@ -248,6 +283,16 @@ async fn ensure_files(
         );
     }
     Ok(())
+}
+
+/// Writes a failed model file download to the app log, so it can be found after the toast is gone.
+fn log_files_failure(log: &AppLog, model: &str, error: &ShellError) {
+    log.record(
+        LogLevel::Warn,
+        "embed",
+        &format!("Could not get the files for {model}"),
+        Some(&error.message),
+    );
 }
 
 /// Checks the loaded models every `WATCH_EVERY` and stops once none are left.
@@ -290,7 +335,12 @@ pub async fn embed_load(
         return Err(ShellError::from(NO_CLIENT.to_owned()));
     };
     let dir = model_dir(&models, &model).ok_or_else(|| ShellError::from(BAD_MODEL.to_owned()))?;
-    ensure_files(&app, client.as_ref(), &models, &model, &dir).await?;
+    if let Err(error) = ensure_files(&app, client.as_ref(), &models, &model, &dir).await {
+        if let Some(log) = app.try_state::<AppLog>() {
+            log_files_failure(&log, &model, &error);
+        }
+        return Err(error);
+    }
     let profile_model = model.clone();
     let encoder = tauri::async_runtime::spawn_blocking(move || {
         Encoder::open(&dir, profile_for(&profile_model)).map_err(|e| e.to_string())
@@ -324,7 +374,7 @@ pub async fn embed_texts(
     let models = slot.inner().models.clone();
     let encoder = models
         .get(&model, Instant::now())
-        .ok_or_else(|| ShellError::from(NOT_LOADED.to_owned()))?;
+        .ok_or_else(|| ShellError::coded(NOT_LOADED_CODE, NOT_LOADED))?;
     // Only this model's encoder is locked, and only on the blocking thread.
     let vectors = tauri::async_runtime::spawn_blocking(move || {
         encoder
@@ -355,6 +405,29 @@ pub async fn embed_unload(
     let gate = slot.gates.gate(&model);
     let _gate = gate.lock().await;
     slot.models.remove(&model);
+    Ok(())
+}
+
+/// The model files downloading now, with bytes done and the full size when known.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn model_downloads() -> Result<Vec<ModelDownload>, ShellError> {
+    Ok(crate::model_cache::model_downloads())
+}
+
+/// Stops the model downloads in flight; each keeps what it has, and the next load resumes it.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn cancel_model_downloads(app: tauri::AppHandle) -> Result<(), ShellError> {
+    if let Some(routes) = app.try_state::<AppRoutes>() {
+        cancel_downloads_under(&routes.models);
+    }
     Ok(())
 }
 
@@ -481,6 +554,61 @@ mod tests {
         models.remove("a/missing");
         assert_eq!(models.get("a/one", now), None);
         assert_eq!(models.get("a/two", now).as_deref(), Some(&2));
+    }
+
+    #[test]
+    fn a_third_model_drops_the_least_recently_used() {
+        let models = Models::default();
+        let base = Instant::now();
+        let at = |s| base + Duration::from_secs(s);
+        let _ = models.store("a/one".to_owned(), 1_u8, 2, at(0));
+        let _ = models.store("a/two".to_owned(), 2_u8, 2, at(1));
+        let _ = models.touch("a/one", at(2));
+        let _ = models.store("a/three".to_owned(), 3_u8, 2, at(3));
+        assert_eq!(models.touch("a/two", at(4)), None);
+        assert_eq!(models.touch("a/one", at(4)), Some(2));
+        assert_eq!(models.touch("a/three", at(4)), Some(2));
+    }
+
+    #[test]
+    fn a_model_in_use_is_not_dropped_for_the_cap() {
+        let models = Models::default();
+        let base = Instant::now();
+        let at = |s| base + Duration::from_secs(s);
+        let _ = models.store("a/one".to_owned(), 1_u8, 2, at(0));
+        let _ = models.store("a/two".to_owned(), 2_u8, 2, at(1));
+        let held = models.get("a/one", at(0));
+        let _ = models.store("a/three".to_owned(), 3_u8, 2, at(2));
+        assert_eq!(models.touch("a/two", at(3)), None);
+        drop(held);
+        let _ = models.store("a/four".to_owned(), 4_u8, 2, at(4));
+        assert_eq!(models.get("a/one", at(5)), None);
+        assert_eq!(models.get("a/three", at(5)).as_deref(), Some(&3));
+        assert_eq!(models.get("a/four", at(5)).as_deref(), Some(&4));
+    }
+
+    #[test]
+    fn released_gates_are_forgotten_and_held_ones_kept() {
+        let gates = LoadGates::default();
+        drop(gates.gate("a/one"));
+        let two = gates.gate("a/two");
+        assert_eq!(gates.len(), 1);
+        let again = gates.gate("a/two");
+        assert!(Arc::ptr_eq(&two, &again));
+        assert_eq!(gates.len(), 1);
+    }
+
+    #[test]
+    fn a_files_failure_is_logged_with_the_model_and_reason() {
+        let dir = std::env::temp_dir().join(format!("wf-embed-log-{}", std::process::id()));
+        let log = AppLog::new(&dir, "");
+        log_files_failure(&log, "a/one", &ShellError::from(DOWNLOAD_FAILED.to_owned()));
+        let entries = log.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].source, "embed");
+        assert!(entries[0].message.contains("a/one"));
+        assert_eq!(entries[0].detail.as_deref(), Some(DOWNLOAD_FAILED));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

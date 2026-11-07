@@ -4,6 +4,7 @@
     "active": true,
     "resources": {
       "target/stage/sidecar/": "sidecar/",
+      "target/stage/postgres/": "postgres/",
       "../desktop/dist/web/": "web/"
     },
     "linux": {

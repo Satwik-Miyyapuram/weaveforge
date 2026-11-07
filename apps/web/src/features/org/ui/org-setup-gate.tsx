@@ -285,6 +285,7 @@ function JoinLabForm({
           type="submit"
           variant="primary"
           disabled={busy || !code.trim() || missingSupervisor}
+          title={missingSupervisor ? "Choose a supervisor to continue" : !code.trim() ? "Enter the lab's join code" : undefined}
         >
           {busy ? "Joining…" : "Join lab"}
         </Button>

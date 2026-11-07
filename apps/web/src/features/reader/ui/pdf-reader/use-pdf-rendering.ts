@@ -22,6 +22,7 @@ import {
   isReaderObjectUrl,
 } from "../../application/sanitize-reader-url";
 import { pdfProxyNeedsToken } from "../../application/pdf-download-consent";
+import { pdfObjectUrlBytes } from "../../application/object-url-bytes";
 import {
   isCachePdfUrl,
   readStoredPdfBytes,
@@ -299,7 +300,9 @@ useEffect(() => {
         if (!stored) throw new Error("The stored copy of this PDF is missing.");
         source = { data: new Uint8Array(stored) };
       } else {
-        source = { url: safeUrl };
+        // The desktop app cannot fetch a blob: URL; take the bytes behind it when this page made it.
+        const objectBytes = await pdfObjectUrlBytes(safeUrl);
+        source = objectBytes ? { data: objectBytes } : { url: safeUrl };
       }
       if (cancelled) return;
       task = lib.getDocument({
@@ -733,6 +736,11 @@ useEffect(() => {
               hasEOL: Boolean(it.hasEOL),
             });
           }
+          // Another render of this page may have filled the layer while this one
+          // waited; without this both sets of words stack in it and a selection
+          // jumps between the copies.
+          textLayers.current.get(pageNumber)?.cancel();
+          textLayer.replaceChildren();
           const layer = createPdfTextLayer(lib, textLayer, content, viewport);
           textLayers.current.set(pageNumber, layer);
           await layer.render();

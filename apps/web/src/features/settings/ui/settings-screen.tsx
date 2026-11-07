@@ -51,6 +51,7 @@ const mcpTokensServed = GENERATED_MCP_ENABLED && hasServerRoutes();
 // panels sit at the bottom of theirs.
 const OrgPanel = dynamic(() => import("@/features/org").then((m) => m.OrgPanel), { ssr: false });
 const AppLogPanel = dynamic(() => import("./app-log-panel").then((m) => m.AppLogPanel), { ssr: false });
+const StoragePanel = dynamic(() => import("./storage-panel").then((m) => m.StoragePanel), { ssr: false });
 const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m) => m.CalendarFeedPanel), { ssr: false });
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
@@ -592,6 +593,7 @@ export function SettingsScreen() {
               *after* something failed, and a panel they have to go looking for
               is one they will not find while stuck. */}
           <AppLogPanel />
+          <StoragePanel />
           <PrivacyNotice />
           {/* Linking a provider and deleting an account both need the account. */}
           {hasAccount && <GitHubLinkCard />}

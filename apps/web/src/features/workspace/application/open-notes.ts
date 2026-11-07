@@ -5,6 +5,7 @@
  * review instead of landing under the cursor. Counted, since one note can be open in two places.
  */
 const open = new Map<string, number>();
+const closedListeners = new Set<(id: string) => void>();
 
 /** Mark these notes open until the returned function is called. Calling it twice releases once. */
 export function holdOpenNotes(ids: readonly string[]): () => void {
@@ -17,7 +18,10 @@ export function holdOpenNotes(ids: readonly string[]): () => void {
     for (const id of unique) {
       const count = (open.get(id) ?? 0) - 1;
       if (count > 0) open.set(id, count);
-      else open.delete(id);
+      else {
+        open.delete(id);
+        for (const listener of closedListeners) listener(id);
+      }
     }
   };
 }
@@ -25,4 +29,10 @@ export function holdOpenNotes(ids: readonly string[]): () => void {
 /** Whether some editor has this note open. */
 export function isNoteOpen(id: string): boolean {
   return open.has(id);
+}
+
+/** Hear when the last editor holding a note lets it go. */
+export function onNoteClosed(listener: (id: string) => void): () => void {
+  closedListeners.add(listener);
+  return () => closedListeners.delete(listener);
 }

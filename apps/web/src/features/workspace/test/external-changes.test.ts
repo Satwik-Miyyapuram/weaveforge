@@ -11,12 +11,14 @@ import {
   clearExternalChanges,
   closeFolder,
   describeSync,
+  externalChangeReason,
   externalChanges,
   folderHistory,
   onExternalChange,
   settleExternalChanges,
 } from "../application/workspace-folder";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { holdOpenNotes } from "../application/open-notes";
 
 before(async () => {
   await loadTestCore();
@@ -57,7 +59,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function connected() {
   const shell = fakeShell();
-  assert.equal(await chooseDesktopFolder({ git: false, reuse: true }), true);
+  assert.deepEqual(await chooseDesktopFolder({ git: false, reuse: true }), { warnings: [] });
   return shell;
 }
 
@@ -181,6 +183,40 @@ test("after a preview the outside list is what the preview found changed, no mor
   assert.deepEqual(externalChanges(), ["data/tags.json", "notes/two.note.md"]);
 });
 
+test("a preview of some paths settles those and leaves the rest of the list", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  settleExternalChanges({
+    entries: [
+      { action: "removed", entity: { path: "notes/gone.note.md" } },
+      { action: "removed", entity: { path: "notes/also.note.md" } },
+    ],
+  } as never);
+  settleExternalChanges(
+    { entries: [{ action: "unchanged", entity: { path: "notes/also.note.md" } }] } as never,
+    new Set(["notes/also.note.md"]),
+  );
+  assert.deepEqual(externalChanges(), ["notes/gone.note.md"]);
+  assert.equal(externalChangeReason("notes/gone.note.md"), "removed");
+  assert.equal(externalChangeReason("notes/also.note.md"), undefined);
+});
+
+test("a listed outside edit says why it waits, until the list is cleared", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  settleExternalChanges({
+    entries: [
+      { action: "removed", entity: { path: "notes/gone.note.md" } },
+      { action: "unchanged", entity: { path: "notes/same.note.md" } },
+    ],
+    counts: { created: 0, updated: 0, unchanged: 1, conflict: 0, removed: 1 },
+  } as never);
+  assert.equal(externalChangeReason("notes/gone.note.md"), "removed");
+  assert.equal(externalChangeReason("notes/same.note.md"), undefined);
+  clearExternalChanges();
+  assert.equal(externalChangeReason("notes/gone.note.md"), undefined);
+});
+
 test("a failed commit is reported, not read as up to date", () => {
   const mirror = { written: [], removed: [] } as never;
   assert.equal(
@@ -223,4 +259,34 @@ test("a desktop history that cannot be read is an error, not an empty log (xipc-
   const bridge = (globalThis as unknown as { window?: { weaveforge: Record<string, unknown> } }).window!.weaveforge;
   bridge.vaultLog = () => Promise.reject(new Error("fatal: bad object HEAD"));
   await assert.rejects(() => folderHistory(5), /bad object HEAD/);
+});
+
+test("an edit held because its note was open is taken in once the note closes", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const release = holdOpenNotes(["n1"]);
+  settleExternalChanges({
+    entries: [{ action: "updated", entity: { id: "n1", path: "notes/open.note.md" } }],
+    counts: { created: 0, updated: 1, unchanged: 0, conflict: 0, removed: 0 },
+    seen: { "notes/open.note.md": { side: "folder", digest: "d" } },
+  } as never);
+  assert.equal(externalChangeReason("notes/open.note.md"), "open in editor");
+  assert.equal(autoApplyScheduled(), false);
+  release();
+  assert.equal(autoApplyScheduled(), true);
+});
+
+test("a folder that never goes quiet is still read within the max wait", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const started = Date.now();
+  // A save every 400 ms keeps restarting the 800 ms debounce; without the cap it would fire at 2400 ms.
+  for (let i = 0; i < 5; i += 1) {
+    shell.changed(["notes/busy.note.md"]);
+    await settle();
+    await wait(400);
+  }
+  await wait(Math.max(0, started + 2200 - Date.now()));
+  assert.equal(autoApplyScheduled(), false);
 });

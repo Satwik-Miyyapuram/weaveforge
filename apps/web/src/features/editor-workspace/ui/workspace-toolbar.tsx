@@ -77,7 +77,7 @@ export function WorkspaceToolbar({
         <IconButton
           size="sm"
           label="Preview"
-          tip={`Preview beside the text (${shortcutLabel("⌘E")})`}
+          tip={previewOff ? "Preview needs a text note focused in Text mode" : `Preview beside the text (${shortcutLabel("⌘E")})`}
           aria-pressed={preview && canSplit(mode)}
           disabled={previewOff}
           onClick={onTogglePreview}
@@ -91,7 +91,7 @@ export function WorkspaceToolbar({
           <SplitGlyph direction="column" />
         </IconButton>
         {onToggleFocus ? (
-          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("⌘⇧F")})`} onClick={onToggleFocus}>
+          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("F11")})`} onClick={onToggleFocus}>
             <FocusGlyph on={false} />
           </IconButton>
         ) : null}
@@ -125,7 +125,11 @@ function LayoutMenu({
       </ToolButton>
       {open ? (
         <BarMenuList label="Layout" listRef={listRef} pos={pos}>
-          <MenuItemButton disabled={previewOff} onClick={choose(onTogglePreview)}>
+          <MenuItemButton
+            disabled={previewOff}
+            title={previewOff ? "Preview needs a text note focused in Text mode" : undefined}
+            onClick={choose(onTogglePreview)}
+          >
             <span>Preview</span>
             <kbd>{shortcutLabel("⌘E")}</kbd>
           </MenuItemButton>
@@ -134,7 +138,7 @@ function LayoutMenu({
           {focusIn ? (
             <MenuItemButton onClick={choose(focusIn)}>
               <span>Focus</span>
-              <kbd>{shortcutLabel("⌘⇧F")}</kbd>
+              <kbd>{shortcutLabel("F11")}</kbd>
             </MenuItemButton>
           ) : null}
         </BarMenuList>

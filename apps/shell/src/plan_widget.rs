@@ -114,18 +114,25 @@ pub fn parse_bounds(value: Option<&str>) -> Option<WidgetBounds> {
     })
 }
 
-/// Keeps the saved spot if it is inside an area; otherwise the top-right corner of the first.
+/// Keeps the saved spot if it is inside an area; otherwise the top-right corner
+/// of the primary area (the first area when no primary is known).
 #[must_use]
-pub fn place_widget(saved: Option<WidgetBounds>, areas: &[WorkArea]) -> WidgetBounds {
+pub fn place_widget(
+    saved: Option<WidgetBounds>,
+    areas: &[WorkArea],
+    primary: Option<WorkArea>,
+) -> WidgetBounds {
     if let Some(spot) = saved.filter(|spot| areas.iter().any(|area| fits_in(area, *spot))) {
         return spot;
     }
-    let first = areas.first().copied().unwrap_or(WorkArea {
-        x: 0,
-        y: 0,
-        width: 1280,
-        height: 800,
-    });
+    let first = primary
+        .or_else(|| areas.first().copied())
+        .unwrap_or(WorkArea {
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 800,
+        });
     WidgetBounds {
         x: clamp_i32(
             i64::from(first.x) + i64::from(first.width) - i64::from(PLAN_WIDGET_WIDTH) - 32,
@@ -194,6 +201,97 @@ where
         format!("{what}: {err}")
     })
 }
+
+/// Where the shell serves the widget page on the app origin.
+pub const WIDGET_PAGE: &str = "/plan-widget/";
+
+/// The widget page's CSP: its own inline style and script, its fonts, and the IPC origins.
+pub const WIDGET_CSP: &str = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self'; connect-src ipc: http://ipc.localhost https://ipc.localhost";
+
+/// The widget page and the fonts it ships with, by path under `WIDGET_PAGE`.
+const WIDGET_ASSETS: [(&str, &str, &[u8]); 3] = [
+    (
+        "",
+        "text/html; charset=utf-8",
+        include_bytes!("../widget/plan-widget.html"),
+    ),
+    (
+        "fonts/rubik-latin.woff2",
+        "font/woff2",
+        include_bytes!("../widget/fonts/rubik-latin.woff2"),
+    ),
+    (
+        "fonts/rubik-latin-ext.woff2",
+        "font/woff2",
+        include_bytes!("../widget/fonts/rubik-latin-ext.woff2"),
+    ),
+];
+
+/// The content type and bytes of a widget file for an `app://` path, or None.
+#[must_use]
+pub fn widget_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
+    let rest = path.strip_prefix(WIDGET_PAGE)?;
+    let rest = if rest == "index.html" { "" } else { rest };
+    WIDGET_ASSETS
+        .iter()
+        .find(|(name, _, _)| *name == rest)
+        .map(|(_, kind, bytes)| (*kind, *bytes))
+}
+
+/// Milestone rows from `PLAN_WIDGET_SQL` as the core's feed input. Rows without an id are dropped.
+#[must_use]
+pub fn rows_to_milestones(rows: &[serde_json::Value]) -> Vec<wf_core::plan::feed::FeedMilestone> {
+    let text = |row: &serde_json::Value, key: &str| {
+        row.get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+    };
+    rows.iter()
+        .filter_map(|row| {
+            Some(wf_core::plan::feed::FeedMilestone {
+                id: text(row, "id")?,
+                title: text(row, "title").unwrap_or_default(),
+                description: text(row, "description"),
+                status: text(row, "status").unwrap_or_default(),
+                target_date: text(row, "target_date"),
+                project_name: text(row, "project_name"),
+            })
+        })
+        .collect()
+}
+
+/// The script that hands a new palette to an open widget page.
+#[must_use]
+pub fn theme_push_script(palette: &BTreeMap<String, String>) -> String {
+    let json = serde_json::to_string(palette).unwrap_or_else(|_| "{}".to_owned());
+    format!("window.__wfPlanWidgetTheme && window.__wfPlanWidgetTheme({json});")
+}
+
+/// The widget window's init script: `window.planWidget` over Tauri IPC, and the header drag.
+pub const WIDGET_SCRIPT: &str = r#"(() => {
+  const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args ?? {});
+  const REFRESH_MS = 60000;
+  window.planWidget = {
+    open: () => invoke("plan_widget_open").catch(() => {}),
+    hide: () => invoke("plan_widget_set", { on: false }).catch(() => {}),
+    onData(cb) {
+      const pull = () => invoke("plan_widget_data").then(cb, () => {});
+      pull();
+      setInterval(pull, REFRESH_MS);
+    },
+    onTheme(cb) {
+      window.__wfPlanWidgetTheme = (palette) => cb(palette);
+      invoke("plan_widget_palette").then((palette) => { if (palette) cb(palette); }, () => {});
+    },
+  };
+  document.addEventListener("mousedown", (event) => {
+    const target = event.target;
+    if (event.button !== 0 || !(target instanceof Element)) return;
+    if (!target.closest("header") || target.closest("button")) return;
+    invoke("plugin:window|start_dragging", { label: "plan-widget" }).catch(() => {});
+  });
+})();
+"#;
 
 /// The pin script before the HWND, through `$window = [IntPtr][Int64]`.
 const PIN_SCRIPT_HEAD: &str = r##"$ErrorActionPreference = 'Stop'

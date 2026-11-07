@@ -4,6 +4,7 @@ import type { ChangeSide, ImportAction, ImportDiffEntry, JsonDiffEntry } from "@
 
 import {
   applyOutsideEdits,
+  renamedPaths,
   splitOutsideEdits,
   type FolderDiff,
   type SeenFile,
@@ -116,6 +117,18 @@ test("a copy at a new path that updates a known note is held; a new note at a ne
   );
   assert.deepEqual(paths(apply.entries), ["b.md"]);
   assert.deepEqual(paths(held.entries), ["a copy.md"]);
+});
+
+test("a rename in the same folder is taken in; a move to another folder is held", () => {
+  const { apply, reasons } = splitOutsideEdits(
+    diffOf([note("updated", "notes/big idea.note.md", "a"), note("updated", "other/b.note.md", "b")], undefined, {
+      "notes/big idea.note.md": { ...seenNew(), renamedFrom: "notes/idea.note.md" },
+      "other/b.note.md": { ...seenNew(), renamedFrom: "notes/b.note.md" },
+    }),
+  );
+  assert.deepEqual(paths(apply.entries), ["notes/big idea.note.md"]);
+  assert.deepEqual(reasons, { "other/b.note.md": "moved to another folder" });
+  assert.deepEqual([...renamedPaths(apply)], ["notes/big idea.note.md"]);
 });
 
 test("a JSON data file at a new path with an updated row is held whole", () => {
@@ -286,6 +299,20 @@ test("applyOutsideEdits calls apply before settle with only the applyable part",
   assert.deepEqual(result, { applied: 2, held: 2 });
 });
 
+test("notes the apply reports as moved are not counted as taken in", async () => {
+  const result = await applyOutsideEdits({
+    preview: async () =>
+      diffOf([note("created", "a.md"), note("created", "b.md")], undefined, {
+        "a.md": seenNew(),
+        "b.md": seenNew(),
+      }),
+    isOpen: () => false,
+    apply: async () => ({ moved: ["b.md"] }),
+    settle: () => undefined,
+  });
+  assert.deepEqual(result, { applied: 1, held: 0 });
+});
+
 test("a throwing preview or apply rejects and skips settle", async () => {
   let settleCalls = 0;
   const settle = () => {
@@ -314,4 +341,48 @@ test("a throwing preview or apply rejects and skips settle", async () => {
     /apply failed/,
   );
   assert.equal(settleCalls, 0);
+});
+
+test("each held file says why it was held; a file taken in has no reason", () => {
+  const seen: Record<string, SeenFile> = {
+    "open.md": seenAs("folder"),
+    "both.md": seenAs("both"),
+    "unknown.md": seenAs("unknown"),
+    "gone.md": seenAs("folder"),
+    "copy.md": seenNew(),
+    "stripped.md": seenAs("folder"),
+    "fine.md": seenAs("folder"),
+    "data/tags.json": seenAs("folder"),
+    "data/both.json": seenAs("both"),
+  };
+  const { reasons } = splitOutsideEdits(
+    diffOf(
+      [
+        note("updated", "open.md", "n1"),
+        note("updated", "both.md", "n2"),
+        note("updated", "unknown.md", "n3"),
+        note("updated", "unseen.md", "n4"),
+        note("removed", "gone.md", "n5"),
+        note("conflict", "fine-but-conflict.md", "n6"),
+        note("updated", "copy.md", "n7"),
+        note("created", "stripped.md"),
+        note("updated", "fine.md", "n8"),
+      ],
+      [row("removed", "data/tags.json", "t1"), row("created", "data/both.json", "t2")],
+      seen,
+    ),
+    (id) => id === "n1",
+  );
+  assert.deepEqual(reasons, {
+    "open.md": "open in editor",
+    "both.md": "edited on both sides",
+    "unknown.md": "no record of the app's write",
+    "unseen.md": "no record of the app's write",
+    "gone.md": "removed",
+    "fine-but-conflict.md": "edited on both sides",
+    "copy.md": "a copy of a known note",
+    "stripped.md": "lost its id",
+    "data/tags.json": "a data file that cannot go in whole",
+    "data/both.json": "edited on both sides",
+  });
 });

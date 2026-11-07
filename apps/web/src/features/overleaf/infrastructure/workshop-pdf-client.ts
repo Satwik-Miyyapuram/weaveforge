@@ -24,7 +24,8 @@ export async function fetchWorkshopPdf(
   deps: WorkshopPdfDeps,
   sessionId: string,
   projectId: string,
-  rootResourcePath: string,
+  /** Null lets Overleaf compile the project's main document. */
+  rootResourcePath: string | null,
   isCurrent: () => boolean = () => true,
 ): Promise<WorkshopPdfResult> {
   let res: Response;
@@ -32,7 +33,7 @@ export async function fetchWorkshopPdf(
     res = await deps.fetch(WORKSHOP_PDF_PATH, {
       method: "POST",
       headers: await deps.authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ sessionId, projectId, rootResourcePath }),
+      body: JSON.stringify(rootResourcePath ? { sessionId, projectId, rootResourcePath } : { sessionId, projectId }),
     });
   } catch (err) {
     return fail(`Could not load the PDF: ${errorText(err)}`);

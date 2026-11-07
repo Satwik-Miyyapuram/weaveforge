@@ -23,12 +23,6 @@ pub fn main_window_keeps(url: &tauri::Url) -> bool {
     matches!(url.scheme(), "about" | "blob" | "data") || is_app_url(url)
 }
 
-/// Whether a popup may open as its own app window: a `blob:` URL an app page made, such as a compiled PDF.
-#[must_use]
-pub fn is_app_blob(url: &tauri::Url) -> bool {
-    url.scheme() == "blob" && tauri::Url::parse(url.path()).is_ok_and(|inner| is_app_url(&inner))
-}
-
 /// Node's name for an OS (`process.platform`), as `DesktopBridge.platform` expects it; phones keep their own name.
 #[must_use]
 pub fn platform_name(os: &str) -> &'static str {
@@ -158,19 +152,31 @@ mod tests {
         }
     }
 
+    /// The origins follow from the app scheme and the main window in tauri.conf.json: its
+    /// `scheme://localhost` url, and `https://scheme.localhost` where `useHttpsScheme` maps it.
     #[test]
-    fn only_app_made_blobs_open_as_windows() {
-        assert!(is_app_blob(&url("blob:https://app.localhost/5f0c-11")));
-        assert!(is_app_blob(&url("blob:app://localhost/5f0c-11")));
-        for text in [
-            "blob:https://evil.com/5f0c",
-            "blob:http://app.localhost/5f0c",
-            "blob:null/5f0c",
-            "https://app.localhost/x.pdf",
-            "data:application/pdf,x",
-        ] {
-            assert!(!is_app_blob(&url(text)), "{text}");
-        }
+    fn origins_match_the_app_scheme_and_window_config() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("config");
+        let main = config["app"]["windows"]
+            .as_array()
+            .expect("windows")
+            .iter()
+            .find(|w| w["label"] == crate::MAIN_WINDOW)
+            .expect("main window");
+        let scheme = crate::protocol::APP_SCHEME;
+        assert_eq!(
+            main["url"].as_str(),
+            Some(format!("{scheme}://localhost/").as_str())
+        );
+        assert_eq!(main["useHttpsScheme"].as_bool(), Some(true));
+        assert_eq!(
+            APP_ORIGINS,
+            [
+                format!("https://{scheme}.localhost"),
+                format!("{scheme}://localhost")
+            ]
+        );
     }
 
     #[test]

@@ -4,7 +4,8 @@
 use std::collections::{BTreeSet, HashMap};
 use std::hash::{DefaultHasher, Hasher};
 use std::io::{self, Read};
-use std::time::{Duration, Instant};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant, SystemTime};
 
 /// A digest of file contents, enough to tell the app's own write from someone else's.
 ///
@@ -36,6 +37,48 @@ pub fn digest_reader(reader: &mut impl Read) -> io::Result<Digest> {
             return Ok(hasher.finish());
         }
         hasher.write(bytes);
+    }
+}
+
+/// The digests last read, by path, with the size and modified time they were read at.
+///
+/// One save arrives as several watcher events; a file whose size and modified time
+/// have not moved since its last read is not read again. A change that keeps both
+/// (same size, within the clock tick of a coarse filesystem such as FAT) is missed.
+#[derive(Default)]
+pub struct DigestCache {
+    seen: HashMap<PathBuf, (u64, SystemTime, Digest)>,
+}
+
+/// Paths kept before the cache starts over; it only holds files the app wrote lately.
+const DIGEST_CACHE_MAX: usize = 4096;
+
+impl DigestCache {
+    /// The digest of `path`, from the cache when `len` and `modified` match its last
+    /// read, otherwise from `read` (whose result is then kept).
+    /// # Errors
+    /// The error from `read`; nothing is kept then.
+    pub fn digest(
+        &mut self,
+        path: &Path,
+        len: u64,
+        modified: SystemTime,
+        read: impl FnOnce() -> io::Result<Digest>,
+    ) -> io::Result<Digest> {
+        if let Some(&(was_len, was_modified, digest)) = self.seen.get(path)
+            && was_len == len
+            && was_modified == modified
+        {
+            return Ok(digest);
+        }
+        let digest = read()?;
+        if self.seen.len() >= DIGEST_CACHE_MAX {
+            self.seen.clear();
+        }
+        let _ = self
+            .seen
+            .insert(path.to_path_buf(), (len, modified, digest));
+        Ok(digest)
     }
 }
 

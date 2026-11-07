@@ -181,6 +181,21 @@ export class LocalDatabase {
     }
   }
 
+  /**
+   * Run one statement as the database owner, in a read-only transaction, with
+   * no user claims, so it sees every row. Only for the one-time copy into the
+   * native database, which reads whole tables.
+   */
+  async readRows<T>(sql: string): Promise<T[]> {
+    return this.recovering(() =>
+      this.client.transaction(async (tx) => {
+        await tx.query("set transaction read only");
+        const { rows } = await tx.query<T>(sql);
+        return rows;
+      }),
+    );
+  }
+
   /** Write a copy of everything to `file`; `false` from a client that cannot. */
   async dumpTo(file: string): Promise<boolean> {
     if (!this.client.dumpTo) return false;

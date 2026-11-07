@@ -6,11 +6,15 @@ use base64::engine::general_purpose::STANDARD;
 use crate::commands::ShellError;
 use crate::prefs::Prefs;
 use crate::vault::{VaultEntry, VaultRoot, VaultSession, VaultState};
-use crate::vault_choice::adopt_choice;
+use crate::vault_choice::{
+    Choice, adopt_choice, forget_choice, missing_remembered, retry_remembered,
+};
 use crate::vault_watcher::WatchSlot;
 
 /// Said when the bytes from the page are not valid base64; nothing is written.
 pub const BAD_BYTES: &str = "Those bytes could not be read.";
+/// Said when a folder dialog is already open; the second pick is refused, not read as a cancel.
+pub const PICK_BUSY: &str = "A folder dialog is already open. Finish or close it first.";
 /// Said when the blocking task that ran a file operation panicked.
 pub const TASK_FAILED: &str = "The folder could not be read.";
 
@@ -143,10 +147,10 @@ pub async fn vault_choose(
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
-) -> Result<Option<VaultRoot>, ShellError> {
+) -> Result<Choice, ShellError> {
     // The dialog is modal; this also refuses a second pick that slips in while one is open.
     let Some(_choosing) = Choosing::start() else {
-        return Ok(root(vault.inner()).await);
+        return Err(ShellError::from(PICK_BUSY.to_owned()));
     };
     let picked = pick_folder(&app, &window).await;
     let vault = vault.inner().clone();
@@ -159,13 +163,80 @@ pub async fn vault_choose(
     .await
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
     .map_err(ShellError::from)?;
-    if let Some(root) = &choice.root {
-        for warning in &choice.warnings {
-            crate::log_vault_warning(&app, warning, &root.path);
-        }
-        crate::local_api::forward_vault_root(&app).await;
+    log_warnings(&app, &choice);
+    Ok(choice)
+}
+
+/// Keeps a pick's warnings in the app log as well as showing them on the page.
+fn log_warnings(app: &tauri::AppHandle, choice: &Choice) {
+    let path = choice.root.as_ref().map_or("", |root| root.path.as_str());
+    for warning in &choice.warnings {
+        crate::log_vault_warning(app, warning, path);
     }
-    Ok(choice.root)
+}
+
+/// The remembered folder while none is in use, so the page can say it is not available.
+///
+/// # Errors
+/// Never; a `Result` for the command shape.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_missing(
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+) -> Result<Option<String>, ShellError> {
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    tokio::task::spawn_blocking(move || missing_remembered(&vault, &prefs))
+        .await
+        .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))
+}
+
+/// Tries the remembered folder again, after a drive is plugged back in.
+///
+/// # Errors
+/// The reason the folder still cannot hold a workspace; nothing changes.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_retry(
+    app: tauri::AppHandle,
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+    watch: tauri::State<'_, WatchSlot>,
+) -> Result<Choice, ShellError> {
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    let watch = watch.inner().clone();
+    let sink = crate::change_sink(&app);
+    let choice =
+        tokio::task::spawn_blocking(move || retry_remembered(&vault, &prefs, &watch, sink))
+            .await
+            .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
+            .map_err(ShellError::from)?;
+    log_warnings(&app, &choice);
+    Ok(choice)
+}
+
+/// Disconnects the workspace folder: no longer used, watched or remembered. The files stay.
+///
+/// # Errors
+/// Only when the blocking task fails.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_forget(
+    app: tauri::AppHandle,
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+    watch: tauri::State<'_, WatchSlot>,
+) -> Result<Choice, ShellError> {
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    let watch = watch.inner().clone();
+    let choice = tokio::task::spawn_blocking(move || forget_choice(&vault, &prefs, &watch))
+        .await
+        .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
+    log_warnings(&app, &choice);
+    Ok(choice)
 }
 
 /// Set while a folder dialog is open.
@@ -246,11 +317,38 @@ pub async fn vault_write(
     path: String,
     contents: String,
 ) -> Result<(), ShellError> {
-    // Noted before writing, so the folder watch can never see the write first.
-    watch.note_self_write(&path, contents.as_bytes());
-    write(state.inner(), path, contents)
-        .await
-        .map_err(ShellError::from)
+    // Noted before writing, so the folder watch can never see the write first, and under the
+    // session lock, so a folder move cannot slip between the note and the write.
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_write(&path, contents.as_bytes());
+        session.write_text(&path, &contents)
+    })
+    .await
+    .map_err(ShellError::from)
+}
+
+/// Writes a text file only if it still says `expected` (`None` = still
+/// missing); `false` = it changed since it was read, and nothing was written.
+///
+/// # Errors
+/// No folder chosen, a refused path, or contents over the size cap.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_write_if(
+    state: tauri::State<'_, VaultState>,
+    watch: tauri::State<'_, WatchSlot>,
+    path: String,
+    contents: String,
+    expected: Option<String>,
+) -> Result<bool, ShellError> {
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_write(&path, contents.as_bytes());
+        session.write_text_if(&path, &contents, expected.as_deref())
+    })
+    .await
+    .map_err(ShellError::from)
 }
 
 /// Reads a binary file in the chosen folder as base64.
@@ -281,10 +379,13 @@ pub async fn vault_write_bytes(
     bytes: String,
 ) -> Result<(), ShellError> {
     let bytes = decode_bytes(&bytes)?;
-    watch.note_self_write(&path, &bytes);
-    write_raw(state.inner(), path, bytes)
-        .await
-        .map_err(ShellError::from)
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_write(&path, &bytes);
+        session.write_bytes(&path, &bytes)
+    })
+    .await
+    .map_err(ShellError::from)
 }
 
 /// Lists a folder in the chosen folder; the root when `path` is absent.
@@ -324,6 +425,11 @@ pub async fn vault_remove(
     watch: tauri::State<'_, WatchSlot>,
     path: String,
 ) -> Result<(), ShellError> {
-    watch.note_self_remove(&path);
-    remove(state.inner(), path).await.map_err(ShellError::from)
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        watch.note_self_remove(&path);
+        session.remove(&path)
+    })
+    .await
+    .map_err(ShellError::from)
 }

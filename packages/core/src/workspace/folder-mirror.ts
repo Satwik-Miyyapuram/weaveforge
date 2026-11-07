@@ -146,7 +146,15 @@ export async function mirrorWorkspace(
     // a valid workspace path.
     const dir = path.split("/").slice(0, -1).join("/");
     if (dir) await fs.mkdirp(dir);
-    await fs.writeFile(path, content);
+    // Checked against what was read above: an edit that landed since is kept and held.
+    if (fs.writeTextIf) {
+      if (!(await fs.writeTextIf(path, content, current))) {
+        hold(path);
+        continue;
+      }
+    } else {
+      await fs.writeFile(path, content);
+    }
     written.push(path);
   }
 

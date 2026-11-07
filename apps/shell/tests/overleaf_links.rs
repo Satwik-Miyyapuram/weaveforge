@@ -5,7 +5,7 @@
     missing_docs
 )]
 //! Tests for the Overleaf link list: the folder rules, the link rules, the stored links and the list, link and unlink actions.
-mod common;
+use crate::common;
 
 use std::path::{Path, PathBuf};
 
@@ -121,6 +121,41 @@ fn master_commits(bare: &Path) -> usize {
     let mut walk = repo.revwalk().expect("revwalk");
     walk.push_ref("refs/heads/master").expect("master");
     walk.count()
+}
+
+/// The commit the bare repo's `master` points at.
+fn master_tip(bare: &Path) -> git2::Oid {
+    let repo = git2::Repository::open_bare(bare).expect("open bare");
+    repo.refname_to_id("refs/heads/master").expect("master")
+}
+
+/// Adds a commit on the bare repo's `master` that writes `path` with `bytes` on top of the tip.
+fn commit_to_remote(bare: &Path, path: &str, bytes: &[u8]) {
+    let repo = git2::Repository::open_bare(bare).expect("open bare");
+    let parent = repo
+        .find_reference("refs/heads/master")
+        .expect("master")
+        .peel_to_commit()
+        .expect("tip");
+    let mut builder = repo
+        .treebuilder(Some(&parent.tree().expect("tree")))
+        .expect("builder");
+    let blob = repo.blob(bytes).expect("blob");
+    let _ = builder.insert(path, blob, 0o100_644).expect("insert");
+    let tree = repo
+        .find_tree(builder.write().expect("tree"))
+        .expect("find tree");
+    let sig = git2::Signature::now("Remote", "remote@example.com").expect("sig");
+    let _ = repo
+        .commit(
+            Some("refs/heads/master"),
+            &sig,
+            &sig,
+            "remote edit",
+            &tree,
+            &[&parent],
+        )
+        .expect("commit");
 }
 
 #[cfg(unix)]
@@ -692,4 +727,196 @@ async fn pull_then_push_then_status_round_trip_with_the_remote() {
     let status: SyncStatus = status.status.unwrap();
     assert_eq!(status.branch, "master");
     assert_eq!((status.ahead, status.behind), (0, 0));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn unlink_removes_the_git_directory_and_keeps_the_files() {
+    let vault_dir = TempDir::new();
+    let dir = TempDir::new();
+    let remote = TempDir::new();
+    let store = TempDir::new();
+    let vault = vault_at(vault_dir.path());
+    let prefs = prefs_in(&dir);
+    let secrets = fresh_secrets(Some(TOKEN));
+    let _ = run(
+        &prefs,
+        &secrets,
+        &vault,
+        "link",
+        Some(ID),
+        Some("Overleaf/thesis"),
+    )
+    .await
+    .unwrap();
+    let _ = bare_remote_with_main(remote.path(), ID);
+    let git = OverleafGit {
+        store: store.path().to_path_buf(),
+        remote_base: format!("{}{}", remote.path().display(), std::path::MAIN_SEPARATOR),
+    };
+    let folder = vault_dir.path().join("Overleaf").join("thesis");
+    let git_dir = overleaf_git_dir(&git.store, vault_dir.path(), "Overleaf/thesis", ID);
+
+    let _ = run_with(&prefs, &secrets, &vault, &git, "pull", Some(ID), None)
+        .await
+        .unwrap();
+    assert!(git_dir.is_dir());
+
+    let reply = run_with(&prefs, &secrets, &vault, &git, "unlink", Some(ID), None)
+        .await
+        .unwrap();
+    assert!(reply.links.is_empty());
+    assert!(!git_dir.exists());
+    assert!(folder.join("main.tex").is_file());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pull_reports_a_conflict_and_keeps_the_local_text() {
+    let vault_dir = TempDir::new();
+    let dir = TempDir::new();
+    let remote = TempDir::new();
+    let store = TempDir::new();
+    let vault = vault_at(vault_dir.path());
+    let prefs = prefs_in(&dir);
+    let secrets = fresh_secrets(Some(TOKEN));
+    let _ = run(
+        &prefs,
+        &secrets,
+        &vault,
+        "link",
+        Some(ID),
+        Some("Overleaf/thesis"),
+    )
+    .await
+    .unwrap();
+    let bare = bare_remote_with_main(remote.path(), ID);
+    let git = OverleafGit {
+        store: store.path().to_path_buf(),
+        remote_base: format!("{}{}", remote.path().display(), std::path::MAIN_SEPARATOR),
+    };
+    let folder = vault_dir.path().join("Overleaf").join("thesis");
+
+    let pulled = run_with(&prefs, &secrets, &vault, &git, "pull", Some(ID), None)
+        .await
+        .unwrap();
+    assert!(matches!(pulled.pull, Some(SyncPull::FastForward { .. })));
+
+    common::put(&folder.join("main.tex"), b"local line\n");
+    commit_to_remote(&bare, "main.tex", b"remote line\n");
+
+    let reply = run_with(&prefs, &secrets, &vault, &git, "pull", Some(ID), None)
+        .await
+        .unwrap();
+    assert_eq!(
+        reply.pull,
+        Some(SyncPull::Conflict {
+            files: vec!["main.tex".to_owned()]
+        })
+    );
+    assert_eq!(
+        std::fs::read_to_string(folder.join("main.tex")).unwrap(),
+        "local line\n"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn push_is_rejected_as_behind_and_leaves_the_remote_head() {
+    let vault_dir = TempDir::new();
+    let dir = TempDir::new();
+    let remote = TempDir::new();
+    let store = TempDir::new();
+    let vault = vault_at(vault_dir.path());
+    let prefs = prefs_in(&dir);
+    let secrets = fresh_secrets(Some(TOKEN));
+    let _ = run(
+        &prefs,
+        &secrets,
+        &vault,
+        "link",
+        Some(ID),
+        Some("Overleaf/thesis"),
+    )
+    .await
+    .unwrap();
+    let bare = bare_remote_with_main(remote.path(), ID);
+    let git = OverleafGit {
+        store: store.path().to_path_buf(),
+        remote_base: format!("{}{}", remote.path().display(), std::path::MAIN_SEPARATOR),
+    };
+    let folder = vault_dir.path().join("Overleaf").join("thesis");
+
+    let pulled = run_with(&prefs, &secrets, &vault, &git, "pull", Some(ID), None)
+        .await
+        .unwrap();
+    assert!(matches!(pulled.pull, Some(SyncPull::FastForward { .. })));
+
+    commit_to_remote(&bare, "remote.tex", b"% remote\n");
+    let tip = master_tip(&bare);
+    common::put(&folder.join("notes.tex"), b"% notes\n");
+
+    let pushed = run_with(&prefs, &secrets, &vault, &git, "push", Some(ID), None)
+        .await
+        .unwrap();
+    assert!(
+        matches!(&pushed.push, Some(SyncPush::Rejected { reason }) if reason.contains("Pull first"))
+    );
+    assert_eq!(master_tip(&bare), tip);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn status_on_a_linked_folder_never_pulled_is_zero_and_has_no_error() {
+    let vault_dir = TempDir::new();
+    let dir = TempDir::new();
+    let vault = vault_at(vault_dir.path());
+    let prefs = prefs_in(&dir);
+    let secrets = fresh_secrets(Some(TOKEN));
+    let _ = run(
+        &prefs,
+        &secrets,
+        &vault,
+        "link",
+        Some(ID),
+        Some("Overleaf/thesis"),
+    )
+    .await
+    .unwrap();
+
+    let reply = run(&prefs, &secrets, &vault, "status", Some(ID), None)
+        .await
+        .unwrap();
+    let status = reply.status.unwrap();
+    assert_eq!(status.url, None);
+    assert_eq!(status.branch, OVERLEAF_BRANCH);
+    assert_eq!((status.ahead, status.behind), (0, 0));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_failed_fetch_never_shows_the_token() {
+    const SECRET: &str = "tok-SECRET-123";
+    let vault_dir = TempDir::new();
+    let dir = TempDir::new();
+    let store = TempDir::new();
+    let vault = vault_at(vault_dir.path());
+    let prefs = prefs_in(&dir);
+    let secrets = fresh_secrets(Some(SECRET));
+    let _ = run(
+        &prefs,
+        &secrets,
+        &vault,
+        "link",
+        Some(ID),
+        Some("Overleaf/thesis"),
+    )
+    .await
+    .unwrap();
+    // Port 1 on loopback refuses connections, so the fetch fails with the token in play.
+    let git = OverleafGit {
+        store: store.path().to_path_buf(),
+        remote_base: "http://127.0.0.1:1/x/".to_owned(),
+    };
+
+    let err = run_with(&prefs, &secrets, &vault, &git, "pull", Some(ID), None)
+        .await
+        .unwrap_err();
+    assert!(!err.is_empty());
+    assert!(!err.contains(SECRET));
 }

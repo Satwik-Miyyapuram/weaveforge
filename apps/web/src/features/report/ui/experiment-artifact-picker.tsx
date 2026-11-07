@@ -122,6 +122,7 @@ export function ExperimentArtifactPicker({
             aria-label="Experiment"
             value={experimentId}
             disabled={busy || experiments.length === 0}
+            title={!busy && experiments.length === 0 ? "No experiments to choose from" : undefined}
             onChange={(e) => {
               const id = e.target.value;
               setExperimentId(id);
@@ -143,6 +144,7 @@ export function ExperimentArtifactPicker({
             aria-label="Artifact"
             value={artifactName}
             disabled={busy || artifacts.length === 0}
+            title={!busy && artifacts.length === 0 ? "Pick an experiment that has artifacts" : undefined}
             onChange={(e) => setArtifactName(e.target.value)}
           >
             {artifacts.length === 0 ? (

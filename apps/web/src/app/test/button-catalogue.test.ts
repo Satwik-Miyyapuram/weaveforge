@@ -47,10 +47,12 @@ const BUTTON_TAGS = new Set([
 const BUTTON_LIKE = /^wf-|btn|button|chip|tab|toggle|tool|nav-link|header-link|back|link-btn/;
 
 const src = fileURLToPath(new URL("../../", import.meta.url));
+// Overleaf's IDE, vendored as it ships (AGPL-3.0): its own controls, not ours to restyle.
+const VENDORED = join(src, "features/report/vendor/overleaf");
 function sources(dir: string, ext: RegExp): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === "test" ? [] : sources(path, ext);
+    if (statSync(path).isDirectory()) return name === "test" || path === VENDORED ? [] : sources(path, ext);
     return ext.test(name) ? [path] : [];
   });
 }

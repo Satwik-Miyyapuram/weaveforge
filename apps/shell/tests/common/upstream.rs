@@ -1,7 +1,6 @@
 //! A local stand-in for an upstream server, for the relay tests.
 //!
-//! A test file uses it as `#[path = "common/upstream.rs"] mod upstream;`
-//! below its `#![allow(clippy::unwrap_used, clippy::expect_used)]` line.
+//! `tests/main.rs` declares it; a test file brings it in with `use crate::upstream;`.
 #![allow(dead_code, reason = "each relay test uses a different subset")]
 
 use std::collections::HashMap;

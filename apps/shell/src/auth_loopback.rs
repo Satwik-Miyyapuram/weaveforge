@@ -5,6 +5,7 @@
 //! with a static page and hands the query string on to the app.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -102,14 +103,15 @@ pub struct Reply {
 ///
 /// `request_head` is the raw text up to the blank line. Only a loopback `Host` and
 /// the callback path with a query get the page; everything else is a 404 and
-/// nothing is handed on.
+/// nothing is handed on. A callback sent with any method other than `GET` is a 405
+/// with `Allow: GET`, and nothing is handed on either.
 #[must_use]
 pub fn answer(request_head: &str) -> (Reply, Option<String>) {
     let mut lines = request_head.lines();
     let request_line: Vec<&str> = lines.next().unwrap_or("").split(' ').collect();
-    let target = match request_line.as_slice() {
-        [_, target, _] => *target,
-        _ => "",
+    let (method, target) = match request_line.as_slice() {
+        [method, target, _] => (*method, *target),
+        _ => ("", ""),
     };
     let host = lines.find_map(|line| {
         let (name, value) = line.split_once(':')?;
@@ -121,6 +123,14 @@ pub fn answer(request_head: &str) -> (Reply, Option<String>) {
         None
     };
     match query {
+        Some(_) if method != "GET" => (
+            Reply {
+                status: 405,
+                headers: vec![("allow", "GET"), ("content-type", "text/plain")],
+                body: "Method not allowed",
+            },
+            None,
+        ),
         Some(query) => (
             Reply {
                 status: 200,
@@ -149,6 +159,7 @@ pub fn render(reply: &Reply) -> Vec<u8> {
     let reason = match reply.status {
         200 => "OK",
         404 => "Not Found",
+        405 => "Method Not Allowed",
         _ => "",
     };
     let mut head = format!("HTTP/1.1 {} {reason}\r\n", reply.status);
@@ -223,6 +234,42 @@ async fn read_head(stream: &mut TcpStream) -> Option<Vec<u8>> {
 ///
 /// # Errors
 ///
+/// Whether the sign-in listener holds its port. It counts as listening until a bind fails,
+/// so phones, which have no port, always answer yes.
+#[derive(Debug)]
+pub struct SignInPort(AtomicBool);
+
+impl Default for SignInPort {
+    fn default() -> Self {
+        Self(AtomicBool::new(true))
+    }
+}
+
+impl SignInPort {
+    /// Notes that another program holds the port, so a sign-in redirect will not arrive.
+    pub fn mark_taken(&self) {
+        self.0.store(false, Ordering::Relaxed);
+    }
+
+    /// Whether a sign-in redirect can reach the app.
+    #[must_use]
+    pub fn listening(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+}
+
+/// Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
+///
+/// # Errors
+/// Never.
+#[tauri::command]
+#[specta::specta]
+pub async fn sign_in_listening(
+    port: tauri::State<'_, SignInPort>,
+) -> Result<bool, crate::commands::ShellError> {
+    Ok(port.listening())
+}
+
 /// Fails when the port is already taken, usually by a second copy of the app.
 pub async fn bind() -> std::io::Result<TcpListener> {
     // Explicitly loopback: 0.0.0.0 would expose this port to whatever network the machine is on.

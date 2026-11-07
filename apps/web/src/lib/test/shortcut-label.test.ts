@@ -11,6 +11,12 @@ test("Windows and Linux read Ctrl, Shift and Alt, joined with + (E29)", () => {
   assert.equal(shortcutLabel("⌃C", false), "Ctrl+C");
 });
 
+test("a function key is one cap, with or without modifiers", () => {
+  assert.equal(shortcutLabel("F11", false), "F11");
+  assert.equal(shortcutLabel("F2", false), "F2");
+  assert.equal(shortcutLabel("⌘⇧F2", false), "Ctrl+Shift+F2");
+});
+
 test("a Mac keeps its glyphs", () => {
   assert.equal(shortcutLabel("⌘⇧F", true), "⌘⇧F");
   assert.equal(keyLabel("⌘", true), "⌘");

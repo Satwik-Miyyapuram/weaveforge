@@ -1,0 +1,51 @@
+import { FC, useEffect, useState } from 'react'
+import { ServerWordCountData } from './word-count-data'
+import { WordCountError } from './word-count-error'
+import { useProjectContext } from '../../../shared/context/project-context'
+import { useLocalCompileContext } from '../../../shared/context/local-compile-context'
+import { useRootDoc } from '../../../shared/hooks/use-root-doc'
+import useAbortController from '../../../shared/hooks/use-abort-controller'
+import { getJSON } from '../../../infrastructure/fetch-json'
+import { debugConsole } from '../../../utils/debugging'
+import { WordCounts } from './word-counts'
+import LoadingSpinner from '../../../shared/components/loading-spinner'
+
+export const WordCountServer: FC = () => {
+  const { projectId } = useProjectContext()
+  const { clsiServerId } = useLocalCompileContext()
+  const getRootDocInfo = useRootDoc()
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [data, setData] = useState<ServerWordCountData | null>(null)
+
+  const { signal } = useAbortController()
+
+  useEffect(() => {
+    const url = new URL(`/project/${projectId}/wordcount`, window.location.href)
+    if (clsiServerId) {
+      url.searchParams.set('clsiserverid', clsiServerId)
+    }
+    url.searchParams.set('rootResourcePath', getRootDocInfo().rootResourcePath)
+
+    getJSON(url.toString(), { signal })
+      .then(data => {
+        setData(data.texcount)
+      })
+      .catch(error => {
+        debugConsole.error(error)
+        setError(true)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [projectId, clsiServerId, getRootDocInfo, signal])
+
+  return (
+    <>
+      {loading && !error && <LoadingSpinner />}
+      {error && <WordCountError />}
+      {data && <WordCounts data={data} />}
+    </>
+  )
+}

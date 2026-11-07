@@ -7,11 +7,12 @@ use keyring_core::CredentialStore;
 use crate::commands::ShellError;
 
 /// Every secret the shell keeps. Adding one is a reviewed change.
-pub const SECRET_NAMES: [&str; 4] = [
+pub const SECRET_NAMES: [&str; 5] = [
     "ai-provider",
     "local-api-token",
     "overleaf-token",
     "git-sync-token",
+    "overleaf-session",
 ];
 /// Secrets the page may read back.
 pub const PAGE_READABLE: [&str; 1] = ["ai-provider"];
@@ -159,9 +160,7 @@ fn write_error(error: &keyring_core::Error) -> SecretError {
 
 impl From<SecretError> for ShellError {
     fn from(error: SecretError) -> Self {
-        ShellError {
-            message: error.to_string(),
-        }
+        ShellError::from(error.to_string())
     }
 }
 

@@ -5,7 +5,9 @@ import type { DesktopEvents } from "../desktop";
 import {
   createSignInInbox,
   desktopBridge,
+  hideSystemMenu,
   install,
+  MENU_CHANGE_EVENT,
   SIGN_IN_EVENT,
   type ShellInfo,
 } from "../inject";
@@ -185,6 +187,37 @@ test("setWindowFocus forwards the boolean", async () => {
   assert.deepEqual(calls, [{ cmd: "windowFocus", args: [true] }]);
 });
 
+test("onMenuChange fires when the window is resized, as maximise and restore do", async () => {
+  const fake = fakeEvents();
+  const bridge = desktopBridge(fakeCommands().cmds, fake.events, info);
+  let fired = 0;
+  bridge.onMenuChange!(() => fired++);
+  await tick();
+  const resize = fake.listens.filter((l) => l.event === MENU_CHANGE_EVENT);
+  assert.equal(resize.length, 1);
+  resize[0]!.handler({ width: 800, height: 600 });
+  assert.equal(fired, 1);
+});
+
+test("onMenuChange stops listening when unsubscribed, even before the listen settles", async () => {
+  let unlistened = 0;
+  let release: (() => void) | undefined;
+  const events: DesktopEvents = {
+    listen: (event) =>
+      event === MENU_CHANGE_EVENT
+        ? new Promise((resolve) => {
+            release = () => resolve(() => unlistened++);
+          })
+        : Promise.resolve(() => {}),
+  };
+  const bridge = desktopBridge(fakeCommands().cmds, events, info);
+  const stop = bridge.onMenuChange!(() => {});
+  stop();
+  release!();
+  await tick();
+  assert.equal(unlistened, 1);
+});
+
 test("tauriCore invoke forwards the command and args and answers the reply", async () => {
   const calls: unknown[][] = [];
   const core = tauriCore({
@@ -253,4 +286,34 @@ test("install sets window.weaveforge and keeps one that is already set", () => {
     listen: fakeEvents().events.listen,
   });
   assert.equal(target.weaveforge, existing);
+});
+
+function menuEvent(target: unknown, defaultPrevented = false) {
+  const event = { defaultPrevented, target, prevented: false, preventDefault() { event.prevented = true; } };
+  return event;
+}
+const inside = (match: boolean) => ({ closest: () => (match ? {} : null) });
+
+test("hideSystemMenu cancels the webview menu on plain page content", () => {
+  const event = menuEvent(inside(false));
+  hideSystemMenu(event, "");
+  assert.equal(event.prevented, true);
+});
+
+test("hideSystemMenu keeps the system menu in text fields and on selected text", () => {
+  const field = menuEvent(inside(true));
+  hideSystemMenu(field, "");
+  assert.equal(field.prevented, false);
+  const selection = menuEvent(inside(false));
+  hideSystemMenu(selection, "some words");
+  assert.equal(selection.prevented, false);
+});
+
+test("hideSystemMenu leaves a menu the page already handled alone, and tolerates odd targets", () => {
+  const handled = menuEvent(inside(false), true);
+  hideSystemMenu(handled, "");
+  assert.equal(handled.prevented, false);
+  const bare = menuEvent(null);
+  hideSystemMenu(bare, "   ");
+  assert.equal(bare.prevented, true);
 });

@@ -7,7 +7,7 @@ import { test } from "node:test";
 
 import type { DesktopBridge } from "../../../lib/desktop/desktop-bridge";
 import {
-  NOT_LOADED,
+  NOT_LOADED_CODE,
   NativeEmbedder,
   nativeEmbedBridge,
   type NativeEmbedBridge,
@@ -50,7 +50,7 @@ function fakeBridge(
       calls.texts.push({ model, texts: [...texts], kind });
       if (dropTexts > 0) {
         dropTexts -= 1;
-        throw new Error(NOT_LOADED);
+        throw Object.assign(new Error("Model gone."), { code: NOT_LOADED_CODE });
       }
       return texts.map((_, i) => [i, 1]);
     },
@@ -180,7 +180,7 @@ test("a model the shell dropped while idle is loaded again and the embed retried
 test("a second drop in a row rejects instead of looping", async () => {
   const { bridge, calls } = fakeBridge({ dropTexts: 2 });
   const e = new NativeEmbedder(bridge, { model: MODEL });
-  await assert.rejects(e.embed({ texts: ["a"], kind: "query" }), { message: NOT_LOADED });
+  await assert.rejects(e.embed({ texts: ["a"], kind: "query" }), { code: NOT_LOADED_CODE });
   assert.equal(calls.texts.length, 2);
 });
 
@@ -205,14 +205,43 @@ test("dispose unloads this model in the shell, and a later embed loads it again"
   assert.deepEqual(calls.loads, [MODEL, MODEL]);
 });
 
+test("two embedders of one model unload it only when the last one is disposed", async () => {
+  const { bridge, calls } = fakeBridge();
+  const a = new NativeEmbedder(bridge, { model: MODEL });
+  const b = new NativeEmbedder(bridge, { model: MODEL });
+  await a.embed({ texts: ["a"], kind: "query" });
+  await b.embed({ texts: ["b"], kind: "query" });
+  a.dispose();
+  assert.deepEqual(calls.unloads, []);
+  b.dispose();
+  assert.deepEqual(calls.unloads, [MODEL]);
+});
+
+test("disposing twice unloads once", async () => {
+  const { bridge, calls } = fakeBridge();
+  const a = new NativeEmbedder(bridge, { model: MODEL });
+  const b = new NativeEmbedder(bridge, { model: MODEL });
+  await a.load();
+  await b.load();
+  a.dispose();
+  a.dispose();
+  assert.deepEqual(calls.unloads, []);
+  b.dispose();
+  assert.deepEqual(calls.unloads, [MODEL]);
+});
+
 test("dispose swallows a failed unload and works without embedUnload", async () => {
   const { bridge } = fakeBridge();
   bridge.embedUnload = async () => {
     throw new Error("gone");
   };
-  new NativeEmbedder(bridge).dispose();
+  const failing = new NativeEmbedder(bridge);
+  await failing.load();
+  failing.dispose();
   delete bridge.embedUnload;
-  new NativeEmbedder(bridge).dispose();
+  const missing = new NativeEmbedder(bridge);
+  await missing.load();
+  missing.dispose();
   await new Promise((resolve) => setImmediate(resolve));
 });
 
@@ -223,4 +252,19 @@ test("a wrong row count rejects", async () => {
   await assert.rejects(e.embed({ texts: ["a", "b"], kind: "passage" }), {
     message: "The encoder returned the wrong number of vectors.",
   });
+});
+
+test("an error with the old message but no code is not retried", async () => {
+  const { bridge, calls } = fakeBridge();
+  const e = new NativeEmbedder(
+    {
+      ...bridge,
+      embedTexts: async () => {
+        throw new Error("The model is not loaded.");
+      },
+    },
+    { model: MODEL },
+  );
+  await assert.rejects(e.embed({ texts: ["a"], kind: "query" }), { message: "The model is not loaded." });
+  assert.equal(calls.loads.length, 1);
 });

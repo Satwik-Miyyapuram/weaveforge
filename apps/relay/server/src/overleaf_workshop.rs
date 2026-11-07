@@ -290,7 +290,7 @@ async fn compile_for(
         return Err(safe_failure(LOGIN_FAILED, Some(cookies)));
     };
     let compiled = api
-        .compile(&identity, &request.project_id, &request.root_resource_path)
+        .compile(&identity, &request.project_id, request.root_resource_path.as_deref())
         .await
         .map_err(|message| safe_failure(&message, Some(cookies)))?;
     if !compiled.is_object() {

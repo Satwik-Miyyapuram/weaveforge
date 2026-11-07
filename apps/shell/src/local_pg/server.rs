@@ -46,6 +46,9 @@ const READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long a stop waits for a clean exit before killing.
 const STOP_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// How long one backup dump may take.
+const DUMP_TIMEOUT: Duration = Duration::from_secs(600);
+
 /// Longest wait for one connection attempt during start.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -106,6 +109,44 @@ pub fn initdb_args(data: &Path, pwfile: &Path) -> Vec<OsString> {
         "UTF8".into(),
         "--no-locale".into(),
         "--no-instructions".into(),
+    ]
+}
+
+/// Arguments for `pg_dump`: the whole database on `port`, custom format, into `file`.
+#[must_use]
+pub fn dump_args(port: u16, file: &Path) -> Vec<OsString> {
+    vec![
+        "-h".into(),
+        "127.0.0.1".into(),
+        "-p".into(),
+        port.to_string().into(),
+        "-U".into(),
+        SUPERUSER.into(),
+        "-d".into(),
+        DATABASE.into(),
+        "--no-password".into(),
+        "-Fc".into(),
+        "-f".into(),
+        file.into(),
+    ]
+}
+
+/// Arguments for `pg_restore`: `file` into the database on `port`, all or nothing.
+#[must_use]
+pub fn restore_args(port: u16, file: &Path) -> Vec<OsString> {
+    vec![
+        "-h".into(),
+        "127.0.0.1".into(),
+        "-p".into(),
+        port.to_string().into(),
+        "-U".into(),
+        SUPERUSER.into(),
+        "-d".into(),
+        DATABASE.into(),
+        "--no-password".into(),
+        "--exit-on-error".into(),
+        "--single-transaction".into(),
+        file.into(),
     ]
 }
 
@@ -231,13 +272,55 @@ impl PgServer {
             if Instant::now() >= deadline {
                 return Err(PgError::local("Postgres did not start within 60 s"));
             }
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
     }
 
     /// A new connection to this server as the superuser.
     pub async fn connect(&self) -> Result<super::wire::PgConn, PgError> {
         wire::connect("127.0.0.1", self.port, SUPERUSER, &self.password, DATABASE).await
+    }
+
+    /// Writes the whole database to `file` with `pg_dump`, in the custom format `pg_restore` reads.
+    ///
+    /// # Errors
+    /// `pg_dump` is missing, fails (with the tail of its stderr), or takes over `DUMP_TIMEOUT`.
+    pub async fn dump(&self, file: &Path) -> Result<(), PgError> {
+        self.run_client("pg_dump", dump_args(self.port, file)).await
+    }
+
+    /// Loads a `pg_dump` custom-format `file` into the database in one transaction.
+    ///
+    /// # Errors
+    /// `pg_restore` is missing, fails (with the tail of its stderr), or takes over `DUMP_TIMEOUT`.
+    pub async fn restore(&self, file: &Path) -> Result<(), PgError> {
+        self.run_client("pg_restore", restore_args(self.port, file))
+            .await
+    }
+
+    /// Runs a client tool against this server with the password, and no console window.
+    async fn run_client(&self, tool: &str, args: Vec<OsString>) -> Result<(), PgError> {
+        let mut cmd = tokio::process::Command::new(self.bin.join(exe_name(tool)));
+        let _ = cmd
+            .kill_on_drop(true)
+            .args(args)
+            .env("PGPASSWORD", &self.password)
+            .envs(super::comspec::env())
+            .stdin(Stdio::null());
+        #[cfg(windows)]
+        let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
+        let out = tokio::time::timeout(DUMP_TIMEOUT, cmd.output())
+            .await
+            .map_err(|_| PgError::local(format!("{tool} did not finish within 10 min")))?
+            .map_err(|e| PgError::local(format!("{tool} did not run: {e}")))?;
+        if out.status.success() {
+            return Ok(());
+        }
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        Err(PgError::local(format!(
+            "{tool} failed: {}",
+            tail(&stderr, 500)
+        )))
     }
 
     /// Stops the server with `pg_ctl`, killing it if it has not exited within `STOP_TIMEOUT`.
@@ -248,7 +331,8 @@ impl PgServer {
             .arg("stop")
             .arg("-D")
             .arg(&self.data)
-            .args(["-m", "fast", "-t", "15"]);
+            .args(["-m", "fast", "-t", "15"])
+            .envs(super::comspec::env());
         #[cfg(windows)]
         let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
         // A failed or hung pg_ctl is covered by the kill below.
@@ -270,7 +354,7 @@ impl PgServer {
 /// Builds the `postgres` command, wrapped so it dies with the shell; stderr goes to `log`.
 fn wrapped_command(program: PathBuf, args: Vec<OsString>, log: fs::File) -> CommandWrap {
     let mut wrap = CommandWrap::with_new(program, move |c| {
-        let _ = c.args(&args);
+        let _ = c.args(&args).envs(super::comspec::env());
         let _ = c.stdin(Stdio::null());
         let _ = c.stdout(Stdio::null());
         let _ = c.stderr(Stdio::from(log));
@@ -290,7 +374,10 @@ fn wrapped_command(program: PathBuf, args: Vec<OsString>, log: fs::File) -> Comm
 /// Runs `initdb` and returns its error with the tail of stderr on failure.
 async fn run_initdb(bin: &Path, data: &Path, pwfile: &Path) -> Result<(), PgError> {
     let mut cmd = tokio::process::Command::new(bin.join(exe_name("initdb")));
-    let _ = cmd.kill_on_drop(true).args(initdb_args(data, pwfile));
+    let _ = cmd
+        .kill_on_drop(true)
+        .args(initdb_args(data, pwfile))
+        .envs(super::comspec::env());
     #[cfg(windows)]
     let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
     let out = tokio::time::timeout(READY_TIMEOUT, cmd.output())
@@ -395,6 +482,55 @@ mod tests {
         assert!(
             args.windows(2)
                 .any(|w| matches!(w, [a, b] if a == "-U" && b == "wf"))
+        );
+    }
+
+    /// Real Postgres: set `WF_REAL_PG_BIN` to a folder with initdb, postgres and pg_dump, and
+    /// `WF_COMSPEC_SHIM_EXE` to a built shell exe if cmd has an AutoRun.
+    #[tokio::test]
+    async fn real_dump_writes_a_custom_format_file() -> Result<(), PgError> {
+        let Some(bin) = std::env::var_os("WF_REAL_PG_BIN").map(PathBuf::from) else {
+            return Ok(());
+        };
+        // A built shell exe, when cmd has an AutoRun that would break initdb.
+        if let Some(exe) = std::env::var_os("WF_COMSPEC_SHIM_EXE") {
+            super::super::comspec::enable(exe.into());
+        }
+        let root = std::env::temp_dir().join(format!("wf-dump-test-{}", std::process::id()));
+        let server = PgServer::start(&bin, &root).await?;
+        let file = root.join("x.dump");
+        let dumped = server.dump(&file).await;
+        let stopped = server.stop().await;
+        let head = std::fs::read(&file).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&root);
+        dumped?;
+        stopped?;
+        assert!(head.starts_with(b"PGDMP"));
+        Ok(())
+    }
+
+    #[test]
+    fn dump_args_name_the_server_format_and_file() {
+        let args: Vec<String> = dump_args(5_432, Path::new("/b/x.dump"))
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                "-h",
+                "127.0.0.1",
+                "-p",
+                "5432",
+                "-U",
+                "wf",
+                "-d",
+                "postgres",
+                "--no-password",
+                "-Fc",
+                "-f",
+                "/b/x.dump"
+            ]
         );
     }
 

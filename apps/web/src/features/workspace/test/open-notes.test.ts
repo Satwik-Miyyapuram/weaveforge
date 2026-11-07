@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { holdOpenNotes, isNoteOpen } from "../application/open-notes";
+import { holdOpenNotes, isNoteOpen, onNoteClosed } from "../application/open-notes";
 
 test("an unknown note is not open", () => {
   assert.equal(isNoteOpen("unknown"), false);
@@ -43,4 +43,19 @@ test("duplicate ids in one call count once", () => {
 test("holding no notes releases to nothing", () => {
   const release = holdOpenNotes([]);
   assert.doesNotThrow(() => release());
+});
+
+test("closing is heard once, on the last release only", () => {
+  const closed: string[] = [];
+  const stop = onNoteClosed((id) => closed.push(id));
+  const first = holdOpenNotes(["a"]);
+  const second = holdOpenNotes(["a"]);
+  first();
+  first();
+  assert.deepEqual(closed, []);
+  second();
+  assert.deepEqual(closed, ["a"]);
+  stop();
+  holdOpenNotes(["a"])();
+  assert.deepEqual(closed, ["a"]);
 });

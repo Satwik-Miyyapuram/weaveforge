@@ -28,6 +28,7 @@ export {
 } from "./pdf-source-ladder.js";
 export { OpenAccessPdfResolver, type OpenAccessPdfResolverOptions } from "./open-access-pdf-resolver.js";
 export { WebDavPdfResolver, type WebDavPdfResolverOptions } from "./webdav-pdf-resolver.js";
+export { GitHubRepoPdfResolver, type GitHubRepoPdfResolverOptions } from "./github-repo-pdf-resolver.js";
 export {
   clampScale,
   clampPage,

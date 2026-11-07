@@ -6,15 +6,16 @@ use std::time::Duration;
 use reqwest::Url;
 use wf_store::git::policy::{CommitAction, RepoState, decide_commit};
 use wf_store::git::remote::{
-    PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, SYNC_BRANCH, pull, push,
-    redact_secret_for, remote_status,
+    PullChoice, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, SYNC_BRANCH, pull,
+    pull_resolving, push, redact_secret_for, remote_status,
 };
 use wf_store::git::repo::{FolderRepo, RepoError, probe};
 
 use crate::commands::ShellError;
 use crate::git::{
     CommitReply, GIT_TIMED_OUT, GIT_TIMEOUT, GitQueue, GitQueueError, WorkspaceCommit,
-    commit_vault_folder, log_limit, vault_log as git_vault_log,
+    commit_vault_folder, log_limit, vault_file_log as git_vault_file_log,
+    vault_log as git_vault_log, vault_read_at as git_vault_read_at,
 };
 use crate::prefs::{PrefValue, Prefs};
 use crate::secrets::Secrets;
@@ -22,8 +23,18 @@ use crate::vault::{NO_ROOT, VaultState};
 
 /// Said when the page asks for an action that is not one of `SYNC_ACTIONS`.
 pub const NOT_AN_ACTION: &str = "That is not a sync action.";
-/// The actions the page may ask for.
-pub const SYNC_ACTIONS: [&str; 5] = ["settings", "status", "connect", "pull", "push"];
+/// The actions the page may ask for. The last three pull again after a
+/// conflict, settling each conflicted file the chosen way.
+pub const SYNC_ACTIONS: [&str; 8] = [
+    "settings",
+    "status",
+    "connect",
+    "pull",
+    "push",
+    "keep-mine",
+    "take-remote",
+    "keep-both",
+];
 /// Said when no remote URL is stored.
 const NO_URL: &str = "Enter the remote's https URL.";
 /// Said when the remote URL has no repository path.
@@ -53,6 +64,8 @@ pub struct SyncOps {
     pub connect: fn(&FolderRepo, &RemoteConfig) -> Result<RemoteStatus, RepoError>,
     /// Brings the remote's changes into the folder.
     pub pull: fn(&FolderRepo, &RemoteConfig) -> Result<PullOutcome, RepoError>,
+    /// Pulls, settling any conflicted file the chosen way.
+    pub resolve: fn(&FolderRepo, &RemoteConfig, PullChoice) -> Result<PullOutcome, RepoError>,
     /// Sends the folder's commits to the remote.
     pub push: fn(&FolderRepo, &RemoteConfig) -> Result<PushOutcome, RepoError>,
 }
@@ -63,6 +76,7 @@ pub const GIT_SYNC_OPS: SyncOps = SyncOps {
     status: remote_status,
     connect: connect_remote,
     pull,
+    resolve: pull_resolving,
     push,
 };
 
@@ -367,9 +381,23 @@ fn run_action(
         "connect" => reply.status = Some(SyncStatus::from((ops.connect)(&repo, config)?)),
         "pull" => reply.pull = Some(SyncPull::from((ops.pull)(&repo, config)?)),
         "push" => reply.push = Some(SyncPush::from((ops.push)(&repo, config)?)),
-        _ => {}
+        other => {
+            if let Some(choice) = pull_choice(other) {
+                reply.pull = Some(SyncPull::from((ops.resolve)(&repo, config, choice)?));
+            }
+        }
     }
     Ok(reply)
+}
+
+/// The conflict choice an action names, if it names one.
+fn pull_choice(action: &str) -> Option<PullChoice> {
+    match action {
+        "keep-mine" => Some(PullChoice::KeepMine),
+        "take-remote" => Some(PullChoice::TakeRemote),
+        "keep-both" => Some(PullChoice::KeepBoth),
+        _ => None,
+    }
 }
 
 /// The folder's path, if a folder is chosen.
@@ -408,6 +436,39 @@ pub async fn log(vault: &VaultState, limit: Option<f64>) -> Result<Vec<Workspace
         .and_then(serde_json::Number::from_f64)
         .map(serde_json::Value::Number);
     Ok(git_vault_log(root, log_limit(value.as_ref())).await)
+}
+
+/// The commits that changed one file of the chosen folder, newest first.
+///
+/// # Errors
+/// `NO_ROOT` when no folder is chosen.
+pub async fn file_log(
+    vault: &VaultState,
+    path: &str,
+    limit: Option<f64>,
+) -> Result<Vec<WorkspaceCommit>, String> {
+    let root = current_root(vault)
+        .await
+        .ok_or_else(|| NO_ROOT.to_owned())?;
+    let value = limit
+        .and_then(serde_json::Number::from_f64)
+        .map(serde_json::Value::Number);
+    Ok(git_vault_file_log(root, path, log_limit(value.as_ref())).await)
+}
+
+/// One file of the chosen folder as it was at a commit; `None` when it cannot be shown as text.
+///
+/// # Errors
+/// `NO_ROOT` when no folder is chosen.
+pub async fn read_at(
+    vault: &VaultState,
+    oid: String,
+    path: &str,
+) -> Result<Option<String>, String> {
+    let root = current_root(vault)
+        .await
+        .ok_or_else(|| NO_ROOT.to_owned())?;
+    Ok(git_vault_read_at(root, oid, path).await)
 }
 
 /// Runs a sync action (settings, status, connect, pull or push) on the chosen folder.
@@ -469,4 +530,36 @@ pub async fn vault_log(
     limit: Option<f64>,
 ) -> Result<Vec<WorkspaceCommit>, ShellError> {
     log(vault.inner(), limit).await.map_err(ShellError::from)
+}
+
+/// The commits that changed one file of the chosen folder, newest first.
+///
+/// # Errors
+/// The reason to show the reader when no folder is chosen.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_file_log(
+    vault: tauri::State<'_, VaultState>,
+    path: String,
+    limit: Option<f64>,
+) -> Result<Vec<WorkspaceCommit>, ShellError> {
+    file_log(vault.inner(), &path, limit)
+        .await
+        .map_err(ShellError::from)
+}
+
+/// One file of the chosen folder as it was at a commit, as text; null when it is not text.
+///
+/// # Errors
+/// The reason to show the reader when no folder is chosen.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_read_at(
+    vault: tauri::State<'_, VaultState>,
+    oid: String,
+    path: String,
+) -> Result<Option<String>, ShellError> {
+    read_at(vault.inner(), oid, &path)
+        .await
+        .map_err(ShellError::from)
 }

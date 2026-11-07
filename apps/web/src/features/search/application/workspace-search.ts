@@ -32,6 +32,7 @@ import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
 import { persistSearchIndex } from "../infrastructure/index-cache-policy";
 import { SearchIndexState } from "./search-index-state";
+import { diffRefresh } from "./refresh-diff";
 import { projectSearchDocuments } from "./search-projection";
 import { pruneMissingPaperTexts } from "./pdf-text-pruning";
 import { collapseToEntities, distinctRelated } from "./collapse-to-entities";
@@ -76,6 +77,10 @@ export class WorkspaceSearch {
   onSemanticChanged: (() => void) | null = null;
   /** Serializes slice-based indexing so concurrent calls never interleave. */
   private indexSliceQueue: Promise<void> = Promise.resolve();
+  /** Per-document prints of what is indexed, so a refresh skips unchanged ones. */
+  private prints: ReadonlyMap<string, string> = new Map();
+  /** The index worker failed to start, so the last build ran on the main thread. */
+  private workerFailed = false;
 
   constructor(
     private readonly deps: {
@@ -141,6 +146,8 @@ export class WorkspaceSearch {
     // and the check is what stops a stale index answering with deleted rows.
     const docs = this.projectDocuments(snapshot);
     const revision = searchRevision(docs);
+    // PDF pages are never refreshed this way (see search-index-state.ts).
+    this.prints = diffRefresh(new Map(), [], docs.filter((doc) => doc.kind !== "pdf")).prints;
     const core = await loadCore();
     const cached = await idbGetSearchIndex(projectId);
     if (cached) {
@@ -160,6 +167,7 @@ export class WorkspaceSearch {
         // the in-thread path below still works, it merely blocks. Say so, or a
         // worker that never loads the WASM core goes unnoticed.
         console.warn("Search index worker failed; indexing on the main thread", error);
+        this.workerFailed = true;
       }
     }
 
@@ -242,9 +250,12 @@ export class WorkspaceSearch {
 
     // Retract first: a note that was deleted has no fresh document to overwrite
     // it, and would otherwise keep answering queries.
+    // Only what changed is re-tokenized: an edit to one note leaves the rest.
     const before = index.idsOfKind(kinds);
-    index.remove(before);
-    index.add(fresh);
+    const diff = diffRefresh(this.prints, before, fresh);
+    index.remove(diff.remove);
+    index.add(diff.add);
+    this.prints = diff.prints;
     this.state.documentCount += fresh.length - before.length;
 
     // Last, and only the kinds actually refreshed — the whole point of the pair
@@ -596,8 +607,14 @@ export class WorkspaceSearch {
     return { documents, large: documents > LARGE_CORPUS_WARNING };
   }
 
+  /** True when the index worker could not start and the build blocked the page instead. */
+  get builtOnMainThread(): boolean {
+    return this.workerFailed;
+  }
+
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */
   invalidate(): void {
     this.state.forget();
+    this.prints = new Map();
   }
 }

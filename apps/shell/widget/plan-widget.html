@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Served by the shell at app://localhost/plan-widget/ with its own CSP header
+     (plan_widget_window.rs). No network: this page's style, script and the Rubik
+     it ships with (fonts/, OFL). -->
+<title>WeaveForge deadlines</title>
+<style>
+  /* The app's face, bundled: the app's own Rubik is self-hosted on its origin,
+     which this local page cannot reach (design D16). */
+  @font-face {
+    font-family: "Rubik";
+    font-style: normal;
+    font-weight: 300 900;
+    src: url("fonts/rubik-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Rubik";
+    font-style: normal;
+    font-weight: 300 900;
+    src: url("fonts/rubik-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  /* Until the app sends its theme: the system's own colours, the app's face
+     and a soft lifted card, so a palette saved with colours only still looks
+     like the app rather than a flat box. The app sends every value below (design D-27), so the widget wears
+     the theme's colours, corners, border, shadows, font and sizes. */
+  :root {
+    color-scheme: light dark;
+    --bg: Canvas;
+    --well: color-mix(in srgb, CanvasText 8%, Canvas);
+    --line: color-mix(in srgb, CanvasText 30%, Canvas);
+    --text: CanvasText;
+    --muted: GrayText;
+    --accent: Highlight;
+    --accent-ink: HighlightText;
+    --late: Mark;
+    --late-ink: MarkText;
+    --soon: color-mix(in srgb, Mark 40%, Canvas);
+    --soon-ink: CanvasText;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --bw: 1px;
+    --sh: 0 1px 2px color-mix(in srgb, CanvasText 14%, transparent), 0 6px 18px color-mix(in srgb, CanvasText 12%, transparent);
+    --sh-sm: 0 1px 2px color-mix(in srgb, CanvasText 14%, transparent);
+    --font: Rubik, "Segoe UI Variable Text", "Segoe UI";
+    --fs: 14px;
+    --fs-sm: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    font-family: var(--font), system-ui, sans-serif;
+    color: var(--text);
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden;
+  }
+  .card {
+    position: absolute;
+    inset: 0 8px 8px 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--sh);
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 14px 10px;
+    border-bottom: var(--bw) solid var(--line);
+    background: var(--accent);
+    color: var(--accent-ink);
+    /* The header is the handle: the shell's script starts a window drag on it. */
+    cursor: grab;
+  }
+  h1 { margin: 0; font-size: calc(var(--fs) + 3px); font-weight: 800; letter-spacing: -0.02em; }
+  .today { font-size: var(--fs-sm); font-weight: 600; opacity: 0.75; }
+  .late-count {
+    margin-left: auto;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    padding: 1px 7px;
+    border: var(--bw) solid var(--accent-ink);
+    border-radius: var(--radius-sm);
+    background: var(--late);
+    color: var(--late-ink);
+  }
+  ol { list-style: none; margin: 0; padding: 6px 0; flex: 1; overflow: hidden; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+  }
+  li + li { border-top: 1px solid color-mix(in srgb, var(--line) 18%, transparent); }
+  .what { min-width: 0; flex: 1; }
+  .title {
+    font-size: var(--fs);
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta {
+    font-size: var(--fs-sm);
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .when {
+    flex: none;
+    min-width: 58px;
+    text-align: center;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    padding: 3px 6px;
+    border: var(--bw) solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--well);
+    box-shadow: var(--sh-sm);
+  }
+  .when.soon { background: var(--soon); color: var(--soon-ink); }
+  .when.late { background: var(--late); color: var(--late-ink); }
+  .blocked { color: var(--late-ink); font-weight: 700; }
+  .empty { padding: 22px 14px; color: var(--muted); font-size: var(--fs); }
+  footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px 10px 14px;
+    border-top: var(--bw) solid var(--line);
+    font-size: var(--fs-sm);
+    color: var(--muted);
+  }
+  footer .undated { flex: 1; }
+  button {
+    font: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--text);
+    background: var(--well);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 3px 10px;
+    box-shadow: var(--sh-sm);
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translate(2px, 2px); box-shadow: none; }
+  button:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body>
+<div class="card">
+  <header>
+    <h1>Deadlines</h1>
+    <span class="today" id="today"></span>
+    <span class="late-count" id="late" hidden></span>
+  </header>
+  <ol id="list"><li class="empty">Loading your plan…</li></ol>
+  <footer>
+    <span class="undated" id="undated"></span>
+    <button type="button" class="primary" id="open">Open plan</button>
+    <button type="button" id="hide" title="Hide the widget. Turn it back on in Settings, Calendar.">Hide</button>
+  </footer>
+</div>
+<script>
+  "use strict";
+  const DAY = 86400000;
+
+  /** Days from today to `date`, counted in this computer's own time zone. */
+  function daysUntil(date) {
+    const [y, m, d] = date.split("-").map(Number);
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((Date.UTC(y, m - 1, d) - today) / DAY);
+  }
+
+  function whenText(days) {
+    if (days === 0) return "Today";
+    if (days === 1) return "Tomorrow";
+    if (days === -1) return "1 day late";
+    if (days < 0) return `${-days} days late`;
+    if (days < 14) return `${days} days`;
+    return `${Math.round(days / 7)} weeks`;
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function render(data) {
+    document.getElementById("today").textContent = new Date().toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    const items = data.items.map((item) => ({ ...item, days: daysUntil(item.date) }));
+    const late = items.filter((item) => item.days < 0 && item.status !== "done").length;
+    const lateBadge = document.getElementById("late");
+    lateBadge.hidden = late === 0;
+    lateBadge.textContent = `${late} late`;
+
+    const list = document.getElementById("list");
+    list.replaceChildren();
+    if (items.length === 0) {
+      list.append(el("li", "empty", "No dated milestones. Give a milestone a target date and it shows up here."));
+    }
+    for (const item of items) {
+      const row = el("li");
+      const what = el("div", "what");
+      what.append(el("div", "title", item.title));
+      const meta = el("div", "meta");
+      if (item.status === "blocked") meta.append(el("span", "blocked", "Blocked"), " · ");
+      meta.append(
+        item.project ?? "No project",
+        " · ",
+        new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" }),
+      );
+      what.append(meta);
+      const tone = item.days < 0 ? " late" : item.days <= 3 ? " soon" : "";
+      row.append(what, el("span", `when${tone}`, whenText(item.days)));
+      list.append(row);
+    }
+    document.getElementById("undated").textContent =
+      data.undated > 0 ? `+${data.undated} without a date` : "";
+  }
+
+  document.getElementById("open").addEventListener("click", () => window.planWidget.open());
+  document.getElementById("hide").addEventListener("click", () => window.planWidget.hide());
+  window.planWidget.onData(render);
+  // The app's own colours and shape, so the widget matches its theme rather
+  // than the system's. Sent again on every theme change while it is open.
+  window.planWidget.onTheme((palette) => {
+    const root = document.documentElement.style;
+    for (const [key, value] of Object.entries(palette)) root.setProperty(`--${key}`, value);
+  });
+</script>
+</body>
+</html>

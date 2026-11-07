@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 pub mod app_log;
 pub mod app_route;
+pub mod app_storage;
 pub mod auth_link;
 pub mod auth_loopback;
 pub mod cmd_ink;
@@ -22,11 +23,13 @@ pub mod embed;
 #[path = "embed_phone.rs"]
 pub mod embed;
 pub mod git;
+pub mod github_file;
 pub mod host;
 pub mod ink;
 pub mod launch;
 pub mod local_api;
 pub mod local_artifacts;
+pub mod local_files;
 pub mod local_http;
 pub mod local_pg;
 pub mod mattermost;
@@ -34,10 +37,16 @@ pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
 pub mod model_cache;
+pub mod old_db;
+pub mod outside_gate;
 pub mod overleaf_links;
+pub mod overleaf_live;
 pub mod overleaf_read;
+pub mod overleaf_signin;
+pub mod overleaf_workshop;
 pub mod paste_commands;
 pub mod plan_widget;
+pub mod plan_widget_window;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
@@ -119,6 +128,7 @@ pub fn run() -> tauri::Result<()> {
             start_local_db(app.handle());
             start_local_api(app.handle());
             open_main_window(app.handle())?;
+            plan_widget_window::open_at_start(app.handle());
             start_sign_in(app.handle());
             Ok(())
         })
@@ -163,7 +173,8 @@ fn install_tls_provider() {
 #[cfg(desktop)]
 const fn install_tls_provider() {}
 
-/// Manages the preferences, keychain secrets, app log, git queue and the chosen vault folder.
+/// Manages the preferences, keychain secrets, app log, git queue, offline files and the chosen
+/// vault folder.
 ///
 /// A missing app folder leaves preferences and the log in the working directory; startup never aborts.
 fn start_stores(app: &tauri::AppHandle) {
@@ -185,6 +196,9 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
     let _ = app.manage(embed::EmbedSlot::default());
+    let _ = app.manage(cmd_tools::TexStop::default());
+    let _ = app.manage(auth_loopback::SignInPort::default());
+    let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
 }
 
 /// The event that carries folder-relative paths changed by other programs to the page.
@@ -196,6 +210,21 @@ pub(crate) fn change_sink(app: &tauri::AppHandle) -> vault_watcher::ChangeSink {
     let emitter = app.clone();
     Arc::new(move |paths: Vec<String>| {
         let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+    })
+}
+
+/// The event that tells the page, with the reason, that the folder watch has stopped seeing changes.
+pub const VAULT_WATCH_LOST_EVENT: &str = "vault-watch-lost";
+
+/// Where a watch says its folder went away: the page hears it and the app log keeps it.
+fn lost_sink(app: &tauri::AppHandle) -> vault_watcher::LostSink {
+    use tauri::{Emitter as _, Manager as _};
+    let emitter = app.clone();
+    Arc::new(move |reason: String| {
+        if let Some(log) = emitter.try_state::<app_log::AppLog>() {
+            log.record(app_log::LogLevel::Warn, "vault-watch", &reason, None);
+        }
+        let _ = emitter.emit(VAULT_WATCH_LOST_EVENT, reason);
     })
 }
 
@@ -215,14 +244,19 @@ fn start_ink(app: &tauri::AppHandle) {
         ink::ink_recogniser_path(std::env::consts::OS, std::env::consts::ARCH, &resources)
     });
     let log_app = app.clone();
-    let on_diagnostic = Arc::new(move |line: &str| {
+    let on_diagnostic: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(move |line: &str| {
         if let Some(log) = log_app.try_state::<app_log::AppLog>() {
-            log.record(app_log::LogLevel::Warn, "ink", line, None);
+            let level = if line.starts_with(ink::INK_READY) {
+                app_log::LogLevel::Info
+            } else {
+                app_log::LogLevel::Warn
+            };
+            log.record(level, "ink", line, None);
         }
     });
     let _ = app.manage(ink::InkRecogniser::new(ink::InkOptions {
         executable,
-        spawner: ink::process_spawner(),
+        spawner: ink::process_spawner(Arc::clone(&on_diagnostic)),
         timeout: ink::REQUEST_TIMEOUT,
         ready_timeout: ink::READY_TIMEOUT,
         on_diagnostic,
@@ -234,7 +268,7 @@ fn start_ink(app: &tauri::AppHandle) {
 /// A folder that cannot be watched is logged; the app still runs without the watch.
 fn start_vault_watch(app: &tauri::AppHandle) {
     use tauri::Manager as _;
-    let slot = vault_watcher::WatchSlot::default();
+    let slot = vault_watcher::WatchSlot::reporting_loss(lost_sink(app));
     let root = app
         .try_state::<vault::VaultState>()
         .and_then(|vault| vault.lock().root());
@@ -272,18 +306,18 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     let store = dbus_secret_service_keyring_store::Store::new()
         .ok()
         .map(|s| -> Arc<keyring_core::CredentialStore> { s });
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    #[cfg(target_os = "android")]
+    let store = android_native_keyring_store::Store::new()
+        .ok()
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
+    #[cfg(not(any(
+        windows,
+        target_os = "macos",
+        target_os = "linux",
+        target_os = "android"
+    )))]
     let store = None;
     store
-}
-
-/// Reads the open vault root's `vault.root` params, for a respawned sidecar; `None` without a vault session.
-fn vault_root_source(app: &tauri::AppHandle) -> Option<commands::VaultRootSource> {
-    use tauri::Manager;
-    let vault = app.try_state::<vault::VaultState>()?.inner().clone();
-    Some(Arc::new(move || {
-        local_api::vault_root_params(vault.lock().root().as_ref())
-    }))
 }
 
 /// Copies the old Electron app's data into `data` once. `Some(reason)` when the database must stay closed.
@@ -299,75 +333,138 @@ fn migration_blocker(old: &std::path::Path, data: &std::path::Path) -> Option<St
     }
 }
 
-/// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.
+/// The lock name the native database holds while this app has it open.
+const NATIVE_LOCK_APP: &str = "weaveforge-native-db";
+
+/// The native database's folder under the app data dir.
+fn native_root(data: &std::path::Path) -> PathBuf {
+    data.join("local-pg")
+}
+
+/// The native Postgres database. `Err` says why it cannot run; the caller reports it.
+fn native_db(
+    app: &tauri::AppHandle,
+    data: &std::path::Path,
+    resources: &std::path::Path,
+    source: &launch::SidecarSource,
+) -> Result<commands::NativeDb, String> {
+    let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
+    // initdb cannot run postgres from a `\\?\` path, which Tauri's resource dir has on Windows.
+    let resources = launch::without_verbatim_prefix(resources);
+    let bin = local_pg::server::locate_bin(bin_override.as_deref(), Some(&resources))
+        .map_err(|e| format!("the native database has no Postgres: {e}"))?;
+    let root = native_root(data);
+    db_lock::acquire(&root, NATIVE_LOCK_APP, std::time::SystemTime::now())
+        .map_err(|e| e.to_string())?;
+    let log = app.clone();
+    let backups = local_pg::backup::Backups::new(vec![data.join("local-db-backups")]);
+    let mut host = local_pg::host::PgHost::new(
+        local_pg::host::PgEngine::new(bin, root, Some(backups.clone())),
+        launch::migration_dirs(source),
+    )
+    .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
+    .with_backups(backups);
+    // A failed copy fails the open, so old data is never hidden behind an empty database.
+    if let Some(old) = migrate::old_pglite_dir(data) {
+        local_api::warn(
+            app,
+            &format!("[local-db] old database to copy: {}", old.display()),
+        );
+        host = host.with_first_open(Arc::new(old_db_import(app, data, &old, source)));
+    }
+    let host = Arc::new(host);
+    spawn_backups(app, &host);
+    Ok(host)
+}
+
+/// How often the native database is backed up while it changes (the sidecar's `BACKUP_EVERY_MS`).
+const BACKUP_EVERY: std::time::Duration = std::time::Duration::from_secs(600);
+
+/// Backs up the native database every `BACKUP_EVERY` when it changed; quitting takes the last one.
+fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
+    let app = app.clone();
+    let host = Arc::downgrade(host);
+    let _task = tauri::async_runtime::spawn(async move {
+        let start = tokio::time::Instant::now() + BACKUP_EVERY;
+        let mut every = tokio::time::interval_at(start, BACKUP_EVERY);
+        loop {
+            let _ = every.tick().await;
+            let Some(host) = host.upgrade() else { return };
+            if let Err(e) = host.backup_if_changed(std::time::SystemTime::now()).await {
+                local_api::warn(&app, &format!("[local-db] backup failed: {}", e.message));
+            }
+        }
+    });
+}
+
+/// Copies the old PGlite database into the native one on its first open, through a sidecar that
+/// runs only for the copy. The marker sits beside the native folder, so discarding that folder does
+/// not copy again.
+fn old_db_import(
+    app: &tauri::AppHandle,
+    data: &std::path::Path,
+    old_dir: &std::path::Path,
+    source: &launch::SidecarSource,
+) -> old_db::StopAfter<local_pg::import::OnceImport> {
+    use tauri::Manager as _;
+    let api = launch::ApiArgs {
+        artifacts: data.join("artifacts"),
+        app_version: app.package_info().version.to_string(),
+        product_name: app.package_info().name.clone(),
+    };
+    // The sidecar migrates the folder it opens, so it gets a copy; the old folder is only read.
+    let copy = data.join("local-pg-import-src");
+    let config = launch::sidecar_config(source, &copy, &data.join("local-db-backups"), &api, None);
+    let old = Arc::new(old_db::OldDb::new(config).with_snapshot(old_dir.to_path_buf(), copy));
+    let _ = app.manage(Arc::clone(&old));
+    let reader = Arc::clone(&old);
+    let rows: local_pg::import::RowsFn = Arc::new(move |sql: String| {
+        let reader = Arc::clone(&reader);
+        Box::pin(async move { reader.rows(sql).await })
+    });
+    old_db::StopAfter {
+        job: local_pg::import::OnceImport {
+            marker: data.join("local-pg.imported"),
+            source: rows,
+            page_rows: 500,
+        },
+        old,
+    }
+}
+
+/// Opens the native database and manages its `LocalDb`. Any failure is reported through
+/// `db_state`, never aborts startup.
 fn start_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     let paths = app.path();
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
-        (Ok(data), Ok(resources)) => 'arm: {
-            let data_dir = data.join("local-db");
-            let backups_dir = data.join("local-db-backups");
-            let source = launch::sidecar_source(resources);
+        (Ok(data), Ok(resources)) => {
+            let source = launch::sidecar_source(resources.clone());
             let product = app.package_info().name.clone();
             let old = paths
                 .config_dir()
                 .ok()
                 .and_then(|c| launch::electron_data_dir(&source, &product, &c));
-            // Copied before the sidecar starts, so it never opens a half-copied or empty database.
-            if let Some(reason) = old.as_deref().and_then(|old| migration_blocker(old, &data)) {
-                local_api::warn(app, &reason);
-                break 'arm commands::LocalDb::new(
-                    Err(sidecar::SidecarError::Spawn(reason)),
-                    data_dir.to_string_lossy().into_owned(),
-                );
-            }
-            let api = launch::ApiArgs {
-                artifacts: data.join("artifacts"),
-                app_version: app.package_info().version.to_string(),
-                product_name: product.clone(),
+            // Copied before the database opens, so it never reads a half-copied or empty one.
+            let native = match old.as_deref().and_then(|old| migration_blocker(old, &data)) {
+                Some(reason) => Err(reason),
+                None => native_db(app, &data, &resources, &source),
             };
-            let config = launch::sidecar_config(&source, &data_dir, &backups_dir, &api, None);
-            let home = paths.home_dir().unwrap_or_else(|_| {
-                local_api::warn(app, "no home folder: the MCP folder is relative");
-                PathBuf::new()
-            });
-            let host = local_api::shell_host(
-                app,
-                local_api::mcp_dir(&home, launch::home_variant(&source, &product)),
-            );
-            if host.is_none() {
-                local_api::warn(
-                    app,
-                    "no prefs or secrets yet: the sidecar's asks go unanswered",
-                );
+            if let Err(reason) = &native {
+                local_api::warn(app, reason);
             }
-            // Sidecar::spawn needs a Tokio runtime; setup runs outside one.
-            let sidecar = tauri::async_runtime::block_on(async {
-                commands::spawn(config.clone(), host.as_ref())
-            });
-            let db = commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
-                .restartable(config);
-            let db = match vault_root_source(app) {
-                Some(source) => db.with_vault_root(source),
-                None => db,
-            };
-            let log = app.clone();
-            let db = db.with_warn(Arc::new(move |line: &str| local_api::warn(&log, line)));
-            match host {
-                Some(h) => db.with_host(h),
-                None => db,
-            }
+            let data_dir = native_root(&data).join("data");
+            commands::LocalDb::new(native, data_dir.to_string_lossy().into_owned())
         }
-        (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(
-            Err(sidecar::SidecarError::Spawn(e.to_string())),
-            String::new(),
-        ),
+        (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(Err(e.to_string()), String::new()),
     };
     let _ = app.manage(db);
-    let handle = app.clone();
-    let _task = tauri::async_runtime::spawn(async move {
-        local_api::forward_vault_root(&handle).await;
-    });
+    // Boot Postgres now, beside the webview, so the page's first query does not wait ~1.5 s for it.
+    let app = app.clone();
+    drop(tauri::async_runtime::spawn(async move {
+        let db = app.state::<commands::LocalDb>();
+        let _ = db.query("select 1".to_owned(), Vec::new()).await;
+    }));
 }
 
 /// What the local API needs from the app, or `None` when the stores are not managed yet.
@@ -446,6 +543,9 @@ fn start_local_api(app: &tauri::AppHandle) {
         let targets =
             local_http::rewrite::mcp_client_configs(&home, std::env::consts::OS, data.as_deref());
         let (changed, skipped) = local_http::rewrite::rewrite_mcp_client_configs(&targets, &launch);
+        if let Some(control) = handle.try_state::<local_http::control::LocalApiControl>() {
+            control.set_mcp_rewrites(changed.clone(), skipped.clone());
+        }
         for file in changed {
             local_api::warn(
                 &handle,
@@ -469,11 +569,18 @@ fn stop_local_api(app: &tauri::AppHandle) {
     }
 }
 
-/// Closes the sidecar's stdin and waits up to `SHUTDOWN_GRACE` for it to exit.
+/// Stops Postgres and an import sidecar still running, then drops the database lock.
 fn stop_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
-        let _ = tauri::async_runtime::block_on(db.shutdown(launch::SHUTDOWN_GRACE));
+        tauri::async_runtime::block_on(db.shutdown());
+    }
+    if let Some(old) = app.try_state::<Arc<old_db::OldDb>>() {
+        tauri::async_runtime::block_on(old.stop(launch::SHUTDOWN_GRACE));
+    }
+    // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
+    if let Ok(data) = app.path().app_data_dir() {
+        db_lock::release(&native_root(&data));
     }
 }
 
@@ -488,16 +595,24 @@ fn start_routes(app: &tauri::AppHandle) {
         model_client: model_cache::model_client(model_cache::is_upstream_url).ok(),
         relay_client: relay::shared::relay_client().ok(),
         relay_config: relay::route::RelayConfig::production(),
+        prefs: app.try_state::<prefs::Prefs>().map(|s| s.inner().clone()),
+        secrets: app
+            .try_state::<secrets::Secrets>()
+            .map(|s| s.inner().clone()),
+        workshop: app
+            .try_state::<secrets::Secrets>()
+            .map(|s| overleaf_workshop::WorkshopSessions::remembered(s.inner().clone()))
+            .unwrap_or_default(),
     };
     let _ = app.manage(routes);
 }
 
 /// The label of the one app window, as `tauri.conf.json` names it.
-const MAIN_WINDOW: &str = "main";
+pub(crate) const MAIN_WINDOW: &str = "main";
 
 /// Opens the main window from its `tauri.conf.json` entry (`create: false`), with the bridge as its init script.
 /// The window stays on the app's own pages: other http(s) links and popups open in the OS browser, as in Electron.
-fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let Some(config) = app
         .config()
         .app
@@ -521,6 +636,8 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let popup_app = app.clone();
     let builder = tauri::WebviewWindowBuilder::from_config(app, config)?
         .initialization_script(script)
+        // Let file drops reach the page (Papers, Notes); Tauri's own handler swallows them.
+        .disable_drag_drop_handler()
         .on_navigation(move |url| {
             let stays = shim::main_window_keeps(url);
             if !stays {
@@ -529,26 +646,27 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             stays
         })
         .on_new_window(move |url, _features| {
-            if shim::is_app_blob(&url) {
-                // A file the app made, such as a compiled PDF: show it in its own window.
-                return tauri::webview::NewWindowResponse::Allow;
-            }
             open_outside(&popup_app, &url);
             tauri::webview::NewWindowResponse::Deny
         });
-    // A cold-start sign-in waits until the page (and the shim's listener) exists.
+    // Windows and Linux: no system frame; the page's title bar draws the menu and window buttons.
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    let builder = builder.decorations(false);
+    // Sign-in links wait until the page (and the shim's listener) exists.
     #[cfg(mobile)]
     let builder = builder.on_page_load(|window, payload| {
         use tauri::Manager as _;
-        if payload.event() != tauri::webview::PageLoadEvent::Finished {
-            return;
-        }
         let app = window.app_handle();
-        let query = app
-            .try_state::<PendingSignIn>()
-            .and_then(|pending| pending.0.lock().ok().and_then(|mut slot| slot.take()));
-        if let Some(query) = query {
-            deliver_sign_in(app, query);
+        let Some(queue) = app.try_state::<auth_link::SignInQueue>() else {
+            return;
+        };
+        match payload.event() {
+            tauri::webview::PageLoadEvent::Started => queue.page_loading(),
+            tauri::webview::PageLoadEvent::Finished => {
+                for query in queue.page_loaded() {
+                    deliver_sign_in(app, query);
+                }
+            }
         }
     });
     builder
@@ -565,16 +683,27 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 /// Opens a public http(s) address in the OS browser, by the same URL-shape rule as Electron's
-/// `mayOpenExternally`. Anything else (credentials, odd ports, local hosts, other schemes) is dropped
-/// and logged, as is a failure to open.
-fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
+/// `mayOpenExternally`, and a `mailto:` link in the OS mail app. Anything else (credentials, odd
+/// ports, local hosts, other schemes) is dropped and logged, as is a failure to open. At most one
+/// open per second, shared with the sign-in windows; the rest are dropped and logged.
+pub(crate) fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
     use tauri_plugin_opener::OpenerExt as _;
-    if let Err(rejection) = fetch::url_shape::check_url_shape(url) {
+    let mail = outside_gate::is_mail_link(url);
+    if !mail && let Err(rejection) = fetch::url_shape::check_url_shape(url) {
         log_warn(
             app,
             "shell",
             "A link was not opened",
             &format!("{rejection:?} ({})", url.scheme()),
+        );
+        return;
+    }
+    if !outside_gate::admit_now() {
+        log_warn(
+            app,
+            "shell",
+            "A link was not opened",
+            "more than one outside open in a second",
         );
         return;
     }
@@ -588,7 +717,7 @@ fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
     }
 }
 
-/// Listens for the sign-in redirect; a taken port is logged and sign-in falls back to pasting the link.
+/// Listens for the sign-in redirect; a taken port is logged and marked, so the page asks for the link.
 #[cfg(desktop)]
 fn start_sign_in(app: &tauri::AppHandle) {
     let app = app.clone();
@@ -598,40 +727,49 @@ fn start_sign_in(app: &tauri::AppHandle) {
                 let handle = app.clone();
                 auth_loopback::serve(listener, move |query| deliver_sign_in(&handle, query)).await;
             }
-            Err(error) => log_warn(
-                &app,
-                "sign-in",
-                "The sign-in listener did not start",
-                &error.to_string(),
-            ),
+            Err(error) => {
+                use tauri::Manager as _;
+                if let Some(port) = app.try_state::<auth_loopback::SignInPort>() {
+                    port.mark_taken();
+                }
+                log_warn(
+                    &app,
+                    "sign-in",
+                    "The sign-in listener did not start",
+                    &error.to_string(),
+                );
+            }
         }
     });
 }
 
-/// A sign-in App Link that cold-started the app, held until the page has loaded.
-#[cfg(mobile)]
-#[derive(Default)]
-struct PendingSignIn(std::sync::Mutex<Option<String>>);
-
 /// Hands each sign-in App Link the OS opens to the page; phones have no loopback port.
-/// A link that cold-starts the app is held and handed over once the page has loaded.
+/// Links that arrive before the page has loaded (a cold start, a reload) are held in a
+/// `SignInQueue` and handed over once it has.
 #[cfg(mobile)]
 fn start_sign_in(app: &tauri::AppHandle) {
     use tauri::Manager as _;
     use tauri_plugin_deep_link::DeepLinkExt as _;
+    let _ = app.manage(auth_link::SignInQueue::default());
     let handle = app.clone();
     // The listener lives as long as the app, so its id is never needed to remove it.
     let _listener = app.deep_link().on_open_url(move |event| {
+        let Some(queue) = handle.try_state::<auth_link::SignInQueue>() else {
+            return;
+        };
         for url in event.urls() {
-            if let Some(query) = auth_link::callback_query(&url) {
+            if let Some(query) = auth_link::callback_query(&url).and_then(|q| queue.offer(q)) {
                 deliver_sign_in(&handle, query);
             }
         }
     });
     match app.deep_link().get_current() {
         Ok(Some(urls)) => {
-            if let Some(query) = auth_link::newest_callback_query(&urls) {
-                let _ = app.manage(PendingSignIn(std::sync::Mutex::new(Some(query))));
+            let queue = app.state::<auth_link::SignInQueue>();
+            if let Some(query) =
+                auth_link::newest_callback_query(&urls).and_then(|q| queue.offer(q))
+            {
+                deliver_sign_in(app, query);
             }
         }
         Ok(None) => {}
@@ -789,6 +927,8 @@ mod tests {
         let bundle = include_str!("../tauri.bundle.json");
         assert!(bundle.contains("\"../desktop/dist/web/\": \"web/\""));
         assert!(bundle.contains("\"target/stage/sidecar/\": \"sidecar/\""));
+        // `local_pg::server::locate_bin` looks in `<resources>/postgres/bin`.
+        assert!(bundle.contains("\"target/stage/postgres/\": \"postgres/\""));
     }
 
     #[test]

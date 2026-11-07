@@ -11,7 +11,7 @@ import test from "node:test";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import { readPreviewFolder } from "../application/folder-preview-read";
-import { IMPORT_LIMITS } from "../application/import-limits";
+import { IMPORT_LIMITS, SKIP_TOO_BIG } from "../application/import-limits";
 
 const ROOT = "thesis--abc123";
 
@@ -97,11 +97,36 @@ test("an oversize asset is skipped without reading it (29-16)", async () => {
   const out = await readPreviewFolder(fs, ROOT, true);
   assert.deepEqual(read, ["assets/ok.png"]);
   assert.deepEqual([...out.assets.keys()], ["assets/ok.png"]);
+  assert.deepEqual(out.skipped, [{ path: "assets/big.bin", reason: SKIP_TOO_BIG }]);
 });
 
 test("an empty folder reads nothing", async () => {
   const out = await readPreviewFolder(new MemoryWorkspaceFs(), ROOT, false);
+  assert.deepEqual(out.skipped, []);
   assert.deepEqual(out.files, {});
   assert.deepEqual(out.jsonFiles, {});
+  assert.equal(out.assets.size, 0);
+});
+
+test("a preview of some paths reads those notes and only the assets they name", async () => {
+  const fs = await folder({
+    [`${ROOT}/notes/a.md`]: "# A\n\n![fig](../../assets/vault/fig.png)",
+    [`${ROOT}/notes/b.md`]: "# B",
+    "assets/vault/fig.png": "png",
+    "assets/vault/other.png": "png",
+    "assets/vault/dropped.png": "png",
+  });
+  const { read } = spy(fs);
+  const only = new Set([`${ROOT}/notes/a.md`, "assets/vault/dropped.png"]);
+  const out = await readPreviewFolder(fs, ROOT, true, only);
+  assert.deepEqual(Object.keys(out.files), [`${ROOT}/notes/a.md`]);
+  assert.deepEqual([...out.assets.keys()].sort(), ["assets/vault/dropped.png", "assets/vault/fig.png"]);
+  assert.ok(!read.includes("assets/vault/other.png"), "an asset no read note names is not read");
+});
+
+test("a preview of no paths reads nothing", async () => {
+  const fs = await folder({ [`${ROOT}/notes/a.md`]: "# A", "assets/x.png": "png" });
+  const out = await readPreviewFolder(fs, ROOT, true, new Set());
+  assert.deepEqual(out.files, {});
   assert.equal(out.assets.size, 0);
 });

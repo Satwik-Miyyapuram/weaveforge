@@ -76,6 +76,8 @@ export interface SearchHit {
   score: number;
   /** Zero-based PDF page for `pdf` hits. */
   page?: number;
+  /** ISO 8601 time the document last changed, when the index knows it. */
+  updatedAt?: string;
   /** Query terms that matched, for highlighting. */
   terms: readonly string[];
   /**

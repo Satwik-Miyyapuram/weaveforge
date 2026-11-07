@@ -1,11 +1,12 @@
 //! The `app://` router: which handler answers which request.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-mod common;
+use crate::common;
 
 use common::{TempDir, put};
 use weaveforge_shell_lib::app_route::{AppRoutes, from_reply, page_host, route};
 use weaveforge_shell_lib::local_artifacts::{ARTIFACT_CSP, write_local_artifact};
+use weaveforge_shell_lib::overleaf_workshop::WorkshopSessions;
 use weaveforge_shell_lib::protocol::Reply;
 use weaveforge_shell_lib::relay::route::RelayConfig;
 use weaveforge_shell_lib::relay::shared::Answer;
@@ -18,6 +19,9 @@ fn routes(web: &TempDir, data: &TempDir) -> AppRoutes {
         model_client: None,
         relay_client: None,
         relay_config: RelayConfig::production(),
+        prefs: None,
+        secrets: None,
+        workshop: WorkshopSessions::default(),
     }
 }
 
@@ -111,6 +115,35 @@ async fn an_app_page_comes_from_the_web_export() {
         assert_eq!(answer.status, 200, "{uri}");
         assert_eq!(answer.body, b"<html>home</html>".to_vec(), "{uri}");
     }
+}
+
+#[tokio::test]
+async fn the_plan_widget_page_is_built_in_and_carries_its_csp() {
+    let (web, data) = (TempDir::new(), TempDir::new());
+    let routes = routes(&web, &data);
+    for uri in [
+        "app://localhost/plan-widget/",
+        "http://app.localhost/plan-widget/index.html",
+    ] {
+        let answer = ask(&routes, uri).await;
+        assert_eq!(answer.status, 200, "{uri}");
+        let csp = answer
+            .headers
+            .iter()
+            .find(|(name, _)| name == "content-security-policy")
+            .map(|(_, value)| value.as_str());
+        assert_eq!(
+            csp,
+            Some(weaveforge_shell_lib::plan_widget::WIDGET_CSP),
+            "{uri}"
+        );
+    }
+    let font = ask(
+        &routes,
+        "app://localhost/plan-widget/fonts/rubik-latin.woff2",
+    )
+    .await;
+    assert_eq!(font.status, 200);
 }
 
 #[tokio::test]

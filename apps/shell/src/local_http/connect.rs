@@ -291,7 +291,7 @@ fn write_private_file(path: &Path, text: &str) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        let _ = options.mode(0o600);
     }
     let mut file = options.open(path)?;
     #[cfg(unix)]

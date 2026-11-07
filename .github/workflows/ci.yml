@@ -522,7 +522,7 @@ jobs:
         run: cargo test --locked
 
       - name: Real sidecar (database lock and orphan)
-        run: cargo test --locked --test launch -- --ignored
+        run: cargo test --locked --test shell launch:: -- --ignored
 
       - name: Dependency policy
         run: cargo deny --locked check
@@ -614,7 +614,7 @@ jobs:
         run: cargo test --locked
 
       - name: Real sidecar (database lock and orphan)
-        run: cargo test --locked --test launch -- --ignored
+        run: cargo test --locked --test shell launch:: -- --ignored
 
   shell-bundle-windows:
     # Windows x64 release bundles (MSI and NSIS) with the sidecar and the web
@@ -670,6 +670,20 @@ jobs:
         run: |
           if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
           node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
+
+      - name: Stage Postgres
+        working-directory: .
+        shell: pwsh
+        # The native local database (local_pg) runs this Postgres from <resources>/postgres. Pinned build
+        # from theseus-rs/postgresql-binaries (upstream REL_18_6); the hash is of the release asset.
+        run: |
+          $name = "postgresql-18.6.1-x86_64-pc-windows-msvc"
+          $tar = Join-Path $env:RUNNER_TEMP "$name.tar.gz"
+          Invoke-WebRequest -Uri "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.6.1/$name.tar.gz" -OutFile $tar
+          $hash = (Get-FileHash $tar -Algorithm SHA256).Hash
+          if ($hash -ne "0C0C845626ED77C605D716051C9E8DF3368D07FBBD9F61EA39A4C5C0536FDE7E") { throw "Postgres archive hash mismatch: $hash" }
+          tar -xzf $tar -C $env:RUNNER_TEMP
+          node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:RUNNER_TEMP $name) apps/shell/target/stage
 
       - name: Bundle
         run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json

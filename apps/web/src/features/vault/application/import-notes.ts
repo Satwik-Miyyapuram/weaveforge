@@ -72,6 +72,11 @@ function rewriteWikilinks(body: string, renames: Map<string, string>): string {
   });
 }
 
+/** A file the notes import reads: markdown, or a .zip of it. */
+export function isNoteImportFile(name: string): boolean {
+  return /\.(md|zip)$/i.test(name);
+}
+
 /**
  * Imports a picked folder or .zip of markdown (Obsidian vault / Notion export /
  * any .md tree) into the vault. Folder hierarchy → note nesting; frontmatter

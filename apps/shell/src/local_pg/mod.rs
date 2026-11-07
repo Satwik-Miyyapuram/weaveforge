@@ -5,10 +5,18 @@
 //! - `wire`: a small client that asks for text results, so values match what PGlite returned.
 //! - `value`: turns Postgres text values into the JSON the app already reads, and JSON params into text.
 //! - `db`: the app's database rules: migrations, queries run as a user under RLS, the device user.
+//! - `host`: the database as the app sees it: lazy open, queries as the device user, state, reset.
 //! - `import`: a one-time copy of an old PGlite database into the new one.
+//! - `backup`: `pg_dump` copies of the database and which of them to keep.
+//! - `restore`: rebuilds a missing database from the newest backup that loads.
+//! - `comspec`: runs `initdb`'s shell commands without the user's cmd AutoRun.
 
+pub mod backup;
+pub mod comspec;
 pub mod db;
+pub mod host;
 pub mod import;
+pub mod restore;
 pub mod server;
 pub mod value;
 pub mod wire;
@@ -31,6 +39,22 @@ impl PgError {
             code: String::new(),
             message: message.into(),
         }
+    }
+
+    /// The connection broke (socket error, server gone, stream out of sync). SQLSTATE `08006`,
+    /// connection failure, so callers can tell it from a statement error.
+    #[must_use]
+    pub fn connection(message: impl Into<String>) -> Self {
+        Self {
+            code: "08006".to_owned(),
+            message: message.into(),
+        }
+    }
+
+    /// Whether the connection is unusable after this error (SQLSTATE class `08`).
+    #[must_use]
+    pub fn is_connection(&self) -> bool {
+        self.code.starts_with("08")
     }
 }
 

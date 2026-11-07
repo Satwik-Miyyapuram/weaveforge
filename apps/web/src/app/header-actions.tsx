@@ -238,7 +238,7 @@ export function HeaderActions({
             >
               <NavIcon name={row.icon} />
               <span>{row.label}</span>
-              <b className="nav-badge">{row.badge}</b>
+              <b className="nav-badge" aria-label={`${row.badge} waiting for you`} title={`${row.badge} waiting for you`}>{row.badge}</b>
             </MenuItemButton>
           ))}
           {links(close)}

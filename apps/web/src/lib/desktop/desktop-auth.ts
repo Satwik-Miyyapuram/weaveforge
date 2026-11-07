@@ -44,6 +44,26 @@ export const AUTH_LINK_URL = "https://app.weaveforge.org/auth/app-callback";
  *
  * On a phone it is the app's sign-in link (`AUTH_LINK_URL`).
  */
+/**
+ * The callback query in an address the reader pasted, or null when it is not
+ * the loopback callback. Used when another program holds the loopback port, so
+ * the browser's redirect never reaches this app: the reader copies the address
+ * the browser was sent to and pastes it in.
+ */
+export function pastedSignInQuery(text: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+  const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  if (url.protocol !== "http:" || !loopback || url.port !== String(AUTH_LOOPBACK_PORT)) return null;
+  if (url.pathname !== "/auth/callback") return null;
+  const params = url.searchParams;
+  return params.has("code") || params.has("error") ? url.search : null;
+}
+
 export function appOrigin(): string | undefined {
   return typeof window === "undefined" ? undefined : window.location.origin;
 }

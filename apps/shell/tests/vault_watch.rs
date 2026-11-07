@@ -1,10 +1,12 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Tests for the vault watch batcher (ported from apps/desktop/test/vault-watch.test.ts).
 
-use std::time::{Duration, Instant};
+use std::io;
+use std::path::Path;
+use std::time::{Duration, Instant, SystemTime};
 
 use weaveforge_shell_lib::vault_watch::{
-    Digest, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
+    Digest, DigestCache, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
 };
 
 /// A fake clock: a fixed base instant plus an offset the test moves.
@@ -494,4 +496,32 @@ fn an_unreadable_file_where_we_wrote_is_reported() {
     w.note_self_write("a.md", ours(), clock.now());
     w.saw_unreadable("a.md", clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
+fn a_file_whose_size_and_time_have_not_moved_is_not_read_again() {
+    let mut cache = DigestCache::default();
+    let path = Path::new("notes/a.md");
+    let at = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000);
+    let mut reads = 0;
+    let mut read = |digest: Digest| {
+        reads += 1;
+        move || Ok::<Digest, io::Error>(digest)
+    };
+    assert_eq!(cache.digest(path, 5, at, read(1)).unwrap(), 1);
+    assert_eq!(cache.digest(path, 5, at, read(2)).unwrap(), 1);
+    // A new size or a new time is a new read.
+    assert_eq!(cache.digest(path, 6, at, read(3)).unwrap(), 3);
+    let later = at + Duration::from_nanos(100);
+    assert_eq!(cache.digest(path, 6, later, read(4)).unwrap(), 4);
+    assert_eq!(reads, 4);
+}
+
+#[test]
+fn a_failed_read_is_not_kept() {
+    let mut cache = DigestCache::default();
+    let path = Path::new("notes/a.md");
+    let at = SystemTime::UNIX_EPOCH;
+    assert!(cache.digest(path, 5, at, || Err(io::Error::other("busy"))).is_err());
+    assert_eq!(cache.digest(path, 5, at, || Ok(7)).unwrap(), 7);
 }

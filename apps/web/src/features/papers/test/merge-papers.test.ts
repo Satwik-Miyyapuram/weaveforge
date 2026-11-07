@@ -188,6 +188,34 @@ test("a duplicate an earlier run already removed is skipped, so a retry finishes
   assert.equal(await s.papers.getById("dup2"), null);
 });
 
+/** A paper store that refuses a second row with the same DOI or arXiv id, as Postgres does. */
+class UniquePaperRepository extends InMemoryPaperRepository {
+  override async save(p: Paper) {
+    for (const other of await this.list()) {
+      if (other.id === p.id) continue;
+      if ((p.doi && other.doi === p.doi) || (p.arxivId && other.arxivId === p.arxivId)) {
+        throw { message: 'duplicate key value violates unique constraint "papers_project_doi_uniq"', code: "23505" };
+      }
+    }
+    return super.save(p);
+  }
+}
+
+test("a DOI and arXiv id held only by the duplicate move to the kept paper", async () => {
+  const s = await setup();
+  const papers = new UniquePaperRepository();
+  const merge = new MergePapersUseCase({ ...s, papers, newId: () => "n", now: () => "2026-09-24T00:00:00Z" });
+  await papers.save(paper("keep", { venue: "ICLR" }));
+  await papers.save(paper("dup", { doi: "10.48550/arxiv.1612.00410", arxivId: "1612.00410" }));
+
+  const merged = await merge.execute("keep", ["keep", "dup"]);
+
+  assert.equal(merged.doi, "10.48550/arxiv.1612.00410");
+  assert.equal((await papers.getById("keep"))?.doi, "10.48550/arxiv.1612.00410");
+  assert.equal((await papers.getById("keep"))?.arxivId, "1612.00410");
+  assert.equal(await papers.getById("dup"), null);
+});
+
 /** A pin store whose first `save` fails, as a dropped connection mid-merge would. */
 class FlakyPinRepository extends InMemoryAnnotationPinRepository {
   failNext = true;

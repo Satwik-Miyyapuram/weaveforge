@@ -704,3 +704,24 @@ test("a refreshed note is handed to the semantic arm to re-embed", async () => {
   assert.deepEqual(synced, [["note:n1"]]);
   assert.equal(changed, 1);
 });
+
+test("a worker that cannot start falls back to the main thread and says so", async () => {
+  const held = (globalThis as { Worker?: unknown }).Worker;
+  (globalThis as { Worker?: unknown }).Worker = class {
+    constructor() {
+      throw new Error("no worker here");
+    }
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const search = searchFor({ vaultPages: [note("n1", "Alpha", "alpha body")] });
+    assert.equal(search.builtOnMainThread, false);
+    await search.ensure();
+    assert.equal(search.ready, true, "search still works");
+    assert.equal(search.builtOnMainThread, true);
+  } finally {
+    console.warn = warn;
+    (globalThis as { Worker?: unknown }).Worker = held;
+  }
+});

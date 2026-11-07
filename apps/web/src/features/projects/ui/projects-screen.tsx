@@ -124,7 +124,7 @@ export function ProjectsScreen() {
       {!loading && projects.length === 0 && (
         <EmptyState
           variant="first-run"
-          icon={<WeaveForgeLogo className="app-logo" />}
+          icon={<WeaveForgeLogo bare className="empty-logo" />}
           title="No projects yet"
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={

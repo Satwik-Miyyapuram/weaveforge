@@ -1,17 +1,18 @@
 /**
  * A paper from a PDF file (design D-21).
  *
- * The DOI printed on the first page is the surest key; without one, the PDF's
- * own title is looked up. Without a match, or offline, the paper still takes
- * the PDF's title (its metadata title, else the first line that reads like a
- * title) and the DOI it prints; only a PDF with neither, a scan, is named after
+ * The DOI printed on the first page is the surest key, then the arXiv id it is
+ * stamped with; without either, the PDF's own title is looked up. Without a
+ * match, or offline, the paper still takes the PDF's title (its metadata title,
+ * else the first line that reads like a title) and the DOI it prints; only a
+ * PDF with neither, a scan, is named after
  * the file, and the toast says so. The file itself is kept as the paper's PDF,
  * and on a duplicate too when that paper has none yet. Everything that touches
  * pdf.js, the container or the byte cache is injected, so the rules here run in
  * a plain test.
  */
 
-import { MetadataResolutionError, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
+import { MetadataResolutionError, normalizeArxivId, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 
 /** Past this a PDF is more likely a scanned book than a paper; the byte cache is not meant for it. */
@@ -61,6 +62,9 @@ export type PdfDropOutcome =
 export function isPdfFile(file: Pick<PdfFileLike, "name" | "type">): boolean {
   return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 }
+
+/** An `arXiv:` id in running text, new style (`2301.12345`) or old (`hep-th/9711200`). */
+const ARXIV_STAMP = /\barxiv:\s*(?:[a-z-]+(?:\.[a-z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?/i;
 
 const HEADER_NOISE = /arxiv|doi|preprint|under review|journal|proceedings|conference|https?:|©|copyright/i;
 
@@ -117,6 +121,9 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   let found: AddPaperResult | null = null;
   if (!offline) {
     if (doi) found = await tryRef({ kind: "doi", value: doi }, deps);
+    // arXiv stamps its id down the first page's margin: `arXiv:2301.12345v2 [cs.LG]`.
+    const arxiv = normalizeArxivId(ARXIV_STAMP.exec(pdf.text)?.[0]);
+    if (!found && arxiv) found = await tryRef({ kind: "arxiv", value: arxiv }, deps);
     if (!found && title) found = await tryRef({ kind: "bibliographic", value: title, hints: { title } }, deps);
   }
   const result = found ?? (await deps.addByTitle(title ?? file.name.replace(/\.pdf$/i, ""), doi));

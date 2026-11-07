@@ -5,15 +5,12 @@ import {
   describeChanges,
   GIT_OFF,
   idSuffix,
-  fromRelativeBlobLinks,
   type ImportDiff,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type MirrorResult,
-  type VaultPageBase,
   type JsonDiff,
   type WorkspaceCommit,
-  type WorkspaceProject,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-library-pdfs";
@@ -21,17 +18,13 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach } from "@/lib/notify-each";
-import { loadCore, readyCore, type RustCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
+import { gitFileHistory, shellFileHistory, type FileHistorySource } from "./folder-file-history";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 import {
-  ownedAssetFolderPaths,
-  workspaceBodies,
-} from "./asset-reanchor";
-import {
-  baseDigest,
   jsonEditSince,
   createCoalescer,
   followProjectRename,
@@ -43,14 +36,24 @@ import {
 } from "./mirror-manifest";
 import { activeProject, activeProjectOrNull } from "./active-project";
 import { mirrorWorkspace } from "./folder-mirror";
+import { watchForLoss } from "./folder-watch-lost";
 import { readPreviewFolder } from "./folder-preview-read";
-import { jsonDiff } from "./folder-json-import";
-import { applyFolderImport } from "./folder-import-apply";
-import { isNoteOpen } from "./open-notes";
-import { applyOutsideEdits, type FolderDiff, type SeenFile } from "./outside-edits";
+import { applyFolderImport, keepWorkspaceCopy } from "./folder-import-apply";
+import { isNoteOpen, onNoteClosed } from "./open-notes";
+import { diffAgainstWorkspace, importableEntities } from "./folder-diff";
+import {
+  applyOutsideEdits,
+  renamedPaths,
+  splitOutsideEdits,
+  type FolderDiff,
+  type HeldReason,
+  type HeldReasons,
+} from "./outside-edits";
 import {
   sanitizeArchiveEntries,
+  SKIP_TOO_BIG,
   stripArchiveRoot,
+  type SkippedFile,
   unzipWithinLimits,
 } from "./import-limits";
 
@@ -107,7 +110,7 @@ export function markFolderRestored(): void {
 
 
 
-import { clearPendingAssets, setPendingAssets } from "./folder-import-apply";
+import { clearPendingAssets } from "./folder-import-apply";
 
 export interface FolderSession {
   kind: "picked" | "opfs" | "desktop";
@@ -175,16 +178,23 @@ function adoptBrowserFolder(fs: BrowserWorkspaceFs, git: boolean): void {
  *
  * The renderer never names a path: it asks for a dialog, and the main process
  * keeps the answer. `false` means there is no desktop shell, or the user
- * dismissed the dialog.
+ * dismissed the dialog. Otherwise the answer carries the shell's warnings
+ * (the folder is not watched, or could not be remembered) for the page to show.
  */
 export async function chooseDesktopFolder(options: {
   git: boolean;
   /** Take up the remembered folder instead of opening a dialog. */
   reuse?: boolean;
-}): Promise<boolean> {
+  /** Try the remembered folder again after it was not available. */
+  retry?: boolean;
+}): Promise<false | { warnings: readonly string[] }> {
   const bridge = desktop();
   if (!bridge) return false;
-  const root = options.reuse ? await bridge.vaultRoot() : await bridge.chooseVaultRoot();
+  const root = options.retry
+    ? ((await bridge.retryVaultRoot?.()) ?? null)
+    : options.reuse
+      ? await bridge.vaultRoot()
+      : await bridge.chooseVaultRoot();
   if (!root) return false;
   activeFs = new DesktopWorkspaceFs(bridge);
   // No git in here for a desktop folder. The shell has the machine's own git
@@ -197,7 +207,7 @@ export async function chooseDesktopFolder(options: {
   // up on the next launch keeps the history it was connected with. Only a
   // fresh choice says anything about it: reconnecting is not an answer to the
   // question, and must not be read as switching it off.
-  if (!options.reuse) await bridge.writePreference("vault-git", options.git);
+  if (!options.reuse && !options.retry) await bridge.writePreference("vault-git", options.git);
   watchForChanges();
   // The folder is where the desktop copy keeps its PDFs; fill it in the
   // background so the papers open from disk, offline included.
@@ -207,7 +217,24 @@ export async function chooseDesktopFolder(options: {
   // a restart rather than waiting for the next edit.
   requestSync();
   announceConnected();
-  return true;
+  return { warnings: root.warnings ?? [] };
+}
+
+/** The remembered desktop folder while it is not available (an unplugged drive), or null. */
+export async function missingDesktopFolder(): Promise<string | null> {
+  return (await desktop()?.missingVaultRoot?.()) ?? null;
+}
+
+/**
+ * Disconnect the folder: stop mirroring here, and on the desktop also stop the
+ * shell watching and remembering it. The files on disk stay. Answers the
+ * shell's warnings.
+ */
+export async function disconnectFolder(): Promise<readonly string[]> {
+  const desktopFolder = activeFs instanceof DesktopWorkspaceFs;
+  closeFolder();
+  if (!desktopFolder) return [];
+  return (await desktop()?.forgetVaultRoot?.()) ?? [];
 }
 
 /** Fall back to origin-private storage where the picker is unavailable. */
@@ -225,6 +252,8 @@ export function closeFolder(): void {
   unwatchFolder = null;
   if (autoApplyTimer) clearTimeout(autoApplyTimer);
   autoApplyTimer = null;
+  autoApplyFirstAt = null;
+  autoApplyPaths = new Set();
   clearExternalChanges();
   clearPendingAssets();
 }
@@ -390,11 +419,20 @@ function watchForChanges(): void {
  * no record of writing, or a note open in an editor.
  */
 let external = new Set<string>();
+/** Why each listed path waits for review. */
+let externalReasons: HeldReasons = {};
 const externalListeners = new Set<(paths: string[]) => void>();
+const takenInListeners = new Set<(count: number) => void>();
 /** Wait after the last outside edit before taking edits in, so a burst of saves is read once. */
 export const AUTO_APPLY_DEBOUNCE_MS = 800;
+/** Longest a waiting edit is put off by later ones, so a folder that never goes quiet is still read. */
+export const AUTO_APPLY_MAX_WAIT_MS = 2000;
 let autoApplyTimer: ReturnType<typeof setTimeout> | null = null;
+/** When the waiting auto-apply was first asked for; null when none waits. */
+let autoApplyFirstAt: number | null = null;
 let autoApplyRun: Promise<unknown> = Promise.resolve();
+/** The paths seen changing since the last auto-apply started; the next one previews only these. */
+let autoApplyPaths = new Set<string>();
 
 /** Whether an auto-apply is waiting for its debounce; tests use it to see a close cancel one. */
 export function autoApplyScheduled(): boolean {
@@ -409,14 +447,27 @@ export function externalChanges(): string[] {
 /** Forget them, once the reader has looked. */
 export function clearExternalChanges(): void {
   external = new Set();
+  externalReasons = {};
   announceExternal();
 }
 
-/** After a preview, keep only what it found changed: the button's count then matches the diff. */
-export function settleExternalChanges(diff: ImportDiff & { json?: JsonDiff }): void {
+/**
+ * After a preview, keep only what it found changed: the button's count then matches the diff.
+ *
+ * A preview of `only` some paths settles those; the rest of the list stays as it was.
+ */
+export function settleExternalChanges(diff: FolderDiff, only?: ReadonlySet<string>): void {
   const changed = new Set<string>();
   for (const entry of diff.entries) if (entry.action !== "unchanged") changed.add(entry.entity.path);
   for (const entry of diff.json?.entries ?? []) if (entry.action !== "unchanged") changed.add(entry.path);
+  const reasons = splitOutsideEdits(diff, isNoteOpen).reasons;
+  if (only) {
+    for (const path of external) if (!only.has(path)) changed.add(path);
+    const kept = Object.entries(externalReasons).filter(([path]) => !only.has(path));
+    externalReasons = { ...Object.fromEntries(kept), ...reasons };
+  } else {
+    externalReasons = reasons;
+  }
   external = changed;
   announceExternal();
 }
@@ -424,6 +475,30 @@ export function settleExternalChanges(diff: ImportDiff & { json?: JsonDiff }): v
 export function onExternalChange(listener: (paths: string[]) => void): () => void {
   externalListeners.add(listener);
   return () => externalListeners.delete(listener);
+}
+
+/**
+ * Settle one held outside edit from its row: "mine" writes the workspace's copy over the folder's file,
+ * "theirs" takes the folder's copy in. The path is then looked at again, so the list drops it.
+ */
+export async function settleHeldEdit(path: string, keep: "mine" | "theirs"): Promise<void> {
+  const fs = activeFs;
+  if (!fs) throw new Error("No folder is connected.");
+  const only = new Set([path]);
+  if (keep === "mine") await keepWorkspaceCopy(fs, path);
+  else await applyFolderImport(await previewFolderImport(only), { [path]: "folder" }, { fs });
+  if (activeFs === fs) settleExternalChanges(await previewFolderImport(only), only);
+}
+
+/** Why a listed outside edit waits for review; none for a path the last look did not see. */
+export function externalChangeReason(path: string): HeldReason | undefined {
+  return externalReasons[path];
+}
+
+/** Hear how many outside edits an auto-apply took in, each time it took some. */
+export function onOutsideEditsTakenIn(listener: (count: number) => void): () => void {
+  takenInListeners.add(listener);
+  return () => takenInListeners.delete(listener);
 }
 
 function announceExternal(): void {
@@ -435,34 +510,64 @@ function announceExternal(): void {
  * Take the folder's own edits in a moment after they stop, with no click.
  *
  * Only a file the folder alone changed goes in (`splitOutsideEdits`); the rest stays in the list for
- * review. Runs one at a time; a run whose folder closed or changed meanwhile writes nothing, and a file
+ * review. Each run reads only the paths seen changing since the last one started, and a new edit
+ * restarts the wait, so a stream of saves is read once it pauses. Runs one at a time; a run whose folder closed or changed meanwhile writes nothing, and a file
  * that moved again after the preview keeps its old base, so the next look sees that edit too.
  */
 function scheduleAutoApply(): void {
   if (autoApplyTimer) clearTimeout(autoApplyTimer);
+  const now = Date.now();
+  autoApplyFirstAt ??= now;
+  const delay = Math.min(AUTO_APPLY_DEBOUNCE_MS, Math.max(0, autoApplyFirstAt + AUTO_APPLY_MAX_WAIT_MS - now));
   autoApplyTimer = setTimeout(() => {
     autoApplyTimer = null;
+    autoApplyFirstAt = null;
     const fs = activeFs;
     autoApplyRun = autoApplyRun.then(async () => {
       // No check on `external` here: a settle from the run before may have cleared a path that changed
       // while it ran, and this run's fresh preview is what finds it again.
       if (!fs || activeFs !== fs) return;
+      const only = autoApplyPaths;
+      autoApplyPaths = new Set();
+      if (only.size === 0) return;
       try {
-        await applyOutsideEdits({
-          preview: previewFolderImport,
+        const { applied } = await applyOutsideEdits({
+          preview: () => previewFolderImport(only),
           isOpen: isNoteOpen,
-          apply: (diff) => applyFolderImport(diff, {}, { fs, expected: seenDigests(diff) }),
+          apply: async (diff) => {
+            const result = await applyFolderImport(diff, {}, {
+        fs,
+        expected: seenDigests(diff),
+        stored: diff.stored,
+        renamed: renamedPaths(diff),
+      });
+            // A note written in the app since the preview was left alone; the next look sees both sides moved.
+            if (result.moved.length > 0) {
+              for (const path of result.moved) autoApplyPaths.add(path);
+              scheduleAutoApply();
+            }
+            return result;
+          },
           settle: (held) => {
-            if (activeFs === fs) settleExternalChanges(held);
+            if (activeFs === fs) settleExternalChanges(held, only);
           },
         });
+        if (applied > 0 && activeFs === fs) notifyEach(takenInListeners, "outside-edits-taken-in", applied);
       } catch (error) {
         // The list keeps the paths, so the reader can still review them by hand.
         logToApp({ level: "warn", source: "workspace-sync", message: "outside edits not taken in", detail: formatError(error) });
       }
     });
-  }, AUTO_APPLY_DEBOUNCE_MS);
+  }, delay);
 }
+
+// An edit held only because its note was open goes in once the note closes, not at the next folder event.
+onNoteClosed(() => {
+  const waiting = Object.keys(externalReasons).filter((path) => externalReasons[path] === "open in editor");
+  if (!activeFs || waiting.length === 0) return;
+  for (const path of waiting) autoApplyPaths.add(path);
+  scheduleAutoApply();
+});
 
 /** The digest the preview read for each file, so the apply can tell a file that moved since. */
 function seenDigests(diff: FolderDiff): Record<string, string> {
@@ -480,9 +585,14 @@ function watchFolderForChanges(): void {
   unwatchFolder = null;
   const bridge = desktop();
   if (!bridge || folderSession()?.kind !== "desktop") return;
-  unwatchFolder = bridge.onVaultChange((paths) => {
+  const stopChanges = bridge.onVaultChange((paths) => {
     void reportFolderChanges(paths);
   });
+  const stopLoss = watchForLoss(bridge);
+  unwatchFolder = () => {
+    stopChanges();
+    stopLoss();
+  };
 }
 
 /**
@@ -550,6 +660,7 @@ function reportFolderChanges(paths: readonly string[]): void {
       // Folder closed meanwhile: these belong to a folder no longer shown.
       if (activeFs !== fs) return;
       external.add(path);
+      autoApplyPaths.add(path);
       outside = true;
     }
     if (external.size !== beforeRead) announceExternal();
@@ -576,6 +687,29 @@ export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommi
   return activeGit.log({ limit });
 }
 
+/** Earlier versions of the connected folder's files, or null with no folder or an old shell. */
+export function folderFileHistory(): FileHistorySource | null {
+  const session = folderSession();
+  if (!session) return null;
+  if (session.kind !== "desktop") return gitFileHistory(activeGit);
+  const shell = desktop();
+  return shell ? shellFileHistory(shell) : null;
+}
+
+/**
+ * Write a file back into the folder as it was at `oid`.
+ *
+ * Only the folder changes; the caller then shows the import preview so the
+ * reader takes the old version into the workspace, or leaves it.
+ */
+export async function restoreFolderFile(oid: string, path: string): Promise<void> {
+  const source = folderFileHistory();
+  if (!activeFs || !source) throw new Error("No folder is connected.");
+  const text = await source.readAt(oid, path);
+  if (text === null) throw new Error("That version is not text, so it cannot be restored here.");
+  await activeFs.writeFile(path, text);
+}
+
 /**
  * Read the connected folder and diff it against the workspace.
  *
@@ -583,7 +717,9 @@ export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommi
  * in" direction, and seeing "12 updated, 1 conflict" before committing to it is
  * the whole point.
  */
-export async function previewFolderImport(): Promise<FolderDiff & { json: JsonDiff }> {
+export async function previewFolderImport(
+  only?: ReadonlySet<string>,
+): Promise<FolderDiff & { json: JsonDiff; skipped: SkippedFile[] }> {
   if (!activeFs) throw new Error("No folder is connected.");
 
   const project = await activeProject();
@@ -594,15 +730,15 @@ export async function previewFolderImport(): Promise<FolderDiff & { json: JsonDi
   const bases = await readMirrorBases(activeFs, projectRoot);
 
   const hasProjectDir = (await activeFs.stat(projectRoot).catch(() => null)) !== null;
-  const { files, assets, jsonFiles } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir);
+  const { files, assets, jsonFiles, skipped } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir, only);
 
-  return diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles);
+  return { ...(await diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles)), skipped };
 }
 
 /** Diff a ZIP the user picked, without connecting a folder. */
 export async function previewArchiveImport(
   bytes: Uint8Array,
-): Promise<ImportDiff & { skipped: string[]; json: JsonDiff }> {
+): Promise<ImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
   const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
   const { safe, skipped } = sanitizeArchiveEntries(await loadCore(), inflated);
   const entries = stripArchiveRoot(safe);
@@ -617,128 +753,12 @@ export async function previewArchiveImport(
 
   return {
     ...(await diffAgainstWorkspace(files, assets, await activeProject())),
-    skipped: [...oversize, ...skipped],
+    skipped: [...oversize.map((path) => ({ path, reason: SKIP_TOO_BIG })), ...skipped],
   };
-}
-
-/** Only notes import; an experiment or paper file would otherwise read as a new note. */
-export function importableEntities<T extends { type: string; id?: string | null }>(
-  parsed: readonly T[],
-  noteIds: ReadonlySet<string>,
-): T[] {
-  return parsed.filter((entity) => entity.type === "vault_page" || (!!entity.id && noteIds.has(entity.id)));
-}
-
-async function diffAgainstWorkspace(
-  files: Record<string, string>,
-  assets: Map<string, Uint8Array>,
-  /**
-   * The project being compared. The paths the mirror would write are inside its
-   * folder, so the same file in two projects is two different paths.
-   */
-  project: WorkspaceProject,
-  /**
-   * What the folder said when the two sides last agreed, by path.
-   *
-   * Absent for an archive import: a ZIP has no shared history with this
-   * workspace, so every difference is the user's to judge.
-   */
-  base: Readonly<Record<string, string>> = {},
-  /** Frontmatter and body digests from the same manifest, for the merge. */
-  bases: Readonly<Record<string, VaultPageBase>> = {},
-  /** The three JSON data files, when the caller has them. A ZIP has none. */
-  jsonFiles: Record<string, string> = {},
-): Promise<FolderDiff & { json: JsonDiff }> {
-  const core = await loadCore();
-  const snapshot = await getContainer().workspace.snapshot();
-  const existing = [
-    ...snapshot.vaultPages.map((page) => ({
-      id: page.id,
-      type: "vault_page" as const,
-      title: page.title,
-      body: page.body,
-    })),
-    ...snapshot.papers.map((paper) => ({
-      id: paper.id,
-      type: "paper" as const,
-      title: paper.title,
-      body: paper.summary ?? "",
-    })),
-  ];
-
-  setPendingAssets(assets);
-  const owned = ownedAssetFolderPaths(workspaceBodies(snapshot));
-  const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
-  const parsed = importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
-    ...entity,
-    // Restore links to assets this account already owns before comparing.
-    // Without it every note holding an image reads as changed on every import,
-    // because the folder spells the reference `../assets/…` and the database
-    // spells the same reference `vault:…`.
-    body: fromRelativeBlobLinks(entity.body, {
-      resolve: (scope, path) => (owned.has(`${ASSET_DIR}/${scope}/${path}`) ? path : null),
-    }),
-  }));
-
-  // What the mirror would write from the workspace as it stands now. Compared
-  // against the same base as the folder's copy, this is what says whether the
-  // difference came from out there or in here.
-  const current = core.serializeWorkspace(snapshot, project).files;
-
-  const diff = core.diffWorkspace(parsed, existing, {
-    origin: (path) =>
-      core.changedSide({
-        // A version 1 manifest recorded the path and no digest, which reads
-        // as an empty string here and must not be mistaken for a file whose
-        // contents hashed to nothing.
-        base: base[path] || undefined,
-        folder: files[path] === undefined ? undefined : baseDigest(files[path]),
-        workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
-      }),
-    // The generated `fields` type is a plain record; the entities are the parsed ones above.
-  }) as ImportDiff;
-
-  // A file both sides changed is only a conflict if the changes collide. Most
-  // do not: a tag added in Obsidian and a paragraph rewritten here are two
-  // edits to one note, not two answers to one question.
-  const entries = diff.entries.map((entry) =>
-    mergeBothChanged(core, entry, bases[entry.entity.path], current[entry.entity.path]),
-  );
-
-  // The JSON data files are the same question asked of rows rather than prose,
-  // and they are shown in the same preview: one list of what would change, one
-  // set of numbers.
-  const json = await jsonDiff(jsonFiles, current, base, project);
-  const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base);
-  return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen };
-}
-
-/**
- * Who moved each folder file since the two sides last agreed, and the digest read now.
- *
- * A file neither the manifest nor the workspace knows is new in the folder: the folder alone made it.
- */
-function seenFiles(
-  core: RustCore,
-  folder: Readonly<Record<string, string>>,
-  current: Readonly<Record<string, string>>,
-  base: Readonly<Record<string, string>>,
-): Record<string, SeenFile> {
-  const seen: Record<string, SeenFile> = {};
-  for (const [path, text] of Object.entries(folder)) {
-    const digest = baseDigest(text);
-    const known = base[path] || undefined;
-    const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
-    const newPath = known === undefined && workspace === undefined;
-    const side = newPath ? "folder" : core.changedSide({ base: known, folder: digest, workspace });
-    seen[path] = newPath ? { side, digest, newPath } : { side, digest };
-  }
-  return seen;
 }
 
 
 import {
-  countActions,
   keepBothTitle,
   mergeBothChanged,
   settleConflict,
@@ -755,5 +775,6 @@ export {
 };
 
 export { applyFolderImport, writeMarkersFor } from "./folder-import-apply";
+export { importableEntities };
 
 

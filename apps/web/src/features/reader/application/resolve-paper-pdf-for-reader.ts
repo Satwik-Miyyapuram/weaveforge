@@ -12,7 +12,11 @@ import {
   RoutedPdfByteCache,
   WorkspacePdfStore,
 } from "../infrastructure/workspace-pdf-store";
-import { resolvePaperPdfSource, paperToPdfSourcePaper } from "./resolve-paper-pdf-source";
+import {
+  githubRemotePdfSources,
+  resolvePaperPdfSource,
+  paperToPdfSourcePaper,
+} from "./resolve-paper-pdf-source";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
@@ -128,7 +132,7 @@ export async function resolvePaperPdfSourceForReader(
   options: { skipCache?: boolean } = {},
 ): Promise<PdfSourceResolution & { revokeUrl?: string }> {
   const cache = options.skipCache ? undefined : getReaderPdfByteCache();
-  const resolution = await resolvePaperPdfSource(paper, cache);
+  const resolution = await resolvePaperPdfSource(paper, cache, await githubRemotePdfSources());
   if (!resolution.ok) return resolution;
 
   // The desktop shell's origin cannot fetch a blob URL; its reader takes the

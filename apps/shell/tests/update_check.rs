@@ -1,13 +1,13 @@
 //! Tests for the update check (ported from apps/desktop/src/update-check.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-#[path = "common/upstream.rs"]
-mod upstream;
+use crate::upstream;
 
 use upstream::{Upstream, response, serve};
 use weaveforge_shell_lib::update_check::{
     MAX_RELEASES_BYTES, Release, UPDATE_CHECK_FAILED, Update, Version, check_update_reply,
-    fetch_releases, find_update_at, is_newer, newest_release, parse_tag, parse_version,
+    fetch_releases, find_update_at, find_update_warning, is_newer, newest_release, parse_tag,
+    parse_version,
 };
 
 const NO_HOST: &str = "http://127.0.0.1:9/releases";
@@ -202,10 +202,10 @@ async fn find_update_newer() {
     let update = find_update_at("0.5.2", &url).await;
     assert_eq!(
         update,
-        Some(Update {
+        Ok(Some(Update {
             version: "0.6.0".to_string(),
             url: "https://example.invalid/v0.6.0".to_string()
-        })
+        }))
     );
 }
 
@@ -214,7 +214,7 @@ async fn find_update_same_or_ahead() {
     let body = format!("[{},{}]", rel("v0.6.0", ""), rel("v0.5.2", ""));
     let (_up, url) = serve_releases(200, &body).await;
     for current in ["0.6.0", "0.7.0"] {
-        assert_eq!(find_update_at(current, &url).await, None, "{current}");
+        assert_eq!(find_update_at(current, &url).await, Ok(None), "{current}");
     }
 }
 
@@ -224,39 +224,59 @@ async fn find_update_keeps_offering_same_release() {
     let body = format!("[{}]", rel("v0.6.0", ""));
     let (_up, url) = serve_releases(200, &body).await;
     assert_eq!(
-        find_update_at("0.5.2", &url).await.map(|u| u.version),
-        Some("0.6.0".to_string())
+        find_update_at("0.5.2", &url)
+            .await
+            .map(|u| u.map(|u| u.version)),
+        Ok(Some("0.6.0".to_string()))
     );
     assert_eq!(
-        find_update_at("0.5.2", &url).await.map(|u| u.version),
-        Some("0.6.0".to_string())
+        find_update_at("0.5.2", &url)
+            .await
+            .map(|u| u.map(|u| u.version)),
+        Ok(Some("0.6.0".to_string()))
     );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn find_update_fetch_fails() {
+    // A failed check is an error, so the page does not read it as "up to date".
     let (_up, url) = serve_releases(500, "{}").await;
-    assert_eq!(find_update_at("0.5.2", &url).await, None);
+    assert_eq!(
+        find_update_at("0.5.2", &url).await,
+        Err(UPDATE_CHECK_FAILED.to_string())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn find_update_unreachable_is_none() {
-    // A courtesy, not a dependency: an unreachable network is not an error.
-    assert_eq!(find_update_at("0.5.2", NO_HOST).await, None);
+async fn find_update_hands_the_detail_to_the_log() {
+    let (_up, url) = serve_releases(503, "{}").await;
+    let mut logged = None;
+    let found =
+        find_update_warning("0.5.2", &url, |detail| logged = Some(detail.to_string())).await;
+    assert_eq!(found, Err(UPDATE_CHECK_FAILED.to_string()));
+    assert_eq!(logged.as_deref(), Some("releases: 503"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn find_update_unreachable_is_an_error() {
+    assert_eq!(
+        find_update_at("0.5.2", NO_HOST).await,
+        Err(UPDATE_CHECK_FAILED.to_string())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn find_update_bad_current_makes_no_request() {
     let body = format!("[{}]", rel("v0.6.0", ""));
     let (up, url) = serve_releases(200, &body).await;
-    assert_eq!(find_update_at("not-a-version", &url).await, None);
+    assert_eq!(find_update_at("not-a-version", &url).await, Ok(None));
     assert!(up.seen().is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn not_packaged_is_none() {
     // A dev build asks nothing, so the real GitHub URL is never reached.
-    assert_eq!(check_update_reply(false, "0.5.2").await, Ok(None));
+    assert_eq!(check_update_reply(false, "0.5.2", |_| {}).await, Ok(None));
 }
 
 #[test]

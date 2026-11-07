@@ -1,8 +1,7 @@
 //! Tests for the Zotero desktop local API relay (ported from apps/desktop/test/zotero-local.test.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-#[path = "common/upstream.rs"]
-mod upstream;
+use crate::upstream;
 
 use std::collections::BTreeMap;
 use std::net::TcpListener;

@@ -437,7 +437,7 @@
   padding-inline-start: 24px;
 }
 
-/* `⌘⇧F`, focus: the document and nothing else. The explorer, the tab strip,
+/* `F11`, focus: the document and nothing else. The explorer, the tab strip,
    the crumbs and the status bar all go; the primary nav rail goes too, from
    nav.css, off the same flag on `<html>`. One control stays — a corner button
    to come back — because a shortcut nobody can see is a trap. The ink toolbar
@@ -838,13 +838,19 @@
   flex-wrap: nowrap;
   min-width: 0;
   padding: 4px 0;
+  gap: 4px; /* same as a note's bar, so tabs line up */
 }
 
 .workspace-toolbar-doc .pdf-reader-tools {
   flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 4px;
-  padding: 4px;
+  padding: 4px 0; /* empty when wide; no stray 8px nudging the bar */
+}
+
+/* A note's bar pins More to the right; the PDF's bar does the same. */
+.workspace-toolbar-doc .pdf-reader-chrome .ink-bar .ink-bar-spacer {
+  display: block;
 }
 
 .workspace-toolbar-doc .pdf-reader-focus-btn {
@@ -1075,6 +1081,10 @@
   background: var(--surface);
   box-shadow: inset 0 -3px 0 var(--accent);
 }
+
+/* The slot's rule spans the tab and its ×; the tab's own shorter one would
+   sit on top of it and step where the × begins. */
+:root:root .pane-tab-slot > .wf-tab::after { display: none; }
 
 /* The suffix always shows here: two tabs can share a title, and the tab is the
    one place the path is gone entirely (§3.2). */
@@ -2664,6 +2674,11 @@
    the zoom value have room round them and read at the pill's own text size. */
 :root:root:root .ink-page-input { height: 24px; min-height: 0; box-sizing: border-box; }
 :root:root:root .ink-zoom-pill .wf-btn { height: 24px; min-height: 0; padding: 0 var(--s1); font-family: inherit; font-size: inherit; font-weight: inherit; }
+/* Fixed widths, so switching tabs ("/ 1" to "/ 12", "100%" to "61%") never slides the bar. */
+:root:root:root .ink-bar .ink-page-count { width: 11ch; justify-content: center; font-variant-numeric: tabular-nums; }
+:root:root:root .ink-bar .ink-zoom-pill .wf-btn { width: 8ch; justify-content: center; font-variant-numeric: tabular-nums; }
+/* Focus mode stacks the bar vertically; keep it narrow there. */
+:root:root:root :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar :is(.ink-page-count, .ink-zoom-pill .wf-btn) { width: auto; }
 .ink-page-input::-webkit-inner-spin-button,
 .ink-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 

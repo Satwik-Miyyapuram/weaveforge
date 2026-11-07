@@ -7,21 +7,22 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/empty";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
-import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
-import { WorkshopPanel, canShowWorkshop } from "./workshop-panel";
+import { OverleafWorkspace } from "./overleaf-workspace";
+import { canShowWorkshop } from "./use-workshop-session";
+import { useProject } from "@/features/projects";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
 import { Button } from "@/components/button";
+import { isTauriShell } from "@/features/experiments/infrastructure/experiment-artifact-store";
 
 /**
- * Overleaf tab — linked Overleaf projects + browser ZIP export.
- * Outline sections live on `/report` (Sections).
+ * Overleaf tab — one list of Overleaf projects (Write, PDF, Outline) + ZIP export.
+ * Outline sections of this app's report live on `/report` (Sections).
  *
- * The Workshop panel (sign in, pick a project, see the compiled PDF) needs the
- * app's API routes, so a copy with no account does not show it; the desktop
- * shell relays them (see `canShowWorkshop`).
+ * Sign-in needs the app's API routes, so a browser copy with no account only
+ * gets Git links; the Tauri shell serves them itself (see `canShowWorkshop`).
  */
 export function ReportOverleafScreen() {
   /*
@@ -47,10 +48,14 @@ export function ReportOverleafScreen() {
 
   const { data, loading, error } = useScreenData("report-overleaf", loadScreen);
   const [exportOpen, setExportOpen] = useState(false);
+  const { current } = useProject();
   // Decided after mount, so the server render and first paint agree.
-  const [workshop, setWorkshop] = useState(false);
+  const [workshop, setWorkshop] = useState<{ shell: boolean } | null>(null);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode() }));
+    setMounted(true);
+    const shell = isTauriShell();
+    if (canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), shell })) setWorkshop({ shell });
   }, []);
 
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();
@@ -63,11 +68,7 @@ export function ReportOverleafScreen() {
   return (
     <section className="screen report-overleaf-screen">
       <ScreenHead title="Overleaf">
-        <Button
-          variant="primary"
-         
-          onClick={() => setExportOpen(true)}
-        >
+        <Button onClick={() => setExportOpen(true)} title="Download this project's report as an Overleaf ZIP">
           Export for Overleaf
         </Button>
       </ScreenHead>
@@ -83,9 +84,14 @@ export function ReportOverleafScreen() {
         onOpenChange={setExportOpen}
       />
 
-      <LinkedOverleafReports />
-
-      {workshop && <WorkshopPanel />}
+      {mounted && (
+        <OverleafWorkspace
+          workshop={workshop !== null}
+          inShell={workshop?.shell ?? false}
+          projectId={current?.id ?? null}
+          onExport={() => setExportOpen(true)}
+        />
+      )}
     </section>
   );
 }

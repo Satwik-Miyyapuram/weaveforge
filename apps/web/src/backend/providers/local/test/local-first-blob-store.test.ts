@@ -38,7 +38,7 @@ class FakeServer implements IBlobStore {
 
 async function database(): Promise<LocalQuery> {
   const pg = new PGlite();
-  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql"]) {
+  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql", "0021_local_blobs_on_disk.sql"]) {
     await pg.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
   }
   return async (sql, params) => (await pg.query(sql, params as unknown[])).rows;

@@ -199,6 +199,21 @@ export function McpClients({
             </Button>
           </div>
         )}
+        {mcp.rewrites && (
+          <div className="mcp-small">
+            {mcp.rewrites.changed.map((c) => (
+              <div key={c.file}>
+                Pointed at this app: <span className="mono">{c.file}</span>
+                {c.backup && <> (original kept at <span className="mono">{c.backup}</span>)</>}
+              </div>
+            ))}
+            {mcp.rewrites.skipped.map((file) => (
+              <div key={file}>
+                Left alone (could not be read or written): <span className="mono">{file}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {mcp.connected && (

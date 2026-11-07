@@ -54,47 +54,81 @@
 .callout--tip, .callout--success, .callout--check { background: color-mix(in srgb, var(--s-good) 12%, var(--surface)); border-left-color: var(--s-good); }
 .callout--info, .callout--note { border-left-color: var(--accent); }
 .markdown .katex-display { margin: 0; }
-.linked-overleaf-card { margin: 16px 0; }
-.linked-overleaf-summary {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
-  list-style: none;
-}
-.linked-overleaf-summary::-webkit-details-marker { display: none; }
-.linked-overleaf-toggle {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-md);
-  height: var(--control-md);
-  margin-top: 2px;
-  color: var(--muted);
-}
-.linked-overleaf-summary-main { flex: 1; min-width: 0; }
-.linked-overleaf-body { margin-top: 12px; }
-@media (min-width: 900px) {
-  .linked-overleaf-summary { cursor: default; }
-  .linked-overleaf-toggle { display: none; }
-}
-.linked-overleaf-head, .linked-overleaf-toolbar { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
-.linked-overleaf-head h2 { margin: 0; }
+/* Overleaf tab: connect, one project list (Choose projects picks which show), one project's Write / PDF. */
+.overleaf-workspace { display: grid; gap: 16px; margin: 16px 0; }
+.overleaf-project-list__hint { margin: 0; font-size: var(--fs-sm); text-align: center; }
+.overleaf-pick { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface-alt); cursor: pointer; }
+.overleaf-pick:has(input:checked) { border-color: var(--accent); }
+.overleaf-pick:has(input:disabled) { cursor: default; }
+.overleaf-pick > span { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.overleaf-pick small { color: var(--muted); font-size: var(--fs-sm); }
+.overleaf-conn-details > summary { cursor: pointer; font-weight: 600; }
+.overleaf-project-list { display: grid; gap: 12px; }
+.overleaf-project-list__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.overleaf-project-list__head h2 { margin: 0; flex: 1 1 auto; }
+.overleaf-project-list__search { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }
+.overleaf-project-list ul { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.overleaf-project-list .wf-row { display: grid; gap: 2px; width: 100%; padding: 12px; text-align: start; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); }
+.overleaf-project-list .wf-row:hover { border-color: var(--accent); }
+.overleaf-project-list .wf-row small { color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.overleaf-star { color: var(--accent); }
+.overleaf-empty { display: grid; gap: 12px; justify-items: start; padding: 24px; border: 1px dashed var(--line); border-radius: var(--r-control); }
+.overleaf-empty h2 { margin: 0; }
+/* Full width from the first paint: shrinking to content made the page widen when the code loaded. */
+.overleaf-detail { display: grid; gap: 12px; width: 100%; padding-bottom: 16px; }
+/* The panes fill the window, as Overleaf's do; the record's tall bottom padding made the page scroll. */
+.record.overleaf-detail { padding-bottom: 0; }
+/* An open project is its own record page, as a paper is: no list title above it. */
+.report-overleaf-screen:has(.overleaf-detail) > .screen-head { display: none; }
+/* The record title block, tighter: the editor below is the content. */
+.overleaf-detail .overleaf-detail__head { margin-top: 4px; padding-bottom: 8px; display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.overleaf-detail__head .record-title { flex: 0 1 auto; min-width: 0; max-width: none; font-size: var(--fs-h2); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overleaf-detail__head .record-meta { flex: 0 1 auto; min-width: 0; margin: 0; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The editor fills the window below the bar and title; the page itself does not scroll. */
+.record.overleaf-detail { display: flex; flex-direction: column; gap: 8px; height: calc(100dvh - var(--titlebar-h) - 88px); min-height: 520px; }
+.overleaf-detail__body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.overleaf-detail__blocked { display: grid; gap: 8px; justify-items: start; padding: 24px; border: 1px dashed var(--line); border-radius: var(--r-control); }
 .linked-overleaf-disclosure { padding: 12px 12px; border-radius: var(--r-control); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-size: var(--fs); }
-.linked-overleaf-list { display: grid; gap: 8px; margin-top: 12px; }
-.linked-overleaf-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px; text-align: left; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); flex-wrap: wrap; }
-.linked-overleaf-row.selected { border-color: var(--accent); }
-/* Title block on the left; View / Edit / Unlink stay a tight group on the right. */
-.linked-overleaf-row > .wf-row { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; text-align: start; }
-.linked-overleaf-row__actions { display: flex; align-items: center; gap: 12px 12px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
-.linked-overleaf-row__actions .muted { font-size: var(--fs-sm); flex: 1 1 100%; overflow-wrap: anywhere; }
 .linked-overleaf-form--edit { padding: 16px; border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--surface-alt); }
 .linked-overleaf-form__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.linked-overleaf-row small, .linked-overleaf-tree small { display: block; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.linked-overleaf-tree small { display: block; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .linked-overleaf-form { display: grid; gap: 12px; padding: 16px 0; }
 .linked-overleaf-form label { display: grid; gap: 4px; font-weight: 600; }
 .linked-overleaf-form input { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }
+.overleaf-connect { display: grid; gap: 12px; padding-top: 8px; }
+.overleaf-connect__choice { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.overleaf-connect__choice legend { margin-bottom: 4px; font-weight: 600; }
+.overleaf-connect__option { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface-alt); cursor: pointer; }
+.overleaf-connect__option:has(input:checked) { border-color: var(--accent); }
+.overleaf-connect__option .muted { font-size: var(--fs-sm); }
+.overleaf-connect__fallback summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+@media (max-width: 699px) {
+  .record.overleaf-detail { height: auto; }
+}
+/* PDF pane: Overleaf's thin bar over the page well. */
+.workshop-pdf { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); }
+.workshop-pdf__bar { display: flex; align-items: center; gap: 8px 12px; padding: 4px 8px; border-bottom: 1px solid var(--line); background: var(--surface-alt, var(--surface)); }
+.workshop-pdf__bar [role="status"] { flex: 1; font-size: var(--fs-sm); }
+.workshop-pdf__view { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+/* The browser shows the PDF alone, under the line saying editing needs the app. */
+.overleaf-detail__body > .workshop-pdf { flex: 1; height: auto; min-height: 420px; border: 1px solid var(--line); border-radius: var(--r-control); overflow: hidden; }
+/* The pane scrolls itself; the reader's title-bar offset left a gap above its toolbar. */
+.workshop-pdf .pdf-reader-chrome { top: 0; }
+/* In the pane the reader's chrome is one flush bar like Overleaf's: Recompile and
+   Download on the left, page, zoom and find on the right. Pen tools stay in the reader tab. */
+.workshop-pdf .pdf-reader { gap: 0; }
+:root:root .workshop-pdf .pdf-reader-chrome { flex-wrap: nowrap; gap: 4px; min-height: 36px; padding: 2px var(--s1); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: var(--surface-alt, var(--surface)); }
+:root:root .workshop-pdf .pdf-reader-chrome .ink-bar { order: 1; flex: 0 1 auto; min-width: 0; margin-inline-start: auto; overflow: hidden; flex-wrap: nowrap; gap: 4px; padding: 0; border: 0; box-shadow: none; background: transparent; }
+:root:root .workshop-pdf .pdf-reader-tools { order: 0; flex: none; flex-wrap: nowrap; gap: 4px; padding: 0; }
+:root:root .workshop-pdf .pdf-reader-chrome .pdf-reader-more { display: inline-flex; gap: 4px; padding: 0; border: 0; background: transparent; }
+:root:root .workshop-pdf :is(.pdf-reader-focus-btn, .ink-palette-handles, .ink-menu-more, [aria-label="Add a blank page"]) { display: none; }
+:root:root .workshop-pdf [aria-label="Find in document"] > span { display: none; }
+@container (max-width: 420px) {
+  :root:root .workshop-pdf :is([aria-label="Find in document"], .ink-page-pill:not(.ink-zoom-pill) button) { display: none; }
+}
+@container (max-width: 380px) {
+  :root:root .workshop-pdf .ink-page-pill:not(.ink-zoom-pill) { display: none; }
+}
 .linked-overleaf-content { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .linked-overleaf-content h3 { margin: 16px 0 8px; }
 .linked-overleaf-tree { display: grid; gap: 8px; margin: 0; }

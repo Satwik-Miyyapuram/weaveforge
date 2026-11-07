@@ -470,6 +470,9 @@ fn sync_blocking(
         }
         None => {
             write_link_change(prefs, &root, action, &next)?;
+            if action == "unlink" {
+                prune_git_dir(git, &root, &links, project);
+            }
             Ok(Step::Done(OverleafSyncReply {
                 links: next,
                 has_token,
@@ -498,6 +501,18 @@ fn write_link_change(
         "unlink" => write_links(prefs, next),
         _ => Ok(()),
     }
+}
+
+/// Removes an unlinked project's git directory, using the folder it was linked to.
+///
+/// Best effort: a directory that is already gone, or one that cannot be removed,
+/// never fails the unlink.
+fn prune_git_dir(git: &OverleafGit, root: &Path, links: &[OverleafLink], project: Option<&str>) {
+    let (Some(id), Some(folder)) = (project, linked_folder(links, project)) else {
+        return;
+    };
+    let dir = overleaf_git_dir(&git.store, root, &folder, id);
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 /// The checks a git action passes, then the repository and remote it runs against.

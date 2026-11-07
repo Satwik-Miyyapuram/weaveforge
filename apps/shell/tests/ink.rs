@@ -19,7 +19,7 @@ use weaveforge_shell_lib::ink::{
     Spawner, ink_recogniser_path, read_ink_request,
 };
 
-const NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not available.";
+const NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not available. Turn it on in Windows Settings › Time & language › Language & region: open your language's options and add Handwriting.";
 const TIMED_OUT: &str = "The handwriting recogniser did not answer in time.";
 const STOPPED: &str = "The handwriting recogniser stopped before answering.";
 const DISPOSED: &str = "The handwriting recogniser was stopped.";
@@ -621,6 +621,48 @@ async fn a_ready_line_without_a_version_still_makes_the_helper_ready() {
     assert!(available);
     assert_eq!(recogniser.version().as_deref(), Some(""));
     recogniser.dispose();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_ready_line_is_logged_with_its_version() {
+    let Fixture {
+        recogniser,
+        mut far,
+        diagnostics,
+        ..
+    } = fixture(LONG, LONG);
+    let (available, _helper) = tokio::join!(recogniser.available(), connect(&mut far));
+    assert!(available);
+    assert!(
+        diagnostics
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|line| line == "ink-recogniser: ready fake")
+    );
+    recogniser.dispose();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stderr_lines_reach_the_log_and_blank_ones_do_not() {
+    let lines = Arc::new(Mutex::new(Vec::<String>::new()));
+    let sink = Arc::clone(&lines);
+    let diagnostic: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(move |line: &str| {
+        sink.lock().unwrap().push(line.to_owned());
+    });
+    let stderr: &[u8] = b"Ink init failed: 0x80004005
+
+  
+second
+";
+    weaveforge_shell_lib::ink::forward_stderr(stderr, diagnostic).await;
+    assert_eq!(
+        *lines.lock().unwrap(),
+        vec![
+            "ink-recogniser stderr: Ink init failed: 0x80004005".to_owned(),
+            "ink-recogniser stderr: second".to_owned()
+        ]
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

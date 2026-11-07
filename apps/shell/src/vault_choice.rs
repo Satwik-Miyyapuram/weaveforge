@@ -1,6 +1,6 @@
 //! Moving the workspace to a folder the reader picked: the session, the remembered folder and the folder watch move together.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::prefs::{PrefValue, Prefs};
@@ -14,12 +14,15 @@ pub const ROOT_PREF: &str = "vault-root";
 pub const NOT_REMEMBERED: &str =
     "The workspace folder could not be remembered; it will be asked for again next time.";
 
+/// Said when the folder was let go for this run but is still remembered for the next start.
+pub const NOT_FORGOTTEN: &str = "The folder was disconnected, but could not be forgotten; it will be taken up again next start.";
+
 /// What a pick did.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
 pub struct Choice {
     /// The folder now in use; `None` when none is chosen.
     pub root: Option<VaultRoot>,
-    /// Problems that do not undo the pick (watch or remembering failed), for the app log.
+    /// Problems that do not undo the pick (watch or remembering failed), for the page and the app log.
     pub warnings: Vec<String>,
 }
 
@@ -53,8 +56,8 @@ pub fn adopt_choice(
     chosen: Option<&Path>,
     sink: ChangeSink,
 ) -> Result<Choice, String> {
-    adopt_inner(vault, prefs, slot, chosen, sink, |slot, root, sink| {
-        watch_root(slot, root, sink)
+    adopt_inner(vault, prefs, slot, chosen, sink, |root, sink| {
+        VaultWatcher::start(root, sink)
     })
 }
 
@@ -70,8 +73,8 @@ pub fn adopt_choice_with(
     quiet: Duration,
     window: Duration,
 ) -> Result<Choice, String> {
-    adopt_inner(vault, prefs, slot, chosen, sink, |slot, root, sink| {
-        watch_root_with(slot, root, sink, quiet, window)
+    adopt_inner(vault, prefs, slot, chosen, sink, |root, sink| {
+        VaultWatcher::start_with(root, sink, quiet, window)
     })
 }
 
@@ -101,17 +104,74 @@ pub fn restore_remembered(vault: &VaultState, prefs: &Prefs) -> Option<VaultRoot
     restored
 }
 
-/// Shared pick flow; `watch` is the only part that differs between default and given timings.
+/// The remembered folder, as text; `None` when none is remembered.
+fn remembered(prefs: &Prefs) -> Option<String> {
+    match prefs.read(ROOT_PREF) {
+        Ok(Some(PrefValue::Text(path))) if !path.is_empty() => Some(path),
+        _ => None,
+    }
+}
+
+/// The remembered folder while none is in use: it was missing at start (an unplugged drive,
+/// a share not mounted yet). `None` when a folder is in use or none is remembered.
+#[must_use]
+pub fn missing_remembered(vault: &VaultState, prefs: &Prefs) -> Option<String> {
+    if vault.lock().root().is_some() {
+        return None;
+    }
+    remembered(prefs)
+}
+
+/// Tries the remembered folder again, as a pick of that folder; nothing remembered answers the
+/// current folder unchanged.
+/// # Errors
+/// The reader-facing reason the folder still cannot hold a workspace; nothing changes.
+pub fn retry_remembered(
+    vault: &VaultState,
+    prefs: &Prefs,
+    slot: &WatchSlot,
+    sink: ChangeSink,
+) -> Result<Choice, String> {
+    let path = remembered(prefs).map(PathBuf::from);
+    adopt_choice(vault, prefs, slot, path.as_deref(), sink)
+}
+
+/// Stops using the folder: the session lets it go, its watch stops and it is no longer
+/// remembered. The watch is joined after the lock is let go, as in a pick.
+#[must_use]
+pub fn forget_choice(vault: &VaultState, prefs: &Prefs, slot: &WatchSlot) -> Choice {
+    let mut session = vault.lock();
+    session.forget();
+    let old = slot.take();
+    if let Some(old) = &old {
+        old.halt();
+    }
+    let mut warnings = Vec::new();
+    if prefs.write(ROOT_PREF, None).is_err() {
+        warnings.push(NOT_FORGOTTEN.to_owned());
+    }
+    drop(session);
+    drop(old);
+    Choice {
+        root: None,
+        warnings,
+    }
+}
+
+/// Shared pick flow; `start` is the only part that differs between default and given timings.
 ///
 /// The session stays locked for the whole pick, so two picks run one after the other and the
-/// session, remembered folder and watch always end on the same folder.
+/// session, remembered folder and watch always end on the same folder. A refused pick never
+/// touches the old watch, so the old folder is watched without a gap. On a good pick the old
+/// watch is halted under the lock (its news must not be read against the new folder) and
+/// joined only after the lock is let go, so a slow stop never stalls the vault commands.
 fn adopt_inner(
     vault: &VaultState,
     prefs: &Prefs,
     slot: &WatchSlot,
     chosen: Option<&Path>,
     sink: ChangeSink,
-    watch: impl FnOnce(&WatchSlot, &Path, ChangeSink) -> Result<(), String>,
+    start: impl FnOnce(&Path, ChangeSink) -> Result<VaultWatcher, String>,
 ) -> Result<Choice, String> {
     let Some(chosen) = chosen else {
         return Ok(Choice {
@@ -120,18 +180,11 @@ fn adopt_inner(
         });
     };
     let mut session = vault.lock();
-    let old = session.root();
-    // Stop the old folder first: its reports must never be read against the new folder.
-    slot.set(None);
-    let root = match session.choose(Some(chosen)) {
-        Ok(root) => root,
-        Err(reason) => {
-            if let Some(old) = old {
-                let _ = watch(slot, Path::new(&old.path), sink);
-            }
-            return Err(reason);
-        }
-    };
+    let root = session.choose(Some(chosen))?;
+    let old = slot.take();
+    if let Some(old) = &old {
+        old.halt();
+    }
     let mut warnings = Vec::new();
     if let Some(picked) = &root {
         if prefs
@@ -140,9 +193,12 @@ fn adopt_inner(
         {
             warnings.push(NOT_REMEMBERED.to_owned());
         }
-        if let Err(reason) = watch(slot, Path::new(&picked.path), sink) {
-            warnings.push(reason);
+        match start(Path::new(&picked.path), sink) {
+            Ok(watcher) => slot.set(Some(watcher)),
+            Err(reason) => warnings.push(reason),
         }
     }
+    drop(session);
+    drop(old);
     Ok(Choice { root, warnings })
 }

@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
 //! Tests for vault sync: the remote URL check, the stored settings, and the sync, commit and log paths.
-mod common;
+use crate::common;
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -20,7 +20,7 @@ use weaveforge_shell_lib::vault_sync::{
     sync,
 };
 use wf_store::git::policy::{GIT_OFF, RepoState};
-use wf_store::git::remote::{PullOutcome, PushOutcome, RemoteConfig, RemoteStatus};
+use wf_store::git::remote::{PullChoice, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus};
 use wf_store::git::repo::{FolderRepo, RepoError};
 
 const URL: &str = "https://github.com/me/notes.git";
@@ -118,6 +118,19 @@ fn pull_fails(_repo: &FolderRepo, _config: &RemoteConfig) -> Result<PullOutcome,
     ))
 }
 
+static CHOICES: Mutex<Vec<PullChoice>> = Mutex::new(Vec::new());
+
+fn resolve_merged(
+    _repo: &FolderRepo,
+    _config: &RemoteConfig,
+    choice: PullChoice,
+) -> Result<PullOutcome, RepoError> {
+    CHOICES.lock().unwrap().push(choice);
+    Ok(PullOutcome::Merged {
+        oid: "abc".to_owned(),
+    })
+}
+
 fn push_pushed(_repo: &FolderRepo, _config: &RemoteConfig) -> Result<PushOutcome, RepoError> {
     let _ = PUSHES.fetch_add(1, Ordering::SeqCst);
     Ok(PushOutcome::Pushed)
@@ -130,6 +143,7 @@ fn ops(probe: fn(&Path) -> RepoState) -> SyncOps {
         status: status_ok,
         connect: connect_ok,
         pull: pull_up_to_date,
+        resolve: resolve_merged,
         push: push_pushed,
     }
 }
@@ -603,11 +617,53 @@ async fn sync_op_error_has_token_removed() {
 }
 
 #[test]
-fn sync_actions_are_the_five_named() {
+fn sync_actions_are_the_eight_named() {
     assert_eq!(
         SYNC_ACTIONS,
-        ["settings", "status", "connect", "pull", "push"]
+        [
+            "settings",
+            "status",
+            "connect",
+            "pull",
+            "push",
+            "keep-mine",
+            "take-remote",
+            "keep-both"
+        ]
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn each_conflict_action_pulls_with_its_choice() {
+    let _serial = begin().await;
+    let dir = TempDir::new();
+    CHOICES.lock().unwrap().clear();
+    let pulls_before = PULLS.load(Ordering::SeqCst);
+    for action in ["keep-mine", "take-remote", "keep-both"] {
+        let reply = sync(
+            &GitQueue::default(),
+            ops(probe_own),
+            Some(dir.path().to_path_buf()),
+            action,
+            settings(true),
+            TIMEOUT,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            reply.pull,
+            Some(SyncPull::Merged {
+                oid: "abc".to_owned()
+            })
+        );
+        assert!(reply.push.is_none());
+    }
+    assert_eq!(
+        *CHOICES.lock().unwrap(),
+        [PullChoice::KeepMine, PullChoice::TakeRemote, PullChoice::KeepBoth]
+    );
+    // A choice never runs the plain pull as well.
+    assert_eq!(PULLS.load(Ordering::SeqCst), pulls_before);
 }
 
 // Mapping from wf-store outcomes

@@ -17,11 +17,13 @@ import { useIsDetailView } from "@/lib/hooks/use-detail-view";
 import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { titleForPath } from "@/lib/route-title";
+import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/keybindings";
 import { HeaderActions } from "./header-actions";
 import { TabBar } from "./tabbar";
 import { SubNav } from "./sub-nav";
 import { PageTransition } from "./page-transition";
 import { JumpToPalette } from "@/components/jump-to-palette";
+import { ShortcutsHost } from "@/components/shortcuts-host";
 import { NavPendingProvider } from "@/lib/nav-pending";
 import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
 import { RoutePending } from "./route-pending";
@@ -30,6 +32,7 @@ import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
+import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
 import { loadCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
@@ -38,6 +41,10 @@ import { CoreGate } from "./core-gate";
    code they carry is loaded after the page rather than with every one. */
 const WorkspaceFolderRestore = dynamic(
   () => import("@/features/workspace/ui/workspace-folder-restore").then((m) => m.WorkspaceFolderRestore),
+  { ssr: false },
+);
+const FolderChangeNote = dynamic(
+  () => import("@/features/workspace/ui/folder-change-note").then((m) => m.FolderChangeNote),
   { ssr: false },
 );
 const PdfTextFolderSync = dynamic(
@@ -87,7 +94,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     re-ask on every switch. See the component for why this is
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
+                <FolderChangeNote />
                 <ToastHost />
+                <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}
@@ -152,6 +161,17 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   const [override, setOverride] = useState<boolean | null>(null);
   const collapsed = override ?? (editorRoute || railByDefault);
   useEffect(() => setOverride(null), [editorRoute]);
+  // `⌘⇧B` folds the app sidebar from any screen, the hamburger's keyboard twin.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isTypingTarget(e.target as HTMLElement | null)) return;
+      if (commandForChord(e) !== "toggle-sidebar") return;
+      e.preventDefault();
+      setOverride((current) => !(current ?? (editorRoute || railByDefault)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editorRoute, railByDefault]);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
   // around. Collapse-toggle animations still play once this is on.
@@ -210,6 +230,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
       )}
       <main id="main" className="app-shell">
         <JumpToPalette />
+        <ShortcutsHost />
         {/* Mobile's home for the account controls; on desktop they live in the
             nav. Rendered for one breakpoint only — mounting both and hiding one
             with CSS gave every switcher a second copy holding its own state.

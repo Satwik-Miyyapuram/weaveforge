@@ -122,6 +122,7 @@ export function PdfReader({
   annotations = [],
   contentHash = "",
   paperTitle = "Paper",
+  viewOnly = false,
   quotationTypes,
   paperId,
   onAnnotationsChange,
@@ -158,8 +159,10 @@ export function PdfReader({
   // The writing page beside each PDF page is a setting, not the pen's: when it
   // followed the pen, every time the pen came out the pages halved and the
   // layout jumped from one page to two and back.
-  const [writingPage, setWritingPage] = useState(true);
+  const [writingPageSetting, setWritingPage] = useState(true);
   useEffect(() => setWritingPage(readWritingPage()), []);
+  // Nothing gets written on a view-only PDF, so it never has the writing page.
+  const writingPage = writingPageSetting && !viewOnly;
   const toggleWritingPage = useCallback((on: boolean) => {
     writeWritingPage(on);
     setWritingPage(on);
@@ -217,7 +220,7 @@ export function PdfReader({
   const markQuickHexes = (type: string) => toolColours[markColourTool(type)].quick.map(hexOf);
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
   const penWidth = readyCore().inkNoteWidthToPdfPoints(pen.prefs.width);
-  // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
+  // Focus, the workspace's way (`F11`): the paper and nothing else. Per
   // session, not persisted — a reader that reopens with every control hidden
   // looks broken, not focused.
   const [focus, setFocus] = useState(false);
@@ -387,7 +390,7 @@ export function PdfReader({
       const key = event.key.toLowerCase();
       const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
 
-      if (mod && event.shiftKey && key === "f") {
+      if (event.key === "F11" && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         k.toggleFocus();
         return;
@@ -1494,7 +1497,7 @@ export function PdfReader({
     >
       {focus && (
         <span className="focus-exit">
-          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={toggleFocus}>
+          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} size="sm" onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
@@ -1523,17 +1526,19 @@ export function PdfReader({
         <div className="pdf-reader-tools">
           {/* Wide screens switch tabs in the expanded sidebar. */}
           <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
-            <ViewSwitch
-              label="Sidebar view"
-              className="pdf-reader-side-seg pdf-reader-narrow-only"
-              value={sideCollapsed ? null : activeSideTab}
-              onChange={selectSideTab}
-              options={sideTabs}
-            />
+            {!viewOnly && (
+              <ViewSwitch
+                label="Sidebar view"
+                className="pdf-reader-side-seg pdf-reader-narrow-only"
+                value={sideCollapsed ? null : activeSideTab}
+                onChange={selectSideTab}
+                options={sideTabs}
+              />
+            )}
             {toolbarExtra}
           </div>
           <span className="pdf-reader-focus-btn">
-            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("F11")})`} onClick={toggleFocus}>
               <FocusGlyph on={false} />
             </IconButton>
           </span>
@@ -1544,6 +1549,7 @@ export function PdfReader({
             not mark greys its tools and keeps pages, view, find and more. */}
         <InkBar
           readOnly={!canCreate}
+          viewOnly={viewOnly}
           tool={barToolFor(pen.prefs.tool)}
           colour={drawColour}
           width={pen.prefs.width}
@@ -1565,7 +1571,7 @@ export function PdfReader({
             onFitWidth: penOpen ? undefined : viewport.fitWidth,
             onRotate: viewport.rotateClockwise,
             writingPage,
-            onWritingPage: toggleWritingPage,
+            onWritingPage: viewOnly ? undefined : toggleWritingPage,
           }}
           find={
             <ReaderSearchBar
@@ -1928,7 +1934,7 @@ export function PdfReader({
             hiding it moved the page under the pen. Focus gives the full width. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <span className="pdf-reader-side-rail">
           <RowButton
             aria-expanded={false}
@@ -1950,7 +1956,7 @@ export function PdfReader({
           </RowButton>
           </span>
         )}
-        {!sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
               <ViewSwitch

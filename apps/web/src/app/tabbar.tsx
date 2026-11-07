@@ -20,6 +20,13 @@ import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { FoldButton, NavButton, NavLink } from "@/components/controls";
 import { revealActiveNav } from "./reveal-active-nav";
+import dynamic from "next/dynamic";
+
+// Lazy: the indexing store pulls the PDF reader, which the nav must not wait for.
+const PdfIndexChip = dynamic(
+  () => import("@/features/search/ui/pdf-index-chip").then((m) => m.PdfIndexChip),
+  { ssr: false },
+);
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -199,7 +206,7 @@ export function TabBar({
                             <NavIcon name={item.icon ?? group.icon} />
                             <span className="nav-label">{item.label}</span>
                             {"badge" in item && item.badge !== undefined && (
-                              <b className="nav-badge" aria-label={`${item.badge} waiting`}>{item.badge}</b>
+                              <b className="nav-badge" aria-label={`${item.badge} waiting`} title={`${item.badge} waiting for you in ${item.label}`}>{item.badge}</b>
                             )}
                           </NavLink>
                         );
@@ -249,6 +256,7 @@ export function TabBar({
             <ProjectSwitcher />
             <HeaderActions inbox={false} alone={collapsed} />
           </div>
+          <PdfIndexChip />
           <LocalModeBadge />
         </div>
       )}

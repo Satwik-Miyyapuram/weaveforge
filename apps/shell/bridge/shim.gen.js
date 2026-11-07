@@ -76,8 +76,19 @@
         dbState: () => typedError(invoke("db_state")),
         /**  Resets the local database. */
         dbReset: () => typedError(invoke("db_reset")),
-        /**  Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron. */
+        /**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
         localApiCall: (channel, args) => typedError(invoke("local_api_call", { channel, args })),
+        /**  Reads one offline file as standard base64; `null` when it is missing. */
+        localFileRead: (bucket, path) => typedError(invoke("local_file_read", { bucket, path })),
+        /**
+         *  Writes one offline file from standard base64.
+         * 
+         *  # Errors
+         *  Invalid base64, or the write failed.
+         */
+        localFileWrite: (bucket, path, bytes) => typedError(invoke("local_file_write", { bucket, path, bytes })),
+        /**  Removes one offline file; a missing one is fine. */
+        localFileRemove: (bucket, path) => typedError(invoke("local_file_remove", { bucket, path })),
         /**  Stores a preference the page may write; `null` removes it. */
         preferenceWrite: (name, value) => typedError(invoke("preference_write", { name, value })),
         /**  Reads a secret the page may read. */
@@ -103,6 +114,27 @@
          */
         vaultChoose: () => typedError(invoke("vault_choose")),
         /**
+         *  The remembered folder while none is in use, so the page can say it is not available.
+         * 
+         *  # Errors
+         *  Never; a `Result` for the command shape.
+         */
+        vaultMissing: () => typedError(invoke("vault_missing")),
+        /**
+         *  Tries the remembered folder again, after a drive is plugged back in.
+         * 
+         *  # Errors
+         *  The reason the folder still cannot hold a workspace; nothing changes.
+         */
+        vaultRetry: () => typedError(invoke("vault_retry")),
+        /**
+         *  Disconnects the workspace folder: no longer used, watched or remembered. The files stay.
+         * 
+         *  # Errors
+         *  Only when the blocking task fails.
+         */
+        vaultForget: () => typedError(invoke("vault_forget")),
+        /**
          *  Reads a text file in the chosen folder.
          * 
          *  # Errors
@@ -116,6 +148,14 @@
          *  No folder chosen, a refused path, or contents over the size cap.
          */
         vaultWrite: (path, contents) => typedError(invoke("vault_write", { path, contents })),
+        /**
+         *  Writes a text file only if it still says `expected` (`None` = still
+         *  missing); `false` = it changed since it was read, and nothing was written.
+         * 
+         *  # Errors
+         *  No folder chosen, a refused path, or contents over the size cap.
+         */
+        vaultWriteIf: (path, contents, expected) => typedError(invoke("vault_write_if", { path, contents, expected })),
         /**
          *  Reads a binary file in the chosen folder as base64.
          * 
@@ -173,6 +213,20 @@
          */
         vaultLog: (limit) => typedError(invoke("vault_log", { limit })),
         /**
+         *  The commits that changed one file of the chosen folder, newest first.
+         * 
+         *  # Errors
+         *  The reason to show the reader when no folder is chosen.
+         */
+        vaultFileLog: (path, limit) => typedError(invoke("vault_file_log", { path, limit })),
+        /**
+         *  One file of the chosen folder as it was at a commit, as text; null when it is not text.
+         * 
+         *  # Errors
+         *  The reason to show the reader when no folder is chosen.
+         */
+        vaultReadAt: (oid, path) => typedError(invoke("vault_read_at", { oid, path })),
+        /**
          *  Fetches the page title of a pasted link from the public internet.
          * 
          *  # Errors
@@ -201,6 +255,13 @@
          */
         texCompile: (files, entryFile) => typedError(invoke("tex_compile", { files, entryFile })),
         /**
+         *  Stops the compiles running now; their replies say the compile was stopped.
+         * 
+         *  # Errors
+         *  Never; the `Err` arm is kept for the Tauri wiring.
+         */
+        texCancel: () => typedError(invoke("tex_cancel")),
+        /**
          *  Fetches a request from Zotero's local API on this computer.
          * 
          *  # Errors
@@ -211,9 +272,16 @@
          *  Looks for a newer release; only a packaged build checks.
          * 
          *  # Errors
-         *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+         *  When the releases could not be fetched, so the page can say the check failed.
          */
         updateCheck: () => typedError(invoke("update_check")),
+        /**
+         *  Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
+         * 
+         *  # Errors
+         *  Never.
+         */
+        signInListening: () => typedError(invoke("sign_in_listening")),
         /**
          *  Records a line the page reported; always `Ok`, as the TS handler sends nothing back.
          * 
@@ -228,6 +296,29 @@
          *  Never in practice; the `Err` arm is kept for the Tauri wiring.
          */
         appLogRead: () => typedError(invoke("app_log_read")),
+        /**
+         *  Shows the log file in the system file manager. Takes no path, so the page can open only this file.
+         * 
+         *  # Errors
+         *  When the file manager could not be opened, for example before the log file exists.
+         */
+        appLogReveal: () => typedError(invoke("app_log_reveal")),
+        /**
+         *  How much space each of the app's folders takes on this computer.
+         * 
+         *  # Errors
+         *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+         */
+        appStorageUsage: () => typedError(invoke("app_storage_usage")),
+        /**
+         *  Empties one of the app's folders, named by id.
+         * 
+         *  # Errors
+         *  An unknown id, or files that could not be deleted (often because they are in use).
+         */
+        appStorageClear: (id) => typedError(invoke("app_storage_clear", { id })),
+        /**  Removes the files an experiment saved on this computer, once the experiment is deleted. */
+        localArtifactsDelete: (experimentId) => typedError(invoke("local_artifacts_delete", { experimentId })),
         /**
          *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
          * 
@@ -249,6 +340,13 @@
          *  The message the page shows; see `mattermost_sign_in_with`.
          */
         mattermostSignIn: (serverUrl) => typedError(invoke("mattermost_sign_in", { serverUrl })),
+        /**
+         *  Opens the Overleaf sign-in window and answers a Workshop session id, or null if it was closed.
+         * 
+         *  # Errors
+         *  `SIGN_IN_NOT_OPENED` or `OVERLEAF_UNREACHABLE`, as the message the page shows.
+         */
+        overleafSignIn: () => typedError(invoke("overleaf_sign_in")),
         /**
          *  Sends one Mattermost post from the shell.
          * 
@@ -308,6 +406,20 @@
          */
         embedUnload: (model) => typedError(invoke("embed_unload", { model })),
         /**
+         *  The model files downloading now, with bytes done and the full size when known.
+         * 
+         *  # Errors
+         *  Never; the `Err` arm is kept for the Tauri wiring.
+         */
+        modelDownloads: () => typedError(invoke("model_downloads")),
+        /**
+         *  Stops the model downloads in flight; each keeps what it has, and the next load resumes it.
+         * 
+         *  # Errors
+         *  Never; the `Err` arm is kept for the Tauri wiring.
+         */
+        cancelModelDownloads: () => typedError(invoke("cancel_model_downloads")),
+        /**
          *  The window's menu, as the page's menu bar draws it.
          * 
          *  # Errors
@@ -334,7 +446,50 @@
          *  # Errors
          *  Returns an error when the window refuses the change.
          */
-        windowFocus: (focus) => typedError(invoke("window_focus", { focus }))
+        windowFocus: (focus) => typedError(invoke("window_focus", { focus })),
+        /**
+         *  Whether the widget can be shown here, and whether it is on.
+         * 
+         *  # Errors
+         *  Never fails; the `Result` keeps the command's shape.
+         */
+        planWidgetState: () => typedError(invoke("plan_widget_state")),
+        /**
+         *  Turns the widget on or off: saves the choice, then opens or closes its window.
+         * 
+         *  # Errors
+         *  Returns an error when the choice cannot be saved or the window cannot be opened or closed.
+         */
+        planWidgetSet: (on) => typedError(invoke("plan_widget_set", { on })),
+        /**
+         *  Takes the app's palette for the widget: saves it, and hands it to an open widget.
+         *  A palette that is not plain colours and shapes is dropped.
+         * 
+         *  # Errors
+         *  Returns an error when the palette cannot be saved.
+         */
+        planWidgetTheme: (palette) => typedError(invoke("plan_widget_theme", { palette })),
+        /**
+         *  The saved palette, if it is still a clean one.
+         * 
+         *  # Errors
+         *  Never fails; the `Result` keeps the command's shape.
+         */
+        planWidgetPalette: () => typedError(invoke("plan_widget_palette")),
+        /**
+         *  The widget's deadlines from the local database, as the web feed's widget JSON.
+         * 
+         *  # Errors
+         *  Returns an error when the local database cannot be read.
+         */
+        planWidgetData: () => typedError(invoke("plan_widget_data")),
+        /**
+         *  Brings the app forward on its plan page, opening the main window if it is closed.
+         * 
+         *  # Errors
+         *  Returns an error when the main window cannot be opened.
+         */
+        planWidgetOpen: () => typedError(invoke("plan_widget_open"))
       };
     }
   });
@@ -392,7 +547,10 @@
     return proto === Object.prototype || proto === null;
   }
   function unwrap(result) {
-    if (result.status === "error") throw new Error(result.error.message);
+    if (result.status === "error") {
+      const { message, code } = result.error;
+      throw code ? Object.assign(new Error(message), { code }) : new Error(message);
+    }
     return result.data;
   }
 
@@ -407,6 +565,10 @@
       }))
     };
   }
+  function choiceRoot(choice) {
+    if (!choice.root) return null;
+    return choice.warnings.length > 0 ? { ...choice.root, warnings: choice.warnings } : choice.root;
+  }
   function finiteRows(rows) {
     return rows.map(
       (row) => row.map((value) => {
@@ -418,6 +580,7 @@
     );
   }
   var VAULT_CHANGED_EVENT = "vault-changed";
+  var VAULT_WATCH_LOST_EVENT = "vault-watch-lost";
   var SEMANTIC_RANK_EVENT = "semanticRank";
   var EMBED_PROGRESS_EVENT = "embedProgress";
   var LOCAL_API = {
@@ -484,6 +647,10 @@
       embedUnload: async (model) => {
         unwrap(await cmds.embedUnload(model));
       },
+      modelDownloads: async () => unwrap(await cmds.modelDownloads()).map((d) => ({ ...d, done: d.done ?? 0 })),
+      cancelModelDownloads: async () => {
+        unwrap(await cmds.cancelModelDownloads());
+      },
       // Same unlisten rule as `onVaultChange`.
       onEmbedProgress: (cb) => {
         let stopped = false;
@@ -525,6 +692,26 @@
           unlisten = null;
         };
       },
+      // Same unlisten rule as `onVaultChange`.
+      onVaultWatchLost: (cb) => {
+        let stopped = false;
+        let unlisten = null;
+        void events.listen(VAULT_WATCH_LOST_EVENT, (payload) => {
+          if (stopped || typeof payload !== "string") return;
+          cb(payload);
+        }).then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        }).catch((error) => {
+          console.warn("A lost workspace folder watch will not be reported:", error);
+        });
+        return () => {
+          if (stopped) return;
+          stopped = true;
+          unlisten?.();
+          unlisten = null;
+        };
+      },
       inkAvailable: async () => {
         try {
           return unwrap(await cmds.inkAvailable());
@@ -554,6 +741,7 @@
         });
       },
       mattermostSignIn: async (serverUrl) => unwrap(await cmds.mattermostSignIn(serverUrl)),
+      overleafSignIn: async () => unwrap(await cmds.overleafSignIn()),
       mattermostPost: async (req) => unwrap(
         await cmds.mattermostPost({
           serverUrl: req.serverUrl,
@@ -569,11 +757,15 @@
         return unwrap(await cmds.overleafSync(request.action, projectId, folder));
       },
       vaultRoot: async () => unwrap(await cmds.vaultRoot()),
-      chooseVaultRoot: async () => unwrap(await cmds.vaultChoose()),
+      chooseVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultChoose())),
+      missingVaultRoot: async () => unwrap(await cmds.vaultMissing()),
+      retryVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultRetry())),
+      forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
       readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
       writeVaultFile: async (path, contents) => {
         unwrap(await cmds.vaultWrite(path, contents));
       },
+      writeVaultFileIf: async (path, contents, expected) => unwrap(await cmds.vaultWriteIf(path, contents, expected)),
       readVaultBytes: async (path) => {
         const data = unwrap(await cmds.vaultReadBytes(path));
         return data === null ? null : fromBase64(data);
@@ -586,8 +778,20 @@
       removeVaultFile: async (path) => {
         unwrap(await cmds.vaultRemove(path));
       },
+      readLocalFile: async (bucket, path) => {
+        const data = unwrap(await cmds.localFileRead(bucket, path));
+        return data === null ? null : fromBase64(data);
+      },
+      writeLocalFile: async (bucket, path, bytes) => {
+        unwrap(await cmds.localFileWrite(bucket, path, toBase64(bytes)));
+      },
+      removeLocalFile: async (bucket, path) => {
+        unwrap(await cmds.localFileRemove(bucket, path));
+      },
       commitVault: async () => unwrap(await cmds.vaultCommit()),
       vaultLog: async (limit) => unwrap(await cmds.vaultLog(limit)),
+      vaultFileLog: async (path, limit) => unwrap(await cmds.vaultFileLog(path, limit)),
+      vaultReadAt: async (oid, path) => unwrap(await cmds.vaultReadAt(oid, path)),
       vaultSync: async (action) => unwrap(await cmds.vaultSync(action)),
       fetchTitle: async (url) => unwrap(await cmds.fetchTitle(url)),
       fetchImage: async (url) => {
@@ -611,8 +815,19 @@
           pdf: result.pdf === null ? null : exactBytes(fromBase64(result.pdf))
         };
       },
+      cancelTex: async () => {
+        unwrap(await cmds.texCancel());
+      },
       zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
       checkUpdate: async () => unwrap(await cmds.updateCheck()),
+      // A failed question is no reason to ask for a pasted link, so it counts as listening.
+      signInListening: async () => {
+        try {
+          return unwrap(await cmds.signInListening());
+        } catch {
+          return true;
+        }
+      },
       // Logging must never throw into the page, so a failed report is dropped.
       reportAppLog: (entry) => {
         void cmds.appLogReport({
@@ -624,6 +839,21 @@
         });
       },
       readAppLog: async () => unwrap(await cmds.appLogRead()),
+      revealAppLog: async () => {
+        unwrap(await cmds.appLogReveal());
+      },
+      storageUsage: async () => unwrap(await cmds.appStorageUsage()).map((area) => ({
+        id: area.id,
+        bytes: area.bytes ?? 0,
+        files: area.files ?? 0,
+        limit: area.limit ?? null
+      })),
+      clearStorage: async (id) => {
+        unwrap(await cmds.appStorageClear(id));
+      },
+      deleteLocalArtifacts: async (experimentId) => {
+        unwrap(await cmds.localArtifactsDelete(experimentId));
+      },
       writePreference: async (name, value) => {
         unwrap(await cmds.preferenceWrite(name, value));
       },
@@ -633,6 +863,12 @@
       },
       clearSecret: async (name) => {
         unwrap(await cmds.secretClear(name));
+      },
+      planWidgetState: async () => unwrap(await cmds.planWidgetState()),
+      setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
+      setPlanWidgetTheme: (palette) => {
+        void cmds.planWidgetTheme(palette).catch(() => {
+        });
       }
     };
   }
@@ -646,6 +882,7 @@
   // apps/shell/bridge/inject.ts
   init_tauri_core();
   var SIGN_IN_EVENT = "sign-in";
+  var MENU_CHANGE_EVENT = "tauri://resize";
   function createSignInInbox() {
     const listeners = /* @__PURE__ */ new Set();
     let pending = null;
@@ -682,6 +919,20 @@
       invokeMenuItem: async (id) => {
         unwrap(await cmds.menuInvoke(id));
       },
+      onMenuChange: (cb) => {
+        let stopped = false;
+        let unlisten;
+        void events.listen(MENU_CHANGE_EVENT, () => cb()).then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        }).catch((error) => {
+          console.warn("The menu will not follow window changes:", error);
+        });
+        return () => {
+          stopped = true;
+          unlisten?.();
+        };
+      },
       // Fire and forget, like the Electron ipc send: a failed colour set is logged.
       setTitleBarColors: ({ background, ink }) => {
         void cmds.titleBarColors(background, ink).then((reply) => unwrap(reply)).catch((error) => {
@@ -699,8 +950,18 @@
     if (target.weaveforge) return;
     target.weaveforge = desktopBridge(deps.commands, { listen: deps.listen }, info);
   }
+  function hideSystemMenu(event, selectedText) {
+    if (event.defaultPrevented || selectedText.trim()) return;
+    const target = event.target;
+    if (target?.closest?.("input, textarea, [contenteditable]:not([contenteditable='false'])")) return;
+    event.preventDefault();
+  }
   var shellInfo = globalThis.__WEAVEFORGE_SHELL__;
   if (shellInfo) {
+    globalThis.addEventListener(
+      "contextmenu",
+      (event) => hideSystemMenu(event, globalThis.getSelection?.()?.toString() ?? "")
+    );
     void Promise.resolve().then(() => (init_bindings(), bindings_exports)).then(
       ({ commands: generated }) => install(globalThis, shellInfo, {
         commands: generated,

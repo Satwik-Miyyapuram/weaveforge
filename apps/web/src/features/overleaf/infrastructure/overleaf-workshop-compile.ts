@@ -19,7 +19,7 @@ type SignedInCompile =
 async function signInAndCompile(
   cookies: string,
   projectId: string,
-  rootResourcePath: string,
+  rootResourcePath: string | null,
   api: BaseAPI,
 ): Promise<SignedInCompile> {
   const login = await api.cookiesLogin(cookies);
@@ -37,7 +37,7 @@ async function signInAndCompile(
 export async function compileOverleafProjectWithCookies(
   cookies: string,
   projectId: string,
-  rootResourcePath: string,
+  rootResourcePath: string | null,
   api: BaseAPI = new BaseAPI(OVERLEAF_BASE_URL),
 ): Promise<OverleafCompileResult> {
   const result = await signInAndCompile(cookies, projectId, rootResourcePath, api);
@@ -56,7 +56,7 @@ export function workshopPdfResponse(pdf: Uint8Array): Response {
 export async function fetchOverleafPdfWithCookies(
   cookies: string,
   projectId: string,
-  rootResourcePath: string,
+  rootResourcePath: string | null,
   api: BaseAPI = new BaseAPI(OVERLEAF_BASE_URL),
 ): Promise<OverleafPdfResult> {
   const result = await signInAndCompile(cookies, projectId, rootResourcePath, api);

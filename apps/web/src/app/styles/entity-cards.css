@@ -35,6 +35,8 @@
 
 .empty-mark .nav-icon,
 .empty-mark .vicon { width: 26px; height: 26px; }
+/* The bare brand mark fills most of the tile; the tile is its background. */
+.empty-mark .empty-logo { width: 70%; height: 70%; }
 
 .empty-title {
   margin: 0;

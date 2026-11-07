@@ -6,7 +6,7 @@ use std::collections::HashSet;
 
 use weaveforge_shell_lib::menu::{
     BAD_TITLE_BAR_COLOR, DOCS_URL, MenuGroup, MenuHost, MenuItem, MenuItemKind, MenuRole,
-    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command,
+    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command, page_command_script, page_route_script,
     menu_invoke, menu_model,
 };
 
@@ -104,6 +104,26 @@ fn page_command_event_is_the_name_the_title_bar_listens_for() {
     assert_eq!(PAGE_COMMAND_EVENT, "weaveforge:menu-command");
 }
 
+// A Tauri `emit` never reaches the page's `window.addEventListener`; the menu must dispatch a DOM event.
+#[test]
+fn page_scripts_dispatch_the_dom_event_the_title_bar_listens_for() {
+    let command = page_command_script("search");
+    assert_eq!(
+        command,
+        "window.dispatchEvent(new CustomEvent(\"weaveforge:menu-command\",{detail:{command:\"search\"}}))"
+    );
+    let route = page_route_script("/settings");
+    assert!(route.contains("new CustomEvent(\"weaveforge:menu-command\",{cancelable:true,detail:{route:\"/settings\"}})"));
+    assert!(route.contains("window.dispatchEvent(e)"));
+    assert!(route.contains("if(!e.defaultPrevented)window.location.assign(\"/settings\")"));
+}
+
+#[test]
+fn page_scripts_escape_what_they_carry() {
+    let script = page_command_script("a\"b</script>\\");
+    assert!(script.contains("command:\"a\\\"b</script>\\\\\""));
+}
+
 #[test]
 fn menu_groups_are_file_edit_go_view_window_help() {
     let labels: Vec<String> = menu_model(&FakeHost::default())
@@ -141,6 +161,16 @@ fn route_entries_call_go_to_with_their_route() {
         menu_invoke(&host, id).expect("invoke");
         assert_eq!(calls(&host), [format!("go_to:{route}")]);
     }
+}
+
+#[cfg(windows)]
+#[test]
+fn view_menu_opens_the_desktop_widget_settings() {
+    let host = FakeHost::default();
+    let groups = menu_model(&host);
+    let id = id_of(&groups, "View", "Desktop deadlines widget…");
+    menu_invoke(&host, &id).expect("invoke");
+    assert_eq!(calls(&host), ["go_to:/settings#settings-calendar"]);
 }
 
 #[test]
@@ -280,7 +310,13 @@ fn help_group_matches_ts_labels_and_version_is_disabled() {
         .collect();
     assert_eq!(
         labels,
-        ["Documentation", "", "Check for updates…", "Version 1.2.3"]
+        [
+            "Documentation",
+            "Keyboard shortcuts",
+            "",
+            "Check for updates…",
+            "Version 1.2.3"
+        ]
     );
     let version = item(&groups, "Help", "Version 1.2.3");
     assert!(!version.enabled);
@@ -293,7 +329,43 @@ fn help_entries_invoke_their_host_methods() {
     let groups = menu_model(&host);
     menu_invoke(&host, &id_of(&groups, "Help", "Documentation")).expect("invoke");
     menu_invoke(&host, &id_of(&groups, "Help", "Check for updates…")).expect("invoke");
-    assert_eq!(calls(&host), ["open_docs", "check_updates"]);
+    menu_invoke(&host, &id_of(&groups, "Help", "Keyboard shortcuts")).expect("invoke");
+    assert_eq!(
+        calls(&host),
+        ["open_docs", "check_updates", "page_command:shortcuts"]
+    );
+}
+
+/// The command palette runs these by id, so the ids must not move with the menu's order.
+#[test]
+fn palette_actions_have_stable_ids() {
+    let host = FakeHost {
+        root: Some("/home/u/vault".to_owned()),
+        ..Default::default()
+    };
+    let groups = menu_model(&host);
+    assert_eq!(id_of(&groups, "Help", "Documentation"), "action:docs");
+    assert_eq!(
+        id_of(&groups, "Help", "Check for updates…"),
+        "action:check-updates"
+    );
+    assert_eq!(
+        id_of(&groups, "Help", "Keyboard shortcuts"),
+        "page:shortcuts"
+    );
+    assert_eq!(
+        id_of(&groups, "File", "Show in file explorer"),
+        "action:show-in-explorer"
+    );
+    assert_eq!(
+        id_of(&groups, "File", "Change workspace folder…"),
+        "action:choose-workspace"
+    );
+    let bare = menu_model(&FakeHost::default());
+    assert_eq!(
+        id_of(&bare, "File", "Choose workspace folder…"),
+        "action:choose-workspace"
+    );
 }
 
 #[test]
@@ -395,6 +467,18 @@ fn minimize_and_close_have_no_accelerator() {
     let groups = menu_model(&FakeHost::default());
     assert_eq!(item(&groups, "Window", "Minimize").accelerator, None);
     assert_eq!(item(&groups, "Window", "Close window").accelerator, None);
+}
+
+/// The page's own window buttons call these ids, since the window has no OS frame.
+#[test]
+fn window_buttons_have_fixed_ids() {
+    let host = FakeHost::default();
+    let groups = menu_model(&host);
+    assert_eq!(item(&groups, "Window", "Minimize").id, "window:minimize");
+    assert_eq!(item(&groups, "Window", "Close window").id, "window:close");
+    menu_invoke(&host, "window:minimize").expect("invoke");
+    menu_invoke(&host, "window:close").expect("invoke");
+    assert_eq!(calls(&host), ["role:Minimize", "role:Close"]);
 }
 
 #[test]

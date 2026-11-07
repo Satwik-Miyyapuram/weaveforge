@@ -1,7 +1,7 @@
 //! Tests for the vault folder watcher: which outside changes reach the page.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-mod common;
+use crate::common;
 
 use std::fs;
 use std::path::Path;
@@ -11,7 +11,8 @@ use std::time::Duration;
 
 use common::TempDir;
 use weaveforge_shell_lib::vault_watcher::{
-    CANNOT_WATCH, ChangeSink, VaultWatcher, WatchSlot, is_ignored, relative_path,
+    CANNOT_WATCH, ChangeSink, LostSink, VaultWatcher, WATCH_LOST, WatchSlot, is_ignored,
+    relative_path,
 };
 use wf_store::vault::TEMP_SUFFIX;
 
@@ -249,4 +250,80 @@ fn the_main_window_may_listen_for_vault_changes() {
     assert_eq!(capability["windows"], serde_json::json!(["main"]));
     let permissions = capability["permissions"].as_array().unwrap();
     assert!(permissions.contains(&serde_json::json!("core:event:default")));
+}
+
+#[test]
+fn a_halted_watch_reports_nothing_more() {
+    let dir = TempDir::new();
+    let (watcher, rx, _alive) = start(dir.path());
+    watcher.halt();
+    fs::write(dir.path().join("late.md"), b"l").unwrap();
+    assert_eq!(
+        rx.recv_timeout(Duration::from_millis(800)).err(),
+        Some(RecvTimeoutError::Timeout),
+        "a halted watch must not report"
+    );
+    drop(watcher);
+}
+
+#[test]
+fn taking_the_watch_leaves_the_slot_empty() {
+    let dir = TempDir::new();
+    let (watcher, _rx, _alive) = start(dir.path());
+    let slot = WatchSlot::default();
+    slot.set(Some(watcher));
+    let taken = slot.take();
+    assert!(taken.is_some());
+    assert!(!slot.is_watching());
+    assert!(slot.take().is_none());
+}
+
+/// A slot that reports a lost folder into the returned channel.
+fn losing_slot() -> (WatchSlot, Receiver<String>) {
+    let (tx, rx) = mpsc::channel();
+    let lost: LostSink = Arc::new(move |reason: String| {
+        let _ = tx.send(reason);
+    });
+    (WatchSlot::reporting_loss(lost), rx)
+}
+
+#[test]
+fn a_renamed_folder_is_said_lost_once() {
+    let dir = TempDir::new();
+    let root = dir.path().join("vault");
+    fs::create_dir(&root).unwrap();
+    let (watcher, _rx, _alive) = start(&root);
+    let (slot, lost) = losing_slot();
+    slot.set(Some(watcher));
+    fs::rename(&root, dir.path().join("moved")).unwrap();
+    assert_eq!(lost.recv_timeout(WAIT).unwrap(), WATCH_LOST);
+    let again = lost.recv_timeout(Duration::from_millis(2500));
+    assert!(matches!(again, Err(RecvTimeoutError::Timeout)));
+}
+
+#[test]
+fn a_folder_still_there_is_not_said_lost() {
+    let dir = TempDir::new();
+    let (watcher, _rx, _alive) = start(dir.path());
+    let (slot, lost) = losing_slot();
+    slot.set(Some(watcher));
+    fs::write(dir.path().join("a.md"), b"x").unwrap();
+    let got = lost.recv_timeout(Duration::from_millis(2500));
+    assert!(matches!(got, Err(RecvTimeoutError::Timeout)));
+}
+
+#[test]
+fn a_halted_watch_does_not_say_its_folder_is_lost() {
+    let dir = TempDir::new();
+    let root = dir.path().join("vault");
+    fs::create_dir(&root).unwrap();
+    let (watcher, _rx, _alive) = start(&root);
+    let (slot, lost) = losing_slot();
+    slot.set(Some(watcher));
+    let taken = slot.take().unwrap();
+    taken.halt();
+    fs::rename(&root, dir.path().join("moved")).unwrap();
+    let got = lost.recv_timeout(Duration::from_millis(2500));
+    assert!(matches!(got, Err(RecvTimeoutError::Timeout)));
+    drop(taken);
 }

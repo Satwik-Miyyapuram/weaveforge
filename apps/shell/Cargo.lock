@@ -64,6 +64,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "android-native-keyring-store"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48c6349ddff23194f8fdce2ea8849380f5a4868c1648965b70e801e104cba9b3"
+dependencies = [
+ "base64 0.22.1",
+ "jni 0.21.1",
+ "keyring-core",
+ "log",
+ "ndk-context",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2480,6 +2498,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "jsonc-parser"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ecded084f9b9a718d39668a42657c32253663d1f6afb3fbb9134f0305f73f48"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
@@ -5855,6 +5882,7 @@ dependencies = [
 name = "weaveforge-shell"
 version = "0.1.0"
 dependencies = [
+ "android-native-keyring-store",
  "apple-native-keyring-store",
  "base64 0.23.1",
  "bytes",
@@ -5864,6 +5892,7 @@ dependencies = [
  "getrandom 0.3.4",
  "git2",
  "httparse",
+ "jsonc-parser",
  "keyring-core",
  "notify",
  "postgres-protocol",

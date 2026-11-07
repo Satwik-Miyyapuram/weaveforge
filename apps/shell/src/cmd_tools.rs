@@ -8,7 +8,7 @@ use crate::commands::ShellError;
 use crate::tex::{
     TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, compile_tex, probe_tex,
 };
-use crate::update_check::{Update, check_update_reply};
+use crate::update_check::{UPDATE_CHECK_FAILED, Update, check_update_reply};
 use crate::zotero_local::{ZoteroLocalReply, fetch_zotero_local};
 
 /// A compile's outcome for the page: the PDF as base64.
@@ -128,9 +128,17 @@ pub fn read_log(log: &AppLog) -> AppLogText {
 ///
 /// A non-array project never gets here: the typed shim only sends arrays, and
 /// serde rejects anything else before the command runs.
-pub async fn compile(files: Vec<TexSourceFile>, entry_file: String) -> TexCompileReply {
-    TexCompileReply::from(compile_tex(&files, &entry_file).await)
+pub async fn compile(
+    files: Vec<TexSourceFile>,
+    entry_file: String,
+    stop: &TexStop,
+) -> TexCompileReply {
+    TexCompileReply::from(compile_tex(&files, &entry_file, &stop.0).await)
 }
+
+/// Stops the compiles running now when notified; held as app state.
+#[derive(Debug, Default)]
+pub struct TexStop(pub tokio::sync::Notify);
 
 /// Probes for a LaTeX engine; `None` when there is none.
 ///
@@ -149,10 +157,22 @@ pub async fn tex_probe() -> Result<Option<TexTool>, ShellError> {
 #[tauri::command]
 #[specta::specta]
 pub async fn tex_compile(
+    stop: tauri::State<'_, TexStop>,
     files: Vec<TexSourceFile>,
     entry_file: String,
 ) -> Result<TexCompileReply, ShellError> {
-    Ok(compile(files, entry_file).await)
+    Ok(compile(files, entry_file, stop.inner()).await)
+}
+
+/// Stops the compiles running now; their replies say the compile was stopped.
+///
+/// # Errors
+/// Never; the `Err` arm is kept for the Tauri wiring.
+#[tauri::command]
+#[specta::specta]
+pub async fn tex_cancel(stop: tauri::State<'_, TexStop>) -> Result<(), ShellError> {
+    stop.0.notify_waiters();
+    Ok(())
 }
 
 /// Fetches a request from Zotero's local API on this computer.
@@ -168,12 +188,17 @@ pub async fn zotero_local(url: String) -> Result<ZoteroLocalReply, ShellError> {
 /// Looks for a newer release; only a packaged build checks.
 ///
 /// # Errors
-/// Never in practice; the `Err` arm is kept for the Tauri wiring.
+/// When the releases could not be fetched, so the page can say the check failed.
 #[tauri::command]
 #[specta::specta]
 pub async fn update_check(app: tauri::AppHandle) -> Result<Option<Update>, ShellError> {
     let current = app.package_info().version.to_string();
-    check_update_reply(!tauri::is_dev(), &current)
+    let warn = |detail: &str| {
+        if let Some(log) = tauri::Manager::try_state::<AppLog>(&app) {
+            log.record(LogLevel::Warn, "update", UPDATE_CHECK_FAILED, Some(detail));
+        }
+    };
+    check_update_reply(!tauri::is_dev(), &current, warn)
         .await
         .map_err(ShellError::from)
 }
@@ -200,4 +225,22 @@ pub async fn app_log_report(
 #[specta::specta]
 pub async fn app_log_read(log: tauri::State<'_, AppLog>) -> Result<AppLogText, ShellError> {
     Ok(read_log(log.inner()))
+}
+
+/// Shows the log file in the system file manager. Takes no path, so the page can open only this file.
+///
+/// # Errors
+/// When the file manager could not be opened, for example before the log file exists.
+#[tauri::command]
+#[specta::specta]
+pub async fn app_log_reveal(
+    app: tauri::AppHandle,
+    log: tauri::State<'_, AppLog>,
+) -> Result<(), ShellError> {
+    use tauri_plugin_opener::OpenerExt as _;
+    app.opener().reveal_item_in_dir(log.path()).map_err(|_| {
+        ShellError::from(
+            "Could not show the log file. It may not have been written yet.".to_owned(),
+        )
+    })
 }

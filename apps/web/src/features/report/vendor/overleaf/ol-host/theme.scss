@@ -1,0 +1,131 @@
+// Our theme on Overleaf's IDE. Overleaf's components read its semantic colour
+// variables (foundations/colors.scss); pointing those at the app's tokens
+// re-themes every component without touching its stylesheets. The app's tokens
+// already change with its mode, so Overleaf's light and dark sets map alike.
+// Written on :root, which the build scopes to `.ol-ide`; imported last so it
+// wins over Overleaf's own :root.
+
+:root {
+  // Overleaf's brand green is its accent; its steps become ours, tinted and
+  // shaded the way Overleaf's are, so the pairs it sets (green-70 on green-10)
+  // keep their contrast in both modes.
+  --green-10: color-mix(in srgb, var(--accent) 10%, white);
+  --green-15: color-mix(in srgb, var(--accent) 16%, white);
+  --green-20: color-mix(in srgb, var(--accent) 30%, white);
+  --green-30: color-mix(in srgb, var(--accent) 50%, white);
+  --green-40: color-mix(in srgb, var(--accent) 75%, white);
+  --green-50: var(--accent);
+  --green-60: color-mix(in srgb, var(--accent) 80%, black);
+  --green-65: color-mix(in srgb, var(--accent) 75%, black);
+  --green-70: color-mix(in srgb, var(--accent) 65%, black);
+
+  --bg-light-primary: var(--surface);
+  --bg-light-secondary: var(--surface2);
+  --bg-light-tertiary: color-mix(in srgb, var(--text) 10%, var(--surface));
+  --bg-light-disabled: var(--surface2);
+  --bg-dark-primary: var(--surface);
+  --bg-dark-secondary: var(--surface2);
+  --bg-dark-tertiary: color-mix(in srgb, var(--text) 10%, var(--surface));
+  --bg-dark-disabled: var(--surface2);
+
+  --bg-accent-01: var(--accent);
+  --bg-accent-02: var(--green-60);
+  --bg-accent-03: var(--accent-soft);
+  --bg-danger-01: var(--s-danger);
+  --bg-danger-03: var(--s-danger-bg);
+  --bg-warning-01: var(--s-warn);
+  --bg-warning-03: var(--s-warn-bg);
+  --bg-info-01: var(--s-info);
+  --bg-info-03: var(--s-info-bg);
+
+  --content-primary: var(--text);
+  --content-secondary: var(--muted);
+  --content-disabled: var(--faint);
+  --content-placeholder: var(--faint);
+  --content-danger: var(--s-danger);
+  --content-warning: var(--s-warn);
+  --content-positive: var(--s-good);
+  --content-info: var(--s-info);
+  --content-primary-dark: var(--text);
+  --content-secondary-dark: var(--muted);
+  --content-disabled-dark: var(--faint);
+  --content-placeholder-dark: var(--faint);
+  --content-danger-dark: var(--s-danger);
+  --content-warning-dark: var(--s-warn);
+  --content-positive-dark: var(--s-good);
+  --content-info-dark: var(--s-info);
+
+  --border-primary: var(--border-strong);
+  --border-hover: var(--muted);
+  --border-disabled: var(--border);
+  --border-active: var(--accent);
+  --border-danger: var(--s-danger);
+  --border-divider: var(--border);
+  --border-dark-divider: var(--border);
+  --border-primary-dark: var(--border-strong);
+  --border-hover-dark: var(--muted);
+  --border-disabled-dark: var(--border);
+  --border-active-dark: var(--accent);
+  --border-danger-dark: var(--s-danger);
+  --border-divider-dark: var(--border);
+
+  --link-web: var(--accent);
+  --link-web-hover: var(--accent);
+  --link-web-visited: var(--accent);
+  --link-ui: var(--accent);
+  --link-ui-hover: var(--accent);
+  --link-ui-visited: var(--accent);
+  --link-web-dark: var(--accent);
+  --link-web-hover-dark: var(--accent);
+  --link-web-visited-dark: var(--accent);
+  --link-ui-dark: var(--accent);
+  --link-ui-hover-dark: var(--accent);
+  --link-ui-visited-dark: var(--accent);
+
+  --bs-font-sans-serif: var(--font);
+  --font-sans: var(--font);
+  --ds-font-family-sans: var(--font);
+  --bs-font-monospace: var(--font-mono);
+
+  // Bootstrap's own body colours are fixed hex; modals and other Bootstrap
+  // parts read them directly.
+  --bs-body-bg: var(--surface);
+  --bs-body-color: var(--text);
+  --bs-emphasis-color: var(--text);
+  --bs-secondary-color: var(--muted);
+  --bs-secondary-bg: var(--surface2);
+  --bs-tertiary-color: var(--faint);
+  --bs-tertiary-bg: var(--surface2);
+  --bs-border-color: var(--border);
+}
+
+// Bootstrap's modal fixes its text and border hex on .modal itself.
+.modal.modal {
+  --bs-modal-color: var(--text);
+  --bs-modal-border-color: var(--border);
+}
+
+// Overleaf keeps modals light in its dark theme, so their close icon is black;
+// ours are dark there, so it is drawn white, as Bootstrap does on dark.
+[data-theme='default'] .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+// Text on the accent and danger fills. Tripled so, scoped under `.ol-ide`, it
+// outranks Overleaf's `[data-theme] .btn`, which the build makes `body[data-theme] .ol-ide .btn`.
+.btn.btn.btn {
+  --btn-primary-color: var(--accent-fg);
+  --btn-danger-color: var(--surface);
+}
+
+// The editor keeps its theme's syntax colours (overleaf_dark or textmate) but
+// sits on the app's surface. Under `.ol-ide`, these outrank CodeMirror's own
+// generated `.ͼN .cm-…` theme rules.
+.cm-editor.cm-editor,
+.cm-editor .cm-gutters {
+  background-color: var(--surface);
+}
+.cm-editor .cm-activeLine,
+.cm-editor .cm-activeLineGutter {
+  background-color: color-mix(in srgb, var(--text) 8%, var(--surface));
+}

@@ -4,12 +4,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { openSearchPalette } from "./jump-to-palette";
+import { requestShortcuts } from "@/lib/palette-actions";
+import { goToRoute } from "@/lib/go-to-route";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { MenuItemButton } from "./controls";
+import { IconButton } from "./button";
 import { isEditCommand, runEditCommand } from "@/lib/desktop/menu-edit";
+import { showToast } from "@/lib/toast";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the
@@ -36,10 +40,22 @@ function logCommandFailure(command: string, error: unknown): void {
 
 function runCommand(command: string): void {
   if (command === "search") openSearchPalette();
+  else if (command === "shortcuts") requestShortcuts();
   else if (command === "choose-workspace") {
     void desktop()
       ?.chooseVaultRoot()
       .catch((error: unknown) => logCommandFailure(command, error));
+  } else if (command === "check-updates") {
+    void desktop()
+      ?.checkUpdate()
+      .then(
+        (update) =>
+          showToast(update ? `WeaveForge ${update.version} is out — see Settings to get it` : "WeaveForge is up to date"),
+        (error: unknown) => {
+          showToast("Could not check for updates");
+          logCommandFailure(command, error);
+        },
+      );
   } else if (isEditCommand(command)) {
     runEditCommand(command, document, navigator.clipboard).catch((error: unknown) =>
       logCommandFailure(command, error),
@@ -65,12 +81,13 @@ function toHex(colour: string): string | null {
 /**
  * The desktop window's title bar, on Windows and Linux.
  *
- * The window has no system title bar there (`titleBarStyle: "hidden"` in the
- * shell), so this draws one: the app's mark, the menu in the app's own style,
- * and empty space the window can be dragged by. The minimise, maximise and
- * close buttons are the system's, drawn over the right-hand end; the bar leaves
- * them their room through the `titlebar-area-*` environment variables and asks
- * the shell to tint them to the theme.
+ * The window has no system title bar there, so this draws one: the app's mark,
+ * the menu in the app's own style, and empty space the window can be dragged by
+ * (`data-tauri-drag-region`; double-click maximises). The Rust shell's window
+ * has no frame at all, so the bar also draws minimise, maximise and close, which
+ * run the shell's Window entries. Electron's system buttons sit over the
+ * right-hand end instead; the bar leaves them room through the `titlebar-area-*`
+ * environment variables and asks the shell to tint them to the theme.
  *
  * The menu itself lives in the shell — its shortcuts work with this closed —
  * and this is a picture of it. An entry that only opens a route navigates with
@@ -127,7 +144,7 @@ export function DesktopTitleBar() {
       const detail = (event as CustomEvent<{ route?: unknown; command?: unknown }>).detail;
       if (typeof detail?.route === "string") {
         event.preventDefault();
-        router.push(detail.route);
+        goToRoute(detail.route, (to) => router.push(to));
       } else if (typeof detail?.command === "string") runCommand(detail.command);
     };
     window.addEventListener(MENU_COMMAND_EVENT, onCommand);
@@ -163,7 +180,7 @@ export function DesktopTitleBar() {
       if (item.kind === "separator" || !item.enabled) return;
       close();
       if (item.route) {
-        router.push(item.route);
+        goToRoute(item.route, (to) => router.push(to));
         return;
       }
       if (item.command) {
@@ -269,11 +286,13 @@ export function DesktopTitleBar() {
   }, [groups]);
 
   if (!groups) return null;
+  const windowButtons = windowButtonItems(groups);
 
   return (
     <div
       ref={barRef}
       className="title-bar"
+      data-tauri-drag-region=""
       // Pressing a menu must not take focus from the page: Cut, Copy and Paste
       // act on whatever is focused, and that has to still be the editor.
       onMouseDown={(event) => event.preventDefault()}
@@ -327,6 +346,50 @@ export function DesktopTitleBar() {
           </div>
         ))}
       </nav>
+      <div className="title-bar-drag" data-tauri-drag-region="" />
+      {windowButtons ? (
+        <div className="title-bar-window" role="group" aria-label="Window">
+          {windowButtons.map((item) => (
+            <IconButton key={item.id} label={windowButtonLabel(item)} onClick={() => run(item)}>
+              <WindowGlyph item={item} />
+            </IconButton>
+          ))}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/** The ids the Rust shell gives its Window entries, in button order. */
+const WINDOW_BUTTON_IDS = ["window:minimize", "window:maximize", "window:close"] as const;
+
+/**
+ * The Window entries the bar draws as buttons, or `null` when the shell lacks
+ * them: Electron draws its own over the bar.
+ */
+function windowButtonItems(groups: DesktopMenuGroup[]): DesktopMenuItem[] | null {
+  const all = groups.flatMap((group) => group.items);
+  const found = WINDOW_BUTTON_IDS.map((id) => all.find((item) => item.id === id));
+  return found.every((item): item is DesktopMenuItem => item !== undefined) ? found : null;
+}
+
+function windowButtonLabel(item: DesktopMenuItem): string {
+  if (item.id === "window:close") return "Close";
+  return item.label;
+}
+
+function WindowGlyph({ item }: { item: DesktopMenuItem }) {
+  const path =
+    item.id === "window:minimize"
+      ? "M0 5h10"
+      : item.id === "window:close"
+        ? "M0 0l10 10M10 0L0 10"
+        : item.label === "Restore"
+          ? "M0.5 2.5h7v7h-7zM2.5 2.5v-2h7v7h-2"
+          : "M0.5 0.5h9v9h-9z";
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1">
+      <path d={path} />
+    </svg>
   );
 }

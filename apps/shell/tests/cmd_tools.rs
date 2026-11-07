@@ -1,12 +1,12 @@
 //! Tests for the tool commands (ported from apps/desktop/test/app-log.test.ts and tex.test.ts).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-mod common;
+use crate::common;
 
 use common::TempDir;
 use serde_json::json;
 use weaveforge_shell_lib::app_log::{AppLog, AppLogEntry, LogLevel, MAX_ENTRIES};
 use weaveforge_shell_lib::cmd_tools::{
-    AppLogReport, AppLogText, TexCompileReply, compile, format_log_line, read_log, report,
+    AppLogReport, AppLogText, TexCompileReply, TexStop, compile, format_log_line, read_log, report,
 };
 use weaveforge_shell_lib::tex::{NO_ENGINE, TexCompileResult, TexEngine, TexError};
 
@@ -207,7 +207,7 @@ fn reply_copies_outcome_fields() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn compile_of_an_empty_project_is_not_ok() {
-    let reply = compile(vec![], "main.tex".to_owned()).await;
+    let reply = compile(vec![], "main.tex".to_owned(), &TexStop::default()).await;
     assert!(!reply.ok);
     assert!(reply.pdf.is_none());
     assert!(!reply.errors.is_empty());

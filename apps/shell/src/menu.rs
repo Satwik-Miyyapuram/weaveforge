@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use tauri::{Emitter as _, Manager as _, Runtime};
+use tauri::{Manager as _, Runtime};
 use tauri_plugin_opener::OpenerExt as _;
 
 use crate::app_log::{AppLog, LogLevel};
@@ -14,14 +14,32 @@ use crate::vault::VaultState;
 pub const PAGE_COMMAND_EVENT: &str = "weaveforge:menu-command";
 /// The documentation site the Help menu's Documentation entry opens.
 pub const DOCS_URL: &str = "https://www.weaveforge.org/docs/";
-/// The Tauri event that asks the page to route (the page side is wired in 2.13).
-pub const MENU_ROUTE_EVENT: &str = "menu-route";
 /// The error for a menu entry that cannot run (unknown, a separator, or disabled).
 pub const NOT_AVAILABLE: &str = "That menu entry is not available.";
 /// The error for a title bar colour that is not `#rrggbb`.
 pub const BAD_TITLE_BAR_COLOR: &str = "Title bar colours must be #rrggbb.";
 /// The title bar's height in CSS pixels, as the TS sets it. Tauri takes no overlay height here, so nothing reads it yet.
 pub const TITLE_BAR_HEIGHT: u32 = 36;
+
+/// Script that asks the page to route through its router; loads the route itself if no one takes it.
+/// The page listens for a DOM event, so a Tauri `emit` never reaches it.
+#[must_use]
+pub fn page_route_script(route: &str) -> String {
+    let event = serde_json::json!(PAGE_COMMAND_EVENT);
+    let route = serde_json::json!(route);
+    format!(
+        "(()=>{{const e=new CustomEvent({event},{{cancelable:true,detail:{{route:{route}}}}});\
+         window.dispatchEvent(e);if(!e.defaultPrevented)window.location.assign({route})}})()"
+    )
+}
+
+/// Script that asks the page to run one of its own commands (`search`).
+#[must_use]
+pub fn page_command_script(command: &str) -> String {
+    let event = serde_json::json!(PAGE_COMMAND_EVENT);
+    let command = serde_json::json!(command);
+    format!("window.dispatchEvent(new CustomEvent({event},{{detail:{{command:{command}}}}}))")
+}
 
 /// What the menu needs from the window and app. The Tauri impl lives in this file; tests use a fake.
 pub trait MenuHost {
@@ -289,7 +307,7 @@ fn file_entries(host: &impl MenuHost) -> Vec<Entry> {
 fn workspace_entries(host: &impl MenuHost) -> Vec<Entry> {
     let Some(root) = host.workspace_root() else {
         return vec![
-            Entry::new("Choose workspace folder…", None, Action::ChooseWorkspace),
+            choose_workspace("Choose workspace folder…"),
             Entry::separator(),
         ];
     };
@@ -302,10 +320,16 @@ fn workspace_entries(host: &impl MenuHost) -> Vec<Entry> {
     info.enabled = false;
     vec![
         info,
-        Entry::new("Show in file explorer", None, Action::ShowInExplorer),
-        Entry::new("Change workspace folder…", None, Action::ChooseWorkspace),
+        Entry::new("Show in file explorer", None, Action::ShowInExplorer)
+            .with_id("action:show-in-explorer".to_owned()),
+        choose_workspace("Change workspace folder…"),
         Entry::separator(),
     ]
+}
+
+/// The pick-a-folder entry; the command palette runs it by this id.
+fn choose_workspace(label: &str) -> Entry {
+    Entry::new(label, None, Action::ChooseWorkspace).with_id("action:choose-workspace".to_owned())
 }
 
 /// The Help menu, as the TS has it: docs, a divider, updates, then the disabled version label.
@@ -317,9 +341,11 @@ fn help_entries(host: &impl MenuHost) -> Vec<Entry> {
     );
     version.enabled = false;
     vec![
-        Entry::new("Documentation", None, Action::OpenDocs),
+        Entry::new("Documentation", None, Action::OpenDocs).with_id("action:docs".to_owned()),
+        Entry::page("Keyboard shortcuts", "shortcuts", None),
         Entry::separator(),
-        Entry::new("Check for updates…", None, Action::CheckUpdates),
+        Entry::new("Check for updates…", None, Action::CheckUpdates)
+            .with_id("action:check-updates".to_owned()),
         version,
     ]
 }
@@ -391,7 +417,7 @@ fn go_entries() -> Vec<Entry> {
 }
 
 fn view_entries() -> Vec<Entry> {
-    vec![
+    let mut entries = vec![
         Entry::role("Reload", MenuRole::Reload, Some("CommandOrControl+R")),
         Entry::role(
             "Actual size",
@@ -407,10 +433,21 @@ fn view_entries() -> Vec<Entry> {
             MenuRole::DevTools,
             Some("CommandOrControl+Shift+I"),
         ),
-    ]
+    ];
+    // The deadlines widget is Windows-only; its switch lives in Settings, Calendar.
+    if cfg!(windows) {
+        entries.push(Entry::separator());
+        entries.push(Entry::route(
+            "Desktop deadlines widget…",
+            "/settings#settings-calendar",
+            None,
+        ));
+    }
+    entries
 }
 
 /// No shortcuts on these: Ctrl+W would close the app from the editor, and the OS has its own keys for both.
+/// Fixed ids, because the page's title bar draws the window buttons and calls them.
 fn window_entries(host: &impl MenuHost) -> Vec<Entry> {
     let maximize_label = if host.is_maximized() {
         "Restore"
@@ -418,10 +455,10 @@ fn window_entries(host: &impl MenuHost) -> Vec<Entry> {
         "Maximize"
     };
     vec![
-        Entry::role("Minimize", MenuRole::Minimize, None),
+        Entry::role("Minimize", MenuRole::Minimize, None).with_id("window:minimize".to_owned()),
         Entry::role(maximize_label, MenuRole::Maximize, None).with_id("window:maximize".to_owned()),
         Entry::separator(),
-        Entry::role("Close window", MenuRole::Close, None),
+        Entry::role("Close window", MenuRole::Close, None).with_id("window:close".to_owned()),
     ]
 }
 
@@ -656,16 +693,11 @@ impl<R: Runtime> TauriMenuHost<R> {
 
 impl<R: Runtime> MenuHost for TauriMenuHost<R> {
     fn go_to(&self, route: &str) {
-        let _ = self
-            .window
-            .emit(MENU_ROUTE_EVENT, serde_json::json!({ "route": route }));
+        let _ = self.window.eval(page_route_script(route));
     }
 
     fn page_command(&self, command: &str) {
-        let _ = self.window.emit(
-            PAGE_COMMAND_EVENT,
-            serde_json::json!({ "command": command }),
-        );
+        let _ = self.window.eval(page_command_script(command));
     }
 
     /// Edit roles go to the page as `edit-*` menu commands, since WebView2 blocks `execCommand('paste')`.

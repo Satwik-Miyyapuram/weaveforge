@@ -139,6 +139,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
       // highlighting it would draw a box around an arbitrary word.
       terms: [],
       ...(fields.page !== undefined ? { page: fields.page } : {}),
+      ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),
     };
   }
 
@@ -215,6 +216,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         href: fields.href,
         score: result.score,
         page: fields.page,
+        updatedAt: fields.updatedAt || undefined,
         terms: result.terms,
         queryTerms: result.queryTerms,
         excerpt: options.excerpts
@@ -285,6 +287,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
           kindMultiplier: kindMultiplier(fields.kind, this.settings),
           recency: this.settings?.recencyBoost,
         }),
+        ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),
         terms: [],
       });
     }

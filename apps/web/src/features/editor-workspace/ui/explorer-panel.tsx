@@ -88,6 +88,7 @@ export function ExplorerPanel({
   onOpen,
   onStartNote,
   onRelease,
+  renameRequest,
   draft,
   onDraft,
   onCreate,
@@ -103,6 +104,8 @@ export function ExplorerPanel({
   activeKey?: string;
   /** The same document, with its parent: where a "new file" from the head lands. */
   activeDoc?: { kind: string; id: string; parentId?: string };
+  /** Bumped by `F2`: rename the active document's row. */
+  renameRequest?: number;
   onOpen: (selection: ExplorerSelection) => void;
   /** Offered on a paper that has no note yet. */
   onStartNote?: (paperId: string) => void;
@@ -186,6 +189,27 @@ export function ExplorerPanel({
     for (const section of sections) for (const root of section.tree) walk(root);
     return map;
   }, [sections]);
+
+  // `F2` anywhere: the open document's row becomes a text box, its folders
+  // opened so the box is on screen. A count, so each press starts it once.
+  useEffect(() => {
+    const node = renameRequest && activeKey ? nodeByKey.get(activeKey) : undefined;
+    if (!node || !onRename || !canRename(node)) return;
+    const path: string[] = [];
+    const find = (n: WorkspaceTreeNode): boolean =>
+      n.key === node.key || (n.children.some(find) && (path.push(n.key), true));
+    for (const section of sections) section.tree.some(find);
+    const missing = path.filter((key) => !expanded.has(key));
+    if (missing.length > 0) {
+      const next = new Set([...expanded, ...missing]);
+      setExpanded(next);
+      persistExpanded(next);
+    }
+    setProblem(null);
+    setRenaming(node.key);
+    // Only a new press starts it; the tree changing under a rename must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renameRequest]);
 
   /**
    * The key of the row a draft sits under. A note's parent is a note row;

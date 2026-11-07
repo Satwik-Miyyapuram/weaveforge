@@ -224,6 +224,26 @@ impl AppLog {
         state.bytes = byte_len(&text);
     }
 
+    /// Empties the file and the lines held in memory. A missing file is already empty.
+    ///
+    /// # Errors
+    /// When the file exists but could not be emptied; memory is then left as it was.
+    pub fn clear(&self) -> io::Result<()> {
+        let mut state = self.lock();
+        match OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(&self.path)
+        {
+            Ok(_) => {}
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+        state.entries.clear();
+        state.bytes = 0;
+        Ok(())
+    }
+
     /// Where the file is.
     #[must_use]
     pub fn path(&self) -> &Path {

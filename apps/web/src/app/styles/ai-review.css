@@ -8,6 +8,13 @@
 .ai-review-toolbar, .ai-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ai-review-toolbar { margin: 12px 0; }
 .ai-review-list { display: grid; gap: 12px; }
+/* Bulk actions and grouping: one row each, wrapping on narrow screens. */
+.ai-review-bulk, .ai-review-grouping, .ai-review-group-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ai-review-grouping { margin: 0 0 12px; }
+.ai-review-undo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 12px 16px; }
+.ai-review-group { display: grid; gap: 12px; margin-bottom: 24px; }
+.ai-review-group-head { justify-content: space-between; }
+.ai-review-group-head h3 { margin: 0; font-size: var(--fs-sm); }
 /* Controls stay a row, so the kind chip never stacks onto the title. */
 .ai-review-card .entity-card-controls { flex-wrap: nowrap; }
 .ai-kind { color: var(--accent-ink); font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; }

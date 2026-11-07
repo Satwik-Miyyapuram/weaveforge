@@ -3,9 +3,18 @@
 //! Runs after the new database has its migrations. Every insert uses `on conflict do nothing`, so
 //! rows the new database already has are kept.
 
+use std::future::Future;
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::Arc;
+
 use serde_json::Value;
 
+use super::host::{FirstOpen, FirstOpenFuture};
 use super::{Conn, PgError, TextRows};
+
+/// The migration ledger: never copied, so the new database's record matches its own schema.
+const LEDGER: (&str, &str) = ("public", "weaveforge_migrations");
 
 /// The old database, read-only: runs one SQL statement and returns its rows as JSON objects.
 pub trait SourceDb: Send {
@@ -40,6 +49,14 @@ pub struct ImportReport {
     pub tables: Vec<(String, u64)>,
     /// Source tables that the target does not have, qualified.
     pub skipped: Vec<String>,
+    /// Source tables whose data file is gone from the old database, so none of their rows can be
+    /// read. Reported, never hidden.
+    pub unreadable: Vec<String>,
+}
+
+/// Whether a source error says the table's data file is missing on disk.
+fn missing_file(e: &PgError) -> bool {
+    e.code == "58P01" || e.message.contains("could not open file")
 }
 
 /// Quotes an identifier with double quotes, doubling any inner double quote.
@@ -72,9 +89,27 @@ pub fn page_sql(schema: &str, table: &str, limit: u64, offset: u64) -> String {
     )
 }
 
-/// Inserts JSON rows into a table's listed columns, skipping rows that already exist.
+/// Lists a table's primary key columns, in key order; no rows when it has none.
 #[must_use]
-pub fn insert_sql(schema: &str, table: &str, columns: &[String], identity_always: bool) -> String {
+pub fn key_sql(schema: &str, table: &str) -> String {
+    format!(
+        "select a.attname from pg_index i join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey) where i.indrelid = '{}'::regclass and i.indisprimary order by array_position(i.indkey::int2[], a.attnum)",
+        escape_literal(&qualified(schema, table))
+    )
+}
+
+/// Inserts JSON rows into a table's listed columns.
+///
+/// The new database holds only rows its migrations seeded (such as `sync_state`'s single row), so
+/// an old row with the same primary key replaces it. Without a usable key, existing rows are kept.
+#[must_use]
+pub fn insert_sql(
+    schema: &str,
+    table: &str,
+    columns: &[String],
+    key: &[String],
+    identity_always: bool,
+) -> String {
     let q = qualified(schema, table);
     let cols = columns
         .iter()
@@ -87,8 +122,26 @@ pub fn insert_sql(schema: &str, table: &str, columns: &[String], identity_always
     } else {
         ""
     };
+    let rest: Vec<&String> = columns.iter().filter(|c| !key.contains(c)).collect();
+    let keyed = !key.is_empty() && key.iter().all(|k| columns.contains(k)) && !rest.is_empty();
+    let conflict = if keyed {
+        let keys = key
+            .iter()
+            .map(String::as_str)
+            .map(quote_ident)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sets = rest
+            .iter()
+            .map(|c| format!("{0} = excluded.{0}", quote_ident(c)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("on conflict ({keys}) do update set {sets}")
+    } else {
+        "on conflict do nothing".to_owned()
+    };
     format!(
-        "insert into {q} ({cols}) {overriding}select {cols} from json_populate_recordset(null::{q}, $1::json) on conflict do nothing"
+        "insert into {q} ({cols}) {overriding}select {cols} from json_populate_recordset(null::{q}, $1::json) {conflict}"
     )
 }
 
@@ -124,6 +177,16 @@ pub async fn import<S: SourceDb, C: Conn>(
     target: &mut C,
     page_rows: u64,
 ) -> Result<ImportReport, PgError> {
+    import_then(source, target, page_rows, None).await
+}
+
+/// Like [`import`], and runs `before_commit` (if any) in the same transaction, just before COMMIT.
+pub async fn import_then<S: SourceDb, C: Conn>(
+    source: &mut S,
+    target: &mut C,
+    page_rows: u64,
+    before_commit: Option<&str>,
+) -> Result<ImportReport, PgError> {
     let source_tables: Vec<(String, String)> = source
         .rows(TABLES_SQL)
         .await?
@@ -149,7 +212,13 @@ pub async fn import<S: SourceDb, C: Conn>(
     )
     .await
     {
-        Ok(()) => target.exec("COMMIT").await,
+        Ok(()) => match before_commit {
+            Some(sql) => match target.exec(sql).await {
+                Ok(()) => target.exec("COMMIT").await,
+                Err(e) => Err(e),
+            },
+            None => target.exec("COMMIT").await,
+        },
         Err(e) => Err(e),
     };
     match outcome {
@@ -158,6 +227,85 @@ pub async fn import<S: SourceDb, C: Conn>(
             let _ = target.exec("ROLLBACK").await;
             Err(e)
         }
+    }
+}
+
+/// Reads the old database's rows for one SQL statement, such as through the sidecar's `exportRows`.
+pub type RowsFn = Arc<
+    dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<Vec<Value>, String>> + Send>>
+        + Send
+        + Sync,
+>;
+
+/// A [`SourceDb`] that reads through a [`RowsFn`].
+struct FnSource(RowsFn);
+
+impl SourceDb for FnSource {
+    async fn rows(&mut self, sql: &str) -> Result<Vec<Value>, PgError> {
+        (self.0)(sql.to_owned()).await.map_err(PgError::local)
+    }
+}
+
+/// Records the copy in the new database, in the copy's own transaction, so a committed copy is
+/// never run twice (tables without a key would get their rows twice).
+const RECORD_SQL: &str = "create schema if not exists weaveforge_meta; \
+create table if not exists weaveforge_meta.pglite_import (done_at timestamptz not null default now()); \
+insert into weaveforge_meta.pglite_import default values";
+
+/// Whether the new database already holds a copy.
+const RECORDED_SQL: &str = "select 1 from pg_catalog.pg_tables where schemaname = 'weaveforge_meta' and tablename = 'pglite_import'";
+
+/// Copies the old database into the new one once, on first open. Skipped when the new database
+/// records a copy, or when `marker` exists.
+///
+/// Needs the old database to answer: while it cannot, the job fails and the native database stays
+/// closed, rather than open empty and look like the data is gone.
+pub struct OnceImport {
+    /// Written after a copy commits. It sits outside the native folder, so a discarded (rebuilt)
+    /// native database does not copy the old, older data again.
+    pub marker: PathBuf,
+    /// Reads the old database.
+    pub source: RowsFn,
+    /// Rows per page read from the old database.
+    pub page_rows: u64,
+}
+
+impl<C: Conn> FirstOpen<C> for OnceImport {
+    fn run<'a>(&'a self, conn: &'a mut C) -> FirstOpenFuture<'a> {
+        Box::pin(async move {
+            if self.marker.exists() {
+                return Ok(None);
+            }
+            if !conn.query(RECORDED_SQL, &[]).await?.rows.is_empty() {
+                let _ = std::fs::write(&self.marker, "");
+                return Ok(None);
+            }
+            let mut source = FnSource(Arc::clone(&self.source));
+            let report = import_then(&mut source, conn, self.page_rows, Some(RECORD_SQL))
+                .await
+                .map_err(|e| PgError {
+                    code: e.code,
+                    message: format!("copying the old local database failed: {}", e.message),
+                })?;
+            let rows: u64 = report.tables.iter().map(|(_, n)| n).sum();
+            let mut line = format!(
+                "[local-db] copied the old local database: {} tables, {rows} rows, {} skipped",
+                report.tables.len(),
+                report.skipped.len()
+            );
+            // Named in the log and kept in the marker, so a lost table is never silent.
+            let unreadable = report.unreadable.join(", ");
+            if !unreadable.is_empty() {
+                line.push_str(&format!(
+                    "; old data file missing, nothing to read: {unreadable}"
+                ));
+            }
+            // The database records the copy too, so a missing marker never copies twice.
+            if let Err(e) = std::fs::write(&self.marker, &unreadable) {
+                line.push_str(&format!("; could not write {}: {e}", self.marker.display()));
+            }
+            Ok(Some(line))
+        })
     }
 }
 
@@ -175,39 +323,57 @@ async fn copy_all<S: SourceDb, C: Conn>(
         .await?;
     for (schema, table) in source_tables {
         let name = qualified(schema, table);
-        if !target_tables.iter().any(|(s, t)| s == schema && t == table) {
+        let is_ledger = (schema.as_str(), table.as_str()) == LEDGER;
+        if is_ledger || !target_tables.iter().any(|(s, t)| s == schema && t == table) {
             report.skipped.push(name);
             continue;
         }
-        let copied = copy_table(source, target, schema, table, page_rows)
+        match copy_table(source, target, schema, table, page_rows)
             .await
-            .map_err(|e| prefix(&name, e))?;
-        report.tables.push((name, copied));
+            .map_err(|e| prefix(&name, e))?
+        {
+            Some(copied) => report.tables.push((name, copied)),
+            None => report.unreadable.push(name),
+        }
     }
     reset_sequences(target).await
 }
 
-/// Copies one table's shared columns, a page at a time. Returns the rows copied.
+/// Copies one table's shared columns, a page at a time. Returns the rows copied, or `None` when
+/// the old table's data file is missing, so there is nothing on disk to read.
 async fn copy_table<S: SourceDb, C: Conn>(
     source: &mut S,
     target: &mut C,
     schema: &str,
     table: &str,
     page_rows: u64,
-) -> Result<u64, PgError> {
+) -> Result<Option<u64>, PgError> {
     let src_cols = source_columns(&source.rows(&columns_sql(schema, table)).await?);
     let tgt_cols = target_columns(&target.query(&columns_sql(schema, table), &[]).await?);
     let (cols, identity) = copy_columns(&tgt_cols, &src_cols);
     if cols.is_empty() {
-        return Ok(0);
+        return Ok(Some(0));
     }
-    let sql = insert_sql(schema, table, &cols, identity);
+    let key: Vec<String> = target
+        .query(&key_sql(schema, table), &[])
+        .await?
+        .rows
+        .iter()
+        .map(|r| cell(r, 0))
+        .collect();
+    let sql = insert_sql(schema, table, &cols, &key, identity);
     let mut copied: u64 = 0;
     let mut offset: u64 = 0;
     loop {
-        let page = source
+        let page = match source
             .rows(&page_sql(schema, table, page_rows, offset))
-            .await?;
+            .await
+        {
+            Ok(page) => page,
+            // Only before any row: a file lost mid-table is a broken copy, not an empty table.
+            Err(e) if offset == 0 && missing_file(&e) => return Ok(None),
+            Err(e) => return Err(e),
+        };
         if page.is_empty() {
             break;
         }
@@ -220,7 +386,7 @@ async fn copy_table<S: SourceDb, C: Conn>(
         }
         offset += page_rows;
     }
-    Ok(copied)
+    Ok(Some(copied))
 }
 
 /// Moves each serial or identity sequence past its column's largest value.
@@ -324,11 +490,13 @@ mod tests {
         tables: Vec<Value>,
         columns: Vec<Value>,
         papers: Vec<String>,
+        /// Page reads from this offset on fail as if the table's data file were gone.
+        missing_from: Option<usize>,
     }
 
     impl FakeSource {
         /// Rows of a `page_sql` query, by its limit and offset.
-        fn page(&self, sql: &str) -> Vec<Value> {
+        fn page(&self, sql: &str) -> Result<Vec<Value>, PgError> {
             let offset = sql
                 .rsplit(' ')
                 .next()
@@ -340,12 +508,19 @@ mod tests {
                 .and_then(|s| s.split(' ').next())
                 .and_then(|t| t.parse::<usize>().ok())
                 .unwrap_or(0);
-            self.papers
+            if self.missing_from.is_some_and(|m| offset >= m) {
+                // How the sidecar reports it: message only, no SQLSTATE.
+                return Err(PgError::local(
+                    "could not open file \"base/5/17629\": No such file or directory",
+                ));
+            }
+            Ok(self
+                .papers
                 .iter()
                 .skip(offset)
                 .take(limit)
                 .map(|t| serde_json::json!({ "j": t }))
-                .collect()
+                .collect())
         }
     }
 
@@ -359,7 +534,7 @@ mod tests {
                 return Ok(self.columns.clone());
             }
             if sql.starts_with("select row_to_json") {
-                return Ok(self.page(sql));
+                return self.page(sql);
             }
             Err(PgError::local(format!("unexpected source sql: {sql}")))
         }
@@ -371,10 +546,15 @@ mod tests {
         log: Vec<String>,
         inserted: Vec<String>,
         fail_insert: bool,
+        /// Set by RECORD_SQL once COMMIT follows it.
+        recorded: bool,
     }
 
     impl Conn for FakeTarget {
         async fn exec(&mut self, sql: &str) -> Result<(), PgError> {
+            if sql == "COMMIT" && self.log.last().map(String::as_str) == Some(RECORD_SQL) {
+                self.recorded = true;
+            }
             self.log.push(sql.to_owned());
             Ok(())
         }
@@ -393,8 +573,16 @@ mod tests {
                 }
                 return Ok(TextRows::default());
             }
-            let rows = if sql == TABLES_SQL {
+            let rows = if sql == RECORDED_SQL {
+                if self.recorded {
+                    vec![row(&["1"])]
+                } else {
+                    Vec::new()
+                }
+            } else if sql == TABLES_SQL {
                 vec![row(&["public", "papers"])]
+            } else if sql == key_sql("public", "papers") {
+                vec![row(&["id"])]
             } else if sql == columns_sql("public", "papers") {
                 vec![
                     row(&["id", "", ""]),
@@ -418,6 +606,7 @@ mod tests {
             tables: vec![
                 serde_json::json!({"schema": "public", "name": "papers"}),
                 serde_json::json!({"schema": "public", "name": "old_only"}),
+                serde_json::json!({"schema": "public", "name": "weaveforge_migrations"}),
             ],
             columns: vec![
                 serde_json::json!({"name": "id", "identity": "", "generated": ""}),
@@ -428,6 +617,7 @@ mod tests {
                 r#"{"id":1,"title":"a","extra":"x"}"#.to_owned(),
                 r#"{"id":2,"title":"b","extra":"y"}"#.to_owned(),
             ],
+            missing_from: None,
         }
     }
 
@@ -446,15 +636,45 @@ mod tests {
     #[test]
     fn insert_sql_overrides_identity_only_when_asked() {
         let cols = vec!["id".to_owned()];
-        let always = insert_sql("public", "crdt_updates", &cols, true);
+        let always = insert_sql("public", "crdt_updates", &cols, &[], true);
         let over = always.find("overriding system value");
         let select = always.find("select");
         assert!(over.is_some() && over < select);
         assert!(always.ends_with("on conflict do nothing"));
 
-        let plain = insert_sql("public", "papers", &cols, false);
+        let plain = insert_sql("public", "papers", &cols, &[], false);
         assert!(!plain.contains("overriding"));
         assert!(plain.ends_with("on conflict do nothing"));
+    }
+
+    #[test]
+    fn insert_sql_lets_the_old_row_replace_a_seeded_one() {
+        // The new database seeds rows such as sync_state's single row; the old row must win, or the
+        // signed-in account is forgotten and its projects vanish from view.
+        let cols = vec![
+            "id".to_owned(),
+            "account_id".to_owned(),
+            "watermark".to_owned(),
+        ];
+        let key = vec!["id".to_owned()];
+        assert!(
+            insert_sql("public", "sync_state", &cols, &key, false).ends_with(
+                "on conflict (\"id\") do update set \"account_id\" = excluded.\"account_id\", \"watermark\" = excluded.\"watermark\""
+            )
+        );
+        // Nothing but the key to set, or a key column not copied: keep skipping.
+        assert!(insert_sql("public", "t", &key, &key, false).ends_with("on conflict do nothing"));
+        let other = vec!["other".to_owned()];
+        assert!(
+            insert_sql("public", "t", &cols, &other, false).ends_with("on conflict do nothing")
+        );
+    }
+
+    #[test]
+    fn key_sql_reads_the_primary_key_in_order() {
+        let sql = key_sql("public", "o'x");
+        assert!(sql.contains("'\"public\".\"o''x\"'::regclass"));
+        assert!(sql.contains("indisprimary"));
     }
 
     #[test]
@@ -488,7 +708,11 @@ mod tests {
             report,
             ImportReport {
                 tables: vec![(qualified("public", "papers"), 2)],
-                skipped: vec![qualified("public", "old_only")],
+                skipped: vec![
+                    qualified("public", "old_only"),
+                    qualified("public", "weaveforge_migrations"),
+                ],
+                unreadable: Vec::new(),
             }
         );
         let pages = source
@@ -506,10 +730,11 @@ mod tests {
         );
         assert_eq!(target.log.last().map(String::as_str), Some("COMMIT"));
         let cols = vec!["id".to_owned(), "title".to_owned()];
+        let key = vec!["id".to_owned()];
         assert!(
             target
                 .log
-                .contains(&insert_sql("public", "papers", &cols, false))
+                .contains(&insert_sql("public", "papers", &cols, &key, false))
         );
         assert_eq!(
             target.inserted,
@@ -518,6 +743,144 @@ mod tests {
                 format!("[{}]", r#"{"id":2,"title":"b","extra":"y"}"#),
             ]
         );
+        Ok(())
+    }
+
+    /// A fresh marker path in the temp dir.
+    fn marker(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "wf-once-import-{name}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ))
+    }
+
+    /// A `RowsFn` over `papers_source`, counting its calls.
+    fn rows_fn(calls: Arc<std::sync::atomic::AtomicUsize>) -> RowsFn {
+        let source = Arc::new(tokio::sync::Mutex::new(papers_source()));
+        Arc::new(move |sql: String| {
+            let source = Arc::clone(&source);
+            let calls = Arc::clone(&calls);
+            Box::pin(async move {
+                let _ = calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                source.lock().await.rows(&sql).await.map_err(|e| e.message)
+            })
+        })
+    }
+
+    #[tokio::test]
+    async fn once_import_copies_then_writes_the_marker() -> Result<(), PgError> {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let job = OnceImport {
+            marker: marker("copy"),
+            source: rows_fn(Arc::clone(&calls)),
+            page_rows: 10,
+        };
+        let mut target = FakeTarget::default();
+        let line = job.run(&mut target).await?.unwrap_or_default();
+        assert!(line.contains("1 tables, 2 rows, 2 skipped"), "{line}");
+        assert!(job.marker.is_file());
+        assert!(target.recorded);
+        let commit_at = target.log.iter().rposition(|s| s == "COMMIT");
+        let record_at = target.log.iter().position(|s| s == RECORD_SQL);
+        assert!(record_at.is_some() && record_at.map(|i| i + 1) == commit_at);
+        let before = calls.load(std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(job.run(&mut target).await?, None);
+        // A lost marker: the database's own record still stops a second copy, and rewrites it.
+        let _ = std::fs::remove_file(&job.marker);
+        assert_eq!(job.run(&mut target).await?, None);
+        assert!(job.marker.is_file());
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), before);
+        let _ = std::fs::remove_file(&job.marker);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn once_import_failure_writes_no_marker() -> Result<(), PgError> {
+        let job = OnceImport {
+            marker: marker("fail"),
+            source: rows_fn(Arc::new(std::sync::atomic::AtomicUsize::new(0))),
+            page_rows: 10,
+        };
+        let mut target = FakeTarget {
+            fail_insert: true,
+            ..Default::default()
+        };
+        let Err(err) = job.run(&mut target).await else {
+            return Err(PgError::local("expected the copy to fail"));
+        };
+        assert!(
+            err.message
+                .starts_with("copying the old local database failed: Import of")
+        );
+        assert_eq!(err.code, "23505");
+        assert!(!job.marker.exists());
+        assert!(!target.recorded);
+        assert!(!target.log.iter().any(|s| s == RECORD_SQL));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_table_whose_file_is_gone_is_reported_and_the_rest_copies() -> Result<(), PgError> {
+        let mut source = FakeSource {
+            missing_from: Some(0),
+            ..papers_source()
+        };
+        let mut target = FakeTarget::default();
+        let report = import(&mut source, &mut target, 1).await?;
+        assert_eq!(report.unreadable, vec![qualified("public", "papers")]);
+        assert!(report.tables.is_empty());
+        assert!(target.inserted.is_empty());
+        assert_eq!(target.log.last().map(String::as_str), Some("COMMIT"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_file_lost_after_some_rows_fails_the_copy() -> Result<(), PgError> {
+        let mut source = FakeSource {
+            missing_from: Some(1),
+            ..papers_source()
+        };
+        let mut target = FakeTarget::default();
+        let Err(err) = import(&mut source, &mut target, 1).await else {
+            return Err(PgError::local("expected import to fail"));
+        };
+        assert!(
+            err.message.contains("could not open file"),
+            "{}",
+            err.message
+        );
+        assert_eq!(target.log.last().map(String::as_str), Some("ROLLBACK"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn the_marker_names_unreadable_tables() -> Result<(), PgError> {
+        let source = Arc::new(tokio::sync::Mutex::new(FakeSource {
+            missing_from: Some(0),
+            ..papers_source()
+        }));
+        let job = OnceImport {
+            marker: marker("unreadable"),
+            source: Arc::new(move |sql: String| {
+                let source = Arc::clone(&source);
+                Box::pin(async move { source.lock().await.rows(&sql).await.map_err(|e| e.message) })
+            }),
+            page_rows: 10,
+        };
+        let line = job
+            .run(&mut FakeTarget::default())
+            .await?
+            .unwrap_or_default();
+        assert!(
+            line.contains("nothing to read: \"public\".\"papers\""),
+            "{line}"
+        );
+        let kept = std::fs::read_to_string(&job.marker).unwrap_or_default();
+        assert_eq!(kept, qualified("public", "papers"));
+        let _ = std::fs::remove_file(&job.marker);
         Ok(())
     }
 

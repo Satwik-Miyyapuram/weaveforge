@@ -8,7 +8,7 @@ import {
 
 type Reply =
   | { status: "ok"; data: unknown }
-  | { status: "error"; error: { message: string } };
+  | { status: "error"; error: { message: string; code?: string } };
 
 type Answer = Reply | (() => Promise<Reply>);
 
@@ -112,19 +112,63 @@ test("an error result rejects with the command's exact message", async () => {
   }
 });
 
+test("an error result with a code rejects with that code on the Error", async () => {
+  const { cmds } = fakeCommands({
+    embedTexts: { status: "error", error: { message: "gone", code: "NOT_LOADED" } },
+    vaultRead: error("no read"),
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  await assert.rejects(
+    async () => shim.embedTexts?.("a/b", ["x"], "query"),
+    (e: unknown) => e instanceof Error && e.message === "gone" && (e as { code?: string }).code === "NOT_LOADED",
+  );
+  await assert.rejects(
+    () => shim.readVaultFile("a.md"),
+    (e: unknown) => e instanceof Error && !("code" in e),
+  );
+});
+
 test("chooseVaultRoot answers the folder the shell adopted", async () => {
   const adopted = { path: "C:/notes", state: "empty" };
   const { cmds, calls } = fakeCommands({
-    vaultChoose: { status: "ok", data: adopted },
+    vaultChoose: { status: "ok", data: { root: adopted, warnings: [] } },
   });
   const shim = desktopShim(cmds, fakeEvents().events);
   assert.deepEqual(await shim.chooseVaultRoot(), adopted);
   assert.deepEqual(calls, [{ cmd: "vaultChoose", args: [] }]);
 });
 
+test("a pick's warnings ride on the folder it answers", async () => {
+  const root = { path: "C:/notes", state: "empty" };
+  const { cmds } = fakeCommands({
+    vaultChoose: { status: "ok", data: { root, warnings: ["not watched"] } },
+  });
+  assert.deepEqual(await desktopShim(cmds, fakeEvents().events).chooseVaultRoot(), {
+    ...root,
+    warnings: ["not watched"],
+  });
+});
+
+test("missing, retry and forget pass through to the shell", async () => {
+  const root = { path: "D:/notes", state: "existing" };
+  const { cmds, calls } = fakeCommands({
+    vaultMissing: { status: "ok", data: "D:/notes" },
+    vaultRetry: { status: "ok", data: { root, warnings: [] } },
+    vaultForget: { status: "ok", data: { root: null, warnings: ["kept"] } },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.equal(await shim.missingVaultRoot?.(), "D:/notes");
+  assert.deepEqual(await shim.retryVaultRoot?.(), root);
+  assert.deepEqual(await shim.forgetVaultRoot?.(), ["kept"]);
+  assert.deepEqual(
+    calls.map((c) => c.cmd),
+    ["vaultMissing", "vaultRetry", "vaultForget"],
+  );
+});
+
 test("chooseVaultRoot answers null when no folder is chosen", async () => {
   const { cmds } = fakeCommands({
-    vaultChoose: { status: "ok", data: null },
+    vaultChoose: { status: "ok", data: { root: null, warnings: [] } },
   });
   assert.equal(
     await desktopShim(cmds, fakeEvents().events).chooseVaultRoot(),
@@ -215,6 +259,15 @@ test("compileTex sends a plain array copy of the files and the entry file", asyn
   assert.equal(sentEntry, "main.tex");
 });
 
+test("cancelTex calls tex_cancel and resolves to nothing", async () => {
+  const { cmds, calls } = fakeCommands({ texCancel: { status: "ok", data: null } });
+  const { cancelTex } = desktopShim(cmds, fakeEvents().events);
+  assert.ok(cancelTex);
+  const result = await cancelTex();
+  assert.equal(result, undefined);
+  assert.deepEqual(calls.map((c) => c.cmd), ["texCancel"]);
+});
+
 test("reportAppLog returns undefined synchronously and sends detail null when missing", () => {
   const { cmds, calls } = fakeCommands();
   const result = desktopShim(cmds, fakeEvents().events).reportAppLog?.({
@@ -274,6 +327,13 @@ test("writeVaultFile, removeVaultFile, writePreference, writeSecret and clearSec
   );
 });
 
+test("writeVaultFileIf passes the expected text and answers whether it wrote", async () => {
+  const { cmds, calls } = fakeCommands({ vaultWriteIf: { status: "ok", data: false } });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.equal(await shim.writeVaultFileIf?.("a.md", "x", null), false);
+  assert.deepEqual(calls, [{ cmd: "vaultWriteIf", args: ["a.md", "x", null] }]);
+});
+
 test("readSecret passes the name", async () => {
   const { cmds, calls } = fakeCommands({
     secretRead: { status: "ok", data: "tok" },
@@ -308,6 +368,23 @@ test("onVaultChange listens to vault-changed and passes string paths on", () => 
   );
   fake.listens[0]!.handler(["a.md", "b/c.md"]);
   assert.deepEqual(seen, [["a.md", "b/c.md"]]);
+});
+
+test("onVaultWatchLost listens to vault-watch-lost and passes the reason on", async () => {
+  const { cmds } = fakeCommands();
+  const fake = fakeEvents();
+  const seen: string[] = [];
+  const stop = desktopShim(cmds, fake.events).onVaultWatchLost?.((reason) => seen.push(reason));
+  assert.deepEqual(
+    fake.listens.map((l) => l.event),
+    ["vault-watch-lost"],
+  );
+  fake.listens[0]!.handler("gone");
+  fake.listens[0]!.handler(3);
+  await new Promise((resolve) => setImmediate(resolve));
+  stop?.();
+  fake.listens[0]!.handler("late");
+  assert.deepEqual(seen, ["gone"]);
 });
 
 test("onVaultChange drops non-string items and skips an empty batch", () => {
@@ -358,6 +435,14 @@ test("a rejected listen leaves onVaultChange harmless", async () => {
   await new Promise((resolve) => setImmediate(resolve));
   assert.doesNotThrow(() => stop());
   assert.equal(fake.unlistenCount(), 0);
+});
+
+test("signInListening passes the shell's answer and counts an error as listening", async () => {
+  const taken = fakeCommands({ signInListening: { status: "ok", data: false } });
+  assert.equal(await desktopShim(taken.cmds, fakeEvents().events).signInListening?.(), false);
+  assert.deepEqual(taken.calls.map((c) => c.cmd), ["signInListening"]);
+  const failed = fakeCommands({ signInListening: error("gone") });
+  assert.equal(await desktopShim(failed.cmds, fakeEvents().events).signInListening?.(), true);
 });
 
 test("inkAvailable answers false when the shell errors", async () => {
@@ -758,4 +843,79 @@ test("onEmbedProgress forwards loaded, total and model, and stops on unsubscribe
   fake.listens[0]!.handler({ model: "m", loaded: 2, total: 4 });
   assert.deepEqual(seen, [[1, 4, "m"]]);
   assert.equal(fake.unlistenCount(), 1);
+});
+
+test("planWidgetState and setPlanWidget answer the widget state", async () => {
+  const state = { supported: true, enabled: true };
+  const { cmds, calls } = fakeCommands({
+    planWidgetState: { status: "ok", data: state },
+    planWidgetSet: { status: "ok", data: state },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.planWidgetState?.(), state);
+  assert.deepEqual(await shim.setPlanWidget?.(true), state);
+  assert.deepEqual(calls, [
+    { cmd: "planWidgetState", args: [] },
+    { cmd: "planWidgetSet", args: [true] },
+  ]);
+});
+
+test("setPlanWidget throws the shell's message", async () => {
+  const { cmds } = fakeCommands({ planWidgetSet: error("no widget") });
+  await assert.rejects(
+    async () => desktopShim(cmds, fakeEvents().events).setPlanWidget?.(true),
+    /no widget/,
+  );
+});
+
+test("setPlanWidgetTheme returns undefined synchronously and swallows failures", async () => {
+  const { cmds, calls } = fakeCommands({
+    planWidgetTheme: () => Promise.reject(new Error("ipc down")),
+  });
+  const result = desktopShim(cmds, fakeEvents().events).setPlanWidgetTheme?.({ bg: "#000000" });
+  assert.equal(result, undefined);
+  assert.deepEqual(calls, [{ cmd: "planWidgetTheme", args: [{ bg: "#000000" }] }]);
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
+test("storageUsage returns the areas and clearStorage sends the id", async () => {
+  const areas = [
+    { id: "models", bytes: 12, files: 1, limit: 4096 },
+    { id: "log", bytes: 3, files: 1, limit: null },
+  ];
+  const ok = fakeCommands({ appStorageUsage: { status: "ok", data: areas } });
+  const shim = desktopShim(ok.cmds, fakeEvents().events);
+  assert.deepEqual(await shim.storageUsage?.(), areas);
+  assert.equal(await shim.clearStorage?.("models"), undefined);
+  assert.deepEqual(ok.calls, [
+    { cmd: "appStorageUsage", args: [] },
+    { cmd: "appStorageClear", args: ["models"] },
+  ]);
+  const bad = fakeCommands({ appStorageClear: error("Some files could not be deleted.") });
+  await assert.rejects(
+    async () => desktopShim(bad.cmds, fakeEvents().events).clearStorage?.("log"),
+    /could not be deleted/,
+  );
+});
+
+test("deleteLocalArtifacts sends the experiment id and throws the shell's message", async () => {
+  const ok = fakeCommands();
+  assert.equal(await desktopShim(ok.cmds, fakeEvents().events).deleteLocalArtifacts?.("exp-1"), undefined);
+  assert.deepEqual(ok.calls, [{ cmd: "localArtifactsDelete", args: ["exp-1"] }]);
+  const bad = fakeCommands({ localArtifactsDelete: error("Unsafe artifact path.") });
+  await assert.rejects(
+    async () => desktopShim(bad.cmds, fakeEvents().events).deleteLocalArtifacts?.(".."),
+    /Unsafe artifact path/,
+  );
+});
+
+test("revealAppLog resolves to undefined and throws the shell's message", async () => {
+  const ok = fakeCommands();
+  assert.equal(await desktopShim(ok.cmds, fakeEvents().events).revealAppLog?.(), undefined);
+  assert.deepEqual(ok.calls, [{ cmd: "appLogReveal", args: [] }]);
+  const bad = fakeCommands({ appLogReveal: error("Could not show the log file.") });
+  await assert.rejects(
+    async () => desktopShim(bad.cmds, fakeEvents().events).revealAppLog?.(),
+    /Could not show the log file/,
+  );
 });

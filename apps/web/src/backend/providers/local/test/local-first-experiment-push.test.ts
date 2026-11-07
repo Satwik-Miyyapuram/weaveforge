@@ -100,7 +100,7 @@ class Blobs implements IBlobStore {
 
 async function database(): Promise<LocalQuery> {
   const pg = new PGlite();
-  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql", "0013_local_metric_pushes.sql"]) {
+  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql", "0013_local_metric_pushes.sql", "0021_local_blobs_on_disk.sql"]) {
     await pg.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
   }
   await pg.exec(`

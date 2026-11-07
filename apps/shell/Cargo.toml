@@ -11,6 +11,12 @@ rust-version = "1.98"
 license = "AGPL-3.0-only"
 repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
 publish = false
+# One integration test binary (tests/main.rs); see that file.
+autotests = false
+
+[[test]]
+name = "shell"
+path = "tests/main.rs"
 
 [lib]
 # `_lib`, as in Tauri's template: a cdylib and a bin with one name write the same .pdb on
@@ -31,8 +37,11 @@ tauri-plugin-opener = "=2.7.2"
 # Sidecar client (step 2.4): async child process, Job Object on Windows so the
 # sidecar dies with the shell. The std API of process-wrap never sets kill-on-close.
 process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
-serde_json = "=1.0.154"
-tokio = { version = "=1.54.1", features = ["io-std", "io-util", "net", "process", "rt", "sync", "time"] }
+# Rows keep column order and JSON keeps key order, as PGlite returned them.
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+# Editor MCP configs are often JSONC; the CST edit keeps the user's comments.
+jsonc-parser = { version = "=0.34.0", features = ["cst", "serde_json"] }
+tokio = { version = "=1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
 # Typed commands: tauri-specta generates bridge/bindings.ts from the command signatures.
 # Specta v2 is a release candidate; the pins must move together.
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -97,7 +106,7 @@ tauri-plugin-deep-link = "=2.6.3"
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
-windows = { version = "=0.62.2", default-features = false, features = ["Win32_Foundation", "Win32_System_SystemInformation", "Win32_System_Threading"] }
+windows = { version = "=0.62.2", default-features = false, features = ["Win32_Foundation", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 # Windows Credential Manager store for keyring-core; search is not needed.
 windows-native-keyring-store = { version = "=1.1.0", default-features = false }
 
@@ -114,6 +123,11 @@ apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 # in pure-Rust crypto (the crate does not build without a crypto feature).
 # Builds need libdbus-1-dev.
 dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-rust"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# SharedPreferences sealed with an Android Keystore key, for keyring-core. Tauri's
+# activity (tao) sets up the ndk-context it reads.
+android-native-keyring-store = { version = "=1.0.0", default-features = false }
 
 [dev-dependencies]
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }

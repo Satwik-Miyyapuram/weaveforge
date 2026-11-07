@@ -108,7 +108,9 @@ const RULES = [
  * closed. A gate that cannot see the file the violation is in is not a gate.
  */
 const isSource = (name) => name.endsWith(".tsx") || name.endsWith(".ts");
-const files = UI_PATHS.flatMap((p) => walkFiles(path.join(root, p), isSource));
+// Overleaf's IDE, vendored as it ships (AGPL-3.0): its own controls, not ours to restyle.
+const VENDORED = path.join(root, "apps/web/src/features/report/vendor/overleaf") + path.sep;
+const files = UI_PATHS.flatMap((p) => walkFiles(path.join(root, p), isSource)).filter((f) => !f.startsWith(VENDORED));
 let failed = false;
 
 for (const rule of RULES) {

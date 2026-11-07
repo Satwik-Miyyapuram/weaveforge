@@ -77,9 +77,40 @@ test("the DOI on the first page finds the paper", async () => {
   assert.deepEqual(calls.created, ["p-doi"], "a new paper gets its note and Zotero push");
 });
 
-test("no DOI falls back to a title lookup", async () => {
+test("no DOI: the arXiv stamp on the first page finds the paper", async () => {
   const { d, calls } = deps({
-    readPdf: async () => ({ text: "arXiv:1706.03762v5 [cs.CL]\nAttention Is All You Need\nAshish Vaswani" }),
+    readPdf: async () => ({ text: "arXiv:1706.03762v5 [cs.CL] 6 Dec 2017\nAttention Is All You Need\nAshish Vaswani" }),
+    importRef: async (ref) => {
+      calls.refs.push(ref);
+      return { paper: paper("p-arxiv"), created: true };
+    },
+  });
+  const out = await addPaperFromPdf(file("x.pdf"), d);
+  assert.deepEqual(calls.refs, [{ kind: "arxiv", value: "1706.03762" }], "version dropped, no title lookup");
+  assert.ok(out.kind === "added" && out.matched);
+});
+
+test("an old-style arXiv id is read too", async () => {
+  const { d, calls } = deps({ readPdf: async () => ({ text: "arXiv:hep-th/9711200v3 22 Jan 1998\nThe Large N Limit of Superconformal Field Theories" }) });
+  await addPaperFromPdf(file("x.pdf"), d);
+  assert.deepEqual(calls.refs[0], { kind: "arxiv", value: "hep-th/9711200" });
+});
+
+test("an arXiv id that resolves nowhere still tries the title", async () => {
+  const { d, calls } = deps({ readPdf: async () => ({ text: "arXiv:2301.12345v1 [cs.LG]\nA Long Enough Paper Title Here" }) });
+  await addPaperFromPdf(file("x.pdf"), d);
+  assert.deepEqual(calls.refs.map((r) => r.kind), ["arxiv", "bibliographic"]);
+});
+
+test("a DOI is tried before the arXiv stamp", async () => {
+  const { d, calls } = deps({ readPdf: async () => ({ text: "arXiv:2301.12345v1\nA Long Enough Paper Title Here\ndoi:10.1234/abcd" }) });
+  await addPaperFromPdf(file("x.pdf"), d);
+  assert.deepEqual(calls.refs.map((r) => r.kind), ["doi", "arxiv", "bibliographic"]);
+});
+
+test("no DOI and no arXiv id falls back to a title lookup", async () => {
+  const { d, calls } = deps({
+    readPdf: async () => ({ text: "Attention Is All You Need\nAshish Vaswani" }),
     importRef: async (ref) => {
       calls.refs.push(ref);
       return { paper: paper("p-title"), created: true };
@@ -250,10 +281,12 @@ test("the title guess skips header noise", () => {
 test("Papers shows a drop zone only while a file is dragged over it", () => {
   const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../ui/${rel}`, import.meta.url)), "utf8");
   const screen = read("papers-list.tsx");
-  assert.match(screen, /<PdfDropZone onDropped=\{onPdfsAdded\} \/>/);
+  assert.match(screen, /<PaperDropZone onPdfs=\{onPdfsAdded\} onBib=\{onBibImported\} \/>/);
   const zone = read("pdf-drop-zone.tsx");
-  assert.match(zone, /\{over && \(\s*<div className="pdf-drop-overlay"/);
-  assert.match(zone, /dataTransfer\?\.types\.includes\("Files"\)/);
+  assert.match(zone, /<FileDropZone\s+label="Drop PDFs or \.bib files to add papers"/);
+  const shared = readFileSync(fileURLToPath(new URL("../../../components/file-drop-zone.tsx", import.meta.url)), "utf8");
+  assert.match(shared, /\{over && \(\s*<div className="file-drop-overlay"/);
+  assert.match(shared, /dataTransfer\?\.types\.includes\("Files"\)/);
   // The add form offers the same thing as a file picker: the app's own
   // button, with the native input kept only for the label and screen readers.
   const form = read("add-paper-form.tsx");

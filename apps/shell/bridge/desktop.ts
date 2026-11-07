@@ -7,9 +7,11 @@ import type {
   DesktopInkResult,
   DesktopLocalApi,
   DesktopOverleafSource,
+  DesktopPlanWidget,
   DesktopPreferenceName,
   DesktopPreferenceValue,
   DesktopSecretName,
+  DesktopStorageArea,
   DesktopTexCompileResult,
   DesktopTexTool,
   DesktopUpdate,
@@ -56,19 +58,46 @@ function toInkResult(wire: WireInkResult): DesktopInkResult {
   };
 }
 
+/** What a folder pick, retry or disconnect did; warnings do not undo it. */
+interface VaultChoice {
+  root: DesktopVaultRoot | null;
+  warnings: string[];
+}
+
+/** The folder a choice left in use, carrying its warnings for the page to show. */
+function choiceRoot(choice: VaultChoice): DesktopVaultRoot | null {
+  if (!choice.root) return null;
+  return choice.warnings.length > 0
+    ? { ...choice.root, warnings: choice.warnings }
+    : choice.root;
+}
+
 /** The generated commands this part of the shim calls (names as tauri-specta camelCases them). */
 export interface DesktopCommands {
   vaultRoot(): Promise<Result<DesktopVaultRoot | null>>;
-  vaultChoose(): Promise<Result<DesktopVaultRoot | null>>;
+  vaultChoose(): Promise<Result<VaultChoice>>;
+  vaultMissing(): Promise<Result<string | null>>;
+  vaultRetry(): Promise<Result<VaultChoice>>;
+  vaultForget(): Promise<Result<VaultChoice>>;
   vaultRead(path: string): Promise<Result<string | null>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
+  vaultWriteIf(path: string, contents: string, expected: string | null): Promise<Result<boolean>>;
   vaultReadBytes(path: string): Promise<Result<string | null>>; // base64
   vaultWriteBytes(path: string, bytes: string): Promise<Result<null>>; // base64
   vaultList(path: string | null): Promise<Result<DesktopVaultEntry[]>>;
   vaultStat(path: string): Promise<Result<DesktopVaultEntry | null>>;
   vaultRemove(path: string): Promise<Result<null>>;
+  localFileRead(bucket: string, path: string): Promise<Result<string | null>>; // base64
+  localFileWrite(
+    bucket: string,
+    path: string,
+    bytes: string, // base64
+  ): Promise<Result<null>>;
+  localFileRemove(bucket: string, path: string): Promise<Result<null>>;
   vaultCommit(): Promise<Result<DesktopCommitResult>>;
   vaultLog(limit: number | null): Promise<Result<DesktopCommit[]>>;
+  vaultFileLog(path: string, limit: number | null): Promise<Result<DesktopCommit[]>>;
+  vaultReadAt(oid: string, path: string): Promise<Result<string | null>>;
   vaultSync(action: string): Promise<Result<DesktopVaultSync>>;
   fetchTitle(url: string): Promise<Result<{ title: string; url: string }>>;
   fetchImage(
@@ -79,8 +108,10 @@ export interface DesktopCommands {
     files: { path: string; content: string }[],
     entryFile: string,
   ): Promise<Result<WireTexResult>>;
+  texCancel(): Promise<Result<null>>;
   zoteroLocal(url: string): Promise<Result<DesktopZoteroReply>>;
   updateCheck(): Promise<Result<DesktopUpdate | null>>;
+  signInListening(): Promise<Result<boolean>>;
   appLogReport(report: {
     level: string;
     source: string | null;
@@ -88,6 +119,13 @@ export interface DesktopCommands {
     detail: string | null;
   }): Promise<Result<null>>;
   appLogRead(): Promise<Result<DesktopAppLog>>;
+  appLogReveal(): Promise<Result<null>>;
+  /** Sizes are `f64` in Rust, so the generated type allows `null` (NaN); never sent in practice. */
+  appStorageUsage(): Promise<
+    Result<{ id: string; bytes: number | null; files: number | null; limit: number | null }[]>
+  >;
+  appStorageClear(id: string): Promise<Result<null>>;
+  localArtifactsDelete(experimentId: string): Promise<Result<null>>;
   preferenceWrite(
     name: DesktopPreferenceName,
     value: DesktopPreferenceValue,
@@ -95,6 +133,9 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
+  planWidgetState(): Promise<Result<DesktopPlanWidget>>;
+  planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
+  planWidgetTheme(palette: unknown): Promise<Result<null>>;
   overleafRead(
     projectId: string,
     entryFile: string,
@@ -107,6 +148,7 @@ export interface DesktopCommands {
     Result<{ links: { projectId: string; folder: string }[]; hasToken: boolean }>
   >;
   mattermostSignIn(serverUrl: string): Promise<Result<string | null>>;
+  overleafSignIn(): Promise<Result<string | null>>;
   mattermostPost(post: {
     serverUrl: string;
     token: string;
@@ -129,7 +171,13 @@ export interface DesktopCommands {
     kind: "passage" | "query",
   ): Promise<Result<(number | null)[][]>>;
   embedUnload(model: string): Promise<Result<null>>;
+  // Rust sends a non-finite float as null.
+  modelDownloads(): Promise<Result<{ file: string; done: number | null; total: number | null }[]>>;
+  cancelModelDownloads(): Promise<Result<null>>;
 }
+
+/** One model file downloading now; sizes in bytes. */
+export type ModelDownload = { file: string; done: number; total: number | null };
 
 /** Vector rows with every value a number; Rust sends a non-finite float as null. */
 function finiteRows(rows: (number | null)[][]): number[][] {
@@ -150,6 +198,9 @@ export interface DesktopEvents {
 
 /** The event the shell emits with folder-relative paths changed by other programs. */
 export const VAULT_CHANGED_EVENT = "vault-changed";
+
+/** The event the shell emits, with the reason, when the folder watch stops seeing changes. */
+export const VAULT_WATCH_LOST_EVENT = "vault-watch-lost";
 
 /** The event the sidecar emits to ask for a semantic ranking: [id, query, candidates]. */
 export const SEMANTIC_RANK_EVENT = "semanticRank";
@@ -199,6 +250,7 @@ function isEmbedProgressPayload(
 export type DesktopShim = Pick<
   DesktopBridge,
   | "onVaultChange"
+  | "onVaultWatchLost"
   | "localApiState"
   | "setLocalApi"
   | "createLocalApiToken"
@@ -210,39 +262,60 @@ export type DesktopShim = Pick<
   | "embedLoad"
   | "embedTexts"
   | "embedUnload"
+  | "modelDownloads"
+  | "cancelModelDownloads"
   | "onEmbedProgress"
   | "inkAvailable"
   | "inkHapticsAvailable"
   | "inkRecognise"
   | "inkHaptics"
   | "mattermostSignIn"
+  | "overleafSignIn"
   | "mattermostPost"
   | "readOverleafProject"
   | "overleafSync"
   | "vaultRoot"
   | "chooseVaultRoot"
+  | "missingVaultRoot"
+  | "retryVaultRoot"
+  | "forgetVaultRoot"
   | "readVaultFile"
   | "writeVaultFile"
+  | "writeVaultFileIf"
   | "readVaultBytes"
   | "writeVaultBytes"
   | "listVaultFiles"
   | "statVaultFile"
   | "removeVaultFile"
+  | "readLocalFile"
+  | "writeLocalFile"
+  | "removeLocalFile"
   | "commitVault"
   | "vaultLog"
+  | "vaultFileLog"
+  | "vaultReadAt"
   | "vaultSync"
   | "fetchTitle"
   | "fetchImage"
   | "probeTex"
   | "compileTex"
+  | "cancelTex"
   | "zoteroLocal"
   | "checkUpdate"
+  | "signInListening"
   | "reportAppLog"
   | "readAppLog"
+  | "revealAppLog"
+  | "storageUsage"
+  | "clearStorage"
+  | "deleteLocalArtifacts"
   | "writePreference"
   | "readSecret"
   | "writeSecret"
   | "clearSecret"
+  | "planWidgetState"
+  | "setPlanWidget"
+  | "setPlanWidgetTheme"
 >;
 
 /** Wraps the generated commands as the desktop members of `DesktopBridge`. */
@@ -312,6 +385,11 @@ export function desktopShim(
     embedUnload: async (model) => {
       unwrap(await cmds.embedUnload(model));
     },
+    modelDownloads: async (): Promise<ModelDownload[]> =>
+      unwrap(await cmds.modelDownloads()).map((d) => ({ ...d, done: d.done ?? 0 })),
+    cancelModelDownloads: async () => {
+      unwrap(await cmds.cancelModelDownloads());
+    },
     // Same unlisten rule as `onVaultChange`.
     onEmbedProgress: (cb) => {
       let stopped = false;
@@ -359,6 +437,29 @@ export function desktopShim(
         unlisten = null;
       };
     },
+    // Same unlisten rule as `onVaultChange`.
+    onVaultWatchLost: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | null = null;
+      void events
+        .listen(VAULT_WATCH_LOST_EVENT, (payload) => {
+          if (stopped || typeof payload !== "string") return;
+          cb(payload);
+        })
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("A lost workspace folder watch will not be reported:", error);
+        });
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        unlisten?.();
+        unlisten = null;
+      };
+    },
     inkAvailable: async () => {
       try {
         return unwrap(await cmds.inkAvailable());
@@ -392,6 +493,7 @@ export function desktopShim(
     },
     mattermostSignIn: async (serverUrl) =>
       unwrap(await cmds.mattermostSignIn(serverUrl)),
+    overleafSignIn: async () => unwrap(await cmds.overleafSignIn()),
     mattermostPost: async (req) =>
       unwrap(
         await cmds.mattermostPost({
@@ -410,11 +512,16 @@ export function desktopShim(
       return unwrap(await cmds.overleafSync(request.action, projectId, folder));
     },
     vaultRoot: async () => unwrap(await cmds.vaultRoot()),
-    chooseVaultRoot: async () => unwrap(await cmds.vaultChoose()),
+    chooseVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultChoose())),
+    missingVaultRoot: async () => unwrap(await cmds.vaultMissing()),
+    retryVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultRetry())),
+    forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
     readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));
     },
+    writeVaultFileIf: async (path, contents, expected) =>
+      unwrap(await cmds.vaultWriteIf(path, contents, expected)),
     readVaultBytes: async (path) => {
       const data = unwrap(await cmds.vaultReadBytes(path));
       return data === null ? null : fromBase64(data);
@@ -427,8 +534,20 @@ export function desktopShim(
     removeVaultFile: async (path) => {
       unwrap(await cmds.vaultRemove(path));
     },
+    readLocalFile: async (bucket, path) => {
+      const data = unwrap(await cmds.localFileRead(bucket, path));
+      return data === null ? null : fromBase64(data);
+    },
+    writeLocalFile: async (bucket, path, bytes) => {
+      unwrap(await cmds.localFileWrite(bucket, path, toBase64(bytes)));
+    },
+    removeLocalFile: async (bucket, path) => {
+      unwrap(await cmds.localFileRemove(bucket, path));
+    },
     commitVault: async () => unwrap(await cmds.vaultCommit()),
     vaultLog: async (limit) => unwrap(await cmds.vaultLog(limit)),
+    vaultFileLog: async (path, limit) => unwrap(await cmds.vaultFileLog(path, limit)),
+    vaultReadAt: async (oid, path) => unwrap(await cmds.vaultReadAt(oid, path)),
     vaultSync: async (action) => unwrap(await cmds.vaultSync(action)),
     fetchTitle: async (url) => unwrap(await cmds.fetchTitle(url)),
     fetchImage: async (url) => {
@@ -452,8 +571,19 @@ export function desktopShim(
         pdf: result.pdf === null ? null : exactBytes(fromBase64(result.pdf)),
       };
     },
+    cancelTex: async () => {
+      unwrap(await cmds.texCancel());
+    },
     zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
     checkUpdate: async () => unwrap(await cmds.updateCheck()),
+    // A failed question is no reason to ask for a pasted link, so it counts as listening.
+    signInListening: async () => {
+      try {
+        return unwrap(await cmds.signInListening());
+      } catch {
+        return true;
+      }
+    },
     // Logging must never throw into the page, so a failed report is dropped.
     reportAppLog: (entry) => {
       void cmds
@@ -466,6 +596,22 @@ export function desktopShim(
         .catch(() => {});
     },
     readAppLog: async () => unwrap(await cmds.appLogRead()),
+    revealAppLog: async () => {
+      unwrap(await cmds.appLogReveal());
+    },
+    storageUsage: async (): Promise<DesktopStorageArea[]> =>
+      unwrap(await cmds.appStorageUsage()).map((area) => ({
+        id: area.id,
+        bytes: area.bytes ?? 0,
+        files: area.files ?? 0,
+        limit: area.limit ?? null,
+      })),
+    clearStorage: async (id) => {
+      unwrap(await cmds.appStorageClear(id));
+    },
+    deleteLocalArtifacts: async (experimentId) => {
+      unwrap(await cmds.localArtifactsDelete(experimentId));
+    },
     writePreference: async (name, value) => {
       unwrap(await cmds.preferenceWrite(name, value));
     },
@@ -475,6 +621,11 @@ export function desktopShim(
     },
     clearSecret: async (name) => {
       unwrap(await cmds.secretClear(name));
+    },
+    planWidgetState: async () => unwrap(await cmds.planWidgetState()),
+    setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
+    setPlanWidgetTheme: (palette) => {
+      void cmds.planWidgetTheme(palette).catch(() => {});
     },
   };
 }

@@ -14,6 +14,8 @@ import { Button } from "@/components/button";
 import { formatError } from "@/lib/format-error";
 import type { PdfDropOutcome } from "../application/paper-from-pdf";
 import { addPdfFiles } from "./pdf-drop";
+import type { BibImportOutcome } from "../application/paper-from-bib";
+import { addBibFile } from "./bib-import";
 
 
 type RefKind = Exclude<PaperRef["kind"], "bibliographic">;
@@ -55,11 +57,17 @@ export function addedPaperMessage(created: boolean): string {
 export function AddPaperForm({
   onAdded,
   onPdfs,
+  onBib,
 }: {
   onAdded?: (paper: Paper, created: boolean) => void;
   /** Offers a PDF picker; the outcomes are the caller's to announce. */
   onPdfs?: (outcomes: PdfDropOutcome[]) => void;
+  /** Offers a `.bib` picker; the form lists what was skipped, the caller announces the rest. */
+  onBib?: (outcome: BibImportOutcome) => void;
 }) {
+  const bibRef = useRef<HTMLInputElement>(null);
+  const [bibBusy, setBibBusy] = useState(false);
+  const [bibOutcome, setBibOutcome] = useState<BibImportOutcome | null>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -116,6 +124,26 @@ export function AddPaperForm({
       setPdfBusy(false);
     }
   }
+
+  async function pickBib(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file || !onBib) return;
+    setBibBusy(true);
+    setPdfError(null);
+    setBibOutcome(null);
+    try {
+      const outcome = await addBibFile(file);
+      setBibOutcome(outcome);
+      onBib(outcome);
+    } catch (err) {
+      setPdfError(formatError(err));
+    } finally {
+      setBibBusy(false);
+    }
+  }
+
+  const bibIssues = bibOutcome ? [...bibOutcome.skipped, ...bibOutcome.problems] : [];
 
   return (
     <form className="card add-form" onSubmit={submit}>
@@ -196,6 +224,36 @@ export function AddPaperForm({
             </Button>
           </div>
           <p id="pdfFileHint" className="muted field-hint">The DOI or title on its first page finds the paper. You can also drop PDFs on Papers.</p>
+        </div>
+      )}
+      {onBib && (
+        <div className="field">
+          <label htmlFor="bibFile">…or import a BibTeX file</label>
+          <input
+            ref={bibRef}
+            id="bibFile"
+            className="sr-only"
+            type="file"
+            accept=".bib,.bibtex,text/x-bibtex,application/x-bibtex"
+            disabled={bibBusy}
+            aria-describedby="bibFileHint"
+            onChange={(e) => void pickBib(e.currentTarget)}
+          />
+          <div>
+            <Button size="sm" disabled={bibBusy} onClick={() => bibRef.current?.click()}>
+              {bibBusy ? "Importing…" : "Choose .bib file…"}
+            </Button>
+          </div>
+          <p id="bibFileHint" className="muted field-hint">
+            Exports from Zotero, Mendeley, Google Scholar or Paperpile. From Paperpile: Settings → Export → BibTeX, then pick the downloaded file. Papers already in the library (same DOI or citation key) are skipped.
+          </p>
+          {bibIssues.length > 0 && (
+            <ul className="muted field-hint bib-import-issues" aria-label="Entries not imported">
+              {bibIssues.map((i, n) => (
+                <li key={n}>{i.key ? `${i.key} (line ${i.line})` : `Line ${i.line}`}: {i.reason}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       {(pdfError ?? error) && <FormError>{pdfError ?? error}</FormError>}

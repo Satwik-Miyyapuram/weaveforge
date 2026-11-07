@@ -26,6 +26,12 @@ pub struct AppRoutes {
     pub relay_client: Option<reqwest::Client>,
     /// Relay upstreams and timeouts.
     pub relay_config: RelayConfig,
+    /// Where the GitHub file route reads the sync remote; None in tests.
+    pub prefs: Option<crate::prefs::Prefs>,
+    /// Where it reads the sync token; None in tests.
+    pub secrets: Option<crate::secrets::Secrets>,
+    /// Overleaf Workshop sign-ins, in memory for this run.
+    pub workshop: crate::overleaf_workshop::WorkshopSessions,
 }
 
 /// The host the page wrote: Windows webviews turn `app://x/` into `http://app.x/`.
@@ -78,6 +84,22 @@ fn relay_request(parts: &Parts, body: Vec<u8>) -> Option<RelayRequest> {
     })
 }
 
+/// The plan widget's page or font for `path`, served with the widget's CSP.
+fn widget_answer(path: &str) -> Option<Answer> {
+    let (kind, bytes) = crate::plan_widget::widget_asset(path)?;
+    Some(Answer {
+        status: 200,
+        headers: vec![
+            ("content-type".to_owned(), kind.to_owned()),
+            (
+                "content-security-policy".to_owned(),
+                crate::plan_widget::WIDGET_CSP.to_owned(),
+            ),
+        ],
+        body: bytes.to_vec(),
+    })
+}
+
 /// The answer to one `app://` request.
 pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -> Answer {
     let (parts, body) = request.into_parts();
@@ -98,14 +120,40 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     }
     if page_host(&host) == ARTIFACT_HOST {
         let root = routes.artifacts.clone();
-        return blocking(move || serve_local_artifact(&root, &path)).await;
+        return blocking(move || serve_local_artifact(&root, &path, range.as_deref())).await;
     }
     if !APP_HOSTS.contains(&host.as_str()) {
         return bare(404);
     }
+    if let Some(answer) = widget_answer(&path) {
+        return answer;
+    }
     if let Some(rest) = path.strip_prefix(SAME_ORIGIN_PREFIX) {
         let (root, rest) = (routes.artifacts.clone(), format!("/{rest}"));
-        return blocking(move || serve_local_artifact(&root, &rest)).await;
+        return blocking(move || serve_local_artifact(&root, &rest, range.as_deref())).await;
+    }
+    if path == crate::github_file::ROUTE
+        && let (Some(client), Some(prefs), Some(secrets)) = (
+            routes.relay_client.as_ref(),
+            routes.prefs.as_ref(),
+            routes.secrets.as_ref(),
+        )
+    {
+        return crate::github_file::serve(client, prefs, secrets, parts.uri.query()).await;
+    }
+    if path.starts_with(crate::overleaf_workshop::PREFIX)
+        && let Some(client) = routes.relay_client.as_ref()
+    {
+        let (method, query) = (parts.method.as_str(), parts.uri.query());
+        return crate::overleaf_workshop::serve(
+            client,
+            &routes.workshop,
+            method,
+            &path,
+            query,
+            &body,
+        )
+        .await;
     }
     if path.starts_with("/api/")
         && let Some(client) = routes.relay_client.as_ref()

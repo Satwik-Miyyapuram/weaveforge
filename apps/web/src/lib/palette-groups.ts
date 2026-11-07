@@ -44,6 +44,29 @@ export function matchingPages<T extends { label: string }>(
   return hits.sort((a, b) => starts(a) - starts(b));
 }
 
+/** Commands-mode rows: every one for an empty query, else the page rule. */
+export function commandMatches<T extends { label: string }>(rows: readonly T[], query: string): T[] {
+  return query.trim() ? matchingPages(rows, query) : [...rows];
+}
+
+export type PaletteMode = "search" | "commands";
+
+/** `⌘K` and `⌘⇧F` search; `⌘⇧P` lists commands, as in VS Code. */
+export function paletteModeFor(e: {
+  key: string;
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+}): PaletteMode | null {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return null;
+  const key = e.key.toLowerCase();
+  if (key === "k" && !e.shiftKey) return "search";
+  if (key === "f" && e.shiftKey) return "search";
+  if (key === "p" && e.shiftKey) return "commands";
+  return null;
+}
+
 /** The footer's key chips, with the platform's own modifier. */
 export function paletteKeys(mac: boolean): { keys: string[]; label: string }[] {
   return [

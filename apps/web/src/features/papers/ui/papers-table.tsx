@@ -161,6 +161,7 @@ function PaperTableRow({
           disabled={readOnly || busy}
           onChange={(st) => void changeStatus(st)}
           label={`Status for ${paper.title}`}
+          title={readOnly ? "Read-only: only the paper's owner can change its status" : busy ? "Saving…" : undefined}
         />
       </td>
       <td className="papers-col-link">

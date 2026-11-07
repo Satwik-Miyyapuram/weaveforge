@@ -9,6 +9,7 @@ import {
   type SearchSettings,
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
+import { semanticStatusText } from "./semantic-status-text";
 import { formatError } from "@/lib/format-error";
 import {
   disableSemanticSearch,
@@ -23,6 +24,7 @@ import {
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
 import { LibraryPdfIndexing, IndexSize } from "./library-pdf-indexing";
+import { ModelDownloadLine } from "./model-download-line";
 import { typedCore } from "@/lib/rust-core";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
@@ -258,33 +260,11 @@ function SemanticSteps({ status }: { status: SemanticStatus }) {
 
 /** One line saying what the arm is doing, and when it is done, that it works. */
 function SemanticStatusLine({ status }: { status: SemanticStatus }) {
-  const text = (() => {
-    switch (status.phase) {
-      case "downloading":
-        return `Downloading the model — ${Math.round((status.loaded / Math.max(status.total, 1)) * 100)}%`;
-      case "loading":
-        return "Starting the model…";
-      case "embedding":
-        return status.total
-          ? `Reading your workspace — ${status.done.toLocaleString()} of ${status.total.toLocaleString()} passages`
-          : "Reading your workspace…";
-      case "ready":
-        return status.upgrading
-          ? `On (${status.model}). Upgrading to ${status.upgrading.to} in the background${
-              status.upgrading.total
-                ? ` — ${status.upgrading.done.toLocaleString()} of ${status.upgrading.total.toLocaleString()} passages`
-                : "…"
-            }. Search keeps using the current model until it is done.`
-          : `On — ${status.passages.toLocaleString()} passages searchable by meaning (${status.model}). New and edited items are added as you work.`;
-      case "error":
-        return `Not working: ${status.message}. Keyword search is unaffected.`;
-      default:
-        return "Waiting to start…";
-    }
-  })();
+  const text = semanticStatusText(status);
   return (
     <div className="semantic-status" data-phase={status.phase} aria-live="polite">
       <p className={status.phase === "error" ? "form-error" : "muted"}>{text}</p>
+      {status.phase === "downloading" && <ModelDownloadLine />}
     </div>
   );
 }

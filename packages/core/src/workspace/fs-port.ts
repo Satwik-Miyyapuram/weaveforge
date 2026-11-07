@@ -24,6 +24,12 @@ export interface IWorkspaceFs {
   readFile(path: string): Promise<Uint8Array>;
   readText(path: string): Promise<string>;
   writeFile(path: string, data: Uint8Array | string): Promise<void>;
+  /**
+   * Write text only while the file still says `expected` (null = still missing).
+   * False = somebody changed it since the caller read it, and nothing was written.
+   * Optional: an adapter without it gets the caller's plain write.
+   */
+  writeTextIf?(path: string, text: string, expected: string | null): Promise<boolean>;
   remove(path: string, options?: { recursive?: boolean }): Promise<void>;
   mkdirp(path: string): Promise<void>;
   /** One level. */

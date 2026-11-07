@@ -292,22 +292,22 @@ fn host_with_port(url: &Url) -> String {
 }
 
 /// A network error on one hop, shown in the "could not be reached" form.
+/// A timeout says so; any other error goes to the log, not to the user.
 fn reach_failure(url: &Url, error: &reqwest::Error) -> FetchFailure {
-    let detail = if error.is_timeout() {
-        TOO_SLOW.to_owned()
-    } else {
-        error.to_string()
-    };
-    could_not_reach(format!(
-        "That site could not be reached: {} ({detail}).",
-        host_with_port(url)
-    ))
+    let host = host_with_port(url);
+    if error.is_timeout() {
+        return could_not_reach(format!(
+            "That site could not be reached: {host} ({TOO_SLOW})."
+        ));
+    }
+    eprintln!("[fetch] {host} could not be reached: {error}");
+    could_not_reach(format!("That site could not be reached: {host}."))
 }
 
+/// A failed lookup: the host for the user, the resolver's error for the log.
 fn could_not_resolve(host: &str, error: &str) -> FetchFailure {
-    could_not_reach(format!(
-        "That host could not be resolved: {host} ({error})."
-    ))
+    eprintln!("[fetch] {host} could not be resolved: {error}");
+    could_not_reach(format!("That host could not be resolved: {host}."))
 }
 
 fn too_large(max_bytes: usize) -> FetchFailure {

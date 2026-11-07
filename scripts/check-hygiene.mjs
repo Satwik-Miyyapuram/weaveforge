@@ -113,6 +113,10 @@ const OVERSIZED_ALLOWED = new Map([
   ],
 ]);
 
+/** Vendored upstream code, kept as upstream wrote it so it still diffs cleanly. */
+const VENDORED = ["apps/web/src/features/report/vendor/overleaf/"];
+const vendored = (f) => VENDORED.some((p) => f.startsWith(p));
+
 {
   const over = [];
   const stale = [];
@@ -121,7 +125,7 @@ const OVERSIZED_ALLOWED = new Map([
   );
   for (const f of sources) {
     const lines = read(f).split("\n").length;
-    if (lines > MAX_FILE_LINES && !OVERSIZED_ALLOWED.has(f)) over.push(`${f} (${lines} lines)`);
+    if (lines > MAX_FILE_LINES && !OVERSIZED_ALLOWED.has(f) && !vendored(f)) over.push(`${f} (${lines} lines)`);
   }
   for (const f of OVERSIZED_ALLOWED.keys()) {
     if (!fs.existsSync(path.join(root, f)) || read(f).split("\n").length <= MAX_FILE_LINES) {
