@@ -17,7 +17,7 @@ import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
-import { groupProposals, runBulk, type ProposalGrouping } from "../application/proposal-groups";
+import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/proposal-groups";
 import { useUndoWindow } from "./use-undo-window";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/controls";
@@ -261,9 +261,16 @@ export function AiProposalReviewScreen() {
   );
   // Bulk approve only touches what the user sees, so it follows the filtered list.
   const appendOnly = visible.filter((item) => item.kind === "append_paper_note");
-  const groups = useMemo(() => groupProposals(visible, grouping), [visible, grouping]);
+  const groups = useMemo(
+    () => groupProposals(visible, grouping, (id) => sourceTargets.has(id)),
+    [visible, grouping, sourceTargets],
+  );
   function groupLabel(key: string): string {
     if (grouping === "kind") return label[key as AiWriteProposal["kind"]] ?? key;
+    if (key.startsWith(KIND_GROUP_PREFIX)) {
+      const kind = key.slice(KIND_GROUP_PREFIX.length) as AiWriteProposal["kind"];
+      return label[kind] ?? kind;
+    }
     return sourceTargets.get(key)?.title ?? unresolvedSourceLabel(key);
   }
   function bulk(ids: readonly string[], action: "approve" | "reject") {
@@ -289,7 +296,7 @@ export function AiProposalReviewScreen() {
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
     <ScreenHead title="AI suggestions" eyebrow="AI safety"><Button href="/settings">AI settings</Button></ScreenHead>
-    <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
+    <p className="muted ai-review-lede">Nothing changes until you approve it.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
     {undoWindow.scheduled && <div className="card ai-review-undo" role="status"><span>{undoWindow.scheduled.label}</span><Button variant="secondary" size="sm" onClick={undoWindow.undo}>Undo</Button></div>}
@@ -319,12 +326,14 @@ export function AiProposalReviewScreen() {
       <div className="ai-review-list">{group.items.map((item) => {
         const evidence = item.evidence ?? [];
         const preview = splitProposalContent(item.content);
+        const title = preview.title ?? reviewHeading(item);
         return <EntityCard
           key={item.id}
           className={`ai-review-card${evidence.length ? " ai-review-card--split" : ""}`}
           tone={toneFor(item.kind)}
-          title={preview.title ?? reviewHeading(item)}
-          badge={<span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
+          title={title}
+          // The kind is already the title when the suggestion has none of its own.
+          badge={title === label[item.kind] ? undefined : <span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
           meta={<><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>{preview.why && <> · {preview.why}</>}</>}
         >
           <div className="ai-review-body">

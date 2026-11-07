@@ -1,4 +1,4 @@
-import type { AiProposalExecution, IAiAuditStore, IAiProposalExecutor, IAiProposalStore } from "../domain/ai-write-proposal.js";
+import type { AiProposalExecution, AiWriteProposal, IAiAuditStore, IAiProposalExecutor, IAiProposalStore } from "../domain/ai-write-proposal.js";
 import { ConflictError, NotFoundError } from "../../../shared/errors.js";
 
 /** Executes an already-reviewed proposal and records its immutable outcome. */
@@ -26,8 +26,25 @@ export class ExecuteAiProposalUseCase {
       await this.deps.proposals.save({ ...proposal, status: "pending" });
       throw error;
     }
-    await this.deps.proposals.save({ ...proposal, status });
+    // The change has landed. Never back to pending from here: a second
+    // approval would apply it twice. Retry the outcome so it does not sit at
+    // "executing", and say so plainly if it still cannot be saved.
+    try {
+      await this.saveOutcome({ ...proposal, status });
+    } catch {
+      throw new Error("The change was applied, but its review record could not be saved. Do not approve it again.");
+    }
     await this.deps.audit.save({ id: this.deps.ids.newId(), proposalId, action: status, createdAt: this.deps.clock.nowIso() });
     return status;
+  }
+
+  private async saveOutcome(proposal: AiWriteProposal, attempts = 3): Promise<void> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.deps.proposals.save(proposal);
+      } catch (error) {
+        if (attempt >= attempts) throw error;
+      }
+    }
   }
 }

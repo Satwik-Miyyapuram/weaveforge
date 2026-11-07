@@ -9,11 +9,26 @@ export interface ProposalGroup {
   items: AiWriteProposal[];
 }
 
-/** Groups in the order their first proposal appears; items keep queue order. */
-export function groupProposals(items: readonly AiWriteProposal[], by: ProposalGrouping): ProposalGroup[] {
+/** Key prefix for a document group whose target is unknown (see `groupProposals`). */
+export const KIND_GROUP_PREFIX = "kind:";
+
+/**
+ * Groups in the order their first proposal appears; items keep queue order.
+ *
+ * By document, a resource id that `known` cannot resolve (a "create"
+ * suggestion's fresh id, or a target not in the catalog) is grouped under
+ * `kind:<kind>` instead, so new items are not one group each.
+ */
+export function groupProposals(
+  items: readonly AiWriteProposal[],
+  by: ProposalGrouping,
+  known?: (resourceId: string) => boolean,
+): ProposalGroup[] {
   const groups = new Map<string, AiWriteProposal[]>();
   for (const item of items) {
-    const key = by === "document" ? item.resourceId : item.kind;
+    const key = by === "kind" ? item.kind
+      : !known || known(item.resourceId) ? item.resourceId
+      : `${KIND_GROUP_PREFIX}${item.kind}`;
     const group = groups.get(key);
     if (group) group.push(item);
     else groups.set(key, [item]);
