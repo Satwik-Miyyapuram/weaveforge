@@ -102,85 +102,8 @@
 .overleaf-connect__option:has(input:checked) { border-color: var(--accent); }
 .overleaf-connect__option .muted { font-size: var(--fs-sm); }
 .overleaf-connect__fallback summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
-/* Overleaf's editor, themed: one flush frame of file rail | source | PDF with dividers between. */
-.workshop-live { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.overleaf-panes { flex: 1; display: flex; min-height: 360px; border: 1px solid var(--line); border-radius: var(--r-control); overflow: hidden; background: var(--surface); }
-/* Hidden panes stay mounted so the connection and PDF survive a switch. */
-.overleaf-panes > [hidden] { display: none !important; }
-.overleaf-panes__side { flex: none; min-height: 0; overflow: hidden; background: var(--surface-alt, var(--surface)); }
-.overleaf-panes__editor, .overleaf-panes__pdf { flex-basis: 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.overleaf-panes__pdf { background: var(--surface-alt, var(--surface)); }
-.overleaf-divider { flex: none; width: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--surface-alt, var(--surface)); border-inline: 1px solid var(--line); cursor: col-resize; touch-action: none; }
-.overleaf-divider:hover, .overleaf-divider:focus-visible { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); outline: none; }
-.overleaf-divider--fixed { cursor: default; }
-.overleaf-divider button { width: 12px; min-width: 0; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: 0; color: var(--muted); background: transparent; }
-.overleaf-divider button:hover { color: var(--accent); }
-/* Left rail: File tree above File outline, each folding from its header. */
-.overleaf-sidebar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.overleaf-panel { display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid var(--line); }
-.overleaf-panel--open { flex: 1 1 0; }
-.overleaf-panel--open + .overleaf-panel--open { flex: 0 1 40%; }
-.overleaf-panel__head { margin: 0; flex: none; font-size: var(--fs-sm); line-height: 1.4; }
-.overleaf-panel--open .overleaf-panel__head { border-bottom: 1px solid var(--line); }
-:root:root .overleaf-panel__head .wf-row { display: flex; align-items: center; gap: var(--s1); width: 100%; padding: var(--s1) var(--s2); font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); text-align: start; justify-content: flex-start; }
-:root:root .overleaf-panel__head .wf-row:hover { color: var(--ink); }
-.overleaf-panel__body { flex: 1; min-height: 0; overflow: auto; padding: 4px; }
-.workshop-live__files { padding: 0; }
-.overleaf-tree, .overleaf-tree ul { list-style: none; margin: 0; padding: 0; }
-:root:root .overleaf-tree .wf-row { display: flex; align-items: center; gap: var(--s1); width: 100%; min-height: 26px; padding-block: 2px; padding-inline-end: 8px; font-size: var(--fs-sm); text-align: start; justify-content: flex-start; }
-.overleaf-tree .wf-row svg { flex: none; color: var(--muted); }
-.overleaf-tree__twisty { display: inline-flex; flex: none; width: 14px; }
-.overleaf-tree__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.overleaf-outline, .overleaf-outline ul { list-style: none; margin: 0; padding: 0; }
-.overleaf-outline ul { padding-inline-start: var(--s3); }
-.overleaf-outline__row { display: flex; align-items: center; gap: 2px; }
-.overleaf-outline__row > button:first-child:not(.wf-row) { flex: none; width: 20px; height: 20px; min-width: 0; min-height: 0; padding: 0; }
-.overleaf-outline__twisty { flex: none; width: 20px; }
-:root:root .overleaf-outline__row .wf-row { flex: 1; min-width: 0; min-height: 24px; padding: 2px var(--s1); font-size: var(--fs-sm); text-align: start; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root:root .overleaf-outline__row .wf-row[aria-current="true"] { color: var(--accent); font-weight: 600; }
-.overleaf-outline__empty { margin: 4px 8px; font-size: var(--fs-sm); }
-/* Source pane: toolbar, breadcrumbs, then CodeMirror. */
-.workshop-live__source { display: flex; flex-direction: column; height: 100%; min-height: 0; container-type: inline-size; }
-/* One row always: tools that do not fit fold into the "More formatting" menu. */
-.overleaf-toolbar { flex: none; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; min-width: 0; padding: 2px var(--s1); border-bottom: 1px solid var(--line); background: var(--surface-alt, var(--surface)); overflow: hidden; }
-:root:root .overleaf-toolbar :is(.wf-tool, .wf-icon) { flex: none; width: 28px; height: 28px; min-width: 28px; min-height: 28px; font: 600 var(--fs-sm)/1 var(--font-serif, Georgia, serif); }
-:root:root .overleaf-toolbar :is(.wf-tool, .wf-icon) svg { width: 16px; height: 16px; }
-.overleaf-toolbar .custom-select-container { flex: 0 1 130px; min-width: 84px; }
-:root:root .overleaf-toolbar .wf-select { width: 100%; min-height: 28px; padding-inline: 8px; font-size: var(--fs-sm); }
-.overleaf-toolbar__extra { display: contents; }
-.overleaf-toolbar__more { display: none; }
-@container (max-width: 480px) {
-  .overleaf-toolbar__extra { display: none; }
-  .overleaf-toolbar__more { display: inline-flex; }
-}
-@container (max-width: 440px) {
-  .overleaf-toolbar .custom-select-container, .overleaf-toolbar .custom-select-container + .overleaf-toolbar__sep { display: none; }
-}
-.overleaf-toolbar__sep { flex: none; width: 1px; height: 18px; margin-inline: 4px; background: var(--line); }
-.overleaf-toolbar__grow { flex: 1; }
-.overleaf-toolbar__mode.view-switch { flex: none; margin-left: 0; }
-:root:root .overleaf-toolbar__mode button { min-height: 28px; padding: 0 8px; font-size: var(--fs-sm); }
-.overleaf-crumbs { flex: none; display: flex; align-items: center; gap: 8px; padding: var(--s1) var(--s2); font-size: var(--fs-sm); color: var(--muted); border-bottom: 1px solid var(--line); }
-.overleaf-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; list-style: none; }
-.overleaf-crumbs li + li::before { content: "\203A"; margin-inline-end: 4px; }
-.overleaf-crumbs li[aria-current] { color: var(--ink); }
-.overleaf-crumbs [role="status"] { margin-inline-start: auto; }
-.workshop-live__editor { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
-.workshop-live__editor .cm-editor { height: 100%; font-size: var(--fs-sm); }
-/* LaTeX colours, Overleaf's scheme in theme tokens (lib/latex-highlight.ts).
-   Status hues mixed with ink: some themes set every --st-*-fg to ink. */
-:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-command, .cm-tex-command *) { color: color-mix(in srgb, var(--st-info-bg) 55%, var(--ink)); }
-:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-arg, .cm-tex-arg *) { color: color-mix(in srgb, var(--st-danger-bg) 60%, var(--ink)); }
-:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-math, .cm-tex-math *) { color: color-mix(in srgb, var(--st-positive-bg) 55%, var(--ink)); }
-:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-comment, .cm-tex-comment *) { color: var(--faint); font-style: italic; }
-:root:root .workshop-live__editor .cm-editor:not(.ol-cm-parsed) :is(.cm-tex-bracket, .cm-tex-bracket *) { color: var(--muted); }
-.workshop-live__editor .cm-foldGutter .cm-gutterElement { padding-inline: 2px; color: var(--muted); cursor: pointer; }
 @media (max-width: 699px) {
   .record.overleaf-detail { height: auto; }
-  .overleaf-panes { flex-direction: column; flex: none; }
-  .overleaf-divider { display: none; }
-  .overleaf-panes__side { width: auto !important; max-height: 30vh; }
-  .overleaf-panes__editor, .overleaf-panes__pdf { flex: none; height: 70vh; }
 }
 /* PDF pane: Overleaf's thin bar over the page well. */
 .workshop-pdf { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); }
