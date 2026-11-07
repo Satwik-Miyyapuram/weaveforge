@@ -280,6 +280,8 @@ const LOG_PLACEHOLDER = "Today I… (markdown supported)";
 /** Names the editor by its label: a `<label for>` cannot point at CodeMirror's content. */
 const labelEditor = (labelId: string) => (view: { contentDOM: HTMLElement }) => {
   view.contentDOM.setAttribute("aria-labelledby", labelId);
+  // Edit swapped out the menu button, so focus would fall to the page body.
+  view.contentDOM.focus();
 };
 
 /** The key a log entry hides under while its Undo toast shows. */
