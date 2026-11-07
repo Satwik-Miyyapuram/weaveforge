@@ -20,6 +20,7 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import type { AuthChangeCallback, AuthUser, IAuthService } from "@weaveforge/core";
 import type { ICurrentUserProvider } from "@weaveforge/core";
+import type { LocalQuery } from "./pglite-client";
 
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
@@ -104,14 +105,29 @@ export class LocalAuthService implements IAuthService {
   }
 }
 
+/**
+ * The user the shell applies to every local query: the local user, or the
+ * account this device was adopted by. Rows written with any other `user_id`
+ * fail row-level security.
+ */
+export async function deviceUserId(query: LocalQuery): Promise<string> {
+  const [row] = (await query("select auth.uid()::text as id", [])) as { id?: string | null }[];
+  return row?.id || LOCAL_USER_ID;
+}
+
 export class LocalSessionProvider implements ICurrentUserProvider {
-  /** The local-only user, or the account a synced device belongs to. */
-  constructor(private readonly userId: string = LOCAL_USER_ID) {}
+  private resolved: Promise<string> | null = null;
+
+  /** A fixed id (local-first account), or a lookup asked once (see `deviceUserId`). */
+  constructor(private readonly userId: string | (() => Promise<string>) = LOCAL_USER_ID) {}
 
   async getCurrentUserId(): Promise<string | null> {
-    return this.userId;
+    return this.requireUserId();
   }
   async requireUserId(): Promise<string> {
-    return this.userId;
+    if (typeof this.userId === "string") return this.userId;
+    // A failed lookup is forgotten so the next call asks again.
+    this.resolved ??= this.userId().catch((error: unknown) => { this.resolved = null; throw error; });
+    return this.resolved;
   }
 }

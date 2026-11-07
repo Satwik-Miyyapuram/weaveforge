@@ -5,7 +5,7 @@ import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/
 import { watchWrites } from "../postgrest/watch-writes";
 import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
-import { LocalAuthService, LocalSessionProvider } from "./local-identity";
+import { deviceUserId, LocalAuthService, LocalSessionProvider } from "./local-identity";
 import { LocalBlobStore, localFiles } from "./local-blob-store";
 import { localRunnerQuery } from "./local-runner";
 import { DeviceSecretsStore } from "./device-secrets-store";
@@ -25,7 +25,8 @@ import { DeviceSecretsStore } from "./device-secrets-store";
  */
 export function localBackendParts(query: LocalQuery = localRunnerQuery()): BackendParts {
   const db = watchWrites(createLocalClient(query) as unknown as SupabaseClient, notifyWorkspaceChange);
-  const session = new LocalSessionProvider();
+  // The shell may run this database as the account the device was adopted by.
+  const session = new LocalSessionProvider(() => deviceUserId(query));
   return {
     db,
     session,
