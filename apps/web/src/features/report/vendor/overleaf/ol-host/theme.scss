@@ -129,3 +129,36 @@
 .cm-editor .cm-activeLineGutter {
   background-color: color-mix(in srgb, var(--text) 8%, var(--surface));
 }
+
+// Room for the text on a small screen. The rail's tab strip goes, and so do the
+// menus that repeat the editor's own toolbar and shortcuts (Edit, Insert,
+// Format) and File; View and Help stay.
+.ide-rail {
+  display: none;
+}
+.dropdown:has(
+    > #toolbar-menu-bar-item-file,
+    > #toolbar-menu-bar-item-edit,
+    > #toolbar-menu-bar-item-insert,
+    > #toolbar-menu-bar-item-format
+  ) {
+  display: none;
+}
+
+// The app's own Modal uses the class names `modal` and `modal-backdrop` too, and
+// its rules (up to `:root[data-surfaces] … .modal`) dress Bootstrap's full-window
+// wrapper as a card. Repeated here so these outrank them; the dialog itself is
+// `.modal-content`, which the app does not style.
+.modal.modal.modal.modal {
+  max-height: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  translate: none;
+  scale: none;
+}
+.modal-backdrop.modal-backdrop.modal-backdrop.modal-backdrop {
+  background-color: var(--bs-backdrop-bg);
+}
