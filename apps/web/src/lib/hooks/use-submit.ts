@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatError } from "@/lib/format-error";
 
 /**
@@ -14,9 +14,13 @@ import { formatError } from "@/lib/format-error";
 export function useSubmit(action: () => Promise<void> | void) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A ref, not state: a second click in the same tick must see the first one.
+  const busyRef = useRef(false);
 
   async function submit(e?: React.FormEvent): Promise<boolean> {
     e?.preventDefault();
+    if (busyRef.current) return false;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -26,6 +30,7 @@ export function useSubmit(action: () => Promise<void> | void) {
       setError(formatError(err));
       return false;
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }

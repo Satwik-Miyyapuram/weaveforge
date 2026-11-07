@@ -66,7 +66,9 @@ export function AccountInfoPanel() {
 
   async function changePassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    // React clears currentTarget once the handler awaits.
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const password = String(data.get("new-password") ?? "");
     const confirmation = String(data.get("confirm-password") ?? "");
     setPasswordError(null);
@@ -78,7 +80,7 @@ export function AccountInfoPanel() {
     setPasswordBusy(true);
     try {
       await updatePassword(password);
-      event.currentTarget.reset();
+      form.reset();
       setPasswordSuccess(true);
     } catch (err) {
       setPasswordError(formatError(err));

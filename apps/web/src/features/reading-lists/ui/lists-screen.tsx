@@ -85,6 +85,7 @@ export function ListsScreen() {
   );
 
   const load = useCallback(async () => {
+    setError(null);
     await reload();
     setRefresh((n) => n + 1);
   }, [reload]);

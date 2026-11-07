@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/button";
@@ -69,6 +69,21 @@ export function OverleafProjectDetail({
   const blockers = tabBlockers({ signedIn: Boolean(sessionId), inAccount: row.inAccount, inShell });
   const [form, setForm] = useState<"link" | "edit" | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  // A ref, not state, so a second click before the re-render cannot start another delete.
+  const unlinkBusy = useRef(false);
+  async function confirmUnlinkOnce() {
+    if (unlinkBusy.current) return;
+    unlinkBusy.current = true;
+    setUnlinking(true);
+    try {
+      const ok = await onUnlink(report!);
+      if (ok) setConfirmUnlink(false);
+    } finally {
+      unlinkBusy.current = false;
+      setUnlinking(false);
+    }
+  }
 
   const canWrite = blockers.write === null && Boolean(sessionId);
   const overleafUrl = report?.external_url ?? `https://www.overleaf.com/project/${encodeURIComponent(row.id)}`;
@@ -91,7 +106,7 @@ export function OverleafProjectDetail({
         confirmUnlink ? (
           <>
             <span className="muted">Remove the link? Overleaf keeps the project.</span>
-            <Button variant="ghost" size="sm" onClick={() => void onUnlink(report).then((ok) => ok && setConfirmUnlink(false))}>Confirm</Button>
+            <Button variant="ghost" size="sm" disabled={unlinking} onClick={() => void confirmUnlinkOnce()}>Confirm</Button>
             <Button variant="cancel" size="sm" onClick={() => setConfirmUnlink(false)}>Cancel</Button>
           </>
         ) : (

@@ -37,6 +37,6 @@ test("the card menu opens and renames the section", () => {
   assert.match(card, /manageReportSection\.setTitle\(s\.id, title\)/);
   // Enter saves, Escape cancels, and typing never opens the card.
   assert.match(card, /if \(e\.key === "Enter"\)/);
-  assert.match(card, /if \(e\.key === "Escape"\) setRenaming\(false\)/);
+  assert.match(card, /if \(e\.key === "Escape"\) \{\s*cancelled\.current = true;\s*setRenaming\(false\);/);
   assert.match(card, /onClick=\{\(e\) => e\.stopPropagation\(\)\}/);
 });
