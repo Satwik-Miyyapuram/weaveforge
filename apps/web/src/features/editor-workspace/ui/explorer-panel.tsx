@@ -266,6 +266,8 @@ export function ExplorerPanel({
         onDraft?.(null);
       } catch (error) {
         setProblem({ key: "draft", message: errorMessage(error) });
+        // Rethrow so the name box reopens for a retry.
+        throw error;
       }
     },
     [draft, onCreate, onDraft],
@@ -283,6 +285,8 @@ export function ExplorerPanel({
         setRenaming(null);
       } catch (error) {
         setProblem({ key: node.key, message: errorMessage(error) });
+        // Rethrow so the name box reopens for a retry.
+        throw error;
       }
     },
     [onRename],
