@@ -1,43 +1,9 @@
-//! Tool commands for the page: LaTeX, the local Zotero, the update check and the app log.
-
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
+//! Tool commands for the page: the local Zotero, the update check and the app log.
 
 use crate::app_log::{AppLog, AppLogEntry, LogLevel, MAX_ENTRIES};
 use crate::commands::ShellError;
-use crate::tex::{
-    TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, compile_tex, probe_tex,
-};
 use crate::update_check::{UPDATE_CHECK_FAILED, Update, check_update_reply};
 use crate::zotero_local::{ZoteroLocalReply, fetch_zotero_local};
-
-/// A compile's outcome for the page: the PDF as base64.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct TexCompileReply {
-    /// Whether a PDF was made and the engine did not fail.
-    pub ok: bool,
-    /// The PDF as standard base64, when there is one.
-    pub pdf: Option<String>,
-    /// The engine's output, tail-clipped.
-    pub log: String,
-    /// Where the compile went wrong, per file and line.
-    pub errors: Vec<TexError>,
-    /// The engine that ran, when one did.
-    pub engine: Option<TexEngine>,
-}
-
-impl From<TexCompileResult> for TexCompileReply {
-    fn from(result: TexCompileResult) -> Self {
-        Self {
-            ok: result.ok,
-            pdf: result.pdf.map(|pdf| STANDARD.encode(pdf)),
-            log: result.log,
-            errors: result.errors,
-            engine: result.engine,
-        }
-    }
-}
 
 /// What a page reports; every field checked before use.
 ///
@@ -122,57 +88,6 @@ pub fn read_log(log: &AppLog) -> AppLogText {
         text,
         complete: entries.len() < MAX_ENTRIES,
     }
-}
-
-/// Compiles `files` with the best engine on this machine, or says why it cannot.
-///
-/// A non-array project never gets here: the typed shim only sends arrays, and
-/// serde rejects anything else before the command runs.
-pub async fn compile(
-    files: Vec<TexSourceFile>,
-    entry_file: String,
-    stop: &TexStop,
-) -> TexCompileReply {
-    TexCompileReply::from(compile_tex(&files, &entry_file, &stop.0).await)
-}
-
-/// Stops the compiles running now when notified; held as app state.
-#[derive(Debug, Default)]
-pub struct TexStop(pub tokio::sync::Notify);
-
-/// Probes for a LaTeX engine; `None` when there is none.
-///
-/// # Errors
-/// Never: the Rust probe cannot fail, so the `Err` arm is kept for the Tauri wiring.
-#[tauri::command]
-#[specta::specta]
-pub async fn tex_probe() -> Result<Option<TexTool>, ShellError> {
-    Ok(probe_tex().await)
-}
-
-/// Compiles a LaTeX project the page hands over, in a directory of its own.
-///
-/// # Errors
-/// Never: a failed compile is reported inside the reply.
-#[tauri::command]
-#[specta::specta]
-pub async fn tex_compile(
-    stop: tauri::State<'_, TexStop>,
-    files: Vec<TexSourceFile>,
-    entry_file: String,
-) -> Result<TexCompileReply, ShellError> {
-    Ok(compile(files, entry_file, stop.inner()).await)
-}
-
-/// Stops the compiles running now; their replies say the compile was stopped.
-///
-/// # Errors
-/// Never; the `Err` arm is kept for the Tauri wiring.
-#[tauri::command]
-#[specta::specta]
-pub async fn tex_cancel(stop: tauri::State<'_, TexStop>) -> Result<(), ShellError> {
-    stop.0.notify_waiters();
-    Ok(())
 }
 
 /// Fetches a request from Zotero's local API on this computer.

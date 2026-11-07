@@ -19,8 +19,6 @@ import type {
   DesktopVaultEntry,
   DesktopVaultRoot,
   DesktopVaultSync,
-  DesktopTexCompileResult,
-  DesktopTexTool,
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
 import {
@@ -102,7 +100,6 @@ const bridge: DesktopBridge = {
   zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
   readOverleafProject: (projectId, entryFile) =>
     call<DesktopOverleafSource>(CHANNELS.overleafRead, projectId, entryFile),
-  probeTex: () => call<DesktopTexTool | null>(CHANNELS.texProbe),
   mattermostSignIn: (serverUrl) => call<string | null>(CHANNELS.mattermostSignIn, serverUrl),
   mattermostPost: (req) => call<{ status: number; body: string }>(CHANNELS.mattermostPost, req),
   inkAvailable: () => call<boolean>(CHANNELS.inkAvailable),
@@ -128,7 +125,6 @@ const bridge: DesktopBridge = {
     return () => ipcRenderer.off(CHANNELS.menuChanged, listener);
   },
   setTitleBarColors: (colors) => ipcRenderer.send(CHANNELS.titleBarColors, colors),
-  compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   createLocalApiToken: (request) => call<DesktopLocalApi>(CHANNELS.localApiTokenCreate, request),
   revokeLocalApiToken: (id) => call<DesktopLocalApi>(CHANNELS.localApiTokenRevoke, id),

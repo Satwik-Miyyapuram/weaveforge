@@ -1,4 +1,4 @@
-//! Tests for the tool commands (ported from apps/desktop/test/app-log.test.ts and tex.test.ts).
+//! Tests for the tool commands (ported from apps/desktop/test/app-log.test.ts).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::common;
 
@@ -6,9 +6,8 @@ use common::TempDir;
 use serde_json::json;
 use weaveforge_shell_lib::app_log::{AppLog, AppLogEntry, LogLevel, MAX_ENTRIES};
 use weaveforge_shell_lib::cmd_tools::{
-    AppLogReport, AppLogText, TexCompileReply, TexStop, compile, format_log_line, read_log, report,
+    AppLogReport, AppLogText, format_log_line, read_log, report,
 };
-use weaveforge_shell_lib::tex::{NO_ENGINE, TexCompileResult, TexEngine, TexError};
 
 const AT: &str = "2026-01-02T03:04:05.000Z";
 const HEAD: &str = "2026-01-02 03:04:05.000";
@@ -39,20 +38,6 @@ fn report_of(
 
 fn log_in(dir: &TempDir) -> AppLog {
     AppLog::new(dir.path(), "")
-}
-
-fn result(pdf: Option<Vec<u8>>) -> TexCompileResult {
-    TexCompileResult {
-        ok: true,
-        pdf,
-        log: "the log".to_owned(),
-        errors: vec![TexError {
-            file: "main.tex".to_owned(),
-            line: 3,
-            message: "Undefined control sequence".to_owned(),
-        }],
-        engine: Some(TexEngine::Tectonic),
-    }
 }
 
 #[test]
@@ -178,52 +163,6 @@ fn read_log_past_the_ring_is_not_complete() {
 }
 
 #[test]
-fn reply_encodes_pdf_as_base64() {
-    let reply = TexCompileReply::from(result(Some(vec![37, 80, 68, 70])));
-    assert_eq!(reply.pdf, Some("JVBERg==".to_owned()));
-}
-
-#[test]
-fn reply_without_pdf_is_none() {
-    let reply = TexCompileReply::from(result(None));
-    assert_eq!(reply.pdf, None);
-}
-
-#[test]
-fn reply_copies_outcome_fields() {
-    let reply = TexCompileReply::from(result(None));
-    assert!(reply.ok);
-    assert_eq!(reply.log, "the log");
-    assert_eq!(
-        reply.errors,
-        vec![TexError {
-            file: "main.tex".to_owned(),
-            line: 3,
-            message: "Undefined control sequence".to_owned(),
-        }]
-    );
-    assert_eq!(reply.engine, Some(TexEngine::Tectonic));
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn compile_of_an_empty_project_is_not_ok() {
-    let reply = compile(vec![], "main.tex".to_owned(), &TexStop::default()).await;
-    assert!(!reply.ok);
-    assert!(reply.pdf.is_none());
-    assert!(!reply.errors.is_empty());
-    if reply.engine.is_none() {
-        assert_eq!(
-            reply.errors,
-            vec![TexError {
-                file: "main.tex".to_owned(),
-                line: 0,
-                message: NO_ENGINE.to_owned(),
-            }]
-        );
-    }
-}
-
-#[test]
 fn app_log_text_serializes_complete() {
     let value = serde_json::to_value(AppLogText {
         file: "f".to_owned(),
@@ -234,15 +173,6 @@ fn app_log_text_serializes_complete() {
     assert_eq!(value["complete"], json!(true));
     assert_eq!(value["file"], json!("f"));
     assert_eq!(value["text"], json!("t"));
-}
-
-#[test]
-fn tex_compile_reply_serializes_its_keys() {
-    let value = serde_json::to_value(TexCompileReply::from(result(None))).unwrap();
-    for key in ["ok", "pdf", "log", "errors", "engine"] {
-        assert!(value.get(key).is_some(), "missing {key}");
-    }
-    assert_eq!(value.as_object().unwrap().len(), 5);
 }
 
 #[test]
