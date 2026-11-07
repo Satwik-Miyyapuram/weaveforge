@@ -13,7 +13,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
-import { commitUrl } from "@/features/sync";
+import { commitUrl, repoWebUrl } from "@/features/sync";
 import { CommentsIcon } from "@/components/view-icons";
 import {
   RecordActivity,
@@ -55,6 +55,15 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const resultRef = useRef<HTMLParagraphElement>(null);
   const paperTitle = usePaperTitle(exp?.relatedPaper);
 
+  // Lets a late response for a previous experiment be dropped.
+  const currentId = useRef(id);
+  currentId.current = id;
+  useEffect(() => {
+    setExp(null);
+    setLoading(true);
+    setError(null);
+  }, [id]);
+
   const load = useCallback(async () => {
     if (!id) {
       setError("Experiment not found.");
@@ -62,8 +71,10 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
       setLoading(false);
       return;
     }
+    const forId = id;
     try {
       const e = await getContainer().experiments.getExperiment(id);
+      if (currentId.current !== forId) return;
       if (!e) {
         setError("Experiment not found.");
         setExp(null);
@@ -72,9 +83,10 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         setError(null);
       }
     } catch (err) {
+      if (currentId.current !== forId) return;
       setError(formatError(err));
     } finally {
-      setLoading(false);
+      if (currentId.current === forId) setLoading(false);
     }
   }, [id]);
 
@@ -93,11 +105,21 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const [resultError, setResultError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [cmdCopied, setCmdCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
   async function copyRunCommand() {
     if (!exp?.runCommand) return;
-    await navigator.clipboard.writeText(exp.runCommand);
+    try {
+      await navigator.clipboard.writeText(exp.runCommand);
+    } catch {
+      setStatusError("Could not copy to the clipboard.");
+      return;
+    }
     setCmdCopied(true);
-    setTimeout(() => setCmdCopied(false), 2000);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCmdCopied(false), 2000);
   }
   async function saveResult() {
     if (!exp || resultDraft === null) return;
@@ -292,7 +314,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                   exp.commitSha
                     ? [
                         "Commit",
-                        exp.repoUrl ? (
+                        commitUrl(exp.repoUrl, exp.commitSha) ? (
                           <a href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
                             {readyCore().shortSha(exp.commitSha)}
                           </a>
@@ -301,8 +323,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                         ),
                       ]
                     : null,
-                  exp.repoUrl
-                    ? ["Repo", <a key="repo" href={exp.repoUrl} target="_blank" rel="noreferrer">Open ↗</a>]
+                  repoWebUrl(exp.repoUrl)
+                    ? ["Repo", <a key="repo" href={repoWebUrl(exp.repoUrl)} target="_blank" rel="noreferrer">Open ↗</a>]
                     : null,
                   paperTitle && exp.relatedPaper
                     ? ["Paper", <Link key="paper" href={`/papers/?paper=${exp.relatedPaper}`}>{paperTitle}</Link>]

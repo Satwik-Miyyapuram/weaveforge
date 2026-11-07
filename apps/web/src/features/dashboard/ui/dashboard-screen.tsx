@@ -66,6 +66,10 @@ export function DashboardScreen() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutReady = useRef(false);
   const layoutDirty = useRef(false);
+  // Set when the stored layout failed to load: the screen then shows the
+  // default, and saving it would overwrite the user's real layout.
+  const layoutLoadFailed = useRef(false);
+  const pendingSave = useRef<(() => void) | null>(null);
   const [cardsEntered, setCardsEntered] = useState(false);
   // The project whose device copy is on screen while its live layout loads.
   const snapshotFor = useRef<string | null>(null);
@@ -137,6 +141,7 @@ export function DashboardScreen() {
 
     (async () => {
       try {
+        layoutLoadFailed.current = false;
         const stored = await getContainer().dashboard.getLayout(projectId);
         if (!active) return;
         const finalized = initialDashboardLayout(stored, supervisorLayout);
@@ -148,6 +153,7 @@ export function DashboardScreen() {
         setLayout(next);
       } catch (err) {
         if (!active) return;
+        layoutLoadFailed.current = true;
         setLayoutError(formatError(err));
         const next = finalizeDashboardLayout(defaultLayout(supervisorLayout));
         layoutCache.set(cacheKey, next);
@@ -169,11 +175,12 @@ export function DashboardScreen() {
 
   // Debounced save to the database (user edits only).
   useEffect(() => {
-    if (!projectId || !layoutReady.current || layoutLoading || !layout || !layoutDirty.current) {
+    if (!projectId || !layoutReady.current || layoutLoadFailed.current || layoutLoading || !layout || !layoutDirty.current) {
       return;
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    const save = () => {
+      pendingSave.current = null;
       const supervisorLayout = isSupervisorRole(profile?.role) && supervisees.length > 0;
       const cacheKey = layoutCacheKey(projectId, supervisorLayout);
       const toSave = finalizeDashboardLayout(syncDashboardLayouts(layout));
@@ -184,11 +191,16 @@ export function DashboardScreen() {
           layoutDirty.current = false;
         })
         .catch((err) => setLayoutError(formatError(err)));
-    }, 600);
+    };
+    pendingSave.current = save;
+    saveTimer.current = setTimeout(save, 600);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [layout, projectId, layoutLoading, profile?.role, supervisees.length]);
+
+  // Leaving within the debounce window still saves the last edit.
+  useEffect(() => () => pendingSave.current?.(), []);
 
   const markDirty = useCallback(() => {
     layoutDirty.current = true;
@@ -230,7 +242,7 @@ export function DashboardScreen() {
     const before = layout;
     markDirty();
     setLayout(finalizeDashboardLayout(defaultLayout(isSupervisor)));
-    if (before) showToast("Layout reset", { label: "Undo", run: () => setLayout(before) });
+    if (before) showToast("Layout reset", { label: "Undo", run: () => { markDirty(); setLayout(before); } });
   }, [isSupervisor, layout, markDirty]);
 
   const handleDone = useCallback(() => {

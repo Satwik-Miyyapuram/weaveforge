@@ -180,6 +180,9 @@ export function WorkspaceScreen() {
   const [pending, setPending] = useState(0);
   // A write that failed leaves the document dirty — "Saved" would be a lie.
   const [dirty, setDirty] = useState(false);
+  // Read by the close guard, which is registered once.
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
   const pendingRef = useRef(0);
   // Full note bodies fetched so far, by id, so a reload does not throw them
   // away; and the fetches in flight, so a tab rendered twice asks once.
@@ -313,7 +316,7 @@ export function WorkspaceScreen() {
   // starts.
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (pendingRef.current <= 0) return;
+      if (pendingRef.current <= 0 && !dirtyRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };

@@ -80,10 +80,25 @@ function glCommit(c: GlCommit): GitCommit {
   };
 }
 
+/**
+ * A repo URL safe to render as a link: http(s) only. The URL is user data, so a
+ * `javascript:` or `data:` value must never reach an `<a href>`.
+ */
+export function repoWebUrl(repoUrl?: string): string | undefined {
+  if (!repoUrl) return undefined;
+  try {
+    const { protocol } = new URL(repoUrl.trim());
+    return protocol === "http:" || protocol === "https:" ? repoUrl.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Build a web URL to a commit from a repo URL + sha (best-effort by host). */
 export function commitUrl(repoUrl?: string, sha?: string): string | undefined {
-  if (!repoUrl || !sha) return undefined;
-  const base = repoUrl.replace(/\.git$/, "").replace(/\/$/, "");
+  const safe = repoWebUrl(repoUrl);
+  if (!safe || !sha) return undefined;
+  const base = safe.replace(/\.git$/, "").replace(/\/$/, "");
   if (base.includes("gitlab")) return `${base}/-/commit/${sha}`;
   return `${base}/commit/${sha}`; // GitHub + most others
 }
