@@ -244,16 +244,6 @@
 .linked-overleaf-source { margin-top: 16px; }
 .linked-overleaf-source pre { max-height: 360px; overflow: auto; padding: 12px; border-radius: var(--r-control); background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
 
-.project-checks { display: grid; gap: 12px; margin: 12px 0 4px; }
-.project-checks-bib summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); }
-.project-checks-findings { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
-.project-checks-findings li { padding-left: 12px; border-left: 3px solid var(--line); color: var(--ink); }
-.project-checks-findings li.error { border-left-color: var(--danger); }
-.project-checks-where { color: var(--muted); font: var(--fs-xs)/1.5 var(--font-mono); }
-.project-checks-compile { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.project-checks-engine { font-size: var(--fs-xs); color: var(--muted); }
-.project-checks-log pre { max-height: 300px; overflow: auto; padding: 12px; border-radius: var(--r-control); background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
-
 .export-overleaf-form { display: grid; gap: 12px; margin-top: 4px; }
 .export-overleaf-field { display: grid; gap: 4px; font-weight: 600; color: var(--ink); }
 .export-overleaf-field input[type="text"] {

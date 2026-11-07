@@ -32,7 +32,6 @@ mod range;
 mod secrets;
 mod sidecar;
 mod temp_dir;
-mod tex;
 mod update_check;
 mod vault;
 mod vault_choice;

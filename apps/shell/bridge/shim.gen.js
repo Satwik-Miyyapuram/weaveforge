@@ -241,27 +241,6 @@
          */
         fetchImage: (url) => typedError(invoke("fetch_image", { url })),
         /**
-         *  Probes for a LaTeX engine; `None` when there is none.
-         * 
-         *  # Errors
-         *  Never: the Rust probe cannot fail, so the `Err` arm is kept for the Tauri wiring.
-         */
-        texProbe: () => typedError(invoke("tex_probe")),
-        /**
-         *  Compiles a LaTeX project the page hands over, in a directory of its own.
-         * 
-         *  # Errors
-         *  Never: a failed compile is reported inside the reply.
-         */
-        texCompile: (files, entryFile) => typedError(invoke("tex_compile", { files, entryFile })),
-        /**
-         *  Stops the compiles running now; their replies say the compile was stopped.
-         * 
-         *  # Errors
-         *  Never; the `Err` arm is kept for the Tauri wiring.
-         */
-        texCancel: () => typedError(invoke("tex_cancel")),
-        /**
          *  Fetches a request from Zotero's local API on this computer.
          * 
          *  # Errors
@@ -801,22 +780,6 @@
           contentType: image.contentType,
           url: image.url
         };
-      },
-      probeTex: async () => unwrap(await cmds.texProbe()),
-      compileTex: async (files, entryFile) => {
-        const result = unwrap(
-          await cmds.texCompile(
-            files.map((f) => ({ path: f.path, content: f.content })),
-            entryFile
-          )
-        );
-        return {
-          ...result,
-          pdf: result.pdf === null ? null : exactBytes(fromBase64(result.pdf))
-        };
-      },
-      cancelTex: async () => {
-        unwrap(await cmds.texCancel());
       },
       zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
       checkUpdate: async () => unwrap(await cmds.updateCheck()),

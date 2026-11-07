@@ -49,7 +49,6 @@ import { registerMainLocalApi, shellMcpDeps } from "../../shell/sidecar/src/main
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
-import { registerMainTex } from "./main-tex";
 import { registerMattermostSignIn } from "./mattermost-signin";
 import { ARTIFACT_HOST, serveLocalArtifact } from "../../shell/sidecar/src/local-artifacts";
 import { modelCacheUrl, serveModelFile } from "./model-cache";
@@ -677,7 +676,6 @@ ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
  */
 const mainInk = registerMainInk({ ipc });
 
-registerMainTex({ ipc });
 registerMattermostSignIn({ ipc, mainWindow: () => mainWindow });
 
 ipc.handle(CHANNELS.vaultCommit, async () => {

@@ -276,11 +276,6 @@ export interface DesktopBridge {
    */
   zoteroLocal(url: string): Promise<DesktopZoteroReply>;
   /**
-   * The TeX on this machine, or null. Answered fresh each call, so somebody
-   * installing one while the app is open does not have to restart it.
-   */
-  probeTex(): Promise<DesktopTexTool | null>;
-  /**
    * Opens the Mattermost server's own login page in a window and answers the
    * session token once the reader has signed in, or null if they closed it.
    * Optional: builds before 0.8.9 do not have it.
@@ -325,12 +320,6 @@ export interface DesktopBridge {
   cancelModelDownloads?(): Promise<void>;
   /** Model files ready so far, per model, while `embedLoad` runs; returns an unsubscribe. */
   onEmbedProgress?(listener: (loaded: number, total: number, model: string) => void): () => void;
-  compileTex(
-    files: readonly { path: string; content: string }[],
-    entryFile: string,
-  ): Promise<DesktopTexCompileResult>;
-  /** Stops the compiles running now; each answers "The compile was stopped.". */
-  cancelTex?(): Promise<void>;
 
   /**
    * The LaTeX source of one linked Overleaf project, cloned on this machine.
@@ -527,29 +516,6 @@ export interface DesktopOverleafSource {
   entryFile: string;
   files: { path: string; content: string }[];
   overleafUrl: string;
-}
-
-/** The TeX this computer has, or null when it has none. */
-export interface DesktopTexTool {
-  kind: "latexmk" | "tectonic" | "pdflatex";
-  command: string;
-  version: string;
-}
-
-export interface DesktopTexError {
-  file: string;
-  /** 1-based, or 0 when the engine did not say. */
-  line: number;
-  message: string;
-}
-
-export interface DesktopTexCompileResult {
-  ok: boolean;
-  pdf: ArrayBuffer | null;
-  log: string;
-  errors: DesktopTexError[];
-  /** null means no TeX was found, which is not a failure to report loudly. */
-  engine: DesktopTexTool["kind"] | null;
 }
 
 /** A local Zotero response, flattened for the wire. */

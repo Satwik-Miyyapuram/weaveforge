@@ -178,27 +178,6 @@ export const commands = {
 	 */
 	fetchImage: (url: string) => typedError<ImageReply, ShellError_Serialize>(__TAURI_INVOKE("fetch_image", { url })),
 	/**
-	 *  Probes for a LaTeX engine; `None` when there is none.
-	 * 
-	 *  # Errors
-	 *  Never: the Rust probe cannot fail, so the `Err` arm is kept for the Tauri wiring.
-	 */
-	texProbe: () => typedError<TexTool | null, ShellError_Serialize>(__TAURI_INVOKE("tex_probe")),
-	/**
-	 *  Compiles a LaTeX project the page hands over, in a directory of its own.
-	 * 
-	 *  # Errors
-	 *  Never: a failed compile is reported inside the reply.
-	 */
-	texCompile: (files: TexSourceFile[], entryFile: string) => typedError<TexCompileReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("tex_compile", { files, entryFile })),
-	/**
-	 *  Stops the compiles running now; their replies say the compile was stopped.
-	 * 
-	 *  # Errors
-	 *  Never; the `Err` arm is kept for the Tauri wiring.
-	 */
-	texCancel: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("tex_cancel")),
-	/**
 	 *  Fetches a request from Zotero's local API on this computer.
 	 * 
 	 *  # Errors
@@ -973,74 +952,6 @@ export type SyncStatus_Serialize = {
 	ahead: number,
 	/**  Commits the remote has that this folder lacks. */
 	behind: number,
-};
-
-/**  A compile's outcome for the page: the PDF as base64. */
-export type TexCompileReply = TexCompileReply_Serialize | TexCompileReply_Deserialize;
-
-/**  A compile's outcome for the page: the PDF as base64. */
-export type TexCompileReply_Deserialize = {
-	/**  Whether a PDF was made and the engine did not fail. */
-	ok: boolean,
-	/**  The PDF as standard base64, when there is one. */
-	pdf?: string | null,
-	/**  The engine's output, tail-clipped. */
-	log: string,
-	/**  Where the compile went wrong, per file and line. */
-	errors: TexError[],
-	/**  The engine that ran, when one did. */
-	engine?: TexEngine | null,
-};
-
-/**  A compile's outcome for the page: the PDF as base64. */
-export type TexCompileReply_Serialize = {
-	/**  Whether a PDF was made and the engine did not fail. */
-	ok: boolean,
-	/**  The PDF as standard base64, when there is one. */
-	pdf: string | null,
-	/**  The engine's output, tail-clipped. */
-	log: string,
-	/**  Where the compile went wrong, per file and line. */
-	errors: TexError[],
-	/**  The engine that ran, when one did. */
-	engine: TexEngine | null,
-};
-
-/**  The engines worth trying, best first. */
-export type TexEngine = 
-/**  Decides how many passes the document needs, including bibliography passes. */
-"latexmk" | 
-/**  Self-contained; does the same job as latexmk. */
-"tectonic" | 
-/**  Single pass fallback; cross-references may be one compile behind. */
-"pdflatex";
-
-/**  One error from a TeX log. */
-export type TexError = {
-	/**  The file the error is in. */
-	file: string,
-	/**  1-based, or 0 when the engine did not say. */
-	line: number,
-	/**  The engine's reason. */
-	message: string,
-};
-
-/**  One source file the page sent. */
-export type TexSourceFile = {
-	/**  Path relative to the build directory. */
-	path: string,
-	/**  The file's text. */
-	content: string,
-};
-
-/**  An engine found on this machine. */
-export type TexTool = {
-	/**  Which engine this is. */
-	kind: TexEngine,
-	/**  The executable that was run. */
-	command: string,
-	/**  The first line of its `--version`, for the settings panel to show. */
-	version: string,
 };
 
 /**  A page title and the final URL it was read from. */
