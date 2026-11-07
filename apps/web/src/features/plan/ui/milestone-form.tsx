@@ -164,6 +164,7 @@ export function MilestoneForm({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Ablation study finished"
           required
+          autoFocus={!!initial}
         />
       </div>
       <div className="field">
