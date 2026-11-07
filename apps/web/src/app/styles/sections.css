@@ -50,6 +50,11 @@
 .section-item .entity-card-status :is(.status-select, .custom-select-container) { width: 9rem; min-width: 0; }
 /* Done reads as done: a check and a quieter title, the card kept at full strength. */
 .section-item--done .entity-card-title { color: var(--muted); }
+/* On a phone the floated status left the title a sliver, splitting words
+   mid-way; the controls take their own row above the title instead. */
+@media (max-width: 600px) {
+  .section-item .entity-card-controls { float: none; justify-content: flex-end; margin-left: 0; margin-bottom: 4px; }
+}
 .section-done-check { color: var(--s-good); }
 .section-rename-input { width: 100%; min-width: 0; font: inherit; }
 .section-item .summary,
