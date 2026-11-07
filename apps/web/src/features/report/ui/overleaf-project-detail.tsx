@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/button";
 import { OpenIcon } from "@/components/view-icons";
+import { useFoldNav } from "@/lib/hooks/use-nav-fold";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import type { OverleafProjectRow } from "../lib/overleaf-project-list";
 import type { LinkedReport } from "./linked-overleaf-api";
@@ -77,6 +78,8 @@ export function OverleafProjectDetail({
   ];
 
   const live = canWrite && sessionId;
+  // The editor needs the width: the app nav folds to its rail while it is open.
+  useFoldNav(Boolean(live));
   // Open in Overleaf and the link controls; in the live editor they sit in Overleaf's toolbar.
   const actions = (
     <>

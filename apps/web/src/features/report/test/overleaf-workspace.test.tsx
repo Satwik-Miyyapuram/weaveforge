@@ -11,6 +11,7 @@ import { tabBlockers } from "../ui/overleaf-project-detail";
 import type { LinkedReportsGateway } from "../ui/use-linked-reports";
 import { canShowWorkshop, type WorkshopSessionStore } from "../ui/use-workshop-session";
 import { WorkshopPdfViewer } from "../ui/workshop-pdf-viewer";
+import { navFoldSnapshot } from "@/lib/hooks/use-nav-fold";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 // next/link prefetches through `self`, which node lacks.
@@ -458,6 +459,18 @@ test("in the desktop app the editor fills the page: no record header; Open and L
   assert.match(text(inToolbar!), /Open in Overleaf/);
   assert.match(text(inToolbar!), /Link to this project/);
   await act(async () => tree.unmount());
+});
+
+test("the live editor folds the app nav while it is open; the browser view does not", async () => {
+  const live = await mount(harness(projectsOk, SESSION), { inShell: true });
+  await openRow(live, "Thesis");
+  assert.equal(navFoldSnapshot(), true);
+  await act(async () => live.unmount());
+  assert.equal(navFoldSnapshot(), false);
+  const web = await mount(harness(projectsOk, SESSION));
+  await openRow(web, "Thesis");
+  assert.equal(navFoldSnapshot(), false);
+  await act(async () => web.unmount());
 });
 
 test("an unlinked project offers Link prefilled with its name and id", async () => {
