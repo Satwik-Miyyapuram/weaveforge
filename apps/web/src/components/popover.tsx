@@ -140,7 +140,7 @@ export function Popover({
     const marked = openedByPointer.current ? null : panelRef.current?.querySelector<HTMLElement>("[data-autofocus]");
     if (marked) marked.focus();
     else focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
-    return () => trigger?.focus();
+    return () => restoreFocus(trigger, panelRef.current);
   }, [shown]);
 
   // Shared by every trigger; the open state is `aria-expanded`.
@@ -209,4 +209,10 @@ export function Popover({
         })()}
     </div>
   );
+}
+
+/** On close, give focus back to the trigger unless a picked row moved it somewhere on purpose (a rename field, say). */
+export function restoreFocus(trigger: HTMLElement | null, panel: HTMLElement | null) {
+  const active = document.activeElement;
+  if (!active || active === document.body || panel?.contains(active)) trigger?.focus();
 }
