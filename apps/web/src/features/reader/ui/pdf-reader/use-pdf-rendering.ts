@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { errorMessage, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
-import { containerResize } from "./container-resize";
+import { useContainerSize } from "./container-resize";
 
 import type {
   DocumentPageText,
@@ -153,7 +152,6 @@ export function usePdfRendering({
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
-  const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
   const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
   const [pageItems, setPageItems] = useState<Map<number, TextItemGeometry[]>>(() => new Map());
   const [pageLinks, setPageLinks] = useState<Map<number, PdfLink[]>>(() => new Map());
@@ -171,12 +169,11 @@ export function usePdfRendering({
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const scratchQueue = useRef<Promise<void>>(Promise.resolve());
   const renderGeneration = useRef(0);
-  /** The document the container was last measured for at once, not settled. */
-  const measuredFor = useRef<unknown>(null);
 
   // The viewport fits to the page size this hook measures, and the render
   // scale it produces is what the next render pass draws at. Reading it from
   // outside would make the two mutually dependent.
+  const containerSize = useContainerSize(containerRef, pdf, pageShare);
   const viewport = useReaderViewport({ initialPage, pageSize, containerSize, numPages });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
@@ -212,48 +209,6 @@ const cancelRenderTasks = useCallback(() => {
   for (const layer of textLayers.current.values()) layer.cancel();
   textLayers.current.clear();
 }, []);
-
-useEffect(() => {
-  const host = containerRef.current;
-  if (!host || typeof ResizeObserver === "undefined") return;
-  const measure = () => {
-    // Hidden (a background tab): keep the fit it had.
-    if (host.clientWidth === 0) return;
-    setContainerSize({
-      width: Math.max(1, host.clientWidth * pageShare),
-      height: Math.max(1, host.clientHeight),
-    });
-  };
-  // The shell animates its width when the pen rail opens or the nav folds;
-  // every frame of that is a resize, and every new width would otherwise
-  // throw away the canvases and repaint every page. Wait for the size to
-  // settle and re-render once at the final width. The first measure after a
-  // load is taken at once so the pages appear without delay; a share change
-  // comes with the same animation, so it waits like a resize does.
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let last = { width: host.clientWidth, height: host.clientHeight };
-  if (measuredFor.current !== pdf) {
-    measuredFor.current = pdf;
-    measure();
-  } else {
-    timer = setTimeout(measure, 160);
-  }
-  const observer = new ResizeObserver(() => {
-    const next = { width: host.clientWidth, height: host.clientHeight };
-    const action = containerResize(last, next);
-    last = next;
-    if (action === "ignore") return;
-    if (timer) clearTimeout(timer);
-    // Shown again: refit before the next paint, so the page never shows small.
-    if (action === "now") flushSync(measure);
-    else timer = setTimeout(measure, 160);
-  });
-  observer.observe(host);
-  return () => {
-    observer.disconnect();
-    if (timer) clearTimeout(timer);
-  };
-}, [pdf, pageShare]);
 
 useEffect(() => {
   let cancelled = false;
