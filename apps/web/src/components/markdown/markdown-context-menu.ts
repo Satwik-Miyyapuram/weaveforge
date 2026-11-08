@@ -3,6 +3,7 @@ import { EditorView } from "@codemirror/view";
 
 import type { MenuItem } from "@/components/menu";
 import { openContextMenu } from "@/components/context-menu-store";
+import { setSpellcheck, spellcheckOn } from "./spellcheck";
 import { HEADING_ACTIONS, INLINE_ACTIONS, LIST_ACTIONS, run, type FormatAction } from "./markdown-format";
 
 /** What the editor menu needs from the editor, so the item list is testable without a DOM. */
@@ -14,6 +15,8 @@ export interface EditorMenuContext {
   copy: () => void;
   paste: () => void;
   selectAll: () => void;
+  spellcheck: boolean;
+  toggleSpellcheck: () => void;
 }
 
 const SEP = (id: string): MenuItem => ({ id, label: "", kind: "separator" });
@@ -45,6 +48,17 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
     { id: "headings", label: "Headings", disabled: ro, submenu: HEADING_ACTIONS.map((a) => asItem(a, ctx)) },
     { id: "lists", label: "Lists", disabled: ro, submenu: LIST_ACTIONS.map((a) => asItem(a, ctx)) },
   ];
+  const spelling: MenuItem[] = [
+    SEP("sep-spell"),
+    {
+      id: "spellcheck",
+      label: "Check spelling",
+      kind: "check",
+      checked: ctx.spellcheck,
+      title: "Shift+right-click a word for spelling fixes",
+      onSelect: ctx.toggleSpellcheck,
+    },
+  ];
   if (ctx.hasSelection) {
     return [
       { id: "cut", label: "Cut", accelerator: "Ctrl+X", disabled: ro, onSelect: ctx.cut },
@@ -54,6 +68,7 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
       ...INLINE_ACTIONS.map((a) => asItem(a, ctx)),
       SEP("sep-inline"),
       ...blocks,
+      ...spelling,
     ];
   }
   return [
@@ -62,6 +77,7 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
     SEP("sep-clip"),
     ...blocks,
     asItem(byId(INLINE_ACTIONS, "link"), ctx),
+    ...spelling,
   ];
 }
 
@@ -105,15 +121,27 @@ function liveContext(view: EditorView): EditorMenuContext {
       view.dispatch({ selection: EditorSelection.single(0, view.state.doc.length) });
       after();
     },
+    spellcheck: spellcheckOn(),
+    toggleSpellcheck: () => {
+      setSpellcheck(!spellcheckOn());
+      after();
+    },
   };
+}
+
+/** Shift+right-click keeps the system menu, which lists spelling fixes. */
+export function opensAppMenu(event: { shiftKey: boolean }): boolean {
+  return !event.shiftKey;
 }
 
 /**
  * Right-click in the editor opens the app's menu. A click outside the
  * selection moves the caret there first, so the menu acts where you clicked.
+ * With Shift held the event is left to the browser.
  */
 export const markdownContextMenu = EditorView.domEventHandlers({
   contextmenu(event, view) {
+    if (!opensAppMenu(event)) return false;
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos !== null && !view.state.selection.ranges.some((r) => r.from <= pos && pos <= r.to)) {
       view.dispatch({ selection: EditorSelection.cursor(pos) });

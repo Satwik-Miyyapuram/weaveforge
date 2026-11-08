@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { MenuItem } from "../../menu";
-import { editorMenuItems, type EditorMenuContext } from "../markdown-context-menu";
+import { editorMenuItems, opensAppMenu, type EditorMenuContext } from "../markdown-context-menu";
 
 function ctx(over: Partial<EditorMenuContext> = {}): EditorMenuContext & { applied: string[] } {
   const applied: string[] = [];
@@ -15,6 +15,8 @@ function ctx(over: Partial<EditorMenuContext> = {}): EditorMenuContext & { appli
     copy: () => applied.push("copy"),
     paste: () => applied.push("paste"),
     selectAll: () => applied.push("select-all"),
+    spellcheck: true,
+    toggleSpellcheck: () => applied.push("spellcheck"),
     ...over,
   };
 }
@@ -26,11 +28,12 @@ test("with a selection: clipboard, inline formats, then headings and lists", () 
     "cut", "copy", "paste",
     "bold", "italic", "underline", "strike", "code", "sup", "sub", "link", "clear",
     "headings", "lists",
+    "spellcheck",
   ]);
 });
 
 test("with only a caret: paste, select all, block formats and link", () => {
-  assert.deepEqual(ids(editorMenuItems(ctx())), ["paste", "select-all", "headings", "lists", "link"]);
+  assert.deepEqual(ids(editorMenuItems(ctx())), ["paste", "select-all", "headings", "lists", "link", "spellcheck"]);
 });
 
 test("items run their action and show the shortcut", () => {
@@ -52,4 +55,19 @@ test("a read-only editor still copies but cannot change the text", () => {
   const disabled = (id: string) => items.find((i) => i.id === id)?.disabled === true;
   assert.equal(disabled("copy"), false);
   for (const id of ["cut", "paste", "bold", "headings", "lists"]) assert.ok(disabled(id), id);
+});
+
+test("Check spelling is a check item that shows and flips the setting", () => {
+  const off = ctx({ spellcheck: false });
+  const item = editorMenuItems(off).find((i) => i.id === "spellcheck")!;
+  assert.equal(item.kind, "check");
+  assert.equal(item.checked, false);
+  assert.equal(editorMenuItems(ctx()).find((i) => i.id === "spellcheck")!.checked, true);
+  item.onSelect?.();
+  assert.deepEqual(off.applied, ["spellcheck"]);
+});
+
+test("Shift+right-click leaves the system menu (spelling fixes) alone", () => {
+  assert.equal(opensAppMenu({ shiftKey: false }), true);
+  assert.equal(opensAppMenu({ shiftKey: true }), false);
 });
