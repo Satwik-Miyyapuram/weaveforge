@@ -6,8 +6,9 @@ Sentry and Recurly. These files stand in for them so the vendored code builds
 unchanged. Only import specifiers in the vendored files point here.
 
 The workshop never runs the code paths behind these stubs (history OT,
-uploads to Overleaf's server, payments, error reporting). A stub that would do
-real work throws, so a wrong code path fails loudly instead of silently.
+payments, error reporting). A stub that would do real work throws, so a wrong
+code path fails loudly instead of silently. Uploads are the exception:
+`uppy.tsx` is a small working uploader that POSTs through the fetch bridge.
 
 Two shims are wired by config, not by import specifiers:
 
