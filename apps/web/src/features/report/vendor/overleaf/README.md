@@ -23,3 +23,9 @@ them only through the host.
   `pdfjs-dist-overleaf` holds 5.1.91, and `next.config.mjs` and `paths` in
   `tsconfig.json` point this tree's `pdfjs-dist` at it.
 - `ol-shims/`: stand-ins for modules we do not ship (see its README).
+
+## Patches to Overleaf's files
+
+- `visual-widgets/graphics.ts` (`createImage`) and `file-view/components/file-view-image.tsx`
+  load project images through `ol-host/image-url.ts` (fetch, then a blob URL),
+  so the fetch bridge serves them; a plain `<img src="/project/...">` skips it.
