@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import type { RelatedKind } from "@/features/papers/application/fetch-related-papers";
 
 type RelatedHit = {
   title: string;
@@ -30,7 +31,7 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function findRelated() {
+  async function findRelated(kind: RelatedKind) {
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -40,9 +41,9 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
         "@/features/papers/application/fetch-related-papers"
       );
       const library = await getContainer().papers.loadScreenData();
-      const next = await fetchRelatedPapers(paper, library.papers);
+      const next = await fetchRelatedPapers(paper, library.papers, { kind });
       setHits(next);
-      if (next.length === 0) setMsg("No related papers found (needs DOI or arXiv id).");
+      if (next.length === 0) setMsg(kind === "citedBy" ? "No citing papers found." : "No related papers found.");
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -75,8 +76,11 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
 
   return (
     <div className="related-papers">
-      <Button disabled={busy} onClick={() => void findRelated()}>
+      <Button disabled={busy} onClick={() => void findRelated("related")}>
         {busy ? "Finding…" : "Find related papers"}
+      </Button>
+      <Button disabled={busy} onClick={() => void findRelated("citedBy")} title="Papers that cite this one, most cited first">
+        Cited by
       </Button>
       {open && (
         <div className="related-papers-panel">

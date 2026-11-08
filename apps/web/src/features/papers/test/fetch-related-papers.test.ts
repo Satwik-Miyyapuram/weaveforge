@@ -72,3 +72,89 @@ test("fetchRelatedPapers dedupes within one source and still skips the library",
     },
   );
 });
+
+/** Answers each request from the first route whose key is in the URL; 404 otherwise. */
+async function withRoutes(routes: [string, unknown][], run: (urls: string[]) => Promise<void>) {
+  const original = globalThis.fetch;
+  const urls: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = decodeURIComponent(String(input));
+    urls.push(url);
+    const hit = routes.find(([key]) => url.includes(key));
+    return hit ? new Response(JSON.stringify(hit[1]), { status: 200 }) : new Response("{}", { status: 404 });
+  }) as typeof fetch;
+  try {
+    await run(urls);
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+test("cited-by lists the papers citing the seed, most cited first, skipping the library", async () => {
+  const citing = [
+    { title: "Small", citationCount: 2 },
+    { title: "Mine", externalIds: { DOI: "10.1/mine" }, citationCount: 50 },
+    { title: "Big", citationCount: 90 },
+  ];
+  await withRoutes([["/citations", { data: citing.map((citingPaper) => ({ citingPaper })) }]], async (urls) => {
+    const library = [{ id: "m", title: "Mine", doi: "10.1/mine" } as PaperSummary];
+    const hits = await fetchRelatedPapers(seed, library, { kind: "citedBy" });
+    assert.deepEqual(hits.map((h) => h.title), ["Big", "Small"]);
+    assert.ok(urls.every((u) => !u.includes("openalex")));
+  });
+});
+
+const openAlexSeed = { id: "https://openalex.org/W1", related_works: ["https://openalex.org/W7", "https://openalex.org/W8"] };
+const openAlexWork = {
+  id: "https://openalex.org/W7",
+  title: "From OpenAlex",
+  doi: "https://doi.org/10.9/oa",
+  publication_year: 2024,
+  authorships: [{ author: { display_name: "Ada L" } }],
+  cited_by_count: 12,
+  abstract_inverted_index: { world: [1], Hello: [0] },
+};
+
+test("related falls back to OpenAlex when Semantic Scholar finds nothing", async () => {
+  await withRoutes(
+    [
+      ["works/doi:10.1/seed", openAlexSeed],
+      ["openalex_id:W7|W8", { results: [openAlexWork] }],
+    ],
+    async () => {
+      const hits = await fetchRelatedPapers(seed, [], {});
+      assert.deepEqual(hits, [
+        {
+          title: "From OpenAlex",
+          authors: ["Ada L"],
+          year: 2024,
+          doi: "10.9/oa",
+          arxivId: undefined,
+          url: "https://doi.org/10.9/oa",
+          abstract: "Hello world",
+          citationCount: 12,
+        },
+      ]);
+    },
+  );
+});
+
+test("cited-by falls back to OpenAlex works that cite the seed, found by its arXiv DOI", async () => {
+  const arxivSeed = { id: "s", title: "Seed", arxivId: "2401.00001v2" } as PaperSummary;
+  await withRoutes(
+    [
+      ["works/doi:10.48550/arXiv.2401.00001", openAlexSeed],
+      ["cites:W1", { results: [openAlexWork] }],
+    ],
+    async () => {
+      const hits = await fetchRelatedPapers(arxivSeed, [], { kind: "citedBy" });
+      assert.deepEqual(hits.map((h) => h.title), ["From OpenAlex"]);
+    },
+  );
+});
+
+test("when both sources fail the Semantic Scholar error is reported", async () => {
+  await withRoutes([], async () => {
+    await assert.rejects(fetchRelatedPapers(seed, [], { kind: "citedBy" }), /Semantic Scholar request failed: 404/);
+  });
+});
