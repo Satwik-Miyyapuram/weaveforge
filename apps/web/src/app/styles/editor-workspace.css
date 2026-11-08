@@ -766,7 +766,8 @@
   gap: 8px;
   /* The ink bar's height and border, so switching Text and Ink does not move the page. */
   min-height: 46px;
-  padding-inline: 8px;
+  /* More room at the start: the first tool sits right by the rail's border. */
+  padding-inline: 14px 8px;
   border-block-end: 1px solid var(--border);
   background: var(--surface);
   /* It folds rather than wraps (ink-bar-fold.tsx); nothing may spill meanwhile. */
@@ -855,6 +856,21 @@
 
 .workspace-toolbar-doc .pdf-reader-focus-btn {
   display: none;
+}
+
+/* Overleaf's top bar, brought up into the row so the tabs above never move. */
+.workspace-toolbar-doc > .workshop-ide__bar {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.workspace-toolbar-doc > .workshop-ide__bar > .ide-redesign-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
 }
 
 .workspace-toolbar-end {

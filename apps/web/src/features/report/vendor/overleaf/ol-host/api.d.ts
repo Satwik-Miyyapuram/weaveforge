@@ -16,3 +16,6 @@ export type MountOptions = {
 }
 
 export function mountOverleafIde(container: HTMLElement, options: MountOptions): Promise<() => void>
+
+/** Puts the IDE's top bar into `el` (the host's toolbar row); null puts it back. */
+export function setToolbarTarget(el: HTMLElement | null): void

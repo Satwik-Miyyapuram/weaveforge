@@ -21,11 +21,13 @@ import useIsNetworkStalled from '../../hooks/use-is-network-stalled'
 import OLIconButton from '../../../../shared/components/ol/ol-icon-button'
 import OLTooltip from '../../../../shared/components/ol/ol-tooltip'
 import OfflineIndicator from './offline-indicator'
+import { createPortal } from 'react-dom'
+import { useToolbarTarget } from '../../../../../../ol-host/toolbar-target'
 
 const [publishModalModules] = importOverleafModules('publishModalToolbarButton')
 const SubmitProjectButton = publishModalModules?.import.default
 
-export const Toolbar = () => {
+const ToolbarBar = () => {
   const { view, restoreView, focusMode, setFocusMode, pdfLayout, setView } =
     useLayoutContext()
   const { cobranding, isRestrictedTokenMember } = useEditorContext()
@@ -148,4 +150,10 @@ export const Toolbar = () => {
       </div>
     </nav>
   )
+}
+
+// WeaveForge: the bar renders into the host's toolbar row when it gives one.
+export const Toolbar = () => {
+  const target = useToolbarTarget()
+  return target ? createPortal(<ToolbarBar />, target) : <ToolbarBar />
 }
