@@ -172,6 +172,7 @@ pub fn decode_doc_line(line: &str) -> String {
 /// One open project connection.
 pub struct Room {
     client: reqwest::Client,
+    project: String,
     url: String,
     cookies: String,
     origin: String,
@@ -219,6 +220,7 @@ impl Room {
         let sid = handshake_sid(&body)?;
         let room = Arc::new(Self {
             client: client.clone(),
+            project: project.to_owned(),
             url: format!("{base}socket.io/1/xhr-polling/{sid}"),
             cookies: crate::overleaf_workshop::with_socket_cookie(cookies, set_cookie.as_deref()),
             origin,
@@ -475,6 +477,19 @@ impl Rooms {
         }
     }
 
+    /// Removes and returns the rooms open on `project`.
+    fn take_project(&self, project: &str) -> Vec<Arc<Room>> {
+        let Ok(mut map) = self.0.lock() else {
+            return Vec::new();
+        };
+        let ids: Vec<String> = map
+            .iter()
+            .filter(|(_, r)| r.project == project)
+            .map(|(k, _)| k.clone())
+            .collect();
+        ids.iter().filter_map(|k| map.remove(k)).collect()
+    }
+
     fn remove(&self, id: &str) -> Option<Arc<Room>> {
         self.0.lock().ok()?.remove(id)
     }
@@ -608,6 +623,11 @@ pub async fn serve(
 }
 
 async fn open(opener: &Opener<'_>, cookies: &str, project: &str) -> Answer {
+    // One room per project: a page reload never closes its room, and Overleaf
+    // lists each open room as you once more.
+    for old in opener.rooms.take_project(project) {
+        old.close().await;
+    }
     let room = match Room::open(opener.client, opener.base, cookies, project).await {
         Ok(room) => room,
         Err(message) => return fail(502, &message),
@@ -927,6 +947,33 @@ mod tests {
         let gone = serve(&opener, "events", &json!({ "liveId": live }), None).await;
         assert_eq!(gone.status, 410);
         assert!(sent.lock().unwrap().iter().any(|b| b == "0::"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn opening_a_project_again_closes_its_older_room() {
+        // A page reload never says close; without this Overleaf lists you once per reload.
+        let (base, sent) = fake_overleaf().await;
+        let client = reqwest::Client::new();
+        let rooms = Rooms::default();
+        let opener = Opener {
+            client: &client,
+            base: &base,
+            rooms: &rooms,
+        };
+        let body = json!({ "projectId": PROJECT });
+        let first = serve(&opener, "open", &body, Some("c=1".into())).await;
+        let first = body_of(&first)["liveId"].as_str().unwrap().to_owned();
+        let second = serve(&opener, "open", &body, Some("c=1".into())).await;
+        let second = body_of(&second)["liveId"].as_str().unwrap().to_owned();
+
+        let old = serve(&opener, "events", &json!({ "liveId": first }), None).await;
+        assert_eq!(old.status, 410);
+        assert_eq!(
+            sent.lock().unwrap().iter().filter(|b| *b == "0::").count(),
+            1
+        );
+        let new = serve(&opener, "events", &json!({ "liveId": second }), None).await;
+        assert_eq!(new.status, 200);
     }
 
     #[tokio::test]

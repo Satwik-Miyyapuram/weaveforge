@@ -127,13 +127,19 @@ function createSocket(transport: LiveTransport) {
 
 /** Builds the `io` global for Overleaf's socket shim (it reads `version` "0.x"). */
 export function createIoBridge(getTransport: () => LiveTransport) {
+  const sockets: ReturnType<typeof createSocket>[] = []
   return {
     version: '0.9.17',
     Transport: { websocket: class {}, 'xhr-polling': class {} },
     connect(_url: string, options: Record<string, unknown> = {}) {
       const socket = createSocket(getTransport())
+      sockets.push(socket)
       if (options['auto connect'] !== false) socket.connect()
       return socket
+    },
+    /** Closes every link opened here; the IDE never does when it unmounts. */
+    closeAll() {
+      for (const socket of sockets.splice(0)) socket.disconnect()
     },
   }
 }
