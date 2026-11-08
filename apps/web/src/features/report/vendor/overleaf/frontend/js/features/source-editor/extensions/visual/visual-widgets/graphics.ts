@@ -6,6 +6,7 @@ import { debugConsole } from '../../../../../utils/debugging'
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api'
 import { previewByPathFacet } from '../../file-preview'
 import { PdfDestroyLock } from '../utils/pdf-destroy-lock'
+import { fetchImageUrl } from '../../../../../../../ol-host/image-url'
 
 // Module level to synchronize across all GraphicsWidgets
 const pdfDestroyLock = new PdfDestroyLock()
@@ -161,18 +162,30 @@ export class GraphicsWidget extends WidgetType {
     image.style.width = width
     image.style.maxWidth = width
 
-    image.src = url
-    image.addEventListener('load', () => {
-      image.classList.remove('ol-cm-graphics-loading')
-      this.height = image.height // for estimatedHeight
-      view.requestMeasure()
-    })
-    image.addEventListener('error', () => {
+    const showError = () => {
+      if (this.destroyed) return
       const errorElement = this.createErrorElement(view)
       wrapper.replaceChildren(errorElement)
       this.height = wrapper.clientHeight
       view.requestMeasure()
-    })
+    }
+    // WeaveForge: load through fetch so the host's bridge serves it.
+    fetchImageUrl(url)
+      .then(objectUrl => {
+        if (this.destroyed) return URL.revokeObjectURL(objectUrl)
+        image.addEventListener('load', () => {
+          URL.revokeObjectURL(objectUrl)
+          image.classList.remove('ol-cm-graphics-loading')
+          this.height = image.height // for estimatedHeight
+          view.requestMeasure()
+        })
+        image.addEventListener('error', () => {
+          URL.revokeObjectURL(objectUrl)
+          showError()
+        })
+        image.src = objectUrl
+      })
+      .catch(showError)
 
     wrapper.appendChild(image)
     return wrapper
