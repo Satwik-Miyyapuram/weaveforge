@@ -170,18 +170,43 @@ export function splitPane(
   return { root: root ?? layout.root, focusedPaneId: newPaneId };
 }
 
-/** Move a tab between panes (or within one), preserving the document itself. */
+/** Put `tab` at `index` in the strip (clamped) and make it the active one. */
+function insertAt(layout: PaneLayout, paneId: string, tab: TabRef, index: number): PaneLayout {
+  const root = replaceLeaf(layout.root, paneId, (leaf) => {
+    const at = Math.min(Math.max(index, 0), leaf.tabs.length);
+    return { ...leaf, tabs: [...leaf.tabs.slice(0, at), tab, ...leaf.tabs.slice(at)], activeIndex: at };
+  });
+  return settleFocus(root ?? layout.root, paneId);
+}
+
+/**
+ * Move a tab between panes (or within one), preserving the document itself.
+ * With `toIndex` (a drop on another tab) the tab lands at that slot; without it
+ * (a drop on the pane) it goes last, or is only shown when it is already there.
+ */
 export function moveTab(
   layout: PaneLayout,
   from: { paneId: string; index: number },
   toPaneId: string,
+  toIndex?: number,
 ): PaneLayout {
   const source = findLeaf(layout.root, from.paneId);
   const tab = source?.tabs[from.index];
   if (!tab) return layout;
-  if (from.paneId === toPaneId) return activateTab(layout, toPaneId, from.index);
+  if (from.paneId === toPaneId) {
+    if (toIndex === undefined) return activateTab(layout, toPaneId, from.index);
+    const root = replaceLeaf(layout.root, toPaneId, (leaf) => ({
+      ...leaf,
+      tabs: leaf.tabs.filter((_, i) => i !== from.index),
+    }));
+    return insertAt(settleFocus(root ?? layout.root, toPaneId), toPaneId, tab, toIndex);
+  }
 
-  const opened = openTab(closeTab(layout, from.paneId, from.index), tab, toPaneId);
+  const closed = closeTab(layout, from.paneId, from.index);
+  const target = findLeaf(closed.root, toPaneId);
+  const already = target?.tabs.some((open) => tabKey(open) === tabKey(tab));
+  const opened =
+    toIndex === undefined || already ? openTab(closed, tab, toPaneId) : insertAt(closed, toPaneId, tab, toIndex);
   return { ...opened, focusedPaneId: toPaneId };
 }
 

@@ -38,7 +38,8 @@ export interface PaneActions {
   onSplit: (paneId: string, direction: PaneSplit["direction"]) => void;
   /** Hide every piece of chrome around the document (`F11`). */
   onToggleFocus?: () => void;
-  onDropTab: (from: { paneId: string; index: number }, toPaneId: string) => void;
+  /** `toIndex` is set when the tab was dropped on another tab: it lands in that slot. */
+  onDropTab: (from: { paneId: string; index: number }, toPaneId: string, toIndex?: number) => void;
   onRatio: (split: PaneSplit, ratio: number) => void;
   onSetMode: (tab: TabRef, mode: DocumentMode) => void;
   /** Split: open or close the preview of the focused document. */
@@ -93,6 +94,14 @@ export interface PaneViewProps extends PaneActions {
  * binding, so switching tabs would silently discard the thing tabs exist to
  * preserve.
  */
+const TAB_DRAG_TYPE = "application/x-weaveforge-tab";
+
+/** The tab being dragged, written as `paneId|index` when the drag started. */
+function draggedTab(data: DataTransfer): { paneId: string; index: number } | null {
+  const [paneId, index] = data.getData(TAB_DRAG_TYPE).split("|");
+  return paneId && index ? { paneId, index: Number(index) } : null;
+}
+
 export function PaneView(props: PaneViewProps) {
   // The toolbar's document slot, where the focused document puts its own tools.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -186,10 +195,8 @@ function PaneLeafView({
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
-        const raw = event.dataTransfer.getData("application/x-weaveforge-tab");
-        if (!raw) return;
-        const [paneId, index] = raw.split("|");
-        if (paneId && index) onDropTab({ paneId, index: Number(index) }, leaf.id);
+        const from = draggedTab(event.dataTransfer);
+        if (from) onDropTab(from, leaf.id);
       }}
     >
       {/* Two columns: the tabs scroll, the actions stay put. */}
@@ -205,8 +212,15 @@ function PaneLeafView({
               role="presentation"
               draggable
               onDragStart={(event) =>
-                event.dataTransfer.setData("application/x-weaveforge-tab", `${leaf.id}|${index}`)
+                event.dataTransfer.setData(TAB_DRAG_TYPE, `${leaf.id}|${index}`)
               }
+              onDrop={(event) => {
+                const from = draggedTab(event.dataTransfer);
+                if (!from) return;
+                event.preventDefault();
+                event.stopPropagation();
+                onDropTab(from, leaf.id, index);
+              }}
               onAuxClick={(event) => {
                 // Middle-click closes, as every tabbed editor does.
                 if (event.button === 1) onClose(leaf.id, index);

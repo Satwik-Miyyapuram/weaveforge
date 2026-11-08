@@ -760,7 +760,7 @@ export function WorkspaceScreen() {
         onSplit={(paneId, direction) => apply(splitPane(layout, paneId, direction))}
         onTabMenu={(paneId, index, command) => apply(layoutForTabMenu(layout, paneId, index, command))}
         onToggleFocus={toggleFocus}
-        onDropTab={(from, toPaneId) => apply(moveTab(layout, from, toPaneId))}
+        onDropTab={(from, toPaneId, toIndex) => apply(moveTab(layout, from, toPaneId, toIndex))}
         onRatio={(split: PaneSplit, ratio) => apply(setRatio(layout, split, ratio))}
         onTogglePreview={() => apply(togglePreview(layout))}
         onSetMode={(tab, mode) => apply(setTabMode(layout, tab, mode))}
