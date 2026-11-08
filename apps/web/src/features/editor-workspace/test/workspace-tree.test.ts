@@ -5,6 +5,7 @@ import {
   buildListsTree,
   buildWorkspaceTree,
   flattenTree,
+  isDocumentNode,
   listMembership,
   type ListsTreeInput,
   type WorkspaceTreeNode,
@@ -28,16 +29,25 @@ function everyNode(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeNode[] {
   return nodes.flatMap((node) => [node, ...everyNode(node.children)]);
 }
 
-test("four roots, always, so an empty workspace still shows where things go", () => {
+test("four roots and the Overleaf row, always, so an empty workspace still shows where things go", () => {
   const { tree } = roots();
   assert.deepEqual(
     tree.map((node) => node.label),
-    ["Notes", "Papers", "Report", "Log"],
+    ["Notes", "Papers", "Report", "Log", "Overleaf"],
   );
   assert.deepEqual(
     tree.map((node) => node.children.length),
-    [0, 0, 0, 0],
+    [0, 0, 0, 0, 0],
   );
+});
+
+test("the Overleaf row is a document that opens the projects screen in a tab", () => {
+  const { tree } = roots();
+  const overleaf = tree[4]!;
+  assert.equal(overleaf.kind, "overleaf");
+  assert.equal(overleaf.id, "projects");
+  assert.equal(isDocumentNode(overleaf), true);
+  assert.ok(flattenTree(tree).some((node) => node.kind === "overleaf"));
 });
 
 /**
@@ -193,7 +203,7 @@ test("flattening drops the folders and keeps every document, depth-first", () =>
 
   assert.deepEqual(
     flattenTree(tree).map((node) => node.key),
-    ["vault_page:a", "vault_page:b", "paper_pdf:p1", "paper:p1", "report_section:s1"],
+    ["vault_page:a", "vault_page:b", "paper_pdf:p1", "paper:p1", "report_section:s1", "overleaf:projects"],
   );
 });
 

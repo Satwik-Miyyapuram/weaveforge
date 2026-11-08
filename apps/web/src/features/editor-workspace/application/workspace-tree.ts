@@ -9,7 +9,8 @@
  *
  * Four roots, because those are the things the desktop editor edits: notes (a
  * real tree), papers (flat, each with at most one note), the report (a tree of
- * sections), and the logbook (flat and dated).
+ * sections), and the logbook (flat and dated). Then one leaf, Overleaf, so
+ * the LaTeX projects are edited in the same place as everything else.
  */
 
 import {
@@ -24,10 +25,11 @@ import {
 import { readyCore } from "@/lib/rust-core";
 
 /**
- * The entity kinds plus two of the tree's own: `folder` for a grouping row and
- * `paper_pdf` for a paper's PDF, which is a row and a tab but not a core entity.
+ * The entity kinds plus the tree's own: `folder` for a grouping row,
+ * `paper_pdf` for a paper's PDF, which is a row and a tab but not a core entity,
+ * and `overleaf` for the Overleaf projects screen.
  */
-export type TreeNodeKind = WorkspaceEntityType | "folder" | "paper_pdf";
+export type TreeNodeKind = WorkspaceEntityType | "folder" | "paper_pdf" | "overleaf";
 
 export interface WorkspaceTreeNode {
   /** Stable across renames — `${kind}:${id}` for entities, the path for roots. */
@@ -257,6 +259,8 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
       path: readyCore().entityDir("log_entry", input.projectRoot),
       children: logEntries,
     },
+    // The Overleaf projects screen, opened as a tab like any document.
+    { key: "overleaf:projects", kind: "overleaf", id: "projects", label: "Overleaf", path: "overleaf", children: [] },
   ];
 }
 

@@ -31,6 +31,7 @@ export const KINDS: readonly TreeNodeKind[] = [
   "ink_page",
   "paper",
   "paper_pdf",
+  "overleaf",
   "reading_list",
   "report_section",
   "experiment",
@@ -52,7 +53,7 @@ export interface KindMeta {
   /** The `.md` suffix the UI appends, or `null` where there is no file. */
   suffix: string | null;
   /** What the pane mounts for this kind. `text` is the shipped editor; `pdf` the reader. */
-  document: "text" | "ink" | "pdf";
+  document: "text" | "ink" | "pdf" | "overleaf";
   /** Status-bar segments for this kind, in paint order. */
   segments: readonly SegmentKey[];
   /**
@@ -198,6 +199,23 @@ export const KIND_TABLE: Record<TreeNodeKind, KindMeta> = {
     document: "pdf",
     segments: [],
     pdf: true,
+    ink: false,
+    lazyBody: false,
+    owner: "vault",
+    documentRow: true,
+    memberOrder: null,
+    linkGroup: null,
+    creatable: false,
+  },
+  // The Overleaf projects screen: its cards, then a project's editor, in a tab.
+  // Not a file, so no suffix; Overleaf holds the content.
+  overleaf: {
+    icon: "overleaf",
+    tint: "good",
+    suffix: null,
+    document: "overleaf",
+    segments: [],
+    pdf: false,
     ink: false,
     lazyBody: false,
     owner: "vault",
