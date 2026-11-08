@@ -208,7 +208,7 @@ export function SectionNote({
               onError={setSaveError}
               insertItems={
                 editing && !busy
-                  ? [{ label: "Experiment artifact…", title: "Insert experiment artifact", onSelect: () => setPickingArtifact(true) }]
+                  ? [{ label: "Experiment figure or table…", title: "Insert an experiment figure or results table", onSelect: () => setPickingArtifact(true) }]
                   : undefined
               }
               moreSections={editing ? [citeAsSection(citationFormat, setCitationFormat)] : undefined}
