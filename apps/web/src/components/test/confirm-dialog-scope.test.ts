@@ -18,6 +18,7 @@ const ALLOWED = [
   "features/projects/ui/projects-screen.tsx",
   "features/settings/ui/api-tokens-panel.tsx",
   "features/settings/ui/calendar-feed-panel.tsx",
+  "features/settings/ui/local-api-panel.tsx",
   "features/settings/ui/mcp-tokens-panel.tsx",
 ];
 
