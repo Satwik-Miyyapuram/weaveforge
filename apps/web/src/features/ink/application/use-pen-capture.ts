@@ -208,8 +208,6 @@ export interface PenCaptureHandle {
   backend: "webgl2" | "canvas2d" | "none" | null;
   /** Whether the OS is drawing the wet tail: a presenter was granted. */
   delegating: boolean;
-  /** The worker's newest frame counter. */
-  frame: number;
   /** Native pointer handlers for the canvas element. */
   handlers: {
     onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -235,8 +233,8 @@ export interface PenCaptureHandle {
  * A hook because it owns a worker and a canvas and a screen must be able to tear
  * both down; **not** because the samples go through React. Nothing here calls
  * `setState` from a pointer event: the state is `penSeen`, `penOnly`, and the
- * worker's backend and frame counter — the first two change once per session, and
- * the last two are metadata about the renderer rather than about the stroke.
+ * worker's backend — each changes about once per session. The worker's frame
+ * counter goes to `onFrame` only: as state it re-rendered the sheet every frame.
  */
 export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const callbacksRef = useRef(options);
@@ -247,7 +245,6 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const [penSeen, setPenSeen] = useState(false);
   const [penOnly, setPenOnlyState] = useState(false);
   const [backend, setBackend] = useState<PenCaptureHandle["backend"]>(null);
-  const [frame, setFrame] = useState(0);
   const [delegating, setDelegating] = useState(false);
   const presenterRef = useRef<InkPresenterLike | null>(null);
   // Whether the worker's context was created for the delegated path. Decided
@@ -379,7 +376,6 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
             callbacksRef.current.onBackend?.(message.backend);
             break;
           case "frame":
-            setFrame(message.frame);
             callbacksRef.current.onFrame?.(message.frame);
             break;
           case "stroke-committed":
@@ -699,7 +695,6 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     setPenOnly,
     backend,
     delegating,
-    frame,
     handlers,
     session: sessionRef.current!,
     send,
