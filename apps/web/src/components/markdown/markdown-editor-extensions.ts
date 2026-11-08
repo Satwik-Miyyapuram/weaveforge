@@ -28,6 +28,7 @@ import { imagePaste, type ImagePasteConfig } from "@/components/markdown/markdow
 import { pendingInsertSupport } from "@/components/markdown/markdown-pending-insert";
 import { markdownFormatKeymap } from "@/components/markdown/markdown-format";
 import { markdownContextMenu } from "@/components/markdown/markdown-context-menu";
+import { spellcheck } from "@/components/markdown/spellcheck";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
@@ -320,6 +321,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     // Google Docs' formatting keys, ahead of the default keymap so Mod-i and Mod-u are ours.
     keymap.of(markdownFormatKeymap),
     markdownContextMenu,
+    spellcheck,
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     drawSelection(),
     EditorView.lineWrapping,
