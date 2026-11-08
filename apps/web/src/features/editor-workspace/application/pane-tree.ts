@@ -11,6 +11,8 @@
  * A tab holds `{kind, id}`, never a path — see `workspace-tree.ts` for why.
  */
 
+import { applyGroupCommand, withoutGroup, type TabGroup, type TabGroupCommand } from "./tab-groups";
+
 /**
  * Which view a tab is in. The shipped editor is Edit and stays the default.
  * `pdf` is a paper's third view: its PDF in the reader, in place.
@@ -27,6 +29,8 @@ export interface TabRef {
    * this existed is still a valid tab — it reads as `edit`, which is what it was.
    */
   mode?: DocumentMode;
+  /** Id of a group in the same pane (`tab-groups.ts`). */
+  group?: string;
 }
 
 export interface PaneLeaf {
@@ -35,6 +39,7 @@ export interface PaneLeaf {
   tabs: TabRef[];
   /** Index into `tabs`; clamped by every operation, never trusted on read. */
   activeIndex: number;
+  groups?: TabGroup[];
 }
 
 export interface PaneSplit {
@@ -155,7 +160,8 @@ export function splitPane(
 ): PaneLayout {
   const source = findLeaf(layout.root, paneId);
   if (!source) return layout;
-  const carried = source.tabs[source.activeIndex];
+  const active = source.tabs[source.activeIndex];
+  const carried = active && withoutGroup(active);
 
   const root = replaceLeaf(layout.root, paneId, (leaf): PaneNode => {
     const created: PaneLeaf = {
@@ -191,8 +197,10 @@ export function moveTab(
   toIndex?: number,
 ): PaneLayout {
   const source = findLeaf(layout.root, from.paneId);
-  const tab = source?.tabs[from.index];
-  if (!tab) return layout;
+  const dragged = source?.tabs[from.index];
+  if (!dragged) return layout;
+  // A group belongs to its pane: within it the tab keeps it, elsewhere it drops it.
+  const tab = from.paneId === toPaneId ? dragged : withoutGroup(dragged);
   if (from.paneId === toPaneId) {
     if (toIndex === undefined) return activateTab(layout, toPaneId, from.index);
     const root = replaceLeaf(layout.root, toPaneId, (leaf) => ({
@@ -411,7 +419,13 @@ export function layoutForCommand(layout: PaneLayout, command: PaneCommand): Pane
 }
 
 /** The items of a tab's right-click menu, as VS Code names them. */
-export type TabMenuCommand = "close" | "close-others" | "close-right" | "split-right" | "split-down";
+export type TabMenuCommand =
+  | "close"
+  | "close-others"
+  | "close-right"
+  | "split-right"
+  | "split-down"
+  | TabGroupCommand;
 
 /**
  * The layout after a tab's right-click item. Pure and in one step, because the
@@ -427,6 +441,11 @@ export function layoutForTabMenu(
   const leaf = findLeaf(layout.root, paneId);
   const clicked = leaf?.tabs[index];
   if (!leaf || !clicked) return layout;
+  if (typeof command === "object") {
+    const next = applyGroupCommand(leaf, index, command);
+    if (next === leaf) return layout;
+    return settleFocus(replaceLeaf(layout.root, paneId, () => next) ?? layout.root, paneId);
+  }
   if (command === "close") return closeTab(layout, paneId, index);
   // A split carries the active tab, so the clicked tab becomes active first.
   if (command === "split-right") return splitPane(activateTab(layout, paneId, index), paneId, "row");

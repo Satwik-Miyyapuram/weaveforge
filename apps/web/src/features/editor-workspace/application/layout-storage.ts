@@ -11,6 +11,7 @@
 
 import type { KeyValueStore } from "./explorer-state";
 import { emptyLayout, type DocumentMode, type PaneLayout, type PaneNode, type TabRef } from "./pane-tree";
+import { cleanGroups, GROUP_COLORS, type GroupColor, type TabGroup } from "./tab-groups";
 
 export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
 
@@ -45,10 +46,24 @@ function readRaw(store: LayoutStore, projectId: string | null | undefined): stri
 const MODES: readonly string[] = ["edit", "ink"] satisfies readonly DocumentMode[];
 
 /** A tab as stored. A missing or unknown mode reads as none chosen yet. */
-function parseTab(tab: { kind: string; id: string; mode?: unknown }): TabRef {
-  return typeof tab.mode === "string" && MODES.includes(tab.mode)
-    ? { kind: tab.kind, id: tab.id, mode: tab.mode as DocumentMode }
-    : { kind: tab.kind, id: tab.id };
+function parseTab(tab: { kind: string; id: string; mode?: unknown; group?: unknown }): TabRef {
+  const parsed: TabRef = { kind: tab.kind, id: tab.id };
+  if (typeof tab.mode === "string" && MODES.includes(tab.mode)) parsed.mode = tab.mode as DocumentMode;
+  if (typeof tab.group === "string") parsed.group = tab.group;
+  return parsed;
+}
+
+/** A group as stored; `cleanGroups` then drops any no tab is in. */
+function parseGroups(value: unknown): TabGroup[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): TabGroup[] => {
+    const g = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+    if (typeof g.id !== "string") return [];
+    const color = GROUP_COLORS.includes(g.color as GroupColor) ? (g.color as GroupColor) : 1;
+    const group: TabGroup = { id: g.id, name: typeof g.name === "string" ? g.name : "", color };
+    if (g.collapsed === true) group.collapsed = true;
+    return [group];
+  });
 }
 
 function parseNode(value: unknown): PaneNode | null {
@@ -65,12 +80,13 @@ function parseNode(value: unknown): PaneNode | null {
         typeof (tab as { id?: unknown }).id === "string",
     );
     const activeIndex = typeof node.activeIndex === "number" ? node.activeIndex : 0;
-    return {
+    return cleanGroups({
       type: "leaf",
       id: node.id,
       tabs: tabs.map(parseTab),
       activeIndex: Math.min(Math.max(activeIndex, 0), Math.max(tabs.length - 1, 0)),
-    };
+      groups: parseGroups(node.groups),
+    });
   }
 
   if (node.type === "split") {
