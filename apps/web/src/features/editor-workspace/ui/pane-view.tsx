@@ -29,6 +29,7 @@ import { followPointer } from "./follow-pointer";
 import { keyLabel } from "@/lib/shortcut-label";
 import { TabButton } from "@/components/controls";
 import { CloseButton } from "@/components/button";
+import { DocumentPresence } from "@/features/collab";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -75,8 +76,6 @@ export interface PaneViewProps extends PaneActions {
   labelFor: (tab: TabRef) => string;
   /** The editor for a tab. One call per open tab, not per visible tab. */
   renderDocument: (tab: TabRef) => ReactNode;
-  /** Who else is in this tab's document, drawn at the right of the strip. */
-  renderPeers?: (tab: TabRef) => ReactNode;
   /** The path to a document, for the strip above the pane. */
   crumbsFor?: (tab: TabRef) => readonly Crumb[];
   /** A crumb click: open the document the crumb names. */
@@ -165,7 +164,6 @@ function PaneLeafView({
   layout,
   labelFor,
   renderDocument,
-  renderPeers,
   crumbsFor,
   onOpenCrumb,
   onActivate,
@@ -265,7 +263,7 @@ function PaneLeafView({
         ) : null}
         <div className="pane-tab-actions">
           {/* Presence belongs in the chrome, not inside the document. */}
-          {showing ? renderPeers?.(showing) : null}
+          {showing ? <DocumentPresence docKey={`${showing.kind}:${showing.id}`} /> : null}
         </div>
       </div>
 

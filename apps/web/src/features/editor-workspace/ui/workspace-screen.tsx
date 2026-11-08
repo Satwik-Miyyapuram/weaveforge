@@ -9,7 +9,6 @@ import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { readyCore } from "@/lib/rust-core";
 
 import { useProject } from "@/features/projects";
-import { DocumentPresence } from "@/features/collab";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
@@ -749,7 +748,6 @@ export function WorkspaceScreen() {
         renderDocument={renderDocument}
         onInsertImage={onInsertImage}
         crumbsFor={crumbsFor}
-        renderPeers={(tab) => <DocumentPresence docKey={`${tab.kind}:${tab.id}`} />}
         onOpenCrumb={(crumb) => {
           if (!crumb.key) return;
           const [kind, ...rest] = crumb.key.split(":");
