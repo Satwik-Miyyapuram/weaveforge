@@ -8,7 +8,7 @@
  * CORS fetch on the web), pages through the HTML relay.
  */
 
-import { findOpenAccessCopies, type OpenAccessHttp, type OpenAccessIds } from "@weaveforge/core";
+import { findOpenAccessCopies, getUserIntegrationField, type OpenAccessHttp, type OpenAccessIds } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
@@ -68,6 +68,16 @@ export async function fetchPaperHtml(
   return { ok: true, raw, finalUrl };
 }
 
+/** The user's OpenAlex key; none when settings cannot be read (signed out, locked). */
+async function openAlexKey(): Promise<string | undefined> {
+  try {
+    const settings = await getContainer().settings.manageSettings.get();
+    return getUserIntegrationField(settings, "semantic-scholar", "openAlexKey");
+  } catch {
+    return undefined;
+  }
+}
+
 /** Run the search for one paper with the real network and stores. */
 export async function findFreeCopyInBrowser(paperId: string, ids: OpenAccessIds): Promise<FreeCopyOutcome> {
   const [{ sanitizePaperHtml }, { paperHtmlStore }] = await Promise.all([
@@ -75,10 +85,11 @@ export async function findFreeCopyInBrowser(paperId: string, ids: OpenAccessIds)
     import("../infrastructure/paper-html-store"),
   ]);
   return findFreeCopy(paperId, ids, {
-    lookup: (lookupIds) =>
+    lookup: async (lookupIds) =>
       findOpenAccessCopies(lookupIds, {
         http: openAccessHttp(),
         unpaywallEmail: process.env.NEXT_PUBLIC_UNPAYWALL_EMAIL,
+        openAlexKey: await openAlexKey(),
       }),
     fetchPdf: (id, url) => fetchTypedPdfToCache(id, url),
     fetchHtml: (url) => fetchPaperHtml(url),

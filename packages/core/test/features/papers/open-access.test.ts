@@ -211,6 +211,21 @@ test("findOpenAccessCopies routes registrant DOIs and the arXiv DOI", async () =
   ]);
 });
 
+test("findOpenAccessCopies sends an OpenAlex key to OpenAlex only", async () => {
+  const asked: string[] = [];
+  const http: OpenAccessHttp = async (url) => {
+    asked.push(url);
+    return null;
+  };
+  await findOpenAccessCopies({ doi: "10.1234/abc" }, { http, openAlexKey: " oa key " });
+  assert.ok(asked.includes("https://api.openalex.org/works/doi:10.1234%2Fabc?api_key=oa%20key"));
+  assert.equal(asked.filter((u) => u.includes("api_key")).length, 1);
+
+  asked.length = 0;
+  await findOpenAccessCopies({ doi: "10.1234/abc" }, { http, openAlexKey: "  " });
+  assert.ok(asked.includes("https://api.openalex.org/works/doi:10.1234%2Fabc"));
+});
+
 test("findOpenAccessCopies with nothing to go on asks nobody", async () => {
   let calls = 0;
   const result = await findOpenAccessCopies({}, { http: async () => (calls++, null) });

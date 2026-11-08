@@ -42,8 +42,11 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
       );
       const c = getContainer();
       const [library, settings] = await Promise.all([c.papers.loadScreenData(), c.settings.manageSettings.get()]);
-      const openAlexKey = getUserIntegrationField(settings, "semantic-scholar", "openAlexKey");
-      const next = await fetchRelatedPapers(paper, library.papers, { kind, openAlexKey });
+      const next = await fetchRelatedPapers(paper, library.papers, {
+        kind,
+        apiKey: getUserIntegrationField(settings, "semantic-scholar", "apiKey"),
+        openAlexKey: getUserIntegrationField(settings, "semantic-scholar", "openAlexKey"),
+      });
       setHits(next);
       if (next.length === 0) setMsg(kind === "citedBy" ? "No citing papers found." : "No related papers found.");
     } catch (err) {

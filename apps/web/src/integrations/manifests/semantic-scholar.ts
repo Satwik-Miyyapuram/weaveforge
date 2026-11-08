@@ -8,8 +8,8 @@ export const semanticScholarCitationManifest: CitationIntegrationManifest = {
   kind: "citation",
   userDescriptor: {
     providerId: "semantic-scholar",
-    title: "Semantic Scholar",
-    description: "Resolve paper metadata & citations",
+    title: "Semantic Scholar & OpenAlex",
+    description: "Paper metadata, citations & related papers",
     color: "#1857b6",
     runtimeGate: { kind: "citation", providerId: "semantic-scholar" },
     fields: [
