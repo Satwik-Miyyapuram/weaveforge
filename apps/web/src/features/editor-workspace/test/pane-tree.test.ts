@@ -124,6 +124,36 @@ test("moving a tab onto its own pane just activates it", () => {
   assert.deepEqual(activeTab(leaves(moved.root)[0]!), A);
 });
 
+test("dropping a tab on another tab in its strip reorders it and keeps it active", () => {
+  const layout = openTab(openTab(openTab(emptyLayout(), A), B), C);
+  const right = moveTab(layout, { paneId: "pane-1", index: 0 }, "pane-1", 2);
+  assert.deepEqual(labels(right), ["b,c,a"]);
+  assert.deepEqual(activeTab(leaves(right.root)[0]!), A);
+
+  const left = moveTab(layout, { paneId: "pane-1", index: 2 }, "pane-1", 0);
+  assert.deepEqual(labels(left), ["c,a,b"]);
+  assert.deepEqual(activeTab(leaves(left.root)[0]!), C);
+});
+
+test("dropping a tab on a tab in another pane inserts it there", () => {
+  const split = splitPane(openTab(openTab(emptyLayout(), A), B), "pane-1", "row", "pane-2");
+  const moved = moveTab(split, { paneId: "pane-1", index: 0 }, "pane-2", 0);
+  assert.deepEqual(labels(moved), ["b", "a,b"]);
+  assert.deepEqual(activeTab(leaves(moved.root)[1]!), A);
+  assert.equal(moved.focusedPaneId, "pane-2");
+});
+
+test("dropping on a pane that already has the document just shows it", () => {
+  const split = splitPane(openTab(openTab(emptyLayout(), A), B), "pane-1", "row", "pane-2");
+  const moved = moveTab(split, { paneId: "pane-1", index: 1 }, "pane-2", 0);
+  assert.deepEqual(labels(moved), ["a", "b"]);
+});
+
+test("an index past the end lands the tab last", () => {
+  const layout = openTab(openTab(emptyLayout(), A), B);
+  assert.deepEqual(labels(moveTab(layout, { paneId: "pane-1", index: 0 }, "pane-1", 9)), ["b,a"]);
+});
+
 test("moving a tab that is not there changes nothing", () => {
   const before = openTab(emptyLayout(), A);
   assert.equal(moveTab(before, { paneId: "pane-1", index: 7 }, "pane-1"), before);
