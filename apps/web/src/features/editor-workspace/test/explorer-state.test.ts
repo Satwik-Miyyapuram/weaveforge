@@ -60,7 +60,7 @@ test("what was expanded survives a reload", () => {
   writeExpanded(store, new Set(["notes", "vault_page:a", ...ROOTS]));
 
   const reopened = readExpanded(store, ROOTS, true);
-  assert.deepEqual([...reopened], ["notes", "vault_page:a", "papers", "report", "logbook", "overleaf:projects"]);
+  assert.deepEqual([...reopened], ["notes", "vault_page:a", "papers", "report", "logbook", "overleaf"]);
   // Including the fact that a root the reader left shut is not reopened.
   assert.equal(reopened.has("logbook"), true);
 });
@@ -78,7 +78,7 @@ test("a root the record has never heard of is opened, on the migrating read", ()
   // Exactly the shape a pre-logbook record has.
   writeExpanded(store, new Set(["notes", "papers", "report"]));
 
-  assert.deepEqual([...readExpanded(store, ROOTS, true)], ["notes", "papers", "report", "logbook", "overleaf:projects"]);
+  assert.deepEqual([...readExpanded(store, ROOTS, true)], ["notes", "papers", "report", "logbook", "overleaf"]);
 });
 
 /**

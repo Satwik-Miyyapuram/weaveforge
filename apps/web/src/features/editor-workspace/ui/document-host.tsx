@@ -34,7 +34,13 @@ import { CollabBodyHost } from "@/features/collab";
 import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
-import { ReportOverleafScreen, ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
+import {
+  OVERLEAF_SIGN_IN_ROW,
+  OverleafProjectTab,
+  ReportOverleafScreen,
+  ReportSectionMarkdown,
+  reportImageMarkdown,
+} from "@/features/report";
 import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { readyCore } from "@/lib/rust-core";
@@ -418,10 +424,10 @@ export function DocumentHost({
   }
 
   if (renderer === "overleaf") {
-    // The `/report/overleaf` screen in the tab: cards, then a project's editor.
+    // A project row opens its editor; the sign-in row opens the Overleaf screen.
     return (
       <div className="overleaf-tab">
-        <ReportOverleafScreen />
+        {tab.id === OVERLEAF_SIGN_IN_ROW.id ? <ReportOverleafScreen /> : <OverleafProjectTab overleafId={tab.id} />}
       </div>
     );
   }

@@ -29,7 +29,7 @@ function everyNode(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeNode[] {
   return nodes.flatMap((node) => [node, ...everyNode(node.children)]);
 }
 
-test("four roots and the Overleaf row, always, so an empty workspace still shows where things go", () => {
+test("five roots, Overleaf last, always, so an empty workspace still shows where things go", () => {
   const { tree } = roots();
   assert.deepEqual(
     tree.map((node) => node.label),
@@ -41,13 +41,19 @@ test("four roots and the Overleaf row, always, so an empty workspace still shows
   );
 });
 
-test("the Overleaf row is a document that opens the projects screen in a tab", () => {
-  const { tree } = roots();
+test("Overleaf is a folder whose rows are its projects, each opened as a document", () => {
+  const { tree } = roots({ overleafProjects: [{ id: "ol1", name: "AIML LAB2" }, { id: "ol2", name: "Thesis" }] });
   const overleaf = tree[4]!;
-  assert.equal(overleaf.kind, "overleaf");
-  assert.equal(overleaf.id, "projects");
-  assert.equal(isDocumentNode(overleaf), true);
-  assert.ok(flattenTree(tree).some((node) => node.kind === "overleaf"));
+  assert.equal(overleaf.kind, "folder");
+  assert.equal(overleaf.key, "overleaf");
+  assert.equal(isDocumentNode(overleaf), false);
+  assert.deepEqual(
+    overleaf.children.map((node) => [node.key, node.kind, node.id, node.label, isDocumentNode(node)]),
+    [
+      ["overleaf:ol1", "overleaf", "ol1", "AIML LAB2", true],
+      ["overleaf:ol2", "overleaf", "ol2", "Thesis", true],
+    ],
+  );
 });
 
 /**
@@ -203,7 +209,7 @@ test("flattening drops the folders and keeps every document, depth-first", () =>
 
   assert.deepEqual(
     flattenTree(tree).map((node) => node.key),
-    ["vault_page:a", "vault_page:b", "paper_pdf:p1", "paper:p1", "report_section:s1", "overleaf:projects"],
+    ["vault_page:a", "vault_page:b", "paper_pdf:p1", "paper:p1", "report_section:s1"],
   );
 });
 

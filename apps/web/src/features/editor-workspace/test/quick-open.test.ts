@@ -23,6 +23,7 @@ const DOCUMENTS = flattenTree(
     ],
     papers: [{ id: "p1", title: "Batch Normalization", hasNote: true }],
     reportSections: [{ id: "s1", title: "Baseline Results" }],
+    overleafProjects: [{ id: "ol1", name: "Thesis draft" }],
   }),
 );
 

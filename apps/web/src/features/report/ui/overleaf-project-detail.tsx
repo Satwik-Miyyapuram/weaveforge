@@ -62,7 +62,8 @@ export function OverleafProjectDetail({
   onUnlink: (report: LinkedReport) => Promise<boolean>;
   onLinksChanged: () => void;
   onError: (message: string) => void;
-  onBack: () => void;
+  /** Back to the project list; absent when the project is opened on its own. */
+  onBack?: () => void;
 }) {
   const report = row.report;
   const sessionId = session.sessionId;
@@ -134,7 +135,7 @@ export function OverleafProjectDetail({
       {!live && (
         <>
           <nav className="record-bar" aria-label="Overleaf project">
-            <BackButton label="Overleaf" onClick={onBack} />
+            {onBack && <BackButton label="Overleaf" onClick={onBack} />}
             <span className="record-mono record-bar-id">Project {row.id.slice(0, 6)}</span>
             <div className="record-actions">{actions}</div>
           </nav>
@@ -168,7 +169,7 @@ export function OverleafProjectDetail({
             sessionId={sessionId}
             projectId={row.id}
             toolbar={actions}
-            onHome={onBack}
+            onHome={onBack ?? (() => undefined)}
           />
         ) : (
           <>
