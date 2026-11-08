@@ -8,6 +8,7 @@ import {
   fetchWorkshopPdf,
   type WorkshopPdfDeps,
 } from "@/features/overleaf/infrastructure/workshop-pdf-client";
+import { rememberOverleafThumb } from "./overleaf-project-card";
 
 export interface WorkshopPdfViewerProps {
   sessionId: string;
@@ -42,7 +43,10 @@ export function WorkshopPdfViewer({
     const deps: WorkshopPdfDeps = {
       fetch: (url, init) => fetch(url, init),
       authHeaders,
-      createObjectUrl: (blob) => createPdfObjectUrl(blob),
+      createObjectUrl: (blob) => {
+        rememberOverleafThumb(projectId, blob);
+        return createPdfObjectUrl(blob);
+      },
     };
     setCompiling(true);
     setError(null);

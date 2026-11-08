@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
 import { FormError } from "@/components/form-error";
 import { Menu, type MenuItem } from "@/components/menu";
 import { Popover } from "@/components/popover";
@@ -17,6 +16,7 @@ import {
 } from "../lib/overleaf-project-list";
 import { local } from "./linked-overleaf-api";
 import { OverleafConnect } from "./overleaf-connect";
+import { OverleafProjectCard } from "./overleaf-project-card";
 import { OverleafProjectDetail } from "./overleaf-project-detail";
 import { browserPicksStore, type ProjectPicksStore } from "./overleaf-project-picks";
 import { LinkOverleafForm } from "./overleaf-report-forms";
@@ -246,17 +246,16 @@ export function OverleafWorkspace({
           ) : shown.length === 0 ? (
             <p className="muted">No projects match “{query.trim()}”.</p>
           ) : (
-            <ul>
+            <ul className="overleaf-cards">
               {shown.map((row) => (
-                <li key={row.id}>
-                  <RowButton onClick={() => setOpenId(row.id)}>
-                    <strong>
-                      {row.report && <span className="overleaf-star" title="Linked to this WeaveForge project">★ </span>}
-                      {row.name}
-                    </strong>
-                    <small>{rowMeta(row, signedIn)}</small>
-                  </RowButton>
-                </li>
+                <OverleafProjectCard
+                  key={row.id}
+                  row={row}
+                  meta={rowMeta(row, signedIn)}
+                  sessionId={session.sessionId}
+                  authHeaders={client.authHeaders}
+                  onOpen={() => setOpenId(row.id)}
+                />
               ))}
             </ul>
           )}
