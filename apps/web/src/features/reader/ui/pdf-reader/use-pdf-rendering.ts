@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { errorMessage, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
+import { containerResize } from "./container-resize";
 
 import type {
   DocumentPageText,
@@ -215,6 +217,8 @@ useEffect(() => {
   const host = containerRef.current;
   if (!host || typeof ResizeObserver === "undefined") return;
   const measure = () => {
+    // Hidden (a background tab): keep the fit it had.
+    if (host.clientWidth === 0) return;
     setContainerSize({
       width: Math.max(1, host.clientWidth * pageShare),
       height: Math.max(1, host.clientHeight),
@@ -236,10 +240,13 @@ useEffect(() => {
   }
   const observer = new ResizeObserver(() => {
     const next = { width: host.clientWidth, height: host.clientHeight };
-    if (next.width === last.width && next.height === last.height) return;
+    const action = containerResize(last, next);
     last = next;
+    if (action === "ignore") return;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(measure, 160);
+    // Shown again: refit before the next paint, so the page never shows small.
+    if (action === "now") flushSync(measure);
+    else timer = setTimeout(measure, 160);
   });
   observer.observe(host);
   return () => {
