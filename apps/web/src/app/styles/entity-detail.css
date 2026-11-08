@@ -159,17 +159,17 @@ a.related-paper-url:hover { text-decoration: underline; }
 .collab-presence, .collab-offline {
   margin: 0; font-size: var(--fs-sm); line-height: 1.4;
 }
-.collab-presence::before {
-  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px;
-  border-radius: 50%; background: var(--accent); vertical-align: middle;
-}
+.collab-presence { display: flex; justify-content: flex-end; }
 .collab-offline { color: var(--warn, var(--ink)); }
-/* Remote carets and name tags drawn by y-codemirror. */
+/* Remote carets and name tags drawn by y-codemirror. Its own theme hides the
+   name until hover (opacity 0, scoped selector); the extra classes outrank it
+   so the name always shows. */
 .cm-ySelectionCaret { position: relative; border-left: 1px solid; border-right: 1px solid; margin: 0 -1px; box-sizing: border-box; }
-.cm-ySelectionInfo {
+.cm-editor .cm-content .cm-ySelectionInfo {
   position: absolute; top: -1.05em; left: -1px; font-size: var(--fs-micro); line-height: 1.1;
   padding: 1px 4px; border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0; white-space: nowrap;
   color: var(--white); opacity: 0.9; user-select: none; pointer-events: none;
+  font-family: inherit; z-index: 2;
 }
 
 /* A document's one bar outside the Editor: mode switch, then the bar, kept

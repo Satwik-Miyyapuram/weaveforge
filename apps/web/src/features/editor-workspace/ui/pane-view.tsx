@@ -75,8 +75,8 @@ export interface PaneViewProps extends PaneActions {
   labelFor: (tab: TabRef) => string;
   /** The editor for a tab. One call per open tab, not per visible tab. */
   renderDocument: (tab: TabRef) => ReactNode;
-  /** Editors this tab is live in. Rendered as avatars at the right of the strip. */
-  peers?: (tab: TabRef) => readonly string[];
+  /** Who else is in this tab's document, drawn at the right of the strip. */
+  renderPeers?: (tab: TabRef) => ReactNode;
   /** The path to a document, for the strip above the pane. */
   crumbsFor?: (tab: TabRef) => readonly Crumb[];
   /** A crumb click: open the document the crumb names. */
@@ -165,7 +165,7 @@ function PaneLeafView({
   layout,
   labelFor,
   renderDocument,
-  peers,
+  renderPeers,
   crumbsFor,
   onOpenCrumb,
   onActivate,
@@ -179,7 +179,6 @@ function PaneLeafView({
 }: TreeProps & { leaf: PaneLeaf }) {
   const focused = layout.focusedPaneId === leaf.id;
   const showing = activeTab(leaf);
-  const peerNames = showing ? (peers?.(showing) ?? []) : [];
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
 
   return (
@@ -265,17 +264,8 @@ function PaneLeafView({
           </div>
         ) : null}
         <div className="pane-tab-actions">
-          {peerNames.length > 0 ? (
-            // Collaboration exists, but it used to be announced *inside* the
-            // document as a line of text. Presence belongs in the chrome.
-            <span className="pane-peers" role="status" aria-label={`Also editing: ${peerNames.join(", ")}`}>
-              {peerNames.slice(0, 4).map((name) => (
-                <span className="pane-peer" key={name} title={name}>
-                  {initials(name)}
-                </span>
-              ))}
-            </span>
-          ) : null}
+          {/* Presence belongs in the chrome, not inside the document. */}
+          {showing ? renderPeers?.(showing) : null}
         </div>
       </div>
 
@@ -418,11 +408,6 @@ const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
 /** The tint class for a kind. `kind.ts` owns which tint a kind carries. */
 function tintClass(kind: string): string {
   return kindTintClass(kind) ?? "";
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
 

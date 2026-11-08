@@ -65,6 +65,7 @@ export function CollabBodyHost({
   onViewCreated,
   onDocChange,
   handleRef,
+  inlinePresence,
 }: {
   resourceType: string;
   resourceId: string;
@@ -87,6 +88,8 @@ export function CollabBodyHost({
    * for avoiding.
    */
   handleRef?: EditorHandleRef;
+  /** See `CollaborativeMarkdownEditor`. */
+  inlinePresence?: boolean;
 }) {
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Editor");
@@ -207,6 +210,7 @@ export function CollabBodyHost({
       readOnly={readOnly}
       editorClassName={editorClassName}
       onViewCreated={handleViewCreated}
+      inlinePresence={inlinePresence}
     />
   );
 }
