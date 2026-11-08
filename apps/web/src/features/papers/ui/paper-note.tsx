@@ -35,6 +35,8 @@ import { PaperExternalLink } from "./paper-external-link";
 import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { PaperAnnotations } from "./paper-annotations";
+import { highlightsDigest } from "../application/reading-digest";
+import { showToast } from "@/lib/toast";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage, usePaperPreview } from "./paper-first-page";
 import { previewReaderHref } from "../application/paper-preview";
@@ -259,6 +261,21 @@ export function PaperNote({
 
   const remove = () => removePaper(paper, { onHidden: onBack, onDeleted });
 
+  /** Reader marks not yet in the note, at the caret; the editor saves them. */
+  async function addHighlights() {
+    const editor = editorHandle.current;
+    if (!editor) return;
+    setSaveError(null);
+    try {
+      const marks = await getContainer().papers.listReaderAnnotations(paper.id);
+      const digest = highlightsDigest(marks, { paperId: paper.id, existing: editor.text() });
+      if (digest) editor.insert(`\n\n${digest}`);
+      else showToast("No new highlights to add");
+    } catch (err) {
+      setSaveError(formatError(err));
+    }
+  }
+
   async function toggleCitationTracking() {
     if (!canTrackCitations || trackingCitations == null) return;
     setTrackingBusy(true);
@@ -477,6 +494,11 @@ export function PaperNote({
                                 label: "Refresh paper details",
                                 title: "Refresh generated metadata; your edits are preserved",
                                 onSelect: () => void reRenderTemplate(),
+                              },
+                              {
+                                label: "Add highlights from reader",
+                                title: "Quote your reader highlights and comments here, each linked to its page",
+                                onSelect: () => void addHighlights(),
                               },
                             ],
                           },

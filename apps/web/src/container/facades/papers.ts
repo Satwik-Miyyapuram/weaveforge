@@ -5,6 +5,7 @@ import type {
   IAnnotationQuotationTypeRepository,
   ImportPaperUseCase,
   IPaperRepository,
+  IReaderAnnotationProjectSource,
   IReaderAnnotationSink,
   IReaderAnnotationSource,
   IReportSectionRepository,
@@ -47,7 +48,8 @@ export class PapersFacade {
       annotationPins: IAnnotationPinRepository;
       annotationQuotationTypes: IAnnotationQuotationTypeRepository;
       readerAnnotations: IReaderAnnotationSource &
-        IReaderAnnotationSink;
+        IReaderAnnotationSink &
+        IReaderAnnotationProjectSource;
       reportSections: IReportSectionRepository;
     },
   ) {}
@@ -136,6 +138,11 @@ export class PapersFacade {
 
   listReaderAnnotations(paperId: string) {
     return this.deps.readerAnnotations.list(paperId);
+  }
+
+  /** Every reader mark in the project, each with its paper and page. */
+  listProjectReaderAnnotations() {
+    return this.deps.readerAnnotations.listForProject();
   }
 
   createReaderAnnotation(
