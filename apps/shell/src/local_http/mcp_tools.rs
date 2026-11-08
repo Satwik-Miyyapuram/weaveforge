@@ -1,20 +1,17 @@
 //! The MCP tool catalogue: names, descriptions and input schemas. Ported from apps/shell/sidecar/src/local-mcp-tools.ts.
 
 use serde_json::{Map, Value, json};
+use wf_core::logbook::log_entry::LOG_KINDS;
+use wf_core::papers::paper::PAPER_STATUSES;
+use wf_core::plan::milestone::MILESTONE_STATUSES;
 use wf_core::sync::folder_layout::{ENTITY_DIRS, WorkspaceEntityType};
 
 /// How many pages `get_paper_text` returns at a time.
 pub const DEFAULT_PAGE_SPAN: u32 = 10;
 
-// No `as_str` in wf-core for these; the strings are the TS lists, in TS order.
+// Lists wf-core has no enum for; the strings are the TS lists, in TS order.
 // From packages/core/src/features/experiments/domain/experiment.ts.
 const EXPERIMENT_STATUSES: &[&str] = &["planned", "running", "done", "failed", "abandoned"];
-// From packages/core/src/features/logbook/domain/log-entry.ts.
-const LOG_KINDS: &[&str] = &["daily", "weekly"];
-// From packages/core/src/features/plan/domain/milestone.ts.
-const MILESTONE_STATUSES: &[&str] = &["planned", "in_progress", "done", "blocked"];
-// From packages/core/src/features/papers/domain/paper.ts.
-const PAPER_STATUSES: &[&str] = &["to_read", "reading", "read", "skimmed"];
 // From packages/core/src/features/relations/domain/paper-relation.ts.
 const RELATION_TYPES: &[&str] = &[
     "cites",
@@ -557,6 +554,19 @@ mod tests {
         assert!(properties_of("list_tags").get("project").is_some());
         assert!(properties_of("read_entry").get("project").is_none());
         assert!(properties_of("list_projects").get("project").is_none());
+    }
+
+    #[test]
+    fn wf_core_enum_lists_serialise_as_the_ts_strings() {
+        assert_eq!(properties_of("suggest_log_entry")["kind"]["enum"], json!(["daily", "weekly"]));
+        assert_eq!(
+            properties_of("suggest_milestone_status")["status"]["enum"],
+            json!(["planned", "in_progress", "done", "blocked"])
+        );
+        assert_eq!(
+            properties_of("suggest_paper_update")["status"]["enum"],
+            json!(["to_read", "reading", "read", "skimmed"])
+        );
     }
 
     #[test]
