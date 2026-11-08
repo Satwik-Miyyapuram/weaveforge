@@ -19,11 +19,12 @@ const DOI_RE = /10\.\d{4,9}\/[^\s"'<>]+/;
 /**
  * An arXiv id: modern `2305.12345` (optional `v2`), or legacy `cs.LG/0501001`.
  * Anchored forms only — a bare number inside some other URL is not an id.
+ * `arXiv.<id>` is the DOI arXiv mints (`10.48550/arXiv.2401.04088`).
  */
 const ARXIV_URL_RE =
-  /arxiv\.org\/(?:abs|pdf)\/([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?(?:\.pdf)?/i;
+  /arxiv\.org\/(?:abs|pdf|html)\/([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?(?:\.pdf)?/i;
 const ARXIV_PREFIXED_RE =
-  /\barxiv(?:\s*:\s*|\s+)([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?/i;
+  /\barxiv(?:\s*:\s*|\s+|\.)([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?/i;
 const ARXIV_BARE_RE = /^([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?$/i;
 
 /**

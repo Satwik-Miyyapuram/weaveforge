@@ -16,14 +16,14 @@ static DOI_RE: LazyLock<Option<Regex>> =
 
 static ARXIV_URL_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     compile(&format!(
-        r"(?i)arxiv\.org/(?:abs|pdf)/({ARXIV_CORE})(v[0-9]+)?(?:\.pdf)?"
+        r"(?i)arxiv\.org/(?:abs|pdf|html)/({ARXIV_CORE})(v[0-9]+)?(?:\.pdf)?"
     ))
     .ok()
 });
 
 static ARXIV_PREFIXED_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     compile(&format!(
-        r"(?i)\barxiv(?:\s*:\s*|\s+)({ARXIV_CORE})(v[0-9]+)?"
+        r"(?i)\barxiv(?:\s*:\s*|\s+|\.)({ARXIV_CORE})(v[0-9]+)?"
     ))
     .ok()
 });

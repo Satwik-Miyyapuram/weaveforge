@@ -37,6 +37,9 @@ const IDS_AND_DOIS = [
   "10.5555/123 tail",
   "arXiv: 2305.12345",
   "www.example.com/é",
+  "https://arxiv.org/html/2401.04088v1",
+  "10.48550/arXiv.2401.04088",
+  "https://arxiv.org/list/cs.LG/recent",
 ];
 
 const REF_KINDS = ["doi", "arxiv", "url", "zotero"] as const;

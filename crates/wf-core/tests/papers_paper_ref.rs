@@ -69,6 +69,7 @@ fn normalize_arxiv_id_handles_legacy_ids_and_rejects_non_ids() {
         None
     );
     assert_eq!(normalize_arxiv_id("not an id"), None);
+    assert_eq!(normalize_arxiv_id("https://arxiv.org/list/cs.LG/recent"), None);
     assert_eq!(normalize_arxiv_id(""), None);
     assert_eq!(normalize_arxiv_id("   "), None);
 }
@@ -240,6 +241,27 @@ fn parsing_stays_linear_on_hostile_input() {
     assert_eq!(
         extract_doi("doi:10.1145/3592979).").as_deref(),
         Some("10.1145/3592979")
+    );
+}
+
+#[test]
+fn arxiv_html_pages_and_arxiv_minted_dois_are_arxiv_refs() {
+    // arXiv's HTML render of a paper is the same paper as its abs page.
+    assert_eq!(
+        parse_paper_ref(PaperRefKind::Url, "https://arxiv.org/html/2401.04088v1"),
+        arxiv("2401.04088")
+    );
+    // The DOI arXiv mints through DataCite carries the id; Crossref does not know it.
+    for v in [
+        "10.48550/arXiv.2401.04088",
+        "https://doi.org/10.48550/arXiv.2401.04088",
+        "doi:10.48550/ARXIV.2401.04088",
+    ] {
+        assert_eq!(parse_paper_ref(PaperRefKind::Doi, v), arxiv("2401.04088"), "{v}");
+    }
+    assert_eq!(
+        normalize_arxiv_id("10.48550/arXiv.hep-th/9901001").as_deref(),
+        Some("hep-th/9901001")
     );
 }
 
