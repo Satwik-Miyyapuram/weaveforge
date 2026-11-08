@@ -207,6 +207,11 @@ export interface InkBarProps {
    * colours, undo, Insert and Recognise are dropped, not greyed.
    */
   viewOnly?: boolean;
+  /**
+   * No ink surface at all (a note in Text): only what works is shown, Insert
+   * and More. Greyed tools from another mode are noise, not a hint.
+   */
+  idle?: boolean;
 }
 
 export function InkBar({
@@ -269,6 +274,7 @@ export function InkBar({
   children,
   readOnly = false,
   viewOnly = false,
+  idle = false,
 }: InkBarProps) {
   // The highlighter keeps its own five quick colours; every other tool uses the pen's.
   const [ownQuickColours, setOwnQuickColour] = useQuickColours(
@@ -335,7 +341,7 @@ export function InkBar({
       className="ink-bar ink-palette"
       role="toolbar"
       {...roving}
-      aria-label={readOnly ? "Page controls" : "Ink tools"}
+      aria-label={idle ? "Document tools" : readOnly ? "Page controls" : "Ink tools"}
       data-collapsed={collapsed || undefined}
       data-dock={dock}
       data-backend={backend === undefined ? undefined : (backend ?? "starting")}
@@ -346,7 +352,7 @@ export function InkBar({
         <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
       </div>
 
-      {!viewOnly && (<>
+      {!viewOnly && !idle && (<>
       {/* 1. Drawing Tools Segmented Pill */}
       <div
         className="ink-bar-group ink-bar-tools"
@@ -439,6 +445,7 @@ export function InkBar({
       {history}
       </>)}
 
+      {!idle && (<>
       {/* 5. Page Switcher & Add Page */}
       {pagePill}
 
@@ -446,19 +453,20 @@ export function InkBar({
 
       {/* 5b. Find: the reader's search, or its place held greyed */}
       {find ?? <FindPlaceholder />}
+      </>)}
 
       {!viewOnly && (<>
       {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
       <InsertMenu {...insert} disabled={!hasInsertItems(insert)} />
 
       {/* 6. OCR Recognise */}
-      <ToolButton label="Recognise"
+      {!idle && <ToolButton label="Recognise"
         tip={busy ? (progress ?? "Recognising…") : `Recognise this page (${shortcutLabel("⌘⇧R")})`}
         onClick={onRecognise}
         disabled={recogniseOff}
       >
         <RecogniseGlyph />
-      </ToolButton>
+      </ToolButton>}
       </>)}
 
       <span className="ink-bar-spacer" />

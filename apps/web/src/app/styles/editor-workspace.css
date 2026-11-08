@@ -894,7 +894,7 @@
   display: none;
 }
 
-.workspace-toolbar[data-fold~="layout"] .workspace-toolbar-layout {
+:is(.workspace-toolbar, .document-toolbar)[data-fold~="layout"] .workspace-toolbar-layout {
   display: inline-flex;
 }
 
@@ -910,50 +910,50 @@
   flex: none;
 }
 
-:root:root:root .workspace-toolbar[data-fold~="zoom"] .ink-zoom-pill .ink-menu-caret {
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="zoom"] .ink-zoom-pill .ink-menu-caret {
   display: none;
 }
 
-:root:root:root .workspace-toolbar[data-fold~="zoom"] .ink-zoom-pill .wf-tool {
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="zoom"] .ink-zoom-pill .wf-tool {
   width: 22px;
   min-width: 22px;
 }
 
-:root:root:root .workspace-toolbar[data-fold~="zoom"] .ink-zoom-pill .wf-btn {
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="zoom"] .ink-zoom-pill .wf-btn {
   min-width: 0;
   padding-inline: 2px;
 }
 
-:root:root:root .workspace-toolbar[data-fold~="pages"] .ink-page-pill:not(.ink-zoom-pill) .wf-tool {
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="pages"] .ink-page-pill:not(.ink-zoom-pill) .wf-tool {
   width: 20px;
   min-width: 20px;
 }
 
-:root:root:root .workspace-toolbar[data-fold~="pages"] .ink-page-input {
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="pages"] .ink-page-input {
   width: 2.2ch;
   padding: 0;
   border-color: transparent;
   background: none;
 }
 
-:root:root:root .workspace-toolbar[data-fold~="zoom-out"] .workspace-toolbar-doc .ink-zoom-pill,
-:root:root:root .workspace-toolbar[data-fold~="pages-out"] .workspace-toolbar-doc .ink-page-pill:not(.ink-zoom-pill),
-:root:root:root .workspace-toolbar[data-fold~="pages-out"] .workspace-toolbar-doc [aria-label="Add a blank page"],
-:root:root:root .workspace-toolbar[data-fold~="recognise"] .workspace-toolbar-doc [aria-label="Recognise"],
-:root:root:root .workspace-toolbar[data-fold~="insert"] .workspace-toolbar-doc .ink-menu-insert,
-:root:root:root .workspace-toolbar[data-fold~="find"] .workspace-toolbar-doc button[aria-label="Find in document"],
-:root:root:root .workspace-toolbar[data-fold~="history"] .workspace-toolbar-doc .ink-bar-group:has([aria-label="Undo"]),
-:root:root:root .workspace-toolbar[data-fold~="colours"] .workspace-toolbar-doc .ink-quick-colours,
-:root:root:root .workspace-toolbar[data-fold~="layout"] .workspace-toolbar-end > :is([aria-label="Preview"], [aria-label^="Split"]),
-:root:root:root .workspace-toolbar[data-fold~="focus"] .workspace-toolbar-end > [aria-label="Focus"] {
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="zoom-out"] .workspace-toolbar-doc .ink-zoom-pill,
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="pages-out"] .workspace-toolbar-doc .ink-page-pill:not(.ink-zoom-pill),
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="pages-out"] .workspace-toolbar-doc [aria-label="Add a blank page"],
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="recognise"] .workspace-toolbar-doc [aria-label="Recognise"],
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="insert"] .workspace-toolbar-doc .ink-menu-insert,
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="find"] .workspace-toolbar-doc button[aria-label="Find in document"],
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="history"] .workspace-toolbar-doc .ink-bar-group:has([aria-label="Undo"]),
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="colours"] .workspace-toolbar-doc .ink-quick-colours,
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="layout"] .workspace-toolbar-end > :is([aria-label="Preview"], [aria-label^="Split"]),
+:root:root:root :is(.workspace-toolbar, .document-toolbar)[data-fold~="focus"] .workspace-toolbar-end > [aria-label="Focus"] {
   display: none;
 }
 
-.workspace-toolbar[data-moved] .workspace-toolbar-doc .ink-menu-more {
+:is(.workspace-toolbar, .document-toolbar)[data-moved] .workspace-toolbar-doc .ink-menu-more {
   position: relative;
 }
 
-.workspace-toolbar[data-moved] .workspace-toolbar-doc .ink-menu-more::after {
+:is(.workspace-toolbar, .document-toolbar)[data-moved] .workspace-toolbar-doc .ink-menu-more::after {
   content: "";
   position: absolute;
   top: 5px;

@@ -10,9 +10,10 @@
  * sheet keeps its bar with it, so the strip steps aside.
  */
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { type InkMenuAction, type InkMenuSection } from "@/features/ink";
+import { useToolbarFold } from "@/features/ink/ui/ink-bar-fold";
 import {
   EDITOR_CITATION_FORMATS,
   EDITOR_CITATION_FORMAT_LABELS,
@@ -50,6 +51,9 @@ export interface DocumentToolbarProps {
 
 export function DocumentToolbar({ lead, editor, onError, insertItems, moreSections, focus = false, children }: DocumentToolbarProps) {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  // Folds into More like the Editor's bar; never clips.
+  const bar = useRef<HTMLDivElement>(null);
+  useToolbarFold(bar);
 
   function insertImage(file: File) {
     const handle = editor?.current;
@@ -65,7 +69,7 @@ export function DocumentToolbar({ lead, editor, onError, insertItems, moreSectio
   return (
     <>
       {!focus && (
-        <div className="document-toolbar" role="toolbar" aria-label="Document">
+        <div ref={bar} className="document-toolbar" role="toolbar" aria-label="Document">
           {lead}
           <span className="workspace-toolbar-doc" ref={setSlot} />
           <LazyInkIdleBar onInsertImage={editor ? insertImage : undefined} insertItems={insertItems} moreSections={moreSections} />

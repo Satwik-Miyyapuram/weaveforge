@@ -53,6 +53,15 @@ test("the strip is lead, the slot a live bar portals into, then the greyed bar",
   assert.doesNotMatch(html.match(/<button[^>]*aria-label="Insert"[^>]*>/)?.[0] ?? "", /disabled=""/, "Insert takes a picture");
 });
 
+test("the strip folds like the Editor's bar instead of clipping", () => {
+  assert.match(src("../document-toolbar.tsx"), /useToolbarFold\(/);
+  const css = src("../../app/styles/entity-detail.css");
+  assert.match(css, /\.document-toolbar \{[^}]*overflow: hidden;/);
+  const fold = src("../../app/styles/editor-workspace.css");
+  assert.doesNotMatch(fold, /(?<!, )\.workspace-toolbar\[data-(fold|moved)/, "every fold rule covers both bars");
+  assert.doesNotMatch(src("../../features/ink/ui/ink-bar-fold.tsx"), /closest[^(]*\("\.workspace-toolbar"\)/);
+});
+
 test("in ink focus the strip steps aside; the sheet keeps its bar", () => {
   const html = renderToStaticMarkup(
     <DocumentToolbar focus onError={() => undefined}>

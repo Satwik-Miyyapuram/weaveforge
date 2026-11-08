@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * The one bar, greyed: what Ink offers, in the place Ink puts it, wherever no
- * live ink surface is (a note in Text). Only what the document hands over is
- * live: a picture at the caret, its own Insert entries and More sections.
+ * The one bar wherever no live ink surface is (a note in Text): only what
+ * works there, Insert (a picture at the caret, the document's own entries) and
+ * More. The ink tools are hidden, not greyed, so the bar is not a wall of grey.
  *
  * It wraps itself in `.workspace-toolbar-idle` so a live bar portalled into the
  * `.workspace-toolbar-doc` slot just before it hides it (editor-workspace.css).
@@ -30,6 +30,7 @@ export function InkIdleBar({ onInsertImage, insertItems, moreSections }: InkIdle
     <span className="workspace-toolbar-doc workspace-toolbar-idle">
       <InkBar
         readOnly
+        idle
         tool="pen"
         colour={INK_COLOURS[0]}
         width={INK_PEN_WIDTHS[1]}

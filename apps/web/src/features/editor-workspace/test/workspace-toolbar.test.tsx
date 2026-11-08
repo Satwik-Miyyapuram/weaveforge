@@ -58,11 +58,13 @@ test("the toolbar keeps its layout icons in Ink; Preview greys there", () => {
   }
 });
 
-test("one toolbar in every mode: Text greys the ink tools, Ink greys the text tools", () => {
+test("one toolbar in every mode: Text hides the ink tools it cannot use", () => {
   const text = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
   const idle = text.slice(text.indexOf("workspace-toolbar-idle"));
-  assert.match(idle, /aria-label="Page controls"/, "the one bar shows in Text, greyed");
-  assert.match(button(idle, "Select \\(V\\)"), /disabled=""/, "the greyed bar has the same tools as the live one");
+  assert.match(idle, /aria-label="Document tools"/, "the one bar shows in Text");
+  for (const label of ["Select \\(V\\)", "Pen \\(P\\)", "Undo", "Next page", "Zoom in", "Recognise", "Find in document"]) {
+    assert.equal(button(idle, label), "", `${label}: no greyed ink tool in Text`);
+  }
   assert.doesNotMatch(button(idle, "Insert"), /disabled=""/, "Insert works in Text");
   assert.doesNotMatch(text, /<fieldset/, "greyed per control, not by a fieldset");
   for (const tab of [{ kind: "vault_page", id: "n1", mode: "ink" }, { kind: "paper_pdf", id: "p1" }] as const) {
@@ -218,12 +220,13 @@ test("the bar folds rather than wraps: a Layout ▾ holds Preview and Split once
   assert.ok(layout, "Layout ▾ waits in the layout group");
   assert.match(layout, /aria-haspopup="menu"/);
   assert.match(end.slice(end.indexOf('aria-label="Layout"')), /ink-menu-caret/, "a caret, like Insert");
-  assert.match(button(html, "Find in document"), /wf-ghost/, "Find is a ghost button");
+  const inkBar = readFileSync(fileURLToPath(new URL("../../ink/ui/ink-bar.tsx", import.meta.url)), "utf8");
+  assert.match(inkBar, /variant="ghost" size="sm" aria-label="Find in document"/, "Find is a ghost button");
   const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
   assert.match(css, /\.workspace-toolbar-layout \{[^}]*display: none;/, "Layout ▾ is hidden until the fold needs it");
-  assert.match(css, /\.workspace-toolbar\[data-fold~="layout"\] \.workspace-toolbar-layout/);
-  assert.match(css, /\.workspace-toolbar\[data-fold~="colours"\] \.workspace-toolbar-doc \.ink-quick-colours/);
-  assert.match(css, /\.workspace-toolbar\[data-moved\] \.workspace-toolbar-doc \.ink-menu-more::after/, "a dot on More once something moved");
+  assert.match(css, /:is\(\.workspace-toolbar, \.document-toolbar\)\[data-fold~="layout"\] \.workspace-toolbar-layout/);
+  assert.match(css, /:is\(\.workspace-toolbar, \.document-toolbar\)\[data-fold~="colours"\] \.workspace-toolbar-doc \.ink-quick-colours/);
+  assert.match(css, /:is\(\.workspace-toolbar, \.document-toolbar\)\[data-moved\] \.workspace-toolbar-doc \.ink-menu-more::after/, "a dot on More once something moved");
   assert.match(css, /\.workspace-toolbar-doc > \.ink-bar \{[^}]*flex-wrap: nowrap;/, "never wraps");
   assert.match(css, /\.workspace-toolbar \{[^}]*padding-inline: 16px 8px;/, "the first tool keeps clear of the rail border");
   assert.match(

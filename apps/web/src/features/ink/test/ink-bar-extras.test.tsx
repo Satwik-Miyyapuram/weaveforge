@@ -102,7 +102,9 @@ test("More sections draw a heading and their items; a checked item is a radio", 
   assert.deepEqual(picked, ["numeric", "closed", "refresh"]);
 });
 
-test("the idle bar is the one bar greyed: Insert works only when handed a picture", () => {
+test("the idle bar shows only what works in Text: Insert and More, no greyed ink tools", () => {
+  const all = controls(createElement(InkIdleBar, { onInsertImage: noop })).map((c) => c.label);
+  assert.deepEqual(all, ["Insert", "More ink options"]);
   assert.deepEqual(live(controls(createElement(InkIdleBar, {}))), []);
   assert.deepEqual(live(controls(createElement(InkIdleBar, { onInsertImage: noop }))), ["Insert"]);
   const both = controls(
