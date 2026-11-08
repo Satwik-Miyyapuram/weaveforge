@@ -19,6 +19,8 @@ function menu(over: Partial<PaperNoteMenu> = {}): PaperNoteMenu & { ran: string[
     openInEditor: () => ran.push("open-editor"),
     openReader: () => ran.push("open-reader"),
     copyCitation: () => ran.push("cite"),
+    copyReference: () => ran.push("copy-reference"),
+    copyBibtex: () => ran.push("copy-bibtex"),
     copyTitle: () => ran.push("copy-title"),
     setStatus: (s: string) => ran.push(`status:${s}`),
     toggleWatch: () => ran.push("watch"),
@@ -32,12 +34,12 @@ const ids = (items: readonly MenuItem[]) => items.filter((i) => i.kind !== "sepa
 
 test("an owner sees every action, delete last", () => {
   assert.deepEqual(ids(paperNoteMenuItems(menu())), [
-    "open-editor", "open-reader", "cite", "copy-title", "status", "watch", "ids", "delete",
+    "open-editor", "open-reader", "cite", "copy-reference", "copy-bibtex", "copy-title", "status", "watch", "ids", "delete",
   ]);
 });
 
 test("a shared, read-only paper offers only what does not change it", () => {
-  assert.deepEqual(ids(paperNoteMenuItems(menu({ readOnly: true }))), ["open-reader", "cite", "copy-title"]);
+  assert.deepEqual(ids(paperNoteMenuItems(menu({ readOnly: true }))), ["open-reader", "cite", "copy-reference", "copy-bibtex", "copy-title"]);
 });
 
 test("no PDF or web page means no reader item", () => {
