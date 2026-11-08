@@ -248,7 +248,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const semanticScholarSource = new SemanticScholarMetadataSource(undefined, undefined, () =>
     createCredentialReader(backend.manageSettings)("semantic-scholar", "apiKey"),
   );
-  const openAlexSource = new OpenAlexMetadataSource();
+  const openAlexSource = new OpenAlexMetadataSource(undefined, undefined, undefined, () =>
+    createCredentialReader(backend.manageSettings)("semantic-scholar", "openAlexKey"),
+  );
 
   const resolver = new MetadataResolver([
     new ArxivMetadataSource(undefined, relayUrl("/api/arxiv")),

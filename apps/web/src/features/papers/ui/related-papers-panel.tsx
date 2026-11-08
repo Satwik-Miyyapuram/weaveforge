@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { type PaperSummary } from "@weaveforge/core";
+import { getUserIntegrationField, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
@@ -40,8 +40,10 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
       const { fetchRelatedPapers } = await import(
         "@/features/papers/application/fetch-related-papers"
       );
-      const library = await getContainer().papers.loadScreenData();
-      const next = await fetchRelatedPapers(paper, library.papers, { kind });
+      const c = getContainer();
+      const [library, settings] = await Promise.all([c.papers.loadScreenData(), c.settings.manageSettings.get()]);
+      const openAlexKey = getUserIntegrationField(settings, "semantic-scholar", "openAlexKey");
+      const next = await fetchRelatedPapers(paper, library.papers, { kind, openAlexKey });
       setHits(next);
       if (next.length === 0) setMsg(kind === "citedBy" ? "No citing papers found." : "No related papers found.");
     } catch (err) {

@@ -153,6 +153,35 @@ test("cited-by falls back to OpenAlex works that cite the seed, found by its arX
   );
 });
 
+test("an OpenAlex key is sent on every OpenAlex request, and only there", async () => {
+  await withRoutes(
+    [
+      ["works/doi:10.1/seed", openAlexSeed],
+      ["openalex_id:W7|W8", { results: [openAlexWork] }],
+    ],
+    async (urls) => {
+      await fetchRelatedPapers(seed, [], { openAlexKey: "oa-key" });
+      const openAlex = urls.filter((u) => u.includes("api.openalex.org"));
+      assert.equal(openAlex.length, 2);
+      assert.ok(openAlex.every((u) => u.includes("api_key=oa-key")));
+      assert.ok(urls.filter((u) => !u.includes("api.openalex.org")).every((u) => !u.includes("oa-key")));
+    },
+  );
+});
+
+test("without an OpenAlex key no api_key is sent", async () => {
+  await withRoutes(
+    [
+      ["works/doi:10.1/seed", openAlexSeed],
+      ["openalex_id:W7|W8", { results: [openAlexWork] }],
+    ],
+    async (urls) => {
+      await fetchRelatedPapers(seed, [], {});
+      assert.ok(urls.every((u) => !u.includes("api_key")));
+    },
+  );
+});
+
 test("when both sources fail the Semantic Scholar error is reported", async () => {
   await withRoutes([], async () => {
     await assert.rejects(fetchRelatedPapers(seed, [], { kind: "citedBy" }), /Semantic Scholar request failed: 404/);
