@@ -69,7 +69,10 @@ fn normalize_arxiv_id_handles_legacy_ids_and_rejects_non_ids() {
         None
     );
     assert_eq!(normalize_arxiv_id("not an id"), None);
-    assert_eq!(normalize_arxiv_id("https://arxiv.org/list/cs.LG/recent"), None);
+    assert_eq!(
+        normalize_arxiv_id("https://arxiv.org/list/cs.LG/recent"),
+        None
+    );
     assert_eq!(normalize_arxiv_id(""), None);
     assert_eq!(normalize_arxiv_id("   "), None);
 }
@@ -257,7 +260,11 @@ fn arxiv_html_pages_and_arxiv_minted_dois_are_arxiv_refs() {
         "https://doi.org/10.48550/arXiv.2401.04088",
         "doi:10.48550/ARXIV.2401.04088",
     ] {
-        assert_eq!(parse_paper_ref(PaperRefKind::Doi, v), arxiv("2401.04088"), "{v}");
+        assert_eq!(
+            parse_paper_ref(PaperRefKind::Doi, v),
+            arxiv("2401.04088"),
+            "{v}"
+        );
     }
     assert_eq!(
         normalize_arxiv_id("10.48550/arXiv.hep-th/9901001").as_deref(),
