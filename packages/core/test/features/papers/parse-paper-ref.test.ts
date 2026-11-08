@@ -109,6 +109,17 @@ test("parsePaperRef accepts http and https alike, and both scheme-less forms", (
   }
 });
 
+test("arXiv HTML pages and arXiv-minted DOIs are arXiv refs", () => {
+  // arXiv's HTML render of a paper is the same paper as its abs page.
+  assert.deepEqual(parsePaperRef("url", "https://arxiv.org/html/2401.04088v1"), { kind: "arxiv", value: "2401.04088" });
+  // The DOI arXiv mints through DataCite carries the id; Crossref does not know it.
+  for (const v of ["10.48550/arXiv.2401.04088", "https://doi.org/10.48550/arXiv.2401.04088", "doi:10.48550/ARXIV.2401.04088"]) {
+    assert.deepEqual(parsePaperRef("doi", v), { kind: "arxiv", value: "2401.04088" }, v);
+  }
+  assert.equal(normalizeArxivId("10.48550/arXiv.hep-th/9901001"), "hep-th/9901001");
+  assert.equal(normalizeArxivId("https://arxiv.org/list/cs.LG/recent"), undefined);
+});
+
 test("parsePaperRef does not mistake a bare id for a hostname", () => {
   assert.deepEqual(parsePaperRef("arxiv", "2306.09643"), { kind: "arxiv", value: "2306.09643" });
   // Nonsense stays with the declared kind rather than becoming a URL.

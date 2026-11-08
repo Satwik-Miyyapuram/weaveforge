@@ -261,7 +261,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     semanticScholarSource,
     openAlexSource,
     new UrlMetadataSource(),
-  ]);
+  ], true); // A source that says no (Crossref on a DataCite DOI) falls through to the next.
   const importPaper = new ImportPaperUseCase(resolver, addPaper, async (kind, value) =>
     (await loadCore()).parsePaperRef(kind, value),
   );
