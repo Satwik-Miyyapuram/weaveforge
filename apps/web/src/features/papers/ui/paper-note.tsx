@@ -524,47 +524,43 @@ export function PaperNote({
             {!editing && !readOnly && <TagEditor paper={paper} onReplace={onReplace} />}
           </RecordSection>
 
-          {!editing && (
-            <>
-              <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>
-                {annotationCount > 0 ? (
-                  <PaperAnnotations paper={paper} readOnly={readOnly} />
-                ) : (
-                  <RecordEmpty>
-                    Nothing highlighted yet. Select text in the PDF and the highlight lands here with its page number.
-                  </RecordEmpty>
-                )}
-              </RecordSection>
+          <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>
+            {annotationCount > 0 ? (
+              <PaperAnnotations paper={paper} readOnly={readOnly} />
+            ) : (
+              <RecordEmpty>
+                Nothing highlighted yet. Select text in the PDF and the highlight lands here with its page number.
+              </RecordEmpty>
+            )}
+          </RecordSection>
 
-              <RecordSection label="Abstract" tag={paper.abstract ? null : "Unresolved"}>
-                {paper.abstract ? (
-                  <p className="record-abstract">{paper.abstract}</p>
-                ) : (
-                  <RecordEmpty>
-                    No abstract on file.{" "}
-                    {canTrackCitations
-                      ? "Resolve the identifier and WeaveForge will pull one in."
-                      : "Add a DOI or arXiv ID and WeaveForge can pull one in."}
-                  </RecordEmpty>
-                )}
-              </RecordSection>
+          <RecordSection label="Abstract" tag={paper.abstract ? null : "Unresolved"}>
+            {paper.abstract ? (
+              <p className="record-abstract">{paper.abstract}</p>
+            ) : (
+              <RecordEmpty>
+                No abstract on file.{" "}
+                {canTrackCitations
+                  ? "Resolve the identifier and WeaveForge will pull one in."
+                  : "Add a DOI or arXiv ID and WeaveForge can pull one in."}
+              </RecordEmpty>
+            )}
+          </RecordSection>
 
-              {!readOnly && (
-                <RecordSection label="Linked papers" tag="By hand">
-                  <RelatedPapersPanel paper={paper} onChanged={onChanged} />
-                </RecordSection>
-              )}
-
-              <NoteComments
-                resourceType="paper"
-                resourceId={paper.id}
-                canComment={readOnly ? canComment : true}
-                isOwner={!readOnly}
-                contentRef={noteTextRef}
-                contentKey={`${mode}:${paper.summary ?? ""}`}
-              />
-            </>
+          {!readOnly && (
+            <RecordSection label="Linked papers" tag="By hand">
+              <RelatedPapersPanel paper={paper} onChanged={onChanged} />
+            </RecordSection>
           )}
+
+          <NoteComments
+            resourceType="paper"
+            resourceId={paper.id}
+            canComment={readOnly ? canComment : true}
+            isOwner={!readOnly}
+            contentRef={noteTextRef}
+            contentKey={`${mode}:${paper.summary ?? ""}`}
+          />
         </div>
 
         <aside className="record-aside">
