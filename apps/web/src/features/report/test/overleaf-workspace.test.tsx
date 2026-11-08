@@ -119,12 +119,18 @@ const button = (tree: ReactTestRenderer, label: string) => {
   assert.ok(found && rest.length === 0, `exactly one "${label}" button`);
   return found;
 };
+/** The project list's cards. */
+const cards = (tree: ReactTestRenderer) =>
+  tree.root.findAll((n) => n.type === "li" && String(n.props.className).includes("overleaf-card"));
+/** A card's title and meta line, as text. */
+const cardText = (card: ReactTestInstance) =>
+  card.findAll((n) => n.type === "h3" || (n.type === "p" && n.props.className === "entity-card-meta")).map(textOf).join("");
 /** The project list's rows, as their text. */
-const rows = (tree: ReactTestRenderer) =>
-  tree.root.findAll((n) => n.type === "button" && n.props.className === "wf-row").map(textOf);
+const rows = (tree: ReactTestRenderer) => cards(tree).map(cardText);
 const openRow = async (tree: ReactTestRenderer, name: string) => {
-  const row = tree.root.find((n) => n.type === "button" && n.props.className === "wf-row" && textOf(n).includes(name));
-  await act(async () => row.props.onClick());
+  const card = cards(tree).find((n) => cardText(n).includes(name));
+  assert.ok(card, `a card for "${name}"`);
+  await act(async () => card.props.onClick());
 };
 const tab = async (tree: ReactTestRenderer, label: string) => {
   const found = tree.root.find((n) => n.type === "button" && n.props.role === "tab" && textOf(n) === label);
