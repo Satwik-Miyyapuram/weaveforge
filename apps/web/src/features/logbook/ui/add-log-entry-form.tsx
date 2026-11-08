@@ -11,7 +11,6 @@ import { Button } from "@/components/button";
 import { MarkdownField } from "@/components/markdown-field";
 import { logImageUpload } from "./log-image-upload";
 import { readyCore } from "@/lib/rust-core";
-import { draftReadingLog } from "@/features/papers";
 import { showToast } from "@/lib/toast";
 import { formatError } from "@/lib/format-error";
 
@@ -42,7 +41,12 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
     setImageError(null);
     try {
       const c = getContainer();
-      const [list, marks] = await Promise.all([c.papers.listPapers(), c.logbook.listReadingMarks()]);
+      // On demand: the papers feature would otherwise ship with /log (bundle budget).
+      const [{ draftReadingLog }, list, marks] = await Promise.all([
+        import("@/features/papers"),
+        c.papers.listPapers(),
+        c.logbook.listReadingMarks(),
+      ]);
       const draft = draftReadingLog(list, marks, new Date());
       if (!draft) return showToast("No reading recorded today");
       setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${draft}` : draft));
