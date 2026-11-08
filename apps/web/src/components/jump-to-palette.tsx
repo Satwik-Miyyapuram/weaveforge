@@ -24,6 +24,7 @@ import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { createNoteFromQuery } from "@/lib/create-note-from-query";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
+import { AskLibraryRow } from "@/components/ask-library-row";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { isMacPlatform, shortcutLabel } from "@/lib/shortcut-label";
@@ -543,6 +544,16 @@ export function JumpToPalette() {
             </Chip>
           ))}
         </div>
+      )}
+      {mode === "search" && indexReady && (
+        <AskLibraryRow
+          query={query}
+          search={(q) => searchHybrid(q, { limit: 8, kinds: PALETTE_KINDS, excerpts: true })}
+          onOpen={(href) => {
+            setOpen(false);
+            router.push(href);
+          }}
+        />
       )}
       {mode === "search" && !query.trim() && history.length > 0 && (
         <ul className="jump-to-history" aria-label="Recent searches">

@@ -137,7 +137,11 @@ function parseStored(raw: string): ActiveProvider | null {
  * all, and a configured model makes it better rather than making it possible.
  */
 export function modelExtractor(): IConceptExtractor | null {
-  if (!active) return null;
-  const conversation = new ByokModelConversation(active.descriptor, active.apiKey);
-  return new ModelConceptExtractor(conversation, { model: active.descriptor.model });
+  const conversation = modelConversation();
+  return conversation && active ? new ModelConceptExtractor(conversation, { model: active.descriptor.model }) : null;
+}
+
+/** A conversation with the configured model, or null when nothing is configured. */
+export function modelConversation(): ByokModelConversation | null {
+  return active ? new ByokModelConversation(active.descriptor, active.apiKey) : null;
 }
