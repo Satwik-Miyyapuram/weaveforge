@@ -437,6 +437,11 @@
   padding-inline-start: 24px;
 }
 
+/* Same for the toolbar above it: its first tool starts clear of the 28px handle. */
+.workspace-shell.is-explorer-hidden .workspace-toolbar {
+  padding-inline-start: 48px;
+}
+
 /* `F11`, focus: the document and nothing else. The explorer, the tab strip,
    the crumbs and the status bar all go; the primary nav rail goes too, from
    nav.css, off the same flag on `<html>`. One control stays — a corner button
@@ -767,7 +772,7 @@
   /* The ink bar's height and border, so switching Text and Ink does not move the page. */
   min-height: 46px;
   /* More room at the start: the first tool sits right by the rail's border. */
-  padding-inline: 14px 8px;
+  padding-inline: 16px 8px;
   border-block-end: 1px solid var(--border);
   background: var(--surface);
   /* It folds rather than wraps (ink-bar-fold.tsx); nothing may spill meanwhile. */
@@ -1097,6 +1102,40 @@
   background: var(--surface);
   box-shadow: inset 0 -3px 0 var(--accent);
 }
+
+/* A folded group's tabs hide behind its chip; display:flex above beats [hidden]. */
+.pane-tab-slot[hidden] { display: none; }
+
+/* A grouped tab carries its group's colour as a thin rule; the open tab's
+   accent rule still wins. */
+.pane-tab-slot[data-tag-tone]:not(:has(> .wf-tab[aria-selected="true"])) {
+  box-shadow: inset 0 -2px 0 var(--status-chip);
+}
+
+/* The group's chip: a coloured pill before its tabs, with its name or, when
+   folded, how many tabs it holds. */
+.pane-tab-group {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  margin-inline: 4px;
+}
+
+.pane-tab-group > :is(.wf-tool, input) {
+  gap: 4px;
+  min-width: 12px;
+  height: 18px;
+  padding-block: 0;
+  padding-inline: 8px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--status-chip);
+  color: var(--text);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+}
+
+.pane-tab-group > input { width: 96px; }
 
 /* The slot's rule spans the tab and its ×; the tab's own shorter one would
    sit on top of it and step where the × begins. */

@@ -225,7 +225,12 @@ test("the bar folds rather than wraps: a Layout ▾ holds Preview and Split once
   assert.match(css, /\.workspace-toolbar\[data-fold~="colours"\] \.workspace-toolbar-doc \.ink-quick-colours/);
   assert.match(css, /\.workspace-toolbar\[data-moved\] \.workspace-toolbar-doc \.ink-menu-more::after/, "a dot on More once something moved");
   assert.match(css, /\.workspace-toolbar-doc > \.ink-bar \{[^}]*flex-wrap: nowrap;/, "never wraps");
-  assert.match(css, /\.workspace-toolbar \{[^}]*padding-inline: 14px 8px;/, "the first tool keeps clear of the rail border");
+  assert.match(css, /\.workspace-toolbar \{[^}]*padding-inline: 16px 8px;/, "the first tool keeps clear of the rail border");
+  assert.match(
+    css,
+    /\.workspace-shell\.is-explorer-hidden \.workspace-toolbar \{[^}]*padding-inline-start: 48px;/,
+    "with the explorer hidden, the first tool keeps clear of the 28px Show explorer handle",
+  );
 });
 
 test("an Overleaf tab keeps the workspace toolbar row (tabs never jump) but has no mode switch", async () => {

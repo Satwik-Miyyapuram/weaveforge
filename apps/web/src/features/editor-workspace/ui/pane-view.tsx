@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
@@ -30,6 +30,8 @@ import { keyLabel } from "@/lib/shortcut-label";
 import { TabButton } from "@/components/controls";
 import { CloseButton } from "@/components/button";
 import { DocumentPresence } from "@/features/collab";
+import { groupRuns } from "../application/tab-groups";
+import { groupLabel, groupMenuItems, TabGroupChip } from "./tab-group-chip";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -53,7 +55,9 @@ export function tabMenuItems(
   index: number,
   count: number,
   run: (command: TabMenuCommand) => void,
+  leaf?: PaneLeaf,
 ): MenuItem[] {
+  const groups = leaf ? groupMenuItems(leaf, index, run) : [];
   return [
     { id: "close", label: "Close", accelerator: keyLabel("Mod-w"), onSelect: () => run("close") },
     { id: "close-others", label: "Close others", disabled: count < 2, onSelect: () => run("close-others") },
@@ -66,6 +70,7 @@ export function tabMenuItems(
     { id: "sep", label: "", kind: "separator" },
     { id: "split-right", label: "Split right", onSelect: () => run("split-right") },
     { id: "split-down", label: "Split down", onSelect: () => run("split-down") },
+    ...groups,
   ];
 }
 
@@ -187,6 +192,7 @@ function PaneLeafView({
   const focused = layout.focusedPaneId === leaf.id;
   const showing = activeTab(leaf);
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
+  const runs = groupRuns(leaf);
 
   return (
     <section
@@ -205,47 +211,60 @@ function PaneLeafView({
         {leaf.tabs.map((tab, index) => {
           const isActive = index === leaf.activeIndex;
           const suffix = kindSuffix(tab.kind);
+          const run = runs[index]!;
+          const group = leaf.groups?.find((g) => g.id === tab.group);
           return (
-            <div
-              key={tabKey(tab)}
-              className="pane-tab-slot"
-              role="presentation"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData(TAB_DRAG_TYPE, `${leaf.id}|${index}`)
-              }
-              onDrop={(event) => {
-                const from = draggedTab(event.dataTransfer);
-                if (!from) return;
-                event.preventDefault();
-                event.stopPropagation();
-                onDropTab(from, leaf.id, index);
-              }}
-              onAuxClick={(event) => {
-                // Middle-click closes, as every tabbed editor does.
-                if (event.button === 1) onClose(leaf.id, index);
-              }}
-              onContextMenu={(event) => {
-                if (!onTabMenu) return;
-                openContextMenu(
-                  event,
-                  tabMenuItems(index, leaf.tabs.length, (command) => onTabMenu(leaf.id, index, command)),
-                );
-              }}
-            >
-              <TabButton
-                selected={isActive}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => onActivate(leaf.id, index)}
+            <Fragment key={tabKey(tab)}>
+              {run.chip ? (
+                <TabGroupChip
+                  group={run.chip}
+                  label={groupLabel(leaf, run.chip)}
+                  size={run.size}
+                  run={(command) => onTabMenu?.(leaf.id, index, command)}
+                />
+              ) : null}
+              <div
+                className="pane-tab-slot"
+                role="presentation"
+                data-tag-tone={group?.color}
+                hidden={run.hidden}
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(TAB_DRAG_TYPE, `${leaf.id}|${index}`)
+                }
+                onDrop={(event) => {
+                  const from = draggedTab(event.dataTransfer);
+                  if (!from) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onDropTab(from, leaf.id, index);
+                }}
+                onAuxClick={(event) => {
+                  // Middle-click closes, as every tabbed editor does.
+                  if (event.button === 1) onClose(leaf.id, index);
+                }}
+                onContextMenu={(event) => {
+                  if (!onTabMenu) return;
+                  openContextMenu(
+                    event,
+                    tabMenuItems(index, leaf.tabs.length, (command) => onTabMenu(leaf.id, index, command), leaf),
+                  );
+                }}
               >
-                <span className={`pane-tab-icon ${tintClass(tab.kind)}`} aria-hidden="true">
-                  <NavIcon name={kindIcon(tab.kind)} />
-                </span>
-                <span className="pane-tab-label">{labelFor(tab)}</span>
-                {suffix ? <span className="pane-tab-ext">{suffix}</span> : null}
-              </TabButton>
-              <CloseButton size="sm" label={`Close ${labelFor(tab)}`} onClick={() => onClose(leaf.id, index)} />
-            </div>
+                <TabButton
+                  selected={isActive}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => onActivate(leaf.id, index)}
+                >
+                  <span className={`pane-tab-icon ${tintClass(tab.kind)}`} aria-hidden="true">
+                    <NavIcon name={kindIcon(tab.kind)} />
+                  </span>
+                  <span className="pane-tab-label">{labelFor(tab)}</span>
+                  {suffix ? <span className="pane-tab-ext">{suffix}</span> : null}
+                </TabButton>
+                <CloseButton size="sm" label={`Close ${labelFor(tab)}`} onClick={() => onClose(leaf.id, index)} />
+              </div>
+            </Fragment>
           );
         })}
         </div>
