@@ -185,6 +185,8 @@ a.related-paper-url:hover { text-decoration: underline; }
   padding: 2px 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  /* It folds rather than wraps (ink-bar-fold.tsx); nothing may spill meanwhile. */
+  overflow: hidden;
 }
 
 .brave-graph-warning {
