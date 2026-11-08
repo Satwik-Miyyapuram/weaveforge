@@ -644,6 +644,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       logSync,
       notifications,
       images: logImageStore,
+      readingMarks: backend.readerAnnotationRepository,
     }),
     report: new ReportFacade({
       load: loadReportScreen,
