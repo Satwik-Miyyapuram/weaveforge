@@ -14,6 +14,11 @@ import { readyCore } from "@/lib/rust-core";
  * exactly what the file says, and only the rendering for a note is mended.
  */
 export function formatQuoteCiteClipboard(quote: string, paperTitle: string): string {
+  return `${formatQuoteBlock(quote)}\n\n[[${paperTitle}]]\n`;
+}
+
+/** The repaired quote as `> ` lines, no trailing newline. */
+export function formatQuoteBlock(quote: string): string {
   const repaired = readyCore().cleanPdfText(quote.replace(/\r\n?/g, "\n"), {
     // Neither guess is safe without a person to confirm it: a lone number in a
     // highlight is as likely to be data as a page number, and a highlight that
@@ -22,7 +27,7 @@ export function formatQuoteCiteClipboard(quote: string, paperTitle: string): str
     singleParagraph: false,
   }).text;
 
-  const block = repaired
+  return repaired
     .trim()
     .split("\n")
     // A blank line inside the quote becomes a bare ">", not "> ": the trailing
@@ -30,5 +35,4 @@ export function formatQuoteCiteClipboard(quote: string, paperTitle: string): str
     // a repository flags it.
     .map((line) => (line.length > 0 ? `> ${line}` : ">"))
     .join("\n");
-  return `${block}\n\n[[${paperTitle}]]\n`;
 }

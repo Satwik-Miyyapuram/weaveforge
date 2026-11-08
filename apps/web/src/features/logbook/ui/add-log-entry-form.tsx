@@ -11,6 +11,9 @@ import { Button } from "@/components/button";
 import { MarkdownField } from "@/components/markdown-field";
 import { logImageUpload } from "./log-image-upload";
 import { readyCore } from "@/lib/rust-core";
+import { draftReadingLog } from "@/features/papers";
+import { showToast } from "@/lib/toast";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -33,6 +36,20 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
     setBody("");
     onAdded?.();
   });
+
+  /** Today's reading as a draft below what is typed; nothing is saved until Create. */
+  async function draftFromReading() {
+    setImageError(null);
+    try {
+      const papers = getContainer().papers;
+      const [list, marks] = await Promise.all([papers.listPapers(), papers.listProjectReaderAnnotations()]);
+      const draft = draftReadingLog(list, marks, new Date());
+      if (!draft) return showToast("No reading recorded today");
+      setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${draft}` : draft));
+    } catch (err) {
+      setImageError(formatError(err));
+    }
+  }
 
   return (
     <form className="card add-form" onSubmit={submit}>
@@ -62,6 +79,9 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
         </Select>
       </div>
       {(error ?? imageError) && <FormError>{error ?? imageError}</FormError>}
+      <Button onClick={() => void draftFromReading()} disabled={busy}>
+        Draft from today&apos;s reading
+      </Button>
       <Button type="submit" variant="primary" disabled={busy || !body.trim()}>
         {busy ? "Creating…" : "Create"}
       </Button>
