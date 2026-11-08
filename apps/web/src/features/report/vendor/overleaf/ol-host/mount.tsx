@@ -7,6 +7,8 @@ import { installFetchBridge, type Forward } from './fetch-bridge'
 import { createIoBridge, type LiveTransport } from './io-bridge'
 import { buildMeta, installMeta } from './meta'
 
+export { setToolbarTarget } from './toolbar-target'
+
 export type MountOptions = {
   projectId: string
   transport: LiveTransport

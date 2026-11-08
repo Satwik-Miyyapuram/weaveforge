@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { FormError } from "@/components/form-error";
+import { ToolbarSlot } from "@/components/toolbar-slot";
 import { workshopHttpForward } from "@/features/overleaf/infrastructure/workshop-http-forward";
 import { workshopLiveTransport } from "@/features/overleaf/infrastructure/workshop-live-transport";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
@@ -29,6 +30,8 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  // Overleaf's top bar goes up into the workspace toolbar row, so the tabs above never move.
+  const [bar, setBar] = useState<HTMLElement | null>(null);
   const home = useRef(onHome);
   home.current = onHome;
 
@@ -36,8 +39,9 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
   useEffect(() => {
     const container = ref.current;
     if (!container) return;
+    const roots = bar ? [container, bar] : [container];
     const place = () => {
-      const actions = container.querySelector(ACTIONS);
+      const actions = roots.map((root) => root.querySelector(ACTIONS)).find(Boolean);
       if (!actions || actions.querySelector(":scope > .workshop-ide__host")) return;
       const el = document.createElement("div");
       el.className = "workshop-ide__host";
@@ -45,7 +49,7 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
       setSlot(el);
     };
     const observer = new MutationObserver(place);
-    observer.observe(container, { childList: true, subtree: true });
+    for (const root of roots) observer.observe(root, { childList: true, subtree: true });
     place();
     // Overleaf's home link points at its own /project page; here it goes back to the list.
     const onClick = (event: MouseEvent) => {
@@ -53,12 +57,22 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
       event.preventDefault();
       home.current();
     };
-    container.addEventListener("click", onClick, true);
+    for (const root of roots) root.addEventListener("click", onClick, true);
     return () => {
       observer.disconnect();
-      container.removeEventListener("click", onClick, true);
+      for (const root of roots) root.removeEventListener("click", onClick, true);
     };
-  }, []);
+  }, [bar]);
+
+  useEffect(() => {
+    if (!bar) return;
+    let live = true;
+    void import("@overleaf-ide").then(({ setToolbarTarget }) => live && setToolbarTarget(bar));
+    return () => {
+      live = false;
+      void import("@overleaf-ide").then(({ setToolbarTarget }) => setToolbarTarget(null));
+    };
+  }, [bar]);
 
   useEffect(() => {
     const container = ref.current;
@@ -90,6 +104,9 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
   return (
     <>
       {error && <FormError>{error}</FormError>}
+      <ToolbarSlot>
+        <div ref={setBar} className="ol-ide workshop-ide__bar" />
+      </ToolbarSlot>
       <div ref={ref} className="workshop-ide" />
       {slot && createPortal(toolbar, slot)}
     </>

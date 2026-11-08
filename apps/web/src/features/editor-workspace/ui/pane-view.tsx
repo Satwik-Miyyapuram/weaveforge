@@ -9,7 +9,6 @@ import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import {
   activeTab,
-  activeTabRef,
   isPreviewTab,
   leaves,
   tabKey,
@@ -98,20 +97,16 @@ export interface PaneViewProps extends PaneActions {
 export function PaneView(props: PaneViewProps) {
   // The toolbar's document slot, where the focused document puts its own tools.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  // Overleaf's editor brings its own bar, so the workspace one would only get in the way.
-  const onOverleaf = activeTabRef(props.layout)?.kind === "overleaf";
   return (
     <div className="pane-root">
-      {onOverleaf ? null : (
-        <WorkspaceToolbar
-          slotRef={setSlot}
-          layout={props.layout}
-          onInsertImage={props.onInsertImage}
-          onTogglePreview={props.onTogglePreview}
-          onSplit={props.onSplit}
-          onToggleFocus={props.onToggleFocus}
-        />
-      )}
+      <WorkspaceToolbar
+        slotRef={setSlot}
+        layout={props.layout}
+        onInsertImage={props.onInsertImage}
+        onTogglePreview={props.onTogglePreview}
+        onSplit={props.onSplit}
+        onToggleFocus={props.onToggleFocus}
+      />
       <div className="pane-stage">
         <PaneNodeView node={props.layout.root} {...props} slot={slot} />
       </div>
