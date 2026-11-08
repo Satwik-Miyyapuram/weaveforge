@@ -1,5 +1,5 @@
 import type { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
-import type { AddLogEntryUseCase, ILogSyncIntegration, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
+import type { AddLogEntryUseCase, ILogSyncIntegration, IReaderAnnotationProjectSource, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
 
 export class LogbookFacade {
   constructor(
@@ -9,11 +9,18 @@ export class LogbookFacade {
       logSync: ILogSyncIntegration;
       notifications: INotificationIntegration;
       images: Pick<LogImageStore, "upload" | "fetchBlobs">;
+      /** Reader marks project-wide, for drafting a day's reading. */
+      readingMarks: IReaderAnnotationProjectSource;
     },
   ) {}
 
   loadEntries() {
     return this.deps.logEntries.list();
+  }
+
+  /** Every reader mark in the project, each with its paper and page. */
+  listReadingMarks() {
+    return this.deps.readingMarks.listForProject();
   }
 
   get addLogEntry() {

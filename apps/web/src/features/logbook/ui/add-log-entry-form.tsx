@@ -41,8 +41,8 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
   async function draftFromReading() {
     setImageError(null);
     try {
-      const papers = getContainer().papers;
-      const [list, marks] = await Promise.all([papers.listPapers(), papers.listProjectReaderAnnotations()]);
+      const c = getContainer();
+      const [list, marks] = await Promise.all([c.papers.listPapers(), c.logbook.listReadingMarks()]);
       const draft = draftReadingLog(list, marks, new Date());
       if (!draft) return showToast("No reading recorded today");
       setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${draft}` : draft));
