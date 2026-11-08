@@ -64,7 +64,6 @@ import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } 
 import { MarkPopover } from "../mark-popover";
 import { markActions, markPopoverShown } from "../../application/mark-actions";
 import type { ReaderAnnotation } from "@weaveforge/core";
-import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
@@ -73,7 +72,6 @@ import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
-import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePdfPageWindow } from "./use-pdf-page-window";
@@ -252,7 +250,6 @@ export function PdfReader({
     paperId,
     annotations,
   );
-  const darkPdf = useDarkPdf();
   const actions = useAnnotationActions({
     paperId,
     onAnnotationsChange,
@@ -1480,7 +1477,7 @@ export function PdfReader({
 
   return (
     <div
-      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
+      className={`pdf-reader${focus ? " is-focus" : ""}`}
       ref={rootRef}
       tabIndex={0}
       role="region"
@@ -1491,7 +1488,6 @@ export function PdfReader({
           // actually be, so dragging over text previews the result instead of
           // showing the browser's default blue until you confirm.
           ["--reader-select-color" as string]: highlightHex,
-          ...(darkPdf ? { ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } : {}),
         } as CSSProperties
       }
     >
