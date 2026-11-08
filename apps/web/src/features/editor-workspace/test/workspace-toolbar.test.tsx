@@ -226,3 +226,31 @@ test("the bar folds rather than wraps: a Layout ▾ holds Preview and Split once
   assert.match(css, /\.workspace-toolbar\[data-moved\] \.workspace-toolbar-doc \.ink-menu-more::after/, "a dot on More once something moved");
   assert.match(css, /\.workspace-toolbar-doc > \.ink-bar \{[^}]*flex-wrap: nowrap;/, "never wraps");
 });
+
+test("an Overleaf tab has no workspace toolbar and no mode switch: its editor brings its own bar", async () => {
+  const { PaneView } = await import("../ui/pane-view");
+  const noop = () => {};
+  const pane = (layout: PaneLayout) =>
+    renderToStaticMarkup(
+      <PaneView
+        layout={layout}
+        labelFor={() => "Thesis"}
+        crumbsFor={() => [{ label: "Overleaf" }, { label: "Thesis", current: true }]}
+        renderDocument={() => null}
+        onActivate={noop}
+        onClose={noop}
+        onFocus={noop}
+        onSplit={noop}
+        onDropTab={noop}
+        onRatio={noop}
+        onSetMode={noop}
+        onTogglePreview={noop}
+      />,
+    );
+  const overleaf = pane(openTab(emptyLayout(), { kind: "overleaf", id: "ol1" }));
+  assert.doesNotMatch(overleaf, /class="workspace-toolbar/);
+  assert.doesNotMatch(overleaf, /aria-label="Mode"/);
+  const note = pane(openTab(emptyLayout(), { kind: "vault_page", id: "n1" }));
+  assert.match(note, /class="workspace-toolbar/);
+  assert.match(note, /aria-label="Mode"/);
+});
