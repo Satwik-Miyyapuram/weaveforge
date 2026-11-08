@@ -19,6 +19,14 @@ export const semanticScholarCitationManifest: CitationIntegrationManifest = {
         type: "password",
         placeholder: "optional — raises rate limits",
       },
+      {
+        // OpenAlex is the fallback for related papers and title lookups; its
+        // key shares this card so both paper-search keys sit together.
+        id: "openAlexKey",
+        label: "OpenAlex API key",
+        type: "password",
+        placeholder: "optional — raises OpenAlex's daily limit",
+      },
     ],
   },
   wire(deps: WireCitationsDeps) {

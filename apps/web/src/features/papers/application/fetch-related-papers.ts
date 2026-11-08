@@ -171,8 +171,9 @@ type OpenAlexWork = {
   related_works?: string[];
 };
 
-async function openAlexJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+/** Every OpenAlex URL here already has a query, so the key is appended to it. */
+async function openAlexJson<T>(url: string, key?: string): Promise<T> {
+  const res = await fetch(key ? `${url}&api_key=${encodeURIComponent(key)}` : url);
   if (!res.ok) throw new Error(`OpenAlex request failed: ${res.status}`);
   return (await res.json()) as T;
 }
@@ -212,11 +213,12 @@ function seedDoi(seed: PaperSummary): string | undefined {
 const workId = (url: string) => url.split("/").pop() ?? "";
 
 /** The same neighbours from OpenAlex: its related works, or the works citing the seed. */
-async function openAlexNeighbours(seed: PaperSummary, kind: RelatedKind, limit: number) {
+async function openAlexNeighbours(seed: PaperSummary, kind: RelatedKind, limit: number, key?: string) {
   const doi = seedDoi(seed);
   if (!doi) return [];
   const work = await openAlexJson<OpenAlexWork>(
     `${OPENALEX}/doi:${encodeURIComponent(doi).replace(/%2F/gi, "/")}?select=id,related_works`,
+    key,
   );
   const related = (work.related_works ?? []).map(workId).filter(Boolean);
   if (!work.id || (kind === "related" && related.length === 0)) return [];
@@ -226,7 +228,7 @@ async function openAlexNeighbours(seed: PaperSummary, kind: RelatedKind, limit: 
     "per-page": String(limit + 5),
   });
   if (kind === "citedBy") params.set("sort", "cited_by_count:desc");
-  const body = await openAlexJson<{ results?: OpenAlexWork[] }>(`${OPENALEX}?${params}`);
+  const body = await openAlexJson<{ results?: OpenAlexWork[] }>(`${OPENALEX}?${params}`, key);
   return (body.results ?? []).map(openAlexToHit);
 }
 
@@ -242,7 +244,7 @@ async function openAlexNeighbours(seed: PaperSummary, kind: RelatedKind, limit: 
 export async function fetchRelatedPapers(
   seed: PaperSummary,
   library: readonly PaperSummary[],
-  opts?: { apiKey?: string; limit?: number; kind?: RelatedKind },
+  opts?: { apiKey?: string; openAlexKey?: string; limit?: number; kind?: RelatedKind },
 ): Promise<RelatedPaperHit[]> {
   const limit = opts?.limit ?? 8;
   const kind = opts?.kind ?? "related";
@@ -273,7 +275,7 @@ export async function fetchRelatedPapers(
   }
   if (out.length === 0) {
     try {
-      collect(await openAlexNeighbours(seed, kind, limit), keys, out, limit);
+      collect(await openAlexNeighbours(seed, kind, limit, opts?.openAlexKey), keys, out, limit);
     } catch {
       // Semantic Scholar's error, below, is the one worth showing.
     }
