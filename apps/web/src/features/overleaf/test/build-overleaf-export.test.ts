@@ -7,7 +7,7 @@ import {
   formatPaperCitation,
   resolveCiteKey,
 } from "../application/build-overleaf-export";
-import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 
 const tree: ReportSectionTreeNode[] = [
   {
@@ -331,4 +331,19 @@ test("collectCitedKeys reads comma-separated cite lists", () => {
     [...collectCitedKeys("text \\cite{a, b} more \\cite{c}")].sort(),
     ["a", "b", "c"],
   );
+});
+
+test("buildOverleafExportPackage turns results-table refs into a tabular from current runs", () => {
+  const withTable: ReportSectionTreeNode[] = [
+    { section: { ...tree[0]!.section, notes: "See:\n\n![Main results](exptable:e1)\n" }, children: [] },
+  ];
+  const experiments = [
+    { id: "e1", name: "run_a", metrics: { acc: 0.91 } },
+  ] as unknown as Experiment[];
+  const main = buildOverleafExportPackage(withTable, [], { title: "T", experiments })
+    .files.find((f) => f.path === "main.tex")!.contents;
+  assert.match(main, /\\begin\{tabular\}\{lr\}/);
+  assert.match(main, /run\\_a & 0\.9100 \\\\/);
+  assert.match(main, /\\caption\{Main results\}/);
+  assert.doesNotMatch(main, /exptable:/);
 });

@@ -30,7 +30,7 @@ for (const rel of EDITORS) {
 
 test("the report's artifact goes in Insert and its citation format in More", () => {
   const code = src("../../features/report/ui/section-note.tsx");
-  assert.match(code, /insertItems=\{[\s\S]*?Experiment artifact…/);
+  assert.match(code, /insertItems=\{[\s\S]*?Experiment figure or table…/);
   assert.match(code, /moreSections=\{[\s\S]*?citeAsSection\(/);
 });
 

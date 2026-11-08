@@ -10,6 +10,11 @@ import {
   type OverleafExportOptions,
 } from "./build-overleaf-export";
 import { downloadBlob, zipToBlob } from "@/lib/blob-output";
+import { parseResultsTableRefs } from "@/features/report/application/results-table-refs";
+
+function hasResultsTables(nodes: readonly ReportSectionTreeNode[]): boolean {
+  return nodes.some((n) => parseResultsTableRefs(n.section.notes ?? "").length > 0 || hasResultsTables(n.children));
+}
 
 /** Build the Overleaf package and download it as a ZIP (browser-local). */
 export async function downloadOverleafExportPackage(
@@ -25,7 +30,10 @@ export async function downloadOverleafExportPackage(
     figures: number;
   };
 }> {
-  const result = buildOverleafExportPackage(tree, papers, opts);
+  // Results tables are rebuilt from the runs as they are now.
+  const experiments =
+    opts.experiments ?? (hasResultsTables(tree) ? await getContainer().experiments.loadExperiments() : undefined);
+  const result = buildOverleafExportPackage(tree, papers, { ...opts, experiments });
   const warnings = [...result.warnings];
   const root = `weaveforge-overleaf-export-${new Date().toISOString().slice(0, 10)}`;
   const files: Record<string, Uint8Array> = {};

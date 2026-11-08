@@ -11,6 +11,7 @@ import {
   parseArtifactRefs,
 } from "../application/artifact-refs";
 import { resolveArtifactRefsMarkdown } from "../application/resolve-artifact-markdown";
+import { parseResultsTableRefs, resolveResultsTables } from "../application/results-table-refs";
 import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
 import { readyCore } from "@/lib/rust-core";
 
@@ -35,7 +36,10 @@ export function ReportSectionMarkdown({
   const [experiments, setExperiments] = useState<Experiment[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const hasArtifactRefs = useMemo(() => parseArtifactRefs(body).length > 0, [body]);
+  const hasArtifactRefs = useMemo(
+    () => parseArtifactRefs(body).length > 0 || parseResultsTableRefs(body).length > 0,
+    [body],
+  );
   useEffect(() => {
     if (!hasArtifactRefs || skipArtifactResolve) {
       setExperiments(null);
@@ -66,13 +70,13 @@ export function ReportSectionMarkdown({
     if (!hasArtifactRefs) return body;
     if (skipArtifactResolve) {
       return body.replace(
-        /!?\[[^\]]*\]\(expartifact:[^)]+\)/gi,
+        /!?\[[^\]]*\]\((?:expartifact|exptable):[^)]+\)/gi,
         "> ⚠️ Experiment artifacts are unavailable in shared view.",
       );
     }
     // Wait until load finishes — never flash false "missing experiment" warnings.
     if (experiments == null) return body;
-    return resolveArtifactRefsMarkdown(body, experiments);
+    return resolveResultsTables(resolveArtifactRefsMarkdown(body, experiments), experiments, "markdown");
   }, [body, experiments, hasArtifactRefs, skipArtifactResolve]);
 
   const paths = useMemo(() => reportImagePathsInBody(withArtifacts), [withArtifacts]);

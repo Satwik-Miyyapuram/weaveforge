@@ -1,4 +1,5 @@
-import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import { resolveResultsTables } from "@/features/report/application/results-table-refs";
 import {
   PRISMA_FIGURE_PACKAGES,
   formatCitation,
@@ -27,6 +28,22 @@ export interface OverleafExportOptions {
    * finished thesis bibliography should contain.
    */
   bibliographyScope?: "cited" | "all";
+  /** Runs for `exptable:` results tables in section notes; without them a table ref is a warning. */
+  experiments?: readonly Experiment[];
+}
+
+/** The tree with every `exptable:` ref in its notes turned into a LaTeX table. */
+function withResultsTables(
+  nodes: readonly ReportSectionTreeNode[],
+  experiments: readonly Experiment[],
+): ReportSectionTreeNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    section: node.section.notes
+      ? { ...node.section, notes: resolveResultsTables(node.section.notes, experiments, "latex") }
+      : node.section,
+    children: withResultsTables(node.children, experiments),
+  }));
 }
 
 interface OverleafExportFile {
@@ -182,7 +199,7 @@ export function buildOverleafExportPackage(
 
   const body: string[] = [];
   walkSections(
-    tree,
+    opts.experiments ? withResultsTables(tree, opts.experiments) : tree,
     0,
     includeNotes,
     includeBib && papers.length > 0 ? citeByTitle : undefined,
