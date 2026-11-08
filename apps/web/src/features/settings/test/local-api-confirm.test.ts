@@ -11,7 +11,7 @@ const panel = readFileSync(fileURLToPath(new URL("../ui/local-api-panel.tsx", im
 test("turning the switch on asks first instead of serving straight away", () => {
   assert.match(panel, /onChange=\{\(on\) => \(on \? setAsking\(true\) : void setEnabled\(false\)\)\}/);
   assert.match(panel, /<ConfirmDialog/);
-  assert.match(panel, /title=\{sdk \? "Let programs connect\?" : "Turn on AI access\?"\}/);
+  assert.match(panel, /title=\{sdk \? "Turn on program access\?" : "Turn on AI access\?"\}/);
 });
 
 test("only the confirm button turns it on; Cancel just closes", () => {

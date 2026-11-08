@@ -79,7 +79,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
       </div>
       {asking && (
         <ConfirmDialog
-          title={sdk ? "Let programs connect?" : "Turn on AI access?"}
+          title={sdk ? "Turn on program access?" : "Turn on AI access?"}
           body={
             sdk
               ? "Programs on this computer with a token you make can then use this app while it is open."
