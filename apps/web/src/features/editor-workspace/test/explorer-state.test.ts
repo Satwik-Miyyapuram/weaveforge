@@ -60,7 +60,7 @@ test("what was expanded survives a reload", () => {
   writeExpanded(store, new Set(["notes", "vault_page:a", ...ROOTS]));
 
   const reopened = readExpanded(store, ROOTS, true);
-  assert.deepEqual([...reopened], ["notes", "vault_page:a", "papers", "report", "logbook"]);
+  assert.deepEqual([...reopened], ["notes", "vault_page:a", "papers", "report", "logbook", "overleaf:projects"]);
   // Including the fact that a root the reader left shut is not reopened.
   assert.equal(reopened.has("logbook"), true);
 });
@@ -78,7 +78,7 @@ test("a root the record has never heard of is opened, on the migrating read", ()
   // Exactly the shape a pre-logbook record has.
   writeExpanded(store, new Set(["notes", "papers", "report"]));
 
-  assert.deepEqual([...readExpanded(store, ROOTS, true)], ["notes", "papers", "report", "logbook"]);
+  assert.deepEqual([...readExpanded(store, ROOTS, true)], ["notes", "papers", "report", "logbook", "overleaf:projects"]);
 });
 
 /**
@@ -183,6 +183,7 @@ test("only the open rows are painted, and each knows its indent", () => {
       ["Papers", 0],
       ["Report", 0],
       ["Log", 0],
+      ["Overleaf", 0],
     ],
   );
 
@@ -196,6 +197,7 @@ test("only the open rows are painted, and each knows its indent", () => {
       ["Papers", 0],
       ["Report", 0],
       ["Log", 0],
+      ["Overleaf", 0],
     ],
   );
 });
@@ -239,7 +241,7 @@ function allBranches(nodes: readonly WorkspaceTreeNode[]): Set<string> {
 test("with nothing open there is one row per root and nothing else", () => {
   assert.deepEqual(
     visibleRows(nestedTree(), new Set()).map((row) => row.node.label),
-    ["Notes", "Papers", "Report", "Log"],
+    ["Notes", "Papers", "Report", "Log", "Overleaf"],
   );
 });
 

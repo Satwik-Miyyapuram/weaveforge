@@ -29,6 +29,8 @@ test("every kind the explorer can show has an icon and a suffix", () => {
   for (const kind of KINDS) {
     if (kind === "folder") continue;
     assert.ok(kindIcon(kind), `${kind} has no icon`);
+    // The Overleaf row is a screen, not a file on disk.
+    if (kind === "overleaf") continue;
     assert.ok(kindSuffix(kind), `${kind} has no suffix`);
   }
 });
@@ -86,6 +88,13 @@ test("the PDF row is read and inked in one: the reader with the pen up, in every
   assert.equal(rendererFor("paper_pdf", "edit"), "pdf_ink");
   assert.equal(rendererFor("paper_pdf", "read"), "pdf_ink");
   assert.equal(rendererFor("paper_pdf", "ink"), "pdf_ink");
+});
+
+test("the Overleaf row mounts the Overleaf screen in every mode, with no Ink", () => {
+  assert.equal(rendererFor("overleaf", "edit"), "overleaf");
+  assert.equal(rendererFor("overleaf", "ink"), "overleaf");
+  assert.deepEqual(modesFor("overleaf"), ["edit"]);
+  assert.equal(kindIcon("overleaf"), "overleaf");
 });
 
 test("Ink on the PDF row is the PDF with the pen rail up; on a paper's notes an ink canvas", () => {

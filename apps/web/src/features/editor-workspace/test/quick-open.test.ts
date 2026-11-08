@@ -85,7 +85,7 @@ test("results group under the explorer's root order, not by score", () => {
   const groups = groupResults(quickOpenResults(DOCUMENTS, "a"));
   assert.deepEqual(
     groups.map((group) => group.label),
-    ["Notes", "Papers", "PDFs", "Report"],
+    ["Notes", "Papers", "PDFs", "Report", "Overleaf"],
   );
 });
 

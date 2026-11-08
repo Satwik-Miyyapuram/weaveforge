@@ -34,7 +34,7 @@ import { CollabBodyHost } from "@/features/collab";
 import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
-import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
+import { ReportOverleafScreen, ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
 import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { readyCore } from "@/lib/rust-core";
@@ -132,7 +132,7 @@ export function cursorAt(view: EditorView): { line: number; col: number } {
 }
 
 /** Which of the renderers a (kind, mode) pair means. */
-export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_reader";
+export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_reader" | "overleaf";
 
 /**
  * The whole decision, as data.
@@ -149,6 +149,8 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_read
  * different document from the one Ink was drawing on.
  */
 export function rendererFor(kind: string, mode: DocumentMode, body = ""): RendererName {
+  // The Overleaf row is a screen, the same in every mode.
+  if (documentKind(kind) === "overleaf") return "overleaf";
   // A PDF row is read and inked in one: the reader with the pen rail up, in
   // every mode — same annotations, not a separate canvas.
   if (documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf_ink" : "editor";
@@ -413,6 +415,15 @@ export function DocumentHost({
     // everything drawn on it — strokes, figures, diagrams, images — is there
     // to read. It takes no `onSave`: there is nothing to edit.
     return <NoteReadView ink noteId={tab.id} body={surfaceBody(body, liveBody)} paperId={sheetPaperId} />;
+  }
+
+  if (renderer === "overleaf") {
+    // The `/report/overleaf` screen in the tab: cards, then a project's editor.
+    return (
+      <div className="overleaf-tab">
+        <ReportOverleafScreen />
+      </div>
+    );
   }
 
   if (renderer === "pdf_ink") {

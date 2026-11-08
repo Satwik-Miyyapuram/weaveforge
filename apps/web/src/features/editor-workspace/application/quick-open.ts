@@ -153,6 +153,7 @@ const GROUP_ORDER: readonly { kind: string; label: string }[] = [
   // than a title, so it is the one a searcher is least likely to be reaching
   // for by name — and the group order is the explorer's own root order.
   { kind: "log_entry", label: "Log" },
+  { kind: "overleaf", label: "Overleaf" },
 ];
 
 /**

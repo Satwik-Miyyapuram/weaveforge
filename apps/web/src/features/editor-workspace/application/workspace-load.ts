@@ -151,6 +151,8 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
       hydrated: true,
       path: logPath(entry.id, entry.entryDate, projectRoot),
     })),
+    // The Overleaf row's tab: a screen, with nothing to hydrate or save.
+    { kind: "overleaf", id: "projects", title: "Overleaf", body: "", hydrated: true, path: "overleaf" },
   ];
 
   // The `@` and `[[` rows, in the shape `/notes` builds them: a paper's row
