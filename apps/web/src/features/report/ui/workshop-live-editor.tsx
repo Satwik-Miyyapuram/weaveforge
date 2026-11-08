@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import type { Forward } from "@overleaf-ide";
 import { createPortal } from "react-dom";
 import { FormError } from "@/components/form-error";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { workshopHttpForward } from "@/features/overleaf/infrastructure/workshop-http-forward";
 import { workshopLiveTransport } from "@/features/overleaf/infrastructure/workshop-live-transport";
+import { rootFolderIdOf, uploadOverleafText } from "@/features/overleaf/infrastructure/overleaf-upload";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
+import { LibraryBibButton } from "./library-bib-button";
 
 type Props = {
   client: WorkshopClientDeps;
@@ -34,6 +37,14 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
   const [bar, setBar] = useState<HTMLElement | null>(null);
   const home = useRef(onHome);
   home.current = onHome;
+  // Where the library .bib goes: the project's root folder, known once the IDE has joined.
+  const forwardRef = useRef<Forward | null>(null);
+  const [rootFolder, setRootFolder] = useState<string | null>(null);
+  const upload = useCallback(
+    (name: string, text: string) =>
+      uploadOverleafText(forwardRef.current!, { projectId, folderId: rootFolder!, name, text }),
+    [projectId, rootFolder],
+  );
 
   // A slot at the start of Overleaf's toolbar actions, made each time the IDE renders the toolbar.
   useEffect(() => {
@@ -80,14 +91,20 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
     let unmount: (() => void) | null = null;
     let cancelled = false;
     setError(null);
+    setRootFolder(null);
+    const forward = workshopHttpForward(client, sessionId, projectId);
+    forwardRef.current = forward;
+    const live = workshopLiveTransport(client, sessionId, projectId);
+    const transport = {
+      ...live,
+      open: async () => {
+        const result = await live.open();
+        if (result.ok && !cancelled) setRootFolder(rootFolderIdOf(result.join));
+        return result;
+      },
+    };
     import("@overleaf-ide")
-      .then(({ mountOverleafIde }) =>
-        mountOverleafIde(container, {
-          projectId,
-          transport: workshopLiveTransport(client, sessionId, projectId),
-          forward: workshopHttpForward(client, sessionId, projectId),
-        }),
-      )
+      .then(({ mountOverleafIde }) => mountOverleafIde(container, { projectId, transport, forward }))
       .then((stop) => {
         if (cancelled) stop();
         else unmount = stop;
@@ -108,7 +125,14 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
         <div ref={setBar} className="ol-ide workshop-ide__bar" />
       </ToolbarSlot>
       <div ref={ref} className="workshop-ide" />
-      {slot && createPortal(toolbar, slot)}
+      {slot &&
+        createPortal(
+          <>
+            {toolbar}
+            <LibraryBibButton upload={rootFolder ? upload : null} />
+          </>,
+          slot,
+        )}
     </>
   );
 }

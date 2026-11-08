@@ -7,7 +7,7 @@ import {
   uniqueFigureName,
 } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
-import { buildCiteByTitle, collectCitedKeys, paperToBibtex } from "./bibtex-export";
+import { buildCiteByTitle, collectCitedKeys, joinBibtex, paperToBibtex } from "./bibtex-export";
 import { readyCore } from "@/lib/rust-core";
 
 export interface OverleafExportOptions {
@@ -251,12 +251,12 @@ export function buildOverleafExportPackage(
       stats.bibliographyEntries += 1;
       return paperToBibtex(p, key);
     });
-    files.push({ path: "references.bib", contents: entries.join("\n\n") + "\n" });
+    files.push({ path: "references.bib", contents: joinBibtex(entries) });
   } else if (includeBib) {
     if (papers.length === 0) {
       warnings.push("Bibliography requested but no papers were available.");
     }
-    files.push({ path: "references.bib", contents: "% (empty)\n" });
+    files.push({ path: "references.bib", contents: joinBibtex([]) });
   }
 
   const exportedAt = new Date().toISOString();

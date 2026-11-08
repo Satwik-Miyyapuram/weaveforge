@@ -21,6 +21,17 @@ export function buildCiteByTitle(
   return { citeByTitle, keyByPaperId };
 }
 
+/** The `.bib` text for entries already rendered, one blank line apart. */
+export function joinBibtex(entries: readonly string[]): string {
+  return entries.length ? entries.join("\n\n") + "\n" : "% (empty)\n";
+}
+
+/** The whole library as one `.bib`, with the keys the export gives each paper. */
+export function libraryBibtex(papers: readonly Paper[]): string {
+  const { keyByPaperId } = buildCiteByTitle(papers);
+  return joinBibtex(papers.map((p) => paperToBibtex(p, keyByPaperId.get(p.id)!)));
+}
+
 /**
  * Escape a value for a braced BibTeX field.
  *
