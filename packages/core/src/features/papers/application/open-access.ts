@@ -78,6 +78,8 @@ export interface OpenAccessOptions {
    * Unpaywall step is skipped rather than sent with a made-up address.
    */
   unpaywallEmail?: string | null;
+  /** The user's OpenAlex key: their own daily budget instead of the shared keyless one. */
+  openAlexKey?: string | null;
   /** Limit the sources asked, e.g. in tests. Defaults to all of them. */
   sources?: readonly OpenAccessSource[];
 }
@@ -316,12 +318,16 @@ type Step = (ctx: {
   pmcid?: string;
   http: OpenAccessHttp;
   unpaywallEmail?: string;
+  openAlexKey?: string;
 }) => Promise<OpenAccessCandidate[]>;
 
 const STEPS: Record<Exclude<OpenAccessSource, "paper">, Step> = {
   arxiv: async ({ arxivId }) => (arxivId ? arxivCandidates(arxivId) : []),
-  openalex: async ({ doi, http }) =>
-    doi ? parseOpenAlex(await http(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}`)) : [],
+  openalex: async ({ doi, http, openAlexKey }) => {
+    if (!doi) return [];
+    const key = openAlexKey ? `?api_key=${encodeURIComponent(openAlexKey)}` : "";
+    return parseOpenAlex(await http(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}${key}`));
+  },
   unpaywall: async ({ doi, http, unpaywallEmail }) =>
     doi && unpaywallEmail
       ? parseUnpaywall(await http(`https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${encodeURIComponent(unpaywallEmail)}`))
@@ -401,6 +407,7 @@ export async function findOpenAccessCopies(ids: OpenAccessIds, options: OpenAcce
   const pmcid = cleanPmcid(ids.pmcid);
   const wanted = new Set(options.sources ?? OPEN_ACCESS_SOURCES);
   const unpaywallEmail = options.unpaywallEmail?.trim() || undefined;
+  const openAlexKey = options.openAlexKey?.trim() || undefined;
 
   const known = wanted.has("paper")
     ? compact([candidate(ids.knownPdfUrl, "pdf", "paper"), candidate(ids.pageUrl, "html", "paper")])
@@ -415,7 +422,7 @@ export async function findOpenAccessCopies(ids: OpenAccessIds, options: OpenAcce
         asked.add(source);
         return options.http(url);
       };
-      return STEPS[source]({ doi, arxivId, pmcid, http, unpaywallEmail });
+      return STEPS[source]({ doi, arxivId, pmcid, http, unpaywallEmail, openAlexKey });
     }),
   );
   const failed: OpenAccessSource[] = [];
