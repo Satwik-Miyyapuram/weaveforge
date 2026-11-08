@@ -210,3 +210,14 @@ test("reconnecting after a disconnect opens a fresh live link", async () => {
   assert.equal(calls.filter((c) => c[0] === "open").length, 2);
   assert.equal(socket.socket.connected, true);
 });
+
+test("closeAll closes every live link it opened, so a closed editor stops showing you as online", async () => {
+  const { transport, calls } = fakeTransport();
+  const io = createIoBridge(() => transport);
+  io.connect("https://x");
+  io.connect("https://x");
+  await tick();
+  io.closeAll();
+  await tick();
+  assert.equal(calls.filter((c) => c[0] === "close").length, 2);
+});

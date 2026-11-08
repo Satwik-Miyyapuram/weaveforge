@@ -15,7 +15,8 @@ export type MountOptions = {
 
 /** Returns a function that unmounts the IDE. */
 export async function mountOverleafIde(container: HTMLElement, { projectId, transport, forward }: MountOptions) {
-  window.io = createIoBridge(() => transport)
+  const io = createIoBridge(() => transport)
+  window.io = io
   const uninstallFetch = installFetchBridge(window, forward)
   // Overleaf's stylesheet, built by `scripts/build-overleaf-assets.mjs`; linked
   // only while the IDE is up so Bootstrap never styles the rest of the app.
@@ -44,6 +45,8 @@ export async function mountOverleafIde(container: HTMLElement, { projectId, tran
   root.render(<IdeRoot />)
   return () => {
     root.unmount()
+    // Else each closed editor stays joined and Overleaf lists you once more.
+    io.closeAll()
     overlays.disconnect()
     container.classList.remove('ol-ide')
     style.remove()
