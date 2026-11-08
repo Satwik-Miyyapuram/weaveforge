@@ -15,6 +15,9 @@ export interface PaperNoteMenu {
   openInEditor: () => void;
   openReader: () => void;
   copyCitation: () => void;
+  /** The whole reference, ready to paste (APA). */
+  copyReference: () => void;
+  copyBibtex: () => void;
   copyTitle: () => void;
   setStatus: (status: string) => void;
   toggleWatch: () => void;
@@ -31,6 +34,8 @@ export function paperNoteMenuItems(m: PaperNoteMenu): MenuItem[] {
   if (m.hasReader) items.push({ id: "open-reader", label: "Open in reader", onSelect: m.openReader });
   items.push(
     { id: "cite", label: "Copy citation", onSelect: m.copyCitation },
+    { id: "copy-reference", label: "Copy reference", onSelect: m.copyReference },
+    { id: "copy-bibtex", label: "Copy BibTeX", onSelect: m.copyBibtex },
     { id: "copy-title", label: "Copy title", onSelect: m.copyTitle },
   );
   if (m.readOnly) return items;

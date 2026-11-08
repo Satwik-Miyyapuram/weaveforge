@@ -13,6 +13,7 @@ import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
 import { removeLater } from "@/lib/toast";
 import { readyCore } from "@/lib/rust-core";
+import { copyPaperAs } from "./copy-paper";
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 export function PaperCard({
@@ -109,8 +110,12 @@ export function PaperCard({
             deleteDisabled={busy}
             deleteLabel={isPinned ? "Remove from library" : "Delete paper"}
             onDelete={isPinned ? unpin : readOnly ? undefined : remove}
-            extraItems={readOnly ? [] : [
-              { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
+            extraItems={[
+              { id: "copy-reference", label: "Copy reference", onSelect: () => void copyPaperAs("reference", paper, getContainer().papers) },
+              { id: "copy-bibtex", label: "Copy BibTeX", onSelect: () => void copyPaperAs("bibtex", paper, getContainer().papers) },
+              ...(readOnly ? [] : [
+                { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
+              ]),
             ]}
           />
         )

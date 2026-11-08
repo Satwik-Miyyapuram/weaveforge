@@ -48,6 +48,7 @@ import { RowButton } from "@/components/controls";
 import { useRouter } from "next/navigation";
 import { isEditableTarget, openContextMenu } from "@/components/context-menu-store";
 import { paperNoteMenuItems } from "./paper-note-menu";
+import { copyPaperAs } from "./copy-paper";
 
 /** The modes the switch offers, as the Editor's toolbar does. */
 const NOTE_MODES = ["edit", "ink"] as const;
@@ -330,6 +331,8 @@ export function PaperNote({
         openInEditor: () => router.push(`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`),
         openReader: () => readerHref && router.push(readerHref),
         copyCitation: () => void copyCitation(),
+        copyReference: () => void copyPaperAs("reference", paper, getContainer().papers),
+        copyBibtex: () => void copyPaperAs("bibtex", paper, getContainer().papers),
         copyTitle: () => void navigator.clipboard.writeText(readyCore().titleFromFileName(paper.title)),
         setStatus: (status) => void changeStatus(status as PaperStatus),
         toggleWatch: () => void toggleCitationTracking(),
