@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/button";
-import { OpenIcon } from "@/components/view-icons";
+import { LinkIcon, OpenIcon } from "@/components/view-icons";
 import { useFoldNav } from "@/lib/hooks/use-nav-fold";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import type { OverleafProjectRow } from "../lib/overleaf-project-list";
@@ -99,9 +99,8 @@ export function OverleafProjectDetail({
   // Open in Overleaf and the link controls; in the live editor they sit in Overleaf's toolbar.
   const actions = (
     <>
-      <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf">
+      <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf" aria-label="Open in Overleaf">
         <OpenIcon />
-        <span>Open in Overleaf</span>
       </Button>
       {report ? (
         confirmUnlink ? (
@@ -121,9 +120,10 @@ export function OverleafProjectDetail({
           variant="ghost"
           size="sm"
           title="Link with a Git token, so it shows here as ★ even when you are not signed in"
+          aria-label={form === "link" ? undefined : "Link to this project"}
           onClick={() => setForm(form === "link" ? null : "link")}
         >
-          {form === "link" ? "Cancel" : "Link to this project"}
+          {form === "link" ? "Cancel" : <LinkIcon />}
         </Button>
       ) : null}
     </>

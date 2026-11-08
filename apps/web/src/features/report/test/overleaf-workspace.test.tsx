@@ -114,7 +114,7 @@ const byName = (tree: ReactTestRenderer, name: string) => tree.root.find((n) => 
 const textOf = (node: ReactTestInstance): string =>
   node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
 const buttons = (tree: ReactTestRenderer, label: string) =>
-  tree.root.findAll((n) => n.type === "button" && textOf(n).includes(label));
+  tree.root.findAll((n) => n.type === "button" && (textOf(n).includes(label) || n.props["aria-label"] === label));
 const button = (tree: ReactTestRenderer, label: string) => {
   const [found, ...rest] = buttons(tree, label);
   assert.ok(found && rest.length === 0, `exactly one "${label}" button`);
@@ -463,8 +463,11 @@ test("in the desktop app the editor fills the page: no record header; Open and L
   assert.ok(editor, "the live editor gets toolbar buttons and a home action");
   let inToolbar: ReactTestRenderer | undefined;
   await act(async () => { inToolbar = create(createElement("div", null, editor.props.toolbar)); });
-  assert.match(text(inToolbar!), /Open in Overleaf/);
-  assert.match(text(inToolbar!), /Link to this project/);
+  // Icon buttons: named for screen readers and the hover tip, no visible text.
+  const named = (label: string) => inToolbar!.root.findAll((n) => n.props["aria-label"] === label && typeof n.type === "string");
+  assert.equal(named("Open in Overleaf").length, 1);
+  assert.equal(named("Link to this project").length, 1);
+  assert.doesNotMatch(textOf(inToolbar!.root), /Open in Overleaf|Link to this project/);
   await act(async () => tree.unmount());
 });
 
