@@ -107,6 +107,15 @@
   padding: 0 1px;
 }
 
+.jump-to-ask {
+  margin: 0 0 8px;
+}
+.jump-to-ask-answer {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow-y: auto;
+}
 .jump-to-history {
   list-style: none;
   display: flex;
