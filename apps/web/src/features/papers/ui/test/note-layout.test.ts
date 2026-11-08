@@ -25,3 +25,12 @@ test("the editor on a record page grows from about eight lines", () => {
   assert.match(rule, /max-height:\s*min\(78vh, 1100px\)/);
   assert.doesNotMatch(rule, /(^|[^-])height:/, "a fixed height boxes one line in 665 px");
 });
+
+test("the owner sees the paper's sections under the note: Annotations, Abstract, Linked papers, Comments", () => {
+  // Only a reader without edit rights is ever in Read, so a Read-only gate hid them from the owner.
+  const note = read("features/papers/ui/paper-note.tsx");
+  assert.doesNotMatch(note, /\{!editing && \(/);
+  for (const part of ['label="Annotations"', 'label="Abstract"', "<RelatedPapersPanel", "<NoteComments"]) {
+    assert.ok(note.includes(part), part);
+  }
+});
