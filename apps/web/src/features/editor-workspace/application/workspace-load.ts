@@ -24,6 +24,7 @@ import {
 } from "./workspace-tree";
 import { sectionOr } from "./section-fallback";
 import { readyCore } from "@/lib/rust-core";
+import { overleafSidebarRows } from "@/features/report";
 
 export interface Document {
   kind: string;
@@ -66,7 +67,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
   // here describe the same project's folder.
   const projectRoot = await activeProjectRoot();
   const container = getContainer();
-  const [vault, papers, report, lists, log] = await Promise.all([
+  const [vault, papers, report, lists, log, overleaf] = await Promise.all([
     container.vault.loadScreenData(),
     sectionOr(container.papers.loadScreenData(), "papers", null),
     sectionOr(container.report.loadScreenData(), "report", null),
@@ -76,6 +77,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     // — and caught, because a logbook that will not load must not take Notes,
     // Papers and the Report down with it.
     sectionOr(container.logbook.loadEntries(), "log", null),
+    sectionOr(overleafSidebarRows(), "overleaf", []),
   ]);
 
   const paperRows = papers?.papers ?? [];
@@ -151,8 +153,15 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
       hydrated: true,
       path: logPath(entry.id, entry.entryDate, projectRoot),
     })),
-    // The Overleaf row's tab: a screen, with nothing to hydrate or save.
-    { kind: "overleaf", id: "projects", title: "Overleaf", body: "", hydrated: true, path: "overleaf" },
+    // An Overleaf project's tab: its editor, with nothing to hydrate or save here.
+    ...overleaf.map((project) => ({
+      kind: "overleaf",
+      id: project.id,
+      title: project.name,
+      body: "",
+      hydrated: true,
+      path: `overleaf/${project.name}`,
+    })),
   ];
 
   // The `@` and `[[` rows, in the shape `/notes` builds them: a paper's row
@@ -200,6 +209,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         id: entry.id,
         entryDate: entry.entryDate,
       })),
+      overleafProjects: overleaf,
   });
 
   // Reading lists, as a view over the same documents rather than a second

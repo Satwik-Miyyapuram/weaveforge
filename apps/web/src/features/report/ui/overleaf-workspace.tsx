@@ -51,6 +51,7 @@ export function OverleafWorkspace({
   gateway = linkedReportsGateway,
   picks = browserPicksStore,
   onExport,
+  onlyProjectId,
 }: {
   client?: WorkshopClientDeps;
   store?: WorkshopSessionStore;
@@ -68,11 +69,13 @@ export function OverleafWorkspace({
   picks?: ProjectPicksStore;
   /** Opens the ZIP export, to start a new Overleaf project from this one. */
   onExport: () => void;
+  /** Shows just this Overleaf project, as the editor's sidebar opens it: no list, no back. */
+  onlyProjectId?: string;
 }) {
   const session = useWorkshopSession({ client, store, signInWindow, enabled: workshop });
   const linked = useLinkedReports(projectId, gateway);
   const [query, setQuery] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(onlyProjectId ?? null);
   const [linkOpen, setLinkOpen] = useState(false);
   /** The ticked ids while choosing which projects show; null when not choosing. */
   const [draft, setDraft] = useState<Set<string> | null>(null);
@@ -143,8 +146,8 @@ export function OverleafWorkspace({
     </>
   );
 
-  return (
-    <section className="overleaf-workspace" aria-label="Overleaf projects">
+  const status = (
+    <>
       {error && <FormError>{error}</FormError>}
       {session.loadFailed && (
         <div>
@@ -152,6 +155,40 @@ export function OverleafWorkspace({
         </div>
       )}
       {loading && <p className="muted" role="status">Loading projects…</p>}
+    </>
+  );
+
+  const detail = (row: OverleafProjectRow, onBack?: () => void) => (
+    <OverleafProjectDetail
+      key={row.id}
+      row={row}
+      session={session}
+      client={client}
+      inShell={inShell}
+      canEditAsFiles={canEditAsFiles}
+      projectId={projectId}
+      onUnlink={linked.unlink}
+      onLinksChanged={() => void linked.reload()}
+      onError={linked.setError}
+      onBack={onBack}
+    />
+  );
+
+  if (onlyProjectId) {
+    return (
+      <section className="overleaf-workspace" aria-label="Overleaf project">
+        {status}
+        {!signedIn && connect}
+        {open
+          ? detail(open)
+          : session.projects !== null && <p className="muted">This project is not in your Overleaf account or linked to this project.</p>}
+      </section>
+    );
+  }
+
+  return (
+    <section className="overleaf-workspace" aria-label="Overleaf projects">
+      {status}
       {signedIn ? null : connect && linked.reports.length > 0 ? (
         <details className="overleaf-conn-details">
           <summary>Sign in to Overleaf to write live and see the PDF</summary>
@@ -162,19 +199,7 @@ export function OverleafWorkspace({
       )}
 
       {open ? (
-        <OverleafProjectDetail
-          key={open.id}
-          row={open}
-          session={session}
-          client={client}
-          inShell={inShell}
-          canEditAsFiles={canEditAsFiles}
-          projectId={projectId}
-          onUnlink={linked.unlink}
-          onLinksChanged={() => void linked.reload()}
-          onError={linked.setError}
-          onBack={() => setOpenId(null)}
-        />
+        detail(open, () => setOpenId(null))
       ) : rows.length === 0 && !loading ? (
         <div className="overleaf-empty">
           <h2>No Overleaf projects yet</h2>

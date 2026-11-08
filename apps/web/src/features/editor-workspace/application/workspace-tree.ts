@@ -120,6 +120,8 @@ export interface WorkspaceTreeInput {
    * screen that owns this one always passes it.
    */
   logEntries?: readonly LogEntry[];
+  /** The Overleaf projects the sidebar lists, each opened as a tab. */
+  overleafProjects?: readonly { id: string; name: string }[];
 }
 
 const byLabel = (a: WorkspaceTreeNode, b: WorkspaceTreeNode) =>
@@ -259,8 +261,21 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
       path: readyCore().entityDir("log_entry", input.projectRoot),
       children: logEntries,
     },
-    // The Overleaf projects screen, opened as a tab like any document.
-    { key: "overleaf:projects", kind: "overleaf", id: "projects", label: "Overleaf", path: "overleaf", children: [] },
+    // Overleaf projects, one row each; a row opens that project's editor in a tab.
+    {
+      key: "overleaf",
+      kind: "folder",
+      label: "Overleaf",
+      path: "overleaf",
+      children: (input.overleafProjects ?? []).map((project) => ({
+        key: `overleaf:${project.id}`,
+        kind: "overleaf" as const,
+        id: project.id,
+        label: project.name,
+        path: `overleaf/${project.name}`,
+        children: [],
+      })),
+    },
   ];
 }
 

@@ -77,6 +77,7 @@ type Extra = {
   gateway?: LinkedReportsGateway;
   picks?: ProjectPicksStore;
   onExport?: () => void;
+  onlyProjectId?: string;
 };
 
 /** A picks store in memory; `ids` is what it holds. */
@@ -498,5 +499,39 @@ test("unlinking a project that is not in the account returns to the list", async
   await act(async () => button(tree, "Confirm").props.onClick());
   assert.equal(rows(tree).length, 2);
   assert.ok(!text(tree).includes("Old draft"));
+  await act(async () => tree.unmount());
+});
+
+// ---- One project, opened from the editor's sidebar ----
+
+test("opened for one project it shows that project straight away: no cards, no back button", async () => {
+  const tree = await mount(harness(projectsOk, SESSION), { inShell: true, onlyProjectId: "p2" });
+  assert.equal(cards(tree).length, 0);
+  assert.equal(buttons(tree, "Choose projects").length, 0);
+  const [editor] = tree.root.findAll((n) => typeof n.type !== "string" && n.props.toolbar !== undefined && n.props.onHome);
+  assert.ok(editor, "the live editor for the project");
+  assert.equal(editor.props.projectId, "p2");
+  await act(async () => tree.unmount());
+});
+
+test("opened for one project in the browser it has no back button to a list", async () => {
+  const tree = await mount(harness(projectsOk, SESSION), { onlyProjectId: "p2" });
+  assert.equal(cards(tree).length, 0);
+  assert.equal(buttons(tree, "Overleaf").length, 0);
+  assert.match(text(tree), /Thesis/);
+  await act(async () => tree.unmount());
+});
+
+test("opened for one project that the account no longer has, it says so", async () => {
+  const tree = await mount(harness(projectsOk, SESSION), { onlyProjectId: "gone" });
+  assert.equal(cards(tree).length, 0);
+  assert.match(text(tree), /not in your Overleaf account/);
+  await act(async () => tree.unmount());
+});
+
+test("opened for one project while signed out, it offers to connect and lists nothing", async () => {
+  const tree = await mount(harness(projectsOk), { onlyProjectId: "p2" });
+  assert.equal(cards(tree).length, 0);
+  assert.ok(tree.root.findAll((n) => n.props.name === "cookies").length > 0, "the connect step");
   await act(async () => tree.unmount());
 });
