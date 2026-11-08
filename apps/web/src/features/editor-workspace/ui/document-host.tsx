@@ -490,6 +490,7 @@ export function DocumentHost({
         onViewCreated={liveWatch}
         onDocChange={onDocChange}
         handleRef={handleRef}
+        inlinePresence={false}
       />
     </LivePreview>
   );
