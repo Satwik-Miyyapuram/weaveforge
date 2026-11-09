@@ -28,6 +28,7 @@ For somebody changing the code.
 - [Theming](building/themes.md)
 - [MCP implementation](building/mcp.md)
 - [Releasing](building/release.md)
+- [How we write the docs](building/docs-style.md) — page outline, sentence rules, Rust as the source
 - [Contributing](../CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md)
 
 ## [Running it yourself](running/)
