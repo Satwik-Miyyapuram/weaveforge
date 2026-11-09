@@ -1,5 +1,6 @@
 import type { IShareLinkRepository, ResolvedShareLink } from "../domain/share-link.js";
-import { decodeShareLinkToken, type IShareLinkTokenHasher } from "../domain/share-link-token.js";
+import type { IShareLinkTokenHasher } from "../domain/share-link-token.js";
+import { rust } from "../../../shared/rust.js";
 
 const INVALID_LINK = "Link is invalid or expired.";
 
@@ -22,7 +23,7 @@ export class RedeemShareLinkUseCase {
 /** A mangled token is the same to the visitor as an unknown one, not a decoding error. */
 function decodeToken(urlToken: string): Uint8Array | null {
   try {
-    return decodeShareLinkToken(urlToken);
+    return rust().decodeShareLinkToken(urlToken);
   } catch {
     return null;
   }

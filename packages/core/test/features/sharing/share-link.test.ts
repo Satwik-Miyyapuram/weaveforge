@@ -6,9 +6,11 @@ import {
   RedeemShareLinkUseCase,
   RevokeShareLinkUseCase,
   SHARE_LINK_DEFAULT_TTL_DAYS,
-  encodeShareLinkToken,
-  decodeShareLinkToken,
 } from "../../../src/features/sharing/index.js";
+import { rust } from "../../../src/shared/rust.js";
+
+const encodeShareLinkToken = (token: Uint8Array): string => rust().encodeShareLinkToken(token);
+const decodeShareLinkToken = (encoded: string): Uint8Array => rust().decodeShareLinkToken(encoded);
 import type { IShareLinkTokenHasher } from "../../../src/features/sharing/domain/share-link-token.js";
 import { InMemoryShareLinkRepository } from "../../../src/testing/in-memory-share-link-repository.js";
 

@@ -852,6 +852,15 @@ export function decodeInkWords(words: any, vocabulary: any, engine_text?: string
 export function decodeLocus(raw?: string | null): any;
 
 /**
+ * [`decode_share_link_token`](sharing::decode_share_link_token); a bad token throws its message.
+ *
+ * # Errors
+ *
+ * Fails if `encoded` is not valid base64 (either alphabet).
+ */
+export function decodeShareLinkToken(encoded: string): Uint8Array;
+
+/**
  * [`default_graph_settings`](graph_settings::default_graph_settings).
  *
  * # Errors
@@ -1016,6 +1025,11 @@ export function encodeLocus(locus: any): string;
  * Fails if `config` is not a rollup config object.
  */
 export function encodeRollupOptions(config: any): string[];
+
+/**
+ * [`encode_share_link_token`](sharing::encode_share_link_token): unpadded base64url.
+ */
+export function encodeShareLinkToken(token: Uint8Array): string;
 
 /**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
@@ -4581,6 +4595,7 @@ export interface InitOutput {
     readonly decodeHtmlEntities: (a: number, b: number) => [number, number, number, number];
     readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly decodeLocus: (a: number, b: number) => [number, number, number];
+    readonly decodeShareLinkToken: (a: number, b: number) => [number, number, number, number];
     readonly defaultGraphSettings: () => [number, number, number];
     readonly defaultInkNoteMeta: () => [number, number, number];
     readonly defaultPasteSettings: () => [number, number, number];
@@ -4599,6 +4614,7 @@ export interface InitOutput {
     readonly emptyLayout: (a: number, b: number) => [number, number, number];
     readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
+    readonly encodeShareLinkToken: (a: number, b: number) => [number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly entryFileError: (a: number, b: number) => [number, number];
     readonly escapeLatexText: (a: number, b: number) => [number, number];

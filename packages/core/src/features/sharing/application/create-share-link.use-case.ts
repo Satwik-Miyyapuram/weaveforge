@@ -1,8 +1,8 @@
 import type { IdGenerator } from "../../../shared/clock.js";
 import type { ShareableType } from "../domain/share.js";
 import { defaultShareLinkExpiresAt, type IShareLinkRepository } from "../domain/share-link.js";
+import { rust } from "../../../shared/rust.js";
 import {
-  encodeShareLinkToken,
   generateShareLinkToken,
   type IShareLinkTokenHasher,
 } from "../domain/share-link-token.js";
@@ -46,6 +46,6 @@ export class CreateShareLinkUseCase {
       dekEpoch: null,
     });
 
-    return { linkId: id, urlToken: encodeShareLinkToken(token) };
+    return { linkId: id, urlToken: rust().encodeShareLinkToken(token) };
   }
 }

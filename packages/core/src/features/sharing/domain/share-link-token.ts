@@ -1,3 +1,9 @@
+/**
+ * Share-link tokens. Encoding and decoding live in the Rust core (wf-core
+ * `sharing::encode_share_link_token` / `decode_share_link_token`); generating
+ * and hashing stay here because they take injected randomness and crypto.
+ */
+
 /** SHA-256 hash of raw link token bytes (stored server-side). */
 export interface IShareLinkTokenHasher {
   hash(token: Uint8Array): Promise<Uint8Array>;
@@ -9,16 +15,10 @@ export function generateShareLinkToken(randomBytes: (n: number) => Promise<Uint8
   return randomBytes(TOKEN_BYTES);
 }
 
-/** Base64url token for URL query param `?t=`. */
-export function encodeShareLinkToken(token: Uint8Array): string {
-  let bin = "";
-  for (const b of token) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-export function decodeShareLinkToken(encoded: string): Uint8Array {
-  const padded = encoded.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = padded.length % 4 === 0 ? padded : padded + "=".repeat(4 - (padded.length % 4));
-  const bin = atob(pad);
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ShareLinkTokenFns {
+  /** Base64url token for URL query param `?t=`. */
+  encodeShareLinkToken(token: Uint8Array): string;
+  /** Bytes of a URL token; throws on one that is not base64. */
+  decodeShareLinkToken(encoded: string): Uint8Array;
 }

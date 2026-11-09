@@ -63,6 +63,7 @@ import type { SearchTuningFns } from "./../search/search-tuning.js";
 import type { SegmentFns } from "./../ink/segment.js";
 import type { SelectionToAnchorFns } from "./../reader/selection-to-anchor.js";
 import type { ShareFns } from "./../features/sharing/domain/share.js";
+import type { ShareLinkTokenFns } from "./../features/sharing/domain/share-link-token.js";
 import type { SmoothFns } from "./../ink/smooth.js";
 import type { SortIndexFns } from "./../reader/sort-index.js";
 import type { TextChunksFns } from "./../search/text-chunks.js";
@@ -145,6 +146,7 @@ export interface CoreContract
     SegmentFns,
     SelectionToAnchorFns,
     ShareFns,
+    ShareLinkTokenFns,
     SmoothFns,
     SortIndexFns,
     TextChunksFns,

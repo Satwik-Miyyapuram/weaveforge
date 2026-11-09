@@ -133,3 +133,19 @@ pub fn normalize_comment_input_js(input: JsValue) -> Result<JsValue, JsValue> {
         sharing::normalize_comment_input(&input).map_err(|message| JsValue::from_str(&message))?;
     Ok(to_js(&normalized)?)
 }
+
+/// [`encode_share_link_token`](sharing::encode_share_link_token): unpadded base64url.
+#[wasm_bindgen(js_name = encodeShareLinkToken)]
+pub fn encode_share_link_token_js(token: &[u8]) -> String {
+    sharing::encode_share_link_token(token)
+}
+
+/// [`decode_share_link_token`](sharing::decode_share_link_token); a bad token throws its message.
+///
+/// # Errors
+///
+/// Fails if `encoded` is not valid base64 (either alphabet).
+#[wasm_bindgen(js_name = decodeShareLinkToken)]
+pub fn decode_share_link_token_js(encoded: &str) -> Result<Vec<u8>, JsValue> {
+    sharing::decode_share_link_token(encoded).map_err(|message| JsValue::from_str(&message))
+}

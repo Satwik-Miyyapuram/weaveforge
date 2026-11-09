@@ -296,9 +296,85 @@ fn covers(
         && share_resource_id.is_none_or(|id| id == resource_id)
 }
 
+const B64URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+/// Unpadded base64url of a share-link token, for the `?t=` query parameter.
+#[must_use]
+pub fn encode_share_link_token(token: &[u8]) -> String {
+    let mut out = String::with_capacity(token.len().div_ceil(3) * 4);
+    for chunk in token.chunks(3) {
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
+        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+        for i in 0..=chunk.len() {
+            out.push(char::from(B64URL[((n >> (18 - 6 * i)) & 63) as usize]));
+        }
+    }
+    out
+}
+
+/// The token bytes of a `?t=` value. Accepts base64url or standard base64, padded or not,
+/// as `atob` does after the url alphabet is mapped back.
+///
+/// # Errors
+///
+/// A character outside the alphabet, or a length that cannot be base64.
+pub fn decode_share_link_token(encoded: &str) -> Result<Vec<u8>, String> {
+    let body = encoded.trim_end_matches('=');
+    if encoded.len() - body.len() > 2 || body.len() % 4 == 1 {
+        return Err("The share link token is not valid base64.".to_owned());
+    }
+    let mut out = Vec::with_capacity(body.len() * 3 / 4);
+    let mut acc: u32 = 0;
+    let mut bits = 0;
+    for c in body.bytes() {
+        let v = match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'-' | b'+' => 62,
+            b'_' | b'/' => 63,
+            _ => return Err("The share link token is not valid base64.".to_owned()),
+        };
+        acc = (acc << 6) | u32::from(v);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push(((acc >> bits) & 0xff) as u8);
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn share_link_token_round_trips_unpadded_base64url() {
+        for len in 0..40_u8 {
+            let bytes: Vec<u8> = (0..len)
+                .map(|i| i.wrapping_mul(97).wrapping_add(250))
+                .collect();
+            let enc = encode_share_link_token(&bytes);
+            assert!(!enc.contains(['=', '+', '/']), "{enc}");
+            assert_eq!(decode_share_link_token(&enc).unwrap(), bytes);
+        }
+        assert_eq!(encode_share_link_token(&[0xfb, 0xff]), "-_8");
+        assert_eq!(encode_share_link_token(&[0_u8; 32]).len(), 43);
+        assert_eq!(decode_share_link_token("-_8=").unwrap(), vec![0xfb, 0xff]);
+        assert_eq!(decode_share_link_token("+/8").unwrap(), vec![0xfb, 0xff]);
+    }
+
+    #[test]
+    fn share_link_token_rejects_what_atob_rejects() {
+        assert!(decode_share_link_token("a").is_err());
+        assert!(decode_share_link_token("ab$c").is_err());
+        assert!(decode_share_link_token("ab===").is_err());
+    }
 
     fn share_input(
         access: Option<ShareAccess>,
