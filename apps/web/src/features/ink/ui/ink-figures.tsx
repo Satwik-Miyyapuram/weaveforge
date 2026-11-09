@@ -25,10 +25,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  cropFigureTo,
-  figureImageFrame,
-  resizeFigureBox,
-  uncroppedFigureBox,
   type FigureGeometry,
   type FigureHandle,
   type FigureOrderStep,
@@ -36,6 +32,7 @@ import {
 import { DeleteIcon } from "@/components/view-icons";
 import { FrameHandles, useFrameDrag } from "./ink-figure-frame";
 import { Button, IconButton } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 export interface InkFiguresProps {
   /** The figures the page's text layer places. */
@@ -69,7 +66,7 @@ export function InkFigures({
         // frame keeps its place and size, and the picture inside it is
         // enlarged so the cropped-out edges fall outside the frame — the
         // wrapper clips (§figureImageFrame).
-        const frame = figureImageFrame(one);
+        const frame = typedCore().figureImageFrame(one);
         const active = activeIndex === index;
         return (
           <div
@@ -339,7 +336,7 @@ export function InkFigureEditor({
           return;
         }
         onChange({
-          ...resizeFigureBox(held.box, held.handle, dx, dy, { free: event.shiftKey }),
+          ...typedCore().resizeFigureBox(held.box, held.handle, dx, dy, { free: event.shiftKey }),
           crop: figure.crop,
         });
       },
@@ -516,7 +513,7 @@ function InkFigureCropTool({
   onApply: (next: Pick<FigureGeometry, "x" | "y" | "w" | "h" | "crop">) => void;
   onCancel: () => void;
 }) {
-  const full = useMemo(() => uncroppedFigureBox(figure), [figure]);
+  const full = useMemo(() => typedCore().uncroppedFigureBox(figure), [figure]);
   const [kept, setKept] = useState({ x: figure.x, y: figure.y, w: figure.w, h: figure.h });
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -545,14 +542,14 @@ function InkFigureCropTool({
           return;
         }
         // Crop handles are always free: a crop chooses a region, not a size.
-        setKept(clampKept(resizeFigureBox(held.box, held.handle, dx, dy, { free: true, min: 20 })));
+        setKept(clampKept(typedCore().resizeFigureBox(held.box, held.handle, dx, dy, { free: true, min: 20 })));
       },
       [clampKept],
     ),
     useCallback(() => kept, [kept]),
   );
 
-  const apply = () => onApply(cropFigureTo(full, kept));
+  const apply = () => onApply(typedCore().cropFigureTo(full, kept));
   // The listener below is bound once; it reads the latest kept rectangle here.
   const applyRef = useRef(apply);
   applyRef.current = apply;

@@ -1344,6 +1344,51 @@ export type FieldBoosts = {
 	body: number | null,
 };
 
+/**  A figure's box and crop, without the image it shows. */
+export type FigureBox = {
+	/**  Top-left corner from the page's top-left, in page units. */
+	x: number | null,
+	/**  Top edge, in page units. */
+	y: number | null,
+	/**  Width, in page units. */
+	w: number | null,
+	/**  Height, in page units. */
+	h: number | null,
+	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
+	crop?: [(number | null), (number | null), (number | null), (number | null)] | null,
+};
+
+/**  A handle on a figure's box: a corner or an edge. */
+export type FigureHandle = 
+/**  Top-left corner. */
+"nw" | 
+/**  Top edge. */
+"n" | 
+/**  Top-right corner. */
+"ne" | 
+/**  Right edge. */
+"e" | 
+/**  Bottom-right corner. */
+"se" | 
+/**  Bottom edge. */
+"s" | 
+/**  Bottom-left corner. */
+"sw" | 
+/**  Left edge. */
+"w";
+
+/**  Where the whole picture sits inside a figure's frame, as percentages of the frame. */
+export type FigureImageFrame = {
+	/**  Left offset. */
+	left: number | null,
+	/**  Top offset. */
+	top: number | null,
+	/**  Width. */
+	width: number | null,
+	/**  Height. */
+	height: number | null,
+};
+
 /**  One mention of a figure, table, equation, section or algorithm (`FigureMention`). */
 export type FigureMention = {
 	/**  1-based page number the mention is on. */
@@ -1371,6 +1416,17 @@ export type FigureMentionKind =
 /**  `Algorithm` or `Alg.`, and their plurals. */
 "algorithm";
 
+/**  Where a figure moves in the page's stacking order. */
+export type FigureOrderStep = 
+/**  To the top. */
+"front" | 
+/**  One up. */
+"forward" | 
+/**  One down. */
+"backward" | 
+/**  To the bottom. */
+"back";
+
 /**  A page as `findFigureMentions` reads it: its number, its text and its text runs. */
 export type FigurePage = {
 	/**  1-based page number. */
@@ -1379,6 +1435,34 @@ export type FigurePage = {
 	text: string,
 	/**  The page's pdf.js text runs, used for caption and equation lines. */
 	items: OutlineTextItem[],
+};
+
+/**  An image placement: the attachment it shows and where it sits. */
+export type FigurePlacement = {
+	/**  The attachment path, without the `vault:` scheme. */
+	path: string,
+	/**  Top-left corner from the page's top-left, in page units. */
+	x: number | null,
+	/**  Top edge, in page units. */
+	y: number | null,
+	/**  Width, in page units. */
+	w: number | null,
+	/**  Height, in page units. */
+	h: number | null,
+	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
+	crop?: [(number | null), (number | null), (number | null), (number | null)] | null,
+};
+
+/**  A plain rectangle in page units. */
+export type FigureRect = {
+	/**  Left edge. */
+	x: number | null,
+	/**  Top edge. */
+	y: number | null,
+	/**  Width. */
+	w: number | null,
+	/**  Height. */
+	h: number | null,
 };
 
 /**  Where a mention points: the caption, equation or heading it names (`FigureTarget`). */

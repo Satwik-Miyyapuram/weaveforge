@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from "react";
-import { inkPageFigures, type InkNoteMeta } from "@weaveforge/core";
+import { type InkNoteMeta } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkStoredPage } from "../application/ink-chunk-store";
@@ -128,7 +128,7 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
    * cannot drift apart.
    */
   useEffect(() => {
-    setFigures(inkPageFigures(textPagesRef.current[pageIndex] ?? ""));
+    setFigures(typedCore().inkPageFigures(textPagesRef.current[pageIndex] ?? ""));
     // The controls belong to a figure of *this* page; its index is not one
     // of the next page's, so the page change closes them — unless a figure
     // was just dropped onto this page, which stays selected.

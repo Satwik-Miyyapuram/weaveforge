@@ -1866,6 +1866,24 @@ export function createVectorIndex(dimensions) {
 }
 
 /**
+ * [`crop_figure_to`](figure::crop_figure_to): a figure re-cropped to `kept` inside `full`.
+ *
+ * # Errors
+ *
+ * Fails if `full` or `kept` has the wrong shape.
+ * @param {any} full
+ * @param {any} kept
+ * @returns {any}
+ */
+export function cropFigureTo(full, kept) {
+    const ret = wasm.cropFigureTo(full, kept);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`crossref_to_metadata`] (TS `crossrefToMetadata`). A Crossref `message` as a paper.
  *
  * # Errors
@@ -2780,6 +2798,60 @@ export function fenceUntrusted(items, nonce) {
 }
 
 /**
+ * [`figure_alt_for`](figure::figure_alt_for): the figure alt of the image at `path`, or `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `body` is longer than the index text limit.
+ * @param {string} body
+ * @param {string} path
+ * @returns {string | undefined}
+ */
+export function figureAltFor(body, path) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.figureAltFor(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
+}
+
+/**
+ * [`figure_corner_hit`](figure::figure_corner_hit): the corner grab distance at `scale`.
+ * @param {number} scale
+ * @returns {number}
+ */
+export function figureCornerHit(scale) {
+    const ret = wasm.figureCornerHit(scale);
+    return ret;
+}
+
+/**
+ * [`figure_image_frame`](figure::figure_image_frame): the whole picture inside the frame, in percent.
+ *
+ * # Errors
+ *
+ * Fails if `value` has the wrong shape.
+ * @param {any} value
+ * @returns {any}
+ */
+export function figureImageFrame(value) {
+    const ret = wasm.figureImageFrame(value);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`filter_lab_members`](member::filter_lab_members). Returns indices into `members`.
  *
  * # Errors
@@ -3183,6 +3255,34 @@ export function formatCitation(key, format) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`format_figure_tokens`](figure::format_figure_tokens): the tokens written in an alt.
+ *
+ * # Errors
+ *
+ * Fails if `geometry` has the wrong shape.
+ * @param {any} geometry
+ * @returns {string}
+ */
+export function formatFigureTokens(geometry) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.formatFigureTokens(geometry);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -4106,6 +4206,25 @@ export function inkPageConfidence(confs) {
 }
 
 /**
+ * [`ink_page_figures`](figure::ink_page_figures): the figures a page's text places.
+ *
+ * # Errors
+ *
+ * Fails if `text` is longer than the index text limit.
+ * @param {string} text
+ * @returns {any}
+ */
+export function inkPageFigures(text) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.inkPageFigures(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`ink_page_marker`](ink_page::ink_page_marker): the `<!-- page N -->` line for page `page`.
  * @param {number} page
  * @returns {string}
@@ -5026,6 +5145,27 @@ export function jsonKindOfPath(path) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v2;
+}
+
+/**
+ * [`keep_figure_on_page`](figure::keep_figure_on_page): the box's `[x, y]` kept half on the page.
+ *
+ * # Errors
+ *
+ * Fails if `rect` has the wrong shape.
+ * @param {any} rect
+ * @param {number} width
+ * @param {number} height
+ * @returns {Float64Array}
+ */
+export function keepFigureOnPage(rect, width, height) {
+    const ret = wasm.keepFigureOnPage(rect, width, height);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v1;
 }
 
 /**
@@ -6854,6 +6994,44 @@ export function parseEuropePmc(body) {
 }
 
 /**
+ * [`parse_figure_crop`](figure::parse_figure_crop): a `c=` value as four insets, or `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `raw` is longer than the index text limit.
+ * @param {string} raw
+ * @returns {any}
+ */
+export function parseFigureCrop(raw) {
+    const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseFigureCrop(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_figure_tokens`](figure::parse_figure_tokens): an alt's box and crop, or `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `alt` is longer than the index text limit.
+ * @param {string} alt
+ * @returns {any}
+ */
+export function parseFigureTokens(alt) {
+    const ptr0 = passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseFigureTokens(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`parse_folder_draft`](folder_draft::parse_folder_draft): the draft, or `null`.
  *
  * # Errors
@@ -8215,6 +8393,27 @@ export function renameInkUndoId(state, from, to) {
 }
 
 /**
+ * [`reorder_figure_indices`](figure::reorder_figure_indices): the new order as old indices.
+ *
+ * # Errors
+ *
+ * Fails if `step` is not a known step.
+ * @param {number} len
+ * @param {number} index
+ * @param {any} step
+ * @returns {Uint32Array}
+ */
+export function reorderFigureIndices(len, index, step) {
+    const ret = wasm.reorderFigureIndices(len, index, step);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v1;
+}
+
+/**
  * [`replace_wiki_index`](wiki_index::replace_wiki_index).
  * @param {string} body
  * @param {string} index
@@ -8277,6 +8476,28 @@ export function resampleInkStroke(points, pressures, spacing) {
     const ptr1 = passArrayF64ToWasm0(pressures, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.resampleInkStroke(ptr0, len0, ptr1, len1, !isLikeNone(spacing), isLikeNone(spacing) ? 0 : spacing);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`resize_figure_box`](figure::resize_figure_box): a box resized by dragging `handle`.
+ *
+ * # Errors
+ *
+ * Fails if `rect` or `handle` has the wrong shape.
+ * @param {any} rect
+ * @param {any} handle
+ * @param {number} dx
+ * @param {number} dy
+ * @param {boolean} free
+ * @param {number} min_side
+ * @returns {any}
+ */
+export function resizeFigureBox(rect, handle, dx, dy, free, min_side) {
+    const ret = wasm.resizeFigureBox(rect, handle, dx, dy, free, min_side);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -10011,6 +10232,23 @@ export function treePathPairs(nodes, entity, project_root) {
 }
 
 /**
+ * [`uncropped_figure_box`](figure::uncropped_figure_box): the box with the crop lifted.
+ *
+ * # Errors
+ *
+ * Fails if `value` has the wrong shape.
+ * @param {any} value
+ * @returns {any}
+ */
+export function uncroppedFigureBox(value) {
+    const ret = wasm.uncroppedFigureBox(value);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`unique_cite_key`](cite_key::unique_cite_key) (TS `uniqueCiteKey`). `used` is a JS array of
  * strings; the caller records the returned key.
  *
@@ -10512,6 +10750,37 @@ export function withInkPageBackground(text, path) {
         deferred3_0 = ret[0];
         deferred3_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`with_ink_page_figures`](figure::with_ink_page_figures): a page's text with its figure block set.
+ *
+ * # Errors
+ *
+ * Fails if `text` is too long or `figures` has the wrong shape.
+ * @param {string} text
+ * @param {any} figures
+ * @returns {string}
+ */
+export function withInkPageFigures(text, figures) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.withInkPageFigures(ptr0, len0, figures);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
@@ -11182,6 +11451,11 @@ function getArrayJsValueFromWasm0(ptr, len) {
     }
     wasm.__externref_drop_slice(ptr, len);
     return result;
+}
+
+function getArrayU32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
 function getArrayU8FromWasm0(ptr, len) {

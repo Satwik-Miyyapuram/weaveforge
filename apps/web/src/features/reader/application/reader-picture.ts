@@ -8,12 +8,12 @@
  */
 
 import {
-  parseFigureCrop,
   type FigureGeometry,
   type NewReaderAnnotation,
   type ReaderAnnotation,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * `![picture](path)`, with the placement the rectangle cannot hold after the
@@ -46,7 +46,7 @@ export function pictureMeta(
       const z = Number(value);
       if (Number.isFinite(z)) meta.z = z;
     } else if (key === "c") {
-      const crop = parseFigureCrop(value ?? "");
+      const crop = typedCore().parseFigureCrop(value ?? "");
       if (crop) meta.crop = crop;
     }
   }

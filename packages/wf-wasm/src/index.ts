@@ -216,6 +216,12 @@ export type {
   WrappedTextOptions,
 };
 export type {
+  FigureBox,
+  FigureHandle,
+  FigureImageFrame,
+  FigureOrderStep,
+  FigurePlacement,
+  FigureRect,
   DocumentMode,
   TabRef,
   PaneLeaf,
@@ -297,6 +303,7 @@ export * from "./ai-access-policy.js";
 export * from "./log-entry.js";
 export * from "./milestone.js";
 export * from "./plan-feed.js";
+export * from "./figure.js";
 export * from "./citation-alerts.js";
 export * from "./org.js";
 export * from "./paper-relation.js";

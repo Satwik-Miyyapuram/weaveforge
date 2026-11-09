@@ -27,22 +27,10 @@ export type { InkStrokePackerOptions, LiveInkStrokePacker, StrokePackerFns } fro
 export {
   FIGURE_ALT,
   type FigureGeometry,
-  parseFigureTokens,
-  parseFigureCrop,
-  keepFigureOnPage,
-  figureCornerHit,
-  formatFigureTokens,
-  inkPageFigures,
-  withInkPageFigures,
-  figureAltFor,
-  figureImageFrame,
   type FigureOrderStep,
   type FigureHandle,
+  type FigureFns,
   FIGURE_HANDLES,
-  reorderFigures,
-  resizeFigureBox,
-  uncroppedFigureBox,
-  cropFigureTo,
 } from "./figure.js";
 
 export {

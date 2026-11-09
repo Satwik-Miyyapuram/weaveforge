@@ -24,7 +24,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isEditableTarget } from "@/lib/editable-target";
 import { readyCore } from "@/lib/rust-core";
-import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, inkPageFigures, withInkPageFigures, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
+import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
 
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
@@ -272,8 +272,8 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         return true;
       }
       const there = deps.textPagesRef.current[target] ?? "";
-      const onPage = inkPageFigures(there);
-      deps.textPagesRef.current[target] = withInkPageFigures(there, [...onPage, place(onPage)]);
+      const onPage = typedCore().inkPageFigures(there);
+      deps.textPagesRef.current[target] = typedCore().withInkPageFigures(there, [...onPage, place(onPage)]);
       deps.scheduleSave();
       return false;
     },

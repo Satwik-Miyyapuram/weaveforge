@@ -302,7 +302,7 @@ fn token_value(value: &Value) -> String {
 }
 
 /// JS `Number(text)` for an already-trimmed string; `NaN` wherever JS gives `NaN`.
-fn js_number_of(text: &str) -> f64 {
+pub(crate) fn js_number_of(text: &str) -> f64 {
     match text {
         "" => return 0.0,
         "Infinity" | "+Infinity" => return f64::INFINITY,
