@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { LAYOUT_STORAGE_KEY, readLayout, writeLayout } from "../application/layout-storage";
-import { emptyLayout, leaves, openTab, splitPane, type PaneSplit } from "../application/pane-tree";
+import type { PaneSplit } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 function memoryStore(initial: string | null = null) {
   let value = initial;
@@ -14,7 +15,7 @@ function memoryStore(initial: string | null = null) {
   };
 }
 
-const SAVED = splitPane(openTab(emptyLayout(), { kind: "vault_page", id: "a" }), "pane-1", "column", "pane-2");
+const SAVED = readyCore().splitPane(readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "a" }), "pane-1", "column", "pane-2");
 
 test("a first run is one empty pane", () => {
   assert.equal(readLayout(memoryStore()).root.type, "leaf");
@@ -30,7 +31,7 @@ test("a split, its direction, its ratio and its tabs all survive a restart", () 
   assert.equal((restored.root as PaneSplit).direction, "column");
   assert.equal((restored.root as PaneSplit).ratio, 0.5);
   assert.deepEqual(
-    leaves(restored.root).map((leaf) => leaf.tabs.map((tab) => tab.id)),
+    readyCore().leaves(restored.root).map((leaf) => leaf.tabs.map((tab) => tab.id)),
     [["a"], ["a"]],
   );
   assert.equal(restored.focusedPaneId, "pane-2");
@@ -55,7 +56,7 @@ test("half a split still restores the half that parsed", () => {
 
   const restored = readLayout(memoryStore(stored));
   assert.equal(restored.root.type, "leaf");
-  assert.deepEqual(leaves(restored.root)[0]!.tabs, [{ kind: "paper", id: "p1" }]);
+  assert.deepEqual(readyCore().leaves(restored.root)[0]!.tabs, [{ kind: "paper", id: "p1" }]);
   assert.equal(restored.focusedPaneId, "pane-1");
 });
 
@@ -65,8 +66,8 @@ test("junk inside a tab list is dropped and the active index follows it", () => 
   });
 
   const restored = readLayout(memoryStore(stored));
-  assert.deepEqual(leaves(restored.root)[0]!.tabs, []);
-  assert.equal(leaves(restored.root)[0]!.activeIndex, 0);
+  assert.deepEqual(readyCore().leaves(restored.root)[0]!.tabs, []);
+  assert.equal(readyCore().leaves(restored.root)[0]!.activeIndex, 0);
 });
 
 test("a stored ratio outside the usable range is clamped on the way in", () => {
@@ -132,14 +133,14 @@ test("the old global layout is adopted once, by the first project opened", () =>
 });
 
 test("a project's own record wins over a leftover global one", () => {
-  const own = openTab(emptyLayout(), { kind: "vault_page", id: "own" });
+  const own = readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "own" });
   const store = keyedStore({
     [LAYOUT_STORAGE_KEY]: JSON.stringify(SAVED),
     [`${LAYOUT_STORAGE_KEY}.p1`]: JSON.stringify(own),
   });
   const restored = readLayout(store, "p1");
   assert.equal(restored.root.type, "leaf");
-  assert.deepEqual(leaves(restored.root)[0]!.tabs.map((tab) => tab.id), ["own"]);
+  assert.deepEqual(readyCore().leaves(restored.root)[0]!.tabs.map((tab) => tab.id), ["own"]);
 });
 
 test("with no project chosen the layout uses the plain key", () => {
@@ -158,9 +159,9 @@ test("a store without removeItem still adopts the legacy layout", () => {
 
 test("a tab's mode survives a restart (28-01)", () => {
   const store = memoryStore();
-  const layout = openTab(emptyLayout(), { kind: "vault_page", id: "a", mode: "ink" });
+  const layout = readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "a", mode: "ink" });
   writeLayout(store, layout);
-  const [leaf] = leaves(readLayout(store).root);
+  const [leaf] = readyCore().leaves(readLayout(store).root);
   assert.deepEqual(leaf!.tabs, [{ kind: "vault_page", id: "a", mode: "ink" }]);
 });
 
@@ -176,7 +177,7 @@ test("an old record without modes, or with an unknown one, restores tabs with no
       activeIndex: 0,
     },
   });
-  const [leaf] = leaves(readLayout(memoryStore(stored)).root);
+  const [leaf] = readyCore().leaves(readLayout(memoryStore(stored)).root);
   assert.deepEqual(leaf!.tabs, [
     { kind: "vault_page", id: "old" },
     { kind: "vault_page", id: "odd" },
@@ -194,7 +195,7 @@ test("a tab left in the old Read mode comes back unchosen, so it opens as it wou
   });
 
   const restored = readLayout(memoryStore(stored));
-  assert.deepEqual(leaves(restored.root)[0]!.tabs, [
+  assert.deepEqual(readyCore().leaves(restored.root)[0]!.tabs, [
     { kind: "vault_page", id: "n1" },
     { kind: "vault_page", id: "n2", mode: "ink" },
   ]);

@@ -10,7 +10,8 @@
 
 import { ENTITY_DIRS } from "@weaveforge/core";
 
-import { isDocumentNode, type WorkspaceTreeNode } from "./workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /** The kinds a draft row can make. */
 export type CreateKind = "note" | "folder" | "section";
@@ -70,7 +71,7 @@ export function creatableUnder(
 
 /** In Notes only the root row and folders hold children; a report section holds sections. */
 function holdsChildren(node: Pick<WorkspaceTreeNode, "kind" | "folder">, root: EditableRoot): boolean {
-  return root !== "notes" || !isDocumentNode(node);
+  return root !== "notes" || !readyCore().isDocumentNode(node);
 }
 
 /** The root a *kind* belongs to — the kind-only half of `rootOf`. */
@@ -95,7 +96,7 @@ export function creationKindFor(active: { kind: string } | undefined): CreateKin
 
 /** Whether a row can be renamed in place: any note or section, never a root or a paper. */
 export function canRename(node: Pick<WorkspaceTreeNode, "key" | "kind" | "id" | "isMember" | "headingLevel" | "folder">): boolean {
-  return Boolean(node.id) && rootOf(node) !== null && (isDocumentNode(node) || node.folder === true);
+  return Boolean(node.id) && rootOf(node) !== null && (readyCore().isDocumentNode(node) || node.folder === true);
 }
 
 /**
@@ -132,14 +133,14 @@ export function canDrop(
   const root = rootOf(source);
   if (!root || !source.id || rootOf(target) !== root) return false;
   if (target.key === source.key) return false;
-  if (isDocumentNode(target) && !target.id) return false;
+  if (readyCore().isDocumentNode(target) && !target.id) return false;
   if (!holdsChildren(target, root)) return false;
   return !isDescendant(source, target);
 }
 
 /** The parent id a drop on `target` gives: `null` for the root row. */
 export function dropParentId(target: WorkspaceTreeNode): string | null {
-  return isDocumentNode(target) || target.folder ? (target.id ?? null) : null;
+  return readyCore().isDocumentNode(target) || target.folder ? (target.id ?? null) : null;
 }
 
 function isDescendant(ancestor: WorkspaceTreeNode, node: WorkspaceTreeNode): boolean {

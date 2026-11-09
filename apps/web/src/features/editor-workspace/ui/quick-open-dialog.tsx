@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Modal } from "@/components/modal";
 import { NavIcon } from "@/app/nav-icon";
 import { groupResults, isPickEnter, paintedOrder, quickOpenResults, stepCursor, titleOf } from "../application/quick-open";
-import type { WorkspaceTreeNode } from "../application/workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
 import { kindIcon } from "./kind";
 import { OptionButton } from "@/components/controls";
 

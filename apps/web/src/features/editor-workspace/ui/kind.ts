@@ -22,8 +22,7 @@
 import { KIND_SUFFIX } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
-import type { DocumentMode, TabRef } from "../application/pane-tree";
-import type { TreeNodeKind } from "../application/workspace-tree";
+import type { DocumentMode, TabRef, TreeNodeKind } from "@weaveforge/wasm";
 import type { SegmentKey } from "./status-bar";
 
 export const KINDS: readonly TreeNodeKind[] = [

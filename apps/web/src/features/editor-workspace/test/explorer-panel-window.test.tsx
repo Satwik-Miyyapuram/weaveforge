@@ -13,7 +13,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { ExplorerPanel } from "../ui/explorer-panel";
 import { EXPLORER_FIRST_PAINT_ROWS, EXPLORER_ROW_PX } from "../application/explorer-window";
-import type { WorkspaceTreeNode } from "../application/workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
 
 function files(n: number): WorkspaceTreeNode[] {
   return Array.from({ length: n }, (_, i) => ({

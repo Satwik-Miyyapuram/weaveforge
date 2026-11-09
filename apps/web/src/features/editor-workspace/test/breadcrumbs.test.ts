@@ -3,14 +3,11 @@ import assert from "node:assert/strict";
 
 import { breadcrumbs } from "../application/breadcrumbs";
 import { headingSlug, outlineOf } from "../application/outline";
-import {
-  buildListsTree,
-  buildWorkspaceTree,
-  type WorkspaceTreeNode,
-} from "../application/workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 function files(): WorkspaceTreeNode[] {
-  return buildWorkspaceTree({
+  return readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [
       { id: "c", title: "Baselines", parentId: "b" },
@@ -44,7 +41,7 @@ test("crumbs for a paper's notes are the root, the paper and the file", () => {
 });
 
 test("a document under a reading list follows the list, not the folder", () => {
-  const lists = buildListsTree({
+  const lists = readyCore().buildListsTree({
     lists: [
       { id: "l1", title: "Latent spaces" },
       { id: "l2", title: "Disentanglement", parentId: "l1" },

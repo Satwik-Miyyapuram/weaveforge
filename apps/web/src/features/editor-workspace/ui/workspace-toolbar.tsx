@@ -10,16 +10,8 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { PreviewIcon } from "@/components/view-icons";
 import { BarMenuList, Caret, InkIdleBar, useBarMenu, useFoldOf, useToolbarFold } from "@/features/ink";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import {
-  activeTabRef,
-  isPreviewTab,
-  previewOpen,
-  tabMode,
-  type DocumentMode,
-  type PaneLayout,
-  type PaneSplit,
-  type TabRef,
-} from "../application/pane-tree";
+import { readyCore } from "@/lib/rust-core";
+import type { DocumentMode, PaneLayout, PaneSplit, TabRef } from "@weaveforge/wasm";
 import { modesFor } from "./kind";
 import { SplitGlyph } from "./split-glyph";
 
@@ -49,12 +41,12 @@ export function WorkspaceToolbar({
   onSplit: (paneId: string, direction: PaneSplit["direction"]) => void;
   onToggleFocus?: () => void;
 }) {
-  const focused = activeTabRef(layout);
+  const focused = readyCore().activeTabRef(layout);
   // The preview pane is not a document; with it focused, Preview still closes it.
-  const tab = focused && !isPreviewTab(focused) ? focused : undefined;
-  const mode = (tab ? tabMode(tab) : "edit") as DocumentModeName;
+  const tab = focused && !readyCore().isPreviewTab(focused) ? focused : undefined;
+  const mode = (tab ? readyCore().tabMode(tab) : "edit") as DocumentModeName;
   const pane = layout.focusedPaneId;
-  const preview = previewOpen(layout);
+  const preview = readyCore().previewOpen(layout);
   const bar = useRef<HTMLDivElement>(null);
   // Too narrow for one row: stages fold away rather than the bar wrapping.
   useToolbarFold(bar);
@@ -152,7 +144,7 @@ export function PaneModeSwitch({ tab, onSetMode }: { tab: TabRef; onSetMode: (ta
   return (
     <DocumentModeSwitch
       modes={modesFor(tab.kind) as readonly DocumentModeName[]}
-      mode={tabMode(tab) as DocumentModeName}
+      mode={readyCore().tabMode(tab) as DocumentModeName}
       onMode={(next) => onSetMode(tab, next)}
       split={false}
     />

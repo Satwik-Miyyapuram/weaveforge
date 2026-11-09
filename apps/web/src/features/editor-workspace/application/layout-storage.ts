@@ -10,8 +10,8 @@
  */
 
 import type { KeyValueStore } from "./explorer-state";
-import { emptyLayout, type DocumentMode, type PaneLayout, type PaneNode, type TabRef } from "./pane-tree";
-import { cleanGroups, GROUP_COLORS, type GroupColor, type TabGroup } from "./tab-groups";
+import type { DocumentMode, GroupColor, PaneLayout, PaneNode, TabGroup, TabRef } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
 
@@ -59,7 +59,7 @@ function parseGroups(value: unknown): TabGroup[] {
   return value.flatMap((raw): TabGroup[] => {
     const g = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
     if (typeof g.id !== "string") return [];
-    const color = GROUP_COLORS.includes(g.color as GroupColor) ? (g.color as GroupColor) : 1;
+    const color = readyCore().GROUP_COLORS.includes(g.color as GroupColor) ? (g.color as GroupColor) : 1;
     const group: TabGroup = { id: g.id, name: typeof g.name === "string" ? g.name : "", color };
     if (g.collapsed === true) group.collapsed = true;
     return [group];
@@ -80,7 +80,7 @@ function parseNode(value: unknown): PaneNode | null {
         typeof (tab as { id?: unknown }).id === "string",
     );
     const activeIndex = typeof node.activeIndex === "number" ? node.activeIndex : 0;
-    return cleanGroups({
+    return readyCore().cleanGroups({
       type: "leaf",
       id: node.id,
       tabs: tabs.map(parseTab),
@@ -112,19 +112,19 @@ export function readLayout(
   store: LayoutStore | undefined,
   projectId?: string | null,
 ): PaneLayout {
-  if (!store) return emptyLayout();
+  if (!store) return readyCore().emptyLayout();
   try {
     const raw = readRaw(store, projectId);
-    if (!raw) return emptyLayout();
+    if (!raw) return readyCore().emptyLayout();
     const parsed = JSON.parse(raw) as { root?: unknown; focusedPaneId?: unknown };
     const root = parseNode(parsed.root);
-    if (!root) return emptyLayout();
+    if (!root) return readyCore().emptyLayout();
     const focused = typeof parsed.focusedPaneId === "string" ? parsed.focusedPaneId : "";
     // `settleFocus` runs on every operation, so a focus id that no longer
     // matches a pane is corrected by the first thing the user does.
     return { root, focusedPaneId: focused || firstLeafId(root) };
   } catch {
-    return emptyLayout();
+    return readyCore().emptyLayout();
   }
 }
 

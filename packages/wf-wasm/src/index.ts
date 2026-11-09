@@ -216,6 +216,35 @@ export type {
   WorkspaceSnapshotCounts,
   WrappedTextOptions,
 };
+export type {
+  DocumentMode,
+  TabRef,
+  PaneLeaf,
+  SplitDirection,
+  PaneSplit,
+  PaneNode,
+  PaneLayout,
+  PaneCommand,
+  TabMenuAction,
+  TabMenuCommand,
+  TabGroup,
+  TabGroupCommand,
+  TabRun,
+  TreeNodeKind,
+  WorkspaceTreeNode,
+  NoteNode,
+  PaperEntry,
+  SectionNode,
+  WorkspaceLogEntry,
+  OverleafProject,
+  WorkspaceTreeInput,
+  VisibleRow,
+  FilteredRows,
+  ListItemKind,
+  ListEntry,
+  ListItemEntry,
+  ListsTreeInput,
+} from "./bindings.js";
 export { init, initSync };
 export * from "./ink.js";
 export * from "./ink-lines.js";
@@ -274,6 +303,9 @@ export * from "./user-integration-credentials.js";
 export * from "./wiki-graph.js";
 export * from "./wiki-merge.js";
 export * from "./user-settings.js";
+export * from "./workspace-tree.js";
+export * from "./pane-tree.js";
+export * from "./tab-groups.js";
 
 
 /** Facts about this core build, such as its version. */

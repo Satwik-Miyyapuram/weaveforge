@@ -30,14 +30,8 @@ import {
 import { EXPLORER_ROW_PX, rowSlots } from "../application/explorer-window";
 import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
-import {
-  filterRows,
-  folderIdsOf,
-  visibleRows,
-  type TreeNodeKind,
-  type VisibleRow,
-  type WorkspaceTreeNode,
-} from "../application/workspace-tree";
+import type { TreeNodeKind, VisibleRow, WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { isDocumentKind, kindIcon, kindIconClass } from "./kind";
 import {
   DraftIcon,
@@ -149,8 +143,8 @@ export function ExplorerPanel({
     const forced = new Set<string>();
     const byId = new Map<string, VisibleRow[]>();
     for (const section of sections) {
-      const rows = visibleRows(section.tree, expanded);
-      const result = filterRows(rows, query);
+      const rows = readyCore().visibleRows(section.tree, expanded);
+      const result = readyCore().filterRows(rows, query);
       for (const key of result.expand) forced.add(key);
       byId.set(section.id, result.rows);
     }
@@ -159,7 +153,7 @@ export function ExplorerPanel({
 
   // A new note from the head lands in the open note's folder only when that
   // parent is a real folder.
-  const folderIds = useMemo(() => folderIdsOf(sections.flatMap((section) => section.tree)), [sections]);
+  const folderIds = useMemo(() => readyCore().folderIdsOf(sections.flatMap((section) => section.tree)), [sections]);
 
   const effectiveExpanded = useMemo(
     () => (query.trim() ? new Set([...expanded, ...filtered.forced]) : expanded),

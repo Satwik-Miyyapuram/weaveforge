@@ -14,14 +14,8 @@ import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links"
 import { isHydratedPage, noteBodyText } from "@/lib/page-text";
 import { logPath } from "@weaveforge/core";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
-import { memberRank } from "../ui/kind";
-import {
-  buildListsTree,
-  buildWorkspaceTree,
-  listMembership,
-  type ListItemEntry,
-  type WorkspaceTreeNode,
-} from "./workspace-tree";
+import { KINDS, memberRank } from "../ui/kind";
+import type { ListItemEntry, WorkspaceTreeNode } from "@weaveforge/wasm";
 import { sectionOr } from "./section-fallback";
 import { readyCore } from "@/lib/rust-core";
 import { overleafSidebarRows } from "@/features/report";
@@ -186,7 +180,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     rows.push({ title: row.title, label: row.title, detail: row.detail });
   }
   const completions = rows;
-  const tree = buildWorkspaceTree({
+  const tree = readyCore().buildWorkspaceTree({
       projectRoot,
       notes: vault.flat.map((page) => ({
         id: page.id,
@@ -247,20 +241,21 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         }
       }
     }
-    listsTree = buildListsTree({
-        lists: listRows.map((list) => ({
-          id: list.id,
-          title: list.name,
-          parentId: list.parentId,
-          description: list.description,
-        })),
-        items,
-        titles,
-        // Papers before notes, from `kind.ts`'s own ordering column, so the
-        // rule is not a comparison against `"paper"` in two places.
-      memberRank,
+    // Papers before notes, from `kind.ts`'s own ordering column, so the
+    // rule is not a comparison against `"paper"` in two places.
+    const memberRankByKind = Object.fromEntries(KINDS.map((kind) => [kind, memberRank(kind)]));
+    listsTree = readyCore().buildListsTree({
+      lists: listRows.map((list) => ({
+        id: list.id,
+        title: list.name,
+        parentId: list.parentId,
+        description: list.description,
+      })),
+      items,
+      titles,
+      memberRank: memberRankByKind,
     });
-    membership = listMembership(items, new Map([...titles, ...listTitles]));
+    membership = readyCore().listMembership(items, new Map([...titles, ...listTitles]));
   }
 
   return { documents: loaded, completions, tree, listsTree, membership };
