@@ -9,6 +9,8 @@
  * Method syntax keeps parameter types bivariant, so the wasm wrappers' narrower
  * role unions still match.
  */
+import type { TextLine } from "../features/reader/analysis/line-reconstruction.js";
+import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outline-types.js";
 import type { Row } from "./three-way-merge.js";
 import type { FrontmatterValue, ParsedDocument } from "../workspace/frontmatter.js";
 import type { ChangeSide } from "../workspace/change-origin.js";
@@ -120,14 +122,23 @@ export interface RustCoreFns {
     ownsActiveOrg?: boolean,
   ): boolean;
   // reader
-  isRotatedText(transform: Float64Array): boolean;
-  outlineTextLines(pages: any): any;
-  bodyFontSize(pages: any): number;
-  groupRecurringLines(texts: any, pages: any): any;
-  outlineFromText(allPages: any): any;
-  outlineIsPlausible(headings: any, page_count: number): boolean;
-  findReferenceSection(lines: any, body_font_size: number, page_count: number, furniture: any): any;
-  ladderOrder(supports: boolean[]): number[];
+  isRotatedText(transform: readonly number[]): boolean;
+  outlineTextLines(pages: readonly (readonly OutlineTextItem[])[]): OutlineTextItem[];
+  bodyFontSize(pages: readonly (readonly OutlineTextItem[])[]): number;
+  groupRecurringLines<T>(
+    lines: readonly T[],
+    textOf: (line: T) => string,
+    pageOf: (line: T) => number,
+  ): { key: string; pages: Set<number>; members: T[] }[];
+  outlineFromText(allPages: readonly (readonly OutlineTextItem[])[]): ReaderOutlineItem[];
+  outlineIsPlausible(headings: readonly { page: number }[], pageCount: number): boolean;
+  findReferenceSection(
+    lines: readonly TextLine[],
+    bodyFontSize: number,
+    pageCount: number,
+    furniture?: readonly boolean[] | null,
+  ): { start: number; end: number; headingIndex: number; score: number } | null;
+  ladderOrder(supports: readonly boolean[]): number[];
   // json data
   jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string;
   jsonKindOfPath(path: string): WorkspaceJsonKind | null;

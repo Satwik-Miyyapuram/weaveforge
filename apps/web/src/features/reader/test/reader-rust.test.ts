@@ -16,9 +16,9 @@ const ANCHOR = { zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] } };
 // base_local() in zotero_sync.rs
 const BASE_LOCAL = {
   id: "local-1",
-  origin: "local",
+  origin: "local" as const,
   zoteroKey: null,
-  type: "highlight",
+  type: "highlight" as const,
   color: "#ffd400",
   text: "hello",
   comment: "",
@@ -33,7 +33,7 @@ const BASE_LOCAL = {
 const REMOTE_OF_BASE = {
   key: "K",
   version: 2,
-  type: "highlight",
+  type: "highlight" as const,
   color: "#ffd400",
   text: "hello",
   comment: "",
@@ -51,13 +51,13 @@ test("isZoteroLibrarySyncMode: library_sync_mode_guard", () => {
 
 test("decideAnnotationSync: decide_pushes_local_only_in_bidirectional", () => {
   const rs = readyCore();
-  const row = { local: { ...BASE_LOCAL, syncState: "local" }, remote: null };
+  const row = { local: { ...BASE_LOCAL, syncState: "local" as const }, remote: null };
   assert.equal(rs.decideAnnotationSync(row, "bidirectional").kind, "push");
 });
 
 test("decideAnnotationSync: decide_skips_push_in_read_only_and_ignored", () => {
   const rs = readyCore();
-  const row = { local: { ...BASE_LOCAL, syncState: "local" }, remote: null };
+  const row = { local: { ...BASE_LOCAL, syncState: "local" as const }, remote: null };
   assert.equal(rs.decideAnnotationSync(row, "read_only").kind, "skip");
   assert.equal(rs.decideAnnotationSync(row, "ignored").kind, "skip");
 });
@@ -69,14 +69,13 @@ test("decideAnnotationSync: decide_conflicts_when_same_version_diverges", () => 
       ...BASE_LOCAL,
       color: "#ff6666",
       zoteroKey: "ABCD",
-      syncState: "pending",
+      syncState: "pending" as const,
       zoteroVersion: 3,
     },
     remote: { ...REMOTE_OF_BASE, version: 3, color: "#ffd400" },
   };
   const decision = rs.decideAnnotationSync(row, "bidirectional");
-  assert.equal(decision.kind, "conflict");
-  assert.ok(decision.fields.some((f: { field: string }) => f.field === "color"));
+  assert.ok(decision.kind === "conflict" && decision.fields.some((f: { field: string }) => f.field === "color"));
 });
 
 test("diffAnnotationFields: key_order_alone_is_not_a_conflict (identical rows)", () => {
@@ -101,7 +100,7 @@ test("diffAnnotationFields: key_order_alone_is_not_a_conflict (flipped anchor)",
 test("diffAnnotationFields: diff_and_resolve_conflict (colour, comment and tags differ)", () => {
   const rs = readyCore();
   const row = {
-    local: { ...BASE_LOCAL, comment: "mine", zoteroKey: "K", syncState: "conflict", zoteroVersion: 1 },
+    local: { ...BASE_LOCAL, comment: "mine", zoteroKey: "K", syncState: "conflict" as const, zoteroVersion: 1 },
     remote: {
       ...REMOTE_OF_BASE,
       version: 2,
@@ -114,7 +113,7 @@ test("diffAnnotationFields: diff_and_resolve_conflict (colour, comment and tags 
 });
 
 const CONFLICT_ROW = {
-  local: { ...BASE_LOCAL, comment: "mine", zoteroKey: "K", syncState: "conflict", zoteroVersion: 1 },
+  local: { ...BASE_LOCAL, comment: "mine", zoteroKey: "K", syncState: "conflict" as const, zoteroVersion: 1 },
   remote: {
     ...REMOTE_OF_BASE,
     version: 2,
@@ -124,21 +123,25 @@ const CONFLICT_ROW = {
   },
 };
 
+/** The resolved annotation; the Rust side returns null only for an unknown row, which fails the test. */
+function resolved(choice: "keep_local" | "accept_remote" | "merge") {
+  const result = readyCore().resolveAnnotationConflict(CONFLICT_ROW, choice);
+  if (!result) throw new Error(`resolveAnnotationConflict(${choice}) returned null`);
+  return result;
+}
+
 test("resolveAnnotationConflict: keep_local keeps the local comment", () => {
-  const rs = readyCore();
-  assert.equal(rs.resolveAnnotationConflict(CONFLICT_ROW, "keep_local").comment, "mine");
+  assert.equal(resolved("keep_local").comment, "mine");
 });
 
 test("resolveAnnotationConflict: accept_remote takes the remote colour and comment", () => {
-  const rs = readyCore();
-  const accepted = rs.resolveAnnotationConflict(CONFLICT_ROW, "accept_remote");
+  const accepted = resolved("accept_remote");
   assert.equal(accepted.color, "#ff6666");
   assert.equal(accepted.comment, "theirs");
 });
 
 test("resolveAnnotationConflict: merge takes the remote colour and keeps the local comment", () => {
-  const rs = readyCore();
-  const merged = rs.resolveAnnotationConflict(CONFLICT_ROW, "merge");
+  const merged = resolved("merge");
   assert.equal(merged.color, "#ff6666");
   assert.equal(merged.comment, "mine");
 });
@@ -153,22 +156,26 @@ test("toZoteroWritePayload: payload_has_parent_and_empty_tags", () => {
 
 test("toZoteroWritePayload: write_back_sends_marks_and_never_strokes (underline)", () => {
   const rs = readyCore();
-  const payload = rs.toZoteroWritePayload({ ...BASE_LOCAL, id: "ul", type: "underline" }, "PARENT");
+  const payload = rs.toZoteroWritePayload({ ...BASE_LOCAL, id: "ul", type: "underline" as const }, "PARENT");
   assert.equal(payload.annotationType, "underline");
 });
 
 test("zoteroWriteBackAnnotations: write_back_sends_marks_and_never_strokes", () => {
   const rs = readyCore();
   const hl = { ...BASE_LOCAL, id: "hl" };
-  const ul = { ...BASE_LOCAL, id: "ul", type: "underline" };
-  const note = { ...BASE_LOCAL, id: "note", type: "note" };
+  const ul = { ...BASE_LOCAL, id: "ul", type: "underline" as const };
+  const note = { ...BASE_LOCAL, id: "note", type: "note" as const };
   const stroke = {
     ...BASE_LOCAL,
     id: "stroke",
-    type: "ink",
+    type: "ink" as const,
     anchor: { zoteroPosition: { pageIndex: 0, paths: [[1, 2, 3, 4]], width: 2 } },
   };
-  assert.deepEqual(rs.zoteroWriteBackAnnotations([hl, ul, note, stroke]), [0, 1, 2]);
+  // Ink is never sent; the kept annotations come back as the caller's objects, in order.
+  assert.deepEqual(
+    rs.zoteroWriteBackAnnotations([hl, ul, note, stroke]).map((a) => a.id),
+    ["hl", "ul", "note"],
+  );
 });
 
 test("analyzePdfDocument: no_pages_gives_the_empty_analysis", () => {
@@ -189,8 +196,8 @@ test("analyzePdfDocument: single_page_reports_text_and_one_column", () => {
   ];
   const result = rs.analyzePdfDocument(pages, []);
   assert.equal(result.pages.length, 1);
-  assert.equal(result.pages[0].text, "Hello world\nSecond line");
-  assert.equal(result.pages[0].columns, 1);
+  assert.equal(result.pages[0]?.text, "Hello world\nSecond line");
+  assert.equal(result.pages[0]?.columns, 1);
 });
 
 test("analyzePdfDocument: given_outline_wins_over_headings", () => {
@@ -204,5 +211,5 @@ test("analyzePdfDocument: given_outline_wins_over_headings", () => {
   const outline = [{ title: "Intro", pageNumber: 1 }];
   const result = rs.analyzePdfDocument(pages, outline);
   assert.equal(result.sections.length, 1);
-  assert.equal(result.sections[0].title, "Intro");
+  assert.equal(result.sections[0]?.title, "Intro");
 });

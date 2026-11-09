@@ -272,7 +272,7 @@ export function buildReferenceIndex(
   const analysis = readyCore().analyzePdfDocument(
     pages.map((page) => ({
       pageNumber: page.pageNumber,
-      items: page.items,
+      items: [...page.items],
       links: page.links ?? [],
     })),
     outline,
