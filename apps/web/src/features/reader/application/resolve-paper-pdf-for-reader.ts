@@ -21,7 +21,7 @@ import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
 import { isAllowedPdfProxyUrl, proxiedPdfUrl } from "./sanitize-reader-url";
-import { relayPath } from "@/lib/relay-url";
+import { relayPath, relayUrl } from "@/lib/relay-url";
 
 const CACHE_CAP = 64;
 let sharedCache: IPdfByteCache | null = null;
@@ -232,7 +232,7 @@ export async function fetchTypedPdfToCache(
     // fetch. Whether the bytes are a PDF is checked below.
     if (!bytes) return { ok: false, reason: "failed" };
   } else if (desktop() !== null) {
-    const res = await fetchFn(`/api/pdf-proxy?url=${encodeURIComponent(url)}&typed=1`);
+    const res = await fetchFn(relayUrl(`/api/pdf-proxy?url=${encodeURIComponent(url)}&typed=1`));
     if (!res.ok) return { ok: false, reason: res.status === 415 ? "not-pdf" : "failed" };
     bytes = await res.arrayBuffer();
   } else {

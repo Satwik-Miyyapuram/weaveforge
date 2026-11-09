@@ -1,4 +1,5 @@
 import { getDataClient } from "@/lib/data-client";
+import { relayUrl } from "@/lib/relay-url";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
@@ -42,7 +43,7 @@ function migrationHint(message: string): Error {
 }
 
 export async function createOrg(name: string) {
-  const res = await fetch("/api/org/create", {
+  const res = await fetch(relayUrl("/api/org/create"), {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({ name }),
@@ -57,7 +58,7 @@ export async function joinOrg(input: {
   phdSupervisorId?: string;
   professorSupervisorId?: string;
 }) {
-  const res = await fetch("/api/org/join", {
+  const res = await fetch(relayUrl("/api/org/join"), {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify(input),
@@ -93,7 +94,7 @@ export async function continueStandalone() {
     return;
   }
 
-  const res = await fetch("/api/org/standalone", {
+  const res = await fetch(relayUrl("/api/org/standalone"), {
     method: "POST",
     headers: await authHeaders(),
   });
@@ -112,7 +113,7 @@ export async function previewOrgCode(code: string) {
   // bearer every other org call sends. Without it the lookup came back "Not
   // authenticated", the supervisor pickers never rendered, and the join was
   // refused for a missing supervisor the form had no way to ask for.
-  const res = await fetch(`/api/org/codes?code=${encodeURIComponent(code)}`, {
+  const res = await fetch(relayUrl(`/api/org/codes?code=${encodeURIComponent(code)}`), {
     headers: await authHeaders(),
   });
   const body = await orgResponse<{
@@ -126,7 +127,7 @@ export async function previewOrgCode(code: string) {
 }
 
 export async function regenerateOrgCode(orgId: string, targetRole: string) {
-  const res = await fetch("/api/org/codes", {
+  const res = await fetch(relayUrl("/api/org/codes"), {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({ orgId, targetRole }),
@@ -136,7 +137,7 @@ export async function regenerateOrgCode(orgId: string, targetRole: string) {
 }
 
 export async function fetchOwnedOrgs() {
-  const res = await fetch("/api/org/mine", { headers: await authHeaders() });
+  const res = await fetch(relayUrl("/api/org/mine"), { headers: await authHeaders() });
   const body = await orgResponse<{
     error?: string;
     organizations?: { id: string; name: string; ownerId: string }[];
@@ -167,7 +168,7 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
     .order("joined_at", { ascending: true });
   if (!error && data) return data.map(membershipViewFromRow);
 
-  const res = await fetch("/api/org/memberships", { headers: await authHeaders() });
+  const res = await fetch(relayUrl("/api/org/memberships"), { headers: await authHeaders() });
   const body = await orgResponse<{
     error?: string;
     memberships?: OrgMembershipView[];
@@ -183,7 +184,7 @@ export async function switchOrg(orgId: string) {
     return;
   }
 
-  const res = await fetch("/api/org/switch", {
+  const res = await fetch(relayUrl("/api/org/switch"), {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({ orgId }),
@@ -207,7 +208,7 @@ export async function leaveOrg(orgId: string) {
     return;
   }
 
-  const res = await fetch("/api/org/leave", {
+  const res = await fetch(relayUrl("/api/org/leave"), {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({ orgId }),

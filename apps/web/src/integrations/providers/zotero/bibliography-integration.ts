@@ -1,4 +1,5 @@
 import type { IPaperRepository, ManageTagsUseCase } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import type { Paper } from "@weaveforge/core";
 import type {
   BibliographyAnnotationPull,
@@ -60,7 +61,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
       const { data: sessionData } = await getDataClient().auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return [];
-      const res = await fetch("/api/integrations/zotero/collections", {
+      const res = await fetch(relayUrl("/api/integrations/zotero/collections"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey, library }),

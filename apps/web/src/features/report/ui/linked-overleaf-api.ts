@@ -1,4 +1,5 @@
 import type { LatexSectionNode } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import { authHeaders } from "@/lib/auth-headers";
 import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
 import { getContainer } from "@/bootstrap";
@@ -27,7 +28,7 @@ export function local(): LocalOverleafGateway | null {
 }
 
 export async function api(path: string, init?: RequestInit) {
-  const response = await fetch(path, {
+  const response = await fetch(relayUrl(path), {
     ...init,
     headers: { ...(await authHeaders({ "Content-Type": "application/json" })), ...(init?.headers ?? {}) },
   });

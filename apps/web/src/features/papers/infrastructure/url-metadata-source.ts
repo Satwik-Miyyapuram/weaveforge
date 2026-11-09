@@ -67,7 +67,7 @@ export class UrlMetadataSource implements IMetadataSource {
     const target = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
     let res: Response;
     try {
-      res = await this.fetchFn(`${HTML_PROXY_PATH}?url=${encodeURIComponent(target)}`);
+      res = await this.fetchFn(`${relayUrl(HTML_PROXY_PATH)}?url=${encodeURIComponent(target)}`);
     } catch (err) {
       throw new Error(`Could not reach that site. Check the connection and try again. (${formatError(err)})`);
     }

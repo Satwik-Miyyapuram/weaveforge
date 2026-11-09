@@ -1,5 +1,7 @@
 /** Browser-side call to POST /api/overleaf/workshop/pdf. Pure: every side effect is injected. */
 
+import { relayUrl } from "@/lib/relay-url";
+
 export const WORKSHOP_PDF_PATH = "/api/overleaf/workshop/pdf";
 
 export interface WorkshopPdfDeps {
@@ -30,7 +32,7 @@ export async function fetchWorkshopPdf(
 ): Promise<WorkshopPdfResult> {
   let res: Response;
   try {
-    res = await deps.fetch(WORKSHOP_PDF_PATH, {
+    res = await deps.fetch(relayUrl(WORKSHOP_PDF_PATH), {
       method: "POST",
       headers: await deps.authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(rootResourcePath ? { sessionId, projectId, rootResourcePath } : { sessionId, projectId }),

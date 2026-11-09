@@ -1,4 +1,5 @@
 import type { ICurrentUserProvider } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   EMPTY_SETTINGS,
@@ -81,7 +82,7 @@ export class RouteSecretsStore implements SecretsStore {
   }
 
   async load(): Promise<Secrets> {
-    const res = await fetch(CREDENTIALS_ROUTE, { headers: await this.authHeader() });
+    const res = await fetch(relayUrl(CREDENTIALS_ROUTE), { headers: await this.authHeader() });
     // A failed read is not "no keys": shown as none, the next save would seal
     // that empty set over every stored credential.
     if (!res.ok) {
@@ -92,7 +93,7 @@ export class RouteSecretsStore implements SecretsStore {
   }
 
   async save(secrets: Secrets): Promise<void> {
-    const res = await fetch(CREDENTIALS_ROUTE, {
+    const res = await fetch(relayUrl(CREDENTIALS_ROUTE), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(await this.authHeader()) },
       body: JSON.stringify(secrets),

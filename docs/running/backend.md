@@ -143,6 +143,66 @@ It is **not** the self-hosting switch, and setting it in a deployed app breaks t
 
 ---
 
+## Relay API routes
+
+The relay (`apps/relay`, axum) serves the routes the Next app used to serve.
+Caddy sends `/relay/*` to it and strips the prefix, so the public URL is
+`/relay` plus the path below. Routes are defined in
+`apps/relay/server/src/routes.rs`; each handler module names its own source in
+its header.
+
+| Path | Method | What it does |
+|---|---|---|
+| `/healthz` | GET | Liveness check; returns `ok`. |
+| `/api/pdf-proxy` | GET | Fetches an allowed PDF for the reader. |
+| `/api/html-proxy` | GET | Fetches a web page for the reader; sends the final URL in `x-final-url`. |
+| `/api/semantic-scholar/{path}` | GET, POST | Forwards a Semantic Scholar call; uses the caller's `x-api-key`. |
+| `/api/arxiv` | GET | Proxies arXiv; cached for 600 s, shared cache 3600 s. |
+| `/api/fetch-url` | GET | Fetches a pasted link's image or title. |
+| `/api/url-meta` | GET | Paper metadata: arXiv, then Crossref, then a guarded page fetch. |
+| `/api/report-issue` | POST | Files an error report as a GitHub issue. |
+| `/api/plan/feed/{token}/{file}` | GET | Serves `deadlines.ics` or `widget.json` for a plan feed token. |
+| `/api/sdk/whoami` | GET | Returns the account behind an SDK bearer token. |
+| `/api/sdk/projects` | GET | Lists projects for the SDK. |
+| `/api/sdk/experiments` | GET, POST, DELETE | Lists, creates or deletes experiments. |
+| `/api/sdk/metrics` | POST, DELETE | Stores a batch of metric points; `DELETE` drops one run's curves. |
+| `/api/sdk/artifacts` | POST | Uploads an experiment artifact. |
+| `/api/org/codes` | GET, POST | Looks up a join code (`?code=`); makes a new invite code for a role. |
+| `/api/org/create` | POST | Creates a lab owned by the caller. |
+| `/api/org/join` | POST | Joins a lab with its invite code. |
+| `/api/org/leave` | POST | Leaves a lab. |
+| `/api/org/switch` | POST | Makes a lab the caller's active lab. |
+| `/api/org/standalone` | POST | Finishes onboarding as the caller, not the admin. |
+| `/api/org/memberships` | GET | Lists the labs the caller is in. |
+| `/api/org/mine` | GET | Lists the labs the caller owns. |
+| `/api/blobs/content` | GET | Reads a tiered blob (signed view token). |
+| `/api/blobs/remove` | POST | Removes a blob. |
+| `/api/blobs/signed-urls` | POST | Creates signed view URLs for blobs. |
+| `/api/blobs/upload` | POST | Uploads a blob (larger body limit). |
+| `/api/settings/api-tokens` | GET, POST, DELETE | Lists, issues or revokes SDK API tokens. |
+| `/api/settings/mcp-tokens` | GET, POST, DELETE | Lists, issues or revokes MCP tokens. |
+| `/api/settings/credentials` | GET, POST | Reads or stores sealed integration credentials. |
+| `/api/account/delete-user` | POST | Deletes the caller's account after the emailed code is confirmed. |
+| `/api/account/delete-user/otp` | POST | Emails the one-time code for account deletion. |
+| `/api/admin/create-user` | POST | Creates a lower-rank member account under the caller. |
+| `/api/overleaf/connections` | GET, POST, DELETE | Lists, adds or removes Overleaf connections. |
+| `/api/overleaf/reports` | GET, POST, PATCH, DELETE | Lists, links, updates or unlinks Overleaf reports. |
+| `/api/overleaf/reports/{id}/content` | GET | Reads the content of one Overleaf report. |
+| `/api/overleaf/workshop/session` | POST, DELETE | Stores (sealed) or forgets an Overleaf session cookie. |
+| `/api/overleaf/workshop/projects` | POST | Lists the caller's Overleaf projects. |
+| `/api/overleaf/workshop/compile` | POST | Compiles an Overleaf project with a stored session. |
+| `/api/overleaf/workshop/pdf` | POST | Compiles and returns `output.pdf`. |
+| `/api/integrations/zotero/collections` | POST | Lists a Zotero library's collections. |
+| `/api/mcp` | GET, POST | MCP pairing notice. |
+| `/api/mcp/relay` | GET, POST, PATCH | MCP request queue. |
+| `/api/mcp/relay/browser` | GET | Browser side of the MCP relay queue. |
+
+Most routes need a signed-in session or an SDK/MCP bearer token. The response
+codes and error bodies are the handlers' own; see the module named in each
+handler's header.
+
+---
+
 ## Replacing PostgREST or sign-in (a `postgres` provider)
 
 **Goal:** Keep the same schema and RLS model; replace Supabase Auth/PostgREST with your stack.

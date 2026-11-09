@@ -3,6 +3,7 @@ import type {
   IBibliographyIntegration,
   ManageSettingsUseCase,
 } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
@@ -117,7 +118,7 @@ export class SettingsFacade {
   }
 
   private async send<T>(token: string, path: string, init: RequestInit, fallback: string): Promise<T> {
-    const response = await fetch(path, {
+    const response = await fetch(relayUrl(path), {
       ...init,
       headers: {
         ...((init.headers ?? {}) as Record<string, string>),

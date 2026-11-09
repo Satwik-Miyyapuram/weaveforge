@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { relayUrl } from "@/lib/relay-url";
 
 import { getContainer } from "@/bootstrap";
 import { newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
@@ -124,7 +125,7 @@ export function ErrorReportPanel({
     setState({ status: "sending" });
     try {
       const token = await getContainer().auth.auth.getAccessToken();
-      const response = await fetch("/api/report-issue", {
+      const response = await fetch(relayUrl("/api/report-issue"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
