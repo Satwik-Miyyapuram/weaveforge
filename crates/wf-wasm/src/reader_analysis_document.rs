@@ -8,11 +8,23 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader_analysis::document_analysis;
 use wf_core::reader_analysis::outline::OutlineReaderItem;
+use wf_core::reader_analysis::text::AnalysisPdfItem;
 use wf_core::reader_analysis::types::AnalysisPdfPage;
 
 use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
+
+/// [`outline_item_of`](document_analysis::outline_item_of) (TS `outlineItemOf`).
+///
+/// # Errors
+///
+/// Fails if `item` is not a pdf.js text item with a `transform` array.
+#[wasm_bindgen(js_name = outlineItemOf)]
+pub fn outline_item_of_js(item: JsValue, page: f64) -> JsResult<JsValue> {
+    let item: AnalysisPdfItem = serde_wasm_bindgen::from_value(item)?;
+    to_js(&document_analysis::outline_item_of(&item, page))
+}
 
 /// [`analyze_pdf_document`](document_analysis::analyze_pdf_document) (TS `analyzePdfDocument`).
 ///

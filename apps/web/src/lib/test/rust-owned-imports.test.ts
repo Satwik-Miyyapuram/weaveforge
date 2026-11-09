@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 const RUST_OWNED = [
   "addCounts",
   "agreementBetween",
+  "analyzePdfDocument",
   "AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS",
   "AI_PROPOSAL_KINDS",
   "AI_READ_CATEGORIES",
@@ -86,6 +87,7 @@ const RUST_OWNED = [
   "normalizeMarkdownImageSyntax",
   "normalizePasteSettings",
   "outlineFromText",
+  "outlineItemOf",
   "pageTextFromItems",
   "parseBibEntries",
   "parseJsonData",

@@ -1,7 +1,7 @@
 /**
  * Reader viewport math, PDF page projection and annotation sort keys (Rust
  * `reader::viewport`), re-exported from index.ts. Each function keeps the
- * signature and defaults of packages/core/src/reader/reader-viewport.ts,
+ * signature and defaults of the removed packages/core/src/reader/reader-viewport.ts,
  * page-projection.ts and sort-index.ts. Object shapes come from ./bindings.ts.
  */
 import {

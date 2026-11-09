@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseReferenceList, findCitationMentions, detectCitationStyle, findFigureMentions, isBibliographicMatch, bibliographicTitleSimilarity as titleSimilarity, type OutlineTextItem } from "../../../src/features/reader/index.js";
+import { parseReferenceList, findCitationMentions, isBibliographicMatch, bibliographicTitleSimilarity as titleSimilarity, type OutlineTextItem } from "../../../src/features/reader/index.js";
 
 function lines(texts: string[], page = 3, x = 40): OutlineTextItem[] {
   return texts.map((str, i) => ({ str, page, x, y: 700 - i * 15, fontSize: 10 }));
@@ -101,14 +101,6 @@ test("a page that cites in brackets reads no small digit as a superscript citati
   assert.deepEqual(found.map((m) => [m.start, m.end, m.referenceIndexes, m.source]), [[4, 7, [1], "numeric"]]);
 });
 
-test("figure and equation mentions resolve to first targets", () => {
-  const pages = [{ number: 1, text: "See Fig. 2 and Eq. (3)", items: lines(["See Fig. 2 and Eq. (3)"], 1) },
-    { number: 2, text: "Figure 2 A caption", items: [...lines(["Figure 2 A caption"], 2), { ...lines(["(3)"], 2, 500)[0]!, y: 300 }] }];
-  const mentions = findFigureMentions(pages);
-  assert.deepEqual(mentions[0]?.target, { page: 2, y: 700, x: 40, height: 10, label: "Figure 2", kind: "figure" });
-  assert.deepEqual(mentions[1]?.target, { page: 2, y: 300, x: 500, height: 10, label: "Equation (3)", kind: "equation" });
-});
-
 test("title scorer enforces title and year thresholds", () => {
   assert.equal(titleSimilarity("Müller: A method", "a method muller"), 1);
   assert.equal(titleSimilarity("", ""), 0);
@@ -137,11 +129,7 @@ test("finds an unlabelled bibliography as a numbered run in the last third", () 
   assert.equal(parseReferenceList(decimals).length, 3);
 });
 
-test("detects the citation style by tally and limits the search to it", () => {
-  assert.equal(detectCitationStyle(["see [1] and [2, 3]", "then [4]"]), "numeric");
-  assert.equal(detectCitationStyle(["see (Smith 2019) and (Lee et al. 2020)"]), "author-year");
-  assert.equal(detectCitationStyle(["see [1] [2] [3] (Smith 2019) (Lee 2020) (Jones 2021) (Doe 2022)"]), "both");
-  assert.equal(detectCitationStyle(["no citations here (2019)"]), null);
+test("limits the citation search to the given style", () => {
   const refs = parseReferenceList(numbered);
   const page = { number: 1, text: "Smith (2019) showed [1].", items: [] };
   assert.equal(findCitationMentions(page, refs, 10, "numeric").length, 1);
@@ -150,11 +138,3 @@ test("detects the citation style by tally and limits the search to it", () => {
   assert.equal(findCitationMentions(page, refs, 10, null).length, 0);
 });
 
-test("a caption line is a target, not a mention of itself", () => {
-  const pages = [
-    { number: 1, text: "As Figure 1 shows.", items: lines(["As Figure 1 shows."], 1) },
-    { number: 2, text: "Figure 1: The thing.\nFigure 1 is above.", items: lines(["Figure 1: The thing.", "Figure 1 is above."], 2) },
-  ];
-  const mentions = findFigureMentions(pages, []);
-  assert.deepEqual(mentions.map((m) => [m.page, m.start]), [[1, 3], [2, 21]]);
-});

@@ -1,5 +1,5 @@
 import type { CitationMention, ParsedReference } from "./analysis/analysis-types.js";
-import type { OutlineTextItem } from "./outline-from-text.js";
+import type { OutlineTextItem } from "./outline-types.js";
 
 /**
  * Pattern citation finding — the fallback for documents without their own
@@ -63,43 +63,11 @@ const LEAD_IN = String.raw`(?:(?:e\.g\.|see also|see|cf\.|but see),?\s+)?`;
 const NUMBER_LIST = String.raw`\s*\d{1,4}(?:\s*[-–—]\s*\d{1,4})?(?:\s*[,;]\s*\d{1,4}(?:\s*[-–—]\s*\d{1,4})?)*\s*`;
 const BRACKET_TOKEN = new RegExp(String.raw`\[${NUMBER_LIST}\]`, "g");
 const PAREN_NUMBER_TOKEN = new RegExp(String.raw`\(${NUMBER_LIST}\)`, "g");
-const PAREN_AUTHOR_YEAR_TOKEN = new RegExp(
-  String.raw`\(${LEAD_IN}${AUTHORS},?\s+${YEAR}[^()]*\)`,
-  "gu",
-);
 const NARRATIVE_TOKEN = new RegExp(String.raw`${AUTHORS}\s+\(${YEAR}(?:[,;]\s*[^()]*)?\)`, "gu");
 const AUTHOR_YEAR_GROUP = new RegExp(
   String.raw`^${LEAD_IN}(${SURNAME})((?:,\s*${SURNAME})*)(?:\s+(${ET_AL})|,?\s+(?:and|&)\s+(${SURNAME}))?,?\s+\(?(${YEAR})\)?(?:[,:]\s*(?:pp?\.|ch\.|§)?\s*[\d\-–, ]+)?$`,
   "u",
 );
-
-/**
- * Which citation convention the body uses, by tallying `[n]` against
- * `(Author year)` over the whole text. A style counts once it has at least two
- * hits and a fifth of all tokens; brackets weigh three times an author-year
- * hit because a `[3]` is rarely anything else while "(Smith 2019)" also
- * appears in prose. Both can coexist — a survey quoting other papers'
- * conventions — in which case both are looked for.
- */
-export function detectCitationStyle(texts: readonly string[]): CitationStyle | null {
-  let numeric = 0;
-  let authorYear = 0;
-  for (const text of texts) {
-    numeric += 3 * (text.match(BRACKET_TOKEN)?.length ?? 0);
-    // Both "(Smith 2019)" and the narrative "Smith (2019)" / "Smith et al.
-    // (2019)" are author-year evidence; a paper that cites only narratively
-    // would otherwise read as having no style at all.
-    authorYear += (text.match(PAREN_AUTHOR_YEAR_TOKEN)?.length ?? 0) +
-      (text.match(NARRATIVE_TOKEN)?.length ?? 0);
-  }
-  const threshold = Math.max(2, (numeric + authorYear) / 5);
-  const hasNumeric = numeric >= threshold;
-  const hasAuthorYear = authorYear >= threshold;
-  if (hasNumeric && hasAuthorYear) return "both";
-  if (hasNumeric) return "numeric";
-  if (hasAuthorYear) return "author-year";
-  return null;
-}
 
 /**
  * Entries cited by "Smith 2019", "Smith and Jones 2019" or "Smith et al.

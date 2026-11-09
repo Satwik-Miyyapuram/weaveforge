@@ -127,31 +127,17 @@ export {
   type InkUndoPatch,
   type InkUndoState,
 } from "./ink-undo.js";
-export {
-  pdfPointToScreen,
-  screenPointToPdf,
-  pdfRectToScreenBox,
-  projectedPageSize,
-  normalisePageRotation,
-  type PageProjection,
-} from "./page-projection.js";
-export {
-  decideAnnotationSync,
-  diffAnnotationFields,
-  resolveAnnotationConflict,
-  toZoteroWritePayload,
-  zoteroWriteBackAnnotations,
-  DryRunZoteroAnnotationWriteBack,
-  isZoteroLibrarySyncMode,
-  type ZoteroLibrarySyncMode,
-  type ZoteroAnnotationRemote,
-  type AnnotationFieldConflict,
-  type AnnotationSyncDecision,
-  type AnnotationSyncRow,
-  type ConflictResolveChoice,
-  type ZoteroAnnotationWritePayload,
-  type IZoteroAnnotationWriteBack,
-} from "./zotero-write-back.js";
+export type { PageProjection } from "./page-projection-types.js";
+export type {
+  ZoteroLibrarySyncMode,
+  ZoteroAnnotationRemote,
+  AnnotationFieldConflict,
+  AnnotationSyncDecision,
+  AnnotationSyncRow,
+  ConflictResolveChoice,
+  ZoteroAnnotationWritePayload,
+  IZoteroAnnotationWriteBack,
+} from "./zotero-write-back-types.js";
 export {
   InMemoryPdfByteCache,
   PdfByteCacheResolver,

@@ -7,6 +7,8 @@
  * (e.g. server blob) must be registered last by the composition root.
  */
 
+import { rust } from "../shared/rust.js";
+
 /** Minimal paper shape the ladder needs — callers map from domain Paper. */
 export interface PdfSourcePaper {
   id: string;
@@ -43,14 +45,17 @@ export type PdfSourceResolution =
 /**
  * Try resolvers in the given order. Skips unsupported papers, continues past
  * failures/throws, returns the first hit with the winning resolver id.
- * Does not reorder — callers must put cost-bearing sources last.
+ * Does not reorder — callers must put cost-bearing sources last. The order of
+ * the supporting resolvers comes from the Rust core (`ladderOrder`); the
+ * fetching stays here.
  */
 export async function resolvePdfSource(
   paper: PdfSourcePaper,
   resolvers: readonly IPdfSourceResolver[],
 ): Promise<PdfSourceResolution> {
-  for (const resolver of resolvers) {
-    if (!resolver.supports(paper)) continue;
+  const plan = rust().ladderOrder(resolvers.map((resolver) => resolver.supports(paper)));
+  for (const index of plan) {
+    const resolver = resolvers[index]!;
     try {
       const hit = await resolver.resolve(paper);
       const url = hit?.url?.trim();

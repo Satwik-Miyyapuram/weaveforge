@@ -9,9 +9,6 @@
  */
 
 import {
-  analyzePdfDocument,
-  outlineItemOf,
-  bodyFontSize,
   type CitationSource,
   type DocumentAnalysis,
   type OutlineTextItem,
@@ -19,7 +16,6 @@ import {
   type ParsedReference,
   type PdfLink,
   type ReaderOutlineItem,
-  coveredTextSpans,
 } from "@weaveforge/core";
 import type { FigureTarget } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
@@ -95,7 +91,9 @@ const EMPTY_INDEX: ReaderReferenceIndex = {
 
 /** The pages' runs as outline items — what the core analysis reasons with. */
 export function outlineItemsFor(pages: readonly ReferencePage[]): OutlineTextItem[][] {
-  return pages.map((page) => page.items.map((item) => outlineItemOf(item, page.pageNumber)));
+  return pages.map((page) =>
+    page.items.map((item) => readyCore().outlineItemOf(item, page.pageNumber) as OutlineTextItem),
+  );
 }
 
 /**
@@ -212,7 +210,9 @@ export function indexFromAnalysis(
     if (!pageLinks.length) continue;
     const text = texts.get(page.pageNumber) ?? "";
     const hits = hitsFor(page.pageNumber);
-    const { spans } = coveredTextSpans({ number: page.pageNumber, items: page.items }, pageLinks);
+    const { spans } = readyCore().coveredTextSpans({ number: page.pageNumber, items: page.items }, pageLinks) as {
+      spans: { start: number; end: number; link: PdfLink }[];
+    };
     for (const span of spans) {
       if (span.end <= span.start) continue;
       // Existing citations and figure detections take precedence
@@ -255,7 +255,7 @@ export function indexFromAnalysis(
     references: analysis.references,
     byIndex,
     mentionsByPage,
-    bodyFontSize: bodyFontSize(outlineItemsFor(pages)),
+    bodyFontSize: readyCore().bodyFontSize(outlineItemsFor(pages)),
     fingerprint: analysis.fingerprint,
   };
 }
@@ -269,13 +269,13 @@ export function buildReferenceIndex(
   outline: readonly ReaderOutlineItem[] = [],
 ): ReaderReferenceIndex {
   if (!pages.length) return EMPTY_INDEX;
-  const analysis = analyzePdfDocument(
+  const analysis = readyCore().analyzePdfDocument(
     pages.map((page) => ({
       pageNumber: page.pageNumber,
       items: page.items,
       links: page.links ?? [],
     })),
     outline,
-  );
+  ) as DocumentAnalysis;
   return indexFromAnalysis(analysis, pages);
 }

@@ -11,10 +11,28 @@
  */
 
 import type { PageTextItem } from "../../../reader/selection-to-anchor.js";
-import type { FigureMention } from "../find-figure-mentions.js";
-import type { ReaderOutlineItem } from "../outline-from-text.js";
+import type { ReaderOutlineItem } from "../outline-types.js";
 
 export type { PageTextItem };
+
+/** Where a figure, table, equation, section or algorithm mention points. */
+export interface FigureTarget {
+  page: number;
+  y: number;
+  x?: number;
+  height?: number;
+  label?: string;
+  kind?: string;
+}
+
+/** A mention of a figure-like item in the body text, with its target. */
+export interface FigureMention {
+  page: number;
+  start: number;
+  end: number;
+  kind: "figure" | "table" | "equation" | "section" | "algorithm";
+  target: FigureTarget;
+}
 
 /**
  * A `/Link` annotation as the reader sees it: the box it covers on the page

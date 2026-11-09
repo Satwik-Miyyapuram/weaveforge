@@ -39,7 +39,7 @@ import {
 } from "./pdf-document";
 import type { PageTextGeometry } from "@weaveforge/core";
 import { relayPath } from "@/lib/relay-url";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface PdfRenderingDeps {
   url: string;
@@ -370,7 +370,7 @@ useEffect(() => {
               x: item.transform[4] ?? 0,
               y: item.transform[5] ?? 0,
               page: n,
-              ...(typedCore().isRotatedText(item.transform) ? { rotated: true } : {}),
+              ...(readyCore().isRotatedText(item.transform) ? { rotated: true } : {}),
             }));
           };
 
@@ -396,7 +396,7 @@ useEffect(() => {
           await idle(cancelSignal);
           if (cancelled) return;
 
-          detected = typedCore().outlineFromText(outlinePages);
+          detected = readyCore().outlineFromText(outlinePages);
           publishOutline();
           setPageTexts(texts);
           setPageItems(itemsByPage);

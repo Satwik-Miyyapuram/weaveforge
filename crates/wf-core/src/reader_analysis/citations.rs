@@ -68,10 +68,10 @@ pub struct CitationPage {
 }
 
 /// Upper-case letters (`\p{Lu}`) as the body of a regex class.
-static UPPER_CLASS: LazyLock<String> = LazyLock::new(|| class_body(is_upper));
+pub(crate) static UPPER_CLASS: LazyLock<String> = LazyLock::new(|| class_body(is_upper));
 
 /// Letters (`\p{L}`) as the body of a regex class.
-static LETTER_CLASS: LazyLock<String> = LazyLock::new(|| class_body(is_letter));
+pub(crate) static LETTER_CLASS: LazyLock<String> = LazyLock::new(|| class_body(is_letter));
 
 /// A name (`NAME`): optional particles, then a capitalised word or an initial.
 static NAME_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(&name_pattern()).ok());
