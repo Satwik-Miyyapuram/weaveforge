@@ -3,13 +3,13 @@
  * as a denormalized cache for filters and legacy callers.
  */
 
-import { normalizeTags } from "../../papers/domain/paper.js";
 import type { Paper } from "../../papers/domain/paper.js";
 import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
 import { normalizeTagName, type PaperTag, type Tag, type TagSource } from "../domain/tag.js";
 import type { ITagRepository, IPaperTagRepository } from "../domain/tag-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageTagsDeps {
   tags: ITagRepository;
@@ -58,7 +58,7 @@ export class ManageTagsUseCase {
 
   /** Replace manual tags on a paper. */
   async setManualTags(paperId: string, rawNames: string[]): Promise<Paper> {
-    const names = normalizeTags(rawNames);
+    const names = rust().normalizeTags(rawNames);
     await this.reconcileSources(
       paperId,
       names.map((name) => ({ name, source: "manual" as const })),
@@ -69,9 +69,9 @@ export class ManageTagsUseCase {
 
   /** Union tags into a paper for a given source (legacy mergeTags). */
   async mergeTags(paperId: string, rawNames: string[], source: TagSource = "manual"): Promise<Paper> {
-    const names = normalizeTags(rawNames);
+    const names = rust().normalizeTags(rawNames);
     const existing = await this.listTagNamesForPaper(paperId, source);
-    const merged = normalizeTags([...existing, ...names]);
+    const merged = rust().normalizeTags([...existing, ...names]);
     await this.reconcileSources(
       paperId,
       merged.map((name) => ({ name, source })),
@@ -172,7 +172,7 @@ export class ManageTagsUseCase {
 
   private async refreshPaperCache(paperId: string): Promise<Paper> {
     const tags = await this.listForPaper(paperId);
-    const names = normalizeTags(tags.map((t) => t.name)).sort();
+    const names = rust().normalizeTags(tags.map((t) => t.name)).sort();
     // Only the tag column is written. Saving the whole row read before the
     // links were listed reverted any edit that landed in between.
     await this.deps.papers.setTags(paperId, names, this.deps.clock.nowIso());

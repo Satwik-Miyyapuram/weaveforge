@@ -9,9 +9,9 @@
  * each entry: DOI, arXiv ID, URL, authors, title, venue and year.
  */
 
-import { normalizeDoi } from "../../papers/index.js";
 import type { ParsedReference } from "./analysis-types.js";
 import type { TextLine } from "./line-reconstruction.js";
+import { rust } from "../../../shared/rust.js";
 
 /**
  * `[12]`, `12.`, `(12)`, and the bare `12 Smith` / `12-Smith` that some
@@ -174,7 +174,7 @@ export function parseBibliographyEntry(
   const labelMatch = LABEL.exec(raw);
   const text = raw.slice(labelMatch?.[0].length ?? 0).trim();
 
-  const doi = normalizeDoi(/10\.\d{4,9}\/[^\s"<>]+/i.exec(text)?.[0]?.replace(/[.,;)]+$/, ""));
+  const doi = rust().normalizeDoi(/10\.\d{4,9}\/[^\s"<>]+/i.exec(text)?.[0]?.replace(/[.,;)]+$/, ""));
   const arxivId = /(?:arXiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[A-Z]{2})?\/\d{7}(?:v\d+)?)/i.exec(text)?.[1];
   const url = /https?:\/\/[^\s"<>]+/i.exec(text)?.[0]?.replace(/[.,;)]+$/, "");
 

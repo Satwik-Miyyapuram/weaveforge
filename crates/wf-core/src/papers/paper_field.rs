@@ -143,6 +143,68 @@ pub fn parse_rollup_options(options: &[String]) -> Option<PaperFieldRollupConfig
     })
 }
 
+/// A paper field value as an AI tool or draft sends it, before it is checked.
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[serde(untagged)]
+pub enum PaperFieldValueInput {
+    /// A string.
+    Text(String),
+    /// A number; NaN and the infinities are refused by [`parse_paper_field_value`].
+    Number(f64),
+    /// A string list; every item must be a string.
+    List(Vec<String>),
+}
+
+/// A checked paper field value: a string, a finite number or a string list.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub enum PaperFieldValueData {
+    /// A non-blank string, kept as sent.
+    Text(String),
+    /// A finite number.
+    Number(f64),
+    /// A list with blanks trimmed away and at least one item.
+    List(Vec<String>),
+}
+
+/// The refusal message for `name`, the caller's label (e.g. `value` or `Proposal value`).
+#[must_use]
+pub fn paper_field_value_refusal(name: &str) -> String {
+    format!("{name} must be a non-empty string, number, or non-empty string list.")
+}
+
+/// Read a field value sent from outside (TS `parsePaperFieldValue`): a non-blank string
+/// (kept as sent), a finite number, or a string list with blanks trimmed away.
+/// Anything else is refused with [`paper_field_value_refusal`].
+pub fn parse_paper_field_value(
+    input: PaperFieldValueInput,
+    name: &str,
+) -> Result<PaperFieldValueData, String> {
+    match input {
+        PaperFieldValueInput::Text(text) if !text.trim().is_empty() => {
+            Ok(PaperFieldValueData::Text(text))
+        }
+        PaperFieldValueInput::Number(number) if number.is_finite() => {
+            Ok(PaperFieldValueData::Number(number))
+        }
+        PaperFieldValueInput::List(items) => {
+            let cleaned: Vec<String> = items
+                .iter()
+                .map(|item| item.trim())
+                .filter(|item| !item.is_empty())
+                .map(str::to_owned)
+                .collect();
+            if cleaned.is_empty() {
+                Err(paper_field_value_refusal(name))
+            } else {
+                Ok(PaperFieldValueData::List(cleaned))
+            }
+        }
+        _ => Err(paper_field_value_refusal(name)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +294,54 @@ mod tests {
                 source_field_id: Some("b".to_owned()),
             })
         );
+    }
+
+    #[test]
+    fn field_value_passes_text_numbers_and_trimmed_lists() {
+        assert_eq!(
+            parse_paper_field_value(PaperFieldValueInput::Text("VAE".to_owned()), "value"),
+            Ok(PaperFieldValueData::Text("VAE".to_owned()))
+        );
+        assert_eq!(
+            parse_paper_field_value(PaperFieldValueInput::Number(0.0), "value"),
+            Ok(PaperFieldValueData::Number(0.0))
+        );
+        assert_eq!(
+            parse_paper_field_value(
+                PaperFieldValueInput::List(tokens(&[" a ", "", "b"])),
+                "value"
+            ),
+            Ok(PaperFieldValueData::List(tokens(&["a", "b"])))
+        );
+    }
+
+    #[test]
+    fn field_value_refuses_blank_and_non_finite_with_caller_name() {
+        let message =
+            "Proposal value must be a non-empty string, number, or non-empty string list.";
+        let refused = [
+            PaperFieldValueInput::Text("  ".to_owned()),
+            PaperFieldValueInput::List(Vec::new()),
+            PaperFieldValueInput::List(tokens(&["", " "])),
+            PaperFieldValueInput::Number(f64::NAN),
+            PaperFieldValueInput::Number(f64::INFINITY),
+            PaperFieldValueInput::Number(f64::NEG_INFINITY),
+        ];
+        for bad in refused {
+            assert_eq!(
+                parse_paper_field_value(bad, "Proposal value"),
+                Err(message.to_owned())
+            );
+        }
+    }
+
+    #[test]
+    fn field_value_input_shapes_refuse_null_objects_and_non_string_items() {
+        for json in ["null", "true", "{}", "[1]", "[null]", "[[\"a\"]]"] {
+            assert!(
+                serde_json::from_str::<PaperFieldValueInput>(json).is_err(),
+                "{json} should be refused"
+            );
+        }
     }
 }

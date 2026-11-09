@@ -1,5 +1,5 @@
 import type { Identifiable } from "../../../shared/repository.js";
-import { normalizeTags } from "../../papers/domain/paper.js";
+import { rust } from "../../../shared/rust.js";
 
 /** Where a paper–tag link originated. */
 export type TagSource = "zotero_annotation" | "zotero_item" | "summary" | "manual";
@@ -32,5 +32,5 @@ export interface TagWithPaperCount extends Tag {
 }
 
 export function normalizeTagName(raw: string): string {
-  return normalizeTags([raw])[0] ?? "";
+  return rust().normalizeTags([raw])[0] ?? "";
 }

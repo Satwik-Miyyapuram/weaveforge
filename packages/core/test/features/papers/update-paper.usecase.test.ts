@@ -7,6 +7,7 @@ import { UpdatePaperUseCase } from "../../../src/features/papers/application/upd
 import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
 import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
 import { NotFoundError } from "../../../src/index.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
@@ -98,15 +99,12 @@ test("mergeTags normalizes and unions through the tags use case", async () => {
 });
 
 test("extractHashtags pulls normalized tags from text", async () => {
-  const { extractHashtags } = await import(
-    "../../../src/features/papers/domain/paper.js"
-  );
   assert.deepEqual(
-    extractHashtags("Key #Disentanglement idea, see #beta-VAE and #beta-VAE again."),
+    rust().extractHashtags("Key #Disentanglement idea, see #beta-VAE and #beta-VAE again."),
     ["disentanglement", "beta-vae"],
   );
-  assert.deepEqual(extractHashtags(undefined), []);
-  assert.deepEqual(extractHashtags("no tags here"), []);
+  assert.deepEqual(rust().extractHashtags(undefined), []);
+  assert.deepEqual(rust().extractHashtags("no tags here"), []);
 });
 
 test("setIdentifiers normalizes a DOI URL down to the bare identifier", async () => {

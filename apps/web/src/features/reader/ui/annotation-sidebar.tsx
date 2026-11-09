@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  QUOTATION_TYPE_LABELS,
-  type QuotationType,
-  type ReaderAnnotation,
-} from "@weaveforge/core";
+import { type QuotationType, type ReaderAnnotation } from "@weaveforge/core";
+import { QUOTATION_TYPE_LABELS } from "@/features/papers/ui/quotation-type-labels";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import {
   annotationPinKey,

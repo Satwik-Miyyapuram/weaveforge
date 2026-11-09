@@ -1,4 +1,5 @@
-import { normalizeDoi, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
+import { type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How paper rows are stored, and how they map to the domain type.
@@ -44,7 +45,7 @@ export function toRow(p: Paper): Record<string, unknown> {
     authors: p.authors ?? [],
     year: p.year ?? null,
     venue: emptyToNull(p.venue),
-    doi: p.doi ? emptyToNull(normalizeDoi(p.doi)) : null,
+    doi: p.doi ? emptyToNull(readyCore().normalizeDoi(p.doi)) : null,
     arxiv_id: emptyToNull(p.arxivId),
     url: emptyToNull(p.url),
     pdf_path: p.pdfPath ?? null,

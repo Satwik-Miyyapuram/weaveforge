@@ -1,13 +1,9 @@
-import {
-  extractHashtags,
-  TAG_SOURCES,
-  type ManageTagsUseCase,
-  type Paper,
-} from "@weaveforge/core";
+import { TAG_SOURCES, type ManageTagsUseCase, type Paper } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, isNetworkFailure } from "@/lib/format-error";
 import { readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
 import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Tags live in the note markdown as `#hashtags`. These helpers keep that the
@@ -28,7 +24,7 @@ function tagToHashtag(name: string): string {
 
 /** Append any tag names not already present in the body as `#hashtag` lines. */
 export function appendTagHashtags(body: string, tagNames: readonly string[]): string {
-  const have = new Set(extractHashtags(body));
+  const have = new Set(readyCore().extractHashtags(body));
   const lines: string[] = [];
   for (const name of tagNames) {
     const h = tagToHashtag(name);
@@ -53,7 +49,7 @@ export function reconcileTagsFromBody(
 ): Promise<Paper> {
   return manageTags.reconcileSources(
     paperId,
-    extractHashtags(body).map((name) => ({ name, source: "manual" as const })),
+    readyCore().extractHashtags(body).map((name) => ({ name, source: "manual" as const })),
     TAG_SOURCES,
   );
 }

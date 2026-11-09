@@ -1,11 +1,11 @@
 import {
   errorMessage,
   canonicalAiToolName,
-  parsePaperFieldValue,
   type AiAccessSettings,
   type AiEvidence,
 } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
@@ -208,7 +208,7 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
     case "suggest_paper_field_value": {
       const paperId = required(args, "paperId");
       const fieldId = required(args, "fieldId");
-      const value = parsePaperFieldValue(args.value, "value");
+      const value = readyCore().parsePaperFieldValue(args.value, "value");
       const sourceId = required(args, "sourceId");
       const quoteExact = requiredRaw(args, "quoteExact");
       const evidence = await buildPaperEvidence(ai, sessionId, settings, {

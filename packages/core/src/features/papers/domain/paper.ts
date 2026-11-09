@@ -9,6 +9,7 @@
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export type PaperStatus = "to_read" | "reading" | "read" | "skimmed";
 
@@ -135,7 +136,7 @@ export function createPaper(
     authors: input.authors ?? [],
     year: input.year,
     venue: input.venue,
-    doi: normalizeDoi(input.doi),
+    doi: rust().normalizeDoi(input.doi),
     arxivId: input.arxivId?.trim(),
     url: input.url,
     abstract: input.abstract,
@@ -143,33 +144,11 @@ export function createPaper(
     status: input.status ?? "to_read",
     rating: input.rating,
     bibtex: input.bibtex,
-    tags: normalizeTags(input.tags ?? []),
+    tags: rust().normalizeTags(input.tags ?? []),
     metadata: input.metadata ?? {},
     createdAt: now,
     updatedAt: now,
   };
-}
-
-export function normalizeDoi(doi?: string): string | undefined {
-  if (!doi) return undefined;
-  return doi
-    .trim()
-    .replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")
-    .toLowerCase();
-}
-
-/** Trim, drop a leading '#', lowercase, and dedupe (order-preserving). */
-export function normalizeTags(tags: string[]): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of tags) {
-    const t = raw.trim().replace(/^#+/, "").toLowerCase();
-    if (t && !seen.has(t)) {
-      seen.add(t);
-      out.push(t);
-    }
-  }
-  return out;
 }
 
 /** A hashtag with the offset it was found at, for evidence that points at it. */
@@ -182,46 +161,5 @@ export interface HashtagRef {
   length: number;
 }
 
-/** The one pattern that reads hashtags, so the two readers cannot drift. */
-const HASHTAG = /#[\p{L}\p{N}_-]+/gu;
-
-/**
- * Pull `#hashtags` out of free text, with the position each was found at.
- *
- * The position is the reason this exists next to `extractHashtags`: a caller
- * that shows evidence needs to quote the neighbourhood of *this* match, and
- * re-finding the tag by searching for its text lands on the first textual
- * occurrence instead — which is a different one whenever a tag is a substring of
- * an earlier word.
- *
- * Deduped by normalized tag, first occurrence wins, so the offsets match what
- * `extractHashtags` returns in the same order.
- */
-export function extractHashtagRefs(text?: string): HashtagRef[] {
-  if (!text) return [];
-  const out: HashtagRef[] = [];
-  const seen = new Set<string>();
-  HASHTAG.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = HASHTAG.exec(text)) !== null) {
-    const tag = match[0].replace(/^#+/, "").toLowerCase();
-    if (!tag || seen.has(tag)) continue;
-    seen.add(tag);
-    out.push({ tag, index: match.index, length: match[0].length });
-  }
-  return out;
-}
-
-/** Pull `#hashtags` out of free text, normalized (no '#', lowercase, deduped). */
-export function extractHashtags(text?: string): string[] {
-  return extractHashtagRefs(text).map((ref) => ref.tag);
-}
-
 /** The placeholder older rows hold in place of a summary. */
 export const NO_SUMMARY = "No summary yet.";
-
-/** Whether a paper's summary is missing, only whitespace, or only the old placeholder. */
-export function isEmptyPaperSummary(summary: string | null | undefined): boolean {
-  const text = summary?.trim() ?? "";
-  return text === "" || text === NO_SUMMARY;
-}

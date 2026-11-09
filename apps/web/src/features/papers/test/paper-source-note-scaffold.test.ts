@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Paper } from "@weaveforge/core";
 import { paperSourceNoteScaffold, scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { NO_SUMMARY as EMPTY_PAPER_SUMMARY, isEmptyPaperSummary } from "@weaveforge/core";
+import { NO_SUMMARY as EMPTY_PAPER_SUMMARY } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 test("paperSourceNoteScaffold includes metadata headings and fields", () => {
   const body = paperSourceNoteScaffold({
@@ -34,13 +35,13 @@ function summaryStore() {
 
 test("isEmptyPaperSummary: none, blank and the placeholder are empty (25-23)", () => {
   assert.equal(EMPTY_PAPER_SUMMARY, "No summary yet.");
-  assert.equal(isEmptyPaperSummary(undefined), true);
-  assert.equal(isEmptyPaperSummary(""), true);
-  assert.equal(isEmptyPaperSummary("  \n"), true);
-  assert.equal(isEmptyPaperSummary("No summary yet."), true);
-  assert.equal(isEmptyPaperSummary(" No summary yet.\n"), true);
-  assert.equal(isEmptyPaperSummary("No summary yet. But a thought."), false);
-  assert.equal(isEmptyPaperSummary("A summary"), false);
+  assert.equal(readyCore().isEmptyPaperSummary(undefined), true);
+  assert.equal(readyCore().isEmptyPaperSummary(""), true);
+  assert.equal(readyCore().isEmptyPaperSummary("  \n"), true);
+  assert.equal(readyCore().isEmptyPaperSummary("No summary yet."), true);
+  assert.equal(readyCore().isEmptyPaperSummary(" No summary yet.\n"), true);
+  assert.equal(readyCore().isEmptyPaperSummary("No summary yet. But a thought."), false);
+  assert.equal(readyCore().isEmptyPaperSummary("A summary"), false);
 });
 
 test("a new paper's note is scaffolded and the scaffolded paper is returned (25-02)", async () => {

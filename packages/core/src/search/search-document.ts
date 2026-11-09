@@ -9,9 +9,9 @@
 
 import type { WorkspaceSnapshot } from "../workspace/workspace-snapshot.js";
 import { acronymsForTitle } from "./search-acronyms.js";
-import { extractHashtags } from "../features/papers/domain/paper.js";
 import { MAX_INDEXED_BODY_CHARS } from "./search-tuning.js";
 import type { SearchDoc, SearchKind } from "./search-port.js";
+import { rust } from "../shared/rust.js";
 
 /** ATX headings h1–h3. Setext headings are rare in app-authored markdown. */
 const HEADING_RE = /^ {0,3}(#{1,3})\s+(.+?)\s*#*\s*$/gm;
@@ -130,7 +130,7 @@ export function toSearchDocs(
         headings: extractHeadings(page.body),
         // Notes carry their tags as #hashtags in the body — the body is the
         // source of truth for tags everywhere else in the app.
-        tags: extractHashtags(page.body),
+        tags: rust().extractHashtags(page.body),
         path: notePaths.get(page.id) ?? "",
         body: page.body,
         updatedAt: page.updatedAt || page.createdAt,
@@ -200,7 +200,7 @@ export function toSearchDocs(
         // "3.2" is how people refer to a section out loud, so it is searchable.
         aliases: section.sectionNo ? [section.sectionNo] : [],
         headings: extractHeadings(section.notes),
-        tags: extractHashtags(section.notes),
+        tags: rust().extractHashtags(section.notes),
         path: sectionPaths.get(section.id) ?? "",
         body: section.notes ?? "",
         updatedAt: section.updatedAt || section.createdAt,
@@ -257,7 +257,7 @@ export function toSearchDocs(
         title: entry.entryDate,
         aliases: [entry.kind],
         headings: extractHeadings(entry.body),
-        tags: extractHashtags(entry.body),
+        tags: rust().extractHashtags(entry.body),
         path: entry.entryDate.slice(0, 7),
         body: entry.body,
         updatedAt: entry.createdAt,

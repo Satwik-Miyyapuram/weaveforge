@@ -5,18 +5,9 @@
  */
 
 import type { IdGenerator } from "../../../shared/clock.js";
-import {
-  encodeRollupOptions,
-  isPaperFieldKind,
-  parseRollupOptions,
-  PaperFieldValidationError,
-  type NewPaperFieldDefInput,
-  type PaperFieldDef,
-  type PaperFieldKind,
-  type PaperFieldValue,
-  type PaperFieldValueData,
-} from "../domain/paper-field.js";
+import { PaperFieldValidationError, type NewPaperFieldDefInput, type PaperFieldDef, type PaperFieldKind, type PaperFieldValue, type PaperFieldValueData } from "../domain/paper-field.js";
 import type { IPaperFieldRepository } from "../domain/paper-field-repository.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManagePaperFieldsDeps {
   fields: IPaperFieldRepository;
@@ -41,7 +32,7 @@ export class ManagePaperFieldsUseCase {
   async define(input: NewPaperFieldDefInput): Promise<PaperFieldDef> {
     const name = normalizeName(input.name);
     if (!name) throw new PaperFieldValidationError("Field name is required.");
-    if (!isPaperFieldKind(input.kind)) {
+    if (!rust().isPaperFieldKind(input.kind)) {
       throw new PaperFieldValidationError(`Unknown field kind "${input.kind}".`);
     }
     if (input.kind === "rollup") {
@@ -104,7 +95,7 @@ export class ManagePaperFieldsUseCase {
     // user removes the rollup first. Values go with the def (repository/DB cascade).
     const readers = (await this.deps.fields.listDefs()).filter((d) => {
       if (d.kind !== "rollup") return false;
-      const config = parseRollupOptions(d.options);
+      const config = rust().parseRollupOptions(d.options);
       return config?.relationFieldId === fieldId || config?.sourceFieldId === fieldId;
     });
     if (readers.length > 0) {
@@ -168,7 +159,7 @@ function normalizeOptions(
 ): string[] {
   if (kind === "rollup") {
     if (!rollup) return [];
-    return encodeRollupOptions(rollup);
+    return rust().encodeRollupOptions(rollup);
   }
   if (kind !== "select" && kind !== "multi_select") return [];
   const seen = new Set<string>();

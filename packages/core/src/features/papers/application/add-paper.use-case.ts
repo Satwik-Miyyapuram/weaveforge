@@ -7,21 +7,14 @@
  * responsibility is the *business rule* of adding a paper, including dedupe.
  */
 
-import {
-  createPaper,
-  normalizeDoi,
-  type NewPaperInput,
-  type Paper,
-  type PaperStatus,
-} from "../domain/paper.js";
+import { createPaper, type NewPaperInput, type Paper, type PaperStatus } from "../domain/paper.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import type { IPaperRepository } from "../domain/paper-repository.js";
-import { titleKey } from "../domain/paper-title.js";
+import { rust } from "../../../shared/rust.js";
 import {
   MetadataResolver,
   type PaperRef,
 } from "./metadata-source.js";
-import { parsePaperRef } from "./parse-paper-ref.js";
 
 export interface AddPaperDeps {
   repository: IPaperRepository;
@@ -68,7 +61,7 @@ export class AddPaperUseCase {
       const byArxiv = await this.deps.repository.findByArxivId(arxivId.trim());
       if (byArxiv) return byArxiv;
     }
-    const normDoi = normalizeDoi(doi);
+    const normDoi = rust().normalizeDoi(doi);
     if (normDoi) {
       const byDoi = await this.deps.repository.findByDoi(normDoi);
       if (byDoi) return byDoi;
@@ -84,8 +77,8 @@ export class AddPaperUseCase {
    * not a DOI, and the id is what tells them apart.
    */
   private async findByTitle(input: NewPaperInput): Promise<Paper | null> {
-    if (input.arxivId?.trim() || normalizeDoi(input.doi)) return null;
-    const key = titleKey(input.title);
+    if (input.arxivId?.trim() || rust().normalizeDoi(input.doi)) return null;
+    const key = rust().titleKey(input.title);
     if (!key) return null;
     return await this.deps.repository.findByTitleKey(key);
   }
@@ -105,8 +98,8 @@ export class ImportPaperUseCase {
   constructor(
     private readonly resolver: MetadataResolver,
     private readonly addPaper: AddPaperUseCase,
-    /** Parses the pasted reference. Defaults to the TS parser; the web app passes the Rust one. */
-    private readonly parseRef: ParsePaperRef = parsePaperRef,
+    /** Parses the pasted reference. Defaults to the Rust parser (`rust()`). */
+    private readonly parseRef: ParsePaperRef = (kind, value) => rust().parsePaperRef(kind, value),
   ) {}
 
   async fromRef(input: PaperRef, status?: PaperStatus): Promise<Paper> {
