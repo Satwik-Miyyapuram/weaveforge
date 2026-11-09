@@ -22,6 +22,7 @@ import type { CommentFns } from "./../features/sharing/domain/comment.js";
 import type { CurveFns } from "./../ink/curve.js";
 import type { DecodeFns } from "./../ink/decode.js";
 import type { FigureFns } from "./../ink/figure.js";
+import type { RecogniseFns } from "./../ink/recognise.js";
 import type { InkChunkFns } from "./../ink/ink-binary.js";
 import type { DocumentSearchFns } from "./../reader/document-search.js";
 import type { DownsampleMetricsFns } from "./../features/experiments/domain/downsample-metrics.js";
@@ -110,6 +111,7 @@ export interface CoreContract
     DecodeFns,
     FigureFns,
     InkChunkFns,
+    RecogniseFns,
     DocumentSearchFns,
     DownsampleMetricsFns,
     ExperimentFns,

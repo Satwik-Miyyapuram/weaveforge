@@ -18,6 +18,7 @@
  */
 
 import type { InkStroke } from "./ink-note.js";
+import { rust } from "../shared/rust.js";
 
 /** A line of strokes, as segmentation hands it to an engine. */
 export interface InkLine {
@@ -100,16 +101,14 @@ export type InkEnginePlatform = (typeof INK_ENGINES)[number]["platform"];
 /** The order engines are preferred in, which is the declaration order. */
 export const INK_ENGINE_ORDER: readonly InkEngineId[] = ["windows-ink@1"];
 
-/** Whether an engine id is one this build was written against. */
+/** Whether an engine id is one this build was written against (Rust `is_ink_engine_id`). */
 export function isInkEngineId(id: string): id is InkEngineId {
-  return INK_ENGINE_ORDER.includes(id as InkEngineId);
+  return rust().isInkEngineId(id);
 }
 
-/** The declared facts about an engine, or `null` for an id we do not know. */
-export function inkEngineInfo(
-  id: string,
-): (typeof INK_ENGINES)[number] | null {
-  return INK_ENGINES.find((engine) => engine.id === id) ?? null;
+/** The declared facts about an engine, or `null` for an id we do not know (Rust `ink_engine_info`). */
+export function inkEngineInfo(id: string): (typeof INK_ENGINES)[number] | null {
+  return rust().inkEngineInfo<(typeof INK_ENGINES)[number]>(id);
 }
 
 /**
@@ -143,64 +142,47 @@ export async function selectInkRecogniser(
 /** Below this a line is shown dotted in the text layer and can be corrected. */
 export const INK_UNSURE_CONFIDENCE = 0.75;
 
-/** Whether a recognised line should be marked unsure. */
+/** Whether a recognised line should be marked unsure (Rust `is_unsure_confidence`). */
 export function isUnsureLine(line: RecognisedLine): boolean {
-  return !Number.isFinite(line.conf) || line.conf < INK_UNSURE_CONFIDENCE;
+  return rust().isUnsureLine(line);
 }
 
 /**
- * An engine's own score, mapped to `[0, 1]`.
+ * An engine's own score, mapped to `[0, 1]` (Rust `map_ink_confidence`).
  *
- * Engines report confidence on scales of their own — a 0–100 integer, a log
- * probability, a raw score with no bounds. This clamps and normalises so the
- * threshold above means one thing everywhere; an engine with a genuinely
- * different calibration should pass `scale`.
+ * Engines report confidence on scales of their own; this clamps and normalises
+ * so the threshold above means one thing everywhere. An engine with a different
+ * calibration passes `scale`.
  */
 export function mapInkConfidence(raw: number, scale = 1): number {
-  if (!Number.isFinite(raw)) return 0;
-  const value = scale === 0 ? 0 : raw / scale;
-  return Math.max(0, Math.min(1, value));
+  return rust().mapInkConfidence(raw, scale);
 }
 
 /**
- * The mean confidence of a page's lines, which is what the note's
- * `ink-recognised` records and the status bar shows.
- *
- * Lines the user corrected count as certain — a correction is the strongest
- * signal available, and averaging the engine's original doubt back in would
- * make the number go *down* after a fix.
+ * The mean confidence of a page's lines (Rust `ink_page_confidence`). Lines the
+ * user corrected count as certain, so a fix never lowers the number.
  */
 export function inkPageConfidence(lines: readonly RecognisedLine[]): number {
-  if (lines.length === 0) return 0;
-  const total = lines.reduce((sum, line) => sum + (line.conf >= 1 ? 1 : mapInkConfidence(line.conf)), 0);
-  return total / lines.length;
+  return rust().inkPageConfidence(lines);
 }
 
 /**
- * The vocabulary hints handed to an engine, from what the workspace already
- * knows.
- *
- * Titles and citation keys are what a research note is full of and what no
- * general recogniser has ever seen, so they do double duty: Windows Ink takes
- * them as a guide, and the post-match in `vocab-match.ts` uses the same list.
- * Deduplicated, trimmed and capped, because an engine's word list has a budget.
+ * The vocabulary hints handed to an engine (Rust `ink_vocabulary_hints`):
+ * titles and citation keys, trimmed, deduplicated case-insensitively and capped.
  */
 export function inkVocabularyHints(
   sources: readonly (readonly string[])[],
   limit = 500,
 ): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const source of sources) {
-    for (const entry of source) {
-      const word = entry.trim();
-      if (!word) continue;
-      const key = word.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(word);
-      if (out.length >= limit) return out;
-    }
-  }
-  return out;
+  return rust().inkVocabularyHints(sources, limit);
+}
+
+/** Signatures of the recognition helpers that moved to the Rust core (wf-wasm). */
+export interface RecogniseFns {
+  isInkEngineId(id: string): boolean;
+  inkEngineInfo<I>(id: string): I | null;
+  isUnsureLine(line: { conf: number }): boolean;
+  mapInkConfidence(raw: number, scale?: number): number;
+  inkPageConfidence(lines: readonly { conf: number }[]): number;
+  inkVocabularyHints(sources: readonly (readonly string[])[], limit?: number): string[];
 }
