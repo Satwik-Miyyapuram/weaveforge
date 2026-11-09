@@ -10,6 +10,7 @@
 
 import type { AddPaperResult, NewPaperInput, Paper } from "@weaveforge/core";
 import type { BibImportPaper, BibImportPlan } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /** The part of a `File` this needs. */
 export interface BibFileLike {
@@ -89,14 +90,11 @@ export async function importBibFile(file: BibFileLike, deps: BibImportDeps): Pro
 
 /** One line for a toast: what was added and what was not. */
 export function bibImportMessage(outcome: BibImportOutcome): string {
-  const parts = [`Added ${outcome.added.length} paper${outcome.added.length === 1 ? "" : "s"}`];
-  if (outcome.skipped.length) parts.push(`skipped ${outcome.skipped.length} already in the library`);
-  if (outcome.problems.length) parts.push(`${outcome.problems.length} could not be read`);
-  return `${parts.join(", ")}.`;
+  return readyCore().bibImportMessage(outcome.added.length, outcome.skipped.length, outcome.problems.length);
 }
 
 export function isBibFile(name: string): boolean {
-  return /\.(bib|bibtex)$/i.test(name);
+  return readyCore().isBibFile(name);
 }
 
 /** A drop on Papers: `.bib` files are imported, everything else goes the PDF way (which skips non-PDFs). */

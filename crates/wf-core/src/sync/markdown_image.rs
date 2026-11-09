@@ -324,3 +324,69 @@ fn find_from(body: &str, pat: &str, from: usize) -> Option<usize> {
 fn slice(body: &str, from: usize, to: usize) -> &str {
     body.get(from..to).unwrap_or("")
 }
+
+/// An owned [`ImageRef`], for JS: what `materializeBlobImages` reads from each match.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct FoundImageRef {
+    /// The alt text as written.
+    pub alt: String,
+    /// The head that matched at the start of the target.
+    pub head: String,
+    /// The target after `head`; never empty.
+    pub rest: String,
+    /// The whole `![alt](target)`.
+    pub text: String,
+}
+
+/// The refs [`replace_image_refs`] matches, in body order, rewriting nothing.
+#[must_use]
+pub fn find_image_refs(body: &str, heads: &[&str], allow_space: bool) -> Vec<FoundImageRef> {
+    let mut found = Vec::new();
+    let _ = replace_image_refs(
+        body,
+        heads,
+        |r| {
+            found.push(FoundImageRef {
+                alt: r.alt.to_owned(),
+                head: r.head.to_owned(),
+                rest: r.rest.to_owned(),
+                text: r.text.to_owned(),
+            });
+            None
+        },
+        allow_space,
+    );
+    found
+}
+
+#[cfg(test)]
+mod find_image_refs_tests {
+    use super::find_image_refs;
+
+    #[test]
+    fn finds_only_refs_with_the_head_in_body_order() {
+        let body = "![a](blob:one) ![b](vault:x) ![c](blob:two)";
+        let found = find_image_refs(body, &["blob:"], true);
+        let got: Vec<(&str, &str, &str)> = found
+            .iter()
+            .map(|r| (r.alt.as_str(), r.rest.as_str(), r.text.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("a", "one", "![a](blob:one)"),
+                ("c", "two", "![c](blob:two)")
+            ]
+        );
+        assert_eq!(found[0].head, "blob:");
+    }
+
+    #[test]
+    fn allow_space_controls_whether_a_target_may_hold_whitespace() {
+        let body = "![a](blob:x y)";
+        assert_eq!(find_image_refs(body, &["blob:"], true).len(), 1);
+        assert_eq!(find_image_refs(body, &["blob:"], false).len(), 0);
+    }
+}

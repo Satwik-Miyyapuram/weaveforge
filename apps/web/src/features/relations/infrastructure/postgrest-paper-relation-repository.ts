@@ -86,8 +86,7 @@ export class PostgrestPaperRelationRepository extends ProjectRepository
   }
 
   async save(entity: PaperRelation): Promise<void> {
-    const row = toRow(entity);
-    if (this.pid) row.project_id = this.pid;
+    const row = this.pid ? { ...toRow(entity), project_id: this.pid } : toRow(entity);
     await run(this.db.from(TABLE).upsert(row, {
       onConflict: "from_paper,to_paper,relation",
     }));

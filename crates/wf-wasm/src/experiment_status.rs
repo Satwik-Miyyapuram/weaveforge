@@ -92,3 +92,25 @@ pub fn format_metric_cell_js(metric: &str, value: JsValue) -> JsResult<String> {
     let value = json_from(value)?;
     Ok(experiment_status::format_metric_cell(metric, &value))
 }
+
+/// [`metric_keys`](experiment_status::metric_keys): the metric names across runs, in UTF-16 order.
+///
+/// # Errors
+///
+/// Fails if `experiments` is not an array of run objects.
+#[wasm_bindgen(js_name = metricKeys)]
+pub fn metric_keys_js(experiments: JsValue) -> JsResult<JsValue> {
+    let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
+    to_js(&experiment_status::metric_keys(&experiments))
+}
+
+/// [`results_table`](experiment_status::results_table): the header and rows of the runs table.
+///
+/// # Errors
+///
+/// Fails if `experiments` is not an array of run objects, or the result cannot be serialised.
+#[wasm_bindgen(js_name = resultsTable)]
+pub fn results_table_js(experiments: JsValue) -> JsResult<JsValue> {
+    let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
+    to_js(&experiment_status::results_table(&experiments))
+}

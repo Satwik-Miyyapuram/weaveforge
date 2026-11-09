@@ -3,6 +3,7 @@
  * Each function keeps the signature of packages/core/src/features/sharing/domain/share.ts and comment.ts.
  */
 import {
+  commentFromRow as rawCommentFromRow,
   decodeShareLinkToken as rawDecodeShareLinkToken,
   encodeShareLinkToken as rawEncodeShareLinkToken,
   isBlanketShare as rawIsBlanketShare,
@@ -11,14 +12,31 @@ import {
   shareAllowsComment as rawShareAllowsComment,
   shareAllowsEdit as rawShareAllowsEdit,
   shareCoversResource as rawShareCoversResource,
+  shareFromRow as rawShareFromRow,
   shareSupportsEditAccess as rawShareSupportsEditAccess,
+  sharedItem as rawSharedItem,
 } from "../pkg/wf_wasm.js";
 import type {
+  Comment as CommentRecord,
+  CommentRow as CommentRowInput,
   NewCommentInput,
   NewShareInput,
+  Share as ShareRecord,
   ShareGrant as Share,
+  ShareRow as ShareRowInput,
   ShareableType,
+  SharedItem as SharedItemRecord,
+  SharedSource as SharedSourceInput,
 } from "./bindings.js";
+
+export type {
+  CommentRecord,
+  CommentRowInput,
+  ShareRecord,
+  ShareRowInput,
+  SharedItemRecord,
+  SharedSourceInput,
+};
 
 /** Every type a share can cover (TS `SHAREABLE_TYPES`). */
 export const SHAREABLE_TYPES: readonly ShareableType[] = [
@@ -123,4 +141,23 @@ export function decodeShareLinkToken(encoded: string): Uint8Array {
   } catch (error) {
     throw asError(error, "InvalidCharacterError");
   }
+}
+
+/** Map a share row to the domain share (Rust `share_from_row`). */
+export function shareFromRow(row: ShareRowInput): ShareRecord {
+  return rawShareFromRow(row) as ShareRecord;
+}
+
+/** Map a comment row to the domain comment (Rust `comment_from_row`). */
+export function commentFromRow(row: CommentRowInput): CommentRecord {
+  return rawCommentFromRow(row) as CommentRecord;
+}
+
+/** Shape one reader row into a `SharedItem` (Rust `shared_item`). */
+export function sharedItem(
+  kind: ShareableType,
+  row: Record<string, unknown>,
+  source: SharedSourceInput,
+): SharedItemRecord {
+  return rawSharedItem(kind, row, source) as SharedItemRecord;
 }

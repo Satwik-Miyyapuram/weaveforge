@@ -25,12 +25,7 @@ export {
   type PenGateEvent,
 } from "./application/pen-gate";
 export { EraserSweep, isPenEraserPointer } from "./application/eraser-tip";
-export {
-  clipSegmentToArea,
-  pointInArea,
-  type DrawArea,
-  type Point,
-} from "./application/clip-to-area";
+export type { DrawArea, Point } from "@weaveforge/wasm";
 export {
   InkGesture,
   StrokeEdgeSplit,
@@ -178,14 +173,6 @@ export { FsInkChunkStore } from "./infrastructure/fs-ink-chunk-store";
 export { BlobInkChunkStore } from "./infrastructure/blob-ink-chunk-store";
 export { RoutedInkChunkStore } from "./infrastructure/routed-ink-chunk-store";
 
-export {
-  INK_SYMBOL_MAP,
-  VOCAB_SPAN_RATIO,
-  VOCAB_WORD_DISTANCE,
-  damerauLevenshtein,
-  matchVocabulary,
-  spanDistance,
-} from "./application/vocab-match";
 export {
   acceptLine,
   acceptedLines,

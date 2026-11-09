@@ -7,3 +7,4 @@ pub mod markdown_to_latex;
 pub mod prisma_figure;
 pub mod project_path;
 pub mod report_section;
+pub mod section_progress;

@@ -47,7 +47,6 @@ import type {
 import {
   type InkStoredPage,
 } from "../application/ink-chunk-store";
-import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import { InkBar } from "./ink-bar";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
@@ -776,8 +775,8 @@ export function InkHost({
           label="Pages (a number, a list like 1,3-5, or all)"
           initialValue="all"
           confirmLabel="Import these pages"
-          validate={(value) => pageListProblem(value, pageAsk.count)}
-          onConfirm={(value) => answerPdfPages(selectedPdfPages(value, pageAsk.count))}
+          validate={(value) => readyCore().pageListProblem(value, pageAsk.count)}
+          onConfirm={(value) => answerPdfPages(readyCore().selectedPdfPages(value, pageAsk.count))}
           onClose={() => answerPdfPages(null)}
         />
       ) : null}

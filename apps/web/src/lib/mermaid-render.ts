@@ -10,6 +10,7 @@
 import { escapeHtml } from "./escape-html";
 import { errorMessage } from "@weaveforge/core";
 import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { readyCore } from "@/lib/rust-core";
 
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
@@ -86,11 +87,7 @@ function diagramId(code: string): string {
  * (`[(cylinder)]`, `[[subroutine]]`, `[/parallelogram/]`), is left alone.
  */
 export function quoteAwkwardLabels(code: string): string {
-  return code.replace(/([[{])([^[\]{}"\n]*?)([\]}])/g, (match, open: string, label: string, close: string) => {
-    if (!/[()|]/.test(label) || /^[(/\\]/.test(label) || /[(/\\]$/.test(label)) return match;
-    if ((open === "[" && close !== "]") || (open === "{" && close !== "}")) return match;
-    return `${open}"${label.replace(/"/g, "#quot;")}"${close}`;
-  });
+  return readyCore().quoteAwkwardMermaidLabels(code);
 }
 
 function getMermaid(): Promise<MermaidModule> {

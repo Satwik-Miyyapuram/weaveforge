@@ -1,5 +1,6 @@
 import type { ShareableType } from "@weaveforge/core";
 import type { SharedItem } from "../domain/shared-reader";
+import { readyCore } from "@/lib/rust-core";
 
 /** Per-type row mapping: which table, and which columns hold the title/status. */
 export const SHARED_SOURCES: Record<
@@ -23,16 +24,5 @@ export const SHARED_SOURCES: Record<
  * mapping had drifted into two copies of the same twelve lines.
  */
 export function toSharedItem(kind: ShareableType, row: Record<string, unknown>): SharedItem {
-  const cfg = SHARED_SOURCES[kind];
-  return {
-    id: String(row.id ?? ""),
-    kind,
-    title: String(row[cfg.title] ?? "(untitled)"),
-    status: cfg.status ? String(row[cfg.status] ?? "") : "",
-    ownerId: String(row.user_id ?? ""),
-    metadata:
-      kind === "paper" && row.metadata && typeof row.metadata === "object"
-        ? (row.metadata as Record<string, unknown>)
-        : undefined,
-  };
+  return readyCore().sharedItem(kind, row, SHARED_SOURCES[kind]);
 }

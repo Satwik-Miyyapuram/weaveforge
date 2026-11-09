@@ -3,7 +3,7 @@
  * hold the editing connection to Overleaf. Pure: fetch and the bearer header are
  * injected. Every failure is a message, never a throw.
  */
-import type { TextOp } from "../domain/text-ot";
+import type { TextComponent } from "@weaveforge/wasm";
 import { post, type WorkshopClientDeps } from "./workshop-session-client";
 
 export const WORKSHOP_LIVE_PATH = "/api/overleaf/workshop/live/";
@@ -122,7 +122,7 @@ export async function sendLiveUpdate(
   deps: WorkshopClientDeps,
   liveId: string,
   docId: string,
-  op: TextOp,
+  op: TextComponent[],
   version: number,
 ): Promise<LiveSendResult> {
   const res = await post(deps, `${WORKSHOP_LIVE_PATH}update`, { liveId, docId, op, version });

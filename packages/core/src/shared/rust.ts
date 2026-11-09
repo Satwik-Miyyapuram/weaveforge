@@ -148,6 +148,8 @@ export interface RustCoreFns {
     furniture?: readonly boolean[] | null,
   ): { start: number; end: number; headingIndex: number; score: number } | null;
   ladderOrder(supports: readonly boolean[]): number[];
+  githubRepoPdfPath(givenPdfPath: string | undefined, paperId: string): string | null;
+  digestText(text: string): string;
   // json data
   jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string;
   jsonKindOfPath(path: string): WorkspaceJsonKind | null;

@@ -80,37 +80,7 @@ export function needsAttention(
   experiments: readonly Experiment[],
   today = localIsoDate(),
 ): AttentionItem[] {
-  const items: AttentionItem[] = [];
-  const unread = papers.filter((p) => p.status !== "read").length;
-  if (unread > 0) {
-    items.push({
-      label: `${unread} paper${unread === 1 ? "" : "s"} unread`,
-      href: "/papers",
-    });
-  }
-  const horizon = typedCore().addDays(today, 14);
-  for (const m of milestones) {
-    if (m.status === "done" || !m.targetDate) continue;
-    if (m.targetDate < today) {
-      items.push({
-        label: `Milestone overdue (${m.targetDate}): ${m.title}`,
-        href: "/plan",
-      });
-    } else if (m.targetDate <= horizon) {
-      items.push({
-        label: `Milestone due ${m.targetDate}: ${m.title}`,
-        href: "/plan",
-      });
-    }
-  }
-  const running = experiments.filter((e) => e.status === "running").length;
-  if (running > 0) {
-    items.push({
-      label: `${running} experiment${running === 1 ? "" : "s"} running`,
-      href: "/experiments",
-    });
-  }
-  return items;
+  return [...typedCore().dashboardNeedsAttention(papers, milestones, experiments, today)];
 }
 
 function recentLogEntries(
@@ -144,10 +114,7 @@ export function librarySnapshot(
 }
 
 function topTags(tags: readonly TagWithPaperCount[], limit = 3) {
-  return [...tags]
-    .sort((a, b) => b.paperCount - a.paperCount || a.name.localeCompare(b.name))
-    .slice(0, limit)
-    .map((t) => ({ name: t.name, count: t.paperCount }));
+  return [...typedCore().dashboardTopTags(tags, limit)];
 }
 
 export function buildDashboardStats(input: {

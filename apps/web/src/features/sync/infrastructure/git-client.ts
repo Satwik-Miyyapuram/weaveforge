@@ -1,5 +1,5 @@
 import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
-import { gitConnection } from "../domain/integration-fields";
+import { readyCore } from "@/lib/rust-core";
 
 /** Normalized git types so the UI doesn't care which provider it came from. */
 export interface GitCommit {
@@ -34,7 +34,7 @@ export class GitClient {
   }
 
   private async get(i: Integration, kind: string, branch?: string): Promise<unknown> {
-    const { token, repo, branch: defaultBranch } = gitConnection(i);
+    const { token, repo, branch: defaultBranch } = readyCore().gitConnection(i);
     if (!token || !repo) throw new Error("Connect this provider in Settings first.");
     const selectedBranch = branch ?? defaultBranch ?? DEFAULT_GIT_BRANCH;
     const url = i.provider === "github"
@@ -85,20 +85,10 @@ function glCommit(c: GlCommit): GitCommit {
  * `javascript:` or `data:` value must never reach an `<a href>`.
  */
 export function repoWebUrl(repoUrl?: string): string | undefined {
-  if (!repoUrl) return undefined;
-  try {
-    const { protocol } = new URL(repoUrl.trim());
-    return protocol === "http:" || protocol === "https:" ? repoUrl.trim() : undefined;
-  } catch {
-    return undefined;
-  }
+  return readyCore().repoWebUrl(repoUrl);
 }
 
 /** Build a web URL to a commit from a repo URL + sha (best-effort by host). */
 export function commitUrl(repoUrl?: string, sha?: string): string | undefined {
-  const safe = repoWebUrl(repoUrl);
-  if (!safe || !sha) return undefined;
-  const base = safe.replace(/\.git$/, "").replace(/\/$/, "");
-  if (base.includes("gitlab")) return `${base}/-/commit/${sha}`;
-  return `${base}/commit/${sha}`; // GitHub + most others
+  return readyCore().commitUrl(repoUrl, sha);
 }

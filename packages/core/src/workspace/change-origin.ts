@@ -1,3 +1,5 @@
+import { rust } from "../shared/rust.js";
+
 /**
  * Telling apart "the folder changed" from "the workspace changed".
  *
@@ -21,18 +23,9 @@
  * dependency or an async API in a path that is otherwise plain string work.
  */
 
-/** A short, stable digest of a file's text. Change detection only. */
+/** A short, stable digest of a file's text. Change detection only. Rust `digest_text`. */
 export function digestText(text: string): string {
-  // 64 bits as two 32-bit halves: JavaScript numbers cannot hold a 64-bit
-  // integer, and two independent 32-bit walks are cheaper than BigInt.
-  let low = 0x811c9dc5;
-  let high = 0x01000193;
-  for (let index = 0; index < text.length; index += 1) {
-    const code = text.charCodeAt(index);
-    low = Math.imul(low ^ code, 0x01000193);
-    high = Math.imul(high ^ (code + index), 0x85ebca6b);
-  }
-  return `${(low >>> 0).toString(16).padStart(8, "0")}${(high >>> 0).toString(16).padStart(8, "0")}`;
+  return rust().digestText(text);
 }
 
 export type ChangeSide = "neither" | "folder" | "workspace" | "both" | "unknown";

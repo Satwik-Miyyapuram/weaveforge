@@ -4,19 +4,12 @@
  * token); this class only picks the path.
  */
 
+import { rust } from "../shared/rust.js";
 import type { IPdfSourceResolver, PdfSourceHit, PdfSourcePaper } from "./pdf-source-ladder.js";
 
 export interface GitHubRepoPdfResolverOptions {
   /** URL for a repo-relative path, or null when no repo is set up. */
   buildFileUrl: (repoPath: string) => string | null;
-}
-
-const SAFE_ID = /^[A-Za-z0-9_-]+$/;
-
-/** A repo-relative path with no root, drive, scheme or `..` segment. */
-function isSafeRepoPath(path: string): boolean {
-  if (!path || path.startsWith("/") || path.includes("\\") || path.includes(":")) return false;
-  return path.split("/").every((part) => part !== "" && part !== "." && part !== "..");
 }
 
 export class GitHubRepoPdfResolver implements IPdfSourceResolver {
@@ -29,16 +22,10 @@ export class GitHubRepoPdfResolver implements IPdfSourceResolver {
   }
 
   async resolve(paper: PdfSourcePaper): Promise<PdfSourceHit | null> {
-    const path = repoPathOf(paper);
+    const given = paper.metadata?.["pdfPath"];
+    const path = rust().githubRepoPdfPath(typeof given === "string" ? given : undefined, paper.id);
     if (!path) return null;
     const url = this.options.buildFileUrl(path)?.trim();
     return url ? { url } : null;
   }
-}
-
-/** `metadata.pdfPath` when safe, else the workspace layout `papers/pdf/<id>.pdf`. */
-function repoPathOf(paper: PdfSourcePaper): string | null {
-  const given = paper.metadata?.["pdfPath"];
-  if (typeof given === "string" && isSafeRepoPath(given.trim())) return given.trim();
-  return SAFE_ID.test(paper.id) ? `papers/pdf/${paper.id}.pdf` : null;
 }

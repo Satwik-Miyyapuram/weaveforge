@@ -7,6 +7,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { IBlobStore } from "@weaveforge/core";
+import type { ColdFields, R2Fields } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 export interface S3BlobStoreConfig {
   /** Physical S3/R2 bucket name. */
@@ -122,55 +124,17 @@ export class S3BlobStore implements IBlobStore {
   }
 }
 
-/** R2 hot-tier client config from {@link StorageConfig}-like fields. */
-const R2_ENV_NAMES = {
-  r2AccountId: "R2_ACCOUNT_ID",
-  r2AccessKeyId: "R2_ACCESS_KEY_ID",
-  r2SecretAccessKey: "R2_SECRET_ACCESS_KEY",
-  r2Bucket: "R2_BUCKET",
-} as const;
+/** R2 hot-tier client config (mapping lives in the Rust core, `storage::blob_client`). */
+export function r2BlobConfig(fields: R2Fields): S3BlobStoreConfig | null {
+  return readyCore().r2BlobClientConfig(fields) as S3BlobStoreConfig | null;
+}
+
+/** MinIO / OCI cold-tier client config (Rust core `storage::blob_client`). */
+export function coldBlobConfig(fields: ColdFields): S3BlobStoreConfig | null {
+  return readyCore().coldBlobClientConfig(fields) as S3BlobStoreConfig | null;
+}
 
 /** Error naming the unset R2 env vars (names only, never values). */
-export function missingR2ConfigError(fields: Partial<Record<keyof typeof R2_ENV_NAMES, string>>): Error {
-  const missing = (Object.keys(R2_ENV_NAMES) as (keyof typeof R2_ENV_NAMES)[])
-    .filter((key) => !fields[key])
-    .map((key) => R2_ENV_NAMES[key]);
-  return new Error(`Tiered storage is not configured: missing ${missing.join(", ") || "none"}.`);
-}
-
-export function r2BlobConfig(fields: {
-  r2AccountId?: string;
-  r2AccessKeyId?: string;
-  r2SecretAccessKey?: string;
-  r2Bucket?: string;
-}): S3BlobStoreConfig | null {
-  const { r2AccountId, r2AccessKeyId, r2SecretAccessKey, r2Bucket } = fields;
-  if (!r2AccountId || !r2AccessKeyId || !r2SecretAccessKey || !r2Bucket) return null;
-  return {
-    physicalBucket: r2Bucket,
-    region: "auto",
-    accessKeyId: r2AccessKeyId,
-    secretAccessKey: r2SecretAccessKey,
-    endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
-    forcePathStyle: true,
-  };
-}
-
-/** MinIO / OCI cold-tier client config. */
-export function coldBlobConfig(fields: {
-  coldEndpoint?: string;
-  coldAccessKeyId?: string;
-  coldSecretAccessKey?: string;
-  coldBucket?: string;
-}): S3BlobStoreConfig | null {
-  const { coldEndpoint, coldAccessKeyId, coldSecretAccessKey, coldBucket } = fields;
-  if (!coldEndpoint || !coldAccessKeyId || !coldSecretAccessKey || !coldBucket) return null;
-  return {
-    physicalBucket: coldBucket,
-    region: "auto",
-    accessKeyId: coldAccessKeyId,
-    secretAccessKey: coldSecretAccessKey,
-    endpoint: coldEndpoint,
-    forcePathStyle: true,
-  };
+export function missingR2ConfigError(fields: R2Fields): Error {
+  return new Error(readyCore().missingR2ConfigMessage(fields));
 }

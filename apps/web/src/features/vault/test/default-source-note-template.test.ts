@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import {
   DEFAULT_SOURCE_NOTE_TEMPLATE,
   sourceNoteTemplateContext,
 } from "../application/default-source-note-template";
-import { applyTemplate } from "../application/note-template-engine";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+type Core = ReturnType<typeof readyCore>;
+// Each call reads the core lazily, so the module loads before the core does.
+const lazy = <K extends keyof Core>(key: K): Core[K] =>
+  ((...args: unknown[]) => (readyCore()[key] as (...a: unknown[]) => unknown)(...args)) as Core[K];
+
+before(async () => {
+  await loadTestCore();
+});
+const applyTemplate = lazy("applyTemplate");
 
 test("default template first render fills metadata and editable regions", () => {
   const out = applyTemplate(

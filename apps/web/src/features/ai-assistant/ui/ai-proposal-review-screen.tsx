@@ -16,7 +16,8 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
-import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
+import { readyCore } from "@/lib/rust-core";
+import { createdPageOf } from "../application/proposal-preview";
 import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/proposal-groups";
 import { useUndoWindow } from "./use-undo-window";
 import { Button } from "@/components/button";
@@ -325,7 +326,7 @@ export function AiProposalReviewScreen() {
         </div>
       <div className="ai-review-list">{group.items.map((item) => {
         const evidence = item.evidence ?? [];
-        const preview = splitProposalContent(item.content);
+        const preview = readyCore().splitProposalContent(item.content);
         const title = preview.title ?? reviewHeading(item);
         return <EntityCard
           key={item.id}

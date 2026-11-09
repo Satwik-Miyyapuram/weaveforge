@@ -10,18 +10,16 @@ import {
   stripArchiveRoot,
   unzipWithinLimits,
 } from "../application/import-limits";
-import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-let core: RustCore;
 before(async () => {
-  core = await loadTestCore();
+  await loadTestCore();
 });
 
 const bytes = (n: number) => new Uint8Array(n);
 
 test("traversal entries are skipped, not imported", () => {
-  const { safe, skipped } = sanitizeArchiveEntries(core, {
+  const { safe, skipped } = sanitizeArchiveEntries({
     "notes/good.md": bytes(10),
     "../../etc/passwd": bytes(10),
     "..\\..\\windows\\system32": bytes(10),
@@ -35,7 +33,7 @@ test("traversal entries are skipped, not imported", () => {
 });
 
 test("one bad entry does not cost the whole import", () => {
-  const { safe } = sanitizeArchiveEntries(core, {
+  const { safe } = sanitizeArchiveEntries({
     "notes/a.md": bytes(10),
     "../evil": bytes(10),
     "notes/b.md": bytes(10),
@@ -45,7 +43,7 @@ test("one bad entry does not cost the whole import", () => {
 });
 
 test("an oversized single file is skipped", () => {
-  const { safe, skipped } = sanitizeArchiveEntries(core, {
+  const { safe, skipped } = sanitizeArchiveEntries({
     "notes/huge.md": bytes(IMPORT_LIMITS.maxFileBytes + 1),
     "notes/ok.md": bytes(5),
   });
@@ -59,18 +57,18 @@ test("a zip bomb is refused rather than inflated", () => {
   // Twelve entries just under the per-file cap blow the total budget.
   for (let i = 0; i < 12; i += 1) entries[`n${i}.md`] = bytes(IMPORT_LIMITS.maxFileBytes);
 
-  assert.throws(() => sanitizeArchiveEntries(core, entries), ImportLimitError);
+  assert.throws(() => sanitizeArchiveEntries(entries), ImportLimitError);
 });
 
 test("an absurd entry count is refused before anything is read", () => {
   const entries: Record<string, Uint8Array> = {};
   for (let i = 0; i <= IMPORT_LIMITS.maxEntries; i += 1) entries[`n${i}.md`] = bytes(1);
 
-  assert.throws(() => sanitizeArchiveEntries(core, entries), ImportLimitError);
+  assert.throws(() => sanitizeArchiveEntries(entries), ImportLimitError);
 });
 
 test("directory markers and empty entries are ignored", () => {
-  const { safe } = sanitizeArchiveEntries(core, { "notes/": bytes(0), "notes/a.md": bytes(3) });
+  const { safe } = sanitizeArchiveEntries({ "notes/": bytes(0), "notes/a.md": bytes(3) });
 
   assert.deepEqual(safe.map((e) => e.path), ["notes/a.md"]);
 });
@@ -95,7 +93,7 @@ test("a folder with several top-level dirs is left alone", () => {
 
 test("an empty archive is handled without throwing", () => {
   assert.deepEqual(stripArchiveRoot([]), []);
-  assert.deepEqual(sanitizeArchiveEntries(core, {}).safe, []);
+  assert.deepEqual(sanitizeArchiveEntries({}).safe, []);
 });
 
 // 29-02: the archive's own directory is checked before anything is inflated.

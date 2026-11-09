@@ -19,8 +19,8 @@ use wf_core::sync::ink_note::{
 };
 use wf_core::sync::json_entities::{WorkspaceJsonKind, is_app_owned_path, json_kind_of_path};
 use wf_core::sync::markdown_image::{
-    image_alt_from_filename, image_extension_for_mime, image_paths_in_body, markdown_image,
-    normalize_markdown_image_syntax,
+    find_image_refs, image_alt_from_filename, image_extension_for_mime, image_paths_in_body,
+    markdown_image, normalize_markdown_image_syntax,
 };
 use wf_core::sync::merge::{merge_rows, same_value};
 use wf_core::sync::text_diff::{diff_body, has_conflict_markers};
@@ -190,6 +190,18 @@ pub fn image_alt_from_filename_js(name: Option<String>) -> JsResult<String> {
 pub fn image_extension_for_mime_js(mime: &str) -> JsResult<String> {
     check_text(mime)?;
     Ok(image_extension_for_mime(mime).to_owned())
+}
+
+/// [`wf_core::sync::markdown_image::find_image_refs`] for JS, with one `head`.
+///
+/// # Errors
+///
+/// Fails when `body` or `head` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = findImageRefs)]
+pub fn find_image_refs_js(body: &str, head: &str, allow_space: bool) -> JsResult<JsValue> {
+    check_text(body)?;
+    check_text(head)?;
+    to_js(&find_image_refs(body, &[head], allow_space))
 }
 
 /// [`wf_core::sync::markdown_image::image_paths_in_body`] for JS. The body is

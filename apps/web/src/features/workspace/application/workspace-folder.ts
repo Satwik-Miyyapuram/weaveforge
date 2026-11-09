@@ -732,7 +732,7 @@ export async function previewArchiveImport(
   bytes: Uint8Array,
 ): Promise<ImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
   const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
-  const { safe, skipped } = sanitizeArchiveEntries(await loadCore(), inflated);
+  const { safe, skipped } = sanitizeArchiveEntries(inflated);
   const entries = stripArchiveRoot(safe);
 
   const decoder = new TextDecoder();

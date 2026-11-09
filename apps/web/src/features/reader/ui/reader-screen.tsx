@@ -9,7 +9,6 @@ import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { PaperPdfPane } from "./paper-pdf-pane";
 import { sanitizePdfUrl, looksLikePdfUrl } from "../application/sanitize-reader-url";
-import { parseReaderSplitPane } from "../application/reader-split";
 import {
   appendActivityLog,
   collectAnnotationImageRegions,
@@ -26,7 +25,7 @@ export function ReaderScreen() {
   const pdfParam = params.get("pdf");
   const pageParam = params.get("page");
   const locusRaw = params.get("locus");
-  const pane = parseReaderSplitPane(params.get("pane"));
+  const pane = readyCore().parseReaderSplitPane(params.get("pane"));
   const sectionId = params.get("section");
   const noteId = params.get("note");
   const locus: PdfLocus | null = useMemo(() => readyCore().decodeLocus(locusRaw) as PdfLocus | null, [locusRaw]);

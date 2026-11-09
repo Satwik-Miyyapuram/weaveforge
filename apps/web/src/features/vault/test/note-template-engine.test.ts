@@ -1,21 +1,33 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import {
-  applyTemplate,
-  mergeTemplate,
-  parseRegions,
-  renderTemplate,
-  stripRegionMarkers,
-  substituteVariables,
-  wrapRegion,
-} from "../application/note-template-engine";
+import test, { before } from "node:test";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { DEFAULT_SOURCE_NOTE_TEMPLATE } from "../application/default-source-note-template";
+
+type Core = ReturnType<typeof readyCore>;
+// Each call reads the core lazily, so the module loads before the core does.
+const lazy = <K extends keyof Core>(key: K): Core[K] =>
+  ((...args: unknown[]) => (readyCore()[key] as (...a: unknown[]) => unknown)(...args)) as Core[K];
+
+before(async () => {
+  await loadTestCore();
+});
+const applyTemplate = lazy("applyTemplate");
+const mergeTemplate = lazy("mergeTemplate");
+const parseRegions = lazy("parseRegions");
+const renderTemplate = lazy("renderTemplate");
+const stripRegionMarkers = lazy("stripRegionMarkers");
+const substituteVariables = lazy("substituteVariables");
+const wrapRegion = lazy("wrapRegion");
 
 const TEMPLATE = [
   "# {{title}}",
   "",
-  wrapRegion("generated", "metadata", ["- Year: {{year}}", "- Tags: {{tags}}", ""].join("\n")),
-  wrapRegion("editable", "notes", ["", "Write your notes here.", ""].join("\n")),
+  // The markers `wrapRegion` writes, spelled out: the core is not loaded yet here.
+  "<!-- wf:generated:metadata -->" +
+    ["- Year: {{year}}", "- Tags: {{tags}}", ""].join("\n") +
+    "<!-- /wf:generated:metadata -->",
+  "<!-- wf:editable:notes -->" + ["", "Write your notes here.", ""].join("\n") + "<!-- /wf:editable:notes -->",
   "",
 ].join("\n");
 

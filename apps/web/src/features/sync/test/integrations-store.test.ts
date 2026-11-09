@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PostgrestIntegrationsStore } from "../infrastructure/postgrest-integrations-store";
-import { mattermostConnectionReady } from "../domain/integration-fields";
+import { readyCore } from "@/lib/rust-core";
 import type { Integration } from "../domain/integration";
 
 /**
@@ -70,7 +70,7 @@ test("a Mattermost row saved as \"main\" reads back unset and not ready", async 
   });
   const read = await store.get("p1", "mattermost");
   assert.equal(read.branch, "");
-  assert.equal(mattermostConnectionReady(read), false);
+  assert.equal(readyCore().mattermostConnectionReady(read), false);
 });
 
 test("a Mattermost row with no channel reads back blank", async () => {

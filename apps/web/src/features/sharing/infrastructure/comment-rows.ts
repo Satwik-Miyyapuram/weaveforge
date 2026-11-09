@@ -1,6 +1,7 @@
 import type {
   Comment,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How comment rows are stored, and how they map to the domain type.
@@ -24,17 +25,5 @@ export interface CommentRow {
 }
 
 export function commentToDomain(r: CommentRow): Comment {
-  return {
-    id: r.id,
-    authorId: r.author_id,
-    resourceType: r.resource_type,
-    resourceId: r.resource_id,
-    body: r.body,
-    createdAt: r.created_at,
-    anchor: r.anchor_quote
-      ? { quote: r.anchor_quote, prefix: r.anchor_prefix ?? "", suffix: r.anchor_suffix ?? "" }
-      : null,
-    parentId: r.parent_id ?? null,
-    resolvedAt: r.resolved_at ?? null,
-  };
+  return readyCore().commentFromRow(r);
 }

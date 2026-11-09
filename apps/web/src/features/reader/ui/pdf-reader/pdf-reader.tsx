@@ -64,7 +64,6 @@ import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } 
 import { MarkPopover } from "../mark-popover";
 import { markActions, markPopoverShown } from "../../application/mark-actions";
 import type { ReaderAnnotation } from "@weaveforge/core";
-import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
@@ -2008,7 +2007,7 @@ export function PdfReader({
                 reportSections={reportSections}
                 pinsByKey={pinsByKey}
                 backlinks={
-                  selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
+                  selectedAnnId ? readyCore().backlinksForAnnotation(backlinkHits, selectedAnnId) : []
                 }
                 onUpdateLocal={updateLocal}
                 onRemoveLocal={removeLocal}

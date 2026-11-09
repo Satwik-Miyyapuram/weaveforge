@@ -17,9 +17,6 @@
 import {
   CONCEPT_KINDS,
   EMPTY_EXTRACTION,
-  type ConceptKind,
-  type ExtractedConcept,
-  type ExtractedMention,
   type ExtractionDocument,
   type ExtractionRequest,
   type ExtractionResult,
@@ -53,7 +50,7 @@ export interface ModelExtractorOptions {
   model?: string;
 }
 
-interface RawConcept {
+export interface RawConcept {
   name?: unknown;
   aliases?: unknown;
   kind?: unknown;
@@ -61,68 +58,23 @@ interface RawConcept {
   evidence?: unknown;
 }
 
+/** Signatures of the functions that moved to the Rust core (wf-core `ai::model_concepts`). */
+export interface ModelConceptFns {
+  parseExtractionJson(text: string): RawConcept[];
+  toExtractionResult(raw: readonly RawConcept[], batchIds: readonly string[]): ExtractionResult;
+}
+
 /**
  * Pull a JSON object out of a model reply.
  *
  * Models wrap JSON in fences and preambles no matter how firmly the prompt says
  * not to, so the reply is scanned for balanced objects and the first one with a
- * `concepts` list is taken. A brace in the preamble or an unrelated object
- * before the answer is passed over rather than ending the search. A reply with
- * nothing parseable yields no concepts instead of throwing: one bad batch
- * should cost its own results, not the whole run.
+ * `concepts` list is taken. A reply with nothing parseable yields no concepts
+ * instead of throwing: one bad batch should cost its own results, not the run.
+ * The scan runs in the Rust core.
  */
 export function parseExtractionJson(text: string): RawConcept[] {
-  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
-    const end = balancedObjectEnd(text, start);
-    if (end < 0) return [];
-    try {
-      const parsed: unknown = JSON.parse(text.slice(start, end + 1));
-      const concepts = (parsed as { concepts?: unknown } | null)?.concepts;
-      if (Array.isArray(concepts)) return concepts as RawConcept[];
-    } catch {
-      // Not JSON (a template brace, prose); try the next opening brace.
-    }
-  }
-  return [];
-}
-
-/** Index of the brace that closes the object opened at `start`, or -1. */
-function balancedObjectEnd(text: string, start: number): number {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let i = start; i < text.length; i += 1) {
-    const char = text[i]!;
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (char === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (char === "{") depth += 1;
-    else if (char === "}") {
-      depth -= 1;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "");
-}
-
-function asKind(value: unknown): ConceptKind {
-  return CONCEPT_KINDS.includes(value as ConceptKind) ? (value as ConceptKind) : "concept";
+  return rust().parseExtractionJson(text);
 }
 
 /**
@@ -130,44 +82,16 @@ function asKind(value: unknown): ConceptKind {
  *
  * Ids the model returns are checked against the batch rather than believed. A
  * model that hallucinates a document id would otherwise attach a source link to
- * an unrelated note — and source links are what the reviewer uses to decide.
+ * an unrelated note. The checks run in the Rust core.
  */
 export function toExtractionResult(
   raw: readonly RawConcept[],
   batch: readonly ExtractionDocument[],
 ): ExtractionResult {
-  const validIds = new Set(batch.map((doc) => doc.id));
-  const concepts: ExtractedConcept[] = [];
-  const mentions: ExtractedMention[] = [];
-  const seen = new Set<string>();
-
-  for (const entry of raw) {
-    // A model may put null or a bare string in the list; skip it, keep the rest.
-    if (typeof entry !== "object" || entry === null) continue;
-    const name = typeof entry.name === "string" ? entry.name.trim() : "";
-    if (!name) continue;
-    const key = rust().conceptKey(name);
-    if (seen.has(key)) continue;
-
-    const documentIds = asStringArray(entry.documentIds).filter((id) => validIds.has(id));
-    // A concept the model cannot tie to a document has no evidence behind it.
-    if (documentIds.length === 0) continue;
-    seen.add(key);
-
-    concepts.push({
-      name,
-      aliases: asStringArray(entry.aliases).filter((alias) => rust().conceptKey(alias) !== key),
-      kind: asKind(entry.kind),
-      mentions: documentIds.length,
-    });
-
-    const evidence = typeof entry.evidence === "string" ? entry.evidence.trim() : "";
-    for (const documentId of documentIds) {
-      mentions.push({ documentId, conceptName: name, evidence });
-    }
-  }
-
-  return { concepts, mentions };
+  return rust().toExtractionResult(
+    raw,
+    batch.map((doc) => doc.id),
+  );
 }
 
 export class ModelConceptExtractor implements IConceptExtractor {

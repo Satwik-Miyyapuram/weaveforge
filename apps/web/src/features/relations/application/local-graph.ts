@@ -4,29 +4,6 @@ export function linkNodeId(source: string | { id: string }): string {
   return typeof source === "string" ? source : source.id;
 }
 
-export function localSubgraph(
-  seedId: string | null,
-  depth: number,
-  neighbors: Map<string, Set<string>>,
-): Set<string> | null {
-  if (!seedId || depth < 1) return null;
-  const seen = new Set<string>([seedId]);
-  let frontier = [seedId];
-  for (let d = 0; d < depth; d++) {
-    const next: string[] = [];
-    for (const id of frontier) {
-      for (const n of neighbors.get(id) ?? []) {
-        if (!seen.has(n)) {
-          seen.add(n);
-          next.push(n);
-        }
-      }
-    }
-    frontier = next;
-  }
-  return seen;
-}
-
 export function filterGraphByNodes<
   T extends { id: string },
   L extends { source: string | { id: string }; target: string | { id: string } },

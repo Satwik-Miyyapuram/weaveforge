@@ -6,6 +6,7 @@
 use std::sync::LazyLock;
 
 use regex_lite::Regex;
+use serde::Serialize;
 
 /// The most text a single report field may carry, after redaction.
 pub const MAX_REPORT_CHARS: usize = 8_000;
@@ -55,11 +56,14 @@ static RULES: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
 });
 
 /// Redacted text and how many spans were replaced.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct Redacted {
     /// The text after redaction and any truncation.
     pub text: String,
     /// How many spans were replaced, so a caller can say "12 items redacted".
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub redactions: usize,
 }
 
@@ -98,12 +102,12 @@ pub fn redact_and_cap(input: &str, limit: usize) -> Redacted {
 }
 
 /// Length in UTF-16 code units, as JavaScript's `.length` counts it.
-fn utf16_len(s: &str) -> usize {
+pub(crate) fn utf16_len(s: &str) -> usize {
     s.encode_utf16().count()
 }
 
 /// The longest prefix of `s` within `limit` UTF-16 units, never splitting a char.
-fn utf16_prefix(s: &str, limit: usize) -> &str {
+pub(crate) fn utf16_prefix(s: &str, limit: usize) -> &str {
     let mut units = 0;
     for (idx, ch) in s.char_indices() {
         let next = units + ch.len_utf16();

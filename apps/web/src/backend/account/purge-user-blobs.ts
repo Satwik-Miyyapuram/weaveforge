@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStorageConfig } from "@/storage/config";
+import { loadCore } from "@/lib/rust-core";
 import { buildTieredBlobStoreFromRegistry } from "@/storage/build-tiered-blob-store";
 import { PostgrestBlobRegistry } from "@/storage/providers/postgrest/blob-registry";
 import { BLOB_STORAGE_BUCKETS } from "@/storage/server/blob-access";
@@ -35,6 +36,7 @@ export async function purgeUserBlobs(
     .eq("user_id", userId);
   if (error) throw error;
 
+  await loadCore();
   const config = readStorageConfig();
   const failed: BlobRow[] = [];
   if (config.provider === "tiered" && rows?.length) {

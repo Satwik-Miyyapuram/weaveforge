@@ -191,6 +191,56 @@ pub fn format_metric_cell(metric: &str, value: &Value) -> String {
     }
 }
 
+/// Runs × metrics as display text (TS `resultsTable`): a Run column, then one column per metric.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ResultsTable {
+    /// `Run`, then every metric name in [`metric_keys`] order.
+    pub header: Vec<String>,
+    /// One row per run; each cell follows the header's column order.
+    pub rows: Vec<Vec<String>>,
+}
+
+/// Every metric name any of the runs logged, sorted by UTF-16 code unit as JS `Array#sort` does.
+#[must_use]
+pub fn metric_keys(experiments: &[Value]) -> Vec<String> {
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for experiment in experiments {
+        if let Some(metrics) = experiment.get("metrics").and_then(Value::as_object) {
+            seen.extend(metrics.keys().map(String::as_str));
+        }
+    }
+    let mut keys: Vec<String> = seen.into_iter().map(str::to_owned).collect();
+    keys.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
+    keys
+}
+
+/// The runs as a [`ResultsTable`]. A metric a run did not log reads as `—`.
+#[must_use]
+pub fn results_table(experiments: &[Value]) -> ResultsTable {
+    let keys = metric_keys(experiments);
+    let mut header = vec!["Run".to_owned()];
+    header.extend(keys.iter().cloned());
+    let rows = experiments
+        .iter()
+        .map(|experiment| {
+            let name = experiment
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let metrics = experiment.get("metrics");
+            let mut row = vec![name.to_owned()];
+            row.extend(keys.iter().map(|key| {
+                let value = metrics.and_then(|m| m.get(key)).unwrap_or(&Value::Null);
+                format_metric_cell(key, value)
+            }));
+            row
+        })
+        .collect();
+    ResultsTable { header, rows }
+}
+
 /// `s.slice(0, n)` in UTF-16 units. A surrogate pair the cut would split is dropped whole.
 fn js_slice_start(s: &str, n: usize) -> String {
     let mut units = 0;
@@ -651,5 +701,39 @@ mod tests {
         assert_eq!(short_sha(Some("  abc  ")), Some("abc".to_owned()));
         assert_eq!(short_sha(Some("")), None);
         assert_eq!(short_sha(None), None);
+    }
+
+    #[test]
+    fn metric_keys_are_the_sorted_union() {
+        let a = json!({"name": "baseline", "metrics": {"acc": 0.9, "loss": 0.25}});
+        let b = json!({"name": "big|lr", "metrics": {"acc": 0.95, "f1": 0.8}});
+        assert_eq!(metric_keys(&[a.clone(), b.clone()]), ["acc", "f1", "loss"]);
+        assert!(metric_keys(&[]).is_empty());
+    }
+
+    #[test]
+    fn metric_keys_sort_by_utf16_unit() {
+        // U+FF5E (fullwidth tilde, one unit) sorts after U+1F600 (a surrogate pair starting D83D).
+        let run = json!({"metrics": {"\u{ff5e}": 1, "\u{1f600}": 1}});
+        assert_eq!(metric_keys(&[run]), ["\u{1f600}", "\u{ff5e}"]);
+    }
+
+    #[test]
+    fn results_table_has_a_run_column_and_dashes_for_missing_metrics() {
+        let a = json!({"name": "baseline", "metrics": {"acc": 0.9, "loss": 0.25}});
+        let b = json!({"name": "big|lr", "metrics": {"acc": 0.95, "f1": 0.8}});
+        let t = results_table(&[a, b]);
+        assert_eq!(t.header, ["Run", "acc", "f1", "loss"]);
+        assert_eq!(t.rows.len(), 2);
+        assert_eq!(t.rows[0][0], "baseline");
+        assert_eq!(t.rows[0][2], "—");
+        assert_eq!(t.rows[1][3], "—");
+    }
+
+    #[test]
+    fn results_table_of_no_runs_is_only_the_run_column() {
+        let t = results_table(&[]);
+        assert_eq!(t.header, ["Run"]);
+        assert!(t.rows.is_empty());
     }
 }

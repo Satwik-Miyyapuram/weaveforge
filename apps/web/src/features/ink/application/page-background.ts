@@ -23,7 +23,7 @@ import {
   toPngBlob,
   toWebpBlob,
 } from "./pdf-page-raster";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** The sheet's raster: A4 at 200 dpi, 1654 × 2339. */
 export const A4_RASTER_WIDTH = 1654;
@@ -36,32 +36,6 @@ export interface Placement {
   y: number;
   width: number;
   height: number;
-}
-
-/**
- * Where a `sourceWidth × sourceHeight` image sits on a `sheetWidth ×
- * sheetHeight` sheet: as large as fits without cropping, centred on the
- * axis it does not fill. A source that fits already is not enlarged past
- * the sheet — it is scaled up to the sheet, since a background is meant to
- * cover the page.
- */
-export function placeOnSheet(
-  sourceWidth: number,
-  sourceHeight: number,
-  sheetWidth: number = A4_RASTER_WIDTH,
-  sheetHeight: number = A4_RASTER_HEIGHT,
-): Placement {
-  const w = Math.max(1, sourceWidth);
-  const h = Math.max(1, sourceHeight);
-  const scale = Math.min(sheetWidth / w, sheetHeight / h);
-  const width = Math.round(w * scale);
-  const height = Math.round(h * scale);
-  return {
-    x: Math.round((sheetWidth - width) / 2),
-    y: Math.round((sheetHeight - height) / 2),
-    width,
-    height,
-  };
 }
 
 /** Whether `file` is something this can make a page of. */
@@ -175,7 +149,7 @@ async function composeOnSheet(
   if (!context) throw new Error("A 2D context could not be created for the page.");
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, A4_RASTER_WIDTH, A4_RASTER_HEIGHT);
-  const box = placeOnSheet(width, height);
+  const box = readyCore().placeOnSheet(width, height, A4_RASTER_WIDTH, A4_RASTER_HEIGHT);
   context.drawImage(source, box.x, box.y, box.width, box.height);
   return toPngBlob(sheet);
 }

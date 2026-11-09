@@ -10,6 +10,7 @@ import type { AppContainer } from "@/container/facades";
 import { readBackendConfig } from "@/backend/config";
 import { readStorageConfig } from "@/storage/config";
 import { createRebuildSlot } from "@/container/rebuild-slot";
+import { loadCore } from "@/lib/rust-core";
 
 export type { AppContainer };
 export type Container = AppContainer;
@@ -35,6 +36,8 @@ const slot = createRebuildSlot(async () => {
  * released none of them. Overlapping builds leave only the newest installed.
  */
 export async function ensureContainer(): Promise<AppContainer> {
+  // containerKey reads storage config through the Rust core, so it must be loaded first.
+  await loadCore();
   return (await slot.ensure(containerKey())).container;
 }
 

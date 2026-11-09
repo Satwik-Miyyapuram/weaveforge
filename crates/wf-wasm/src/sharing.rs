@@ -4,7 +4,8 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sharing::{
-    self, NewCommentInput, NewShareInput, ShareGrant, ShareScope, ShareableType,
+    self, CommentRow, NewCommentInput, NewShareInput, ShareGrant, ShareRow, ShareScope,
+    ShareableType, SharedSource,
 };
 
 use super::to_js;
@@ -148,4 +149,39 @@ pub fn encode_share_link_token_js(token: &[u8]) -> String {
 #[wasm_bindgen(js_name = decodeShareLinkToken)]
 pub fn decode_share_link_token_js(encoded: &str) -> Result<Vec<u8>, JsValue> {
     sharing::decode_share_link_token(encoded).map_err(|message| JsValue::from_str(&message))
+}
+
+/// [`share_from_row`](sharing::share_from_row): a `shares` row as the app's `Share`.
+///
+/// # Errors
+///
+/// Fails if `row` does not have the `shares` columns.
+#[wasm_bindgen(js_name = shareFromRow)]
+pub fn share_from_row_js(row: JsValue) -> JsResult<JsValue> {
+    let row: ShareRow = serde_wasm_bindgen::from_value(row)?;
+    to_js(&sharing::share_from_row(&row))
+}
+
+/// [`comment_from_row`](sharing::comment_from_row): a `comments` row as the app's `Comment`.
+///
+/// # Errors
+///
+/// Fails if `row` does not have the `comments` columns.
+#[wasm_bindgen(js_name = commentFromRow)]
+pub fn comment_from_row_js(row: JsValue) -> JsResult<JsValue> {
+    let row: CommentRow = serde_wasm_bindgen::from_value(row)?;
+    to_js(&sharing::comment_from_row(&row))
+}
+
+/// [`shared_item`](sharing::shared_item): one table row as a `SharedItem`.
+///
+/// # Errors
+///
+/// Fails if `kind` is not a shareable type or `source` lacks `title`.
+#[wasm_bindgen(js_name = sharedItem)]
+pub fn shared_item_js(kind: JsValue, row: JsValue, source: JsValue) -> JsResult<JsValue> {
+    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
+    let row: serde_json::Value = serde_wasm_bindgen::from_value(row)?;
+    let source: SharedSource = serde_wasm_bindgen::from_value(source)?;
+    to_js(&sharing::shared_item(kind, &row, &source))
 }

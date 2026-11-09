@@ -1,6 +1,6 @@
 import type { LogEntry } from "@weaveforge/core";
 import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
-import { gitConnection, gitConnectionReady } from "../domain/integration-fields";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Pushes a log entry to GitLab as markdown `logbook/<date>-<id>.md` directly
@@ -10,8 +10,8 @@ export class GitLabLogExporter {
   constructor(private readonly fetchFn: typeof fetch = (...a) => fetch(...a)) {}
 
   async push(integration: Integration, entry: LogEntry): Promise<void> {
-    if (!gitConnectionReady(integration)) return;
-    const { token, repo, branch } = gitConnection(integration);
+    if (!readyCore().gitConnectionReady(integration)) return;
+    const { token, repo, branch } = readyCore().gitConnection(integration);
     const url = gitLabFileUrl(repo, logPath(entry));
     const headers = { "Content-Type": "application/json", "PRIVATE-TOKEN": token };
     const body = JSON.stringify({
@@ -39,8 +39,8 @@ export class GitLabLogExporter {
 
   /** Remove a log entry's file from GitLab. A missing file is not an error. */
   async remove(integration: Integration, entry: LogEntry): Promise<void> {
-    if (!gitConnectionReady(integration)) return;
-    const { token, repo, branch } = gitConnection(integration);
+    if (!readyCore().gitConnectionReady(integration)) return;
+    const { token, repo, branch } = readyCore().gitConnection(integration);
     const res = await this.fetchFn(gitLabFileUrl(repo, logPath(entry)), {
       method: "DELETE",
       headers: { "Content-Type": "application/json", "PRIVATE-TOKEN": token },

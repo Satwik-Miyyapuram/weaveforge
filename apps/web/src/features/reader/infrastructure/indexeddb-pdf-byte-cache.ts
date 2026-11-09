@@ -4,7 +4,7 @@
  */
 
 import type { IPdfByteCache } from "@weaveforge/core";
-import { pickKeysToEvict } from "../application/pdf-cache-eviction";
+import { readyCore } from "@/lib/rust-core";
 import { PDF_CACHE_DB_NAME } from "./local-cache-names";
 
 const DB_NAME = PDF_CACHE_DB_NAME;
@@ -114,7 +114,7 @@ export class IndexedDbPdfByteCache implements IPdfByteCache {
       const count = await idbRequest(store.count());
       if (count > this.maxEntries) {
         const ages = await readAges(store);
-        for (const drop of pickKeysToEvict(ages, this.maxEntries)) {
+        for (const drop of readyCore().pickKeysToEvict(ages, this.maxEntries)) {
           store.delete(drop);
         }
       }

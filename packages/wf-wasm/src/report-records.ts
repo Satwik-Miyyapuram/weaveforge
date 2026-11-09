@@ -8,9 +8,11 @@ import {
   checkBibliography as rawCheckBibliography,
   createReportSectionWith as rawCreateReportSectionWith,
   normalizeProjectPath as rawNormalizeProjectPath,
+  outlineProgress as rawOutlineProgress,
   prismaCaveat as rawPrismaCaveat,
   prismaFigureTex as rawPrismaFigureTex,
   reportSectionInputError as rawReportSectionInputError,
+  sectionProgress as rawSectionProgress,
 } from "../pkg/wf_wasm.js";
 import type {
   BibEntry,
@@ -23,6 +25,7 @@ import type {
   PrismaFigureOptions,
   ReportSection,
   ReportSectionTreeNode,
+  SectionProgress,
 } from "./bindings.js";
 
 /** The PRISMA flow diagram as a LaTeX figure. */
@@ -92,4 +95,23 @@ export function createReportSectionWith(input: NewReportSectionInput, id: string
 /** The outline tree of a flat section list; siblings by sortOrder, sectionNo, then title. */
 export function buildSectionTree(sections: readonly ReportSection[]): ReportSectionTreeNode[] {
   return rawBuildSectionTree(sections) as ReportSectionTreeNode[];
+}
+
+/** A section's words against its target, `null` where there is no target (`report::section_progress`). */
+export type { SectionProgress };
+
+/** Words written under a section, its own text and every subsection's, against its target. */
+export function sectionProgress(node: ReportSectionTreeNode): SectionProgress {
+  return normalizeProgress(rawSectionProgress(node));
+}
+
+/** The whole outline: its top-level sections added up. */
+export function outlineProgress(roots: readonly ReportSectionTreeNode[]): SectionProgress {
+  return normalizeProgress(rawOutlineProgress(roots));
+}
+
+/** Rust `None` crosses as `undefined`; the TS shape uses `null`. */
+function normalizeProgress(raw: unknown): SectionProgress {
+  const p = raw as { words: number; target?: number | null; pct?: number | null };
+  return { words: p.words, target: p.target ?? null, pct: p.pct ?? null };
 }

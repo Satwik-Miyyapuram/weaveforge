@@ -1,7 +1,7 @@
 import { enumLabel } from "@/lib/enum-label";
 import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
-import { mattermostConnection, mattermostConnectionReady } from "../domain/integration-fields";
+import { readyCore } from "@/lib/rust-core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { emitMattermostSignedOut } from "./mattermost-session";
 
@@ -15,8 +15,8 @@ export class MattermostNotifier {
 
   /** `channel` overrides the connection's main channel (per-event routing). */
   async post(integration: Integration, message: string, channel?: string): Promise<void> {
-    if (!mattermostConnectionReady(integration)) return;
-    const { botToken, serverUrl, channelId: mainChannel } = mattermostConnection(integration);
+    if (!readyCore().mattermostConnectionReady(integration)) return;
+    const { botToken, serverUrl, channelId: mainChannel } = readyCore().mattermostConnection(integration);
     const channelId = channel?.trim() || mainChannel;
     let origin: string;
     try {

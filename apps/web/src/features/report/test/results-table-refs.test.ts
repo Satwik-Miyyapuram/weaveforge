@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import type { Experiment } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { metricKeysOf, resultsTable } from "@/features/experiments/application/results-table";
+import { readyCore } from "@/lib/rust-core";
 import {
   parseResultsTableRefs,
   resolveResultsTables,
@@ -28,12 +28,12 @@ const A = exp("a", "baseline", { acc: 0.9, loss: 0.25 });
 const B = exp("b", "big|lr", { acc: 0.95, f1: 0.8 });
 
 test("metricKeysOf is the sorted union of every run's metric names", () => {
-  assert.deepEqual(metricKeysOf([A, B]), ["acc", "f1", "loss"]);
-  assert.deepEqual(metricKeysOf([]), []);
+  assert.deepEqual(readyCore().metricKeysOf([A, B]), ["acc", "f1", "loss"]);
+  assert.deepEqual(readyCore().metricKeysOf([]), []);
 });
 
 test("resultsTable has a Run column, one row per run, and — for a missing metric", () => {
-  const t = resultsTable([A, B]);
+  const t = readyCore().resultsTable([A, B]);
   assert.deepEqual(t.header, ["Run", "acc", "f1", "loss"]);
   assert.equal(t.rows.length, 2);
   assert.equal(t.rows[0]![0], "baseline");
@@ -56,7 +56,7 @@ test("parse ignores expartifact refs, empty id lists and plain images", () => {
 });
 
 test("markdown table escapes pipes and is a GFM table", () => {
-  const md = resultsTableMarkdown(resultsTable([A, B]), "Results");
+  const md = resultsTableMarkdown(readyCore().resultsTable([A, B]), "Results");
   const lines = md.split("\n");
   assert.ok(lines.includes("| Run | acc | f1 | loss |"), md);
   assert.ok(lines.includes("| --- | --- | --- | --- |"), md);
@@ -65,7 +65,7 @@ test("markdown table escapes pipes and is a GFM table", () => {
 });
 
 test("latex table is a figure block (so the converter passes it through) with escaped cells", () => {
-  const tex = resultsTableLatex(resultsTable([A, B]), "Results & more");
+  const tex = resultsTableLatex(readyCore().resultsTable([A, B]), "Results & more");
   const lines = tex.split("\n");
   assert.equal(lines[0], "\\begin{figure}[ht]");
   assert.equal(lines.at(-1), "\\end{figure}");

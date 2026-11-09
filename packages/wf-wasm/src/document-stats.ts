@@ -25,6 +25,11 @@ export function formatWords(words: number): string {
   return rawFormatWords(words);
 }
 
+/** "Ln 7, Col 4", from a 1-based line and column. */
+export function formatCursorLabel(line: number, col: number): string {
+  return rawFormatCursorLabel(line, col);
+}
+
 /** "Ln 7, Col 4". */
 export function formatCursor(cursor: { line: number; col: number }): string {
   return rawFormatCursorLabel(cursor.line, cursor.col);

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import type { Integration, SyncProvider } from "../domain/integration";
-import { gitConnection } from "../domain/integration-fields";
+import { readyCore } from "@/lib/rust-core";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
@@ -17,7 +17,7 @@ import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
 
 function repoWebUrl(i: Integration): string {
-  const { repo } = gitConnection(i);
+  const { repo } = readyCore().gitConnection(i);
   const host = i.provider === "github" ? "https://github.com" : "https://gitlab.com";
   return `${host}/${repo}`;
 }
@@ -45,7 +45,7 @@ export function GitScreen() {
     const providers = getContainer().integrationConfig.gitRead as SyncProvider[];
     for (const p of providers) {
       const i = await store.get(current.id, p);
-      if (gitConnection(i).token && gitConnection(i).repo && i.enabled) return i;
+      if (readyCore().gitConnection(i).token && readyCore().gitConnection(i).repo && i.enabled) return i;
     }
     return null;
   }, [current]);
@@ -115,7 +115,7 @@ export function GitScreen() {
     }
   }
 
-  const repo = integration ? gitConnection(integration).repo : "";
+  const repo = integration ? readyCore().gitConnection(integration).repo : "";
 
   return (
     <section className="screen git-screen">

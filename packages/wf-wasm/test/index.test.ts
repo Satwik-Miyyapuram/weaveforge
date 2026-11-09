@@ -160,10 +160,11 @@ test("wf-wasm exports no classes or enums", () => {
   // A #[wasm_bindgen] struct or enum would bypass the wrapper and bindings.ts.
   // Agree how to type them before adding one.
   // The agreed classes: a factory wrapper builds each; wasm-bindgen types its methods.
-  // VectorIndex (vector-index.ts) and the live InkStrokePacker (ink.ts).
+  // VectorIndex (vector-index.ts), the live InkStrokePacker (ink.ts) and the
+  // import ArchiveBudget (createArchiveBudget in index.ts).
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   const declared = [...dts.matchAll(/^export (?:declare )?(?:class|enum) (\w+)/gm)].map((m) => m[1]);
-  assert.deepEqual(declared.sort(), ["InkStrokePacker", "VectorIndex"]);
+  assert.deepEqual(declared.sort(), ["ArchiveBudget", "InkStrokePacker", "VectorIndex"]);
 });
 
 const ALL_ON: TokenizerOptions = {

@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::editor_workspace::keybindings::{self as keys, KeyChord};
 use wf_core::editor_workspace::pane_tree::{
     self as pane, DocumentMode, PaneCommand, PaneLayout, PaneLeaf, PaneNode, PaneSplit,
     SplitDirection, TabMenuCommand, TabRef,
@@ -400,6 +401,18 @@ pub fn closed_tabs_js(before: JsValue, after: JsValue) -> JsResult<JsValue> {
 pub fn focused_tab_count_js(layout: JsValue) -> JsResult<i32> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     Ok(pane::focused_tab_count(&layout))
+}
+
+/// [`command_for_chord`](keys::command_for_chord). `tab_count` is omitted for an unbounded count.
+///
+/// # Errors
+///
+/// Fails if `chord` has the wrong shape.
+#[wasm_bindgen(js_name = commandForChord)]
+pub fn command_for_chord_js(chord: JsValue, tab_count: Option<u32>) -> JsResult<JsValue> {
+    let chord: KeyChord = serde_wasm_bindgen::from_value(chord)?;
+    let tab_count = tab_count.map(|count| count as usize);
+    to_js(&keys::command_for_chord(&chord, tab_count))
 }
 
 /// [`layout_for_command`](pane::layout_for_command). `command` is a chord name such as `"split-right"`.

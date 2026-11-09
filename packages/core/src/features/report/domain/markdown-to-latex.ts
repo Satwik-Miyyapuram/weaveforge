@@ -23,14 +23,6 @@ export interface MarkdownToLatexResult {
   citedKeys: string[];
 }
 
-const VERBATIM_END = "\\end{verbatim}";
-
-const UNSUPPORTED = [
-  { re: /\|.+\|[\r\n]+\|[-:| ]+\|/m, label: "markdown table" },
-  { re: /<[^>]+>/, label: "raw HTML" },
-  { re: /!\[[^\]]*\]\((?!reportimg:)[^)\s]+\)/, label: "non-report image (include assets separately)" },
-];
-
 /** Signatures of the functions that moved to the Rust core (wf-wasm). */
 export interface MarkdownToLatexFns {
   escapeLatexText(s: string): string;

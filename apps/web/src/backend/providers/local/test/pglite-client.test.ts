@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { createLocalClient, pgArray, type LocalQuery } from "../pglite-client";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** Records what would have run, and answers with whatever the test supplies. */
 function recorder(rows: unknown[] = []): { run: LocalQuery; seen: { sql: string; params: unknown[] }[] } {

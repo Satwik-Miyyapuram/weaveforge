@@ -5,6 +5,7 @@
 
 pub mod blob_links;
 pub mod change_origin;
+pub mod conflict_deletion;
 pub mod deserialize;
 pub mod folder_layout;
 pub mod folder_mirror;
@@ -15,13 +16,18 @@ pub mod git_remote;
 pub mod import_action;
 pub mod ink_note;
 pub mod instant;
+pub mod integration_fields;
 pub mod json_entities;
 pub mod markdown_image;
+pub mod mattermost_options;
 pub mod memory_fs;
 pub mod merge;
 pub mod merge_vault_page;
+pub mod pglite_sql;
+pub mod repo_web_url;
 pub mod serialize;
 pub mod snapshot_delta;
+pub mod sql_ident;
 pub mod stamp_workspace_id;
 pub mod text_diff;
 pub mod workspace_fs;

@@ -1,4 +1,5 @@
 import type { IBlobStore, ICurrentUserProvider } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 const BUCKET = "experiment-artifacts";
 const SIGNED_TTL_S = 3600;
@@ -63,8 +64,6 @@ export class ExperimentArtifactStore {
 }
 
 const LOCAL_ARTIFACT_PREFIX = "app://artifacts/";
-/** Same rule as `is_safe_segment` in `apps/shell/src/local_artifacts.rs`. */
-const SAFE_SEGMENT = /^[A-Za-z0-9._-]{1,128}$/;
 
 /** `http(s)`, or a desktop-local `app://artifacts/` upload; a bare path must not pass as a link. */
 export function isAbsoluteUrl(value: string): boolean {
@@ -95,14 +94,7 @@ export function viewableArtifactUrl(
   entry: string,
   inShell: boolean = isTauriShell(),
 ): string | null {
-  if (!inShell || !entry.startsWith(LOCAL_ARTIFACT_PREFIX)) return entry;
-  const segments = entry.slice(LOCAL_ARTIFACT_PREFIX.length).split("/");
-  const safe = segments.length === 3 && segments.every(isSafeSegment);
-  return safe ? `/artifacts/${segments.join("/")}` : null;
-}
-
-function isSafeSegment(segment: string): boolean {
-  return SAFE_SEGMENT.test(segment) && segment !== "." && segment !== "..";
+  return readyCore().viewableArtifactUrl(entry, inShell);
 }
 
 /**
@@ -114,6 +106,5 @@ function isSafeSegment(segment: string): boolean {
  * in an empty segment.
  */
 export function safeName(name: string): string {
-  const cleaned = name.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[.-]+/, "").slice(0, 128);
-  return cleaned || "artifact";
+  return readyCore().safeName(name);
 }

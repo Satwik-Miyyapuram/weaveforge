@@ -2,11 +2,14 @@
 //! `wf-core` function; the JS shapes match `packages/core/src/workspace`.
 
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
+
+use wasm_bindgen::JsError;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 // digest_text stays out: the web hashes in TS, which matches the digests
 // other TS code writes (lone surrogates included) and has no input limit.
-use wf_core::sync::change_origin::{ChangeOrigin, changed_side};
+use wf_core::sync::change_origin::{ChangeOrigin, changed_side, digest_text};
 use wf_core::sync::git_policy::{
     FileState, GitSyncDecision, GitSyncSkipReason, decide_git_sync_path, describe_changes,
     is_under_ignored_folder,
@@ -18,6 +21,7 @@ use wf_core::sync::git_remote::{
 };
 use wf_core::sync::snapshot_delta::{EntityStamp, apply_delta, plan_delta};
 use wf_core::sync::stamp_workspace_id::stamp_workspace_id;
+use wf_core::workspace::archive_limits::{self as archive, ArchiveLimits, EntryInfo};
 use wf_core::workspace::{is_safe_workspace_path, safe_workspace_path};
 
 use super::{check_text, to_js};
@@ -52,6 +56,13 @@ pub fn changed_side_js(
         folder: folder.as_deref(),
         workspace: workspace.as_deref(),
     }))
+}
+
+/// [`wf_core::sync::change_origin::digest_text`] for JS.
+#[wasm_bindgen(js_name = digestText)]
+#[must_use]
+pub fn digest_text_js(text: &str) -> String {
+    digest_text(text)
 }
 
 /// [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
@@ -407,4 +418,78 @@ pub fn read_ink_note_meta_js(frontmatter: JsValue) -> JsResult<JsValue> {
 pub fn split_ink_text_layer_js(body: &str) -> JsResult<JsValue> {
     check_text(body)?;
     to_js(&wf_core::sync::ink_note::split_ink_text_layer(body))
+}
+
+fn js_error(error: impl Display) -> JsError {
+    JsError::new(&error.to_string())
+}
+
+/// [`ArchiveBudget`](archive::ArchiveBudget): the caps an import is held to, checked as
+/// entries are inflated. `limits` is `{ maxTotalBytes, maxFileBytes, maxEntries }`.
+#[wasm_bindgen]
+pub struct ArchiveBudget {
+    inner: archive::ArchiveBudget,
+}
+
+#[wasm_bindgen]
+impl ArchiveBudget {
+    /// # Errors
+    ///
+    /// Fails if `limits` has the wrong shape.
+    #[wasm_bindgen(constructor)]
+    pub fn new(limits: JsValue) -> Result<ArchiveBudget, JsError> {
+        let limits: ArchiveLimits = serde_wasm_bindgen::from_value(limits).map_err(js_error)?;
+        Ok(Self {
+            inner: archive::ArchiveBudget::new(limits),
+        })
+    }
+
+    /// [`admit`](archive::ArchiveBudget::admit). `original_size` is a JS number; the
+    /// cast saturates, so a huge declared size is refused rather than wrapped.
+    ///
+    /// # Errors
+    ///
+    /// Throws past the entry count or the total cap.
+    pub fn admit(&mut self, name: &str, original_size: f64) -> Result<bool, JsError> {
+        // A file size from JS: whole, non-negative, far below 2^53.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let size = original_size.max(0.0).round() as u64;
+        self.inner
+            .admit(name, size)
+            .map_err(|message| JsError::new(&message))
+    }
+
+    /// Names refused as over the file cap, in archive order.
+    #[wasm_bindgen(getter)]
+    #[must_use]
+    pub fn oversize(&self) -> Vec<String> {
+        self.inner.oversize().to_vec()
+    }
+}
+
+/// [`plan_entries`](archive::plan_entries). `entries` is `{ name, size }[]` in archive order;
+/// the result is `{ name, action }[]` in the same order, where `action` is `keep`,
+/// `empty`, `unsafe-name` or `too-big`.
+///
+/// # Errors
+///
+/// Fails if an argument has the wrong shape, or past the entry count or the total cap.
+#[wasm_bindgen(js_name = planArchiveEntries)]
+pub fn plan_archive_entries_js(entries: JsValue, limits: JsValue) -> Result<JsValue, JsError> {
+    let entries: Vec<EntryInfo> = serde_wasm_bindgen::from_value(entries).map_err(js_error)?;
+    let limits: ArchiveLimits = serde_wasm_bindgen::from_value(limits).map_err(js_error)?;
+    let plan =
+        archive::plan_entries(&entries, &limits).map_err(|message| JsError::new(&message))?;
+    to_js(&plan).map_err(js_error)
+}
+
+/// [`strip_archive_root`](archive::strip_archive_root). `paths` is a `string[]`.
+///
+/// # Errors
+///
+/// Fails if `paths` has the wrong shape.
+#[wasm_bindgen(js_name = stripArchiveRoot)]
+pub fn strip_archive_root_js(paths: JsValue) -> Result<JsValue, JsError> {
+    let paths: Vec<String> = serde_wasm_bindgen::from_value(paths).map_err(js_error)?;
+    to_js(&archive::strip_archive_root(&paths)).map_err(js_error)
 }

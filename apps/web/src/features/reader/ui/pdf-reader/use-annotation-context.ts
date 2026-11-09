@@ -5,10 +5,8 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import {
-  findAnnotationBacklinks,
-  type AnnotationBacklinkHit,
-} from "../../application/annotation-backlinks";
+import { readyCore } from "@/lib/rust-core";
+import type { AnnotationBacklinkHit } from "@weaveforge/wasm";
 import type { ReportSectionOption } from "../annotation-sidebar";
 
 /** One row of the pin table: which annotation is pinned to which section. */
@@ -60,7 +58,7 @@ export function useAnnotationContext(
   const backlinkHits = useMemo(
     () =>
       paperId
-        ? findAnnotationBacklinks({
+        ? readyCore().findAnnotationBacklinks({
             annotations,
             pins: pinsList,
             sections: reportSections,

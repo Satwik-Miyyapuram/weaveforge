@@ -14,11 +14,6 @@ export interface PrismaFigureOptions {
 /** The packages the figure needs, for a preamble that does not have them yet. */
 export const PRISMA_FIGURE_PACKAGES: readonly string[] = ["tikz", "float"];
 
-const BOX =
-  "\\tikzstyle{prismabox}=[draw, rectangle, text width=6.2cm, minimum height=1cm, align=left, inner sep=6pt]";
-
-const ARROW = "\\tikzstyle{prismaflow}=[->, >=latex, thick]";
-
 /** Signatures of the functions that moved to the Rust core (wf-wasm). */
 export interface PrismaFigureFns {
   /**

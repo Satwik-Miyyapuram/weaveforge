@@ -8,6 +8,8 @@
  * keeps the scrollbar and every offset where they were.
  */
 
+import { readyCore } from "@/lib/rust-core";
+
 /** One row's height, matching `.explorer-row` in editor-workspace.css. */
 export const EXPLORER_ROW_PX = 25;
 /** Painted before the panel has a size to measure: more than a screenful. */
@@ -39,28 +41,9 @@ export function rowSlots(
   viewport: ExplorerViewport | null,
   pinned: Iterable<number>,
 ): RowSlot[] {
-  let start = 0;
-  let end = Math.min(count, EXPLORER_FIRST_PAINT_ROWS);
-  if (viewport) {
-    const top = viewport.scrollTop - viewport.rowsTop;
-    start = Math.max(0, Math.floor(top / EXPLORER_ROW_PX) - EXPLORER_OVERSCAN_ROWS);
-    end = Math.min(
-      count,
-      Math.ceil((top + viewport.height) / EXPLORER_ROW_PX) + EXPLORER_OVERSCAN_ROWS,
-    );
-  }
-
-  const indices = new Set<number>();
-  for (let i = start; i < end; i++) indices.add(i);
-  for (const i of pinned) if (Number.isInteger(i) && i >= 0 && i < count) indices.add(i);
-
-  const slots: RowSlot[] = [];
-  let next = 0;
-  for (const index of [...indices].sort((a, b) => a - b)) {
-    if (index > next) slots.push({ kind: "gap", rows: index - next });
-    slots.push({ kind: "row", index });
-    next = index + 1;
-  }
-  if (count > next) slots.push({ kind: "gap", rows: count - next });
-  return slots;
+  return readyCore().rowSlots(count, viewport, [...pinned], {
+    rowPx: EXPLORER_ROW_PX,
+    firstPaintRows: EXPLORER_FIRST_PAINT_ROWS,
+    overscanRows: EXPLORER_OVERSCAN_ROWS,
+  });
 }

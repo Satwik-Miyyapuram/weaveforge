@@ -4,3 +4,5 @@
 
 pub mod blob;
 pub mod blob_access;
+pub mod blob_client;
+pub mod config;
