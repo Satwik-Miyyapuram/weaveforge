@@ -249,6 +249,7 @@ export * from "./user-appearance.js";
 export * from "./ai-access-policy.js";
 export * from "./log-entry.js";
 export * from "./milestone.js";
+export * from "./org.js";
 export * from "./paper-relation.js";
 export * from "./reader-ink-undo.js";
 export * from "./reading-list.js";

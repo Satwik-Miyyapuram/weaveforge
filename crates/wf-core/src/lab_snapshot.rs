@@ -249,6 +249,15 @@ pub fn build_lab_snapshot_content(input: BuildLabSnapshotInput) -> LabSnapshotCo
     }
 }
 
+/// Trim a lab snapshot title. Blank titles are rejected.
+pub fn validate_snapshot_title(title: &str) -> Result<String, &'static str> {
+    let trimmed = title.trim();
+    if trimmed.is_empty() {
+        return Err("Snapshot title is required.");
+    }
+    Ok(trimmed.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,5 +299,18 @@ mod tests {
         assert_eq!(value["milestones"][0]["targetDate"], "2026-12-01");
         assert_eq!(value["experiments"][0]["resultNote"], "bad");
         assert_eq!(value["aiAssisted"], 3.0);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod title_tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_title_is_trimmed_and_required() {
+        assert_eq!(validate_snapshot_title("  Week 3 "), Ok("Week 3".to_owned()));
+        assert_eq!(validate_snapshot_title("   "), Err("Snapshot title is required."));
+        assert_eq!(validate_snapshot_title(""), Err("Snapshot title is required."));
     }
 }

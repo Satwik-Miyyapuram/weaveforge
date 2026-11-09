@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ROLE_LABELS, type OrgInviteCodePlaintext } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
-import { needsOrgSetup } from "../application/org-profile-state";
+import { readyCore } from "@/lib/rust-core";
 import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/org-api";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
@@ -24,7 +24,7 @@ export function OrgSetupGate({ children }: { children: React.ReactNode }) {
   // answer `continueStandalone`, whose only implementation is an RPC. The
   // gate was unanswerable, so it is not asked.
   const hasOrgs = useCapability("org");
-  const needsSetup = needsOrgSetup({ hasOrgs, loading, profile, error });
+  const needsSetup = readyCore().needsOrgSetup({ hasOrgs, loading, profile, error });
 
   if (!needsSetup) return <>{children}</>;
 

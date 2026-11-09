@@ -5,7 +5,8 @@
  * - 32-28: a slow earlier refresh does not overwrite a later one.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
 
 import { latestGate, loadProfileBundle, type ProfileSources } from "../application/profile-refresh";
@@ -42,6 +43,8 @@ async function withLogs(run: () => Promise<void>): Promise<Log[]> {
   }
   return logs;
 }
+
+before(async () => { await loadTestCore(); });
 
 test("a failed standalone sync is logged and the first read kept (32-27)", async () => {
   let bundle: Awaited<ReturnType<typeof loadProfileBundle>> | undefined;
