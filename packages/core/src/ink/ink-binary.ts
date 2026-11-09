@@ -86,8 +86,7 @@
  * read past its end.
  */
 
-import { INK_COLOURS, INK_PAPERS, INK_SHAPES, INK_TOOLS, type InkPage, type InkPaper } from "./ink-note.js";
-import { INK_PEN_WIDTH } from "./width.js";
+import type { InkPage, InkPaper } from "./ink-note.js";
 import { rust } from "../shared/rust.js";
 
 /** Four bytes at the head of every chunk, so a foreign file is refused at once. */
@@ -156,235 +155,32 @@ export const identityInkChunkCodec: InkChunkCodec = {
 };
 
 /* -------------------------------------------------------------------------
- * Layout
+ * Rust calls
  * ---------------------------------------------------------------------- */
 
-interface ChunkLayout {
-  pointCount: number;
-  strokeCount: number;
-  lineCount: number;
-  textBytes: number;
-  strokePointOffset: number;
-  strokePointCount: number;
-  strokeWidth: number;
-  strokeTool: number;
-  strokeColour: number;
-  strokeShape: number;
-  strokeLine: number;
-  strokeT0: number;
-  points: number;
-  lineStrokeStart: number;
-  lineStrokeCount: number;
-  lineYMin: number;
-  lineYMax: number;
-  lineTextOffset: number;
-  lineTextLength: number;
-  lineConfidence: number;
-  texts: number;
-  total: number;
-}
-
-const align = (offset: number, to: number): number => Math.ceil(offset / to) * to;
-
-/**
- * Where every section starts, as plain arithmetic.
- *
- * Encode and decode both call this, which is what makes a round trip
- * byte-identical: there is one layout, not a writer's idea of it and a reader's.
- */
-function inkChunkLayout(
-  pointCount: number,
-  strokeCount: number,
-  lineCount: number,
-  textBytes: number,
-): ChunkLayout {
-  let cursor = 24; // four u32 counts, then the 6-byte page header padded to 24
-  const take = (count: number, size: number): number => {
-    cursor = align(cursor, size);
-    const at = cursor;
-    cursor += count * size;
-    return at;
-  };
-
-  const strokePointOffset = take(strokeCount, 4);
-  const strokePointCount = take(strokeCount, 2);
-  const strokeWidth = take(strokeCount, 1);
-  const strokeTool = take(strokeCount, 1);
-  const strokeColour = take(strokeCount, 1);
-  const strokeShape = take(strokeCount, 1);
-  const strokeLine = take(strokeCount, 2);
-  const strokeT0 = take(strokeCount, 4);
-  const points = take(pointCount * 3, 2);
-  const lineStrokeStart = take(lineCount, 2);
-  const lineStrokeCount = take(lineCount, 2);
-  const lineYMin = take(lineCount, 2);
-  const lineYMax = take(lineCount, 2);
-  const lineTextOffset = take(lineCount, 4);
-  const lineTextLength = take(lineCount, 2);
-  const lineConfidence = take(lineCount, 1);
-  const texts = take(textBytes, 1);
-
-  return {
-    pointCount,
-    strokeCount,
-    lineCount,
-    textBytes,
-    strokePointOffset,
-    strokePointCount,
-    strokeWidth,
-    strokeTool,
-    strokeColour,
-    strokeShape,
-    strokeLine,
-    strokeT0,
-    points,
-    lineStrokeStart,
-    lineStrokeCount,
-    lineYMin,
-    lineYMax,
-    lineTextOffset,
-    lineTextLength,
-    lineConfidence,
-    texts,
-    total: cursor,
-  };
+/** Run a Rust chunk call, raising its refusal as an `InkChunkError`. */
+function chunkCall<T>(call: () => T): T {
+  try {
+    return call();
+  } catch (error) {
+    if (error instanceof InkChunkError) throw error;
+    throw new InkChunkError(error instanceof Error ? error.message : String(error));
+  }
 }
 
 /* -------------------------------------------------------------------------
  * Encoding
  * ---------------------------------------------------------------------- */
 
-/** One encoder for the module: it holds no state. */
-const encoder = new TextEncoder();
-
-const clampU16 = (value: number): number =>
-  Number.isFinite(value) ? Math.max(0, Math.min(65_535, Math.round(value))) : 0;
-const clampI16 = (value: number): number =>
-  Number.isFinite(value) ? Math.max(-32_768, Math.min(32_767, Math.round(value))) : 0;
-
 /**
- * Pack a page into an uncompressed body.
+ * Pack a page into an uncompressed body (Rust `encode_ink_chunk_body`).
  *
  * Throws rather than truncates when a page exceeds what the format can hold: a
  * silently clipped stroke is a lost stroke, and the ink bar's job is to refuse
  * the stroke at the point it is drawn.
  */
 export function encodeInkChunkBody(page: InkPage): Uint8Array {
-  const strokes = page.strokes;
-  const lines = page.lines;
-  if (strokes.length > INK_CHUNK_MAX_STROKES) {
-    throw new InkChunkError(
-      `ink: ${strokes.length} strokes exceeds the ${INK_CHUNK_MAX_STROKES} a chunk holds`,
-    );
-  }
-
-  const texts = lines.map((line) => encoder.encode(line.text ?? ""));
-  const textBytes = texts.reduce((sum, bytes) => sum + bytes.length, 0);
-  let pointCount = 0;
-  const pointCounts = strokes.map((stroke) => {
-    const count = Math.floor(stroke.points.length / 2);
-    pointCount += count;
-    return count;
-  });
-  if (pointCount > INK_CHUNK_MAX_POINTS) {
-    throw new InkChunkError(
-      `ink: ${pointCount} points exceeds the ${INK_CHUNK_MAX_POINTS} a chunk holds`,
-    );
-  }
-  for (const [index, count] of pointCounts.entries()) {
-    if (count > 65_535) {
-      throw new InkChunkError(`ink: stroke ${index} has ${count} points, over the u16 length`);
-    }
-  }
-  if (textBytes > 0xffff_ffff) throw new InkChunkError("ink: text layer is absurdly large");
-
-  const layout = inkChunkLayout(pointCount, strokes.length, lines.length, textBytes);
-  const body = new Uint8Array(layout.total);
-  const view = new DataView(body.buffer);
-  const size = rust().clampInkPageSize(page.width, page.height);
-
-  view.setUint32(0, pointCount, true);
-  view.setUint32(4, strokes.length, true);
-  view.setUint32(8, lines.length, true);
-  view.setUint32(12, textBytes, true);
-  view.setUint16(16, size.width, true);
-  view.setUint16(18, size.height, true);
-  body[20] = rust().inkEnumIndex(INK_PAPERS, page.paper);
-  body[21] = Math.max(0, Math.min(255, Math.round(page.background)));
-  view.setUint16(22, 0, true);
-
-  const strokePointOffset = new Uint32Array(body.buffer, layout.strokePointOffset, strokes.length);
-  const strokePointCount = new Uint16Array(body.buffer, layout.strokePointCount, strokes.length);
-  const strokeWidth = new Uint8Array(body.buffer, layout.strokeWidth, strokes.length);
-  const strokeTool = new Uint8Array(body.buffer, layout.strokeTool, strokes.length);
-  const strokeColour = new Uint8Array(body.buffer, layout.strokeColour, strokes.length);
-  const strokeShape = new Uint8Array(body.buffer, layout.strokeShape, strokes.length);
-  const strokeLine = new Int16Array(body.buffer, layout.strokeLine, strokes.length);
-  const strokeT0 = new Uint32Array(body.buffer, layout.strokeT0, strokes.length);
-  const points = new Int16Array(body.buffer, layout.points, pointCount * 3);
-
-  let offset = 0;
-  let cursor = 0;
-  strokes.forEach((stroke, index) => {
-    const count = pointCounts[index]!;
-    strokePointOffset[index] = offset;
-    strokePointCount[index] = count;
-    // Width is clamped, never rejected: a width that arrived out of range is a
-    // bug somewhere upstream, and refusing the stroke would lose the drawing.
-    strokeWidth[index] = Math.min(255, rust().clampInkNoteWidth(stroke.width ?? INK_PEN_WIDTH));
-    strokeTool[index] = rust().inkEnumIndex(INK_TOOLS, stroke.tool);
-    strokeColour[index] = rust().inkEnumIndex(INK_COLOURS, stroke.colour);
-    strokeShape[index] = rust().inkEnumIndex(INK_SHAPES, stroke.shape);
-    strokeLine[index] = clampI16(stroke.lineIndex);
-    strokeT0[index] = Math.max(0, Math.min(0xffff_ffff, Math.round(stroke.t0 ?? 0)));
-
-    let previousX = 0;
-    let previousY = 0;
-    for (let i = 0; i < count; i += 1) {
-      const x = clampI16(stroke.points[i * 2] ?? 0);
-      const y = clampI16(stroke.points[i * 2 + 1] ?? 0);
-      // Every stroke's first point is absolute, and a delta chain restarts
-      // there, so one stroke's geometry is readable on its own.
-      points[cursor] = i === 0 ? x : x - previousX;
-      points[cursor + 1] = i === 0 ? y : y - previousY;
-      points[cursor + 2] = rust().pressureByte(stroke.pressures?.[i]);
-      previousX = x;
-      previousY = y;
-      cursor += 3;
-    }
-    offset += count;
-  });
-
-  const lineStrokeStart = new Uint16Array(body.buffer, layout.lineStrokeStart, lines.length);
-  const lineStrokeCount = new Uint16Array(body.buffer, layout.lineStrokeCount, lines.length);
-  const lineYMin = new Int16Array(body.buffer, layout.lineYMin, lines.length);
-  const lineYMax = new Int16Array(body.buffer, layout.lineYMax, lines.length);
-  const lineTextOffset = new Uint32Array(body.buffer, layout.lineTextOffset, lines.length);
-  const lineTextLength = new Uint16Array(body.buffer, layout.lineTextLength, lines.length);
-  const lineConfidence = new Uint8Array(body.buffer, layout.lineConfidence, lines.length);
-
-  let textCursor = 0;
-  let writeAt = layout.texts;
-  lines.forEach((line, index) => {
-    lineStrokeStart[index] = clampU16(line.strokeStart);
-    lineStrokeCount[index] = clampU16(line.strokeCount);
-    lineYMin[index] = clampI16(line.yMin);
-    lineYMax[index] = clampI16(line.yMax);
-    lineTextOffset[index] = textCursor;
-    // A text longer than `u16` is clipped, and the clip is what is written, so
-    // the offsets and the blob agree whatever the caller handed in.
-    const bytes = texts[index]!;
-    const length = Math.min(0xffff, bytes.length);
-    lineTextLength[index] = length;
-    // Confidence is 0–1 in the model and 0–255 on disk, so `1` stays exactly 1
-    // after a round trip — the manual-correction flag depends on it.
-    lineConfidence[index] = Math.round(Math.max(0, Math.min(1, line.confidence ?? 0)) * 255);
-    body.set(bytes.subarray(0, length), writeAt);
-    textCursor += length;
-    writeAt += length;
-  });
-
-  return body;
+  return chunkCall(() => rust().encodeInkChunkBody(page));
 }
 
 /**
@@ -401,22 +197,17 @@ export async function encodeInkChunk(
 ): Promise<Uint8Array> {
   const body = encodeInkChunkBody(page);
   let payload = body;
-  let flags = 0;
+  let compressed = false;
   if (body.length >= INK_CHUNK_RAW_THRESHOLD) {
-    const compressed = await codec.compress(body);
-    if (compressed.length < body.length) {
-      payload = compressed;
-      flags |= INK_CHUNK_FLAG_COMPRESSED;
+    const packed = await codec.compress(body);
+    if (packed.length < body.length) {
+      payload = packed;
+      compressed = true;
     }
   }
 
   const chunk = new Uint8Array(INK_CHUNK_HEADER_BYTES + payload.length);
-  chunk.set(encoder.encode(INK_CHUNK_MAGIC), 0);
-  const view = new DataView(chunk.buffer);
-  view.setUint16(4, INK_CHUNK_VERSION, true);
-  view.setUint16(6, flags, true);
-  view.setUint32(8, body.length, true);
-  view.setUint32(12, payload.length, true);
+  chunk.set(rust().inkChunkHeaderBytes(body.length, payload.length, compressed), 0);
   chunk.set(payload, INK_CHUNK_HEADER_BYTES);
   return chunk;
 }
@@ -478,145 +269,106 @@ export interface InkChunkHeader {
   compressed: boolean;
 }
 
+/** Where a checked body's sections start (Rust `InkChunkLayout`). */
+interface InkChunkLayout {
+  pointCount: number;
+  strokeCount: number;
+  lineCount: number;
+  textBytes: number;
+  strokePointOffset: number;
+  strokePointCount: number;
+  strokeWidth: number;
+  strokeTool: number;
+  strokeColour: number;
+  strokeShape: number;
+  strokeLine: number;
+  strokeT0: number;
+  points: number;
+  lineStrokeStart: number;
+  lineStrokeCount: number;
+  lineYMin: number;
+  lineYMax: number;
+  lineTextOffset: number;
+  lineTextLength: number;
+  lineConfidence: number;
+  texts: number;
+  total: number;
+}
+
+/** A body that passed every check (Rust `InkChunkBodyInfo`). */
+export interface InkChunkBodyInfo {
+  layout: InkChunkLayout;
+  width: number;
+  height: number;
+  paper: InkPaper;
+  background: number;
+}
+
+/** Signatures of the chunk functions that moved to the Rust core (wf-wasm). */
+export interface InkChunkFns {
+  encodeInkChunkBody(page: InkPage): Uint8Array;
+  inkChunkBodySize(page: InkPage): number;
+  readInkChunkHeader(bytes: Uint8Array): InkChunkHeader;
+  inkChunkHeaderBytes(bodySize: number, payloadSize: number, compressed: boolean): Uint8Array;
+  checkInkChunkBody(body: Uint8Array): InkChunkBodyInfo;
+  fitsInkNoteBudget(sizes: readonly number[]): boolean;
+}
+
 /**
- * Read the 16-byte header.
+ * Read the 16-byte header (Rust `read_ink_chunk_header`).
  *
  * Separate from decoding because a caller may want the size and the compression
  * flag — a budget check, a file listing, `wf ink dump --header` — without paying
  * for the inflate.
  */
 export function readInkChunkHeader(bytes: Uint8Array): InkChunkHeader {
-  if (bytes.length < INK_CHUNK_HEADER_BYTES) {
-    throw new InkChunkError(`ink: chunk is ${bytes.length} bytes, shorter than its header`);
-  }
-  const magic = String.fromCharCode(bytes[0]!, bytes[1]!, bytes[2]!, bytes[3]!);
-  if (magic !== INK_CHUNK_MAGIC) {
-    throw new InkChunkError(`ink: not an ink chunk (magic ${JSON.stringify(magic)})`);
-  }
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const version = view.getUint16(4, true);
-  if (version !== INK_CHUNK_VERSION) {
-    throw new InkChunkError(`ink: chunk version ${version}, this build reads ${INK_CHUNK_VERSION}`);
-  }
-  const flags = view.getUint16(6, true);
-  if ((flags & ~INK_CHUNK_FLAG_COMPRESSED) !== 0) {
-    throw new InkChunkError(`ink: unknown chunk flags 0x${flags.toString(16)}`);
-  }
-  const bodySize = view.getUint32(8, true);
-  const payloadSize = view.getUint32(12, true);
-  if (INK_CHUNK_HEADER_BYTES + payloadSize !== bytes.length) {
-    throw new InkChunkError(
-      `ink: chunk claims ${payloadSize} payload bytes but carries ${bytes.length - INK_CHUNK_HEADER_BYTES}`,
-    );
-  }
-  return {
-    version,
-    flags,
-    bodySize,
-    payloadSize,
-    totalBytes: bytes.length,
-    compressed: (flags & INK_CHUNK_FLAG_COMPRESSED) !== 0,
-  };
+  return chunkCall(() => rust().readInkChunkHeader(bytes));
 }
 
-/** Decode an uncompressed body into views, refusing anything that does not add up. */
+/**
+ * Decode an uncompressed body into views over it.
+ *
+ * Rust checks every count, offset and length against the bytes first; only a
+ * body that adds up gets views, so none can read past its end.
+ */
 export function decodeInkChunkBody(body: Uint8Array): InkChunkView {
-  if (body.length < 24) throw new InkChunkError("ink: chunk body is shorter than its header");
   // Every field is read as a typed-array view, and a view needs its offset to be
   // a multiple of its element size *in the buffer*, so a body that starts at an
   // odd byte offset is copied once rather than read unaligned.
   const aligned = body.byteOffset % 8 === 0 ? body : new Uint8Array(body);
-  const view = new DataView(aligned.buffer, aligned.byteOffset, aligned.byteLength);
-  const pointCount = view.getUint32(0, true);
-  const strokeCount = view.getUint32(4, true);
-  const lineCount = view.getUint32(8, true);
-  const textBytes = view.getUint32(12, true);
-
-  if (strokeCount > INK_CHUNK_MAX_STROKES) {
-    throw new InkChunkError(`ink: chunk claims ${strokeCount} strokes`);
-  }
-  if (pointCount > INK_CHUNK_MAX_POINTS) {
-    throw new InkChunkError(`ink: chunk claims ${pointCount} points`);
-  }
-  if (lineCount > strokeCount && lineCount > 1) {
-    throw new InkChunkError(`ink: ${lineCount} lines for ${strokeCount} strokes`);
-  }
-
-  const layout = inkChunkLayout(pointCount, strokeCount, lineCount, textBytes);
-  if (layout.total !== aligned.length) {
-    throw new InkChunkError(
-      `ink: chunk body is ${aligned.length} bytes, its tables say ${layout.total}`,
-    );
-  }
-
+  const info = chunkCall(() => rust().checkInkChunkBody(aligned));
+  const { layout } = info;
+  const { buffer } = aligned;
   const base = aligned.byteOffset;
-  const strokePointOffset = new Uint32Array(aligned.buffer, base + layout.strokePointOffset, strokeCount);
-  const strokePointCount = new Uint16Array(aligned.buffer, base + layout.strokePointCount, strokeCount);
-  const strokeWidth = new Uint8Array(aligned.buffer, base + layout.strokeWidth, strokeCount);
-  const strokeTool = new Uint8Array(aligned.buffer, base + layout.strokeTool, strokeCount);
-  const strokeColour = new Uint8Array(aligned.buffer, base + layout.strokeColour, strokeCount);
-  const strokeShape = new Uint8Array(aligned.buffer, base + layout.strokeShape, strokeCount);
-  const strokeLine = new Int16Array(aligned.buffer, base + layout.strokeLine, strokeCount);
-  const strokeT0 = new Uint32Array(aligned.buffer, base + layout.strokeT0, strokeCount);
-  const points = new Int16Array(aligned.buffer, base + layout.points, pointCount * 3);
-  const lineStrokeStart = new Uint16Array(aligned.buffer, base + layout.lineStrokeStart, lineCount);
-  const lineStrokeCount = new Uint16Array(aligned.buffer, base + layout.lineStrokeCount, lineCount);
-  const lineYMin = new Int16Array(aligned.buffer, base + layout.lineYMin, lineCount);
-  const lineYMax = new Int16Array(aligned.buffer, base + layout.lineYMax, lineCount);
-  const lineTextOffset = new Uint32Array(aligned.buffer, base + layout.lineTextOffset, lineCount);
-  const lineTextLength = new Uint16Array(aligned.buffer, base + layout.lineTextLength, lineCount);
-  const lineConfidence = new Uint8Array(aligned.buffer, base + layout.lineConfidence, lineCount);
-  const texts = new Uint8Array(aligned.buffer, base + layout.texts, textBytes);
-
-  // The stroke table must describe the point array exactly: contiguous strokes,
-  // in order, ending at the last point. A gap or an overlap is a corrupt file.
-  let expected = 0;
-  for (let i = 0; i < strokeCount; i += 1) {
-    if (strokePointOffset[i] !== expected) {
-      throw new InkChunkError(`ink: stroke ${i} starts at ${strokePointOffset[i]}, expected ${expected}`);
-    }
-    expected += strokePointCount[i]!;
-  }
-  if (expected !== pointCount) {
-    throw new InkChunkError(`ink: strokes hold ${expected} points, the header says ${pointCount}`);
-  }
-
-  for (let i = 0; i < lineCount; i += 1) {
-    if (lineStrokeStart[i]! + lineStrokeCount[i]! > strokeCount) {
-      throw new InkChunkError(`ink: line ${i} runs past the last stroke`);
-    }
-    if (lineTextOffset[i]! + lineTextLength[i]! > textBytes) {
-      throw new InkChunkError(`ink: line ${i}'s text runs past the text blob`);
-    }
-  }
-
+  const strokes = layout.strokeCount;
+  const lines = layout.lineCount;
   return {
     version: INK_CHUNK_VERSION,
     flags: 0,
-    width: view.getUint16(16, true),
-    height: view.getUint16(18, true),
-    paper: rust().inkEnumValue(INK_PAPERS, aligned[20]!),
-    background: aligned[21]!,
-    pointCount,
-    strokeCount,
-    lineCount,
-    strokePointOffset,
-    strokePointCount,
-    strokeWidth,
-    strokeTool,
-    strokeColour,
-    strokeShape,
-    strokeLine,
-    strokeT0,
-    points,
-    lineStrokeStart,
-    lineStrokeCount,
-    lineYMin,
-    lineYMax,
-    lineTextOffset,
-    lineTextLength,
-    lineConfidence,
-    texts,
+    width: info.width,
+    height: info.height,
+    paper: info.paper,
+    background: info.background,
+    pointCount: layout.pointCount,
+    strokeCount: strokes,
+    lineCount: lines,
+    strokePointOffset: new Uint32Array(buffer, base + layout.strokePointOffset, strokes),
+    strokePointCount: new Uint16Array(buffer, base + layout.strokePointCount, strokes),
+    strokeWidth: new Uint8Array(buffer, base + layout.strokeWidth, strokes),
+    strokeTool: new Uint8Array(buffer, base + layout.strokeTool, strokes),
+    strokeColour: new Uint8Array(buffer, base + layout.strokeColour, strokes),
+    strokeShape: new Uint8Array(buffer, base + layout.strokeShape, strokes),
+    strokeLine: new Int16Array(buffer, base + layout.strokeLine, strokes),
+    strokeT0: new Uint32Array(buffer, base + layout.strokeT0, strokes),
+    points: new Int16Array(buffer, base + layout.points, layout.pointCount * 3),
+    lineStrokeStart: new Uint16Array(buffer, base + layout.lineStrokeStart, lines),
+    lineStrokeCount: new Uint16Array(buffer, base + layout.lineStrokeCount, lines),
+    lineYMin: new Int16Array(buffer, base + layout.lineYMin, lines),
+    lineYMax: new Int16Array(buffer, base + layout.lineYMax, lines),
+    lineTextOffset: new Uint32Array(buffer, base + layout.lineTextOffset, lines),
+    lineTextLength: new Uint16Array(buffer, base + layout.lineTextLength, lines),
+    lineConfidence: new Uint8Array(buffer, base + layout.lineConfidence, lines),
+    texts: new Uint8Array(buffer, base + layout.texts, layout.textBytes),
   };
 }
 
@@ -647,30 +399,17 @@ export async function decodeInkChunk(
 }
 
 /**
- * How many bytes a page's body would take.
- *
- * Sizes the write path before it allocates, and lets the byte budget be checked
- * without packing the page twice. It is the same layout arithmetic the encoder
- * uses, so the two cannot disagree.
+ * How many bytes a page's body would take (Rust `ink_chunk_body_size`): the
+ * same layout arithmetic the encoder uses, so the two cannot disagree.
  */
 export function inkChunkBodySize(page: InkPage): number {
-  const pointCount = page.strokes.reduce(
-    (sum, stroke) => sum + Math.floor(stroke.points.length / 2),
-    0,
-  );
-  const textBytes = page.lines.reduce(
-    (sum, line) => sum + encoder.encode(line.text ?? "").length,
-    0,
-  );
-  return inkChunkLayout(pointCount, page.strokes.length, page.lines.length, textBytes).total;
+  return chunkCall(() => rust().inkChunkBodySize(page));
 }
 
 /**
- * Whether a set of chunks still fits a note's budget.
- *
- * `sizes` are the bytes on disk, one per page, so the check is against what the
- * folder actually holds rather than against an estimate of it.
+ * Whether a set of chunks still fits a note's budget. `sizes` are the bytes on
+ * disk, one per page.
  */
 export function fitsInkNoteBudget(sizes: readonly number[]): boolean {
-  return sizes.reduce((sum, size) => sum + size, 0) <= INK_NOTE_MAX_BYTES;
+  return rust().fitsInkNoteBudget(sizes);
 }

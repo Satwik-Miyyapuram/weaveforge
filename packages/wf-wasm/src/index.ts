@@ -256,6 +256,7 @@ export type {
 } from "./bindings.js";
 export { init, initSync };
 export * from "./ink.js";
+export * from "./ink-chunk.js";
 export * from "./ink-lines.js";
 export * from "./ink-note.js";
 export * from "./reader-anchor.js";

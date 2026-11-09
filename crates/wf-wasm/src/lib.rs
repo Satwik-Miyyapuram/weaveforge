@@ -27,6 +27,7 @@ mod graph_vault_extra;
 mod heading_slug;
 mod hybrid_fusion;
 mod ink;
+mod ink_chunk;
 mod ink_engine_title;
 mod ink_page;
 mod ink_paths;

@@ -1033,6 +1033,26 @@ export function checkGitRemoteUrl(raw) {
 }
 
 /**
+ * [`check_ink_chunk_body`](chunk::check_ink_chunk_body): the layout and page header of a body
+ * that passed every check.
+ *
+ * # Errors
+ *
+ * Fails on a body whose tables do not add up.
+ * @param {Uint8Array} body
+ * @returns {any}
+ */
+export function checkInkChunkBody(body) {
+    const ptr0 = passArray8ToWasm0(body, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.checkInkChunkBody(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
  *
  * # Errors
@@ -2377,6 +2397,25 @@ export function emptyLayout(pane_id) {
 }
 
 /**
+ * [`encode_ink_chunk_body`](chunk::encode_ink_chunk_body): a page packed into an uncompressed body.
+ *
+ * # Errors
+ *
+ * Fails on a page the format cannot hold, or one that is not an `InkPage`.
+ * @param {any} page
+ * @returns {Uint8Array}
+ */
+export function encodeInkChunkBody(page) {
+    const ret = wasm.encodeInkChunkBody(page);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
  * [`encode_locus`] as raw JSON (encode at the URL layer, not here).
  *
  * # Errors
@@ -3091,6 +3130,18 @@ export function findRelated(graph, seed, limit, options, rng, lexical, tagged) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
+ * @param {Float64Array} sizes
+ * @returns {boolean}
+ */
+export function fitsInkNoteBudget(sizes) {
+    const ptr0 = passArrayF64ToWasm0(sizes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.fitsInkNoteBudget(ptr0, len0);
+    return ret !== 0;
 }
 
 /**
@@ -4001,6 +4052,37 @@ export function inkAttachmentIndex(body, path) {
     var len1 = WASM_VECTOR_LEN;
     const ret = wasm.inkAttachmentIndex(ptr0, len0, ptr1, len1);
     return ret;
+}
+
+/**
+ * [`ink_chunk_body_size`](chunk::ink_chunk_body_size): the body length a page would take.
+ *
+ * # Errors
+ *
+ * Fails on a body over `u32`, or a value that is not an `InkPage`.
+ * @param {any} page
+ * @returns {number}
+ */
+export function inkChunkBodySize(page) {
+    const ret = wasm.inkChunkBodySize(page);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] >>> 0;
+}
+
+/**
+ * [`ink_chunk_header_bytes`](chunk::ink_chunk_header_bytes): the header for a payload.
+ * @param {number} body_size
+ * @param {number} payload_size
+ * @param {boolean} compressed
+ * @returns {Uint8Array}
+ */
+export function inkChunkHeaderBytes(body_size, payload_size, compressed) {
+    const ret = wasm.inkChunkHeaderBytes(body_size, payload_size, compressed);
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
 }
 
 /**
@@ -8127,6 +8209,25 @@ export function readFrontmatter(content) {
     const ptr0 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.readFrontmatter(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`read_ink_chunk_header`](chunk::read_ink_chunk_header): the 16-byte header.
+ *
+ * # Errors
+ *
+ * Fails on a header the format refuses.
+ * @param {Uint8Array} bytes
+ * @returns {any}
+ */
+export function readInkChunkHeader(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.readInkChunkHeader(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
