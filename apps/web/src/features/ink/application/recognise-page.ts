@@ -16,7 +16,7 @@
  *   this build.
  */
 
-import { INK_ENGINE_MAX_CONFIDENCE, inkPageFigures, type InkLine, type InkLineRecord, type InkPage, type InkRecogniser, type InkRecognitionHints, type InkSegmentation, type RecognisedLine, withInkPageFigures } from "@weaveforge/core";
+import { INK_ENGINE_MAX_CONFIDENCE, type InkLine, type InkLineRecord, type InkPage, type InkRecogniser, type InkRecognitionHints, type InkSegmentation, type RecognisedLine } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
@@ -207,11 +207,11 @@ export function recognisedPageFromModel(
  * text that no longer ends with `prior` was edited by hand and is kept whole.
  */
 export function pageTextAfterRecognition(was: string, prior: string, recognised: string): string {
-  const body = withInkPageFigures(typedCore().withInkPageBackground(was, null), []).trim();
+  const body = typedCore().withInkPageFigures(typedCore().withInkPageBackground(was, null), []).trim();
   const old = prior.trim();
   let typed = body;
   if (old && body === old) typed = "";
   else if (old && body.endsWith(`\n${old}`)) typed = body.slice(0, -old.length).trim();
   const text = [typed, recognised.trim()].filter(Boolean).join("\n\n");
-  return withInkPageFigures(typedCore().withInkPageBackground(text, typedCore().inkPageBackground(was)), inkPageFigures(was));
+  return typedCore().withInkPageFigures(typedCore().withInkPageBackground(text, typedCore().inkPageBackground(was)), typedCore().inkPageFigures(was));
 }

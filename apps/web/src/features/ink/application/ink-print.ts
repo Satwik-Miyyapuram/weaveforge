@@ -17,9 +17,10 @@
  * is printed light, because paper is.
  */
 
-import { figureImageFrame, type FigureGeometry } from "@weaveforge/core";
+import { type FigureGeometry } from "@weaveforge/core";
 
 import { escapeHtml } from "@/lib/escape-html";
+import { typedCore } from "@/lib/rust-core";
 
 /** A figure with the address of its picture: a data URL, so it needs no vault. */
 export interface InkPrintFigure extends Omit<FigureGeometry, "path"> {
@@ -73,7 +74,7 @@ export function inkPrintDocument(doc: InkPrintDocument): string {
     .join(";");
   const figures = doc.figures
     .map((figure) => {
-      const frame = figureImageFrame(figure);
+      const frame = typedCore().figureImageFrame(figure);
       return (
         `<div class="ink-figure" style="position:absolute;left:${figure.x * doc.scale}px;top:${figure.y * doc.scale}px;width:${figure.w * doc.scale}px;height:${figure.h * doc.scale}px">` +
         `<div style="position:absolute;inset:0;overflow:hidden">` +

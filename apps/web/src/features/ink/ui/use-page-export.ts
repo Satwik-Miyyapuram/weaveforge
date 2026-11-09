@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { inkPageFigures, type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/core";
+import { type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/core";
 
 import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
@@ -166,7 +166,7 @@ export function usePageExport(deps: PageExportDeps) {
    * figures with its own sheet of white.
    */
   const composedExport = useCallback(async () => {
-    const figures = inkPageFigures(textPages.current[pageIndex] ?? "");
+    const figures = typedCore().inkPageFigures(textPages.current[pageIndex] ?? "");
     const ink = await requestExport(PNG_EXPORT_SCALE, figures.length > 0);
     if (!ink) return null;
     return composeWithFigures(
@@ -221,7 +221,7 @@ export function usePageExport(deps: PageExportDeps) {
     // which is the text with its figure lines already taken out.
     // A missing attachment is a figure the page does not draw.
     const figures: InkPrintFigure[] = await loadInOrder(
-      inkPageFigures(textPages.current[pageIndex] ?? ""),
+      typedCore().inkPageFigures(textPages.current[pageIndex] ?? ""),
       async ({ path, ...geometry }) => ({
         ...geometry,
         url: await blobToDataUrl(await fetchBlob(path)),
@@ -275,7 +275,7 @@ export function usePageExport(deps: PageExportDeps) {
     // A missing figure is the same as a missing background: the strokes are
     // the page's own record.
     const figures: InkSvgFigure[] = await loadInOrder(
-      inkPageFigures(textPages.current[pageIndex] ?? ""),
+      typedCore().inkPageFigures(textPages.current[pageIndex] ?? ""),
       async (figure) => ({
         ...figure,
         dataUrl: await blobToDataUrl(await fetchBlob(figure.path)),

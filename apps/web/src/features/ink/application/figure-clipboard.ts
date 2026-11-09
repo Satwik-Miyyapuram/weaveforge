@@ -1,4 +1,5 @@
-import { keepFigureOnPage, type FigureGeometry } from "@weaveforge/core";
+import { type FigureGeometry } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * A figure on the clipboard (§figure).
@@ -61,5 +62,5 @@ export function pastedFigurePlace(
     x += STEP;
     y += STEP;
   }
-  return keepFigureOnPage({ ...figure, x, y }, pageSize);
+  return typedCore().keepFigureOnPage({ ...figure, x, y }, pageSize);
 }

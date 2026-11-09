@@ -21,6 +21,7 @@ import type { ColumnDetectionFns } from "./../features/reader/analysis/column-de
 import type { CommentFns } from "./../features/sharing/domain/comment.js";
 import type { CurveFns } from "./../ink/curve.js";
 import type { DecodeFns } from "./../ink/decode.js";
+import type { FigureFns } from "./../ink/figure.js";
 import type { DocumentSearchFns } from "./../reader/document-search.js";
 import type { DownsampleMetricsFns } from "./../features/experiments/domain/downsample-metrics.js";
 import type { ExperimentFns } from "./../features/experiments/domain/experiment.js";
@@ -105,6 +106,7 @@ export interface CoreContract
     CommentFns,
     CurveFns,
     DecodeFns,
+    FigureFns,
     DocumentSearchFns,
     DownsampleMetricsFns,
     ExperimentFns,

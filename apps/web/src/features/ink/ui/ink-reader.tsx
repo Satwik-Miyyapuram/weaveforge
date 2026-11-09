@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { isEditableTarget } from "@/lib/editable-target";
-import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_COLOURS, INK_PEN_WIDTHS, inkPageFigures } from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_COLOURS, INK_PEN_WIDTHS } from "@weaveforge/core";
 import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
 import { awaitInkWrites } from "../application/ink-pending-writes";
 import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/ink-palette";
@@ -119,11 +119,11 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
 
   // Collect and load figures across all pages.
   const pageFiguresList = useMemo(
-    () => textPages.map((pageText) => inkPageFigures(pageText)),
+    () => textPages.map((pageText) => typedCore().inkPageFigures(pageText)),
     [textPages],
   );
   const allFigures = useMemo(
-    () => textPages.flatMap((pageText) => inkPageFigures(pageText)),
+    () => textPages.flatMap((pageText) => typedCore().inkPageFigures(pageText)),
     [textPages],
   );
 

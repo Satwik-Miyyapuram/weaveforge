@@ -796,6 +796,15 @@ export function createVaultPageWith(input: any, id: string, now: string): any;
 export function createVectorIndex(dimensions: number): VectorIndex;
 
 /**
+ * [`crop_figure_to`](figure::crop_figure_to): a figure re-cropped to `kept` inside `full`.
+ *
+ * # Errors
+ *
+ * Fails if `full` or `kept` has the wrong shape.
+ */
+export function cropFigureTo(full: any, kept: any): any;
+
+/**
  * [`crossref_to_metadata`] (TS `crossrefToMetadata`). A Crossref `message` as a paper.
  *
  * # Errors
@@ -1177,6 +1186,29 @@ export function extractWikilinks(body: string): any;
 export function fenceUntrusted(items: any, nonce: string): string;
 
 /**
+ * [`figure_alt_for`](figure::figure_alt_for): the figure alt of the image at `path`, or `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `body` is longer than the index text limit.
+ */
+export function figureAltFor(body: string, path: string): string | undefined;
+
+/**
+ * [`figure_corner_hit`](figure::figure_corner_hit): the corner grab distance at `scale`.
+ */
+export function figureCornerHit(scale: number): number;
+
+/**
+ * [`figure_image_frame`](figure::figure_image_frame): the whole picture inside the frame, in percent.
+ *
+ * # Errors
+ *
+ * Fails if `value` has the wrong shape.
+ */
+export function figureImageFrame(value: any): any;
+
+/**
  * [`filter_lab_members`](member::filter_lab_members). Returns indices into `members`.
  *
  * # Errors
@@ -1351,6 +1383,15 @@ export function forgetSearchQuery(history: string[], query: string): string[];
  * [`format_citation`](cite_key::format_citation) (TS `formatCitation`).
  */
 export function formatCitation(key: string, format: string): string;
+
+/**
+ * [`format_figure_tokens`](figure::format_figure_tokens): the tokens written in an alt.
+ *
+ * # Errors
+ *
+ * Fails if `geometry` has the wrong shape.
+ */
+export function formatFigureTokens(geometry: any): string;
 
 /**
  * [`format_invite_code`](org::format_invite_code).
@@ -1720,6 +1761,15 @@ export function inkPageBackground(text: string): any;
  * [`ink_page_confidence`] over the lines' `conf` values.
  */
 export function inkPageConfidence(confs: Float64Array): number;
+
+/**
+ * [`ink_page_figures`](figure::ink_page_figures): the figures a page's text places.
+ *
+ * # Errors
+ *
+ * Fails if `text` is longer than the index text limit.
+ */
+export function inkPageFigures(text: string): any;
 
 /**
  * [`ink_page_marker`](ink_page::ink_page_marker): the `<!-- page N -->` line for page `page`.
@@ -2122,6 +2172,15 @@ export function jsonDataPath(project_root: string, kind: any): string;
  * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function jsonKindOfPath(path: string): string | undefined;
+
+/**
+ * [`keep_figure_on_page`](figure::keep_figure_on_page): the box's `[x, y]` kept half on the page.
+ *
+ * # Errors
+ *
+ * Fails if `rect` has the wrong shape.
+ */
+export function keepFigureOnPage(rect: any, width: number, height: number): Float64Array;
 
 /**
  * [`kind_multiplier`](search_settings::kind_multiplier); an unknown `kind` reads as `1`.
@@ -2902,6 +2961,24 @@ export function parseDoaj(body: any): any;
 export function parseEuropePmc(body: any): any;
 
 /**
+ * [`parse_figure_crop`](figure::parse_figure_crop): a `c=` value as four insets, or `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `raw` is longer than the index text limit.
+ */
+export function parseFigureCrop(raw: string): any;
+
+/**
+ * [`parse_figure_tokens`](figure::parse_figure_tokens): an alt's box and crop, or `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if `alt` is longer than the index text limit.
+ */
+export function parseFigureTokens(alt: string): any;
+
+/**
  * [`parse_folder_draft`](folder_draft::parse_folder_draft): the draft, or `null`.
  *
  * # Errors
@@ -3488,6 +3565,15 @@ export function rememberSearchQuery(history: string[], query: string, max: numbe
 export function renameInkUndoId(state: any, from: string, to: string): any;
 
 /**
+ * [`reorder_figure_indices`](figure::reorder_figure_indices): the new order as old indices.
+ *
+ * # Errors
+ *
+ * Fails if `step` is not a known step.
+ */
+export function reorderFigureIndices(len: number, index: number, step: any): Uint32Array;
+
+/**
  * [`replace_wiki_index`](wiki_index::replace_wiki_index).
  */
 export function replaceWikiIndex(body: string, index: string): string;
@@ -3510,6 +3596,15 @@ export function reportSectionInputError(input: any): string | undefined;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function resampleInkStroke(points: Float64Array, pressures: Float64Array, spacing?: number | null): any;
+
+/**
+ * [`resize_figure_box`](figure::resize_figure_box): a box resized by dragging `handle`.
+ *
+ * # Errors
+ *
+ * Fails if `rect` or `handle` has the wrong shape.
+ */
+export function resizeFigureBox(rect: any, handle: any, dx: number, dy: number, free: boolean, min_side: number): any;
 
 /**
  * [`resolve_annotation_conflict`] for a row and a choice string (any other choice merges).
@@ -4200,6 +4295,15 @@ export function translateInkPaths(paths: any, dx: number, dy: number, decimals?:
 export function treePathPairs(nodes: any, entity: any, project_root: string): any;
 
 /**
+ * [`uncropped_figure_box`](figure::uncropped_figure_box): the box with the crop lifted.
+ *
+ * # Errors
+ *
+ * Fails if `value` has the wrong shape.
+ */
+export function uncroppedFigureBox(value: any): any;
+
+/**
  * [`unique_cite_key`](cite_key::unique_cite_key) (TS `uniqueCiteKey`). `used` is a JS array of
  * strings; the caller records the returned key.
  *
@@ -4375,6 +4479,15 @@ export function withImageWidth(alt: string, width?: string | null): string;
  * background line set to `path`, or removed for `null`.
  */
 export function withInkPageBackground(text: string, path?: string | null): string;
+
+/**
+ * [`with_ink_page_figures`](figure::with_ink_page_figures): a page's text with its figure block set.
+ *
+ * # Errors
+ *
+ * Fails if `text` is too long or `figures` has the wrong shape.
+ */
+export function withInkPageFigures(text: string, figures: any): string;
 
 /**
  * [`with_md_image_alt`](markdown_figure_alt::with_md_image_alt): the alt text for a figure's own
@@ -4598,6 +4711,7 @@ export interface InitOutput {
     readonly createReportSectionWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createVaultPageWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createVectorIndex: (a: number) => [number, number, number];
+    readonly cropFigureTo: (a: any, b: any) => [number, number, number];
     readonly crossrefToMetadata: (a: any, b: number, c: number) => [number, number, number];
     readonly decideAnnotationSync: (a: any, b: number, c: number) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -4642,6 +4756,9 @@ export interface InitOutput {
     readonly extractVenue: (a: number, b: number) => [number, number];
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
     readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly figureAltFor: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly figureCornerHit: (a: number) => number;
+    readonly figureImageFrame: (a: any) => [number, number, number];
     readonly filterLabMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly filterRows: (a: any, b: number, c: number) => [number, number, number];
     readonly filterTeamMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
@@ -4662,6 +4779,7 @@ export interface InitOutput {
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly forgetSearchQuery: (a: number, b: number, c: number, d: number) => [number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly formatFigureTokens: (a: any) => [number, number, number, number];
     readonly formatInviteCode: (a: number, b: number) => [number, number];
     readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
     readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
@@ -4705,6 +4823,7 @@ export interface InitOutput {
     readonly inkNoteWidthToPdfPoints: (a: number) => number;
     readonly inkPageBackground: (a: number, b: number) => [number, number, number];
     readonly inkPageConfidence: (a: number, b: number) => number;
+    readonly inkPageFigures: (a: number, b: number) => [number, number, number];
     readonly inkPageMarker: (a: number) => [number, number];
     readonly inkPageOverBudget: (a: any) => [number, number, number];
     readonly inkPathJsonSize: (a: number, b: number) => number;
@@ -4767,6 +4886,7 @@ export interface InitOutput {
     readonly joinInkTextLayer: (a: any) => [number, number, number, number];
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
+    readonly keepFigureOnPage: (a: any, b: number, c: number) => [number, number, number, number];
     readonly kindMultiplier: (a: number, b: number, c: any) => [number, number, number];
     readonly knownCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly labelNumber: (a: any) => [number, number, number];
@@ -4862,6 +4982,8 @@ export interface InitOutput {
     readonly parseDashboardLayout: (a: any) => [number, number, number];
     readonly parseDoaj: (a: any) => [number, number, number];
     readonly parseEuropePmc: (a: any) => [number, number, number];
+    readonly parseFigureCrop: (a: number, b: number) => [number, number, number];
+    readonly parseFigureTokens: (a: number, b: number) => [number, number, number];
     readonly parseFolderDraft: (a: number, b: number) => [number, number, number];
     readonly parseGraphPersistedState: (a: any) => [number, number, number];
     readonly parseHal: (a: any) => [number, number, number];
@@ -4931,9 +5053,11 @@ export interface InitOutput {
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
     readonly rememberSearchQuery: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly renameInkUndoId: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly reorderFigureIndices: (a: number, b: number, c: any) => [number, number, number, number];
     readonly replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
     readonly reportSectionInputError: (a: any) => [number, number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly resizeFigureBox: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resolveAnnotationConflict: (a: any, b: number, c: number) => [number, number, number];
     readonly resolveArxivId: (a: number, b: number, c: number, d: number) => [number, number];
     readonly resolveCiteKey: (a: any) => [number, number, number, number];
@@ -5020,6 +5144,7 @@ export interface InitOutput {
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly treePathPairs: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly uncroppedFigureBox: (a: any) => [number, number, number];
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];
     readonly uniqueFigureNameIn: (a: number, b: number, c: any) => [number, number, number, number];
     readonly uniqueTitle: (a: number, b: number, c: number, d: number) => [number, number];
@@ -5052,6 +5177,7 @@ export interface InitOutput {
     readonly visualPageSize: (a: any, b: number) => [number, number, number];
     readonly withImageWidth: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly withInkPageBackground: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly withInkPageFigures: (a: number, b: number, c: any) => [number, number, number, number];
     readonly withMdImageAlt: (a: number, b: number, c: any) => [number, number, number, number];
     readonly withoutExisting: (a: any, b: number, c: number) => [number, number, number];
     readonly withoutGroup: (a: any) => [number, number, number];

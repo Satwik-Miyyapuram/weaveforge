@@ -19,6 +19,7 @@ mod dashboard_layout;
 mod editor_workspace;
 mod experiment_member;
 mod experiment_status;
+mod figure;
 mod folder;
 mod folder_layout_extra;
 mod graph_settings;

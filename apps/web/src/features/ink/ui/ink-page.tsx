@@ -17,7 +17,6 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import { figureCornerHit, resizeFigureBox } from "@weaveforge/core";
 
 import { InkGesture, StrokeEdgeSplit } from "../application/ink-gesture";
 import {
@@ -31,6 +30,7 @@ import {
 import type { InkPageProps } from "./ink-page-props";
 import { doubleClickFigure } from "./ink-page-math";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
+import { typedCore } from "@/lib/rust-core";
 
 export type { InkPageProps } from "./ink-page-props";
 
@@ -219,7 +219,7 @@ export function InkPage({
     (at: { x: number; y: number }):
       | { index: number; corner: FigureCorner | null }
       | null => {
-      const hit = figureCornerHit(scale);
+      const hit = typedCore().figureCornerHit(scale);
       for (let index = figures.length - 1; index >= 0; index -= 1) {
         const one = figures[index];
         if (!one || index === editingFigure) continue;
@@ -394,7 +394,7 @@ export function InkPage({
         }
         // A corner resize: the opposite corner holds still and the aspect
         // holds unless Shift is held, which is a deliberate distortion.
-        onFigureChange?.(held.index, resizeFigureBox(held.box, held.corner, dx, dy, { free: event.shiftKey }));
+        onFigureChange?.(held.index, typedCore().resizeFigureBox(held.box, held.corner, dx, dy, { free: event.shiftKey }));
         return;
       }
       if (tool === "lasso" || route === "lasso" || route === "drag") {

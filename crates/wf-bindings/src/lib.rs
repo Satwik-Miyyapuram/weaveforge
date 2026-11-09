@@ -107,6 +107,12 @@ pub fn types() -> Types {
     .register::<wf_core::ink::stroke_packer::InkStrokePackerOptions>()
     .register::<wf_core::ink::segment::InkSegmentationIndices>()
     .register::<wf_core::ink::segment::InkLineRecord>()
+    .register::<wf_core::ink::figure::FigureBox>()
+    .register::<wf_core::ink::figure::FigurePlacement>()
+    .register::<wf_core::ink::figure::FigureRect>()
+    .register::<wf_core::ink::figure::FigureImageFrame>()
+    .register::<wf_core::ink::figure::FigureHandle>()
+    .register::<wf_core::ink::figure::FigureOrderStep>()
 }
 
 /// The PDF reader types (`wf_core::reader`).
