@@ -1,5 +1,5 @@
 import type { Member } from "@weaveforge/core";
-import { SHAREABLE_TYPES, shareAllowsComment } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { ManageSharingUseCase } from "@weaveforge/core";
 import type { IMemberRepository } from "@weaveforge/core";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
@@ -34,7 +34,7 @@ export class LoadSharedWithMeScreenUseCase {
     ]);
 
     const groups = await Promise.all(
-      SHAREABLE_TYPES.map((type) => {
+      readyCore().SHAREABLE_TYPES.map((type) => {
         const ids: string[] = [];
         const owners: string[] = [];
         for (const s of shares) {
@@ -54,7 +54,7 @@ export class LoadSharedWithMeScreenUseCase {
     const items = enriched.map((item) => ({
       ...item,
       canComment: shares.some((s) =>
-        shareAllowsComment(s, item.kind, item.id, item.ownerId),
+        readyCore().shareAllowsComment(s, item.kind, item.id, item.ownerId),
       ),
     }));
 

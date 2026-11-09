@@ -4,7 +4,8 @@ import type {
   ManageVaultPageUseCase,
   VaultPage,
 } from "@weaveforge/core";
-import { LibraryPinError, shareCoversResource, vaultAssetPathsInBody } from "@weaveforge/core";
+import { LibraryPinError, vaultAssetPathsInBody } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { IVaultAssetStore } from "@/features/vault/domain/vault-assets";
 import { logToApp } from "@/lib/error-report/app-log";
 
@@ -27,7 +28,7 @@ export class DuplicateSharedVaultPageUseCase {
   async execute(input: { resourceId: string; ownerId: string }): Promise<DuplicatedVaultPage> {
     const shares = await this.deps.shares.listSharedWithMe("vault_page");
     const allowed = shares.some((s) =>
-      shareCoversResource(s, "vault_page", input.resourceId, input.ownerId),
+      readyCore().shareCoversResource(s, "vault_page", input.resourceId, input.ownerId),
     );
     if (!allowed) {
       throw new LibraryPinError("This vault page is not shared with you.");
