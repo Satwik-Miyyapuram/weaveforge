@@ -57,7 +57,6 @@ test("a thrown non-Error still yields something printable", () => {
  */
 test("words at line ends stay separate, as the reader writes them", async () => {
   const { pdfPageText } = await import("../application/index-library-pdfs");
-  const { pageTextFromItems } = await import("@weaveforge/core");
   const items = [
     { str: "the end of", hasEOL: true },
     { type: "beginMarkedContent" },
@@ -65,7 +64,6 @@ test("words at line ends stay separate, as the reader writes them", async () => 
     { type: "endMarkedContent" },
   ];
   assert.equal(pdfPageText(items), "the end of\nline two");
-  assert.equal(pdfPageText(items), pageTextFromItems(items.filter((i): i is { str: string; hasEOL: boolean } => "str" in i)));
 });
 
 test("a page with no text runs is empty", async () => {

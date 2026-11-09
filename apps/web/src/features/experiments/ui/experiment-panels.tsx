@@ -8,7 +8,7 @@ import { artifactItems } from "./artifact-items";
 import { ArtifactPlaceholder } from "./artifact-placeholder";
 import { getContainer } from "@/bootstrap";
 import { commitUrl, repoWebUrl } from "@/features/sync";
-import { formatMetricCell, MetricChart } from "./metric-chart";
+import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
 import { isAbsoluteUrl, isTauriShell, viewableArtifactUrl } from "../infrastructure/experiment-artifact-store";
@@ -20,6 +20,7 @@ import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 import { warnOnce } from "@/lib/error-report/warn-once";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const chips = [
@@ -88,7 +89,7 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
     <div className={limit != null ? "metric-chips chip-row--capped" : "metric-chips"}>
       {shown.map(([k, v]) => (
         <span key={k} className="metric-chip">
-          <em>{k}</em> {formatMetricCell(k, v)}
+          <em>{k}</em> {typedCore().formatMetricCell(k, v)}
         </span>
       ))}
       {hidden > 0 ? <span className="metric-chip chip-more">+{hidden}</span> : null}

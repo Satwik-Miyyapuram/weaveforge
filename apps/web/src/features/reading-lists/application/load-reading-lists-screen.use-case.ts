@@ -1,16 +1,6 @@
-import {
-  buildListTree,
-  loadPinnedScreenData,
-  type IPaperRepository,
-  type IReadingListRepository,
-  type IShareRepository,
-  type IVaultPageRepository,
-  type Paper,
-  type ReadingList,
-  type ReadingListTreeNode,
-  type VaultPage,
-} from "@weaveforge/core";
+import { loadPinnedScreenData, type IPaperRepository, type IReadingListRepository, type IShareRepository, type IVaultPageRepository, type Paper, type ReadingList, type ReadingListTreeNode, type VaultPage } from "@weaveforge/core";
 import type { ILibraryPinRepository } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface ReadingListsScreenData {
   tree: ReadingListTreeNode[];
@@ -49,7 +39,7 @@ export class LoadReadingListsScreenUseCase {
       // From the merged set: a list shared with this project belongs in the tree
       // a reader navigates, not only in the flat list beside it. Building the
       // tree pre-merge is what hid every shared list from the tree view.
-      tree: buildListTree(merged.items),
+      tree: typedCore().buildListTree(merged.items),
       lists: merged.items,
       papers,
       notes,

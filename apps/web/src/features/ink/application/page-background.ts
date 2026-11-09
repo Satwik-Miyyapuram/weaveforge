@@ -14,17 +14,7 @@
  * payload a pasted screenshot arrives in.
  */
 
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  blankInkPage,
-  clampInkPageSize,
-  decodeInkChunk,
-  encodeInkChunk,
-  pageFromChunk,
-  type InkChunkCodec,
-  type InkPaper,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, decodeInkChunk, encodeInkChunk, pageFromChunk, type InkChunkCodec, type InkPaper } from "@weaveforge/core";
 
 import {
   createCanvas,
@@ -33,6 +23,7 @@ import {
   toPngBlob,
   toWebpBlob,
 } from "./pdf-page-raster";
+import { typedCore } from "@/lib/rust-core";
 
 /** The sheet's raster: A4 at 200 dpi, 1654 × 2339. */
 export const A4_RASTER_WIDTH = 1654;
@@ -232,8 +223,8 @@ export async function pageChunkWithBackground(
   const page = chunk
     ? pageFromChunk(await decodeInkChunk(chunk, codec))
     : {
-        ...blankInkPage(paper),
-        ...clampInkPageSize(
+        ...typedCore().blankInkPage(paper),
+        ...typedCore().clampInkPageSize(
           size?.width ?? INK_A4_WIDTH,
           size?.height ?? INK_A4_HEIGHT,
         ),

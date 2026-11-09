@@ -14,8 +14,9 @@ import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js"
 import { seedIfEmpty } from "../domain/seed-document.js";
 import { BodySaver } from "../application/body-saver.js";
 import { logToApp } from "@/lib/error-report/app-log";
-import { peersFromStates, samePeers, type Peer } from "../domain/presence.js";
+import type { Peer } from "../domain/presence.js";
 import { publishPeers } from "../application/presence-store.js";
+import { typedCore } from "@/lib/rust-core";
 import { PresenceAvatars } from "./presence-avatars";
 
 const SAVE_MS = 1500;
@@ -167,8 +168,8 @@ export function CollaborativeMarkdownEditor({
     const docKey = `${resourceType}:${resourceId}`;
     let current: readonly Peer[] = [];
     const syncPeers = () => {
-      const next = peersFromStates(awareness.getStates(), { clientId: doc.clientID, authorId });
-      if (samePeers(current, next)) return;
+      const next = typedCore().peersFromStates(awareness.getStates(), { clientId: doc.clientID, authorId });
+      if (typedCore().samePeers(current, next)) return;
       current = next;
       setPeers(next);
       publishPeers(docKey, next);

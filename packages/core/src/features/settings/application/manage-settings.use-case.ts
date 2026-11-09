@@ -1,4 +1,4 @@
-import { normalizeAppearance, type UserAppearance, type UserSettings } from "../domain/user-settings.js";
+import { type UserAppearance, type UserSettings } from "../domain/user-settings.js";
 import type { SettingsMetadata } from "../domain/settings-repository.js";
 import { CURRENT_DISCLAIMER_VERSION } from "../domain/privacy-disclaimer.js";
 import type { ISettingsRepository } from "../domain/settings-repository.js";
@@ -30,7 +30,7 @@ export class ManageSettingsUseCase {
     const current = await this.get();
     await this.save({
       ...current,
-      appearance: normalizeAppearance({ ...current.appearance, ...appearance }),
+      appearance: rust().normalizeAppearance({ ...current.appearance, ...appearance }),
     });
   }
 

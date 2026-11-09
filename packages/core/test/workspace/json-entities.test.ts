@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { projectDir, rust } from "../../src/index.js";
+import { rust } from "../../src/index.js";
 
 /**
  * The project's JSON data files, which are two-way like the markdown.
@@ -11,7 +11,7 @@ import { projectDir, rust } from "../../src/index.js";
  * by no longer listing a row.
  */
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-const ROOT = projectDir(PROJECT);
+const ROOT = rust().projectDir(PROJECT);
 
 test("the three data files are the reader's, the machinery is not", () => {
   const data = [

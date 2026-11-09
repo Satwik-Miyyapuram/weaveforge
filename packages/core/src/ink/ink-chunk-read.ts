@@ -12,18 +12,10 @@
  * what a page buffer exists to avoid doing per frame.
  */
 
-import {
-  INK_COLOURS,
-  INK_SHAPES,
-  INK_TOOLS,
-  inkEnumValue,
-  makeInkStroke,
-  type InkLineRecord,
-  type InkPage,
-  type InkStroke,
-} from "./ink-note.js";
+import { INK_COLOURS, INK_SHAPES, INK_TOOLS, type InkLineRecord, type InkPage, type InkStroke } from "./ink-note.js";
 import { INK_PEN_WIDTH } from "./width.js";
 import { decodeInkChunkBody, type InkChunkView } from "./ink-binary.js";
+import { rust } from "../shared/rust.js";
 
 /** One decoder for the module: it holds no state. */
 const decoder = new TextDecoder();
@@ -94,13 +86,13 @@ export function chunkLineText(view: InkChunkView, lineIndex: number): string {
 /** One stroke as the model holds it: absolute points, names, real numbers. */
 export function chunkStroke(view: InkChunkView, strokeIndex: number): InkStroke {
   const { points, pressures } = chunkStrokePoints(view, strokeIndex);
-  return makeInkStroke({
+  return rust().makeInkStroke({
     points: Array.from(points),
     pressures: Array.from(pressures),
     width: view.strokeWidth[strokeIndex] || INK_PEN_WIDTH,
-    tool: inkEnumValue(INK_TOOLS, view.strokeTool[strokeIndex]!),
-    colour: inkEnumValue(INK_COLOURS, view.strokeColour[strokeIndex]!),
-    shape: inkEnumValue(INK_SHAPES, view.strokeShape[strokeIndex]!),
+    tool: rust().inkEnumValue(INK_TOOLS, view.strokeTool[strokeIndex]!),
+    colour: rust().inkEnumValue(INK_COLOURS, view.strokeColour[strokeIndex]!),
+    shape: rust().inkEnumValue(INK_SHAPES, view.strokeShape[strokeIndex]!),
     t0: view.strokeT0[strokeIndex]!,
     lineIndex: view.strokeLine[strokeIndex]!,
   });

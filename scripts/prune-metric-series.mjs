@@ -3,7 +3,7 @@
  * Retention pass for Fix C — apply the downsampling rule to metric series that
  * were written before it existed, or by a writer that bypassed the ingest route.
  *
- * The rule lives in `@weaveforge/core` (`downsample-metrics.ts`) and is a pure
+ * The rule lives in the Rust core (`crates/wf-core/src/experiments.rs`) and is a pure
  * function of `step`, so this and the ingest route cannot drift: both ask the
  * same predicate the same question, and a series this pass has finished is
  * exactly the series ingest would have produced.
@@ -15,12 +15,17 @@
  * run it again with --apply.
  */
 
+import { readFileSync } from "node:fs";
 import pg from "pg";
 
-import { KEEP_ALL_BELOW_STEP, stepsToPrune } from "../packages/core/dist/index.js";
+import { KEEP_ALL_BELOW_STEP } from "../packages/core/dist/index.js";
+import { initSync, stepsToPrune as rawStepsToPrune } from "../packages/wf-wasm/pkg/wf_wasm.js";
 import { loadDatabaseUrl } from "./lib/db-connection.mjs";
 
 const apply = process.argv.includes("--apply");
+
+initSync({ module: readFileSync(new URL("../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url)) });
+const stepsToPrune = (steps) => Array.from(rawStepsToPrune(Float64Array.from(steps)));
 
 async function main() {
   const client = new pg.Client({ connectionString: loadDatabaseUrl() });

@@ -14,8 +14,17 @@ use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
+/// A list given as objects or as one JSON string. A screen of thousands crosses as a
+/// string in one copy; as objects it costs a boundary call per field.
+pub(crate) fn list_from<T: serde::de::DeserializeOwned>(value: JsValue) -> JsResult<Vec<T>> {
+    match value.as_string() {
+        Some(json) => serde_json::from_str(&json).map_err(serde_wasm_bindgen::Error::new),
+        None => serde_wasm_bindgen::from_value(value),
+    }
+}
+
 fn decisions_from(value: JsValue) -> JsResult<Vec<ScreeningDecision>> {
-    serde_wasm_bindgen::from_value(value)
+    list_from(value)
 }
 
 /// [`decision_error`](screening::decision_error) (TS `checkDecision`). The message, or
@@ -83,7 +92,7 @@ pub fn agreement_between_js(
 /// Fails if `items` or `decisions` has the wrong shape.
 #[wasm_bindgen(js_name = prismaCounts)]
 pub fn prisma_counts_js(items: JsValue, decisions: JsValue) -> JsResult<JsValue> {
-    let items: Vec<ScreeningItem> = serde_wasm_bindgen::from_value(items)?;
+    let items: Vec<ScreeningItem> = list_from(items)?;
     to_js(&screening::prisma_counts(
         &items,
         &decisions_from(decisions)?,

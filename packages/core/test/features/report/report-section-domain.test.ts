@@ -1,14 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  buildSectionTree,
-  REPORT_STATUSES,
-  type ReportStatus,
-  createReportSection,
-  ReportSectionValidationError,
-  type ReportSection,
-} from "../../../src/features/report/domain/report-section.js";
+import { REPORT_STATUSES, type ReportStatus, ReportSectionValidationError, type ReportSection } from "../../../src/features/report/domain/report-section.js";
 import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
 let counter = 0;
@@ -16,7 +10,7 @@ const ids: IdGenerator = { newId: () => `id-${++counter}` };
 
 test("createReportSection applies defaults", () => {
   counter = 0;
-  const s = createReportSection({ title: "  Background  " }, { clock, ids });
+  const s = rust().createReportSection({ title: "  Background  " }, { clock, ids });
   assert.equal(s.title, "Background"); // trimmed
   assert.equal(s.status, "not_started");
   assert.equal(s.wordCount, 0);
@@ -27,14 +21,14 @@ test("createReportSection applies defaults", () => {
 
 test("createReportSection rejects empty title", () => {
   assert.throws(
-    () => createReportSection({ title: " " }, { clock, ids }),
+    () => rust().createReportSection({ title: " " }, { clock, ids }),
     ReportSectionValidationError,
   );
 });
 
 test("createReportSection rejects negative target words", () => {
   assert.throws(
-    () => createReportSection({ title: "X", targetWords: -5 }, { clock, ids }),
+    () => rust().createReportSection({ title: "X", targetWords: -5 }, { clock, ids }),
     ReportSectionValidationError,
   );
 });
@@ -49,7 +43,7 @@ test("buildSectionTree nests and orders siblings", () => {
     createdAt: "2026-06-24T00:00:00.000Z",
     ...o,
   });
-  const tree = buildSectionTree([
+  const tree = rust().buildSectionTree([
     base({ id: "c", sortOrder: 0 }),
     base({ id: "c2", parentId: "c", sortOrder: 2 }),
     base({ id: "c1", parentId: "c", sortOrder: 1 }),

@@ -102,9 +102,9 @@ export interface RustCoreFns {
   }): {
     email: string;
     password: string;
-    fullName: string | null;
+    fullName?: string;
     role: string;
-    supervisorId: string | null;
+    supervisorId?: string;
   };
   resolveSupervisorId(creatorId: string): string;
   filterTeamMembers<T extends { id: string; supervisorId?: string | null }>(

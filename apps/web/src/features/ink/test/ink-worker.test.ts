@@ -6,7 +6,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeInkChunk, INK_PACK_TOLERANCE, makeInkStroke, packInkStroke, pageFromChunk, simplifyPathIndices } from "@weaveforge/core";
+import { decodeInkChunk, INK_PACK_TOLERANCE, packInkStroke, pageFromChunk } from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -246,7 +246,7 @@ test("pasted strokes land as one undoable step and come back selected", () => {
   draw(10, 50);
   send({
     type: "add-strokes",
-    strokes: [0, 1].map((k) => makeInkStroke({ points: [10, 200 + k * 40, 100, 200 + k * 40], pressures: [128, 128] })),
+    strokes: [0, 1].map((k) => typedCore().makeInkStroke({ points: [10, 200 + k * 40, 100, 200 + k * 40], pressures: [128, 128] })),
   });
   assert.equal(last("page-state").strokes, 3);
   assert.deepEqual(last("selected").indices, [1, 2]);
@@ -446,7 +446,7 @@ test("the shape tool snaps a rectangle-ish scribble to a rectangle", () => {
   const fitted = last("page-model").page.strokes[0]!;
   assert.equal(fitted.shape, "rect");
   // Its points lie on four straight edges: the shape, not the scribble.
-  const rounded = simplifyPathIndices(fitted.points, 0.75);
+  const rounded = typedCore().simplifyPathIndices(fitted.points, 0.75);
   assert.equal(rounded.length, 5, "four edges and the closing corner");
   assert.ok(
     curveStrays(fitted.points) <= 2 * INK_PACK_TOLERANCE,

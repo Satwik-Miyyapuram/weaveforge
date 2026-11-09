@@ -9,7 +9,7 @@ import { getContainer } from "@/bootstrap";
 import { SortHeader } from "@/components/sort-header";
 import { Table } from "@/components/table";
 import { statusLabel } from "@/components/status-select";
-import { formatMetricCell, MetricChart } from "./metric-chart";
+import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
 import {
@@ -17,6 +17,7 @@ import {
 } from "./experiment-panels";
 import { readyCore } from "@/lib/rust-core";
 import { metricKeysOf } from "../application/results-table";
+import { typedCore } from "@/lib/rust-core";
 
 const PALETTE = [
   "#3e5a78", "#c2410c", "#0f766e", "#7c3aed",
@@ -107,7 +108,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
                 <td>{statusLabel(e.status)}</td>
                 {metricKeys.map((k) => (
                   <td key={k}>
-                    {e.metrics?.[k] !== undefined ? formatMetricCell(k, e.metrics[k]) : "—"}
+                    {e.metrics?.[k] !== undefined ? typedCore().formatMetricCell(k, e.metrics[k]) : "—"}
                   </td>
                 ))}
               </tr>

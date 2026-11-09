@@ -23,7 +23,9 @@ export function statusPatchForExperiment(
   status: ExperimentStatus,
   now: string,
 ): ExperimentStatusPatch {
-  return rawStatusPatchForExperiment(experiment, status, now) as ExperimentStatusPatch;
+  const patch = rawStatusPatchForExperiment(experiment, status, now) as ExperimentStatusPatch;
+  // Every key is present, so spreading the patch clears a stamp Rust left out.
+  return { status: patch.status, startedAt: patch.startedAt ?? undefined, finishedAt: patch.finishedAt ?? undefined };
 }
 
 /** Short display form of a commit SHA. */

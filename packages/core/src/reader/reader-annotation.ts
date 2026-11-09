@@ -1,3 +1,4 @@
+/** Types for reader-annotation. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { WorkspaceAnnotation } from "../workspace/workspace-snapshot.js";
 import type { CombinedPdfAnchor } from "./anchor-strategy.js";
 
@@ -12,10 +13,6 @@ export const READER_ANNOTATION_TYPES = ["highlight", "underline", "note", "image
 
 export type ReaderAnnotationType = (typeof READER_ANNOTATION_TYPES)[number];
 
-export function isReaderAnnotationType(value: string): value is ReaderAnnotationType {
-  return (READER_ANNOTATION_TYPES as readonly string[]).includes(value);
-}
-
 /** R5 write-back bookkeeping for a reader annotation row. */
 export type AnnotationSyncState = "local" | "synced" | "pending" | "conflict";
 
@@ -25,10 +22,6 @@ const ANNOTATION_SYNC_STATES: readonly AnnotationSyncState[] = [
   "pending",
   "conflict",
 ] as const;
-
-export function isAnnotationSyncState(value: string): value is AnnotationSyncState {
-  return (ANNOTATION_SYNC_STATES as readonly string[]).includes(value);
-}
 
 export interface ReaderAnnotation {
   id: string;
@@ -118,4 +111,10 @@ export interface IReaderAnnotationSink {
   create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation>;
   update(id: string, patch: ReaderAnnotationPatch): Promise<ReaderAnnotation>;
   remove(id: string): Promise<void>;
+}
+
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ReaderAnnotationFns {
+  isReaderAnnotationType(value: string): value is ReaderAnnotationType;
+  isAnnotationSyncState(value: string): value is AnnotationSyncState;
 }

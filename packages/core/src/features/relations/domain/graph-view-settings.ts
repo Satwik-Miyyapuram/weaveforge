@@ -1,7 +1,8 @@
+/** Types for graph-view-settings. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { RelationType } from "./paper-relation.js";
-import { RELATION_TYPES } from "./paper-relation.js";
 
 export type EdgeMode = "cites" | "tags" | "both";
+
 /**
  * What a node's colour says. `status`, `tag` and `list` describe a paper;
  * `type` gives each kind of node its own colour; `year` and `degree` run a
@@ -12,12 +13,15 @@ export type EdgeMode = "cites" | "tags" | "both";
  * Shapes never change with it: they always name the kind.
  */
 export type ColorBy = "status" | "tag" | "list" | "type" | "year" | "degree" | "cluster" | "groups";
+
 /** One custom colour rule: `tag:x`, `list:x`, `status:x`, or words in the title. */
 export interface ColorGroup {
   query: string;
   color: string;
 }
+
 export type GroupBy = "none" | "status" | "list";
+
 /**
  * How nodes are arranged, as opposed to how they are coloured.
  *
@@ -31,6 +35,7 @@ export type GroupBy = "none" | "status" | "list";
  * saved views.
  */
 export type LayoutMode = "force" | "timeline";
+
 /**
  * Where node colours come from. `theme` takes the active theme's chip colours
  * (the brutal themes define them; the others fall back to the classic set), so
@@ -38,8 +43,10 @@ export type LayoutMode = "force" | "timeline";
  * the muted original palette in every theme.
  */
 export type NodePalette = "theme" | "classic";
+
 /** The node colours a person can override. Tags keep their per-tag hue. */
 export const NODE_COLOR_KEYS = ["paper", "to_read", "reading", "read", "skimmed", "note", "report", "experiment"] as const;
+
 export type NodeColorKey = (typeof NODE_COLOR_KEYS)[number];
 
 /**
@@ -121,131 +128,17 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
   boundedZoomScale: true,
 };
 
-const EDGE_MODES = new Set<EdgeMode>(["cites", "tags", "both"]);
-const COLOR_BY = new Set<ColorBy>(["status", "tag", "list", "type", "year", "degree", "cluster", "groups"]);
-const GROUP_BY = new Set<GroupBy>(["none", "status", "list"]);
-const LAYOUTS = new Set<LayoutMode>(["force", "timeline"]);
-const RELATION_TYPE_SET = new Set<string>(RELATION_TYPES);
-const PALETTES = new Set<NodePalette>(["theme", "classic"]);
 const HEX = /^#[0-9a-f]{6}$/i;
-
-function normalizeNodeColors(raw: unknown): Partial<Record<NodeColorKey, string>> {
-  if (!raw || typeof raw !== "object") return {};
-  const src = raw as Record<string, unknown>;
-  const out: Partial<Record<NodeColorKey, string>> = {};
-  for (const key of NODE_COLOR_KEYS) {
-    const v = src[key];
-    if (typeof v === "string" && HEX.test(v)) out[key] = v.toLowerCase();
-  }
-  return out;
-}
 
 /** Enough rules to be useful, few enough that the legend still fits. */
 export const MAX_COLOR_GROUPS = 12;
 
-function normalizeColorGroups(raw: unknown): ColorGroup[] {
-  if (!Array.isArray(raw)) return [];
-  const out: ColorGroup[] = [];
-  for (const g of raw) {
-    if (!g || typeof g !== "object") continue;
-    const { query, color } = g as Record<string, unknown>;
-    if (typeof query !== "string" || typeof color !== "string" || !HEX.test(color)) continue;
-    out.push({ query: query.slice(0, 80), color: color.toLowerCase() });
-    if (out.length === MAX_COLOR_GROUPS) break;
-  }
-  return out;
-}
-
-function isNumber(v: unknown): v is number {
-  return typeof v === "number" && Number.isFinite(v);
-}
-
-/** Merge partial settings with defaults and sanitize enum/number fields. */
-export function normalizeGraphViewSettings(raw: unknown): GraphViewSettings {
-  const o = raw && typeof raw === "object" ? (raw as Partial<GraphViewSettings>) : {};
-  const relationTypes = Array.isArray(o.relationTypes)
-    ? o.relationTypes.filter((t): t is RelationType => RELATION_TYPE_SET.has(t))
-    : DEFAULT_GRAPH_SETTINGS.relationTypes;
-  return {
-    edgeMode: EDGE_MODES.has(o.edgeMode as EdgeMode)
-      ? (o.edgeMode as EdgeMode)
-      : DEFAULT_GRAPH_SETTINGS.edgeMode,
-    colorBy: COLOR_BY.has(o.colorBy as ColorBy)
-      ? (o.colorBy as ColorBy)
-      : DEFAULT_GRAPH_SETTINGS.colorBy,
-    groupBy: GROUP_BY.has(o.groupBy as GroupBy)
-      ? (o.groupBy as GroupBy)
-      : DEFAULT_GRAPH_SETTINGS.groupBy,
-    layout: LAYOUTS.has(o.layout as LayoutMode)
-      ? (o.layout as LayoutMode)
-      : DEFAULT_GRAPH_SETTINGS.layout,
-    showConcepts: typeof o.showConcepts === "boolean" ? o.showConcepts : DEFAULT_GRAPH_SETTINGS.showConcepts,
-    minConceptDegree: isNumber(o.minConceptDegree) ? o.minConceptDegree : DEFAULT_GRAPH_SETTINGS.minConceptDegree,
-    hideOrphans: typeof o.hideOrphans === "boolean" ? o.hideOrphans : DEFAULT_GRAPH_SETTINGS.hideOrphans,
-    relationTypes: relationTypes.length > 0 ? relationTypes : DEFAULT_GRAPH_SETTINGS.relationTypes,
-    showConceptCooccurrence:
-      typeof o.showConceptCooccurrence === "boolean"
-        ? o.showConceptCooccurrence
-        : DEFAULT_GRAPH_SETTINGS.showConceptCooccurrence,
-    searchQuery: typeof o.searchQuery === "string" ? o.searchQuery : DEFAULT_GRAPH_SETTINGS.searchQuery,
-    textFadeThreshold: isNumber(o.textFadeThreshold)
-      ? o.textFadeThreshold
-      : DEFAULT_GRAPH_SETTINGS.textFadeThreshold,
-    nodeSize: isNumber(o.nodeSize) ? o.nodeSize : DEFAULT_GRAPH_SETTINGS.nodeSize,
-    linkThickness: isNumber(o.linkThickness) ? o.linkThickness : DEFAULT_GRAPH_SETTINGS.linkThickness,
-    showAutoStyle:
-      typeof o.showAutoStyle === "boolean" ? o.showAutoStyle : DEFAULT_GRAPH_SETTINGS.showAutoStyle,
-    centerStrength: isNumber(o.centerStrength)
-      ? o.centerStrength
-      : DEFAULT_GRAPH_SETTINGS.centerStrength,
-    chargeStrength: isNumber(o.chargeStrength)
-      ? o.chargeStrength
-      : DEFAULT_GRAPH_SETTINGS.chargeStrength,
-    linkDistance: isNumber(o.linkDistance) ? o.linkDistance : DEFAULT_GRAPH_SETTINGS.linkDistance,
-    nodePalette: PALETTES.has(o.nodePalette as NodePalette)
-      ? (o.nodePalette as NodePalette)
-      : DEFAULT_GRAPH_SETTINGS.nodePalette,
-    nodeColors: normalizeNodeColors(o.nodeColors),
-    colorGroups: normalizeColorGroups(o.colorGroups),
-    includeListsAsConcepts:
-      typeof o.includeListsAsConcepts === "boolean"
-        ? o.includeListsAsConcepts
-        : DEFAULT_GRAPH_SETTINGS.includeListsAsConcepts,
-    boundedZoomScale:
-      typeof o.boundedZoomScale === "boolean"
-        ? o.boundedZoomScale
-        : DEFAULT_GRAPH_SETTINGS.boundedZoomScale,
-  };
-}
-
-export function effectiveRelationTypes(settings: GraphViewSettings): RelationType[] {
-  if (!showRelationEdges(settings)) return [];
-  const types = settings.relationTypes?.length ? settings.relationTypes : (["cites"] as const);
-  return [...types];
-}
-
-export function showRelationEdges(settings: GraphViewSettings): boolean {
-  return settings.edgeMode === "cites" || settings.edgeMode === "both";
-}
-
-export function showConceptEdges(settings: GraphViewSettings): boolean {
-  return settings.showConcepts || settings.edgeMode === "tags" || settings.edgeMode === "both";
-}
-
-export function graphFilterCount(
-  selectedTags: string[],
-  selectedLists: string[],
-  settings: GraphViewSettings,
-): number {
-  let n = 0;
-  if (selectedTags.length > 0) n++;
-  if (selectedLists.length > 0) n++;
-  if (settings.edgeMode !== "cites") n++;
-  if (settings.colorBy !== "status") n++;
-  if (settings.showConcepts) n++;
-  if (settings.hideOrphans) n++;
-  if (settings.searchQuery.trim()) n++;
-  if (settings.groupBy !== "none") n++;
-  if (settings.layout !== "force") n++;
-  return n;
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface GraphViewSettingsFns {
+  /** Merge partial settings with defaults and sanitize enum/number fields. */
+  normalizeGraphViewSettings(raw: unknown): GraphViewSettings;
+  effectiveRelationTypes(settings: GraphViewSettings): RelationType[];
+  showRelationEdges(settings: GraphViewSettings): boolean;
+  showConceptEdges(settings: GraphViewSettings): boolean;
+  graphFilterCount(selectedTags: string[], selectedLists: string[], settings: GraphViewSettings): number;
 }

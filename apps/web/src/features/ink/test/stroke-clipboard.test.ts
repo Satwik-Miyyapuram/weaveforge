@@ -1,13 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { makeInkStroke } from "@weaveforge/core";
+
 
 import { parseStrokeClip, pastedStrokesPlace, strokeClipText } from "../application/stroke-clipboard";
+import { typedCore } from "@/lib/rust-core";
 
 const page = { width: 2100, height: 2970 };
 const line = (x: number, y: number) =>
-  makeInkStroke({ points: [x, y, x + 100, y + 20], pressures: [100, 200], width: 9, colour: "red" });
+  typedCore().makeInkStroke({ points: [x, y, x + 100, y + 20], pressures: [100, 200], width: 9, colour: "red" });
 
 test("copied strokes come back from the clipboard text as they were", () => {
   const back = parseStrokeClip(strokeClipText([line(10, 20)]));

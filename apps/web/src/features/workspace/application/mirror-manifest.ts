@@ -1,13 +1,6 @@
-import {
-  WORKSPACE_META_DIR,
-  digestText,
-  idSuffix,
-  projectMetaDir,
-  type IWorkspaceFs,
-  type VaultPageBase,
-  type WorkspaceProject,
-} from "@weaveforge/core";
+import { WORKSPACE_META_DIR, digestText, type IWorkspaceFs, type VaultPageBase, type WorkspaceProject } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -50,7 +43,7 @@ export const MIRROR_MANIFEST_PATH = `${WORKSPACE_META_DIR}/mirror.json`;
  * project's manifest can only ever speak for that project.
  */
 export function mirrorManifestPath(projectRoot: string): string {
-  return `${projectMetaDir(projectRoot)}/mirror.json`;
+  return `${typedCore().projectMetaDir(projectRoot)}/mirror.json`;
 }
 
 /**
@@ -167,7 +160,7 @@ export async function followProjectRename(
   const core = await loadCore();
   const root = core.projectDir(project);
   if (await fs.stat(root)) return null;
-  const tail = `--${idSuffix(project.id)}`;
+  const tail = `--${typedCore().idSuffix(project.id)}`;
   const found = (await fs.list("")).filter((e) => e.kind === "dir" && e.path.endsWith(tail));
   // Two folders sharing the id suffix: no safe pick.
   if (found.length !== 1) return null;
@@ -221,7 +214,7 @@ export async function writeMirrorManifest(
   digests: Readonly<Record<string, string>> = {},
   bases: Readonly<Record<string, VaultPageBase>> = {},
 ): Promise<void> {
-  await fs.mkdirp(projectMetaDir(projectRoot));
+  await fs.mkdirp(typedCore().projectMetaDir(projectRoot));
   const kept = [...new Set(paths)].sort();
   const body = {
     version: 3,

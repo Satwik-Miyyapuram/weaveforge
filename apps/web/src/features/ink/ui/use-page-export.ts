@@ -1,12 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  inkPageBackground,
-  inkPageFigures,
-  type FigureGeometry,
-  type InkPage as InkPageModel,
-} from "@weaveforge/core";
+import { inkPageFigures, type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/core";
 
 import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
@@ -20,6 +15,7 @@ import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
 import { loadInOrder } from "../application/load-in-order";
 import type { InkPalette } from "../render/ink-palette";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Pixels per 0.1 mm unit in an exported or printed page.
@@ -264,7 +260,7 @@ export function usePageExport(deps: PageExportDeps) {
    */
   const onExportSvg = useCallback(async () => {
     const page = await requestModel();
-    const path = inkPageBackground(textPages.current[pageIndex] ?? "");
+    const path = typedCore().inkPageBackground(textPages.current[pageIndex] ?? "");
     let backgroundDataUrl: string | null = null;
     if (path) {
       try {

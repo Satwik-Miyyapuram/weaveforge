@@ -9,13 +9,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  INK_ENGINE_MAX_CONFIDENCE,
-  decodeInkWords,
-  inkVocabularyWords,
-  type InkWordReadings,
-} from "../../src/ink/decode.js";
+import { INK_ENGINE_MAX_CONFIDENCE, type InkWordReadings } from "../../src/ink/decode.js";
 import { INK_UNSURE_CONFIDENCE, isUnsureLine } from "../../src/ink/recognise.js";
+import { rust } from "../../src/shared/rust.js";
 
 const w = (candidates: string[], known?: boolean[] | null, join?: string): InkWordReadings => ({
   candidates,
@@ -24,7 +20,7 @@ const w = (candidates: string[], known?: boolean[] | null, join?: string): InkWo
 });
 
 test("a clean line keeps the engine's words and scores under 1", () => {
-  const line = decodeInkWords(
+  const line = rust().decodeInkWords(
     [w(["the", "he"], [true, true]), w(["fox", "(ox"], [true, true])],
     [],
     "the fox",
@@ -35,20 +31,20 @@ test("a clean line keeps the engine's words and scores under 1", () => {
 });
 
 test("a dictionary word among the readings beats a non-word pick", () => {
-  const line = decodeInkWords([w(["lorown", "brown"], [false, true])], [], "lorown");
+  const line = rust().decodeInkWords([w(["lorown", "brown"], [false, true])], [], "lorown");
   assert.equal(line.text, "brown");
   assert.equal(line.alternatives?.[0], "lorown", "the engine's text is one click away");
 });
 
 test("a workspace term beats a non-word, but not an ordinary word", () => {
-  assert.equal(decodeInkWords([w(["softmox", "softmax"], [false, false])], ["softmax"]).text, "softmax");
+  assert.equal(rust().decodeInkWords([w(["softmox", "softmax"], [false, false])], ["softmax"]).text, "softmax");
   // "is" comes in with a title; it must not override the dictionary word "in".
   const title = ["Attention Is All You Need"];
-  assert.equal(decodeInkWords([w(["in", "is"], [true, true])], title).text, "in");
+  assert.equal(rust().decodeInkWords([w(["in", "is"], [true, true])], title).text, "in");
 });
 
 test("a word no reading of which is a word makes the line unsure", () => {
-  const line = decodeInkWords(
+  const line = rust().decodeInkWords(
     [w(["decoder"], [true]), w(["output"], [true]), w(["is"], [true]), w(["garlded", "garlled"], [false, false])],
     [],
   );
@@ -58,7 +54,7 @@ test("a word no reading of which is a word makes the line unsure", () => {
 });
 
 test("a merged word takes the helper's split", () => {
-  const line = decodeInkWords(
+  const line = rust().decodeInkWords(
     [w(["variance"], [true]), w(["seedsmatters", "seedsmatter", "seeds matters"], [false, false, true])],
     [],
   );
@@ -67,20 +63,20 @@ test("a merged word takes the helper's split", () => {
 });
 
 test("a hyphenated reading of a merged word becomes two words", () => {
-  const line = decodeInkWords([w(["noisehurts", "noise-hurts"], [false, true]), w(["the"], [true])], []);
+  const line = rust().decodeInkWords([w(["noisehurts", "noise-hurts"], [false, true]), w(["the"], [true])], []);
   assert.equal(line.text, "noise hurts the");
 });
 
 test("a split is held back when the non-word is close to a workspace term", () => {
-  const line = decodeInkWords([w(["alolation", "al olation"], [false, true])], ["ablation"]);
+  const line = rust().decodeInkWords([w(["alolation", "al olation"], [false, true])], ["ablation"]);
   assert.equal(line.text, "alolation", "left for the title post-match to mend");
 });
 
 test("two words join when either is in doubt, and are only offered otherwise", () => {
   // "dr" is no word; its case variant "Dr" is, but the doubt stands.
-  const draft = decodeInkWords([w(["dr", "Dr"], [false, true], "draft"), w(["aft"], [true])], []);
+  const draft = rust().decodeInkWords([w(["dr", "Dr"], [false, true], "draft"), w(["aft"], [true])], []);
   assert.equal(draft.text, "draft");
-  const forgets = decodeInkWords(
+  const forgets = rust().decodeInkWords(
     [w(["the"], [true]), w(["for"], [true], "forgets"), w(["gets"], [true])],
     [],
   );
@@ -89,13 +85,13 @@ test("two words join when either is in doubt, and are only offered otherwise", (
 });
 
 test("with no dictionary, the engine's words stand", () => {
-  const line = decodeInkWords([w(["lorown", "brown"], null)], []);
+  const line = rust().decodeInkWords([w(["lorown", "brown"], null)], []);
   assert.equal(line.text, "lorown");
   assert.equal(line.conf, INK_ENGINE_MAX_CONFIDENCE);
 });
 
 test("alternatives are whole lines with one doubtful word swapped", () => {
-  const line = decodeInkWords(
+  const line = rust().decodeInkWords(
     [w(["the"], [true]), w(["garlded", "garlled", "garbled"], [false, false, false])],
     [],
   );
@@ -103,21 +99,21 @@ test("alternatives are whole lines with one doubtful word swapped", () => {
 });
 
 test("vocabulary words include the parts of hyphenated terms", () => {
-  const words = inkVocabularyWords(["Graph-prior module", "smith2021"]);
+  const words = rust().inkVocabularyWords(["Graph-prior module", "smith2021"]);
   for (const word of ["graphprior", "graph", "prior", "module", "smith2021"]) assert.ok(words.has(word), word);
 });
 
 test("a join is not offered over a next word that was itself joined (06-02)", () => {
   // "for"+"gets" is taken (a vocabulary term), so the slot after "the" holds
   // "forgets"; offering "thefor" there would drop "gets" from the line.
-  const line = decodeInkWords(
+  const line = rust().decodeInkWords(
     [w(["the"], [true], "thefor"), w(["for"], [true], "forgets"), w(["gets"], [true])],
     ["forgets"],
   );
   assert.equal(line.text, "the forgets");
   assert.ok(!line.alternatives?.some((alt) => alt.startsWith("thefor")), String(line.alternatives));
   // An offer whose next word stands alone is still made.
-  const kept = decodeInkWords(
+  const kept = rust().decodeInkWords(
     [w(["the"], [true], "thefor"), w(["for"], [true]), w(["gets"], [true])],
     [],
   );

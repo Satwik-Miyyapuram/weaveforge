@@ -7,8 +7,8 @@
 
 import { frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
-import { ENTITY_DIRS, WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
-import { INK_NOTE_TYPE, readInkNoteMeta, writeInkNoteBody } from "../ink/ink-note.js";
+import { ENTITY_DIRS, WORKSPACE_META_DIR } from "./folder-layout.js";
+import { INK_NOTE_TYPE } from "../ink/ink-note.js";
 import { rust } from "../shared/rust.js";
 
 export interface ParsedEntity {
@@ -60,7 +60,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   const type =
     declared && KNOWN_TYPES.has(declared)
       ? (declared as WorkspaceEntityType)
-      : (fromDir ?? parseKindSuffix(path));
+      : (fromDir ?? rust().parseKindSuffix(path));
   if (!type) return null;
 
   const fileName = path.split("/").pop() ?? path;
@@ -68,7 +68,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
     frontmatterString(frontmatter, "title") ??
     // Fall back to the filename minus any id suffix, so a hand-created
     // `notes/My idea.md` imports with a sensible title.
-    stripKindSuffix(fileName).replace(/--[a-zA-Z0-9]{1,8}$/, "");
+    rust().stripKindSuffix(fileName).replace(/--[a-zA-Z0-9]{1,8}$/, "");
 
   const fields: ParsedEntity["fields"] = {};
   for (const [key, value] of Object.entries(frontmatter)) {
@@ -85,7 +85,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
       id: frontmatterString(frontmatter, "weaveforge-id"),
       type: "vault_page",
       title: title.trim() || "Untitled",
-      body: writeInkNoteBody(readInkNoteMeta(frontmatter), body.trimStart()),
+      body: rust().writeInkNoteBody(rust().readInkNoteMeta(frontmatter), body.trimStart()),
       path,
       fields,
     };

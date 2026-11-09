@@ -1,12 +1,4 @@
-import {
-  buildPageTree,
-  normalizeTitleKey,
-  vaultBodyPreview,
-  type IVaultPageRepository,
-  type VaultPage,
-  type VaultPageFilter,
-  type VaultPageTreeNode,
-} from "@weaveforge/core";
+import { type IVaultPageRepository, type VaultPage, type VaultPageFilter, type VaultPageTreeNode } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
 import {
   type VaultPageRow,
@@ -16,6 +8,7 @@ import {
 } from "./vault-page-rows";
 import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * The columns a VaultPageRow is read as, named rather than starred.
@@ -111,7 +104,7 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     if (error) throw error;
     return (data as VaultPageRow[]).map((row) => ({
       ...toSummaryDomain(row),
-      bodyPreview: vaultBodyPreview(row.body ?? ""),
+      bodyPreview: typedCore().vaultBodyPreview(row.body ?? ""),
     }));
   }
 
@@ -120,15 +113,15 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     const { data, error } = await q;
     if (error) {
       if (isMissingBodyPreviewColumn(error)) {
-        return buildPageTree(await this.listSummariesFromBody());
+        return typedCore().buildPageTree(await this.listSummariesFromBody());
       }
       throw error;
     }
-    return buildPageTree((data as VaultPageRow[]).map(toSummaryDomain));
+    return typedCore().buildPageTree((data as VaultPageRow[]).map(toSummaryDomain));
   }
 
   async titleTaken(title: string, exceptId?: string): Promise<boolean> {
-    const key = normalizeTitleKey(title);
+    const key = typedCore().normalizeTitleKey(title);
     if (!key) return false;
     // ILIKE narrows to candidates (each whitespace run may differ, hence %);
     // the exact rule is applied here so both backends agree.
@@ -136,7 +129,7 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     const found = await rows<{ id: string; title: string }>(
       this.scoped(this.db.from(TABLE).select("id,title")).ilike("title", pattern),
     );
-    return found.some((r) => r.id !== exceptId && normalizeTitleKey(r.title) === key);
+    return found.some((r) => r.id !== exceptId && typedCore().normalizeTitleKey(r.title) === key);
   }
 
   async save(entity: VaultPage): Promise<void> {

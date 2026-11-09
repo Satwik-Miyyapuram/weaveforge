@@ -180,6 +180,13 @@ pub fn clamp_ink_zoom_js(zoom: f64) -> f64 {
     clamp_ink_zoom(zoom)
 }
 
+/// [`wf_core::ink::pressure_byte`].
+#[wasm_bindgen(js_name = pressureByte)]
+#[must_use]
+pub fn pressure_byte_js(pressure: Option<f64>) -> f64 {
+    wf_core::ink::pressure_byte(pressure)
+}
+
 /// [`ink_zoom_in`].
 #[wasm_bindgen(js_name = inkZoomIn)]
 #[must_use]

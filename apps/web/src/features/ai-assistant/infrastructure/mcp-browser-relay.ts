@@ -1,14 +1,10 @@
-import {
-  errorMessage,
-  canonicalAiToolName,
-  type AiAccessSettings,
-  type AiEvidence,
-} from "@weaveforge/core";
+import { errorMessage, type AiAccessSettings, type AiEvidence } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * The slice of the assistant facade the tools need.
@@ -165,7 +161,7 @@ export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly Rel
 
 /** Run one decrypted tool call. Every argument is untrusted until checked here. */
 export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settings: AiAccessSettings, command: { tool?: string; arguments?: Record<string, unknown> }): Promise<unknown> {
-  const tool = command.tool ? canonicalAiToolName(command.tool) : "";
+  const tool = command.tool ? typedCore().canonicalAiToolName(command.tool) : "";
   if (!GENERATED_MCP_ENABLED || !tool || !GENERATED_MCP_TOOL_NAMES.includes(tool as (typeof GENERATED_MCP_TOOL_NAMES)[number])) {
     throw new Error("This MCP tool is not enabled for this deployment.");
   }

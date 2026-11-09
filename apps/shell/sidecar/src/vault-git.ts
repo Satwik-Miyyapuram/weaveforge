@@ -3,27 +3,7 @@ import { appendFile, lstat, mkdir, readFile, rm, stat, writeFile } from "node:fs
 import * as path from "node:path";
 import { promisify } from "node:util";
 
-import {
-  checkGitRemoteUrl,
-  errorMessage,
-  DEFAULT_SYNC_BRANCH,
-  GIT_SYNC_IGNORED_DIRS,
-  GIT_SYNC_IGNORED_EXTENSIONS,
-  GIT_SYNC_IGNORED_FILES,
-  GIT_SYNC_LIMITS,
-  rust,
-  SYNC_AUTHOR,
-  type GitAuthor,
-  type GitFileStatus,
-  type GitPullResult,
-  type GitPushResult,
-  type GitRemoteConfig,
-  type GitRemoteStatus,
-  type IWorkspaceGit,
-  type IWorkspaceGitRemote,
-  type VaultRepoState,
-  type WorkspaceCommit,
-} from "@weaveforge/core";
+import { errorMessage, DEFAULT_SYNC_BRANCH, GIT_SYNC_IGNORED_DIRS, GIT_SYNC_IGNORED_EXTENSIONS, GIT_SYNC_IGNORED_FILES, GIT_SYNC_LIMITS, rust, SYNC_AUTHOR, type GitAuthor, type GitFileStatus, type GitPullResult, type GitPushResult, type GitRemoteConfig, type GitRemoteStatus, type IWorkspaceGit, type IWorkspaceGitRemote, type VaultRepoState, type WorkspaceCommit } from "@weaveforge/core";
 
 /**
  * Folder history, through the `git` already on the machine.
@@ -752,7 +732,7 @@ export async function syncVault(
 
   const verdict = rust().decideVaultCommit(settings.enabled, settings.enabled ? await probe(root) : { kind: "none" });
   if (!verdict.ok) throw new Error(verdict.reason);
-  const url = checkGitRemoteUrl(settings.url);
+  const url = rust().checkGitRemoteUrl(settings.url);
   if (!url.ok) throw new Error(url.reason);
   const remote: GitRemoteConfig = settings.token ? { url: url.url, token: settings.token } : { url: url.url };
 

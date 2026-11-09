@@ -3,14 +3,7 @@
  * so the stroke committed on lift is the last one drawn.
  */
 
-import {
-  INK_COORD_LIMIT,
-  INK_PACK_PRESSURE_TOLERANCE,
-  INK_PACK_TOLERANCE,
-  INK_STROKE_MAX_POINTS,
-  pressureByte,
-  type PackedInkStroke,
-} from "./ink-note.js";
+import { INK_COORD_LIMIT, INK_PACK_PRESSURE_TOLERANCE, INK_PACK_TOLERANCE, INK_STROKE_MAX_POINTS, type PackedInkStroke } from "./ink-note.js";
 import { rust } from "../shared/rust.js";
 
 /**
@@ -92,7 +85,7 @@ export class InkStrokePacker {
     const c = this.xs.length;
     this.xs.push(Math.max(-INK_COORD_LIMIT, Math.min(INK_COORD_LIMIT, Math.round(x))));
     this.ys.push(Math.max(-INK_COORD_LIMIT, Math.min(INK_COORD_LIMIT, Math.round(y))));
-    this.ps.push(pressureByte(pressure));
+    this.ps.push(rust().pressureByte(pressure));
     if (c === 0) this.kept.push(0);
     else if (this.kept.length < this.maxPoints - 1) this.advance(c);
   }

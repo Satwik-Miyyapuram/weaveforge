@@ -2,17 +2,12 @@
  * Use-cases for vault pages — orchestration only.
  */
 
-import {
-  createVaultPage,
-  normalizeTitleKey,
-  VaultPageValidationError,
-  type NewVaultPageInput,
-  type VaultPage,
-} from "../domain/vault-page.js";
+import { VaultPageValidationError, type NewVaultPageInput, type VaultPage } from "../domain/vault-page.js";
 import type { IVaultPageRepository } from "../domain/vault-page-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { assertNotUnder } from "../../../shared/tree.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface EditVaultPageInput {
   title?: string;
@@ -33,7 +28,7 @@ export class ManageVaultPageUseCase {
   constructor(private readonly deps: ManageVaultPageDeps) {}
 
   async add(input: NewVaultPageInput): Promise<VaultPage> {
-    const page = createVaultPage(input, {
+    const page = rust().createVaultPage(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });
@@ -65,7 +60,7 @@ export class ManageVaultPageUseCase {
     if (!title) {
       throw new VaultPageValidationError("Page title is required.");
     }
-    if (normalizeTitleKey(title) !== normalizeTitleKey(existing.title)) {
+    if (rust().normalizeTitleKey(title) !== rust().normalizeTitleKey(existing.title)) {
       await this.assertTitleUnique(title, id);
     }
     if (input.parentId !== undefined && input.parentId !== null) {

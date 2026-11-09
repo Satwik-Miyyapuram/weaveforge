@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-import { digestText, projectDir } from "@weaveforge/core";
+import { digestText } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -18,6 +18,7 @@ import {
   readMirrorBase,
   writeMirrorManifest,
 } from "../application/mirror-manifest";
+import { typedCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();
@@ -31,8 +32,8 @@ before(async () => {
  */
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
 const OTHER = { id: "00000000-0000-4000-8000-0000000000aa", name: "Offline Trial" };
-const ROOT = projectDir(PROJECT);
-const OTHER_ROOT = projectDir(OTHER);
+const ROOT = typedCore().projectDir(PROJECT);
+const OTHER_ROOT = typedCore().projectDir(OTHER);
 
 /** The paths a project's manifest claims, in order. */
 async function manifestPaths(fs: MemoryWorkspaceFs, root = ROOT): Promise<string[]> {
@@ -323,7 +324,7 @@ test("a renamed project carries its folder and manifest to the new name", async 
   await fs.writeFile(`${OTHER_ROOT}/notes/b.md`, "other");
 
   const renamed = { ...PROJECT, name: "Thesis Final" };
-  const newRoot = projectDir(renamed);
+  const newRoot = typedCore().projectDir(renamed);
   assert.equal(await followProjectRename(fs, renamed), ROOT);
 
   const moved = `${newRoot}/notes/a.md`;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { mock, test } from "node:test";
 
-import { FOLDER_DRAFTS_DIR, parseFolderDraft } from "@weaveforge/core";
+import { FOLDER_DRAFTS_DIR, rust } from "@weaveforge/core";
 
 import { routeMcpRequest } from "../src/local-mcp";
 import { adoptRoot, newVaultSession, type VaultSession } from "../src/vault-handlers";
@@ -44,7 +44,7 @@ async function call(session: VaultSession, name: string, args: Record<string, un
 async function drafts(root: string) {
   const dir = path.join(root, ...FOLDER_DRAFTS_DIR.split("/"));
   const names = await readdir(dir).catch(() => [] as string[]);
-  return Promise.all(names.map(async (name) => parseFolderDraft(await readFile(path.join(dir, name), "utf8"))));
+  return Promise.all(names.map(async (name) => rust().parseFolderDraft(await readFile(path.join(dir, name), "utf8"))));
 }
 
 test("tools/list names every read and suggest tool", async () => {

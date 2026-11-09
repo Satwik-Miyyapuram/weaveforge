@@ -1,3 +1,4 @@
+import "./rust-core.js";
 import {
   app,
   BrowserWindow,

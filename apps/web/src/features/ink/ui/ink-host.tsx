@@ -33,15 +33,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PromptDialog } from "@/components/prompt-dialog";
 import { ToolbarSlot } from "@/components/toolbar-slot";
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  splitInkTextLayer,
-  type InkHand,
-  type InkPaper,
-  type InkNoteMeta,
-  type RecognisedLine,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkHand, type InkPaper, type InkNoteMeta, type RecognisedLine } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
 import {
@@ -90,6 +82,7 @@ import { usePageExport } from "./use-page-export";
 import { pageGapPx } from "./ink-bar-more";
 import { usePageGap } from "./use-page-gap";
 import type { InkHostProps } from "./ink-host-types";
+import { typedCore } from "@/lib/rust-core";
 
 export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
@@ -145,7 +138,7 @@ export function InkHost({
   const [paper, setPaperState] = useState<InkPaper>(metaRef.current.paper);
   /** The text layer's pages, for the body (§4.2). */
   const textPagesRef = useRef<string[]>(
-    splitInkTextLayer(readyCore().readInkNoteBody(body).text),
+    typedCore().splitInkTextLayer(readyCore().readInkNoteBody(body).text),
   );
   /** The current page's flowed text, for the print (assigned in render below). */
   const pageTextRef = useRef("");

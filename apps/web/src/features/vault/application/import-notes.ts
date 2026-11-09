@@ -1,7 +1,8 @@
 import { unzipSync } from "fflate";
-import { mapLimit, stripKindSuffix } from "@weaveforge/core";
+import { mapLimit } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface ImportResult {
   created: number;
@@ -135,7 +136,7 @@ export async function importNotesFromFiles(
   const planned: { file: File; title: string; parentKey: string; raw: string }[] = [];
   for (const f of mdFiles) {
     const raw = await f.text();
-    const base = stripKindSuffix(f.name);
+    const base = typedCore().stripKindSuffix(f.name);
     const title = readyCore().uniqueTitle(base, used);
     if (title !== base) {
       renamed.push({ from: base, to: title });

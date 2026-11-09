@@ -1,16 +1,4 @@
-/**
- * Syncing the workspace folder's files with a git remote.
- *
- * Separate from `IWorkspaceGit` (local history) so a backend that only keeps
- * history does not have to pretend to talk to servers. Database rows are not
- * part of this: they keep their own sync engine. This moves the folder's files.
- *
- * The rule every implementation keeps: a pull never overwrites a local edit.
- * Local changes are committed first, so they are in history whatever happens,
- * and a merge that conflicts is abandoned and reported, leaving the folder as
- * it was.
- */
-
+/** Types for git-remote. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { GitAuthor } from "./git-port.js";
 
 export interface GitRemoteConfig {
@@ -67,50 +55,15 @@ export const SYNC_AUTHOR: GitAuthor = { name: "WeaveForge", email: "sync@weavefo
 
 export type GitRemoteUrlCheck = { ok: true; url: string } | { ok: false; reason: string };
 
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface GitRemoteFns {
+  /**
  * Accepts only `https://host/...` with no user or password in it. A token in
  * the URL would be written to `.git/config` in plain text and echoed by git in
  * error messages, so it is refused here and passed separately instead.
  */
-export function checkGitRemoteUrl(raw: unknown): GitRemoteUrlCheck {
-  if (typeof raw !== "string" || raw.trim() === "") return { ok: false, reason: "Enter the remote's https URL." };
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    return { ok: false, reason: "That is not a URL." };
-  }
-  if (url.protocol !== "https:") return { ok: false, reason: "Only https:// remotes are supported." };
-  if (url.username || url.password) {
-    return { ok: false, reason: "Leave the token out of the URL; put it in the token field." };
-  }
-  if (!url.hostname || url.pathname === "/" || url.pathname === "") {
-    return { ok: false, reason: "The URL needs the repository path, e.g. https://github.com/you/notes.git." };
-  }
-  return { ok: true, url: url.toString() };
-}
-
-/** One line for the Settings panel. */
-export function describePull(result: GitPullResult): string {
-  switch (result.kind) {
-    case "up-to-date":
-      return "Already up to date.";
-    case "fast-forward":
-      return "Pulled the remote's changes.";
-    case "merged":
-      return "Merged the remote's changes with yours.";
-    case "conflict":
-      return `Not pulled: ${result.files.length} file${result.files.length === 1 ? "" : "s"} changed on both sides (${result.files.slice(0, 5).join(", ")}${result.files.length > 5 ? ", …" : ""}). Your files were left as they were.`;
-  }
-}
-
-export function describePush(result: GitPushResult): string {
-  switch (result.kind) {
-    case "pushed":
-      return "Pushed.";
-    case "up-to-date":
-      return "Nothing to push.";
-    case "rejected":
-      return `Not pushed: ${result.reason}`;
-  }
+  checkGitRemoteUrl(raw: unknown): GitRemoteUrlCheck;
+  /** One line for the Settings panel. */
+  describePull(result: GitPullResult): string;
+  describePush(result: GitPushResult): string;
 }

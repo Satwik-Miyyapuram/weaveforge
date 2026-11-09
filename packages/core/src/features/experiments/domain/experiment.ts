@@ -1,9 +1,4 @@
-/**
- * Experiments domain model — pure, no I/O. An Experiment is one tracked run,
- * pinned to a code state (repo / branch / commit) like a git entry, with config
- * and metrics. One reason to change: the rules of what an experiment *is* (SRP).
- */
-
+/** Types for experiment. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
@@ -87,37 +82,6 @@ export class ExperimentValidationError extends ValidationError {
   }
 }
 
-export function createExperiment(
-  input: NewExperimentInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): Experiment {
-  const name = input.name?.trim();
-  if (!name) throw new ExperimentValidationError("Experiment name is required.");
-  const now = deps.clock.nowIso();
-  const status = input.status ?? "planned";
-  return {
-    id: deps.ids.newId(),
-    name,
-    hypothesis: input.hypothesis,
-    status,
-    repoUrl: input.repoUrl,
-    commitSha: input.commitSha?.trim(),
-    branch: input.branch?.trim(),
-    runCommand: input.runCommand,
-    config: input.config ?? {},
-    metrics: input.metrics ?? {},
-    artifacts: input.artifacts ?? [],
-    resultNote: input.resultNote,
-    startedAt: status === "running" ? now : undefined,
-    // A run created already-finished (an import of a past run) gets its end
-    // stamp here; without this the row would say "done" and carry no time,
-    // which is the illegal state the field's invariant forbids.
-    finishedAt: TERMINAL_EXPERIMENT_STATUSES.includes(status) ? now : undefined,
-    relatedPaper: input.relatedPaper,
-    createdAt: now,
-  };
-}
-
 /** The statuses that end a run. Kept here so `finishedAt` has one definition. */
 export const TERMINAL_EXPERIMENT_STATUSES: readonly ExperimentStatus[] = [
   "done",
@@ -125,7 +89,13 @@ export const TERMINAL_EXPERIMENT_STATUSES: readonly ExperimentStatus[] = [
   "abandoned",
 ];
 
-/**
+/** Running experiments with no finish and no activity this long are treated as dead. */
+export const STALE_RUNNING_MS = 2 * 60 * 1000;
+
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ExperimentFns {
+  createExperiment(input: NewExperimentInput, deps: { clock: Clock; ids: IdGenerator }): Experiment;
+  /**
  * The status-related fields for a run moving to `status` at `now`.
  *
  * One function rather than the same three ternaries copied into every caller,
@@ -137,63 +107,15 @@ export const TERMINAL_EXPERIMENT_STATUSES: readonly ExperimentStatus[] = [
  * over `startedAt` (the search index does) dated the run to a finish that had
  * been undone.
  */
-export function statusPatchForExperiment(
-  experiment: Experiment,
-  status: ExperimentStatus,
-  now: string,
-): Pick<Experiment, "status" | "startedAt" | "finishedAt"> {
-  const terminal = TERMINAL_EXPERIMENT_STATUSES.includes(status);
-  return {
-    status,
-    // First start is remembered; a later restart does not rewrite history.
-    startedAt: status === "running" && !experiment.startedAt ? now : experiment.startedAt,
-    // Stamped on the way in — the behaviour this replaces — and removed on the
-    // way out, which is the part that was missing.
-    finishedAt: terminal ? now : undefined,
-  };
-}
-
-/** Short display form of a commit SHA. */
-export function shortSha(sha?: string): string | undefined {
-  return sha ? sha.trim().slice(0, 7) : undefined;
-}
-
-/** Running experiments with no finish and no activity this long are treated as dead. */
-export const STALE_RUNNING_MS = 2 * 60 * 1000;
-
-export function experimentActivityAt(exp: Experiment): number {
-  const raw = exp.startedAt ?? exp.createdAt;
-  const t = Date.parse(raw);
-  return Number.isFinite(t) ? t : 0;
-}
-
-/** SDK / process died without updating status — still marked running in the DB. */
-export function isStaleRunningExperiment(
-  exp: Experiment,
-  nowMs: number = Date.now(),
-  staleMs: number = STALE_RUNNING_MS,
-  lastMetricAtMs?: number,
-): boolean {
-  if (exp.status !== "running") return false;
-  const activity = Math.max(experimentActivityAt(exp), lastMetricAtMs ?? 0);
-  if (!activity) return false;
-  return nowMs - activity >= staleMs;
-}
-
-/** Format a numeric metric value for tables and chart axes (name-agnostic). */
-export function formatMetricValue(_metric: string, value: number): string {
-  if (!Number.isFinite(value)) return "—";
-  // Zero has no magnitude band; without this it fell to "0.00e+0".
-  if (value === 0) return "0";
-  const abs = Math.abs(value);
-  if (abs >= 1e6 || (abs > 0 && abs < 1e-4)) return value.toExponential(2);
-  if (abs >= 100) return value.toFixed(1);
-  if (abs >= 1) return value.toFixed(3);
-  if (abs >= 0.01) return value.toFixed(4);
-  return value.toExponential(2);
-}
-
-/**
+  statusPatchForExperiment(experiment: Experiment, status: ExperimentStatus, now: string): Pick<Experiment, "status" | "startedAt" | "finishedAt">;
+  /** Short display form of a commit SHA. */
+  shortSha(sha?: string): string | undefined;
+  experimentActivityAt(exp: Experiment): number;
+  /** SDK / process died without updating status — still marked running in the DB. */
+  isStaleRunningExperiment(exp: Experiment, nowMs?: number, staleMs?: number, lastMetricAtMs?: number): boolean;
+  /** Format a numeric metric value for tables and chart axes (name-agnostic). */
+  formatMetricValue(_metric: string, value: number): string;
+  /**
  * One metric's value as text, for a chip or a table cell.
  *
  * Here rather than in the web app because it is the *general* case of
@@ -216,25 +138,5 @@ export function formatMetricValue(_metric: string, value: number): string {
  * from `false`), and a value that cannot be serialised at all, such as a cycle,
  * degrades to "—" rather than throwing inside a render.
  */
-export function formatMetricCell(_metric: string, value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  // A blank string is no value; Number("  ") would call it zero.
-  if (typeof value === "string" && value.trim() === "") return "—";
-  // A non-finite number is a number, so it takes formatMetricValue's "—"
-  // rather than JSON's "null".
-  if (typeof value === "number") return formatMetricValue(_metric, value);
-  if (typeof value === "bigint") return value.toString();
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  if (Number.isFinite(n)) return formatMetricValue(_metric, n);
-  if (typeof value === "string") return value;
-  if (typeof value === "boolean") return value ? "true" : "false";
-  try {
-    const json = JSON.stringify(value);
-    // `undefined` from a function, a symbol, or an array/object holding only
-    // those: JSON has no representation, and "—" is the honest answer.
-    return json === undefined ? "—" : json;
-  } catch {
-    // A cycle, or a `toJSON` that threw. The cell is not worth failing a render.
-    return "—";
-  }
+  formatMetricCell(_metric: string, value: unknown): string;
 }

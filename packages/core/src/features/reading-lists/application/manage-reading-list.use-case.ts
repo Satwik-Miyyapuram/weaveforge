@@ -7,19 +7,14 @@
  * constraint).
  */
 
-import {
-  createReadingList,
-  ReadingListValidationError,
-  type NewReadingListInput,
-  type ReadingList,
-  type ReadingListItem,
-} from "../domain/reading-list.js";
+import { ReadingListValidationError, type NewReadingListInput, type ReadingList, type ReadingListItem } from "../domain/reading-list.js";
 import type {
   IReadingListItemRepository,
   IReadingListRepository,
 } from "../domain/reading-list-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageReadingListDeps {
   lists: IReadingListRepository;
@@ -32,7 +27,7 @@ export class ManageReadingListUseCase {
   constructor(private readonly deps: ManageReadingListDeps) {}
 
   async createList(input: NewReadingListInput): Promise<ReadingList> {
-    const list = createReadingList(input, {
+    const list = rust().createReadingList(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });

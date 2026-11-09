@@ -1,5 +1,5 @@
 // checkGitRemoteUrl stays TS: it wraps the browser's URL parser, which WASM would duplicate.
-import { checkGitRemoteUrl } from "@weaveforge/core";
+
 import {
   desktop,
   type DesktopBridge,
@@ -7,6 +7,7 @@ import {
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Pushing and pulling the workspace folder to a git remote (Settings → Workspace folder).
@@ -36,7 +37,7 @@ export function remoteSyncAvailable(): boolean {
  * refused before anything is stored. Answers the URL as stored.
  */
 export async function saveRemoteSyncSettings(input: { url: string; token: string | null }): Promise<string> {
-  const url = checkGitRemoteUrl(input.url);
+  const url = typedCore().checkGitRemoteUrl(input.url);
   if (!url.ok) throw new Error(url.reason);
   const bridge = shell();
   if (!bridge) throw new Error(NO_SHELL);

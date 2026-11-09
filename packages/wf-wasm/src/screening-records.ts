@@ -1,6 +1,7 @@
 /**
  * Screening rules (Rust `reading_lists::screening`), re-exported from index.ts. Each function
  * keeps the signature of packages/core/src/features/reading-lists/domain/screening.ts.
+ * Decision lists cross as JSON text: one copy, not a boundary call per field.
  */
 import {
   agreementBetween as rawAgreementBetween,
@@ -27,7 +28,7 @@ export function checkDecision(
   existing: readonly ScreeningDecision[],
 ): void {
   const draft = { ...next, stage: String(next.stage), state: String(next.state) };
-  const message = rawScreeningDecisionError(draft, existing);
+  const message = rawScreeningDecisionError(draft, JSON.stringify(existing));
   if (message != null) {
     const error = new Error(message);
     error.name = "ScreeningError";
@@ -40,7 +41,7 @@ export function screeningDecisionError(
   next: ScreeningDecisionDraft,
   existing: readonly ScreeningDecision[],
 ): string | null {
-  return rawScreeningDecisionError(next, existing) ?? null;
+  return rawScreeningDecisionError(next, JSON.stringify(existing)) ?? null;
 }
 
 /** `latestByReviewer` as a list, one decision per reviewer. */
@@ -49,7 +50,7 @@ export function latestByReviewerList(
   itemId: string,
   stage: ScreeningStage,
 ): ScreeningDecision[] {
-  return rawLatestByReviewerList(decisions, itemId, stage) as ScreeningDecision[];
+  return rawLatestByReviewerList(JSON.stringify(decisions), itemId, stage) as ScreeningDecision[];
 }
 
 /** The latest decision each reviewer recorded for one item, one per reviewer. */
@@ -58,7 +59,7 @@ export function latestByReviewer(
   itemId: string,
   stage: ScreeningStage,
 ): Map<string, ScreeningDecision> {
-  const latest = rawLatestByReviewerList(decisions, itemId, stage) as ScreeningDecision[];
+  const latest = rawLatestByReviewerList(JSON.stringify(decisions), itemId, stage) as ScreeningDecision[];
   return new Map(latest.map((decision) => [decision.reviewerId, decision]));
 }
 
@@ -68,7 +69,7 @@ export function verdictFor(
   itemId: string,
   stage: ScreeningStage,
 ): ItemVerdict {
-  return rawVerdictFor(decisions, itemId, stage) as ItemVerdict;
+  return rawVerdictFor(JSON.stringify(decisions), itemId, stage) as ItemVerdict;
 }
 
 /** Percent agreement and Cohen's kappa for two reviewers at one stage. */
@@ -77,12 +78,12 @@ export function agreementBetween(
   reviewers: [string, string],
   stage: ScreeningStage,
 ): Agreement {
-  return rawAgreementBetween(decisions, reviewers, stage) as Agreement;
+  return rawAgreementBetween(JSON.stringify(decisions), reviewers, stage) as Agreement;
 }
 
 /** The PRISMA numbers, derived from the decisions every time they are asked for. */
 export function prismaCounts(items: readonly ScreeningItem[], decisions: readonly ScreeningDecision[]): PrismaCounts {
-  return rawPrismaCounts(items, decisions) as PrismaCounts;
+  return rawPrismaCounts(JSON.stringify(items), JSON.stringify(decisions)) as PrismaCounts;
 }
 
 /** Why items were excluded at `stage`, most common first. */
@@ -90,5 +91,5 @@ export function exclusionReasons(
   decisions: readonly ScreeningDecision[],
   stage: ScreeningStage = "full_text",
 ): ExclusionReasonCount[] {
-  return rawExclusionReasons(decisions, stage) as ExclusionReasonCount[];
+  return rawExclusionReasons(JSON.stringify(decisions), stage) as ExclusionReasonCount[];
 }

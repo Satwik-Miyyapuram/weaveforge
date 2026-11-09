@@ -2,16 +2,11 @@
  * Use-case for experiments. Orchestration only (DIP): add, change status
  * (stamping started/finished timestamps), and record metrics.
  */
-import {
-  createExperiment,
-  statusPatchForExperiment,
-  type Experiment,
-  type ExperimentStatus,
-  type NewExperimentInput,
-} from "../domain/experiment.js";
+import { type Experiment, type ExperimentStatus, type NewExperimentInput } from "../domain/experiment.js";
 import type { ExperimentPatch, IExperimentRepository } from "../domain/experiment-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageExperimentDeps {
   repository: IExperimentRepository;
@@ -23,7 +18,7 @@ export class ManageExperimentUseCase {
   constructor(private readonly deps: ManageExperimentDeps) {}
 
   async add(input: NewExperimentInput): Promise<Experiment> {
-    const exp = createExperiment(input, { clock: this.deps.clock, ids: this.deps.ids });
+    const exp = rust().createExperiment(input, { clock: this.deps.clock, ids: this.deps.ids });
     await this.deps.repository.save(exp);
     return exp;
   }
@@ -36,7 +31,7 @@ export class ManageExperimentUseCase {
    * the run is reopened. Reopening used to leave the old end time in place.
    */
   async setStatus(id: string, status: ExperimentStatus): Promise<Experiment> {
-    return this.mutate(id, (e) => statusPatchForExperiment(e, status, this.deps.clock.nowIso()));
+    return this.mutate(id, (e) => rust().statusPatchForExperiment(e, status, this.deps.clock.nowIso()));
   }
 
   async recordMetrics(id: string, metrics: Record<string, unknown>): Promise<Experiment> {

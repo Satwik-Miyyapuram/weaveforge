@@ -1,4 +1,5 @@
-import { FOLDER_DRAFTS_DIR, parseFolderDraft, type FolderDraft, type IWorkspaceFs } from "@weaveforge/core";
+import { FOLDER_DRAFTS_DIR, type FolderDraft, type IWorkspaceFs } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Move the local MCP's suggestions from the folder into the review queue.
@@ -22,7 +23,7 @@ export async function importFolderDrafts(
   for (const entry of entries) {
     if (entry.kind !== "file" || !entry.path.endsWith(".json")) continue;
     const raw = await fs.readText(entry.path).catch(() => null);
-    const draft = raw === null ? null : parseFolderDraft(raw);
+    const draft = raw === null ? null : (typedCore().parseFolderDraft(raw) as FolderDraft | null);
     if (!draft || (draft.projectId && projectId && draft.projectId !== projectId)) continue;
     try {
       await fs.remove(entry.path);

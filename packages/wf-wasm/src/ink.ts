@@ -21,6 +21,7 @@ import {
   inkZoomIn as rawInkZoomIn,
   inkZoomOut as rawInkZoomOut,
   packInkStroke as rawPackInkStroke,
+  pressureByte as rawPressureByte,
 } from "../pkg/wf_wasm.js";
 import type { InkStrokePackerOptions, PackedInkStroke } from "./bindings.js";
 
@@ -144,4 +145,8 @@ export function inkVocabularyWords(vocabulary: readonly string[]): Set<string> {
 export function inkStrokeBand(stroke: { points: ArrayLike<number> }): [number, number] | null {
   const band = rawInkStrokeBandOf(Float64Array.from(stroke.points));
   return band ? [band[0] as number, band[1] as number] : null;
+}
+/** A pressure as the 0-255 byte the container stores; missing or non-finite is 0. */
+export function pressureByte(pressure: number | undefined): number {
+  return rawPressureByte(pressure);
 }

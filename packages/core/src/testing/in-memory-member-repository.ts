@@ -1,9 +1,7 @@
-import {
-  filterLabMembers,
-  filterTeamMembers,
-  type Member,
-} from "../features/org/domain/member.js";
+import { type Member } from "../features/org/domain/member.js";
 import type { IMemberRepository } from "../features/org/domain/member-repository.js";
+import { rust } from "../shared/rust.js";
+import type { CoreContract } from "../shared/core-contract.js";
 
 /**
  * In-memory {@link IMemberRepository} for tests. A fixed `currentId` stands in
@@ -32,15 +30,15 @@ export class InMemoryMemberRepository implements IMemberRepository {
   }
 
   async listTeam(): Promise<Member[]> {
-    return this.visible(filterTeamMembers);
+    return this.visible(rust().filterTeamMembers);
   }
 
   async listLab(): Promise<Member[]> {
-    return this.visible(filterLabMembers);
+    return this.visible(rust().filterLabMembers);
   }
 
   /** Every seeded member is in the lab, so visibility is the filter alone. */
-  private visible(filter: typeof filterTeamMembers): Member[] {
+  private visible(filter: CoreContract["filterTeamMembers"]): Member[] {
     if (!this.currentId) return [];
     const all = [...this.store.values()];
     const orgMemberIds = new Set(all.map((m) => m.id));

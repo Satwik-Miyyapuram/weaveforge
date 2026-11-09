@@ -1,15 +1,6 @@
-/**
- * Reading lists domain model — pure, no I/O, no SDK imports.
- *
- * A `ReadingList` is a named, nestable grouping of papers (e.g.
- * "Latent spaces > Disentanglement > β-VAE family"). Membership is modeled
- * separately as `ReadingListItem` (many-to-many with papers). One reason to
- * change: the rules of what a reading list *is* (SRP).
- */
-
+/** Types for reading-list. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import { buildTree } from "../../../shared/tree.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export interface ReadingList extends Identifiable {
@@ -65,39 +56,13 @@ export class ReadingListValidationError extends ValidationError {
   }
 }
 
-export function createReadingList(
-  input: NewReadingListInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): ReadingList {
-  const name = input.name?.trim();
-  if (!name) {
-    throw new ReadingListValidationError("Reading list name is required.");
-  }
-  return {
-    id: deps.ids.newId(),
-    name,
-    description: input.description,
-    parentId: input.parentId,
-    sortOrder: input.sortOrder ?? 0,
-    color: input.color,
-    createdAt: deps.clock.nowIso(),
-  };
-}
-
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ReadingListFns {
+  createReadingList(input: NewReadingListInput, deps: { clock: Clock; ids: IdGenerator }): ReadingList;
+  /**
  * Build the nested list tree from a flat array (pure). Shared by every
  * repository so `getTree()` is identical across implementations (Liskov).
  * Siblings ordered by `sortOrder`, then `name`.
  */
-export function buildListTree(
-  lists: readonly ReadingList[],
-): ReadingListTreeNode[] {
-  return buildTree(lists, {
-    id: (list) => list.id,
-    parentId: (list) => list.parentId,
-    node: (list) => ({ list, children: [] }),
-    compare: (a, b) =>
-      a.list.sortOrder - b.list.sortOrder ||
-      a.list.name.localeCompare(b.list.name),
-  });
+  buildListTree(lists: readonly ReadingList[]): ReadingListTreeNode[];
 }

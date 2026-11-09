@@ -1,27 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  canJoinInkGroup,
-  clampInkWidth,
-  compactInkPath,
-  HIGHLIGHTER_MIN_WIDTH,
-  INK_DEFAULT_WIDTH,
-  INK_MAX_POINTS,
-  INK_NIB_DEFAULT_PT,
-  INK_NIB_WIDTHS_PT,
-  inkNoteWidthToPdfPoints,
-  inkPathJsonSize,
-  inkPathsBounds,
-  inkPathsHitTest,
-  inkWidthForPressure,
-  isHighlighterInk,
-  meanPressure,
-  quantizeInkPath,
-  shouldAppendInkPoint,
-  simplifyInkPath,
-  translateInkPaths,
-} from "../../src/reader/ink-stroke.js";
+import { HIGHLIGHTER_MIN_WIDTH, INK_DEFAULT_WIDTH, INK_MAX_POINTS, INK_NIB_DEFAULT_PT, INK_NIB_WIDTHS_PT } from "../../src/reader/ink-stroke.js";
 import { INK_PEN_WIDTH } from "../../src/ink/width.js";
+import { rust } from "../../src/shared/rust.js";
 
 /** A hand-drawn-ish stroke: a sine wave sampled far denser than its shape needs. */
 function denseStroke(samples: number, amplitude = 6): number[] {
@@ -34,14 +15,14 @@ function denseStroke(samples: number, amplitude = 6): number[] {
 }
 
 test("shouldAppendInkPoint drops samples inside the pen's own jitter", () => {
-  assert.equal(shouldAppendInkPoint([], 10, 10), true, "the first point always counts");
-  assert.equal(shouldAppendInkPoint([10, 10], 10.1, 10.1), false);
-  assert.equal(shouldAppendInkPoint([10, 10], 12, 10), true);
+  assert.equal(rust().shouldAppendInkPoint([], 10, 10), true, "the first point always counts");
+  assert.equal(rust().shouldAppendInkPoint([10, 10], 10.1, 10.1), false);
+  assert.equal(rust().shouldAppendInkPoint([10, 10], 12, 10), true);
 });
 
 test("simplifyInkPath keeps the endpoints and the shape", () => {
   const path = denseStroke(600);
-  const simplified = simplifyInkPath(path);
+  const simplified = rust().simplifyInkPath(path);
 
   assert.equal(simplified[0], path[0]);
   assert.equal(simplified[1], path[1]);
@@ -56,29 +37,29 @@ test("simplifyInkPath keeps the endpoints and the shape", () => {
 test("simplifyInkPath collapses a straight line to its two ends", () => {
   const straight: number[] = [];
   for (let i = 0; i <= 50; i++) straight.push(i * 2, 100);
-  assert.deepEqual(simplifyInkPath(straight), [0, 100, 100, 100]);
+  assert.deepEqual(rust().simplifyInkPath(straight), [0, 100, 100, 100]);
 });
 
 test("simplifyInkPath handles a stroke long enough to blow a recursive stack", () => {
   const huge: number[] = [];
   for (let i = 0; i < 60_000; i++) huge.push(i * 0.01, 100 + (i % 2) * 0.9);
-  const simplified = simplifyInkPath(huge, 0.001);
+  const simplified = rust().simplifyInkPath(huge, 0.001);
   assert.ok(simplified.length > 0);
 });
 
 test("quantizeInkPath rounds away device float noise", () => {
-  assert.deepEqual(quantizeInkPath([1.234567, 8.7654321]), [1.23, 8.77]);
-  assert.deepEqual(quantizeInkPath([1, Number.NaN]), [], "a broken sample voids the path");
+  assert.deepEqual(rust().quantizeInkPath([1.234567, 8.7654321]), [1.23, 8.77]);
+  assert.deepEqual(rust().quantizeInkPath([1, Number.NaN]), [], "a broken sample voids the path");
 });
 
 test("compactInkPath cuts a captured stroke to a fraction of its stored size", () => {
   const raw = denseStroke(800);
-  const compact = compactInkPath(raw);
+  const compact = rust().compactInkPath(raw);
 
   assert.ok(compact.length >= 4);
   assert.ok(
-    inkPathJsonSize(compact) < inkPathJsonSize(raw) / 10,
-    `stored size barely moved: ${inkPathJsonSize(compact)} vs ${inkPathJsonSize(raw)}`,
+    rust().inkPathJsonSize(compact) < rust().inkPathJsonSize(raw) / 10,
+    `stored size barely moved: ${rust().inkPathJsonSize(compact)} vs ${rust().inkPathJsonSize(raw)}`,
   );
 });
 
@@ -87,7 +68,7 @@ test("compactInkPath caps even a pathological scribble", () => {
   const scribble: number[] = [];
   for (let i = 0; i < 20_000; i++) scribble.push(i * 0.5, 300 + (i % 2 === 0 ? 40 : -40));
 
-  const compact = compactInkPath(scribble);
+  const compact = rust().compactInkPath(scribble);
 
   assert.ok(
     compact.length / 2 <= INK_MAX_POINTS,
@@ -98,26 +79,26 @@ test("compactInkPath caps even a pathological scribble", () => {
 });
 
 test("compactInkPath refuses anything that is not a stroke", () => {
-  assert.deepEqual(compactInkPath([]), []);
-  assert.deepEqual(compactInkPath([1, 2]), []);
-  assert.deepEqual(compactInkPath([1, 2, Number.POSITIVE_INFINITY, 4]), []);
+  assert.deepEqual(rust().compactInkPath([]), []);
+  assert.deepEqual(rust().compactInkPath([1, 2]), []);
+  assert.deepEqual(rust().compactInkPath([1, 2, Number.POSITIVE_INFINITY, 4]), []);
 });
 
 test("inkWidthForPressure separates a pen from a mouse", () => {
-  assert.equal(inkWidthForPressure(undefined), INK_DEFAULT_WIDTH);
-  assert.equal(inkWidthForPressure(0), INK_DEFAULT_WIDTH, "0 means the device is silent");
-  assert.equal(inkWidthForPressure(0.5), INK_DEFAULT_WIDTH, "0.5 is the mouse default");
+  assert.equal(rust().inkWidthForPressure(undefined), INK_DEFAULT_WIDTH);
+  assert.equal(rust().inkWidthForPressure(0), INK_DEFAULT_WIDTH, "0 means the device is silent");
+  assert.equal(rust().inkWidthForPressure(0.5), INK_DEFAULT_WIDTH, "0.5 is the mouse default");
 
-  const light = inkWidthForPressure(0.1);
-  const heavy = inkWidthForPressure(1);
+  const light = rust().inkWidthForPressure(0.1);
+  const heavy = rust().inkWidthForPressure(1);
   assert.ok(light < INK_DEFAULT_WIDTH, `light press should thin the stroke, got ${light}`);
   assert.ok(heavy > INK_DEFAULT_WIDTH, `full press should thicken it, got ${heavy}`);
 });
 
 test("clampInkWidth keeps a stroke drawable", () => {
-  assert.equal(clampInkWidth(Number.NaN), INK_DEFAULT_WIDTH);
-  assert.equal(clampInkWidth(0), 0.25);
-  assert.equal(clampInkWidth(1_000), 24);
+  assert.equal(rust().clampInkWidth(Number.NaN), INK_DEFAULT_WIDTH);
+  assert.equal(rust().clampInkWidth(0), 0.25);
+  assert.equal(rust().clampInkWidth(1_000), 24);
 });
 
 test("INK_NIB_WIDTHS_PT is the ink note's nib set, in points", () => {
@@ -125,42 +106,42 @@ test("INK_NIB_WIDTHS_PT is the ink note's nib set, in points", () => {
   assert.deepEqual(INK_NIB_WIDTHS_PT, [0.28, 0.85, 1.42, 1.98]);
   assert.equal(INK_NIB_DEFAULT_PT, 1.42, "the default is the 0.5 mm pen");
   for (const nib of INK_NIB_WIDTHS_PT) {
-    assert.equal(clampInkWidth(nib), nib, `${nib} pt must survive the clamp`);
+    assert.equal(rust().clampInkWidth(nib), nib, `${nib} pt must survive the clamp`);
   }
 });
 
 test("a nib converts one way, from the note's unit to points", () => {
   // The bar hands the reader a note nib; the reader stores points. One
   // conversion, so 0.3 mm is the same line on paper and on a PDF page.
-  assert.equal(inkNoteWidthToPdfPoints(3), INK_NIB_WIDTHS_PT[1]);
-  assert.equal(inkNoteWidthToPdfPoints(INK_PEN_WIDTH), 0.85);
+  assert.equal(rust().inkNoteWidthToPdfPoints(3), INK_NIB_WIDTHS_PT[1]);
+  assert.equal(rust().inkNoteWidthToPdfPoints(INK_PEN_WIDTH), 0.85);
   // A width nobody could have chosen is a missing width, not a hairline.
-  assert.equal(inkNoteWidthToPdfPoints(Number.NaN), INK_DEFAULT_WIDTH);
+  assert.equal(rust().inkNoteWidthToPdfPoints(Number.NaN), INK_DEFAULT_WIDTH);
 });
 
 test("meanPressure ignores samples from devices that report nothing", () => {
-  assert.equal(meanPressure([0, 0, 0]), undefined);
-  assert.equal(meanPressure([0.4, 0.6]), 0.5);
+  assert.equal(rust().meanPressure([0, 0, 0]), undefined);
+  assert.equal(rust().meanPressure([0.4, 0.6]), 0.5);
 });
 
 test("isHighlighterInk keys off the stored width", () => {
-  assert.equal(isHighlighterInk(undefined), false);
-  assert.equal(isHighlighterInk(2), false);
-  assert.equal(isHighlighterInk(HIGHLIGHTER_MIN_WIDTH), true);
+  assert.equal(rust().isHighlighterInk(undefined), false);
+  assert.equal(rust().isHighlighterInk(2), false);
+  assert.equal(rust().isHighlighterInk(HIGHLIGHTER_MIN_WIDTH), true);
 });
 
 test("canJoinInkGroup merges strokes of one mark and splits everything else", () => {
   const group = { pageIndex: 3, color: "#ffd400", width: 2, pathCount: 2, lastAt: 1_000 };
   const next = { pageIndex: 3, color: "#ffd400", width: 2, at: 1_500 };
 
-  assert.equal(canJoinInkGroup(group, next), true);
-  assert.equal(canJoinInkGroup(null, next), false);
-  assert.equal(canJoinInkGroup(group, { ...next, at: 9_000 }), false, "idle gap splits");
-  assert.equal(canJoinInkGroup(group, { ...next, pageIndex: 4 }), false);
-  assert.equal(canJoinInkGroup(group, { ...next, color: "#ff6666" }), false);
-  assert.equal(canJoinInkGroup(group, { ...next, width: 14 }), false, "a different nib is a different mark");
+  assert.equal(rust().canJoinInkGroup(group, next), true);
+  assert.equal(rust().canJoinInkGroup(null, next), false);
+  assert.equal(rust().canJoinInkGroup(group, { ...next, at: 9_000 }), false, "idle gap splits");
+  assert.equal(rust().canJoinInkGroup(group, { ...next, pageIndex: 4 }), false);
+  assert.equal(rust().canJoinInkGroup(group, { ...next, color: "#ff6666" }), false);
+  assert.equal(rust().canJoinInkGroup(group, { ...next, width: 14 }), false, "a different nib is a different mark");
   assert.equal(
-    canJoinInkGroup({ ...group, pathCount: 64 }, next),
+    rust().canJoinInkGroup({ ...group, pathCount: 64 }, next),
     false,
     "a full annotation must not grow without bound",
   );
@@ -170,17 +151,17 @@ test("inkPathsHitTest matches the stroke, not its bounding box", () => {
   // An L: down the left edge, then along the bottom. The top-right corner is
   // inside the bounding box but nowhere near any ink.
   const paths = [[0, 100, 0, 0, 100, 0]];
-  assert.equal(inkPathsHitTest(paths, 0, 50, 3), true);
-  assert.equal(inkPathsHitTest(paths, 50, 0, 3), true);
-  assert.equal(inkPathsHitTest(paths, 100, 100, 3), false, "empty corner must not erase");
-  assert.equal(inkPathsHitTest(paths, 2, 50, 3), true, "the radius is honoured");
+  assert.equal(rust().inkPathsHitTest(paths, 0, 50, 3), true);
+  assert.equal(rust().inkPathsHitTest(paths, 50, 0, 3), true);
+  assert.equal(rust().inkPathsHitTest(paths, 100, 100, 3), false, "empty corner must not erase");
+  assert.equal(rust().inkPathsHitTest(paths, 2, 50, 3), true, "the radius is honoured");
 });
 
 test("translateInkPaths moves every stroke and keeps stored precision", () => {
-  assert.deepEqual(translateInkPaths([[0, 0, 10, 10]], 1.006, -2), [[1.01, -2, 11.01, 8]]);
+  assert.deepEqual(rust().translateInkPaths([[0, 0, 10, 10]], 1.006, -2), [[1.01, -2, 11.01, 8]]);
 });
 
 test("inkPathsBounds spans every stroke", () => {
-  assert.deepEqual(inkPathsBounds([[0, 0, 5, 5], [-3, 2, 1, 9]]), [-3, 0, 5, 9]);
-  assert.equal(inkPathsBounds([]), null);
+  assert.deepEqual(rust().inkPathsBounds([[0, 0, 5, 5], [-3, 2, 1, 9]]), [-3, 0, 5, 9]);
+  assert.equal(rust().inkPathsBounds([]), null);
 });

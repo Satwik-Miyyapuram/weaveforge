@@ -3,15 +3,10 @@ import { test } from "node:test";
 
 import { rust } from "../../src/shared/rust.js";
 import { NoOpWorkspaceGit } from "../../src/workspace/git-port.js";
-import {
-  checkGitRemoteUrl,
-  describePull,
-  describePush,
-  SYNC_AUTHOR,
-} from "../../src/workspace/git-remote.js";
+import { SYNC_AUTHOR } from "../../src/workspace/git-remote.js";
 
 test("an https remote URL is accepted and normalised", () => {
-  assert.deepEqual(checkGitRemoteUrl("  https://github.com/me/notes.git "), {
+  assert.deepEqual(rust().checkGitRemoteUrl("  https://github.com/me/notes.git "), {
     ok: true,
     url: "https://github.com/me/notes.git",
   });
@@ -33,13 +28,13 @@ test("non-https, credentialed, empty or path-less remote URLs are refused", () =
     "https://github.com",
     "https://github.com/",
   ]) {
-    const result = checkGitRemoteUrl(raw);
+    const result = rust().checkGitRemoteUrl(raw);
     assert.equal(result.ok, false, `expected ${String(raw)} to be refused`);
   }
 });
 
 test("a token is never echoed back in the refusal for a credentialed URL", () => {
-  const result = checkGitRemoteUrl("https://me:ghp_secret@github.com/me/notes.git");
+  const result = rust().checkGitRemoteUrl("https://me:ghp_secret@github.com/me/notes.git");
   assert.equal(result.ok, false);
   assert.ok(!JSON.stringify(result).includes("ghp_secret"));
 });
@@ -51,13 +46,13 @@ test("redactSecret removes every occurrence of the token, and leaves text alone 
 });
 
 test("pull and push outcomes read as one sentence; conflicts name the files and say nothing changed", () => {
-  assert.equal(describePull({ kind: "up-to-date" }), "Already up to date.");
-  const many = describePull({ kind: "conflict", files: ["a.md", "b.md", "c.md", "d.md", "e.md", "f.md"] });
+  assert.equal(rust().describePull({ kind: "up-to-date" }), "Already up to date.");
+  const many = rust().describePull({ kind: "conflict", files: ["a.md", "b.md", "c.md", "d.md", "e.md", "f.md"] });
   assert.match(many, /6 files/);
   assert.match(many, /a\.md, b\.md, c\.md, d\.md, e\.md, …/);
   assert.match(many, /left as they were/);
-  assert.match(describePull({ kind: "conflict", files: ["a.md"] }), /1 file changed/);
-  assert.equal(describePush({ kind: "rejected", reason: "pull first" }), "Not pushed: pull first");
+  assert.match(rust().describePull({ kind: "conflict", files: ["a.md"] }), /1 file changed/);
+  assert.equal(rust().describePush({ kind: "rejected", reason: "pull first" }), "Not pushed: pull first");
 });
 
 test("the no-git backend reports no remote and refuses to sync", async () => {

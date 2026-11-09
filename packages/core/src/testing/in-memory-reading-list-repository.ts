@@ -4,18 +4,13 @@
  * Reference implementations for tests and the Liskov substitutability contract.
  */
 
-import {
-  buildListTree,
-  type ReadingList,
-  type ReadingListFilter,
-  type ReadingListItem,
-  type ReadingListTreeNode,
-} from "../features/reading-lists/domain/reading-list.js";
+import { type ReadingList, type ReadingListFilter, type ReadingListItem, type ReadingListTreeNode } from "../features/reading-lists/domain/reading-list.js";
 import type {
   IReadingListItemRepository,
   IReadingListRepository,
 } from "../features/reading-lists/domain/reading-list-repository.js";
 import { ConflictError } from "../shared/errors.js";
+import { rust } from "../shared/rust.js";
 
 export class InMemoryReadingListRepository implements IReadingListRepository {
   private readonly store = new Map<string, ReadingList>();
@@ -40,7 +35,7 @@ export class InMemoryReadingListRepository implements IReadingListRepository {
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
-    return buildListTree([...this.store.values()]);
+    return rust().buildListTree([...this.store.values()]);
   }
 
   async save(entity: ReadingList): Promise<void> {

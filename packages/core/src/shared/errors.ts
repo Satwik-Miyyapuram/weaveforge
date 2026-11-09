@@ -42,6 +42,17 @@ export class WeaveForgeError extends Error {
     // their field assignment runs after this constructor.
     this.name = new.target.name;
   }
+
+  /**
+   * The Rust core's glue cannot import these classes, so it throws a plain
+   * Error named after one. Such an error is an instance of the class it
+   * names and of its branches, so instanceof checks keep their meaning.
+   */
+  static override [Symbol.hasInstance](value: unknown): boolean {
+    if (Function.prototype[Symbol.hasInstance].call(this, value)) return true;
+    if (!(value instanceof Error) || !RUST_VALIDATION_NAMES.has(value.name)) return false;
+    return this === WeaveForgeError || this === ValidationError || value.name === this.name;
+  }
 }
 
 /** The request is malformed or breaks an invariant of the entity. */
@@ -85,6 +96,21 @@ export function httpStatusForError(error: unknown): number {
   if (error instanceof ValidationError) return ERROR_STATUS_BAD_REQUEST;
   return ERROR_STATUS_INTERNAL;
 }
+
+/** Validation errors the Rust core's glue throws as a plain `Error` with this name. */
+const RUST_VALIDATION_NAMES: ReadonlySet<string> = new Set([
+  "CommentValidationError",
+  "ExperimentValidationError",
+  "LogEntryValidationError",
+  "MemberValidationError",
+  "MilestoneValidationError",
+  "PaperRelationValidationError",
+  "ReadingListValidationError",
+  "ReportSectionValidationError",
+  "ScreeningError",
+  "ShareValidationError",
+  "VaultPageValidationError",
+]);
 
 /** True for anything thrown on purpose by this domain. */
 export function isWeaveForgeError(error: unknown): error is WeaveForgeError {

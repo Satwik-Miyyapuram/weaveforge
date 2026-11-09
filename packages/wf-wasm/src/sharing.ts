@@ -33,6 +33,11 @@ export const CRDT_EDITABLE_SHARE_TYPES: readonly ShareableType[] = ["vault_page"
 
 /** A thrown validation message becomes an `Error` named like the TS validation class. */
 function asError(thrown: unknown, name: string): unknown {
+  // Rust rejects with a string or with an unnamed `Error` (serde_wasm_bindgen).
+  if (thrown instanceof Error && thrown.name === "Error") {
+    thrown.name = name;
+    return thrown;
+  }
   if (typeof thrown !== "string") return thrown;
   const error = new Error(thrown);
   error.name = name;

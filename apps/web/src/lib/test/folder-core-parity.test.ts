@@ -1,12 +1,9 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  defaultInkNoteMeta as tsDefaultInkNoteMeta,
-  writeInkNoteBody as tsWriteInkNoteBody,
-  type WorkspaceSnapshot,
-} from "@weaveforge/core";
+import { type WorkspaceSnapshot } from "@weaveforge/core";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "./load-test-core";
+import { typedCore } from "@/lib/rust-core";
 
 let core: RustCore;
 before(async () => {
@@ -91,7 +88,7 @@ const SNAPSHOT = {
     {
       id: "n-ink",
       title: "Sketch",
-      body: tsWriteInkNoteBody(tsDefaultInkNoteMeta(), "line 1\n\nline 2"),
+      body: typedCore().writeInkNoteBody(typedCore().defaultInkNoteMeta(), "line 1\n\nline 2"),
       sortOrder: 3,
       createdAt: AT,
       updatedAt: AT,

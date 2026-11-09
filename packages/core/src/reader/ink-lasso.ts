@@ -1,3 +1,5 @@
+/** Types for ink-lasso. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
+
 /**
  * The lasso: which strokes a loop drawn round them has caught.
  *
@@ -15,54 +17,21 @@
 /** The share of a stroke's points a loop must hold for it to be caught. */
 export const LASSO_CAUGHT_SHARE = 0.6;
 
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface InkLassoFns {
+  /**
  * Whether a point is inside a closed polygon, by the even-odd rule.
  *
  * `polygon` is flat `x, y` pairs, open or closed (the closing edge is implied),
  * which is how both surfaces carry a drawn path. The half-open `>`/`>=` pair is
  * what stops a point exactly level with a vertex being counted twice.
  */
-export function pointInPolygon(
-  polygon: readonly number[],
-  x: number,
-  y: number,
-): boolean {
-  const count = Math.floor(polygon.length / 2);
-  if (count < 3) return false;
-  let inside = false;
-  for (let i = 0, j = count - 1; i < count; j = i, i += 1) {
-    const xi = polygon[i * 2]!;
-    const yi = polygon[i * 2 + 1]!;
-    const xj = polygon[j * 2]!;
-    const yj = polygon[j * 2 + 1]!;
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-/**
+  pointInPolygon(polygon: readonly number[], x: number, y: number): boolean;
+  /**
  * Whether a loop has caught a stroke: at least `share` of its points inside.
  *
  * Counted over the stroke's stored points rather than its length: the samples
  * are dense enough that the two agree, and this needs no geometry.
  */
-export function inkPathsInPolygon(
-  paths: readonly (readonly number[])[],
-  polygon: readonly number[],
-  share = LASSO_CAUGHT_SHARE,
-): boolean {
-  let points = 0;
-  let caught = 0;
-  for (const path of paths) {
-    for (let i = 0; i + 1 < path.length; i += 2) {
-      const x = path[i]!;
-      const y = path[i + 1]!;
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      points += 1;
-      if (pointInPolygon(polygon, x, y)) caught += 1;
-    }
-  }
-  return points > 0 && caught / points >= share;
+  inkPathsInPolygon(paths: readonly (readonly number[])[], polygon: readonly number[], share?: number): boolean;
 }

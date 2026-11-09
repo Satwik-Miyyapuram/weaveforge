@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
+import { ROLE_RANK, type Member } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /** A member plus the people who report (transitively) to them. */
 export interface MemberNode {
@@ -90,7 +91,7 @@ export function OrgChart({
               {memberLabel(n.member)}
               {n.member.id === meId && " (you)"}
             </span>
-            <span className="org-node-role muted">{memberRoleLabel(n.member, { inLab })}</span>
+            <span className="org-node-role muted">{typedCore().memberRoleLabel(n.member, { inLab })}</span>
           </div>
           {n.children.length > 0 && renderNodes(n.children)}
         </li>

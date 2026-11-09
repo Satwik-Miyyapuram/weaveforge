@@ -1,5 +1,6 @@
-import { idSuffix, type IWorkspaceFs, type WorkspaceProject } from "@weaveforge/core";
+import { type IWorkspaceFs, type WorkspaceProject } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Remove a deleted project's folder from the workspace.
@@ -10,7 +11,7 @@ import { loadCore } from "@/lib/rust-core";
 export async function removeProjectFolder(fs: IWorkspaceFs, project: WorkspaceProject): Promise<string | null> {
   const core = await loadCore();
   const exact = core.projectDir(project);
-  const tail = `--${idSuffix(project.id)}`;
+  const tail = `--${typedCore().idSuffix(project.id)}`;
   const dirs = (await fs.list("")).filter((s) => s.kind === "dir").map((s) => s.path.split("/").pop() ?? "");
   const renamed = dirs.filter((d) => d.endsWith(tail));
   // Two folders with the same suffix: neither is surely this project's.

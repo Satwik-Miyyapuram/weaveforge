@@ -9,18 +9,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  ScreeningError,
-  agreementBetween,
-  checkDecision,
-  exclusionReasons,
-  prismaCounts,
-  verdictFor,
-  verdictsFor,
-  type ScreeningDecision,
-  type ScreeningStage,
-  type ScreeningState,
-} from "../../../src/features/reading-lists/domain/screening.js";
+import { ScreeningError, type ScreeningDecision, type ScreeningStage, type ScreeningState } from "../../../src/features/reading-lists/domain/screening.js";
+import { rust } from "../../../src/shared/rust.js";
 
 let serial = 0;
 
@@ -47,14 +37,14 @@ function decide(
 const items = (...ids: string[]) => ids.map((id) => ({ id }));
 
 test("one reviewer's answer is the verdict, because most reviews are one person", () => {
-  const verdict = verdictFor([decide("a", "ana", "title_abstract", "included")], "a", "title_abstract");
+  const verdict = rust().verdictFor([decide("a", "ana", "title_abstract", "included")], "a", "title_abstract");
   assert.equal(verdict.state, "included");
   assert.equal(verdict.conflict, false);
   assert.equal(verdict.answered, 1);
 });
 
 test("two who disagree have no verdict at all, rather than the first one's", () => {
-  const verdict = verdictFor(
+  const verdict = rust().verdictFor(
     [decide("a", "ana", "title_abstract", "included"), decide("a", "bo", "title_abstract", "excluded")],
     "a",
     "title_abstract",
@@ -64,7 +54,7 @@ test("two who disagree have no verdict at all, rather than the first one's", () 
 });
 
 test("a reviewer who changes their mind is counted once, at the newer answer", () => {
-  const verdict = verdictFor(
+  const verdict = rust().verdictFor(
     [decide("a", "ana", "title_abstract", "excluded"), decide("a", "ana", "title_abstract", "included")],
     "a",
     "title_abstract",
@@ -75,7 +65,7 @@ test("a reviewer who changes their mind is counted once, at the newer answer", (
 
 test("the full text is not screened before the abstract", () => {
   assert.throws(
-    () => checkDecision({ itemId: "a", reviewerId: "ana", stage: "full_text", state: "included" }, []),
+    () => rust().checkDecision({ itemId: "a", reviewerId: "ana", stage: "full_text", state: "included" }, []),
     ScreeningError,
   );
 });
@@ -83,7 +73,7 @@ test("the full text is not screened before the abstract", () => {
 test("a reviewer cannot full-text screen what they already excluded", () => {
   assert.throws(
     () =>
-      checkDecision({ itemId: "a", reviewerId: "ana", stage: "full_text", state: "included" }, [
+      rust().checkDecision({ itemId: "a", reviewerId: "ana", stage: "full_text", state: "included" }, [
         decide("a", "ana", "title_abstract", "excluded"),
       ]),
     /Revise that decision/,
@@ -92,7 +82,7 @@ test("a reviewer cannot full-text screen what they already excluded", () => {
 
 test("someone else's exclusion does not block your full-text screen", () => {
   assert.doesNotThrow(() =>
-    checkDecision({ itemId: "a", reviewerId: "ana", stage: "full_text", state: "included" }, [
+    rust().checkDecision({ itemId: "a", reviewerId: "ana", stage: "full_text", state: "included" }, [
       decide("a", "ana", "title_abstract", "included"),
       decide("a", "bo", "title_abstract", "excluded"),
     ]),
@@ -112,7 +102,7 @@ test("agreement past chance is what a methods section reports", () => {
     decide("d", "ana", "title_abstract", "included"),
     decide("d", "bo", "title_abstract", "excluded"),
   ];
-  const agreement = agreementBetween(decisions, ["ana", "bo"], "title_abstract");
+  const agreement = rust().agreementBetween(decisions, ["ana", "bo"], "title_abstract");
   assert.equal(agreement.compared, 4);
   assert.equal(agreement.agreed, 3);
   assert.equal(agreement.proportion, 0.75);
@@ -121,7 +111,7 @@ test("agreement past chance is what a methods section reports", () => {
 });
 
 test("total agreement on one answer reports no kappa rather than zero", () => {
-  const agreement = agreementBetween(
+  const agreement = rust().agreementBetween(
     [
       decide("a", "ana", "title_abstract", "included"),
       decide("a", "bo", "title_abstract", "included"),
@@ -134,7 +124,7 @@ test("total agreement on one answer reports no kappa rather than zero", () => {
 });
 
 test("reviewers who screened nothing in common are compared on nothing", () => {
-  const agreement = agreementBetween(
+  const agreement = rust().agreementBetween(
     [decide("a", "ana", "title_abstract", "included"), decide("b", "bo", "title_abstract", "included")],
     ["ana", "bo"],
     "title_abstract",
@@ -156,7 +146,7 @@ test("the PRISMA counts add up, from identified down to included", () => {
     decide("d", "ana", "title_abstract", "unsure"),
     // e: nobody has looked at it.
   ];
-  const counts = prismaCounts(
+  const counts = rust().prismaCounts(
     [...items("a", "b", "c", "d", "e"), { id: "f", duplicateOfItemId: "b" }],
     decisions,
   );
@@ -174,7 +164,7 @@ test("the PRISMA counts add up, from identified down to included", () => {
 });
 
 test("a disagreement is counted and carried on to the full text, not dropped", () => {
-  const counts = prismaCounts(items("a"), [
+  const counts = rust().prismaCounts(items("a"), [
     decide("a", "ana", "title_abstract", "included"),
     decide("a", "bo", "title_abstract", "excluded"),
   ]);
@@ -184,7 +174,7 @@ test("a disagreement is counted and carried on to the full text, not dropped", (
 });
 
 test("exclusion reasons count papers, not reviewers", () => {
-  const reasons = exclusionReasons([
+  const reasons = rust().exclusionReasons([
     decide("a", "ana", "full_text", "excluded", "No control arm"),
     decide("a", "bo", "full_text", "excluded", "No control arm"),
     decide("b", "ana", "full_text", "excluded", "Not English"),
@@ -199,7 +189,7 @@ test("exclusion reasons count papers, not reviewers", () => {
 // 04-18: the first reviewer's empty reason used to end the search, so the
 // second reviewer's reason was lost.
 test("an exclusion reason is taken from whichever reviewer gave one", () => {
-  const reasons = exclusionReasons([
+  const reasons = rust().exclusionReasons([
     decide("a", "ana", "full_text", "excluded"),
     decide("a", "bo", "full_text", "excluded", "Not English"),
     decide("b", "ana", "full_text", "excluded", "   "),
@@ -213,7 +203,7 @@ test("an exclusion reason is taken from whichever reviewer gave one", () => {
 });
 
 test("a paper with two different reasons still counts once", () => {
-  const reasons = exclusionReasons([
+  const reasons = rust().exclusionReasons([
     decide("a", "ana", "full_text", "excluded", "Wrong population"),
     decide("a", "bo", "full_text", "excluded", "No control arm"),
   ]);
@@ -233,9 +223,9 @@ test("a large screen is counted in one pass over the decisions", () => {
     decisions.push(decide(id, "bo", "full_text", i % 2 === 0 ? "excluded" : "included"));
   }
   const started = performance.now();
-  const counts = prismaCounts(many, decisions);
-  const reasons = exclusionReasons(decisions);
-  const agreement = agreementBetween(decisions, ["ana", "bo"], "title_abstract");
+  const counts = rust().prismaCounts(many, decisions);
+  const reasons = rust().exclusionReasons(decisions);
+  const agreement = rust().agreementBetween(decisions, ["ana", "bo"], "title_abstract");
   const elapsed = performance.now() - started;
   assert.equal(counts.conflicts, n / 4);
   assert.equal(counts.eligible, n);
@@ -256,8 +246,8 @@ test("verdictsFor gives both stages per item, as verdictFor does one at a time",
     decide("b", "ana", "full_text", "included"),
   ];
   const expected = ["a", "b", "z"].flatMap((id) => [
-    verdictFor(decisions, id, "title_abstract"),
-    verdictFor(decisions, id, "full_text"),
+    rust().verdictFor(decisions, id, "title_abstract"),
+    rust().verdictFor(decisions, id, "full_text"),
   ]);
-  assert.deepEqual(verdictsFor(items("a", "b", "z"), decisions), expected);
+  assert.deepEqual(rust().verdictsFor(items("a", "b", "z"), decisions), expected);
 });

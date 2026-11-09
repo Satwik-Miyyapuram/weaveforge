@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseLatexSectionTree } from "../../../src/features/report/domain/latex-section-tree.js";
+import { rust } from "../../../src/shared/rust.js";
 
 test("builds a nested tree across included TeX files with provenance", () => {
-  const result = parseLatexSectionTree([
+  const result = rust().parseLatexSectionTree([
     { path: "main.tex", content: "\\documentclass{article}\n\\section{Intro}\n\\input{chapters/methods}" },
     { path: "chapters/methods.tex", content: "\\subsection{Dataset}\nData here.\n\\subsection{Model}\nModel details." },
   ]);
@@ -17,7 +17,7 @@ test("builds a nested tree across included TeX files with provenance", () => {
 });
 
 test("fails safely for missing, circular, and traversal includes", () => {
-  const result = parseLatexSectionTree([
+  const result = rust().parseLatexSectionTree([
     { path: "main.tex", content: "\\section{A}\n\\input{child}\n\\input{../secret}" },
     { path: "child.tex", content: "\\subsection{B}\n\\input{main}" },
   ]);
@@ -28,7 +28,7 @@ test("fails safely for missing, circular, and traversal includes", () => {
 });
 
 test("reads a heading with a short title in brackets (05-04)", () => {
-  const result = parseLatexSectionTree([
+  const result = rust().parseLatexSectionTree([
     {
       path: "main.tex",
       content: [
@@ -53,7 +53,7 @@ test("reads a heading with a short title in brackets (05-04)", () => {
 });
 
 test("commands that start with include or input are not includes", () => {
-  const result = parseLatexSectionTree([
+  const result = rust().parseLatexSectionTree([
     { path: "main.tex", content: "\\section{A}\n\\includegraphics[width=\\linewidth]{aa.png}\n\\inputencoding{utf8}\n\\includeonly{x}" },
   ]);
 

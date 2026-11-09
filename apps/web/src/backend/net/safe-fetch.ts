@@ -2,15 +2,11 @@ import { lookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
-import {
-  checkUrlShape,
-  isPublicAddress,
-  DEFAULT_FETCH_LIMITS,
-  type OutboundFetchLimits,
-} from "@weaveforge/core";
+import { DEFAULT_FETCH_LIMITS, type OutboundFetchLimits } from "@weaveforge/core";
 import { describeRejection } from "./rejection-copy";
 import { formatError } from "@/lib/format-error";
 import { readCapped as readBody } from "@/lib/read-capped";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Fetching a URL a visitor chose, from the server, without becoming a way into
@@ -219,7 +215,7 @@ export async function checkUrlReachable(
   url: URL,
   resolve: (hostname: string) => Promise<string[]> = resolveHost,
 ): Promise<{ ok: true; address: string; family: 4 | 6 } | SafeFetchFailure> {
-  const shape = checkUrlShape(url);
+  const shape = typedCore().checkUrlShape(url);
   if (!shape.ok) {
     return { ok: false, kind: "refused", status: 400, message: describeRejection(shape.reason!) };
   }
@@ -239,7 +235,7 @@ export async function checkUrlReachable(
   if (addresses.length === 0) {
     return { ok: false, kind: "unreachable", status: 502, message: "That host could not be resolved." };
   }
-  if (!addresses.every(isPublicAddress)) {
+  if (!addresses.every(typedCore().isPublicAddress)) {
     return {
       ok: false,
       kind: "refused",

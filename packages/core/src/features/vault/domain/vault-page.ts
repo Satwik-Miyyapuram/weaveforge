@@ -1,12 +1,6 @@
-/**
- * Vault domain model — Obsidian-like markdown pages in a nested tree.
- * Pure, no I/O, no SDK imports.
- */
-
-import { imagePathsInBody, markdownImage } from "../../../shared/markdown-image.js";
+/** Types for vault-page. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import { buildTree } from "../../../shared/tree.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 /**
@@ -90,48 +84,6 @@ export class VaultPageValidationError extends ValidationError {
   }
 }
 
-export function createVaultPage(
-  input: NewVaultPageInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): VaultPage {
-  const title = input.title?.trim();
-  if (!title) {
-    throw new VaultPageValidationError("Page title is required.");
-  }
-  const now = deps.clock.nowIso();
-  return {
-    id: deps.ids.newId(),
-    title,
-    body: input.body ?? "",
-    parentId: input.parentId,
-    ...(input.folder ? { folder: true } : {}),
-    sortOrder: input.sortOrder ?? 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-/**
- * Build a nested page tree from a flat list (pure).
- *
- * Generic over the projection it is handed, so a caller holding summaries gets a
- * tree of summaries rather than a tree that claims every node is a full page
- * (review-2 F6). The constraints are the fields the tree is actually built from,
- * which both {@link VaultPage} and {@link VaultPageSummary} satisfy.
- */
-export function buildPageTree<
-  P extends { id: string; title: string; parentId?: string; sortOrder: number },
->(pages: readonly P[]): VaultPageTreeNode<P>[] {
-  return buildTree(pages, {
-    id: (page) => page.id,
-    parentId: (page) => page.parentId,
-    node: (page) => ({ page, children: [] }),
-    compare: (a, b) =>
-      a.page.sortOrder - b.page.sortOrder ||
-      a.page.title.localeCompare(b.page.title),
-  });
-}
-
 /** A parsed `[[wikilink]]`. `target` is the linked note/paper title (may be
  *  empty for a same-note `[[#heading]]`). */
 export interface WikilinkRef {
@@ -152,66 +104,7 @@ export interface WikilinkRef {
   length?: number;
 }
 
-/** Blank out code fences and inline code so links inside code aren't parsed. */
-function maskCode(body: string): string {
-  return body
-    .replace(/```[\s\S]*?```/g, (m) => " ".repeat(m.length))
-    .replace(/`[^`\n]*`/g, (m) => " ".repeat(m.length));
-}
-
-/**
- * One `[[...]]` on one line; group 1 is the inside. A new regex per call: a
- * shared `/g` regex carries `lastIndex` from one caller into the next.
- */
-export function wikilinkPattern(): RegExp {
-  return /\[\[([^\[\]\n]+?)\]\]/g;
-}
-
-/** Read `Target`, `Target|alias`, `Target#Heading` or `Target#^block`: the inside of one `[[...]]`. */
-export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
-  const pipe = inner.indexOf("|");
-  const link = (pipe === -1 ? inner : inner.slice(0, pipe)).trim();
-  const alias = pipe === -1 ? undefined : inner.slice(pipe + 1).trim() || undefined;
-  const hash = link.indexOf("#");
-  if (hash === -1) return { target: link, alias, raw };
-  const target = link.slice(0, hash).trim();
-  const rest = link.slice(hash + 1);
-  if (rest.startsWith("^")) return { target, alias, block: rest.slice(1).trim() || undefined, raw };
-  return { target, alias, heading: rest.trim() || undefined, raw };
-}
-
-/**
- * Extracts `[[wikilinks]]` from a note body: `[[Target]]`, `[[Target|alias]]`,
- * `[[Target#Heading]]`, `[[Target#^block]]`. Links inside code are ignored.
- * Pure — resolution to ids happens in the UI against the note/paper title maps.
- *
- * `maskCode` blanks code spans to spaces of the same length, so an offset in the
- * masked text is the same offset in `body` — which is what lets `index` be the
- * position in the original.
- */
-export function extractWikilinks(body?: string): WikilinkRef[] {
-  if (!body) return [];
-  const masked = maskCode(body);
-  const re = wikilinkPattern();
-  const out: WikilinkRef[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(masked)) !== null) {
-    const ref = parseWikilinkInner(m[1]!, m[0]!);
-    if (ref) out.push({ ...ref, index: m.index, length: m[0].length });
-  }
-  return out;
-}
-
-/** Normalizes a title for case-insensitive wikilink resolution + uniqueness. */
-export function normalizeTitleKey(title: string): string {
-  return title.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-/** True if a note body links to the given normalized title via `[[wikilink]]`. */
-export function bodyLinksTo(body: string | undefined, targetKey: string): boolean {
-  if (!body) return false;
-  return extractWikilinks(body).some((ref) => normalizeTitleKey(ref.target) === targetKey);
-}
+export { wikilinkPattern } from "./wikilink-pattern.js";
 
 export interface ParsedFrontmatter {
   body: string;
@@ -220,124 +113,56 @@ export interface ParsedFrontmatter {
   aliases: string[];
 }
 
-/**
- * Strips a leading `--- … ---` YAML frontmatter block (Obsidian/Notion export)
- * and pulls out `tags:`/`aliases:` values — inline `[a, b]`, csv, or a `- item`
- * block. Not a full YAML parser; just enough to preserve tags on import.
- */
-export function stripFrontmatter(md: string): ParsedFrontmatter {
-  const match = /^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(md);
-  if (!match) return { body: md, tags: [], aliases: [] };
-  const body = md.slice(match[0].length);
-  const lines = match[1]!.split(/\r?\n/);
-  const tags = new Set<string>();
-  const aliases = new Set<string>();
-  const clean = (s: string) => trimQuotes(s.trim().replace(/^["'#]+/, "")).trim().replace(/\s+/g, " ");
-  // A tag is one word, so tags split on spaces too; an alias is a name and
-  // splits on commas only. It still becomes a tag, hyphenated to stay one.
-  const collect = (raw: string, isAlias: boolean) =>
-    raw
-      .split(isAlias ? /,/ : /[,\s]+/)
-      .map(clean)
-      .filter(Boolean)
-      .forEach((t) => {
-        if (isAlias) aliases.add(t);
-        tags.add(t.replace(/ /g, "-"));
-      });
-  for (let i = 0; i < lines.length; i += 1) {
-    const inline = /^(tags|aliases):(.*)$/i.exec(lines[i]!);
-    if (!inline) continue;
-    const isAlias = inline[1]!.toLowerCase() === "aliases";
-    let rest = inline[2]!.trim();
-    if (rest.startsWith("[")) rest = rest.replace(/^\[|\]$/g, "");
-    if (rest) collect(rest, isAlias);
-    for (let j = i + 1; j < lines.length && /^\s*-\s+/.test(lines[j]!); j += 1) {
-      collect(lines[j]!.replace(/^\s*-\s+/, ""), isAlias);
-      i = j;
-    }
-  }
-  return { body, tags: [...tags], aliases: [...aliases] };
-}
-
-/** Drops trailing quotes without a backtracking `["']+$` regex. */
-function trimQuotes(s: string): string {
-  let end = s.length;
-  while (end > 0 && (s[end - 1] === '"' || s[end - 1] === "'")) end -= 1;
-  return s.slice(0, end);
-}
-
-/**
- * Returns a title unique (case-insensitive) against `used`, suffixing ` (2)`,
- * ` (3)`, … on collision. Records the chosen key in `used`.
- */
-export function uniqueTitle(base: string, used: Set<string>): string {
-  const trimmed = base.trim() || "Untitled";
-  let title = trimmed;
-  let key = normalizeTitleKey(title);
-  let n = 2;
-  while (used.has(key)) {
-    title = `${trimmed} (${n})`;
-    key = normalizeTitleKey(title);
-    n += 1;
-  }
-  used.add(key);
-  return title;
-}
-
 /** Prefix embedded vault images use in markdown: `![](vault:userId/pageId/file.png)`. */
 export const VAULT_IMAGE_PREFIX = "vault:";
-
-export function vaultImageMarkdown(path: string, alt = "image"): string {
-  return markdownImage(`${VAULT_IMAGE_PREFIX}${path}`, alt);
-}
-
-/** Collapse whitespace inside markdown image syntax so wrapped refs still match. */
-export function normalizeMarkdownImageSyntax(body: string): string {
-  // Hand-rolled scan: the equivalent regex backtracks quadratically on "![![![…".
-  const isSpace = (i: number) => i < body.length && /\s/.test(body[i]!);
-  let out = "";
-  let copied = 0;
-  let from = 0;
-  for (;;) {
-    const start = body.indexOf("![", from);
-    if (start < 0) break;
-    const close = body.indexOf("]", start + 2);
-    if (close < 0) break;
-    // Every "![" before `close` shares this "]" and what follows, so one try covers them all.
-    from = close + 1;
-    let i = close + 1;
-    while (isSpace(i)) i += 1;
-    if (body[i] !== "(") continue;
-    i += 1;
-    while (isSpace(i)) i += 1;
-    const head = /^(?:blob:|vault:|paperimg:|reportimg:|https?:\/\/)/.exec(body.slice(i, i + 12));
-    if (!head) continue;
-    const urlStart = i;
-    i += head[0].length;
-    const pathStart = i;
-    while (i < body.length && body[i] !== ")" && !isSpace(i)) i += 1;
-    if (i === pathStart) continue;
-    const urlEnd = i;
-    while (isSpace(i)) i += 1;
-    from = Math.max(from, i);
-    if (body[i] !== ")") continue;
-    out += `${body.slice(copied, start)}![${body.slice(start + 2, close)}](${body.slice(urlStart, urlEnd)})`;
-    copied = i + 1;
-    from = copied;
-  }
-  return out + body.slice(copied);
-}
 
 /** Max chars kept for note-card previews from `listSummaries`. */
 export const VAULT_BODY_PREVIEW_CHARS = 320;
 
-/** Truncate a note body for card excerpts without treating it as the full page. */
-export function vaultBodyPreview(body: string, max = VAULT_BODY_PREVIEW_CHARS): string {
-  if (!body) return "";
-  return body.length > max ? body.slice(0, max) : body;
-}
-
-/** Collect unique vault asset paths referenced in markdown bodies. */
-export function vaultAssetPathsInBody(body: string): string[] {
-  return imagePathsInBody(body, VAULT_IMAGE_PREFIX);
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface VaultPageFns {
+  createVaultPage(input: NewVaultPageInput, deps: { clock: Clock; ids: IdGenerator }): VaultPage;
+  /**
+ * Build a nested page tree from a flat list (pure).
+ *
+ * Generic over the projection it is handed, so a caller holding summaries gets a
+ * tree of summaries rather than a tree that claims every node is a full page
+ * (review-2 F6). The constraints are the fields the tree is actually built from,
+ * which both {@link VaultPage} and {@link VaultPageSummary} satisfy.
+ */
+  buildPageTree<P extends { id: string; title: string; parentId?: string; sortOrder: number }>(pages: readonly P[]): VaultPageTreeNode<P>[];
+  /** Read `Target`, `Target|alias`, `Target#Heading` or `Target#^block`: the inside of one `[[...]]`. */
+  parseWikilinkInner(inner: string, raw: string): WikilinkRef | null;
+  /**
+ * Extracts `[[wikilinks]]` from a note body: `[[Target]]`, `[[Target|alias]]`,
+ * `[[Target#Heading]]`, `[[Target#^block]]`. Links inside code are ignored.
+ * Pure — resolution to ids happens in the UI against the note/paper title maps.
+ *
+ * `maskCode` blanks code spans to spaces of the same length, so an offset in the
+ * masked text is the same offset in `body` — which is what lets `index` be the
+ * position in the original.
+ */
+  extractWikilinks(body?: string): WikilinkRef[];
+  /** Normalizes a title for case-insensitive wikilink resolution + uniqueness. */
+  normalizeTitleKey(title: string): string;
+  /** True if a note body links to the given normalized title via `[[wikilink]]`. */
+  bodyLinksTo(body: string | undefined, targetKey: string): boolean;
+  /**
+ * Strips a leading `--- … ---` YAML frontmatter block (Obsidian/Notion export)
+ * and pulls out `tags:`/`aliases:` values — inline `[a, b]`, csv, or a `- item`
+ * block. Not a full YAML parser; just enough to preserve tags on import.
+ */
+  stripFrontmatter(md: string): ParsedFrontmatter;
+  /**
+ * Returns a title unique (case-insensitive) against `used`, suffixing ` (2)`,
+ * ` (3)`, … on collision. Records the chosen key in `used`.
+ */
+  uniqueTitle(base: string, used: Set<string>): string;
+  vaultImageMarkdown(path: string, alt?: string): string;
+  /** Collapse whitespace inside markdown image syntax so wrapped refs still match. */
+  normalizeMarkdownImageSyntax(body: string): string;
+  /** Truncate a note body for card excerpts without treating it as the full page. */
+  vaultBodyPreview(body: string, max?: number): string;
+  /** Collect unique vault asset paths referenced in markdown bodies. */
+  vaultAssetPathsInBody(body: string): string[];
 }

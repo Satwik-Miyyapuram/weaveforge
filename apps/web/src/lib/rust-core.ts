@@ -42,6 +42,15 @@ export function loadCore(source?: BufferSource): Promise<RustCore> {
 }
 
 /**
+ * Registers a core the host already initialised (desktop main calls initSync),
+ * so web code it runs finds the same instance through eadyCore().
+ */
+export function registerLoadedCore(core: RustCore): void {
+  ready = core;
+  loaded ??= Promise.resolve(core);
+}
+
+/**
  * The loaded core, for synchronous callers such as React render. The app
  * shell awaits `loadCore()` before it renders anything that calls this, and
  * the web tests preload it, so a throw here means a caller ran too early.

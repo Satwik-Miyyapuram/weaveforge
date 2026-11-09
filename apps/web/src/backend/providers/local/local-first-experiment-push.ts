@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { planSeriesIngest } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
+import { typedCore } from "@/lib/rust-core";
 import type { LocalFirstBlobStore } from "./local-first-blob-store";
 import type { LocalQuery } from "./pglite-client";
 
@@ -71,7 +71,7 @@ export class ExperimentPush {
           [s.experiment_id, s.metric_id, pushed ?? -2147483648],
         )) as Omit<MetricRow, "experiment_id" | "metric">[];
         if (!rows.length) break;
-        const { keep, supersededTipStep } = planSeriesIngest(rows, pushed);
+        const { keep, supersededTipStep } = typedCore().planSeriesIngest(rows, pushed);
         // The cursor is written after the server insert. If that write failed,
         // this batch was sent before, maybe ending on a tip that is no longer
         // the tip; clear the batch's range so a re-send leaves no stray point.

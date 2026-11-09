@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pageTextFromItems, type PageTextItem } from "@weaveforge/core";
+import { type PageTextItem } from "@weaveforge/core";
 import * as referenceLocate from "../application/reference-locate";
 import { locateMention, unionRect } from "../application/reference-locate";
 import { buildPageText } from "../ui/pdf-reader/pdf-document";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Three runs as pdf.js reports them: `see [12]`, `and` (end of line), `[13]`.
@@ -69,8 +70,8 @@ test("the offset space agrees with the reader's own page text", () => {
     { str: "tail", transform: [10, 0, 0, 10, 72, 660], width: 22, height: 10, hasEOL: true },
     { str: "", transform: [10, 0, 0, 10, 72, 640], width: 0, height: 10 },
   ];
-  assert.equal(pageTextFromItems(all), buildPageText(all).text);
-  assert.equal(pageTextFromItems(all), "see [12]and\n[13]tail\n");
+  assert.equal(typedCore().pageTextFromItems(all), buildPageText(all).text);
+  assert.equal(typedCore().pageTextFromItems(all), "see [12]and\n[13]tail\n");
 });
 
 test("the page text comes from core, with no copy here (xhelp-14)", () => {

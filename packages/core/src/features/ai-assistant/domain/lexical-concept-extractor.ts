@@ -35,9 +35,8 @@
  * wikilink targets.
  */
 
-import { extractWikilinks } from "../../vault/domain/vault-page.js";
+
 import {
-  conceptKey,
   type ConceptKind,
   type ExtractionDocument,
   type ExtractedMention,
@@ -308,7 +307,7 @@ function harvestStated(doc: PreparedDocument): HarvestedMention[] {
   const record = (name: string, index: number, length: number) => {
     const classified = classify(name, "stated");
     out.push({
-      key: conceptKey(name),
+      key: rust().conceptKey(name),
       name,
       kind: classified.kind,
       kindRecognised: classified.recognised,
@@ -321,7 +320,7 @@ function harvestStated(doc: PreparedDocument): HarvestedMention[] {
   const withoutLinks = withoutWikilinks(doc.raw);
   for (const ref of rust().extractHashtagRefs(withoutLinks)) record(ref.tag, ref.index, ref.length);
 
-  for (const link of extractWikilinks(doc.raw)) {
+  for (const link of rust().extractWikilinks(doc.raw)) {
     // `[[#Heading]]` and `[[|alias]]` name nothing to file.
     const target = link.target.trim();
     if (!target) continue;
@@ -350,7 +349,7 @@ function harvestGuessed(doc: PreparedDocument): HarvestedMention[] {
     // An acronym's plural is the acronym: "VAEs" is "VAE" (E38).
     const trimmed = name.trim().replace(/^([A-Z]{2,6})s$/, "$1");
     if (!isPlausibleName(trimmed)) return;
-    const key = conceptKey(trimmed);
+    const key = rust().conceptKey(trimmed);
     const opening = PLAIN_WORD.test(trimmed) && opensSentence(doc.plain, index);
     const seen = seenInDoc.get(key);
     if (seen) {

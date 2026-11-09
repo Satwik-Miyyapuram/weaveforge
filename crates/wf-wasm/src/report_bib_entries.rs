@@ -23,3 +23,22 @@ pub fn parse_bib_entries_js(files: JsValue) -> JsResult<JsValue> {
     let files: Vec<LatexSourceFile> = serde_wasm_bindgen::from_value(files)?;
     to_js(&bib_entries::parse_bib_entries(&files))
 }
+
+/// [`parse_latex_section_tree`](wf_core::latex_section_tree::parse_latex_section_tree)
+/// (TS `parseLatexSectionTree`). `entry_file` defaults to `main.tex`.
+///
+/// # Errors
+///
+/// Fails if `files` is not an array of `{ path, content }`.
+#[wasm_bindgen(js_name = parseLatexSectionTree)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
+pub fn parse_latex_section_tree_js(
+    files: JsValue,
+    entry_file: Option<String>,
+) -> JsResult<JsValue> {
+    let files: Vec<LatexSourceFile> = serde_wasm_bindgen::from_value(files)?;
+    let entry = entry_file.as_deref().unwrap_or("main.tex");
+    to_js(&wf_core::latex_section_tree::parse_latex_section_tree(
+        &files, entry,
+    ))
+}

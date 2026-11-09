@@ -36,6 +36,34 @@ pub fn entry_file_error(path: &str) -> Option<&'static str> {
     }
 }
 
+/// The project id from what a user pastes: the id itself, the project page
+/// (`https://www.overleaf.com/project/<id>`) or the git URL (`https://git.overleaf.com/<id>`).
+#[must_use]
+pub fn parse_overleaf_project_id(raw: &str) -> Option<String> {
+    let text = crate::reader_analysis::lines::js_trim(raw);
+    if is_valid_project_id(text) {
+        return Some(text.to_owned());
+    }
+    let url = url::Url::parse(text).ok()?;
+    if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
+        return None;
+    }
+    let host = url.host_str()?;
+    let parts: Vec<&str> = url.path().split('/').filter(|p| !p.is_empty()).collect();
+    let id = match parts.as_slice() {
+        [id] if host == "git.overleaf.com" => *id,
+        ["project", id] if host == "overleaf.com" || host == "www.overleaf.com" => *id,
+        _ => return None,
+    };
+    is_valid_project_id(id).then(|| id.to_owned())
+}
+
+/// The clone URL; built from a checked id, never from what was pasted.
+#[must_use]
+pub fn overleaf_git_url(id: &str) -> String {
+    format!("https://git.overleaf.com/{id}")
+}
+
 /// Browser URL of an Overleaf project.
 #[must_use]
 pub fn external_url(id: &str) -> String {
@@ -99,6 +127,44 @@ mod tests {
         assert_eq!(entry_file_error("a/../b.tex"), Some(ENTRY_FILE_INVALID));
         assert_eq!(entry_file_error("a..b.tex"), Some(ENTRY_FILE_INVALID));
         assert_eq!(entry_file_error("my file.tex"), Some(ENTRY_FILE_INVALID));
+    }
+
+    #[test]
+    fn parses_pasted_project_ids() {
+        let id = "64f0c0ffee0123456789abcd";
+        for raw in [
+            id.to_owned(),
+            format!("  {id}  "),
+            format!("https://www.overleaf.com/project/{id}"),
+            format!("https://overleaf.com/project/{id}/"),
+            format!("https://www.overleaf.com/project/{id}?tab=1#x"),
+            format!("https://git.overleaf.com/{id}"),
+        ] {
+            assert_eq!(
+                parse_overleaf_project_id(&raw).as_deref(),
+                Some(id),
+                "{raw}"
+            );
+        }
+        for raw in [
+            String::new(),
+            "has space".to_owned(),
+            "../etc".to_owned(),
+            format!("http://www.overleaf.com/project/{id}"),
+            format!("https://evil.example/project/{id}"),
+            format!("https://overleaf.com.evil.example/project/{id}"),
+            format!("https://git:tok@git.overleaf.com/{id}"),
+            format!("https://www.overleaf.com/project/{id}/settings"),
+            format!("https://www.overleaf.com/read/{id}"),
+            "https://git.overleaf.com/a/b".to_owned(),
+            "https://git.overleaf.com/".to_owned(),
+        ] {
+            assert_eq!(parse_overleaf_project_id(&raw), None, "{raw}");
+        }
+        assert_eq!(
+            overleaf_git_url(id),
+            format!("https://git.overleaf.com/{id}")
+        );
     }
 
     #[test]

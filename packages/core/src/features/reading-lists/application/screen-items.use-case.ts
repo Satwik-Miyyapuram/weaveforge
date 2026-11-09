@@ -8,18 +8,8 @@
 
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import type { IScreeningRepository } from "../domain/screening-repository.js";
-import {
-  checkDecision,
-  exclusionReasons,
-  prismaCounts,
-  verdictsFor,
-  type ItemVerdict,
-  type PrismaCounts,
-  type ScreeningDecision,
-  type ScreeningItem,
-  type ScreeningStage,
-  type ScreeningState,
-} from "../domain/screening.js";
+import { type ItemVerdict, type PrismaCounts, type ScreeningDecision, type ScreeningItem, type ScreeningStage, type ScreeningState } from "../domain/screening.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ScreenItemsDeps {
   screening: IScreeningRepository;
@@ -59,7 +49,7 @@ export class ScreenItemsUseCase {
    */
   async record(input: RecordDecisionInput): Promise<ScreeningDecision> {
     const existing = await this.deps.screening.listForItems([input.itemId]);
-    checkDecision(input, existing);
+    rust().checkDecision(input, existing);
 
     const decision: ScreeningDecision = {
       id: this.deps.ids.newId(),
@@ -76,12 +66,12 @@ export class ScreenItemsUseCase {
 
   async summarize(items: readonly ScreeningItem[]): Promise<ScreenSummary> {
     const decisions = await this.deps.screening.listForItems(items.map((item) => item.id));
-    const verdicts = verdictsFor(items, decisions);
+    const verdicts = rust().verdictsFor(items, decisions);
     return {
       decisions,
-      counts: prismaCounts(items, decisions),
+      counts: rust().prismaCounts(items, decisions),
       verdicts,
-      reasons: exclusionReasons(decisions),
+      reasons: rust().exclusionReasons(decisions),
       reviewers: [...new Set(decisions.map((decision) => decision.reviewerId))].sort(),
     };
   }

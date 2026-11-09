@@ -1,12 +1,13 @@
 "use client";
 
 import type { EditorView } from "@codemirror/view";
-import { looksLikeImageUrl } from "@weaveforge/core";
+
 import type { PasteSettings } from "@weaveforge/wasm";
 import { outboundFetch } from "@/lib/outbound-fetch";
 import { insertPending, resolvePending, trackPending } from "@/components/markdown/markdown-pending-insert";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * What happens after a URL has been pasted.
@@ -77,7 +78,7 @@ export function afterUrlPaste(
   if (!BARE_URL.test(text)) return;
   const settings = options.settings();
 
-  if (settings.downloadPastedImages && options.images && looksLikeImageUrl(text)) {
+  if (settings.downloadPastedImages && options.images && typedCore().looksLikeImageUrl(text)) {
     downloadImage(view, text, from, to, options.images);
     return;
   }

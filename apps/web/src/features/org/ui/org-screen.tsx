@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ROLE_LABELS, creatableRoles, type Role } from "@weaveforge/core";
+import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -65,7 +65,7 @@ export function OrgPanel() {
     };
   }, [profile?.id, profile?.role]);
 
-  const allowedRoles = profile ? creatableRoles(profile.role) : [];
+  const allowedRoles = profile ? typedCore().creatableRoles(profile.role) : [];
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleLeaveOrg() {

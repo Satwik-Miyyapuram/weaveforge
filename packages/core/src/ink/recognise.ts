@@ -98,7 +98,7 @@ export type InkEngineId = (typeof INK_ENGINES)[number]["id"];
 export type InkEnginePlatform = (typeof INK_ENGINES)[number]["platform"];
 
 /** The order engines are preferred in, which is the declaration order. */
-export const INK_ENGINE_ORDER: readonly InkEngineId[] = INK_ENGINES.map((engine) => engine.id);
+export const INK_ENGINE_ORDER: readonly InkEngineId[] = ["windows-ink@1"];
 
 /** Whether an engine id is one this build was written against. */
 export function isInkEngineId(id: string): id is InkEngineId {

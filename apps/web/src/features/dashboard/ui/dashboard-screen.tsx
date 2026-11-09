@@ -5,7 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { useProfile } from "@/features/org";
 import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
-import { isSupervisorRole } from "@weaveforge/core";
+
 import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
 import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
 import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/device-snapshot";
@@ -32,6 +32,7 @@ import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 import { showToast } from "@/lib/toast";
 import { studentsOf } from "@/features/org/application/students-of";
+import { typedCore } from "@/lib/rust-core";
 
 // Kept beside the repository memo on purpose (xapi-11): this holds the
 // *finalized* layout (supervisor defaults applied) and is read synchronously,
@@ -56,7 +57,7 @@ export function DashboardScreen() {
   const projectId = project?.id;
   const { profile, team, loading: profileLoading } = useProfile();
   const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
-  const isSupervisor = isSupervisorRole(profile?.role) && supervisees.length > 0;
+  const isSupervisor = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
 
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
   const [layoutLoading, setLayoutLoading] = useState(true);
@@ -120,7 +121,7 @@ export function DashboardScreen() {
     layoutDirty.current = false;
     setLayoutError(null);
 
-    const supervisorLayout = isSupervisorRole(profile?.role) && supervisees.length > 0;
+    const supervisorLayout = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
     const cacheKey = layoutCacheKey(projectId, supervisorLayout);
 
     const cached = layoutCache.get(cacheKey);
@@ -181,7 +182,7 @@ export function DashboardScreen() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     const save = () => {
       pendingSave.current = null;
-      const supervisorLayout = isSupervisorRole(profile?.role) && supervisees.length > 0;
+      const supervisorLayout = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
       const cacheKey = layoutCacheKey(projectId, supervisorLayout);
       const toSave = finalizeDashboardLayout(syncDashboardLayouts(layout));
       void getContainer()

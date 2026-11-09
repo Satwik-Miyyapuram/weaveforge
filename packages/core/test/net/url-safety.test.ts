@@ -1,15 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  checkUrlShape,
-  isPublicAddress,
-  parseUserUrl,
-  DEFAULT_FETCH_LIMITS,
-} from "../../src/net/url-safety.js";
+import { DEFAULT_FETCH_LIMITS } from "../../src/net/url-safety.js";
+import { rust } from "../../src/shared/rust.js";
 
-const ok = (url: string) => assert.equal(checkUrlShape(url).ok, true, url);
+const ok = (url: string) => assert.equal(rust().checkUrlShape(url).ok, true, url);
 const no = (url: string, reason: string) => {
-  const result = checkUrlShape(url);
+  const result = rust().checkUrlShape(url);
   assert.equal(result.ok, false, `${url} should be refused`);
   assert.equal(result.reason, reason, `${url} refused for the wrong reason`);
 };
@@ -31,7 +27,7 @@ test("only http and https", () => {
     no(url, "scheme");
   }
   // A scheme-less string is read as https, not refused.
-  assert.equal(parseUserUrl("example.com")?.protocol, "https:");
+  assert.equal(rust().parseUserUrl("example.com")?.protocol, "https:");
 });
 
 test("the cloud metadata endpoints are refused by address", () => {
@@ -106,10 +102,10 @@ test("the ports this project's own stack listens on are not outbound ports", () 
 });
 
 test("an unreadable address is not trusted", () => {
-  assert.equal(isPublicAddress("not-an-address"), false);
-  assert.equal(isPublicAddress(""), false);
-  assert.equal(isPublicAddress("1.2.3"), false);
-  assert.equal(isPublicAddress("999.1.1.1"), false);
+  assert.equal(rust().isPublicAddress("not-an-address"), false);
+  assert.equal(rust().isPublicAddress(""), false);
+  assert.equal(rust().isPublicAddress("1.2.3"), false);
+  assert.equal(rust().isPublicAddress("999.1.1.1"), false);
 });
 
 test("a non-canonical IPv4 spelling is not read as a different address", () => {
@@ -118,11 +114,11 @@ test("a non-canonical IPv4 spelling is not read as a different address", () => {
   // current call path, which is why this pins the primitive: `010.0.0.1` is 8
   // to the socket, not 10, and refusing to read it at all is the fail-closed
   // answer for anything that has not been normalised.
-  assert.equal(isPublicAddress("010.0.0.1"), false, "leading zero means octal, not 10.0.0.1");
-  assert.equal(isPublicAddress("1.2.3.04"), false, "a padded octet is not a canonical one");
-  assert.equal(isPublicAddress("0x7f.0.0.1"), false);
-  assert.equal(isPublicAddress("2130706433"), false, "no dots at all is not a dotted quad");
-  assert.equal(isPublicAddress("1.2.3.4"), true);
+  assert.equal(rust().isPublicAddress("010.0.0.1"), false, "leading zero means octal, not 10.0.0.1");
+  assert.equal(rust().isPublicAddress("1.2.3.04"), false, "a padded octet is not a canonical one");
+  assert.equal(rust().isPublicAddress("0x7f.0.0.1"), false);
+  assert.equal(rust().isPublicAddress("2130706433"), false, "no dots at all is not a dotted quad");
+  assert.equal(rust().isPublicAddress("1.2.3.4"), true);
 });
 
 test("a trailing dot does not smuggle a name past the checks", () => {
@@ -136,8 +132,8 @@ test("the default limits are bounded", () => {
 });
 
 test("2001::/23 is special-purpose across all 23 bits (01-07)", () => {
-  assert.equal(isPublicAddress("2001::1"), false);
-  assert.equal(isPublicAddress("2001:100::1"), false, "inside /23, outside /24");
-  assert.equal(isPublicAddress("2001:1ff::1"), false, "last /23 block");
-  assert.equal(isPublicAddress("2001:200::1"), true, "first address past /23");
+  assert.equal(rust().isPublicAddress("2001::1"), false);
+  assert.equal(rust().isPublicAddress("2001:100::1"), false, "inside /23, outside /24");
+  assert.equal(rust().isPublicAddress("2001:1ff::1"), false, "last /23 block");
+  assert.equal(rust().isPublicAddress("2001:200::1"), true, "first address past /23");
 });

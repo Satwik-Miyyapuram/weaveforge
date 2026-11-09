@@ -1,26 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  errorMessage,
-  ENTITY_DIRS,
-  EXPERIMENT_STATUSES,
-  FOLDER_DRAFTS_DIR,
-  LOG_KINDS,
-  MILESTONE_STATUSES,
-  PAPER_STATUSES,
-  RELATION_TYPES,
-  WORKSPACE_META_DIR,
-  bodyLinksTo,
-  canonicalAiToolName,
-  extractWikilinks,
-  normalizeTitleKey,
-  paperPdfPath,
-  parseFolderDraft,
-  rust,
-  type AiProposalKind,
-  type UntrustedItem,
-  type WorkspaceEntityType,
-} from "@weaveforge/core";
+import { errorMessage, ENTITY_DIRS, EXPERIMENT_STATUSES, FOLDER_DRAFTS_DIR, LOG_KINDS, MILESTONE_STATUSES, PAPER_STATUSES, RELATION_TYPES, WORKSPACE_META_DIR, rust, type AiProposalKind, type UntrustedItem, type WorkspaceEntityType } from "@weaveforge/core";
 import type { ParsedEntity } from "@weaveforge/wasm";
 
 import { searchVault, walkVault } from "./vault-search";
@@ -321,7 +301,7 @@ async function leaveDraft(session: VaultSession, params: Record<string, unknown>
     createdAt: new Date().toISOString(),
   };
   const json = JSON.stringify(body, null, 2);
-  if (!parseFolderDraft(json)) throw new Error("That suggestion is too large or incomplete to leave.");
+  if (!rust().parseFolderDraft(json)) throw new Error("That suggestion is too large or incomplete to leave.");
   const at = `${FOLDER_DRAFTS_DIR}/${stamp()}--${draft.kind}--${randomUUID().slice(0, 8)}.json`;
   const written = await writeVaultFile(session, at, json);
   if (!written.ok) throw new Error(written.message);
@@ -336,7 +316,7 @@ async function callTool(
   rank?: SemanticRanker,
   projects?: ProjectSource,
 ): Promise<unknown> {
-  const name = canonicalAiToolName(rawName);
+  const name = rust().canonicalAiToolName(rawName);
   let resolved: Promise<ProjectRef[]> | undefined;
   const loadEntries = entryLoader(session);
   const allProjects = () => (resolved ??= resolveProjects(session, projects));
@@ -449,7 +429,7 @@ async function callTool(
     }
     case "get_paper": {
       const paper = pick(await papers(), ref(params, "paper"), "paper");
-      const pdf = paper.id ? paperPdfPath(paper.id, paper.project.dir) : null;
+      const pdf = paper.id ? rust().paperPdfPath(paper.id, paper.project.dir) : null;
       const stat = pdf ? await statVaultFile(session, pdf) : null;
       const hasPdf = !!(stat?.ok && stat.value);
       return content([
@@ -515,13 +495,13 @@ async function callTool(
     case "get_backlinks": {
       const entry = pick([...await entries("vault_page"), ...await papers()], ref(params, "entry"), "note or paper");
       const near = [...await entries("vault_page", entry.project), ...await papers(entry.project)];
-      const byTitle = new Map(near.map((e) => [normalizeTitleKey(e.title), e]));
-      const out = [...new Set(extractWikilinks(entry.body).map((link) => {
-        const hit = byTitle.get(normalizeTitleKey(link.target));
+      const byTitle = new Map(near.map((e) => [rust().normalizeTitleKey(e.title), e]));
+      const out = [...new Set(rust().extractWikilinks(entry.body).map((link) => {
+        const hit = byTitle.get(rust().normalizeTitleKey(link.target));
         return hit ? named(hit) : `${link.target} (no such note)`;
       }))];
-      const key = normalizeTitleKey(entry.title);
-      const into = near.filter((e) => e.path !== entry.path && bodyLinksTo(e.body, key)).map(named);
+      const key = rust().normalizeTitleKey(entry.title);
+      const into = near.filter((e) => e.path !== entry.path && rust().bodyLinksTo(e.body, key)).map(named);
       const items = [
         { label: "Links out", text: out.join("\n") || "(none)" },
         { label: "Links here", text: into.join("\n") || "(none)" },
@@ -734,7 +714,7 @@ export async function routeMcpRequest(
     case "tools/call": {
       const name = typeof params.name === "string" ? params.name : "";
       const args = (params.arguments as Record<string, unknown> | undefined) ?? {};
-      if (!canSuggest && canonicalAiToolName(name).startsWith("suggest_"))
+      if (!canSuggest && rust().canonicalAiToolName(name).startsWith("suggest_"))
         return ok(id, {
           isError: true,
           content: [{ type: "text", text: "This token may read only; it cannot leave drafts." }],

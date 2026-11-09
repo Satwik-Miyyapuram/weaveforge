@@ -13,11 +13,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
-import { makeInkStroke, type FigureGeometry } from "@weaveforge/core";
+import { type FigureGeometry } from "@weaveforge/core";
 
 import { InkPageStatic } from "../ui/ink-page-static";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
+import { typedCore } from "@/lib/rust-core";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -107,7 +108,7 @@ test("a pen stroke is one round-capped path at its own width and colour", () => 
     scale: SCALE,
     paper: "blank",
     strokes: [
-      makeInkStroke({ points: [100, 200, 300, 400], pressures: [], width: 5 }),
+      typedCore().makeInkStroke({ points: [100, 200, 300, 400], pressures: [], width: 5 }),
     ],
   });
   assert.equal(drawn.length, 1);
@@ -127,7 +128,7 @@ test("a stroke's colour comes from the palette it is handed", () => {
     paper: "blank",
     palette: paletteWith("text", [1, 0, 0]),
     strokes: [
-      makeInkStroke({ points: [10, 10, 20, 20], pressures: [] }),
+      typedCore().makeInkStroke({ points: [10, 10, 20, 20], pressures: [] }),
     ],
   });
   assert.equal(drawn[0]!.colour, "rgb(255, 0, 0)");
@@ -140,12 +141,12 @@ test("a highlighter keeps its alpha and draws over the pen", () => {
     scale: SCALE,
     paper: "blank",
     strokes: [
-      makeInkStroke({
+      typedCore().makeInkStroke({
         points: [10, 10, 20, 20],
         pressures: [],
         tool: "highlighter",
       }),
-      makeInkStroke({ points: [30, 30, 40, 40], pressures: [], tool: "pen" }),
+      typedCore().makeInkStroke({ points: [30, 30, 40, 40], pressures: [], tool: "pen" }),
     ],
   });
   // The pen first, the tinted band after: the order the sheet and SVG export draw in.
@@ -164,7 +165,7 @@ test("the text underlay renders under the ink", () => {
     paper: "blank",
     pureText: "Recognised handwriting",
     strokes: [
-      makeInkStroke({ points: [10, 10, 20, 20], pressures: [] }),
+      typedCore().makeInkStroke({ points: [10, 10, 20, 20], pressures: [] }),
     ],
   });
   assert.match(text, /ink-sheet-text-underlay/);
@@ -212,7 +213,7 @@ test("a page with no strokes draws no ink layer, and nor does one with only empt
     pageSize: PAGE,
     scale: SCALE,
     paper: "blank",
-    strokes: [makeInkStroke({ points: [], pressures: [] })],
+    strokes: [typedCore().makeInkStroke({ points: [], pressures: [] })],
   });
   assert.equal(drawn.length, 0);
 });
@@ -223,7 +224,7 @@ test("a dot is a zero-length line a round cap draws", () => {
     pageSize: PAGE,
     scale: SCALE,
     paper: "blank",
-    strokes: [makeInkStroke({ points: [7, 8], pressures: [] })],
+    strokes: [typedCore().makeInkStroke({ points: [7, 8], pressures: [] })],
   });
   assert.equal(drawn[0]!.d, "M7 8l0 0");
 });

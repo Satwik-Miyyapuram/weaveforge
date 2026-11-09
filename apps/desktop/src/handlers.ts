@@ -1,6 +1,6 @@
-import { checkUrlShape } from "@weaveforge/core";
 import { fetchPageTitle, fetchRemoteImage } from "@/backend/net/fetch-for-paste";
 import type { ImagePayload, IpcResult, TitlePayload } from "../../shell/sidecar/src/channels";
+import { rust } from "@weaveforge/core";
 
 /**
  * What the two fetch channels actually do, with no Electron in sight.
@@ -60,7 +60,7 @@ export function exactBytes(body: Uint8Array): ArrayBuffer {
  * address" in the whole codebase.
  */
 export function mayOpenExternally(url: string): boolean {
-  return checkUrlShape(url).ok;
+  return rust().checkUrlShape(url).ok;
 }
 
 /**

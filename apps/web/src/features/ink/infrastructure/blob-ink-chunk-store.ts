@@ -9,17 +9,12 @@
  * which is the trade the plan accepts for the cloud path.
  */
 
-import {
-  BlobNotFoundError,
-  INK_CHUNK_EXT,
-  isInkNoteId,
-  type IBlobFetcher,
-  type ICurrentUserProvider,
-} from "@weaveforge/core";
+import { BlobNotFoundError, INK_CHUNK_EXT, type IBlobFetcher, type ICurrentUserProvider } from "@weaveforge/core";
 
 import { readyCore } from "@/lib/rust-core";
 
 import type { InkChunkStore } from "../application/ink-chunk-store";
+import { typedCore } from "@/lib/rust-core";
 
 export const INK_CHUNK_BUCKET = "vault-assets";
 export const INK_CHUNK_CONTENT_TYPE = "application/octet-stream";
@@ -32,7 +27,7 @@ export class BlobInkChunkStore implements InkChunkStore {
   ) {}
 
   private async path(noteId: string, chunkId: string): Promise<string> {
-    if (!isInkNoteId(noteId))
+    if (!typedCore().isInkNoteId(noteId))
       throw new Error(`ink: unusable note id ${JSON.stringify(noteId)}`);
     if (!readyCore().isInkChunkId(chunkId))
       throw new Error(`ink: unusable chunk id ${JSON.stringify(chunkId)}`);

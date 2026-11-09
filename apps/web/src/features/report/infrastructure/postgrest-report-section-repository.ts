@@ -1,13 +1,8 @@
-import {
-  buildSectionTree,
-  type IReportSectionRepository,
-  type ReportSection,
-  type ReportSectionFilter,
-  type ReportSectionTreeNode,
-} from "@weaveforge/core";
+import { type IReportSectionRepository, type ReportSection, type ReportSectionFilter, type ReportSectionTreeNode } from "@weaveforge/core";
 import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * PostgREST implementation of IReportSectionRepository.
@@ -61,7 +56,7 @@ export class PostgrestReportSectionRepository extends ProjectRepository
     if (this.pid) q = q.eq("project_id", this.pid);
     const { data, error } = await q;
     if (error) throw error;
-    return buildSectionTree((data as ReportSectionRow[]).map(reportSectionToDomain));
+    return typedCore().buildSectionTree((data as ReportSectionRow[]).map(reportSectionToDomain));
   }
 
   async save(entity: ReportSection): Promise<void> {

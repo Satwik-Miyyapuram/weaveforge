@@ -1,15 +1,4 @@
-/**
- * Where each entity lives in the workspace folder.
- *
- * Identity rule, applied everywhere: the `weaveforge-id` in frontmatter is
- * authoritative and the path is disposable. Renaming a file in Finder renames
- * the entity; it does not fork it. That is what makes the folder safe to edit
- * outside the app.
- *
- * Slugs exist purely so the folder is navigable by a human.
- */
-
-import { rust } from "../shared/rust.js";
+/** Types for folder-layout. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 
 export const WORKSPACE_META_DIR = ".weaveforge";
 
@@ -64,47 +53,12 @@ export const KIND_SUFFIX: Record<WorkspaceEntityType, string> = {
   log_entry: "log",
 };
 
-const SUFFIX_TO_TYPE = new Map<string, WorkspaceEntityType>(
-  Object.entries(KIND_SUFFIX).map(([type, suffix]) => [suffix, type as WorkspaceEntityType]),
-);
-
-/** The type a path's suffix claims, or null when it carries none. */
-export function parseKindSuffix(path: string): WorkspaceEntityType | null {
-  const name = path.slice(path.lastIndexOf("/") + 1);
-  const match = /\.([a-z_]+)\.md$/.exec(name);
-  return match ? (SUFFIX_TO_TYPE.get(match[1]!) ?? null) : null;
-}
-
-/** The filename with its kind suffix and extension removed. */
-export function stripKindSuffix(name: string): string {
-  return name.replace(/\.md$/, "").replace(/\.[a-z_]+$/, (suffix) =>
-    SUFFIX_TO_TYPE.has(suffix.slice(1)) ? "" : suffix,
-  );
-}
-
 /**
  * Filesystem-safe, human-readable slug. Reserved Windows device names get a
  * suffix — a file called `con.md` cannot be created on Windows, and a folder
  * that will not round-trip on one platform is not portable.
  */
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
-
-export function slugFor(title: string, fallback = "untitled"): string {
-  const slug = title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase()
-    .slice(0, 80);
-  if (!slug) return fallback;
-  return WINDOWS_RESERVED.test(slug) ? `${slug}-file` : slug;
-}
-
-/** Short id suffix used to break slug collisions inside one directory. */
-export function idSuffix(id: string): string {
-  return id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6) || "x";
-}
 
 /**
  * Every project gets its own folder, and every entity path is inside one.
@@ -126,137 +80,63 @@ export interface WorkspaceProject {
   name: string;
 }
 
-export function projectDir(project: WorkspaceProject): string {
-  return `${slugFor(project.name, "project")}--${idSuffix(project.id)}`;
-}
-
-/** A project's own bookkeeping: `<project>/.weaveforge/`. */
-export function projectMetaDir(projectRoot: string): string {
-  return `${projectRoot}/${WORKSPACE_META_DIR}`;
-}
-
 export interface FolderNode {
   id: string;
   title: string;
   parentId?: string;
 }
 
-/**
+/** Assets live in one tree so a body's relative links resolve from anywhere. */
+export const ASSET_DIR = "assets";
+
+/** Where a paper's PDF is kept in the folder: `papers/pdf/<paperId>.pdf`. */
+export const PAPER_PDF_DIR = "papers/pdf";
+
+/** Where a paper's full-text web page is kept: `papers/html/<paperId>.html`. */
+export const PAPER_HTML_DIR = "papers/html";
+
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface FolderLayoutFns {
+  /** The type a path's suffix claims, or null when it carries none. */
+  parseKindSuffix(path: string): WorkspaceEntityType | null;
+  /** The filename with its kind suffix and extension removed. */
+  stripKindSuffix(name: string): string;
+  slugFor(title: string, fallback?: string): string;
+  /** Short id suffix used to break slug collisions inside one directory. */
+  idSuffix(id: string): string;
+  projectDir(project: WorkspaceProject): string;
+  /** A project's own bookkeeping: `<project>/.weaveforge/`. */
+  projectMetaDir(projectRoot: string): string;
+  /**
  * Directory path for a tree entity, using the folder-note convention: a node
  * with children becomes a directory holding a same-named file for its own body.
  * This is what Obsidian does, and it is the shape `import-notes.ts` already
  * parses on the way in.
  */
-export function treePaths(
-  nodes: readonly FolderNode[],
-  type: WorkspaceEntityType,
-  projectRoot = "",
-): Map<string, string> {
-  const root = rust().entityDir(type, projectRoot);
-  const ext = `.${KIND_SUFFIX[type]}.md`;
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  const childCount = new Map<string, number>();
-  for (const node of nodes) {
-    if (node.parentId) childCount.set(node.parentId, (childCount.get(node.parentId) ?? 0) + 1);
-  }
-
-  // Slugs are unique per directory, so collisions are resolved per parent.
-  const usedPerParent = new Map<string, Set<string>>();
-  const slugOf = new Map<string, string>();
-  for (const node of nodes) {
-    const parentKey = node.parentId ?? "";
-    let used = usedPerParent.get(parentKey);
-    if (!used) {
-      used = new Set<string>();
-      usedPerParent.set(parentKey, used);
-    }
-    let slug = slugFor(node.title);
-    if (used.has(slug)) slug = `${slug}--${idSuffix(node.id)}`;
-    used.add(slug);
-    slugOf.set(node.id, slug);
-  }
-
-  const dirCache = new Map<string, string>();
-  const dirFor = (node: FolderNode, seen = new Set<string>()): string => {
-    const cached = dirCache.get(node.id);
-    if (cached !== undefined) return cached;
-    if (seen.has(node.id)) return root; // corrupted parent chain; do not loop
-    seen.add(node.id);
-
-    const parent = node.parentId ? byId.get(node.parentId) : undefined;
-    const parentDir = parent ? dirFor(parent, seen) : root;
-    const dir = `${parentDir}/${slugOf.get(node.id)}`;
-    dirCache.set(node.id, dir);
-    return dir;
-  };
-
-  const out = new Map<string, string>();
-  for (const node of nodes) {
-    const slug = slugOf.get(node.id)!;
-    const parent = node.parentId ? byId.get(node.parentId) : undefined;
-    const parentDir = parent ? dirFor(parent) : root;
-    // A leaf is a plain file; a node with children becomes its folder note.
-    out.set(
-      node.id,
-      (childCount.get(node.id) ?? 0) > 0
-        ? `${dirFor(node)}/${slug}${ext}`
-        : `${parentDir}/${slug}${ext}`,
-    );
-  }
-  return out;
-}
-
-/** Flat path for a non-tree entity, with an id suffix so titles may repeat. */
-export function flatPath(
-  type: WorkspaceEntityType,
-  id: string,
-  title: string,
-  projectRoot = "",
-): string {
-  return `${rust().entityDir(type, projectRoot)}/${slugFor(title)}--${idSuffix(id)}.${KIND_SUFFIX[type]}.md`;
-}
-
-/** Logbook is dated rather than titled: `logbook/2026/03/2026-03-14--ab12cd.log.md`. */
-export function logPath(id: string, entryDate: string, projectRoot = ""): string {
-  const [year, month] = entryDate.split("-");
-  return `${rust().entityDir("log_entry", projectRoot)}/${year ?? "unknown"}/${month ?? "00"}/${entryDate}--${idSuffix(id)}.${KIND_SUFFIX.log_entry}.md`;
-}
-
-/** Assets live in one tree so a body's relative links resolve from anywhere. */
-export const ASSET_DIR = "assets";
-
-/** Where a paper's PDF is kept in the folder: `papers/pdf/<paperId>.pdf`. */
-export const PAPER_PDF_DIR = `${ENTITY_DIRS.paper}/pdf`;
-
-/**
+  treePaths(nodes: readonly FolderNode[], type: WorkspaceEntityType, projectRoot?: string): Map<string, string>;
+  /** Flat path for a non-tree entity, with an id suffix so titles may repeat. */
+  flatPath(type: WorkspaceEntityType, id: string, title: string, projectRoot?: string): string;
+  /** Logbook is dated rather than titled: `logbook/2026/03/2026-03-14--ab12cd.log.md`. */
+  logPath(id: string, entryDate: string, projectRoot?: string): string;
+  /**
  * The folder's copy of a paper's PDF. A desktop copy with a folder open keeps
  * every PDF it has fetched here — the folder is the user's, syncs and goes
  * under git like the notes do, and reads back with no network — where a
  * browser has only its own cache and fetches again when that is gone.
  */
-export function paperPdfPath(paperId: string, projectRoot = ""): string {
-  return `${rust().entityDir("paper", projectRoot)}/pdf/${paperId}.pdf`;
-}
-
-/** Where a paper's full-text web page is kept: `papers/html/<paperId>.html`. */
-export const PAPER_HTML_DIR = `${ENTITY_DIRS.paper}/html`;
-
-/**
+  paperPdfPath(paperId: string, projectRoot?: string): string;
+  /**
  * The folder's copy of a paper that is published as a web page rather than a
  * PDF (arXiv's HTML, PubMed Central, a journal's full-text page). Kept already
  * sanitised — no scripts, no forms — so the file is safe to open on its own.
  */
-export function paperHtmlPath(paperId: string, projectRoot = ""): string {
-  return `${rust().entityDir("paper", projectRoot)}/html/${paperId}.html`;
-}
-
-/**
+  paperHtmlPath(paperId: string, projectRoot?: string): string;
+  /**
  * Where a stored blob lands in the folder.
  *
  * `storagePath` keeps its owner and entity segments (`{userId}/{pageId}/{file}`)
  * rather than being flattened to the filename: two notes may hold images called
  * `diagram.png`, and the segments are what stop them colliding.
  */
-export function assetPath(scope: "notes" | "papers" | "report", storagePath: string): string {
-  return `${ASSET_DIR}/${scope}/${storagePath}`;
+  assetPath(scope: "notes" | "papers" | "report", storagePath: string): string;
 }

@@ -1,16 +1,6 @@
-/**
- * Organization domain model: the types, error classes and role constants for lab
- * members. The rules (visibility, account creation, role display, validation) are
- * Rust, in wf-core `member`; this module calls them through `rust()`.
- *
- * The academic hierarchy: a professor supervises PhD students, and a PhD student
- * supervises masters students. A member's `supervisorId` points at the member one
- * level up, so the whole organization is a tree rooted at professors.
- */
-
+/** Types for member. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import { PermissionError, ValidationError } from "../../../shared/errors.js";
-import { rust } from "../../../shared/rust.js";
 import { ORG_INVITE_ROLES } from "./invite-code.js";
 
 /** Academic roles, ordered by rank in {@link ROLE_RANK}. */
@@ -74,45 +64,6 @@ export class MemberPermissionError extends PermissionError {
   }
 }
 
-/** Roles a member of the given role is allowed to create (strictly lower rank). */
-export function creatableRoles(creator: Role): Role[] {
-  return rust().creatableRoles(creator) as Role[];
-}
-
-/** Whether `creator` may provision an account with role `target`. */
-export function canCreateRole(creator: Role, target: Role): boolean {
-  return rust().canCreateRole(creator, target);
-}
-
-/** New members are always supervised by whoever created them. */
-export function resolveSupervisorId(creator: Member, _input: NewMemberInput): string {
-  return rust().resolveSupervisorId(creator.id);
-}
-
-/** Validate + normalize a new-member request. Throws on invalid input. */
-export function validateNewMember(input: NewMemberInput): NewMemberInput {
-  try {
-    const normalized = rust().validateNewMember({
-      email: input.email ?? "",
-      password: input.password ?? "",
-      fullName: input.fullName,
-      role: input.role ?? "",
-      supervisorId: input.supervisorId,
-    });
-    return {
-      email: normalized.email,
-      password: normalized.password,
-      fullName: normalized.fullName ?? undefined,
-      role: normalized.role as Role,
-      supervisorId: normalized.supervisorId ?? undefined,
-    };
-  } catch (error) {
-    // Rust rejects with the message string (wf-wasm throws a JS string).
-    if (typeof error === "string") throw new MemberValidationError(error);
-    throw error;
-  }
-}
-
 export interface TeamVisibilityOptions {
   /** Whether the viewer belongs to at least one lab (org_memberships). */
   inLab: boolean;
@@ -120,52 +71,34 @@ export interface TeamVisibilityOptions {
   orgMemberIds?: ReadonlySet<string> | null;
 }
 
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface MemberFns {
+  /** Roles a member of the given role is allowed to create (strictly lower rank). */
+  creatableRoles(creator: Role): Role[];
+  /** Whether `creator` may provision an account with role `target`. */
+  canCreateRole(creator: Role, target: Role): boolean;
+  /** New members are always supervised by whoever created them. */
+  resolveSupervisorId(creatorId: string): string;
+  /** Validate + normalize a new-member request. Throws on invalid input. */
+  validateNewMember(input: NewMemberInput): NewMemberInput;
+  /**
  * Subtree visibility: viewer plus all supervisees (transitively). Used for
  * supervision dashboards — not the org chart (see filterLabMembers).
  *
  * Standalone users (no lab) see only themselves — not every profile the DB
  * policy may expose via legacy lab_root.
  */
-export function filterTeamMembers(
-  viewerId: string,
-  members: readonly Member[],
-  options: TeamVisibilityOptions,
-): Member[] {
-  return rust().filterTeamMembers(viewerId, members, options);
-}
-
-/**
+  filterTeamMembers(viewerId: string, members: readonly Member[], options: TeamVisibilityOptions): Member[];
+  /**
  * Full lab roster for the org chart: everyone in the active lab, including
  * supervisors and peers above the viewer in the hierarchy.
  */
-export function filterLabMembers(
-  viewerId: string,
-  members: readonly Member[],
-  options: TeamVisibilityOptions,
-): Member[] {
-  return rust().filterLabMembers(viewerId, members, options);
-}
-
-/** Whether the role can supervise others (rank above masters). */
-export function isSupervisorRole(role: Role | null | undefined): boolean {
-  return rust().isSupervisorRole(role);
-}
-
-/** Role label context — standalone users are not masters/phd in the UI. */
-export function resolveDisplayRole(role: Role, opts: { inLab: boolean; ownsOrg?: boolean }): Role {
-  return rust().resolveDisplayRole(role, opts) as Role;
-}
-
-export function memberRoleLabel(member: Pick<Member, "role">, opts: { inLab: boolean; ownsOrg?: boolean }): string {
-  return ROLE_LABELS[resolveDisplayRole(member.role, opts)];
-}
-
-/** True when profiles.role should be persisted as standalone (stale lab role). */
-export function needsStandaloneRoleSync(
-  profile: Pick<Member, "role" | "orgSetupComplete"> | null,
-  memberships: readonly { joinSource?: string }[],
-  inLab: boolean,
-): boolean {
-  return rust().needsStandaloneRoleSync(profile, memberships, inLab);
+  filterLabMembers(viewerId: string, members: readonly Member[], options: TeamVisibilityOptions): Member[];
+  /** Whether the role can supervise others (rank above masters). */
+  isSupervisorRole(role: Role | null | undefined): boolean;
+  /** Role label context — standalone users are not masters/phd in the UI. */
+  resolveDisplayRole(role: Role, opts: { inLab: boolean; ownsOrg?: boolean }): Role;
+  memberRoleLabel(member: Pick<Member, "role">, opts: { inLab: boolean; ownsOrg?: boolean }): string;
+  /** True when profiles.role should be persisted as standalone (stale lab role). */
+  needsStandaloneRoleSync(profile: Pick<Member, "role" | "orgSetupComplete"> | null, memberships: readonly { joinSource?: string }[], inLab: boolean): boolean;
 }

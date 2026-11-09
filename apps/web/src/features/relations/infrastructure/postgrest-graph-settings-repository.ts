@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GraphPersistedState, IGraphSettingsRepository } from "@weaveforge/core";
-import { parseGraphPersistedState } from "@weaveforge/core";
+
 import { run } from "@/backend/providers/postgrest/row-access";
+import { typedCore } from "@/lib/rust-core";
 
 const TABLE = "projects";
 
@@ -16,7 +17,7 @@ export class PostgrestGraphSettingsRepository implements IGraphSettingsRepositor
       .maybeSingle();
     if (error) throw error;
     if (!data?.graph_settings) return null;
-    return parseGraphPersistedState(data.graph_settings);
+    return typedCore().parseGraphPersistedState(data.graph_settings);
   }
 
   async save(projectId: string, state: GraphPersistedState): Promise<void> {

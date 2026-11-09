@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GraphPersistedState, GraphViewSettings } from "@weaveforge/core";
-import {
-  DEFAULT_GRAPH_PERSISTED_STATE,
-  DEFAULT_GRAPH_SETTINGS,
-  mergeGraphPersistedState,
-} from "@weaveforge/core";
+import { DEFAULT_GRAPH_PERSISTED_STATE, DEFAULT_GRAPH_SETTINGS } from "@weaveforge/core";
 import { getContainer, type AppContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import {
@@ -15,6 +11,7 @@ import {
   readLegacyGraphPersistedState,
   writeGraphStateCache,
 } from "./graph-legacy-storage";
+import { typedCore } from "@/lib/rust-core";
 
 // The graph state lives in the graph settings repository (memoized like every
 // repository) and, for a first paint without a loader, in localStorage. No
@@ -64,7 +61,7 @@ export function useGraphPersistedState(
     let active = true;
     const cached = readGraphStateCache(projectId);
     if (cached) {
-      setState(mergeGraphPersistedState(cached));
+      setState(typedCore().mergeGraphPersistedState(cached));
       setLoading(false);
     } else {
       setState(DEFAULT_GRAPH_PERSISTED_STATE);
@@ -83,7 +80,7 @@ export function useGraphPersistedState(
           }
         }
         if (!active) return;
-        const next = mergeGraphPersistedState(stored);
+        const next = typedCore().mergeGraphPersistedState(stored);
         writeGraphStateCache(projectId, next);
         setState(next);
         // Only a load that went through lets edits save: after a failed one

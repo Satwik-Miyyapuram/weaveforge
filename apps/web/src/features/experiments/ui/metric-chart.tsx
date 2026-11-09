@@ -23,7 +23,7 @@ import { readyCore } from "@/lib/rust-core";
 export type { MetricSeries };
 
 // Lives in core so Node tests can import it without this file's CSS import.
-export { formatMetricCell } from "@weaveforge/core";
+
 
 interface MetricChartProps {
   /** Metric name from the SDK — used as the chart title. */

@@ -13,17 +13,11 @@
  * the point — an ink note is an ink note whether it sits on disk or in the database.
  */
 
-import {
-  INK_CHUNK_EXT,
-  inkChunkPath,
-  newInkChunkId,
-  resolveInkPageOrder,
-  type InkNoteMeta,
-  type InkPaper,
-} from "@weaveforge/core";
+import { INK_CHUNK_EXT, type InkNoteMeta, type InkPaper } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface InkChunkStore {
   /** The chunk's bytes, or `null` where no such chunk exists. Throws when the read itself failed. */
@@ -70,10 +64,10 @@ export async function loadInkPages(
   // its file is an empty page, not a vanished one — then the orphans follow.
   const declared = meta.pageOrder.filter((id) => readyCore().isInkChunkId(id));
   const order = [...new Set(declared)];
-  for (const id of resolveInkPageOrder(declared, present)) {
+  for (const id of typedCore().resolveInkPageOrder(declared, present)) {
     if (!order.includes(id)) order.push(id);
   }
-  if (order.length === 0) order.push(newInkChunkId());
+  if (order.length === 0) order.push(typedCore().newInkChunkId());
   const pages = await Promise.all(
     order.map(async (chunkId): Promise<InkStoredPage> => {
       try {
@@ -101,7 +95,7 @@ export class MemoryInkChunkStore implements InkChunkStore {
   private readonly chunks = new Map<string, Uint8Array>();
 
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
-    return this.chunks.get(inkChunkPath(noteId, chunkId)) ?? null;
+    return this.chunks.get(typedCore().inkChunkPath(noteId, chunkId)) ?? null;
   }
 
   async write(
@@ -109,15 +103,15 @@ export class MemoryInkChunkStore implements InkChunkStore {
     chunkId: string,
     bytes: Uint8Array,
   ): Promise<void> {
-    this.chunks.set(inkChunkPath(noteId, chunkId), bytes.slice());
+    this.chunks.set(typedCore().inkChunkPath(noteId, chunkId), bytes.slice());
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
-    this.chunks.delete(inkChunkPath(noteId, chunkId));
+    this.chunks.delete(typedCore().inkChunkPath(noteId, chunkId));
   }
 
   async list(noteId: string): Promise<string[]> {
-    const prefix = inkChunkPath(noteId, newInkChunkId()).replace(/[^/]+$/, "");
+    const prefix = typedCore().inkChunkPath(noteId, typedCore().newInkChunkId()).replace(/[^/]+$/, "");
     const ids: string[] = [];
     for (const path of this.chunks.keys()) {
       if (!path.startsWith(prefix)) continue;

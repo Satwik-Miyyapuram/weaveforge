@@ -2,14 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
 import { rust } from "../../src/shared/rust.js";
-import {
-  NoOpWorkspaceGit,
-  digestText,
-  mirrorWorkspace,
-  projectDir,
-  type WorkspaceProject,
-  type WorkspaceSnapshot,
-} from "../../src/index.js";
+import { NoOpWorkspaceGit, digestText, mirrorWorkspace, type WorkspaceProject, type WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -23,7 +16,7 @@ const note = (id: string, title: string, body = "") =>
   ({ id, title, body, sortOrder: 0, createdAt: "", updatedAt: "" }) as never;
 
 const THESIS: WorkspaceProject = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-const ROOT = projectDir(THESIS);
+const ROOT = rust().projectDir(THESIS);
 
 /** Every mirrored file is inside the project's folder. */
 const at = (path: string) => `${ROOT}/${path}`;
@@ -124,7 +117,7 @@ test("files the mirror does not own are left alone", async () => {
 test("mirroring a second project leaves the first project's files alone", async () => {
   const fs = new MemoryWorkspaceFs();
   const offline: WorkspaceProject = { id: "00000000-0000-4000-8000-0000000000aa", name: "Offline Trial" };
-  const offlineRoot = projectDir(offline);
+  const offlineRoot = rust().projectDir(offline);
 
   const first = await mirrorWorkspace(
     snapshot({ vaultPages: [note("n1", "Thesis method")] }),
@@ -152,7 +145,7 @@ test("mirroring a second project leaves the first project's files alone", async 
 test("each project's bookkeeping is its own", async () => {
   const fs = new MemoryWorkspaceFs();
   const offline: WorkspaceProject = { id: "00000000-0000-4000-8000-0000000000aa", name: "Offline Trial" };
-  const offlineRoot = projectDir(offline);
+  const offlineRoot = rust().projectDir(offline);
 
   await mirrorWorkspace(
     snapshot({ relations: [{ id: "r1" } as never], tags: [{ id: "t1" } as never] }),

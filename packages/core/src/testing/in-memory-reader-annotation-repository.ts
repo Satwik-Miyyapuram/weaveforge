@@ -1,4 +1,4 @@
-import { isReaderAnnotationType, type IReaderAnnotationSink, type IReaderAnnotationSource, type IReaderAnnotationSyncRecorder, type NewReaderAnnotation, type ReaderAnnotation, type ReaderAnnotationPatch, type ReaderAnnotationSyncRecord } from "../reader/index.js";
+import { type IReaderAnnotationSink, type IReaderAnnotationSource, type IReaderAnnotationSyncRecorder, type NewReaderAnnotation, type ReaderAnnotation, type ReaderAnnotationPatch, type ReaderAnnotationSyncRecord } from "../reader/index.js";
 import { ConflictError, NotFoundError } from "../shared/errors.js";
 import { rust } from "../shared/rust.js";
 
@@ -17,7 +17,7 @@ export class InMemoryReaderAnnotationRepository
   }
 
   async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {
-    if (!isReaderAnnotationType(draft.type)) {
+    if (!rust().isReaderAnnotationType(draft.type)) {
       throw new Error(`Invalid annotation type: ${draft.type}`);
     }
     // The id is the table's primary key, so reusing a live one fails the insert.

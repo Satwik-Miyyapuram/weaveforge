@@ -2,19 +2,7 @@ import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
-import {
-  projectDir,
-  WORKSPACE_META_DIR,
-  WorkspacePathError,
-  flatPath,
-  isSafeWorkspacePath,
-  logPath,
-  safeWorkspacePath,
-  slugFor,
-  treePaths,
-  type ExistingEntity,
-  type WorkspaceSnapshot,
-} from "../../src/index.js";
+import { WORKSPACE_META_DIR, WorkspacePathError, isSafeWorkspacePath, safeWorkspacePath, type ExistingEntity, type WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -33,16 +21,16 @@ const note = (over: Record<string, unknown> = {}) =>
 // ------------------------------------------------------------------ paths
 
 test("slugs are filesystem-safe and readable", () => {
-  assert.equal(slugFor("Variational Autoencoders"), "variational-autoencoders");
-  assert.equal(slugFor("Café / Résumé"), "cafe-resume");
-  assert.equal(slugFor("   "), "untitled");
+  assert.equal(rust().slugFor("Variational Autoencoders"), "variational-autoencoders");
+  assert.equal(rust().slugFor("Café / Résumé"), "cafe-resume");
+  assert.equal(rust().slugFor("   "), "untitled");
 });
 
 test("Windows reserved names get a suffix so the folder is portable", () => {
   // `con.md` cannot be created on Windows; a folder that fails to round-trip
   // on one platform is not portable.
-  assert.equal(slugFor("CON"), "con-file");
-  assert.equal(slugFor("aux"), "aux-file");
+  assert.equal(rust().slugFor("CON"), "con-file");
+  assert.equal(rust().slugFor("aux"), "aux-file");
 });
 
 test("traversal is rejected, including Windows-style and absolute paths", () => {
@@ -55,7 +43,7 @@ test("traversal is rejected, including Windows-style and absolute paths", () => 
 });
 
 test("a note with children becomes a folder note", () => {
-  const paths = treePaths(
+  const paths = rust().treePaths(
     [
       { id: "root", title: "Method" },
       { id: "child", title: "Baselines", parentId: "root" },
@@ -68,7 +56,7 @@ test("a note with children becomes a folder note", () => {
 });
 
 test("slug collisions inside one directory are broken by id", () => {
-  const paths = treePaths(
+  const paths = rust().treePaths(
     [{ id: "a1", title: "Notes" }, { id: "b2", title: "Notes" }],
     "vault_page",
   );
@@ -77,7 +65,7 @@ test("slug collisions inside one directory are broken by id", () => {
 });
 
 test("a cyclic parent chain does not hang the layout", () => {
-  const paths = treePaths(
+  const paths = rust().treePaths(
     [{ id: "a", title: "A", parentId: "b" }, { id: "b", title: "B", parentId: "a" }],
     "vault_page",
   );
@@ -86,7 +74,7 @@ test("a cyclic parent chain does not hang the layout", () => {
 });
 
 test("logbook is dated into year/month folders", () => {
-  assert.match(logPath("l1", "2026-03-14"), /^logbook\/2026\/03\/2026-03-14--/);
+  assert.match(rust().logPath("l1", "2026-03-14"), /^logbook\/2026\/03\/2026-03-14--/);
 });
 
 // ------------------------------------------------------------ frontmatter
@@ -153,7 +141,7 @@ test("import re-anchors assets and never trusts a written storage path", () => {
  * project once and prefix the paths they expect with its folder.
  */
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-const ROOT = projectDir(PROJECT);
+const ROOT = rust().projectDir(PROJECT);
 const at = (path: string) => `${ROOT}/${path}`;
 
 // -------------------------------------------------------------- round trip

@@ -1,44 +1,6 @@
-/**
- * Reading a page's title out of its HTML.
- *
- * Pure, so the same reading happens in the API route and in the Electron main
- * process, and so it can be tested against the awkward pages — the ones with a
- * bot wall, an entity-encoded title, or a title element that never closes —
- * without a network.
- *
- * `extractPageTitle` and `decodeHtmlEntities` are TS on purpose: the desktop
- * fetch path (apps/desktop) runs Node and never loads wasm. Browser-only rules
- * go to Rust and are forwarded here.
- */
-
-import { rust } from "../shared/rust.js";
+/** Types for page-title. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 
 const NAMED_ENTITIES: Record<string, string> = { nbsp: " ", lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" };
-
-/**
- * The named entities a title actually contains, plus numeric escapes.
- *
- * One pass, so what an entity decodes to is never read again: `&amp;lt;` and
- * `&#38;lt;` both stay `&lt;`. Unknown names are left as written.
- */
-export function decodeHtmlEntities(value: string): string {
-  return value.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (whole, hex?: string, digits?: string, name?: string) => {
-    if (hex !== undefined) return safeCodePoint(parseInt(hex, 16));
-    if (digits !== undefined) return safeCodePoint(Number(digits));
-    return NAMED_ENTITIES[name!.toLowerCase()] ?? whole;
-  });
-}
-
-function safeCodePoint(value: number): string {
-  // A malformed escape is left as nothing rather than throwing: a title is
-  // decoration, and one bad character is not worth losing the page over.
-  if (!Number.isFinite(value) || value < 0 || value > 0x10ffff) return "";
-  try {
-    return String.fromCodePoint(value);
-  } catch {
-    return "";
-  }
-}
 
 /**
  * Titles a site shows a robot rather than a reader.
@@ -69,7 +31,16 @@ export interface PageTitle {
   suspect: boolean;
 }
 
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface PageTitleFns {
+  /**
+ * The named entities a title actually contains, plus numeric escapes.
+ *
+ * One pass, so what an entity decodes to is never read again: `&amp;lt;` and
+ * `&#38;lt;` both stay `&lt;`. Unknown names are left as written.
+ */
+  decodeHtmlEntities(value: string): string;
+  /**
  * The best title the HTML offers.
  *
  * OpenGraph first, because a site that sets it has said what the page should be
@@ -78,55 +49,12 @@ export interface PageTitle {
  * suffix, which is left alone: guessing which half is the separator gets the
  * wrong answer on any title with a dash in it.
  */
-export function extractPageTitle(html: string): PageTitle | null {
-  // Only the head is worth scanning, and a page can be megabytes.
-  const head = html.slice(0, PAGE_TITLE_SCAN_CHARS);
-
-  const og =
-    metaContent(head, "og:title") ??
-    metaContent(head, "twitter:title") ??
-    metaContent(head, "citation_title") ??
-    metaContent(head, "dc.title");
-
-  const raw = og ?? /<title[^>]*>([\s\S]*?)<\/title>/i.exec(head)?.[1];
-  if (raw === undefined) return null;
-
-  const title = decodeHtmlEntities(raw)
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_TITLE);
-  if (!title) return null;
-
-  return { title, suspect: BOT_WALL.test(title) };
-}
-
-/** The content of a `<meta>` tag by name, property or itemprop. */
-function metaContent(html: string, wanted: string): string | undefined {
-  const tags = html.match(/<meta\b[^>]*>/gi) ?? [];
-  for (const tag of tags) {
-    const name = attribute(tag, "property") ?? attribute(tag, "name") ?? attribute(tag, "itemprop");
-    if (!name || name.toLowerCase() !== wanted.toLowerCase()) continue;
-    const content = attribute(tag, "content");
-    if (content) return content;
-  }
-  return undefined;
-}
-
-function attribute(tag: string, name: string): string | undefined {
-  const quoted = new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i").exec(tag);
-  if (quoted) return quoted[1];
-  const single = new RegExp(`\\b${name}\\s*=\\s*'([^']*)'`, "i").exec(tag);
-  if (single) return single[1];
-  const bare = new RegExp(`\\b${name}\\s*=\\s*([^\\s>]+)`, "i").exec(tag);
-  return bare?.[1];
-}
-
-/**
+  extractPageTitle(html: string): PageTitle | null;
+  /**
  * True when a URL's own path says it points at an image (Rust `looks_like_image_url`).
  *
  * Used to decide whether a pasted link is a picture worth downloading. Browser
  * only: it needs the loaded wasm module, which the browser shell registers.
  */
-export function looksLikeImageUrl(url: string): boolean {
-  return rust().looksLikeImageUrl(url);
+  looksLikeImageUrl(url: string): boolean;
 }
