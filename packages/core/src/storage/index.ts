@@ -6,8 +6,3 @@ export type {
   IBlobRegistry,
   RegisterBlobInput,
 } from "./blob-registry-ports.js";
-export {
-  computeBlobEvictionScore,
-  rankForEviction,
-  type BlobTieringWeights,
-} from "./blob-tiering.js";

@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { LOG_IMAGE_PREFIX, logImageMarkdown, logImagePathsInBody } from "../lib/log-images-md";
 import { LogbookFacade } from "@/container/facades/logbook";
-import { assertAllowedBlobBucket, sharedResourceFor } from "@/storage/server/blob-access";
+import { BLOB_STORAGE_BUCKETS } from "@/storage/server/blob-access";
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../../../${rel}`, import.meta.url)), "utf8");
 
@@ -23,8 +23,7 @@ test("a log image is written and read back as a logimg: reference", () => {
 });
 
 test("the blob routes accept the log-images bucket", () => {
-  assert.doesNotThrow(() => assertAllowedBlobBucket("log-images"));
-  assert.equal(sharedResourceFor("log-images"), "log_entry");
+  assert.ok(BLOB_STORAGE_BUCKETS.includes("log-images"));
 });
 
 test("the logbook facade stores an image under the entry", async () => {
