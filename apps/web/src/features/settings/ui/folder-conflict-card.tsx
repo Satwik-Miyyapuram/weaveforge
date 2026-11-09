@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { type HunkPick, type ImportDiffEntry } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { type ImportDiffEntry } from "@weaveforge/core";
+import { readyCore, type HunkPick } from "@/lib/rust-core";
 import {
   keepBothTitle,
   type ConflictPicks,

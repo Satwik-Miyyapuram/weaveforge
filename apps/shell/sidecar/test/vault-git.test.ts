@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { GIT_OFF, type GitAuthor, type GitFileStatus, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
+import { type GitAuthor, type GitFileStatus, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
@@ -63,7 +63,8 @@ test("with the setting off, git is never started, not even to probe (M03)", asyn
     return { kind: "own" };
   });
   assert.equal(probed, 0);
-  assert.equal(result.reason, GIT_OFF);
+  // Literal: wf-core's GIT_OFF (git_gate.rs), returned by the Rust verdict.
+  assert.equal(result.reason, "Folder history is switched off.");
 });
 
 test("a folder inside someone else's repository is left alone, with a reason", async () => {

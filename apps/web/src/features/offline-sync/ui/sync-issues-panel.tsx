@@ -2,15 +2,7 @@
 
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Fragment, useState } from "react";
-import {
-  MARKER_OURS,
-  MARKER_THEIRS,
-  mergeHunks,
-  writeConflictMarkers,
-  type DiffLine,
-  type HunkPick,
-} from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { MARKER_OURS, MARKER_THEIRS, readyCore, type DiffLine, type HunkPick } from "@/lib/rust-core";
 import type { OpenConflict } from "../domain/conflicts";
 import { sameValue } from "../domain/merge";
 import { FormError } from "@/components/form-error";
@@ -224,7 +216,7 @@ function ConflictCard({
       const c = choices[f.field]!;
       if (c.kind === "local" || c.kind === "remote") picks[f.field] = c.kind;
       else if (c.kind === "edit") overrides[f.field] = c.text;
-      else overrides[f.field] = mergeHunks(text(f.local), text(f.remote), c.picks);
+      else overrides[f.field] = readyCore().mergeHunks(text(f.local), text(f.remote), c.picks);
     }
     setBusy(true);
     await runSyncAction(() => onResolve(picks, overrides), setError);
@@ -421,7 +413,7 @@ function isSettled(field: Field, choice?: Choice): boolean {
 
 /** Markers named for the two sides of a sync, not the folder import they were written for. */
 function deviceMarkers(ours: string, theirs: string): string {
-  return writeConflictMarkers(ours, theirs)
+  return readyCore().writeConflictMarkers(ours, theirs)
     .split("\n")
     .map((l) => (l === MARKER_OURS ? "<<<<<<< this device" : l === MARKER_THEIRS ? ">>>>>>> cloud" : l))
     .join("\n");

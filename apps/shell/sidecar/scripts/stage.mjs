@@ -70,6 +70,8 @@ export function stagePlan({ repo, out, nodeExe, nodeLicense, pgliteDir, platform
       from: path.join(pgliteDir, "dist", ...rel.split("/")),
       to: path.join(pgOut, "dist", ...rel.split("/")),
     })),
+    // The Rust core's wasm, initialised by main.ts; build packages/wf-wasm/pkg before staging.
+    { from: path.join(repo, "packages/wf-wasm/pkg/wf_wasm_bg.wasm"), to: path.join(sidecar, "wf_wasm_bg.wasm") },
     { from: nodeLic, to: path.join(notices, "node-LICENSE") },
     { from: pgLic, to: path.join(notices, "pglite-LICENSE") },
   ];

@@ -1,10 +1,10 @@
+import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
   flatPath,
   logPath,
   parseKindSuffix,
-  parseWorkspaceFolder,
   stripKindSuffix,
   treePaths,
 } from "../../src/index.js";
@@ -33,21 +33,21 @@ test("the title never keeps the suffix, and a dotted title never loses part of i
 });
 
 test("a folder written before suffixes existed still imports", () => {
-  const parsed = parseWorkspaceFolder({ "notes/hand-written.md": "Typed into the folder." });
+  const parsed = rust().parseWorkspaceFolder({ "notes/hand-written.md": "Typed into the folder." });
 
   assert.equal(parsed[0]!.type, "vault_page");
   assert.equal(parsed[0]!.title, "hand-written");
 });
 
 test("the directory outranks the suffix, because a moved file is where it sits", () => {
-  const parsed = parseWorkspaceFolder({ "notes/misfiled.paper.md": "Body." });
+  const parsed = rust().parseWorkspaceFolder({ "notes/misfiled.paper.md": "Body." });
 
   assert.equal(parsed[0]!.type, "vault_page");
   assert.equal(parsed[0]!.title, "misfiled");
 });
 
 test("a suffix rescues a file no directory speaks for", () => {
-  const parsed = parseWorkspaceFolder({ "inbox/idea.note.md": "Body." });
+  const parsed = rust().parseWorkspaceFolder({ "inbox/idea.note.md": "Body." });
 
   assert.equal(parsed[0]!.type, "vault_page");
   assert.equal(parsed[0]!.title, "idea");

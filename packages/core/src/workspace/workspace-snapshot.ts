@@ -171,16 +171,3 @@ export async function collectWorkspaceSnapshot(
   };
 }
 
-export function workspaceSnapshotCounts(snapshot: WorkspaceSnapshot): WorkspaceSnapshotCounts {
-  return {
-    papers: snapshot.papers.length,
-    notes: snapshot.vaultPages.length,
-    readingLists: snapshot.readingLists.length,
-    reportSections: snapshot.reportSections.length,
-    experiments: snapshot.experiments.length,
-    milestones: snapshot.milestones.length,
-    logEntries: snapshot.logEntries.length,
-    relations: snapshot.relations.length,
-    tags: snapshot.tags.length,
-  };
-}

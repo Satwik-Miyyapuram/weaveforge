@@ -1,3 +1,4 @@
+import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
@@ -5,19 +6,14 @@ import {
   projectDir,
   WORKSPACE_META_DIR,
   WorkspacePathError,
-  diffWorkspace,
   flatPath,
   fromRelativeBlobLinks,
   isSafeWorkspacePath,
   logPath,
-  parseWorkspaceFolder,
-  readFrontmatter,
   safeWorkspacePath,
-  serializeWorkspace,
   slugFor,
   toRelativeBlobLinks,
   treePaths,
-  writeFrontmatter,
   type ExistingEntity,
   type WorkspaceSnapshot,
 } from "../../src/index.js";
@@ -98,11 +94,11 @@ test("logbook is dated into year/month folders", () => {
 // ------------------------------------------------------------ frontmatter
 
 test("frontmatter round-trips scalars and lists", () => {
-  const text = writeFrontmatter(
+  const text = rust().writeFrontmatter(
     { "weaveforge-id": "n1", title: "A, B", tags: ["x", "y"], year: 2017, done: true },
     "Body",
   );
-  const parsed = readFrontmatter(text);
+  const parsed = rust().readFrontmatter(text);
 
   assert.equal(parsed.frontmatter["weaveforge-id"], "n1");
   assert.equal(parsed.frontmatter.title, "A, B");
@@ -113,14 +109,14 @@ test("frontmatter round-trips scalars and lists", () => {
 });
 
 test("a file with no frontmatter is all body, not an error", () => {
-  const parsed = readFrontmatter("Just prose.");
+  const parsed = rust().readFrontmatter("Just prose.");
 
   assert.deepEqual(parsed.frontmatter, {});
   assert.equal(parsed.body, "Just prose.");
 });
 
 test("empty lists and undefined fields are omitted rather than emitted empty", () => {
-  const text = writeFrontmatter({ a: "x", b: undefined, c: [] }, "");
+  const text = rust().writeFrontmatter({ a: "x", b: undefined, c: [] }, "");
 
   assert.match(text, /a: x/);
   assert.doesNotMatch(text, /b:/);
@@ -163,7 +159,7 @@ const at = (path: string) => `${ROOT}/${path}`;
 // -------------------------------------------------------------- round trip
 
 test("serialize → parse preserves id, type, title, and body", () => {
-  const files = serializeWorkspace(
+  const files = rust().serializeWorkspace(
     snapshot({
       vaultPages: [note(), note({ id: "n2", title: "Baselines", parentId: "n1", body: "Second." })],
       papers: [
@@ -180,7 +176,7 @@ test("serialize → parse preserves id, type, title, and body", () => {
     PROJECT,
   ).files;
 
-  const parsed = parseWorkspaceFolder(files);
+  const parsed = rust().parseWorkspaceFolder(files);
   const byId = new Map(parsed.map((entity) => [entity.id, entity]));
 
   assert.equal(parsed.length, 4);
@@ -196,23 +192,23 @@ test("serializing twice is byte-identical, so git diffs stay meaningful", () => 
   const input = snapshot({ vaultPages: [note(), note({ id: "n2", title: "Other" })] });
 
   assert.deepEqual(
-    serializeWorkspace(input, PROJECT).files,
-    serializeWorkspace(input, PROJECT).files,
+    rust().serializeWorkspace(input, PROJECT).files,
+    rust().serializeWorkspace(input, PROJECT).files,
   );
 });
 
 test("metadata and README are written but are not entities", () => {
-  const files = serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT).files;
+  const files = rust().serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT).files;
 
   // The project's own bookkeeping, beside its files rather than at the root.
   assert.ok(files[at(`${WORKSPACE_META_DIR}/manifest.json`)]);
   assert.ok(files["README.md"]);
-  assert.equal(parseWorkspaceFolder(files).length, 1, "only the note is an entity");
+  assert.equal(rust().parseWorkspaceFolder(files).length, 1, "only the note is an entity");
 });
 
 test("the folder can be written to a filesystem and read back", async () => {
   const fs = new MemoryWorkspaceFs(() => "2026-08-05T00:00:00.000Z");
-  const { files } = serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT);
+  const { files } = rust().serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT);
   for (const [path, content] of Object.entries(files)) await fs.writeFile(path, content);
 
   const seen: string[] = [];
@@ -229,18 +225,18 @@ const existing = (over: Partial<ExistingEntity> = {}): ExistingEntity => ({
 });
 
 function parsedFrom(snap: WorkspaceSnapshot) {
-  return parseWorkspaceFolder(serializeWorkspace(snap, PROJECT).files);
+  return rust().parseWorkspaceFolder(rust().serializeWorkspace(snap, PROJECT).files);
 }
 
 test("an unchanged folder reports no writes", () => {
-  const diff = diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
+  const diff = rust().diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
 
   assert.equal(diff.counts.unchanged, 1);
   assert.equal(diff.counts.updated, 0);
 });
 
 test("an edited body is an update", () => {
-  const diff = diffWorkspace(
+  const diff = rust().diffWorkspace(
     parsedFrom(snapshot({ vaultPages: [note({ body: "Edited." })] })),
     [existing()],
   );
@@ -249,24 +245,24 @@ test("an edited body is an update", () => {
 });
 
 test("an unknown id is a creation, not an overwrite", () => {
-  const diff = diffWorkspace(parsedFrom(snapshot({ vaultPages: [note({ id: "elsewhere" })] })), []);
+  const diff = rust().diffWorkspace(parsedFrom(snapshot({ vaultPages: [note({ id: "elsewhere" })] })), []);
 
   assert.equal(diff.counts.created, 1);
 });
 
 test("a file with no id imports as new rather than being rejected", () => {
-  const parsed = parseWorkspaceFolder({ "notes/hand-written.md": "Typed straight into the folder." });
+  const parsed = rust().parseWorkspaceFolder({ "notes/hand-written.md": "Typed straight into the folder." });
 
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0]!.id, undefined);
-  assert.equal(diffWorkspace(parsed, []).counts.created, 1);
+  assert.equal(rust().diffWorkspace(parsed, []).counts.created, 1);
 });
 
 test("an id claiming a different entity type is a conflict, never a write", () => {
   // The attack this blocks: a crafted file naming an existing note's id but
   // declaring itself a paper, to overwrite that note on import.
-  const parsed = parseWorkspaceFolder(
-    serializeWorkspace(
+  const parsed = rust().parseWorkspaceFolder(
+    rust().serializeWorkspace(
       snapshot({
         papers: [
           { id: "n1", title: "Impostor", authors: [], tags: [], createdAt: "", updatedAt: "" } as never,
@@ -276,7 +272,7 @@ test("an id claiming a different entity type is a conflict, never a write", () =
     ).files,
   );
 
-  const diff = diffWorkspace(parsed, [existing()]);
+  const diff = rust().diffWorkspace(parsed, [existing()]);
 
   assert.equal(diff.counts.conflict, 1);
   assert.equal(diff.counts.updated, 0);
@@ -284,7 +280,7 @@ test("an id claiming a different entity type is a conflict, never a write", () =
 });
 
 test("the diff never reports an action it cannot justify", () => {
-  const diff = diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
+  const diff = rust().diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
   const total = Object.values(diff.counts).reduce((sum, n) => sum + n, 0);
 
   assert.equal(total, diff.entries.length);
@@ -293,7 +289,7 @@ test("the diff never reports an action it cannot justify", () => {
 test("a file neither side touched is unchanged even when its parse is lossy", () => {
   const parsed = [{ id: "n1", type: "vault_page" as const, title: "Method", body: "Body text.​", path: "p.md", fields: {} }];
   const existing = [{ id: "n1", type: "vault_page" as const, title: "Method", body: "Body text." }];
-  const diff = diffWorkspace(parsed as never, existing, { origin: () => "neither" });
+  const diff = rust().diffWorkspace(parsed as never, existing, { origin: () => "neither" });
   assert.equal(diff.counts.updated, 0);
   assert.equal(diff.counts.unchanged, 1);
 });

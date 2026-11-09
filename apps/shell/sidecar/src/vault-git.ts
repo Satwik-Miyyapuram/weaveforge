@@ -6,15 +6,12 @@ import { promisify } from "node:util";
 import {
   checkGitRemoteUrl,
   errorMessage,
-  decideGitSyncPath,
-  decideVaultCommit,
   DEFAULT_SYNC_BRANCH,
-  describeChanges,
   GIT_SYNC_IGNORED_DIRS,
   GIT_SYNC_IGNORED_EXTENSIONS,
   GIT_SYNC_IGNORED_FILES,
   GIT_SYNC_LIMITS,
-  redactSecret,
+  rust,
   SYNC_AUTHOR,
   type GitAuthor,
   type GitFileStatus,
@@ -158,7 +155,7 @@ function basicAuth(token: string, username = "x-access-token"): string {
 
 /** Removes the token, and the header form it is sent in, from git's text. */
 export function redactAuth(text: string, token: string | undefined, username?: string): string {
-  return token ? redactSecret(redactSecret(text, token), basicAuth(token, username)) : text;
+  return token ? rust().redactSecret(rust().redactSecret(text, token), basicAuth(token, username)) : text;
 }
 
 /**
@@ -332,7 +329,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
           (stats) => stats.size,
           () => Number.NaN,
         );
-        return decideGitSyncPath(entry.path, size, this.maxFileBytes).include;
+        return rust().decideGitSyncPath(entry.path, size, this.maxFileBytes).include;
       }),
     );
     return all.filter((_, i) => kept[i]);
@@ -437,7 +434,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
       );
       // Gone from disk: a deletion, which always goes through.
       if (size === null) continue;
-      if (!decideGitSyncPath(file, size, this.maxFileBytes).include) refused.push(file);
+      if (!rust().decideGitSyncPath(file, size, this.maxFileBytes).include) refused.push(file);
     }
     if (refused.length > 0) {
       console.warn(`[vault-git] left out of the history: ${refused.join(", ").slice(0, 300)}`);
@@ -477,7 +474,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
         (stats) => stats.size,
         () => Number.NaN,
       );
-      if (decideGitSyncPath(file, size, this.maxFileBytes).include) continue;
+      if (rust().decideGitSyncPath(file, size, this.maxFileBytes).include) continue;
       (code === "A" ? added : modified).push(file);
     }
     for (const batch of chunks(added)) await git(this.place, ["rm", "--cached", "-q", "--", ...batch]);
@@ -623,7 +620,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   /** Local edits go into history before anything from the remote touches the folder. */
   private async commitPending(author: GitAuthor): Promise<void> {
     const status = await this.status();
-    if (status.length > 0) await this.commitAll(describeChanges(status), author);
+    if (status.length > 0) await this.commitAll(rust().describeChanges(status), author);
   }
 
   async log(options: { path?: string; limit?: number } = {}): Promise<readonly WorkspaceCommit[]> {
@@ -686,7 +683,7 @@ export async function commitVault(
   probe: (root: string) => Promise<VaultRepoState> = probeRepo,
 ): Promise<{ committed: WorkspaceCommit | null; reason?: string }> {
   // Off means no git at all: starting one costs seconds of main-thread time on Windows.
-  const verdict = decideVaultCommit(enabled, enabled ? await probe(root) : { kind: "none" });
+  const verdict = rust().decideVaultCommit(enabled, enabled ? await probe(root) : { kind: "none" });
   if (!verdict.ok) return { committed: null, reason: verdict.reason };
 
   try {
@@ -694,7 +691,7 @@ export async function commitVault(
       if (verdict.action === "init") await repo.init();
       const status = await repo.status();
       if (status.length === 0) return { committed: null };
-      return { committed: await repo.commitAll(describeChanges(status), MIRROR_AUTHOR) };
+      return { committed: await repo.commitAll(rust().describeChanges(status), MIRROR_AUTHOR) };
     });
   } catch (error) {
     return { committed: null, reason: gitReason(error) };
@@ -753,7 +750,7 @@ export async function syncVault(
   if (!(VAULT_SYNC_ACTIONS as readonly unknown[]).includes(action)) throw new Error(NOT_AN_ACTION);
   if (action === "settings") return base;
 
-  const verdict = decideVaultCommit(settings.enabled, settings.enabled ? await probe(root) : { kind: "none" });
+  const verdict = rust().decideVaultCommit(settings.enabled, settings.enabled ? await probe(root) : { kind: "none" });
   if (!verdict.ok) throw new Error(verdict.reason);
   const url = checkGitRemoteUrl(settings.url);
   if (!url.ok) throw new Error(url.reason);

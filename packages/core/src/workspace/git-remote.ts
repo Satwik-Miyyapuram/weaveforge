@@ -90,12 +90,6 @@ export function checkGitRemoteUrl(raw: unknown): GitRemoteUrlCheck {
   return { ok: true, url: url.toString() };
 }
 
-/** Removes a token from text before it is shown or logged (git echoes URLs and headers in errors). */
-export function redactSecret(text: string, secret: string | undefined): string {
-  if (!secret) return text;
-  return text.split(secret).join("***");
-}
-
 /** One line for the Settings panel. */
 export function describePull(result: GitPullResult): string {
   switch (result.kind) {

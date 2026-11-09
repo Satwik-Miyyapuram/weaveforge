@@ -15,7 +15,7 @@ import type {
   MergeFieldDispute,
   VaultPageBase,
 } from "@weaveforge/core";
-import type { HunkPick } from "@weaveforge/core";
+import type { HunkPick } from "@/lib/rust-core";
 import type { RustCore } from "@/lib/rust-core";
 
 /**

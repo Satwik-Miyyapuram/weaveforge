@@ -56,6 +56,14 @@ export class NotFoundError extends WeaveForgeError {}
 /** The write contradicts state that already exists. */
 export class ConflictError extends WeaveForgeError {}
 
+/** A workspace path escapes its root or is absolute. */
+export class WorkspacePathError extends ValidationError {
+  constructor(path: string) {
+    super(`Unsafe workspace path: ${path}`);
+    this.name = "WorkspacePathError";
+  }
+}
+
 /** Status codes, named so no route spells a number out. */
 export const ERROR_STATUS_BAD_REQUEST = 400;
 export const ERROR_STATUS_FORBIDDEN = 403;

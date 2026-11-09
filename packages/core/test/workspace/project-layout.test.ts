@@ -1,8 +1,7 @@
+import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  entityDir,
-  parseWorkspaceFolder,
   flatPath,
   logPath,
   paperHtmlPath,
@@ -39,7 +38,7 @@ test("every path an entity can have is inside its project", () => {
   assert.equal(paperPdfPath("p1", dir), `${ROOT}/papers/pdf/p1.pdf`);
   assert.equal(paperHtmlPath("p1", dir), `${ROOT}/papers/html/p1.html`);
   assert.equal(treePaths([{ id: "s1", title: "Results" }], "report_section", dir).get("s1"), `${ROOT}/report/results.report.md`);
-  assert.equal(entityDir("vault_page", dir), `${ROOT}/notes`);
+  assert.equal(rust().entityDir("vault_page", dir), `${ROOT}/notes`);
   assert.equal(projectMetaDir(dir), `${ROOT}/.weaveforge`);
 });
 
@@ -58,11 +57,11 @@ test("with no project the old paths are what they always were", () => {
   assert.equal(logPath("l1", "2026-03-14"), "logbook/2026/03/2026-03-14--l1.log.md");
   assert.equal(paperPdfPath("p1"), "papers/pdf/p1.pdf");
   assert.equal(treePaths([{ id: "s1", title: "Results" }], "report_section").get("s1"), "report/results.report.md");
-  assert.equal(entityDir("vault_page"), "notes");
+  assert.equal(rust().entityDir("vault_page"), "notes");
 });
 
 test("a hand-written file inside a project folder still imports", () => {
-  const parsed = parseWorkspaceFolder({ "msc-thesis--8d7317/notes/hand-written.md": "Typed into the folder." });
+  const parsed = rust().parseWorkspaceFolder({ "msc-thesis--8d7317/notes/hand-written.md": "Typed into the folder." });
 
   assert.equal(parsed[0]!.type, "vault_page");
   assert.equal(parsed[0]!.title, "hand-written");
@@ -70,7 +69,7 @@ test("a hand-written file inside a project folder still imports", () => {
 
 test("bookkeeping beside a project's files is never read as an entity", () => {
   assert.deepEqual(
-    parseWorkspaceFolder({
+    rust().parseWorkspaceFolder({
       "msc-thesis--8d7317/.weaveforge/notes.md": "See the notes.",
       ".weaveforge/notes.md": "And the root copy.",
       "msc-thesis--8d7317/README.md": "About this project.",
