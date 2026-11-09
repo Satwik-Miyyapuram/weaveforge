@@ -97,16 +97,3 @@ export class NoOpWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
 }
 
 const NO_HISTORY = "Syncing with a remote needs folder history switched on.";
-
-/** A commit message describing what changed, for the automatic mirror commits. */
-export function describeChanges(status: readonly GitFileStatus[]): string {
-  if (status.length === 0) return "No changes";
-  const counts = { added: 0, modified: 0, deleted: 0 };
-  for (const entry of status) counts[entry.state] += 1;
-
-  const parts: string[] = [];
-  if (counts.added) parts.push(`${counts.added} added`);
-  if (counts.modified) parts.push(`${counts.modified} changed`);
-  if (counts.deleted) parts.push(`${counts.deleted} removed`);
-  return parts.join(", ");
-}

@@ -12,9 +12,7 @@ import { digestText } from "./change-origin.js";
 import type { IWorkspaceFs } from "./fs-port.js";
 import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
 import type { WorkspaceProject } from "./folder-layout.js";
-import { vaultPageBase, type VaultPageBase } from "./merge-vault-page.js";
-import { serializeWorkspace } from "./serialize-workspace.js";
-import { isAppOwnedPath } from "./json-entities.js";
+import { rust, type VaultPageBase } from "../shared/rust.js";
 
 export interface MirrorResult {
   written: string[];
@@ -94,7 +92,7 @@ export async function mirrorWorkspace(
     fetchAsset?(storagePath: string): Promise<Uint8Array | null>;
   },
 ): Promise<MirrorResult> {
-  const { files, assets } = serializeWorkspace(snapshot, options.project);
+  const { files, assets } = rust().serializeWorkspace(snapshot, options.project);
   const written: string[] = [];
   const removed: string[] = [];
   const heldBack: string[] = [];
@@ -123,7 +121,7 @@ export async function mirrorWorkspace(
 
   for (const [path, content] of Object.entries(files)) {
     mirrored[path] = digestText(content);
-    const noteBase = vaultPageBase(path, content);
+    const noteBase = rust().vaultPageBase(path, content);
     if (noteBase) bases[path] = noteBase;
     // One read answers "is it there" and "what does it say"; null is missing.
     const current = await fs.readText(path).catch(() => null);
@@ -137,7 +135,7 @@ export async function mirrorWorkspace(
       // wrote this path before and the file has moved on since, that difference
       // is the reader's edit: leave it, and say so.
       // The root README is shared by every project's mirror, so it never matches one project's base.
-      if (!isAppOwnedPath(path) && (await editedSinceBase(path, content, current))) {
+      if (!rust().isAppOwnedPath(path) &&(await editedSinceBase(path, content, current))) {
         hold(path);
         continue;
       }

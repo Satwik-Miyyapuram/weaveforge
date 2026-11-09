@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { simplifyPathIndices } from "../../src/reader/ink-stroke.js";
-import { readFrontmatter, writeFrontmatter } from "../../src/workspace/frontmatter.js";
+import { rust } from "../../src/shared/rust.js";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
@@ -52,7 +52,7 @@ test("ink metadata round-trips through the frontmatter the workspace writes", ()
     engine: "windows-ink@1",
     hand: "left" as const,
   };
-  const file = writeFrontmatter(
+  const file = rust().writeFrontmatter(
     {
       "weaveforge-id": "01JNOTE",
       "weaveforge-type": INK_NOTE_TYPE,
@@ -61,15 +61,15 @@ test("ink metadata round-trips through the frontmatter the workspace writes", ()
     },
     "Drop the β sweep.\n",
   );
-  const { frontmatter, body } = readFrontmatter(file);
+  const { frontmatter, body } = rust().readFrontmatter(file);
   assert.equal(isInkNoteFrontmatter(frontmatter), true);
   assert.deepEqual(readInkNoteMeta(frontmatter), meta);
   assert.equal(body, "Drop the β sweep.\n");
 });
 
 test("a note with no ink keys is a valid empty ink note: one blank page", () => {
-  const { frontmatter } = readFrontmatter(
-    writeFrontmatter({ "weaveforge-type": INK_NOTE_TYPE, title: "Untitled" }, ""),
+  const { frontmatter } = rust().readFrontmatter(
+    rust().writeFrontmatter({ "weaveforge-type": INK_NOTE_TYPE, title: "Untitled" }, ""),
   );
   const meta = readInkNoteMeta(frontmatter);
   assert.deepEqual(meta, defaultInkNoteMeta());
@@ -82,7 +82,7 @@ test("a note with no ink keys is a valid empty ink note: one blank page", () => 
 });
 
 test("nonsense in the ink keys is read as the default rather than trusted", () => {
-  const { frontmatter } = readFrontmatter(
+  const { frontmatter } = rust().readFrontmatter(
     [
       "---",
       "weaveforge-type: ink_page",
@@ -104,7 +104,7 @@ test("nonsense in the ink keys is read as the default rather than trusted", () =
 });
 
 test("the page count is capped at the fifty pages a note may hold", () => {
-  const { frontmatter } = readFrontmatter(
+  const { frontmatter } = rust().readFrontmatter(
     ["---", "weaveforge-type: ink_page", `ink-pages: ${INK_NOTE_MAX_PAGES + 20}`, "---", ""].join("\n"),
   );
   assert.equal(readInkNoteMeta(frontmatter).pages, INK_NOTE_MAX_PAGES);
@@ -266,7 +266,6 @@ test("a page size that could not fit an Int16 coordinate is clamped", () => {
  * ---------------------------------------------------------------------- */
 
 import { isInkNoteBody, readInkNoteBody, writeInkNoteBody } from "../../src/ink/ink-note.js";
-import { serializeWorkspace } from "../../src/workspace/serialize-workspace.js";
 import { parseWorkspaceFile } from "../../src/workspace/deserialize-workspace.js";
 
 test("the body header round-trips the ink metadata and leaves the text layer alone", () => {
@@ -305,7 +304,7 @@ test("a plain body reads as an empty ink note, which is what a note never inked 
 test("the mirror lifts the header into frontmatter and folds it back on import", () => {
   const meta = { ...defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"], recognised: 0.5 };
   const body = writeInkNoteBody(meta, "hello");
-  const out = serializeWorkspace({
+  const out = rust().serializeWorkspace({
     papers: [],
     vaultPages: [
       {

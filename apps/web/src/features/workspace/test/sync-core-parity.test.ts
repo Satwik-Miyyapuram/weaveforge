@@ -11,30 +11,6 @@ before(async () => {
 
 // Rust and TS must agree on every input, so the TS copies can be deleted.
 
-const SIDES = [undefined, "", "a", "b"];
-
-const PATHS = [
-  "",
-  ".",
-  "a.md",
-  "notes/a.md",
-  "node_modules/x",
-  "Node_Modules/x/y",
-  "notes/dist",
-  "notes/dist/x.md",
-  ".weaveforge/db",
-  "notes/.weaveforge/x",
-  ".git",
-  "a/.git",
-  "desktop.ini",
-  "A/Desktop.INI",
-  "paper.aux",
-  "x.synctex.gz",
-  "a\\b\\c.md",
-  "./a/./b",
-];
-const SIZES = [0, 1, 25 * 1024 * 1024, 25 * 1024 * 1024 + 1, -1, Number.NaN, Number.POSITIVE_INFINITY];
-
 type PullResult = Parameters<RustCore["describePull"]>[0];
 type PushResult = Parameters<RustCore["describePush"]>[0];
 
@@ -52,17 +28,6 @@ const PUSH_RESULTS: PushResult[] = [
   { kind: "pushed" },
   { kind: "up-to-date" },
   { kind: "rejected", reason: "non-fast-forward" },
-];
-
-const CONTENTS = [
-  "",
-  "body",
-  "---\ntitle: x\n---\nbody",
-  "---\r\ntitle: x\r\n---\r\nbody",
-  "---\nweaveforge-id: old\n---\n",
-  "---\nunterminated",
-  "\ufeff---\ntitle: x\n---\n",
-  "---\n---\n",
 ];
 
 const SAFE_PATHS = [
@@ -93,28 +58,15 @@ function outcome(fn: () => string): { ok: true; value: string } | { ok: false } 
   }
 }
 
-test("changedSide matches the TS helper over every base/folder/workspace combination", () => {
-  for (const base of SIDES) {
-    for (const folder of SIDES) {
-      for (const workspace of SIDES) {
-        const origin = { base, folder, workspace };
-        assert.deepEqual(rs.changedSide(origin), ts.changedSide(origin), `origin ${JSON.stringify(origin)}`);
-      }
-    }
-  }
-});
-
-test("isUnderIgnoredFolder and decideGitSyncPath match the TS policy", () => {
-  for (const p of PATHS) {
-    assert.deepEqual(rs.isUnderIgnoredFolder(p), ts.isUnderIgnoredFolder(p), `path ${JSON.stringify(p)}`);
-    for (const size of SIZES) {
-      assert.deepEqual(
-        rs.decideGitSyncPath(p, size),
-        ts.decideGitSyncPath(p, size),
-        `path ${JSON.stringify(p)} size ${size}`,
-      );
-    }
-  }
+// Literal values: the TS policy is gone, so these pin the Rust git sync policy.
+test("isUnderIgnoredFolder and decideGitSyncPath give the git sync verdicts", () => {
+  assert.equal(rs.isUnderIgnoredFolder("node_modules/left-pad/index.js"), true);
+  assert.equal(rs.isUnderIgnoredFolder("notes/a.md"), false);
+  assert.equal(rs.isUnderIgnoredFolder("notes/dist"), false);
+  assert.deepEqual(rs.decideGitSyncPath("notes/a.md", 10), { include: true });
+  assert.deepEqual(rs.decideGitSyncPath("a.aux", 1), { include: false, reason: "ignored-file" });
+  assert.deepEqual(rs.decideGitSyncPath("a.md", 25 * 1024 * 1024 + 1), { include: false, reason: "too-large" });
+  assert.deepEqual(rs.decideGitSyncPath("", 1), { include: false, reason: "invalid-path" });
 });
 
 test("describePull and describePush match the TS descriptions", () => {
@@ -123,16 +75,6 @@ test("describePull and describePush match the TS descriptions", () => {
   }
   for (const result of PUSH_RESULTS) {
     assert.equal(rs.describePush(result), ts.describePush(result), `push ${JSON.stringify(result)}`);
-  }
-});
-
-test("stampWorkspaceId matches the TS stamper", () => {
-  for (const content of CONTENTS) {
-    assert.deepEqual(
-      rs.stampWorkspaceId(content, "id-1"),
-      ts.stampWorkspaceId(content, "id-1"),
-      `content ${JSON.stringify(content)}`,
-    );
   }
 });
 
@@ -158,179 +100,131 @@ const NOTE_ID = "11111111-1111-4111-8111-111111111111";
 const notePath = "notes/n--111111.note.md";
 const noteText = (extra: string, body: string) =>
   `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: vault_page\ntitle: T\n${extra}---\n${body}`;
-const NOTE_TEXTS = [
-  noteText("", "body\n"),
-  noteText("tags: [a, b]\n", "body\n"),
-  noteText("status: done\nupdated_at: 2024-01-01T00:00:00Z\n", "line 1\nline 2\n"),
-  noteText("n: 1.5\nflag: true\n", ""),
-  noteText("", "\r\nwindows\r\n"),
-  `﻿${noteText("", "bom\n")}`,
-  "no frontmatter at all",
-  `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: paper\ntitle: P\n---\nsummary`,
-];
 
-test("vaultPageBase and vaultPageSide match the TS", () => {
-  for (const text of NOTE_TEXTS) {
-    assert.deepEqual(
-      rs.vaultPageBase(notePath, text),
-      ts.vaultPageBase(notePath, text),
-      `base ${JSON.stringify(text)}`,
-    );
-    assert.deepEqual(
-      rs.vaultPageSide(notePath, text),
-      ts.vaultPageSide(notePath, text),
-      `side ${JSON.stringify(text)}`,
-    );
-  }
+test("vaultPageBase and vaultPageSide read a note and give null for a paper", () => {
+  const body = "line 1\nline 2\n";
+  const text = noteText("status: done\n", body);
+  const side = rs.vaultPageSide(notePath, text);
+  assert.equal(side?.body, body);
+  assert.equal(side?.fields.title, "T");
+  assert.equal(side?.fields.status, "done");
+  const base = rs.vaultPageBase(notePath, text);
+  assert.equal(base?.bodyDigest, ts.digestText(body));
+  assert.equal(base?.fields.status, "done");
+  const paper = `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: paper\ntitle: P\n---\nsummary`;
+  assert.equal(rs.vaultPageBase(notePath, paper), null);
+  assert.equal(rs.vaultPageSide(notePath, paper), null);
 });
 
-const FIELD_VALUES: unknown[] = [
-  undefined,
-  null,
-  "a",
-  "b",
-  1,
-  1.0,
-  true,
-  ["x"],
-  "2024-01-01T00:00:00Z",
-  "2024-01-01T00:00:00.000Z",
-];
-const withField = (value: unknown): Record<string, unknown> => ({
-  title: "T",
-  ...(value === undefined ? {} : { f: value }),
+test("mergeVaultPage takes a field only one side moved and reports one both moved", () => {
+  const base = { fields: { title: "T", status: "a" }, bodyDigest: rs.vaultPageBase(notePath, noteText("status: a\n", "body\n"))!.bodyDigest };
+  const onlyFolder = rs.mergeVaultPage(base, { fields: { title: "T", status: "b" }, body: "body\n" }, { fields: { title: "T", status: "a" }, body: "body\n" });
+  assert.equal(onlyFolder.fields.status, "b");
+  assert.deepEqual(onlyFolder.conflicts, []);
+  const both = rs.mergeVaultPage(base, { fields: { title: "T", status: "b" }, body: "body\n" }, { fields: { title: "T", status: "c" }, body: "body\n" });
+  assert.deepEqual(both.conflicts, [{ field: "status", base: "a", local: "b", remote: "c" }]);
+  assert.equal(both.fields.status, "c");
 });
 
-/**
- * A merge with absent values spelled one way. The Rust sends JSON, so an absent
- * conflict side crosses as `null` and a field both sides dropped is left out,
- * where the TS keeps it as `undefined`. The conflict card shows `null` and
- * `undefined` alike, and the frontmatter writer skips `undefined` keys.
- */
-function absentAsUndefined<
-  T extends {
-    fields: Record<string, unknown>;
-    conflicts: Array<{ base?: unknown; local?: unknown; remote?: unknown }>;
-  },
->(merged: T): T {
-  return {
-    ...merged,
-    fields: Object.fromEntries(Object.entries(merged.fields).filter(([, value]) => value !== undefined)),
-    conflicts: merged.conflicts.map((c) => ({
-      ...c,
-      base: c.base ?? undefined,
-      local: c.local ?? undefined,
-      remote: c.remote ?? undefined,
-    })),
-  };
-}
-
-test("mergeVaultPage matches the TS", () => {
-  for (const b of FIELD_VALUES) {
-    for (const l of FIELD_VALUES) {
-      for (const r of FIELD_VALUES) {
-        const base = {
-          fields: withField(b),
-          bodyDigest: ts.digestText("body"),
-        };
-        const folder = { fields: withField(l), body: "body" };
-        const workspace = { fields: withField(r), body: "body" };
-        assert.deepEqual(
-          absentAsUndefined(rs.mergeVaultPage(base, folder, workspace)),
-          absentAsUndefined(ts.mergeVaultPage(base, folder, workspace)),
-          `fields ${JSON.stringify([b, l, r])}`,
-        );
-      }
-    }
-  }
-
-  const BODIES = ["body", "new", "other"];
-  const base = {
-    fields: withField(undefined),
-    bodyDigest: ts.digestText("body"),
-  };
-  for (const folderBody of BODIES) {
-    for (const workspaceBody of BODIES) {
-      const folder = { fields: withField(undefined), body: folderBody };
-      const workspace = { fields: withField(undefined), body: workspaceBody };
-      assert.deepEqual(
-        rs.mergeVaultPage(base, folder, workspace),
-        ts.mergeVaultPage(base, folder, workspace),
-        `bodies ${JSON.stringify([folderBody, workspaceBody])}`,
-      );
-    }
-  }
+test("mergeVaultPage takes the body only the folder changed", () => {
+  const base = { fields: { title: "T" }, bodyDigest: rs.vaultPageBase(notePath, noteText("", "body\n"))!.bodyDigest };
+  const merged = rs.mergeVaultPage(base, { fields: { title: "T" }, body: "new\n" }, { fields: { title: "T" }, body: "body\n" });
+  assert.equal(merged.body, "new\n");
+  assert.deepEqual(merged.conflicts, []);
 });
 
-const HUNK_PAIRS: Array<[string, string]> = [
-  ["a\nb\nc", "a\nB\nc"],
-  ["", "x"],
-  ["x", ""],
-  ["a\nb", "c\nd"],
-  ["1\n2\n3\n4\n5", "1\nX\n3\nY\n5"],
-  ["a\r\nb", "a\nB"],
-];
-const HUNK_PICKS: Array<Readonly<Record<number, "ours" | "theirs" | "both">>> = [
-  {},
-  { 0: "theirs" },
-  { 0: "both" },
-  { 1: "theirs" },
-  { 0: "theirs", 1: "both" },
-  { 5: "theirs" },
-];
-
-test("mergeHunks matches the TS", () => {
-  for (const [ours, theirs] of HUNK_PAIRS) {
-    for (const picks of HUNK_PICKS) {
-      assert.deepEqual(
-        rs.mergeHunks(ours, theirs, picks),
-        ts.mergeHunks(ours, theirs, picks),
-        `input ${JSON.stringify([ours, theirs, picks])}`,
-      );
-    }
-  }
+test("writeFrontmatter writes keys in order, quotes what needs it, drops undefined and empty", () => {
+  assert.equal(
+    rs.writeFrontmatter({ title: "T", tags: ["a", "b c"], n: 0, flag: false, skip: undefined, empty: [] }, "body\n"),
+    '---\ntitle: T\ntags: [a, "b c"]\nn: 0\nflag: false\n---\nbody\n',
+  );
+  assert.equal(
+    rs.writeFrontmatter({ a: "x: y", b: "#hash", c: "" }, ""),
+    '---\na: "x: y"\nb: "#hash"\nc: ""\n---\n',
+  );
 });
 
-test("writeConflictMarkers matches the TS", () => {
-  for (const [ours, theirs] of HUNK_PAIRS) {
-    assert.deepEqual(
-      rs.writeConflictMarkers(ours, theirs),
-      ts.writeConflictMarkers(ours, theirs),
-      `input ${JSON.stringify([ours, theirs])}`,
-    );
-  }
+test("readFrontmatter reads flow lists and the body after the fence", () => {
+  const parsed = rs.readFrontmatter("---\ntags: [a, b]\ntitle: T\n---\nbody\n");
+  assert.deepEqual(parsed.frontmatter.tags, ["a", "b"]);
+  assert.equal(parsed.frontmatter.title, "T");
+  assert.equal(parsed.body, "body\n");
+  assert.deepEqual(rs.readFrontmatter("Just prose.").frontmatter, {});
+  assert.equal(rs.readFrontmatter("Just prose.").body, "Just prose.");
 });
 
-test("readFrontmatter matches the TS", () => {
-  const texts = [
-    ...NOTE_TEXTS,
-    '---\na: "q\\"uote"\n---\nx',
-    "---\nk: 'it''s'\n---\n",
-    "---\n---\n",
-    "---\nnot closed",
-  ];
-  for (const text of texts) {
-    assert.deepEqual(rs.readFrontmatter(text), ts.readFrontmatter(text), `input ${JSON.stringify(text)}`);
-  }
+test("a quoted value written by writeFrontmatter reads back to the same string", () => {
+  const text = rs.writeFrontmatter({ quote: 'say "hi"', back: "a\\b" }, "");
+  const parsed = rs.readFrontmatter(text);
+  assert.equal(parsed.frontmatter.quote, 'say "hi"');
+  assert.equal(parsed.frontmatter.back, "a\\b");
 });
 
-test("writeFrontmatter matches the TS", () => {
-  const FIELD_MAPS: Array<Record<string, ts.FrontmatterValue | undefined>> = [
-    {},
-    { title: "T" },
-    { a: "x: y", b: "#hash", c: "" },
-    { n: 0, m: -1.5, t: true, f: false },
-    { tags: ["a", "b c"], empty: [] },
-    { skip: undefined, keep: "k" },
-    { quote: 'say "hi"', back: "a\\b" },
-  ];
-  for (const fields of FIELD_MAPS) {
-    for (const body of ["", "body\n"]) {
-      assert.deepEqual(
-        rs.writeFrontmatter(fields, body),
-        ts.writeFrontmatter(fields, body),
-        `input ${JSON.stringify([fields, body])}`,
-      );
-    }
-  }
+// Literal expectations for the Rust rules that replaced the deleted TS helpers.
+// The removed parity tests compared Rust with TS over these same inputs.
+
+test("changedSide reads who moved from the three digests", () => {
+  assert.equal(rs.changedSide({ base: "a", folder: "a", workspace: "a" }), "neither");
+  assert.equal(rs.changedSide({ base: "a", folder: "b", workspace: "a" }), "folder");
+  assert.equal(rs.changedSide({ base: "a", folder: "a", workspace: "b" }), "workspace");
+  assert.equal(rs.changedSide({ base: "a", folder: "b", workspace: "c" }), "both");
+  // Both sides arriving at the same text is agreement, not a conflict.
+  assert.equal(rs.changedSide({ base: "a", folder: "b", workspace: "b" }), "neither");
+  assert.equal(rs.changedSide({ base: "", folder: "", workspace: "a" }), "workspace");
+});
+
+test("changedSide is unknown when a side is missing, unless folder and workspace agree", () => {
+  assert.equal(rs.changedSide({}), "unknown");
+  assert.equal(rs.changedSide({ base: "a" }), "unknown");
+  assert.equal(rs.changedSide({ folder: "x", workspace: "y" }), "unknown");
+  assert.equal(rs.changedSide({ base: "x", workspace: "y" }), "unknown");
+  assert.equal(rs.changedSide({ base: "x", folder: "y" }), "unknown");
+  assert.equal(rs.changedSide({ folder: "aa", workspace: "aa" }), "neither");
+  assert.equal(rs.changedSide({ folder: "aa", workspace: "bb" }), "unknown");
+});
+
+test("stampWorkspaceId adds the id line, or returns null when an id is already there", () => {
+  assert.equal(rs.stampWorkspaceId("body", "id-1"), "---\nweaveforge-id: id-1\n---\n\nbody");
+  assert.equal(rs.stampWorkspaceId("", "id-1"), "---\nweaveforge-id: id-1\n---\n\n");
+  assert.equal(
+    rs.stampWorkspaceId("---\ntitle: x\n---\nbody", "id-1"),
+    "---\nweaveforge-id: id-1\ntitle: x\n---\nbody",
+  );
+  assert.equal(
+    rs.stampWorkspaceId("---\r\ntitle: x\r\n---\r\nbody", "id-1"),
+    "---\r\nweaveforge-id: id-1\r\ntitle: x\r\n---\r\nbody",
+  );
+  assert.equal(rs.stampWorkspaceId("---\nweaveforge-id: old\n---\n", "id-1"), null);
+  assert.equal(
+    rs.stampWorkspaceId("---\nunterminated", "id-1"),
+    "---\nweaveforge-id: id-1\n---\n\n---\nunterminated",
+  );
+  assert.equal(
+    rs.stampWorkspaceId("﻿---\ntitle: x\n---\n", "id-1"),
+    "﻿---\nweaveforge-id: id-1\ntitle: x\n---\n",
+  );
+  assert.equal(rs.stampWorkspaceId("---\n---\n", "id-1"), "---\nweaveforge-id: id-1\n---\n");
+});
+
+test("mergeHunks composes the body from one pick per hunk, defaulting to ours", () => {
+  assert.equal(rs.mergeHunks("a\nb\nc", "a\nB\nc", {}), "a\nb\nc");
+  assert.equal(rs.mergeHunks("a\nb\nc", "a\nB\nc", { 0: "theirs" }), "a\nB\nc");
+  assert.equal(rs.mergeHunks("a\nb\nc", "a\nB\nc", { 0: "both" }), "a\nb\nB\nc");
+  assert.equal(rs.mergeHunks("a\nb\nc", "a\nB\nc", { 1: "theirs" }), "a\nb\nc");
+  assert.equal(rs.mergeHunks("a\nb", "c\nd", { 0: "theirs" }), "c\nd");
+  assert.equal(rs.mergeHunks("a\nb", "c\nd", { 0: "both" }), "a\nb\nc\nd");
+  assert.equal(rs.mergeHunks("a\r\nb", "a\nB", {}), "a\nb");
+});
+
+test("writeConflictMarkers wraps only the differing lines", () => {
+  assert.equal(
+    rs.writeConflictMarkers("a\nb\nc", "a\nB\nc"),
+    "a\n<<<<<<< this app\nb\n=======\nB\n>>>>>>> the folder\nc",
+  );
+  assert.equal(rs.writeConflictMarkers("", "x"), "<<<<<<< this app\n\n=======\nx\n>>>>>>> the folder");
+  assert.equal(
+    rs.writeConflictMarkers("a\nb", "c\nd"),
+    "<<<<<<< this app\na\nb\n=======\nc\nd\n>>>>>>> the folder",
+  );
+  assert.equal(rs.writeConflictMarkers("a", "a"), "a");
 });

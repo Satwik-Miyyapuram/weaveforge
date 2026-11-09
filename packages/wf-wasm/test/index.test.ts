@@ -17,8 +17,11 @@ import {
   describePush,
   diffBody,
   entityDir,
+  decideVaultCommit,
+  describeChanges,
   extractDoi,
   extractPageMetadata,
+  redactSecret,
   fuseRankings,
   GIT_SYNC_MAX_FILE_BYTES,
   guessBlobContentType,
@@ -344,6 +347,34 @@ test("decideGitSyncPath includes normal files and names the skip reason", () => 
   assert.deepEqual(decideGitSyncPath("a.md", GIT_SYNC_MAX_FILE_BYTES + 1), { include: false, reason: "too-large" });
   assert.deepEqual(decideGitSyncPath("", 1), { include: false, reason: "invalid-path" });
   assert.deepEqual(decideGitSyncPath("a.md", Number.NaN), { include: false, reason: "too-large" });
+});
+
+test("decideVaultCommit gives the Rust verdict for each repo state", () => {
+  assert.deepEqual(decideVaultCommit(false, { kind: "own" }), { ok: false, reason: "Folder history is switched off." });
+  assert.deepEqual(decideVaultCommit(true, { kind: "own" }), { ok: true, action: "commit" });
+  assert.deepEqual(decideVaultCommit(true, { kind: "none" }), { ok: true, action: "init" });
+  const enclosed = decideVaultCommit(true, { kind: "enclosing", root: "/home/me/thesis" });
+  assert.equal(enclosed.ok, false);
+  assert.match(enclosed.ok ? "" : enclosed.reason, /\/home\/me\/thesis/);
+});
+
+test("redactSecret replaces every occurrence of the token and ignores an empty secret", () => {
+  assert.equal(redactSecret("auth abc failed for abc", "abc"), "auth *** failed for ***");
+  assert.equal(redactSecret("nothing here", undefined), "nothing here");
+  assert.equal(redactSecret("nothing here", ""), "nothing here");
+});
+
+test("describeChanges counts each state in a fixed order", () => {
+  assert.equal(describeChanges([]), "No changes");
+  assert.equal(
+    describeChanges([
+      { state: "added" },
+      { state: "modified" },
+      { state: "modified" },
+      { state: "deleted" },
+    ]),
+    "1 added, 2 changed, 1 removed",
+  );
 });
 
 test("describePull and describePush give one settings line", () => {

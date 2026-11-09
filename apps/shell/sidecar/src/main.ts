@@ -2,8 +2,9 @@ import { Console } from "node:console";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { errorMessage } from "@weaveforge/core";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { errorMessage, setRustCore } from "@weaveforge/core";
+import * as rustWasm from "@weaveforge/wasm";
 import type { LocalDbHost } from "./local-db-host";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
 import { BACKUP_EVERY_MS, createLifecycle } from "./lifecycle";
@@ -152,6 +153,9 @@ async function main(): Promise<void> {
     return;
   }
   const { dataDir, migrations, backupsDir, migrateFrom } = parsed;
+  // The Rust core, registered before any handler runs. The .wasm sits beside main.mjs in the staged layout (stage.mjs).
+  rustWasm.initSync({ module: fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "wf_wasm_bg.wasm")) });
+  setRustCore(rustWasm as never);
 
   if (migrateFrom !== undefined && !migrateOldData(migrateFrom, path.dirname(dataDir))) return;
   fs.mkdirSync(path.dirname(dataDir), { recursive: true });

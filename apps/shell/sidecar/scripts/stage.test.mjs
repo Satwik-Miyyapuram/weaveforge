@@ -78,6 +78,7 @@ test("stagePlan lays out migrations, mcp, pglite and notices", (t) => {
     `${pg}dist/index.js`,
     `${pg}package.json`,
   ]);
+  assert.ok(to.includes("sidecar/wf_wasm_bg.wasm"));
   assert.ok(to.includes("sidecar/notices/node-LICENSE"));
   assert.ok(to.includes("sidecar/notices/pglite-LICENSE"));
   const mcp = plan.find((s) => s.to.endsWith("weaveforge-mcp.mjs"));

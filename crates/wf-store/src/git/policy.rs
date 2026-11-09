@@ -1,7 +1,7 @@
 //! Which workspace paths may enter folder history, and whether a folder may be committed to.
 //!
-//! Ported from `packages/core/src/workspace/git-sync-policy.ts`, `git-gate.ts` and
-//! `describeChanges` in `git-port.ts`; the TypeScript stays the reference until the port lands.
+//! Ported from `packages/core/src/workspace/git-sync-policy.ts` and `git-gate.ts`; the
+//! TypeScript stays the reference until the port lands. `describe_changes` is in wf-core.
 
 use wf_core::workspace::WORKSPACE_META_DIR;
 
@@ -143,36 +143,5 @@ pub fn decide_commit(enabled: bool, state: &RepoState) -> Result<CommitAction, S
     }
 }
 
-/// One file's change since the last commit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FileState {
-    /// New file.
-    Added,
-    /// Existing file with new content.
-    Modified,
-    /// File that is gone.
-    Deleted,
-}
-
-/// A commit message describing the changes, for the automatic mirror commits.
-#[must_use]
-pub fn describe_changes(states: &[FileState]) -> String {
-    if states.is_empty() {
-        return "No changes".to_owned();
-    }
-    let count = |want: FileState| states.iter().filter(|state| **state == want).count();
-    let mut parts = Vec::new();
-    let added = count(FileState::Added);
-    let changed = count(FileState::Modified);
-    let removed = count(FileState::Deleted);
-    if added > 0 {
-        parts.push(format!("{added} added"));
-    }
-    if changed > 0 {
-        parts.push(format!("{changed} changed"));
-    }
-    if removed > 0 {
-        parts.push(format!("{removed} removed"));
-    }
-    parts.join(", ")
-}
+// `FileState` and `describe_changes` live in wf-core (pure, wasm-reachable); re-exported here for wf-store callers.
+pub use wf_core::sync::git_policy::{FileState, describe_changes};
