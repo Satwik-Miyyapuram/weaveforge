@@ -10,7 +10,7 @@ import java.time.temporal.ChronoUnit
  * the `widget.json` it reads, and the words it shows. Kept free of Android
  * types so the rules are a plain JVM test, like [InkGestureRouter].
  *
- * The data is the plan feed's `widget.json` (`packages/core/src/plan-feed.ts`,
+ * The data is the plan feed's `widget.json` (`crates/wf-core/src/plan/feed.rs`,
  * `planWidgetData`): the same file a Rainmeter skin or a wallpaper page reads.
  */
 object PlanWidgetModel {

@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rankCitationAlerts, type CitationCandidate } from "@weaveforge/core";
+import type { CitationCandidate } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 import { SemanticScholarCitationSource } from "../infrastructure/semantic-scholar-citation-source";
+const rankCitationAlerts = <T extends CitationCandidate>(c: readonly T[]): T[] => typedCore().rankCitationAlerts(c);
 
 test("Semantic Scholar incoming citations page and map stable candidates", async () => {
   const urls: string[] = [];

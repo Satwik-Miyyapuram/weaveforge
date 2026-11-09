@@ -48,6 +48,7 @@ import type { PageTitleFns } from "./../net/page-title.js";
 import type { PaperRelationFns } from "./../features/relations/domain/paper-relation.js";
 import type { PersonalizedPagerankFns } from "./../search/personalized-pagerank.js";
 import type { PrismaFigureFns } from "./../features/report/domain/prisma-figure.js";
+import type { RankCitationAlertsFns } from "./../features/relations/application/rank-citation-alerts.js";
 import type { PrivacyDisclaimerFns } from "./../features/settings/domain/privacy-disclaimer.js";
 import type { ProjectPathFns } from "./../features/report/domain/project-path.js";
 import type { ReaderAnnotationFns } from "./../reader/reader-annotation.js";
@@ -129,6 +130,7 @@ export interface CoreContract
     PaperRelationFns,
     PersonalizedPagerankFns,
     PrismaFigureFns,
+    RankCitationAlertsFns,
     PrivacyDisclaimerFns,
     ProjectPathFns,
     ReaderAnnotationFns,

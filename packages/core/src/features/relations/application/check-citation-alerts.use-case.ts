@@ -5,7 +5,7 @@ import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
 import type { Paper } from "../../papers/domain/paper.js";
 import type { ICitationAlertTrackRepository } from "../domain/citation-alert-track-repository.js";
 import type { CitationCandidate, ICitationSource } from "./citation-source.js";
-import { rankCitationAlerts } from "./rank-citation-alerts.js";
+import { rust } from "../../../shared/rust.js";
 import { paperRef } from "./paper-ref.js";
 import { NotFoundError } from "../../../shared/errors.js";
 
@@ -174,7 +174,7 @@ export class CheckCitationAlertsUseCase {
         if (!latest) continue;
 
         const seen = new Set(latest.seenCitingIds);
-        const fresh = rankCitationAlerts(current.filter((item) => !seen.has(item.id)));
+        const fresh = rust().rankCitationAlerts(current.filter((item) => !seen.has(item.id)));
         const seenCitingIds = mergeSeenIds(latest.seenCitingIds, current);
 
         if (fresh.length > 0) {

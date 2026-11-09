@@ -1,26 +1,29 @@
 //! Plan feed: an iCalendar of dated milestones and a JSON summary for widgets. Pure; no I/O.
 
-use serde_json::json;
-
 use crate::sync::instant::format_instant;
 
 const DAY_MS: i64 = 86_400_000;
 const DEFAULT_WIDGET_LIMIT: usize = 20;
 
 /// A milestone as the feed sees it: the fields it reads, plus its project name.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct FeedMilestone {
     /// Milestone id; the calendar UID and the widget id.
     pub id: String,
     /// Display title.
     pub title: String,
     /// Optional free-text description.
+    #[serde(default)]
     pub description: Option<String>,
     /// `planned`, `in_progress`, `blocked` or `done`; anything else counts as planned.
     pub status: String,
     /// `yyyy-mm-dd`, or `None` when undated.
+    #[serde(default)]
     pub target_date: Option<String>,
     /// Name of the owning project, when the project is live.
+    #[serde(default)]
     pub project_name: Option<String>,
 }
 
@@ -204,7 +207,45 @@ fn project_label(name: Option<&str>) -> Option<&str> {
     name.map(str::trim).filter(|n| !n.is_empty())
 }
 
-/// The deadlines a widget draws (soonest first, overdue included) plus overdue and undated counts.
+/// One deadline as a widget draws it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct PlanWidgetItem {
+    /// Milestone id.
+    pub id: String,
+    /// Display title.
+    pub title: String,
+    /// Trimmed project name, or `None`.
+    pub project: Option<String>,
+    /// `yyyy-mm-dd`.
+    pub date: String,
+    /// The milestone's status.
+    pub status: String,
+    /// Whole days from `today` to `date`; negative when overdue.
+    pub days_left: i32,
+}
+
+/// The JSON summary a home-screen or desktop widget reads.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct PlanWidgetData {
+    /// Always 1.
+    pub version: u32,
+    /// When the summary was built, as an ISO instant.
+    pub generated_at: String,
+    /// The UTC day `daysLeft` counts from.
+    pub today: String,
+    /// The deadlines shown, soonest first.
+    pub items: Vec<PlanWidgetItem>,
+    /// Open milestones past their date.
+    pub overdue: u32,
+    /// Open milestones with no date.
+    pub undated: u32,
+}
+
+/// [`plan_widget`] as a JSON value, for the server route and the shell command.
 #[must_use]
 pub fn plan_widget_data(
     items: &[FeedMilestone],
@@ -212,6 +253,17 @@ pub fn plan_widget_data(
     limit: Option<usize>,
     now_ms: i64,
 ) -> serde_json::Value {
+    serde_json::to_value(plan_widget(items, include_done, limit, now_ms)).unwrap_or_default()
+}
+
+/// The deadlines a widget draws (soonest first, overdue included) plus overdue and undated counts.
+#[must_use]
+pub fn plan_widget(
+    items: &[FeedMilestone],
+    include_done: bool,
+    limit: Option<usize>,
+    now_ms: i64,
+) -> PlanWidgetData {
     let today = now_ms.div_euclid(DAY_MS);
     let dated = deadlines(items, include_done);
     let overdue = dated
@@ -222,34 +274,33 @@ pub fn plan_widget_data(
         .iter()
         .filter(|item| parse_date(item.target_date.as_deref()).is_none() && item.status != "done")
         .count();
-    let shown: Vec<serde_json::Value> = dated
+    let items: Vec<PlanWidgetItem> = dated
         .iter()
         .take(limit.unwrap_or(DEFAULT_WIDGET_LIMIT).max(1))
-        .map(|(days, item)| {
-            json!({
-                "id": item.id,
-                "title": item.title,
-                "project": project_label(item.project_name.as_deref()),
-                "date": iso_day(*days),
-                "status": item.status,
-                "daysLeft": *days - today,
-            })
+        .map(|(days, item)| PlanWidgetItem {
+            id: item.id.clone(),
+            title: item.title.clone(),
+            project: project_label(item.project_name.as_deref()).map(str::to_owned),
+            date: iso_day(*days),
+            status: item.status.clone(),
+            days_left: i32::try_from(*days - today).unwrap_or(i32::MAX),
         })
         .collect();
-    json!({
-        "version": 1,
-        "generatedAt": format_instant(now_ms),
-        "today": iso_day(today),
-        "items": shown,
-        "overdue": overdue,
-        "undated": undated,
-    })
+    PlanWidgetData {
+        version: 1,
+        generated_at: format_instant(now_ms),
+        today: iso_day(today),
+        items,
+        overdue: u32::try_from(overdue).unwrap_or(u32::MAX),
+        undated: u32::try_from(undated).unwrap_or(u32::MAX),
+    }
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     /// 2026-09-26T10:30:00Z.
     const NOW_MS: i64 = 1_790_418_600_000;

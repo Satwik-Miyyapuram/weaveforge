@@ -1068,6 +1068,25 @@ export function chunkForEmbedding(text, options) {
 }
 
 /**
+ * [`citation_alert_score`](citation_alerts::citation_alert_score) of each candidate, in order.
+ *
+ * # Errors
+ *
+ * Fails if `candidates` has the wrong shape.
+ * @param {any} candidates
+ * @returns {Float64Array}
+ */
+export function citationAlertScores(candidates) {
+    const ret = wasm.citationAlertScores(candidates);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v1;
+}
+
+/**
  * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
  * exported as `citationItemToRect` because `itemToRect` belongs to another lane).
  *
@@ -5659,6 +5678,37 @@ export function milestoneInputError(input) {
 }
 
 /**
+ * [`milestones_to_ics`](feed::milestones_to_ics): the `.ics` text for `items`.
+ *
+ * # Errors
+ *
+ * Fails if `items` has the wrong shape.
+ * @param {any} items
+ * @param {boolean} include_done
+ * @param {number} reminder_days
+ * @param {number} now_ms
+ * @returns {string}
+ */
+export function milestonesToIcs(items, include_done, reminder_days, now_ms) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.milestonesToIcs(items, include_done, reminder_days, now_ms);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`move_tab`](pane::move_tab).
  *
  * # Errors
@@ -7426,6 +7476,26 @@ export function planSeriesIngestIndices(steps, previous_max_step) {
     const ptr0 = passArrayF64ToWasm0(steps, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.planSeriesIngestIndices(ptr0, len0, !isLikeNone(previous_max_step), isLikeNone(previous_max_step) ? 0 : previous_max_step);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plan_widget`](feed::plan_widget): the summary a widget draws.
+ *
+ * # Errors
+ *
+ * Fails if `items` has the wrong shape.
+ * @param {any} items
+ * @param {boolean} include_done
+ * @param {number | null | undefined} limit
+ * @param {number} now_ms
+ * @returns {any}
+ */
+export function planWidgetData(items, include_done, limit, now_ms) {
+    const ret = wasm.planWidgetData(items, include_done, isLikeNone(limit) ? Number.MAX_SAFE_INTEGER : (limit) >>> 0, now_ms);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

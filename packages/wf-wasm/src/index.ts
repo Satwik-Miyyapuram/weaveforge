@@ -243,6 +243,10 @@ export type {
   ListEntry,
   ListItemEntry,
   ListsTreeInput,
+  FeedMilestone,
+  PlanWidgetData,
+  PlanWidgetItem,
+  CitationSignals,
 } from "./bindings.js";
 export { init, initSync };
 export * from "./ink.js";
@@ -292,6 +296,8 @@ export * from "./user-appearance.js";
 export * from "./ai-access-policy.js";
 export * from "./log-entry.js";
 export * from "./milestone.js";
+export * from "./plan-feed.js";
+export * from "./citation-alerts.js";
 export * from "./org.js";
 export * from "./paper-relation.js";
 export * from "./reader-ink-undo.js";

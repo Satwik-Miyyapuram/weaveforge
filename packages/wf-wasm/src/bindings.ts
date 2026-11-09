@@ -866,6 +866,19 @@ export type CitationPage = {
 	items: AnalysisPdfItem[],
 };
 
+/**  The signals a citation alert is scored on; other fields of the candidate are ignored. */
+export type CitationSignals = {
+	/**  Publication year, when known. */
+	year?: number | null,
+	/**  Provider flag for highly influential citations. */
+	isInfluential?: boolean | null,
+	/**
+	 *  Intent labels (`background`, `method`, `result`), when the provider has them.
+	 *  An unknown label weighs nothing.
+	 */
+	intents?: string[] | null,
+};
+
 /**  Which citation convention the body uses (`CitationStyle`). */
 export type CitationStyle = 
 /**  `[n]` brackets only. */
@@ -1297,6 +1310,22 @@ export type ExtractionResult = {
 	mentions?: ExtractedMention[],
 	/**  Set when the work was handed to something that answers later. */
 	pending?: boolean | null,
+};
+
+/**  A milestone as the feed sees it: the fields it reads, plus its project name. */
+export type FeedMilestone = {
+	/**  Milestone id; the calendar UID and the widget id. */
+	id: string,
+	/**  Display title. */
+	title: string,
+	/**  Optional free-text description. */
+	description?: string | null,
+	/**  `planned`, `in_progress`, `blocked` or `done`; anything else counts as planned. */
+	status: string,
+	/**  `yyyy-mm-dd`, or `None` when undated. */
+	targetDate?: string | null,
+	/**  Name of the owning project, when the project is live. */
+	projectName?: string | null,
 };
 
 /**  Effective per-field boosts (TS `Record<SearchField, number>`). */
@@ -3012,6 +3041,38 @@ export type Peer = {
 	name: string,
 	/**  CSS colour. */
 	color: string,
+};
+
+/**  The JSON summary a home-screen or desktop widget reads. */
+export type PlanWidgetData = {
+	/**  Always 1. */
+	version: number,
+	/**  When the summary was built, as an ISO instant. */
+	generatedAt: string,
+	/**  The UTC day `daysLeft` counts from. */
+	today: string,
+	/**  The deadlines shown, soonest first. */
+	items: PlanWidgetItem[],
+	/**  Open milestones past their date. */
+	overdue: number,
+	/**  Open milestones with no date. */
+	undated: number,
+};
+
+/**  One deadline as a widget draws it. */
+export type PlanWidgetItem = {
+	/**  Milestone id. */
+	id: string,
+	/**  Display title. */
+	title: string,
+	/**  Trimmed project name, or `None`. */
+	project: string | null,
+	/**  `yyyy-mm-dd`. */
+	date: string,
+	/**  The milestone's status. */
+	status: string,
+	/**  Whole days from `today` to `date`; negative when overdue. */
+	daysLeft: number,
 };
 
 /**  Walk settings (TS `PprOptions` without the injected `rng`). Unset fields take the defaults. */
