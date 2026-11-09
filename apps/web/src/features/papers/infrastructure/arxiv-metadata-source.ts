@@ -1,4 +1,4 @@
-import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { paperInputWithoutNulls, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 
 /**
@@ -31,6 +31,6 @@ export class ArxivMetadataSource implements IMetadataSource {
       throw new Error(`arXiv request failed: ${res.status} ${res.statusText}`);
     }
     const xml = await res.text();
-    return core.arxivEntryToMetadata(xml, id);
+    return paperInputWithoutNulls(core.arxivEntryToMetadata(xml, id));
   }
 }

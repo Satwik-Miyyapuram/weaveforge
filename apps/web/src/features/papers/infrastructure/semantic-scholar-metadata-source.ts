@@ -1,4 +1,4 @@
-import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { paperInputWithoutNulls, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 import type { SemanticScholarPaper } from "@weaveforge/wasm";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 import { loadCore } from "@/lib/rust-core";
@@ -44,7 +44,7 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     const core = await loadCore();
     for (const paper of body.data ?? []) {
       if (!paper.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: paper.title, year: paper.year ?? undefined })) continue;
-      return core.semanticScholarToMetadata(paper);
+      return paperInputWithoutNulls(core.semanticScholarToMetadata(paper));
     }
     throw new Error("No sufficiently similar Semantic Scholar match");
   }
@@ -58,6 +58,6 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     const paper = await response.json() as SemanticScholarPaper;
     if (!paper.title) throw new Error(`Semantic Scholar ${kind} lookup returned no paper`);
     const core = await loadCore();
-    return core.semanticScholarToMetadata(paper);
+    return paperInputWithoutNulls(core.semanticScholarToMetadata(paper));
   }
 }

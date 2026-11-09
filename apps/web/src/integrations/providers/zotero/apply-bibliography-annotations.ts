@@ -47,8 +47,8 @@ export async function applyBibliographyAnnotations(
       // then reconcile the paper's tag index from the body.
       const tagNames = anns.filter((a) => a.kind !== "note").flatMap((a) => [
         ...a.tags,
-        ...extractHashtags(a.comment),
-        ...extractHashtags(a.text),
+        ...readyCore().extractHashtags(a.comment),
+        ...readyCore().extractHashtags(a.text),
       ]);
       summary = appendTagHashtags(p.summary ?? "", tagNames) || undefined;
     }

@@ -138,8 +138,8 @@ export function ImageSizeControl({
         alt,
         ordinal,
         placement: {
-          crop: parsed.crop,
-          align: parsed.align,
+          crop: parsed.crop ?? undefined,
+          align: parsed.align ?? undefined,
           initial,
         },
       });

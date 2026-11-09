@@ -99,6 +99,16 @@ export interface NewPaperInput {
   metadata?: Record<string, unknown>;
 }
 
+/** A paper input whose optional fields may be `null`, as the Rust core returns them. */
+export type NullablePaperInput = { title: string } & {
+  [K in Exclude<keyof NewPaperInput, "title">]?: NewPaperInput[K] | null;
+};
+
+/** Drops `null` fields so a Rust-built input fits `NewPaperInput`. */
+export function paperInputWithoutNulls(input: NullablePaperInput): NewPaperInput {
+  return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== null)) as unknown as NewPaperInput;
+}
+
 export interface PaperFilter {
   status?: PaperStatus;
   /** Case-insensitive substring match against title. */

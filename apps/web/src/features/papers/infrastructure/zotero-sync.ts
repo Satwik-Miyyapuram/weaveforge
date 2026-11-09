@@ -1,5 +1,5 @@
 import { readyCore } from "@/lib/rust-core";
-import { type NewPaperInput, type Paper } from "@weaveforge/core";
+import { paperInputWithoutNulls, type NewPaperInput, type Paper } from "@weaveforge/core";
 import type { ZoteroSyncResult } from "../domain/zotero";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import {
@@ -94,7 +94,7 @@ export class ZoteroSync {
     for (const d of remote) {
       const ks = keysOfRemote(d);
       if (ks.length === 0 || ks.some((k) => localKeys.has(k))) continue;
-      await this.deps.addPaper(readyCore().zoteroRemoteToInput(d));
+      await this.deps.addPaper(paperInputWithoutNulls(readyCore().zoteroRemoteToInput(d)));
       ks.forEach((k) => localKeys.add(k));
       pulled += 1;
       if (this.deps.onItemTags && d.key) pulledItems.push(d);

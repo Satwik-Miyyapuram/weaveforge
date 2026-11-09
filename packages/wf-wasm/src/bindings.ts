@@ -1013,6 +1013,40 @@ export type CredentialSettings = {
 	semanticScholarKey?: string | null,
 };
 
+/**  One Crossref author: a split name, or a whole `name` for an organisation. */
+export type CrossrefAuthor = {
+	/**  Given name. */
+	given?: string | null,
+	/**  Family name. */
+	family?: string | null,
+	/**  Whole name. */
+	name?: string | null,
+};
+
+/**  Crossref's issue date: `date-parts` is `[[year, month, day]]`. */
+export type CrossrefIssued = {
+	/**  The date parts. */
+	"date-parts"?: ((number | null)[])[] | null,
+};
+
+/**  Crossref's `message` for one DOI. Keys keep Crossref's own spelling. */
+export type CrossrefMessage = {
+	/**  Titles; the first is used. */
+	title?: string[] | null,
+	/**  Authors, in order. */
+	author?: CrossrefAuthor[] | null,
+	/**  Container (journal or proceedings) titles; the first is used. */
+	"container-title"?: string[] | null,
+	/**  Issue date. */
+	issued?: CrossrefIssued | null,
+	/**  DOI. */
+	DOI?: string | null,
+	/**  Abstract, possibly with JATS tags. */
+	abstract?: string | null,
+	/**  Canonical landing page. */
+	URL?: string | null,
+};
+
 /**  What a dependency points at (TS `DependencyKind`). */
 export type DependencyKind = 
 /**  Another milestone, by id. */
@@ -1095,6 +1129,25 @@ export type DocumentSearchMatch = {
 	end: number | null,
 };
 
+/**  Papers that are the same paper. */
+export type DuplicateGroup = {
+	/**  The copy the others would be merged into. */
+	keepId: string,
+	/**  Every paper in the group, the kept one included, in library order. */
+	ids: string[],
+	/**  Why they were grouped. */
+	reason: DuplicateReason,
+};
+
+/**  Why two papers were grouped, strongest first. */
+export type DuplicateReason = 
+/**  The same DOI. */
+"doi" | 
+/**  The same arXiv id, any version. */
+"arxiv" | 
+/**  The same normalised title, with no DOI clash. */
+"title";
+
 /**  Which links the graph draws. */
 export type EdgeMode = 
 /**  Paper relations. */
@@ -1103,6 +1156,14 @@ export type EdgeMode =
 "tags" | 
 /**  Both. */
 "both";
+
+/**  Europe PMC's answer: its free full texts, and the PMCID when it has one. */
+export type EuropePmcAnswer = {
+	/**  The free full texts found. */
+	candidates: OpenAccessCandidate[],
+	/**  The PMCID, when there is one. */
+	pmcid?: string | null,
+};
 
 /**  A highlight, as UTF-16 offsets into `Excerpt::text`. */
 export type ExcerptRange = {
@@ -1351,6 +1412,14 @@ export type GroupBy =
 /**  By list. */
 "list";
 
+/**  One heading and the indices of its rows, in the caller's order. */
+export type GroupedRows = {
+	/**  The heading. */
+	label: PaletteGroup,
+	/**  Indices of the rows under it. */
+	rows: number[],
+};
+
 /**  A hashtag with the offset it was found at, for evidence that points at it. */
 export type HashtagRef = {
 	/**  Normalized: no leading '#', lowercased. */
@@ -1361,6 +1430,23 @@ export type HashtagRef = {
 	length: number | null,
 };
 
+/**  One hit, as much of it as the order needs. */
+export type HitKey = {
+	/**  The title the palette shows. */
+	title: string,
+	/**  The last edit, as an ISO 8601 date or date-time. */
+	updatedAt?: string | null,
+};
+
+/**  How the search palette orders its hits. */
+export type HitSort = 
+/**  The ranked order from the search. */
+"relevance" | 
+/**  Latest `updated_at` first. */
+"newest" | 
+/**  Case-insensitive, with digit runs in numeric order. */
+"title";
+
 /**  What a hunk may be resolved to. */
 export type HunkPick = 
 /**  Keep ours. */
@@ -1369,6 +1455,19 @@ export type HunkPick =
 "theirs" | 
 /**  Ours, then theirs. */
 "both";
+
+/**
+ *  A placement change: an absent field keeps what the alt already has, `null` clears it, and a
+ *  value sets it.
+ */
+export type ImagePlacementPatch = {
+	/**  Crop insets: absent keeps, `null` clears, a value sets. */
+	crop?: [number, number, number, number] | null,
+	/**  Alignment: absent keeps, `null` clears, a value sets. */
+	align?: MdAlign | null,
+	/**  Width: absent keeps, `null` clears, a value sets. */
+	width?: string | null,
+};
 
 /**  What an import would do with one entry. */
 export type ImportAction = 
@@ -1571,6 +1670,22 @@ export type IntegrationsBag = {
 	zotero?: { [key in string]: string } | null,
 	/**  Semantic Scholar fields (`apiKey`), present when non-empty. */
 	"semantic-scholar"?: { [key in string]: string } | null,
+};
+
+/**  One row of the map. */
+export type InvalidationEntry = {
+	/**  The written type. */
+	resource: ResourceType,
+	/**  What a write of that type clears. */
+	plan: InvalidationPlan,
+};
+
+/**  The caches one write clears: the repos of these types, and these screens. */
+export type InvalidationPlan = {
+	/**  Repo caches to clear, besides the written type's own. */
+	repos: ResourceType[],
+	/**  Screen caches to clear, by screen name. */
+	screens: string[],
 };
 
 /**  Where one item stands at one stage. */
@@ -1795,6 +1910,37 @@ export type McpResult = {
 	truncated: number | null,
 };
 
+/**  Where a figure sits in the column. */
+export type MdAlign = 
+/**  Against the left margin. */
+"left" | 
+/**  Against the right margin. */
+"right" | 
+/**  Centred in the column. */
+"center";
+
+/**  An image alt split into its own text and its placement. */
+export type MdImageAlt = {
+	/**  The alt's own text, everything that is neither a token nor a width. */
+	alt: string,
+	/**  Crop insets `[left, top, right, bottom]`, each 0..=99; absent for none. */
+	crop?: [number, number, number, number] | null,
+	/**  Column placement; absent for the document's own default. */
+	align?: MdAlign | null,
+	/**  `"50%"` or `"400px"`; absent when the alt carries no width. */
+	width?: string | null,
+};
+
+/**  The placement to write into an alt. An absent or `null` field means none. */
+export type MdPlacement = {
+	/**  Crop insets to write. */
+	crop?: [number, number, number, number] | null,
+	/**  Alignment word to write. */
+	align?: MdAlign | null,
+	/**  Width to write, `"40%"` or a pixel count. */
+	width?: string | null,
+};
+
 /**  A lab member as the visibility rules see them: an id and the supervisor's id. */
 export type MemberLink = {
 	/**  The member's user id. */
@@ -1841,6 +1987,48 @@ export type MergeInput = {
 	aliases?: string[] | null,
 	/**  Source references for the page. */
 	sources?: string[] | null,
+};
+
+/**  One paper as the merge reads and writes it (the TS `Paper`). */
+export type MergePaper = {
+	/**  Paper id. */
+	id: string,
+	/**  Title. */
+	title: string,
+	/**  Authors, in order. */
+	authors?: string[],
+	/**  Publication year. */
+	year?: number | null,
+	/**  Venue. */
+	venue?: string | null,
+	/**  DOI. */
+	doi?: string | null,
+	/**  arXiv id. */
+	arxivId?: string | null,
+	/**  Link. */
+	url?: string | null,
+	/**  Attached PDF path. */
+	pdfPath?: string | null,
+	/**  Abstract. */
+	abstract?: string | null,
+	/**  The reader's summary. */
+	summary?: string | null,
+	/**  Reading status. */
+	status: PaperStatus,
+	/**  Rating, 1 to 5. */
+	rating?: number | null,
+	/**  When the paper was read. */
+	readAt?: string | null,
+	/**  BibTeX entry. */
+	bibtex?: string | null,
+	/**  Keyword tags. */
+	tags?: string[],
+	/**  Extensible bag for anything not modeled explicitly. */
+	metadata?: { [key in string]: unknown },
+	/**  Import time (ISO 8601). */
+	createdAt: string,
+	/**  Last update time (ISO 8601). */
+	updatedAt: string,
 };
 
 /**  A merged row and the conflicts the reader has to decide. */
@@ -2081,6 +2269,96 @@ export type NormalizedShareInput = {
 	access: ShareAccess,
 };
 
+/**  One place a paper may be read for free. `url` is https, with no credentials. */
+export type OpenAccessCandidate = {
+	/**  Where to read it. */
+	url: string,
+	/**  PDF or web page. */
+	format: OpenAccessFormat,
+	/**  The index that named it. */
+	source: OpenAccessSource,
+	/**  The licence, when the index gives one. */
+	license?: string | null,
+	/**  The version, such as published or accepted, when known. */
+	version?: string | null,
+};
+
+/**  How a copy is read: a PDF file, or a web page. */
+export type OpenAccessFormat = 
+/**  A PDF file. */
+"pdf" | 
+/**  A web page. */
+"html";
+
+/**  The index that named a copy. Declaration order is the rank order within a format. */
+export type OpenAccessSource = 
+/**  The paper's own link. */
+"paper" | 
+/**  arXiv. */
+"arxiv" | 
+/**  OpenAlex. */
+"openalex" | 
+/**  Unpaywall. */
+"unpaywall" | 
+/**  Semantic Scholar. */
+"semantic-scholar" | 
+/**  Europe PMC. */
+"europe-pmc" | 
+/**  bioRxiv. */
+"biorxiv" | 
+/**  DOAJ. */
+"doaj" | 
+/**  Zenodo. */
+"zenodo" | 
+/**  HAL. */
+"hal";
+
+/**  An OpenAlex author. */
+export type OpenAlexAuthor = {
+	/**  Display name. */
+	display_name?: string | null,
+};
+
+/**  One OpenAlex authorship. */
+export type OpenAlexAuthorship = {
+	/**  The author. */
+	author?: OpenAlexAuthor | null,
+};
+
+/**  An OpenAlex location: where a work appears, and its PDF. */
+export type OpenAlexLocation = {
+	/**  The venue. */
+	source?: OpenAlexSource | null,
+	/**  PDF address. */
+	pdf_url?: string | null,
+};
+
+/**  An OpenAlex source (venue). */
+export type OpenAlexSource = {
+	/**  Venue name. */
+	display_name?: string | null,
+};
+
+/**  An OpenAlex work. Keys keep OpenAlex's snake_case spelling. */
+export type OpenAlexWork = {
+	/**  OpenAlex id (a URL). */
+	id?: string | null,
+	/**  Title. */
+	title?: string | null,
+	/**  DOI, as a URL, or null. */
+	doi?: string | null,
+	/**  Publication year. */
+	publication_year?: number | null,
+	/**  Authorships, in order. */
+	authorships?: OpenAlexAuthorship[] | null,
+	/**  Where the work is published. */
+	primary_location?: OpenAlexLocation | null,
+	/**  The best open-access location, or null. */
+	best_oa_location?: OpenAlexLocation | null,
+	/**  Citation count. */
+	cited_by_count?: number | null,
+};
+
 /**  The first-run setup state the setup gate reads. */
 export type OrgSetupState = {
 	/**  Whether the user belongs to any organisation. */
@@ -2198,6 +2476,44 @@ export type PageMetadata = {
 	isArticle: boolean,
 };
 
+/**  Headings, in the order the palette shows them. */
+export type PaletteGroup = 
+/**  Recently opened items. */
+"Recent" | 
+/**  App pages. */
+"Pages" | 
+/**  Papers. */
+"Papers" | 
+/**  Notes. */
+"Notes" | 
+/**  Report sections. */
+"Report sections" | 
+/**  Matches inside papers. */
+"In papers" | 
+/**  Commands. */
+"Actions";
+
+/**  A key press, as the palette reads it. */
+export type PaletteKey = {
+	/**  The `key` value of the event. */
+	key: string,
+	/**  Shift is held. */
+	shiftKey: boolean,
+	/**  Ctrl is held. */
+	ctrlKey: boolean,
+	/**  Meta (Cmd on a Mac) is held. */
+	metaKey: boolean,
+	/**  Alt is held. */
+	altKey: boolean,
+};
+
+/**  Search (`Ctrl+K`, `Ctrl+Shift+F`) or commands (`Ctrl+Shift+P`). */
+export type PaletteMode = 
+/**  Search the workspace. */
+"search" | 
+/**  List commands. */
+"commands";
+
 /**  Supported custom field kinds on papers. */
 export type PaperFieldKind = 
 /**  Free text. */
@@ -2233,6 +2549,15 @@ export type PaperFieldRollupConfig = {
 	/**  Required for values/sum/avg: the related paper's field to aggregate. */
 	sourceFieldId?: string | null,
 };
+
+/**  A checked paper field value: a string, a finite number or a string list. */
+export type PaperFieldValueData = 
+/**  A non-blank string, kept as sent. */
+string | 
+/**  A finite number. */
+number | null | 
+/**  A list with blanks trimmed away and at least one item. */
+string[];
 
 /**  A paper reference: what it is and the value that identifies it. */
 export type PaperRef = {
@@ -2820,6 +3145,65 @@ export type ReportStatus =
 /**  Finished. */
 "done";
 
+/**  A kind of record a write can change. */
+export type ResourceType = 
+/**  A paper. */
+"paper" | 
+/**  A vault page. */
+"vault_page" | 
+/**  A reading list. */
+"reading_list" | 
+/**  An item on a reading list. */
+"reading_list_item" | 
+/**  A logbook entry. */
+"log_entry" | 
+/**  A report section. */
+"report_section" | 
+/**  An experiment. */
+"experiment" | 
+/**  A milestone. */
+"milestone" | 
+/**  A link between two papers. */
+"paper_relation" | 
+/**  A tag. */
+"tag" | 
+/**  A tag on a paper. */
+"paper_tag" | 
+/**  A comment. */
+"comment" | 
+/**  A share. */
+"share" | 
+/**  A library pin. */
+"library_pin" | 
+/**  A citation alert track. */
+"citation_alert_track" | 
+/**  A project. */
+"project" | 
+/**  A dashboard layout. */
+"dashboard_layout" | 
+/**  Graph settings. */
+"graph_settings";
+
+/**  A field definition as a rollup reads it. Only a rollup's own `options` are read. */
+export type RollupFieldDef = {
+	/**  Field id. */
+	id: string,
+	/**  Field kind: the relation to follow and the rollup itself must have the right kind. */
+	kind: PaperFieldKind,
+	/**  Encoded options (rollups only). */
+	options?: string[],
+};
+
+/**  One stored value of a field on a paper. */
+export type RollupValue = {
+	/**  Paper the value belongs to. */
+	paperId: string,
+	/**  Field the value belongs to. */
+	fieldId: string,
+	/**  The stored value. */
+	value: PaperFieldValueData,
+};
+
 /**  One reviewer's decision on one item at one stage. */
 export type ScreeningDecision = {
 	/**  Row id. */
@@ -2984,6 +3368,46 @@ export type SelectionTextRange = {
 	endOffset: number | null,
 };
 
+/**  One Semantic Scholar author. */
+export type SemanticScholarAuthor = {
+	/**  Display name. */
+	name?: string | null,
+};
+
+/**  Semantic Scholar's external ids. */
+export type SemanticScholarExternalIds = {
+	/**  DOI. */
+	DOI?: string | null,
+	/**  arXiv id. */
+	ArXiv?: string | null,
+};
+
+/**  A Semantic Scholar paper (search match or identifier lookup). */
+export type SemanticScholarPaper = {
+	/**  Title. */
+	title?: string | null,
+	/**  Authors, in order. */
+	authors?: SemanticScholarAuthor[] | null,
+	/**  Publication year. */
+	year?: number | null,
+	/**  Venue. */
+	venue?: string | null,
+	/**  Semantic Scholar's own id. */
+	paperId?: string | null,
+	/**  DOI and arXiv id. */
+	externalIds?: SemanticScholarExternalIds | null,
+	/**  Open-access PDF, when there is one. */
+	openAccessPdf?: SemanticScholarPdf | null,
+	/**  Citation count. */
+	citationCount?: number | null,
+};
+
+/**  Semantic Scholar's open-access PDF. */
+export type SemanticScholarPdf = {
+	/**  PDF address. */
+	url?: string | null,
+};
+
 /**  An asset the mirror copies into `assets/`. */
 export type SerializedAsset = {
 	/**  The path after the app's blob scheme. */
@@ -3110,6 +3534,66 @@ export type ThemeMode =
 /**  Dark base. */
 "dark";
 
+/**  The fields the tidy-up reads of one paper (a summary, or the full row). */
+export type TidyPaper = {
+	/**  Paper id. */
+	id?: string,
+	/**  Stored title. */
+	title?: string | null,
+	/**  Stored DOI, as written. */
+	doi?: string | null,
+	/**  Stored arXiv id, as written. */
+	arxivId?: string | null,
+	/**  Import time (ISO 8601): the oldest copy breaks ties. */
+	createdAt?: string,
+	/**  Reading status. */
+	status?: PaperStatus | null,
+	/**  The reader's summary. */
+	summary?: string | null,
+	/**  The reader's rating. */
+	rating?: number | null,
+	/**  When the paper was read. */
+	readAt?: string | null,
+	/**  Attached PDF path. */
+	pdfPath?: string | null,
+	/**  Tags. */
+	tags?: string[],
+	/**  Authors. */
+	authors?: string[],
+	/**  Publication year. */
+	year?: number | null,
+	/**  Venue. */
+	venue?: string | null,
+	/**  URL. */
+	url?: string | null,
+	/**  Abstract. */
+	abstract?: string | null,
+	/**  BibTeX entry. */
+	bibtex?: string | null,
+	/**  Free-form metadata (annotations are read from here). */
+	metadata?: { [key in string]: unknown } | null,
+};
+
+/**  What the tidy-up would do about one paper's title. */
+export type TitleFix = {
+	/**  Paper id. */
+	id: string,
+	/**  The stored title. */
+	current: string,
+	/**  A title read back out of the stored one (a reference-manager filename). */
+	proposed?: string | null,
+	/**  The stored title names nothing and the paper has an identifier to look up. */
+	lookup?: TitleLookup | null,
+};
+
+/**  Lookup identifiers for a title fix: what a metadata source can answer for. */
+export type TitleLookup = {
+	/**  Normalised DOI. */
+	doi?: string | null,
+	/**  Trimmed arXiv id. */
+	arxivId?: string | null,
+};
+
 /**  Options for term normalization. Callers always pass them explicitly. */
 export type TokenizerOptions = {
 	/**  Fold é→e, ü→u. TS default: `true`. */
@@ -3144,6 +3628,29 @@ export type UrlCleanupResult = {
 	text: string,
 	/**  How many URLs were actually shortened. */
 	count: number,
+};
+
+/**
+ *  What a paper's own page says about it: the answer of the URL metadata route, or of the
+ *  shell's HTML relay.
+ */
+export type UrlMetaResponse = {
+	/**  Title. */
+	title?: string | null,
+	/**  Authors, in order. */
+	authors?: string[] | null,
+	/**  Publication year. */
+	year?: number | null,
+	/**  Venue. */
+	venue?: string | null,
+	/**  DOI. */
+	doi?: string | null,
+	/**  arXiv id. */
+	arxivId?: string | null,
+	/**  Abstract. */
+	abstract?: string | null,
+	/**  The page address. */
+	url?: string,
 };
 
 /**  Why a URL was refused (TS `UrlRejection`). */
@@ -3555,4 +4062,96 @@ export type ZoteroAnnotationWritePayload = {
 	annotationPosition: string,
 	/**  Tags as `{ tag }` objects. */
 	tags: ZoteroAnnotationTag[],
+};
+
+/**  One creator as Zotero stores it: a single `name`, or first and last name. */
+export type ZoteroCreator = {
+	/**  Given name. */
+	firstName?: string | null,
+	/**  Family name. */
+	lastName?: string | null,
+	/**  Whole name, for institutions and single-field creators. */
+	name?: string | null,
+};
+
+/**  A creator as written to Zotero: always an author. */
+export type ZoteroExportCreator = {
+	/**  Creator role; always `author` here. */
+	creatorType: string,
+	/**  Given name. */
+	firstName?: string | null,
+	/**  Family name. */
+	lastName?: string | null,
+	/**  Whole name, when it could not be split. */
+	name?: string | null,
+};
+
+/**  The `journalArticle` item written to Zotero for a paper. */
+export type ZoteroExportItem = {
+	/**  Zotero item type. */
+	itemType: string,
+	/**  Title. */
+	title: string,
+	/**  Authors. */
+	creators: ZoteroExportCreator[],
+	/**  Venue. */
+	publicationTitle: string,
+	/**  Year, as text; empty when unknown. */
+	date: string,
+	/**  DOI; empty when unknown. */
+	DOI: string,
+	/**  Link; empty when unknown. */
+	url: string,
+	/**  Abstract (or the summary when there is no abstract). */
+	abstractNote: string,
+	/**  `arXiv:<id>` line; empty when unknown. */
+	extra: string,
+};
+
+/**  The item fields WeaveForge reads from a Zotero item. Zotero returns more; these are ours. */
+export type ZoteroItem = {
+	/**  Zotero item key. */
+	key?: string | null,
+	/**  Zotero item type (`journalArticle`, `attachment`, ...). */
+	itemType?: string | null,
+	/**  Key of the bibliography entry a child item (attachment, note) hangs off. */
+	parentItem?: string | null,
+	/**  Title. */
+	title?: string | null,
+	/**  Creators, in order. */
+	creators?: ZoteroCreator[],
+	/**  Journal or venue name. */
+	publicationTitle?: string | null,
+	/**  Date as Zotero stores it (free text, usually containing a year). */
+	date?: string | null,
+	/**  DOI. */
+	DOI?: string | null,
+	/**  Link. */
+	url?: string | null,
+	/**  Abstract. */
+	abstractNote?: string | null,
+	/**  Free-text `extra` field (carries `arXiv:<id>` lines). */
+	extra?: string | null,
+};
+
+/**  A paper read from a Zotero item, shaped as the app's `NewPaperInput` (also `PaperMetadata`). */
+export type ZoteroPaperInput = {
+	/**  Title. */
+	title: string,
+	/**  Authors, in order. */
+	authors?: string[],
+	/**  Venue. */
+	venue?: string | null,
+	/**  Publication year. */
+	year?: number | null,
+	/**  DOI. */
+	doi?: string | null,
+	/**  arXiv id. */
+	arxivId?: string | null,
+	/**  Link. */
+	url?: string | null,
+	/**  Abstract. */
+	abstract?: string | null,
+	/**  Metadata bag (the Zotero key, for a row created from an item). */
+	metadata?: { [key in string]: unknown } | null,
 };

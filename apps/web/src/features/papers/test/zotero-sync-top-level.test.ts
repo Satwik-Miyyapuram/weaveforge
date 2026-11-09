@@ -56,6 +56,7 @@ function paper(over: Partial<Paper>): Paper {
     id: "p1",
     title: "Untitled",
     authors: [],
+    status: "to_read",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     ...over,

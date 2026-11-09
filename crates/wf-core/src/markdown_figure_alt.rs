@@ -98,7 +98,7 @@ pub fn parse_md_image_alt(raw: &str) -> MdImageAlt {
         .collect();
     let align = words.last().and_then(|word| MdAlign::from_word(word));
     if align.is_some() {
-        words.pop();
+        let _ = words.pop();
     }
     MdImageAlt {
         alt: words.join(" "),

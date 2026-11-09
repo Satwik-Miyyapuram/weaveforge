@@ -159,7 +159,7 @@ export function toSearchDocs(
           (v): v is string => Boolean(v),
         ),
         headings: extractHeadings(paper.summary),
-        tags: [...paper.tags, ...extractHashtags(paper.summary)],
+        tags: [...paper.tags, ...rust().extractHashtags(paper.summary)],
         path: paper.year ? String(paper.year) : "",
         body: [paper.abstract, paper.summary].filter(Boolean).join("\n\n"),
         updatedAt: paper.updatedAt || paper.createdAt,
