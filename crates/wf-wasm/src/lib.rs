@@ -28,6 +28,7 @@ mod papers_paper_title;
 mod papers_records;
 mod paste;
 mod personalized_pagerank;
+mod projects;
 mod reader_analysis_bibliography;
 mod reader_analysis_citations;
 mod reader_analysis_document;

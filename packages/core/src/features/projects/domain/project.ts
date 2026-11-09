@@ -6,6 +6,7 @@
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface Project extends Identifiable {
   id: string;
@@ -30,7 +31,7 @@ export function createProject(
   input: NewProjectInput,
   deps: { clock: Clock; ids: IdGenerator },
 ): Project {
-  const name = input.name?.trim();
+  const name = rust().projectName(input.name ?? "");
   if (!name) throw new ProjectValidationError("Project name is required.");
   return {
     id: deps.ids.newId(),

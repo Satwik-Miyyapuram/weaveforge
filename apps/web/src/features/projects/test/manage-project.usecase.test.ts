@@ -1,12 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryProjectRepository } from "../../../src/testing/in-memory-project-repository.js";
-import { ManageProjectUseCase } from "../../../src/features/projects/application/manage-project.use-case.js";
-import type {IdGenerator} from "../../../src/shared/clock.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { ManageProjectUseCase } from "@weaveforge/core";
+import { InMemoryProjectRepository } from "@weaveforge/core/testing";
 
-const clock = fixedClock("2026-06-24T12:00:00.000Z");
-function seqIds(): IdGenerator { let n = 0; return { newId: () => `id-${++n}` }; }
+const clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
+function seqIds() { let n = 0; return { newId: () => `id-${++n}` }; }
 
 test("create persists a named project", async () => {
   const repo = new InMemoryProjectRepository();
