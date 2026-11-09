@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import {
-  type ImportDiffEntry,
-} from "@weaveforge/core";
+import type {
+  ImportDiffEntry,
+} from "@weaveforge/wasm";
 import { readyCore, type RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { mergeBothChanged, settleConflict } from "../application/folder-merge";

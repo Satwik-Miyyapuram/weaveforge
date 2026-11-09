@@ -10,7 +10,8 @@ import { after, before, test } from "node:test";
 
 import type { AppContainer } from "@/bootstrap";
 import { setContainerForTests } from "@/bootstrap";
-import type { IWorkspaceFs, ImportDiff, ImportDiffEntry } from "@weaveforge/core";
+import type { IWorkspaceFs } from "@weaveforge/core";
+import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { applyEntries, keepWorkspaceCopy, storedDigest, titleFromFileName } from "../application/folder-import-apply";
 import { renameSources } from "../application/folder-diff";

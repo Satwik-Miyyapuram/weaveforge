@@ -8,12 +8,14 @@
  */
 import type {
   ChangeSide,
-  ImportAction,
-  ImportDiff,
-  ImportDiffEntry,
   JsonDiff,
   JsonDiffEntry,
 } from "@weaveforge/core";
+import type {
+  ImportAction,
+  ImportDiff,
+  ImportDiffEntry,
+} from "@weaveforge/wasm";
 
 /** What the preview saw of one folder file: who moved it since the sides last agreed, and its digest then. */
 export interface SeenFile {

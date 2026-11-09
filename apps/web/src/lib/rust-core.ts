@@ -30,7 +30,8 @@ export function loadCore(source?: BufferSource): Promise<RustCore> {
         source === undefined ? undefined : { module_or_path: source },
       );
       ready = core;
-      setRustCore(core);
+      // Generated float fields read `number | null` (specta); the core contract keeps `number`.
+      setRustCore(core as never);
       return core;
     })
     .catch((error: unknown) => {

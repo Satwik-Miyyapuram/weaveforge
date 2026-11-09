@@ -2046,6 +2046,39 @@ export function formatPaperCitation(paper, format) {
 }
 
 /**
+ * [`wf_core::sync::blob_links::from_relative_blob_links_mapped`] for JS. `resolved`
+ * is `{ "assets/<scope>/<path>": storagePath }`.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `resolved` is
+ * not an object of strings.
+ * @param {string} body
+ * @param {any} resolved
+ * @returns {string}
+ */
+export function fromRelativeBlobLinks(body, resolved) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.fromRelativeBlobLinks(ptr0, len0, resolved);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`furniture_key`].
  * @param {string} s
  * @returns {string}

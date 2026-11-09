@@ -63,7 +63,7 @@ export function analyzeInThread(
 ): { analysis: DocumentAnalysis; index: ReaderReferenceIndex } | null {
   try {
     const analysis = readyCore().analyzePdfDocument(
-      pages.map((page) => ({ pageNumber: page.pageNumber, items: [...page.items], links: page.links ?? [] })),
+      pages.map((page) => ({ pageNumber: page.pageNumber, items: [...page.items], links: [...(page.links ?? [])] })),
       outline,
     ) as DocumentAnalysis;
     return { analysis, index: indexFromAnalysis(analysis, pages) };

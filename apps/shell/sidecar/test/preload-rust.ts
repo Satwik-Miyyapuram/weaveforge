@@ -2,7 +2,7 @@
  * Loaded with `--import` before the sidecar tests (root package.json "test:sidecar"),
  * so code that calls `rust()` finds the real Rust core. Same registration as
  * packages/core/test/preload-rust.mts; main.ts does it at startup.
- * `.mts` for top-level await.
+ * A `.ts` file so it loads as CommonJS like the tests and shares their core instance.
  */
 import { readFileSync } from "node:fs";
 import { setRustCore } from "@weaveforge/core";

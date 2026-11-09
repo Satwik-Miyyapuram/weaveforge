@@ -16,7 +16,7 @@ import type {
   DocumentAnalysis,
   PdfLink,
   ReaderOutlineItem,
-} from "@weaveforge/core/reader-analysis";
+} from "@weaveforge/core";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import type { ReferencePage } from "../application/reader-references";
 
