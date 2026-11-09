@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   hasActiveLab,
   isExplicitLabMembership,
   type OrgMembershipView,
-} from "../../../src/features/org/domain/organization.js";
+} from "@weaveforge/core";
 
 const legacyMembership = (orgId: string): OrgMembershipView => ({
   orgId,
@@ -19,6 +20,8 @@ const inviteMembership = (orgId: string): OrgMembershipView => ({
   role: "masters",
   joinSource: "invite",
 });
+
+before(async () => { await loadTestCore(); });
 
 describe("isExplicitLabMembership", () => {
   it("treats legacy backfill as implicit", () => {

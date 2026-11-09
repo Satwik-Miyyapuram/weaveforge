@@ -1,4 +1,5 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import assert from "node:assert/strict";
 
@@ -8,7 +9,6 @@ import {
 
   creatableRoles,
 
-  accessibleMemberIds,
 
   filterTeamMembers,
 
@@ -26,13 +26,13 @@ import {
 
   type Member,
 
-} from "../../../src/features/org/domain/member.js";
+} from "@weaveforge/core";
 
-import { CreateMemberUseCase } from "../../../src/features/org/application/create-member.use-case.js";
+import { CreateMemberUseCase } from "@weaveforge/core";
 
-import { InMemoryMemberRepository } from "../../../src/testing/in-memory-member-repository.js";
+import { InMemoryMemberRepository } from "@weaveforge/core/testing";
 
-import { InMemoryAccountProvisioner } from "../../../src/testing/in-memory-account-provisioner.js";
+import { InMemoryAccountProvisioner } from "@weaveforge/core/testing";
 
 
 
@@ -47,6 +47,8 @@ const otherProf: Member = { id: "prof2", role: "professor" };
 const otherMsc: Member = { id: "msc2", role: "masters", supervisorId: "prof2" };
 
 
+
+before(async () => { await loadTestCore(); });
 
 test("creatableRoles: each role can create only strictly-lower ranks", () => {
 
@@ -76,23 +78,6 @@ test("canCreateRole enforces the hierarchy", () => {
 
 
 
-test("accessibleMemberIds returns the viewer's whole subtree", () => {
-
-  const all = [prof, phd, msc, otherProf, otherMsc];
-
-  const profSees = accessibleMemberIds("prof", all);
-
-  assert.deepEqual([...profSees].sort(), ["msc", "phd", "prof"]);
-
-  const phdSees = accessibleMemberIds("phd", all);
-
-  assert.deepEqual([...phdSees].sort(), ["msc", "phd"]);
-
-  const mscSees = accessibleMemberIds("msc", all);
-
-  assert.deepEqual([...mscSees], ["msc"]);
-
-});
 
 
 

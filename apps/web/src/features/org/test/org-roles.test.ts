@@ -2,9 +2,12 @@
  * One list of lab roles (03-12) and the lab pool a viewer sees (03-13).
  */
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { ORG_INVITE_ROLES } from "../../../src/features/org/domain/invite-code.js";
-import { filterTeamMembers, ROLE_RANK, ROLES, type Member } from "../../../src/features/org/domain/member.js";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { ORG_INVITE_ROLES } from "@weaveforge/core";
+import { filterTeamMembers, ROLE_RANK, ROLES, type Member } from "@weaveforge/core";
+
+before(async () => { await loadTestCore(); });
 
 test("the invite roles are the member roles, one list (03-12)", () => {
   assert.equal(ROLES, ORG_INVITE_ROLES);

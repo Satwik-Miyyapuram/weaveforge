@@ -13,7 +13,7 @@ import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
 import { needsDisclaimerAcceptance } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
-import { shouldSyncStandalone } from "@/features/org/application/org-profile-state";
+import { readyCore } from "@/lib/rust-core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
@@ -95,7 +95,7 @@ export async function loadOrgBatch(c: AppContainer, memberships = fetchMembershi
   let profile = mine;
   let team = members;
   let labMembers = lab;
-  if (shouldSyncStandalone(profile, labs)) {
+  if (readyCore().shouldSyncStandalone(profile, labs)) {
     try {
       await continueStandalone();
       profile = await c.org.loadProfile();

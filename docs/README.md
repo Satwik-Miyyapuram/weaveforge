@@ -12,6 +12,7 @@ For somebody using the app.
 - [The workspace folder](using/workspace-folder.md) — your notes as files on your own disk
 - [Storage and sync](using/sync.md) — where your work lives, and what syncs when
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
+- [Organisations](using/organisations.md) — labs: create or join with an invite code, roles, who sees whom
 - [Paste](using/paste.md) — what happens to what you paste in
 - [Search](using/search.md)
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)

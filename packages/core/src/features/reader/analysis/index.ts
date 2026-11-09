@@ -8,7 +8,7 @@
  * of the domain graph in a chunk whose whole job is to read a text layer off
  * the main thread.
  *
- * This is the same reason `./org-crypto` exists: a caller that needs one
+ * This is the same reason `./reader-analysis` exists: a caller that needs one
  * corner of core should not have to take all of it. Keep this file to the
  * analysis's own closure — lines, columns, running heads, headings, the
  * bibliography, citations, figures, the fingerprint and the types they are
