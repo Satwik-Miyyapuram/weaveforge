@@ -119,7 +119,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   logbook, reading lists, relations, URL safety and settings rows add
 //   ~106 KB over 21 wf-core modules, mostly serde for their record shapes.
 //   760 KB is this batch's ceiling.
-export const WASM_GZIP_BUDGET = 760 * 1024;
+// - TS removal (lanes A-E): ~1026.2 KB gzipped, Windows build (release,
+//   opt-level "s", LTO, no debug sections). Lanes B and E (reader analysis,
+//   ink, Zotero sync, papers) add ~146 KB, lane D (editor workspace: pane
+//   tree, tabs, workspace tree) ~64 KB, lane C (search, paste, dashboard, AI
+//   policy) ~28 KB, org and member types ~13 KB: the TypeScript twins these
+//   replace are deleted, so the app ships one copy. 1080 KB is this batch's
+//   ceiling.
+export const WASM_GZIP_BUDGET = 1080 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
