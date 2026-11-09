@@ -1,27 +1,17 @@
 /** Tab groups: named, coloured runs of tabs in one strip that fold away. */
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  emptyLayout,
-  layoutForTabMenu,
-  leaves,
-  moveTab,
-  openTab,
-  splitPane,
-  type PaneLayout,
-  type PaneLeaf,
-  type TabRef,
-} from "../application/pane-tree";
+import type { PaneLayout, PaneLeaf, TabRef } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { readLayout, writeLayout } from "../application/layout-storage";
-import { groupRuns, withoutGroup } from "../application/tab-groups";
 
 const tab = (id: string): TabRef => ({ kind: "vault_page", id });
-const ABCD = ["a", "b", "c", "d"].reduce((layout, id) => openTab(layout, tab(id)), emptyLayout());
-const leaf = (layout: PaneLayout, pane = 0): PaneLeaf => leaves(layout.root)[pane]!;
+const ABCD = ["a", "b", "c", "d"].reduce((layout, id) => readyCore().openTab(layout, tab(id)), readyCore().emptyLayout());
+const leaf = (layout: PaneLayout, pane = 0): PaneLeaf => readyCore().leaves(layout.root)[pane]!;
 const ids = (layout: PaneLayout) => leaf(layout).tabs.map((t) => t.id);
 const groupOf = (layout: PaneLayout) => leaf(layout).tabs.map((t) => t.group ?? "-");
-const run = (layout: PaneLayout, index: number, command: Parameters<typeof layoutForTabMenu>[3]) =>
-  layoutForTabMenu(layout, "pane-1", index, command);
+const run = (layout: PaneLayout, index: number, command: Parameters<ReturnType<typeof readyCore>["layoutForTabMenu"]>[3]) =>
+  readyCore().layoutForTabMenu(layout, "pane-1", index, command);
 
 test("a new group holds the clicked tab and gets the next colour", () => {
   const one = run(ABCD, 1, { group: "new" });
@@ -74,7 +64,7 @@ test("a folded group hides its tabs, except the open one, behind one chip", () =
   layout = run(layout, 1, { group: "join", id: "g1" });
   const folded = run(layout, 0, { group: "toggle" });
   // `d` is the open tab, outside the group.
-  const runs = groupRuns(leaf(folded));
+  const runs = readyCore().groupRuns(leaf(folded));
   assert.deepEqual(
     runs.map((r) => [r.chip?.id ?? null, r.hidden]),
     [["g1", true], [null, true], [null, false], [null, false]],
@@ -82,27 +72,27 @@ test("a folded group hides its tabs, except the open one, behind one chip", () =
   assert.equal(runs[0]!.size, 2);
 
   const opened = run(folded, 0, { group: "toggle" });
-  assert.deepEqual(groupRuns(leaf(opened)).map((r) => r.hidden), [false, false, false, false]);
+  assert.deepEqual(readyCore().groupRuns(leaf(opened)).map((r) => r.hidden), [false, false, false, false]);
 });
 
 test("the open tab of a folded group stays visible", () => {
   let layout = run(ABCD, 2, { group: "new" });
   layout = run(layout, 3, { group: "join", id: "g1" });
   const folded = run(layout, 2, { group: "toggle" });
-  assert.deepEqual(groupRuns(leaf(folded)).map((r) => r.hidden), [false, false, true, false]);
+  assert.deepEqual(readyCore().groupRuns(leaf(folded)).map((r) => r.hidden), [false, false, true, false]);
 });
 
 test("a tab carried to another pane leaves its group behind", () => {
   const grouped = run(ABCD, 0, { group: "new" });
-  const split = splitPane(grouped, "pane-1", "row", "pane-2");
-  const moved = moveTab(split, { paneId: "pane-1", index: 0 }, "pane-2");
-  for (const pane of leaves(moved.root)) for (const t of pane.tabs) assert.equal(t.group, undefined, pane.id);
-  assert.deepEqual(withoutGroup({ kind: "k", id: "i", mode: "ink", group: "g1" }), { kind: "k", id: "i", mode: "ink" });
+  const split = readyCore().splitPane(grouped, "pane-1", "row", "pane-2");
+  const moved = readyCore().moveTab(split, { paneId: "pane-1", index: 0 }, "pane-2");
+  for (const pane of readyCore().leaves(moved.root)) for (const t of pane.tabs) assert.equal(t.group, undefined, pane.id);
+  assert.deepEqual(readyCore().withoutGroup({ kind: "k", id: "i", mode: "ink", group: "g1" }), { kind: "k", id: "i", mode: "ink" });
 });
 
 test("a tab naming a group that is not there reads as ungrouped", () => {
   const stale: PaneLeaf = { type: "leaf", id: "p", tabs: [{ ...tab("a"), group: "gone" }], activeIndex: 0 };
-  assert.deepEqual(groupRuns(stale), [{ chip: null, hidden: false, size: 0 }]);
+  assert.deepEqual(readyCore().groupRuns(stale), [{ chip: null, hidden: false, size: 0 }]);
 });
 
 test("groups survive a restart; junk group records are dropped", () => {

@@ -13,7 +13,7 @@
  * searched.
  */
 
-import type { WorkspaceTreeNode } from "./workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
 
 export interface QuickOpenResult {
   node: WorkspaceTreeNode;

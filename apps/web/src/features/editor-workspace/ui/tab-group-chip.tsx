@@ -5,8 +5,8 @@ import { useState } from "react";
 import { openContextMenu } from "@/components/context-menu-store";
 import { ToolButton } from "@/components/controls";
 import type { MenuItem } from "@/components/menu";
-import type { PaneLeaf } from "../application/pane-tree";
-import { GROUP_COLORS, type TabGroup, type TabGroupCommand } from "../application/tab-groups";
+import { readyCore } from "@/lib/rust-core";
+import type { PaneLeaf, TabGroup, TabGroupCommand } from "@weaveforge/wasm";
 
 /** What a group is called in menus: its name, or its place in the strip. */
 export function groupLabel(leaf: PaneLeaf, group: TabGroup): string {
@@ -36,7 +36,7 @@ export function chipMenuItems(group: TabGroup, run: (c: TabGroupCommand) => void
   return [
     { id: "rename", label: "Rename", onSelect: rename },
     { id: "sep-color", label: "", kind: "separator" },
-    ...GROUP_COLORS.map(
+    ...readyCore().GROUP_COLORS.map(
       (color): MenuItem => ({
         id: `color-${color}`,
         label: `Colour ${color}`,

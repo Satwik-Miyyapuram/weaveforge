@@ -46,7 +46,7 @@ import { editorImageUpload } from "@/lib/editor-image-upload";
 import { readyCore } from "@/lib/rust-core";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
-import type { DocumentMode, TabRef } from "../application/pane-tree";
+import type { DocumentMode, TabRef } from "@weaveforge/wasm";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "./kind";
 import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";

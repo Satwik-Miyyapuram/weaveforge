@@ -9,10 +9,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { ExplorerPanel } from "../ui/explorer-panel";
-import { buildWorkspaceTree } from "../application/workspace-tree";
+import { readyCore } from "@/lib/rust-core";
 
 function rows(): Map<string, string> {
-  const tree = buildWorkspaceTree({
+  const tree = readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [
       { id: "f1", title: "Methods", parentId: undefined, folder: true },

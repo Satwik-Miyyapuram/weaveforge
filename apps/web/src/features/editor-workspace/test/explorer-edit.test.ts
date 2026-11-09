@@ -13,10 +13,11 @@ import {
   rootKey,
   rootOf,
 } from "../application/explorer-edit";
-import { buildWorkspaceTree, flattenTree, folderIdsOf, type WorkspaceTreeNode } from "../application/workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 function tree() {
-  return buildWorkspaceTree({
+  return readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [
       { id: "n1", title: "Methods", parentId: undefined, folder: true },
@@ -149,8 +150,8 @@ test("a folder is a grouping row: marked as one, kept out of quick open, and lis
   const roots = tree();
   assert.equal(find(roots, "vault_page:n1").folder, true);
   assert.equal(find(roots, "vault_page:n2").folder, undefined);
-  const opened = flattenTree(roots).map((node) => node.key);
+  const opened = readyCore().flattenTree(roots).map((node) => node.key);
   assert.ok(opened.includes("vault_page:n2"));
   assert.ok(!opened.includes("vault_page:n1"), "a folder is not a document to open");
-  assert.deepEqual([...folderIdsOf(roots)].sort(), ["n1", "n4"]);
+  assert.deepEqual([...readyCore().folderIdsOf(roots)].sort(), ["n1", "n4"]);
 });

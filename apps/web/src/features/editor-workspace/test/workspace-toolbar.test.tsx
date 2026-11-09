@@ -9,7 +9,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { emptyLayout, openTab, togglePreview, type PaneLayout } from "../application/pane-tree";
+import type { PaneLayout } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { WorkspaceToolbar } from "../ui/workspace-toolbar";
 
 const render = (layout: PaneLayout) =>
@@ -27,7 +28,7 @@ const render = (layout: PaneLayout) =>
 const button = (html: string, label: string) => html.match(new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`))?.[0] ?? "";
 
 test("the toolbar holds the focused document's tools, then preview, split and focus, never the mode", () => {
-  const html = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
+  const html = render(readyCore().openTab(readyCore().emptyLayout(), { kind: "note", id: "n1" }));
   assert.match(html, /role="toolbar"/);
   assert.doesNotMatch(html, /aria-label="Mode"/, "the mode lives in the note's path row");
   assert.ok(button(html, "Insert"), "Insert (a picture) is in the one bar");
@@ -39,19 +40,19 @@ test("the toolbar holds the focused document's tools, then preview, split and fo
 });
 
 test("Preview is pressed while the preview pane is open", () => {
-  const html = render(togglePreview(openTab(emptyLayout(), { kind: "note", id: "n1" }), "pane-2"));
+  const html = render(readyCore().togglePreview(readyCore().openTab(readyCore().emptyLayout(), { kind: "note", id: "n1" }), "pane-2"));
   assert.match(button(html, "Preview"), /aria-pressed="true"/);
 });
 
 test("with no document, the controls are greyed, not gone", () => {
-  const html = render(emptyLayout());
+  const html = render(readyCore().emptyLayout());
   assert.match(button(html, "Insert"), /disabled=""/);
   assert.match(button(html, "Preview"), /disabled=""/);
 });
 
 test("the toolbar keeps its layout icons in Ink; Preview greys there", () => {
   for (const tab of [{ kind: "vault_page", id: "n1", mode: "ink" }, { kind: "paper_pdf", id: "p1" }] as const) {
-    const html = render(openTab(emptyLayout(), tab));
+    const html = render(readyCore().openTab(readyCore().emptyLayout(), tab));
     assert.doesNotMatch(html, /aria-label="Mode"/);
     assert.match(button(html, "Preview"), /disabled=""/, tab.kind);
     assert.ok(button(html, "Split right"), tab.kind);
@@ -59,7 +60,7 @@ test("the toolbar keeps its layout icons in Ink; Preview greys there", () => {
 });
 
 test("one toolbar in every mode: Text hides the ink tools it cannot use", () => {
-  const text = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
+  const text = render(readyCore().openTab(readyCore().emptyLayout(), { kind: "note", id: "n1" }));
   const idle = text.slice(text.indexOf("workspace-toolbar-idle"));
   assert.match(idle, /aria-label="Document tools"/, "the one bar shows in Text");
   for (const label of ["Select \\(V\\)", "Pen \\(P\\)", "Undo", "Next page", "Zoom in", "Recognise", "Find in document"]) {
@@ -68,7 +69,7 @@ test("one toolbar in every mode: Text hides the ink tools it cannot use", () => 
   assert.doesNotMatch(button(idle, "Insert"), /disabled=""/, "Insert works in Text");
   assert.doesNotMatch(text, /<fieldset/, "greyed per control, not by a fieldset");
   for (const tab of [{ kind: "vault_page", id: "n1", mode: "ink" }, { kind: "paper_pdf", id: "p1" }] as const) {
-    const ink = render(openTab(emptyLayout(), tab));
+    const ink = render(readyCore().openTab(readyCore().emptyLayout(), tab));
     assert.doesNotMatch(ink, /workspace-toolbar-idle/, `${tab.kind}: the live ink bar takes the slot`);
   }
 });
@@ -141,7 +142,7 @@ test("in focus the toolbar hides, so a document keeps its own bar in the pane", 
     renderToStaticMarkup(
       <PaneView
         focus={focus}
-        layout={openTab(emptyLayout(), { kind: "note", id: "n1" })}
+        layout={readyCore().openTab(readyCore().emptyLayout(), { kind: "note", id: "n1" })}
         labelFor={() => "Note"}
         renderDocument={() => (
           <ToolbarSlot>
@@ -181,9 +182,9 @@ test("the PDF reader's bar goes up to the toolbar too, folding rather than scrol
 });
 
 test("the mode switch sits in the note's path row in every mode, so it never moves", async () => {
-  const ink = openTab(emptyLayout(), { kind: "vault_page", id: "n1", mode: "ink" });
-  const text = openTab(emptyLayout(), { kind: "vault_page", id: "n1" });
-  const pdf = openTab(emptyLayout(), { kind: "paper_pdf", id: "p1" });
+  const ink = readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "n1", mode: "ink" });
+  const text = readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "n1" });
+  const pdf = readyCore().openTab(readyCore().emptyLayout(), { kind: "paper_pdf", id: "p1" });
   const { PaneView } = await import("../ui/pane-view");
   const noop = () => {};
   const pane = (layout: PaneLayout) =>
@@ -214,7 +215,7 @@ test("the mode switch sits in the note's path row in every mode, so it never mov
 });
 
 test("the bar folds rather than wraps: a Layout ▾ holds Preview and Split once it is narrow", () => {
-  const html = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
+  const html = render(readyCore().openTab(readyCore().emptyLayout(), { kind: "note", id: "n1" }));
   const end = html.slice(html.indexOf("workspace-toolbar-end"));
   const layout = button(end, "Layout");
   assert.ok(layout, "Layout ▾ waits in the layout group");
@@ -256,10 +257,10 @@ test("an Overleaf tab keeps the workspace toolbar row (tabs never jump) but has 
         onTogglePreview={noop}
       />,
     );
-  const overleaf = pane(openTab(emptyLayout(), { kind: "overleaf", id: "ol1" }));
+  const overleaf = pane(readyCore().openTab(readyCore().emptyLayout(), { kind: "overleaf", id: "ol1" }));
   assert.match(overleaf, /class="workspace-toolbar/);
   assert.doesNotMatch(overleaf, /aria-label="Mode"/);
-  const note = pane(openTab(emptyLayout(), { kind: "vault_page", id: "n1" }));
+  const note = pane(readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "n1" }));
   assert.match(note, /class="workspace-toolbar/);
   assert.match(note, /aria-label="Mode"/);
 });
