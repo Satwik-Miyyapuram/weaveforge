@@ -127,6 +127,7 @@ const RUST_OWNED = [
   "tabSeparatedToMarkdownTable",
   "takeInkRedo",
   "takeInkUndo",
+  "parseDashboardLayout",
   "themeConfigTemplate",
   "toRelativeBlobLinks",
   "toZoteroWritePayload",
