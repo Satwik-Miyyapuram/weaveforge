@@ -8,7 +8,7 @@ import type {
   TagWithPaperCount,
 } from "@weaveforge/core";
 import { addDays, localIsoDate } from "@weaveforge/core";
-import { cardSnippet } from "@/lib/card-snippet";
+import { readyCore } from "@/lib/rust-core";
 
 export interface ProgressStat {
   done: number;
@@ -125,7 +125,7 @@ function recentLogEntries(
     date: e.entryDate,
     // The same plain-text preview the note and paper cards show: raw `##` and
     // `**` in a one-line preview read as corruption, not as markdown.
-    preview: cardSnippet(e.body, 80),
+    preview: readyCore().cardSnippet(e.body, 80),
     href: "/log",
   }));
 }

@@ -17,7 +17,7 @@
  * is not cached either: it started before the write that cleared it.
  */
 import { SCREEN_REVALIDATE_AFTER_MS } from "@/lib/cache/cache-policy";
-import type { ResourceType } from "@/lib/cache/cache-invalidation-map";
+import type { ResourceType } from "@weaveforge/wasm";
 import { cacheWriteNotify, registerRepoCacheEntry } from "@/lib/cache/project-lww-invalidator";
 
 export type CacheRepoOpts = {

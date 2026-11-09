@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { breadcrumbs } from "../application/breadcrumbs";
-import { headingSlug, outlineOf } from "../application/outline";
+import { outlineOf } from "../application/outline";
+import { readyCore } from "@/lib/rust-core";
 import {
   buildListsTree,
   buildWorkspaceTree,
@@ -90,9 +91,9 @@ test("the outline slug is the id the read view writes", () => {
   // Pinned against `markdown.tsx`'s own `headingSlug`: a run of
   // non-alphanumerics collapses to one hyphen, and both ends are trimmed.
   // Note `β` is a letter and survives; `&` does not.
-  assert.equal(headingSlug("Baselines & β-VAE"), "baselines-β-vae");
-  assert.equal(headingSlug("  Trailing —"), "trailing");
-  assert.equal(outlineOf("## Baselines & β-VAE")[0]!.slug, headingSlug("Baselines & β-VAE"));
+  assert.equal(readyCore().headingSlug("Baselines & β-VAE"), "baselines-β-vae");
+  assert.equal(readyCore().headingSlug("  Trailing —"), "trailing");
+  assert.equal(outlineOf("## Baselines & β-VAE")[0]!.slug, readyCore().headingSlug("Baselines & β-VAE"));
 });
 
 test("a document with no headings has an empty outline, and that is not an error", () => {

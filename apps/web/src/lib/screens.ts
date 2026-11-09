@@ -2,7 +2,7 @@
  * Every screen that keeps a `useScreenData` cache, named once.
  *
  * Three lists used to spell these names independently — the route table
- * (`screen-for-path.ts`), the invalidation map (`cache-invalidation-map.ts`) and
+ * (`screen-for-path.ts`), the invalidation map (`wf-core` `cache_invalidation`) and
  * the prefetch switch (`prefetch-screen.ts`) — and they had already drifted
  * apart in both directions, which is the failure this prevents rather than
  * tidies:

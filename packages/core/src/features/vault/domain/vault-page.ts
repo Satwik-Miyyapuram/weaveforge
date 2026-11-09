@@ -339,5 +339,5 @@ export function vaultBodyPreview(body: string, max = VAULT_BODY_PREVIEW_CHARS): 
 
 /** Collect unique vault asset paths referenced in markdown bodies. */
 export function vaultAssetPathsInBody(body: string): string[] {
-  return imagePathsInBody(body, VAULT_IMAGE_PREFIX, normalizeMarkdownImageSyntax);
+  return imagePathsInBody(body, VAULT_IMAGE_PREFIX);
 }

@@ -407,3 +407,136 @@ fn stray_header_rest(text: &str) -> Option<&str> {
             .unwrap_or(""),
     )
 }
+
+/// The readable text of a stored body (TS `readableText`): a plain note as it is, an
+/// ink note as its page text layers joined by blank lines. Empty pages are dropped.
+#[must_use]
+pub fn readable_text(body: &str) -> String {
+    if !is_ink_note_body(body) {
+        return body.to_owned();
+    }
+    let (_, text) = read_ink_note_body(body);
+    split_ink_text_layer(&text)
+        .into_iter()
+        .filter(|page| !page.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+/// Splits a text layer into one string per page (TS `splitInkTextLayer`).
+///
+/// Page 1 opens the body with no marker. Each `<!-- page N -->` line starts the next
+/// page, whatever number it carries. Blank edges of every page are trimmed; a body with
+/// no text is one empty page.
+#[must_use]
+pub fn split_ink_text_layer(body: &str) -> Vec<String> {
+    let mut pages: Vec<Vec<&str>> = vec![Vec::new()];
+    for line in text_lines(body) {
+        if is_page_marker(line.trim_matches(is_js_whitespace)) {
+            pages.push(Vec::new());
+        } else if let Some(page) = pages.last_mut() {
+            page.push(line);
+        }
+    }
+    pages
+        .iter()
+        .map(|lines| trim_blank_edges(lines).join("\n"))
+        .collect()
+}
+
+/// Lines as JS `split(/\r?\n/)` gives them: a CR is dropped only when an LF follows it.
+fn text_lines(body: &str) -> Vec<&str> {
+    let parts: Vec<&str> = body.split('\n').collect();
+    let last = parts.len().saturating_sub(1);
+    parts
+        .into_iter()
+        .enumerate()
+        .map(|(index, line)| {
+            if index < last {
+                line.strip_suffix('\r').unwrap_or(line)
+            } else {
+                line
+            }
+        })
+        .collect()
+}
+
+/// Whether an already trimmed line is `<!-- page N -->` (TS `PAGE_MARKER`,
+/// `/^<!--\s*page\s+\d+\s*-->$/`). Hand-written because regex-lite has no `\s` for JS space.
+fn is_page_marker(line: &str) -> bool {
+    let Some(rest) = line.strip_prefix("<!--") else {
+        return false;
+    };
+    let Some(rest) = rest.trim_start_matches(is_js_whitespace).strip_prefix("page") else {
+        return false;
+    };
+    let after_gap = rest.trim_start_matches(is_js_whitespace);
+    if after_gap.len() == rest.len() {
+        return false;
+    }
+    let digits = after_gap.bytes().take_while(u8::is_ascii_digit).count();
+    if digits == 0 {
+        return false;
+    }
+    after_gap
+        .get(digits..)
+        .map(|tail| tail.trim_start_matches(is_js_whitespace))
+        == Some("-->")
+}
+
+/// Drops blank lines at both ends (TS `trimBlankEdges`), by JS whitespace.
+fn trim_blank_edges<'a>(lines: &[&'a str]) -> Vec<&'a str> {
+    let blank = |line: &str| line.trim_matches(is_js_whitespace).is_empty();
+    let start = lines
+        .iter()
+        .position(|line| !blank(*line))
+        .unwrap_or(lines.len());
+    let end = lines
+        .iter()
+        .rposition(|line| !blank(*line))
+        .map_or(start, |index| index + 1);
+    lines.get(start..end).unwrap_or(&[]).to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{default_ink_note_meta, readable_text, split_ink_text_layer, write_ink_note_body};
+
+    #[test]
+    fn split_makes_each_marker_a_page_break() {
+        let body = "first\n\n<!-- page 2 -->\nsecond\n<!--page 3-->\nthird";
+        assert_eq!(split_ink_text_layer(body), vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn split_trims_blank_edges_and_keeps_an_empty_last_page() {
+        assert_eq!(split_ink_text_layer("\n\n"), vec![""]);
+        assert_eq!(split_ink_text_layer("a\n<!-- page 2 -->\n"), vec!["a", ""]);
+    }
+
+    #[test]
+    fn split_drops_a_crlf_but_keeps_a_lone_cr() {
+        assert_eq!(split_ink_text_layer("a\r\nb"), vec!["a\nb"]);
+        assert_eq!(split_ink_text_layer("a\rb"), vec!["a\rb"]);
+    }
+
+    #[test]
+    fn marker_must_be_the_whole_line() {
+        assert_eq!(
+            split_ink_text_layer("<!-- page x -->\n<!-- page 2 --> tail"),
+            vec!["<!-- page x -->\n<!-- page 2 --> tail"]
+        );
+    }
+
+    #[test]
+    fn readable_text_passes_a_plain_note_through() {
+        assert_eq!(readable_text("# Title\n\nbody"), "# Title\n\nbody");
+    }
+
+    #[test]
+    fn readable_text_joins_ink_pages_and_drops_empty_ones() {
+        let meta = default_ink_note_meta();
+        let body = write_ink_note_body(&meta, "one\n\n<!-- page 2 -->\ntwo\n<!-- page 3 -->\n");
+        assert_eq!(readable_text(&body), "one\n\ntwo");
+    }
+}

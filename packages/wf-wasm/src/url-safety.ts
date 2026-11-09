@@ -8,6 +8,7 @@ import {
   expandIpv6 as rawExpandIpv6,
   isIpAddress as rawIsIpAddress,
   isPublicAddress as rawIsPublicAddress,
+  looksLikeImageUrl as rawLooksLikeImageUrl,
 } from "../pkg/wf_wasm.js";
 import type { UrlCheck } from "./bindings.js";
 
@@ -43,6 +44,11 @@ export function isIpAddress(value: string): boolean {
 /** True when an address is one the internet can route to somebody else. */
 export function isPublicAddress(address: string): boolean {
   return rawIsPublicAddress(address);
+}
+
+/** True when the URL's own path names a picture (Rust `looks_like_image_url`). */
+export function looksLikeImageUrl(url: string): boolean {
+  return rawLooksLikeImageUrl(url);
 }
 
 /** Expands an IPv6 address to its eight groups, or null when it is not one. */

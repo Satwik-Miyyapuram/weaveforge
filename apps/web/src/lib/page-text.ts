@@ -1,9 +1,4 @@
-import {
-  splitInkTextLayer,
-  type VaultPage,
-  type VaultPageSummary,
-} from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import type { VaultPage, VaultPageSummary } from "@weaveforge/core";
 
 /**
  * The body text a card, a backlink scan or a hashtag scan can see.
@@ -46,14 +41,4 @@ export function isHydratedPage(page: VaultPageSummary | VaultPage): page is Vaul
   // keeps it empty on a full page precisely so this can tell them apart.
   if (!("body" in page) || typeof page.body !== "string") return false;
   return !("bodyPreview" in page && page.bodyPreview);
-}
-
-/**
- * The words a reader sees in a body: a plain note as it is, an ink note as the
- * text layer under its pages, without the header line and page markers that
- * only the ink surface reads. What a card excerpt and a word count show.
- */
-export function readableText(body: string): string {
-  if (!readyCore().isInkNoteBody(body)) return body;
-  return splitInkTextLayer(readyCore().readInkNoteBody(body).text).filter(Boolean).join("\n\n");
 }
