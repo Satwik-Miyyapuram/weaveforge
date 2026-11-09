@@ -1568,6 +1568,14 @@ export type ItemVerdict = {
 	answered: number,
 };
 
+/**  The role and supervisor a joiner gets from an invite. */
+export type JoinAssignment = {
+	/**  Profile role the joiner gets. */
+	role: string,
+	/**  Supervisor the joiner is linked to, if the role needs one. */
+	supervisorId: string | null,
+};
+
 /**  The entries for one file, with their counts. */
 export type JsonDiff = {
 	/**  Every row and removal, in comparison order. */
@@ -1768,6 +1776,25 @@ export type McpResult = {
 	truncated: number | null,
 };
 
+/**  A lab member as the visibility rules see them: an id and the supervisor's id. */
+export type MemberLink = {
+	/**  The member's user id. */
+	id: string,
+	/**  The supervisor's user id, when the member has one. */
+	supervisorId?: string | null,
+};
+
+/**
+ *  An org membership as the lab rules read it. `join_source` is `invite`, `create`, or a
+ *  migration backfill value.
+ */
+export type Membership = {
+	/**  The organisation's id. */
+	orgId?: string,
+	/**  How the user joined: `invite`, `create`, or a backfill value. */
+	joinSource?: string | null,
+};
+
 /**
  *  One key both sides moved, with all three sides so a person can pick.
  *  `ours` is the workspace's value, `theirs` the folder's.
@@ -1902,6 +1929,20 @@ export type NewLogEntryInput = {
 	links?: LogLink[] | null,
 };
 
+/**  A validated account request for a new lab member. */
+export type NewMember = {
+	/**  Lowercased, trimmed email. */
+	email: string,
+	/**  Password exactly as entered. */
+	password: string,
+	/**  Trimmed full name, if any. */
+	fullName: string | null,
+	/**  Invite role the member is created with. */
+	role: string,
+	/**  Trimmed supervisor id, if any. */
+	supervisorId: string | null,
+};
+
 /**  Input for a new milestone (TS `NewMilestoneInput`). */
 export type NewMilestoneInput = {
 	/**  Title; trimmed and required. */
@@ -2019,6 +2060,18 @@ export type NormalizedShareInput = {
 	resourceId: string | null,
 	/**  The access level, never absent. */
 	access: ShareAccess,
+};
+
+/**  The first-run setup state the setup gate reads. */
+export type OrgSetupState = {
+	/**  Whether the user belongs to any organisation. */
+	hasOrgs: boolean,
+	/**  Whether the state is still loading. */
+	loading: boolean,
+	/**  The user's profile, once loaded. */
+	profile: ProfileState | null,
+	/**  The load error, if any. */
+	error?: string | null,
 };
 
 /**  Only the page of a heading (`{ page: number }`), as `outlineIsPlausible` reads it. */
@@ -2340,6 +2393,16 @@ export type PrismaFigureOptions = {
 	reasons?: ExclusionReasonCount[] | null,
 	/**  The database or register the records came from, if it is worth naming. */
 	source?: string | null,
+};
+
+/**  The profile fields the standalone role sync reads. */
+export type ProfileState = {
+	/**  The stored `profiles.role`. */
+	role: string,
+	/**  Whether first-run org setup finished. */
+	orgSetupComplete?: boolean | null,
+	/**  The lab the profile has active, if any. */
+	activeOrgId?: string | null,
 };
 
 /**  Citavi-style taxonomy for how an annotation will be used in writing. */

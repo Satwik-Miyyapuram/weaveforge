@@ -25,43 +25,10 @@ import {
   studentsOf as rawStudentsOf,
 } from "../pkg/wf_wasm.js";
 
-/** A role a member can hold in the lab tree. */
-export type OrgMemberRole = "professor" | "phd" | "masters" | "standalone";
-
-/** A lab member as the visibility rules read them. Other fields are ignored. */
-export interface MemberLinkInput {
-  id: string;
-  supervisorId?: string | null;
-}
+import type { JoinAssignment, MemberLink, Membership, NewMember, OrgSetupState, ProfileState } from "./bindings.js";
 
 /** What a viewer may see of a lab. `orgMemberIds` is the active lab's roster, if known. */
-export interface TeamVisibilityInput {
-  inLab: boolean;
-  orgMemberIds?: ReadonlySet<string> | null;
-}
-
-/** An org membership as the lab rules read it. */
-export interface OrgMembershipInput {
-  orgId?: string;
-  joinSource?: string | null;
-}
-
-/** A profile as the setup and role-sync rules read it. */
-export interface OrgProfileInput {
-  role: string;
-  orgSetupComplete?: boolean | null;
-  activeOrgId?: string | null;
-}
-
-/** The first-run setup state the setup gate reads. */
-export interface OrgSetupStateInput {
-  hasOrgs: boolean;
-  loading: boolean;
-  profile: OrgProfileInput | null;
-  error?: string | null;
-}
-
-function wireVisibility(options: TeamVisibilityInput) {
+function wireVisibility(options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null }) {
   return {
     inLab: options.inLab,
     orgMemberIds: options.orgMemberIds ? [...options.orgMemberIds] : null,
@@ -73,30 +40,30 @@ function pick<T>(items: readonly T[], indices: readonly number[]): T[] {
 }
 
 /** Roles `creator` may create accounts for, in invite-code order. */
-export function creatableRoles(creator: OrgMemberRole): Exclude<OrgMemberRole, "standalone">[] {
-  return rawCreatableRoles(creator) as Exclude<OrgMemberRole, "standalone">[];
+export function creatableRoles(creator: string): string[] {
+  return rawCreatableRoles(creator) as string[];
 }
 
 /** The supervision team: the viewer plus all supervisees, at any depth. */
-export function filterTeamMembers<T extends MemberLinkInput>(
+export function filterTeamMembers<T extends MemberLink>(
   viewerId: string,
   members: readonly T[],
-  options: TeamVisibilityInput,
+  options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null },
 ): T[] {
   return pick(members, rawFilterTeamMembers(viewerId, members, wireVisibility(options)) as number[]);
 }
 
 /** The full active-lab roster, for the org chart. */
-export function filterLabMembers<T extends MemberLinkInput>(
+export function filterLabMembers<T extends MemberLink>(
   viewerId: string,
   members: readonly T[],
-  options: TeamVisibilityInput,
+  options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null },
 ): T[] {
   return pick(members, rawFilterLabMembers(viewerId, members, wireVisibility(options)) as number[]);
 }
 
 /** The people below `viewerId` in the supervisor tree, at any depth. */
-export function studentsOf<T extends MemberLinkInput>(viewerId: string | undefined, team: readonly T[]): T[] {
+export function studentsOf<T extends MemberLink>(viewerId: string | undefined, team: readonly T[]): T[] {
   return pick(team, rawStudentsOf(viewerId ?? undefined, team) as number[]);
 }
 
@@ -107,30 +74,30 @@ export function isSupervisorRole(role: string | null | undefined): boolean {
 
 /** Role shown for a member: standalone outside a lab, except an owner's professor. */
 export function resolveDisplayRole(
-  role: OrgMemberRole,
+  role: string,
   opts: { inLab: boolean; ownsOrg?: boolean },
-): OrgMemberRole {
-  return rawResolveDisplayRole(role, opts.inLab, opts.ownsOrg ?? false) as OrgMemberRole;
+): string {
+  return rawResolveDisplayRole(role, opts.inLab, opts.ownsOrg ?? false);
 }
 
 /** Whether `profiles.role` should be saved as standalone (the stored lab role is stale). */
 export function needsStandaloneRoleSync(
-  profile: OrgProfileInput | null,
-  memberships: readonly OrgMembershipInput[],
+  profile: ProfileState | null,
+  memberships: readonly Membership[],
   inLab: boolean,
 ): boolean {
   return rawNeedsStandaloneRoleSync(profile, memberships, inLab);
 }
 
 /** Whether the user created or joined the lab (not a migration backfill). */
-export function isExplicitLabMembership(membership: OrgMembershipInput): boolean {
+export function isExplicitLabMembership(membership: Membership): boolean {
   return rawIsExplicitLabMembership(membership);
 }
 
 /** Whether the active lab is set and the user is explicitly in it, or owns it. */
 export function hasActiveLab(
   activeOrgId: string | null | undefined,
-  memberships: readonly OrgMembershipInput[],
+  memberships: readonly Membership[],
   ownsActiveOrg = false,
 ): boolean {
   return rawHasActiveLab(activeOrgId ?? undefined, memberships, ownsActiveOrg);
@@ -138,43 +105,19 @@ export function hasActiveLab(
 
 /** Whether the standalone role sync may run. `labs` is null when memberships are unknown. */
 export function shouldSyncStandalone(
-  profile: OrgProfileInput | null,
-  labs: readonly OrgMembershipInput[] | null,
+  profile: ProfileState | null,
+  labs: readonly Membership[] | null,
 ): boolean {
   return rawShouldSyncStandalone(profile, labs);
 }
 
 /** Whether the first-run setup screen applies. */
-export function needsOrgSetup(state: OrgSetupStateInput): boolean {
+export function needsOrgSetup(state: OrgSetupState): boolean {
   return rawNeedsOrgSetup(state);
 }
 
-/** Input for creating a lab member account. */
-export interface NewMemberInput {
-  email: string;
-  password: string;
-  fullName?: string | null;
-  role: string;
-  supervisorId?: string | null;
-}
-
-/** A validated account request. Email is lowercased; password is as entered. */
-export interface NewMember {
-  email: string;
-  password: string;
-  fullName: string | null;
-  role: string;
-  supervisorId: string | null;
-}
-
-/** The role and supervisor a joiner gets from an invite. */
-export interface JoinAssignment {
-  role: OrgMemberRole;
-  supervisorId: string | null;
-}
-
 /** Whether `creator` may create an account with role `target`. */
-export function canCreateRole(creator: OrgMemberRole, target: OrgMemberRole): boolean {
+export function canCreateRole(creator: string, target: string): boolean {
   return rawCanCreateRole(creator, target);
 }
 
@@ -184,7 +127,9 @@ export function resolveSupervisorId(creatorId: string): string {
 }
 
 /** Validate and normalize a new member. Throws the validation message as a string. */
-export function validateNewMember(input: NewMemberInput): NewMember {
+export function validateNewMember(
+  input: Pick<NewMember, "email" | "password" | "role"> & Partial<Pick<NewMember, "fullName" | "supervisorId">>,
+): NewMember {
   return rawValidateNewMember(
     input.email,
     input.password,

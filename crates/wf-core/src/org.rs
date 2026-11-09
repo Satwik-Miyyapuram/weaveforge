@@ -12,9 +12,14 @@ pub const ORG_INVITE_ROLES: [&str; 3] = ["professor", "phd", "masters"];
 /// migration backfill value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Membership {
+    /// The organisation's id.
     #[serde(default)]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub org_id: String,
+    /// How the user joined: `invite`, `create`, or a backfill value.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub join_source: Option<String>,
 }
 
@@ -57,10 +62,16 @@ pub fn should_sync_standalone(profile: Option<&ProfileState>, labs: Option<&[Mem
 /// The first-run setup state the setup gate reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct OrgSetupState {
+    /// Whether the user belongs to any organisation.
     pub has_orgs: bool,
+    /// Whether the state is still loading.
     pub loading: bool,
+    /// The user's profile, once loaded.
     pub profile: Option<ProfileState>,
+    /// The load error, if any.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub error: Option<String>,
 }
 
@@ -138,6 +149,7 @@ pub fn validate_org_name(name: &str) -> Result<String, &'static str> {
 /// The role and supervisor a joiner gets from an invite.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct JoinAssignment {
     /// Profile role the joiner gets.
     pub role: String,
