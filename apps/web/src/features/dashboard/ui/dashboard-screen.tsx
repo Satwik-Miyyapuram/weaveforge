@@ -31,8 +31,7 @@ import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 import { showToast } from "@/lib/toast";
-import { studentsOf } from "@/features/org/application/students-of";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 // Kept beside the repository memo on purpose (xapi-11): this holds the
 // *finalized* layout (supervisor defaults applied) and is read synchronously,
@@ -56,7 +55,7 @@ export function DashboardScreen() {
   const { current: project, fromSnapshot: projectsFromSnapshot } = useProject();
   const projectId = project?.id;
   const { profile, team, loading: profileLoading } = useProfile();
-  const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
+  const supervisees = useMemo(() => readyCore().studentsOf(profile?.id, team), [team, profile]);
   const isSupervisor = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
 
   const [layout, setLayout] = useState<DashboardLayout | null>(null);

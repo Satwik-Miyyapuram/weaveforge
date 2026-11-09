@@ -22,7 +22,7 @@ import { statusLabel } from "@/components/status-select";
 import { RowButton } from "@/components/controls";
 import { Button } from "@/components/button";
 import { CommentsToggle } from "@/features/sharing";
-import { studentsOf } from "../application/students-of";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -35,7 +35,7 @@ export function SupervisionScreen() {
   const memberFromUrl = searchParams.get("member");
 
   // The people I supervise, at any depth; not my own supervisor.
-  const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
+  const supervisees = useMemo(() => readyCore().studentsOf(profile?.id, team), [team, profile]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   useEffect(() => {

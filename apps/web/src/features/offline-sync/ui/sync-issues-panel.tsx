@@ -4,7 +4,6 @@ import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Fragment, useState } from "react";
 import { MARKER_OURS, MARKER_THEIRS, readyCore, type DiffLine, type HunkPick } from "@/lib/rust-core";
 import type { OpenConflict } from "../domain/conflicts";
-import { sameValue } from "../domain/merge";
 import { FormError } from "@/components/form-error";
 import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
@@ -204,7 +203,7 @@ function ConflictCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Fields equal on both sides need no choice; showing them hid the real difference.
-  const fields = conflict.fields.filter((f) => !sameValue(f.local ?? null, f.remote ?? null));
+  const fields = conflict.fields.filter((f) => !readyCore().sameValue(f.local ?? null, f.remote ?? null));
   const equal = conflict.fields.filter((f) => !fields.includes(f));
   const settled = fields.filter((f) => isSettled(f, choices[f.field])).length;
   const all = (kind: "local" | "remote") => setChoices(Object.fromEntries(fields.map((f) => [f.field, { kind }])));
