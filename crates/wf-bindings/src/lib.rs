@@ -34,8 +34,8 @@ pub enum BindingsError {
     reason = "flat list of exported types, one per line"
 )]
 pub fn types() -> Types {
-    port_types_2(port_types_1(settings_lab_types(writing_types(
-        analysis_types(reader_types(Types::default())),
+    leaf_port_types(port_types_2(port_types_1(settings_lab_types(
+        writing_types(analysis_types(reader_types(Types::default()))),
     ))))
     .register::<wf_core::CoreInfo>()
     .register::<wf_core::search::tokenizer::TokenizerOptions>()
@@ -436,6 +436,16 @@ fn port_types_2(types: Types) -> Types {
         .register::<wf_core::settings::integration_credentials::CredentialSettings>()
         .register::<wf_core::settings::integration_credentials::IntegrationsBag>()
         .register::<wf_core::settings::user_settings::UserSettings>()
+}
+
+/// Rust port types, part 3 (extraction, references, presence, LaTeX outline, ink shapes).
+fn leaf_port_types(types: Types) -> Types {
+    types
+        .register::<wf_core::ai::extraction::ExtractionResult>()
+        .register::<wf_core::papers::reference_text::ReferencePaper>()
+        .register::<wf_core::collab::Peer>()
+        .register::<wf_core::latex_section_tree::LatexSectionTree>()
+        .register::<wf_core::ink::shape_snap::SnappedShape>()
 }
 
 /// Render the full bindings file.

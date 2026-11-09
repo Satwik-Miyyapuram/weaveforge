@@ -22,8 +22,9 @@ import {
   inkZoomOut as rawInkZoomOut,
   packInkStroke as rawPackInkStroke,
   pressureByte as rawPressureByte,
+  snapInkShape as rawSnapInkShape,
 } from "../pkg/wf_wasm.js";
-import type { InkStrokePackerOptions, PackedInkStroke } from "./bindings.js";
+import type { InkShape, InkStrokePackerOptions, PackedInkStroke } from "./bindings.js";
 
 /** The stroke's tangent at sample `i` for the span on `side` (Rust `ink_tangent_at`). */
 export function inkTangentAt(
@@ -149,4 +150,19 @@ export function inkStrokeBand(stroke: { points: ArrayLike<number> }): [number, n
 /** A pressure as the 0-255 byte the container stores; missing or non-finite is 0. */
 export function pressureByte(pressure: number | undefined): number {
   return rawPressureByte(pressure);
+}
+
+/** Fit a line, rect, ellipse or arrow to a mark, or null when it abstains (Rust `snap_ink_shape`). */
+export function snapInkShape(points: readonly number[]): { points: number[]; shape: Exclude<InkShape, "none"> } | null {
+  return rawSnapInkShape(Float64Array.from(points)) as { points: number[]; shape: Exclude<InkShape, "none"> } | null;
+}
+
+/** The y band [min, max] of flat points, or undefined when there are none. */
+export function inkStrokeBandOf(points: Float64Array): Float64Array | undefined {
+  return rawInkStrokeBandOf(points);
+}
+
+/** The words a recogniser vocabulary allows, in order. */
+export function inkVocabularyWordList(vocabulary: readonly string[]): string[] {
+  return rawInkVocabularyWordList([...vocabulary]) as string[];
 }

@@ -7,6 +7,7 @@ const MAX_AUTHORS: usize = 20;
 
 /// The paper fields a reference uses (a subset of TS `Paper`).
 #[derive(Debug, Clone, Default, PartialEq, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase", default)]
 pub struct ReferencePaper {
     /// Title.
@@ -14,14 +15,19 @@ pub struct ReferencePaper {
     /// Author names, `Given Family` or `Family, Given`.
     pub authors: Vec<String>,
     /// Publication year.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub year: Option<f64>,
     /// Journal or conference.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub venue: Option<String>,
     /// DOI, bare or as a doi.org link.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub doi: Option<String>,
     /// arXiv id, optionally `arXiv:`-prefixed.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub arxiv_id: Option<String>,
     /// Any other link.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub url: Option<String>,
 }
 

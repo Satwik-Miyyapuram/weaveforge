@@ -140,12 +140,6 @@ export {
 } from "./render/canvas-renderer";
 
 export {
-  recogniseShape,
-  fittedInkPath,
-  fittedArrowPaths,
-} from "./application/shape-snap";
-
-export {
   InkHost,
   type InkHostDeps,
   type InkHostPage,

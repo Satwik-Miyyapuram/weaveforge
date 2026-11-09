@@ -20,6 +20,7 @@ pub mod ink_paths;
 pub mod js_math;
 pub mod recognise;
 pub mod segment;
+pub mod shape_snap;
 pub mod smooth;
 pub mod stroke_packer;
 pub mod width;

@@ -69,6 +69,7 @@ pub enum InkColour {
 
 /// Optional snapped shape replacing a stroke's freehand path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum InkShape {
     /// Freehand path kept as drawn.

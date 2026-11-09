@@ -1267,6 +1267,38 @@ export type ExperimentStatusPatch = {
 	finishedAt?: string | null,
 };
 
+/**  One concept a run found (TS `ExtractedConcept`). `kind` stays text so any value passes through. */
+export type ExtractedConcept = {
+	/**  Display name. */
+	name: string,
+	/**  Other names for the same concept. */
+	aliases?: string[],
+	/**  `concept`, `method`, `dataset`, `metric`, `person` or `venue`. */
+	kind: string,
+	/**  How many documents mention it. */
+	mentions: number | null,
+};
+
+/**  Where a concept was found (TS `ExtractedMention`). */
+export type ExtractedMention = {
+	/**  The document it was found in. */
+	documentId: string,
+	/**  The concept's name as found. */
+	conceptName: string,
+	/**  Verbatim text around it. */
+	evidence: string,
+};
+
+/**  A run's concepts and mentions (TS `ExtractionResult`). */
+export type ExtractionResult = {
+	/**  The concepts. */
+	concepts?: ExtractedConcept[],
+	/**  The mentions. */
+	mentions?: ExtractedMention[],
+	/**  Set when the work was handed to something that answers later. */
+	pending?: boolean | null,
+};
+
 /**  Effective per-field boosts (TS `Record<SearchField, number>`). */
 export type FieldBoosts = {
 	/**  Title boost. */
@@ -1632,6 +1664,19 @@ export type InkSegmentationIndices = {
 	lineOfStroke: number[],
 };
 
+/**  Optional snapped shape replacing a stroke's freehand path. */
+export type InkShape = 
+/**  Freehand path kept as drawn. */
+"none" | 
+/**  Snapped straight line. */
+"line" | 
+/**  Snapped rectangle. */
+"rect" | 
+/**  Snapped ellipse. */
+"ellipse" | 
+/**  Snapped arrow. */
+"arrow";
+
 /**  Options for [`InkStrokePacker`] and [`pack_ink_stroke`]; a missing field takes the default. */
 export type InkStrokePackerOptions = {
 	/**  Distance, in 0.1 mm, the packed curve may stray; default `INK_PACK_TOLERANCE`. */
@@ -1838,6 +1883,38 @@ export type LabSnapshotReportSection = {
 	status: ReportStatus,
 	/**  Words written at freeze time. */
 	wordCount: number | null,
+};
+
+/**  A sectioning command and the source span it governs. */
+export type LatexSectionNode = {
+	/**  `{file}:{line}:{localIndex}`, both 1-based. */
+	id: string,
+	/**  Heading text with commands, comments and braces removed. */
+	title: string,
+	/**  Base command name, e.g. `section` for `\section*`. */
+	command: string,
+	/**  0 for `part` through 6 for `subparagraph`. */
+	level: number,
+	/**  Normalized path of the file holding the heading. */
+	file: string,
+	/**  1-based line of the heading. */
+	startLine: number,
+	/**  1-based last line of the span. */
+	endLine: number,
+	/**  Short plain-text excerpt of the body, at most 240 chars. */
+	preview: string,
+	/**  Nested sections. */
+	children: LatexSectionNode[],
+};
+
+/**  Outline of a LaTeX project. */
+export type LatexSectionTree = {
+	/**  Top-level sections. */
+	roots: LatexSectionNode[],
+	/**  Normalized paths of the files visited, in visit order. */
+	files: string[],
+	/**  Include problems, in the order found. */
+	warnings: string[],
 };
 
 /**  One source file of a LaTeX project. */
@@ -2927,6 +3004,16 @@ export type PdfTextOptions = {
 	singleParagraph?: boolean,
 };
 
+/**  Someone else in a document, as the presence avatars show them (TS `Peer`). */
+export type Peer = {
+	/**  Account id, or `client:<n>` for a client that sent none. */
+	key: string,
+	/**  Display name. */
+	name: string,
+	/**  CSS colour. */
+	color: string,
+};
+
 /**  Walk settings (TS `PprOptions` without the injected `rng`). Unset fields take the defaults. */
 export type PprOptions = {
 	/**  Walks per seed. */
@@ -3203,6 +3290,24 @@ export type ReadingListTreeNode = {
 	list: ReadingList,
 	/**  Child lists, sorted by `sort_order` then `name`. */
 	children: ReadingListTreeNode[],
+};
+
+/**  The paper fields a reference uses (a subset of TS `Paper`). */
+export type ReferencePaper = {
+	/**  Title. */
+	title?: string,
+	/**  Author names, `Given Family` or `Family, Given`. */
+	authors?: string[],
+	/**  Publication year. */
+	year?: number | null,
+	/**  Journal or conference. */
+	venue?: string | null,
+	/**  DOI, bare or as a doi.org link. */
+	doi?: string | null,
+	/**  arXiv id, optionally `arXiv:`-prefixed. */
+	arxivId?: string | null,
+	/**  Any other link. */
+	url?: string | null,
 };
 
 /**
@@ -3727,6 +3832,14 @@ export type ShareableType =
 "paper" | 
 /**  A vault page. */
 "vault_page";
+
+/**  A snapped mark: flat edge-sampled points and the shape it was fitted as. */
+export type SnappedShape = {
+	/**  Flat `[x0, y0, x1, y1, …]` in 0.1 mm. */
+	points: (number | null)[],
+	/**  The fitted shape. */
+	shape: InkShape,
+};
 
 /**  Axis a split divides along. */
 export type SplitDirection = 

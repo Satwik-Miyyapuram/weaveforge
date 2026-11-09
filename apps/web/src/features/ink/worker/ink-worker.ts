@@ -54,11 +54,6 @@ import {
 import { inkChunkCodec } from "../application/ink-chunk-codec";
 import { InkPageBuffer } from "../application/page-buffer";
 import type { InkPalette } from "../render/ink-palette";
-import {
-  fittedArrowPaths,
-  fittedInkPath,
-  recogniseShape,
-} from "../application/shape-snap";
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
 import { WebglInkRenderer, supportsWebglInk } from "../render/webgl-renderer";
@@ -80,7 +75,7 @@ import {
   undo,
   type HistoryStep,
 } from "./ink-page-logic";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { exportPage } from "./ink-export";
 import { addStrokes } from "./ink-paste";
 import { setBackground } from "./ink-background";
@@ -322,36 +317,8 @@ function commitStroke(stroke: LiveStroke): void {
 function snapShape(
   points: readonly number[],
 ): { points: number[]; shape: InkShape } | null {
-  const recognised = recogniseShape(points);
-  if (!recognised.fit) return null;
-  const geometry = recognised.fit.geometry;
-  const paths =
-    geometry.kind === "arrow"
-      ? fittedArrowPaths(geometry)
-      : [fittedInkPath(geometry)];
-  const flat: number[] = [];
-  for (const path of paths) {
-    for (let i = 0; i < path.length; i += 1) {
-      const [x, y] = path[i]!;
-      if (i > 0) {
-        // Sample each straight edge as a pen would, so packing keeps the
-        // corners: the stroke is drawn as a curve, and a rectangle stored as
-        // its four corners would bow 2 mm off its edges.
-        const [px, py] = path[i - 1]!;
-        const steps = Math.floor(Math.hypot(x - px, y - py) / SNAP_EDGE_STEP);
-        for (let k = 1; k < steps; k += 1)
-          flat.push(px + ((x - px) * k) / steps, py + ((y - py) * k) / steps);
-      }
-      flat.push(x, y);
-    }
-  }
-  return flat.length >= 4
-    ? { points: flat, shape: recognised.fit.shape }
-    : null;
+  return readyCore().snapInkShape(points);
 }
-
-/** Spacing, in 0.1 mm, a snapped shape's straight edges are sampled at: 1 mm. */
-const SNAP_EDGE_STEP = 10;
 
 /** One frame: draw, count it, hand buffers back, and ask for the next only mid-stroke (19-05). */
 function tick(): void {

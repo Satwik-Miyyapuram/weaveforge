@@ -144,6 +144,15 @@ export function aiReadCategoryForResource(resource_type: any): any;
 export function analyzePdfDocument(pages: any, outline: any): any;
 
 /**
+ * [`anchor_at`](text_anchor::anchor_at): the anchor, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function anchorAt(text: string, start: number, end: number): any;
+
+/**
  * [`annotation_doc_id`](search_document::annotation_doc_id).
  */
 export function annotationDocId(annotation_id: string): string;
@@ -214,9 +223,27 @@ export function arxivEntryToMetadata(xml: string, arxiv_id: string): any;
 export function assemblePageCitations(page: any, native: any, patterns: any, excluded: any, candidates: any): any;
 
 /**
+ * [`asset_path`](folder_layout::asset_path). `scope` is `"notes"`, `"papers"` or `"report"`.
+ *
+ * # Errors
+ *
+ * Fails on any other scope.
+ */
+export function assetPath(scope: string, storage_path: string): string;
+
+/**
  * [`binomial_smooth`].
  */
 export function binomialSmooth(values: Float64Array, stride: number, passes: number): Float64Array;
+
+/**
+ * [`blank_ink_page`](ink_page::blank_ink_page): an empty A4 page on `paper`, `blank` by default.
+ *
+ * # Errors
+ *
+ * Fails if `paper` is not a known paper name.
+ */
+export function blankInkPage(paper: any): any;
 
 /**
  * [`body_font_size`](analysis_outline::body_font_size) (TS `bodyFontSize`).
@@ -283,6 +310,15 @@ export function buildListTree(lists: any): any;
 export function buildListsTree(input: any): any;
 
 /**
+ * [`build_page_tree`](page::build_page_tree) over the summary fields of each page.
+ *
+ * # Errors
+ *
+ * Fails if `pages` has the wrong shape.
+ */
+export function buildPageTree(pages: any): any;
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -329,6 +365,11 @@ export function canCreateRole(creator: string, target: string): boolean;
 export function canJoinInkGroup(group: any, next: any, window_ms?: number | null): boolean;
 
 /**
+ * [`canonical_ai_tool_name`](ai_tool_name::canonical_ai_tool_name).
+ */
+export function canonicalAiToolName(name: string): string;
+
+/**
  * [`card_snippet::card_snippet`]: plain-text preview of `body`, cut to `max` UTF-16 units.
  *
  * # Errors
@@ -355,6 +396,16 @@ export function changedSide(base?: string | null, folder?: string | null, worksp
  * Fails if `input` has the wrong shape.
  */
 export function checkBibliography(input: any): any;
+
+/**
+ * [`check_git_remote_url`](wf_core::sync::git_remote::check_git_remote_url); a
+ * non-string `raw` is refused (TS `checkGitRemoteUrl`).
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function checkGitRemoteUrl(raw: any): any;
 
 /**
  * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
@@ -397,6 +448,15 @@ export function citationItemToRect(item: any, from: number, to: number): any;
  * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
  */
 export function clampInkNoteWidth(width: number, fallback?: number | null): number;
+
+/**
+ * [`clamp_ink_page_size`](ink_page::clamp_ink_page_size): `{ width, height }` clamped to `Int16`.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function clampInkPageSize(width: number, height: number): any;
 
 /**
  * [`clamp_ink_width`].
@@ -551,6 +611,17 @@ export function computeFitWidthScale(page: any, container: any, rotation: number
 export function computeRollupsForPapers(paper_ids: any, rollup: any, defs: any, values: any): any;
 
 /**
+ * [`concept_key`](extraction::concept_key).
+ */
+export function conceptKey(name: string): string;
+
+/**
+ * [`context_nonce_from`](ai_tool_name::context_nonce_from): the caller passes the
+ * `Math.random()` values.
+ */
+export function contextNonceFrom(randoms: Float64Array): string;
+
+/**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
  *
  * # Errors
@@ -597,6 +668,16 @@ export function coveredTextSpans(page: any, links: any): any;
 export function creatableRoles(creator: string): any;
 
 /**
+ * [`create_experiment`](experiments::create_experiment) with the id and time supplied. Invalid
+ * input fails with the TS validation message.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or its name is blank.
+ */
+export function createExperimentWith(input: any, id: string, now: string): any;
+
+/**
  * [`create_log_entry`](log_entry::create_log_entry). `id` and `now` come from the TS clock and
  * id generator, which the caller runs before this call.
  *
@@ -627,6 +708,15 @@ export function createMilestoneWith(input: any, id: string, created_at: string):
 export function createPaperRelationWith(input: any, id: string, created_at: string): any;
 
 /**
+ * [`create_reading_list`](reading_list::create_reading_list) with the id and time supplied.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape or the name is blank.
+ */
+export function createReadingListWith(input: any, id: string, now: string): any;
+
+/**
  * [`create_report_section`](report_section::create_report_section) with the id and time
  * supplied. Call [`report_section_input_error_js`] first: invalid input fails here.
  *
@@ -635,6 +725,15 @@ export function createPaperRelationWith(input: any, id: string, created_at: stri
  * Fails if `input` has the wrong shape or does not validate.
  */
 export function createReportSectionWith(input: any, id: string, now_iso: string): any;
+
+/**
+ * [`create_vault_page`](page::create_vault_page) with the id and time supplied.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape, or with the validation message when the title is blank.
+ */
+export function createVaultPageWith(input: any, id: string, now: string): any;
 
 /**
  * An empty index `dimensions` wide.
@@ -681,6 +780,15 @@ export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file
  * Fails when `state` is not a valid repo state, or the verdict cannot be converted to a JS value.
  */
 export function decideVaultCommit(enabled: boolean, state: any): any;
+
+/**
+ * [`decode_html_entities`]: the named and numeric entities in `value`, decoded once.
+ *
+ * # Errors
+ *
+ * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function decodeHtmlEntities(value: string): string;
 
 /**
  * [`decode_ink_words`]: `words` is an array of `{ candidates, known?, join? }`,
@@ -878,6 +986,11 @@ export function encodeRollupOptions(config: any): string[];
 export function entityDir(entity: string, project_root: string): string;
 
 /**
+ * [`entry_file_error`](overleaf::entry_file_error).
+ */
+export function entryFileError(entry_file: string): string | undefined;
+
+/**
  * [`escape_latex_text`](markdown_to_latex::escape_latex_text) (TS `escapeLatexText`).
  */
 export function escapeLatexText(s: string): string;
@@ -964,6 +1077,16 @@ export function extractHeadings(body?: string | null): string[];
  * Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function extractPageMetadata(html: string, url: string): any;
+
+/**
+ * [`extract_page_title`](page_title::extract_page_title): `{ title, suspect }`, or
+ * `null` when the HTML has no title.
+ *
+ * # Errors
+ *
+ * Fails if `html` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function extractPageTitle(html: string): any;
 
 /**
  * [`extractVenue`](bibliography::extract_venue): venue named after the title, if any.
@@ -1101,6 +1224,15 @@ export function findReferenceSection(lines: any, body_font_size: number, page_co
 export function findRelated(graph: any, seed: string, limit: number, options: any, rng: () => number, lexical: (seedId: string, limit: number) => { id: string; score: number }[], tagged: (seedId: string, limit: number) => { id: string; score: number }[]): any;
 
 /**
+ * [`flat_path`](folder_layout::flat_path). `entity` is a `WorkspaceEntityType` string.
+ *
+ * # Errors
+ *
+ * Fails if `entity` is not a known entity type.
+ */
+export function flatPath(entity: any, id: string, title: string, project_root: string): string;
+
+/**
  * [`flatten_tree`](tree::flatten_tree).
  *
  * # Errors
@@ -1182,6 +1314,15 @@ export function formatMetricValue(metric: string, value: number): string;
  * Fails if `paper` is not an object with a string `id`.
  */
 export function formatPaperCitation(paper: any, format: string): string;
+
+/**
+ * [`format_reference`](reference_text::format_reference).
+ *
+ * # Errors
+ *
+ * Fails when `paper` is not a paper.
+ */
+export function formatReference(paper: any): string;
 
 /**
  * [`wf_core::sync::blob_links::from_relative_blob_links_mapped`] for JS. `resolved`
@@ -1427,10 +1568,53 @@ export function indexTerms(text: string, options: any): any;
 export function initialReaderViewport(page: number): any;
 
 /**
+ * [`ink_attachment_index`](ink_page::ink_attachment_index): the attachment index of `path`, or `0`.
+ */
+export function inkAttachmentIndex(body: string, path?: string | null): number;
+
+/**
+ * [`ink_chunk_path`](ink_paths::ink_chunk_path).
+ *
+ * # Errors
+ *
+ * Fails when `chunkId` or `noteId` is unusable.
+ */
+export function inkChunkPath(note_id: string, chunk_id: string): string;
+
+/**
  * [`ink_curve_at`] as `[x, y]`. A span past the end gives `[NaN, NaN]`, as
  * the TS copy's out-of-range reads do.
  */
 export function inkCurveAt(xs: Float64Array, ys: Float64Array, i: number, u: number): Float64Array;
+
+/**
+ * [`ink_engine_info`](ink_engine::ink_engine_info): the engine's declared facts, or
+ * `null` for an unknown id.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function inkEngineInfo(id: string): any;
+
+/**
+ * [`ink_enum_index`](ink_page::ink_enum_index): the position of `value` in `values`, or `0`.
+ *
+ * # Errors
+ *
+ * Fails if `values` is not an array of strings.
+ */
+export function inkEnumIndex(values: any, value: string): number;
+
+/**
+ * [`ink_enum_value`](ink_page::ink_enum_value): the name at `index`, or the first entry
+ * where out of range; `undefined` for an empty list.
+ *
+ * # Errors
+ *
+ * Fails if `values` is not an array of strings.
+ */
+export function inkEnumValue(values: any, index: number): string | undefined;
 
 /**
  * [`ink_line_records`]: `counts[i]` strokes per line, `bands` as flat
@@ -1444,14 +1628,47 @@ export function inkCurveAt(xs: Float64Array, ys: Float64Array, i: number, u: num
 export function inkLineRecords(counts: Uint32Array, bands: Float64Array, recognised: any): any;
 
 /**
+ * [`ink_line_strokes`](ink_engine::ink_line_strokes): the strokes of one line, given
+ * the line record `{ strokeStart, strokeCount, ... }`. Strokes pass through as JS values.
+ *
+ * # Errors
+ *
+ * Fails if `strokes` is not an array or `line` lacks `strokeStart` / `strokeCount`.
+ */
+export function inkLineStrokes(strokes: any, line: any): any;
+
+/**
  * [`ink_note_width_to_pdf_points`].
  */
 export function inkNoteWidthToPdfPoints(tenths: number): number;
 
 /**
+ * [`ink_page_background`](ink_page::ink_page_background): the background path, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function inkPageBackground(text: string): any;
+
+/**
  * [`ink_page_confidence`] over the lines' `conf` values.
  */
 export function inkPageConfidence(confs: Float64Array): number;
+
+/**
+ * [`ink_page_marker`](ink_page::ink_page_marker): the `<!-- page N -->` line for page `page`.
+ */
+export function inkPageMarker(page: number): string;
+
+/**
+ * [`ink_page_over_budget`](ink_page::ink_page_over_budget): whether the page has too many strokes.
+ *
+ * # Errors
+ *
+ * Fails if `page` has the wrong shape.
+ */
+export function inkPageOverBudget(page: any): boolean;
 
 /**
  * [`ink_path_json_size`].
@@ -1480,6 +1697,21 @@ export function inkPathsInPolygon(paths: Float64Array, path_lengths: Uint32Array
 export function inkPressureFactor(pressure?: number | null): number;
 
 /**
+ * [`ink_sidecar_dir`](ink_paths::ink_sidecar_dir).
+ *
+ * # Errors
+ *
+ * Fails when `noteId` is not a safe id.
+ */
+export function inkSidecarDir(note_id: string): string;
+
+/**
+ * [`ink_stroke_band`](wf_core::ink::segment::ink_stroke_band): `[yMin, yMax]` over a
+ * stroke's flat x,y points, or `undefined` when no y is finite.
+ */
+export function inkStrokeBandOf(points: Float64Array): Float64Array | undefined;
+
+/**
  * [`ink_tangent_at`] as `[x, y]`; `side` is `"in"` or `"out"` (anything else is `"out"`).
  * An index past the end gives `[0, 0]`, as the TS copy does.
  */
@@ -1503,6 +1735,16 @@ export function inkVelocityFactor(velocity: number, full_taper?: number | null):
  * Fails if `sources` is not an array of string arrays.
  */
 export function inkVocabularyHints(sources: any, limit?: number | null): any;
+
+/**
+ * [`ink_vocabulary_words`](wf_core::ink::decode::ink_vocabulary_words), sorted
+ * (TS `inkVocabularyWords`; the TS wrapper makes it a `Set`).
+ *
+ * # Errors
+ *
+ * Fails if `vocabulary` is not an array of strings.
+ */
+export function inkVocabularyWordList(vocabulary: any): any;
 
 /**
  * [`ink_width_for_pressure`]; `base` defaults to `INK_DEFAULT_WIDTH`.
@@ -1637,6 +1879,11 @@ export function isHighlighterInk(width?: number | null): boolean;
 export function isInkChunkId(text: string): boolean;
 
 /**
+ * [`is_ink_engine_id`](ink_engine::is_ink_engine_id).
+ */
+export function isInkEngineId(id: string): boolean;
+
+/**
  * [`wf_core::sync::ink_note::is_ink_note_body`] for JS.
  *
  * # Errors
@@ -1644,6 +1891,20 @@ export function isInkChunkId(text: string): boolean;
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function isInkNoteBody(body: string): boolean;
+
+/**
+ * [`is_ink_note_frontmatter`](ink_note::is_ink_note_frontmatter).
+ *
+ * # Errors
+ *
+ * Fails if `frontmatter` is not an object.
+ */
+export function isInkNoteFrontmatter(frontmatter: any): boolean;
+
+/**
+ * [`is_ink_note_id`](ink_paths::is_ink_note_id).
+ */
+export function isInkNoteId(id: string): boolean;
 
 /**
  * [`is_ip_address`](url_safety::is_ip_address).
@@ -1659,6 +1920,16 @@ export function isIsoDay(value: string): boolean;
  * [`cache_invalidation::is_known_resource_type`]: whether `value` names a resource type.
  */
 export function isKnownResourceType(value: string): boolean;
+
+/**
+ * [`is_on_sampling_grid`](experiments::is_on_sampling_grid).
+ */
+export function isOnSamplingGrid(step: number): boolean;
+
+/**
+ * [`is_valid_project_id`](overleaf::is_valid_project_id).
+ */
+export function isOverleafProjectId(id: string): boolean;
 
 /**
  * [`is_paper_field_kind`](paper_field::is_paper_field_kind) (TS `isPaperFieldKind`).
@@ -1758,6 +2029,15 @@ export function isZoteroLibrarySyncMode(value: any): boolean;
  * Fails if `item` is not a text item object, or the result cannot be converted.
  */
 export function itemToRect(item: any, char_from?: number | null, char_to?: number | null): any;
+
+/**
+ * [`join_ink_text_layer`](ink_page::join_ink_text_layer): one text layer per page, joined.
+ *
+ * # Errors
+ *
+ * Fails if `pages` is not an array of strings.
+ */
+export function joinInkTextLayer(pages: any): string;
 
 /**
  * [`wf_core::sync::json_entities::json_data_path`] for JS.
@@ -1867,6 +2147,16 @@ export function levenshtein(a: string, b: string, limit: number): number;
 export function linkCitationMentions(page: any, links: any, refs: any): any;
 
 /**
+ * [`lint_wiki`](wiki_lint::lint_wiki). A missing `otherTitles` means none, as in the TS default.
+ *
+ * # Errors
+ *
+ * Fails if `pages` is not a list of `{ id, title, body, aliases? }` objects, or `otherTitles`
+ * is not a list of strings.
+ */
+export function lintWiki(pages: any, other_titles: any): any;
+
+/**
  * [`list_membership`](tree::list_membership). Returns a JS `Map` of `kind:id` to list titles.
  *
  * # Errors
@@ -1874,6 +2164,15 @@ export function linkCitationMentions(page: any, links: any, refs: any): any;
  * Fails if either argument has the wrong shape.
  */
 export function listMembership(items: any, titles: any): any;
+
+/**
+ * [`locate_anchor`](text_anchor::locate_anchor): `{ start, end }`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails when `anchor` is not a comment anchor.
+ */
+export function locateAnchor(text: string, anchor: any): any;
 
 /**
  * [`validate_new_log_entry`](log_entry::validate_new_log_entry): the error message, or `None`.
@@ -1885,10 +2184,24 @@ export function listMembership(items: any, titles: any): any;
 export function logEntryInputError(input: any): string | undefined;
 
 /**
+ * [`log_path`](folder_layout::log_path).
+ */
+export function logPath(id: string, entry_date: string, project_root: string): string;
+
+/**
  * [`looks_like_image_url`](wf_core::net::image_url::looks_like_image_url): the URL's own
  * path names a picture, so a pasted link is worth downloading.
  */
 export function looksLikeImageUrl(url: string): boolean;
+
+/**
+ * [`make_ink_stroke`](ink_page::make_ink_stroke) with the defaults filled in.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function makeInkStroke(input: any): any;
 
 /**
  * [`map_ink_confidence`]; `scale` defaults to 1.
@@ -1967,6 +2280,15 @@ export function mcpReadResult(items: any, max_item_chars: number | null | undefi
 export function meanPressure(samples: Float64Array): number | undefined;
 
 /**
+ * [`member_role_label`](member::member_role_label): the label, or `undefined` when the role has none.
+ *
+ * # Errors
+ *
+ * Fails if `member` has the wrong shape.
+ */
+export function memberRoleLabelOf(member: any, in_lab: boolean, owns_org: boolean): string | undefined;
+
+/**
  * [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
  *
  * # Errors
@@ -1974,6 +2296,25 @@ export function meanPressure(samples: Float64Array): number | undefined;
  * Fails if `items` is not an array of text items.
  */
 export function mentionRects(items: any, start: number, end: number): any;
+
+/**
+ * [`merge_extractions`](extraction::merge_extractions).
+ *
+ * # Errors
+ *
+ * Fails when `results` is not a list of extraction results.
+ */
+export function mergeExtractions(results: any): any;
+
+/**
+ * [`merge_graph_persisted_state`](graph_settings::merge_graph_persisted_state): `stored` is the
+ * parsed state, or `null` for the defaults.
+ *
+ * # Errors
+ *
+ * Fails if `stored` has the wrong shape.
+ */
+export function mergeGraphPersistedState(stored: any): any;
 
 /**
  * [`wf_core::sync::text_diff::merge_hunks`] for JS. Picks are keyed by hunk
@@ -2082,6 +2423,16 @@ export function needsStandaloneRoleSync(profile: any, memberships: any, in_lab: 
  * [`neutralise_context`](untrusted_context::neutralise_context).
  */
 export function neutraliseContext(text: string, nonce: string): string;
+
+/**
+ * [`new_ink_chunk_id`](ink_paths::new_ink_chunk_id). JS passes `Date.now()` as `nowMs` and a
+ * 10-byte `Uint8Array` filled by `crypto.getRandomValues` as `randomBytes`.
+ *
+ * # Errors
+ *
+ * Fails when `nowMs` is not finite.
+ */
+export function newInkChunkId(now_ms: number, random_bytes: Uint8Array): string;
 
 /**
  * [`next_match_index`]: wraparound step; -1 when `total` is 0.
@@ -2345,6 +2696,16 @@ export function outlineItemOf(item: any, page: number): any;
 export function outlineTextLines(pages: any): any;
 
 /**
+ * [`external_url`](overleaf::external_url).
+ */
+export function overleafExternalUrl(id: string): string;
+
+/**
+ * [`overleaf_git_url`](overleaf::overleaf_git_url).
+ */
+export function overleafGitUrl(id: string): string;
+
+/**
  * [`pack_ink_stroke`] as `{ points, pressures }`; `options` is the TS
  * `InkStrokePackerOptions` or undefined.
  *
@@ -2381,6 +2742,16 @@ export function pageTextFromItems(items: any): string;
  * Fails if `event` has the wrong shape.
  */
 export function paletteModeFor(event: any): any;
+
+/**
+ * [`paper_html_path`](folder_layout::paper_html_path).
+ */
+export function paperHtmlPath(paper_id: string, project_root: string): string;
+
+/**
+ * [`paper_pdf_path`](folder_layout::paper_pdf_path).
+ */
+export function paperPdfPath(paper_id: string, project_root: string): string;
 
 /**
  * [`validate_new_paper_relation`](paper_relation::validate_new_paper_relation): the
@@ -2457,6 +2828,15 @@ export function parseDoaj(body: any): any;
 export function parseEuropePmc(body: any): any;
 
 /**
+ * [`parse_folder_draft`](folder_draft::parse_folder_draft): the draft, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function parseFolderDraft(raw: string): any;
+
+/**
  * [`parse_graph_persisted_state`](graph_settings::parse_graph_persisted_state); `null` when absent.
  *
  * # Errors
@@ -2475,6 +2855,11 @@ export function parseGraphPersistedState(raw: any): any;
 export function parseHal(body: any): any;
 
 /**
+ * [`parse_ink_chunk_path`](ink_paths::parse_ink_chunk_path): `{ noteId, chunkId }`, or `null`.
+ */
+export function parseInkChunkPath(path: string): any;
+
+/**
  * [`wf_core::sync::json_entities::parse_json_data`] for JS, as `null` when it is not a JSON array.
  *
  * # Errors
@@ -2483,6 +2868,21 @@ export function parseHal(body: any): any;
  * not a known kind.
  */
 export function parseJsonData(path: string, content: string, kind: any): any;
+
+/**
+ * [`parse_kind_suffix`](folder_layout::parse_kind_suffix): the entity type, or `null`.
+ */
+export function parseKindSuffix(path: string): any;
+
+/**
+ * [`parse_latex_section_tree`](wf_core::latex_section_tree::parse_latex_section_tree)
+ * (TS `parseLatexSectionTree`). `entry_file` defaults to `main.tex`.
+ *
+ * # Errors
+ *
+ * Fails if `files` is not an array of `{ path, content }`.
+ */
+export function parseLatexSectionTree(files: any, entry_file?: string | null): any;
 
 /**
  * [`parse_link_removal_text`] for JS: the textarea's rules, one per line.
@@ -2511,6 +2911,11 @@ export function parseMdImageAlt(raw: string): any;
  * Fails if `body` is not valid JSON, or the result cannot be converted.
  */
 export function parseOpenalex(body: any): any;
+
+/**
+ * [`parse_overleaf_project_id`](overleaf::parse_overleaf_project_id).
+ */
+export function parseOverleafProjectId(raw: string): string | undefined;
 
 /**
  * [`parse_paper_field_value`] (TS `parsePaperFieldValue`). A refusal throws an `Error`
@@ -2646,6 +3051,15 @@ export function pdfPointToScreen(x: number, y: number, p: any): any;
 export function pdfRectToScreenBox(rect: Float64Array, p: any): any;
 
 /**
+ * [`peers_from_states`](collab::peers_from_states); `users` is `[clientId, user][]`.
+ *
+ * # Errors
+ *
+ * Fails when `users` is not a list of pairs.
+ */
+export function peersFromUsers(users: any, self_client_id: number, self_author_id: string): any;
+
+/**
  * [`personalized_page_rank`](personalized_pagerank::personalized_page_rank); `[{ node, score }]`
  * in first-visit order.
  *
@@ -2693,6 +3107,15 @@ export function planBibImport(file_name: string, text: string, existing_dois: st
 export function planDelta(remote: any, held: any): any;
 
 /**
+ * [`plan_fix_order`](wiki_lint::plan_fix_order).
+ *
+ * # Errors
+ *
+ * Fails if `report` is not a `LintReport` object.
+ */
+export function planFixOrder(report: any): any;
+
+/**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
  * `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
  * `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
@@ -2703,6 +3126,15 @@ export function planDelta(remote: any, held: any): any;
  * Fails when an argument has the wrong shape.
  */
 export function planMirror(files: any, asset_paths: any, previous_paths: any, base: any, disk: any): any;
+
+/**
+ * [`plan_series_ingest`](experiments::plan_series_ingest): `{ keep: indices, supersededTipStep }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function planSeriesIngestIndices(steps: Float64Array, previous_max_step?: number | null): any;
 
 /**
  * [`wf_core::papers::open_access::pmc_candidates`]: PubMed Central's PDF and HTML copies.
@@ -2717,6 +3149,11 @@ export function pmcCandidates(pmcid: string, license?: string | null): any;
  * [`point_in_polygon`]: is `(x, y)` inside the flat `x, y` polygon.
  */
 export function pointInPolygon(polygon: Float64Array, x: number, y: number): boolean;
+
+/**
+ * [`wf_core::ink::pressure_byte`].
+ */
+export function pressureByte(pressure?: number | null): number;
 
 /**
  * [`preview_open`](pane::preview_open).
@@ -2862,6 +3299,16 @@ export function readFrontmatter(content: string): any;
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function readInkNoteBody(body: string): any;
+
+/**
+ * [`read_ink_note_meta`](wf_core::sync::ink_note::read_ink_note_meta) of a frontmatter
+ * object (TS `readInkNoteMeta`).
+ *
+ * # Errors
+ *
+ * Fails if `frontmatter` is not a plain object.
+ */
+export function readInkNoteMeta(frontmatter: any): any;
 
 /**
  * [`wf_core::sync::ink_note::readable_text`] for JS: a note's words, ink pages joined.
@@ -3010,6 +3457,15 @@ export function resolveCiteKey(paper: any): string;
 export function resolveDisplayRole(role: string, in_lab: boolean, owns_org: boolean): string;
 
 /**
+ * [`resolve_ink_page_order`](ink_page::resolve_ink_page_order): the reconciled page order.
+ *
+ * # Errors
+ *
+ * Fails if either list is not an array of strings.
+ */
+export function resolveInkPageOrder(declared: any, present: any): any;
+
+/**
  * [`resolve_join_assignment`](org::resolve_join_assignment). Returns `{ role, supervisorId }`.
  *
  * # Errors
@@ -3071,6 +3527,15 @@ export function safeLabel(label: string, nonce: string): string;
 export function safeWorkspacePath(path: string): string;
 
 /**
+ * [`same_peers`](collab::same_peers).
+ *
+ * # Errors
+ *
+ * Fails when either list is not a list of peers.
+ */
+export function samePeers(a: any, b: any): boolean;
+
+/**
  * [`wf_core::sync::merge::same_value`] for JS.
  *
  * # Errors
@@ -3078,6 +3543,15 @@ export function safeWorkspacePath(path: string): string;
  * Fails when a value is not JSON.
  */
 export function sameValue(a: any, b: any): boolean;
+
+/**
+ * [`sanitize_section_targets`](overleaf::sanitize_section_targets); `null` when malformed.
+ *
+ * # Errors
+ *
+ * Fails if `input` cannot be read as JSON.
+ */
+export function sanitizeSectionTargets(input: any): any;
 
 /**
  * [`screen_point_to_pdf`] as `{ x, y }` (TS `screenPointToPdf`).
@@ -3274,6 +3748,12 @@ export function simplifyInkPath(path: Float64Array, tolerance?: number | null): 
 export function simplifyPathIndices(path: Float64Array, tolerance?: number | null): any;
 
 /**
+ * [`slug_for`](wf_core::sync::folder_layout::slug_for); `fallback` defaults to
+ * `"untitled"` (TS `slugFor`).
+ */
+export function slugFor(title: string, fallback?: string | null): string;
+
+/**
  * [`slug_segment`](tree::slug_segment).
  */
 export function slugSegment(title: string): string;
@@ -3287,6 +3767,12 @@ export function slugSegment(title: string): string;
  * Fails if `options` is not an options object.
  */
 export function smoothInkStroke(points: Float64Array, pressures: Float64Array, options: any): any;
+
+/**
+ * Fit a line, rect, ellipse or arrow to a finished mark (Rust `snap_ink_shape`).
+ * `null` when the recogniser abstains.
+ */
+export function snapInkShape(points: Float64Array): any;
 
 /**
  * [`sort_by_reading_order_indices`] as an array of input indices in reading order.
@@ -3334,6 +3820,16 @@ export function splitByAuthorStart(lines: any): any;
 export function splitByMargins(lines: any): any;
 
 /**
+ * [`split_ink_text_layer`](wf_core::sync::ink_note::split_ink_text_layer): one string per
+ * page (TS `splitInkTextLayer`).
+ *
+ * # Errors
+ *
+ * Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function splitInkTextLayer(body: string): any;
+
+/**
  * [`splitNumberedEntries`](bibliography::split_numbered_entries): entries by label.
  *
  * # Errors
@@ -3368,6 +3864,16 @@ export function stampWorkspaceId(content: string, id: string): string | undefine
  * Fails if `experiment` or `status` has the wrong shape.
  */
 export function statusPatchForExperiment(experiment: any, status: any, now: string): any;
+
+/**
+ * [`steps_to_prune`](experiments::steps_to_prune).
+ */
+export function stepsToPrune(stored_steps: Float64Array): Float64Array;
+
+/**
+ * [`stride_for_step`](experiments::stride_for_step).
+ */
+export function strideForStep(step: number): number;
 
 /**
  * [`strip_frontmatter`](page::strip_frontmatter) (TS `stripFrontmatter`).
@@ -3601,6 +4107,16 @@ export function tokenize(text: string, options: any): any;
 export function translateInkPaths(paths: any, dx: number, dy: number, decimals?: number | null): any;
 
 /**
+ * [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `[id, path]` pairs in
+ * first-seen order (TS `treePaths`; the TS wrapper makes them a `Map`).
+ *
+ * # Errors
+ *
+ * Fails if `nodes` is not an array of `FolderNode`s or `entity` is not a known type.
+ */
+export function treePathPairs(nodes: any, entity: any, project_root: string): any;
+
+/**
  * [`unique_cite_key`](cite_key::unique_cite_key) (TS `uniqueCiteKey`). `used` is a JS array of
  * strings; the caller records the returned key.
  *
@@ -3609,6 +4125,16 @@ export function translateInkPaths(paths: any, dx: number, dy: number, decimals?:
  * Fails if `paper` is not an object with a string `id`, or `used` is not an array of strings.
  */
 export function uniqueCiteKey(paper: any, used: any): string;
+
+/**
+ * [`unique_figure_name`](markdown_to_latex::unique_figure_name) over a list of the names
+ * already used (TS `uniqueFigureName`; the TS wrapper adds the result to its `Set`).
+ *
+ * # Errors
+ *
+ * Fails if `used` is not an array of strings.
+ */
+export function uniqueFigureNameIn(raw: string, used: any): string;
 
 /**
  * [`unique_title`](page::unique_title) (TS `uniqueTitle`). `used` holds normalized keys.
@@ -3725,6 +4251,15 @@ export function vectorIndexFromBytes(bytes: Uint8Array): VectorIndex;
 export function verdictFor(decisions: any, item_id: string, stage: any): any;
 
 /**
+ * [`verdicts_for`](screening::verdicts_for): both stages' verdicts per item, in item order.
+ *
+ * # Errors
+ *
+ * Fails if `items` or `decisions` have the wrong shape.
+ */
+export function verdictsFor(items: any, decisions: any): any;
+
+/**
  * [`visible_rows`](tree::visible_rows). `expanded` is an array of keys.
  *
  * # Errors
@@ -3753,6 +4288,12 @@ export function visualPageSize(page: any, rotation: number): any;
 export function withImageWidth(alt: string, width?: string | null): string;
 
 /**
+ * [`with_ink_page_background`](ink_page::with_ink_page_background): the text with its
+ * background line set to `path`, or removed for `null`.
+ */
+export function withInkPageBackground(text: string, path?: string | null): string;
+
+/**
  * [`with_md_image_alt`](markdown_figure_alt::with_md_image_alt): the alt text for a figure's own
  * text and placement.
  *
@@ -3761,6 +4302,15 @@ export function withImageWidth(alt: string, width?: string | null): string;
  * Fails if `alt` is too long or `placement` has the wrong shape.
  */
 export function withMdImageAlt(alt: string, placement: any): string;
+
+/**
+ * [`without_existing`](extraction::without_existing).
+ *
+ * # Errors
+ *
+ * Fails when `result` is not an extraction result.
+ */
+export function withoutExisting(result: any, existing: string[]): any;
 
 /**
  * [`without_group`](groups::without_group).
@@ -3809,6 +4359,15 @@ export function writeFrontmatter(fields: any, body: string): string;
  * `meta` is not an `InkNoteMeta` (unknown paper or hand included).
  */
 export function writeInkNoteBody(meta: any, text: string): string;
+
+/**
+ * [`write_ink_note_meta`](ink_note::write_ink_note_meta) as a plain object, keys in TS order.
+ *
+ * # Errors
+ *
+ * Fails if `meta` has the wrong shape.
+ */
+export function writeInkNoteMeta(meta: any): any;
 
 /**
  * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
@@ -3877,6 +4436,7 @@ export interface InitOutput {
     readonly agreementBetween: (a: any, b: any, c: any) => [number, number, number];
     readonly aiReadCategoryForResource: (a: any) => [number, number, number];
     readonly analyzePdfDocument: (a: any, b: any) => [number, number, number];
+    readonly anchorAt: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly annotationDocId: (a: number, b: number) => [number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
     readonly applyDelta: (a: any, b: any, c: any) => [number, number, number];
@@ -3885,7 +4445,9 @@ export interface InitOutput {
     readonly arxivCandidates: (a: number, b: number) => [number, number, number];
     readonly arxivEntryToMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly assemblePageCitations: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly assetPath: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly blankInkPage: (a: any) => [number, number, number];
     readonly bodyFontSize: (a: any) => [number, number, number];
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
     readonly boundedBody: (a: number, b: number) => [number, number];
@@ -3894,20 +4456,24 @@ export interface InitOutput {
     readonly buildLabSnapshotContent: (a: any) => [number, number, number];
     readonly buildListTree: (a: any) => [number, number, number];
     readonly buildListsTree: (a: any) => [number, number, number];
+    readonly buildPageTree: (a: any) => [number, number, number];
     readonly buildSectionTree: (a: any) => [number, number, number];
     readonly buildWikiGraph: (a: any) => [number, number, number];
     readonly buildWikiIndex: (a: any, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly buildWorkspaceTree: (a: any) => [number, number, number];
     readonly canCreateRole: (a: number, b: number, c: number, d: number) => number;
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly canonicalAiToolName: (a: number, b: number) => [number, number];
     readonly cardSnippet: (a: number, b: number, c: number) => [number, number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly checkBibliography: (a: any) => [number, number, number];
+    readonly checkGitRemoteUrl: (a: any) => [number, number, number];
     readonly checkUrlShape: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
     readonly chunkForEmbedding: (a: number, b: number, c: any) => [number, number, number];
     readonly citationItemToRect: (a: any, b: number, c: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
+    readonly clampInkPageSize: (a: number, b: number) => [number, number, number];
     readonly clampInkWidth: (a: number) => number;
     readonly clampInkZoom: (a: number) => number;
     readonly clampPage: (a: number, b: number) => number;
@@ -3929,21 +4495,27 @@ export interface InitOutput {
     readonly computeFitPageScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly computeFitWidthScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly computeRollupsForPapers: (a: any, b: any, c: any, d: any) => [number, number, number];
+    readonly conceptKey: (a: number, b: number) => [number, number];
+    readonly contextNonceFrom: (a: number, b: number) => [number, number];
     readonly coreInfo: () => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
     readonly countWords: (a: number, b: number) => number;
     readonly coveredHitMask: (a: any, b: number, c: number) => [number, number, number];
     readonly coveredTextSpans: (a: any, b: any) => [number, number, number];
     readonly creatableRoles: (a: number, b: number) => [number, number, number];
+    readonly createExperimentWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createLogEntry: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createMilestoneWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createPaperRelationWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly createReadingListWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createReportSectionWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly createVaultPageWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createVectorIndex: (a: number) => [number, number, number];
     readonly crossrefToMetadata: (a: any, b: number, c: number) => [number, number, number];
     readonly decideAnnotationSync: (a: any, b: number, c: number) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly decideVaultCommit: (a: number, b: any) => [number, number, number];
+    readonly decodeHtmlEntities: (a: number, b: number) => [number, number, number, number];
     readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly decodeLocus: (a: number, b: number) => [number, number, number];
     readonly defaultGraphSettings: () => [number, number, number];
@@ -3965,6 +4537,7 @@ export interface InitOutput {
     readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly entryFileError: (a: number, b: number) => [number, number];
     readonly escapeLatexText: (a: number, b: number) => [number, number];
     readonly evaluateAiAccess: (a: any, b: number, c: number) => [number, number, number];
     readonly exclusionReasons: (a: any, b: any) => [number, number, number];
@@ -3976,6 +4549,7 @@ export interface InitOutput {
     readonly extractHashtags: (a: number, b: number) => [number, number];
     readonly extractHeadings: (a: number, b: number) => [number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly extractPageTitle: (a: number, b: number) => [number, number, number];
     readonly extractVenue: (a: number, b: number) => [number, number];
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
     readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
@@ -3991,6 +4565,7 @@ export interface InitOutput {
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly findReferenceSection: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly findRelated: (a: any, b: number, c: number, d: number, e: any, f: any, g: any, h: any) => [number, number, number];
+    readonly flatPath: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
     readonly flattenTree: (a: any) => [number, number, number];
     readonly focusPane: (a: any, b: number, c: number) => [number, number, number];
     readonly focusedTabCount: (a: any) => [number, number, number];
@@ -4002,6 +4577,7 @@ export interface InitOutput {
     readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
     readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly formatReference: (a: any) => [number, number, number, number];
     readonly fromRelativeBlobLinks: (a: number, b: number, c: any) => [number, number, number, number];
     readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly furnitureLines: (a: any) => [number, number, number];
@@ -4029,19 +4605,31 @@ export interface InitOutput {
     readonly inReferenceList: (a: number, b: number, c: number, d: any) => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
     readonly initialReaderViewport: (a: number) => [number, number, number];
+    readonly inkAttachmentIndex: (a: number, b: number, c: number, d: number) => number;
+    readonly inkChunkPath: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly inkCurveAt: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly inkEngineInfo: (a: number, b: number) => [number, number, number];
+    readonly inkEnumIndex: (a: any, b: number, c: number) => [number, number, number];
+    readonly inkEnumValue: (a: any, b: number) => [number, number, number, number];
     readonly inkLineRecords: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly inkLineStrokes: (a: any, b: any) => [number, number, number];
     readonly inkNoteWidthToPdfPoints: (a: number) => number;
+    readonly inkPageBackground: (a: number, b: number) => [number, number, number];
     readonly inkPageConfidence: (a: number, b: number) => number;
+    readonly inkPageMarker: (a: number) => [number, number];
+    readonly inkPageOverBudget: (a: any) => [number, number, number];
     readonly inkPathJsonSize: (a: number, b: number) => number;
     readonly inkPathsBounds: (a: any) => [number, number, number];
     readonly inkPathsHitTest: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly inkPathsInPolygon: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly inkPressureFactor: (a: number, b: number) => number;
+    readonly inkSidecarDir: (a: number, b: number) => [number, number, number, number];
+    readonly inkStrokeBandOf: (a: number, b: number) => [number, number];
     readonly inkTangentAt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
     readonly inkVelocityBetween: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly inkVelocityFactor: (a: number, b: number, c: number) => number;
     readonly inkVocabularyHints: (a: any, b: number, c: number) => [number, number, number];
+    readonly inkVocabularyWordList: (a: any) => [number, number, number];
     readonly inkWidthForPressure: (a: number, b: number, c: number, d: number) => number;
     readonly inkZoomIn: (a: number) => number;
     readonly inkZoomOut: (a: number) => number;
@@ -4060,10 +4648,15 @@ export interface InitOutput {
     readonly isExplicitLabMembership: (a: any) => [number, number, number];
     readonly isHighlighterInk: (a: number, b: number) => number;
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
+    readonly isInkEngineId: (a: number, b: number) => number;
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
+    readonly isInkNoteFrontmatter: (a: any) => [number, number, number];
+    readonly isInkNoteId: (a: number, b: number) => number;
     readonly isIpAddress: (a: number, b: number) => number;
     readonly isIsoDay: (a: number, b: number) => number;
     readonly isKnownResourceType: (a: number, b: number) => number;
+    readonly isOnSamplingGrid: (a: number) => number;
+    readonly isOverleafProjectId: (a: number, b: number) => number;
     readonly isPaperFieldKind: (a: number, b: number) => number;
     readonly isPlaceholderTitle: (a: number, b: number) => number;
     readonly isPreviewKey: (a: any, b: number) => [number, number, number];
@@ -4079,6 +4672,7 @@ export interface InitOutput {
     readonly isUserIntegrationConnected: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly isZoteroLibrarySyncMode: (a: any) => number;
     readonly itemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly joinInkTextLayer: (a: any) => [number, number, number, number];
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
     readonly kindMultiplier: (a: number, b: number, c: any) => [number, number, number];
@@ -4091,9 +4685,13 @@ export interface InitOutput {
     readonly leaves: (a: any) => [number, number, number];
     readonly levenshtein: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
+    readonly lintWiki: (a: any, b: any) => [number, number, number];
     readonly listMembership: (a: any, b: any) => [number, number, number];
+    readonly locateAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly logEntryInputError: (a: any) => [number, number, number, number];
+    readonly logPath: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly looksLikeImageUrl: (a: number, b: number) => number;
+    readonly makeInkStroke: (a: any) => [number, number, number];
     readonly mapInkConfidence: (a: number, b: number, c: number) => number;
     readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly markdownToLatex: (a: number, b: number, c: any) => [number, number, number];
@@ -4104,7 +4702,10 @@ export interface InitOutput {
     readonly maxIndexTextUtf16: () => number;
     readonly mcpReadResult: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly meanPressure: (a: number, b: number) => [number, number];
+    readonly memberRoleLabelOf: (a: any, b: number, c: number) => [number, number, number, number];
     readonly mentionRects: (a: any, b: number, c: number) => [number, number, number];
+    readonly mergeExtractions: (a: any) => [number, number, number];
+    readonly mergeGraphPersistedState: (a: any) => [number, number, number];
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergePaperInto: (a: any, b: any) => [number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
@@ -4117,6 +4718,7 @@ export interface InitOutput {
     readonly needsOrgSetup: (a: any) => [number, number, number];
     readonly needsStandaloneRoleSync: (a: any, b: any, c: number) => [number, number, number];
     readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly newInkChunkId: (a: number, b: number, c: number) => [number, number, number, number];
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
     readonly nextRotation: (a: number, b: number) => number;
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
@@ -4151,10 +4753,14 @@ export interface InitOutput {
     readonly outlineIsPlausible: (a: any, b: number) => [number, number, number];
     readonly outlineItemOf: (a: any, b: number) => [number, number, number];
     readonly outlineTextLines: (a: any) => [number, number, number];
+    readonly overleafExternalUrl: (a: number, b: number) => [number, number];
+    readonly overleafGitUrl: (a: number, b: number) => [number, number];
     readonly packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly pageTextFromItems: (a: any) => [number, number, number, number];
     readonly paletteModeFor: (a: any) => [number, number, number];
+    readonly paperHtmlPath: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly paperPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperRelationInputError: (a: any) => [number, number, number, number];
     readonly parseBibEntries: (a: any) => [number, number, number];
     readonly parseBibliography: (a: any, b: number) => [number, number, number];
@@ -4163,12 +4769,17 @@ export interface InitOutput {
     readonly parseDashboardLayout: (a: any) => [number, number, number];
     readonly parseDoaj: (a: any) => [number, number, number];
     readonly parseEuropePmc: (a: any) => [number, number, number];
+    readonly parseFolderDraft: (a: number, b: number) => [number, number, number];
     readonly parseGraphPersistedState: (a: any) => [number, number, number];
     readonly parseHal: (a: any) => [number, number, number];
+    readonly parseInkChunkPath: (a: number, b: number) => [number, number, number];
     readonly parseJsonData: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly parseKindSuffix: (a: number, b: number) => [number, number, number];
+    readonly parseLatexSectionTree: (a: any, b: number, c: number) => [number, number, number];
     readonly parseLinkRemovalText: (a: number, b: number) => [number, number, number];
     readonly parseMdImageAlt: (a: number, b: number) => [number, number, number];
     readonly parseOpenalex: (a: any) => [number, number, number];
+    readonly parseOverleafProjectId: (a: number, b: number) => [number, number];
     readonly parsePaperFieldValue: (a: any, b: number, c: number) => [number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
@@ -4185,14 +4796,18 @@ export interface InitOutput {
     readonly pdfPageHref: (a: number, b: number, c: number) => [number, number];
     readonly pdfPointToScreen: (a: number, b: number, c: any) => [number, number, number];
     readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
+    readonly peersFromUsers: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly personalizedPageRank: (a: any, b: number, c: number, d: any, e: any) => [number, number, number];
     readonly pickKeeper: (a: any) => [number, number, number, number];
     readonly pickNearestMatch: (a: any, b: any) => [number, number, number];
     readonly planBibImport: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number];
     readonly planDelta: (a: any, b: any) => [number, number, number];
+    readonly planFixOrder: (a: any) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly planSeriesIngestIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly pmcCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
+    readonly pressureByte: (a: number, b: number) => number;
     readonly previewOpen: (a: any) => [number, number, number];
     readonly previewSource: (a: any, b: any) => [number, number, number];
     readonly previewTab: () => [number, number, number];
@@ -4210,6 +4825,7 @@ export interface InitOutput {
     readonly rankOpenAccessCandidates: (a: any) => [number, number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
+    readonly readInkNoteMeta: (a: any) => [number, number, number];
     readonly readableText: (a: number, b: number) => [number, number, number, number];
     readonly readerKeyboardCommand: (a: any) => [number, number, number];
     readonly reconstructLines: (a: number, b: any, c: any) => [number, number, number];
@@ -4228,6 +4844,7 @@ export interface InitOutput {
     readonly resolveArxivId: (a: number, b: number, c: number, d: number) => [number, number];
     readonly resolveCiteKey: (a: any) => [number, number, number, number];
     readonly resolveDisplayRole: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly resolveInkPageOrder: (a: any, b: any) => [number, number, number];
     readonly resolveOrgJoinAssignment: (a: number, b: number, c: any, d: any, e: number, f: number, g: number, h: number) => [number, number, number];
     readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveSupervisorId: (a: number, b: number) => [number, number];
@@ -4236,7 +4853,9 @@ export interface InitOutput {
     readonly retryFuzzinessForTerm: (a: number, b: number, c: number) => number;
     readonly safeLabel: (a: number, b: number, c: number, d: number) => [number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
+    readonly samePeers: (a: any, b: any) => [number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
+    readonly sanitizeSectionTargets: (a: any) => [number, number, number];
     readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
     readonly screeningDecisionError: (a: any, b: any) => [number, number, number, number];
     readonly searchRevision: (a: any) => [number, number, number, number];
@@ -4260,17 +4879,22 @@ export interface InitOutput {
     readonly showRelationEdges: (a: any) => [number, number, number];
     readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly slugFor: (a: number, b: number, c: number, d: number) => [number, number];
     readonly slugSegment: (a: number, b: number) => [number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly snapInkShape: (a: number, b: number) => [number, number, number];
     readonly sortByReadingOrder: (a: any) => [number, number, number];
     readonly sortHitOrder: (a: any, b: any) => [number, number, number];
     readonly splitBibliographyEntries: (a: any) => [number, number, number];
     readonly splitByAuthorStart: (a: any) => [number, number, number];
     readonly splitByMargins: (a: any) => [number, number, number];
+    readonly splitInkTextLayer: (a: number, b: number) => [number, number, number];
     readonly splitNumberedEntries: (a: any) => [number, number, number];
     readonly splitPane: (a: any, b: number, c: number, d: any, e: number, f: number) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly statusPatchForExperiment: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly stepsToPrune: (a: number, b: number) => [number, number];
+    readonly strideForStep: (a: number) => number;
     readonly stripFrontmatter: (a: number, b: number) => [number, number, number];
     readonly stripInvisible: (a: number, b: number) => [number, number];
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
@@ -4301,7 +4925,9 @@ export interface InitOutput {
     readonly togglePreview: (a: any, b: number, c: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly treePathPairs: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];
+    readonly uniqueFigureNameIn: (a: number, b: number, c: any) => [number, number, number, number];
     readonly uniqueTitle: (a: number, b: number, c: number, d: number) => [number, number];
     readonly untrustedContextRule: () => [number, number];
     readonly urlMetaToMetadata: (a: any) => [number, number, number];
@@ -4327,15 +4953,19 @@ export interface InitOutput {
     readonly vectorindex_toBytes: (a: number) => [number, number];
     readonly vectorindex_vectorOf: (a: number, b: number, c: number) => [number, number];
     readonly verdictFor: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly verdictsFor: (a: any, b: any) => [number, number, number];
     readonly visibleRows: (a: any, b: any) => [number, number, number];
     readonly visualPageSize: (a: any, b: number) => [number, number, number];
     readonly withImageWidth: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly withInkPageBackground: (a: number, b: number, c: number, d: number) => [number, number];
     readonly withMdImageAlt: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly withoutExisting: (a: any, b: number, c: number) => [number, number, number];
     readonly withoutGroup: (a: any) => [number, number, number];
     readonly workspaceSnapshotCounts: (a: number, b: number) => [number, number, number];
     readonly writeConflictMarkers: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly writeFrontmatter: (a: any, b: number, c: number) => [number, number, number, number];
     readonly writeInkNoteBody: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly writeInkNoteMeta: (a: any) => [number, number, number];
     readonly zoomIn: (a: number, b: number) => number;
     readonly zoomOut: (a: number, b: number) => number;
     readonly zoteroArxivId: (a: any) => [number, number, number];

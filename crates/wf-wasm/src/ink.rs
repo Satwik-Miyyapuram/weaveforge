@@ -19,6 +19,7 @@ use wf_core::ink::segment::{
     INK_GROUP_WINDOW_MS, INK_LINE_BAND_RATIO, RecognisedLineText, SegmentStroke, ink_line_records,
     segment_ink_lines,
 };
+use wf_core::ink::shape_snap::snap_ink_shape;
 use wf_core::ink::smooth::{
     INK_SMOOTH_SPACING, binomial_smooth, resample_ink_stroke, smooth_ink_stroke,
 };
@@ -361,4 +362,11 @@ pub fn ink_vocabulary_word_list_js(vocabulary: JsValue) -> JsResult<JsValue> {
 #[must_use]
 pub fn ink_stroke_band_js(points: &[f64]) -> Option<Vec<f64>> {
     wf_core::ink::segment::ink_stroke_band(points).map(|(lo, hi)| vec![lo, hi])
+}
+
+/// Fit a line, rect, ellipse or arrow to a finished mark (Rust `snap_ink_shape`).
+/// `null` when the recogniser abstains.
+#[wasm_bindgen(js_name = snapInkShape)]
+pub fn snap_ink_shape_js(points: &[f64]) -> JsResult<JsValue> {
+    snap_ink_shape(points).map_or(Ok(JsValue::NULL), |snapped| to_js(&snapped))
 }
