@@ -2893,6 +2893,15 @@ export function overleafGitUrl(id: string): string;
 export function packInkStroke(points: Float64Array, pressures: Float64Array, options: any): any;
 
 /**
+ * [`page_from_chunk_body`](chunk_read::page_from_chunk_body): a checked body as the page model.
+ *
+ * # Errors
+ *
+ * Fails on a body whose tables do not add up.
+ */
+export function pageFromChunkBody(body: Uint8Array): any;
+
+/**
  * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
  * imported, or `None` when it can.
  *
@@ -5028,6 +5037,7 @@ export interface InitOutput {
     readonly overleafExternalUrl: (a: number, b: number) => [number, number];
     readonly overleafGitUrl: (a: number, b: number) => [number, number];
     readonly packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+    readonly pageFromChunkBody: (a: number, b: number) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly pageTextFromItems: (a: any) => [number, number, number, number];
     readonly paletteModeFor: (a: any) => [number, number, number];

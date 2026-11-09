@@ -3,8 +3,8 @@
 //! views and the async compression around these.
 
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
-use wf_core::ink::chunk;
 use wf_core::ink::ink_page::InkPage;
+use wf_core::ink::{chunk, chunk_read};
 
 use super::to_js;
 
@@ -62,6 +62,16 @@ pub fn ink_chunk_header_bytes_js(body_size: u32, payload_size: u32, compressed: 
 #[wasm_bindgen(js_name = checkInkChunkBody)]
 pub fn check_ink_chunk_body_js(body: &[u8]) -> Result<JsValue, JsError> {
     js(&chunk::check_ink_chunk_body(body).map_err(|error| JsError::new(&error))?)
+}
+
+/// [`page_from_chunk_body`](chunk_read::page_from_chunk_body): a checked body as the page model.
+///
+/// # Errors
+///
+/// Fails on a body whose tables do not add up.
+#[wasm_bindgen(js_name = pageFromChunkBody)]
+pub fn page_from_chunk_body_js(body: &[u8]) -> Result<JsValue, JsError> {
+    js(&chunk_read::page_from_chunk_body(body).map_err(|error| JsError::new(&error))?)
 }
 
 /// [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.

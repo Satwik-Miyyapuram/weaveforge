@@ -10,6 +10,7 @@ import {
   fitsInkNoteBudget as rawFitsInkNoteBudget,
   inkChunkBodySize as rawInkChunkBodySize,
   inkChunkHeaderBytes as rawInkChunkHeaderBytes,
+  pageFromChunkBody as rawPageFromChunkBody,
   readInkChunkHeader as rawReadInkChunkHeader,
 } from "../pkg/wf_wasm.js";
 import type { InkChunkBodyInfo, InkChunkHeader } from "./bindings.js";
@@ -37,6 +38,11 @@ export function inkChunkHeaderBytes(bodySize: number, payloadSize: number, compr
 /** The layout and page header of a body that passed every check; throws otherwise. */
 export function checkInkChunkBody(body: Uint8Array): InkChunkBodyInfo {
   return rawCheckInkChunkBody(body) as InkChunkBodyInfo;
+}
+
+/** A checked body as the page model (an `InkPage`); throws on a corrupt body. */
+export function pageFromChunkBody(body: Uint8Array): object {
+  return rawPageFromChunkBody(body) as object;
 }
 
 /** Whether chunks of these on-disk sizes still fit a note's budget. */

@@ -312,7 +312,7 @@ test("points are stored as deltas and read back as absolute positions", () => {
   ]);
 
   const stroke = chunkStroke(view, 2);
-  assert.deepEqual(stroke.points, [200, 300, 260, 360, 200, 420]);
+  assert.deepEqual(stroke?.points, [200, 300, 260, 360, 200, 420]);
   assert.deepEqual(Array.from(chunkStrokePoints(view, 2).pressures), [10, 90, 250]);
 });
 

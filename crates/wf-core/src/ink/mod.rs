@@ -13,6 +13,7 @@
 )]
 
 pub mod chunk;
+pub mod chunk_read;
 pub mod curve;
 pub mod decode;
 pub mod figure;

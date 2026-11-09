@@ -6827,6 +6827,25 @@ export function packInkStroke(points, pressures, options) {
 }
 
 /**
+ * [`page_from_chunk_body`](chunk_read::page_from_chunk_body): a checked body as the page model.
+ *
+ * # Errors
+ *
+ * Fails on a body whose tables do not add up.
+ * @param {Uint8Array} body
+ * @returns {any}
+ */
+export function pageFromChunkBody(body) {
+    const ptr0 = passArray8ToWasm0(body, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pageFromChunkBody(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::page_metadata::page_import_refusal`]: why `meta` cannot be
  * imported, or `None` when it can.
  *

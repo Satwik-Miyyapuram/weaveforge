@@ -256,6 +256,8 @@ export interface InkChunkView {
   readonly lineTextLength: Uint16Array;
   readonly lineConfidence: Uint8Array;
   readonly texts: Uint8Array;
+  /** The checked body every view above aliases. */
+  readonly body: Uint8Array;
 }
 
 /** The chunk header, readable without inflating anything. */
@@ -312,6 +314,7 @@ export interface InkChunkFns {
   inkChunkHeaderBytes(bodySize: number, payloadSize: number, compressed: boolean): Uint8Array;
   checkInkChunkBody(body: Uint8Array): InkChunkBodyInfo;
   fitsInkNoteBudget(sizes: readonly number[]): boolean;
+  pageFromChunkBody(body: Uint8Array): InkPage;
 }
 
 /**
@@ -369,6 +372,7 @@ export function decodeInkChunkBody(body: Uint8Array): InkChunkView {
     lineTextLength: new Uint16Array(buffer, base + layout.lineTextLength, lines),
     lineConfidence: new Uint8Array(buffer, base + layout.lineConfidence, lines),
     texts: new Uint8Array(buffer, base + layout.texts, layout.textBytes),
+    body: aligned,
   };
 }
 
