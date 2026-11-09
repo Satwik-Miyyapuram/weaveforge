@@ -7,19 +7,8 @@ import { Select } from "@/components/select";
 import { ToolbarSlotContext } from "@/components/toolbar-slot";
 import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
-import {
-  activeTab,
-  isPreviewTab,
-  leaves,
-  tabKey,
-  type DocumentMode,
-  type PaneLayout,
-  type PaneLeaf,
-  type PaneNode,
-  type PaneSplit,
-  type TabMenuCommand,
-  type TabRef,
-} from "../application/pane-tree";
+import type { DocumentMode, PaneLayout, PaneLeaf, PaneNode, PaneSplit, TabMenuCommand, TabRef } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -30,7 +19,6 @@ import { keyLabel } from "@/lib/shortcut-label";
 import { TabButton } from "@/components/controls";
 import { CloseButton } from "@/components/button";
 import { DocumentPresence } from "@/features/collab";
-import { groupRuns } from "../application/tab-groups";
 import { groupLabel, groupMenuItems, TabGroupChip } from "./tab-group-chip";
 
 export interface PaneActions {
@@ -149,7 +137,7 @@ function PaneNodeView({ node, ...props }: TreeProps & { node: PaneNode }) {
           const step = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -0.05 : 0.05;
           if (Math.abs(step) && /^Arrow(Left|Right|Up|Down)$/.test(event.key)) {
             event.preventDefault();
-            props.onRatio(split, split.ratio + step);
+            props.onRatio(split, (split.ratio ?? 0.5) + step);
           }
         }}
         onPointerDown={(event) => {
@@ -166,7 +154,7 @@ function PaneNodeView({ node, ...props }: TreeProps & { node: PaneNode }) {
           followPointer(window, move);
         }}
       />
-      <div className="pane-half" style={{ flex: `${1 - split.ratio} 1 0` }}>
+      <div className="pane-half" style={{ flex: `${1 - (split.ratio ?? 0.5)} 1 0` }}>
         <PaneNodeView node={split.children[1]} {...props} />
       </div>
     </div>
@@ -190,9 +178,9 @@ function PaneLeafView({
   slot,
 }: TreeProps & { leaf: PaneLeaf }) {
   const focused = layout.focusedPaneId === leaf.id;
-  const showing = activeTab(leaf);
+  const showing = readyCore().activeTab(leaf);
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
-  const runs = groupRuns(leaf);
+  const runs = readyCore().groupRuns(leaf);
 
   return (
     <section
@@ -214,7 +202,7 @@ function PaneLeafView({
           const run = runs[index]!;
           const group = leaf.groups?.find((g) => g.id === tab.group);
           return (
-            <Fragment key={tabKey(tab)}>
+            <Fragment key={readyCore().tabKey(tab)}>
               {run.chip ? (
                 <TabGroupChip
                   group={run.chip}
@@ -283,7 +271,7 @@ function PaneLeafView({
               onChange={(event) => onActivate(leaf.id, Number(event.target.value))}
             >
               {leaf.tabs.map((tab, index) => (
-                <option key={tabKey(tab)} value={index}>
+                <option key={readyCore().tabKey(tab)} value={index}>
                   {labelFor(tab)}
                 </option>
               ))}
@@ -307,7 +295,7 @@ function PaneLeafView({
         <div className="pane-crumbs">
           <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
           {/* In Ink the mode switch lives here, in the note, not in the toolbar. */}
-          {!focus && !isPreviewTab(showing) && showing.kind !== "overleaf" ? (
+          {!focus && !readyCore().isPreviewTab(showing) && showing.kind !== "overleaf" ? (
             <PaneModeSwitch tab={showing} onSetMode={onSetMode} />
           ) : null}
         </div>
@@ -319,11 +307,11 @@ function PaneLeafView({
             <EmptyState />
           ) : (
             leaf.tabs.map((tab) => {
-              const shown = showing !== undefined && tabKey(tab) === tabKey(showing);
+              const shown = showing !== undefined && readyCore().tabKey(tab) === readyCore().tabKey(showing);
               // Hidden rather than unmounted: an editor that unmounts loses its
               // scroll position, its undo history and its live binding.
               return (
-                <div key={tabKey(tab)} className="pane-document" hidden={!shown}>
+                <div key={readyCore().tabKey(tab)} className="pane-document" hidden={!shown}>
                   <ToolbarSlotContext.Provider value={focus ? undefined : focused && shown ? slot : null}>
                     {renderDocument(tab)}
                   </ToolbarSlotContext.Provider>
@@ -446,10 +434,10 @@ function tintClass(kind: string): string {
 export function openTabs(layout: PaneLayout): TabRef[] {
   const seen = new Set<string>();
   const out: TabRef[] = [];
-  for (const leaf of leaves(layout.root)) {
+  for (const leaf of readyCore().leaves(layout.root)) {
     for (const tab of leaf.tabs) {
-      if (seen.has(tabKey(tab))) continue;
-      seen.add(tabKey(tab));
+      if (seen.has(readyCore().tabKey(tab))) continue;
+      seen.add(readyCore().tabKey(tab));
       out.push(tab);
     }
   }

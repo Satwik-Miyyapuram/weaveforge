@@ -11,6 +11,42 @@
 export function acronymsForTitle(title: string): any;
 
 /**
+ * [`activate_tab`](pane::activate_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function activateTab(layout: any, pane_id: string, index: number): any;
+
+/**
+ * [`active_tab`](pane::active_tab). Takes a leaf.
+ *
+ * # Errors
+ *
+ * Fails if `leaf` has the wrong shape.
+ */
+export function activeTab(leaf: any): any;
+
+/**
+ * [`active_tab_key`](pane::active_tab_key).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function activeTabKey(layout: any): any;
+
+/**
+ * [`active_tab_ref`](pane::active_tab_ref).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function activeTabRef(layout: any): any;
+
+/**
  * [`wf_core::sync::json_entities::add_counts`] for JS.
  *
  * # Errors
@@ -64,6 +100,15 @@ export function applyCommaPlacement(input: string, placement: any): any;
  * Fails when an argument does not have the expected shape.
  */
 export function applyDelta(held: any, fetched: any, order: any): any;
+
+/**
+ * [`apply_group_command`](groups::apply_group_command).
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function applyGroupCommand(leaf: any, index: number, command: any): any;
 
 /**
  * [`apply_user_integration_fields`](user_settings::apply_user_integration_fields).
@@ -158,6 +203,15 @@ export function buildLabSnapshotContent(input: any): any;
 export function buildListTree(lists: any): any;
 
 /**
+ * [`build_lists_tree`](tree::build_lists_tree). `input` is a `ListsTreeInput`.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function buildListsTree(input: any): any;
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -183,6 +237,15 @@ export function buildWikiGraph(snapshot: any): any;
  * Fails if `pages` is not an array of `{ title, aliases? }` objects.
  */
 export function buildWikiIndex(pages: any, heading: string | null | undefined, generated_at: string): string;
+
+/**
+ * [`build_workspace_tree`](tree::build_workspace_tree).
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ */
+export function buildWorkspaceTree(input: any): any;
 
 /**
  * [`can_create_role`](member::can_create_role).
@@ -295,6 +358,15 @@ export function clampZoomFactor(factor: number, base_scale: number): number;
 export function cleanArxivId(id?: string | null): string | undefined;
 
 /**
+ * [`clean_groups`](groups::clean_groups).
+ *
+ * # Errors
+ *
+ * Fails if `leaf` has the wrong shape.
+ */
+export function cleanGroups(leaf: any): any;
+
+/**
  * [`clean_pasted_text`] for JS, as `{ text, changed, urlsCleaned }`.
  *
  * # Errors
@@ -335,6 +407,24 @@ export function cleanUrlsWithRules(text: string, rules: any): any;
  * Fails when `options` is not a `WrappedTextOptions` object, or `input` is over the text cap.
  */
 export function cleanWrappedText(input: string, options: any): any;
+
+/**
+ * [`close_tab`](pane::close_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function closeTab(layout: any, pane_id: string, index: number): any;
+
+/**
+ * [`closed_tabs`](pane::closed_tabs).
+ *
+ * # Errors
+ *
+ * Fails if a layout has the wrong shape.
+ */
+export function closedTabs(before: any, after: any): any;
 
 /**
  * [`coalesce_mentions`] (TS `coalesceMentions`).
@@ -671,6 +761,15 @@ export function effectiveFieldBoosts(settings: any): any;
 export function effectiveRelationTypes(settings: any): any;
 
 /**
+ * [`empty_layout`](pane::empty_layout).
+ *
+ * # Errors
+ *
+ * Never fails in practice; returns the serializer's result type.
+ */
+export function emptyLayout(pane_id: string): any;
+
+/**
  * [`encode_locus`] as raw JSON (encode at the URL layer, not here).
  *
  * # Errors
@@ -814,6 +913,15 @@ export function fenceUntrusted(items: any, nonce: string): string;
 export function filterLabMembers(viewer_id: string, members: any, options: any): any;
 
 /**
+ * [`filter_rows`](tree::filter_rows). `rows` is an array of `VisibleRow`.
+ *
+ * # Errors
+ *
+ * Fails if `rows` has the wrong shape.
+ */
+export function filterRows(rows: any, query: string): any;
+
+/**
  * [`filter_team_members`](member::filter_team_members). Returns indices into `members`.
  *
  * # Errors
@@ -897,6 +1005,42 @@ export function findQuoteMatches(text: string, quote: any): any;
  * Fails if `lines` is not an array of text lines or `furniture` is not an array of booleans.
  */
 export function findReferenceSection(lines: any, body_font_size: number, page_count: number, furniture: any): any;
+
+/**
+ * [`flatten_tree`](tree::flatten_tree).
+ *
+ * # Errors
+ *
+ * Fails if `nodes` has the wrong shape.
+ */
+export function flattenTree(nodes: any): any;
+
+/**
+ * [`focus_pane`](pane::focus_pane).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function focusPane(layout: any, pane_id: string): any;
+
+/**
+ * [`focused_tab_count`](pane::focused_tab_count).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function focusedTabCount(layout: any): number;
+
+/**
+ * [`folder_ids_of`](tree::folder_ids_of). Returns an array; the TS wrapper makes the `Set`.
+ *
+ * # Errors
+ *
+ * Fails if `nodes` has the wrong shape.
+ */
+export function folderIdsOf(nodes: any): any;
 
 /**
  * [`font_size_of`](analysis_text::font_size_of) (TS `fontSizeOf`).
@@ -1054,6 +1198,15 @@ export function groupPaletteRows(groups: any): any;
 export function groupRecurringLines(texts: any, pages: any): any;
 
 /**
+ * [`group_runs`](groups::group_runs).
+ *
+ * # Errors
+ *
+ * Fails if `leaf` has the wrong shape.
+ */
+export function groupRuns(leaf: any): any;
+
+/**
  * [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
  * by its extension.
  *
@@ -1094,6 +1247,15 @@ export function headingOutline(headings: any): any;
  * [`heading_slug`](heading_slug::heading_slug): the anchor id for a heading.
  */
 export function headingSlug(text: string): string;
+
+/**
+ * [`hydrate_tab_modes`](pane::hydrate_tab_modes). `modes` is an object of tab key to mode.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function hydrateTabModes(layout: any, modes: any): any;
 
 /**
  * [`hydrate_user_settings`](user_settings::hydrate_user_settings).
@@ -1344,6 +1506,15 @@ export function isCitationDestination(name: any): boolean;
 export function isConferenceCopy(paper: any): boolean;
 
 /**
+ * [`is_document_node`](tree::is_document_node).
+ *
+ * # Errors
+ *
+ * Fails if `node` has the wrong shape.
+ */
+export function isDocumentNode(node: any): boolean;
+
+/**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
  */
 export function isEmptyPaperSummary(summary?: string | null): boolean;
@@ -1560,6 +1731,33 @@ export function ladderOrder(supports: any): any;
 export function latestByReviewerList(decisions: any, item_id: string, stage: any): any;
 
 /**
+ * [`layout_for_command`](pane::layout_for_command). `command` is a chord name such as `"split-right"`.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function layoutForCommand(layout: any, command: any, new_pane_id: string): any;
+
+/**
+ * [`layout_for_tab_menu`](pane::layout_for_tab_menu).
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function layoutForTabMenu(layout: any, pane_id: string, index: number, command: any, new_pane_id: string): any;
+
+/**
+ * [`leaves`](pane::leaves). Returns owned copies of the leaves.
+ *
+ * # Errors
+ *
+ * Fails if `node` has the wrong shape.
+ */
+export function leaves(node: any): any;
+
+/**
  * [`levenshtein`](analysis_outline::levenshtein) (TS `levenshtein`).
  */
 export function levenshtein(a: string, b: string, limit: number): number;
@@ -1573,6 +1771,15 @@ export function levenshtein(a: string, b: string, limit: number): number;
  * Fails if `page`, `links` or `refs` do not have the expected shape.
  */
 export function linkCitationMentions(page: any, links: any, refs: any): any;
+
+/**
+ * [`list_membership`](tree::list_membership). Returns a JS `Map` of `kind:id` to list titles.
+ *
+ * # Errors
+ *
+ * Fails if either argument has the wrong shape.
+ */
+export function listMembership(items: any, titles: any): any;
 
 /**
  * [`validate_new_log_entry`](log_entry::validate_new_log_entry): the error message, or `None`.
@@ -1731,6 +1938,15 @@ export function mergeWikiPages(primary: any, secondary: any): any;
  * Fails if `input` has the wrong shape.
  */
 export function milestoneInputError(input: any): string | undefined;
+
+/**
+ * [`move_tab`](pane::move_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function moveTab(layout: any, from_pane_id: string, from_index: number, to_pane_id: string, to_index?: number | null): any;
 
 /**
  * [`native_citation_mentions`] (TS `nativeCitationMentions`).
@@ -1961,6 +2177,24 @@ export function normalizeVector(vector: Float32Array): Float32Array;
  * Fails if `work` is not an OpenAlex work.
  */
 export function openAlexToMetadata(work: any): any;
+
+/**
+ * [`open_tab`](pane::open_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` or `tab` has the wrong shape.
+ */
+export function openTab(layout: any, tab: any, pane_id: string): any;
+
+/**
+ * [`open_tab_keys`](pane::open_tab_keys).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function openTabKeys(layout: any): any;
 
 /**
  * [`original_range`](analysis_text::original_range) as `[start, end]` (TS `originalRange`).
@@ -2367,6 +2601,33 @@ export function pmcCandidates(pmcid: string, license?: string | null): any;
 export function pointInPolygon(polygon: Float64Array, x: number, y: number): boolean;
 
 /**
+ * [`preview_open`](pane::preview_open).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function previewOpen(layout: any): boolean;
+
+/**
+ * [`preview_source`](pane::preview_source). `previous` may be `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function previewSource(layout: any, previous: any): any;
+
+/**
+ * [`preview_tab`](pane::preview_tab).
+ *
+ * # Errors
+ *
+ * Never fails in practice; returns the serializer's result type.
+ */
+export function previewTab(): any;
+
+/**
  * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `undefined`.
  *
  * # Errors
@@ -2424,6 +2685,15 @@ export function projectName(name: string): string | undefined;
  * Fails if `p` is not a page projection object.
  */
 export function projectedPageSize(p: any): any;
+
+/**
+ * [`prune_layout`](pane::prune_layout). `open_keys` is an array of tab keys.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function pruneLayout(layout: any, open_keys: any): any;
 
 /**
  * [`push_ink_undo`](ink_undo::push_ink_undo).
@@ -2770,6 +3040,24 @@ export function serializeWorkspace(snapshot_json: string, project_id: string, pr
 export function setImagePlacement(body: string, alt: string, ordinal: number, patch: any): string;
 
 /**
+ * [`set_ratio`](pane::set_ratio). `target` is the split being resized.
+ *
+ * # Errors
+ *
+ * Fails if `layout` or `target` has the wrong shape.
+ */
+export function setRatio(layout: any, target: any, ratio: number): any;
+
+/**
+ * [`set_tab_mode`](pane::set_tab_mode). `mode` is `"edit"`, `"read"` or `"ink"`.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function setTabMode(layout: any, target: any, mode: any): any;
+
+/**
  * [`share_allows_comment`](sharing::share_allows_comment).
  *
  * # Errors
@@ -2859,6 +3147,11 @@ export function simplifyInkPath(path: Float64Array, tolerance?: number | null): 
 export function simplifyPathIndices(path: Float64Array, tolerance?: number | null): any;
 
 /**
+ * [`slug_segment`](tree::slug_segment).
+ */
+export function slugSegment(title: string): string;
+
+/**
  * [`smooth_ink_stroke`] as `{ points, pressures }`; `options` is
  * `{ spacing?, passes? }` or undefined.
  *
@@ -2921,6 +3214,15 @@ export function splitByMargins(lines: any): any;
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
  */
 export function splitNumberedEntries(lines: any): any;
+
+/**
+ * [`split_pane`](pane::split_pane). `direction` is `"row"` or `"column"`.
+ *
+ * # Errors
+ *
+ * Fails if `layout` or `direction` has the wrong shape.
+ */
+export function splitPane(layout: any, pane_id: string, direction: any, new_pane_id: string): any;
 
 /**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
@@ -2992,6 +3294,33 @@ export function studentsOf(viewer_id: string | null | undefined, team: any): any
  * [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
  */
 export function surnameKey(name: string): string;
+
+/**
+ * [`tab_at`](pane::tab_at).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function tabAt(layout: any, pane_id: string, index: number): any;
+
+/**
+ * [`tab_key`](pane::tab_key).
+ *
+ * # Errors
+ *
+ * Fails if `tab` has the wrong shape.
+ */
+export function tabKey(tab: any): string;
+
+/**
+ * [`tab_mode`](pane::tab_mode). Returns `"edit"`, `"read"` or `"ink"`.
+ *
+ * # Errors
+ *
+ * Fails if `tab` has the wrong shape.
+ */
+export function tabMode(tab: any): any;
 
 /**
  * [`tab_separated_to_markdown_table`] for JS, as `{ text, changed }`.
@@ -3090,6 +3419,15 @@ export function toZoteroItem(paper: any): any;
  * Fails if `ann` is not a `ZoteroAnnotationLocal` object.
  */
 export function toZoteroWritePayload(ann: any, parent_item_key: string): any;
+
+/**
+ * [`toggle_preview`](pane::toggle_preview).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ */
+export function togglePreview(layout: any, new_pane_id: string): any;
 
 /**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
@@ -3222,6 +3560,15 @@ export function vaultPageSide(path: string, content: string): any;
 export function verdictFor(decisions: any, item_id: string, stage: any): any;
 
 /**
+ * [`visible_rows`](tree::visible_rows). `expanded` is an array of keys.
+ *
+ * # Errors
+ *
+ * Fails if either argument has the wrong shape.
+ */
+export function visibleRows(nodes: any, expanded: any): any;
+
+/**
  * [`visual_page_size`] as `{ width, height }` (TS `visualPageSize`).
  *
  * # Errors
@@ -3249,6 +3596,15 @@ export function withImageWidth(alt: string, width?: string | null): string;
  * Fails if `alt` is too long or `placement` has the wrong shape.
  */
 export function withMdImageAlt(alt: string, placement: any): string;
+
+/**
+ * [`without_group`](groups::without_group).
+ *
+ * # Errors
+ *
+ * Fails if `tab` has the wrong shape.
+ */
+export function withoutGroup(tab: any): any;
 
 /**
  * [`wf_core::sync::workspace_snapshot::workspace_snapshot_counts`] for JS.
@@ -3347,12 +3703,17 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly acronymsForTitle: (a: number, b: number) => [number, number, number];
+    readonly activateTab: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly activeTab: (a: any) => [number, number, number];
+    readonly activeTabKey: (a: any) => [number, number, number];
+    readonly activeTabRef: (a: any) => [number, number, number];
     readonly addCounts: (a: any, b: any) => [number, number, number];
     readonly agreementBetween: (a: any, b: any, c: any) => [number, number, number];
     readonly aiReadCategoryForResource: (a: any) => [number, number, number];
     readonly analyzePdfDocument: (a: any, b: any) => [number, number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
     readonly applyDelta: (a: any, b: any, c: any) => [number, number, number];
+    readonly applyGroupCommand: (a: any, b: number, c: any) => [number, number, number];
     readonly applyUserIntegrationFields: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly arxivCandidates: (a: number, b: number) => [number, number, number];
     readonly arxivEntryToMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -3364,9 +3725,11 @@ export interface InitOutput {
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly buildLabSnapshotContent: (a: any) => [number, number, number];
     readonly buildListTree: (a: any) => [number, number, number];
+    readonly buildListsTree: (a: any) => [number, number, number];
     readonly buildSectionTree: (a: any) => [number, number, number];
     readonly buildWikiGraph: (a: any) => [number, number, number];
     readonly buildWikiIndex: (a: any, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly buildWorkspaceTree: (a: any) => [number, number, number];
     readonly canCreateRole: (a: number, b: number, c: number, d: number) => number;
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly cardSnippet: (a: number, b: number, c: number) => [number, number, number, number];
@@ -3383,11 +3746,14 @@ export interface InitOutput {
     readonly clampScale: (a: number) => number;
     readonly clampZoomFactor: (a: number, b: number) => number;
     readonly cleanArxivId: (a: number, b: number) => [number, number];
+    readonly cleanGroups: (a: any) => [number, number, number];
     readonly cleanPastedText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanPdfText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanPmcid: (a: number, b: number) => [number, number];
     readonly cleanUrlsWithRules: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanWrappedText: (a: number, b: number, c: any) => [number, number, number];
+    readonly closeTab: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly closedTabs: (a: any, b: any) => [number, number, number];
     readonly coalesceMentions: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly commandMatchIndices: (a: any, b: number, c: number) => [number, number, number];
     readonly compactInkPath: (a: number, b: number, c: any) => [number, number, number, number];
@@ -3426,6 +3792,7 @@ export interface InitOutput {
     readonly documentBoost: (a: any, b: any, c: number) => [number, number, number];
     readonly effectiveFieldBoosts: (a: any) => [number, number, number];
     readonly effectiveRelationTypes: (a: any) => [number, number, number];
+    readonly emptyLayout: (a: number, b: number) => [number, number, number];
     readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -3443,6 +3810,7 @@ export interface InitOutput {
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
     readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
     readonly filterLabMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
+    readonly filterRows: (a: any, b: number, c: number) => [number, number, number];
     readonly filterTeamMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly findCitationCandidates: (a: any) => [number, number, number];
     readonly findDocumentMatches: (a: any, b: number, c: number) => [number, number, number];
@@ -3452,6 +3820,10 @@ export interface InitOutput {
     readonly findPatternCitationMentions: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly findReferenceSection: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly flattenTree: (a: any) => [number, number, number];
+    readonly focusPane: (a: any, b: number, c: number) => [number, number, number];
+    readonly focusedTabCount: (a: any) => [number, number, number];
+    readonly folderIdsOf: (a: any) => [number, number, number];
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly forgetSearchQuery: (a: number, b: number, c: number, d: number) => [number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
@@ -3471,11 +3843,13 @@ export interface InitOutput {
     readonly graphFilterCountFor: (a: number, b: number, c: any) => [number, number, number];
     readonly groupPaletteRows: (a: any) => [number, number, number];
     readonly groupRecurringLines: (a: any, b: any) => [number, number, number];
+    readonly groupRuns: (a: any) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly hasActiveLab: (a: number, b: number, c: any, d: number) => [number, number, number];
     readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
     readonly headingOutline: (a: any) => [number, number, number];
     readonly headingSlug: (a: number, b: number) => [number, number];
+    readonly hydrateTabModes: (a: any, b: any) => [number, number, number];
     readonly hydrateUserSettings: (a: any) => [number, number, number];
     readonly idSuffix: (a: number, b: number) => [number, number, number, number];
     readonly imageAltFromFilename: (a: number, b: number) => [number, number, number, number];
@@ -3510,6 +3884,7 @@ export interface InitOutput {
     readonly isBoldFont: (a: number, b: number) => number;
     readonly isCitationDestination: (a: any) => [number, number, number];
     readonly isConferenceCopy: (a: any) => [number, number, number];
+    readonly isDocumentNode: (a: any) => [number, number, number];
     readonly isEmptyPaperSummary: (a: number, b: number) => number;
     readonly isExplicitLabMembership: (a: any) => [number, number, number];
     readonly isHighlighterInk: (a: number, b: number) => number;
@@ -3540,8 +3915,12 @@ export interface InitOutput {
     readonly labelNumber: (a: any) => [number, number, number];
     readonly ladderOrder: (a: any) => [number, number, number];
     readonly latestByReviewerList: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly layoutForCommand: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly layoutForTabMenu: (a: any, b: number, c: number, d: number, e: any, f: number, g: number) => [number, number, number];
+    readonly leaves: (a: any) => [number, number, number];
     readonly levenshtein: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
+    readonly listMembership: (a: any, b: any) => [number, number, number];
     readonly logEntryInputError: (a: any) => [number, number, number, number];
     readonly looksLikeImageUrl: (a: number, b: number) => number;
     readonly mapInkConfidence: (a: number, b: number, c: number) => number;
@@ -3561,6 +3940,7 @@ export interface InitOutput {
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeWikiPages: (a: any, b: any) => [number, number, number];
     readonly milestoneInputError: (a: any) => [number, number, number, number];
+    readonly moveTab: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly nativeCitationMentions: (a: any, b: any, c: any) => [number, number, number];
     readonly needsOrgSetup: (a: any) => [number, number, number];
     readonly needsStandaloneRoleSync: (a: any, b: any, c: number) => [number, number, number];
@@ -3592,6 +3972,8 @@ export interface InitOutput {
     readonly normalizeUserSettings: (a: any) => [number, number, number];
     readonly normalizeVector: (a: number, b: number) => [number, number];
     readonly openAlexToMetadata: (a: any) => [number, number, number];
+    readonly openTab: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly openTabKeys: (a: any) => [number, number, number];
     readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
     readonly outlineFromText: (a: any) => [number, number, number];
     readonly outlineIsPlausible: (a: any, b: number) => [number, number, number];
@@ -3636,6 +4018,9 @@ export interface InitOutput {
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly pmcCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
+    readonly previewOpen: (a: any) => [number, number, number];
+    readonly previewSource: (a: any, b: any) => [number, number, number];
+    readonly previewTab: () => [number, number, number];
     readonly prismaCaveat: (a: any) => [number, number, number, number];
     readonly prismaCounts: (a: any, b: any) => [number, number, number];
     readonly prismaFigureTex: (a: any, b: any) => [number, number, number, number];
@@ -3643,6 +4028,7 @@ export interface InitOutput {
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly projectName: (a: number, b: number) => [number, number];
     readonly projectedPageSize: (a: any) => [number, number, number];
+    readonly pruneLayout: (a: any, b: any) => [number, number, number];
     readonly pushInkUndo: (a: any, b: any) => [number, number, number];
     readonly quantizeInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly queryTermCount: (a: any) => [number, number, number];
@@ -3684,6 +4070,8 @@ export interface InitOutput {
     readonly semanticScholarToMetadata: (a: any) => [number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly setImagePlacement: (a: number, b: number, c: number, d: number, e: number, f: any) => [number, number, number, number];
+    readonly setRatio: (a: any, b: any, c: number) => [number, number, number];
+    readonly setTabMode: (a: any, b: any, c: any) => [number, number, number];
     readonly shareAllowsComment: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareAllowsEdit: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareCoversResource: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
@@ -3696,6 +4084,7 @@ export interface InitOutput {
     readonly showRelationEdges: (a: any) => [number, number, number];
     readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly slugSegment: (a: number, b: number) => [number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly sortByReadingOrder: (a: any) => [number, number, number];
     readonly sortHitOrder: (a: any, b: any) => [number, number, number];
@@ -3703,6 +4092,7 @@ export interface InitOutput {
     readonly splitByAuthorStart: (a: any) => [number, number, number];
     readonly splitByMargins: (a: any) => [number, number, number];
     readonly splitNumberedEntries: (a: any) => [number, number, number];
+    readonly splitPane: (a: any, b: number, c: number, d: any, e: number, f: number) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly statusPatchForExperiment: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly stripFrontmatter: (a: number, b: number) => [number, number, number];
@@ -3713,6 +4103,9 @@ export interface InitOutput {
     readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
     readonly studentsOf: (a: number, b: number, c: any) => [number, number, number];
     readonly surnameKey: (a: number, b: number) => [number, number];
+    readonly tabAt: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly tabKey: (a: any) => [number, number, number, number];
+    readonly tabMode: (a: any) => [number, number, number];
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
     readonly tagTone: (a: number, b: number) => number;
     readonly takeInkRedo: (a: any) => [number, number, number];
@@ -3726,6 +4119,7 @@ export interface InitOutput {
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly toZoteroItem: (a: any) => [number, number, number];
     readonly toZoteroWritePayload: (a: any, b: number, c: number) => [number, number, number];
+    readonly togglePreview: (a: any, b: number, c: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];
@@ -3743,9 +4137,11 @@ export interface InitOutput {
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly verdictFor: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly visibleRows: (a: any, b: any) => [number, number, number];
     readonly visualPageSize: (a: any, b: number) => [number, number, number];
     readonly withImageWidth: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly withMdImageAlt: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly withoutGroup: (a: any) => [number, number, number];
     readonly workspaceSnapshotCounts: (a: number, b: number) => [number, number, number];
     readonly writeConflictMarkers: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly writeFrontmatter: (a: any, b: number, c: number) => [number, number, number, number];

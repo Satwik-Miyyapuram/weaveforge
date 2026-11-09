@@ -12,7 +12,7 @@
  * in when they opened it from there. Everything else follows the folder.
  */
 
-import type { WorkspaceTreeNode } from "./workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
 
 export interface Crumb {
   label: string;

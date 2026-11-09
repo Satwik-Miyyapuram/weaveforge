@@ -10,7 +10,7 @@
  * tested without a DOM, and so a private-mode failure is one caller's problem.
  */
 
-import type { WorkspaceTreeNode } from "./workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
 
 export const EXPLORER_STORAGE_KEY = "weaveforge.explorer.expanded";
 /**

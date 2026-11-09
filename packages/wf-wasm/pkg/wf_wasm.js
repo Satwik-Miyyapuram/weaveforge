@@ -20,6 +20,78 @@ export function acronymsForTitle(title) {
 }
 
 /**
+ * [`activate_tab`](pane::activate_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @param {string} pane_id
+ * @param {number} index
+ * @returns {any}
+ */
+export function activateTab(layout, pane_id, index) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.activateTab(layout, ptr0, len0, index);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`active_tab`](pane::active_tab). Takes a leaf.
+ *
+ * # Errors
+ *
+ * Fails if `leaf` has the wrong shape.
+ * @param {any} leaf
+ * @returns {any}
+ */
+export function activeTab(leaf) {
+    const ret = wasm.activeTab(leaf);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`active_tab_key`](pane::active_tab_key).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @returns {any}
+ */
+export function activeTabKey(layout) {
+    const ret = wasm.activeTabKey(layout);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`active_tab_ref`](pane::active_tab_ref).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @returns {any}
+ */
+export function activeTabRef(layout) {
+    const ret = wasm.activeTabRef(layout);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::json_entities::add_counts`] for JS.
  *
  * # Errors
@@ -125,6 +197,25 @@ export function applyCommaPlacement(input, placement) {
  */
 export function applyDelta(held, fetched, order) {
     const ret = wasm.applyDelta(held, fetched, order);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`apply_group_command`](groups::apply_group_command).
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} leaf
+ * @param {number} index
+ * @param {any} command
+ * @returns {any}
+ */
+export function applyGroupCommand(leaf, index, command) {
+    const ret = wasm.applyGroupCommand(leaf, index, command);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -344,6 +435,23 @@ export function buildListTree(lists) {
 }
 
 /**
+ * [`build_lists_tree`](tree::build_lists_tree). `input` is a `ListsTreeInput`.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @returns {any}
+ */
+export function buildListsTree(input) {
+    const ret = wasm.buildListsTree(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -409,6 +517,23 @@ export function buildWikiIndex(pages, heading, generated_at) {
     } finally {
         wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
     }
+}
+
+/**
+ * [`build_workspace_tree`](tree::build_workspace_tree).
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape.
+ * @param {any} input
+ * @returns {any}
+ */
+export function buildWorkspaceTree(input) {
+    const ret = wasm.buildWorkspaceTree(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -682,6 +807,23 @@ export function cleanArxivId(id) {
 }
 
 /**
+ * [`clean_groups`](groups::clean_groups).
+ *
+ * # Errors
+ *
+ * Fails if `leaf` has the wrong shape.
+ * @param {any} leaf
+ * @returns {any}
+ */
+export function cleanGroups(leaf) {
+    const ret = wasm.cleanGroups(leaf);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`clean_pasted_text`] for JS, as `{ text, changed, urlsCleaned }`.
  *
  * # Errors
@@ -773,6 +915,45 @@ export function cleanWrappedText(input, options) {
     const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.cleanWrappedText(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`close_tab`](pane::close_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @param {string} pane_id
+ * @param {number} index
+ * @returns {any}
+ */
+export function closeTab(layout, pane_id, index) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.closeTab(layout, ptr0, len0, index);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`closed_tabs`](pane::closed_tabs).
+ *
+ * # Errors
+ *
+ * Fails if a layout has the wrong shape.
+ * @param {any} before
+ * @param {any} after
+ * @returns {any}
+ */
+export function closedTabs(before, after) {
+    const ret = wasm.closedTabs(before, after);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1533,6 +1714,25 @@ export function effectiveRelationTypes(settings) {
 }
 
 /**
+ * [`empty_layout`](pane::empty_layout).
+ *
+ * # Errors
+ *
+ * Never fails in practice; returns the serializer's result type.
+ * @param {string} pane_id
+ * @returns {any}
+ */
+export function emptyLayout(pane_id) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.emptyLayout(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`encode_locus`] as raw JSON (encode at the URL layer, not here).
  *
  * # Errors
@@ -1904,6 +2104,26 @@ export function filterLabMembers(viewer_id, members, options) {
 }
 
 /**
+ * [`filter_rows`](tree::filter_rows). `rows` is an array of `VisibleRow`.
+ *
+ * # Errors
+ *
+ * Fails if `rows` has the wrong shape.
+ * @param {any} rows
+ * @param {string} query
+ * @returns {any}
+ */
+export function filterRows(rows, query) {
+    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.filterRows(rows, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`filter_team_members`](member::filter_team_members). Returns indices into `members`.
  *
  * # Errors
@@ -2073,6 +2293,77 @@ export function findQuoteMatches(text, quote) {
  */
 export function findReferenceSection(lines, body_font_size, page_count, furniture) {
     const ret = wasm.findReferenceSection(lines, body_font_size, page_count, furniture);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`flatten_tree`](tree::flatten_tree).
+ *
+ * # Errors
+ *
+ * Fails if `nodes` has the wrong shape.
+ * @param {any} nodes
+ * @returns {any}
+ */
+export function flattenTree(nodes) {
+    const ret = wasm.flattenTree(nodes);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`focus_pane`](pane::focus_pane).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @param {string} pane_id
+ * @returns {any}
+ */
+export function focusPane(layout, pane_id) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.focusPane(layout, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`focused_tab_count`](pane::focused_tab_count).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @returns {number}
+ */
+export function focusedTabCount(layout) {
+    const ret = wasm.focusedTabCount(layout);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * [`folder_ids_of`](tree::folder_ids_of). Returns an array; the TS wrapper makes the `Set`.
+ *
+ * # Errors
+ *
+ * Fails if `nodes` has the wrong shape.
+ * @param {any} nodes
+ * @returns {any}
+ */
+export function folderIdsOf(nodes) {
+    const ret = wasm.folderIdsOf(nodes);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2477,6 +2768,23 @@ export function groupRecurringLines(texts, pages) {
 }
 
 /**
+ * [`group_runs`](groups::group_runs).
+ *
+ * # Errors
+ *
+ * Fails if `leaf` has the wrong shape.
+ * @param {any} leaf
+ * @returns {any}
+ */
+export function groupRuns(leaf) {
+    const ret = wasm.groupRuns(leaf);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
  * by its extension.
  *
@@ -2582,6 +2890,24 @@ export function headingSlug(text) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`hydrate_tab_modes`](pane::hydrate_tab_modes). `modes` is an object of tab key to mode.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} layout
+ * @param {any} modes
+ * @returns {any}
+ */
+export function hydrateTabModes(layout, modes) {
+    const ret = wasm.hydrateTabModes(layout, modes);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -3170,6 +3496,23 @@ export function isConferenceCopy(paper) {
 }
 
 /**
+ * [`is_document_node`](tree::is_document_node).
+ *
+ * # Errors
+ *
+ * Fails if `node` has the wrong shape.
+ * @param {any} node
+ * @returns {boolean}
+ */
+export function isDocumentNode(node) {
+    const ret = wasm.isDocumentNode(node);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
  * @param {string | null} [summary]
  * @returns {boolean}
@@ -3655,6 +3998,69 @@ export function latestByReviewerList(decisions, item_id, stage) {
 }
 
 /**
+ * [`layout_for_command`](pane::layout_for_command). `command` is a chord name such as `"split-right"`.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} layout
+ * @param {any} command
+ * @param {string} new_pane_id
+ * @returns {any}
+ */
+export function layoutForCommand(layout, command, new_pane_id) {
+    const ptr0 = passStringToWasm0(new_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.layoutForCommand(layout, command, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`layout_for_tab_menu`](pane::layout_for_tab_menu).
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} layout
+ * @param {string} pane_id
+ * @param {number} index
+ * @param {any} command
+ * @param {string} new_pane_id
+ * @returns {any}
+ */
+export function layoutForTabMenu(layout, pane_id, index, command, new_pane_id) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(new_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.layoutForTabMenu(layout, ptr0, len0, index, command, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`leaves`](pane::leaves). Returns owned copies of the leaves.
+ *
+ * # Errors
+ *
+ * Fails if `node` has the wrong shape.
+ * @param {any} node
+ * @returns {any}
+ */
+export function leaves(node) {
+    const ret = wasm.leaves(node);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`levenshtein`](analysis_outline::levenshtein) (TS `levenshtein`).
  * @param {string} a
  * @param {string} b
@@ -3684,6 +4090,24 @@ export function levenshtein(a, b, limit) {
  */
 export function linkCitationMentions(page, links, refs) {
     const ret = wasm.linkCitationMentions(page, links, refs);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`list_membership`](tree::list_membership). Returns a JS `Map` of `kind:id` to list titles.
+ *
+ * # Errors
+ *
+ * Fails if either argument has the wrong shape.
+ * @param {any} items
+ * @param {any} titles
+ * @returns {any}
+ */
+export function listMembership(items, titles) {
+    const ret = wasm.listMembership(items, titles);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4053,6 +4477,31 @@ export function milestoneInputError(input) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v1;
+}
+
+/**
+ * [`move_tab`](pane::move_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @param {string} from_pane_id
+ * @param {number} from_index
+ * @param {string} to_pane_id
+ * @param {number | null} [to_index]
+ * @returns {any}
+ */
+export function moveTab(layout, from_pane_id, from_index, to_pane_id, to_index) {
+    const ptr0 = passStringToWasm0(from_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(to_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.moveTab(layout, ptr0, len0, from_index, ptr1, len1, isLikeNone(to_index) ? Number.MAX_SAFE_INTEGER : (to_index) >> 0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -4594,6 +5043,44 @@ export function normalizeVector(vector) {
  */
 export function openAlexToMetadata(work) {
     const ret = wasm.openAlexToMetadata(work);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`open_tab`](pane::open_tab).
+ *
+ * # Errors
+ *
+ * Fails if `layout` or `tab` has the wrong shape.
+ * @param {any} layout
+ * @param {any} tab
+ * @param {string} pane_id
+ * @returns {any}
+ */
+export function openTab(layout, tab, pane_id) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.openTab(layout, tab, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`open_tab_keys`](pane::open_tab_keys).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @returns {any}
+ */
+export function openTabKeys(layout) {
+    const ret = wasm.openTabKeys(layout);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -5466,6 +5953,57 @@ export function pointInPolygon(polygon, x, y) {
 }
 
 /**
+ * [`preview_open`](pane::preview_open).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @returns {boolean}
+ */
+export function previewOpen(layout) {
+    const ret = wasm.previewOpen(layout);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`preview_source`](pane::preview_source). `previous` may be `undefined`.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} layout
+ * @param {any} previous
+ * @returns {any}
+ */
+export function previewSource(layout, previous) {
+    const ret = wasm.previewSource(layout, previous);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`preview_tab`](pane::preview_tab).
+ *
+ * # Errors
+ *
+ * Never fails in practice; returns the serializer's result type.
+ * @returns {any}
+ */
+export function previewTab() {
+    const ret = wasm.previewTab();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `undefined`.
  *
  * # Errors
@@ -5625,6 +6163,24 @@ export function projectName(name) {
  */
 export function projectedPageSize(p) {
     const ret = wasm.projectedPageSize(p);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`prune_layout`](pane::prune_layout). `open_keys` is an array of tab keys.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} layout
+ * @param {any} open_keys
+ * @returns {any}
+ */
+export function pruneLayout(layout, open_keys) {
+    const ret = wasm.pruneLayout(layout, open_keys);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -6513,6 +7069,44 @@ export function setImagePlacement(body, alt, ordinal, patch) {
 }
 
 /**
+ * [`set_ratio`](pane::set_ratio). `target` is the split being resized.
+ *
+ * # Errors
+ *
+ * Fails if `layout` or `target` has the wrong shape.
+ * @param {any} layout
+ * @param {any} target
+ * @param {number} ratio
+ * @returns {any}
+ */
+export function setRatio(layout, target, ratio) {
+    const ret = wasm.setRatio(layout, target, ratio);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`set_tab_mode`](pane::set_tab_mode). `mode` is `"edit"`, `"read"` or `"ink"`.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} layout
+ * @param {any} target
+ * @param {any} mode
+ * @returns {any}
+ */
+export function setTabMode(layout, target, mode) {
+    const ret = wasm.setTabMode(layout, target, mode);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`share_allows_comment`](sharing::share_allows_comment).
  *
  * # Errors
@@ -6732,6 +7326,26 @@ export function simplifyPathIndices(path, tolerance) {
 }
 
 /**
+ * [`slug_segment`](tree::slug_segment).
+ * @param {string} title
+ * @returns {string}
+ */
+export function slugSegment(title) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.slugSegment(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`smooth_ink_stroke`] as `{ points, pressures }`; `options` is
  * `{ spacing?, passes? }` or undefined.
  *
@@ -6852,6 +7466,30 @@ export function splitByMargins(lines) {
  */
 export function splitNumberedEntries(lines) {
     const ret = wasm.splitNumberedEntries(lines);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`split_pane`](pane::split_pane). `direction` is `"row"` or `"column"`.
+ *
+ * # Errors
+ *
+ * Fails if `layout` or `direction` has the wrong shape.
+ * @param {any} layout
+ * @param {string} pane_id
+ * @param {any} direction
+ * @param {string} new_pane_id
+ * @returns {any}
+ */
+export function splitPane(layout, pane_id, direction, new_pane_id) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(new_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.splitPane(layout, ptr0, len0, direction, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7078,6 +7716,72 @@ export function surnameKey(name) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`tab_at`](pane::tab_at).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @param {string} pane_id
+ * @param {number} index
+ * @returns {any}
+ */
+export function tabAt(layout, pane_id, index) {
+    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.tabAt(layout, ptr0, len0, index);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`tab_key`](pane::tab_key).
+ *
+ * # Errors
+ *
+ * Fails if `tab` has the wrong shape.
+ * @param {any} tab
+ * @returns {string}
+ */
+export function tabKey(tab) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.tabKey(tab);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`tab_mode`](pane::tab_mode). Returns `"edit"`, `"read"` or `"ink"`.
+ *
+ * # Errors
+ *
+ * Fails if `tab` has the wrong shape.
+ * @param {any} tab
+ * @returns {any}
+ */
+export function tabMode(tab) {
+    const ret = wasm.tabMode(tab);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -7313,6 +8017,26 @@ export function toZoteroWritePayload(ann, parent_item_key) {
     const ptr0 = passStringToWasm0(parent_item_key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.toZoteroWritePayload(ann, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`toggle_preview`](pane::toggle_preview).
+ *
+ * # Errors
+ *
+ * Fails if `layout` has the wrong shape.
+ * @param {any} layout
+ * @param {string} new_pane_id
+ * @returns {any}
+ */
+export function togglePreview(layout, new_pane_id) {
+    const ptr0 = passStringToWasm0(new_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.togglePreview(layout, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7701,6 +8425,24 @@ export function verdictFor(decisions, item_id, stage) {
 }
 
 /**
+ * [`visible_rows`](tree::visible_rows). `expanded` is an array of keys.
+ *
+ * # Errors
+ *
+ * Fails if either argument has the wrong shape.
+ * @param {any} nodes
+ * @param {any} expanded
+ * @returns {any}
+ */
+export function visibleRows(nodes, expanded) {
+    const ret = wasm.visibleRows(nodes, expanded);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`visual_page_size`] as `{ width, height }` (TS `visualPageSize`).
  *
  * # Errors
@@ -7782,6 +8524,23 @@ export function withMdImageAlt(alt, placement) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`without_group`](groups::without_group).
+ *
+ * # Errors
+ *
+ * Fails if `tab` has the wrong shape.
+ * @param {any} tab
+ * @returns {any}
+ */
+export function withoutGroup(tab) {
+    const ret = wasm.withoutGroup(tab);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
