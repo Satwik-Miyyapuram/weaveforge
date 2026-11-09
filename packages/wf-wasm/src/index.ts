@@ -415,16 +415,17 @@ export function decideGitSyncPath(
     | { include: false; reason: GitSyncSkipReason };
 }
 
-/** One line for the Settings panel. */
-/** Where the folder sits relative to git. Same shape as `VaultRepoState` in core's git-gate.ts. */
-export type VaultRepoState = { kind: "none" } | { kind: "own" } | { kind: "enclosing"; root: string };
-
-/** The verdict of `decideVaultCommit`. Same shape as `GitVerdict` in core's git-gate.ts. */
-export type GitVerdict = { ok: true; action: "init" | "commit" } | { ok: false; reason: string };
-
-/** Whether the folder may be committed to, and why not. Off unless `enabled`; refused inside a foreign repository. */
-export function decideVaultCommit(enabled: boolean, state: VaultRepoState): GitVerdict {
-  return rawDecideVaultCommit(enabled, state) as GitVerdict;
+/**
+ * Whether the folder may be committed to, and why not. Off unless `enabled`; refused inside a
+ * foreign repository. `state` and the verdict have the shapes of core's git-gate.ts.
+ */
+export function decideVaultCommit(
+  enabled: boolean,
+  state: { kind: "none" } | { kind: "own" } | { kind: "enclosing"; root: string },
+): { ok: true; action: "init" | "commit" } | { ok: false; reason: string } {
+  return rawDecideVaultCommit(enabled, state) as
+    | { ok: true; action: "init" | "commit" }
+    | { ok: false; reason: string };
 }
 
 /** `text` with every occurrence of `secret` replaced. Throws over MAX_INDEX_TEXT_UTF16 units. */
@@ -439,6 +440,7 @@ export function describeChanges(status: readonly { state: "added" | "modified" |
   return rawDescribeChanges(status);
 }
 
+/** One line for the Settings panel. */
 export function describePull(result: GitPullResult): string {
   return rawDescribePull(result);
 }
@@ -455,19 +457,15 @@ export function stampWorkspaceId(content: string, id: string): string | null {
   return rawStampWorkspaceId(content, id) ?? null;
 }
 
-/** What to fetch and what to forget, from `remote` stamps against `held` as `[id, stamp]` pairs. */
-export interface DeltaPlanOut {
-  fetch: string[];
-  drop: string[];
-  unchanged: boolean;
-}
-
-/** `remote` is the database's `{ id, updatedAt }` listing; `held` maps each held id to its stamp. */
+/**
+ * What to fetch and what to forget. `remote` is the database's `{ id, updatedAt }` listing;
+ * `held` maps each held id to its stamp.
+ */
 export function planDelta(
   remote: readonly { id: string; updatedAt: string }[],
   held: ReadonlyMap<string, string>,
-): DeltaPlanOut {
-  return rawPlanDelta(remote, [...held.entries()]) as DeltaPlanOut;
+): { fetch: string[]; drop: string[]; unchanged: boolean } {
+  return rawPlanDelta(remote, [...held.entries()]) as { fetch: string[]; drop: string[]; unchanged: boolean };
 }
 
 /** The held rows and fetched rows merged, in the order `order` gives. Rows are matched by `id`. */
