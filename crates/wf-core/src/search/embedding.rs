@@ -3,6 +3,7 @@
 
 /// Unit-normalize `vector`. A zero vector is returned unchanged, so it has
 /// similarity 0 with everything rather than NaN.
+#[must_use]
 pub fn normalize_vector(vector: &[f32]) -> Vec<f32> {
     let sum: f32 = vector.iter().map(|v| v * v).sum();
     let length = sum.sqrt();

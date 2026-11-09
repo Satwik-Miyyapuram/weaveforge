@@ -2,6 +2,10 @@
 //! the functions in `packages/core/src/features/org/domain/` and `.../org/application/`
 //! that they replace.
 
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm-bindgen exports take owned values"
+)]
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::member::{self, MemberLink, ProfileState, TeamVisibility};

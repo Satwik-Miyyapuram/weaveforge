@@ -63,7 +63,10 @@ impl fmt::Display for VectorError {
                 ids,
                 dimensions,
                 values,
-            } => write!(f, "{values} values for {ids} vectors of {dimensions} dimensions."),
+            } => write!(
+                f,
+                "{values} values for {ids} vectors of {dimensions} dimensions."
+            ),
             Self::Malformed(reason) => write!(f, "Stored vector index is malformed: {reason}."),
         }
     }
@@ -264,8 +267,8 @@ impl VectorIndex {
         let mut reader = Reader { rest: bytes };
         let dimensions = reader.number()?;
         let count = reader.number()?;
-        let mut index = Self::new(dimensions)
-            .map_err(|_| VectorError::Malformed("zero dimensions"))?;
+        let mut index =
+            Self::new(dimensions).map_err(|_| VectorError::Malformed("zero dimensions"))?;
         for _ in 0..count {
             index.push_stored_id(&mut reader)?;
         }
@@ -278,9 +281,10 @@ impl VectorIndex {
             return Err(VectorError::Malformed("trailing bytes"));
         }
         index.data = raw
-            .chunks_exact(4)
-            .filter_map(|chunk| <[u8; 4]>::try_from(chunk).ok())
-            .map(f32::from_le_bytes)
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|chunk| f32::from_le_bytes(*chunk))
             .collect();
         Ok(index)
     }
@@ -380,8 +384,7 @@ impl<'a> Reader<'a> {
 
     fn number(&mut self) -> Result<usize, VectorError> {
         let raw = self.take(8)?;
-        let bytes =
-            <[u8; 8]>::try_from(raw).map_err(|_| VectorError::Malformed("truncated"))?;
+        let bytes = <[u8; 8]>::try_from(raw).map_err(|_| VectorError::Malformed("truncated"))?;
         usize::try_from(u64::from_le_bytes(bytes))
             .map_err(|_| VectorError::Malformed("number too large"))
     }
@@ -413,7 +416,11 @@ mod tests {
     fn nearest_vector_ranks_first() {
         let index = index_with(
             2,
-            &[("east", &[1.0, 0.0]), ("north", &[0.0, 1.0]), ("north-east", &[1.0, 1.0])],
+            &[
+                ("east", &[1.0, 0.0]),
+                ("north", &[0.0, 1.0]),
+                ("north-east", &[1.0, 1.0]),
+            ],
         );
         let hits = index.search(&[1.0, 0.1], 3, -1.0).unwrap();
         let order: Vec<&str> = hits.iter().map(|hit| hit.id.as_str()).collect();
@@ -423,7 +430,10 @@ mod tests {
 
     #[test]
     fn magnitude_does_not_decide_ranking_direction_does() {
-        let index = index_with(2, &[("small", &[0.01, 0.0]), ("large-but-off", &[100.0, 100.0])]);
+        let index = index_with(
+            2,
+            &[("small", &[0.01, 0.0]), ("large-but-off", &[100.0, 100.0])],
+        );
         let hits = index.search(&[1.0, 0.0], 1, -1.0).unwrap();
         assert_eq!(hits[0].id, "small");
     }
@@ -488,7 +498,9 @@ mod tests {
             index.add(&[format!("id{i}")], &[x, y]).unwrap();
         }
         assert_eq!(index.size(), 50);
-        let hits = index.search(&[f32::from(38_u16), f32::from(13_u16)], 1, -1.0).unwrap();
+        let hits = index
+            .search(&[f32::from(38_u16), f32::from(13_u16)], 1, -1.0)
+            .unwrap();
         assert_eq!(hits[0].id, "id37");
     }
 
@@ -507,7 +519,11 @@ mod tests {
         let refused = index.add(&names(&["a", "b"]), &[1.0, 0.0, 0.0]);
         assert_eq!(
             refused,
-            Err(VectorError::Length { ids: 2, dimensions: 2, values: 3 })
+            Err(VectorError::Length {
+                ids: 2,
+                dimensions: 2,
+                values: 3
+            })
         );
         assert_eq!(index.size(), 0);
     }
@@ -535,14 +551,20 @@ mod tests {
     fn truncated_bytes_are_rejected() {
         let bytes = index_with(2, &[("a", &[1.0, 0.0])]).to_bytes();
         let cut = &bytes[..bytes.len() - 1];
-        assert!(matches!(VectorIndex::from_bytes(cut), Err(VectorError::Malformed(_))));
+        assert!(matches!(
+            VectorIndex::from_bytes(cut),
+            Err(VectorError::Malformed(_))
+        ));
     }
 
     #[test]
     fn trailing_bytes_are_rejected() {
         let mut bytes = index_with(2, &[("a", &[1.0, 0.0])]).to_bytes();
         bytes.push(0);
-        assert!(matches!(VectorIndex::from_bytes(&bytes), Err(VectorError::Malformed(_))));
+        assert!(matches!(
+            VectorIndex::from_bytes(&bytes),
+            Err(VectorError::Malformed(_))
+        ));
     }
 
     #[test]
@@ -550,7 +572,10 @@ mod tests {
         let mut bytes = Vec::new();
         put_length(&mut bytes, 0);
         put_length(&mut bytes, 0);
-        assert!(matches!(VectorIndex::from_bytes(&bytes), Err(VectorError::Malformed(_))));
+        assert!(matches!(
+            VectorIndex::from_bytes(&bytes),
+            Err(VectorError::Malformed(_))
+        ));
     }
 
     #[test]
@@ -565,7 +590,10 @@ mod tests {
         for value in [1.0_f32, 0.0, 0.0, 1.0] {
             bytes.extend_from_slice(&value.to_le_bytes());
         }
-        assert!(matches!(VectorIndex::from_bytes(&bytes), Err(VectorError::Malformed(_))));
+        assert!(matches!(
+            VectorIndex::from_bytes(&bytes),
+            Err(VectorError::Malformed(_))
+        ));
     }
 
     #[test]

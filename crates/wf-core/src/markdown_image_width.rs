@@ -133,7 +133,10 @@ mod tests {
     #[test]
     fn with_image_width_writes_and_clears_the_suffix() {
         assert_eq!(with_image_width("Figure 1", Some("40%")), "Figure 1|40%");
-        assert_eq!(with_image_width("Figure 1|40%", Some("60%")), "Figure 1|60%");
+        assert_eq!(
+            with_image_width("Figure 1|40%", Some("60%")),
+            "Figure 1|60%"
+        );
         assert_eq!(with_image_width("Figure 1|40%", None), "Figure 1");
     }
 
@@ -169,7 +172,10 @@ mod tests {
     fn explicit_nulls_reset_all_three() {
         let body = "![photo right c=0,0,10,10|40%](x.png)";
         let reset = patch(Some(None), Some(None), Some(None));
-        assert_eq!(set_image_placement(body, "photo", 0, &reset), "![photo](x.png)");
+        assert_eq!(
+            set_image_placement(body, "photo", 0, &reset),
+            "![photo](x.png)"
+        );
     }
 
     #[test]

@@ -15,9 +15,7 @@ use super::{check_text, to_js};
 #[wasm_bindgen(js_name = invalidationPlan)]
 pub fn invalidation_plan_js(resource_type: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     check_text(resource_type)?;
-    to_js(
-        &ResourceType::from_name(resource_type).map(cache_invalidation::plan),
-    )
+    to_js(&ResourceType::from_name(resource_type).map(cache_invalidation::plan))
 }
 
 /// [`cache_invalidation::is_known_resource_type`]: whether `value` names a resource type.

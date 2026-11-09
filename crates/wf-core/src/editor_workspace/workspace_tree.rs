@@ -566,6 +566,7 @@ fn present(value: &Option<String>) -> bool {
 
 /// Build the explorer's workspace tree: Notes, Papers, Report, Log, Overleaf.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn build_workspace_tree(input: &WorkspaceTreeInput) -> Vec<WorkspaceTreeNode> {
     let root = input.project_root.as_str();
 
@@ -657,7 +658,12 @@ pub fn build_workspace_tree(input: &WorkspaceTreeInput) -> Vec<WorkspaceTreeNode
     vec![
         nested_root("Notes", WorkspaceEntityType::VaultPage, &note_rows, root),
         papers_root,
-        nested_root("Report", WorkspaceEntityType::ReportSection, &section_rows, root),
+        nested_root(
+            "Report",
+            WorkspaceEntityType::ReportSection,
+            &section_rows,
+            root,
+        ),
         log_root,
         overleaf,
     ]
@@ -745,10 +751,10 @@ pub fn folder_ids_of(nodes: &[WorkspaceTreeNode]) -> HashSet<String> {
 }
 
 fn collect_folder_ids(node: &WorkspaceTreeNode, out: &mut HashSet<String>) {
-    if node.folder {
-        if let Some(id) = node.id.as_deref().filter(|id| !id.is_empty()) {
-            let _ = out.insert(id.to_string());
-        }
+    if node.folder
+        && let Some(id) = node.id.as_deref().filter(|id| !id.is_empty())
+    {
+        let _ = out.insert(id.to_string());
     }
     for child in &node.children {
         collect_folder_ids(child, out);
@@ -1067,10 +1073,7 @@ pub fn filter_rows(rows: &[VisibleRow], query: &str) -> FilteredRows {
         .filter(|(index, _)| keep[*index])
         .map(|(_, row)| row.clone())
         .collect();
-    FilteredRows {
-        rows: kept,
-        expand,
-    }
+    FilteredRows { rows: kept, expand }
 }
 
 #[cfg(test)]
@@ -1181,7 +1184,10 @@ mod tests {
     #[test]
     fn five_roots_overleaf_last_always() {
         let tree = build_workspace_tree(&WorkspaceTreeInput::default());
-        assert_eq!(labels(&tree), ["Notes", "Papers", "Report", "Log", "Overleaf"]);
+        assert_eq!(
+            labels(&tree),
+            ["Notes", "Papers", "Report", "Log", "Overleaf"]
+        );
         assert!(tree.iter().all(|node| node.children.is_empty()));
     }
 
@@ -1189,8 +1195,14 @@ mod tests {
     fn overleaf_is_a_folder_whose_rows_are_its_projects() {
         let tree = build_workspace_tree(&WorkspaceTreeInput {
             overleaf_projects: vec![
-                OverleafProject { id: "ol1".into(), name: "AIML LAB2".into() },
-                OverleafProject { id: "ol2".into(), name: "Thesis".into() },
+                OverleafProject {
+                    id: "ol1".into(),
+                    name: "AIML LAB2".into(),
+                },
+                OverleafProject {
+                    id: "ol2".into(),
+                    name: "Thesis".into(),
+                },
             ],
             ..Default::default()
         });
@@ -1213,26 +1225,53 @@ mod tests {
         assert_eq!(
             rows,
             [
-                ("overleaf:ol1".to_string(), Some("ol1".to_string()), "AIML LAB2".to_string(), true),
-                ("overleaf:ol2".to_string(), Some("ol2".to_string()), "Thesis".to_string(), true),
+                (
+                    "overleaf:ol1".to_string(),
+                    Some("ol1".to_string()),
+                    "AIML LAB2".to_string(),
+                    true
+                ),
+                (
+                    "overleaf:ol2".to_string(),
+                    Some("ol2".to_string()),
+                    "Thesis".to_string(),
+                    true
+                ),
             ]
         );
-        assert!(overleaf.children.iter().all(|node| node.kind == TreeNodeKind::Overleaf));
+        assert!(
+            overleaf
+                .children
+                .iter()
+                .all(|node| node.kind == TreeNodeKind::Overleaf)
+        );
     }
 
     #[test]
     fn log_entries_are_documents_under_a_log_root_newest_first() {
         let tree = build_workspace_tree(&WorkspaceTreeInput {
             log_entries: vec![
-                WorkspaceLogEntry { id: "l1".into(), entry_date: "2026-03-14".into() },
-                WorkspaceLogEntry { id: "l2".into(), entry_date: "2026-04-02".into() },
-                WorkspaceLogEntry { id: "l3".into(), entry_date: "2026-01-09".into() },
+                WorkspaceLogEntry {
+                    id: "l1".into(),
+                    entry_date: "2026-03-14".into(),
+                },
+                WorkspaceLogEntry {
+                    id: "l2".into(),
+                    entry_date: "2026-04-02".into(),
+                },
+                WorkspaceLogEntry {
+                    id: "l3".into(),
+                    entry_date: "2026-01-09".into(),
+                },
             ],
             ..Default::default()
         });
         let log = &tree[3];
         assert_eq!(log.label, "Log");
-        assert_eq!(labels(&log.children), ["2026-04-02", "2026-03-14", "2026-01-09"]);
+        assert_eq!(
+            labels(&log.children),
+            ["2026-04-02", "2026-03-14", "2026-01-09"]
+        );
         let rows: Vec<(TreeNodeKind, Option<String>, String)> = log
             .children
             .iter()
@@ -1241,13 +1280,29 @@ mod tests {
         assert_eq!(
             rows,
             [
-                (TreeNodeKind::LogEntry, Some("l2".to_string()), "logbook/2026/04/2026-04-02--l2.log.md".to_string()),
-                (TreeNodeKind::LogEntry, Some("l1".to_string()), "logbook/2026/03/2026-03-14--l1.log.md".to_string()),
-                (TreeNodeKind::LogEntry, Some("l3".to_string()), "logbook/2026/01/2026-01-09--l3.log.md".to_string()),
+                (
+                    TreeNodeKind::LogEntry,
+                    Some("l2".to_string()),
+                    "logbook/2026/04/2026-04-02--l2.log.md".to_string()
+                ),
+                (
+                    TreeNodeKind::LogEntry,
+                    Some("l1".to_string()),
+                    "logbook/2026/03/2026-03-14--l1.log.md".to_string()
+                ),
+                (
+                    TreeNodeKind::LogEntry,
+                    Some("l3".to_string()),
+                    "logbook/2026/01/2026-01-09--l3.log.md".to_string()
+                ),
             ]
         );
         // A document, so quick open searches it and the explorer can open a tab.
-        assert!(flatten_tree(&tree).iter().any(|node| node.kind == TreeNodeKind::LogEntry));
+        assert!(
+            flatten_tree(&tree)
+                .iter()
+                .any(|node| node.kind == TreeNodeKind::LogEntry)
+        );
     }
 
     #[test]
@@ -1275,7 +1330,10 @@ mod tests {
             ],
             ..Default::default()
         });
-        assert_eq!(labels(&tree[0].children), ["alpha", "Chapter 2", "Chapter 10", "Zeta"]);
+        assert_eq!(
+            labels(&tree[0].children),
+            ["alpha", "Chapter 2", "Chapter 10", "Zeta"]
+        );
     }
 
     #[test]
@@ -1333,7 +1391,11 @@ mod tests {
             .into_iter()
             .find(|node| node.id.as_deref() == Some("b"))
             .expect("beta is in the tree");
-        assert!(beta.children.iter().any(|node| node.id.as_deref() == Some("d")));
+        assert!(
+            beta.children
+                .iter()
+                .any(|node| node.id.as_deref() == Some("d"))
+        );
     }
 
     #[test]
@@ -1346,12 +1408,25 @@ mod tests {
             ..Default::default()
         });
         let papers = &tree[1];
-        assert_eq!(labels(&papers.children), ["Attention Is All You Need", "Batch Norm"]);
-        assert!(papers.children.iter().all(|node| node.kind == TreeNodeKind::Folder));
+        assert_eq!(
+            labels(&papers.children),
+            ["Attention Is All You Need", "Batch Norm"]
+        );
+        assert!(
+            papers
+                .children
+                .iter()
+                .all(|node| node.kind == TreeNodeKind::Folder)
+        );
         let shape: Vec<Vec<(TreeNodeKind, String)>> = papers
             .children
             .iter()
-            .map(|row| row.children.iter().map(|c| (c.kind, c.label.clone())).collect())
+            .map(|row| {
+                row.children
+                    .iter()
+                    .map(|c| (c.kind, c.label.clone()))
+                    .collect()
+            })
             .collect();
         let expected = vec![
             (TreeNodeKind::PaperPdf, "PDF".to_string()),
@@ -1388,10 +1463,19 @@ mod tests {
             }],
             ..Default::default()
         });
-        let keys: Vec<String> = flatten_tree(&tree).into_iter().map(|node| node.key).collect();
+        let keys: Vec<String> = flatten_tree(&tree)
+            .into_iter()
+            .map(|node| node.key)
+            .collect();
         assert_eq!(
             keys,
-            ["vault_page:a", "vault_page:b", "paper_pdf:p1", "paper:p1", "report_section:s1"]
+            [
+                "vault_page:a",
+                "vault_page:b",
+                "paper_pdf:p1",
+                "paper:p1",
+                "report_section:s1"
+            ]
         );
     }
 
@@ -1399,13 +1483,19 @@ mod tests {
     fn the_section_header_is_the_lists_root_so_lists_sit_at_level_one() {
         let tree = build_lists_tree(&lists_input());
         assert_eq!(labels(&tree), ["Latent spaces", "Screening — September"]);
-        assert!(tree.iter().all(|node| node.kind == TreeNodeKind::ReadingList));
+        assert!(
+            tree.iter()
+                .all(|node| node.kind == TreeNodeKind::ReadingList)
+        );
     }
 
     #[test]
     fn a_list_nests_under_its_parent_list_and_carries_the_mirrored_path() {
         let tree = build_lists_tree(&lists_input());
-        let parent = tree.iter().find(|node| node.id.as_deref() == Some("l1")).expect("l1");
+        let parent = tree
+            .iter()
+            .find(|node| node.id.as_deref() == Some("l1"))
+            .expect("l1");
         let shape: Vec<(String, TreeNodeKind)> = parent
             .children
             .iter()
@@ -1419,7 +1509,10 @@ mod tests {
             ]
         );
         assert_eq!(parent.path, "reading-lists/latent-spaces.list.md");
-        assert_eq!(parent.children[0].path, "reading-lists/latent-spaces/disentanglement.list.md");
+        assert_eq!(
+            parent.children[0].path,
+            "reading-lists/latent-spaces/disentanglement.list.md"
+        );
     }
 
     #[test]
@@ -1448,7 +1541,11 @@ mod tests {
             .clone();
         assert_eq!(
             labels(&nested.children),
-            ["Disentanglement: a review", "β-VAE: Learning", "Disentanglement reading cluster"]
+            [
+                "Disentanglement: a review",
+                "β-VAE: Learning",
+                "Disentanglement reading cluster"
+            ]
         );
     }
 
@@ -1459,7 +1556,14 @@ mod tests {
             ..lists_input()
         });
         let kinds: Vec<TreeNodeKind> = tree[0].children.iter().map(|node| node.kind).collect();
-        assert_eq!(kinds, [TreeNodeKind::Paper, TreeNodeKind::Paper, TreeNodeKind::VaultPage]);
+        assert_eq!(
+            kinds,
+            [
+                TreeNodeKind::Paper,
+                TreeNodeKind::Paper,
+                TreeNodeKind::VaultPage
+            ]
+        );
     }
 
     #[test]
@@ -1489,9 +1593,16 @@ mod tests {
             .into_iter()
             .filter(|node| node.id.as_deref() == Some("p1"))
             .collect();
-        assert_eq!(p1.len(), 2, "one under its parent list, one inherited into Screening");
+        assert_eq!(
+            p1.len(),
+            2,
+            "one under its parent list, one inherited into Screening"
+        );
         let keys: Vec<&str> = p1.iter().map(|node| node.key.as_str()).collect();
-        assert_eq!(keys, ["reading_list:l2/paper:p1", "reading_list:l3/paper:p1"]);
+        assert_eq!(
+            keys,
+            ["reading_list:l2/paper:p1", "reading_list:l3/paper:p1"]
+        );
     }
 
     #[test]
@@ -1531,7 +1642,12 @@ mod tests {
             .iter()
             .find(|node| node.id.as_deref() == Some("l3"))
             .expect("l3");
-        assert!(!screening.children.iter().any(|node| node.id.as_deref() == Some("p9")));
+        assert!(
+            !screening
+                .children
+                .iter()
+                .any(|node| node.id.as_deref() == Some("p9"))
+        );
     }
 
     #[test]
@@ -1553,7 +1669,10 @@ mod tests {
         assert_eq!(p1_keys, ["paper_pdf:p1", "paper:p1"]);
         // The list rows themselves are documents and are still indexed.
         assert_eq!(
-            indexed.iter().filter(|node| node.kind == TreeNodeKind::ReadingList).count(),
+            indexed
+                .iter()
+                .filter(|node| node.kind == TreeNodeKind::ReadingList)
+                .count(),
             3
         );
     }
@@ -1571,9 +1690,16 @@ mod tests {
         let membership = list_membership(&lists_input().items, &titles);
         assert_eq!(
             membership.get("paper:p1"),
-            Some(&vec!["Disentanglement".to_string(), "Screening — September".to_string()])
+            Some(&vec![
+                "Disentanglement".to_string(),
+                "Screening — September".to_string()
+            ])
         );
-        assert_eq!(membership.get("paper:p9"), None, "a duplicate is not a membership");
+        assert_eq!(
+            membership.get("paper:p9"),
+            None,
+            "a duplicate is not a membership"
+        );
     }
 
     #[test]
@@ -1582,7 +1708,10 @@ mod tests {
         let expanded: HashSet<String> = ["reading_list:l1".to_string()].into_iter().collect();
         let rows = visible_rows(&tree, &expanded);
         let filtered = filter_rows(&rows, "screening methods");
-        assert_eq!(labels_of_rows(&filtered.rows), ["Latent spaces", "Screening methods"]);
+        assert_eq!(
+            labels_of_rows(&filtered.rows),
+            ["Latent spaces", "Screening methods"]
+        );
         let expand: HashSet<String> = [
             "reading_list:l1".to_string(),
             "reading_list:l1/paper:p3".to_string(),
@@ -1610,14 +1739,32 @@ mod tests {
 
     #[test]
     fn a_match_inside_a_matched_branch_keeps_the_branch_siblings() {
-        let rows = [hand_row("Plans", 0), hand_row("Plan A", 1), hand_row("Plan A notes", 2), hand_row("Budget", 1), hand_row("Other", 0)];
-        assert_eq!(labels_of_rows(&filter_rows(&rows, "plan").rows), ["Plans", "Plan A", "Plan A notes", "Budget"]);
+        let rows = [
+            hand_row("Plans", 0),
+            hand_row("Plan A", 1),
+            hand_row("Plan A notes", 2),
+            hand_row("Budget", 1),
+            hand_row("Other", 0),
+        ];
+        assert_eq!(
+            labels_of_rows(&filter_rows(&rows, "plan").rows),
+            ["Plans", "Plan A", "Plan A notes", "Budget"]
+        );
     }
 
     #[test]
     fn a_branch_ends_at_the_first_row_back_at_its_depth() {
-        let rows = [hand_row("Inbox", 0), hand_row("Drafts", 1), hand_row("Plan", 1), hand_row("Child", 2), hand_row("Sibling", 1)];
-        assert_eq!(labels_of_rows(&filter_rows(&rows, "plan").rows), ["Inbox", "Plan", "Child"]);
+        let rows = [
+            hand_row("Inbox", 0),
+            hand_row("Drafts", 1),
+            hand_row("Plan", 1),
+            hand_row("Child", 2),
+            hand_row("Sibling", 1),
+        ];
+        assert_eq!(
+            labels_of_rows(&filter_rows(&rows, "plan").rows),
+            ["Inbox", "Plan", "Child"]
+        );
     }
 
     fn labels_of_rows(rows: &[VisibleRow]) -> Vec<String> {

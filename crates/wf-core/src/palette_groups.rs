@@ -217,18 +217,45 @@ mod tests {
 
     #[test]
     fn ctrl_k_and_ctrl_shift_f_search_and_ctrl_shift_p_commands() {
-        assert_eq!(palette_mode_for(&chord("k", false, true, false, false)), Some(PaletteMode::Search));
-        assert_eq!(palette_mode_for(&chord("F", true, true, false, false)), Some(PaletteMode::Search));
-        assert_eq!(palette_mode_for(&chord("P", true, true, false, false)), Some(PaletteMode::Commands));
-        assert_eq!(palette_mode_for(&chord("k", false, false, true, false)), Some(PaletteMode::Search));
+        assert_eq!(
+            palette_mode_for(&chord("k", false, true, false, false)),
+            Some(PaletteMode::Search)
+        );
+        assert_eq!(
+            palette_mode_for(&chord("F", true, true, false, false)),
+            Some(PaletteMode::Search)
+        );
+        assert_eq!(
+            palette_mode_for(&chord("P", true, true, false, false)),
+            Some(PaletteMode::Commands)
+        );
+        assert_eq!(
+            palette_mode_for(&chord("k", false, false, true, false)),
+            Some(PaletteMode::Search)
+        );
     }
 
     #[test]
     fn other_chords_open_nothing() {
-        assert_eq!(palette_mode_for(&chord("k", false, false, false, false)), None);
-        assert_eq!(palette_mode_for(&chord("k", false, true, false, true)), None);
-        assert_eq!(palette_mode_for(&chord("p", false, true, false, false)), None);
-        assert_eq!(palette_mode_for(&chord("f", false, true, false, false)), None);
-        assert_eq!(palette_mode_for(&chord("K", true, true, false, false)), None);
+        assert_eq!(
+            palette_mode_for(&chord("k", false, false, false, false)),
+            None
+        );
+        assert_eq!(
+            palette_mode_for(&chord("k", false, true, false, true)),
+            None
+        );
+        assert_eq!(
+            palette_mode_for(&chord("p", false, true, false, false)),
+            None
+        );
+        assert_eq!(
+            palette_mode_for(&chord("f", false, true, false, false)),
+            None
+        );
+        assert_eq!(
+            palette_mode_for(&chord("K", true, true, false, false)),
+            None
+        );
     }
 }

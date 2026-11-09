@@ -1,5 +1,9 @@
 //! Markdown image width and placement for JavaScript (wf-core `markdown_image_width`).
 
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm-bindgen exports take owned values"
+)]
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::markdown_image_width::{self, ImagePlacementPatch};
@@ -18,7 +22,10 @@ pub fn with_image_width_js(
     width: Option<String>,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     check_text(alt)?;
-    Ok(markdown_image_width::with_image_width(alt, width.as_deref()))
+    Ok(markdown_image_width::with_image_width(
+        alt,
+        width.as_deref(),
+    ))
 }
 
 /// [`set_image_placement`](markdown_image_width::set_image_placement): rewrite the `ordinal`-th
@@ -37,5 +44,7 @@ pub fn set_image_placement_js(
     check_text(body)?;
     check_text(alt)?;
     let patch: ImagePlacementPatch = serde_wasm_bindgen::from_value(patch)?;
-    Ok(markdown_image_width::set_image_placement(body, alt, ordinal, &patch))
+    Ok(markdown_image_width::set_image_placement(
+        body, alt, ordinal, &patch,
+    ))
 }

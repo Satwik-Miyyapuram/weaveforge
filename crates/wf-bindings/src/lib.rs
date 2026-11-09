@@ -29,6 +29,10 @@ pub enum BindingsError {
 
 /// Every type exported to TypeScript. Add new types here.
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "flat list of exported types, one per line"
+)]
 pub fn types() -> Types {
     port_types_2(port_types_1(settings_lab_types(writing_types(
         analysis_types(reader_types(Types::default())),
@@ -186,6 +190,10 @@ fn analysis_types(types: Types) -> Types {
 }
 
 /// The report, LaTeX and vault page types.
+#[allow(
+    clippy::too_many_lines,
+    reason = "flat list of exported types, one per line"
+)]
 fn writing_types(types: Types) -> Types {
     types
         .register::<wf_core::latex_section_tree::LatexSourceFile>()
@@ -312,6 +320,10 @@ fn settings_lab_types(types: Types) -> Types {
 }
 
 /// Rust port types, part 1 (search, AI, sharing, plan, logbook and settings).
+#[allow(
+    clippy::too_many_lines,
+    reason = "flat list of exported types, one per line"
+)]
 fn port_types_1(types: Types) -> Types {
     types
         .register::<wf_core::sharing::ShareableType>()

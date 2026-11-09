@@ -260,7 +260,9 @@ pub fn apply_delta_js(held: JsValue, fetched: JsValue, order: JsValue) -> JsResu
         })
         .collect();
     let merged = apply_delta(&held, &fetched, &order, |row| {
-        row.get("id").and_then(serde_json::Value::as_str).unwrap_or("")
+        row.get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
     });
     to_js(&merged)
 }

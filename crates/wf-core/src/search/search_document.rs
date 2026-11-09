@@ -130,8 +130,10 @@ pub fn extract_headings(body: Option<&str>) -> Vec<String> {
         return Vec::new();
     };
     let masked = mask_code(body);
-    heading_re()
-        .captures_iter(&masked)
+    let Some(re) = heading_re() else {
+        return Vec::new();
+    };
+    re.captures_iter(&masked)
         .filter_map(|c| {
             let text = c.get(1)?.as_str().trim();
             (!text.is_empty()).then(|| text.to_owned())
@@ -139,19 +141,28 @@ pub fn extract_headings(body: Option<&str>) -> Vec<String> {
         .collect()
 }
 
-fn heading_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r"(?m)^ {0,3}#{1,3}\s+(.+?)\s*#*\s*$").expect("heading pattern is valid")
-    })
+fn heading_re() -> Option<&'static Regex> {
+    static RE: OnceLock<Option<Regex>> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(?m)^ {0,3}#{1,3}\s+(.+?)\s*#*\s*$").ok())
+        .as_ref()
 }
 
 /// Blank fenced and inline code, keeping its length, so `# x` in a snippet is not a heading.
 fn mask_code(body: &str) -> String {
-    static FENCED: OnceLock<Regex> = OnceLock::new();
-    static INLINE: OnceLock<Regex> = OnceLock::new();
-    let fenced = FENCED.get_or_init(|| Regex::new(r"(?s)```.*?```").expect("fence pattern is valid"));
-    let inline = INLINE.get_or_init(|| Regex::new(r"`[^`\n]*`").expect("inline pattern is valid"));
+    static FENCED: OnceLock<Option<Regex>> = OnceLock::new();
+    static INLINE: OnceLock<Option<Regex>> = OnceLock::new();
+    let Some(fenced) = FENCED
+        .get_or_init(|| Regex::new(r"(?s)```.*?```").ok())
+        .as_ref()
+    else {
+        return body.to_owned();
+    };
+    let Some(inline) = INLINE
+        .get_or_init(|| Regex::new(r"`[^`\n]*`").ok())
+        .as_ref()
+    else {
+        return body.to_owned();
+    };
     let once = fenced.replace_all(body, |c: &Captures<'_>| " ".repeat(c[0].chars().count()));
     inline
         .replace_all(&once, |c: &Captures<'_>| " ".repeat(c[0].chars().count()))
@@ -253,14 +264,22 @@ fn present_aliases(values: impl IntoIterator<Item = Option<String>>) -> Vec<Stri
 /// Project a snapshot into search documents. `degrees` carries wiki-graph link
 /// counts keyed by `kind:id`; absent entities rank on content alone.
 #[must_use]
-pub fn to_search_docs(snapshot: &WorkspaceSnapshot, degrees: &HashMap<String, u32>) -> Vec<SearchDoc> {
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
+pub fn to_search_docs(
+    snapshot: &WorkspaceSnapshot,
+    degrees: &HashMap<String, u32>,
+) -> Vec<SearchDoc> {
     let degree = |key: String| degrees.get(&key).copied().unwrap_or(0);
     let mut docs = Vec::new();
 
     let note_nodes: Vec<TreeNode<'_>> = snapshot
         .vault_pages
         .iter()
-        .map(|p| TreeNode { id: &p.id, title: &p.title, parent_id: p.parent_id.as_deref() })
+        .map(|p| TreeNode {
+            id: &p.id,
+            title: &p.title,
+            parent_id: p.parent_id.as_deref(),
+        })
         .collect();
     let note_paths = breadcrumbs(&note_nodes);
     for page in &snapshot.vault_pages {
@@ -312,7 +331,11 @@ pub fn to_search_docs(snapshot: &WorkspaceSnapshot, degrees: &HashMap<String, u3
     let list_nodes: Vec<TreeNode<'_>> = snapshot
         .reading_lists
         .iter()
-        .map(|l| TreeNode { id: &l.id, title: &l.name, parent_id: l.parent_id.as_deref() })
+        .map(|l| TreeNode {
+            id: &l.id,
+            title: &l.name,
+            parent_id: l.parent_id.as_deref(),
+        })
         .collect();
     let list_paths = breadcrumbs(&list_nodes);
     for list in &snapshot.reading_lists {
@@ -330,7 +353,11 @@ pub fn to_search_docs(snapshot: &WorkspaceSnapshot, degrees: &HashMap<String, u3
     let section_nodes: Vec<TreeNode<'_>> = snapshot
         .report_sections
         .iter()
-        .map(|s| TreeNode { id: &s.id, title: &s.title, parent_id: s.parent_id.as_deref() })
+        .map(|s| TreeNode {
+            id: &s.id,
+            title: &s.title,
+            parent_id: s.parent_id.as_deref(),
+        })
         .collect();
     let section_paths = breadcrumbs(&section_nodes);
     for section in &snapshot.report_sections {
@@ -436,8 +463,9 @@ const FNV_OFFSET: u32 = 0x811c_9dc5;
 
 /// FNV-1a over UTF-16 code units, as the TypeScript hashed `charCodeAt`.
 fn fnv1a(hash: u32, text: &str) -> u32 {
-    text.encode_utf16()
-        .fold(hash, |h, unit| (h ^ u32::from(unit)).wrapping_mul(0x0100_0193))
+    text.encode_utf16().fold(hash, |h, unit| {
+        (h ^ u32::from(unit)).wrapping_mul(0x0100_0193)
+    })
 }
 
 /// Id of one PDF page's document.
@@ -449,22 +477,33 @@ pub fn pdf_doc_id(paper_id: &str, page_index: u32) -> String {
 /// Deep link to one PDF page in the reader.
 #[must_use]
 pub fn pdf_page_href(paper_id: &str, page_index: u32) -> String {
-    format!("/reader?paper={}&page={page_index}", encode_uri_component(paper_id))
+    format!(
+        "/reader?paper={}&page={page_index}",
+        encode_uri_component(paper_id)
+    )
 }
 
 /// Ids for every page of one paper, so a re-extraction can replace them wholesale.
 #[must_use]
 pub fn pdf_doc_ids_for(paper_id: &str, page_count: u32) -> Vec<String> {
-    (0..page_count).map(|index| pdf_doc_id(paper_id, index)).collect()
+    (0..page_count)
+        .map(|index| pdf_doc_id(paper_id, index))
+        .collect()
 }
 
 /// One document per page. Pages with too little text are skipped. `degrees`
 /// is keyed by the paper, since pages have no links of their own.
 #[must_use]
-pub fn to_pdf_search_docs(sources: &[PdfIndexSource], degrees: &HashMap<String, u32>) -> Vec<SearchDoc> {
+pub fn to_pdf_search_docs(
+    sources: &[PdfIndexSource],
+    degrees: &HashMap<String, u32>,
+) -> Vec<SearchDoc> {
     let mut docs = Vec::new();
     for source in sources {
-        let degree = degrees.get(&format!("paper:{}", source.paper_id)).copied().unwrap_or(0);
+        let degree = degrees
+            .get(&format!("paper:{}", source.paper_id))
+            .copied()
+            .unwrap_or(0);
         for page in &source.pages {
             let text = page.text.trim();
             if utf16_len(text) < MIN_PDF_PAGE_CHARS {
@@ -563,12 +602,16 @@ mod tests {
     }
 
     fn snapshot_with_notes(notes: Vec<SnapshotVaultPage>) -> WorkspaceSnapshot {
-        WorkspaceSnapshot { vault_pages: notes, ..Default::default() }
+        WorkspaceSnapshot {
+            vault_pages: notes,
+            ..Default::default()
+        }
     }
 
     #[test]
     fn headings_skip_code_and_trailing_hashes() {
-        let body = "# Title\n\n```\n# not a heading\n```\n\n## Sub ##\n### Deep\n#### four\n `# inline`";
+        let body =
+            "# Title\n\n```\n# not a heading\n```\n\n## Sub ##\n### Deep\n#### four\n `# inline`";
         assert_eq!(extract_headings(Some(body)), vec!["Title", "Sub", "Deep"]);
         assert!(extract_headings(None).is_empty());
     }
@@ -625,22 +668,34 @@ mod tests {
         assert_eq!(paper.aliases[0], "Ho");
         assert_eq!(paper.path, "2020");
         assert_eq!(paper.body, "A");
-        let experiment = docs.iter().find(|d| d.id == "experiment:e1").expect("experiment doc");
+        let experiment = docs
+            .iter()
+            .find(|d| d.id == "experiment:e1")
+            .expect("experiment doc");
         assert_eq!(experiment.body, "python train.py");
         assert_eq!(experiment.updated_at, "2026-02-01");
     }
 
     #[test]
     fn revision_is_order_independent_and_sensitive_to_edits() {
-        let a = to_search_docs(&snapshot_with_notes(vec![note("a", "A", "x")]), &HashMap::new());
-        let b = to_search_docs(&snapshot_with_notes(vec![note("b", "B", "y")]), &HashMap::new());
+        let a = to_search_docs(
+            &snapshot_with_notes(vec![note("a", "A", "x")]),
+            &HashMap::new(),
+        );
+        let b = to_search_docs(
+            &snapshot_with_notes(vec![note("b", "B", "y")]),
+            &HashMap::new(),
+        );
         let mut ab = a.clone();
         ab.extend(b.clone());
         let mut ba = b.clone();
         ba.extend(a.clone());
         assert_eq!(search_revision(&ab), search_revision(&ba));
 
-        let edited = to_search_docs(&snapshot_with_notes(vec![note("a", "A", "changed")]), &HashMap::new());
+        let edited = to_search_docs(
+            &snapshot_with_notes(vec![note("a", "A", "changed")]),
+            &HashMap::new(),
+        );
         assert_ne!(search_revision(&a), search_revision(&edited));
         assert_eq!(search_revision(&[]), format!("0:{:08x}", FNV_OFFSET));
     }
@@ -652,8 +707,14 @@ mod tests {
             title: "T".to_owned(),
             extracted_at: "2026-03-01".to_owned(),
             pages: vec![
-                PdfPageText { page_index: 0, text: "x".repeat(MIN_PDF_PAGE_CHARS - 1) },
-                PdfPageText { page_index: 1, text: "x".repeat(MIN_PDF_PAGE_CHARS + 1) },
+                PdfPageText {
+                    page_index: 0,
+                    text: "x".repeat(MIN_PDF_PAGE_CHARS - 1),
+                },
+                PdfPageText {
+                    page_index: 1,
+                    text: "x".repeat(MIN_PDF_PAGE_CHARS + 1),
+                },
             ],
         };
         let docs = to_pdf_search_docs(&[source], &HashMap::new());
@@ -668,8 +729,17 @@ mod tests {
     #[test]
     fn annotations_without_text_are_skipped() {
         let annotations = vec![
-            AnnotationSource { id: "a1".to_owned(), paper_id: "p1".to_owned(), comment: "key result".to_owned(), ..Default::default() },
-            AnnotationSource { id: "a2".to_owned(), paper_id: "p1".to_owned(), ..Default::default() },
+            AnnotationSource {
+                id: "a1".to_owned(),
+                paper_id: "p1".to_owned(),
+                comment: "key result".to_owned(),
+                ..Default::default()
+            },
+            AnnotationSource {
+                id: "a2".to_owned(),
+                paper_id: "p1".to_owned(),
+                ..Default::default()
+            },
         ];
         let titles = HashMap::from([("p1".to_owned(), "Vaswani".to_owned())]);
         let docs = to_annotation_search_docs(&annotations, &titles, &HashMap::new());

@@ -133,6 +133,7 @@ fn union_list(a: &[Value], b: &[Value]) -> Vec<Value> {
 /// are the further along of the two, and two different summaries are both kept. The
 /// duplicate's id is recorded under `metadata.mergedFrom`, so a merge can be traced.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn merge_paper_into(keep: &MergePaper, dup: &MergePaper) -> MergePaper {
     let title =
         if is_placeholder_title(Some(&keep.title)) && !is_placeholder_title(Some(&dup.title)) {
@@ -245,6 +246,10 @@ mod tests {
         }
     }
 
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "test helper; five call sites take json! literals by value"
+    )]
     fn meta(value: Value) -> Map<String, Value> {
         value.as_object().cloned().unwrap_or_default()
     }

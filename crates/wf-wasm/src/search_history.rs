@@ -32,7 +32,10 @@ pub fn forget_search_query_js(history: Vec<String>, query: String) -> Vec<String
 ///
 /// Fails only if `raw` cannot be read as JSON-like data.
 #[wasm_bindgen(js_name = normalizeSearchHistory)]
-pub fn normalize_search_history_js(raw: JsValue, max: u32) -> Result<Vec<String>, serde_wasm_bindgen::Error> {
+pub fn normalize_search_history_js(
+    raw: JsValue,
+    max: u32,
+) -> Result<Vec<String>, serde_wasm_bindgen::Error> {
     let raw: serde_json::Value = serde_wasm_bindgen::from_value(raw)?;
     Ok(search_history::normalize_search_history(&raw, max as usize))
 }

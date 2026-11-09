@@ -80,7 +80,9 @@ impl VectorIndex {
         values: Vec<f32>,
     ) -> Result<(), JsValue> {
         let ids = ids_from(ids)?;
-        self.inner.add(&ids, &values).map_err(|error| js_error(&error))
+        self.inner
+            .add(&ids, &values)
+            .map_err(|error| js_error(&error))
     }
 
     /// Remove by id; unknown ids are ignored.

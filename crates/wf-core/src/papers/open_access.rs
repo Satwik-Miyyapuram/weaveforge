@@ -133,6 +133,10 @@ pub fn open_access_url(raw: Option<&str>) -> Option<String> {
 }
 
 /// A candidate whose URL passes [`open_access_url`]. The license and version are already trimmed.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "about 20 call sites pass owned Strings; changing them all is riskier"
+)]
 fn build(
     url: Option<String>,
     format: OpenAccessFormat,

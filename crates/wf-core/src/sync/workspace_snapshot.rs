@@ -333,8 +333,14 @@ mod tests {
 
         let experiment = &snapshot.experiments[0];
         assert_eq!(experiment.run_command.as_deref(), Some("python train.py"));
-        assert_eq!(experiment.started_at.as_deref(), Some("2026-02-01T09:00:00Z"));
-        assert_eq!(experiment.finished_at.as_deref(), Some("2026-02-01T10:00:00Z"));
+        assert_eq!(
+            experiment.started_at.as_deref(),
+            Some("2026-02-01T09:00:00Z")
+        );
+        assert_eq!(
+            experiment.finished_at.as_deref(),
+            Some("2026-02-01T10:00:00Z")
+        );
     }
 
     #[test]

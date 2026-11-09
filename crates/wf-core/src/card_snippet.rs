@@ -40,10 +40,10 @@ fn strip_front_matter(body: &str) -> &str {
     }
     let start = open + 1;
     for (k, &b) in bytes.iter().enumerate().skip(start) {
-        if b == b'\n' {
-            if let Some(end) = closing_fence_end(bytes, k + 1) {
-                return &body[end..];
-            }
+        if b == b'\n'
+            && let Some(end) = closing_fence_end(bytes, k + 1)
+        {
+            return &body[end..];
         }
     }
     body
@@ -307,7 +307,10 @@ mod tests {
 
     #[test]
     fn horizontal_rule_mid_note_is_not_front_matter() {
-        assert_eq!(card_snippet("Intro.\n\n---\n\nMore.", 180), "Intro. --- More.");
+        assert_eq!(
+            card_snippet("Intro.\n\n---\n\nMore.", 180),
+            "Intro. --- More."
+        );
     }
 
     #[test]

@@ -2,13 +2,15 @@
 //! The JS names match `packages/core/src/search/search-document.ts`,
 //! `pdf-search-document.ts` and `annotation-search-document.ts`.
 
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm-bindgen exports take owned values"
+)]
 use std::collections::HashMap;
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::search::search_document::{
-    self, AnnotationSource, PdfIndexSource, SearchDoc,
-};
+use wf_core::search::search_document::{self, AnnotationSource, PdfIndexSource, SearchDoc};
 use wf_core::sync::workspace_snapshot::WorkspaceSnapshot;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;

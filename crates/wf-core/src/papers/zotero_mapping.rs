@@ -172,15 +172,14 @@ pub struct ZoteroExportItem {
     pub extra: String,
 }
 
-static ARXIV_TAG: LazyLock<Regex> =
-    LazyLock::new(|| compile(r"(?i)arXiv:\s*([\w./-]+)").expect("valid pattern"));
-static ARXIV_URL: LazyLock<Regex> = LazyLock::new(|| {
-    compile(r"(?i)arxiv\.org/(?:abs|pdf)/([\w./-]+?)(?:\.pdf)?(?:[?#].*)?$").expect("valid pattern")
-});
-static YEAR: LazyLock<Regex> = LazyLock::new(|| compile(r"\d{4}").expect("valid pattern"));
-static DATACITE_ARXIV: LazyLock<Regex> =
-    LazyLock::new(|| compile(r"(?i)^10\.48550/arxiv\.(.+)$").expect("valid pattern"));
-static WHITESPACE_RUN: LazyLock<Regex> = LazyLock::new(|| compile(r"\s+").expect("valid pattern"));
+static ARXIV_TAG: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"(?i)arXiv:\s*([\w./-]+)").ok());
+static ARXIV_URL: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"(?i)arxiv\.org/(?:abs|pdf)/([\w./-]+?)(?:\.pdf)?(?:[?#].*)?$").ok());
+static YEAR: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"\d{4}").ok());
+static DATACITE_ARXIV: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"(?i)^10\.48550/arxiv\.(.+)$").ok());
+static WHITESPACE_RUN: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"\s+").ok());
 
 /// The value, or `None` when it is absent or empty (the TS `x || undefined`).
 fn non_empty(value: Option<&str>) -> Option<&str> {
@@ -191,6 +190,8 @@ fn non_empty(value: Option<&str>) -> Option<&str> {
 /// the id in an `arxiv.org/abs|pdf/<id>` URL.
 #[must_use]
 pub fn zotero_arxiv_id(item: &ZoteroItem) -> Option<String> {
+    let arxiv_tag = ARXIV_TAG.as_ref()?;
+    let arxiv_url = ARXIV_URL.as_ref()?;
     let extra = item.extra.as_deref().unwrap_or("");
     let url = item.url.as_deref().unwrap_or("");
     let capture = |regex: &Regex, text: &str| {
@@ -199,9 +200,9 @@ pub fn zotero_arxiv_id(item: &ZoteroItem) -> Option<String> {
             .and_then(|found| found.get(1))
             .map(|id| id.as_str().trim().to_owned())
     };
-    capture(&ARXIV_TAG, extra)
-        .or_else(|| capture(&ARXIV_TAG, url))
-        .or_else(|| capture(&ARXIV_URL, url))
+    capture(arxiv_tag, extra)
+        .or_else(|| capture(arxiv_tag, url))
+        .or_else(|| capture(arxiv_url, url))
 }
 
 /// The paper's author names: `name`, else first and last name joined; empty names dropped.
@@ -223,8 +224,9 @@ fn authors_of(item: &ZoteroItem) -> Vec<String> {
 
 /// The first four-digit run in the date, as a year; `None` when there is none or it is zero.
 fn year_of(date: Option<&str>) -> Option<f64> {
+    let year_re = YEAR.as_ref()?;
     non_empty(date)
-        .and_then(|text| YEAR.find(text))
+        .and_then(|text| year_re.find(text))
         .and_then(|found| found.as_str().parse::<f64>().ok())
         .filter(|year| *year != 0.0)
 }
@@ -241,7 +243,11 @@ pub fn zotero_content_keys(
     if let Some(normalized) = normalize_doi(doi).filter(|d| !d.is_empty()) {
         keys.push(format!("doi:{normalized}"));
         // arXiv DataCite DOIs embed the id: 10.48550/arXiv.2103.03230
-        if let Some(found) = DATACITE_ARXIV.captures(&normalized).and_then(|c| c.get(1)) {
+        if let Some(found) = DATACITE_ARXIV
+            .as_ref()
+            .and_then(|re| re.captures(&normalized))
+            .and_then(|c| c.get(1))
+        {
             keys.push(format!("arxiv:{}", found.as_str().to_lowercase()));
         }
     }
@@ -253,7 +259,12 @@ pub fn zotero_content_keys(
     }
     if keys.is_empty() {
         let lowered = title.map(|text| text.trim().to_lowercase());
-        let collapsed = lowered.map(|text| WHITESPACE_RUN.replace_all(&text, " ").into_owned());
+        let collapsed = lowered.map(|text| {
+            let Some(run) = WHITESPACE_RUN.as_ref() else {
+                return text;
+            };
+            run.replace_all(&text, " ").into_owned()
+        });
         if let Some(text) = non_empty(collapsed.as_deref()) {
             keys.push(format!("title:{text}"));
         }
@@ -284,10 +295,12 @@ pub fn zotero_remote_to_metadata(item: &ZoteroItem) -> ZoteroPaperInput {
         Some(title) => title_from_file_name(title),
         None => "Untitled (Zotero)".to_owned(),
     };
-    let abstract_text = item
-        .abstract_note
-        .as_deref()
-        .map(|text| WHITESPACE_RUN.replace_all(text, " ").trim().to_owned());
+    let abstract_text = item.abstract_note.as_deref().map(|text| {
+        let Some(run) = WHITESPACE_RUN.as_ref() else {
+            return text.trim().to_owned();
+        };
+        run.replace_all(text, " ").trim().to_owned()
+    });
     ZoteroPaperInput {
         title,
         authors: authors_of(item),
@@ -297,7 +310,7 @@ pub fn zotero_remote_to_metadata(item: &ZoteroItem) -> ZoteroPaperInput {
         arxiv_id: item
             .extra
             .as_deref()
-            .and_then(|extra| ARXIV_TAG.captures(extra))
+            .and_then(|extra| ARXIV_TAG.as_ref()?.captures(extra))
             .and_then(|found| found.get(1))
             .map(|id| id.as_str().to_owned()),
         url: item.url.clone(),
@@ -308,7 +321,7 @@ pub fn zotero_remote_to_metadata(item: &ZoteroItem) -> ZoteroPaperInput {
 
 /// Splits a name into a Zotero author: the last word is the family name, the rest the given.
 fn split_creator(name: &str) -> ZoteroExportCreator {
-    let parts: Vec<&str> = name.trim().split_whitespace().collect();
+    let parts: Vec<&str> = name.split_whitespace().collect();
     match parts.split_last() {
         Some((last, first)) if !first.is_empty() => ZoteroExportCreator {
             creator_type: "author".to_owned(),

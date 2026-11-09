@@ -201,6 +201,9 @@ mod tests {
         assert!(!is_preview_key(&key(" ", false, true, false, false), false));
         assert!(!is_preview_key(&key(" ", false, false, true, false), false));
         assert!(!is_preview_key(&key(" ", false, false, false, true), false));
-        assert!(!is_preview_key(&key("a", false, false, false, false), false));
+        assert!(!is_preview_key(
+            &key("a", false, false, false, false),
+            false
+        ));
     }
 }

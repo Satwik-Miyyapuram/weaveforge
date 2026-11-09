@@ -11,8 +11,7 @@ use wf_core::editor_workspace::pane_tree::{
 };
 use wf_core::editor_workspace::tab_groups::{self as groups, TabGroupCommand, TabRun};
 use wf_core::editor_workspace::workspace_tree::{
-    self as tree, ListItemEntry, ListsTreeInput, VisibleRow, WorkspaceTreeInput,
-    WorkspaceTreeNode,
+    self as tree, ListItemEntry, ListsTreeInput, VisibleRow, WorkspaceTreeInput, WorkspaceTreeNode,
 };
 
 use super::to_js;

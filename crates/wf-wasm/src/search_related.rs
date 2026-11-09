@@ -14,7 +14,9 @@ use super::to_js;
 extern "C" {
     /// A JS `(seedId: string, limit: number) => { id: string; score: number }[]`, the lexical or
     /// tag arm of `findRelated`.
-    #[wasm_bindgen(typescript_type = "(seedId: string, limit: number) => { id: string; score: number }[]")]
+    #[wasm_bindgen(
+        typescript_type = "(seedId: string, limit: number) => { id: string; score: number }[]"
+    )]
     pub type ArmFn;
 
     #[wasm_bindgen(method, js_name = call)]
@@ -24,7 +26,8 @@ extern "C" {
 /// Run a JS arm and read its hits. A value that is not a hit list reads as no hits.
 fn arm_hits(arm: &ArmFn, seed: &str, limit: usize) -> Vec<RelatedNode> {
     let limit = u32::try_from(limit).unwrap_or(u32::MAX);
-    serde_wasm_bindgen::from_value(arm.call_arm(&JsValue::UNDEFINED, seed, limit)).unwrap_or_default()
+    serde_wasm_bindgen::from_value(arm.call_arm(&JsValue::UNDEFINED, seed, limit))
+        .unwrap_or_default()
 }
 
 /// [`find_related`](related::find_related); `[{ id, score, arm, arms?, similarity? }]`, best first.

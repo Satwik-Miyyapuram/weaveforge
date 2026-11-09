@@ -345,7 +345,9 @@ mod tests {
     #[test]
     fn disclaimer_needs_acceptance_without_a_current_one() {
         assert!(needs_disclaimer_acceptance(&json!({})));
-        assert!(needs_disclaimer_acceptance(&json!({ "disclaimerAcceptedAt": "" })));
+        assert!(needs_disclaimer_acceptance(
+            &json!({ "disclaimerAcceptedAt": "" })
+        ));
         let old = json!({ "disclaimerAcceptedAt": "2026-01-01T00:00:00Z", "disclaimerVersion": 4 });
         assert!(needs_disclaimer_acceptance(&old));
         let current = json!({
@@ -354,6 +356,8 @@ mod tests {
         });
         assert!(!needs_disclaimer_acceptance(&current));
         // No version recorded reads as version 1, so a timestamp alone is not enough.
-        assert!(needs_disclaimer_acceptance(&json!({ "disclaimerAcceptedAt": "x" })));
+        assert!(needs_disclaimer_acceptance(
+            &json!({ "disclaimerAcceptedAt": "x" })
+        ));
     }
 }

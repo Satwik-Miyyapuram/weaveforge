@@ -117,13 +117,13 @@ pub struct DuplicateGroup {
 }
 
 /// Zotero's rename adds " 1", " 2" to a second copy's title. Two digits at most.
-static COPY_SUFFIX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(.*\S)\s+\d{1,2}$").expect("copy-suffix pattern is valid"));
+static COPY_SUFFIX: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"^(.*\S)\s+\d{1,2}$").ok());
 
 /// Venues that are preprint servers, not the published version.
-static PREPRINT_VENUE: LazyLock<Regex> = LazyLock::new(|| {
+static PREPRINT_VENUE: LazyLock<Option<Regex>> = LazyLock::new(|| {
     Regex::new(r"(?i)\b(arxiv|biorxiv|medrxiv|ssrn|preprint|corr|openreview|research ?square)\b")
-        .expect("preprint pattern is valid")
+        .ok()
 });
 
 /// The fix for every paper whose title needs one, with copy suffixes removed where the
@@ -183,7 +183,7 @@ fn title_fix_for(paper: &TidyPaper) -> Option<TitleFix> {
 /// The title without a copy suffix, when what is left is another paper's title in the
 /// library: the copy it was numbered against. `None` keeps the title as it is.
 fn without_copy_suffix(title: &str, known: &HashSet<String>) -> Option<String> {
-    let captures = COPY_SUFFIX.captures(title)?;
+    let captures = COPY_SUFFIX.as_ref()?.captures(title)?;
     let base = captures.get(1)?.as_str();
     let key = title_key(Some(base))?;
     known.contains(&key).then(|| base.to_owned())
@@ -200,10 +200,10 @@ fn known_title_keys(papers: &[TidyPaper]) -> HashSet<String> {
 fn grouping_key(title: Option<&str>, known: &HashSet<String>) -> Option<String> {
     let title = title.filter(|t| !t.is_empty())?;
     let from_file = title_from_file_name(title);
-    if from_file != title {
-        if let Some(base) = without_copy_suffix(&from_file, known) {
-            return title_key(Some(&base));
-        }
+    if from_file != title
+        && let Some(base) = without_copy_suffix(&from_file, known)
+    {
+        return title_key(Some(&base));
     }
     title_key(Some(title))
 }
@@ -298,6 +298,8 @@ fn union_by_key(
 /// Grouped transitively. A title match between two groups that both hold a DOI, and
 /// different ones, is not a match: a paper and its erratum share a title and are different
 /// records.
+#[must_use]
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn find_duplicate_groups(papers: &[TidyPaper]) -> Vec<DuplicateGroup> {
     let mut groups = Groups {
         parent: (0..papers.len()).collect(),
@@ -409,7 +411,9 @@ fn user_work_score(paper: &TidyPaper) -> i64 {
         .as_ref()
         .and_then(|metadata| metadata.get("annotations"))
         .and_then(serde_json::Value::as_array)
-        .map_or(0, |items| items.len().min(20) as i64 * 5);
+        .map_or(0, |items| {
+            i64::try_from(items.len().min(20)).unwrap_or(i64::MAX) * 5
+        });
     status_progress(paper.status) * 100
         + if trimmed_non_empty(paper.summary.as_deref()) {
             60
@@ -431,7 +435,7 @@ fn user_work_score(paper: &TidyPaper) -> i64 {
         } else {
             0
         }
-        + paper.tags.len().min(5) as i64 * 4
+        + i64::try_from(paper.tags.len().min(5)).unwrap_or(i64::MAX) * 4
         + annotations
 }
 
@@ -460,11 +464,17 @@ pub fn is_conference_copy(paper: &TidyPaper) -> bool {
         .as_deref()
         .map(str::trim)
         .filter(|venue| !venue.is_empty())
-        .is_some_and(|venue| !PREPRINT_VENUE.is_match(venue))
+        .is_some_and(|venue| {
+            let Some(preprint) = PREPRINT_VENUE.as_ref() else {
+                return true;
+            };
+            !preprint.is_match(venue)
+        })
 }
 
 /// The copy to keep (TS `pickKeeper`): the one holding more of the reader's own work, then
 /// more metadata, then the published copy over a preprint, then the oldest.
+#[must_use]
 pub fn pick_keeper<'a>(group: &[&'a TidyPaper]) -> Option<&'a TidyPaper> {
     let mut sorted: Vec<&'a TidyPaper> = group.to_vec();
     sorted.sort_by(|a, b| {
