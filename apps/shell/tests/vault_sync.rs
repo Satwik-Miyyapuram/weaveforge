@@ -660,7 +660,11 @@ async fn each_conflict_action_pulls_with_its_choice() {
     }
     assert_eq!(
         *CHOICES.lock().unwrap(),
-        [PullChoice::KeepMine, PullChoice::TakeRemote, PullChoice::KeepBoth]
+        [
+            PullChoice::KeepMine,
+            PullChoice::TakeRemote,
+            PullChoice::KeepBoth
+        ]
     );
     // A choice never runs the plain pull as well.
     assert_eq!(PULLS.load(Ordering::SeqCst), pulls_before);

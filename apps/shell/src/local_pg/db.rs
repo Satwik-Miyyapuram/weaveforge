@@ -416,7 +416,8 @@ mod tests {
         let start = text.find(marker).ok_or("start marker missing")?;
         let body = &text[start + marker.len()..];
         let end = body.find("`;").ok_or("end marker missing")?;
-        assert_eq!(&body[..end], LOCAL_BOOTSTRAP_SQL);
+        // A Windows checkout may turn the TS file's line endings into CRLF.
+        assert_eq!(body[..end].replace("\r\n", "\n"), LOCAL_BOOTSTRAP_SQL);
         Ok(())
     }
 

@@ -558,7 +558,10 @@ mod tests {
 
     #[test]
     fn wf_core_enum_lists_serialise_as_the_ts_strings() {
-        assert_eq!(properties_of("suggest_log_entry")["kind"]["enum"], json!(["daily", "weekly"]));
+        assert_eq!(
+            properties_of("suggest_log_entry")["kind"]["enum"],
+            json!(["daily", "weekly"])
+        );
         assert_eq!(
             properties_of("suggest_milestone_status")["status"]["enum"],
             json!(["planned", "in_progress", "done", "blocked"])

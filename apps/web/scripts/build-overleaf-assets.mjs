@@ -9,7 +9,7 @@
  * - pdf.js's cmaps, wasm, ICC profiles, fonts and images, at the paths
  *   Overleaf's `pdf-js.ts` asks for, as Overleaf's own webpack copies them.
  */
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,12 +20,20 @@ const vendor = join(web, "src/features/report/vendor/overleaf");
 const modules = join(vendor, "node_modules");
 const pub = join(web, "public");
 const require = createRequire(join(modules, "noop.js"));
+// The vendored tree's own install wins; a plain `npm ci` hoists the same
+// packages (apps/web dependencies) to apps/web or the repo root instead.
+const nodeModules = [modules, join(web, "node_modules"), join(web, "../../node_modules")];
+const packageDir = (name) => {
+  const dir = nodeModules.map((m) => join(m, name)).find((d) => existsSync(join(d, "package.json")));
+  if (!dir) throw new Error(`${name} is not installed; run npm ci`);
+  return dir;
+};
 
 const sass = require("sass");
 // Nested under `.ol-ide`, so the stylesheet styles only the IDE's container and
 // the overlays it hands to document.body (tagged by ol-host/mount.tsx).
 const { css } = sass.compileString('@use "sass:meta";\n.ol-ide { @include meta.load-css("ol-host/ide"); }', {
-  loadPaths: [vendor, modules],
+  loadPaths: [vendor, ...nodeModules],
   style: "compressed",
   quietDeps: true,
   logger: sass.Logger.silent,
@@ -43,7 +51,7 @@ cpSync(
   { recursive: true, filter: (f) => !f.endsWith(".mjs") },
 );
 
-const pdfjs = join(modules, "pdfjs-dist-overleaf");
+const pdfjs = packageDir("pdfjs-dist-overleaf");
 for (const [from, to] of [
   ["cmaps", "js/pdfjs-dist/cmaps"],
   ["iccs", "js/pdfjs-dist/iccs"],
