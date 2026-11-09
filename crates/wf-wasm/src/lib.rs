@@ -22,6 +22,7 @@ mod lab_snapshot;
 mod log_entry;
 mod merge;
 mod milestone;
+mod org;
 mod paper_relation;
 mod papers_bib_import;
 mod papers_paper_title;

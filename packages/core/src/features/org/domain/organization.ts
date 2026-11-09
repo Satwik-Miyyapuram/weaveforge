@@ -1,9 +1,11 @@
 /**
- * Organization ("lab") domain — multi-membership via invite codes.
+ * Organization ("lab") domain: types and error classes. The lab rules (explicit
+ * membership, active lab) are Rust, in wf-core `org`; this module calls them
+ * through `rust()`.
  */
-
 import type { OrgInviteRole } from "./invite-code.js";
 import { NotFoundError, PermissionError, ValidationError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface Organization {
   id: string;
@@ -23,7 +25,7 @@ export interface OrgMembershipView {
 
 /** True when the user explicitly created or joined a lab (not migration backfill). */
 export function isExplicitLabMembership(m: OrgMembershipView): boolean {
-  return m.joinSource === "invite" || m.joinSource === "create";
+  return rust().isExplicitLabMembership(m);
 }
 
 /** Active lab context: selected org must be set and explicitly joined (or owned). */
@@ -32,9 +34,7 @@ export function hasActiveLab(
   memberships: readonly OrgMembershipView[],
   ownsActiveOrg = false,
 ): boolean {
-  if (!activeOrgId) return false;
-  if (ownsActiveOrg) return true;
-  return memberships.some((m) => m.orgId === activeOrgId && isExplicitLabMembership(m));
+  return rust().hasActiveLab(activeOrgId, memberships, ownsActiveOrg);
 }
 
 /** Codes returned in plaintext only at create/regenerate time. */
@@ -71,11 +71,4 @@ export class OrgPermissionError extends PermissionError {
     super(message);
     this.name = "OrgPermissionError";
   }
-}
-
-export function validateOrgName(name: string | undefined): string {
-  const trimmed = name?.trim();
-  if (!trimmed) throw new OrgValidationError("Lab name is required.");
-  if (trimmed.length > 120) throw new OrgValidationError("Lab name is too long.");
-  return trimmed;
 }

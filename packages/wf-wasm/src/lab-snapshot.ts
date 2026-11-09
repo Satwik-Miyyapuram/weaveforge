@@ -2,7 +2,10 @@
  * Lab snapshot content (Rust `lab_snapshot`), re-exported from index.ts. Keeps the
  * signature of packages/core/src/features/org/domain/lab-snapshot.ts.
  */
-import { buildLabSnapshotContent as rawBuildLabSnapshotContent } from "../pkg/wf_wasm.js";
+import {
+  buildLabSnapshotContent as rawBuildLabSnapshotContent,
+  validateSnapshotTitle as rawValidateSnapshotTitle,
+} from "../pkg/wf_wasm.js";
 import type {
   ExperimentInput,
   LabSnapshotContent,
@@ -20,4 +23,9 @@ export function buildLabSnapshotContent(input: {
   aiAssisted?: number;
 }): LabSnapshotContent {
   return rawBuildLabSnapshotContent(input) as LabSnapshotContent;
+}
+
+/** Trim a snapshot title. Throws `Snapshot title is required.` for a blank title. */
+export function validateSnapshotTitle(title: string): string {
+  return rawValidateSnapshotTitle(title);
 }

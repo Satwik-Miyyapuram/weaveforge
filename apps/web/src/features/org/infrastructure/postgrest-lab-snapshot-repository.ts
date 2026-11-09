@@ -9,6 +9,7 @@ import {
   toDomain,
 } from "./lab-snapshot-rows";
 import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The columns a LabSnapshotRow is read as, named rather than starred.
@@ -20,12 +21,24 @@ const LAB_SNAPSHOT_COLUMNS = "id,project_id,title,note,content,published_at,crea
 
 const TABLE = "lab_snapshots";
 
+/**
+ * The snapshot title rule is Rust (wf-core `lab_snapshot`). Its rejection
+ * arrives as a thrown string, so it is rethrown as an Error for the UI.
+ */
+function snapshotTitle(raw: string): string {
+  try {
+    return readyCore().validateSnapshotTitle(raw);
+  } catch (error) {
+    if (typeof error === "string") throw new Error(error);
+    throw error;
+  }
+}
+
 export class PostgrestLabSnapshotRepository extends ProjectScopedPostgrestRepository implements ILabSnapshotRepository {
   protected readonly action = "publishing a lab snapshot";
 
   async publish(input: PublishLabSnapshotInput): Promise<LabSnapshot> {
-    const title = input.title.trim();
-    if (!title) throw new Error("Snapshot title is required.");
+    const title = snapshotTitle(input.title);
     const userId = await this.session.requireUserId();
     const dbRow = await oneRow<LabSnapshotRow>(this.db
       .from(TABLE)
