@@ -34,3 +34,10 @@ test("the owner sees the paper's sections under the note: Annotations, Abstract,
     assert.ok(note.includes(part), part);
   }
 });
+
+test("the owner can remove a tag chip while editing", () => {
+  // Owners are never in Read, so a `!editing` gate hid the chips from them.
+  const note = read("features/papers/ui/paper-note.tsx");
+  assert.doesNotMatch(note, /!editing && !readOnly && <TagEditor/);
+  assert.match(note, /<TagEditor[^>]*editor=\{editorHandle\}/);
+});
