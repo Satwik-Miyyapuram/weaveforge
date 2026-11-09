@@ -5,7 +5,7 @@ import {
   ProjectValidationError,
   type Project,
   type IProjectRepository,
-} from "../../../src/index.js";
+} from "@weaveforge/core";
 
 class InMemoryProjectRepo implements IProjectRepository {
   readonly rows = new Map<string, Project>();

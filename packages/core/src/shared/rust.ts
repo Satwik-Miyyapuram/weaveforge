@@ -9,6 +9,7 @@
  */
 export interface RustCoreFns {
   normalizeDoi(doi?: string): string | undefined;
+  projectName(name: string): string | undefined;
 }
 
 let core: RustCoreFns | null = null;

@@ -20,6 +20,7 @@ pub mod overleaf_workshop;
 pub mod papers;
 pub mod paste;
 pub mod plan;
+pub mod projects;
 pub mod reader;
 pub mod reader_analysis;
 pub mod reading_lists;
