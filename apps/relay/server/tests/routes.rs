@@ -261,6 +261,26 @@ async fn cors_preflight_allows_listed_origin() {
 }
 
 #[tokio::test]
+async fn cors_preflight_allows_patch_for_the_relay() {
+    let mut request = preflight("/api/mcp/relay", ORIGIN);
+    let _ = request.headers_mut().insert(
+        "access-control-request-method",
+        HeaderValue::from_static("PATCH"),
+    );
+    let (status, headers, _) = send(
+        state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
+        request,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let allowed = headers
+        .get("access-control-allow-methods")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(allowed.contains("PATCH"), "{allowed}");
+}
+
+#[tokio::test]
 async fn cors_preflight_allows_the_semantic_scholar_key_header() {
     let mut request = preflight("/api/semantic-scholar/graph/v1/paper/x", ORIGIN);
     let _ = request.headers_mut().insert(

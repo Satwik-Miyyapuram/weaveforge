@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { relayUrl } from "@/lib/relay-url";
 import { useAuth } from "@/features/auth";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
@@ -35,7 +36,7 @@ export function DeleteAccountPanel() {
     setSendingOtp(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/delete-user/otp", {
+      const res = await fetch(relayUrl("/api/account/delete-user/otp"), {
         method: "POST",
         headers: await authHeaders({ "Content-Type": "application/json" }),
       });
@@ -55,7 +56,7 @@ export function DeleteAccountPanel() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/delete-user", {
+      const res = await fetch(relayUrl("/api/account/delete-user"), {
         method: "POST",
         headers: await authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ confirmation: CONFIRMATION, otp: otp.trim() }),

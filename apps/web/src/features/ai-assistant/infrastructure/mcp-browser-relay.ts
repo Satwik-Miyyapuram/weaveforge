@@ -5,6 +5,7 @@ import {
   type AiAccessSettings,
   type AiEvidence,
 } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import { getContainer } from "@/bootstrap";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
@@ -56,7 +57,7 @@ export function startMcpBrowserRelay(input: {
     try {
       const accessToken = await getContainer().auth.auth.getAccessToken();
       if (!accessToken || !getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId)) return;
-      const res = await fetch(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(input.sessionId)}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const res = await fetch(relayUrl(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(input.sessionId)}`), { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) return;
       const payload = await res.json() as { requests?: RelayRequest[] };
       await handleRelayBatch({
@@ -65,7 +66,7 @@ export function startMcpBrowserRelay(input: {
         sessionKey,
         host: () => getContainer().aiAssistant,
         live: () => !stopped && getContainer().aiAssistant.listActiveSessions().some((s) => s.grant.id === input.sessionId),
-        patch: (body) => fetch("/api/mcp/relay", {
+        patch: (body) => fetch(relayUrl("/api/mcp/relay"), {
           method: "PATCH",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify(body),

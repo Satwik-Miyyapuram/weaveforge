@@ -1,4 +1,5 @@
 import type { IAccountProvisioner, Member, NewMemberInput } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import type { IAuthService } from "@/features/auth/domain/auth";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { responseError } from "@/lib/format-error";
@@ -12,7 +13,7 @@ import { responseError } from "@/lib/format-error";
 export class HttpAccountProvisioner implements IAccountProvisioner {
   constructor(
     private readonly auth: Pick<IAuthService, "getAccessToken">,
-    private readonly endpoint = "/api/admin/create-user",
+    private readonly endpoint = relayUrl("/api/admin/create-user"),
   ) {}
 
   async createMember(input: NewMemberInput): Promise<Member> {

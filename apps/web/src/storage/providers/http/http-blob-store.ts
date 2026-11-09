@@ -1,4 +1,5 @@
 import type { IBlobStore } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import { getDataClient } from "@/lib/data-client";
 import { logToApp } from "@/lib/error-report/app-log";
 import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
@@ -34,7 +35,7 @@ export class HttpBlobStore implements IBlobStore {
     form.set("path", path);
     form.set("file", blob, path.split("/").pop() ?? "file");
     if (contentType) form.set("contentType", contentType);
-    const res = await fetch("/api/blobs/upload", {
+    const res = await fetch(relayUrl("/api/blobs/upload"), {
       method: "POST",
       headers: await this.authHeaders(),
       body: form,
@@ -43,7 +44,7 @@ export class HttpBlobStore implements IBlobStore {
   }
 
   async remove(bucket: string, path: string): Promise<void> {
-    const res = await fetch("/api/blobs/remove", {
+    const res = await fetch(relayUrl("/api/blobs/remove"), {
       method: "POST",
       headers: { ...(await this.authHeaders()), "Content-Type": "application/json" },
       body: JSON.stringify({ bucket, path }),
@@ -73,7 +74,7 @@ export class HttpBlobStore implements IBlobStore {
     paths: string[],
     ttlSeconds: number,
   ): Promise<(string | null)[]> {
-    const res = await fetch("/api/blobs/signed-urls", {
+    const res = await fetch(relayUrl("/api/blobs/signed-urls"), {
       method: "POST",
       headers: { ...(await this.authHeaders()), "Content-Type": "application/json" },
       body: JSON.stringify({ bucket, paths, ttlSeconds }),

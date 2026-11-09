@@ -212,7 +212,7 @@ fn cors_layer(origins: &[String]) -> CorsLayer {
         .collect();
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
-        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+        .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE, Method::OPTIONS])
         // x-api-key carries the user's own Semantic Scholar key, forwarded upstream.
         .allow_headers([
             AUTHORIZATION,

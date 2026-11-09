@@ -4,6 +4,8 @@
  * The cookie goes up once, on sign-in; only the opaque session id comes back.
  */
 
+import { relayUrl } from "@/lib/relay-url";
+
 export const WORKSHOP_SESSION_PATH = "/api/overleaf/workshop/session";
 export const WORKSHOP_PROJECTS_PATH = "/api/overleaf/workshop/projects";
 
@@ -31,7 +33,7 @@ const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export async function signInToWorkshop(deps: WorkshopClientDeps, cookies: string): Promise<WorkshopSignInResult> {
   const trimmed = cookies.trim();
   if (!trimmed) return { ok: false, message: "Paste your Overleaf session cookie first." };
-  const res = await post(deps, WORKSHOP_SESSION_PATH, { cookies: trimmed });
+  const res = await post(deps, relayUrl(WORKSHOP_SESSION_PATH), { cookies: trimmed });
   if (!res.ok) return { ok: false, message: res.message };
   const sessionId = (res.body as { sessionId?: unknown }).sessionId;
   if (typeof sessionId !== "string" || !SESSION_ID.test(sessionId)) {
@@ -42,7 +44,7 @@ export async function signInToWorkshop(deps: WorkshopClientDeps, cookies: string
 
 /** Lists the user's Overleaf projects for a stored session, sorted by name. */
 export async function listWorkshopProjects(deps: WorkshopClientDeps, sessionId: string): Promise<WorkshopProjectsResult> {
-  const res = await post(deps, WORKSHOP_PROJECTS_PATH, { sessionId });
+  const res = await post(deps, relayUrl(WORKSHOP_PROJECTS_PATH), { sessionId });
   // Only the route's own "session not found" 401 carries `expired`; a 401 because the
   // app's sign-in lapsed must not forget the Overleaf session (its sealed row would be orphaned).
   if (!res.ok) return { ok: false, expired: res.status === 401 && res.expired, message: res.message };
@@ -61,7 +63,7 @@ export async function listWorkshopProjects(deps: WorkshopClientDeps, sessionId: 
 /** Forgets the stored session server-side. Best effort: the caller forgets it locally regardless. */
 export async function signOutOfWorkshop(deps: WorkshopClientDeps, sessionId: string): Promise<void> {
   try {
-    await deps.fetch(`${WORKSHOP_SESSION_PATH}?id=${encodeURIComponent(sessionId)}`, {
+    await deps.fetch(`${relayUrl(WORKSHOP_SESSION_PATH)}?id=${encodeURIComponent(sessionId)}`, {
       method: "DELETE",
       headers: await deps.authHeaders(),
     });
