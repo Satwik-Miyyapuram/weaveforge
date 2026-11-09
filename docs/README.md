@@ -6,6 +6,7 @@ Four folders, and which one a page belongs in is a question about who reads it.
 
 For somebody using the app.
 
+- [Getting started](using/getting-started.md) — your first project, paper and note, in 10 minutes
 - [The desktop and mobile apps](using/desktop.md) — installing on Windows, Mac, and Android, what an installed window can do, and working without an account
 - [Projects and workspaces](using/workspaces.md) — project boundaries, switching, multi-pane editor, and organisation modes
 - [The workspace folder](using/workspace-folder.md) — your notes as files on your own disk
