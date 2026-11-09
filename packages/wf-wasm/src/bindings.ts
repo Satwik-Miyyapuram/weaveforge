@@ -846,6 +846,15 @@ export type CitationPage = {
 	items: AnalysisPdfItem[],
 };
 
+/**  Which citation convention the body uses (`CitationStyle`). */
+export type CitationStyle = 
+/**  `[n]` brackets only. */
+"numeric" | 
+/**  `(Author year)` and `Author (year)` only. */
+"author-year" | 
+/**  Both conventions, as a survey quoting other papers' styles may have. */
+"both";
+
 /**  The paper fields cite-key resolution reads. The TS `metadata` keys are flattened to the top. */
 export type CiteKeyPaper = {
 	/**  The paper id. The last fallback key is derived from it. */
@@ -1210,6 +1219,16 @@ export type FigureMentionKind =
 "section" | 
 /**  `Algorithm` or `Alg.`, and their plurals. */
 "algorithm";
+
+/**  A page as `findFigureMentions` reads it: its number, its text and its text runs. */
+export type FigurePage = {
+	/**  1-based page number. */
+	number: number | null,
+	/**  The page text that mentions are searched in. */
+	text: string,
+	/**  The page's pdf.js text runs, used for caption and equation lines. */
+	items: OutlineTextItem[],
+};
 
 /**  Where a mention points: the caption, equation or heading it names (`FigureTarget`). */
 export type FigureTarget = {
@@ -2141,6 +2160,20 @@ export type PageAnalysis = {
 	columns: number | null,
 };
 
+/**  One page as the matcher reads it. Twin of `PageCitationInput`. */
+export type PageCitationInput = {
+	/**  Page number, 1-based. */
+	number: number | null,
+	/**  Page text, the items concatenated. */
+	text: string,
+	/**  Raw PDF text items: geometry and superscript sizes. */
+	items: AnalysisPdfItem[],
+	/**  The same runs as outline items. Kept for parity; `match_page_citations` does not read it. */
+	outlineItems: OutlineTextItem[],
+	/**  The page's `/Link` annotations, `None` when the page has none. */
+	links: AnalysisPdfLink[] | null,
+};
+
 /**  Everything a page says about the paper it carries. */
 export type PageMetadata = {
 	/**  Title with the site's name suffix removed. */
@@ -2627,6 +2660,21 @@ export type ReadingListTreeNode = {
 	list: ReadingList,
 	/**  Child lists, sorted by `sort_order` then `name`. */
 	children: ReadingListTreeNode[],
+};
+
+/**
+ *  A bibliography span (`ReferenceSectionSpan`). Indices are JS numbers, so
+ *  `heading_index` is `-1` for the numbered-run fallback.
+ */
+export type ReferenceSectionSpan = {
+	/**  Index of the first entry line (the heading itself is excluded). */
+	start: number | null,
+	/**  Exclusive index of the first line after the section. */
+	end: number | null,
+	/**  The heading line's index, or `-1` when no heading was found. */
+	headingIndex: number | null,
+	/**  Heading score; the fallback reports 3. */
+	score: number | null,
 };
 
 /**  How a rejoin decides which lines belong to the same paragraph. */

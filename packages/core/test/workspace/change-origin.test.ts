@@ -16,6 +16,7 @@ const note: ParsedEntity = {
   title: "Edited outside",
   body: "from the folder",
   path: "notes/n1.note.md",
+  fields: {},
 };
 
 const stored = [{ id: "n1", type: "vault_page" as const, title: "Original", body: "in the workspace" }];
