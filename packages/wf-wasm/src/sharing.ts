@@ -3,6 +3,8 @@
  * Each function keeps the signature of packages/core/src/features/sharing/domain/share.ts and comment.ts.
  */
 import {
+  decodeShareLinkToken as rawDecodeShareLinkToken,
+  encodeShareLinkToken as rawEncodeShareLinkToken,
   isBlanketShare as rawIsBlanketShare,
   normalizeCommentInput as rawNormalizeCommentInput,
   normalizeShareInput as rawNormalizeShareInput,
@@ -106,5 +108,19 @@ export function normalizeCommentInput(input: NewCommentInput): NewCommentInput {
     return rawNormalizeCommentInput(input) as NewCommentInput;
   } catch (error) {
     throw asError(error, "CommentValidationError");
+  }
+}
+
+/** Base64url (unpadded) form of a share-link token, for the URL's `?t=`. */
+export function encodeShareLinkToken(token: Uint8Array): string {
+  return rawEncodeShareLinkToken(token);
+}
+
+/** Bytes of a share-link token; accepts either base64 alphabet, padded or not. Throws on a mangled token. */
+export function decodeShareLinkToken(encoded: string): Uint8Array {
+  try {
+    return rawDecodeShareLinkToken(encoded);
+  } catch (error) {
+    throw asError(error, "InvalidCharacterError");
   }
 }

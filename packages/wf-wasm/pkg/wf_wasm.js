@@ -1986,6 +1986,27 @@ export function decodeLocus(raw) {
 }
 
 /**
+ * [`decode_share_link_token`](sharing::decode_share_link_token); a bad token throws its message.
+ *
+ * # Errors
+ *
+ * Fails if `encoded` is not valid base64 (either alphabet).
+ * @param {string} encoded
+ * @returns {Uint8Array}
+ */
+export function decodeShareLinkToken(encoded) {
+    const ptr0 = passStringToWasm0(encoded, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decodeShareLinkToken(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
  * [`default_graph_settings`](graph_settings::default_graph_settings).
  *
  * # Errors
@@ -2351,6 +2372,26 @@ export function encodeRollupOptions(config) {
     var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v1;
+}
+
+/**
+ * [`encode_share_link_token`](sharing::encode_share_link_token): unpadded base64url.
+ * @param {Uint8Array} token
+ * @returns {string}
+ */
+export function encodeShareLinkToken(token) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passArray8ToWasm0(token, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.encodeShareLinkToken(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
