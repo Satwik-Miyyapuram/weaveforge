@@ -1438,6 +1438,10 @@
   display: flex;
   flex: none;
   align-items: center;
+  /* Above the tab strip and the editor, so a focused button's ring (up to 7px
+     outside it) draws over them instead of under. */
+  position: relative;
+  z-index: 2;
   background: var(--bg);
   border-block-end: 1px solid var(--border);
 }
