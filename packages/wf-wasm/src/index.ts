@@ -26,9 +26,14 @@ import init, {
   changedSide as rawChangedSide,
   isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
   decideGitSyncPath as rawDecideGitSyncPath,
+  decideVaultCommit as rawDecideVaultCommit,
+  redactSecret as rawRedactSecret,
+  describeChanges as rawDescribeChanges,
   describePull as rawDescribePull,
   describePush as rawDescribePush,
   stampWorkspaceId as rawStampWorkspaceId,
+  planDelta as rawPlanDelta,
+  applyDelta as rawApplyDelta,
   safeWorkspacePath as rawSafeWorkspacePath,
   isSafeWorkspacePath as rawIsSafeWorkspacePath,
   parsePaperRef as rawParsePaperRef,
@@ -406,6 +411,29 @@ export function decideGitSyncPath(
 }
 
 /** One line for the Settings panel. */
+/** Where the folder sits relative to git. Same shape as `VaultRepoState` in core's git-gate.ts. */
+export type VaultRepoState = { kind: "none" } | { kind: "own" } | { kind: "enclosing"; root: string };
+
+/** The verdict of `decideVaultCommit`. Same shape as `GitVerdict` in core's git-gate.ts. */
+export type GitVerdict = { ok: true; action: "init" | "commit" } | { ok: false; reason: string };
+
+/** Whether the folder may be committed to, and why not. Off unless `enabled`; refused inside a foreign repository. */
+export function decideVaultCommit(enabled: boolean, state: VaultRepoState): GitVerdict {
+  return rawDecideVaultCommit(enabled, state) as GitVerdict;
+}
+
+/** `text` with every occurrence of `secret` replaced. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function redactSecret(text: string, secret: string | undefined): string {
+  checkIndexText(text);
+  if (secret !== undefined) checkIndexText(secret);
+  return rawRedactSecret(text, secret);
+}
+
+/** A commit message for the changes: "N added, N changed, N removed", or "No changes". */
+export function describeChanges(status: readonly { state: "added" | "modified" | "deleted" }[]): string {
+  return rawDescribeChanges(status);
+}
+
 export function describePull(result: GitPullResult): string {
   return rawDescribePull(result);
 }
@@ -420,6 +448,30 @@ export function stampWorkspaceId(content: string, id: string): string | null {
   checkIndexText(content);
   checkIndexText(id);
   return rawStampWorkspaceId(content, id) ?? null;
+}
+
+/** What to fetch and what to forget, from `remote` stamps against `held` as `[id, stamp]` pairs. */
+export interface DeltaPlanOut {
+  fetch: string[];
+  drop: string[];
+  unchanged: boolean;
+}
+
+/** `remote` is the database's `{ id, updatedAt }` listing; `held` maps each held id to its stamp. */
+export function planDelta(
+  remote: readonly { id: string; updatedAt: string }[],
+  held: ReadonlyMap<string, string>,
+): DeltaPlanOut {
+  return rawPlanDelta(remote, [...held.entries()]) as DeltaPlanOut;
+}
+
+/** The held rows and fetched rows merged, in the order `order` gives. Rows are matched by `id`. */
+export function applyDelta<T extends { id: string }>(
+  held: readonly T[],
+  fetched: readonly T[],
+  order: readonly { id: string; updatedAt: string }[],
+): T[] {
+  return rawApplyDelta(held, fetched, order) as T[];
 }
 
 /** The normalized relative path; throws `Unsafe workspace path: <path>` for one that could leave the root. */

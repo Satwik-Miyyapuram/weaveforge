@@ -11,7 +11,7 @@
  * absolute paths and any segment that escapes the root.
  */
 
-import { ValidationError } from "../shared/errors.js";
+import { WorkspacePathError } from "../shared/errors.js";
 
 export interface WorkspaceStat {
   path: string;
@@ -51,13 +51,6 @@ export async function* walkByList(
   for (const entry of await fs.list(dir)) {
     if (entry.kind === "file") yield entry;
     else yield* walkByList(fs, entry.path);
-  }
-}
-
-export class WorkspacePathError extends ValidationError {
-  constructor(path: string) {
-    super(`Unsafe workspace path: ${path}`);
-    this.name = "WorkspacePathError";
   }
 }
 

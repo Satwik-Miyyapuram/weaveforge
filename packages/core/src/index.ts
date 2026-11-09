@@ -15,7 +15,18 @@ export * from "./shared/module.js";
 export * from "./shared/markdown-image.js";
 export * from "./shared/map-limit.js";
 export * from "./shared/tree.js";
-export { rust, setRustCore, type RustCoreFns } from "./shared/rust.js";
+export {
+  JSON_KINDS,
+  rust,
+  setRustCore,
+  type JsonDiff,
+  type JsonDiffEntry,
+  type JsonRow,
+  type ParsedJsonData,
+  type RustCoreFns,
+  type VaultPageBase,
+  type WorkspaceJsonKind,
+} from "./shared/rust.js";
 export * from "./shared/text.js";
 export * from "./shared/three-way-merge.js";
 export * from "./config/index.js";

@@ -1,7 +1,7 @@
 //! Port of `packages/core/src/workspace/git-sync-policy.ts`: which workspace
 //! paths may enter the git history of the workspace folder.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::sync::folder_layout::WORKSPACE_META_DIR;
 
@@ -122,6 +122,41 @@ pub fn decide_git_sync_path(
     GitSyncDecision::Include
 }
 
+/// One file's change since the last commit. Named `added` / `modified` / `deleted` in JS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileState {
+    /// New file.
+    Added,
+    /// Existing file with new content.
+    Modified,
+    /// File that is gone.
+    Deleted,
+}
+
+/// A commit message describing the changes, for the automatic mirror commits.
+#[must_use]
+pub fn describe_changes(states: &[FileState]) -> String {
+    if states.is_empty() {
+        return "No changes".to_owned();
+    }
+    let count = |want: FileState| states.iter().filter(|state| **state == want).count();
+    let mut parts = Vec::new();
+    let added = count(FileState::Added);
+    let changed = count(FileState::Modified);
+    let removed = count(FileState::Deleted);
+    if added > 0 {
+        parts.push(format!("{added} added"));
+    }
+    if changed > 0 {
+        parts.push(format!("{changed} changed"));
+    }
+    if removed > 0 {
+        parts.push(format!("{removed} removed"));
+    }
+    parts.join(", ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,5 +171,26 @@ mod tests {
             serde_json::to_string(&GitSyncSkipReason::TooLarge).unwrap(),
             "\"too-large\""
         );
+    }
+
+    #[test]
+    fn describe_changes_counts_in_fixed_order() {
+        assert_eq!(describe_changes(&[]), "No changes");
+        assert_eq!(
+            describe_changes(&[
+                FileState::Added,
+                FileState::Modified,
+                FileState::Modified,
+                FileState::Deleted,
+            ]),
+            "1 added, 2 changed, 1 removed"
+        );
+        assert_eq!(describe_changes(&[FileState::Deleted]), "1 removed");
+    }
+
+    #[test]
+    fn file_state_deserializes_lowercase() {
+        let state: FileState = serde_json::from_str("\"modified\"").unwrap();
+        assert_eq!(state, FileState::Modified);
     }
 }

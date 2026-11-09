@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
+import { rust } from "../../src/shared/rust.js";
 import {
   NoOpWorkspaceGit,
   digestText,
-  describeChanges,
   mirrorWorkspace,
   projectDir,
   type WorkspaceProject,
@@ -210,9 +210,9 @@ test("git is off by default and answers without throwing", async () => {
 });
 
 test("commit messages describe what changed", () => {
-  assert.equal(describeChanges([]), "No changes");
+  assert.equal(rust().describeChanges([]), "No changes");
   assert.equal(
-    describeChanges([
+    rust().describeChanges([
       { path: "a", state: "added" },
       { path: "b", state: "modified" },
       { path: "c", state: "modified" },

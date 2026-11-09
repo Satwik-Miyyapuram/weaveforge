@@ -10,6 +10,16 @@ import { setRustCore } from "@weaveforge/core";
 
 export type RustCore = typeof import("@weaveforge/wasm");
 
+/** UI typing for the Rust workspace types (crates/wf-core/src/sync/text_diff.rs). */
+export type HunkPick = "ours" | "theirs" | "both";
+export interface DiffLine {
+  op: "same" | "ours" | "theirs";
+  text: string;
+}
+/** Conflict marker lines, as the Rust core writes them. */
+export const MARKER_OURS = "<<<<<<< this app";
+export const MARKER_THEIRS = ">>>>>>> the folder";
+
 let loaded: Promise<RustCore> | null = null;
 let ready: RustCore | null = null;
 

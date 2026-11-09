@@ -12,13 +12,13 @@ import {
   WORKSPACE_META_DIR,
   bodyLinksTo,
   canonicalAiToolName,
-  entityDir,
   extractWikilinks,
   mcpReadResult,
   normalizeTitleKey,
   paperPdfPath,
   parseFolderDraft,
   parseWorkspaceFile,
+  rust,
   type AiProposalKind,
   type ParsedEntity,
   type UntrustedItem,
@@ -114,7 +114,7 @@ interface Entry extends ParsedEntity {
 async function loadProjectEntries(session: VaultSession, kind: WorkspaceEntityType, project: ProjectRef): Promise<Entry[]> {
   const entries: Entry[] = [];
   const files: string[] = [];
-  await walkVault(session, entityDir(kind, project.dir), files);
+  await walkVault(session, rust().entityDir(kind, project.dir), files);
   for (const file of files) {
     if (!file.endsWith(".md") || hidden(file)) continue;
     const raw = await readText(session, file);
@@ -389,7 +389,7 @@ async function callTool(
       const skip = new Set(Array.isArray(params.exclude) ? params.exclude.map(String) : []);
       const hits = [];
       for (const project of await scope()) {
-        const found = await searchVault(session, query, kind ? entityDir(kind, project.dir) : project.dir);
+        const found = await searchVault(session, query, kind ? rust().entityDir(kind, project.dir) : project.dir);
         const known = new Map<string, Entry>();
         for (const k of kind ? [kind] : KINDS) for (const entry of await loadEntries(k, [project])) known.set(entry.path, entry);
         hits.push(...found.map((hit) => ({ ...hit, project, entry: known.get(hit.filename) })));
