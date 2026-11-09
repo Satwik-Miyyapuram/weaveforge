@@ -8,8 +8,9 @@
  * CORS fetch on the web), pages through the HTML relay.
  */
 
-import { findOpenAccessCopies, getUserIntegrationField, type OpenAccessHttp, type OpenAccessIds } from "@weaveforge/core";
+import { findOpenAccessCopies, type OpenAccessHttp, type OpenAccessIds } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { typedCore } from "@/lib/rust-core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
 import { fetchTypedPdfToCache } from "./resolve-paper-pdf-for-reader";
@@ -72,7 +73,7 @@ export async function fetchPaperHtml(
 async function openAlexKey(): Promise<string | undefined> {
   try {
     const settings = await getContainer().settings.manageSettings.get();
-    return getUserIntegrationField(settings, "semantic-scholar", "openAlexKey");
+    return typedCore().getUserIntegrationField(settings, "semantic-scholar", "openAlexKey");
   } catch {
     return undefined;
   }

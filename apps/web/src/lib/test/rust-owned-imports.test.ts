@@ -142,6 +142,13 @@ const RUST_OWNED = [
   "zoomIn",
   "zoomOut",
   "zoteroWriteBackAnnotations",
+  "EMPTY_SETTINGS",
+  "getUserIntegrationField",
+  "hydrateUserSettings",
+  "needsDisclaimerAcceptance",
+  "normalizeAiAccessSettings",
+  "normalizeAppearance",
+  "normalizeThemeConfig",
 ];
 
 const src = fileURLToPath(new URL("../../", import.meta.url));

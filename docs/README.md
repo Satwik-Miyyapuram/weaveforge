@@ -17,6 +17,7 @@ For somebody using the app.
 - [The AI assistant](using/ai-assistant.md) — what it may read, what it may suggest, and how grants expire
 - [Sharing](using/sharing.md) — share with one member, pick view, comment or edit, and how blanket shares work
 - [The dashboard](using/dashboard.md) — the eleven cards, how the layout is saved, and what happens to an unknown card
+- [Settings](using/settings.md) — appearance, your theme file, integration keys, and the disclaimer
 - [Search](using/search.md) — one box over the workspace, typo recovery, acronyms, query filters, and how results are ranked
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
