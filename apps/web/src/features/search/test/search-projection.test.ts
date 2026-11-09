@@ -7,11 +7,18 @@
  * fresh when it is not.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
-import { buildWikiGraph, searchRevision, type PdfIndexSource, type WorkspaceSnapshot } from "@weaveforge/core";
+import { buildWikiGraph, type WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { projectSearchDocuments, projectStoredPdfTexts } from "../application/search-projection";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const paper = (id: string, title: string) =>
   ({
@@ -39,7 +46,7 @@ test("the worker's projection is the main thread's projection", () => {
   const { docs } = projectStoredPdfTexts(snap, stored);
   const expected = projectSearchDocuments({ snapshot: snap, graph: buildWikiGraph(snap), pdfTexts: stored });
   assert.deepEqual(docs, expected);
-  assert.equal(searchRevision(docs), searchRevision(expected));
+  assert.equal(readyCore().searchRevision(docs), readyCore().searchRevision(expected));
 });
 
 test("text of a paper the library no longer holds is dropped", () => {

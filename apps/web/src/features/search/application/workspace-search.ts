@@ -6,15 +6,10 @@ import {
   gateVectorHits,
   queryTermCount,
   stripStopwords,
-  findRelated,
   graphDegrees,
   graphDensity,
-  pdfDocIdsFor,
-  searchRevision,
-  toPdfSearchDocs,
   type IWorkspaceSearchIndex,
   type GraphDensity,
-  type PdfIndexSource,
   type RelatedArm,
   type RelatedResult,
   type SearchDoc,
@@ -24,7 +19,8 @@ import {
   type WikiGraph,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { indexTermsOf } from "../infrastructure/search-core";
 import { applySearchSettings, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
@@ -144,11 +140,11 @@ export class WorkspaceSearch {
     // Try the cache before building anything. Its revision has to match the
     // corpus, which means projecting to compute one — cheap next to the build,
     // and the check is what stops a stale index answering with deleted rows.
+    const core = await loadCore();
     const docs = this.projectDocuments(snapshot);
-    const revision = searchRevision(docs);
+    const revision = core.searchRevision(docs);
     // PDF pages are never refreshed this way (see search-index-state.ts).
     this.prints = diffRefresh(new Map(), [], docs.filter((doc) => doc.kind !== "pdf")).prints;
-    const core = await loadCore();
     const cached = await idbGetSearchIndex(projectId);
     if (cached) {
       const restored = createMiniSearchIndexFactory(core).load(cached, revision);
@@ -424,7 +420,7 @@ export class WorkspaceSearch {
     const index = this.state.index;
     // Asked for more than will be shown, so that folding duplicates below
     // does not leave the list short.
-    const found = findRelated(seedId, {
+    const found = readyCore().findRelated(seedId, {
       graph: this.state.graph,
       // More-like-this: search the seed's own title, which is the one piece of
       // its text available without holding the corpus in memory here. The id
@@ -539,13 +535,13 @@ export class WorkspaceSearch {
    */
   private retractPdf(index: IWorkspaceSearchIndex, source: PdfIndexSource): number {
     const previous = this.state.pdfPageCounts.get(source.paperId) ?? 0;
-    index.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
+    index.remove(readyCore().pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
     return previous;
   }
 
   private pdfDocs(source: PdfIndexSource): SearchDoc[] {
     const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
-    return toPdfSearchDocs([source], degrees);
+    return readyCore().toPdfSearchDocs([source], degrees);
   }
 
   /** Record a PDF just added to the index, and pass it to the semantic arm. */

@@ -14,7 +14,7 @@ For somebody using the app.
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
 - [Organisations](using/organisations.md) — labs: create or join with an invite code, roles, who sees whom
 - [Paste](using/paste.md) — what happens to what you paste in
-- [Search](using/search.md)
+- [Search](using/search.md) — one box over the workspace, typo recovery, acronyms, query filters, and how results are ranked
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
 - [Extending WeaveForge](using/extensions.md)

@@ -1,5 +1,6 @@
-import { errorMessage, searchRevision, type SearchDoc } from "@weaveforge/core";
+import { errorMessage, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readyCore } from "@/lib/rust-core";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
 import { WorkerEmbedder, supportsLocalEmbedding, type WorkerEmbedderOptions } from "../infrastructure/worker-embedder";
 import { NativeEmbedder, nativeEmbedBridge } from "../infrastructure/native-embedder";
@@ -160,7 +161,7 @@ async function run(options: EnableOptions): Promise<void> {
   // stale on any incremental refresh, and the revision below is derived from it,
   // so a note added after the build could never be found by this arm.
   const docs: readonly SearchDoc[] = await container.search.projectionForSemantic();
-  const revision = searchRevision(docs);
+  const revision = readyCore().searchRevision(docs);
 
   // The embedder outlives this call, so its download callback reads the
   // current caller's options rather than capturing the first one's.
@@ -205,8 +206,7 @@ async function run(options: EnableOptions): Promise<void> {
       {
         model: stored.model,
         dimensions: stored.dimensions,
-        ids: stored.ids,
-        vectors: stored.vectors,
+        bytes: stored.bytes,
         hashes: stored.hashes,
       },
       // Without hashes (an older store) the docs can seed the comparison only
@@ -295,7 +295,7 @@ async function serveWhileUpgrading(
     previous = await loadEmbedder({ model: stored.model }, previous);
     const old = new SemanticIndex(previous);
     const loaded = old.load(
-      { model: stored.model, dimensions: stored.dimensions, ids: stored.ids, vectors: stored.vectors, hashes: stored.hashes },
+      { model: stored.model, dimensions: stored.dimensions, bytes: stored.bytes, hashes: stored.hashes },
       docs,
     );
     if (!loaded) throw new Error("The stored vectors could not be read.");
@@ -359,7 +359,7 @@ async function upgradeInBackground(projectId: string | null, targetId: string, p
 
     const latest = await container.search.projectionForSemantic();
     await fresh.sync(latest, () => true);
-    persistVectors(fresh, projectId, searchRevision(latest));
+    persistVectors(fresh, projectId, readyCore().searchRevision(latest));
     if (semantic === fresh)
       setStatus({ phase: "ready", passages: fresh.size, model: modelName(targetId), fallback: onFallback(next) });
   } catch {
@@ -385,7 +385,7 @@ onFolderConnected(() => {
   if (!semantic?.ready) return;
   void getContainer()
     .search.projectionForSemantic()
-    .then((docs) => persistNow(semanticProject ?? null, searchRevision(docs)))
+    .then((docs) => persistNow(semanticProject ?? null, readyCore().searchRevision(docs)))
     .catch(() => undefined);
 });
 
@@ -439,7 +439,7 @@ function persistAfterSync(): void {
       const docs = await container.search.projectionForSemantic();
       const packed = index.serialize();
       if (packed && index === semantic) {
-        await vectorStore().set(container.projects.context.projectId, { ...packed, revision: searchRevision(docs) });
+        await vectorStore().set(container.projects.context.projectId, { ...packed, revision: readyCore().searchRevision(docs) });
       }
     })().catch(() => undefined);
   }, 5_000);

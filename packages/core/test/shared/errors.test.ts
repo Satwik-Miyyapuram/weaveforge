@@ -52,7 +52,6 @@ import {
   ShareValidationError,
   UpdatePaperUseCase,
   ValidationError,
-  VectorDimensionError,
   VaultPageValidationError,
   WeaveForgeError,
   WorkspacePathError,
@@ -131,7 +130,6 @@ test("httpStatusForError maps each branch, and nothing else guesses", () => {
     [new ValidationError("bad"), ERROR_STATUS_BAD_REQUEST],
     [new OrgValidationError("bad"), ERROR_STATUS_BAD_REQUEST],
     [new OrgInviteValidationError("bad"), ERROR_STATUS_BAD_REQUEST],
-    [new VectorDimensionError(3, 4), ERROR_STATUS_BAD_REQUEST],
     [new WorkspacePathError("../etc/passwd"), ERROR_STATUS_BAD_REQUEST],
     // A bug is not a rule: anything untaxonomised is a server error.
     [new Error("boom"), ERROR_STATUS_INTERNAL],
