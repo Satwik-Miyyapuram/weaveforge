@@ -11,9 +11,8 @@ import {
 } from "react";
 import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
-import { needsDisclaimerAcceptance } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
@@ -179,7 +178,7 @@ async function loadStartupBundleUncached(
   // only a read that came back empty means "never accepted". The caller
   // renders the failure instead of a modal it cannot get past.
   const needsPrivacyAccept =
-    settingsError !== null ? false : settings ? needsDisclaimerAcceptance(settings) : true;
+    settingsError !== null ? false : settings ? typedCore().needsDisclaimerAcceptance(settings) : true;
   // The gate can decide now; the org batch below no longer blocks the shell.
   opts?.onDecision?.(needsPrivacyAccept, settings, settingsError);
 
@@ -246,7 +245,7 @@ function loadStartupBundle(
  * deploy correctly withdraws the proof and makes the next boot gate again.
  */
 function cacheProvesAccepted(cached: StartupSnapshot | null): boolean {
-  return Boolean(cached && cached.settings && !needsDisclaimerAcceptance(cached.settings));
+  return Boolean(cached && cached.settings && !typedCore().needsDisclaimerAcceptance(cached.settings));
 }
 
 /** localStorage-backed snapshot cache so cold reopens paint without a loader. */
@@ -294,7 +293,7 @@ export function StartupProvider({
     const cached = readCachedSnapshot(userId);
     // Re-evaluate against the running code, so a disclaimer-version bump in a
     // new deploy withdraws a stale "accepted" and re-gates.
-    return cached?.settings ? needsDisclaimerAcceptance(cached.settings) : true;
+    return cached?.settings ? typedCore().needsDisclaimerAcceptance(cached.settings) : true;
   });
 
   const [settingsError, setSettingsError] = useState<string | null>(null);

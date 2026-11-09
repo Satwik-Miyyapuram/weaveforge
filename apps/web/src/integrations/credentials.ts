@@ -1,5 +1,5 @@
 import type { ManageSettingsUseCase } from "@weaveforge/core";
-import { getUserIntegrationField } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /** Async credential reader for integration adapters (DIP). */
 export type IntegrationCredentialReader = (
@@ -12,6 +12,6 @@ export function createCredentialReader(
 ): IntegrationCredentialReader {
   return async (providerId, fieldId) => {
     const settings = await manageSettings.get();
-    return getUserIntegrationField(settings, providerId, fieldId);
+    return typedCore().getUserIntegrationField(settings, providerId, fieldId);
   };
 }

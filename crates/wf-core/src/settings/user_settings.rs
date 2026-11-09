@@ -251,6 +251,31 @@ pub fn apply_user_integration_fields(
     Value::Object(next)
 }
 
+/// The disclaimer copy's current version; accepting an older one means accepting again
+/// (TS `CURRENT_DISCLAIMER_VERSION`).
+pub const CURRENT_DISCLAIMER_VERSION: u32 = 5;
+
+/// Whether the user must accept the disclaimer again (TS `needsDisclaimerAcceptance`): true
+/// with no acceptance time, or when the accepted version is older than the current one. A
+/// missing version counts as 1.
+#[must_use]
+pub fn needs_disclaimer_acceptance(settings: &Value) -> bool {
+    let field = |key: &str| {
+        settings
+            .as_object()
+            .and_then(|row| row.get(key))
+            .unwrap_or(&Value::Null)
+    };
+    if !truthy(field("disclaimerAcceptedAt")) {
+        return true;
+    }
+    let version = match field("disclaimerVersion") {
+        Value::Null => 1.0,
+        other => other.as_f64().unwrap_or(f64::NAN),
+    };
+    version < f64::from(CURRENT_DISCLAIMER_VERSION)
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -315,5 +340,20 @@ mod tests {
             out,
             json!({ "integrations": { "github": { "apiKey": "k" } } })
         );
+    }
+
+    #[test]
+    fn disclaimer_needs_acceptance_without_a_current_one() {
+        assert!(needs_disclaimer_acceptance(&json!({})));
+        assert!(needs_disclaimer_acceptance(&json!({ "disclaimerAcceptedAt": "" })));
+        let old = json!({ "disclaimerAcceptedAt": "2026-01-01T00:00:00Z", "disclaimerVersion": 4 });
+        assert!(needs_disclaimer_acceptance(&old));
+        let current = json!({
+            "disclaimerAcceptedAt": "2026-01-01T00:00:00Z",
+            "disclaimerVersion": CURRENT_DISCLAIMER_VERSION,
+        });
+        assert!(!needs_disclaimer_acceptance(&current));
+        // No version recorded reads as version 1, so a timestamp alone is not enough.
+        assert!(needs_disclaimer_acceptance(&json!({ "disclaimerAcceptedAt": "x" })));
     }
 }
