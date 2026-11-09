@@ -292,6 +292,15 @@ export function bodyFontSize(pages: any): number;
 export function bodyLinksTo(body: string, target_key: string): boolean;
 
 /**
+ * [`body_stats`](stats::body_stats).
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ */
+export function bodyStats(body: string): any;
+
+/**
  * [`bounded_body`](search_document::bounded_body).
  */
 export function boundedBody(body: string): string;
@@ -1409,6 +1418,16 @@ export function forgetSearchQuery(history: string[], query: string): string[];
 export function formatCitation(key: string, format: string): string;
 
 /**
+ * [`format_count`](stats::format_count).
+ */
+export function formatCount(value: number): string;
+
+/**
+ * [`format_cursor`](stats::format_cursor).
+ */
+export function formatCursorLabel(line: number, col: number): string;
+
+/**
  * [`format_figure_tokens`](figure::format_figure_tokens): the tokens written in an alt.
  *
  * # Errors
@@ -1453,6 +1472,11 @@ export function formatPaperCitation(paper: any, format: string): string;
  * Fails when `paper` is not a paper.
  */
 export function formatReference(paper: any): string;
+
+/**
+ * [`format_words`](stats::format_words).
+ */
+export function formatWords(words: number): string;
 
 /**
  * [`wf_core::sync::blob_links::from_relative_blob_links_mapped`] for JS. `resolved`
@@ -4710,6 +4734,7 @@ export interface InitOutput {
     readonly blankInkPage: (a: any) => [number, number, number];
     readonly bodyFontSize: (a: any) => [number, number, number];
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
+    readonly bodyStats: (a: number, b: number) => [number, number, number];
     readonly boundedBody: (a: number, b: number) => [number, number];
     readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
@@ -4844,12 +4869,15 @@ export interface InitOutput {
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly forgetSearchQuery: (a: number, b: number, c: number, d: number) => [number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly formatCount: (a: number) => [number, number];
+    readonly formatCursorLabel: (a: number, b: number) => [number, number];
     readonly formatFigureTokens: (a: any) => [number, number, number, number];
     readonly formatInviteCode: (a: number, b: number) => [number, number];
     readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
     readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
     readonly formatReference: (a: any) => [number, number, number, number];
+    readonly formatWords: (a: number) => [number, number];
     readonly fromRelativeBlobLinks: (a: number, b: number, c: any) => [number, number, number, number];
     readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly furnitureLines: (a: any) => [number, number, number];

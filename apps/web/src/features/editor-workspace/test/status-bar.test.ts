@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bodyStats, formatCount, formatCursor, formatWords } from "../application/document-stats";
+import { readyCore } from "@/lib/rust-core";
 import { saveLabel, saveState } from "../ui/status-bar";
+
+const { bodyStats, formatCount, formatCursor, formatWords } = readyCore();
 
 test("an untouched document is Saved", () => {
   assert.equal(saveState({ pending: 0, dirty: false }), "saved");

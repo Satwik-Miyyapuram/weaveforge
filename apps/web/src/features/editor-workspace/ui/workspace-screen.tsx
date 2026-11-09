@@ -13,7 +13,6 @@ import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import { loadWorkspace, type Document } from "../application/workspace-load";
-import { bodyStats, formatCount, formatCursor, formatWords } from "../application/document-stats";
 import { breadcrumbs } from "../application/breadcrumbs";
 import { outlineOf } from "../application/outline";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
@@ -655,13 +654,14 @@ export function WorkspaceScreen() {
   const activeMode = activeTab ? readyCore().tabMode(activeTab) : undefined;
   const activeMetrics = activeKeyOf ? metrics[activeKeyOf] : undefined;
   const activeBody = activeMetrics?.text ?? activeDoc?.body ?? "";
-  const stats = bodyStats(activeBody);
+  const core = readyCore();
+  const stats = core.bodyStats(activeBody);
 
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
-        words: formatWords(stats.words),
-        chars: `${formatCount(stats.chars)} chars`,
-        cursor: activeMetrics?.cursor ? formatCursor(activeMetrics.cursor) : undefined,
+        words: core.formatWords(stats.words),
+        chars: `${core.formatCount(stats.chars)} chars`,
+        cursor: activeMetrics?.cursor ? core.formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
         language: "Markdown",
         branch: undefined,

@@ -334,6 +334,7 @@ export * from "./user-settings.js";
 export * from "./workspace-tree.js";
 export * from "./pane-tree.js";
 export * from "./tab-groups.js";
+export * from "./document-stats.js";
 export * from "./paste-text.js";
 export * from "./markdown-images.js";
 export * from "./workspace-folder.js";
