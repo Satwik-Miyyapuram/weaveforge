@@ -76,6 +76,24 @@ import init, {
   parseJsonData as rawParseJsonData,
   diffJsonData as rawDiffJsonData,
   countJsonActions as rawCountJsonActions,
+  countWords as rawCountWords,
+  tagTone as rawTagTone,
+  headingSlug as rawHeadingSlug,
+  stripUnresolvedImageRefs as rawStripUnresolvedImageRefs,
+  parseMdImageAlt as rawParseMdImageAlt,
+  withMdImageAlt as rawWithMdImageAlt,
+  withImageWidth as rawWithImageWidth,
+  setImagePlacement as rawSetImagePlacement,
+  sortHitOrder as rawSortHitOrder,
+  isPreviewKey as rawIsPreviewKey,
+  groupPaletteRows as rawGroupPaletteRows,
+  matchingPageIndices as rawMatchingPageIndices,
+  commandMatchIndices as rawCommandMatchIndices,
+  paletteModeFor as rawPaletteModeFor,
+  invalidationPlan as rawInvalidationPlan,
+  isKnownResourceType as rawIsKnownResourceType,
+  invalidationMap as rawInvalidationMap,
+  cardSnippet as rawCardSnippet,
   addCounts as rawAddCounts,
   planMirror as rawPlanMirror,
   cleanPastedText as rawCleanPastedText,
@@ -151,12 +169,38 @@ import type {
   WrappedTextOptions,
   PackedInkStroke,
   InkStrokePackerOptions,
+  MdAlign,
+  MdImageAlt,
+  MdPlacement,
+  ImagePlacementPatch,
+  GroupedRows,
+  HitKey,
+  HitSort,
+  PaletteGroup,
+  PaletteKey,
+  PaletteMode,
+  ResourceType,
+  InvalidationPlan,
+  InvalidationEntry,
 } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
 export type {
   PackedInkStroke,
   InkStrokePackerOptions,
+  GroupedRows,
+  HitKey,
+  HitSort,
+  PaletteGroup,
+  PaletteKey,
+  PaletteMode,
+  ResourceType,
+  InvalidationPlan,
+  InvalidationEntry,
+  MdAlign,
+  MdImageAlt,
+  MdPlacement,
+  ImagePlacementPatch,
   ActionCounts,
   BlobAsset,
   BlobScheme,
@@ -779,6 +823,110 @@ export function diffJsonData(
 /** How many entries there are of each action (Rust `count_json_actions`). */
 export function countJsonActions(entries: readonly JsonDiffEntry[]): ActionCounts {
   return rawCountJsonActions(entries) as ActionCounts;
+}
+
+/** Words in plain text: runs of non-whitespace (Rust `count_words`). */
+export function countWords(text: string): number {
+  return rawCountWords(text);
+}
+
+/** Colour slot 1..6 for a tag (Rust `tag_tone`); a tag keeps its slot everywhere. */
+export function tagTone(tag: string): number {
+  checkIndexText(tag);
+  return rawTagTone(tag);
+}
+
+/** Heading anchor id: trimmed, lowercased, non-alphanumeric runs as one hyphen (Rust `heading_slug`). */
+export function headingSlug(text: string): string {
+  checkIndexText(text);
+  return rawHeadingSlug(text);
+}
+
+/** Drop `![alt](prefix+path)` refs whose path is not in `resolved` (Rust `strip_unresolved_image_refs`). */
+export function stripUnresolvedImageRefs(body: string, prefix: string, paths: readonly string[], resolved: readonly string[]): string {
+  checkIndexText(body);
+  return rawStripUnresolvedImageRefs(body, prefix, paths, resolved);
+}
+
+/** Crop, side and width split out of an image alt (Rust `parse_md_image_alt`). */
+export function parseMdImageAlt(raw: string): MdImageAlt {
+  checkIndexText(raw);
+  return rawParseMdImageAlt(raw) as MdImageAlt;
+}
+
+/** The alt for a figure's own text and placement, in the spelling the reader reads (Rust `with_md_image_alt`). */
+export function withMdImageAlt(alt: string, placement: MdPlacement): string {
+  checkIndexText(alt);
+  return rawWithMdImageAlt(alt, placement);
+}
+
+/** The alt for a width, keeping any crop or side; `null` clears it (Rust `with_image_width`). */
+export function withImageWidth(alt: string, width: string | null): string {
+  checkIndexText(alt);
+  return rawWithImageWidth(alt, width);
+}
+
+/** Rewrite the `ordinal`-th image whose alt is `alt` to the patched placement (Rust `set_image_placement`). */
+export function setImagePlacement(body: string, alt: string, ordinal: number, patch: ImagePlacementPatch): string {
+  checkIndexText(body);
+  checkIndexText(alt);
+  // serde reads a key that is present as an explicit null, so an absent (undefined) field is dropped here to keep its value.
+  const fields = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+  return rawSetImagePlacement(body, alt, ordinal, fields);
+}
+
+/** The indices of `rows` in the chosen hit order (Rust `sort_hit_order`). */
+export function sortHitOrder(rows: readonly HitKey[], order: HitSort): number[] {
+  return rawSortHitOrder(rows, order) as number[];
+}
+
+/** Whether a key press opens the preview (Rust `is_preview_key`). */
+export function isPreviewKey(event: PaletteKey, inTextBox: boolean): boolean {
+  return rawIsPreviewKey(event, inTextBox) as boolean;
+}
+
+/** The headings present, in display order, each with the indices of its rows (Rust `group_palette_rows`). */
+export function groupPaletteRows(groups: readonly PaletteGroup[]): GroupedRows[] {
+  return rawGroupPaletteRows(groups) as GroupedRows[];
+}
+
+/** The indices of the labels that hold the query, names that start with it first (Rust `matching_page_indices`). */
+export function matchingPageIndices(labels: readonly string[], query: string): number[] {
+  checkIndexText(query);
+  return rawMatchingPageIndices(labels, query) as number[];
+}
+
+/** Every index for an empty query, else the page rule (Rust `command_match_indices`). */
+export function commandMatchIndices(labels: readonly string[], query: string): number[] {
+  checkIndexText(query);
+  return rawCommandMatchIndices(labels, query) as number[];
+}
+
+/** The palette mode a key press opens, or `null` (Rust `palette_mode_for`). */
+export function paletteModeFor(event: PaletteKey): PaletteMode | null {
+  return (rawPaletteModeFor(event) as PaletteMode | undefined) ?? null;
+}
+
+/** The caches a write of this resource type clears, or `null` for an unknown name (Rust `invalidation_plan`). */
+export function invalidationPlan(resourceType: string): InvalidationPlan | null {
+  checkIndexText(resourceType);
+  return (rawInvalidationPlan(resourceType) as InvalidationPlan | undefined) ?? null;
+}
+
+/** Whether the name is a resource type the cache map knows (Rust `is_known_resource_type`). */
+export function isKnownResourceType(value: string): value is ResourceType {
+  return rawIsKnownResourceType(value) as boolean;
+}
+
+/** Every resource type with the caches its writes clear (Rust `invalidation_map`). */
+export function invalidationMap(): InvalidationEntry[] {
+  return rawInvalidationMap() as InvalidationEntry[];
+}
+
+/** Plain-text card preview of a markdown body, cut to `max` UTF-16 units (Rust `card_snippet`). */
+export function cardSnippet(body: string, max = 180): string {
+  checkIndexText(body);
+  return rawCardSnippet(body, max);
 }
 
 /** Two sets of counts summed (Rust `add_counts`). */

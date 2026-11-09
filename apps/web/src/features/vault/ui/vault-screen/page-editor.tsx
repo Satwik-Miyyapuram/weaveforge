@@ -9,7 +9,6 @@ import { getContainer } from "@/bootstrap";
 import { deletedMessage, removeLater } from "@/lib/toast";
 import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
-import { readableText } from "@/lib/page-text";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
@@ -107,7 +106,7 @@ export function PageEditor({
   // three modes are the Editor's, drawn by the Editor's own document host:
   // Edit the source, Read the sheet with the pen down, Ink the ink surface.
   const ink = readyCore().isInkNoteBody(page.body);
-  const readBody = useMemo(() => readableText(page.body), [page.body]);
+  const readBody = useMemo(() => readyCore().readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
   const view: NoteMode = canEditBody ? mode : "read";

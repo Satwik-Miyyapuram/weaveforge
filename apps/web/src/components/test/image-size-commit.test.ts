@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { cropParts, resolveCommit } from "@/components/image-size-control";
-import { setImagePlacement } from "@/lib/markdown-image-width";
+import { readyCore } from "@/lib/rust-core";
 
 const base = { percent: 38, widthMoved: false, cropEdges: ["", "", "", ""], storedCrop: undefined, storedAlign: undefined };
 
@@ -42,8 +42,8 @@ test("Side without touching the slider keeps the stored width (12-02)", () => {
   assert.equal(out.width, undefined);
   assert.equal(out.align, "left");
   // And end to end: no width appears in a source that had none.
-  assert.equal(setImagePlacement("![Fig](a.png)", "Fig", 0, out), setImagePlacement("![Fig](a.png)", "Fig", 0, { align: "left" }));
-  assert.doesNotMatch(setImagePlacement("![Fig](a.png)", "Fig", 0, out), /38%/);
+  assert.equal(readyCore().setImagePlacement("![Fig](a.png)", "Fig", 0, out), readyCore().setImagePlacement("![Fig](a.png)", "Fig", 0, { align: "left" }));
+  assert.doesNotMatch(readyCore().setImagePlacement("![Fig](a.png)", "Fig", 0, out), /38%/);
 });
 
 test("a moved slider writes its width; 100% or more clears it", () => {

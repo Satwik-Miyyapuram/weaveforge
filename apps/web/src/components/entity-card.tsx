@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { tagTone } from "@/lib/tag-tone";
+import { readyCore } from "@/lib/rust-core";
 import { Button } from "./button";
 import { Chip } from "./controls";
 
@@ -83,7 +83,7 @@ export function EntityCard({
       id={id}
       className={shell}
       data-status={tone}
-      data-tag-tone={tintTag ? tagTone(tintTag) : undefined}
+      data-tag-tone={tintTag ? readyCore().tagTone(tintTag) : undefined}
       role={interactive ? "presentation" : undefined}
       onClick={onActivate}
     >

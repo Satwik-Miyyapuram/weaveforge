@@ -10,8 +10,7 @@ import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
-import { cardSnippet } from "@/lib/card-snippet";
-import { isHydratedPage, noteBodyText, readableText } from "@/lib/page-text";
+import { isHydratedPage, noteBodyText } from "@/lib/page-text";
 import { runNoteAction } from "./run-note-action";
 import { readyCore } from "@/lib/rust-core";
 
@@ -45,7 +44,7 @@ export function NoteCard({
   const [error, setError] = useState<string | null>(null);
   const hidden = useHiddenKeys().has(noteKey(page.id));
   const preview = noteBodyText(page);
-  const excerpt = cardSnippet(readableText(preview));
+  const excerpt = readyCore().cardSnippet(readyCore().readableText(preview));
   const tags = useMemo(() => readyCore().extractHashtags(preview), [preview]);
 
   async function togglePin() {

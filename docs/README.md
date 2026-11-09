@@ -18,6 +18,7 @@ For somebody using the app.
 - [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
+- [Reports](using/reports.md) — draft thesis sections, check the bibliography, convert Markdown to LaTeX
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
 - [Extending WeaveForge](using/extensions.md)
 

@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import {
-  parseImagePlacement,
-  setImagePlacement,
-} from "@/lib/markdown-image-width";
-import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
+import { readyCore } from "@/lib/rust-core";
+import type { MdAlign, MdImageAlt } from "@weaveforge/wasm";
+
+type MdCrop = NonNullable<MdImageAlt["crop"]>;
 import { Button } from "@/components/button";
 import { ImageViewer } from "./image-viewer";
 import { SegmentedControl } from "./segmented-control";
@@ -25,7 +24,7 @@ import { SegmentedControl } from "./segmented-control";
  *
  * Which reference to rewrite is found by alt text and position, because by
  * the time a picture is on screen its target is a blob URL that says nothing
- * about the markdown behind it (`markdown-image-width.ts`).
+ * about the markdown behind it (wf-core `markdown_image_width`).
  *
  * On a document that cannot be edited, a click opens the picture full size
  * in the shared ImageViewer instead.
@@ -133,7 +132,7 @@ export function ImageSizeControl({
       // The placement the source carries, read back out of the body the way
       // the renderer read it: the alt as the source wrote it.
       const raw = rawAltFor(body, alt, ordinal);
-      const parsed = raw ? parseImagePlacement(raw) : { alt };
+      const parsed = raw ? readyCore().parseMdImageAlt(raw) : { alt };
       setTarget({
         img: el,
         alt,
@@ -195,7 +194,7 @@ export function ImageSizeControl({
       storedCrop: target.placement.crop,
       storedAlign: target.placement.align,
     });
-    const rewritten = setImagePlacement(body, target.alt, target.ordinal, { crop, align, width });
+    const rewritten = readyCore().setImagePlacement(body, target.alt, target.ordinal, { crop, align, width });
     if (rewritten !== body) void onSave(rewritten);
     if (!crop) target.img.style.clipPath = "";
     if (!width || width === "100%") target.img.style.width = "";
@@ -321,7 +320,7 @@ function rawAltFor(body: string, alt: string, ordinal: number): string | null {
   let seen = 0;
   for (const match of body.matchAll(/!\[([^\]]*)\]\(([^\s)]+)\)/g)) {
     const raw = match[1] ?? "";
-    if (parseImagePlacement(raw).alt !== alt) continue;
+    if (readyCore().parseMdImageAlt(raw).alt !== alt) continue;
     if (seen++ === ordinal) return raw;
   }
   return null;

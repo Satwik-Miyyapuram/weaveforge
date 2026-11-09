@@ -8,8 +8,23 @@ import {
   cleanPastedText,
   cleanPdfText,
   cleanUrlsWithRules,
+  cardSnippet,
   cleanWrappedText,
   coreInfo,
+  countWords,
+  headingSlug,
+  commandMatchIndices,
+  groupPaletteRows,
+  isPreviewKey,
+  matchingPageIndices,
+  paletteModeFor,
+  sortHitOrder,
+  parseMdImageAlt,
+  setImagePlacement,
+  withImageWidth,
+  withMdImageAlt,
+  stripUnresolvedImageRefs,
+  tagTone,
   decideGitSyncPath,
   defaultInkNoteMeta,
   defaultPasteSettings,
@@ -29,7 +44,10 @@ import {
   imageAltFromFilename,
   indexTerms,
   initSync,
+  invalidationMap,
+  invalidationPlan,
   isInkNoteBody,
+  isKnownResourceType,
   isSafeWorkspacePath,
   isUnderIgnoredFolder,
   jsonKindOfPath,
@@ -47,6 +65,7 @@ import {
   pasteLandsInVerbatimContext,
   readFrontmatter,
   readInkNoteBody,
+  readableText,
   safeWorkspacePath,
   sameValue,
   stampWorkspaceId,
@@ -90,6 +109,29 @@ test("coreInfo returns the core crate version", () => {
   const version = cargo.match(/^version = "([^"]+)"/m)?.[1];
   assert.ok(version, "Cargo.toml has no workspace version");
   assert.deepEqual(coreInfo(), { version });
+});
+
+test("tagTone returns slot 1..6 with the TypeScript hash", () => {
+  assert.equal(tagTone("a"), 2);
+  assert.equal(tagTone("ab"), 4);
+  assert.equal(tagTone("Research"), tagTone("research"));
+  assert.equal(tagTone(""), 1);
+});
+
+test("headingSlug follows the anchor rules", () => {
+  assert.equal(headingSlug("  --Intro: a/b?!--  "), "intro-a-b");
+  assert.equal(headingSlug("Section 2 Ünïcode"), "section-2-ünïcode");
+  assert.equal(headingSlug("!!! ???"), "");
+});
+test("stripUnresolvedImageRefs drops only refs with no resolved path", () => {
+  assert.equal(stripUnresolvedImageRefs("![a](p:a.png) and ![b](p:b.png)", "p:", ["a.png", "b.png"], ["a.png"]), "![a](p:a.png) and ");
+  assert.equal(stripUnresolvedImageRefs("![x](r:a+b(1).png)", "r:", ["a+b(1).png"], []), "");
+});
+
+test("countWords counts runs of non-whitespace", () => {
+  assert.equal(countWords("one two  three\nfour"), 4);
+  assert.equal(countWords("   \n\t "), 0);
+  assert.equal(countWords(""), 0);
 });
 
 test("the wrapper modules declare no types of their own", () => {
@@ -552,6 +594,8 @@ test("ink note header round-trips and rejects unknown papers", () => {
   assert.deepEqual(readInkNoteBody(writeInkNoteBody(meta, "hello")), { meta, text: "hello" });
   assert.equal(isInkNoteBody(writeInkNoteBody(defaults, "")), true);
   assert.equal(isInkNoteBody("# plain"), false);
+  assert.equal(readableText("# plain"), "# plain");
+  assert.equal(readableText(writeInkNoteBody(defaults, "one\n\n<!-- page 2 -->\ntwo")), "one\n\ntwo");
   assert.throws(() => writeInkNoteBody({ ...meta, paper: "lined" as never }, ""));
 });
 
@@ -729,4 +773,127 @@ test("isConferenceCopy is false for a preprint server venue", () => {
   assert.equal(isConferenceCopy(tidyPaper({ id: "a", venue: "ICML 2023" })), true);
   assert.equal(isConferenceCopy(tidyPaper({ id: "b", venue: "arXiv" })), false);
   assert.equal(isConferenceCopy(tidyPaper({ id: "c", venue: "  " })), false);
+});
+test("parseMdImageAlt splits text, side, crop and width", () => {
+  assert.deepEqual(parseMdImageAlt("photo right c=0,0,10,10|60%"), {
+    alt: "photo",
+    align: "right",
+    crop: [0, 0, 10, 10],
+    width: "60%",
+  });
+  assert.deepEqual(parseMdImageAlt("Figure 1|300"), { alt: "Figure 1", width: "300px" });
+  assert.deepEqual(parseMdImageAlt("photo c=1,2,3"), { alt: "photo c=1,2,3" });
+});
+
+test("withMdImageAlt writes what parseMdImageAlt reads, and clears on null", () => {
+  assert.equal(withMdImageAlt("photo", { align: "right", crop: [0, 0, 10, 10], width: "60%" }), "photo right c=0,0,10,10|60%");
+  assert.equal(withMdImageAlt("photo", { crop: null, align: null, width: null }), "photo");
+  assert.equal(withMdImageAlt("photo", { width: "140%" }), "photo|100%");
+});
+
+test("withImageWidth writes and clears the suffix", () => {
+  assert.equal(withImageWidth("Figure 1", "40%"), "Figure 1|40%");
+  assert.equal(withImageWidth("Figure 1|40%", null), "Figure 1");
+});
+
+test("setImagePlacement replaces a placement and keeps the rest", () => {
+  const body = "![photo right c=0,0,10,10|40%](x.png)";
+  assert.equal(setImagePlacement(body, "photo", 0, { align: "left" }), "![photo left c=0,0,10,10|40%](x.png)");
+  assert.equal(setImagePlacement(body, "photo", 0, { align: null, crop: null, width: null }), "![photo](x.png)");
+});
+
+test("setImagePlacement keeps a field that is undefined, clears a null one", () => {
+  const body = "![photo right c=0,0,10,10|40%](x.png)";
+  assert.equal(setImagePlacement(body, "photo", 0, { align: "left", width: undefined }), "![photo left c=0,0,10,10|40%](x.png)");
+});
+
+test("sortHitOrder orders titles naturally and keeps ties in place", () => {
+  const rows = [{ title: "item 10" }, { title: "Alpha" }, { title: "item 9" }, { title: "alpha" }];
+  assert.deepEqual(sortHitOrder(rows, "title"), [1, 3, 2, 0]);
+  assert.deepEqual(sortHitOrder(rows, "relevance"), [0, 1, 2, 3]);
+});
+
+test("isPreviewKey: Space previews outside the text box, Shift+Space anywhere", () => {
+  const space = { key: " ", shiftKey: false, ctrlKey: false, metaKey: false, altKey: false };
+  assert.equal(isPreviewKey(space, false), true);
+  assert.equal(isPreviewKey(space, true), false);
+  assert.equal(isPreviewKey({ ...space, shiftKey: true }, true), true);
+  assert.equal(isPreviewKey({ ...space, ctrlKey: true }, false), false);
+});
+
+test("groupPaletteRows lists headings in display order with row indices", () => {
+  assert.deepEqual(groupPaletteRows(["Notes", "Papers", "Notes"]), [
+    { label: "Papers", rows: [1] },
+    { label: "Notes", rows: [0, 2] },
+  ]);
+  assert.deepEqual(groupPaletteRows([]), []);
+});
+
+test("matchingPageIndices puts names that start with the query first", () => {
+  assert.deepEqual(matchingPageIndices(["Report", "Paper map", "Workspace"], "p"), [1, 0, 2]);
+  assert.deepEqual(matchingPageIndices(["Papers"], "  "), []);
+});
+
+test("commandMatchIndices lists everything for an empty query", () => {
+  assert.deepEqual(commandMatchIndices(["Settings", "New project"], ""), [0, 1]);
+  assert.deepEqual(commandMatchIndices(["Settings", "New project"], "pro"), [1]);
+});
+
+test("paletteModeFor maps Ctrl+K to search and a bare key to null", () => {
+  const ctrl = { key: "k", shiftKey: false, ctrlKey: true, metaKey: false, altKey: false };
+  assert.equal(paletteModeFor(ctrl), "search");
+  assert.equal(paletteModeFor({ ...ctrl, ctrlKey: false }), null);
+});
+
+test("cardSnippet shows nothing for an empty or placeholder summary", () => {
+  assert.equal(cardSnippet(""), "");
+  assert.equal(cardSnippet("No summary yet."), "");
+  assert.equal(cardSnippet("  **No summary yet.**  "), "");
+});
+
+test("cardSnippet strips markup and cuts to its budget", () => {
+  assert.equal(cardSnippet("# Title\n\nSome *body*"), "Some body");
+  assert.equal(cardSnippet("abcdef", 3), "abc…");
+});
+
+test("cardSnippet drops front matter, headings and tables (DA-28)", () => {
+  const body = [
+    "---",
+    "title: Draft",
+    "tags: [a]",
+    "---",
+    "# Draft",
+    "",
+    "| col | col |",
+    "| --- | --- |",
+    "| 1 | 2 |",
+    "",
+    "## Method",
+    "First real sentence.",
+  ].join("\n");
+  assert.equal(cardSnippet(body), "First real sentence.");
+});
+
+test("cardSnippet keeps a horizontal rule mid-note", () => {
+  assert.match(cardSnippet("Intro.\n\n---\n\nMore."), /^Intro\..*More\.$/);
+});
+
+test("invalidationPlan returns the paper plan and null for an unknown name", () => {
+  const plan = invalidationPlan("paper");
+  assert.ok(plan);
+  assert.deepEqual(plan.screens, ["papers", "graph", "lists"]);
+  assert.ok(plan.repos.includes("paper_tag"));
+  assert.equal(invalidationPlan("constructor"), null);
+});
+
+test("isKnownResourceType accepts map names and rejects prototype keys", () => {
+  assert.equal(isKnownResourceType("vault_page"), true);
+  assert.equal(isKnownResourceType("toString"), false);
+});
+
+test("invalidationMap has one entry per resource type", () => {
+  const map = invalidationMap();
+  assert.equal(map.length, 18);
+  assert.ok(map.every((entry) => isKnownResourceType(entry.resource)));
+  assert.deepEqual(map.find((entry) => entry.resource === "comment")?.plan.screens, []);
 });
