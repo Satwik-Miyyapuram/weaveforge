@@ -5,7 +5,8 @@
  * people below the reader in the supervisor tree, and the UI never says
  * "supervisee".
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,10 @@ const phd: Member = { id: "phd", role: "phd", supervisorId: "prof", fullName: "P
 const ms: Member = { id: "ms", role: "masters", supervisorId: "phd", fullName: "MSc" };
 const otherMs: Member = { id: "ms2", role: "masters", supervisorId: "prof", fullName: "MSc 2" };
 const team = [prof, phd, ms, otherMs];
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("a PhD student's students are below them, not their supervisor", () => {
   assert.deepEqual(studentsOf("phd", team).map((m) => m.id), ["ms"]);

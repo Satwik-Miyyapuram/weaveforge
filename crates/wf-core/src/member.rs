@@ -1,6 +1,10 @@
 //! Lab member rules: role ranks, new-member validation, email masking, and confirmation-code parsing.
 
-use crate::org::ORG_INVITE_ROLES;
+use std::collections::{HashMap, HashSet, VecDeque};
+
+use serde::{Deserialize, Serialize};
+
+use crate::org::{Membership, ORG_INVITE_ROLES, is_explicit_lab_membership};
 
 /// Rank of a role for creation rules. Higher ranks can create lower ones; `None` is unknown.
 #[must_use]
@@ -27,7 +31,8 @@ pub fn can_create_role(creator: &str, target: &str) -> bool {
 }
 
 /// A validated account request for a new lab member.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewMember {
     /// Lowercased, trimmed email.
     pub email: String,
@@ -161,10 +166,379 @@ fn is_hash(s: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'-')
 }
 
+/// Roles `creator` may create accounts for, in invite-code order.
+#[must_use]
+pub fn creatable_roles(creator: &str) -> Vec<&'static str> {
+    let Some(rank) = role_rank(creator) else {
+        return Vec::new();
+    };
+    ORG_INVITE_ROLES
+        .into_iter()
+        .filter(|role| role_rank(role).is_some_and(|r| r < rank))
+        .collect()
+}
+
+/// A lab member as the visibility rules see them: an id and the supervisor's id.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberLink {
+    pub id: String,
+    pub supervisor_id: Option<String>,
+}
+
+/// Ids the viewer can see: the viewer and everyone below them, at any depth.
+#[must_use]
+pub fn accessible_member_ids(viewer_id: &str, members: &[MemberLink]) -> HashSet<String> {
+    let mut children_of: HashMap<&str, Vec<&str>> = HashMap::new();
+    for m in members {
+        if let Some(supervisor) = m.supervisor_id.as_deref().filter(|s| !s.is_empty()) {
+            children_of
+                .entry(supervisor)
+                .or_default()
+                .push(m.id.as_str());
+        }
+    }
+    let mut ids = HashSet::from([viewer_id.to_owned()]);
+    let mut queue = VecDeque::from([viewer_id]);
+    while let Some(current) = queue.pop_front() {
+        for &child in children_of.get(&current).into_iter().flatten() {
+            if ids.insert(child.to_owned()) {
+                queue.push_back(child);
+            }
+        }
+    }
+    ids
+}
+
+/// What the viewer may see of a lab. `org_member_ids` is the active lab's roster, when known.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamVisibility {
+    pub in_lab: bool,
+    pub org_member_ids: Option<HashSet<String>>,
+}
+
+/// Indices of the active-lab roster. Falls back to the viewer alone when the roster is
+/// empty or unknown (fails closed).
+fn scoped_lab_pool(
+    viewer_id: &str,
+    members: &[MemberLink],
+    options: &TeamVisibility,
+) -> Vec<usize> {
+    let lab = if options.in_lab {
+        options.org_member_ids.as_ref()
+    } else {
+        None
+    };
+    if let Some(lab) = lab.filter(|lab| !lab.is_empty()) {
+        return members
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| lab.contains(&m.id))
+            .map(|(i, _)| i)
+            .collect();
+    }
+    members
+        .iter()
+        .position(|m| m.id == viewer_id)
+        .into_iter()
+        .collect()
+}
+
+/// Indices of the supervision team: the viewer plus all supervisees, at any depth. A
+/// viewer outside a lab sees only themselves.
+#[must_use]
+pub fn filter_team_members(
+    viewer_id: &str,
+    members: &[MemberLink],
+    options: &TeamVisibility,
+) -> Vec<usize> {
+    let pool = scoped_lab_pool(viewer_id, members, options);
+    if !options.in_lab {
+        return pool;
+    }
+    let pool_links: Vec<MemberLink> = pool.iter().map(|&i| members[i].clone()).collect();
+    let allowed = accessible_member_ids(viewer_id, &pool_links);
+    let mut seen = HashSet::new();
+    pool.into_iter()
+        .filter(|&i| allowed.contains(&members[i].id) && seen.insert(members[i].id.as_str()))
+        .collect()
+}
+
+/// Indices of the full active-lab roster for the org chart, supervisors and peers included.
+#[must_use]
+pub fn filter_lab_members(
+    viewer_id: &str,
+    members: &[MemberLink],
+    options: &TeamVisibility,
+) -> Vec<usize> {
+    scoped_lab_pool(viewer_id, members, options)
+}
+
+/// Indices of the people below `viewer_id` in the supervisor tree, at any depth.
+#[must_use]
+pub fn students_of(viewer_id: Option<&str>, team: &[MemberLink]) -> Vec<usize> {
+    let Some(viewer_id) = viewer_id.filter(|v| !v.is_empty()) else {
+        return Vec::new();
+    };
+    let below = accessible_member_ids(viewer_id, team);
+    team.iter()
+        .enumerate()
+        .filter(|(_, m)| m.id != viewer_id && below.contains(&m.id))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// Whether a role can supervise others (rank above masters).
+#[must_use]
+pub fn is_supervisor_role(role: Option<&str>) -> bool {
+    role.and_then(role_rank).is_some_and(|rank| rank > 0)
+}
+
+/// Role shown for a member. Outside a lab everyone is standalone, except a professor whose
+/// viewer owns the lab.
+#[must_use]
+pub fn resolve_display_role<'a>(role: &'a str, in_lab: bool, owns_org: bool) -> &'a str {
+    if in_lab {
+        return role;
+    }
+    if owns_org && role == "professor" {
+        return "professor";
+    }
+    "standalone"
+}
+
+/// The profile fields the standalone role sync reads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileState {
+    pub role: String,
+    pub org_setup_complete: Option<bool>,
+    pub active_org_id: Option<String>,
+}
+
+/// Whether `profiles.role` should be saved as standalone: the stored lab role is stale.
+#[must_use]
+pub fn needs_standalone_role_sync(
+    profile: Option<&ProfileState>,
+    memberships: &[Membership],
+    in_lab: bool,
+) -> bool {
+    let Some(profile) = profile else {
+        return false;
+    };
+    if profile.org_setup_complete == Some(false) || in_lab || profile.role == "standalone" {
+        return false;
+    }
+    let owns_org = memberships
+        .iter()
+        .any(|m| m.join_source.as_deref() == Some("create"));
+    if owns_org && profile.role == "professor" {
+        return false;
+    }
+    !memberships.iter().any(is_explicit_lab_membership)
+}
+
+/// Supervisor recorded for an account the `creator_id` member creates: the creator.
+#[must_use]
+pub fn resolve_supervisor_id(creator_id: &str) -> String {
+    creator_id.to_owned()
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    #[test]
+    fn resolve_supervisor_id_is_creator() {
+        assert_eq!(resolve_supervisor_id("prof"), "prof");
+    }
+
+
+    fn link(id: &str, supervisor: Option<&str>) -> MemberLink {
+        MemberLink {
+            id: id.to_owned(),
+            supervisor_id: supervisor.map(str::to_owned),
+        }
+    }
+
+    fn ids(members: &[MemberLink], idx: &[usize]) -> Vec<String> {
+        idx.iter().map(|&i| members[i].id.clone()).collect()
+    }
+
+    fn lab_team() -> Vec<MemberLink> {
+        vec![
+            link("prof", None),
+            link("phd", Some("prof")),
+            link("ms", Some("phd")),
+            link("ms2", Some("prof")),
+            link("peer", None),
+        ]
+    }
+
+    fn in_lab(roster: &[&str]) -> TeamVisibility {
+        TeamVisibility {
+            in_lab: true,
+            org_member_ids: Some(roster.iter().map(|s| (*s).to_owned()).collect()),
+        }
+    }
+
+    #[test]
+    fn creatable_roles_only_lower_ranks() {
+        assert_eq!(creatable_roles("professor"), ["phd", "masters"]);
+        assert_eq!(creatable_roles("phd"), ["masters"]);
+        assert!(creatable_roles("masters").is_empty());
+        assert!(creatable_roles("standalone").is_empty());
+        assert!(creatable_roles("nope").is_empty());
+    }
+
+    #[test]
+    fn accessible_ids_are_the_whole_subtree() {
+        let team = lab_team();
+        let prof = accessible_member_ids("prof", &team);
+        assert_eq!(prof.len(), 4);
+        assert!(!prof.contains("peer"));
+        let phd = accessible_member_ids("phd", &team);
+        assert_eq!(phd, HashSet::from(["phd".to_owned(), "ms".to_owned()]));
+    }
+
+    #[test]
+    fn empty_supervisor_id_is_not_a_parent() {
+        let team = vec![link("a", Some("")), link("b", Some("a"))];
+        assert_eq!(accessible_member_ids("a", &team).len(), 2);
+    }
+
+    #[test]
+    fn team_outside_a_lab_is_the_viewer_only() {
+        let team = lab_team();
+        let solo = filter_team_members("ms2", &team, &TeamVisibility::default());
+        assert_eq!(ids(&team, &solo), ["ms2"]);
+    }
+
+    #[test]
+    fn team_in_lab_is_scoped_to_the_roster() {
+        let team = lab_team();
+        let options = in_lab(&["prof", "phd", "ms", "ms2"]);
+        assert_eq!(
+            ids(&team, &filter_team_members("prof", &team, &options)),
+            ["prof", "phd", "ms", "ms2"]
+        );
+        assert_eq!(
+            ids(&team, &filter_team_members("phd", &team, &options)),
+            ["phd", "ms"]
+        );
+    }
+
+    #[test]
+    fn empty_or_unknown_roster_fails_closed_to_the_viewer() {
+        let team = lab_team();
+        let no_roster = TeamVisibility {
+            in_lab: true,
+            org_member_ids: None,
+        };
+        assert_eq!(
+            ids(&team, &filter_team_members("prof", &team, &no_roster)),
+            ["prof"]
+        );
+        assert_eq!(
+            ids(&team, &filter_lab_members("prof", &team, &in_lab(&[]))),
+            ["prof"]
+        );
+    }
+
+    #[test]
+    fn lab_roster_includes_supervisors_and_peers() {
+        let team = lab_team();
+        let options = in_lab(&["prof", "phd", "peer"]);
+        assert_eq!(
+            ids(&team, &filter_lab_members("phd", &team, &options)),
+            ["prof", "phd", "peer"]
+        );
+    }
+
+    #[test]
+    fn students_are_below_the_viewer_only() {
+        let team = lab_team();
+        assert_eq!(ids(&team, &students_of(Some("phd"), &team)), ["ms"]);
+        assert_eq!(
+            ids(&team, &students_of(Some("prof"), &team)),
+            ["phd", "ms", "ms2"]
+        );
+        assert!(students_of(Some("ms"), &team).is_empty());
+        assert!(students_of(None, &team).is_empty());
+        assert!(students_of(Some(""), &team).is_empty());
+    }
+
+    #[test]
+    fn supervisors_are_above_masters() {
+        assert!(is_supervisor_role(Some("professor")));
+        assert!(is_supervisor_role(Some("phd")));
+        assert!(!is_supervisor_role(Some("masters")));
+        assert!(!is_supervisor_role(Some("standalone")));
+        assert!(!is_supervisor_role(None));
+    }
+
+    #[test]
+    fn display_role_is_standalone_outside_a_lab() {
+        assert_eq!(resolve_display_role("masters", false, false), "standalone");
+        assert_eq!(resolve_display_role("masters", true, false), "masters");
+        assert_eq!(resolve_display_role("professor", false, true), "professor");
+        assert_eq!(resolve_display_role("phd", false, true), "standalone");
+    }
+
+    fn profile(role: &str, setup: Option<bool>) -> ProfileState {
+        ProfileState {
+            role: role.to_owned(),
+            org_setup_complete: setup,
+            active_org_id: None,
+        }
+    }
+
+    fn membership(source: Option<&str>) -> Membership {
+        Membership {
+            org_id: "org".to_owned(),
+            join_source: source.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn stale_lab_role_needs_standalone_sync() {
+        let masters = profile("masters", Some(true));
+        assert!(needs_standalone_role_sync(Some(&masters), &[], false));
+        assert!(needs_standalone_role_sync(
+            Some(&masters),
+            &[membership(Some("backfill"))],
+            false
+        ));
+        assert!(!needs_standalone_role_sync(
+            Some(&masters),
+            &[membership(Some("invite"))],
+            false
+        ));
+        assert!(!needs_standalone_role_sync(Some(&masters), &[], true));
+    }
+
+    #[test]
+    fn owner_professor_and_unset_setup_skip_the_sync() {
+        let prof = profile("professor", Some(true));
+        assert!(!needs_standalone_role_sync(
+            Some(&prof),
+            &[membership(Some("create"))],
+            false
+        ));
+        assert!(needs_standalone_role_sync(Some(&prof), &[], false));
+        assert!(!needs_standalone_role_sync(
+            Some(&profile("masters", Some(false))),
+            &[],
+            false
+        ));
+        assert!(!needs_standalone_role_sync(None, &[], false));
+        assert!(!needs_standalone_role_sync(
+            Some(&profile("standalone", None)),
+            &[],
+            false
+        ));
+    }
 
     #[test]
     fn rank_orders_roles() {

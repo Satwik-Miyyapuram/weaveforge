@@ -179,7 +179,7 @@ test("coreImports reads value names and skips type imports", () => {
 
 test("coreImports reads subpaths, dynamic imports and namespace uses", () => {
   const text = [
-    `import { g } from "@weaveforge/core/org-crypto";`,
+    `import { g } from "@weaveforge/core/reader-analysis";`,
     `const { h, i: j } = await import("@weaveforge/core");`,
     `import * as wf from "@weaveforge/core";`,
     `wf.k(wf.l);`,

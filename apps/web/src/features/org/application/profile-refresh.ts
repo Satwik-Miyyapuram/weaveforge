@@ -2,7 +2,7 @@ import type { Member, OrgMembershipView } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { shouldSyncStandalone } from "./org-profile-state";
+import { readyCore } from "@/lib/rust-core";
 
 /** Where a profile refresh reads from. */
 export interface ProfileSources {
@@ -45,7 +45,7 @@ export async function loadProfileBundle(src: ProfileSources): Promise<ProfileBun
     }),
   ]);
 
-  if (!shouldSyncStandalone(mine, labs)) {
+  if (!readyCore().shouldSyncStandalone(mine, labs)) {
     return { profile: mine, team: members, labMembers: lab, memberships: labs };
   }
   try {

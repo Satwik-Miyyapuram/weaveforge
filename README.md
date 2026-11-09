@@ -153,6 +153,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 | [`docs/using/search.md`](docs/using/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
 | [`docs/using/paste.md`](docs/using/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
 | [`docs/using/collaborative-editing.md`](docs/using/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
+| [`docs/using/organisations.md`](docs/using/organisations.md) | Labs: create or join with an invite code, roles, who sees whom |
 | [`docs/using/desktop.md`](docs/using/desktop.md) | The desktop & mobile apps — Windows, Mac, Android install & offline mode |
 | [`docs/using/workspaces.md`](docs/using/workspaces.md) | Projects & workspaces — project boundaries, switching, multi-pane editor |
 | [`docs/using/workspace-folder.md`](docs/using/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
