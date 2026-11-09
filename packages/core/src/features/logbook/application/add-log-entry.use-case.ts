@@ -7,16 +7,11 @@
  * entry.
  */
 
-import {
-  createLogEntry,
-  LogEntryValidationError,
-  type LogEntry,
-  type LogKind,
-  type NewLogEntryInput,
-} from "../domain/log-entry.js";
+import { LogEntryValidationError, type LogEntry, type LogKind, type NewLogEntryInput } from "../domain/log-entry.js";
 import type { ILogEntryRepository } from "../domain/log-entry-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 /** Editable fields of an existing log entry (id/date/createdAt are preserved). */
 export interface EditLogEntryInput {
@@ -34,7 +29,7 @@ export class AddLogEntryUseCase {
   constructor(private readonly deps: AddLogEntryDeps) {}
 
   async add(input: NewLogEntryInput): Promise<LogEntry> {
-    const entry = createLogEntry(input, {
+    const entry = rust().createLogEntry(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });

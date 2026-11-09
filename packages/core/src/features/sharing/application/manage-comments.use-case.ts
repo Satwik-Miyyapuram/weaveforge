@@ -1,10 +1,7 @@
 /** Use-case for comments. Validates then delegates (RLS gates who may add). */
-import {
-  normalizeCommentInput,
-  type Comment,
-  type NewCommentInput,
-} from "../domain/comment.js";
+import { type Comment, type NewCommentInput } from "../domain/comment.js";
 import type { ICommentRepository } from "../domain/comment-repository.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageCommentsDeps {
   repository: ICommentRepository;
@@ -18,7 +15,7 @@ export class ManageCommentsUseCase {
   }
 
   async add(input: NewCommentInput): Promise<Comment> {
-    return this.deps.repository.add(normalizeCommentInput(input));
+    return this.deps.repository.add(rust().normalizeCommentInput(input));
   }
 
   async remove(id: string): Promise<void> {

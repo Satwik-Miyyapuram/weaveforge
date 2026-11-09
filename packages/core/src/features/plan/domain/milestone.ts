@@ -1,9 +1,4 @@
-/**
- * Plan domain model — pure, no I/O. A Milestone is a forward-looking unit of
- * the thesis plan: what must be done, by when, what it depends on, and what
- * compute it needs. One reason to change: the rules of what a milestone *is*.
- */
-
+/** Types for milestone. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
@@ -95,71 +90,13 @@ export class MilestoneValidationError extends ValidationError {
   }
 }
 
-const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/** True for a `yyyy-mm-dd` day that is on the calendar: not 2026-02-31. */
-export function isIsoDay(value: string): boolean {
-  const m = DATE_RE.exec(value);
-  if (!m) return false;
-  const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(0);
-  // setUTCFullYear, not Date.UTC, which reads years 0-99 as 1900-1999.
-  date.setUTCFullYear(year, month - 1, day);
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
-/** Validate a dependency list; throws on structurally invalid entries. */
-export function validateDependencies(deps: MilestoneDependency[]): void {
-  for (const d of deps) {
-    if (!DEPENDENCY_KINDS.includes(d.kind)) {
-      throw new MilestoneValidationError(`Unknown dependency kind "${d.kind}".`);
-    }
-    if (d.kind === "external") {
-      if (!d.label?.trim()) {
-        throw new MilestoneValidationError("External dependencies need a label.");
-      }
-    } else if (!d.refId?.trim()) {
-      throw new MilestoneValidationError(`A ${d.kind} dependency needs a refId.`);
-    }
-  }
-}
-
-/** Validate compute needs; throws on invalid entries. */
-export function validateCompute(compute: ComputeNeed[]): void {
-  for (const c of compute) {
-    if (!c.resource?.trim()) {
-      throw new MilestoneValidationError("Compute needs a resource name.");
-    }
-    if (c.count != null && (!Number.isFinite(c.count) || c.count <= 0)) {
-      throw new MilestoneValidationError("Compute count must be a positive number.");
-    }
-    if (c.hours != null && (!Number.isFinite(c.hours) || c.hours < 0)) {
-      throw new MilestoneValidationError("Compute hours cannot be negative.");
-    }
-  }
-}
-
-export function createMilestone(
-  input: NewMilestoneInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): Milestone {
-  const title = input.title?.trim();
-  if (!title) throw new MilestoneValidationError("Milestone title is required.");
-  if (input.targetDate && !isIsoDay(input.targetDate)) {
-    throw new MilestoneValidationError("Target date must be yyyy-mm-dd.");
-  }
-  const dependencies = input.dependencies ?? [];
-  const compute = input.compute ?? [];
-  validateDependencies(dependencies);
-  validateCompute(compute);
-  return {
-    id: deps.ids.newId(),
-    title,
-    description: input.description,
-    status: input.status ?? "planned",
-    targetDate: input.targetDate,
-    dependencies,
-    compute,
-    createdAt: deps.clock.nowIso(),
-  };
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface MilestoneFns {
+  /** True for a `yyyy-mm-dd` day that is on the calendar: not 2026-02-31. */
+  isIsoDay(value: string): boolean;
+  /** Validate a dependency list; throws on structurally invalid entries. */
+  validateDependencies(deps: MilestoneDependency[]): void;
+  /** Validate compute needs; throws on invalid entries. */
+  validateCompute(compute: ComputeNeed[]): void;
+  createMilestone(input: NewMilestoneInput, deps: { clock: Clock; ids: IdGenerator }): Milestone;
 }

@@ -14,6 +14,9 @@
 
 pub mod curve;
 pub mod decode;
+pub mod ink_engine;
+pub mod ink_page;
+pub mod ink_paths;
 pub mod js_math;
 pub mod recognise;
 pub mod segment;

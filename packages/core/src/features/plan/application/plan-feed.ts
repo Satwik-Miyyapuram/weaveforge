@@ -8,7 +8,8 @@
  * calendar, so the feed leaves it out and the widget summary only counts it.
  */
 
-import { isIsoDay, type Milestone, type MilestoneStatus } from "../domain/milestone.js";
+import { type Milestone, type MilestoneStatus } from "../domain/milestone.js";
+import { rust } from "../../../shared/rust.js";
 
 /** A milestone with the name of the project it belongs to, for display. */
 export interface FeedMilestone {
@@ -27,7 +28,7 @@ export interface PlanFeedOptions {
 
 /** `yyyy-mm-dd` → a real calendar date, or null for anything else. */
 function parseDate(value: string | undefined): Date | null {
-  return value && isIsoDay(value) ? new Date(`${value}T00:00:00Z`) : null;
+  return value && rust().isIsoDay(value) ? new Date(`${value}T00:00:00Z`) : null;
 }
 
 function isoDay(date: Date): string {

@@ -11,7 +11,7 @@ use wf_core::sync::git_policy::{
     FileState, GitSyncDecision, GitSyncSkipReason, decide_git_sync_path, describe_changes,
     is_under_ignored_folder,
 };
-// check_git_remote_url stays out: the url crate adds ~88 KB gzipped, and the browser has URL.
+// check_git_remote_url is bound below: the TS copy is gone, so the url crate's ~88 KB gzipped is the cost.
 use wf_core::sync::git_gate::{GitAction, GitVerdict, VaultRepoState, decide_vault_commit};
 use wf_core::sync::git_remote::{
     GitPullResult, GitPushResult, describe_pull, describe_push, redact_secret,
@@ -300,4 +300,111 @@ pub fn safe_workspace_path_js(path: &str) -> JsResult<String> {
 pub fn is_safe_workspace_path_js(path: &str) -> JsResult<bool> {
     check_text(path)?;
     Ok(is_safe_workspace_path(path))
+}
+
+/// [`slug_for`](wf_core::sync::folder_layout::slug_for); `fallback` defaults to
+/// `"untitled"` (TS `slugFor`).
+#[wasm_bindgen(js_name = slugFor)]
+#[must_use]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes optional strings by value"
+)]
+pub fn slug_for_js(title: &str, fallback: Option<String>) -> String {
+    wf_core::sync::folder_layout::slug_for(title, fallback.as_deref().unwrap_or("untitled"))
+}
+
+/// A tree node as the TS `FolderNode` spells it.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct JsFolderNode {
+    id: String,
+    title: String,
+    #[serde(default)]
+    parent_id: Option<String>,
+}
+
+/// [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `[id, path]` pairs in
+/// first-seen order (TS `treePaths`; the TS wrapper makes them a `Map`).
+///
+/// # Errors
+///
+/// Fails if `nodes` is not an array of `FolderNode`s or `entity` is not a known type.
+#[wasm_bindgen(js_name = treePathPairs)]
+pub fn tree_path_pairs_js(
+    nodes: JsValue,
+    entity: JsValue,
+    project_root: &str,
+) -> JsResult<JsValue> {
+    use wf_core::sync::folder_layout::{FolderNode, WorkspaceEntityType, tree_paths};
+    let nodes: Vec<JsFolderNode> = serde_wasm_bindgen::from_value(nodes)?;
+    let entity: WorkspaceEntityType = serde_wasm_bindgen::from_value(entity)?;
+    let nodes: Vec<FolderNode> = nodes
+        .into_iter()
+        .map(|n| FolderNode {
+            id: n.id,
+            title: n.title,
+            parent_id: n.parent_id,
+        })
+        .collect();
+    to_js(&tree_paths(&nodes, entity, project_root))
+}
+
+/// `{ ok: true, url }` or `{ ok: false, reason }`, as the TS returns it.
+#[derive(Serialize)]
+struct UrlCheck {
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<&'static str>,
+}
+
+/// [`check_git_remote_url`](wf_core::sync::git_remote::check_git_remote_url); a
+/// non-string `raw` is refused (TS `checkGitRemoteUrl`).
+///
+/// # Errors
+///
+/// Fails only if the result cannot be converted to a JS value.
+#[wasm_bindgen(js_name = checkGitRemoteUrl)]
+pub fn check_git_remote_url_js(raw: &JsValue) -> JsResult<JsValue> {
+    use wf_core::sync::git_remote::{GitRemoteUrlCheck, check_git_remote_url};
+    let check = match check_git_remote_url(raw.as_string().as_deref()) {
+        GitRemoteUrlCheck::Accepted { url } => UrlCheck {
+            ok: true,
+            url: Some(url),
+            reason: None,
+        },
+        GitRemoteUrlCheck::Refused { reason } => UrlCheck {
+            ok: false,
+            url: None,
+            reason: Some(reason),
+        },
+    };
+    to_js(&check)
+}
+
+/// [`read_ink_note_meta`](wf_core::sync::ink_note::read_ink_note_meta) of a frontmatter
+/// object (TS `readInkNoteMeta`).
+///
+/// # Errors
+///
+/// Fails if `frontmatter` is not a plain object.
+#[wasm_bindgen(js_name = readInkNoteMeta)]
+pub fn read_ink_note_meta_js(frontmatter: JsValue) -> JsResult<JsValue> {
+    let fm: serde_json::Map<String, serde_json::Value> =
+        serde_wasm_bindgen::from_value(frontmatter)?;
+    to_js(&wf_core::sync::ink_note::read_ink_note_meta(&fm))
+}
+
+/// [`split_ink_text_layer`](wf_core::sync::ink_note::split_ink_text_layer): one string per
+/// page (TS `splitInkTextLayer`).
+///
+/// # Errors
+///
+/// Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = splitInkTextLayer)]
+pub fn split_ink_text_layer_js(body: &str) -> JsResult<JsValue> {
+    check_text(body)?;
+    to_js(&wf_core::sync::ink_note::split_ink_text_layer(body))
 }

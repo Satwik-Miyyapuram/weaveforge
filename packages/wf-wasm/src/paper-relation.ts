@@ -19,6 +19,8 @@ export const RELATION_TYPES: readonly RelationType[] = [
 
 /** The validation message for relation input, if it is invalid. */
 export function paperRelationInputError(input: NewPaperRelationInput): string | undefined {
+  // An unknown type would fail to deserialize in Rust; report it as the TS rule did.
+  if (!RELATION_TYPES.includes(input.relation)) return `Unknown relation "${input.relation}".`;
   return rawPaperRelationInputError(input);
 }
 

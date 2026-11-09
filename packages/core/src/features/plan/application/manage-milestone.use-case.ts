@@ -3,20 +3,11 @@
  * status, and remove. Validation lives in the domain module.
  */
 
-import {
-  createMilestone,
-  isIsoDay,
-  validateCompute,
-  validateDependencies,
-  MilestoneValidationError,
-  type EditMilestoneInput,
-  type Milestone,
-  type MilestoneStatus,
-  type NewMilestoneInput,
-} from "../domain/milestone.js";
+import { MilestoneValidationError, type EditMilestoneInput, type Milestone, type MilestoneStatus, type NewMilestoneInput } from "../domain/milestone.js";
 import type { IMilestoneRepository } from "../domain/milestone-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageMilestoneDeps {
   repository: IMilestoneRepository;
@@ -28,7 +19,7 @@ export class ManageMilestoneUseCase {
   constructor(private readonly deps: ManageMilestoneDeps) {}
 
   async add(input: NewMilestoneInput): Promise<Milestone> {
-    const milestone = createMilestone(input, {
+    const milestone = rust().createMilestone(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });
@@ -44,11 +35,11 @@ export class ManageMilestoneUseCase {
     if (input.title != null && !input.title.trim()) {
       throw new MilestoneValidationError("Milestone title is required.");
     }
-    if (input.targetDate != null && input.targetDate !== "" && !isIsoDay(input.targetDate)) {
+    if (input.targetDate != null && input.targetDate !== "" && !rust().isIsoDay(input.targetDate)) {
       throw new MilestoneValidationError("Target date must be yyyy-mm-dd.");
     }
-    if (input.dependencies) validateDependencies(input.dependencies);
-    if (input.compute) validateCompute(input.compute);
+    if (input.dependencies) rust().validateDependencies(input.dependencies);
+    if (input.compute) rust().validateCompute(input.compute);
     return this.mutate(id, (m) => ({
       ...m,
       title: input.title?.trim() || m.title,

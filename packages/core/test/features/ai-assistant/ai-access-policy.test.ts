@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AiAccessPolicy, type AiAccessSettings, type AiSessionGrant } from "../../../src/index.js";
+import type { AiAccessSettings, AiSessionGrant } from "../../../src/index.js";
+// The policy is the Rust core class (wf-wasm).
+import { AiAccessPolicy } from "../../../../wf-wasm/src/index.ts";
 import { rust } from "../../../src/shared/rust.js";
 
 const settings: AiAccessSettings = {

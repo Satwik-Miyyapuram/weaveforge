@@ -1,11 +1,6 @@
-/**
- * Organization ("lab") domain: types and error classes. The lab rules (explicit
- * membership, active lab) are Rust, in wf-core `org`; this module calls them
- * through `rust()`.
- */
+/** Types for organization. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { OrgInviteRole } from "./invite-code.js";
 import { NotFoundError, PermissionError, ValidationError } from "../../../shared/errors.js";
-import { rust } from "../../../shared/rust.js";
 
 export interface Organization {
   id: string;
@@ -21,20 +16,6 @@ export interface OrgMembershipView {
   orgName: string;
   role: OrgInviteRole;
   joinSource: OrgJoinSource;
-}
-
-/** True when the user explicitly created or joined a lab (not migration backfill). */
-export function isExplicitLabMembership(m: OrgMembershipView): boolean {
-  return rust().isExplicitLabMembership(m);
-}
-
-/** Active lab context: selected org must be set and explicitly joined (or owned). */
-export function hasActiveLab(
-  activeOrgId: string | null | undefined,
-  memberships: readonly OrgMembershipView[],
-  ownsActiveOrg = false,
-): boolean {
-  return rust().hasActiveLab(activeOrgId, memberships, ownsActiveOrg);
 }
 
 /** Codes returned in plaintext only at create/regenerate time. */
@@ -71,4 +52,12 @@ export class OrgPermissionError extends PermissionError {
     super(message);
     this.name = "OrgPermissionError";
   }
+}
+
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface OrganizationFns {
+  /** True when the user explicitly created or joined a lab (not migration backfill). */
+  isExplicitLabMembership(m: OrgMembershipView): boolean;
+  /** Active lab context: selected org must be set and explicitly joined (or owned). */
+  hasActiveLab(activeOrgId: string | null | undefined, memberships: readonly OrgMembershipView[], ownsActiveOrg?: boolean): boolean;
 }

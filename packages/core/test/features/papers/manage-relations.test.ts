@@ -4,7 +4,6 @@ import {
   AddRelationUseCase,
   RemoveRelationUseCase,
   LinkCitationsUseCase,
-  PaperRelationValidationError,
   type Paper,
   type PaperRelation,
   type IPaperRelationRepository,
@@ -65,7 +64,7 @@ test("AddRelation: creates a typed edge and defaults source to manual", async ()
 test("AddRelation: rejects self-edges, missing endpoints, unknown types", async () => {
   const { uc } = makeAdd();
   await assert.rejects(uc.add({ fromPaper: "a", toPaper: "a", relation: "cites" }), /cannot relate to itself/);
-  await assert.rejects(uc.add({ fromPaper: "", toPaper: "b", relation: "cites" }), PaperRelationValidationError);
+  await assert.rejects(uc.add({ fromPaper: "", toPaper: "b", relation: "cites" }), { name: "PaperRelationValidationError" });
   await assert.rejects(uc.add({ fromPaper: "a", toPaper: "b", relation: "bogus" as never }), /Unknown relation/);
 });
 

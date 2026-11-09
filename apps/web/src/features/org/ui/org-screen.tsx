@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ROLE_LABELS,
-  creatableRoles,
-  hasActiveLab,
-  type Role,
-} from "@weaveforge/core";
+import { ROLE_LABELS, creatableRoles, type Role } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -21,6 +16,7 @@ import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { ownedOrgsOrError, type OwnedOrg } from "./owned-orgs";
 import { Button } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
@@ -48,7 +44,7 @@ export function OrgPanel() {
     !!profile &&
     !!activeMembership &&
     ownedOrgs.some((org) => org.id === activeMembership.orgId && org.ownerId === profile.id);
-  const isInOrg = hasActiveLab(activeOrgId, memberships, ownsActiveOrg);
+  const isInOrg = typedCore().hasActiveLab(activeOrgId, memberships, ownsActiveOrg);
   const canLeaveActiveOrg = isInOrg && !!activeMembership && !ownsActiveOrg;
 
   useEffect(() => {

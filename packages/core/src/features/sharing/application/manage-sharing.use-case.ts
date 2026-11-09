@@ -3,13 +3,9 @@
  * the repository (which enforces idempotency + RLS). Kept thin because the DB
  * owns identity, ownership (auth.uid()), and the uniqueness rule.
  */
-import {
-  normalizeShareInput,
-  type NewShareInput,
-  type Share,
-  type ShareableType,
-} from "../domain/share.js";
+import { type NewShareInput, type Share, type ShareableType } from "../domain/share.js";
 import type { IShareRepository } from "../domain/share-repository.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageSharingDeps {
   repository: IShareRepository;
@@ -20,7 +16,7 @@ export class ManageSharingUseCase {
 
   /** Share one item, or all of a type (`resourceId: null`), with a member. */
   async grant(input: NewShareInput): Promise<Share> {
-    return this.deps.repository.grant(normalizeShareInput(input));
+    return this.deps.repository.grant(rust().normalizeShareInput(input));
   }
 
   async revoke(id: string): Promise<void> {
