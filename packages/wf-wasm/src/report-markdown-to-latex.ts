@@ -33,3 +33,8 @@ export function uniqueFigureName(raw: string, used: Set<string>): string {
   used.add(name);
   return name;
 }
+
+/** A file-safe figure name not in `used` (Rust `unique_figure_name`); `used` is not changed. */
+export function uniqueFigureNameIn(raw: string, used: readonly string[]): string {
+  return rawUniqueFigureNameIn(raw, [...used]);
+}

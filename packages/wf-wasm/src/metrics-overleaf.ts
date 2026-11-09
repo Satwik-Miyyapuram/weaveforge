@@ -72,3 +72,16 @@ export function externalUrl(overleafProjectId: string): string {
 export function sanitizeSectionTargets(input: unknown): Record<string, number> | null {
   return (rawSanitizeSectionTargets(input) as Record<string, number> | null) ?? null;
 }
+
+/** The project's browser URL (Rust `overleaf_external_url`). */
+export function overleafExternalUrl(overleafProjectId: string): string {
+  return rawOverleafExternalUrl(overleafProjectId);
+}
+
+/** Indices of the steps to keep and the superseded tip (Rust `plan_series_ingest`). */
+export function planSeriesIngestIndices(
+  steps: Float64Array,
+  previousMaxStep?: number | null,
+): { keep: number[]; supersededTipStep: number | null } {
+  return rawPlanSeriesIngestIndices(steps, previousMaxStep) as { keep: number[]; supersededTipStep: number | null };
+}

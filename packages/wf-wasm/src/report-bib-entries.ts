@@ -7,27 +7,7 @@ import {
   parseBibEntries as rawParseBibEntries,
   parseLatexSectionTree as rawParseLatexSectionTree,
 } from "../pkg/wf_wasm.js";
-import type { BibEntry, BibParseResult, BibWarning, LatexSourceFile } from "./bindings.js";
-
-/** Outline of a LaTeX project (core `LatexSectionTreeResult`). */
-export interface LatexSectionTreeResult {
-  roots: LatexSectionNodeShape[];
-  files: string[];
-  warnings: string[];
-}
-
-/** One heading and the span it governs (core `LatexSectionNode`). */
-export interface LatexSectionNodeShape {
-  id: string;
-  title: string;
-  command: string;
-  level: number;
-  file: string;
-  startLine: number;
-  endLine: number;
-  preview: string;
-  children: LatexSectionNodeShape[];
-}
+import type { BibEntry, BibParseResult, BibWarning, LatexSectionTree, LatexSourceFile } from "./bindings.js";
 
 /**
  * Parses every `.bib` among `files`; non-`.bib` files are ignored. Bad entries become warnings.
@@ -54,6 +34,6 @@ export function parseBibEntries(files: readonly LatexSourceFile[]): {
 export function parseLatexSectionTree(
   sources: readonly LatexSourceFile[],
   entryFile = "main.tex",
-): LatexSectionTreeResult {
-  return rawParseLatexSectionTree(sources, entryFile) as LatexSectionTreeResult;
+): LatexSectionTree {
+  return rawParseLatexSectionTree(sources, entryFile) as LatexSectionTree;
 }

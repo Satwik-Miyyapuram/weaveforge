@@ -8,6 +8,7 @@ use crate::search::js_text::is_js_whitespace;
 
 /// One concept a run found (TS `ExtractedConcept`). `kind` stays text so any value passes through.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractedConcept {
     /// Display name.
@@ -23,6 +24,7 @@ pub struct ExtractedConcept {
 
 /// Where a concept was found (TS `ExtractedMention`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractedMention {
     /// The document it was found in.
@@ -35,6 +37,7 @@ pub struct ExtractedMention {
 
 /// A run's concepts and mentions (TS `ExtractionResult`).
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractionResult {
     /// The concepts.
@@ -45,6 +48,7 @@ pub struct ExtractionResult {
     pub mentions: Vec<ExtractedMention>,
     /// Set when the work was handed to something that answers later.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub pending: Option<bool>,
 }
 

@@ -15,13 +15,7 @@ import {
   samePeers as rawSamePeers,
   withoutExisting as rawWithoutExisting,
 } from "../pkg/wf_wasm.js";
-
-/** A run's concepts and mentions (core `ExtractionResult`). */
-export interface ExtractionResultShape {
-  concepts: { name: string; aliases: string[]; kind: string; mentions: number }[];
-  mentions: { documentId: string; conceptName: string; evidence: string }[];
-  pending?: true;
-}
+import type { CommentAnchor, ExtractionResult, Peer, ReferencePaper } from "./bindings.js";
 
 /** Normalized key for comparing concept names: trimmed, lowercased, whitespace runs as one space. */
 export function conceptKey(name: string): string {
@@ -29,12 +23,12 @@ export function conceptKey(name: string): string {
 }
 
 /** Merge results: counts summed, aliases unioned, mentions deduped; most-mentioned first. */
-export function mergeExtractions<R extends ExtractionResultShape>(results: readonly R[]): R {
+export function mergeExtractions<R extends ExtractionResult>(results: readonly R[]): R {
   return rawMergeExtractions(results) as R;
 }
 
 /** Drop concepts whose name or any alias is already in the wiki, and their mentions. */
-export function withoutExisting<R extends ExtractionResultShape>(result: R, existing: readonly string[]): R {
+export function withoutExisting<R extends ExtractionResult>(result: R, existing: readonly string[]): R {
   return rawWithoutExisting(result, [...existing]) as R;
 }
 
@@ -54,28 +48,10 @@ export function parseFolderDraft(raw: string): {
   return rawParseFolderDraft(raw) ?? null;
 }
 
-/** The paper fields an APA reference uses. */
-export interface ReferencePaperShape {
-  title: string;
-  authors: readonly string[];
-  year?: number | null;
-  venue?: string | null;
-  doi?: string | null;
-  arxivId?: string | null;
-  url?: string | null;
-}
-
 /** A paper as an APA reference ready to paste. */
-export function formatReference(paper: ReferencePaperShape): string {
+export function formatReference(paper: Omit<ReferencePaper, "authors"> & { authors: readonly string[] }): string {
   const { title, authors, year, venue, doi, arxivId, url } = paper;
-  return rawFormatReference({ title, authors, year, venue, doi, arxivId, url });
-}
-
-/** Someone else in a document, as the presence avatars show them. */
-export interface Peer {
-  key: string;
-  name: string;
-  color: string;
+  return rawFormatReference({ title, authors: [...authors], year, venue, doi, arxivId, url });
 }
 
 /** Awareness states → one entry per other person (not you, not your other sessions, one per person). */
@@ -92,19 +68,17 @@ export function samePeers(a: readonly Peer[], b: readonly Peer[]): boolean {
   return rawSamePeers(a, b);
 }
 
-/** A passage and its surroundings (sharing `CommentAnchor`). */
-export interface TextAnchorShape {
-  quote: string;
-  prefix: string;
-  suffix: string;
-}
-
 /** The anchor for `text.slice(start, end)`, or null for an empty or blank span. */
-export function anchorAt(text: string, start: number, end: number): TextAnchorShape | null {
-  return (rawAnchorAt(text, start, end) as TextAnchorShape | null) ?? null;
+export function anchorAt(text: string, start: number, end: number): CommentAnchor | null {
+  return (rawAnchorAt(text, start, end) as CommentAnchor | null) ?? null;
 }
 
 /** Where `anchor` is in `text` now (UTF-16 offsets), or null when its quote no longer occurs. */
-export function locateAnchor(text: string, anchor: TextAnchorShape): { start: number; end: number } | null {
+export function locateAnchor(text: string, anchor: CommentAnchor): { start: number; end: number } | null {
   return (rawLocateAnchor(text, anchor) as { start: number; end: number } | null) ?? null;
+}
+
+/** `[clientId, user]` pairs → one entry per other person (Rust `peers_from_users`). */
+export function peersFromUsers(users: readonly (readonly [number, unknown])[], selfClientId: number, selfAuthorId: string): Peer[] {
+  return rawPeersFromUsers(users, selfClientId, selfAuthorId) as Peer[];
 }

@@ -48,11 +48,6 @@ import {
   inkPageOverBudget as rawInkPageOverBudget,
 } from "../pkg/wf_wasm.js";
 
-interface CreateDeps {
-  clock: { nowIso(): string };
-  ids: { newId(): string };
-}
-
 /** A Rust error string as an `Error` named `name`; anything else unchanged. */
 function asError(thrown: unknown, name: string): unknown {
   // Rust rejects with a string or with an unnamed `Error` (serde_wasm_bindgen).
@@ -78,26 +73,27 @@ function named<T>(name: string, call: () => T): T {
 /* Records ------------------------------------------------------------------ */
 
 /** A new experiment. Throws `ExperimentValidationError` for a blank name. */
-export function createExperiment<I, E>(input: I, deps: CreateDeps): E {
+export function createExperiment<I, E>(input: I, deps: { clock: { nowIso(): string }; ids: { newId(): string } }): E {
   const now = deps.clock.nowIso();
   const id = deps.ids.newId();
   return named("ExperimentValidationError", () => rawCreateExperimentWith(input, id, now) as E);
 }
 
 /** A new reading list. Throws `ReadingListValidationError` for a blank name. */
-export function createReadingList<I, L>(input: I, deps: CreateDeps): L {
+export function createReadingList<I, L>(input: I, deps: { clock: { nowIso(): string }; ids: { newId(): string } }): L {
   const id = deps.ids.newId();
   const now = deps.clock.nowIso();
   return named("ReadingListValidationError", () => rawCreateReadingListWith(input, id, now) as L);
 }
 
 /** A new vault page. Throws `VaultPageValidationError` for a blank title. */
-export function createVaultPage<I, P>(input: I, deps: CreateDeps): P {
+export function createVaultPage<I, P>(input: I, deps: { clock: { nowIso(): string }; ids: { newId(): string } }): P {
   const now = deps.clock.nowIso();
   const id = deps.ids.newId();
   return named("VaultPageValidationError", () => rawCreateVaultPageWith(input, id, now) as P);
 }
 
+/** A page-tree node holding the caller's own page type (Rust sends { id } pages). */
 interface PageNode<P> {
   page: P;
   children: PageNode<P>[];
@@ -136,11 +132,14 @@ export function canonicalAiToolName(name: string): string {
   return rawCanonicalAiToolName(name);
 }
 
+/** A 16-character nonce from 16 values in [0, 1). */
+export function contextNonceFrom(randoms: readonly number[]): string {
+  return rawContextNonceFrom(Float64Array.from(randoms));
+}
+
 /** A 16-character nonce for fencing untrusted context, from `random`. */
 export function contextNonce(random: () => number = Math.random): string {
-  const randoms = new Float64Array(16);
-  for (let index = 0; index < randoms.length; index += 1) randoms[index] = random();
-  return rawContextNonceFrom(randoms);
+  return contextNonceFrom(Array.from({ length: 16 }, () => random()));
 }
 
 /** Lint findings for a wiki: duplicates, near duplicates, broken links, orphans. */
@@ -325,4 +324,24 @@ export function paperHtmlPath(paperId: string, projectRoot = ""): string {
 /** Where an uploaded asset is kept. */
 export function assetPath(scope: "notes" | "papers" | "report", storagePath: string): string {
   return rawAssetPath(scope, storagePath);
+}
+
+/** A new experiment with the given id and time (Rust `create_experiment`); throws a Rust error string. */
+export function createExperimentWith<I, E>(input: I, id: string, now: string): E {
+  return rawCreateExperimentWith(input, id, now) as E;
+}
+
+/** A new reading list with the given id and time (Rust `create_reading_list`); throws a Rust error string. */
+export function createReadingListWith<I, L>(input: I, id: string, now: string): L {
+  return rawCreateReadingListWith(input, id, now) as L;
+}
+
+/** A new vault page with the given id and time (Rust `create_vault_page`); throws a Rust error string. */
+export function createVaultPageWith<I, P>(input: I, id: string, now: string): P {
+  return rawCreateVaultPageWith(input, id, now) as P;
+}
+
+/** The label shown for a member's role, or undefined when it has none. */
+export function memberRoleLabelOf(member: { role: string }, inLab: boolean, ownsOrg: boolean): string | undefined {
+  return rawMemberRoleLabelOf(member, inLab, ownsOrg);
 }

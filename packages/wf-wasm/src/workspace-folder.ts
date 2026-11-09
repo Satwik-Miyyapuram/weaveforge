@@ -170,16 +170,6 @@ export function planMirror(
   ) as MirrorResult;
 }
 
-/** A folder or page in a tree: its id, title and parent. */
-export interface FolderNode {
-  id: string;
-  title: string;
-  parentId?: string | null;
-}
-
-/** The result of checking a git remote URL. */
-export type GitRemoteUrlCheck = { ok: true; url: string } | { ok: false; reason: string };
-
 /** A lowercase, file-safe slug of a title, or `fallback` when nothing is left. */
 export function slugFor(title: string, fallback = "untitled"): string {
   return rawSlugFor(title, fallback);
@@ -187,7 +177,7 @@ export function slugFor(title: string, fallback = "untitled"): string {
 
 /** The folder path of each node in a tree, keyed by id. */
 export function treePaths(
-  nodes: readonly FolderNode[],
+  nodes: readonly { id: string; title: string; parentId?: string | null }[],
   type: WorkspaceEntityType,
   projectRoot = "",
 ): Map<string, string> {
@@ -195,6 +185,15 @@ export function treePaths(
 }
 
 /** Accepts only an https remote with no credentials in it. */
-export function checkGitRemoteUrl(raw: unknown): GitRemoteUrlCheck {
-  return rawCheckGitRemoteUrl(raw) as GitRemoteUrlCheck;
+export function checkGitRemoteUrl(raw: unknown): { ok: true; url: string } | { ok: false; reason: string } {
+  return rawCheckGitRemoteUrl(raw) as { ok: true; url: string } | { ok: false; reason: string };
+}
+
+/** `[id, path]` pairs for each node in a tree (Rust `tree_paths`). */
+export function treePathPairs(
+  nodes: readonly { id: string; title: string; parentId?: string | null }[],
+  type: WorkspaceEntityType,
+  projectRoot = "",
+): [string, string][] {
+  return rawTreePathPairs([...nodes], type, projectRoot) as [string, string][];
 }

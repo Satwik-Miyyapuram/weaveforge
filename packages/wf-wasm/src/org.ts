@@ -126,16 +126,11 @@ export function resolveSupervisorId(creatorId: string): string {
   return rawResolveSupervisorId(creatorId);
 }
 
-/** A validated new member; absent optional fields are left out rather than null. */
-export type ValidNewMember = Omit<NewMember, "fullName" | "supervisorId"> & {
-  fullName?: string;
-  supervisorId?: string;
-};
-
-/** Validate and normalize a new member. Throws an `Error` named `MemberValidationError`. */
+/**
+ * Validate and normalize a new member; absent optional fields are left out rather than null. Throws an `Error` named `MemberValidationError`. */
 export function validateNewMember(
   input: Pick<NewMember, "email" | "password" | "role"> & Partial<Pick<NewMember, "fullName" | "supervisorId">>,
-): ValidNewMember {
+): Omit<NewMember, "fullName" | "supervisorId"> & { fullName?: string; supervisorId?: string } {
   let member: NewMember;
   try {
     member = rawValidateNewMember(

@@ -22,6 +22,7 @@ pub struct LatexSourceFile {
 
 /// A sectioning command and the source span it governs.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LatexSectionNode {
     /// `{file}:{line}:{localIndex}`, both 1-based.
@@ -35,8 +36,10 @@ pub struct LatexSectionNode {
     /// Normalized path of the file holding the heading.
     pub file: String,
     /// 1-based line of the heading.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub start_line: usize,
     /// 1-based last line of the span.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub end_line: usize,
     /// Short plain-text excerpt of the body, at most 240 chars.
     pub preview: String,
@@ -46,6 +49,7 @@ pub struct LatexSectionNode {
 
 /// Outline of a LaTeX project.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LatexSectionTree {
     /// Top-level sections.

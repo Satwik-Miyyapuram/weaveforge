@@ -6,6 +6,7 @@ use serde_json::Value;
 
 /// Someone else in a document, as the presence avatars show them (TS `Peer`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Peer {
     /// Account id, or `client:<n>` for a client that sent none.
     pub key: String,
