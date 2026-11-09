@@ -150,10 +150,7 @@ fn split_width(raw: &str) -> (&str, Option<String>) {
     if !(1..=4).contains(&digit_count) {
         return (raw, None);
     }
-    let Some(before_pipe) = head
-        .trim_end_matches(is_js_whitespace)
-        .strip_suffix('|')
-    else {
+    let Some(before_pipe) = head.trim_end_matches(is_js_whitespace).strip_suffix('|') else {
         return (raw, None);
     };
     let width = body[head.len()..]
@@ -180,7 +177,10 @@ fn take_crop(text: &str) -> (String, Option<[u8; 4]>) {
         let value_start = start + CROP_KEY.len();
         if let Some((len, insets)) = parse_insets(&text[value_start..]) {
             let rest = format!("{}{}", &text[..start], &text[value_start + len..]);
-            return (rest.trim_end_matches(is_js_whitespace).to_owned(), Some(insets));
+            return (
+                rest.trim_end_matches(is_js_whitespace).to_owned(),
+                Some(insets),
+            );
         }
     }
     (text.to_owned(), None)
@@ -232,12 +232,10 @@ fn parse_js_int(text: &str) -> Option<i64> {
     if run == 0 {
         return None;
     }
-    let value = digits.as_bytes()[..run]
-        .iter()
-        .fold(0_i64, |acc, byte| {
-            acc.saturating_mul(10)
-                .saturating_add(i64::from(byte - b'0'))
-        });
+    let value = digits.as_bytes()[..run].iter().fold(0_i64, |acc, byte| {
+        acc.saturating_mul(10)
+            .saturating_add(i64::from(byte - b'0'))
+    });
     Some(if negative { -value } else { value })
 }
 
@@ -280,7 +278,10 @@ mod tests {
         let percent = parse_md_image_alt("Figure 1|40%");
         assert_eq!(percent.alt, "Figure 1");
         assert_eq!(percent.width.as_deref(), Some("40%"));
-        assert_eq!(parse_md_image_alt("Figure 1|300").width.as_deref(), Some("300px"));
+        assert_eq!(
+            parse_md_image_alt("Figure 1|300").width.as_deref(),
+            Some("300px")
+        );
         assert_eq!(parse_md_image_alt("x|140%").width.as_deref(), Some("100%"));
         // Zero is no width, but the suffix still comes off the alt.
         let zero = parse_md_image_alt("x|0%");
@@ -295,7 +296,10 @@ mod tests {
         let with_width = parse_md_image_alt("photo c=1,2,3,4|60%");
         assert_eq!(with_width.crop, Some([1, 2, 3, 4]));
         assert_eq!(with_width.width.as_deref(), Some("60%"));
-        assert_eq!(parse_md_image_alt("photo c=150,0,0,0").crop, Some([99, 0, 0, 0]));
+        assert_eq!(
+            parse_md_image_alt("photo c=150,0,0,0").crop,
+            Some([99, 0, 0, 0])
+        );
     }
 
     #[test]
@@ -305,7 +309,10 @@ mod tests {
 
     #[test]
     fn crop_needs_a_word_boundary_before_the_c() {
-        assert_eq!(parse_md_image_alt("photo xc=0,0,0,0"), own("photo xc=0,0,0,0"));
+        assert_eq!(
+            parse_md_image_alt("photo xc=0,0,0,0"),
+            own("photo xc=0,0,0,0")
+        );
     }
 
     #[test]
@@ -320,7 +327,10 @@ mod tests {
 
     #[test]
     fn alignment_word_inside_text_is_description() {
-        assert_eq!(parse_md_image_alt("the right answer"), own("the right answer"));
+        assert_eq!(
+            parse_md_image_alt("the right answer"),
+            own("the right answer")
+        );
     }
 
     #[test]
@@ -346,7 +356,10 @@ mod tests {
             ),
             "photo right c=0,0,10,10|60%"
         );
-        assert_eq!(with_md_image_alt("photo", &placement(None, None, None)), "photo");
+        assert_eq!(
+            with_md_image_alt("photo", &placement(None, None, None)),
+            "photo"
+        );
         assert_eq!(
             with_md_image_alt("photo", &placement(None, None, Some("140%"))),
             "photo|100%"

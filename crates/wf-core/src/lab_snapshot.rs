@@ -309,8 +309,17 @@ mod title_tests {
 
     #[test]
     fn snapshot_title_is_trimmed_and_required() {
-        assert_eq!(validate_snapshot_title("  Week 3 "), Ok("Week 3".to_owned()));
-        assert_eq!(validate_snapshot_title("   "), Err("Snapshot title is required."));
-        assert_eq!(validate_snapshot_title(""), Err("Snapshot title is required."));
+        assert_eq!(
+            validate_snapshot_title("  Week 3 "),
+            Ok("Week 3".to_owned())
+        );
+        assert_eq!(
+            validate_snapshot_title("   "),
+            Err("Snapshot title is required.")
+        );
+        assert_eq!(
+            validate_snapshot_title(""),
+            Err("Snapshot title is required.")
+        );
     }
 }

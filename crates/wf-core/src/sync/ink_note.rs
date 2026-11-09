@@ -467,7 +467,10 @@ fn is_page_marker(line: &str) -> bool {
     let Some(rest) = line.strip_prefix("<!--") else {
         return false;
     };
-    let Some(rest) = rest.trim_start_matches(is_js_whitespace).strip_prefix("page") else {
+    let Some(rest) = rest
+        .trim_start_matches(is_js_whitespace)
+        .strip_prefix("page")
+    else {
         return false;
     };
     let after_gap = rest.trim_start_matches(is_js_whitespace);
@@ -489,11 +492,11 @@ fn trim_blank_edges<'a>(lines: &[&'a str]) -> Vec<&'a str> {
     let blank = |line: &str| line.trim_matches(is_js_whitespace).is_empty();
     let start = lines
         .iter()
-        .position(|line| !blank(*line))
+        .position(|line| !blank(line))
         .unwrap_or(lines.len());
     let end = lines
         .iter()
-        .rposition(|line| !blank(*line))
+        .rposition(|line| !blank(line))
         .map_or(start, |index| index + 1);
     lines.get(start..end).unwrap_or(&[]).to_vec()
 }

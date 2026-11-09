@@ -13,7 +13,10 @@ use super::to_js;
 ///
 /// Fails if `rows` or `order` has the wrong shape.
 #[wasm_bindgen(js_name = sortHitOrder)]
-pub fn sort_hit_order_js(rows: JsValue, order: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+pub fn sort_hit_order_js(
+    rows: JsValue,
+    order: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let rows: Vec<HitKey> = serde_wasm_bindgen::from_value(rows)?;
     let order: HitSort = serde_wasm_bindgen::from_value(order)?;
     to_js(&palette_sort::sort_hit_order(&rows, order))
@@ -25,7 +28,10 @@ pub fn sort_hit_order_js(rows: JsValue, order: JsValue) -> Result<JsValue, serde
 ///
 /// Fails if `event` has the wrong shape.
 #[wasm_bindgen(js_name = isPreviewKey)]
-pub fn is_preview_key_js(event: JsValue, in_text_box: bool) -> Result<bool, serde_wasm_bindgen::Error> {
+pub fn is_preview_key_js(
+    event: JsValue,
+    in_text_box: bool,
+) -> Result<bool, serde_wasm_bindgen::Error> {
     let event: PaletteKey = serde_wasm_bindgen::from_value(event)?;
     Ok(palette_sort::is_preview_key(&event, in_text_box))
 }

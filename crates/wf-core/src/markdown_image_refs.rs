@@ -55,7 +55,12 @@ mod tests {
     #[test]
     fn drops_only_unresolved_refs() {
         let body = "![a](paperimg:a.png) and ![b](paperimg:b.png)";
-        let out = strip_unresolved_image_refs(body, "paperimg:", &owned(&["a.png", "b.png"]), &owned(&["a.png"]));
+        let out = strip_unresolved_image_refs(
+            body,
+            "paperimg:",
+            &owned(&["a.png", "b.png"]),
+            &owned(&["a.png"]),
+        );
         assert_eq!(out, "![a](paperimg:a.png) and ");
     }
 
@@ -70,7 +75,12 @@ mod tests {
     fn several_unresolved_refs_are_each_removed() {
         // The TypeScript alternation was ungrouped and left a stray `)` here.
         let body = "![x](p:a.png) ![y](p:b.png) ![z](p:c.png)";
-        let out = strip_unresolved_image_refs(body, "p:", &owned(&["a.png", "b.png", "c.png"]), &owned(&["c.png"]));
+        let out = strip_unresolved_image_refs(
+            body,
+            "p:",
+            &owned(&["a.png", "b.png", "c.png"]),
+            &owned(&["c.png"]),
+        );
         assert_eq!(out, "  ![z](p:c.png)");
     }
 
@@ -84,7 +94,10 @@ mod tests {
     #[test]
     fn nothing_unresolved_returns_body() {
         let body = "![a](p:a.png)";
-        assert_eq!(strip_unresolved_image_refs(body, "p:", &owned(&["a.png"]), &owned(&["a.png"])), body);
+        assert_eq!(
+            strip_unresolved_image_refs(body, "p:", &owned(&["a.png"]), &owned(&["a.png"])),
+            body
+        );
         assert_eq!(strip_unresolved_image_refs(body, "p:", &[], &[]), body);
     }
 }

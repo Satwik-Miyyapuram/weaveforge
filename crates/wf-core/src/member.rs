@@ -305,7 +305,7 @@ pub fn is_supervisor_role(role: Option<&str>) -> bool {
 /// Role shown for a member. Outside a lab everyone is standalone, except a professor whose
 /// viewer owns the lab.
 #[must_use]
-pub fn resolve_display_role<'a>(role: &'a str, in_lab: bool, owns_org: bool) -> &'a str {
+pub fn resolve_display_role(role: &str, in_lab: bool, owns_org: bool) -> &str {
     if in_lab {
         return role;
     }
@@ -366,7 +366,6 @@ mod tests {
     fn resolve_supervisor_id_is_creator() {
         assert_eq!(resolve_supervisor_id("prof"), "prof");
     }
-
 
     fn link(id: &str, supervisor: Option<&str>) -> MemberLink {
         MemberLink {

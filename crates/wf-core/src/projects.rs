@@ -18,7 +18,10 @@ mod tests {
 
     #[test]
     fn keeps_inner_whitespace() {
-        assert_eq!(project_name("Latent  Spaces").as_deref(), Some("Latent  Spaces"));
+        assert_eq!(
+            project_name("Latent  Spaces").as_deref(),
+            Some("Latent  Spaces")
+        );
     }
 
     #[test]

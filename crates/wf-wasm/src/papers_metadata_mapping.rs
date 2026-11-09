@@ -1,6 +1,10 @@
 //! Metadata-source response mapping (wf-core `papers::metadata_mapping`). The TS wrappers in
 //! `packages/wf-wasm/src/papers-metadata-mapping.ts` re-export the generated types.
 
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm-bindgen exports take owned values"
+)]
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 use wf_core::papers::metadata_mapping::{

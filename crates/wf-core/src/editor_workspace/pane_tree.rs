@@ -4,6 +4,13 @@
 //!
 //! A tab holds `{kind, id}`, never a path (see `workspace_tree`).
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    reason = "JS-style i32 indices; tab and pane counts are far below i32::MAX"
+)]
+
 use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
@@ -302,7 +309,9 @@ fn settle_focus(root: PaneNode, preferred: &str) -> PaneLayout {
     let focused_pane_id = if find_leaf(&root, preferred).is_some() {
         preferred.to_owned()
     } else {
-        leaves(&root).first().map_or_else(|| preferred.to_owned(), |leaf| leaf.id.clone())
+        leaves(&root)
+            .first()
+            .map_or_else(|| preferred.to_owned(), |leaf| leaf.id.clone())
     };
     PaneLayout {
         root,
@@ -380,7 +389,12 @@ pub fn close_tab(layout: &PaneLayout, pane_id: &str, index: i32) -> PaneLayout {
 
 /// Split a pane in two, moving its active tab into the new half (ratio 0.5).
 #[must_use]
-pub fn split_pane(layout: &PaneLayout, pane_id: &str, direction: SplitDirection, new_pane_id: &str) -> PaneLayout {
+pub fn split_pane(
+    layout: &PaneLayout,
+    pane_id: &str,
+    direction: SplitDirection,
+    new_pane_id: &str,
+) -> PaneLayout {
     let Some(source) = find_leaf(&layout.root, pane_id) else {
         return layout.clone();
     };
@@ -395,7 +409,10 @@ pub fn split_pane(layout: &PaneLayout, pane_id: &str, direction: SplitDirection,
         Some(PaneNode::Split(PaneSplit {
             direction,
             ratio: 0.5,
-            children: (Box::new(PaneNode::Leaf(leaf.clone())), Box::new(PaneNode::Leaf(created))),
+            children: (
+                Box::new(PaneNode::Leaf(leaf.clone())),
+                Box::new(PaneNode::Leaf(created)),
+            ),
         }))
     });
     PaneLayout {
@@ -438,7 +455,11 @@ pub fn move_tab(
     };
     // A group belongs to its pane: within it the tab keeps it, elsewhere it drops it.
     let same_pane = from_pane_id == to_pane_id;
-    let tab = if same_pane { dragged } else { without_group(&dragged) };
+    let tab = if same_pane {
+        dragged
+    } else {
+        without_group(&dragged)
+    };
 
     if same_pane {
         let Some(to_index) = to_index else {
@@ -461,8 +482,12 @@ pub fn move_tab(
     }
 
     let closed = close_tab(layout, from_pane_id, from_index);
-    let already = find_leaf(&closed.root, to_pane_id)
-        .is_some_and(|target| target.tabs.iter().any(|open| tab_key(open) == tab_key(&tab)));
+    let already = find_leaf(&closed.root, to_pane_id).is_some_and(|target| {
+        target
+            .tabs
+            .iter()
+            .any(|open| tab_key(open) == tab_key(&tab))
+    });
     let opened = match to_index {
         Some(index) if !already => insert_at(&closed, to_pane_id, &tab, index),
         _ => open_tab(&closed, &tab, to_pane_id),
@@ -540,11 +565,12 @@ pub fn active_tab_key(layout: &PaneLayout) -> Option<String> {
 /// The mode a tab is in. Tabs that predate modes are Edit; ink notes and PDF rows default to Ink.
 #[must_use]
 pub fn tab_mode(tab: &TabRef) -> DocumentMode {
-    tab.mode.unwrap_or(if tab.kind == "ink_page" || tab.kind == "paper_pdf" {
-        DocumentMode::Ink
-    } else {
-        DocumentMode::Edit
-    })
+    tab.mode
+        .unwrap_or(if tab.kind == "ink_page" || tab.kind == "paper_pdf" {
+            DocumentMode::Ink
+        } else {
+            DocumentMode::Edit
+        })
 }
 
 /// The tab at a pane-and-index, or `None` when either is gone.
@@ -563,7 +589,11 @@ pub fn set_tab_mode(layout: &PaneLayout, target: &TabRef, mode: DocumentMode) ->
     fn rewrite(node: &PaneNode, key: &str, mode: DocumentMode, changed: &mut bool) -> PaneNode {
         match node {
             PaneNode::Leaf(leaf) => {
-                if !leaf.tabs.iter().any(|t| tab_key(t) == key && t.mode != Some(mode)) {
+                if !leaf
+                    .tabs
+                    .iter()
+                    .any(|t| tab_key(t) == key && t.mode != Some(mode))
+                {
                     return node.clone();
                 }
                 *changed = true;
@@ -703,7 +733,11 @@ pub fn focused_tab_count(layout: &PaneLayout) -> i32 {
 
 /// The layout after one pane chord, acting on the focused pane.
 #[must_use]
-pub fn layout_for_command(layout: &PaneLayout, command: PaneCommand, new_pane_id: &str) -> PaneLayout {
+pub fn layout_for_command(
+    layout: &PaneLayout,
+    command: PaneCommand,
+    new_pane_id: &str,
+) -> PaneLayout {
     let pane = layout.focused_pane_id.clone();
     if command == PaneCommand::SplitRight {
         return split_pane(layout, &pane, SplitDirection::Row, new_pane_id);
@@ -722,7 +756,11 @@ pub fn layout_for_command(layout: &PaneLayout, command: PaneCommand, new_pane_id
         PaneCommand::LastTab => activate_tab(layout, &pane, len - 1),
         PaneCommand::NextTab | PaneCommand::PreviousTab => {
             // Cycling wraps: Ctrl-Tab on the last tab lands on the first.
-            let step = if command == PaneCommand::NextTab { 1 } else { -1 };
+            let step = if command == PaneCommand::NextTab {
+                1
+            } else {
+                -1
+            };
             activate_tab(layout, &pane, (leaf.active_index + step).rem_euclid(len))
         }
         PaneCommand::SplitRight => unreachable!("handled above"),
@@ -776,7 +814,11 @@ pub fn layout_for_tab_menu(
             SplitDirection::Column,
             new_pane_id,
         ),
-        TabMenuCommand::Action(TabMenuAction::CloseRight) if index as usize == leaf.tabs.len() - 1 => layout.clone(),
+        TabMenuCommand::Action(TabMenuAction::CloseRight)
+            if index as usize == leaf.tabs.len() - 1 =>
+        {
+            layout.clone()
+        }
         TabMenuCommand::Action(action) => {
             let close_others = *action == TabMenuAction::CloseOthers;
             let root = replace_leaf(&layout.root, pane_id, &mut |current| {
@@ -835,7 +877,8 @@ pub fn prune_layout(layout: &PaneLayout, open_keys: &HashSet<String>) -> PaneLay
             }
         }
     }
-    let root = rewrite(&layout.root, open_keys, only_pane).unwrap_or_else(|| empty_layout(DEFAULT_PANE_ID).root);
+    let root = rewrite(&layout.root, open_keys, only_pane)
+        .unwrap_or_else(|| empty_layout(DEFAULT_PANE_ID).root);
     settle_focus(root, &layout.focused_pane_id)
 }
 
@@ -843,7 +886,10 @@ pub fn prune_layout(layout: &PaneLayout, open_keys: &HashSet<String>) -> PaneLay
 /// holds the default for each tab key the caller wants stamped; a tab that already
 /// carries a mode, or has no entry in `modes`, is left as it is.
 #[must_use]
-pub fn hydrate_tab_modes(layout: &PaneLayout, modes: &BTreeMap<String, DocumentMode>) -> PaneLayout {
+pub fn hydrate_tab_modes(
+    layout: &PaneLayout,
+    modes: &BTreeMap<String, DocumentMode>,
+) -> PaneLayout {
     fn rewrite(node: &PaneNode, modes: &BTreeMap<String, DocumentMode>) -> PaneNode {
         match node {
             PaneNode::Leaf(leaf) => PaneNode::Leaf(PaneLeaf {
@@ -909,7 +955,13 @@ mod tests {
     fn labels(layout: &PaneLayout) -> Vec<String> {
         leaves(&layout.root)
             .iter()
-            .map(|leaf| leaf.tabs.iter().map(|t| t.id.clone()).collect::<Vec<_>>().join(","))
+            .map(|leaf| {
+                leaf.tabs
+                    .iter()
+                    .map(|t| t.id.clone())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
             .collect()
     }
     fn active_of(layout: &PaneLayout, pane: usize) -> Option<TabRef> {
@@ -951,12 +1003,20 @@ mod tests {
     #[test]
     fn splitting_a_missing_pane_changes_nothing() {
         let before = open(&start(), &a());
-        assert_eq!(split_pane(&before, "pane-missing", SplitDirection::Row, "pane-9"), before);
+        assert_eq!(
+            split_pane(&before, "pane-missing", SplitDirection::Row, "pane-9"),
+            before
+        );
     }
 
     #[test]
     fn closing_the_last_tab_of_a_split_collapses_it() {
-        let layout = split_pane(&open(&start(), &a()), DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
+        let layout = split_pane(
+            &open(&start(), &a()),
+            DEFAULT_PANE_ID,
+            SplitDirection::Row,
+            "pane-2",
+        );
         let closed = close_tab(&layout, "pane-2", 0);
         assert!(matches!(closed.root, PaneNode::Leaf(_)));
         assert_eq!(labels(&closed), vec!["a"]);
@@ -1037,18 +1097,35 @@ mod tests {
     #[test]
     fn an_index_past_the_end_lands_the_tab_last() {
         let layout = open_ab();
-        assert_eq!(labels(&move_tab(&layout, DEFAULT_PANE_ID, 0, DEFAULT_PANE_ID, Some(9))), vec!["b,a"]);
+        assert_eq!(
+            labels(&move_tab(
+                &layout,
+                DEFAULT_PANE_ID,
+                0,
+                DEFAULT_PANE_ID,
+                Some(9)
+            )),
+            vec!["b,a"]
+        );
     }
 
     #[test]
     fn moving_a_tab_that_is_not_there_changes_nothing() {
         let before = open(&start(), &a());
-        assert_eq!(move_tab(&before, DEFAULT_PANE_ID, 7, DEFAULT_PANE_ID, None), before);
+        assert_eq!(
+            move_tab(&before, DEFAULT_PANE_ID, 7, DEFAULT_PANE_ID, None),
+            before
+        );
     }
 
     #[test]
     fn the_ratio_is_set_and_never_lets_a_side_vanish() {
-        let layout = split_pane(&open(&start(), &a()), DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
+        let layout = split_pane(
+            &open(&start(), &a()),
+            DEFAULT_PANE_ID,
+            SplitDirection::Row,
+            "pane-2",
+        );
         let target = split_of(&layout).clone();
         assert_eq!(split_of(&set_ratio(&layout, &target, 0.72)).ratio, 0.72);
         assert_eq!(split_of(&set_ratio(&layout, &target, 0.0)).ratio, 0.1);
@@ -1057,7 +1134,12 @@ mod tests {
 
     #[test]
     fn focus_only_moves_to_a_pane_that_exists() {
-        let layout = split_pane(&open(&start(), &a()), DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
+        let layout = split_pane(
+            &open(&start(), &a()),
+            DEFAULT_PANE_ID,
+            SplitDirection::Row,
+            "pane-2",
+        );
         assert_eq!(focus_pane(&layout, "pane-1").focused_pane_id, "pane-1");
         assert_eq!(focus_pane(&layout, "pane-gone").focused_pane_id, "pane-2");
     }
@@ -1072,7 +1154,12 @@ mod tests {
 
     #[test]
     fn pruning_everything_leaves_one_empty_pane() {
-        let split = split_pane(&open(&start(), &a()), DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
+        let split = split_pane(
+            &open(&start(), &a()),
+            DEFAULT_PANE_ID,
+            SplitDirection::Row,
+            "pane-2",
+        );
         let pruned = prune_layout(&split, &keys(&[]));
         assert!(matches!(pruned.root, PaneNode::Leaf(_)));
         assert_eq!(labels(&pruned), vec![""]);
@@ -1108,7 +1195,10 @@ mod tests {
 
         let back = focus_pane(&layout, DEFAULT_PANE_ID);
         assert_eq!(active_tab_key(&back).as_deref(), Some("vault_page:b"));
-        assert_eq!(active_tab_key(&activate_tab(&back, DEFAULT_PANE_ID, 0)).as_deref(), Some("vault_page:a"));
+        assert_eq!(
+            active_tab_key(&activate_tab(&back, DEFAULT_PANE_ID, 0)).as_deref(),
+            Some("vault_page:a")
+        );
     }
 
     #[test]
@@ -1119,7 +1209,12 @@ mod tests {
 
     #[test]
     fn closing_the_only_tab_of_the_focused_pane_falls_back_to_the_pane_left() {
-        let layout = split_pane(&open(&start(), &a()), DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
+        let layout = split_pane(
+            &open(&start(), &a()),
+            DEFAULT_PANE_ID,
+            SplitDirection::Row,
+            "pane-2",
+        );
         let emptied = close_tab(&layout, "pane-2", 0);
         assert_eq!(active_tab_key(&emptied).as_deref(), Some("vault_page:a"));
     }
@@ -1169,7 +1264,12 @@ mod tests {
 
     #[test]
     fn a_mode_belongs_to_the_document_so_it_applies_in_every_pane_showing_it() {
-        let layout = split_pane(&open(&start(), &a()), DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
+        let layout = split_pane(
+            &open(&start(), &a()),
+            DEFAULT_PANE_ID,
+            SplitDirection::Row,
+            "pane-2",
+        );
         let next = set_tab_mode(&layout, &a(), DocumentMode::Read);
         for leaf in leaves(&next.root) {
             assert_eq!(tab_mode(&leaf.tabs[0]), DocumentMode::Read);
@@ -1206,7 +1306,10 @@ mod tests {
         layout = activate_tab(&layout, DEFAULT_PANE_ID, 0);
         assert_eq!(preview_source(&layout, Some(&b())), Some(a()));
         // Clicking into the preview must not make it preview itself.
-        assert_eq!(preview_source(&focus_pane(&layout, "pane-p"), Some(&a())), Some(a()));
+        assert_eq!(
+            preview_source(&focus_pane(&layout, "pane-p"), Some(&a())),
+            Some(a())
+        );
         assert_eq!(preview_source(&focus_pane(&layout, "pane-p"), None), None);
         assert_eq!(PREVIEW_KIND, "preview");
     }
@@ -1222,7 +1325,10 @@ mod tests {
         let layout = open(&start(), &a());
         let chosen = set_tab_mode(&layout, &a(), DocumentMode::Edit);
         assert_ne!(chosen, layout);
-        assert_eq!(leaves(&chosen.root)[0].tabs[0].mode, Some(DocumentMode::Edit));
+        assert_eq!(
+            leaves(&chosen.root)[0].tabs[0].mode,
+            Some(DocumentMode::Edit)
+        );
         assert_eq!(set_tab_mode(&chosen, &a(), DocumentMode::Edit), chosen);
     }
 
@@ -1236,42 +1342,93 @@ mod tests {
     fn the_mode_survives_closing_and_reopening_the_same_document() {
         let opened = set_tab_mode(&open(&start(), &a()), &a(), DocumentMode::Read);
         let closed = close_tab(&opened, DEFAULT_PANE_ID, 0);
-        let reopened = open_tab(&closed, &tab_at(&opened, DEFAULT_PANE_ID, 0).unwrap(), DEFAULT_PANE_ID);
-        assert_eq!(tab_mode(&leaves(&reopened.root)[0].tabs[0]), DocumentMode::Read);
+        let reopened = open_tab(
+            &closed,
+            &tab_at(&opened, DEFAULT_PANE_ID, 0).unwrap(),
+            DEFAULT_PANE_ID,
+        );
+        assert_eq!(
+            tab_mode(&leaves(&reopened.root)[0].tabs[0]),
+            DocumentMode::Read
+        );
     }
 
     #[test]
     fn a_pane_chord_is_one_pure_step_from_the_layout_it_acts_on() {
         let two = open_ab();
         let pane = two.focused_pane_id.clone();
-        assert_eq!(layout_for_command(&two, PaneCommand::NextTab, "pane-x"), activate_tab(&two, &pane, 0));
+        assert_eq!(
+            layout_for_command(&two, PaneCommand::NextTab, "pane-x"),
+            activate_tab(&two, &pane, 0)
+        );
         let first = activate_tab(&two, &pane, 0);
-        assert_eq!(layout_for_command(&first, PaneCommand::PreviousTab, "pane-x"), activate_tab(&two, &pane, 1));
-        assert_eq!(labels(&layout_for_command(&two, PaneCommand::CloseTab, "pane-x")), vec!["a"]);
-        assert!(preview_open(&layout_for_command(&two, PaneCommand::ToggleMode, "pane-p")));
+        assert_eq!(
+            layout_for_command(&first, PaneCommand::PreviousTab, "pane-x"),
+            activate_tab(&two, &pane, 1)
+        );
+        assert_eq!(
+            labels(&layout_for_command(&two, PaneCommand::CloseTab, "pane-x")),
+            vec!["a"]
+        );
+        assert!(preview_open(&layout_for_command(
+            &two,
+            PaneCommand::ToggleMode,
+            "pane-p"
+        )));
         let toggled = layout_for_command(&two, PaneCommand::ToggleMode, "pane-p");
-        assert!(!preview_open(&layout_for_command(&toggled, PaneCommand::ToggleMode, "pane-q")));
-        assert_eq!(leaves(&layout_for_command(&two, PaneCommand::SplitRight, "pane-s").root).len(), 2);
+        assert!(!preview_open(&layout_for_command(
+            &toggled,
+            PaneCommand::ToggleMode,
+            "pane-q"
+        )));
+        assert_eq!(
+            leaves(&layout_for_command(&two, PaneCommand::SplitRight, "pane-s").root).len(),
+            2
+        );
     }
 
     #[test]
     fn a_tab_chord_on_an_empty_pane_changes_nothing() {
         let empty = start();
-        for command in [PaneCommand::CloseTab, PaneCommand::NextTab, PaneCommand::PreviousTab, PaneCommand::ToggleMode] {
+        for command in [
+            PaneCommand::CloseTab,
+            PaneCommand::NextTab,
+            PaneCommand::PreviousTab,
+            PaneCommand::ToggleMode,
+        ] {
             assert_eq!(layout_for_command(&empty, command, "pane-x"), empty);
         }
     }
 
     #[test]
     fn a_tab_number_chord_activates_that_tab_and_one_past_the_end_does_nothing() {
-        let three = activate_tab(&open(&open(&open_ab(), &c()), &c()).clone(), DEFAULT_PANE_ID, 1);
+        let three = activate_tab(
+            &open(&open(&open_ab(), &c()), &c()).clone(),
+            DEFAULT_PANE_ID,
+            1,
+        );
         let pane = three.focused_pane_id.clone();
-        assert_eq!(layout_for_command(&three, PaneCommand::Tab1, "pane-x"), activate_tab(&three, &pane, 0));
-        assert_eq!(layout_for_command(&three, PaneCommand::Tab3, "pane-x"), activate_tab(&three, &pane, 2));
-        assert_eq!(layout_for_command(&three, PaneCommand::LastTab, "pane-x"), activate_tab(&three, &pane, 2));
+        assert_eq!(
+            layout_for_command(&three, PaneCommand::Tab1, "pane-x"),
+            activate_tab(&three, &pane, 0)
+        );
+        assert_eq!(
+            layout_for_command(&three, PaneCommand::Tab3, "pane-x"),
+            activate_tab(&three, &pane, 2)
+        );
+        assert_eq!(
+            layout_for_command(&three, PaneCommand::LastTab, "pane-x"),
+            activate_tab(&three, &pane, 2)
+        );
         // Tab 5 with three tabs open is a miss, not "the last one".
-        assert_eq!(layout_for_command(&three, PaneCommand::Tab5, "pane-x"), three);
-        assert_eq!(layout_for_command(&start(), PaneCommand::LastTab, "pane-x"), start());
+        assert_eq!(
+            layout_for_command(&three, PaneCommand::Tab5, "pane-x"),
+            three
+        );
+        assert_eq!(
+            layout_for_command(&start(), PaneCommand::LastTab, "pane-x"),
+            start()
+        );
     }
 
     #[test]
@@ -1286,7 +1443,10 @@ mod tests {
         let note_a = tab("note", "a");
         let note_b = tab("note", "b");
         let layout = open(&open(&start(), &note_a), &note_b);
-        assert_eq!(closed_tabs(&layout, &close_tab(&layout, DEFAULT_PANE_ID, 0)), vec![note_a.clone()]);
+        assert_eq!(
+            closed_tabs(&layout, &close_tab(&layout, DEFAULT_PANE_ID, 0)),
+            vec![note_a.clone()]
+        );
 
         // A tab still open in another pane is not closed.
         let split = split_pane(&layout, DEFAULT_PANE_ID, SplitDirection::Row, "pane-2");
@@ -1301,15 +1461,28 @@ mod tests {
             .fold(start(), |layout, id| open(&layout, &tab("vault_page", id)))
     }
     fn ids(layout: &PaneLayout, pane: usize) -> Vec<String> {
-        leaves(&layout.root)[pane].tabs.iter().map(|t| t.id.clone()).collect()
+        leaves(&layout.root)[pane]
+            .tabs
+            .iter()
+            .map(|t| t.id.clone())
+            .collect()
     }
     fn act(layout: &PaneLayout, index: i32, action: TabMenuAction, new_pane: &str) -> PaneLayout {
-        layout_for_tab_menu(layout, DEFAULT_PANE_ID, index, &TabMenuCommand::Action(action), new_pane)
+        layout_for_tab_menu(
+            layout,
+            DEFAULT_PANE_ID,
+            index,
+            &TabMenuCommand::Action(action),
+            new_pane,
+        )
     }
 
     #[test]
     fn menu_close_drops_only_the_clicked_tab() {
-        assert_eq!(ids(&act(&abcd(), 1, TabMenuAction::Close, "pane-2"), 0), vec!["a", "c", "d"]);
+        assert_eq!(
+            ids(&act(&abcd(), 1, TabMenuAction::Close, "pane-2"), 0),
+            vec!["a", "c", "d"]
+        );
     }
 
     #[test]
@@ -1351,7 +1524,16 @@ mod tests {
     #[test]
     fn menu_on_a_pane_that_does_not_exist_is_left_alone() {
         let base = abcd();
-        assert_eq!(layout_for_tab_menu(&base, "pane-missing", 0, &TabMenuCommand::Action(TabMenuAction::CloseOthers), "pane-2"), base);
+        assert_eq!(
+            layout_for_tab_menu(
+                &base,
+                "pane-missing",
+                0,
+                &TabMenuCommand::Action(TabMenuAction::CloseOthers),
+                "pane-2"
+            ),
+            base
+        );
     }
 
     #[test]
@@ -1363,6 +1545,9 @@ mod tests {
             &TabMenuCommand::Group(TabGroupCommand::New),
             "pane-2",
         );
-        assert_eq!(leaves(&grouped.root)[0].tabs[0].group.as_deref(), Some("g1"));
+        assert_eq!(
+            leaves(&grouped.root)[0].tabs[0].group.as_deref(),
+            Some("g1")
+        );
     }
 }

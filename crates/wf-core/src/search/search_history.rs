@@ -9,6 +9,7 @@ pub const MAX_SEARCH_HISTORY: usize = 12;
 /// Prepend a query, most-recent first. Repeating a query moves it to the front,
 /// and a query that extends the previous one replaces its abandoned prefixes.
 /// An empty query leaves the list unchanged. `max` is floored at 1.
+#[must_use]
 pub fn remember_search_query(history: &[String], query: &str, max: usize) -> Vec<String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -28,6 +29,7 @@ pub fn remember_search_query(history: &[String], query: &str, max: usize) -> Vec
 }
 
 /// Remove every entry equal to `query`, ignoring case and surrounding space.
+#[must_use]
 pub fn forget_search_query(history: &[String], query: &str) -> Vec<String> {
     let target = query.trim().to_lowercase();
     history
@@ -40,6 +42,7 @@ pub fn forget_search_query(history: &[String], query: &str) -> Vec<String> {
 /// Keep usable query strings only: non-empty, trimmed, de-duplicated
 /// case-insensitively, first occurrence wins, capped at `max`. Anything that is
 /// not an array yields an empty list.
+#[must_use]
 pub fn normalize_search_history(raw: &Value, max: usize) -> Vec<String> {
     let Some(items) = raw.as_array() else {
         return Vec::new();
@@ -102,18 +105,27 @@ mod tests {
 
     #[test]
     fn remember_ignores_blank_query() {
-        assert_eq!(remember_search_query(&s(&["latent"]), "   ", MAX_SEARCH_HISTORY), s(&["latent"]));
+        assert_eq!(
+            remember_search_query(&s(&["latent"]), "   ", MAX_SEARCH_HISTORY),
+            s(&["latent"])
+        );
     }
 
     #[test]
     fn forget_ignores_case_and_space() {
-        assert_eq!(forget_search_query(&s(&["Latent", "graph"]), " latent "), s(&["graph"]));
+        assert_eq!(
+            forget_search_query(&s(&["Latent", "graph"]), " latent "),
+            s(&["graph"])
+        );
     }
 
     #[test]
     fn normalize_drops_non_strings_blanks_and_duplicates() {
         let raw = json!(["a", 3, "", "  b ", "A", null]);
-        assert_eq!(normalize_search_history(&raw, MAX_SEARCH_HISTORY), s(&["a", "b"]));
+        assert_eq!(
+            normalize_search_history(&raw, MAX_SEARCH_HISTORY),
+            s(&["a", "b"])
+        );
     }
 
     #[test]

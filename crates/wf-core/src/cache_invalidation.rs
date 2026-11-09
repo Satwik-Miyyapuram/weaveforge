@@ -128,21 +128,34 @@ pub struct InvalidationEntry {
 #[must_use]
 pub fn plan(resource: ResourceType) -> InvalidationPlan {
     use ResourceType::{
-        Comment, DashboardLayout, Experiment, GraphSettings, LibraryPin, LogEntry, Milestone,
-        Paper, PaperRelation, PaperTag, Project, ReadingList, ReadingListItem, ReportSection,
-        Share, Tag, VaultPage, CitationAlertTrack,
+        CitationAlertTrack, Comment, DashboardLayout, Experiment, GraphSettings, LibraryPin,
+        LogEntry, Milestone, Paper, PaperRelation, PaperTag, Project, ReadingList, ReadingListItem,
+        ReportSection, Share, Tag, VaultPage,
     };
     let (repos, screens): (&[ResourceType], &[&str]) = match resource {
         Paper => (
-            &[Paper, PaperRelation, Tag, PaperTag, ReadingListItem, CitationAlertTrack],
+            &[
+                Paper,
+                PaperRelation,
+                Tag,
+                PaperTag,
+                ReadingListItem,
+                CitationAlertTrack,
+            ],
             &["papers", "graph", "lists"],
         ),
         VaultPage => (
             &[VaultPage, PaperRelation, ReadingListItem],
             &["vault", "graph", "lists"],
         ),
-        ReadingList => (&[ReadingList, ReadingListItem], &["lists", "papers", "vault"]),
-        ReadingListItem => (&[ReadingListItem, ReadingList], &["lists", "papers", "vault"]),
+        ReadingList => (
+            &[ReadingList, ReadingListItem],
+            &["lists", "papers", "vault"],
+        ),
+        ReadingListItem => (
+            &[ReadingListItem, ReadingList],
+            &["lists", "papers", "vault"],
+        ),
         LogEntry => (&[LogEntry], &["logbook"]),
         ReportSection => (&[ReportSection], &["report", "report-overleaf"]),
         Experiment => (&[Experiment], &["experiments"]),

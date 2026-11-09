@@ -14,12 +14,14 @@ pub const MIN_RETRY_TERM_LENGTH: usize = 4;
 
 /// Whether a second pass is worth making. Only a query with zero results, and
 /// with 1 to `MAX_RETRY_TERMS` terms, is retried.
+#[must_use]
 pub fn should_retry(result_count: usize, term_count: usize) -> bool {
     result_count == 0 && term_count > 0 && term_count <= MAX_RETRY_TERMS
 }
 
 /// Absolute maximum edit distance for `term` on the retry pass, or 0 to leave
 /// the term alone. Length is counted in UTF-16 units, as the TS did.
+#[must_use]
 pub fn retry_fuzziness_for_term(term: &str, retry: bool) -> f64 {
     if !retry || utf16_len(term) < MIN_RETRY_TERM_LENGTH {
         return 0.0;

@@ -34,7 +34,9 @@ mod tests {
     #[test]
     fn picture_extensions_match_in_any_case_and_ignore_the_query() {
         assert!(looks_like_image_url("https://a.example/figure.png"));
-        assert!(looks_like_image_url("https://a.example/figure.JPEG?width=200"));
+        assert!(looks_like_image_url(
+            "https://a.example/figure.JPEG?width=200"
+        ));
         assert!(looks_like_image_url("https://a.example/x.jpg"));
         assert!(looks_like_image_url("https://a.example/x.tiff#frag"));
     }

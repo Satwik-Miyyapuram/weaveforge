@@ -16,5 +16,7 @@ pub fn strip_unresolved_image_refs_js(
     super::check_text(body)?;
     let paths: Vec<String> = serde_wasm_bindgen::from_value(paths)?;
     let resolved: Vec<String> = serde_wasm_bindgen::from_value(resolved)?;
-    Ok(markdown_image_refs::strip_unresolved_image_refs(body, prefix, &paths, &resolved))
+    Ok(markdown_image_refs::strip_unresolved_image_refs(
+        body, prefix, &paths, &resolved,
+    ))
 }

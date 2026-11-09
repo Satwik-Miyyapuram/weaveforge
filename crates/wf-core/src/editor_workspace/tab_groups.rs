@@ -2,6 +2,13 @@
 //! behind a single chip. A group belongs to its pane; a tab carried to another
 //! pane leaves it behind. Port of `application/tab-groups.ts`.
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    reason = "JS-style i32 indices; tab and pane counts are far below i32::MAX"
+)]
+
 use serde::{Deserialize, Serialize};
 
 use super::pane_tree::{PaneLeaf, TabRef};
@@ -92,13 +99,19 @@ fn group_of<'a>(leaf: &'a PaneLeaf, tab: &TabRef) -> Option<&'a TabGroup> {
 pub fn clean_groups(leaf: &PaneLeaf) -> PaneLeaf {
     let used: Vec<TabGroup> = groups_of(leaf)
         .into_iter()
-        .filter(|g| leaf.tabs.iter().any(|t| t.group.as_deref() == Some(g.id.as_str())))
+        .filter(|g| {
+            leaf.tabs
+                .iter()
+                .any(|t| t.group.as_deref() == Some(g.id.as_str()))
+        })
         .collect();
     let tabs = leaf
         .tabs
         .iter()
         .map(|t| {
-            let kept = used.iter().any(|g| t.group.as_deref() == Some(g.id.as_str()));
+            let kept = used
+                .iter()
+                .any(|g| t.group.as_deref() == Some(g.id.as_str()));
             if kept { t.clone() } else { without_group(t) }
         })
         .collect();
@@ -110,7 +123,12 @@ pub fn clean_groups(leaf: &PaneLeaf) -> PaneLeaf {
 }
 
 /// Move the tab at `from` to sit right after the last tab matching `after`.
-fn move_after(leaf: &PaneLeaf, from: i32, tab: TabRef, after: impl Fn(&TabRef) -> bool) -> PaneLeaf {
+fn move_after(
+    leaf: &PaneLeaf,
+    from: i32,
+    tab: TabRef,
+    after: impl Fn(&TabRef) -> bool,
+) -> PaneLeaf {
     let active = tab_at_leaf(leaf, leaf.active_index).cloned();
     let rest: Vec<TabRef> = leaf
         .tabs
@@ -169,6 +187,7 @@ fn tab_at_leaf(leaf: &PaneLeaf, index: i32) -> Option<&TabRef> {
 
 /// Apply a group command to the tab at `index`; unchanged when it does not apply.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn apply_group_command(leaf: &PaneLeaf, index: i32, command: &TabGroupCommand) -> PaneLeaf {
     let Some(tab) = tab_at_leaf(leaf, index).cloned() else {
         return leaf.clone();
@@ -218,7 +237,9 @@ pub fn apply_group_command(leaf: &PaneLeaf, index: i32, command: &TabGroupComman
                 ..tab
             };
             let target = id.clone();
-            clean_groups(&move_after(leaf, index, moved, |t| t.group.as_deref() == Some(target.as_str())))
+            clean_groups(&move_after(leaf, index, moved, |t| {
+                t.group.as_deref() == Some(target.as_str())
+            }))
         }
         _ => {
             let Some(current) = current else {
@@ -226,11 +247,17 @@ pub fn apply_group_command(leaf: &PaneLeaf, index: i32, command: &TabGroupComman
             };
             let current_id = current.id.clone();
             match command {
-                TabGroupCommand::Leave => clean_groups(&move_after(leaf, index, without_group(&tab), |t| {
-                    t.group.as_deref() == Some(current_id.as_str())
-                })),
+                TabGroupCommand::Leave => {
+                    clean_groups(&move_after(leaf, index, without_group(&tab), |t| {
+                        t.group.as_deref() == Some(current_id.as_str())
+                    }))
+                }
                 TabGroupCommand::Toggle => edit_group(leaf, &current_id, |g| TabGroup {
-                    collapsed: if g.collapsed == Some(true) { None } else { Some(true) },
+                    collapsed: if g.collapsed == Some(true) {
+                        None
+                    } else {
+                        Some(true)
+                    },
                     ..g.clone()
                 }),
                 TabGroupCommand::Rename { name } => edit_group(leaf, &current_id, |g| TabGroup {
@@ -255,7 +282,9 @@ pub fn apply_group_command(leaf: &PaneLeaf, index: i32, command: &TabGroupComman
                         .collect(),
                     ..leaf.clone()
                 }),
-                TabGroupCommand::New | TabGroupCommand::Join { .. } => unreachable!("handled above"),
+                TabGroupCommand::New | TabGroupCommand::Join { .. } => {
+                    unreachable!("handled above")
+                }
             }
         }
     }
@@ -299,8 +328,8 @@ pub fn group_runs(leaf: &PaneLeaf) -> Vec<TabRun> {
 mod tests {
     use super::*;
     use crate::editor_workspace::pane_tree::{
-        empty_layout, layout_for_tab_menu, leaves, move_tab, open_tab, split_pane, DocumentMode,
-        PaneLayout, SplitDirection, TabMenuCommand, DEFAULT_PANE_ID,
+        DEFAULT_PANE_ID, DocumentMode, PaneLayout, SplitDirection, TabMenuCommand, empty_layout,
+        layout_for_tab_menu, leaves, move_tab, open_tab, split_pane,
     };
 
     fn tab(id: &str) -> TabRef {
@@ -469,7 +498,10 @@ mod tests {
         assert_eq!(runs[0].size, 2);
 
         let opened = run(&folded, 0, TabGroupCommand::Toggle);
-        let hidden: Vec<bool> = group_runs(&first(&opened)).iter().map(|r| r.hidden).collect();
+        let hidden: Vec<bool> = group_runs(&first(&opened))
+            .iter()
+            .map(|r| r.hidden)
+            .collect();
         assert_eq!(hidden, vec![false, false, false, false]);
     }
 
@@ -484,7 +516,10 @@ mod tests {
             },
         );
         let folded = run(&layout, 2, TabGroupCommand::Toggle);
-        let hidden: Vec<bool> = group_runs(&first(&folded)).iter().map(|r| r.hidden).collect();
+        let hidden: Vec<bool> = group_runs(&first(&folded))
+            .iter()
+            .map(|r| r.hidden)
+            .collect();
         assert_eq!(hidden, vec![false, false, true, false]);
     }
 

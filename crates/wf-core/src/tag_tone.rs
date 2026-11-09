@@ -1,7 +1,6 @@
 //! Colour slot for a tag (wf-core `tag_tone`). Ported from `apps/web/src/lib/tag-tone.ts`.
 //! A tag keeps its slot everywhere, so the hash must match the TypeScript one exactly.
 
-
 /// Number of tag colour slots per theme (`--tag-N-*`).
 const TAG_TONES: u32 = 6;
 

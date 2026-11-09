@@ -17,16 +17,18 @@ use super::paper_title::{is_placeholder_title, title_from_file_name};
 use super::zotero_mapping::ZoteroPaperInput;
 use crate::overleaf_workshop::encode_uri_component;
 
-static WHITESPACE_RUN: LazyLock<Regex> = LazyLock::new(|| compile(r"\s+").expect("valid pattern"));
-static TAG: LazyLock<Regex> = LazyLock::new(|| compile(r"<[^>]+>").expect("valid pattern"));
-static ENTRY: LazyLock<Regex> =
-    LazyLock::new(|| compile(r"<entry>([\s\S]*?)</entry>").expect("valid pattern"));
-static NAME: LazyLock<Regex> =
-    LazyLock::new(|| compile(r"<name>([\s\S]*?)</name>").expect("valid pattern"));
+static WHITESPACE_RUN: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"\s+").ok());
+static TAG: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"<[^>]+>").ok());
+static ENTRY: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"<entry>([\s\S]*?)</entry>").ok());
+static NAME: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"<name>([\s\S]*?)</name>").ok());
 
 /// JS `.replace(/\s+/g, " ")`.
 fn collapse_ws(s: &str) -> String {
-    WHITESPACE_RUN.replace_all(s, " ").into_owned()
+    let Some(run) = WHITESPACE_RUN.as_ref() else {
+        return s.to_owned();
+    };
+    run.replace_all(s, " ").into_owned()
 }
 
 /// Crossref's `message` for one DOI. Keys keep Crossref's own spelling.
@@ -332,10 +334,12 @@ pub fn crossref_to_metadata(message: &CrossrefMessage, doi: &str) -> ZoteroPaper
                 .clone()
                 .unwrap_or_else(|| format!("https://doi.org/{doi}")),
         ),
-        abstract_text: message
-            .abstract_text
-            .as_deref()
-            .map(|a| collapse_ws(&TAG.replace_all(a, "")).trim().to_owned()),
+        abstract_text: message.abstract_text.as_deref().map(|a| {
+            let Some(tag) = TAG.as_ref() else {
+                return collapse_ws(a).trim().to_owned();
+            };
+            collapse_ws(&tag.replace_all(a, "")).trim().to_owned()
+        }),
         ..Default::default()
     }
 }
@@ -430,7 +434,7 @@ fn decode(s: &str) -> Option<String> {
 
 /// The first `<tag>` in an arXiv entry, trimmed and decoded.
 fn pick(entry: &str, tag: &str) -> Option<String> {
-    let re = compile(&format!(r"<{tag}>([\s\S]*?)</{tag}>")).expect("valid pattern");
+    let re = compile(&format!(r"<{tag}>([\s\S]*?)</{tag}>")).ok()?;
     let raw = re.captures(entry)?.get(1)?.as_str().trim();
     decode(raw)
 }
@@ -443,15 +447,19 @@ fn pick(entry: &str, tag: &str) -> Option<String> {
 /// Fails with `arXiv has no paper <id>` when the feed has no usable entry.
 pub fn arxiv_entry_to_metadata(xml: &str, arxiv_id: &str) -> Result<ZoteroPaperInput, String> {
     let not_found = format!("arXiv has no paper {arxiv_id}");
-    let entry = ENTRY
+    let Some(entry_re) = ENTRY.as_ref() else {
+        return Err(not_found);
+    };
+    let entry = entry_re
         .captures(xml)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
         .ok_or_else(|| not_found.clone())?;
-    let authors = NAME
-        .captures_iter(entry)
-        .filter_map(|c| decode(c.get(1)?.as_str().trim()))
-        .collect();
+    let authors = NAME.as_ref().map_or_else(Vec::new, |re| {
+        re.captures_iter(entry)
+            .filter_map(|c| decode(c.get(1)?.as_str().trim()))
+            .collect::<Vec<String>>()
+    });
     let year = pick(entry, "published").and_then(|published| {
         published
             .chars()

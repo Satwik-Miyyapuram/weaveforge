@@ -92,7 +92,10 @@ fn import_reanchors_through_a_folder_path_map() {
         body
     );
     // An empty storage path keeps the ref as written.
-    let _ = files.insert("assets/notes/other-user/n9/secret.png".to_owned(), String::new());
+    let _ = files.insert(
+        "assets/notes/other-user/n9/secret.png".to_owned(),
+        String::new(),
+    );
     assert_eq!(from_relative_blob_links_mapped(body, &files), body);
 }
 
