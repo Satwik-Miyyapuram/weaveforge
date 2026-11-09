@@ -18,6 +18,7 @@ For somebody using the app.
 - [Sharing](using/sharing.md) — share with one member, pick view, comment or edit, and how blanket shares work
 - [The dashboard](using/dashboard.md) — the eleven cards, how the layout is saved, and what happens to an unknown card
 - [Settings](using/settings.md) — appearance, your theme file, integration keys, and the disclaimer
+- [The wiki](using/wiki.md) — the generated index, merging two pages, and what a merge keeps
 - [Search](using/search.md) — one box over the workspace, typo recovery, acronyms, query filters, and how results are ranked
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
