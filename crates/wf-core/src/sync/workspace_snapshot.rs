@@ -125,6 +125,9 @@ pub struct SnapshotReportSection {
     pub deadline: Option<String>,
     /// Free-text notes.
     pub notes: Option<String>,
+    /// Last edit timestamp; empty when the serializer omits it.
+    #[serde(deserialize_with = "null_default")]
+    pub updated_at: String,
     /// Creation timestamp.
     #[serde(deserialize_with = "null_default")]
     pub created_at: String,
@@ -152,6 +155,12 @@ pub struct SnapshotExperiment {
     pub branch: Option<String>,
     /// Result notes.
     pub result_note: Option<String>,
+    /// Command that runs the experiment.
+    pub run_command: Option<String>,
+    /// Start timestamp.
+    pub started_at: Option<String>,
+    /// Finish timestamp, set once the status is terminal.
+    pub finished_at: Option<String>,
     /// Creation timestamp.
     #[serde(deserialize_with = "null_default")]
     pub created_at: String,
@@ -313,6 +322,19 @@ mod tests {
         assert_eq!(snapshot.vault_pages[0].parent_id, None);
         assert!(snapshot.reading_lists.is_empty());
         assert_eq!(snapshot.collected_at, "2026-01-01");
+    }
+
+    #[test]
+    fn experiment_reads_run_command_and_run_timestamps() {
+        let snapshot: WorkspaceSnapshot = serde_json::from_str(
+            r#"{"experiments":[{"id":"e1","name":"Run","runCommand":"python train.py","startedAt":"2026-02-01T09:00:00Z","finishedAt":"2026-02-01T10:00:00Z","createdAt":"2026-01-30"}]}"#,
+        )
+        .unwrap();
+
+        let experiment = &snapshot.experiments[0];
+        assert_eq!(experiment.run_command.as_deref(), Some("python train.py"));
+        assert_eq!(experiment.started_at.as_deref(), Some("2026-02-01T09:00:00Z"));
+        assert_eq!(experiment.finished_at.as_deref(), Some("2026-02-01T10:00:00Z"));
     }
 
     #[test]

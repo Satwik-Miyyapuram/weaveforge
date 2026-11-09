@@ -28,8 +28,8 @@ function fakeFiles() {
   return { stored, files };
 }
 
-const value = (n: number) => ({ model: "m", dimensions: 2, ids: ["a#0"], vectors: Float32Array.from([n, n + 1]).buffer, revision: "r" });
-const floats = (v: { vectors: ArrayBuffer } | null) => (v ? [...new Float32Array(v.vectors)] : null);
+const value = (n: number) => ({ model: "m", dimensions: 2, bytes: new Uint8Array(Float32Array.from([n, n + 1]).buffer), revision: "r" });
+const floats = (v: { bytes: Uint8Array } | null) => (v ? [...new Float32Array(v.bytes.slice().buffer)] : null);
 
 test("with files, vectors go to a file and the row is only an index", async () => {
   const run = await database();

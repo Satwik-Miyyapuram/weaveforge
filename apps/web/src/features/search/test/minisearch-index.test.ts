@@ -1,14 +1,18 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc } from "@weaveforge/core";
+import type { SearchDoc } from "@weaveforge/core";
 import { SEARCH_SCHEMA_VERSION, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 let core: RustCore;
+let searchRevision: RustCore["searchRevision"];
+let toPdfSearchDocs: RustCore["toPdfSearchDocs"];
+let toSearchDocs: RustCore["toSearchDocs"];
 before(async () => {
   core = await loadTestCore();
+  ({ searchRevision, toPdfSearchDocs, toSearchDocs } = core);
 });
 
 const note = (id: string, title: string, body = "") =>

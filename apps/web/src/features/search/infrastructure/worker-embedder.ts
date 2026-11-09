@@ -1,4 +1,4 @@
-import type { EmbedRequest, IEmbedder } from "@weaveforge/core";
+import type { EmbedRequest, IEmbedder } from "../application/embedder";
 import type {
   EmbedWorkerRequest,
   EmbedWorkerResponse,

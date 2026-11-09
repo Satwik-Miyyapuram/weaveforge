@@ -1,10 +1,32 @@
-import {
-  VectorIndex,
-  chunkForEmbedding,
-  type IEmbedder,
-  type SearchDoc,
-  type VectorHit,
-} from "@weaveforge/core";
+import type { SearchDoc } from "@weaveforge/core";
+import { readyCore, type RustCore } from "@/lib/rust-core";
+import type { IEmbedder } from "./embedder";
+
+/** A nearest-neighbour hit: a passage or document id and its cosine. */
+export interface VectorHit {
+  id: string;
+  score: number;
+}
+
+/** The Rust `VectorIndex` handle, as the wasm factory returns it. */
+type VectorIndexHandle = ReturnType<RustCore["createVectorIndex"]>;
+
+/**
+ * Hits below this cosine are noise. The floor the TS index applied by default,
+ * now passed explicitly because the Rust search takes it as a required argument.
+ */
+const MIN_SCORE = 0.2;
+
+/** Flatten equal-width vectors into the one buffer the wasm `add` takes. */
+function flatten(vectors: readonly Float32Array[]): Float32Array {
+  const out = new Float32Array(vectors.reduce((n, vector) => n + vector.length, 0));
+  let at = 0;
+  for (const vector of vectors) {
+    out.set(vector, at);
+    at += vector.length;
+  }
+  return out;
+}
 
 /**
  * The semantic half of search.
@@ -47,14 +69,13 @@ const CHECKPOINT_MS = 30_000;
 export interface PackedIndex {
   model: string;
   dimensions: number;
-  ids: string[];
-  vectors: ArrayBuffer;
+  /** The Rust index's own blob: width, ids and vectors in one self-describing buffer. */
+  bytes: Uint8Array;
   hashes: Record<string, string>;
 }
 
-function pack(model: string, index: VectorIndex, embedded: Map<string, string>): PackedIndex {
-  const { ids, vectors } = index.toBytes();
-  return { model, dimensions: index.dimensions, ids, vectors, hashes: Object.fromEntries(embedded) };
+function pack(model: string, index: VectorIndexHandle, embedded: Map<string, string>): PackedIndex {
+  return { model, dimensions: index.dimensions, bytes: index.toBytes(), hashes: Object.fromEntries(embedded) };
 }
 
 /** `note:n1` → `note:n1#2` for its third passage. */
@@ -101,7 +122,7 @@ export function textHash(text: string): string {
 const hashOf = (doc: SearchDoc) => textHash(embeddableText(doc));
 
 export class SemanticIndex {
-  private index: VectorIndex | null = null;
+  private index: VectorIndexHandle | null = null;
   private embedderId = "";
   /**
    * A hash of the text each document was embedded from, by document id.
@@ -139,7 +160,7 @@ export class SemanticIndex {
     // Where each document's passages end: it counts as embedded only once all are in.
     const ends: { end: number; doc: SearchDoc }[] = [];
     for (const doc of docs) {
-      const chunks = chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS });
+      const chunks = readyCore().chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS });
       chunks.forEach((chunk, position) => {
         passages.push({ id: passageId(doc.id, position), text: chunk.text });
       });
@@ -152,7 +173,7 @@ export class SemanticIndex {
       return;
     }
 
-    const index = new VectorIndex(this.embedder.dimensions || 384, passages.length);
+    const index = readyCore().createVectorIndex(this.embedder.dimensions || 384);
     const embedded = new Map<string, string>();
     let finished = 0;
     let lastCheckpoint = Date.now();
@@ -164,7 +185,10 @@ export class SemanticIndex {
         kind: "passage",
         signal: options.signal,
       });
-      index.add(batch.map((passage, i) => ({ id: passage.id, vector: vectors[i]! })));
+      index.add(
+        batch.map((passage) => passage.id),
+        flatten(vectors),
+      );
       const done = Math.min(start + BATCH, passages.length);
       while (finished < ends.length && ends[finished]!.end <= done) {
         const { doc } = ends[finished++]!;
@@ -199,7 +223,7 @@ export class SemanticIndex {
     const best = new Map<string, number>();
     // Over-fetch: several passages of one document can crowd out the runner-up,
     // so the collapse needs more candidates than the caller asked for.
-    for (const hit of index.search(vector, limit * 4)) {
+    for (const hit of index.search(vector, limit * 4, MIN_SCORE)) {
       const docId = documentIdOf(hit.id);
       const current = best.get(docId);
       if (current === undefined || hit.score > current) best.set(docId, hit.score);
@@ -222,8 +246,9 @@ export class SemanticIndex {
     const best = new Map<string, number>();
     for (let i = 0; ; i += 1) {
       const vector = index.vectorOf(passageId(docId, i));
-      if (!vector) break;
-      for (const hit of index.search(vector, limit * 4)) {
+      // Absent passages come back empty: the wasm side has no null.
+      if (vector.length === 0) break;
+      for (const hit of index.search(vector, limit * 4, MIN_SCORE)) {
         const id = documentIdOf(hit.id);
         if (id === docId) continue;
         const current = best.get(id);
@@ -252,7 +277,7 @@ export class SemanticIndex {
 
     const pieces = docs.map((doc) => ({
       doc,
-      texts: chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS }).map((chunk) => chunk.text),
+      texts: readyCore().chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS }).map((chunk) => chunk.text),
     }));
     // Progress counts the whole index, so a resumed build carries on from where it was, not from 0.
     const total = index.size + pieces.reduce((sum, piece) => sum + piece.texts.length, 0);
@@ -270,7 +295,10 @@ export class SemanticIndex {
       }
       let at = 0;
       for (const { doc, texts: own } of group) {
-        index.add(own.map((_, i) => ({ id: passageId(doc.id, i), vector: vectors[at + i]! })));
+        index.add(
+          own.map((_, i) => passageId(doc.id, i)),
+          flatten(vectors.slice(at, at + own.length)),
+        );
         at += own.length;
         this.embedded.set(doc.id, hashOf(doc));
       }
@@ -348,15 +376,19 @@ export class SemanticIndex {
     stored: {
       model: string;
       dimensions: number;
-      ids: string[];
-      vectors: ArrayBuffer;
+      bytes: Uint8Array;
       hashes?: Record<string, string>;
     },
     docs: readonly SearchDoc[] = [],
   ): boolean {
     if (stored.model !== this.embedder.id) return false;
     try {
-      this.index = VectorIndex.fromBytes(stored.dimensions, stored.ids, stored.vectors);
+      // Records written before the blob format have no `bytes`: this throws, and the caller rebuilds.
+      const index = readyCore().vectorIndexFromBytes(stored.bytes);
+      // The width must match what was stored and, once the encoder is up, what it produces.
+      if (index.dimensions !== stored.dimensions) return false;
+      if (this.embedder.dimensions && index.dimensions !== this.embedder.dimensions) return false;
+      this.index = index;
       this.embedderId = stored.model;
       this.embedded = stored.hashes
         ? new Map(Object.entries(stored.hashes))
