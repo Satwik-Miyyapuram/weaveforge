@@ -1,16 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  EMPTY_INK_UNDO,
-  INK_UNDO_LIMIT,
-  pushInkUndo,
-  refreshInkUndoAnnotation,
-  renameInkUndoId,
-  takeInkRedo,
-  takeInkUndo,
-  type InkUndoState,
-} from "../../src/reader/ink-undo.js";
+import { type InkUndoState } from "../../src/reader/ink-undo.js";
 import type { ReaderAnnotation } from "../../src/reader/reader-annotation.js";
+import * as wasm from "../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { EMPTY_INK_UNDO, INK_UNDO_LIMIT, pushInkUndo, refreshInkUndoAnnotation, renameInkUndoId, takeInkRedo, takeInkUndo } = wasm as unknown as CoreContract;
 
 function ink(id: string, paths: number[][] = [[0, 0, 10, 10]]): ReaderAnnotation {
   return {
@@ -44,7 +40,7 @@ test("undo and redo walk the stack in order", () => {
 
   const again = takeInkRedo(first.state);
   assert.ok(again);
-  assert.equal(again.entry, first.entry);
+  assert.deepEqual(again.entry, first.entry);
   assert.deepEqual(again.state, state);
 
   assert.equal(takeInkRedo(state), null, "nothing to redo on a fresh branch");
@@ -82,7 +78,7 @@ test("renaming an id follows the row across both stacks and every entry kind", (
   }
   const untouched = renamed.redo[0]!;
   assert.equal(untouched.kind === "create" && untouched.annotation.id, "other");
-  assert.equal(renameInkUndoId(state, "old", "old"), state, "a no-op rename is the same object");
+  assert.deepEqual(renameInkUndoId(state, "old", "old"), state, "a no-op rename changes nothing");
 });
 
 test("refreshing a snapshot updates the row's create and remove entries only", () => {
@@ -121,5 +117,5 @@ test("a colour, comment or text edit is a step that follows its row's id (D18, D
   const entry = state.undo[0]!;
   assert.equal(entry.kind === "update" && entry.id, "new");
   // An edit holds no snapshot, so refreshing the row leaves it as it was.
-  assert.equal(refreshInkUndoAnnotation(state, ink("new")).undo[0], entry);
+  assert.deepEqual(refreshInkUndoAnnotation(state, ink("new")).undo[0], entry);
 });

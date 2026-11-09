@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  buildWikiGraph,
-  explainArm,
-  graphDegrees,
-  graphDensity,
-  personalizedPageRank,
-  relatedByPpr,
-  type WorkspaceSnapshot,
-} from "../../src/index.js";
+import { buildWikiGraph, graphDegrees, graphDensity, type WorkspaceSnapshot } from "../../src/index.js";
+import * as wasm from "../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { explainArm, personalizedPageRank, relatedByPpr } = wasm as unknown as CoreContract;
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {

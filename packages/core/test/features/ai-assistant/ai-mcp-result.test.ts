@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import * as wasm from "../../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../../src/index.js";
 
-import {
-  MCP_RESULT_NOTICE,
-  mcpReadResult,
-} from "../../../src/features/ai-assistant/index.js";
+// Their TypeScript was removed; the Rust core is the implementation.
+const { MCP_RESULT_NOTICE, mcpReadResult } = wasm as unknown as CoreContract;
 
 const NONCE = "0123456789abcdef";
 

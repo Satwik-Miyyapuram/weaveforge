@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseBibEntries } from "../../../src/features/report/domain/bib-entries.js";
-import {
-  checkBibliography,
-  type BibFinding,
-  type BibFindingKind,
-} from "../../../src/features/report/domain/bibliography-report.js";
+
+import { type BibFinding, type BibFindingKind } from "../../../src/features/report/domain/bibliography-report.js";
+import * as wasm from "../../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { parseBibEntries, checkBibliography } = wasm as unknown as CoreContract;
 
 function report(files: { path: string; content: string }[]) {
   return checkBibliography({ sources: files, bibliography: parseBibEntries(files) });

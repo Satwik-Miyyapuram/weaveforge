@@ -1,3 +1,5 @@
+/** Types for related. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
+
 /**
  * "Related to this" — a three-arm cascade, because no single retrieval strategy
  * is right across the range of workspaces this has to serve.
@@ -28,21 +30,10 @@ export interface RelatedResult {
   similarity?: number;
 }
 
-/** Below this the seed has too little neighbourhood for a walk to say anything. */
-export const MIN_SEED_DEGREE_FOR_PPR = 3;
-
-/** Human-readable reason, so a thin result set is explained rather than puzzling. */
-export function explainArm(arm: RelatedArm): string {
-  switch (arm) {
-    case "graph":
-      return "From links between your notes and papers";
-    case "lexical":
-      return "By similar wording — not enough links yet for the graph";
-    case "semantic":
-      return "By similar meaning — not enough links yet for the graph";
-    case "tags":
-      return "By shared tags";
-    default:
-      return "Nothing related found yet";
-  }
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface RelatedFns {
+  /** Below this the seed has too little neighbourhood for a walk to say anything. */
+  readonly MIN_SEED_DEGREE_FOR_PPR: 3;
+  /** Human-readable reason, so a thin result set is explained rather than puzzling. */
+  explainArm(arm: RelatedArm): string;
 }

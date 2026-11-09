@@ -28,6 +28,7 @@ export {
 } from "./shared/rust.js";
 export * from "./shared/text.js";
 export * from "./shared/three-way-merge.js";
+export type { CoreContract } from "./shared/core-contract.js";
 export * from "./config/index.js";
 export * from "./features/papers/index.js";
 export * from "./features/logbook/index.js";

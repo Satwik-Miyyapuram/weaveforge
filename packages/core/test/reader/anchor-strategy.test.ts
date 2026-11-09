@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  chooseAnchorStrategy,
-  type CombinedPdfAnchor,
-  type PdfLocus,
-} from "../../src/reader/index.js";
+import { type CombinedPdfAnchor, type PdfLocus } from "../../src/reader/index.js";
+import * as wasm from "../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { chooseAnchorStrategy } = wasm as unknown as CoreContract;
 
 const locus = (exact: string): PdfLocus => ({
   quote: { type: "TextQuoteSelector", exact },
