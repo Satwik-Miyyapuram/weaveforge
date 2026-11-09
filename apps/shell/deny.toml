@@ -92,6 +92,17 @@ skip = [
   { crate = "foreign-types-shared@0.1", reason = "foreign-types 0.3 via openssl, see above" },
   { crate = "openssl-probe@0.1", reason = "git2 0.21 on 0.1; native-tls on 0.2" },
   { crate = "windows-sys@0.60", reason = "rfd 0.16 (folder picker of tauri-plugin-dialog) on 0.60; the rest on 0.61" },
+  # postgres-protocol 0.6.12 (local Postgres) is already on the RustCrypto 0.11
+  # line, base64 0.22 and rand 0.10; the rest of the tree is still on the older ones.
+  { crate = "base64@0.22", reason = "postgres-protocol 0.6.12 on 0.22; the rest on 0.23" },
+  { crate = "sha2@0.10", reason = "tauri-codegen and hkdf still on sha2 0.10; postgres-protocol on 0.11" },
+  { crate = "digest@0.10", reason = "sha2 0.10 and hmac 0.12, see above" },
+  { crate = "hmac@0.12", reason = "hkdf 0.12 on hmac 0.12; postgres-protocol on 0.13" },
+  { crate = "block-buffer@0.10", reason = "digest 0.10, see above" },
+  { crate = "crypto-common@0.1", reason = "digest 0.10 and cipher 0.4, see above" },
+  { crate = "cpufeatures@0.2", reason = "sha2 0.10 and aes 0.8, see above" },
+  { crate = "rand@0.9", reason = "tokenizers 0.22 on rand 0.9; postgres-protocol on 0.10" },
+  { crate = "rand_core@0.9", reason = "rand 0.9 via tokenizers, see above" },
 ]
 
 [sources]
