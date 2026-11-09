@@ -1,5 +1,5 @@
 import type { ProjectContext } from "@/lib/project-context";
-import type { ResourceType } from "@/lib/cache/cache-invalidation-map";
+import type { ResourceType } from "@weaveforge/wasm";
 import {
   clearProjectCacheHooks,
   configureProjectCacheHooks,

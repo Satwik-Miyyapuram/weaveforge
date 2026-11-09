@@ -6,71 +6,35 @@
  * escaping was written out twice and forgotten once, which left the vault
  * writing an alt text straight from the filename: a screenshot called
  * `figure [2].png` produced `![figure [2].png](vault:…)`, and the link stopped
- * being a link. There is one implementation now and the prefix is an argument.
+ * being a link. There is one implementation now, in Rust, and the prefix is an
+ * argument. This file only forwards to it.
  */
 
-/**
- * Makes a string safe to sit inside `[…]`.
- *
- * Newlines collapse to spaces because an alt text is one line by definition,
- * and the three characters that would end the label early are escaped. An empty
- * result becomes "image" rather than `![]`, which reads as a broken image to a
- * screen reader instead of an unlabelled one.
- */
-export function escapeMarkdownAltText(alt: string): string {
-  const collapsed = alt.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!collapsed) return "image";
-  return collapsed.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
-}
+import { rust } from "./rust.js";
 
-/** `![alt](target)`, with the alt text escaped. */
+/** `![alt](target)`, with the alt text escaped by Rust. */
 export function markdownImage(target: string, alt = "image"): string {
-  return `![${escapeMarkdownAltText(alt)}](${target})`;
+  return rust().markdownImage(target, alt);
 }
 
-/**
- * A readable alt text from a file name.
- *
- * The extension goes because "diagram.png" describes a file and "diagram"
- * describes a picture, and the separators most screenshot tools use become
- * spaces. A clipboard bitmap has no name at all — browsers call it `image.png`
- * — so that one is treated as no name rather than as a description.
- */
+/** A readable alt text from a file name (Rust `image_alt_from_filename`). */
 export function imageAltFromFilename(name: string | undefined): string {
-  if (!name) return "image";
-  const withoutExtension = name.replace(/\.[A-Za-z0-9]{1,8}$/, "");
-  const words = withoutExtension.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!words || /^image$/i.test(words)) return "image";
-  return words;
+  return rust().imageAltFromFilename(name);
 }
 
-/** File extension for a blob's MIME type, defaulting to png. */
+/** File extension for a blob's MIME type, defaulting to png (Rust). */
 export function imageExtensionForMime(mime: string): string {
-  if (mime === "image/jpeg") return "jpeg";
-  if (mime === "image/webp") return "webp";
-  if (mime === "image/gif") return "gif";
-  if (mime === "image/svg+xml") return "svg";
-  if (mime === "image/avif") return "avif";
-  return "png";
+  return rust().imageExtensionForMime(mime);
 }
 
 /**
- * Reading the refs back out.
+ * The stored paths a body references under `prefix`, deduplicated (Rust).
  *
- * Finding the refs a surface owns, and turning a pasted `blob:` URL into a
- * stored one, were written once per surface — vault, papers, report — and
- * differed only in the prefix, exactly as `markdownImage` once did. `normalize`
- * is passed in because the prefix list it knows about is vault-side, and this
- * file is not the place to grow a second copy of it.
+ * Rust applies the markdown-image normalization itself before scanning, so
+ * callers pass only the prefix.
  */
-export function imagePathsInBody(body: string, prefix: string, normalize: (b: string) => string): string[] {
-  const paths = new Set<string>();
-  const head = new RegExp(prefix.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`));
-  replaceImageRefs(normalize(body), head, ({ rest }) => {
-    paths.add(rest);
-    return null;
-  });
-  return [...paths];
+export function imagePathsInBody(body: string, prefix: string): string[] {
+  return rust().imagePathsInBody(body, prefix);
 }
 
 export interface ImageRef {

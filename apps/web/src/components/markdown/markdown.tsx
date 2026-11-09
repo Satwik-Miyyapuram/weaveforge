@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
-import { headingSlug } from "@/lib/heading-slug";
-import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
+import { readyCore } from "@/lib/rust-core";
 import {
   containsMath,
   loadedMathRenderer,
@@ -64,7 +63,7 @@ function renderWikilink(inner: string, resolve: WikilinkResolver): string {
   let href = res.href;
   if (!res.unresolved) {
     if (block) href = `${res.href}#^${encodeURIComponent(block)}`;
-    else if (heading) href = `${res.href}#${headingSlug(heading)}`;
+    else if (heading) href = `${res.href}#${readyCore().headingSlug(heading)}`;
   }
   const cls = res.unresolved ? "wikilink wikilink--unresolved" : "wikilink";
   const create = res.unresolved ? ` data-create="${escapeAttr(target)}"` : "";
@@ -95,7 +94,7 @@ function formatText(s: string, options?: MarkdownRenderOptions): string {
         // become style and class while the bare alt is kept on a data
         // attribute for the read view's image control to find the
         // reference they came from.
-        const { alt, width, crop, align } = parseMdImageAlt(rawAlt);
+        const { alt, width, crop, align } = readyCore().parseMdImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
         // The resolver is handed the src the regex captured. It answers with a
         // fetchable URL, or null for an asset this note cannot reach — in which
@@ -494,7 +493,7 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
       closeList();
       // Each level is its own element: `#` is h1 … `######` is h6. markdown.css sizes them.
       const tag = `h${h[1]!.length}`;
-      out.push(`<${tag} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
+      out.push(`<${tag} id="${escapeAttr(readyCore().headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
     } else if (li) {
       openList("ul");
       out.push(`<li>${inline(li[1]!, options)}</li>`);

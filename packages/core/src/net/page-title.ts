@@ -5,7 +5,13 @@
  * process, and so it can be tested against the awkward pages — the ones with a
  * bot wall, an entity-encoded title, or a title element that never closes —
  * without a network.
+ *
+ * `extractPageTitle` and `decodeHtmlEntities` are TS on purpose: the desktop
+ * fetch path (apps/desktop) runs Node and never loads wasm. Browser-only rules
+ * go to Rust and are forwarded here.
  */
+
+import { rust } from "../shared/rust.js";
 
 const NAMED_ENTITIES: Record<string, string> = { nbsp: " ", lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" };
 
@@ -116,18 +122,11 @@ function attribute(tag: string, name: string): string | undefined {
 }
 
 /**
- * True when a URL's own path says it points at an image.
+ * True when a URL's own path says it points at an image (Rust `looks_like_image_url`).
  *
- * Used to decide whether a pasted link is a picture worth downloading. The
- * extension is the only signal available before the request, and a URL with no
- * extension is left alone rather than fetched to find out — a note is not a
- * reason to request every link somebody pastes.
+ * Used to decide whether a pasted link is a picture worth downloading. Browser
+ * only: it needs the loaded wasm module, which the browser shell registers.
  */
 export function looksLikeImageUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return /\.(?:png|jpe?g|gif|webp|avif|bmp|tiff?)$/i.test(parsed.pathname);
-  } catch {
-    return false;
-  }
+  return rust().looksLikeImageUrl(url);
 }

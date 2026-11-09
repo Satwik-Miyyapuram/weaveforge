@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cacheRepo } from "@/lib/cache/cache-repo";
+import { readyCore } from "@/lib/rust-core";
 import {
   cacheWriteNotify,
   clearProjectCacheHooks,
@@ -63,7 +64,7 @@ test("unknown resource type falls back to clear-all", async () => {
 });
 
 test("a prototype key is an unknown resource type, not a plan (11-03)", async () => {
-  const { isKnownResourceType } = await import("@/lib/cache/cache-invalidation-map");
+  const { isKnownResourceType } = readyCore();
   for (const key of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
     assert.equal(isKnownResourceType(key), false, key);
     assert.doesNotThrow(() => invalidateForWrite(key), key);

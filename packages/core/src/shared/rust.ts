@@ -10,6 +10,18 @@
 export interface RustCoreFns {
   normalizeDoi(doi?: string): string | undefined;
   projectName(name: string): string | undefined;
+  mergeRows(
+    base: Record<string, unknown>,
+    local: Record<string, unknown>,
+    remote: Record<string, unknown>,
+  ): { merged: Record<string, unknown>; conflicts: { field: string; base: unknown; local: unknown; remote: unknown }[] };
+  sameValue(a: unknown, b: unknown): boolean;
+  markdownImage(target: string, alt: string): string;
+  imageAltFromFilename(name?: string | null): string;
+  imageExtensionForMime(mime: string): string;
+  imagePathsInBody(body: string, prefix: string): string[];
+  looksLikeImageUrl(url: string): boolean;
+  countWords(text: string): number;
 }
 
 let core: RustCoreFns | null = null;

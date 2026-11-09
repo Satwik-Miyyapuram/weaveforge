@@ -32,20 +32,58 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { goToRoute } from "@/lib/go-to-route";
 import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
 import { shortcutTable } from "@/features/editor-workspace/application/keybindings";
-import {
-  commandMatches,
-  groupPaletteRows,
-  matchingPages,
-  paletteKeys,
-  paletteModeFor,
-  type PaletteGroup,
-  type PaletteMode,
-} from "@/lib/palette-groups";
-import { HIT_SORTS, isPreviewKey, sortHits, type HitSort } from "@/lib/palette-sort";
+import { readyCore } from "@/lib/rust-core";
+import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";
 import { CloseButton } from "./button";
 
+/** Search-hit order: Rust gives the indices; the rows stay the component's own. */
+function sortHits<T extends { title: string; updatedAt?: string }>(rows: readonly T[], order: HitSort): T[] {
+  const keys = rows.map(({ title, updatedAt }) => ({ title, updatedAt }));
+  return readyCore().sortHitOrder(keys, order).map((i) => rows[i]!);
+}
+
+/** Command rows: every one for an empty query, else the page rule (Rust). */
+function commandMatches<T extends { label: string }>(rows: readonly T[], query: string): T[] {
+  return readyCore().commandMatchIndices(rows.map((r) => r.label), query).map((i) => rows[i]!);
+}
+
+/** Pages whose name holds the query, names that start with it first (Rust). */
+function matchingPages<T extends { label: string }>(pages: readonly T[], query: string): T[] {
+  return readyCore().matchingPageIndices(pages.map((p) => p.label), query).map((i) => pages[i]!);
+}
+
+/** Rows under their headings, in display order (Rust). */
+function groupPaletteRows<T extends { group: PaletteGroup }>(
+  rows: readonly T[],
+): { label: PaletteGroup; rows: T[] }[] {
+  return readyCore()
+    .groupPaletteRows(rows.map((r) => r.group))
+    .map(({ label, rows: at }) => ({ label, rows: at.map((i) => rows[i]!) }));
+}
+
+/** A key event as the Rust key rules read it. */
+function chordOf(e: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey">): PaletteKey {
+  return { key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey };
+}
+
+/** The sort chips' labels (UI copy). */
+const HIT_SORTS: readonly { value: HitSort; label: string }[] = [
+  { value: "relevance", label: "Best match" },
+  { value: "newest", label: "Newest" },
+  { value: "title", label: "A–Z" },
+];
+
+/** The footer's key chips, with the platform's own modifier (UI copy). */
+function paletteKeys(mac: boolean): { keys: string[]; label: string }[] {
+  return [
+    { keys: ["↑", "↓"], label: "move" },
+    { keys: ["Enter"], label: "open" },
+    { keys: ["Esc"], label: "close" },
+    { keys: [shortcutLabel("⌘K", mac)], label: "from anywhere" },
+  ];
+}
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
 
@@ -233,7 +271,7 @@ export function JumpToPalette() {
       // In a document `⌘K` inserts a link; the editor has handled it already.
       if (e.defaultPrevented) return;
       // `⌘⇧P` lists commands, as in VS Code; `⌘⇧F` searches the workspace.
-      const next = paletteModeFor(e);
+      const next = readyCore().paletteModeFor(chordOf(e));
       if (next) {
         e.preventDefault();
         openPalette(next);
@@ -503,7 +541,7 @@ export function JumpToPalette() {
           e.preventDefault();
           e.stopPropagation();
           setPreview(false);
-        } else if (mode === "search" && isPreviewKey(e, e.target instanceof HTMLInputElement)) {
+        } else if (mode === "search" && readyCore().isPreviewKey(chordOf(e), e.target instanceof HTMLInputElement)) {
           e.preventDefault();
           setPreview((now) => !now);
         } else if (e.key === "ArrowDown" || vimDown) {

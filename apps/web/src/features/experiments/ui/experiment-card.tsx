@@ -13,7 +13,7 @@ import { useNavPending } from "@/lib/nav-pending";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
-import { cardSnippet } from "@/lib/card-snippet";
+import { readyCore } from "@/lib/rust-core";
 import { PinnedPaperBadge } from "@/features/sharing";
 import {
   ExpGitChips,
@@ -121,7 +121,7 @@ export function ExperimentCard({
       <ExpGitChips exp={exp} limit={3} />
       <ExpMetricChips exp={exp} limit={3} />
       <div className="card-body-row">
-        {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
+        {exp.resultNote && <p className="entity-card-snippet">{readyCore().cardSnippet(exp.resultNote)}</p>}
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
       {actionError && <FormError>{actionError}</FormError>}

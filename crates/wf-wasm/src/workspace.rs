@@ -13,7 +13,7 @@ use wf_core::sync::folder_layout::{
 };
 use wf_core::sync::ink_note::{
     InkNoteMeta, default_ink_note_meta, is_ink_chunk_id, is_ink_note_body, read_ink_note_body,
-    write_ink_note_body,
+    readable_text, write_ink_note_body,
 };
 use wf_core::sync::json_entities::{WorkspaceJsonKind, is_app_owned_path, json_kind_of_path};
 use wf_core::sync::markdown_image::{
@@ -91,6 +91,17 @@ pub fn read_ink_note_body_js(body: &str) -> JsResult<JsValue> {
     check_text(body)?;
     let (meta, text) = read_ink_note_body(body);
     to_js(&InkNoteBodyJs { meta, text })
+}
+
+/// [`wf_core::sync::ink_note::readable_text`] for JS: a note's words, ink pages joined.
+///
+/// # Errors
+///
+/// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = readableText)]
+pub fn readable_text_js(body: &str) -> JsResult<String> {
+    check_text(body)?;
+    Ok(readable_text(body))
 }
 
 /// [`wf_core::sync::ink_note::write_ink_note_body`] for JS.

@@ -8,12 +8,8 @@ import { getRealtimeClient } from "@/backend/providers/postgrest/client";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 
-import {
-  isKnownResourceType,
-  isScopedCacheInvalidationEnabled,
-  WRITE_INVALIDATION_MAP,
-  type ResourceType,
-} from "@/lib/cache/cache-invalidation-map";
+import type { ResourceType } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import {
   clearAllScreenCaches,
   clearScreenCachesForScreens,
@@ -59,6 +55,11 @@ function logInvalidation(resourceType: string | undefined, repos: string[], scre
   );
 }
 
+/** `SCOPED_CACHE_INVALIDATION=0` turns scoped invalidation off, falling back to clearing everything. */
+function isScopedCacheInvalidationEnabled(): boolean {
+  return !(typeof process !== "undefined" && process.env.SCOPED_CACHE_INVALIDATION === "0");
+}
+
 export function setActiveProjectIdForCache(pid: () => string | null): void {
   activeProjectId = pid;
 }
@@ -102,13 +103,14 @@ export function invalidateAllRepoCaches(): void {
  * `projectId`, the project the write happened in; it defaults to the open one.
  */
 export function invalidateForWrite(resourceType?: string, projectId: string | null = activeProjectId()): void {
-  if (!isScopedCacheInvalidationEnabled() || !resourceType || !isKnownResourceType(resourceType)) {
+  const plan =
+    isScopedCacheInvalidationEnabled() && resourceType ? readyCore().invalidationPlan(resourceType) : null;
+  if (!resourceType || !plan) {
     invalidateAllRepoCaches();
     return;
   }
 
-  const plan = WRITE_INVALIDATION_MAP[resourceType];
-  const repoTypes = new Set<ResourceType>([resourceType, ...plan.repos]);
+  const repoTypes = new Set<string>([resourceType, ...plan.repos]);
   for (const entry of allRepoCaches) {
     if (!entry.resourceType || !repoTypes.has(entry.resourceType)) continue;
     entry.cache.clear();
@@ -175,7 +177,7 @@ export class ProjectLwwInvalidator {
         payload && typeof payload === "object" && "resourceType" in payload
           ? String((payload as { resourceType?: string }).resourceType)
           : undefined;
-      if (resourceType && isKnownResourceType(resourceType)) {
+      if (resourceType && readyCore().isKnownResourceType(resourceType)) {
         this.clearLocal(resourceType, projectId);
       } else {
         invalidateAllRepoCaches();
