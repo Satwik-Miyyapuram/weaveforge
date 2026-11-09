@@ -1709,6 +1709,84 @@ export type ImportMergeDetail = {
 	bodySides?: BodySides,
 };
 
+/**  A body that passed every check: its layout and its page header. */
+export type InkChunkBodyInfo = {
+	/**  Where each section starts. */
+	layout: InkChunkLayout,
+	/**  Page width in 0.1 mm. */
+	width: number,
+	/**  Page height in 0.1 mm. */
+	height: number,
+	/**  Page background. */
+	paper: InkPaper,
+	/**  Attachment index for a page image, 0 for none. */
+	background: number,
+};
+
+/**  The chunk header, readable without inflating anything. */
+export type InkChunkHeader = {
+	/**  Format version. */
+	version: number,
+	/**  Flag bits. */
+	flags: number,
+	/**  Uncompressed body length. */
+	bodySize: number,
+	/**  Stored payload length. */
+	payloadSize: number,
+	/**  Total chunk length, so a caller can check a file before reading it all. */
+	totalBytes: number,
+	/**  Whether the payload is compressed. */
+	compressed: boolean,
+};
+
+/**  Where every section of a body starts, in bytes from the body's start. */
+export type InkChunkLayout = {
+	/**  Points in the page. */
+	pointCount: number,
+	/**  Strokes in the page. */
+	strokeCount: number,
+	/**  Recognised lines. */
+	lineCount: number,
+	/**  Bytes of line text. */
+	textBytes: number,
+	/**  Offset of the `stroke_point_offset` section. */
+	strokePointOffset: number,
+	/**  Offset of the `stroke_point_count` section. */
+	strokePointCount: number,
+	/**  Offset of the `stroke_width` section. */
+	strokeWidth: number,
+	/**  Offset of the `stroke_tool` section. */
+	strokeTool: number,
+	/**  Offset of the `stroke_colour` section. */
+	strokeColour: number,
+	/**  Offset of the `stroke_shape` section. */
+	strokeShape: number,
+	/**  Offset of the `stroke_line` section. */
+	strokeLine: number,
+	/**  Offset of the `stroke_t0` section. */
+	strokeT0: number,
+	/**  Offset of the `points` section. */
+	points: number,
+	/**  Offset of the `line_stroke_start` section. */
+	lineStrokeStart: number,
+	/**  Offset of the `line_stroke_count` section. */
+	lineStrokeCount: number,
+	/**  Offset of the `line_y_min` section. */
+	lineYMin: number,
+	/**  Offset of the `line_y_max` section. */
+	lineYMax: number,
+	/**  Offset of the `line_text_offset` section. */
+	lineTextOffset: number,
+	/**  Offset of the `line_text_length` section. */
+	lineTextLength: number,
+	/**  Offset of the `line_confidence` section. */
+	lineConfidence: number,
+	/**  Offset of the `texts` section. */
+	texts: number,
+	/**  The body's whole length. */
+	total: number,
+};
+
 /**  Which hand the writer uses. */
 export type InkHand = 
 /**  Right hand. */

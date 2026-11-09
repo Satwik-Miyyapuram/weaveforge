@@ -440,6 +440,16 @@ export function checkBibliography(input: any): any;
 export function checkGitRemoteUrl(raw: any): any;
 
 /**
+ * [`check_ink_chunk_body`](chunk::check_ink_chunk_body): the layout and page header of a body
+ * that passed every check.
+ *
+ * # Errors
+ *
+ * Fails on a body whose tables do not add up.
+ */
+export function checkInkChunkBody(body: Uint8Array): any;
+
+/**
  * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
  *
  * # Errors
@@ -1027,6 +1037,15 @@ export function effectiveRelationTypes(settings: any): any;
 export function emptyLayout(pane_id: string): any;
 
 /**
+ * [`encode_ink_chunk_body`](chunk::encode_ink_chunk_body): a page packed into an uncompressed body.
+ *
+ * # Errors
+ *
+ * Fails on a page the format cannot hold, or one that is not an `InkPage`.
+ */
+export function encodeInkChunkBody(page: any): Uint8Array;
+
+/**
  * [`encode_locus`] as raw JSON (encode at the URL layer, not here).
  *
  * # Errors
@@ -1319,6 +1338,11 @@ export function findReferenceSection(lines: any, body_font_size: number, page_co
  * Fails if `graph` or `options` has the wrong shape.
  */
 export function findRelated(graph: any, seed: string, limit: number, options: any, rng: () => number, lexical: (seedId: string, limit: number) => { id: string; score: number }[], tagged: (seedId: string, limit: number) => { id: string; score: number }[]): any;
+
+/**
+ * [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
+ */
+export function fitsInkNoteBudget(sizes: Float64Array): boolean;
 
 /**
  * [`flat_path`](folder_layout::flat_path). `entity` is a `WorkspaceEntityType` string.
@@ -1677,6 +1701,20 @@ export function initialReaderViewport(page: number): any;
  * [`ink_attachment_index`](ink_page::ink_attachment_index): the attachment index of `path`, or `0`.
  */
 export function inkAttachmentIndex(body: string, path?: string | null): number;
+
+/**
+ * [`ink_chunk_body_size`](chunk::ink_chunk_body_size): the body length a page would take.
+ *
+ * # Errors
+ *
+ * Fails on a body over `u32`, or a value that is not an `InkPage`.
+ */
+export function inkChunkBodySize(page: any): number;
+
+/**
+ * [`ink_chunk_header_bytes`](chunk::ink_chunk_header_bytes): the header for a payload.
+ */
+export function inkChunkHeaderBytes(body_size: number, payload_size: number, compressed: boolean): Uint8Array;
 
 /**
  * [`ink_chunk_path`](ink_paths::ink_chunk_path).
@@ -3458,6 +3496,15 @@ export function rankOpenAccessCandidates(candidates: any): any;
 export function readFrontmatter(content: string): any;
 
 /**
+ * [`read_ink_chunk_header`](chunk::read_ink_chunk_header): the 16-byte header.
+ *
+ * # Errors
+ *
+ * Fails on a header the format refuses.
+ */
+export function readInkChunkHeader(bytes: Uint8Array): any;
+
+/**
  * [`wf_core::sync::ink_note::read_ink_note_body`] for JS, as `{ meta, text }`.
  *
  * # Errors
@@ -4672,6 +4719,7 @@ export interface InitOutput {
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly checkBibliography: (a: any) => [number, number, number];
     readonly checkGitRemoteUrl: (a: any) => [number, number, number];
+    readonly checkInkChunkBody: (a: number, b: number) => [number, number, number];
     readonly checkUrlShape: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
     readonly chunkForEmbedding: (a: number, b: number, c: any) => [number, number, number];
@@ -4742,6 +4790,7 @@ export interface InitOutput {
     readonly effectiveFieldBoosts: (a: any) => [number, number, number];
     readonly effectiveRelationTypes: (a: any) => [number, number, number];
     readonly emptyLayout: (a: number, b: number) => [number, number, number];
+    readonly encodeInkChunkBody: (a: any) => [number, number, number, number];
     readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly encodeShareLinkToken: (a: number, b: number) => [number, number];
@@ -4777,6 +4826,7 @@ export interface InitOutput {
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly findReferenceSection: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly findRelated: (a: any, b: number, c: number, d: number, e: any, f: any, g: any, h: any) => [number, number, number];
+    readonly fitsInkNoteBudget: (a: number, b: number) => number;
     readonly flatPath: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
     readonly flattenTree: (a: any) => [number, number, number];
     readonly focusPane: (a: any, b: number, c: number) => [number, number, number];
@@ -4819,6 +4869,8 @@ export interface InitOutput {
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
     readonly initialReaderViewport: (a: number) => [number, number, number];
     readonly inkAttachmentIndex: (a: number, b: number, c: number, d: number) => number;
+    readonly inkChunkBodySize: (a: any) => [number, number, number];
+    readonly inkChunkHeaderBytes: (a: number, b: number, c: number) => [number, number];
     readonly inkChunkPath: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly inkCurveAt: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly inkEngineInfo: (a: number, b: number) => [number, number, number];
@@ -5047,6 +5099,7 @@ export interface InitOutput {
     readonly queryTermCount: (a: any) => [number, number, number];
     readonly rankOpenAccessCandidates: (a: any) => [number, number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
+    readonly readInkChunkHeader: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly readInkNoteMeta: (a: any) => [number, number, number];
     readonly readableText: (a: number, b: number) => [number, number, number, number];

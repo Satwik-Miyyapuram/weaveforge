@@ -12,6 +12,7 @@
     clippy::cast_lossless
 )]
 
+pub mod chunk;
 pub mod curve;
 pub mod decode;
 pub mod figure;
