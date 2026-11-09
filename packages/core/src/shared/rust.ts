@@ -144,6 +144,12 @@ export interface RustCoreFns {
     b: Readonly<Record<ImportAction, number>>,
   ): Record<ImportAction, number>;
   // workspace
+  toRelativeBlobLinks(
+    body: string,
+    filePath: string,
+  ): { body: string; assets: { scheme: string; storagePath: string; folderPath: string }[] };
+  relativeAssetPaths(body: string): { scope: string; path: string }[];
+  fromRelativeBlobLinks(body: string, resolved: Readonly<Record<string, string>>): string;
   serializeWorkspace(snapshot: WorkspaceSnapshot, project: WorkspaceProject): SerializedWorkspace;
   workspaceSnapshotCounts(snapshot: WorkspaceSnapshot): WorkspaceSnapshotCounts;
   planDelta(remote: readonly EntityStamp[], held: ReadonlyMap<string, string>): DeltaPlan;

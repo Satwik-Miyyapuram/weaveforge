@@ -1,8 +1,4 @@
-import {
-  ASSET_DIR,
-  relativeAssetPaths,
-  type WorkspaceSnapshot,
-} from "@weaveforge/core";
+import { ASSET_DIR, type WorkspaceSnapshot } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
 /**
@@ -61,7 +57,7 @@ export function planAssetReanchor(
   const plan: ReanchorPlan = { keep: [], upload: [], unresolved: [] };
   const seen = new Set<string>();
 
-  for (const ref of relativeAssetPaths(body)) {
+  for (const ref of readyCore().relativeAssetPaths(body)) {
     const folderPath = `${ASSET_DIR}/${ref.scope}/${ref.path}`;
     if (seen.has(folderPath)) continue;
     seen.add(folderPath);

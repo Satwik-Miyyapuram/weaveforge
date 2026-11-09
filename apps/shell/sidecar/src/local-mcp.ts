@@ -17,13 +17,12 @@ import {
   normalizeTitleKey,
   paperPdfPath,
   parseFolderDraft,
-  parseWorkspaceFile,
   rust,
   type AiProposalKind,
-  type ParsedEntity,
   type UntrustedItem,
   type WorkspaceEntityType,
 } from "@weaveforge/core";
+import type { ParsedEntity } from "@weaveforge/wasm";
 
 import { searchVault, walkVault } from "./vault-search";
 import { norm, pickProject, resolveProjects, type ProjectRef, type ProjectSource } from "./local-mcp-projects";
@@ -118,7 +117,7 @@ async function loadProjectEntries(session: VaultSession, kind: WorkspaceEntityTy
   for (const file of files) {
     if (!file.endsWith(".md") || hidden(file)) continue;
     const raw = await readText(session, file);
-    const parsed = raw === null ? null : parseWorkspaceFile(file, raw);
+    const parsed = raw === null ? null : (rust().parseWorkspaceFolder({ [file]: raw })[0] ?? null);
     if (parsed && raw !== null && (parsed.type === kind || (kind === "vault_page" && parsed.type === "ink_page"))) {
       entries.push({ ...parsed, raw, project });
     }

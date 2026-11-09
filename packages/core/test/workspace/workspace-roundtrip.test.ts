@@ -7,12 +7,10 @@ import {
   WORKSPACE_META_DIR,
   WorkspacePathError,
   flatPath,
-  fromRelativeBlobLinks,
   isSafeWorkspacePath,
   logPath,
   safeWorkspacePath,
   slugFor,
-  toRelativeBlobLinks,
   treePaths,
   type ExistingEntity,
   type WorkspaceSnapshot,
@@ -126,7 +124,7 @@ test("empty lists and undefined fields are omitted rather than emitted empty", (
 // ------------------------------------------------------------- blob links
 
 test("blob refs become folder-relative so the folder renders in Obsidian", () => {
-  const { body, assets } = toRelativeBlobLinks(
+  const { body, assets } = rust().toRelativeBlobLinks(
     "![](vault:user-1/n1/diagram.png)",
     "notes/method/baselines.note.md",
   );
@@ -138,13 +136,15 @@ test("blob refs become folder-relative so the folder renders in Obsidian", () =>
 test("import re-anchors assets and never trusts a written storage path", () => {
   const body = "![](../assets/notes/other-user/n9/secret.png)";
 
-  // The resolver only knows files that were in the archive; anything else is
+  // The map only holds files that were in the archive; anything else is
   // left as written rather than turned into a storage path that could point at
   // another user's object.
-  const unresolved = fromRelativeBlobLinks(body, { resolve: () => null });
+  const unresolved = rust().fromRelativeBlobLinks(body, {});
   assert.equal(unresolved, body, "an unknown asset must not become a storage ref");
 
-  const reanchored = fromRelativeBlobLinks(body, { resolve: () => "me/n9/secret.png" });
+  const reanchored = rust().fromRelativeBlobLinks(body, {
+    "assets/notes/other-user/n9/secret.png": "me/n9/secret.png",
+  });
   assert.equal(reanchored, "![](vault:me/n9/secret.png)");
 });
 

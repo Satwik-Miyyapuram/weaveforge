@@ -6,7 +6,9 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::sync::blob_links::{relative_asset_paths, to_relative_blob_links};
+use wf_core::sync::blob_links::{
+    from_relative_blob_links_mapped, relative_asset_paths, to_relative_blob_links,
+};
 use wf_core::sync::folder_layout::{
     ENTITY_DIRS, WorkspaceEntityType, WorkspaceProject, entity_dir, id_suffix, project_dir,
     project_meta_dir, strip_kind_suffix,
@@ -230,6 +232,20 @@ pub fn to_relative_blob_links_js(body: &str, file_path: &str) -> JsResult<JsValu
 pub fn relative_asset_paths_js(body: &str) -> JsResult<JsValue> {
     check_text(body)?;
     to_js(&relative_asset_paths(body))
+}
+
+/// [`wf_core::sync::blob_links::from_relative_blob_links_mapped`] for JS. `resolved`
+/// is `{ "assets/<scope>/<path>": storagePath }`.
+///
+/// # Errors
+///
+/// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `resolved` is
+/// not an object of strings.
+#[wasm_bindgen(js_name = fromRelativeBlobLinks)]
+pub fn from_relative_blob_links_js(body: &str, resolved: JsValue) -> JsResult<String> {
+    check_text(body)?;
+    let map: std::collections::BTreeMap<String, String> = serde_wasm_bindgen::from_value(resolved)?;
+    Ok(from_relative_blob_links_mapped(body, &map))
 }
 
 /// The entity type named `name` (`"vault_page"`, `"paper"`, ...).

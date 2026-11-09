@@ -13,8 +13,6 @@ import {
   imageExtensionForMime as tsImageExtensionForMime,
   imagePathsInBody as tsImagePathsInBody,
   normalizeMarkdownImageSyntax as tsNormalizeMarkdownImageSyntax,
-  toRelativeBlobLinks as tsToRelativeBlobLinks,
-  relativeAssetPaths as tsRelativeAssetPaths,
   projectDir as tsProjectDir,
   projectMetaDir as tsProjectMetaDir,
   idSuffix as tsIdSuffix,
@@ -136,8 +134,6 @@ const MARKDOWN_IMAGE_BODIES = [
   "![a](https://example.com/x.png)",
 ];
 
-const LINK_FILE_PATHS = ["notes/a.md", "p--1/notes/deep/b.md"];
-
 const ENTITY_TYPES: WorkspaceEntityType[] = [
   "vault_page",
   "ink_page",
@@ -252,19 +248,15 @@ test("normalizeMarkdownImageSyntax matches the TS normaliser", () => {
   }
 });
 
-test("toRelativeBlobLinks and relativeAssetPaths match the TS blob links", () => {
-  for (const body of MARKDOWN_IMAGE_BODIES) {
-    for (const filePath of LINK_FILE_PATHS) {
-      const expected = tsToRelativeBlobLinks(body, filePath);
-      assert.deepEqual(core.toRelativeBlobLinks(body, filePath), expected, JSON.stringify([body, filePath]));
-      assert.deepEqual(
-        core.relativeAssetPaths(expected.body),
-        tsRelativeAssetPaths(expected.body),
-        JSON.stringify(expected.body),
-      );
-    }
-    assert.deepEqual(core.relativeAssetPaths(body), tsRelativeAssetPaths(body), JSON.stringify(body));
-  }
+test("toRelativeBlobLinks re-anchors a vault image under the note's depth", () => {
+  const { body } = core.toRelativeBlobLinks("![](vault:user-1/n1/diagram.png)", "notes/method/baselines.note.md");
+  assert.equal(body, "![](../../assets/notes/user-1/n1/diagram.png)");
+});
+
+test("relativeAssetPaths reads back the storage path of a vault image", () => {
+  assert.deepEqual(core.relativeAssetPaths("![](../../assets/notes/user-1/n1/diagram.png)"), [
+    { scope: "notes", path: "user-1/n1/diagram.png" },
+  ]);
 });
 
 test("projectDir matches the TS folder name", () => {

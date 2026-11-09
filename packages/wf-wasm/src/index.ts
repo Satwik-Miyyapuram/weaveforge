@@ -60,6 +60,7 @@ import init, {
   normalizeMarkdownImageSyntax as rawNormalizeMarkdownImageSyntax,
   toRelativeBlobLinks as rawToRelativeBlobLinks,
   relativeAssetPaths as rawRelativeAssetPaths,
+  fromRelativeBlobLinks as rawFromRelativeBlobLinks,
   projectDir as rawProjectDir,
   entityDir as rawEntityDir,
   projectMetaDir as rawProjectMetaDir,
@@ -659,6 +660,12 @@ export function toRelativeBlobLinks(
 export function relativeAssetPaths(body: string): RelativeAsset[] {
   checkIndexText(body);
   return rawRelativeAssetPaths(body) as RelativeAsset[];
+}
+
+/** Folder-relative asset links re-anchored; `resolved` maps `assets/<scope>/<path>` to a storage path (Rust `from_relative_blob_links_mapped`). */
+export function fromRelativeBlobLinks(body: string, resolved: Readonly<Record<string, string>>): string {
+  checkIndexText(body);
+  return rawFromRelativeBlobLinks(body, resolved);
 }
 
 /** The folder of a project, named from its id and name (Rust `project_dir`). */
