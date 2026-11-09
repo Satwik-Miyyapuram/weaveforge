@@ -354,6 +354,7 @@ export const outlineTextLines: (a: any) => [number, number, number];
 export const overleafExternalUrl: (a: number, b: number) => [number, number];
 export const overleafGitUrl: (a: number, b: number) => [number, number];
 export const packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
+export const pageFromChunkBody: (a: number, b: number) => [number, number, number];
 export const pageImportRefusal: (a: any) => [number, number, number, number];
 export const pageTextFromItems: (a: any) => [number, number, number, number];
 export const paletteModeFor: (a: any) => [number, number, number];

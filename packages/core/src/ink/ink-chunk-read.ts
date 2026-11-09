@@ -12,8 +12,7 @@
  * what a page buffer exists to avoid doing per frame.
  */
 
-import { INK_COLOURS, INK_SHAPES, INK_TOOLS, type InkLineRecord, type InkPage, type InkStroke } from "./ink-note.js";
-import { INK_PEN_WIDTH } from "./width.js";
+import type { InkLineRecord, InkPage, InkStroke } from "./ink-note.js";
 import { decodeInkChunkBody, type InkChunkView } from "./ink-binary.js";
 import { rust } from "../shared/rust.js";
 
@@ -83,50 +82,25 @@ export function chunkLineText(view: InkChunkView, lineIndex: number): string {
   return length === 0 ? "" : decoder.decode(view.texts.subarray(offset, offset + length));
 }
 
-/** One stroke as the model holds it: absolute points, names, real numbers. */
-export function chunkStroke(view: InkChunkView, strokeIndex: number): InkStroke {
-  const { points, pressures } = chunkStrokePoints(view, strokeIndex);
-  return rust().makeInkStroke({
-    points: Array.from(points),
-    pressures: Array.from(pressures),
-    width: view.strokeWidth[strokeIndex] || INK_PEN_WIDTH,
-    tool: rust().inkEnumValue(INK_TOOLS, view.strokeTool[strokeIndex]!),
-    colour: rust().inkEnumValue(INK_COLOURS, view.strokeColour[strokeIndex]!),
-    shape: rust().inkEnumValue(INK_SHAPES, view.strokeShape[strokeIndex]!),
-    t0: view.strokeT0[strokeIndex]!,
-    lineIndex: view.strokeLine[strokeIndex]!,
-  });
-}
-
-/** One line of recognised text as the model holds it. */
-export function chunkLine(view: InkChunkView, lineIndex: number): InkLineRecord {
-  return {
-    strokeStart: view.lineStrokeStart[lineIndex]!,
-    strokeCount: view.lineStrokeCount[lineIndex]!,
-    yMin: view.lineYMin[lineIndex]!,
-    yMax: view.lineYMax[lineIndex]!,
-    text: chunkLineText(view, lineIndex),
-    // 0–255 on disk, 0–1 in the model, so a correction's `1` survives exactly.
-    confidence: (view.lineConfidence[lineIndex] ?? 0) / 255,
-  };
-}
-
 /**
- * The whole page as the model.
+ * The whole page as the model (Rust `page_from_chunk_body`).
  *
  * This is the expensive direction on purpose: it materialises numbers for
  * segmentation, recognition, tests and `wf ink dump`, while the renderer reads the
  * views directly. Nothing on the pen path calls it.
  */
 export function pageFromChunk(view: InkChunkView): InkPage {
-  return {
-    width: view.width,
-    height: view.height,
-    paper: view.paper,
-    background: view.background,
-    strokes: Array.from({ length: view.strokeCount }, (_unused, index) => chunkStroke(view, index)),
-    lines: Array.from({ length: view.lineCount }, (_unused, index) => chunkLine(view, index)),
-  };
+  return rust().pageFromChunkBody(view.body);
+}
+
+/** One stroke as the model holds it: absolute points, names, real numbers. */
+export function chunkStroke(view: InkChunkView, strokeIndex: number): InkStroke | undefined {
+  return pageFromChunk(view).strokes[strokeIndex];
+}
+
+/** One line of recognised text as the model holds it. */
+export function chunkLine(view: InkChunkView, lineIndex: number): InkLineRecord | undefined {
+  return pageFromChunk(view).lines[lineIndex];
 }
 
 /** Round-trip an uncompressed body back to the model it was packed from. */
