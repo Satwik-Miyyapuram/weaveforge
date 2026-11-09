@@ -23,6 +23,7 @@ use crate::reader_analysis::types::{
 /// One page as the matcher reads it. Twin of `PageCitationInput`.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PageCitationInput {
     /// Page number, 1-based.
     pub number: f64,

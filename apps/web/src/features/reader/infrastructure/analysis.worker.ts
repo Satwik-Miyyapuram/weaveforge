@@ -45,7 +45,7 @@ self.addEventListener("message", async (event: MessageEvent<AnalysisRequest>) =>
     post({ id, type: "progress", percent: 20 });
     await loadCore();
     const analysis = readyCore().analyzePdfDocument(
-      pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
+      pages.map((page) => ({ pageNumber: page.pageNumber, items: [...page.items], links: page.links ?? [] })),
       outline,
     ) as DocumentAnalysis;
     post({ id, type: "complete", analysis });
