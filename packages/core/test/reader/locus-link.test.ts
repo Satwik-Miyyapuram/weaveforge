@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { encodeLocus, decodeLocus, type PdfLocus } from "../../src/reader/index.js";
+import { type PdfLocus } from "../../src/reader/index.js";
+import * as wasm from "../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { encodeLocus, decodeLocus } = wasm as unknown as CoreContract;
 
 const locus: PdfLocus = {
   quote: { type: "TextQuoteSelector", exact: "attention is all you need", prefix: "we show ", suffix: "." },

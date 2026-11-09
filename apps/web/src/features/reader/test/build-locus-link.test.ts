@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decodeLocus, type PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 import { buildLocusLink } from "../application/build-locus-link.js";
 
 const locus: PdfLocus = {
@@ -19,7 +20,7 @@ test("buildLocusLink encodes paper, pdf, page, and a round-trippable locus", () 
   assert.equal(url.searchParams.get("paper"), "p1");
   assert.equal(url.searchParams.get("pdf"), "https://arxiv.org/pdf/1706.03762");
   assert.equal(url.searchParams.get("page"), "3");
-  assert.deepEqual(decodeLocus(url.searchParams.get("locus")), locus);
+  assert.deepEqual(typedCore().decodeLocus(url.searchParams.get("locus")), locus);
 });
 
 test("buildLocusLink omits absent and invalid parts", () => {

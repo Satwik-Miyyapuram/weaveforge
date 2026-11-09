@@ -13,12 +13,7 @@ export {
   type AnchorConfidence,
   type ResolvedAnchor,
 } from "./anchor-resolution.js";
-export {
-  chooseAnchorStrategy,
-  type ZoteroRectPosition,
-  type CombinedPdfAnchor,
-  type AnchorStrategy,
-} from "./anchor-strategy.js";
+export { type ZoteroRectPosition, type CombinedPdfAnchor, type AnchorStrategy } from "./anchor-strategy.js";
 export {
   resolvePdfSource,
   type PdfSourcePaper,
@@ -78,12 +73,7 @@ export {
   type PageTextGeometry,
   type TextSelectionRange,
 } from "./selection-to-anchor.js";
-export {
-  findDocumentMatches,
-  nextMatchIndex,
-  type DocumentPageText,
-  type DocumentSearchMatch,
-} from "./document-search.js";
+export { type DocumentPageText, type DocumentSearchMatch } from "./document-search.js";
 export { buildAnnotationSortIndex } from "./sort-index.js";
 export {
   shouldAppendInkPoint,
@@ -115,18 +105,7 @@ export {
   inkPathsInPolygon,
   pointInPolygon,
 } from "./ink-lasso.js";
-export {
-  EMPTY_INK_UNDO,
-  INK_UNDO_LIMIT,
-  pushInkUndo,
-  takeInkUndo,
-  takeInkRedo,
-  renameInkUndoId,
-  refreshInkUndoAnnotation,
-  type InkUndoEntry,
-  type InkUndoPatch,
-  type InkUndoState,
-} from "./ink-undo.js";
+export { type InkUndoEntry, type InkUndoPatch, type InkUndoState } from "./ink-undo.js";
 export type { PageProjection } from "./page-projection-types.js";
 export type {
   ZoteroLibrarySyncMode,
@@ -143,4 +122,4 @@ export {
   PdfByteCacheResolver,
   type IPdfByteCache,
 } from "./pdf-byte-cache.js";
-export { encodeLocus, decodeLocus } from "./locus-link.js";
+

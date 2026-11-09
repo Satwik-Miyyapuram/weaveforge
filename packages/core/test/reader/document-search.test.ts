@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findDocumentMatches, nextMatchIndex } from "../../src/reader/document-search.js";
+import * as wasm from "../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { findDocumentMatches, nextMatchIndex } = wasm as unknown as CoreContract;
 
 test("findDocumentMatches is case-insensitive and ordered", () => {
   const matches = findDocumentMatches(

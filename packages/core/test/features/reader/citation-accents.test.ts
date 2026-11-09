@@ -1,13 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  composeSpacingAccents,
-  matchAuthorYearText,
-  originalRange,
-  searchTextFromItems,
-  type ParsedReference,
-} from "../../../src/features/reader/index.js";
+import { composeSpacingAccents, originalRange, searchTextFromItems, type ParsedReference } from "../../../src/features/reader/index.js";
 import type { PageTextItem } from "../../../src/reader/index.js";
+import * as wasm from "../../../../wf-wasm/src/index.ts";
+import type { CoreContract } from "../../../src/index.js";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { matchAuthorYearText } = wasm as unknown as CoreContract;
 
 function item(str: string, x: number, width: number, hasEOL = false): PageTextItem {
   return { str, dir: "ltr", width, height: 10, transform: [10, 0, 0, 10, x, 700], fontName: "f", hasEOL } as PageTextItem;

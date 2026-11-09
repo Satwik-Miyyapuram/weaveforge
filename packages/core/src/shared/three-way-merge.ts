@@ -1,11 +1,4 @@
-/**
- * Three-way merge, per field. The rule lives in Rust (wf-core sync::merge,
- * wasm `mergeRows` and `sameValue`); this file keeps the row types and forwards.
- *
- * The base is the row as it stood when the local edit was made. Without it
- * there is no way to tell an edit from an unchanged field.
- */
-import { rust } from "./rust.js";
+/** Types for three-way-merge. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 
 export type Row = Record<string, unknown>;
 
@@ -22,10 +15,8 @@ export interface FieldMergeResult {
   conflicts: FieldConflict[];
 }
 
-export function mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult {
-  return rust().mergeRows(base, local, remote);
-}
-
-export function sameValue(a: unknown, b: unknown): boolean {
-  return rust().sameValue(a, b);
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ThreeWayMergeFns {
+  mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult;
+  sameValue(a: unknown, b: unknown): boolean;
 }

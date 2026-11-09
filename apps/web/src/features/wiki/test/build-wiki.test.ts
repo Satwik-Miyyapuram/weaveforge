@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { LexicalConceptExtractor, lintWiki, planFixOrder, planWikiPages } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * The wiki screen's pipeline, exercised without a container: extract from
@@ -107,7 +108,7 @@ test("an empty wiki produces no findings and no plans", async () => {
 });
 
 test("the index the screen rebuilds reflects the pages lint sees", async () => {
-  const { buildWikiIndex, replaceWikiIndex } = await import("@weaveforge/core");
+  const { buildWikiIndex, replaceWikiIndex } = typedCore();
   const pages = [
     { id: "w1", title: "GAN", body: "A generative adversarial network." },
     { id: "w2", title: "VAE", body: "A variational autoencoder." },
