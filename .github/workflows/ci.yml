@@ -522,7 +522,7 @@ jobs:
         run: cargo test --locked
 
       - name: Real sidecar (database lock and orphan)
-        run: cargo test --locked --test shell launch:: -- --ignored
+        run: 'cargo test --locked --test shell launch:: -- --ignored'
 
       - name: Dependency policy
         run: cargo deny --locked check
@@ -614,7 +614,7 @@ jobs:
         run: cargo test --locked
 
       - name: Real sidecar (database lock and orphan)
-        run: cargo test --locked --test shell launch:: -- --ignored
+        run: 'cargo test --locked --test shell launch:: -- --ignored'
 
   shell-bundle-windows:
     # Windows x64 release bundles (MSI and NSIS) with the sidecar and the web
