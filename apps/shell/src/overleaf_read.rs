@@ -140,12 +140,14 @@ fn git_text(error: &git2::Error) -> String {
 }
 
 /// Overleaf refuses a wrong token or id with a 401 that has no WWW-Authenticate
-/// header, which WinHTTP reports as unparsable auth schemes and libgit2's own
-/// transport as a bare 401; our callback refuses a second ask (see `credentials`).
+/// header, which WinHTTP reports as unparsable auth schemes, libgit2's own
+/// transport as a bare 401 or (on Linux) as authentication it does not support;
+/// our callback refuses a second ask (see `credentials`).
 fn is_refusal(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     [
         "auth scheme",
+        "requires authentication that we do not support",
         "token was refused",
         "status code: 401",
         "status code: 403",

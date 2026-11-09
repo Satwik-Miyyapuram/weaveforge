@@ -455,7 +455,7 @@ fn write_sources(root: &Path, files: &[TexSourceFile]) -> Result<(), String> {
 
 /// Runs the engine in `dir`; answers whether it failed and its combined output, or `None`
 /// when `stop` was notified. Output past [`MAX_OUTPUT_BYTES`] on either stream, the time
-/// limit, or a stop ends the engine (dropping the child kills it and its children).
+/// limit, or a stop kills the engine and its children.
 async fn run_engine(
     tool: &TexTool,
     dir: &Path,
@@ -471,16 +471,20 @@ async fn run_engine(
     };
     let stdout = child.stdout().take();
     let stderr = child.stderr().take();
-    let run = async move {
+    let run = async {
         let (out, err) = tokio::try_join!(read_stream(stdout), read_stream(stderr))?;
         let status = child.wait().await.map_err(|e| e.to_string())?;
         Ok::<_, String>((status.success(), out, err))
     };
     let finished = tokio::select! {
-        () = stopped => return None,
-        finished = tokio::time::timeout(COMPILE_TIMEOUT, run) => finished,
+        () = stopped => None,
+        finished = tokio::time::timeout(COMPILE_TIMEOUT, run) => Some(finished),
     };
-    Some(match finished {
+    if !matches!(finished, Some(Ok(Ok(_)))) {
+        // Kill the whole tree: on unix, dropping the child kills only the engine itself.
+        let _ = child.start_kill();
+    }
+    Some(match finished? {
         Err(_) => (true, TIMED_OUT.to_string()),
         Ok(Err(message)) => (true, format!("\n{message}")),
         Ok(Ok((success, out, err))) => (
