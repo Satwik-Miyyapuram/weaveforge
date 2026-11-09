@@ -1,5 +1,6 @@
 import type { LogEntry, Member, Milestone } from "@weaveforge/core";
-import { addDays, localIsoDate } from "@weaveforge/core";
+import { localIsoDate } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface SuperviseeSummary {
   member: Member;
@@ -31,7 +32,7 @@ export function summarizeSupervisee(
 ): SuperviseeSummary {
   const milestonesDone = milestones.filter((m) => m.status === "done").length;
   const blocked = milestones.filter((m) => m.status === "blocked").length;
-  const horizon = addDays(today, 14);
+  const horizon = typedCore().addDays(today, 14);
   const upcomingDue = milestones.filter(
     (m) =>
       m.status !== "done" &&

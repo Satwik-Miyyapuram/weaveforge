@@ -9,6 +9,7 @@ export const activeTab: (a: any) => [number, number, number];
 export const activeTabKey: (a: any) => [number, number, number];
 export const activeTabRef: (a: any) => [number, number, number];
 export const addCounts: (a: any, b: any) => [number, number, number];
+export const addDays: (a: number, b: number, c: number) => [number, number, number, number];
 export const agreementBetween: (a: any, b: any, c: any) => [number, number, number];
 export const aiReadCategoryForResource: (a: any) => [number, number, number];
 export const analyzePdfDocument: (a: any, b: any) => [number, number, number];

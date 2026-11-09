@@ -140,6 +140,15 @@ export function activeTabRef(layout: any): any;
 export function addCounts(a: any, b: any): any;
 
 /**
+ * [`add_days`](feed::add_days): `iso` moved by `days` calendar days.
+ *
+ * # Errors
+ *
+ * Throws if `iso` is not a real `yyyy-mm-dd` date.
+ */
+export function addDays(iso: string, days: number): string;
+
+/**
  * [`agreement_between`](screening::agreement_between) (TS `agreementBetween`).
  *
  * # Errors
@@ -4508,6 +4517,7 @@ export interface InitOutput {
     readonly activeTabKey: (a: any) => [number, number, number];
     readonly activeTabRef: (a: any) => [number, number, number];
     readonly addCounts: (a: any, b: any) => [number, number, number];
+    readonly addDays: (a: number, b: number, c: number) => [number, number, number, number];
     readonly agreementBetween: (a: any, b: any, c: any) => [number, number, number];
     readonly aiReadCategoryForResource: (a: any) => [number, number, number];
     readonly analyzePdfDocument: (a: any, b: any) => [number, number, number];

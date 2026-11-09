@@ -7,8 +7,8 @@ import type {
   ReportSection,
   TagWithPaperCount,
 } from "@weaveforge/core";
-import { addDays, localIsoDate } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { localIsoDate } from "@weaveforge/core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export interface ProgressStat {
   done: number;
@@ -88,7 +88,7 @@ export function needsAttention(
       href: "/papers",
     });
   }
-  const horizon = addDays(today, 14);
+  const horizon = typedCore().addDays(today, 14);
   for (const m of milestones) {
     if (m.status === "done" || !m.targetDate) continue;
     if (m.targetDate < today) {
