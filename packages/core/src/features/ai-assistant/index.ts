@@ -2,7 +2,6 @@
 export * from "./domain/ai-types.js";
 export * from "./domain/ai-access-policy.js";
 export * from "./domain/ai-settings.js";
-export * from "./domain/ai-reader.js";
 export * from "./domain/ai-retrieval.js";
 export * from "./application/create-ai-session-grant.use-case.js";
 export * from "./domain/ai-write-proposal.js";
@@ -11,7 +10,6 @@ export * from "./application/append-paper-note.use-case.js";
 export * from "./application/execute-ai-proposal.use-case.js";
 export * from "./application/create-ai-proposal-draft.use-case.js";
 export * from "./domain/ai-model-router.js";
-export * from "./domain/ai-mcp-gateway.js";
 export * from "./domain/ai-extraction.js";
 export * from "./domain/lexical-concept-extractor.js";
 export * from "./domain/model-concept-extractor.js";

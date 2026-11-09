@@ -1,6 +1,6 @@
 /**
  * Bibliography parsing (Rust `reader_analysis::bibliography`), re-exported from index.ts. Each function keeps
- * the signature and defaults of packages/core/src/features/reader/analysis/bibliography-parser.ts.
+ * the signature and defaults of the TypeScript parser it replaced.
  * Object shapes come from ./bindings.ts.
  */
 import {
