@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { PlanWidgetData } from "@weaveforge/core";
+import type { PlanWidgetData } from "@weaveforge/wasm";
 import { CHANNELS } from "../../shell/sidecar/src/channels";
 
 /**

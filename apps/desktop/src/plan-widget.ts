@@ -1,5 +1,7 @@
-import { errorMessage, planWidgetData, type FeedMilestone, type PlanWidgetData } from "@weaveforge/core";
-import { milestoneToDomain, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
+import { errorMessage } from "@weaveforge/core";
+import type { FeedMilestone, PlanWidgetData } from "@weaveforge/wasm";
+import type { MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
+import { typedCore } from "@/lib/rust-core";
 import type { IpcResult } from "../../shell/sidecar/src/channels";
 
 /**
@@ -54,10 +56,14 @@ export const PLAN_WIDGET_LIMIT = 6;
 
 export function widgetDataFromRows(rows: readonly PlanWidgetRow[], now: Date): PlanWidgetData {
   const items: FeedMilestone[] = rows.map((row) => ({
-    milestone: milestoneToDomain(row),
-    projectName: row.project_name ?? undefined,
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    targetDate: row.target_date,
+    projectName: row.project_name,
   }));
-  return planWidgetData(items, { now, limit: PLAN_WIDGET_LIMIT });
+  return typedCore().planWidgetData(items, { now, limit: PLAN_WIDGET_LIMIT });
 }
 
 export interface WidgetBounds {

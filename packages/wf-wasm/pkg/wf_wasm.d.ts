@@ -458,6 +458,15 @@ export function chooseAnchorStrategy(anchor: any, current_content_hash: string):
 export function chunkForEmbedding(text: string, options: any): any;
 
 /**
+ * [`citation_alert_score`](citation_alerts::citation_alert_score) of each candidate, in order.
+ *
+ * # Errors
+ *
+ * Fails if `candidates` has the wrong shape.
+ */
+export function citationAlertScores(candidates: any): Float64Array;
+
+/**
  * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
  * exported as `citationItemToRect` because `itemToRect` belongs to another lane).
  *
@@ -2408,6 +2417,15 @@ export function mergeWikiPages(primary: any, secondary: any): any;
 export function milestoneInputError(input: any): string | undefined;
 
 /**
+ * [`milestones_to_ics`](feed::milestones_to_ics): the `.ics` text for `items`.
+ *
+ * # Errors
+ *
+ * Fails if `items` has the wrong shape.
+ */
+export function milestonesToIcs(items: any, include_done: boolean, reminder_days: number, now_ms: number): string;
+
+/**
  * [`move_tab`](pane::move_tab).
  *
  * # Errors
@@ -3168,6 +3186,15 @@ export function planMirror(files: any, asset_paths: any, previous_paths: any, ba
  * Fails only if the result cannot be converted to a JS value.
  */
 export function planSeriesIngestIndices(steps: Float64Array, previous_max_step?: number | null): any;
+
+/**
+ * [`plan_widget`](feed::plan_widget): the summary a widget draws.
+ *
+ * # Errors
+ *
+ * Fails if `items` has the wrong shape.
+ */
+export function planWidgetData(items: any, include_done: boolean, limit: number | null | undefined, now_ms: number): any;
 
 /**
  * [`wf_core::papers::open_access::pmc_candidates`]: PubMed Central's PDF and HTML copies.
@@ -4505,6 +4532,7 @@ export interface InitOutput {
     readonly checkUrlShape: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
     readonly chunkForEmbedding: (a: number, b: number, c: any) => [number, number, number];
+    readonly citationAlertScores: (a: any) => [number, number, number, number];
     readonly citationItemToRect: (a: any, b: number, c: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
     readonly clampInkPageSize: (a: number, b: number) => [number, number, number];
@@ -4750,6 +4778,7 @@ export interface InitOutput {
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeWikiPages: (a: any, b: any) => [number, number, number];
     readonly milestoneInputError: (a: any) => [number, number, number, number];
+    readonly milestonesToIcs: (a: any, b: number, c: number, d: number) => [number, number, number, number];
     readonly moveTab: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly nativeCitationMentions: (a: any, b: any, c: any) => [number, number, number];
     readonly needsDisclaimerAcceptance: (a: any) => [number, number, number];
@@ -4843,6 +4872,7 @@ export interface InitOutput {
     readonly planFixOrder: (a: any) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly planSeriesIngestIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly planWidgetData: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly pmcCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
     readonly pressureByte: (a: number, b: number) => number;
