@@ -7,7 +7,6 @@ import { paperKey, removePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PaperCardThumbs } from "@/components/card-thumbs";
-import { cardSnippet } from "@/lib/card-snippet";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
@@ -76,7 +75,7 @@ export function PaperCard({
     paper.year != null ? String(paper.year) : null,
   ].filter(Boolean) as string[];
 
-  const snippet = cardSnippet(paper.summary ?? "");
+  const snippet = readyCore().cardSnippet(paper.summary ?? "");
 
   return (
     <EntityCard

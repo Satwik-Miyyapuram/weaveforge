@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  escapeMarkdownAltText,
   imageAltFromFilename,
   imageExtensionForMime,
   markdownImage,
@@ -20,9 +19,9 @@ test("the vault builder escapes too, not only the other two", () => {
 });
 
 test("a multiline or empty alt text becomes something usable", () => {
-  assert.equal(escapeMarkdownAltText("two\nlines   here"), "two lines here");
-  assert.equal(escapeMarkdownAltText("   "), "image");
-  assert.equal(escapeMarkdownAltText(""), "image");
+  assert.equal(markdownImage("x.png", "two\nlines   here"), "![two lines here](x.png)");
+  assert.equal(markdownImage("x.png", "   "), "![image](x.png)");
+  assert.equal(markdownImage("x.png", ""), "![image](x.png)");
 });
 
 test("an alt text is derived from the file name, not copied from it", () => {

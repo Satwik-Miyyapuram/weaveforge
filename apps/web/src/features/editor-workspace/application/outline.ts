@@ -10,7 +10,7 @@
  * keystroke in the editor.
  */
 
-import { headingSlug } from "@/lib/heading-slug";
+import { readyCore } from "@/lib/rust-core";
 
 export interface OutlineHeading {
   level: number;
@@ -18,9 +18,6 @@ export interface OutlineHeading {
   /** The anchor `VaultMarkdown` gives the heading, so a click can scroll to it. */
   slug: string;
 }
-
-/** The heading slug `markdown.tsx` writes as the element id. */
-export { headingSlug };
 
 // The closing `#`s count only after a space: "C#" keeps its `#`.
 const ATX = /^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/;
@@ -55,7 +52,7 @@ export function outlineOf(body: string, maxLevel = 3): OutlineHeading[] {
     const text = match[2]!.trim();
     // "### #" is an empty heading whose only content is its closing sequence.
     if (!text || /^#+$/.test(text)) continue;
-    out.push({ level, text, slug: headingSlug(text) });
+    out.push({ level, text, slug: readyCore().headingSlug(text) });
   }
   return out;
 }

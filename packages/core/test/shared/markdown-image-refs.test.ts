@@ -23,25 +23,25 @@ const body = (prefix: string) => `Body text.\n\n![](${prefix}user-1/p1/diagram.p
 
 for (const prefix of ["vault:", "paperimg:", "reportimg:"]) {
   test(`imagePathsInBody finds ${prefix} refs, with and without alt text`, () => {
-    assert.deepEqual(imagePathsInBody(body(prefix), prefix, normalizeMarkdownImageSyntax), [
+    assert.deepEqual(imagePathsInBody(body(prefix), prefix), [
       "user-1/p1/diagram.png",
       "user-1/p1/fig.webp",
     ]);
   });
 
   test(`imagePathsInBody ignores refs that are not ${prefix}`, () => {
-    assert.deepEqual(imagePathsInBody("![](https://example.com/x.png)", prefix, normalizeMarkdownImageSyntax), []);
+    assert.deepEqual(imagePathsInBody("![](https://example.com/x.png)", prefix), []);
   });
 }
 
 test("a path is reported once however often it is referenced", () => {
   const twice = "![](vault:a/b.png) and again ![](vault:a/b.png)";
-  assert.deepEqual(imagePathsInBody(twice, "vault:", normalizeMarkdownImageSyntax), ["a/b.png"]);
+  assert.deepEqual(imagePathsInBody(twice, "vault:"), ["a/b.png"]);
 });
 
 test("a ref wrapped across lines is still found", () => {
   const wrapped = "![]( vault:a/b.png )";
-  assert.deepEqual(imagePathsInBody(wrapped, "vault:", normalizeMarkdownImageSyntax), ["a/b.png"]);
+  assert.deepEqual(imagePathsInBody(wrapped, "vault:"), ["a/b.png"]);
 });
 
 test("materializeBlobImages uploads each blob ref and rewrites it, keeping the alt text", async () => {

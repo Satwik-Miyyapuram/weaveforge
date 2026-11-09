@@ -3,7 +3,10 @@ import test from "node:test";
 
 import { SCREEN_IDS } from "@/lib/screens";
 import { screenForPath } from "@/lib/screen-for-path";
-import { WRITE_INVALIDATION_MAP } from "@/lib/cache/cache-invalidation-map";
+import { readyCore } from "@/lib/rust-core";
+
+/** The invalidation plans, computed in Rust. */
+const INVALIDATION_MAP = readyCore().invalidationMap();
 
 /**
  * The screen vocabulary, kept in one place and checked in the direction the
@@ -16,9 +19,7 @@ import { WRITE_INVALIDATION_MAP } from "@/lib/cache/cache-invalidation-map";
  */
 
 test("every screen is named somewhere in the invalidation map", () => {
-  const named = new Set(
-    Object.values(WRITE_INVALIDATION_MAP).flatMap((entry) => entry.screens),
-  );
+  const named = new Set(INVALIDATION_MAP.flatMap((entry) => entry.plan.screens));
 
   assert.deepEqual(
     SCREEN_IDS.filter((id) => !named.has(id)),
@@ -32,7 +33,7 @@ test("the invalidation map names no screen that does not exist", () => {
   // widened back to `string[]` and a stale name with it.
   const known = new Set<string>(SCREEN_IDS);
   const unknown = [
-    ...new Set(Object.values(WRITE_INVALIDATION_MAP).flatMap((entry) => entry.screens)),
+    ...new Set(INVALIDATION_MAP.flatMap((entry) => entry.plan.screens)),
   ].filter((id) => !known.has(id));
 
   assert.deepEqual(unknown, []);

@@ -43,6 +43,14 @@ pub fn is_public_address_js(address: &str) -> bool {
     url_safety::is_public_address(address)
 }
 
+/// [`looks_like_image_url`](wf_core::net::image_url::looks_like_image_url): the URL's own
+/// path names a picture, so a pasted link is worth downloading.
+#[wasm_bindgen(js_name = looksLikeImageUrl)]
+#[must_use]
+pub fn looks_like_image_url_js(url: &str) -> bool {
+    wf_core::net::image_url::looks_like_image_url(url)
+}
+
 /// [`expand_ipv6`](url_safety::expand_ipv6); `undefined` when the text is not IPv6.
 ///
 /// # Errors

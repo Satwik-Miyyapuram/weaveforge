@@ -12,13 +12,12 @@ import {
 } from "../application/artifact-refs";
 import { resolveArtifactRefsMarkdown } from "../application/resolve-artifact-markdown";
 import { parseResultsTableRefs, resolveResultsTables } from "../application/results-table-refs";
-import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
 import { readyCore } from "@/lib/rust-core";
 
 const REPORT_IMAGES_BUCKET = "report-images";
 
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  return stripUnresolvedImageRefs(readyCore().normalizeMarkdownImageSyntax(body), REPORT_IMAGE_PREFIX, paths, urls);
+  return readyCore().stripUnresolvedImageRefs(readyCore().normalizeMarkdownImageSyntax(body), REPORT_IMAGE_PREFIX, paths, [...urls.keys()]);
 }
 
 /** Renders section notes markdown with `reportimg:` and `expartifact:` resolved. */
