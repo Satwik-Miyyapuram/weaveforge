@@ -4670,6 +4670,20 @@ export function isDocumentNode(node) {
 }
 
 /**
+ * [`is_editable_reader_target`]: whether a target with this `tagName` and
+ * `isContentEditable` owns its keystrokes.
+ * @param {string | null | undefined} tag_name
+ * @param {boolean} content_editable
+ * @returns {boolean}
+ */
+export function isEditableReaderTarget(tag_name, content_editable) {
+    var ptr0 = isLikeNone(tag_name) ? 0 : passStringToWasm0(tag_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isEditableReaderTarget(ptr0, len0, content_editable);
+    return ret !== 0;
+}
+
+/**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
  * @param {string | null} [summary]
  * @returns {boolean}

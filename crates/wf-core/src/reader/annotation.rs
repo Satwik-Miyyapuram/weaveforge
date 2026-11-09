@@ -1,8 +1,7 @@
 //! Reader annotation type guards and keyboard command mapping. A faithful port of
 //! `packages/core/src/reader/reader-annotation.ts` and `packages/core/src/reader/reader-keyboard.ts`.
 //!
-//! Stays in TS: `isEditableReaderTarget` (reads DOM `tagName` and `isContentEditable`)
-//! and `resolvePdfSource` in `pdf-source-ladder.ts` (async, calls injected resolvers).
+//! Stays in TS: `resolvePdfSource` in `pdf-source-ladder.ts` (async, calls injected resolvers).
 
 use serde::{Deserialize, Serialize};
 
@@ -123,9 +122,36 @@ pub fn reader_keyboard_command(event: &ReaderKeyEvent) -> Option<ReaderKeyboardC
     }
 }
 
+/// Tag names whose own keyboard handling wins over reader shortcuts. `SELECT`
+/// matters as much as the text inputs: arrows change the option and letters
+/// type ahead, so swallowing them breaks the dropdowns.
+const EDITABLE_TAGS: [&str; 4] = ["INPUT", "TEXTAREA", "SELECT", "OPTION"];
+
+/// Whether an event target owns its keystrokes (TS `isEditableReaderTarget`):
+/// anything contenteditable, or a text field, select or option by tag name in
+/// any case. The caller reads `tagName` and `isContentEditable` off the DOM.
+#[must_use]
+pub fn is_editable_reader_target(tag_name: Option<&str>, content_editable: bool) -> bool {
+    content_editable
+        || tag_name.is_some_and(|tag| EDITABLE_TAGS.contains(&tag.to_uppercase().as_str()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn editable_targets_own_their_keys() {
+        for tag in ["SELECT", "OPTION", "INPUT", "TEXTAREA", "input"] {
+            assert!(is_editable_reader_target(Some(tag), false), "{tag}");
+        }
+        assert!(is_editable_reader_target(Some("DIV"), true));
+        assert!(is_editable_reader_target(None, true));
+        assert!(!is_editable_reader_target(Some("BUTTON"), false));
+        assert!(!is_editable_reader_target(Some("DIV"), false));
+        assert!(!is_editable_reader_target(Some(""), false));
+        assert!(!is_editable_reader_target(None, false));
+    }
 
     fn key(k: &str) -> ReaderKeyEvent {
         ReaderKeyEvent {

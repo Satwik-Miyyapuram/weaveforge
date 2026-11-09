@@ -1,4 +1,4 @@
-import { isEditableReaderTarget } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Whether an event's target owns its keystrokes and clipboard: a text field,
@@ -6,5 +6,5 @@ import { isEditableReaderTarget } from "@weaveforge/core";
  * paste handlers step aside for it. A window, a document or a button does not.
  */
 export function isEditableTarget(target: EventTarget | null): boolean {
-  return isEditableReaderTarget(target as { tagName?: string; isContentEditable?: boolean } | null);
+  return typedCore().isEditableReaderTarget(target as { tagName?: string; isContentEditable?: boolean } | null);
 }

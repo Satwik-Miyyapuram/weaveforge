@@ -5,7 +5,8 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::annotation::{
-    ReaderKeyEvent, is_annotation_sync_state, is_reader_annotation_type, reader_keyboard_command,
+    ReaderKeyEvent, is_annotation_sync_state, is_editable_reader_target, is_reader_annotation_type,
+    reader_keyboard_command,
 };
 
 use super::to_js;
@@ -28,6 +29,15 @@ pub fn is_annotation_sync_state_js(value: &JsValue) -> bool {
     value
         .as_string()
         .is_some_and(|s| is_annotation_sync_state(&s))
+}
+
+/// [`is_editable_reader_target`]: whether a target with this `tagName` and
+/// `isContentEditable` owns its keystrokes.
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
+#[wasm_bindgen(js_name = isEditableReaderTarget)]
+pub fn is_editable_reader_target_js(tag_name: Option<String>, content_editable: bool) -> bool {
+    is_editable_reader_target(tag_name.as_deref(), content_editable)
 }
 
 /// [`reader_keyboard_command`]: the `ReaderKeyboardCommand` for `event`, or `null`

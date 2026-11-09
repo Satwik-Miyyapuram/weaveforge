@@ -53,6 +53,7 @@ import type { RankCitationAlertsFns } from "./../features/relations/application/
 import type { PrivacyDisclaimerFns } from "./../features/settings/domain/privacy-disclaimer.js";
 import type { ProjectPathFns } from "./../features/report/domain/project-path.js";
 import type { ReaderAnnotationFns } from "./../reader/reader-annotation.js";
+import type { ReaderKeyboardFns } from "./../reader/reader-keyboard.js";
 import type { ReaderViewportFns } from "./../reader/reader-viewport.js";
 import type { ReadingListFns } from "./../features/reading-lists/domain/reading-list.js";
 import type { RelatedFns } from "./../search/related.js";
@@ -138,6 +139,7 @@ export interface CoreContract
     PrivacyDisclaimerFns,
     ProjectPathFns,
     ReaderAnnotationFns,
+    ReaderKeyboardFns,
     ReaderViewportFns,
     ReadingListFns,
     RelatedFns,

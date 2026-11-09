@@ -1966,6 +1966,12 @@ export function isConferenceCopy(paper: any): boolean;
 export function isDocumentNode(node: any): boolean;
 
 /**
+ * [`is_editable_reader_target`]: whether a target with this `tagName` and
+ * `isContentEditable` owns its keystrokes.
+ */
+export function isEditableReaderTarget(tag_name: string | null | undefined, content_editable: boolean): boolean;
+
+/**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
  */
 export function isEmptyPaperSummary(summary?: string | null): boolean;
@@ -4855,6 +4861,7 @@ export interface InitOutput {
     readonly isCitationDestination: (a: any) => [number, number, number];
     readonly isConferenceCopy: (a: any) => [number, number, number];
     readonly isDocumentNode: (a: any) => [number, number, number];
+    readonly isEditableReaderTarget: (a: number, b: number, c: number) => number;
     readonly isEmptyPaperSummary: (a: number, b: number) => number;
     readonly isExplicitLabMembership: (a: any) => [number, number, number];
     readonly isHighlighterInk: (a: number, b: number) => number;
