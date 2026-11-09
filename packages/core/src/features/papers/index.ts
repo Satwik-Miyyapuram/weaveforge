@@ -7,8 +7,6 @@
 
 export * from "./domain/paper.js";
 export * from "./domain/paper-identity.js";
-export * from "./domain/paper-title.js";
-export * from "./domain/page-metadata.js";
 export * from "./domain/paper-repository.js";
 export * from "./domain/annotation-pin.js";
 export * from "./domain/annotation-pin-repository.js";
@@ -17,11 +15,8 @@ export * from "./domain/annotation-quotation-type-repository.js";
 export * from "./domain/paper-field.js";
 export * from "./domain/paper-field-repository.js";
 export * from "./application/metadata-source.js";
-export * from "./application/parse-paper-ref.js";
 export * from "./application/add-paper.use-case.js";
 export * from "./application/update-paper.use-case.js";
 export * from "./application/manage-paper-fields.use-case.js";
-export * from "./application/compute-rollup.js";
 export * from "./application/push-paper-to-zotero.use-case.js";
 export * from "./application/open-access.js";
-export * from "./application/library-tidy.js";

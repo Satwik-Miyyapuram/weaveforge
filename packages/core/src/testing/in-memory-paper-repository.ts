@@ -6,15 +6,10 @@
  * substitutability via the shared contract test suite.
  */
 
-import {
-  normalizeDoi,
-  type Paper,
-  type PaperFilter,
-  type PaperSummary,
-} from "../features/papers/domain/paper.js";
+import { type Paper, type PaperFilter, type PaperSummary } from "../features/papers/domain/paper.js";
 import type { IPaperRepository } from "../features/papers/domain/paper-repository.js";
 import type { PaperIdentity } from "../features/papers/domain/paper-identity.js";
-import { titleKey } from "../features/papers/domain/paper-title.js";
+import { rust } from "../shared/rust.js";
 
 export class InMemoryPaperRepository implements IPaperRepository {
   /**
@@ -54,7 +49,7 @@ export class InMemoryPaperRepository implements IPaperRepository {
       items = items.filter((p) => p.arxivId === filter.arxivId);
     }
     if (filter?.doi) {
-      const d = normalizeDoi(filter.doi);
+      const d = rust().normalizeDoi(filter.doi);
       items = items.filter((p) => p.doi === d);
     }
     return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((p) => structuredClone(p));
@@ -84,7 +79,7 @@ export class InMemoryPaperRepository implements IPaperRepository {
 
   async findByTitleKey(key: string): Promise<Paper | null> {
     for (const p of this.store.values()) {
-      if (titleKey(p.title) === key) return structuredClone(p);
+      if (rust().titleKey(p.title) === key) return structuredClone(p);
     }
     return null;
   }
@@ -101,7 +96,7 @@ export class InMemoryPaperRepository implements IPaperRepository {
   }
 
   async findByDoi(doi: string): Promise<Paper | null> {
-    const target = normalizeDoi(doi);
+    const target = rust().normalizeDoi(doi);
     for (const p of this.store.values()) {
       if (p.doi === target) return structuredClone(p);
     }

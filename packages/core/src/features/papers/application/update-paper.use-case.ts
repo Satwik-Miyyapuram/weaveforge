@@ -6,18 +6,13 @@
  * each class has a single reason to change (SRP).
  */
 
-import {
-  normalizeDoi,
-  PaperValidationError,
-  PAPER_STATUSES,
-  type Paper,
-  type PaperStatus,
-} from "../domain/paper.js";
+import { PaperValidationError, PAPER_STATUSES, type Paper, type PaperStatus } from "../domain/paper.js";
 import type { IPaperRepository } from "../domain/paper-repository.js";
 import type { TagSource } from "../../tags/domain/tag.js";
 import type { ManageTagsUseCase } from "../../tags/application/manage-tags.use-case.js";
 import type { Clock } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface UpdatePaperDeps {
   repository: IPaperRepository;
@@ -73,7 +68,7 @@ export class UpdatePaperUseCase {
     id: string,
     identifiers: { doi?: string; arxivId?: string },
   ): Promise<Paper> {
-    const doi = normalizeDoi(identifiers.doi) || undefined;
+    const doi = rust().normalizeDoi(identifiers.doi) || undefined;
     const arxivId = identifiers.arxivId?.trim() || undefined;
     return this.mutate(id, (p) => ({ ...p, doi, arxivId }));
   }

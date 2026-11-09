@@ -6,8 +6,7 @@ import { loadCore } from "@/lib/rust-core";
  * registered with the MetadataResolver without changing the resolver or the
  * import use-case (Open/Closed).
  *
- * Uses the public arXiv Atom API. Kept dependency-free (DOMParser / regex) so
- * it runs in the browser and in Node.
+ * Uses the public arXiv Atom API. The feed is parsed in Rust (`arxivEntryToMetadata`).
  */
 export class ArxivMetadataSource implements IMetadataSource {
   readonly id = "arxiv";
@@ -25,48 +24,13 @@ export class ArxivMetadataSource implements IMetadataSource {
 
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
     // Accept an abs/pdf URL or an `arXiv:` prefixed string, not just a bare id.
-    const id = (await loadCore()).normalizeArxivId(ref.value) ?? ref.value.trim();
+    const core = await loadCore();
+    const id = core.normalizeArxivId(ref.value) ?? ref.value.trim();
     const res = await this.fetchFn(`${this.baseUrl}?id_list=${encodeURIComponent(id)}`);
     if (!res.ok) {
       throw new Error(`arXiv request failed: ${res.status} ${res.statusText}`);
     }
     const xml = await res.text();
-    return parseArxivEntry(xml, id);
+    return core.arxivEntryToMetadata(xml, id);
   }
-}
-
-/** Minimal, dependency-free parse of the first <entry> in an arXiv Atom feed. */
-function parseArxivEntry(xml: string, arxivId: string): PaperMetadata {
-  const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1];
-  // An unknown id answers with no entry, a malformed one with an entry titled
-  // "Error". Either is a miss, as Crossref's 404 is, not a paper to import.
-  if (entry === undefined) throw new Error(`arXiv has no paper ${arxivId}`);
-  const pick = (tag: string) =>
-    decode(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(entry)?.[1]?.trim());
-  const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)]
-    .map((m) => decode(m[1]?.trim()))
-    .filter((x): x is string => Boolean(x));
-  const published = pick("published");
-  const year = published ? Number(published.slice(0, 4)) : undefined;
-
-  const title = pick("title")?.replace(/\s+/g, " ");
-  if (title === "Error") throw new Error(`arXiv has no paper ${arxivId}`);
-  return {
-    title: title ?? `arXiv:${arxivId}`,
-    authors,
-    abstract: pick("summary")?.replace(/\s+/g, " "),
-    year,
-    arxivId,
-    url: `https://arxiv.org/abs/${arxivId}`,
-  };
-}
-
-function decode(s?: string): string | undefined {
-  if (!s) return undefined;
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
 }

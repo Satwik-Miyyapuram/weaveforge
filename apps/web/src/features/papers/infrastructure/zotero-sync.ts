@@ -1,7 +1,7 @@
-import { normalizeDoi, type NewPaperInput, type Paper, titleFromFileName } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { type NewPaperInput, type Paper } from "@weaveforge/core";
 import type { ZoteroSyncResult } from "../domain/zotero";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
-import { toZoteroItem } from "./zotero-exporter";
 import {
   fetchAllZoteroItems,
   isChildItem,
@@ -94,7 +94,7 @@ export class ZoteroSync {
     for (const d of remote) {
       const ks = keysOfRemote(d);
       if (ks.length === 0 || ks.some((k) => localKeys.has(k))) continue;
-      await this.deps.addPaper(remoteToInput(d));
+      await this.deps.addPaper(readyCore().zoteroRemoteToInput(d));
       ks.forEach((k) => localKeys.add(k));
       pulled += 1;
       if (this.deps.onItemTags && d.key) pulledItems.push(d);
@@ -157,11 +157,10 @@ export class ZoteroSync {
     let pushed = 0;
     for (let start = 0; start < toPush.length; start += ZOTERO_WRITE_LIMIT) {
       const batch = toPush.slice(start, start + ZOTERO_WRITE_LIMIT);
-      const items = batch.map((p) => {
-        const it = toZoteroItem(p);
-        if (col) it.collections = [col];
-        return it;
-      });
+      const items = batch.map((p) => ({
+        ...readyCore().toZoteroItem(p),
+        ...(col ? { collections: [col] } : {}),
+      }));
       const res = await this.fetchFn(`${libraryUrl}/items`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json", "Zotero-Write-Token": crypto.randomUUID().replace(/-/g, "") },
@@ -213,60 +212,12 @@ export class ZoteroSync {
 const ZOTERO_WRITE_LIMIT = 50;
 
 /**
- * Content keys for a paper — match if ANY overlaps. Strong ids (doi, arxiv)
- * are preferred; title is only a fallback when neither exists, since different
- * papers can share a title. Whitespace-only ids/titles yield no key.
+ * Content keys for a paper (Rust `zoteroContentKeys`): match if ANY overlaps. Strong ids
+ * (doi, arxiv) are preferred; title is only a fallback when neither exists.
  */
-function contentKeys(doi?: string, arxivId?: string, title?: string): string[] {
-  const keys: string[] = [];
-  const nd = normalizeDoi(doi);
-  if (nd) {
-    keys.push("doi:" + nd);
-    // arXiv DataCite DOIs embed the id: 10.48550/arXiv.2103.03230
-    const m = /^10\.48550\/arxiv\.(.+)$/i.exec(nd);
-    if (m?.[1]) keys.push("arxiv:" + m[1].toLowerCase());
-  }
-  const ax = arxivId?.trim().toLowerCase();
-  if (ax) keys.push("arxiv:" + ax);
-  if (keys.length === 0) {
-    const t = title?.trim().toLowerCase().replace(/\s+/g, " ");
-    if (t) keys.push("title:" + t);
-  }
-  return keys;
-}
 function keysOfLocal(p: Paper): string[] {
-  return contentKeys(p.doi, p.arxivId, p.title);
-}
-/**
- * arXiv id from a Zotero item: the `arXiv:<id>` tag in `extra`, else the id in
- * an arxiv.org/abs|pdf/<id> URL.
- */
-function arxivOfRemote(d: ZoteroItemData): string | undefined {
-  const url = d.url ?? "";
-  return (
-    /arXiv:\s*([\w.\/-]+)/i.exec(d.extra ?? "")?.[1]?.trim() ??
-    /arXiv:\s*([\w.\/-]+)/i.exec(url)?.[1]?.trim() ??
-    /arxiv\.org\/(?:abs|pdf)\/([\w.\/-]+?)(?:\.pdf)?(?:[?#].*)?$/i.exec(url)?.[1]?.trim()
-  );
+  return readyCore().zoteroContentKeys(p.doi, p.arxivId, p.title);
 }
 function keysOfRemote(d: ZoteroItemData): string[] {
-  return contentKeys(d.DOI, arxivOfRemote(d), d.title);
-}
-function remoteToInput(d: ZoteroItemData): NewPaperInput {
-  const authors = (d.creators ?? [])
-    .map((c) => c.name ?? [c.firstName, c.lastName].filter(Boolean).join(" "))
-    .filter((x) => x.length > 0);
-  const year = d.date ? Number(/\d{4}/.exec(d.date)?.[0]) || undefined : undefined;
-  const arxivId = arxivOfRemote(d);
-  return {
-    title: d.title ? titleFromFileName(d.title) : "Untitled (Zotero)",
-    authors,
-    venue: d.publicationTitle,
-    year,
-    doi: d.DOI || undefined,
-    arxivId,
-    url: d.url,
-    abstract: d.abstractNote,
-    metadata: d.key ? { zoteroKey: d.key } : undefined,
-  };
+  return readyCore().zoteroContentKeys(d.DOI, readyCore().zoteroArxivId(d), d.title);
 }

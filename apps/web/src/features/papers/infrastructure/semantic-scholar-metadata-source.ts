@@ -1,31 +1,9 @@
-import { normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import type { SemanticScholarPaper } from "@weaveforge/wasm";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
-import { loadCore, type RustCore } from "@/lib/rust-core";
-
-interface MatchPaper {
-  title?: string;
-  authors?: { name?: string }[];
-  year?: number;
-  venue?: string;
-  paperId?: string;
-  externalIds?: { DOI?: string; ArXiv?: string };
-  openAccessPdf?: { url?: string } | null;
-  citationCount?: number;
-}
+import { loadCore } from "@/lib/rust-core";
 
 const FIELDS = "title,authors,year,venue,externalIds,openAccessPdf,citationCount";
-
-function toMetadata(paper: MatchPaper, core: RustCore): PaperMetadata {
-  return {
-    title: paper.title!,
-    authors: (paper.authors ?? []).flatMap((author) => author.name ? [author.name] : []),
-    year: paper.year, venue: paper.venue,
-    doi: normalizeDoi(paper.externalIds?.DOI),
-    arxivId: core.normalizeArxivId(paper.externalIds?.ArXiv),
-    url: paper.paperId ? `https://www.semanticscholar.org/paper/${encodeURIComponent(paper.paperId)}` : undefined,
-    metadata: { openAccessPdf: paper.openAccessPdf?.url, citationCount: paper.citationCount },
-  };
-}
 
 /**
  * Semantic Scholar as a metadata provider.
@@ -62,11 +40,11 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     const key = await this.apiKey();
     const response = await fetchSemanticScholar(this.fetchFn, `${this.baseUrl ?? semanticScholarUrl("graph/v1")}/paper/search/match?${params}`, key ? { headers: { "x-api-key": key } } : undefined);
     if (!response.ok) throw new Error(`Semantic Scholar metadata failed: ${response.status}`);
-    const body = await response.json() as { data?: MatchPaper[] };
+    const body = await response.json() as { data?: SemanticScholarPaper[] };
     const core = await loadCore();
     for (const paper of body.data ?? []) {
-      if (!paper.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: paper.title, year: paper.year })) continue;
-      return toMetadata(paper, core);
+      if (!paper.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: paper.title, year: paper.year ?? undefined })) continue;
+      return core.semanticScholarToMetadata(paper);
     }
     throw new Error("No sufficiently similar Semantic Scholar match");
   }
@@ -77,8 +55,9 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     const url = `${this.baseUrl ?? semanticScholarUrl("graph/v1")}/paper/${kind}:${encodeURIComponent(value)}?fields=${FIELDS}`;
     const response = await fetchSemanticScholar(this.fetchFn, url, key ? { headers: { "x-api-key": key } } : undefined);
     if (!response.ok) throw new Error(`Semantic Scholar ${kind} lookup failed: ${response.status}`);
-    const paper = await response.json() as MatchPaper;
+    const paper = await response.json() as SemanticScholarPaper;
     if (!paper.title) throw new Error(`Semantic Scholar ${kind} lookup returned no paper`);
-    return toMetadata(paper, await loadCore());
+    const core = await loadCore();
+    return core.semanticScholarToMetadata(paper);
   }
 }

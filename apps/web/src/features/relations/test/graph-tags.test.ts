@@ -5,14 +5,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractHashtags } from "@weaveforge/core";
 import { graphTagNames, noteTags, notesTagged, relatedConcepts } from "../application/graph-tags";
+import { readyCore } from "@/lib/rust-core";
 
 const note = (id: string, title: string, body: string) => ({ id, title, body });
 
 test("a note's tags come from its title and body, through core", () => {
   const n = note("n1", "On #VAEs", "body #beta-VAE and #vaes again, `#code`");
-  assert.deepEqual(noteTags(n), extractHashtags(`${n.title}\n${n.body}`));
+  assert.deepEqual(noteTags(n), readyCore().extractHashtags(`${n.title}\n${n.body}`));
   assert.deepEqual(noteTags(n), ["vaes", "beta-vae", "code"]);
 });
 

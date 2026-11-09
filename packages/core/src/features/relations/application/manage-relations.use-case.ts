@@ -16,9 +16,10 @@ import type { IPaperRelationRepository } from "../domain/paper-relation-reposito
 import type { ICitationSource } from "./citation-source.js";
 import { paperRef } from "./paper-ref.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import { normalizeDoi, type Paper } from "../../papers/domain/paper.js";
+import { type Paper } from "../../papers/domain/paper.js";
 import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/paper-identity.js";
 import type { PaperRef } from "../../papers/application/metadata-source.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface AddRelationDeps {
   repository: IPaperRelationRepository;
@@ -135,7 +136,7 @@ export class LinkCitationsUseCase {
     for (const p of library) {
       if (p.arxivId) byArxiv.set(p.arxivId, p);
       if (p.doi) {
-        const n = normalizeDoi(p.doi);
+        const n = rust().normalizeDoi(p.doi);
         if (n) byDoi.set(n, p);
       }
     }
@@ -181,7 +182,7 @@ export class LinkCitationsUseCase {
           cited.kind === "arxiv"
             ? byArxiv.get(cited.value)
             : cited.kind === "doi"
-              ? byDoi.get(normalizeDoi(cited.value) ?? cited.value)
+              ? byDoi.get(rust().normalizeDoi(cited.value) ?? cited.value)
               : undefined;
         if (!match || match.id === paper.id) {
           unmatched += 1;

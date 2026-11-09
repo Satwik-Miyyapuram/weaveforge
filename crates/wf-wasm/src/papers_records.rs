@@ -4,9 +4,13 @@
 //!
 //! The TS wrappers in `packages/wf-wasm/src/papers-records.ts` apply the `null` and `undefined` handling.
 
-use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::papers::paper_field::PaperFieldRollupConfig;
+use wasm_bindgen::{JsError, JsValue};
+use wf_core::papers::compute_rollup::{RollupFieldDef, RollupValue, compute_rollup_for_papers};
+use wf_core::papers::paper_field::{
+    PaperFieldRollupConfig, PaperFieldValueInput, paper_field_value_refusal,
+    parse_paper_field_value,
+};
 use wf_core::papers::{annotation_quotation_type, paper, paper_field};
 
 use super::to_js;
@@ -108,4 +112,35 @@ pub fn parse_rollup_options_js(options: Vec<String>) -> JsResult<JsValue> {
 #[must_use]
 pub fn is_quotation_type_js(value: &str) -> bool {
     annotation_quotation_type::is_quotation_type(value)
+}
+
+/// [`parse_paper_field_value`] (TS `parsePaperFieldValue`). A refusal throws an `Error`
+/// with the caller's `name` in the message.
+#[wasm_bindgen(js_name = parsePaperFieldValue)]
+pub fn parse_paper_field_value_js(value: JsValue, name: &str) -> Result<JsValue, JsError> {
+    let input = serde_wasm_bindgen::from_value::<PaperFieldValueInput>(value)
+        .map_err(|_| JsError::new(&paper_field_value_refusal(name)))?;
+    let parsed = parse_paper_field_value(input, name).map_err(|message| JsError::new(&message))?;
+    to_js(&parsed).map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// [`compute_rollup_for_papers`] (TS `computeRollupsForPapers`). One call fills a rollup column
+/// for every listed paper; `null` where the rollup has no value.
+#[wasm_bindgen(js_name = computeRollupsForPapers)]
+pub fn compute_rollups_for_papers_js(
+    paper_ids: JsValue,
+    rollup: JsValue,
+    defs: JsValue,
+    values: JsValue,
+) -> Result<JsValue, JsError> {
+    let paper_ids: Vec<String> = serde_wasm_bindgen::from_value(paper_ids)
+        .map_err(|error| JsError::new(&error.to_string()))?;
+    let rollup: RollupFieldDef =
+        serde_wasm_bindgen::from_value(rollup).map_err(|error| JsError::new(&error.to_string()))?;
+    let defs: Vec<RollupFieldDef> =
+        serde_wasm_bindgen::from_value(defs).map_err(|error| JsError::new(&error.to_string()))?;
+    let values: Vec<RollupValue> =
+        serde_wasm_bindgen::from_value(values).map_err(|error| JsError::new(&error.to_string()))?;
+    let computed = compute_rollup_for_papers(&paper_ids, &rollup, &defs, &values);
+    to_js(&computed).map_err(|error| JsError::new(&error.to_string()))
 }

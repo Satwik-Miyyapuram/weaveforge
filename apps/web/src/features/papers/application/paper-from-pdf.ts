@@ -12,7 +12,7 @@
  * a plain test.
  */
 
-import { MetadataResolutionError, normalizeArxivId, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
+import { MetadataResolutionError, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 
 /** Past this a PDF is more likely a scanned book than a paper; the byte cache is not meant for it. */
@@ -122,7 +122,7 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   if (!offline) {
     if (doi) found = await tryRef({ kind: "doi", value: doi }, deps);
     // arXiv stamps its id down the first page's margin: `arXiv:2301.12345v2 [cs.LG]`.
-    const arxiv = normalizeArxivId(ARXIV_STAMP.exec(pdf.text)?.[0]);
+    const arxiv = core.normalizeArxivId(ARXIV_STAMP.exec(pdf.text)?.[0]);
     if (!found && arxiv) found = await tryRef({ kind: "arxiv", value: arxiv }, deps);
     if (!found && title) found = await tryRef({ kind: "bibliographic", value: title, hints: { title } }, deps);
   }

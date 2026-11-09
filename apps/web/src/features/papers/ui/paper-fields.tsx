@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
 import {
   PAPER_FIELD_KINDS,
-  computeRollup,
   type PaperSummary,
   type PaperFieldDef,
   type PaperFieldKind,
@@ -14,6 +13,7 @@ import {
   type PaperFieldValueData,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { Button } from "@/components/button";
@@ -100,7 +100,7 @@ export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readO
           {defs.map((def) => {
             const rollupValue =
               def.kind === "rollup"
-                ? computeRollup(paperId, def, defs, projectValues)
+                ? (readyCore().computeRollupsForPapers([paperId], def, defs, projectValues)[0] ?? null)
                 : undefined;
             return (
               <PaperFieldEditor

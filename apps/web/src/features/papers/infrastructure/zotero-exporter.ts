@@ -1,4 +1,5 @@
 import type { Paper } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type {
   ZoteroCredentialsProvider,
 } from "./zotero-metadata-source";
@@ -23,8 +24,10 @@ export class ZoteroExporter {
         "Zotero is not configured. Add your API key and library in Settings.",
       );
     }
-    const item = toZoteroItem(paper);
-    if (creds.collection) item.collections = [creds.collection];
+    const item = {
+      ...readyCore().toZoteroItem(paper),
+      ...(creds.collection ? { collections: [creds.collection] } : {}),
+    };
     const res = await this.fetchFn(`${zoteroLibraryUrl(creds.library, this.apiOrigin)}/items`, {
       method: "POST",
       headers: {
@@ -84,30 +87,4 @@ export class ZoteroExporter {
       throw new Error(`Zotero delete failed (${res.status}). ${detail}`.trim());
     }
   }
-}
-
-export function toZoteroItem(paper: Paper): Record<string, unknown> {
-  const extra: string[] = [];
-  if (paper.arxivId) extra.push(`arXiv:${paper.arxivId}`);
-
-  return {
-    itemType: "journalArticle",
-    title: paper.title,
-    creators: paper.authors.map((name) => splitCreator(name)),
-    publicationTitle: paper.venue ?? "",
-    date: paper.year ? String(paper.year) : "",
-    DOI: paper.doi ?? "",
-    url: paper.url ?? "",
-    abstractNote: paper.abstract ?? paper.summary ?? "",
-    extra: extra.join("\n"),
-  };
-}
-
-function splitCreator(name: string): Record<string, string> {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length < 2) {
-    return { creatorType: "author", name };
-  }
-  const lastName = parts.pop()!;
-  return { creatorType: "author", firstName: parts.join(" "), lastName };
 }

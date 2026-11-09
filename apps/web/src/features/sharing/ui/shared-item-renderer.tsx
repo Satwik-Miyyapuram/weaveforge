@@ -2,7 +2,7 @@
 
 import { enumLabel } from "@/lib/enum-label";
 import type { Paper } from "@weaveforge/core";
-import { formatMetricCell, isEmptyPaperSummary } from "@weaveforge/core";
+import { formatMetricCell } from "@weaveforge/core";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
@@ -15,6 +15,7 @@ import { OpenIcon } from "@/components/view-icons";
 import { IconLink } from "@/components/button";
 import { Chip } from "@/components/controls";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
+import { readyCore } from "@/lib/rust-core";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */
 const CARD_COMMENTS = new Set(["milestone", "reading_list"]);
@@ -171,7 +172,7 @@ function SharedPaperCard({
   ownerId: string;
   canComment: boolean;
 }) {
-  const hasSummary = !isEmptyPaperSummary(paper.summary);
+  const hasSummary = !readyCore().isEmptyPaperSummary(paper.summary);
   const snippet = hasSummary
     ? paper.summary!.replace(/\s+/g, " ").slice(0, 150) +
       (paper.summary!.length > 150 ? "…" : "")

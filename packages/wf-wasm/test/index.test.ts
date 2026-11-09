@@ -62,6 +62,15 @@ import {
   type TokenizerOptions,
 } from "../src/index.js";
 import { buildExcerpt as rawBuildExcerpt, fuseRankings as rawFuseRankings } from "../pkg/wf_wasm.js";
+import { parsePaperFieldValue } from "../src/papers-field-value.js";
+import { computeRollupsForPapers } from "../src/papers-compute-rollup.js";
+import {
+  findDuplicateGroups,
+  isConferenceCopy,
+  pickKeeper,
+  titleFixes,
+  type TidyPaper,
+} from "../src/papers-library-tidy.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -626,4 +635,98 @@ test("the paste wrappers reject text over MAX_INDEX_TEXT_UTF16 before WASM", () 
   assert.throws(() => cleanPastedText(big, defaultPasteSettings()), beforeWasm);
   assert.throws(() => tabSeparatedToMarkdownTable(big), beforeWasm);
   assert.throws(() => cleanUrlsWithRules(big, []), beforeWasm);
+});
+
+test("parsePaperFieldValue keeps strings and numbers, trims lists, and throws with the caller name", () => {
+  assert.equal(parsePaperFieldValue("VAE", "value"), "VAE");
+  assert.equal(parsePaperFieldValue(0, "value"), 0);
+  assert.deepEqual(parsePaperFieldValue([" a ", "", "b"], "value"), ["a", "b"]);
+  for (const bad of ["  ", [], ["", " "], [1], Number.NaN, Infinity, null, undefined, {}, true]) {
+    assert.throws(
+      () => parsePaperFieldValue(bad, "Proposal value"),
+      /^Error: Proposal value must be a non-empty string, number, or non-empty string list\.$/,
+    );
+  }
+});
+
+test("computeRollupsForPapers sums and counts related values, null where there is no number", () => {
+  const rollup = { id: "sum", kind: "rollup", options: ["rel:rel", "agg:sum", "src:score"] } as const;
+  const count = { id: "count", kind: "rollup", options: ["rel:rel", "agg:count"] } as const;
+  const defs = [{ id: "rel", kind: "relation" }, { id: "score", kind: "number" }, rollup, count] as const;
+  const values = [
+    { paperId: "a", fieldId: "rel", value: ["b", "c"] },
+    { paperId: "b", fieldId: "score", value: 2 },
+    { paperId: "c", fieldId: "score", value: 4 },
+  ];
+  assert.deepEqual(computeRollupsForPapers(["a", "b"], rollup, defs, values), [6, null]);
+  assert.deepEqual(computeRollupsForPapers(["a", "b"], count, defs, values), [2, 0]);
+});
+
+function tidyPaper(over: { id: string } & Record<string, unknown>): TidyPaper {
+  return {
+    title: `A sufficiently long distinct paper title ${over.id}`,
+    createdAt: "2026-01-01T00:00:00Z",
+    status: null,
+    summary: null,
+    rating: null,
+    readAt: null,
+    pdfPath: null,
+    tags: [],
+    authors: [],
+    year: null,
+    venue: null,
+    url: null,
+    abstract: null,
+    bibtex: null,
+    doi: null,
+    arxivId: null,
+    metadata: null,
+    ...over,
+  } as TidyPaper;
+}
+
+test("titleFixes proposes a filename's title and a lookup for a placeholder with an identifier", () => {
+  const fixes = titleFixes([
+    tidyPaper({ id: "a", title: "Goyal et al. - 2017 - Accurate, Large Minibatch SGD.pdf" }),
+    tidyPaper({ id: "b", title: "Catalog Page", doi: "https://doi.org/10.1/X" }),
+    tidyPaper({ id: "c", title: "Full Text Search at Scale" }),
+  ]);
+  assert.deepEqual(fixes, [
+    {
+      id: "a",
+      current: "Goyal et al. - 2017 - Accurate, Large Minibatch SGD.pdf",
+      proposed: "Accurate, Large Minibatch SGD",
+    },
+    { id: "b", current: "Catalog Page", lookup: { doi: "10.1/x" } },
+  ]);
+});
+
+test("findDuplicateGroups groups by DOI and arXiv id, and a title bridge between two DOIs is refused", () => {
+  const groups = findDuplicateGroups([
+    tidyPaper({ id: "a", doi: "10.5/abc" }),
+    tidyPaper({ id: "b", doi: "https://doi.org/10.5/ABC" }),
+    tidyPaper({ id: "c", arxivId: "2101.00001v1" }),
+    tidyPaper({ id: "d", arxivId: "arXiv:2101.00001v3" }),
+    tidyPaper({ id: "e", title: "On the Measure of Intelligence", doi: "10.1/one" }),
+    tidyPaper({ id: "f", title: "On the Measure of Intelligence" }),
+    tidyPaper({ id: "g", title: "On the Measure of Intelligence", doi: "10.1/erratum" }),
+  ]);
+  assert.deepEqual(groups, [
+    { keepId: "a", ids: ["a", "b"], reason: "doi" },
+    { keepId: "c", ids: ["c", "d"], reason: "arxiv" },
+    { keepId: "e", ids: ["e", "f"], reason: "title" },
+  ]);
+});
+
+test("pickKeeper prefers the reader's own work, and throws on an empty group", () => {
+  const old = tidyPaper({ id: "old", createdAt: "2020-01-01T00:00:00Z" });
+  const read = tidyPaper({ id: "read", status: "read", createdAt: "2025-01-01T00:00:00Z" });
+  assert.equal(pickKeeper([old, read]), "read");
+  assert.throws(() => pickKeeper([]), /pickKeeper needs at least one paper/);
+});
+
+test("isConferenceCopy is false for a preprint server venue", () => {
+  assert.equal(isConferenceCopy(tidyPaper({ id: "a", venue: "ICML 2023" })), true);
+  assert.equal(isConferenceCopy(tidyPaper({ id: "b", venue: "arXiv" })), false);
+  assert.equal(isConferenceCopy(tidyPaper({ id: "c", venue: "  " })), false);
 });
