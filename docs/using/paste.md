@@ -310,3 +310,12 @@ that is what they are for. What is worth knowing about them:
 
 Turning both off restores the older behaviour exactly: no paste rule contacts
 anything outside your own workspace.
+
+## How it works
+
+Every paste rule is written once, in Rust. The web app and the desktop app call
+the same functions through the WebAssembly build, so a paste is cleaned the same
+way in both. Each rule is a pure function of the clipboard text and your paste
+settings, except the two lookup rules, which fetch only the address you pasted.
+
+Source: `crates/wf-core/src/paste/`
