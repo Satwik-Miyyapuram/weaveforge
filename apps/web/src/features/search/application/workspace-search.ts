@@ -1,24 +1,4 @@
-import {
-  LARGE_CORPUS_WARNING,
-  buildWikiGraph,
-  HYBRID_VECTOR_WEIGHT,
-  coveredHits,
-  gateVectorHits,
-  queryTermCount,
-  stripStopwords,
-  graphDegrees,
-  graphDensity,
-  type IWorkspaceSearchIndex,
-  type GraphDensity,
-  type RelatedArm,
-  type RelatedResult,
-  type SearchDoc,
-  type SearchHit,
-  type SearchQueryOptions,
-  type SearchSettings,
-  type WikiGraph,
-  type WorkspaceSnapshot,
-} from "@weaveforge/core";
+import { type IWorkspaceSearchIndex, type GraphDensity, type RelatedArm, type RelatedResult, type SearchDoc, type SearchHit, type SearchQueryOptions, type SearchSettings, type WikiGraph, type WorkspaceSnapshot } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { indexTermsOf } from "../infrastructure/search-core";
@@ -32,6 +12,7 @@ import { diffRefresh } from "./refresh-diff";
 import { projectSearchDocuments } from "./search-projection";
 import { pruneMissingPaperTexts } from "./pdf-text-pruning";
 import { collapseToEntities, distinctRelated } from "./collapse-to-entities";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Owns the lifecycle of the workspace search index: build from a snapshot,
@@ -130,8 +111,8 @@ export class WorkspaceSearch {
     const snapshot = await this.deps.snapshot();
     // The graph is needed on this side regardless: it drives the related-panel
     // cascade, not only ranking, and it is cheap next to tokenizing.
-    this.state.graph = buildWikiGraph(snapshot);
-    this.state.density = graphDensity(this.state.graph);
+    this.state.graph = typedCore().buildWikiGraph(snapshot);
+    this.state.density = typedCore().graphDensity(this.state.graph);
 
     const pruned = await pruneMissingPaperTexts(projectId, snapshot);
     this.state.pdfTexts = pruned.texts;
@@ -235,8 +216,8 @@ export class WorkspaceSearch {
     // Links change with notes and papers, so the graph is rebuilt whenever one
     // of those is stale — degrees are a ranking input for every kind.
     if (kinds.some((kind) => kind === "note" || kind === "paper")) {
-      this.state.graph = buildWikiGraph(snapshot);
-      this.state.density = graphDensity(this.state.graph);
+      this.state.graph = typedCore().buildWikiGraph(snapshot);
+      this.state.density = typedCore().graphDensity(this.state.graph);
     }
     const wanted = new Set(kinds);
     // No PDF text: `pdf` is never a stale kind (see search-index-state.ts).
@@ -357,7 +338,7 @@ export class WorkspaceSearch {
       // query "match" most of the library. The floor is the encoder's own
       // (see `embedding-models.ts`): cosine scales differ by model.
       // A confident best hit also keeps its next few neighbours; see `gateVectorHits`.
-      nearest = gateVectorHits(
+      nearest = typedCore().gateVectorHits(
         await semantic.search(query, Math.min(options.limit ?? 30, SEMANTIC_MAX_HITS)),
         semantic.minScore ?? SEMANTIC_MIN_SCORE,
       );
@@ -386,15 +367,15 @@ export class WorkspaceSearch {
     // on 98 queries this is the difference between fusion hurting and helping
     // (see `hybrid-fusion.ts`).
     const core = await loadCore();
-    const content = stripStopwords(query);
-    const fusedKeyword = coveredHits(
+    const content = typedCore().stripStopwords(query);
+    const fusedKeyword = typedCore().coveredHits(
       content === query ? keyword : this.search(content, options),
-      queryTermCount(indexTermsOf(core, content)),
+      typedCore().queryTermCount(indexTermsOf(core, content)),
     ).map((hit) => known.get(hit.id) ?? hit);
 
     // Keyword first, so its excerpt is the one that survives fusion.
     return core.fuseRankings(
-      [{ items: fusedKeyword }, { items: vectorHits, weight: HYBRID_VECTOR_WEIGHT }],
+      [{ items: fusedKeyword }, { items: vectorHits, weight: typedCore().HYBRID_VECTOR_WEIGHT }],
       (hit) => hit.id,
       { limit: options.limit ?? 30 },
     );
@@ -540,7 +521,7 @@ export class WorkspaceSearch {
   }
 
   private pdfDocs(source: PdfIndexSource): SearchDoc[] {
-    const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
+    const degrees = this.state.graph ? typedCore().graphDegrees(this.state.graph) : undefined;
     return readyCore().toPdfSearchDocs([source], degrees);
   }
 
@@ -600,7 +581,7 @@ export class WorkspaceSearch {
    */
   get corpusSize(): { documents: number; large: boolean } {
     const documents = this.state.documentCount;
-    return { documents, large: documents > LARGE_CORPUS_WARNING };
+    return { documents, large: documents > typedCore().LARGE_CORPUS_WARNING };
   }
 
   /** True when the index worker could not start and the build blocked the page instead. */

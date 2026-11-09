@@ -1,15 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  DOWNRANK_FACTOR,
-  FIELD_BOOSTS,
-  MAX_FIELD_WEIGHT,
-  documentBoost,
-  effectiveFieldBoosts,
-  kindMultiplier,
-  normalizeSearchSettings,
-  type SearchDoc,
-} from "../../src/index.js";
+import { type SearchDoc } from "../../src/index.js";
+import { rust } from "../../src/shared/rust.js";
 
 const doc = (over: Partial<SearchDoc> = {}): SearchDoc => ({
   id: "note:n1", kind: "note", entityId: "n1", title: "T", aliases: [], headings: [],
@@ -20,21 +12,21 @@ const doc = (over: Partial<SearchDoc> = {}): SearchDoc => ({
 // ------------------------------------------------------------------- settings
 
 test("overrides apply on top of the defaults", () => {
-  const boosts = effectiveFieldBoosts({ weights: { body: 5 } });
+  const boosts = rust().effectiveFieldBoosts({ weights: { body: 5 } });
 
   assert.equal(boosts.body, 5);
-  assert.equal(boosts.title, FIELD_BOOSTS.title, "untouched fields keep their default");
+  assert.equal(boosts.title, rust().FIELD_BOOSTS.title, "untouched fields keep their default");
 });
 
 test("weights are clamped — a stored value cannot break scoring", () => {
-  const settings = normalizeSearchSettings({ weights: { title: 9_999, body: -4 } });
+  const settings = rust().normalizeSearchSettings({ weights: { title: 9_999, body: -4 } });
 
-  assert.equal(settings?.weights?.title, MAX_FIELD_WEIGHT);
+  assert.equal(settings?.weights?.title, rust().MAX_FIELD_WEIGHT);
   assert.equal(settings?.weights?.body, 0);
 });
 
 test("unknown fields and kinds are dropped rather than trusted", () => {
-  const settings = normalizeSearchSettings({
+  const settings = rust().normalizeSearchSettings({
     weights: { title: 5, nonsense: 3 },
     downrankedKinds: ["log", "banana"],
   });
@@ -44,25 +36,25 @@ test("unknown fields and kinds are dropped rather than trusted", () => {
 });
 
 test("non-object input yields no settings instead of throwing", () => {
-  assert.equal(normalizeSearchSettings(null), undefined);
-  assert.equal(normalizeSearchSettings("nope"), undefined);
-  assert.equal(normalizeSearchSettings([1, 2]), undefined);
-  assert.equal(normalizeSearchSettings({}), undefined);
+  assert.equal(rust().normalizeSearchSettings(null), undefined);
+  assert.equal(rust().normalizeSearchSettings("nope"), undefined);
+  assert.equal(rust().normalizeSearchSettings([1, 2]), undefined);
+  assert.equal(rust().normalizeSearchSettings({}), undefined);
 });
 
 test("a downranked kind sinks without being excluded", () => {
-  assert.equal(kindMultiplier("log", { downrankedKinds: ["log"] }), DOWNRANK_FACTOR);
-  assert.equal(kindMultiplier("note", { downrankedKinds: ["log"] }), 1);
+  assert.equal(rust().kindMultiplier("log", { downrankedKinds: ["log"] }), rust().DOWNRANK_FACTOR);
+  assert.equal(rust().kindMultiplier("note", { downrankedKinds: ["log"] }), 1);
 
-  const sunk = documentBoost(doc(), { kindMultiplier: DOWNRANK_FACTOR });
-  const normal = documentBoost(doc());
+  const sunk = rust().documentBoost(doc(), { kindMultiplier: rust().DOWNRANK_FACTOR });
+  const normal = rust().documentBoost(doc());
   assert.ok(sunk < normal);
   assert.ok(sunk > 0, "downranking must not zero a document out of the results");
 });
 
 test("recency can be switched off", () => {
-  const withRecency = documentBoost(doc(), { now: Date.parse("2026-08-02T00:00:00.000Z") });
-  const without = documentBoost(doc(), { now: Date.parse("2026-08-02T00:00:00.000Z"), recency: false });
+  const withRecency = rust().documentBoost(doc(), { now: Date.parse("2026-08-02T00:00:00.000Z") });
+  const without = rust().documentBoost(doc(), { now: Date.parse("2026-08-02T00:00:00.000Z"), recency: false });
 
   assert.ok(withRecency > without, "the tiebreak should add something when on");
   assert.equal(without, 1, "with no links and no recency, the boost is neutral");

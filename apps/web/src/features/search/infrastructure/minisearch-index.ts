@@ -1,21 +1,8 @@
 import MiniSearch, { type Options, type SearchResult } from "minisearch";
-import {
-  effectiveFieldBoosts,
-  kindMultiplier,
-  MIN_PREFIX_LENGTH,
-  SEARCH_FIELDS,
-  documentBoost,
-  fuzzinessForTerm,
-  type IWorkspaceSearchIndex,
-  type IWorkspaceSearchIndexFactory,
-  type SearchDoc,
-  type SearchHit,
-  type SearchSettings,
-  type SearchKind,
-  type SearchQueryOptions,
-} from "@weaveforge/core";
+import { type IWorkspaceSearchIndex, type IWorkspaceSearchIndexFactory, type SearchDoc, type SearchHit, type SearchSettings, type SearchKind, type SearchQueryOptions } from "@weaveforge/core";
 import type { ParsedQuery } from "@weaveforge/wasm";
 import { excerptOf, indexTermsOf, type SearchCore } from "./search-core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * BM25 index over the workspace snapshot. The only module that imports
@@ -71,7 +58,7 @@ function isEmptyQuery(parsed: ParsedQuery): boolean {
 function miniSearchOptions(core: SearchCore): Options<SearchDoc> {
   return {
     idField: "id",
-    fields: [...SEARCH_FIELDS],
+    fields: [...typedCore().SEARCH_FIELDS],
     // `path`, `tags`, and `body` are stored so field filters and excerpting can
     // work against the same text the ranker saw.
     storeFields: [...STORED_FIELDS],
@@ -168,15 +155,15 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
 
     const run = (fuzzyFor: (term: string) => number) =>
       this.engine.search(parsed.text, {
-        boost: effectiveFieldBoosts(this.settings),
-        prefix: (term) => (options.prefix === false ? false : term.length >= MIN_PREFIX_LENGTH),
+        boost: typedCore().effectiveFieldBoosts(this.settings),
+        prefix: (term) => (options.prefix === false ? false : term.length >= typedCore().MIN_PREFIX_LENGTH),
         fuzzy: fuzzyFor,
         // Document-level signal: link degree first, recency only as a tiebreak.
         boostDocument: (id, _term, storedFields) => {
           const fields = (storedFields ?? this.stored.get(String(id))) as StoredFields | undefined;
           if (!fields) return 1;
-          return documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-            kindMultiplier: kindMultiplier(fields.kind, this.settings),
+          return typedCore().documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
+            kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings),
             recency: this.settings?.recencyBoost,
           });
         },
@@ -189,7 +176,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         ? options.fuzzy
         : options.fuzzy === false
           ? 0
-          : fuzzinessForTerm(term);
+          : typedCore().fuzzinessForTerm(term);
 
     let results = run(firstPass);
 
@@ -282,8 +269,8 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         title: fields.title,
         href: fields.href,
         // No term scoring to report; order by the document signal alone.
-        score: documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-          kindMultiplier: kindMultiplier(fields.kind, this.settings),
+        score: typedCore().documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
+          kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings),
           recency: this.settings?.recencyBoost,
         }),
         ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),

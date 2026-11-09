@@ -8,7 +8,7 @@ import type {
   ReaderAnnotationSyncRecord,
   WorkspaceAnnotation,
 } from "@weaveforge/core";
-import { buildAnnotationSortIndex, isReaderAnnotationType } from "@weaveforge/core";
+import { isReaderAnnotationType } from "@weaveforge/core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 import { DEFAULT_ANNOTATION_COLOR } from "../application/reader-annotation-helpers";
 import {
@@ -16,6 +16,7 @@ import {
   toDomain,
 } from "./reader-annotation-rows";
 import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * The columns a ReaderAnnotationRow is read as, named rather than starred.
@@ -71,7 +72,7 @@ export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestR
     }
     const userId = await this.session.requireUserId();
     const sortIndex =
-      draft.sortIndex?.trim() || buildAnnotationSortIndex(draft.pageIndex, 0, 0);
+      draft.sortIndex?.trim() || typedCore().buildAnnotationSortIndex(draft.pageIndex, 0, 0);
     const dbRow = await oneRow<ReaderAnnotationRow>(this.db
       .from(TABLE)
       .insert({

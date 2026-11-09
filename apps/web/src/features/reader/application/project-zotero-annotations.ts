@@ -3,14 +3,10 @@
  * Notes (kind === "note") are excluded — they are not page-anchored.
  */
 
-import {
-  buildAnnotationSortIndex,
-  isReaderAnnotationType,
-  type CombinedPdfAnchor,
-  type ReaderAnnotation,
-} from "@weaveforge/core";
+import { isReaderAnnotationType, type CombinedPdfAnchor, type ReaderAnnotation } from "@weaveforge/core";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 import { DEFAULT_ANNOTATION_COLOR } from "./reader-annotation-helpers";
+import { typedCore } from "@/lib/rust-core";
 
 export function projectZoteroAnnotations(
   annotations: readonly ZoteroAnnotation[],
@@ -53,7 +49,7 @@ export function projectZoteroAnnotations(
 
     const sortIndex =
       ann.annotationSortIndex?.trim() ||
-      buildAnnotationSortIndex(
+      typedCore().buildAnnotationSortIndex(
         typeof pageIndex === "number" ? pageIndex : 0,
         0,
         0,

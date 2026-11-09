@@ -1,9 +1,10 @@
-import { EMPTY_SETTINGS, type UserSettings } from "../features/settings/domain/user-settings.js";
+import { type UserSettings } from "../features/settings/domain/user-settings.js";
 import type { ISettingsRepository } from "../features/settings/domain/settings-repository.js";
+import { rust } from "../shared/rust.js";
 
 /** In-memory settings store for contract tests. Copies deeply, like a real store. */
 export class InMemorySettingsRepository implements ISettingsRepository {
-  private settings: UserSettings = structuredClone(EMPTY_SETTINGS);
+  private settings: UserSettings = structuredClone(rust().EMPTY_SETTINGS);
 
   async get(): Promise<UserSettings> {
     return structuredClone(this.settings);

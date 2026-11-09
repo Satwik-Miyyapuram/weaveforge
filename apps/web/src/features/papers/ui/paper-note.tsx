@@ -30,7 +30,7 @@ import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focu
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import { formatPaperCitation, resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
+
 import { PaperExternalLink } from "./paper-external-link";
 import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
@@ -51,6 +51,7 @@ import { useRouter } from "next/navigation";
 import { isEditableTarget, openContextMenu } from "@/components/context-menu-store";
 import { paperNoteMenuItems } from "./paper-note-menu";
 import { copyPaperAs } from "./copy-paper";
+import { typedCore } from "@/lib/rust-core";
 
 /** The modes the switch offers, as the Editor's toolbar does. */
 const NOTE_MODES = ["edit", "ink"] as const;
@@ -251,7 +252,7 @@ export function PaperNote({
       year: paper.year,
       venue: paper.venue,
       doi: paper.doi,
-      citeKey: resolveCiteKey(paper),
+      citeKey: typedCore().resolveCiteKey(paper),
     });
     editorHandle.current?.replaceAll(next);
     setSaveError(null);
@@ -295,7 +296,7 @@ export function PaperNote({
 
   async function copyCitation() {
     const text =
-      citationFormat === "wikilink" ? `[[${paper.title}]]` : formatPaperCitation(paper, citationFormat);
+      citationFormat === "wikilink" ? `[[${paper.title}]]` : typedCore().formatPaperCitation(paper, citationFormat);
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);

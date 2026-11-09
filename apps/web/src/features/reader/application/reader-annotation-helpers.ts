@@ -1,4 +1,5 @@
-import { buildAnnotationSortIndex, type NewReaderAnnotation, type ReaderAnnotation } from "@weaveforge/core";
+import { type NewReaderAnnotation, type ReaderAnnotation } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /** Pin / quotation-type key: Zotero key when present, else local id. */
 export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">): string {
@@ -52,7 +53,7 @@ export function optimisticAnnotationFromDraft(
     comment: draft.comment?.trim() ?? "",
     tags: draft.tags ? [...draft.tags] : [],
     anchor: draft.anchor,
-    sortIndex: draft.sortIndex?.trim() || buildAnnotationSortIndex(draft.pageIndex, 0, 0),
+    sortIndex: draft.sortIndex?.trim() || typedCore().buildAnnotationSortIndex(draft.pageIndex, 0, 0),
     createdAt: now,
     updatedAt: now,
     syncState: "local",

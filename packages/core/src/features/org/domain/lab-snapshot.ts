@@ -1,3 +1,4 @@
+/** Types for lab-snapshot. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { LogKind } from "../../logbook/domain/log-entry.js";
 import type { MilestoneStatus } from "../../plan/domain/milestone.js";
@@ -66,30 +67,14 @@ export interface PublishLabSnapshotInput {
   content: LabSnapshotContent;
 }
 
-/** Freeze live records into snapshot content, keeping only what a supervisor reads. */
-export function buildLabSnapshotContent(input: {
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface LabSnapshotFns {
+  /** Freeze live records into snapshot content, keeping only what a supervisor reads. */
+  buildLabSnapshotContent(input: {
   milestones: Milestone[];
   logs: LogEntry[];
   experiments: Experiment[];
   report: ReportSection[];
   aiAssisted?: number;
-}): LabSnapshotContent {
-  return {
-    milestones: input.milestones.map((m) => ({
-      id: m.id,
-      title: m.title,
-      description: m.description,
-      status: m.status,
-      targetDate: m.targetDate,
-    })),
-    logs: input.logs.map((l) => ({ id: l.id, entryDate: l.entryDate, kind: l.kind, body: l.body })),
-    experiments: input.experiments.map((e) => ({
-      id: e.id,
-      name: e.name,
-      status: e.status,
-      resultNote: e.resultNote,
-    })),
-    report: input.report.map((r) => ({ id: r.id, title: r.title, status: r.status, wordCount: r.wordCount })),
-    ...(input.aiAssisted === undefined ? {} : { aiAssisted: input.aiAssisted }),
-  };
+}): LabSnapshotContent;
 }

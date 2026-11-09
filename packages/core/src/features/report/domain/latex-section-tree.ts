@@ -1,4 +1,5 @@
-import { normalizeProjectPath } from "./project-path.js";
+import { rust } from "../../../shared/rust.js";
+
 
 export interface LatexSourceFile {
   path: string;
@@ -38,7 +39,7 @@ const SECTION_RE =
   /^\s*\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)(\*)?\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}/;
 
 function normalizePath(path: string): string | null {
-  return normalizeProjectPath(path.endsWith(".tex") ? path : `${path}.tex`);
+  return rust().normalizeProjectPath(path.endsWith(".tex") ? path : `${path}.tex`);
 }
 
 function resolveInclude(currentFile: string, includePath: string): string | null {

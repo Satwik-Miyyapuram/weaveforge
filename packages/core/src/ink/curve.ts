@@ -1,4 +1,8 @@
-/**
+/** Types for curve. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
+
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface CurveFns {
+  /**
  * The curve a stroke is drawn as: a cubic Hermite span between each pair of
  * stored samples. The renderer draws it and `packInkStroke` checks against it,
  * so what is kept at pack time is exactly what is drawn.
@@ -34,55 +38,11 @@
  * At either end of the stroke the tangent is the one chord there, which makes
  * the end span a straight, evenly-parametrised run into the cap.
  */
-export function inkTangentAt(
-  xs: ArrayLike<number>,
-  ys: ArrayLike<number>,
-  i: number,
-  side: "in" | "out" = "out",
-): { x: number; y: number } {
-  const count = Math.min(xs.length, ys.length);
-  const x = xs[i]!;
-  const y = ys[i]!;
-  const hasPrev = i > 0;
-  const hasNext = i + 1 < count;
-  const px = hasPrev ? x - xs[i - 1]! : 0;
-  const py = hasPrev ? y - ys[i - 1]! : 0;
-  const nx = hasNext ? xs[i + 1]! - x : 0;
-  const ny = hasNext ? ys[i + 1]! - y : 0;
-  const pl = Math.hypot(px, py);
-  const nl = Math.hypot(nx, ny);
-  if (!(pl > 0) && !(nl > 0)) return { x: 0, y: 0 };
-  if (!(pl > 0)) return { x: nx, y: ny };
-  if (!(nl > 0)) return { x: px, y: py };
-  const sx = px + nx;
-  const sy = py + ny;
-  const sl = Math.hypot(sx, sy);
-  if (!(sl > 0)) return { x: 0, y: 0 };
-  const magnitude = side === "out" ? nl : pl;
-  return { x: (sx / sl) * magnitude, y: (sy / sl) * magnitude };
-}
-
-/**
+  inkTangentAt(xs: ArrayLike<number>, ys: ArrayLike<number>, i: number, side?: "in" | "out"): { x: number; y: number };
+  /**
  * A point on the stroke's curve between samples `i` and `i + 1`, at `u` in
  * [0, 1]: a cubic Hermite span through the two samples with the tangents
  * {@link inkTangentAt} gives them.
  */
-export function inkCurveAt(
-  xs: ArrayLike<number>,
-  ys: ArrayLike<number>,
-  i: number,
-  u: number,
-): { x: number; y: number } {
-  const m1 = inkTangentAt(xs, ys, i, "out");
-  const m2 = inkTangentAt(xs, ys, i + 1, "in");
-  const uu = u * u;
-  const uuu = uu * u;
-  const h00 = 2 * uuu - 3 * uu + 1;
-  const h10 = uuu - 2 * uu + u;
-  const h01 = -2 * uuu + 3 * uu;
-  const h11 = uuu - uu;
-  return {
-    x: h00 * xs[i]! + h10 * m1.x + h01 * xs[i + 1]! + h11 * m2.x,
-    y: h00 * ys[i]! + h10 * m1.y + h01 * ys[i + 1]! + h11 * m2.y,
-  };
+  inkCurveAt(xs: ArrayLike<number>, ys: ArrayLike<number>, i: number, u: number): { x: number; y: number };
 }

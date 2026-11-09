@@ -1,5 +1,6 @@
 import type { PdfLocus } from "../../../reader/pdf-locus.js";
-import { resolveTextAnchor, type AnchorConfidence } from "../../../reader/anchor-resolution.js";
+import { type AnchorConfidence } from "../../../reader/anchor-resolution.js";
+import { rust } from "../../../shared/rust.js";
 
 /**
  * Claim-level provenance attached to an AI proposal. Optional on the proposal
@@ -43,7 +44,7 @@ export function highlightWithinExcerpt(
   locus: PdfLocus | undefined,
 ): ExcerptHighlight | null {
   if (!excerpt || !locus) return null;
-  const anchor = resolveTextAnchor(excerpt, locus);
+  const anchor = rust().resolveTextAnchor(excerpt, locus);
   if (!anchor) return null;
   return {
     before: excerpt.slice(0, anchor.start),

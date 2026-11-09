@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  DOWNRANK_FACTOR,
-  documentBoost,
-  effectiveFieldBoosts,
-  normalizeSearchSettings,
-  normalizeUserSettings,
-  type SearchDoc,
-} from "../../../src/index.js";
+import { type SearchDoc } from "../../../src/index.js";
+import { rust } from "../../../src/shared/rust.js";
 
 /**
  * Ranking preferences have to survive the round trip through persisted user
@@ -23,7 +17,7 @@ const doc = (over: Partial<SearchDoc> = {}): SearchDoc => ({
 });
 
 test("search settings survive normalization into the user settings record", () => {
-  const saved = normalizeUserSettings({
+  const saved = rust().normalizeUserSettings({
     search: { weights: { body: 12 }, downrankedKinds: ["log"], recencyBoost: false },
   });
 
@@ -33,12 +27,12 @@ test("search settings survive normalization into the user settings record", () =
 });
 
 test("a settings record with no search preferences stays absent rather than empty", () => {
-  assert.equal(normalizeUserSettings({}).search, undefined);
-  assert.equal(normalizeUserSettings({ search: {} }).search, undefined);
+  assert.equal(rust().normalizeUserSettings({}).search, undefined);
+  assert.equal(rust().normalizeUserSettings({ search: {} }).search, undefined);
 });
 
 test("junk in the stored record cannot reach the ranker", () => {
-  const saved = normalizeUserSettings({
+  const saved = rust().normalizeUserSettings({
     search: { weights: { title: 1e9, bogus: 3 }, downrankedKinds: ["nonsense"] },
   } as never);
 
@@ -48,14 +42,14 @@ test("junk in the stored record cannot reach the ranker", () => {
 });
 
 test("loaded settings actually change scoring", () => {
-  const settings = normalizeSearchSettings({ downrankedKinds: ["note"], recencyBoost: false });
+  const settings = rust().normalizeSearchSettings({ downrankedKinds: ["note"], recencyBoost: false });
 
-  const sunk = documentBoost(doc({ degree: 4 }), {
-    kindMultiplier: settings?.downrankedKinds?.includes("note") ? DOWNRANK_FACTOR : 1,
+  const sunk = rust().documentBoost(doc({ degree: 4 }), {
+    kindMultiplier: settings?.downrankedKinds?.includes("note") ? rust().DOWNRANK_FACTOR : 1,
     recency: settings?.recencyBoost,
   });
-  const normal = documentBoost(doc({ degree: 4 }));
+  const normal = rust().documentBoost(doc({ degree: 4 }));
 
   assert.ok(sunk < normal, "a loaded downrank preference must actually sink the kind");
-  assert.equal(effectiveFieldBoosts(settings).title, 8, "untouched fields keep their default");
+  assert.equal(rust().effectiveFieldBoosts(settings).title, 8, "untouched fields keep their default");
 });

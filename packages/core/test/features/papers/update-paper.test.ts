@@ -1,14 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  AddPaperUseCase,
-  UpdatePaperUseCase,
-  NotFoundError,
-  countWords,
-  imagesOf,
-  type Paper,
-} from "../../../src/index.js";
+import { AddPaperUseCase, UpdatePaperUseCase, NotFoundError, imagesOf, type Paper } from "../../../src/index.js";
 import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { rust } from "../../../src/shared/rust.js";
 
 // The tag methods are exercised in manage-tags; here we only drive the paper
 // mutations, so a throwing stub guards against accidental tag coupling.
@@ -69,7 +63,7 @@ test("mutations throw for an unknown id; remove deletes", async () => {
 });
 
 test("countWords: counts whitespace-separated words", () => {
-  assert.equal(countWords(""), 0);
-  assert.equal(countWords("   "), 0);
-  assert.equal(countWords("one two   three"), 3);
+  assert.equal(rust().countWords(""), 0);
+  assert.equal(rust().countWords("   "), 0);
+  assert.equal(rust().countWords("one two   three"), 3);
 });

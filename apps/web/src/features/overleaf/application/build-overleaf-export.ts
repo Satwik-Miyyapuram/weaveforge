@@ -1,12 +1,6 @@
 import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { resolveResultsTables } from "@/features/report/application/results-table-refs";
-import {
-  PRISMA_FIGURE_PACKAGES,
-  formatCitation,
-  formatPaperCitation,
-  resolveCiteKey,
-  uniqueFigureName,
-} from "@weaveforge/core";
+import { PRISMA_FIGURE_PACKAGES, uniqueFigureName } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 import { buildCiteByTitle, collectCitedKeys, joinBibtex, paperToBibtex } from "./bibtex-export";
 import { readyCore } from "@/lib/rust-core";
@@ -78,7 +72,7 @@ const SECTION_CMD = ["chapter", "section", "subsection", "subsubsection"] as con
  * answers this export writes. Re-exported here so callers that already import
  * them from the export keep working.
  */
-export { collectCitedKeys, formatCitation, formatPaperCitation, resolveCiteKey };
+export { collectCitedKeys };
 export type { CitationFormat };
 
 /** Throw unless `path` is a plain relative ZIP entry name: no `..`, no leading `/`, no `\`. */

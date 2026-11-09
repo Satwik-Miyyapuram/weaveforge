@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildWikiGraph, graphDegrees, graphDensity, type WorkspaceSnapshot } from "../../src/index.js";
+import { type WorkspaceSnapshot } from "../../src/index.js";
 import * as wasm from "../../../wf-wasm/src/index.ts";
 import type { CoreContract } from "../../src/index.js";
+import { rust } from "../../src/shared/rust.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
 const { explainArm, personalizedPageRank, relatedByPpr } = wasm as unknown as CoreContract;
@@ -33,7 +34,7 @@ function seededRng(seed = 42): () => number {
 // ------------------------------------------------------------------- graph
 
 test("wikilinks become edges in both directions", () => {
-  const graph = buildWikiGraph(
+  const graph = rust().buildWikiGraph(
     snapshot({ vaultPages: [note("a", "Method", "See [[Baselines]]."), note("b", "Baselines")] }),
   );
 
@@ -42,7 +43,7 @@ test("wikilinks become edges in both directions", () => {
 });
 
 test("link targets resolve note before paper before section", () => {
-  const graph = buildWikiGraph(
+  const graph = rust().buildWikiGraph(
     snapshot({
       vaultPages: [note("a", "Source", "[[Attention]]"), note("n", "Attention")],
       papers: [paper("p", "Attention")],
@@ -53,20 +54,20 @@ test("link targets resolve note before paper before section", () => {
 });
 
 test("an unresolvable link is dropped, not turned into a phantom node", () => {
-  const graph = buildWikiGraph(snapshot({ vaultPages: [note("a", "A", "[[Nothing here]]")] }));
+  const graph = rust().buildWikiGraph(snapshot({ vaultPages: [note("a", "A", "[[Nothing here]]")] }));
 
   assert.deepEqual(graph.edges.get("note:a"), []);
   assert.deepEqual(graph.nodes, ["note:a"]);
 });
 
 test("a self-link does not create a loop", () => {
-  const graph = buildWikiGraph(snapshot({ vaultPages: [note("a", "Method", "[[Method]]")] }));
+  const graph = rust().buildWikiGraph(snapshot({ vaultPages: [note("a", "Method", "[[Method]]")] }));
 
   assert.deepEqual(graph.edges.get("note:a"), []);
 });
 
 test("stated paper relations are first-class edges", () => {
-  const graph = buildWikiGraph(
+  const graph = rust().buildWikiGraph(
     snapshot({
       papers: [paper("p1", "One"), paper("p2", "Two")],
       relations: [{ id: "r", fromPaper: "p1", toPaper: "p2", relation: "extends", source: "manual" } as never],
@@ -77,7 +78,7 @@ test("stated paper relations are first-class edges", () => {
 });
 
 test("shared tags connect documents nobody linked by hand", () => {
-  const graph = buildWikiGraph(
+  const graph = rust().buildWikiGraph(
     snapshot({
       vaultPages: [note("a", "A", "#vae"), note("b", "B", "#vae")],
     }),
@@ -90,29 +91,29 @@ test("a tag on too many documents is skipped rather than drowning real links", (
   // 20 notes sharing one tag would contribute ~380 edges; the cap keeps the
   // graph's signal from being swamped by a single label.
   const many = Array.from({ length: 20 }, (_, i) => note(`n${i}`, `N${i}`, "#everything"));
-  const graph = buildWikiGraph(snapshot({ vaultPages: many }));
+  const graph = rust().buildWikiGraph(snapshot({ vaultPages: many }));
 
   assert.deepEqual(graph.edges.get("note:n0"), []);
 });
 
 test("degrees count links per node", () => {
-  const graph = buildWikiGraph(
+  const graph = rust().buildWikiGraph(
     snapshot({
       vaultPages: [note("hub", "Hub", "[[A]] [[B]]"), note("a", "A"), note("b", "B")],
     }),
   );
 
-  const degrees = graphDegrees(graph);
+  const degrees = rust().graphDegrees(graph);
   assert.equal(degrees.get("note:hub"), 2);
   assert.equal(degrees.get("note:a"), 1);
 });
 
 test("density reports what it measures, including the empty case", () => {
-  const empty = graphDensity(buildWikiGraph(snapshot()));
+  const empty = rust().graphDensity(rust().buildWikiGraph(snapshot()));
   assert.deepEqual(empty, { nodes: 0, edges: 0, meanDegree: 0, largestComponentRatio: 0 });
 
-  const linked = graphDensity(
-    buildWikiGraph(snapshot({ vaultPages: [note("a", "A", "[[B]]"), note("b", "B")] })),
+  const linked = rust().graphDensity(
+    rust().buildWikiGraph(snapshot({ vaultPages: [note("a", "A", "[[B]]"), note("b", "B")] })),
   );
   assert.equal(linked.nodes, 2);
   assert.equal(linked.edges, 1);
@@ -120,17 +121,17 @@ test("density reports what it measures, including the empty case", () => {
 });
 
 test("density spots a disconnected workspace", () => {
-  const graph = buildWikiGraph(
+  const graph = rust().buildWikiGraph(
     snapshot({ vaultPages: [note("a", "A", "[[B]]"), note("b", "B"), note("c", "C")] }),
   );
 
-  assert.ok(graphDensity(graph).largestComponentRatio < 1);
+  assert.ok(rust().graphDensity(graph).largestComponentRatio < 1);
 });
 
 // --------------------------------------------------------------------- PPR
 
 function hubGraph() {
-  return buildWikiGraph(
+  return rust().buildWikiGraph(
     snapshot({
       vaultPages: [
         note("seed", "Seed", "[[Hub]]"),
@@ -163,7 +164,7 @@ test("a directly linked hub outranks a node two hops away", () => {
 });
 
 test("an isolated seed keeps its own probability rather than inventing neighbours", () => {
-  const graph = buildWikiGraph(snapshot({ vaultPages: [note("lonely", "Lonely")] }));
+  const graph = rust().buildWikiGraph(snapshot({ vaultPages: [note("lonely", "Lonely")] }));
   const scores = personalizedPageRank(graph, "note:lonely", { rng: seededRng(), numWalks: 50 });
 
   assert.deepEqual(relatedByPpr(graph, "note:lonely", 5, { rng: seededRng() }), []);
