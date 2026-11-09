@@ -329,6 +329,21 @@ export function buildWikiIndex(pages, heading, generated_at) {
 }
 
 /**
+ * [`can_create_role`](member::can_create_role).
+ * @param {string} creator
+ * @param {string} target
+ * @returns {boolean}
+ */
+export function canCreateRole(creator, target) {
+    const ptr0 = passStringToWasm0(creator, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(target, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.canCreateRole(ptr0, len0, ptr1, len1);
+    return ret !== 0;
+}
+
+/**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
  * @param {any} group
  * @param {any} next
@@ -758,6 +773,21 @@ export function coveredHitMask(query_term_counts, term_count, min_coverage) {
  */
 export function coveredTextSpans(page, links) {
     const ret = wasm.coveredTextSpans(page, links);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`creatable_roles`](member::creatable_roles).
+ * @param {string} creator
+ * @returns {any}
+ */
+export function creatableRoles(creator) {
+    const ptr0 = passStringToWasm0(creator, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.creatableRoles(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1550,6 +1580,48 @@ export function fenceUntrusted(items, nonce) {
 }
 
 /**
+ * [`filter_lab_members`](member::filter_lab_members). Returns indices into `members`.
+ *
+ * # Errors
+ *
+ * Fails if `members` or `options` has the wrong shape.
+ * @param {string} viewer_id
+ * @param {any} members
+ * @param {any} options
+ * @returns {any}
+ */
+export function filterLabMembers(viewer_id, members, options) {
+    const ptr0 = passStringToWasm0(viewer_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.filterLabMembers(ptr0, len0, members, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`filter_team_members`](member::filter_team_members). Returns indices into `members`.
+ *
+ * # Errors
+ *
+ * Fails if `members` or `options` has the wrong shape.
+ * @param {string} viewer_id
+ * @param {any} members
+ * @param {any} options
+ * @returns {any}
+ */
+export function filterTeamMembers(viewer_id, members, options) {
+    const ptr0 = passStringToWasm0(viewer_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.filterTeamMembers(ptr0, len0, members, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`find_citation_candidates`](analysis_citations::find_citation_candidates) (TS `findCitationCandidates`).
  *
  * # Errors
@@ -1664,6 +1736,26 @@ export function formatCitation(key, format) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`format_invite_code`](org::format_invite_code).
+ * @param {string} raw
+ * @returns {string}
+ */
+export function formatInviteCode(raw) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatInviteCode(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -1947,6 +2039,27 @@ export function guessBlobContentType(path) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`has_active_lab`](org::has_active_lab).
+ *
+ * # Errors
+ *
+ * Fails if `memberships` has the wrong shape.
+ * @param {string | null | undefined} active_org_id
+ * @param {any} memberships
+ * @param {boolean} owns_active_org
+ * @returns {boolean}
+ */
+export function hasActiveLab(active_org_id, memberships, owns_active_org) {
+    var ptr0 = isLikeNone(active_org_id) ? 0 : passStringToWasm0(active_org_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.hasActiveLab(ptr0, len0, memberships, owns_active_org);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -2496,6 +2609,23 @@ export function isEmptyPaperSummary(summary) {
 }
 
 /**
+ * [`is_explicit_lab_membership`](org::is_explicit_lab_membership).
+ *
+ * # Errors
+ *
+ * Fails if `membership` has the wrong shape.
+ * @param {any} membership
+ * @returns {boolean}
+ */
+export function isExplicitLabMembership(membership) {
+    const ret = wasm.isExplicitLabMembership(membership);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`is_highlighter_ink`]; `undefined` is `None`.
  * @param {number | null} [width]
  * @returns {boolean}
@@ -2674,6 +2804,18 @@ export function isStaleRunningExperiment(experiment, now_ms, stale_ms, last_metr
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`is_supervisor_role`](member::is_supervisor_role).
+ * @param {string | null} [role]
+ * @returns {boolean}
+ */
+export function isSupervisorRole(role) {
+    var ptr0 = isLikeNone(role) ? 0 : passStringToWasm0(role, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isSupervisorRole(ptr0, len0);
+    return ret !== 0;
 }
 
 /**
@@ -3201,6 +3343,42 @@ export function milestoneInputError(input) {
 }
 
 /**
+ * [`needs_org_setup`](org::needs_org_setup).
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ * @param {any} state
+ * @returns {boolean}
+ */
+export function needsOrgSetup(state) {
+    const ret = wasm.needsOrgSetup(state);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`needs_standalone_role_sync`](member::needs_standalone_role_sync).
+ *
+ * # Errors
+ *
+ * Fails if `profile` or `memberships` has the wrong shape.
+ * @param {any} profile
+ * @param {any} memberships
+ * @param {boolean} in_lab
+ * @returns {boolean}
+ */
+export function needsStandaloneRoleSync(profile, memberships, in_lab) {
+    const ret = wasm.needsStandaloneRoleSync(profile, memberships, in_lab);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`neutralise_context`](untrusted_context::neutralise_context).
  * @param {string} text
  * @param {string} nonce
@@ -3475,6 +3653,26 @@ export function normalizeMarkdownImageSyntax(body) {
         return getStringFromWasm0(ptr2, len2);
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`normalize_invite_code`](org::normalize_invite_code).
+ * @param {string} input
+ * @returns {string}
+ */
+export function normalizeOrgInviteCode(input) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.normalizeOrgInviteCode(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -4730,6 +4928,55 @@ export function resolveCiteKey(paper) {
 }
 
 /**
+ * [`resolve_display_role`](member::resolve_display_role).
+ * @param {string} role
+ * @param {boolean} in_lab
+ * @param {boolean} owns_org
+ * @returns {string}
+ */
+export function resolveDisplayRole(role, in_lab, owns_org) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(role, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.resolveDisplayRole(ptr0, len0, in_lab, owns_org);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`resolve_join_assignment`](org::resolve_join_assignment). Returns `{ role, supervisorId }`.
+ *
+ * # Errors
+ *
+ * Fails with the message if the lab cannot take this invite type.
+ * @param {string} target_role
+ * @param {any} professor_ids
+ * @param {any} phd_ids
+ * @param {string | null} [professor_supervisor_id]
+ * @param {string | null} [phd_supervisor_id]
+ * @returns {any}
+ */
+export function resolveOrgJoinAssignment(target_role, professor_ids, phd_ids, professor_supervisor_id, phd_supervisor_id) {
+    const ptr0 = passStringToWasm0(target_role, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(professor_supervisor_id) ? 0 : passStringToWasm0(professor_supervisor_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    var ptr2 = isLikeNone(phd_supervisor_id) ? 0 : passStringToWasm0(phd_supervisor_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len2 = WASM_VECTOR_LEN;
+    const ret = wasm.resolveOrgJoinAssignment(ptr0, len0, professor_ids, phd_ids, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
  *
  * # Errors
@@ -4747,6 +4994,26 @@ export function resolvePositionSelector(text, position) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`resolve_supervisor_id`](member::resolve_supervisor_id).
+ * @param {string} creator_id
+ * @returns {string}
+ */
+export function resolveSupervisorId(creator_id) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(creator_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.resolveSupervisorId(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -5121,6 +5388,25 @@ export function shouldAppendInkPoint(path, x, y, min_distance) {
 }
 
 /**
+ * [`should_sync_standalone`](org::should_sync_standalone). `labs` is `null` when the
+ * memberships could not be read.
+ *
+ * # Errors
+ *
+ * Fails if `profile` or `labs` has the wrong shape.
+ * @param {any} profile
+ * @param {any} labs
+ * @returns {boolean}
+ */
+export function shouldSyncStandalone(profile, labs) {
+    const ret = wasm.shouldSyncStandalone(profile, labs);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`show_concept_edges`](graph_settings::show_concept_edges).
  *
  * # Errors
@@ -5442,6 +5728,26 @@ export function strokeBaseWidth(samples, base) {
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.strokeBaseWidth(ptr0, len0, base);
     return ret;
+}
+
+/**
+ * [`students_of`](member::students_of). Returns indices into `team`.
+ *
+ * # Errors
+ *
+ * Fails if `team` has the wrong shape.
+ * @param {string | null | undefined} viewer_id
+ * @param {any} team
+ * @returns {any}
+ */
+export function studentsOf(viewer_id, team) {
+    var ptr0 = isLikeNone(viewer_id) ? 0 : passStringToWasm0(viewer_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.studentsOf(ptr0, len0, team);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -5811,6 +6117,93 @@ export function validateDependenciesError(deps) {
 }
 
 /**
+ * [`validate_new_member`](member::validate_new_member). Throws the validation message.
+ *
+ * # Errors
+ *
+ * Fails with the message if the request is invalid.
+ * @param {string} email
+ * @param {string} password
+ * @param {string | null | undefined} full_name
+ * @param {string} role
+ * @param {string | null} [supervisor_id]
+ * @returns {any}
+ */
+export function validateNewMember(email, password, full_name, role, supervisor_id) {
+    const ptr0 = passStringToWasm0(email, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(password, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    var ptr2 = isLikeNone(full_name) ? 0 : passStringToWasm0(full_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len2 = WASM_VECTOR_LEN;
+    const ptr3 = passStringToWasm0(role, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len3 = WASM_VECTOR_LEN;
+    var ptr4 = isLikeNone(supervisor_id) ? 0 : passStringToWasm0(supervisor_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len4 = WASM_VECTOR_LEN;
+    const ret = wasm.validateNewMember(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`validate_org_name`](org::validate_org_name). Throws the validation message.
+ *
+ * # Errors
+ *
+ * Fails with the message if the name is blank or too long.
+ * @param {string} name
+ * @returns {string}
+ */
+export function validateOrgName(name) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.validateOrgName(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`validate_snapshot_title`](lab_snapshot::validate_snapshot_title). Throws on a blank title.
+ * @param {string} title
+ * @returns {string}
+ */
+export function validateSnapshotTitle(title) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.validateSnapshotTitle(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`vault_asset_paths_in_body`](page::vault_asset_paths_in_body) (TS `vaultAssetPathsInBody`).
  * @param {string} body
  * @returns {string[]}
@@ -6117,6 +6510,13 @@ function __wbg_get_imports() {
         __wbg_Number_14af1003b8dd5ead: function(arg0) {
             const ret = Number(arg0);
             return ret;
+        },
+        __wbg_String_8564e559799eccda: function(arg0, arg1) {
+            const ret = String(arg1);
+            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len1 = WASM_VECTOR_LEN;
+            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
         __wbg___wbindgen_bigint_get_as_i64_a2383202b9353e4c: function(arg0, arg1) {
             const v = arg1;

@@ -147,6 +147,11 @@ export function buildWikiGraph(snapshot: any): any;
 export function buildWikiIndex(pages: any, heading: string | null | undefined, generated_at: string): string;
 
 /**
+ * [`can_create_role`](member::can_create_role).
+ */
+export function canCreateRole(creator: string, target: string): boolean;
+
+/**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
  */
 export function canJoinInkGroup(group: any, next: any, window_ms?: number | null): boolean;
@@ -337,6 +342,11 @@ export function coveredHitMask(query_term_counts: any, term_count: number, min_c
  * Fails if `page` or `links` do not have the expected shape.
  */
 export function coveredTextSpans(page: any, links: any): any;
+
+/**
+ * [`creatable_roles`](member::creatable_roles).
+ */
+export function creatableRoles(creator: string): any;
 
 /**
  * [`create_log_entry`](log_entry::create_log_entry). `id` and `now` come from the TS clock and
@@ -671,6 +681,24 @@ export function extractWikilinks(body: string): any;
 export function fenceUntrusted(items: any, nonce: string): string;
 
 /**
+ * [`filter_lab_members`](member::filter_lab_members). Returns indices into `members`.
+ *
+ * # Errors
+ *
+ * Fails if `members` or `options` has the wrong shape.
+ */
+export function filterLabMembers(viewer_id: string, members: any, options: any): any;
+
+/**
+ * [`filter_team_members`](member::filter_team_members). Returns indices into `members`.
+ *
+ * # Errors
+ *
+ * Fails if `members` or `options` has the wrong shape.
+ */
+export function filterTeamMembers(viewer_id: string, members: any, options: any): any;
+
+/**
  * [`find_citation_candidates`](analysis_citations::find_citation_candidates) (TS `findCitationCandidates`).
  *
  * # Errors
@@ -720,6 +748,11 @@ export function fontSizeOf(item: any): number;
  * [`format_citation`](cite_key::format_citation) (TS `formatCitation`).
  */
 export function formatCitation(key: string, format: string): string;
+
+/**
+ * [`format_invite_code`](org::format_invite_code).
+ */
+export function formatInviteCode(raw: string): string;
 
 /**
  * [`format_metric_cell`](experiment_status::format_metric_cell).
@@ -830,6 +863,15 @@ export function groupRecurringLines(texts: any, pages: any): any;
  * Fails if `path` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function guessBlobContentType(path: string): string;
+
+/**
+ * [`has_active_lab`](org::has_active_lab).
+ *
+ * # Errors
+ *
+ * Fails if `memberships` has the wrong shape.
+ */
+export function hasActiveLab(active_org_id: string | null | undefined, memberships: any, owns_active_org: boolean): boolean;
 
 /**
  * [`wf_core::sync::text_diff::has_conflict_markers`] for JS.
@@ -1057,6 +1099,15 @@ export function isBoldFont(font_name?: string | null): boolean;
 export function isEmptyPaperSummary(summary?: string | null): boolean;
 
 /**
+ * [`is_explicit_lab_membership`](org::is_explicit_lab_membership).
+ *
+ * # Errors
+ *
+ * Fails if `membership` has the wrong shape.
+ */
+export function isExplicitLabMembership(membership: any): boolean;
+
+/**
  * [`is_highlighter_ink`]; `undefined` is `None`.
  */
 export function isHighlighterInk(width?: number | null): boolean;
@@ -1136,6 +1187,11 @@ export function isSafeWorkspacePath(path: string): boolean;
  * Fails if `experiment` has the wrong shape.
  */
 export function isStaleRunningExperiment(experiment: any, now_ms: number, stale_ms: number, last_metric_at_ms?: number | null): boolean;
+
+/**
+ * [`is_supervisor_role`](member::is_supervisor_role).
+ */
+export function isSupervisorRole(role?: string | null): boolean;
 
 /**
  * [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
@@ -1361,6 +1417,24 @@ export function mergeWikiPages(primary: any, secondary: any): any;
 export function milestoneInputError(input: any): string | undefined;
 
 /**
+ * [`needs_org_setup`](org::needs_org_setup).
+ *
+ * # Errors
+ *
+ * Fails if `state` has the wrong shape.
+ */
+export function needsOrgSetup(state: any): boolean;
+
+/**
+ * [`needs_standalone_role_sync`](member::needs_standalone_role_sync).
+ *
+ * # Errors
+ *
+ * Fails if `profile` or `memberships` has the wrong shape.
+ */
+export function needsStandaloneRoleSync(profile: any, memberships: any, in_lab: boolean): boolean;
+
+/**
  * [`neutralise_context`](untrusted_context::neutralise_context).
  */
 export function neutraliseContext(text: string, nonce: string): string;
@@ -1471,6 +1545,11 @@ export function normalizeLengthValue(raw: any, max_px?: number | null): string |
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function normalizeMarkdownImageSyntax(body: string): string;
+
+/**
+ * [`normalize_invite_code`](org::normalize_invite_code).
+ */
+export function normalizeOrgInviteCode(input: string): string;
 
 /**
  * [`normalize_paste_settings`] for JS. `json` is `JSON.stringify` of whatever was stored.
@@ -2018,6 +2097,20 @@ export function resolveAnnotationConflict(row: any, choice: string): any;
 export function resolveCiteKey(paper: any): string;
 
 /**
+ * [`resolve_display_role`](member::resolve_display_role).
+ */
+export function resolveDisplayRole(role: string, in_lab: boolean, owns_org: boolean): string;
+
+/**
+ * [`resolve_join_assignment`](org::resolve_join_assignment). Returns `{ role, supervisorId }`.
+ *
+ * # Errors
+ *
+ * Fails with the message if the lab cannot take this invite type.
+ */
+export function resolveOrgJoinAssignment(target_role: string, professor_ids: any, phd_ids: any, professor_supervisor_id?: string | null, phd_supervisor_id?: string | null): any;
+
+/**
  * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
  *
  * # Errors
@@ -2025,6 +2118,11 @@ export function resolveCiteKey(paper: any): string;
  * Fails if `position` is not a position selector object.
  */
 export function resolvePositionSelector(text: string, position: any): any;
+
+/**
+ * [`resolve_supervisor_id`](member::resolve_supervisor_id).
+ */
+export function resolveSupervisorId(creator_id: string): string;
 
 /**
  * [`resolve_text_anchor`] as `{ start, end, via, confidence }`, or `null`.
@@ -2173,6 +2271,16 @@ export function shortSha(sha?: string | null): string | undefined;
 export function shouldAppendInkPoint(path: Float64Array, x: number, y: number, min_distance?: number | null): boolean;
 
 /**
+ * [`should_sync_standalone`](org::should_sync_standalone). `labs` is `null` when the
+ * memberships could not be read.
+ *
+ * # Errors
+ *
+ * Fails if `profile` or `labs` has the wrong shape.
+ */
+export function shouldSyncStandalone(profile: any, labs: any): boolean;
+
+/**
  * [`show_concept_edges`](graph_settings::show_concept_edges).
  *
  * # Errors
@@ -2305,6 +2413,15 @@ export function stripStopwords(query: string): string;
  * [`stroke_base_width`].
  */
 export function strokeBaseWidth(samples: Float64Array, base: number): number;
+
+/**
+ * [`students_of`](member::students_of). Returns indices into `team`.
+ *
+ * # Errors
+ *
+ * Fails if `team` has the wrong shape.
+ */
+export function studentsOf(viewer_id: string | null | undefined, team: any): any;
 
 /**
  * [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
@@ -2442,6 +2559,29 @@ export function validateComputeError(compute: any): string | undefined;
 export function validateDependenciesError(deps: any): string | undefined;
 
 /**
+ * [`validate_new_member`](member::validate_new_member). Throws the validation message.
+ *
+ * # Errors
+ *
+ * Fails with the message if the request is invalid.
+ */
+export function validateNewMember(email: string, password: string, full_name: string | null | undefined, role: string, supervisor_id?: string | null): any;
+
+/**
+ * [`validate_org_name`](org::validate_org_name). Throws the validation message.
+ *
+ * # Errors
+ *
+ * Fails with the message if the name is blank or too long.
+ */
+export function validateOrgName(name: string): string;
+
+/**
+ * [`validate_snapshot_title`](lab_snapshot::validate_snapshot_title). Throws on a blank title.
+ */
+export function validateSnapshotTitle(title: string): string;
+
+/**
  * [`vault_asset_paths_in_body`](page::vault_asset_paths_in_body) (TS `vaultAssetPathsInBody`).
  */
 export function vaultAssetPathsInBody(body: string): string[];
@@ -2572,6 +2712,7 @@ export interface InitOutput {
     readonly buildSectionTree: (a: any) => [number, number, number];
     readonly buildWikiGraph: (a: any) => [number, number, number];
     readonly buildWikiIndex: (a: any, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly canCreateRole: (a: number, b: number, c: number, d: number) => number;
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly checkBibliography: (a: any) => [number, number, number];
@@ -2597,6 +2738,7 @@ export interface InitOutput {
     readonly countJsonActions: (a: any) => [number, number, number];
     readonly coveredHitMask: (a: any, b: number, c: number) => [number, number, number];
     readonly coveredTextSpans: (a: any, b: any) => [number, number, number];
+    readonly creatableRoles: (a: number, b: number) => [number, number, number];
     readonly createLogEntry: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createMilestoneWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createPaperRelationWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
@@ -2634,12 +2776,15 @@ export interface InitOutput {
     readonly extractVenue: (a: number, b: number) => [number, number];
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
     readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly filterLabMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
+    readonly filterTeamMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly findCitationCandidates: (a: any) => [number, number, number];
     readonly findDocumentMatches: (a: any, b: number, c: number) => [number, number, number];
     readonly findPatternCitationMentions: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly formatInviteCode: (a: number, b: number) => [number, number];
     readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
     readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
@@ -2653,6 +2798,7 @@ export interface InitOutput {
     readonly graphFilterCountFor: (a: number, b: number, c: any) => [number, number, number];
     readonly groupRecurringLines: (a: any, b: any) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
+    readonly hasActiveLab: (a: number, b: number, c: any, d: number) => [number, number, number];
     readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
     readonly hydrateUserSettings: (a: any) => [number, number, number];
     readonly idSuffix: (a: number, b: number) => [number, number, number, number];
@@ -2685,6 +2831,7 @@ export interface InitOutput {
     readonly isBlanketShare: (a: number, b: number) => number;
     readonly isBoldFont: (a: number, b: number) => number;
     readonly isEmptyPaperSummary: (a: number, b: number) => number;
+    readonly isExplicitLabMembership: (a: any) => [number, number, number];
     readonly isHighlighterInk: (a: number, b: number) => number;
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
@@ -2698,6 +2845,7 @@ export interface InitOutput {
     readonly isRotatedText: (a: number, b: number) => number;
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
     readonly isStaleRunningExperiment: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly isSupervisorRole: (a: number, b: number) => number;
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
     readonly isUserIntegrationConnected: (a: any, b: number, c: number, d: any) => [number, number, number];
@@ -2725,6 +2873,8 @@ export interface InitOutput {
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeWikiPages: (a: any, b: any) => [number, number, number];
     readonly milestoneInputError: (a: any) => [number, number, number, number];
+    readonly needsOrgSetup: (a: any) => [number, number, number];
+    readonly needsStandaloneRoleSync: (a: any, b: any, c: number) => [number, number, number];
     readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
     readonly nextRotation: (a: number, b: number) => number;
@@ -2741,6 +2891,7 @@ export interface InitOutput {
     readonly normalizeGraphViewSettings: (a: any) => [number, number, number];
     readonly normalizeLengthValue: (a: any, b: number, c: number) => [number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
+    readonly normalizeOrgInviteCode: (a: number, b: number) => [number, number];
     readonly normalizePasteSettings: (a: number, b: number) => [number, number, number];
     readonly normalizeProjectPath: (a: number, b: number) => [number, number];
     readonly normalizeSearchSettings: (a: any) => [number, number, number];
@@ -2803,7 +2954,10 @@ export interface InitOutput {
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resolveAnnotationConflict: (a: any, b: number, c: number) => [number, number, number];
     readonly resolveCiteKey: (a: any) => [number, number, number, number];
+    readonly resolveDisplayRole: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly resolveOrgJoinAssignment: (a: number, b: number, c: any, d: any, e: number, f: number, g: number, h: number) => [number, number, number];
     readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
+    readonly resolveSupervisorId: (a: number, b: number) => [number, number];
     readonly resolveTextAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
     readonly safeLabel: (a: number, b: number, c: number, d: number) => [number, number];
@@ -2821,6 +2975,7 @@ export interface InitOutput {
     readonly shareSupportsEditAccess: (a: any, b: number, c: number) => [number, number, number];
     readonly shortSha: (a: number, b: number) => [number, number];
     readonly shouldAppendInkPoint: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly shouldSyncStandalone: (a: any, b: any) => [number, number, number];
     readonly showConceptEdges: (a: any) => [number, number, number];
     readonly showRelationEdges: (a: any) => [number, number, number];
     readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
@@ -2838,6 +2993,7 @@ export interface InitOutput {
     readonly stripKindSuffix: (a: number, b: number) => [number, number, number, number];
     readonly stripStopwords: (a: number, b: number) => [number, number];
     readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
+    readonly studentsOf: (a: number, b: number, c: any) => [number, number, number];
     readonly surnameKey: (a: number, b: number) => [number, number];
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
     readonly takeInkRedo: (a: any) => [number, number, number];
@@ -2856,6 +3012,9 @@ export interface InitOutput {
     readonly untrustedContextRule: () => [number, number];
     readonly validateComputeError: (a: any) => [number, number, number, number];
     readonly validateDependenciesError: (a: any) => [number, number, number, number];
+    readonly validateNewMember: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number];
+    readonly validateOrgName: (a: number, b: number) => [number, number, number, number];
+    readonly validateSnapshotTitle: (a: number, b: number) => [number, number, number, number];
     readonly vaultAssetPathsInBody: (a: number, b: number) => [number, number];
     readonly vaultBodyPreview: (a: number, b: number, c: number) => [number, number];
     readonly vaultImageMarkdown: (a: number, b: number, c: number, d: number) => [number, number];

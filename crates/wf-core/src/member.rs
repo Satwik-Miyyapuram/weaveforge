@@ -33,6 +33,7 @@ pub fn can_create_role(creator: &str, target: &str) -> bool {
 /// A validated account request for a new lab member.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct NewMember {
     /// Lowercased, trimmed email.
     pub email: String,
@@ -181,8 +182,12 @@ pub fn creatable_roles(creator: &str) -> Vec<&'static str> {
 /// A lab member as the visibility rules see them: an id and the supervisor's id.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MemberLink {
+    /// The member's user id.
     pub id: String,
+    /// The supervisor's user id, when the member has one.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub supervisor_id: Option<String>,
 }
 
@@ -214,7 +219,9 @@ pub fn accessible_member_ids(viewer_id: &str, members: &[MemberLink]) -> HashSet
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamVisibility {
+    /// Whether the viewer is in a lab.
     pub in_lab: bool,
+    /// The active lab's member ids, when known.
     pub org_member_ids: Option<HashSet<String>>,
 }
 
@@ -311,9 +318,15 @@ pub fn resolve_display_role<'a>(role: &'a str, in_lab: bool, owns_org: bool) -> 
 /// The profile fields the standalone role sync reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ProfileState {
+    /// The stored `profiles.role`.
     pub role: String,
+    /// Whether first-run org setup finished.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub org_setup_complete: Option<bool>,
+    /// The lab the profile has active, if any.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub active_org_id: Option<String>,
 }
 
