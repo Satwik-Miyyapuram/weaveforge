@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_PACK_TOLERANCE, packInkStroke, type InkPage } from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_PACK_TOLERANCE, type InkPage } from "@weaveforge/core";
 
 import { inkPageSvg, strokePath } from "../application/ink-svg";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
@@ -239,7 +239,7 @@ test("strokePath draws a saved stroke exactly as the canvas drew it", () => {
   const raw: number[] = [];
   for (let t = 0; t <= 8 * Math.PI; t += 0.35)
     raw.push(Math.round(200 + 4.5 * t - 10 * Math.sin(t)), Math.round(300 + 10 * Math.cos(t)));
-  const packed = packInkStroke(raw, raw.filter((_, i) => i % 2 === 0).map(() => 128), {
+  const packed = typedCore().packInkStroke(raw, raw.filter((_, i) => i % 2 === 0).map(() => 128), {
     tolerance: INK_PACK_TOLERANCE,
   }).points;
   assertSameCentreline(packed, "packed loops");

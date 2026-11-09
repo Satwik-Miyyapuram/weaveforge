@@ -39,7 +39,7 @@ import {
   pageFromChunk,
 } from "../../src/ink/ink-chunk-read.js";
 import { INK_PAPERS, type InkPage } from "../../src/ink/ink-note.js";
-import { packInkStroke } from "../../src/ink/stroke-packer.js";
+import { rust } from "../../src/shared/rust.js";
 import { rust } from "../../src/shared/rust.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */
@@ -165,7 +165,7 @@ function committedDensePage(keepPressure = true): {
       pressures.push(Math.round(150 + Math.sin(t * Math.PI) * 60 + (rnd() - 0.5) * 6));
     }
     rawPoints += samples;
-    const packed = packInkStroke(coords, pressures);
+    const packed = rust().packInkStroke(coords, pressures);
     packedPoints += packed.points.length / 2;
     // The JSON this page would have cost as revision 1's format: an object per
     // stroke, delta x,y and an absolute pressure per point.

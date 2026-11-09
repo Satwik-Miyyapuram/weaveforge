@@ -22,7 +22,7 @@ export { INK_SMOOTH_SPACING, INK_SMOOTH_PASSES, type SmoothedInkStroke } from ".
 
 export { INK_TOOLS, INK_COLOURS, INK_MARKER_COLOURS, INK_THEME_COLOURS, INK_PAPERS, INK_SHAPES, INK_HANDS, INK_A4_WIDTH, INK_A4_HEIGHT, INK_COORD_LIMIT, INK_STROKE_MAX_POINTS, INK_PAGE_STROKE_BUDGET, INK_NOTE_MAX_PAGES, INK_PACK_TOLERANCE, INK_PACK_PRESSURE_TOLERANCE, INK_NOTE_TYPE, INK_KEYS, INK_SIDECAR_DIR, INK_CHUNK_EXT, INK_BODY_HEADER, INK_BACKGROUND_ALT, type InkTool, type InkColour, type InkPaper, type InkShape, type InkHand, type InkStroke, type InkLineRecord, type InkPage, type InkNoteMeta, type PackedInkStroke } from "./ink-note.js";
 
-export { packInkStroke, InkStrokePacker, type InkStrokePackerOptions } from "./stroke-packer.js";
+export type { InkStrokePackerOptions, LiveInkStrokePacker, StrokePackerFns } from "./stroke-packer.js";
 
 export {
   FIGURE_ALT,

@@ -3,7 +3,8 @@
 //! shapes match `packages/core/src/ink`.
 //!
 //! Point and pressure arrays cross as `Float64Array`s (flat x,y pairs), not
-//! through serde. The live packer stays in TS until its handle design is agreed.
+//! through serde. The live packer is the one class here, built by
+//! `createInkStrokePacker`, as `VectorIndex` is by `createVectorIndex`.
 
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
@@ -23,7 +24,9 @@ use wf_core::ink::shape_snap::snap_ink_shape;
 use wf_core::ink::smooth::{
     INK_SMOOTH_SPACING, binomial_smooth, resample_ink_stroke, smooth_ink_stroke,
 };
-use wf_core::ink::stroke_packer::{InkStrokePackerOptions, pack_ink_stroke};
+use wf_core::ink::stroke_packer::{
+    InkStrokePacker as CorePacker, InkStrokePackerOptions, pack_ink_stroke,
+};
 use wf_core::ink::width::{
     INK_PEN_WIDTH, INK_VELOCITY_FULL_TAPER, clamp_ink_note_width, ink_pressure_factor,
     ink_velocity_between, ink_velocity_factor, nib_width, stroke_base_width,
@@ -218,6 +221,46 @@ pub fn pack_ink_stroke_js(
     to_js(&packed)
 }
 
+/// The live packer: [`CorePacker`] fed one pen sample at a time, so the
+/// stroke drawn while writing is the one saved on lift.
+#[wasm_bindgen]
+pub struct InkStrokePacker {
+    inner: CorePacker,
+}
+
+#[wasm_bindgen]
+impl InkStrokePacker {
+    /// Adds the pen's next sample, in 0.1 mm, with its 0-255 pressure if it
+    /// has one. A non-finite sample is skipped.
+    pub fn push(&mut self, x: f64, y: f64, pressure: Option<f64>) {
+        self.inner.push(x, y, pressure);
+    }
+
+    /// The kept points so far, then the pen's latest sample, as flat x,y pairs.
+    #[must_use]
+    pub fn points(&self) -> Vec<f64> {
+        self.inner.packed().points
+    }
+
+    /// One pressure byte per point of [`InkStrokePacker::points`].
+    #[must_use]
+    pub fn pressures(&self) -> Vec<f64> {
+        self.inner.packed().pressures
+    }
+}
+
+/// A new [`InkStrokePacker`]; `options` is the TS `InkStrokePackerOptions`
+/// or undefined.
+///
+/// # Errors
+///
+/// Fails if `options` is not an options object.
+#[wasm_bindgen(js_name = createInkStrokePacker)]
+pub fn create_ink_stroke_packer(options: JsValue) -> JsResult<InkStrokePacker> {
+    Ok(InkStrokePacker {
+        inner: CorePacker::new(packer_options(options)?),
+    })
+}
 /// [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
 /// `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
 /// `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.

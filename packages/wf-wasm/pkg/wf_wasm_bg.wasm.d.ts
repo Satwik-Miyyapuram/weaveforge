@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const __wbg_inkstrokepacker_free: (a: number, b: number) => void;
 export const __wbg_vectorindex_free: (a: number, b: number) => void;
 export const acronymsForTitle: (a: number, b: number) => [number, number, number];
 export const activateTab: (a: any, b: number, c: number, d: number) => [number, number, number];
@@ -79,6 +80,7 @@ export const coveredHitMask: (a: any, b: number, c: number) => [number, number, 
 export const coveredTextSpans: (a: any, b: any) => [number, number, number];
 export const creatableRoles: (a: number, b: number) => [number, number, number];
 export const createExperimentWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+export const createInkStrokePacker: (a: any) => [number, number, number];
 export const createLogEntry: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
 export const createMilestoneWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
 export const createPaperRelationWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
@@ -208,6 +210,9 @@ export const inkVocabularyWordList: (a: any) => [number, number, number];
 export const inkWidthForPressure: (a: number, b: number, c: number, d: number) => number;
 export const inkZoomIn: (a: number) => number;
 export const inkZoomOut: (a: number) => number;
+export const inkstrokepacker_points: (a: number) => [number, number];
+export const inkstrokepacker_pressures: (a: number) => [number, number];
+export const inkstrokepacker_push: (a: number, b: number, c: number, d: number, e: number) => void;
 export const integrationsBagFromLegacy: (a: any) => [number, number, number];
 export const invalidationMap: () => [number, number, number];
 export const invalidationPlan: (a: number, b: number) => [number, number, number];
