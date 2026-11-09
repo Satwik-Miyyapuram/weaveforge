@@ -1,13 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  forgetSearchQuery,
-  normalizeSearchHistory,
-  rememberSearchQuery,
-  type SearchExcerpt,
-  type SearchHit,
-} from "@weaveforge/core";
+import type { SearchExcerpt, SearchHit } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { excerptSegments } from "@/features/search/excerpt-segments";
@@ -122,7 +117,7 @@ const HIT_GROUP: Record<JumpItem["kind"], PaletteGroup> = {
 const HISTORY_KEY = "thesis.search.history";
 
 function readHistory(): string[] {
-  return normalizeSearchHistory(readStoredJson<unknown>(HISTORY_KEY, []));
+  return readyCore().normalizeSearchHistory(readStoredJson<unknown>(HISTORY_KEY, []));
 }
 
 /** Storage disabled or full: history is a convenience, not state. */
@@ -452,7 +447,7 @@ export function JumpToPalette() {
   const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
 
   function go(item: JumpItem) {
-    saveHistory(rememberSearchQuery(history, query));
+    saveHistory(readyCore().rememberSearchQuery(history, query));
     // Only entity screens are recent targets; a PDF page or a highlight is a
     // location inside one, and recording it would push the paper itself out of
     // the list.
@@ -479,7 +474,7 @@ export function JumpToPalette() {
       return;
     }
     const { page } = result;
-    saveHistory(rememberSearchQuery(history, query.trim()));
+    saveHistory(readyCore().rememberSearchQuery(history, query.trim()));
     setOpen(false);
     router.push(`/notes?page=${encodeURIComponent(page.id)}`);
   }, [query, history, router, saveHistory]);
@@ -565,7 +560,7 @@ export function JumpToPalette() {
               <CloseButton
                 size="sm"
                 label={`Remove “${entry}” from recent searches`}
-                onClick={() => saveHistory(forgetSearchQuery(history, entry))}
+                onClick={() => saveHistory(readyCore().forgetSearchQuery(history, entry))}
               />
             </li>
           ))}

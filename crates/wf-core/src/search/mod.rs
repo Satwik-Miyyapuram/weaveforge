@@ -3,6 +3,7 @@
 //! docs/plans/current/rust-port/phase-1-search.md).
 
 pub mod acronyms;
+pub mod embedding;
 pub mod excerpt;
 pub mod fusion;
 pub mod hybrid_fusion;
@@ -10,6 +11,8 @@ pub mod js_text;
 pub mod personalized_pagerank;
 pub mod query;
 pub mod related;
+pub mod search_history;
+pub mod search_retry;
 pub mod search_settings;
 pub mod search_tuning;
 pub mod text_chunks;
