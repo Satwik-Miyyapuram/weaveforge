@@ -88,7 +88,15 @@ test("Ink does not look like edit, Text is not a bare T, Preview shows the split
 test("the note toolbar leaves room for the first button's focus ring", () => {
   const rule = read("app/styles/entity-detail.css").match(/\.document-toolbar \{([^}]*)\}/)?.[1] ?? "";
   assert.match(rule, /overflow: hidden/);
-  assert.match(rule, /padding: \S+ (?!0[;\s])\S+;/, "side padding, or overflow clips the ring");
+  const side = Number(rule.match(/padding: \S+ (\d+)px;/)?.[1] ?? 0);
+  // The widest ring: CRT's 3px dashed outline at a 4px offset.
+  assert.ok(side >= 7, `side padding ${side}px is narrower than the 7px ring, so overflow clips it`);
+});
+
+test("the editor path row sits above the tabs and editor, so its focus ring is not painted over", () => {
+  const rule = read("app/styles/editor-workspace.css").match(/\.pane-crumbs \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /position: relative;/);
+  assert.ok(Number(rule.match(/z-index: (\d+);/)?.[1] ?? 0) >= 1, "the path row has no z-index");
 });
 
 test("there is no Read mode any more", () => {

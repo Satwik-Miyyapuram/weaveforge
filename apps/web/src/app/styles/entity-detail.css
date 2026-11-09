@@ -182,8 +182,9 @@ a.related-paper-url:hover { text-decoration: underline; }
   align-items: center;
   gap: var(--s2);
   min-width: 0;
-  /* Side room for the first and last button's focus ring, which overflow would clip. */
-  padding: 2px 4px;
+  /* Side room for the first and last button's focus ring (outline + offset,
+     up to 7px in the CRT theme), which overflow would clip. */
+  padding: 2px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   /* It folds rather than wraps (ink-bar-fold.tsx); nothing may spill meanwhile. */
