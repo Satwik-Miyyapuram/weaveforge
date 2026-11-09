@@ -12,8 +12,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { imagePathsInBody, markdownImage, materializeBlobImages } from "../../src/index.js";
+import { materializeBlobImages } from "../../src/index.js";
 import { rust } from "../../src/shared/rust.js";
+
+const imagePathsInBody = (body: string, prefix: string) => rust().imagePathsInBody(body, prefix);
+const markdownImage = (target: string, alt: string) => rust().markdownImage(target, alt);
 
 const body = (prefix: string) => `Body text.\n\n![](${prefix}user-1/p1/diagram.png)\n\n![a fig](${prefix}user-1/p1/fig.webp)`;
 
@@ -91,7 +94,7 @@ test("normalizeMarkdownImageSyntax stays linear on unclosed image syntax", () =>
 test("image-ref scanning stays linear on unclosed refs", async () => {
   for (const s of ["![".repeat(50_000), "![](vault:!".repeat(50_000), `${"![](assets/notes/x".repeat(50_000)})`]) {
     const t = performance.now();
-    imagePathsInBody(s, "vault:", (b) => b);
+    imagePathsInBody(s, "vault:");
     assert.ok(performance.now() - t < 1000, `slow on ${s.slice(0, 20)}`);
   }
 });
