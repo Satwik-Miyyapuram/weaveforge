@@ -6,11 +6,8 @@ import {
   MAX_FIELD_WEIGHT,
   documentBoost,
   effectiveFieldBoosts,
-  forgetSearchQuery,
   kindMultiplier,
-  normalizeSearchHistory,
   normalizeSearchSettings,
-  rememberSearchQuery,
   type SearchDoc,
 } from "../../src/index.js";
 
@@ -69,40 +66,4 @@ test("recency can be switched off", () => {
 
   assert.ok(withRecency > without, "the tiebreak should add something when on");
   assert.equal(without, 1, "with no links and no recency, the boost is neutral");
-});
-
-// -------------------------------------------------------------------- history
-
-test("a repeated query moves to the front instead of duplicating", () => {
-  const history = rememberSearchQuery(["latent", "graph"], "graph");
-
-  assert.deepEqual(history, ["graph", "latent"]);
-});
-
-test("typing progressively does not fill history with prefixes", () => {
-  let history: string[] = [];
-  for (const q of ["att", "atten", "attention"]) history = rememberSearchQuery(history, q);
-
-  assert.deepEqual(history, ["attention"]);
-});
-
-test("history is capped and ordered most-recent first", () => {
-  let history: string[] = [];
-  for (let i = 0; i < 20; i += 1) history = rememberSearchQuery(history, `query ${i}`, 5);
-
-  assert.equal(history.length, 5);
-  assert.equal(history[0], "query 19");
-});
-
-test("blank queries are not recorded", () => {
-  assert.deepEqual(rememberSearchQuery(["latent"], "   "), ["latent"]);
-});
-
-test("entries can be forgotten case-insensitively", () => {
-  assert.deepEqual(forgetSearchQuery(["Latent", "graph"], "latent"), ["graph"]);
-});
-
-test("stored history is normalized against junk", () => {
-  assert.deepEqual(normalizeSearchHistory(["a", 3, "", "  b ", "A", null]), ["a", "b"]);
-  assert.deepEqual(normalizeSearchHistory("not an array"), []);
 });

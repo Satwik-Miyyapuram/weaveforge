@@ -6,7 +6,6 @@ import {
   SEARCH_FIELDS,
   documentBoost,
   fuzzinessForTerm,
-  planFuzzyRetry,
   type IWorkspaceSearchIndex,
   type IWorkspaceSearchIndexFactory,
   type SearchDoc,
@@ -199,7 +198,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
     // reason "nerual" cannot reach "neural" on the first pass. Only queries that
     // already failed pay for this, so the common path is untouched.
     if (results.length === 0 && options.fuzzy !== false && typeof options.fuzzy !== "number") {
-      const plan = planFuzzyRetry({
+      const plan = this.core.planFuzzyRetry({
         resultCount: 0,
         termCount: parsed.text.split(/\s+/).filter(Boolean).length,
       });
