@@ -13,7 +13,9 @@ use serde_json::{Map, Value};
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum OpenAccessFormat {
+    /// A PDF file.
     Pdf,
+    /// A web page.
     Html,
 }
 
@@ -22,16 +24,26 @@ pub enum OpenAccessFormat {
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum OpenAccessSource {
+    /// The paper's own link.
     Paper,
+    /// arXiv.
     Arxiv,
+    /// OpenAlex.
     #[serde(rename = "openalex")]
     OpenAlex,
+    /// Unpaywall.
     Unpaywall,
+    /// Semantic Scholar.
     SemanticScholar,
+    /// Europe PMC.
     EuropePmc,
+    /// bioRxiv.
     Biorxiv,
+    /// DOAJ.
     Doaj,
+    /// Zenodo.
     Zenodo,
+    /// HAL.
     Hal,
 }
 
@@ -40,11 +52,16 @@ pub enum OpenAccessSource {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct OpenAccessCandidate {
+    /// Where to read it.
     pub url: String,
+    /// PDF or web page.
     pub format: OpenAccessFormat,
+    /// The index that named it.
     pub source: OpenAccessSource,
+    /// The licence, when the index gives one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
+    /// The version, such as published or accepted, when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
 }
@@ -54,7 +71,9 @@ pub struct OpenAccessCandidate {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct EuropePmcAnswer {
+    /// The free full texts found.
     pub candidates: Vec<OpenAccessCandidate>,
+    /// The PMCID, when there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pmcid: Option<String>,
 }

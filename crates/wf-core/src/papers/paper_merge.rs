@@ -82,6 +82,10 @@ pub struct MergePaper {
     pub tags: Vec<String>,
     /// Extensible bag for anything not modeled explicitly.
     #[serde(default)]
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>)
+    )]
     pub metadata: Map<String, Value>,
     /// Import time (ISO 8601).
     pub created_at: String,
@@ -163,7 +167,7 @@ pub fn merge_paper_into(keep: &MergePaper, dup: &MergePaper) -> MergePaper {
             _ => None,
         };
         if let Some(merged) = merged {
-            metadata.insert(key.clone(), merged);
+            let _ = metadata.insert(key.clone(), merged);
         }
     }
     let previous: Vec<Value> = match keep.metadata.get("mergedFrom") {
@@ -173,7 +177,7 @@ pub fn merge_paper_into(keep: &MergePaper, dup: &MergePaper) -> MergePaper {
     let dup_id = Value::String(dup.id.clone());
     let mut merged_from: Vec<Value> = previous.into_iter().filter(|x| *x != dup_id).collect();
     merged_from.push(dup_id);
-    metadata.insert("mergedFrom".to_owned(), Value::Array(merged_from));
+    let _ = metadata.insert("mergedFrom".to_owned(), Value::Array(merged_from));
 
     let top_rating = keep.rating.unwrap_or(0.0).max(dup.rating.unwrap_or(0.0));
     let status = if status_progress(dup.status) > status_progress(keep.status) {

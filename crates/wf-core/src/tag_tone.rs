@@ -1,7 +1,6 @@
 //! Colour slot for a tag (wf-core `tag_tone`). Ported from `apps/web/src/lib/tag-tone.ts`.
 //! A tag keeps its slot everywhere, so the hash must match the TypeScript one exactly.
 
-use crate::search::js_text::is_js_whitespace;
 
 /// Number of tag colour slots per theme (`--tag-N-*`).
 const TAG_TONES: u32 = 6;
@@ -31,6 +30,7 @@ const fn first_code_unit(ch: char) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search::js_text::is_js_whitespace;
 
     #[test]
     fn slots_stay_in_range() {

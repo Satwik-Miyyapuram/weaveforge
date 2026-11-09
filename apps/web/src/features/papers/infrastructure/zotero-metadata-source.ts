@@ -1,5 +1,5 @@
 import { readyCore } from "@/lib/rust-core";
-import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
+import { paperInputWithoutNulls, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 import { isChildItem, zoteroHeaders, zoteroLibraryUrl, type ZoteroItemData } from "./zotero-web-api";
 
 /**
@@ -57,9 +57,9 @@ export class ZoteroMetadataSource implements IMetadataSource {
           `Zotero item ${key} is a ${data.itemType ?? "child item"} with no parent entry, so it has no paper metadata to import.`,
         );
       }
-      return readyCore().zoteroRemoteToMetadata(await this.readItem(libraryUrl, headers, data.parentItem));
+      return paperInputWithoutNulls(readyCore().zoteroRemoteToMetadata(await this.readItem(libraryUrl, headers, data.parentItem)));
     }
-    return readyCore().zoteroRemoteToMetadata(data);
+    return paperInputWithoutNulls(readyCore().zoteroRemoteToMetadata(data));
   }
 
   private async readItem(

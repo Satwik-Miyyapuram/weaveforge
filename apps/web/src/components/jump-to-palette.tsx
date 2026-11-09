@@ -27,7 +27,6 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { goToRoute } from "@/lib/go-to-route";
 import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
 import { shortcutTable } from "@/features/editor-workspace/application/keybindings";
-import { readyCore } from "@/lib/rust-core";
 import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";

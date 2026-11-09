@@ -1,4 +1,4 @@
-import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { paperInputWithoutNulls, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 import type { OpenAlexWork } from "@weaveforge/wasm";
 import { loadCore } from "@/lib/rust-core";
 
@@ -26,7 +26,7 @@ export class OpenAlexMetadataSource implements IMetadataSource {
     const core = await loadCore();
     for (const work of body.results ?? []) {
       if (!work.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: work.title, year: work.publication_year ?? undefined })) continue;
-      return core.openAlexToMetadata(work);
+      return paperInputWithoutNulls(core.openAlexToMetadata(work));
     }
     throw new Error("No sufficiently similar OpenAlex match");
   }

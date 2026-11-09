@@ -9,7 +9,6 @@ use regex_lite::Regex;
 use serde::{Deserialize, Deserializer};
 
 use crate::markdown_figure_alt::{MdAlign, MdPlacement, parse_md_image_alt, with_md_image_alt};
-use crate::search::js_text::is_js_whitespace;
 
 /// Every image reference: alt captured in group 1, target in group 2. The target class is JS `\s`
 /// spelled out, because regex-lite's `\s` is ASCII only.
@@ -23,15 +22,15 @@ const IMAGE_REF: &str = r"!\[([^\]]*)\]\(([^\t\n\x0B\x0C\r \x{a0}\x{1680}\x{2000
 pub struct ImagePlacementPatch {
     /// Crop insets: absent keeps, `null` clears, a value sets.
     #[serde(default, deserialize_with = "double_option")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = Option<[u8; 4]>))]
     pub crop: Option<Option<[u8; 4]>>,
     /// Alignment: absent keeps, `null` clears, a value sets.
     #[serde(default, deserialize_with = "double_option")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = Option<MdAlign>))]
     pub align: Option<Option<MdAlign>>,
     /// Width: absent keeps, `null` clears, a value sets.
     #[serde(default, deserialize_with = "double_option")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = Option<String>))]
     pub width: Option<Option<String>>,
 }
 

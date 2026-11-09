@@ -55,7 +55,7 @@ pub fn compute_rollup_for_papers(
     let mut index: HashMap<(&str, &str), &PaperFieldValueData> =
         HashMap::with_capacity(values.len());
     for row in values {
-        index
+        let _ = index
             .entry((row.paper_id.as_str(), row.field_id.as_str()))
             .or_insert(&row.value);
     }

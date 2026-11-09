@@ -1,4 +1,4 @@
-import { mergePaperInto } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import {
   ValidationError,
   type IAnnotationPinRepository,
@@ -101,7 +101,11 @@ export class MergePapersUseCase {
     const { annotations, pins, quotationTypes, listItems, fields, relations } = this.deps;
     const anns = await annotations.list(dup.id);
 
-    const merged: Paper = { ...mergePaperInto(keep, dup), updatedAt: this.deps.now?.() ?? new Date().toISOString() };
+    // The Rust merge marks an absent field with null; Paper uses undefined.
+    const joined = Object.fromEntries(
+      Object.entries(readyCore().mergePaperInto(keep, dup)).filter(([, v]) => v !== null),
+    ) as unknown as Paper;
+    const merged: Paper = { ...joined, authors: joined.authors ?? keep.authors, updatedAt: this.deps.now?.() ?? new Date().toISOString() };
     // A DOI or arXiv id only the duplicate has is unique per project, so the
     // kept row takes it once the duplicate is gone (the save below would be refused).
     const idsMove = merged.doi !== keep.doi || merged.arxivId !== keep.arxivId;

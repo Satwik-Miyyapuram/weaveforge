@@ -1,4 +1,4 @@
-import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { paperInputWithoutNulls, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
 import type { CrossrefMessage } from "@weaveforge/wasm";
 import { loadCore, readyCore } from "@/lib/rust-core";
 
@@ -32,6 +32,6 @@ export class CrossrefMetadataSource implements IMetadataSource {
       throw new Error(`Crossref request failed: ${res.status} ${res.statusText}`);
     }
     const body = (await res.json()) as { message?: CrossrefMessage };
-    return readyCore().crossrefToMetadata(body.message ?? {}, doi);
+    return paperInputWithoutNulls(readyCore().crossrefToMetadata(body.message ?? {}, doi));
   }
 }

@@ -2,6 +2,7 @@ import {
   type IMetadataSource,
   type PaperMetadata,
   type PaperRef,
+  paperInputWithoutNulls,
 } from "@weaveforge/core";
 import { authHeaders } from "@/lib/auth-headers";
 import { formatError } from "@/lib/format-error";
@@ -48,7 +49,7 @@ export class UrlMetadataSource implements IMetadataSource {
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
     const d = this.inShell() ? await this.readInShell(ref.value.trim()) : await this.readViaRoute(ref.value.trim());
     const core = await loadCore();
-    return core.urlMetaToMetadata(d);
+    return paperInputWithoutNulls(core.urlMetaToMetadata(d));
   }
 
   /** The desktop path: the relay fetches the page, the parser runs here. */

@@ -84,6 +84,7 @@ pub struct GroupedRows {
     /// The heading.
     pub label: PaletteGroup,
     /// Indices of the rows under it.
+    #[cfg_attr(feature = "specta", specta(type = Vec<u32>))]
     pub rows: Vec<usize>,
 }
 

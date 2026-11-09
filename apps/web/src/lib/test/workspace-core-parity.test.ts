@@ -231,7 +231,7 @@ test("imagePathsInBody matches the TS scan", () => {
     for (const prefix of ["vault:", "paperimg:"]) {
       assert.deepEqual(
         core.imagePathsInBody(body, prefix),
-        tsImagePathsInBody(body, prefix, tsNormalizeMarkdownImageSyntax),
+        tsImagePathsInBody(body, prefix),
         JSON.stringify([body, prefix]),
       );
     }

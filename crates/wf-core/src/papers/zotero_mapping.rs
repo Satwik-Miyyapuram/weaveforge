@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::js_regex::compile;
-use super::paper::{PaperStatus, normalize_doi};
+use super::paper::normalize_doi;
 use super::paper_merge::MergePaper;
 use super::paper_title::title_from_file_name;
 
@@ -117,7 +117,10 @@ pub struct ZoteroPaperInput {
     #[serde(rename = "abstract", default, skip_serializing_if = "Option::is_none")]
     pub abstract_text: Option<String>,
     /// Metadata bag (the Zotero key, for a row created from an item).
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(
+        feature = "specta",
+        specta(optional, type = Option<std::collections::BTreeMap<String, specta_typescript::Unknown>>)
+    )]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Map<String, Value>>,
 }
@@ -267,7 +270,7 @@ pub fn zotero_remote_to_input(item: &ZoteroItem) -> ZoteroPaperInput {
     input.arxiv_id = zotero_arxiv_id(item);
     input.metadata = non_empty(item.key.as_deref()).map(|key| {
         let mut bag = Map::new();
-        bag.insert("zoteroKey".to_owned(), Value::String(key.to_owned()));
+        let _ = bag.insert("zoteroKey".to_owned(), Value::String(key.to_owned()));
         bag
     });
     input
@@ -357,6 +360,7 @@ pub fn to_zotero_item(paper: &MergePaper) -> ZoteroExportItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::papers::paper::PaperStatus;
 
     fn item() -> ZoteroItem {
         ZoteroItem {

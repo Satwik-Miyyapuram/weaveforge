@@ -264,9 +264,9 @@ impl Groups {
         if root_a != root_b {
             self.parent[root_b] = root_a;
         }
-        self.reason_of.insert(root_a, best);
+        let _ = self.reason_of.insert(root_a, best);
         if self.has_doi.contains(&root_b) {
-            self.has_doi.insert(root_a);
+            let _ = self.has_doi.insert(root_a);
         }
     }
 }
@@ -286,7 +286,7 @@ fn union_by_key(
         match first.get(&value) {
             Some(&seen) => groups.union(seen, index, reason),
             None => {
-                first.insert(value, index);
+                let _ = first.insert(value, index);
             }
         }
     }

@@ -347,10 +347,10 @@ pub fn semantic_scholar_to_metadata(paper: &SemanticScholarPaper) -> ZoteroPaper
     let ids = paper.external_ids.as_ref();
     let mut metadata = Map::new();
     if let Some(pdf) = paper.open_access_pdf.as_ref().and_then(|p| p.url.clone()) {
-        metadata.insert("openAccessPdf".to_owned(), Value::String(pdf));
+        let _ = metadata.insert("openAccessPdf".to_owned(), Value::String(pdf));
     }
     if let Some(count) = paper.citation_count {
-        metadata.insert("citationCount".to_owned(), Value::from(count));
+        let _ = metadata.insert("citationCount".to_owned(), Value::from(count));
     }
     ZoteroPaperInput {
         title: paper.title.clone().unwrap_or_default(),
@@ -389,10 +389,10 @@ pub fn openalex_to_metadata(work: &OpenAlexWork) -> ZoteroPaperInput {
         .and_then(|l| l.pdf_url.clone())
         .or_else(|| primary.and_then(|l| l.pdf_url.clone()));
     if let Some(pdf) = pdf {
-        metadata.insert("openAccessPdf".to_owned(), Value::String(pdf));
+        let _ = metadata.insert("openAccessPdf".to_owned(), Value::String(pdf));
     }
     if let Some(count) = work.cited_by_count {
-        metadata.insert("citationCount".to_owned(), Value::from(count));
+        let _ = metadata.insert("citationCount".to_owned(), Value::from(count));
     }
     ZoteroPaperInput {
         title: work.title.clone().unwrap_or_default(),
