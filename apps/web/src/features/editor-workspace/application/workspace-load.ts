@@ -12,13 +12,14 @@
 import { getContainer } from "@/bootstrap";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { isHydratedPage, noteBodyText } from "@/lib/page-text";
-import { logPath } from "@weaveforge/core";
+
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { KINDS, memberRank } from "../ui/kind";
 import type { ListItemEntry, WorkspaceTreeNode } from "@weaveforge/wasm";
 import { sectionOr } from "./section-fallback";
 import { readyCore } from "@/lib/rust-core";
 import { overleafSidebarRows } from "@/features/report";
+import { typedCore } from "@/lib/rust-core";
 
 export interface Document {
   kind: string;
@@ -145,7 +146,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
       title: entry.entryDate,
       body: entry.body,
       hydrated: true,
-      path: logPath(entry.id, entry.entryDate, projectRoot),
+      path: typedCore().logPath(entry.id, entry.entryDate, projectRoot),
     })),
     // An Overleaf project's tab: its editor, with nothing to hydrate or save here.
     ...overleaf.map((project) => ({

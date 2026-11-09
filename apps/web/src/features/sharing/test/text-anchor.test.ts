@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CONTEXT, anchorAt, locateAnchor } from "../domain/text-anchor";
+import { CONTEXT } from "../domain/text-anchor";
+import { readyCore } from "@/lib/rust-core";
+const anchorAt: ReturnType<typeof readyCore>["anchorAt"] = (...a) => readyCore().anchorAt(...a);
+const locateAnchor: ReturnType<typeof readyCore>["locateAnchor"] = (...a) => readyCore().locateAnchor(...a);
 
 test("an anchor round-trips to the span it was taken from", () => {
   const text = "Alpha beta gamma. Delta epsilon.";

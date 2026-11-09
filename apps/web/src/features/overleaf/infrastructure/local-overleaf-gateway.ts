@@ -1,14 +1,8 @@
 "use client";
 
-import { parseLatexSectionTree } from "@weaveforge/core";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import {
-  entryFileError,
-  externalUrl,
-  OVERLEAF_PROJECT_ID,
-  sanitizeSectionTargets,
-} from "../domain/link-rules";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * The Overleaf link, for a copy working on this computer with no account.
@@ -93,10 +87,10 @@ export class LocalOverleafGateway {
     entryFile: string;
   }): Promise<void> {
     const entryFile = input.entryFile.trim() || "main.tex";
-    if (!OVERLEAF_PROJECT_ID.test(input.overleafProjectId)) {
+    if (!typedCore().isOverleafProjectId(input.overleafProjectId)) {
       throw new Error("Overleaf project id is invalid.");
     }
-    const invalid = entryFileError(entryFile);
+    const invalid = typedCore().entryFileError(entryFile);
     if (invalid) throw new Error(invalid);
     await this.run.exec(
       `insert into overleaf_linked_reports
@@ -108,7 +102,7 @@ export class LocalOverleafGateway {
         input.title.trim(),
         input.overleafProjectId,
         entryFile,
-        externalUrl(input.overleafProjectId),
+        typedCore().externalUrl(input.overleafProjectId),
       ],
     );
   }
@@ -134,7 +128,7 @@ export class LocalOverleafGateway {
     };
 
     if (input.sectionTargets !== undefined) {
-      const targets = sanitizeSectionTargets(input.sectionTargets);
+      const targets = typedCore().sanitizeSectionTargets(input.sectionTargets);
       if (!targets) throw new Error("Section targets are invalid.");
       set("section_targets", JSON.stringify(targets));
       // The column is jsonb and the parameter is text, so it is cast at the
@@ -148,14 +142,14 @@ export class LocalOverleafGateway {
     }
     if (input.overleafProjectId !== undefined) {
       const id = input.overleafProjectId.trim();
-      if (!OVERLEAF_PROJECT_ID.test(id)) throw new Error("Overleaf project id is invalid.");
+      if (!typedCore().isOverleafProjectId(id)) throw new Error("Overleaf project id is invalid.");
       set("overleaf_project_id", id);
       // Recomputed, not carried over: a stale link would point at the old project.
-      set("external_url", externalUrl(id));
+      set("external_url", typedCore().externalUrl(id));
     }
     if (input.entryFile !== undefined) {
       const entryFile = input.entryFile.trim() || "main.tex";
-      const invalid = entryFileError(entryFile);
+      const invalid = typedCore().entryFileError(entryFile);
       if (invalid) throw new Error(invalid);
       set("entry_file", entryFile);
     }
@@ -192,7 +186,7 @@ export class LocalOverleafGateway {
     return {
       files: source.files,
       entryFile: source.entryFile,
-      sectionTree: parseLatexSectionTree(source.files, source.entryFile),
+      sectionTree: typedCore().parseLatexSectionTree(source.files, source.entryFile),
       overleafUrl: source.overleafUrl,
     };
   }

@@ -1,14 +1,6 @@
-/**
- * Report (thesis) sections domain model — pure, no I/O, no SDK imports.
- *
- * A `ReportSection` is one node of the thesis outline. Sections form a
- * hierarchy (chapter > section) via `parentId`, mirroring `reading_lists`. One
- * reason to change: the rules of what a report section *is* (SRP).
- */
-
+/** Types for report-section. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import { buildTree } from "../../../shared/tree.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 /** A section's writing status, in workflow order. */
@@ -71,51 +63,13 @@ export class ReportSectionValidationError extends ValidationError {
   }
 }
 
-export function createReportSection(
-  input: NewReportSectionInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): ReportSection {
-  const title = input.title?.trim();
-  if (!title) {
-    throw new ReportSectionValidationError("Section title is required.");
-  }
-  if (input.wordCount != null && input.wordCount < 0) {
-    throw new ReportSectionValidationError("Word count cannot be negative.");
-  }
-  if (input.targetWords != null && input.targetWords < 0) {
-    throw new ReportSectionValidationError("Target words cannot be negative.");
-  }
-  return {
-    id: deps.ids.newId(),
-    title,
-    sectionNo: input.sectionNo?.trim() || undefined,
-    parentId: input.parentId,
-    status: input.status ?? "not_started",
-    wordCount: input.wordCount ?? 0,
-    targetWords: input.targetWords,
-    deadline: input.deadline,
-    draftUrl: input.draftUrl,
-    notes: input.notes,
-    sortOrder: input.sortOrder ?? 0,
-    createdAt: deps.clock.nowIso(),
-  };
-}
-
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ReportSectionFns {
+  createReportSection(input: NewReportSectionInput, deps: { clock: Clock; ids: IdGenerator }): ReportSection;
+  /**
  * Build the outline tree from a flat list of sections (pure). Shared by every
  * repository implementation so `getTree()` behaves identically (Liskov).
  * Siblings are ordered by `sortOrder`, then `sectionNo`, then `title`.
  */
-export function buildSectionTree(
-  sections: readonly ReportSection[],
-): ReportSectionTreeNode[] {
-  return buildTree(sections, {
-    id: (section) => section.id,
-    parentId: (section) => section.parentId,
-    node: (section) => ({ section, children: [] }),
-    compare: (a, b) =>
-      a.section.sortOrder - b.section.sortOrder ||
-      (a.section.sectionNo ?? "").localeCompare(b.section.sectionNo ?? "") ||
-      a.section.title.localeCompare(b.section.title),
-  });
+  buildSectionTree(sections: readonly ReportSection[]): ReportSectionTreeNode[];
 }

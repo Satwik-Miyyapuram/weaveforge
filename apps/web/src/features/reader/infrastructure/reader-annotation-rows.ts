@@ -1,4 +1,5 @@
-import { isReaderAnnotationType, isAnnotationSyncState, type CombinedPdfAnchor, type ReaderAnnotation, type ReaderAnnotationType } from "@weaveforge/core";
+import { type CombinedPdfAnchor, type ReaderAnnotation, type ReaderAnnotationType } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * How reader annotation rows are stored, and how they map to the domain type.
@@ -28,7 +29,7 @@ export interface ReaderAnnotationRow {
 }
 
 export function toDomain(row: ReaderAnnotationRow): ReaderAnnotation {
-  if (!isReaderAnnotationType(row.type)) {
+  if (!typedCore().isReaderAnnotationType(row.type)) {
     throw new Error(`Invalid annotation type in store: ${row.type}`);
   }
   return {
@@ -44,7 +45,7 @@ export function toDomain(row: ReaderAnnotationRow): ReaderAnnotation {
     sortIndex: row.sort_index,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    syncState: row.sync_state && isAnnotationSyncState(row.sync_state) ? row.sync_state : "local",
+    syncState: row.sync_state && typedCore().isAnnotationSyncState(row.sync_state) ? row.sync_state : "local",
     zoteroVersion: row.zotero_version ?? null,
   };
 }

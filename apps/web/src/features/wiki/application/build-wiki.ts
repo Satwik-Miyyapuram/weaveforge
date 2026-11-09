@@ -1,19 +1,8 @@
-import {
-  LexicalConceptExtractor,
-  lintWiki,
-  planFixOrder,
-  planWikiPages,
-  wikiProposalContent,
-  type ExtractionDocument,
-  type IConceptExtractor,
-  type LintReport,
-  type MergeResult,
-  type WikiPageRef,
-  type WikiPagePlan,
-} from "@weaveforge/core";
+import { LexicalConceptExtractor, planWikiPages, wikiProposalContent, type ExtractionDocument, type IConceptExtractor, type LintReport, type MergeResult, type WikiPageRef, type WikiPagePlan } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-session";
 import { typedCore } from "@/lib/rust-core";
+import type { CoreContract } from "@weaveforge/core";
 
 /**
  * Driving concept extraction and wiki maintenance from the app.
@@ -189,12 +178,12 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
   return queued;
 }
 
-export async function runWikiLint(): Promise<{ report: LintReport; steps: ReturnType<typeof planFixOrder> }> {
+export async function runWikiLint(): Promise<{ report: LintReport; steps: ReturnType<CoreContract["planFixOrder"]> }> {
   const [pages, papers] = await Promise.all([notes(), getContainer().papers.listPapers()]);
   // Links to ordinary notes and papers resolve; only wiki pages are linted (E39).
   const outside = [...takenTitles(pages), ...papers.map((paper) => paper.title)];
-  const report = lintWiki(wikiPageRefs(pages), outside);
-  return { report, steps: planFixOrder(report) };
+  const report = typedCore().lintWiki(wikiPageRefs(pages), outside);
+  return { report, steps: typedCore().planFixOrder(report) };
 }
 
 /**

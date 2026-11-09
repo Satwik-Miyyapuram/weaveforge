@@ -9,20 +9,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  INK_GROUP_WINDOW_MS,
-  applyInkSegmentation,
-  inkLineStrokes,
-  inkStrokeBand,
-  segmentInkLines,
-} from "../../src/ink/segment.js";
-import { makeInkStroke, type InkStroke } from "../../src/ink/ink-note.js";
+import { INK_GROUP_WINDOW_MS } from "../../src/ink/segment.js";
+import { type InkStroke } from "../../src/ink/ink-note.js";
+import { rust } from "../../src/shared/rust.js";
 
 /** A stroke of `count` points along a row centred on `y`. */
 function row(y: number, t0: number, options: Partial<InkStroke> = {}): InkStroke {
   const points: number[] = [];
   for (let i = 0; i < 8; i += 1) points.push(100 + i * 12, y + (i % 2 === 0 ? -6 : 6));
-  return makeInkStroke({
+  return rust().makeInkStroke({
     points,
     pressures: points.map((_value, index) => 100 + index * 8),
     t0,
@@ -31,8 +26,8 @@ function row(y: number, t0: number, options: Partial<InkStroke> = {}): InkStroke
 }
 
 test("a stroke's band is its vertical extent", () => {
-  assert.deepEqual(inkStrokeBand(row(500, 0)), [494, 506]);
-  assert.equal(inkStrokeBand(makeInkStroke({ points: [] })), null);
+  assert.deepEqual(rust().inkStrokeBand(row(500, 0)), [494, 506]);
+  assert.equal(rust().inkStrokeBand(rust().makeInkStroke({ points: [] })), null);
 });
 
 test("strokes written along one row become one line, top to bottom", () => {
@@ -44,7 +39,7 @@ test("strokes written along one row become one line, top to bottom", () => {
     row(600, 1_600),
     row(598, 2_000),
   ];
-  const { lines, lineOfStroke } = segmentInkLines(strokes);
+  const { lines, lineOfStroke } = rust().segmentInkLines(strokes);
   assert.equal(lines.length, 2);
   assert.deepEqual(
     lines[0]!.strokes.map((stroke) => stroke.points[1]),
@@ -61,7 +56,7 @@ test("a row written out of order still comes back in reading order", () => {
   // Grouping is by time, so the second visit to the top row is its own line —
   // what matters is that the *body* order is top to bottom, not write order.
   const strokes = [row(700, 0), row(702, 100), row(200, 400), row(700, 700)];
-  const { lines } = segmentInkLines(strokes);
+  const { lines } = rust().segmentInkLines(strokes);
   assert.equal(lines.length, 3);
   assert.deepEqual(lines[0]!.yBand, [194, 206], "the margin note reads first");
   assert.deepEqual(lines[1]!.yBand, [694, 708], "two visits to the top row, written together");
@@ -74,13 +69,13 @@ test("a row written out of order still comes back in reading order", () => {
 
 test("a gap longer than the grouping window starts a new line", () => {
   const strokes = [row(300, 0), row(302, INK_GROUP_WINDOW_MS + 1)];
-  assert.equal(segmentInkLines(strokes).lines.length, 2);
-  assert.equal(segmentInkLines([row(300, 0), row(302, INK_GROUP_WINDOW_MS - 1)]).lines.length, 1);
+  assert.equal(rust().segmentInkLines(strokes).lines.length, 2);
+  assert.equal(rust().segmentInkLines([row(300, 0), row(302, INK_GROUP_WINDOW_MS - 1)]).lines.length, 1);
 });
 
 test("a stroke a row away is never joined, however soon it was written", () => {
   const strokes = [row(300, 0), row(420, 100)];
-  const { lines } = segmentInkLines(strokes);
+  const { lines } = rust().segmentInkLines(strokes);
   assert.equal(lines.length, 2);
 });
 
@@ -91,27 +86,27 @@ test("highlighters and shapes are not writing, so they are never segmented", () 
     row(600, 100, { tool: "shape", shape: "rect" }),
     row(302, 200),
   ];
-  const { lines, lineOfStroke } = segmentInkLines(strokes);
+  const { lines, lineOfStroke } = rust().segmentInkLines(strokes);
   assert.equal(lines.length, 1, "only the pen strokes make a line");
   assert.equal(lines[0]!.strokes.length, 2);
   assert.deepEqual(lineOfStroke, [0, -1, -1, 0]);
 });
 
 test("a stroke too short to be a stroke is left out", () => {
-  const dot = makeInkStroke({ points: [10, 10], tool: "pen", t0: 0 });
-  const { lines, lineOfStroke } = segmentInkLines([dot]);
+  const dot = rust().makeInkStroke({ points: [10, 10], tool: "pen", t0: 0 });
+  const { lines, lineOfStroke } = rust().segmentInkLines([dot]);
   assert.equal(lines.length, 0);
   assert.deepEqual(lineOfStroke, [-1]);
 });
 
 test("segmentation groups the page's strokes and records each line", () => {
   const strokes = [row(300, 0), row(302, 300), row(600, 1_200)];
-  const segmentation = segmentInkLines(strokes);
+  const segmentation = rust().segmentInkLines(strokes);
   const recognised = [
     { text: "Drop the β sweep", confidence: 0.93 },
     { text: "[[Graph-prior module]]", confidence: 0.5 },
   ];
-  const { strokes: grouped, lines } = applyInkSegmentation(strokes, segmentation, recognised);
+  const { strokes: grouped, lines } = rust().applyInkSegmentation(strokes, segmentation, recognised);
 
   assert.equal(grouped.length, 3, "no stroke is lost or duplicated");
   assert.deepEqual(grouped.map((stroke) => stroke.lineIndex), [0, 0, 1]);
@@ -121,15 +116,15 @@ test("segmentation groups the page's strokes and records each line", () => {
   assert.equal(lines[0]!.confidence, 0.93);
   assert.equal(lines[1]!.confidence, 0.5);
   // A line's range is how the container names its strokes, so it has to be exact.
-  assert.equal(inkLineStrokes(grouped, lines[0]!).length, 2);
-  assert.equal(inkLineStrokes(grouped, lines[1]!)[0]!.lineIndex, 1);
+  assert.equal(rust().inkLineStrokes(grouped, lines[0]!).length, 2);
+  assert.equal(rust().inkLineStrokes(grouped, lines[1]!)[0]!.lineIndex, 1);
 });
 
 test("strokes that were never segmented keep their order after the lines", () => {
   const highlight = row(300, 0, { tool: "highlighter", width: 60 });
   const strokes = [row(300, 100), highlight];
-  const segmentation = segmentInkLines(strokes);
-  const { strokes: grouped, lines } = applyInkSegmentation(strokes, segmentation);
+  const segmentation = rust().segmentInkLines(strokes);
+  const { strokes: grouped, lines } = rust().applyInkSegmentation(strokes, segmentation);
   assert.equal(grouped.length, 2);
   assert.equal(grouped[1]!.tool, "highlighter");
   assert.equal(grouped[1]!.lineIndex, -1);
@@ -138,16 +133,16 @@ test("strokes that were never segmented keep their order after the lines", () =>
 
 test("an unrecognised line records an empty text rather than no line", () => {
   const strokes = [row(300, 0), row(600, 1_000)];
-  const segmentation = segmentInkLines(strokes);
-  const { lines } = applyInkSegmentation(strokes, segmentation);
+  const segmentation = rust().segmentInkLines(strokes);
+  const { lines } = rust().applyInkSegmentation(strokes, segmentation);
   assert.equal(lines.length, 2);
   assert.deepEqual(lines.map((line) => line.text), ["", ""]);
   assert.deepEqual(lines.map((line) => line.confidence), [0, 0]);
 });
 
 test("an empty page segments to nothing at all", () => {
-  const segmentation = segmentInkLines([]);
+  const segmentation = rust().segmentInkLines([]);
   assert.deepEqual(segmentation.lines, []);
   assert.deepEqual(segmentation.lineOfStroke, []);
-  assert.deepEqual(applyInkSegmentation([], segmentation), { strokes: [], lines: [] });
+  assert.deepEqual(rust().applyInkSegmentation([], segmentation), { strokes: [], lines: [] });
 });

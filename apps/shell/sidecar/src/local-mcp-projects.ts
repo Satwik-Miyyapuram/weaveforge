@@ -1,7 +1,8 @@
-import { idSuffix, projectDir, type WorkspaceProject } from "@weaveforge/core";
+import { type WorkspaceProject } from "@weaveforge/core";
 
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles } from "./vault-handlers";
+import { rust } from "@weaveforge/core";
 
 /** One project as the MCP sees it: `dir` is its folder under the root, "" for a pre-project layout. */
 export interface ProjectRef {
@@ -28,9 +29,9 @@ export async function resolveProjects(session: VaultSession, source?: ProjectSou
   const rows = source ? await source().catch(() => []) : [];
   if (rows.length) {
     return rows.map((project) => {
-      const exact = projectDir(project);
+      const exact = rust().projectDir(project);
       if (dirs.includes(exact)) return { ...project, dir: exact };
-      const tail = dirs.filter((d) => d.endsWith(`--${idSuffix(project.id)}`));
+      const tail = dirs.filter((d) => d.endsWith(`--${rust().idSuffix(project.id)}`));
       // No folder yet is fine: a draft for an empty project still names it.
       return { ...project, dir: tail.length === 1 ? (tail[0] as string) : exact };
     });

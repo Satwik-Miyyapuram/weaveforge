@@ -2,6 +2,8 @@
 
 pub mod access_policy;
 pub mod ai_tool_name;
+pub mod extraction;
+pub mod folder_draft;
 pub mod mcp_result;
 pub mod untrusted_context;
 pub mod wiki_index;

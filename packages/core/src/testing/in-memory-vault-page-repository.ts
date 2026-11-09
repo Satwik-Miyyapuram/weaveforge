@@ -1,13 +1,6 @@
-import {
-  buildPageTree,
-  normalizeTitleKey,
-  vaultBodyPreview,
-  type VaultPage,
-  type VaultPageFilter,
-  type VaultPageSummary,
-  type VaultPageTreeNode,
-} from "../features/vault/domain/vault-page.js";
+import { type VaultPage, type VaultPageFilter, type VaultPageSummary, type VaultPageTreeNode } from "../features/vault/domain/vault-page.js";
 import type { IVaultPageRepository } from "../features/vault/domain/vault-page-repository.js";
+import { rust } from "../shared/rust.js";
 
 export class InMemoryVaultPageRepository implements IVaultPageRepository {
   private readonly store = new Map<string, VaultPage>();
@@ -17,10 +10,10 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
   }
 
   async titleTaken(title: string, exceptId?: string): Promise<boolean> {
-    const key = normalizeTitleKey(title);
+    const key = rust().normalizeTitleKey(title);
     if (!key) return false;
     for (const p of this.store.values()) {
-      if (p.id !== exceptId && normalizeTitleKey(p.title) === key) return true;
+      if (p.id !== exceptId && rust().normalizeTitleKey(p.title) === key) return true;
     }
     return false;
   }
@@ -55,7 +48,7 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
     return items.map((p) => ({
       id: p.id,
       title: p.title,
-      bodyPreview: vaultBodyPreview(p.body),
+      bodyPreview: rust().vaultBodyPreview(p.body),
       parentId: p.parentId,
       pinned: p.pinned,
       folder: p.folder,
@@ -66,7 +59,7 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
   }
 
   async getTree(): Promise<VaultPageTreeNode[]> {
-    return buildPageTree([...this.store.values()]);
+    return rust().buildPageTree([...this.store.values()]);
   }
 
   async save(entity: VaultPage): Promise<void> {

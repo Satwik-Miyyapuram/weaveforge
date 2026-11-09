@@ -22,7 +22,7 @@ import {
   RecordSection,
   recordDate,
 } from "@/components/record";
-import { formatMetricCell } from "./metric-chart";
+
 import { formatError } from "@/lib/format-error";
 import { AttachArtifactsButton } from "./attach-artifacts-button";
 import { EXPERIMENTS_HREF } from "../application/experiment-href";
@@ -32,6 +32,7 @@ import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { Button, IconButton, IconLink } from "@/components/button";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -335,7 +336,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
             {metricRows.length > 0 && (
               <RecordSection label="Final metrics">
-                <RecordFacts rows={metricRows.map(([k, v]) => [k, formatMetricCell(k, v)] as const)} />
+                <RecordFacts rows={metricRows.map(([k, v]) => [k, typedCore().formatMetricCell(k, v)] as const)} />
               </RecordSection>
             )}
 

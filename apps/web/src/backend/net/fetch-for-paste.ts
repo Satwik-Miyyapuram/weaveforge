@@ -1,5 +1,6 @@
-import { extractPageTitle, PAGE_TITLE_SCAN_CHARS } from "@weaveforge/core";
+import { PAGE_TITLE_SCAN_CHARS } from "@weaveforge/core";
 import { safeFetch, type SafeFetchOptions } from "./safe-fetch";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * The two outbound fetches a paste can ask for: the title behind a link, and
@@ -53,7 +54,7 @@ export async function fetchPageTitle(target: string, options: SafeFetchOptions =
   const decoded = new TextDecoder("utf-8", { fatal: false }).decode(
     result.body.subarray(0, PAGE_TITLE_SCAN_CHARS),
   );
-  const found = extractPageTitle(decoded);
+  const found = typedCore().extractPageTitle(decoded);
   if (!found) return { ok: false, status: 404, message: "That page has no title." };
   if (found.suspect) {
     // It answered 200 with a challenge screen, so its title is the challenge.

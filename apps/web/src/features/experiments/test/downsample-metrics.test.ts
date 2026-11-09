@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  KEEP_ALL_BELOW_STEP,
-  isOnSamplingGrid,
-  planSeriesIngest,
-  stepsToPrune,
-  strideForStep,
-} from "@weaveforge/core";
+import { KEEP_ALL_BELOW_STEP } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+
+type Core = ReturnType<typeof readyCore>;
+const isOnSamplingGrid: Core["isOnSamplingGrid"] = (...a) => readyCore().isOnSamplingGrid(...a);
+const planSeriesIngest: Core["planSeriesIngest"] = (...a) => readyCore().planSeriesIngest(...a);
+const stepsToPrune: Core["stepsToPrune"] = (...a) => readyCore().stepsToPrune(...a);
+const strideForStep: Core["strideForStep"] = (...a) => readyCore().strideForStep(...a);
 
 const pt = (step: number) => ({ step });
 

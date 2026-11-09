@@ -692,3 +692,6 @@ export function cardSnippet(body: string, max = 180): string {
   return rawCardSnippet(body, max);
 }
 
+export * from "./core-extra.js";
+export * from "./metrics-overleaf.js";
+export * from "./leaf-ports.js";

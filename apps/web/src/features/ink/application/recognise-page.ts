@@ -16,26 +16,12 @@
  *   this build.
  */
 
-import {
-  INK_ENGINE_MAX_CONFIDENCE,
-  inkPageBackground,
-  inkPageFigures,
-  inkLineStrokes,
-  inkStrokeBand,
-  type InkLine,
-  type InkLineRecord,
-  type InkPage,
-  type InkRecogniser,
-  type InkRecognitionHints,
-  type InkSegmentation,
-  type RecognisedLine,
-  withInkPageBackground,
-  withInkPageFigures,
-} from "@weaveforge/core";
+import { INK_ENGINE_MAX_CONFIDENCE, inkPageFigures, type InkLine, type InkLineRecord, type InkPage, type InkRecogniser, type InkRecognitionHints, type InkSegmentation, type RecognisedLine, withInkPageFigures } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 import { matchVocabulary } from "./vocab-match";
+import { typedCore } from "@/lib/rust-core";
 
 export interface RecognisePageInput {
   page: InkPage;
@@ -77,10 +63,10 @@ export function acceptedLines(
   const out: { band: [number, number]; text: string }[] = [];
   for (const line of page.lines) {
     if (line.confidence < 1 || !line.text) continue;
-    const strokes = inkLineStrokes(page.strokes, line);
+    const strokes = typedCore().inkLineStrokes(page.strokes, line);
     let band: [number, number] | null = null;
     for (const stroke of strokes) {
-      const b = inkStrokeBand(stroke);
+      const b = typedCore().inkStrokeBand(stroke);
       if (!b) continue;
       band = band ? [Math.min(band[0], b[0]), Math.max(band[1], b[1])] : b;
     }
@@ -221,11 +207,11 @@ export function recognisedPageFromModel(
  * text that no longer ends with `prior` was edited by hand and is kept whole.
  */
 export function pageTextAfterRecognition(was: string, prior: string, recognised: string): string {
-  const body = withInkPageFigures(withInkPageBackground(was, null), []).trim();
+  const body = withInkPageFigures(typedCore().withInkPageBackground(was, null), []).trim();
   const old = prior.trim();
   let typed = body;
   if (old && body === old) typed = "";
   else if (old && body.endsWith(`\n${old}`)) typed = body.slice(0, -old.length).trim();
   const text = [typed, recognised.trim()].filter(Boolean).join("\n\n");
-  return withInkPageFigures(withInkPageBackground(text, inkPageBackground(was)), inkPageFigures(was));
+  return withInkPageFigures(typedCore().withInkPageBackground(text, typedCore().inkPageBackground(was)), inkPageFigures(was));
 }

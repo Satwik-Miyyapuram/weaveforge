@@ -1,4 +1,4 @@
-import { entryFileError, OVERLEAF_PROJECT_ID } from "@/features/overleaf/domain/link-rules";
+import { typedCore } from "@/lib/rust-core";
 
 export type OverleafLink = { projectId: string; title: string; overleafProjectId: string; entryFile: string };
 
@@ -18,8 +18,8 @@ export async function linkOverleafReport(
   const overleafProjectId = link.overleafProjectId.trim();
   const entryFile = link.entryFile.trim() || "main.tex";
   if (!title || !overleafProjectId) throw new Error("Title and Overleaf project id are required.");
-  if (!OVERLEAF_PROJECT_ID.test(overleafProjectId)) throw new Error("Overleaf project id is invalid.");
-  const entryFileInvalid = entryFileError(entryFile);
+  if (!typedCore().isOverleafProjectId(overleafProjectId)) throw new Error("Overleaf project id is invalid.");
+  const entryFileInvalid = typedCore().entryFileError(entryFile);
   if (entryFileInvalid) throw new Error(entryFileInvalid);
   const connectionId = await steps.saveConnection();
   await steps.createReport({ ...link, title, overleafProjectId, entryFile, connectionId });

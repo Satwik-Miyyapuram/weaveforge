@@ -1,14 +1,4 @@
-import {
-  ASSET_DIR,
-  FOLDER_DRAFTS_DIR,
-  NoOpWorkspaceGit,
-  idSuffix,
-  type IWorkspaceFs,
-  type IWorkspaceGit,
-  type MirrorResult,
-  type JsonDiff,
-  type WorkspaceCommit,
-} from "@weaveforge/core";
+import { ASSET_DIR, FOLDER_DRAFTS_DIR, NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type JsonDiff, type WorkspaceCommit } from "@weaveforge/core";
 import type {
   ImportDiff,
 } from "@weaveforge/wasm";
@@ -615,7 +605,7 @@ function reportFolderChanges(paths: readonly string[]): void {
   let currentIdSuffix: string | null = null;
   try {
     const id = getContainer().projects.context.projectId;
-    if (id) currentIdSuffix = idSuffix(id);
+    if (id) currentIdSuffix = typedCore().idSuffix(id);
   } catch {
     currentIdSuffix = null;
   }
@@ -767,6 +757,7 @@ import {
   type ConflictPicks,
   type ConflictResolution,
 } from "./folder-merge";
+import { typedCore } from "@/lib/rust-core";
 
 export {
   keepBothTitle,

@@ -17,9 +17,6 @@
 import {
   CONCEPT_KINDS,
   EMPTY_EXTRACTION,
-  conceptKey,
-  mergeExtractions,
-  withoutExisting,
   type ConceptKind,
   type ExtractedConcept,
   type ExtractedMention,
@@ -29,7 +26,8 @@ import {
   type IConceptExtractor,
 } from "./ai-extraction.js";
 import type { AiModelRequest, IModelConversation } from "./ai-types.js";
-import { UNTRUSTED_CONTEXT_RULE, contextNonce, fenceUntrusted } from "./untrusted-context.js";
+import { UNTRUSTED_CONTEXT_RULE } from "./untrusted-context.js";
+import { rust } from "../../../shared/rust.js";
 
 /** Characters of a document sent per batch. Past this, prose stops being cheap. */
 const MAX_DOC_CHARS = 6_000;
@@ -148,7 +146,7 @@ export function toExtractionResult(
     if (typeof entry !== "object" || entry === null) continue;
     const name = typeof entry.name === "string" ? entry.name.trim() : "";
     if (!name) continue;
-    const key = conceptKey(name);
+    const key = rust().conceptKey(name);
     if (seen.has(key)) continue;
 
     const documentIds = asStringArray(entry.documentIds).filter((id) => validIds.has(id));
@@ -158,7 +156,7 @@ export function toExtractionResult(
 
     concepts.push({
       name,
-      aliases: asStringArray(entry.aliases).filter((alias) => conceptKey(alias) !== key),
+      aliases: asStringArray(entry.aliases).filter((alias) => rust().conceptKey(alias) !== key),
       kind: asKind(entry.kind),
       mentions: documentIds.length,
     });
@@ -203,16 +201,16 @@ export class ModelConceptExtractor implements IConceptExtractor {
     // Every batch failed: that is a broken key or provider, not an empty corpus.
     if (results.length === 0) throw lastError;
 
-    const merged = mergeExtractions(results);
-    const filtered = withoutExisting(merged, request.existingConcepts ?? []);
+    const merged = rust().mergeExtractions(results);
+    const filtered = rust().withoutExisting(merged, request.existingConcepts ?? []);
     if (!request.maxConcepts) return filtered;
 
     const concepts = filtered.concepts.slice(0, request.maxConcepts);
-    const kept = new Set(concepts.map((concept) => conceptKey(concept.name)));
+    const kept = new Set(concepts.map((concept) => rust().conceptKey(concept.name)));
     return {
       ...filtered,
       concepts,
-      mentions: filtered.mentions.filter((mention) => kept.has(conceptKey(mention.conceptName))),
+      mentions: filtered.mentions.filter((mention) => kept.has(rust().conceptKey(mention.conceptName))),
     };
   }
 
@@ -225,8 +223,8 @@ export class ModelConceptExtractor implements IConceptExtractor {
     // document can write for itself — to claim a sibling's id, or to close the
     // corpus and address the model directly. The nonce fence cannot be forged
     // by text that existed before this request.
-    const nonce = contextNonce();
-    const corpus = fenceUntrusted(
+    const nonce = rust().contextNonce();
+    const corpus = rust().fenceUntrusted(
       batch.map((doc) => ({
         label: `id: ${doc.id} — ${doc.title}`,
         text: (doc.text ?? "").slice(0, maxChars),

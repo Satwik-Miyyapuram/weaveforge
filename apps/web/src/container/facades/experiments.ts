@@ -5,13 +5,14 @@ import type {
   Paper,
 } from "@weaveforge/core";
 import { batchById } from "@/lib/batch-by-id";
-import { isStaleRunningExperiment, mapLimit, STALE_RUNNING_MS } from "@weaveforge/core";
+import { mapLimit, STALE_RUNNING_MS } from "@weaveforge/core";
 import type { LoadExperimentsScreenUseCase, ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import type {
   IExperimentActivityReader,
   IMetricHistoryReader,
   MetricPoint,
 } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * How many stale runs are asked to change status at once.
@@ -99,7 +100,7 @@ export class ExperimentsFacade {
 
     const lastMetric = await this.deps.metrics.latestActivityAt(stale.map((e) => e.id));
     const abandoned = stale.filter((experiment) =>
-      isStaleRunningExperiment(experiment, Date.now(), STALE_RUNNING_MS, lastMetric.get(experiment.id)),
+      typedCore().isStaleRunningExperiment(experiment, Date.now(), STALE_RUNNING_MS, lastMetric.get(experiment.id)),
     );
     if (abandoned.length === 0) return;
 

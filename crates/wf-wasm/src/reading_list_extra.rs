@@ -30,7 +30,7 @@ pub fn create_reading_list_with_js(input: JsValue, id: &str, now: &str) -> JsRes
 /// Fails if `items` or `decisions` have the wrong shape.
 #[wasm_bindgen(js_name = verdictsFor)]
 pub fn verdicts_for_js(items: JsValue, decisions: JsValue) -> JsResult<JsValue> {
-    let items: Vec<ScreeningItem> = serde_wasm_bindgen::from_value(items)?;
-    let decisions: Vec<ScreeningDecision> = serde_wasm_bindgen::from_value(decisions)?;
+    let items: Vec<ScreeningItem> = super::screening_records::list_from(items)?;
+    let decisions: Vec<ScreeningDecision> = super::screening_records::list_from(decisions)?;
     to_js(&screening::verdicts_for(&items, &decisions))
 }

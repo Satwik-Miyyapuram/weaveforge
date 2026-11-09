@@ -25,7 +25,7 @@ import {
   type GitRemoteStatus,
 } from "@weaveforge/core";
 
-import { OVERLEAF_PROJECT_ID, overleafGitUrl, parseOverleafProjectId } from "@/features/overleaf/domain/link-rules";
+import { isOverleafProjectId, overleafGitUrl, parseOverleafProjectId } from "@weaveforge/wasm";
 
 import type { IpcResult } from "../../shell/sidecar/src/channels";
 import { gitReason, NativeWorkspaceGit, redactAuth, serial } from "../../shell/sidecar/src/vault-git";
@@ -95,7 +95,7 @@ export function parseLinks(value: unknown): OverleafLink[] {
   return parsed.flatMap((entry) => {
     const { projectId, folder } = (entry ?? {}) as Partial<OverleafLink>;
     const checked = checkLinkFolder(folder);
-    return typeof projectId === "string" && OVERLEAF_PROJECT_ID.test(projectId) && checked.ok
+    return typeof projectId === "string" && isOverleafProjectId(projectId) && checked.ok
       ? [{ projectId, folder: checked.folder }]
       : [];
   });

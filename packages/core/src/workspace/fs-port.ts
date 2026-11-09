@@ -12,6 +12,7 @@
  */
 
 import { WorkspacePathError } from "../shared/errors.js";
+import { rust } from "../shared/rust.js";
 
 export interface WorkspaceStat {
   path: string;
@@ -54,34 +55,34 @@ export async function* walkByList(
   }
 }
 
+/** Signatures of the path checks that moved to the Rust core (wf-wasm). */
+export interface WorkspacePathFns {
+  /** Normalized path; throws when it is empty, absolute or climbs out with `..`. */
+  safeWorkspacePath(path: string): string;
+  /** True when `safeWorkspacePath` accepts the path. */
+  isSafeWorkspacePath(path: string): boolean;
+}
+
 /**
- * Normalize a path and refuse anything that leaves the root.
+ * Normalize a path and refuse anything that leaves the root (Rust check).
  *
  * Every adapter runs this, and the importer checks archive entries separately,
  * so a traversal attempt has to get past two independent guards. Backslashes
- * are folded first: a zip written on Windows can carry `..\..\etc` and would
- * otherwise slip through a check that only looks for forward slashes.
+ * are folded first, so a zip written on Windows cannot smuggle `..\..\etc`.
+ * Throws `WorkspacePathError`, which callers catch.
  */
 export function safeWorkspacePath(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/^\.\//, "");
-  if (!normalized || normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized)) {
+  try {
+    return rust().safeWorkspacePath(path);
+  } catch {
     throw new WorkspacePathError(path);
   }
-  const parts: string[] = [];
-  for (const segment of normalized.split("/")) {
-    if (!segment || segment === ".") continue;
-    if (segment === "..") throw new WorkspacePathError(path);
-    parts.push(segment);
-  }
-  if (parts.length === 0) throw new WorkspacePathError(path);
-  return parts.join("/");
 }
 
 /** True when a path is safe; for filtering archive entries without throwing. */
 export function isSafeWorkspacePath(path: string): boolean {
   try {
-    safeWorkspacePath(path);
-    return true;
+    return rust().isSafeWorkspacePath(path);
   } catch {
     return false;
   }

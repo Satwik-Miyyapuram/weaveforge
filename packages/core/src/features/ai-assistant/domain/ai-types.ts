@@ -1,3 +1,5 @@
+/** Types for ai-types. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
+
 /** Privacy and capability contracts shared by the in-app assistant and future MCP adapter. */
 
 export const AI_RESOURCE_TYPES = [
@@ -12,6 +14,7 @@ export const AI_RESOURCE_TYPES = [
   "experiment",
   "milestone",
 ] as const;
+
 export type AiResourceType = (typeof AI_RESOURCE_TYPES)[number];
 
 export const AI_READ_CATEGORIES = [
@@ -23,6 +26,7 @@ export const AI_READ_CATEGORIES = [
   "logbook",
   "experiments",
 ] as const;
+
 export type AiReadCategory = (typeof AI_READ_CATEGORIES)[number];
 
 export const AI_PROPOSAL_KINDS = [
@@ -43,6 +47,7 @@ export const AI_PROPOSAL_KINDS = [
   "experiment_update",
   "paper_annotation",
 ] as const;
+
 export type AiProposalKind = (typeof AI_PROPOSAL_KINDS)[number];
 
 /** Drafts do not access Zotero. A future approved write still needs encrypted credentials. */
@@ -63,12 +68,8 @@ export const AI_TOOL_NAMES = [
   "suggest_milestone_follow_up",
   "suggest_experiment_follow_up",
 ] as const;
-export type AiToolName = (typeof AI_TOOL_NAMES)[number];
 
-/** Pre-rename `propose_*` names still resolve; they are accepted, never listed. */
-export function canonicalAiToolName(name: string): string {
-  return name.startsWith("propose_") ? `suggest_${name.slice("propose_".length)}` : name;
-}
+export type AiToolName = (typeof AI_TOOL_NAMES)[number];
 
 /**
  * A provider identifier. Open on purpose: any OpenAI- or Anthropic-compatible
@@ -148,4 +149,10 @@ export interface AiModelResponse {
 export interface IModelConversation {
   readonly provider: AiModelProviderId;
   complete(request: AiModelRequest): Promise<AiModelResponse>;
+}
+
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface AiTypesFns {
+  /** Pre-rename `propose_*` names still resolve; they are accepted, never listed. */
+  canonicalAiToolName(name: string): string;
 }

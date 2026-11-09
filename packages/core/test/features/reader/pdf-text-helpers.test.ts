@@ -1,13 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  furnitureKey,
-  FURNITURE_MARGIN,
-  isBoldFont,
-  pageTextFromItems,
-} from "../../../src/features/reader/analysis/line-reconstruction.js";
+import { FURNITURE_MARGIN } from "../../../src/features/reader/analysis/line-reconstruction.js";
 import * as citationText from "../../../src/features/reader/analysis/citation-text.js";
 import * as reader from "../../../src/features/reader/index.js";
+import { rust } from "../../../src/shared/rust.js";
 
 /**
  * The PDF text helpers live once, in line-reconstruction (04-06, 04-07, 04-09,
@@ -16,32 +12,32 @@ import * as reader from "../../../src/features/reader/index.js";
  */
 
 test("pageTextFromItems: runs joined, a newline after each hasEOL run", () => {
-  assert.equal(pageTextFromItems([]), "");
+  assert.equal(rust().pageTextFromItems([]), "");
   assert.equal(
-    pageTextFromItems([{ str: "see " }, { str: "[12]", hasEOL: true }, { str: "" , hasEOL: true }, { str: "tail" }]),
+    rust().pageTextFromItems([{ str: "see " }, { str: "[12]", hasEOL: true }, { str: "" , hasEOL: true }, { str: "tail" }]),
     "see [12]\n\ntail",
   );
-  assert.equal(pageTextFromItems([{ str: "a", hasEOL: false }, { str: "b", hasEOL: true }]), "ab\n");
+  assert.equal(rust().pageTextFromItems([{ str: "a", hasEOL: false }, { str: "b", hasEOL: true }]), "ab\n");
 });
 
-test("pageTextFromItems: one copy, the one the package exports", () => {
-  assert.equal(reader.pageTextFromItems, pageTextFromItems);
+test("pageTextFromItems: one copy, in Rust", () => {
+  assert.equal("pageTextFromItems" in reader, false, "the reader barrel keeps no copy");
   assert.equal("pageTextFromItems" in citationText, false, "citation-text keeps no copy");
 });
 
 test("isBoldFont: bold, black and heavy faces, any case; nothing else", () => {
   for (const name of ["Times-Bold", "NimbusSan-BoldItalic", "Arial Black", "Roboto-Heavy", "CMBX10+bold"]) {
-    assert.equal(isBoldFont(name), true, name);
+    assert.equal(rust().isBoldFont(name), true, name);
   }
   for (const name of [undefined, "", "Times-Roman", "CMR10", "Helvetica-Oblique"]) {
-    assert.equal(isBoldFont(name), false, String(name));
+    assert.equal(rust().isBoldFont(name), false, String(name));
   }
 });
 
 test("furnitureKey: lower case, spaces collapsed, digits masked", () => {
-  assert.equal(furnitureKey("Journal  of\tTests 12"), "journal of tests #");
-  assert.equal(furnitureKey("Page 3 of 10"), "page # of #");
-  assert.equal(furnitureKey("ABC"), "abc");
+  assert.equal(rust().furnitureKey("Journal  of\tTests 12"), "journal of tests #");
+  assert.equal(rust().furnitureKey("Page 3 of 10"), "page # of #");
+  assert.equal(rust().furnitureKey("ABC"), "abc");
   assert.equal(FURNITURE_MARGIN, 0.06);
 });
 

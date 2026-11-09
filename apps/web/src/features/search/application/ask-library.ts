@@ -3,13 +3,9 @@
  * answers from them alone and cites them as [n]. The passages are the user's
  * documents, so they go to the model fenced as untrusted data.
  */
-import {
-  contextNonce,
-  type AiModelRequest,
-  type IModelConversation,
-  type SearchHit,
-} from "@weaveforge/core";
+import { type AiModelRequest, type IModelConversation, type SearchHit } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface CitedSource {
   n: number;
@@ -80,6 +76,6 @@ export async function askLibrary(input: {
 }): Promise<AskResult> {
   const hits = await input.search(input.question);
   if (hits.length === 0) return { answer: "Nothing in your library matches that question.", sources: [] };
-  const { text } = await input.model.complete(buildAskRequest(input.question, hits, input.nonce ?? contextNonce()));
+  const { text } = await input.model.complete(buildAskRequest(input.question, hits, input.nonce ?? typedCore().contextNonce()));
   return { answer: text, sources: citedSources(text, hits) };
 }

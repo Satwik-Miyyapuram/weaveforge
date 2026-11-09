@@ -12,18 +12,14 @@
  */
 
 import { useEffect } from "react";
-import {
-  inkAttachmentIndex,
-  inkPageBackground,
-  inkPageFigures,
-  type InkNoteMeta,
-} from "@weaveforge/core";
+import { inkPageFigures, type InkNoteMeta } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkStoredPage } from "../application/ink-chunk-store";
 import { decodedStrokeCount } from "./use-decoded-strokes";
 import type { FigureGeometry } from "@weaveforge/core";
 import type { InkPage } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /** What the page change needs from the host. */
 export interface InkPageLifecycleDeps {
@@ -100,8 +96,8 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
    */
   useEffect(() => {
     if (pageCount === 0) return;
-    const path = inkPageBackground(textPagesRef.current[pageIndex] ?? "");
-    const index = inkAttachmentIndex(noteBody(), path);
+    const path = typedCore().inkPageBackground(textPagesRef.current[pageIndex] ?? "");
+    const index = typedCore().inkAttachmentIndex(noteBody(), path);
     setBackgroundPath(path);
     send({ type: "set-background", image: null, index });
     if (!path) return;

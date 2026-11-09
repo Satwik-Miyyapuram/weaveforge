@@ -1,18 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  INK_SMOOTH_SPACING,
-  binomialSmooth,
-  resampleInkStroke,
-  smoothInkStroke,
-} from "../../src/ink/smooth.js";
+import { INK_SMOOTH_SPACING } from "../../src/ink/smooth.js";
+import { rust } from "../../src/shared/rust.js";
 
 test("resampling spaces the points evenly and keeps both ends", () => {
   // Uneven samples on a straight run, 20 units long: the spacing is measured
   // along the path, so a corner would shorten a chord; a line shows the rule.
   const points = [0, 0, 3, 0, 10, 0, 20, 0];
-  const { points: out, pressures } = resampleInkStroke(points, [0.2, 0.4, 0.6, 1], 4);
+  const { points: out, pressures } = rust().resampleInkStroke(points, [0.2, 0.4, 0.6, 1], 4);
   assert.deepEqual(out.slice(0, 2), [0, 0]);
   assert.deepEqual(out.slice(-2), [20, 0]);
   for (let i = 2; i + 3 < out.length; i += 2) {
@@ -26,19 +22,19 @@ test("resampling spaces the points evenly and keeps both ends", () => {
 });
 
 test("resampling does not double the last point", () => {
-  const { points } = resampleInkStroke([0, 0, 8, 0], [0, 0], 4);
+  const { points } = rust().resampleInkStroke([0, 0, 8, 0], [0, 0], 4);
   assert.deepEqual(points, [0, 0, 4, 0, 8, 0]);
 });
 
 test("a dot or a pair of samples passes through untouched", () => {
-  assert.deepEqual(resampleInkStroke([3, 4], [1], 4).points, [3, 4]);
-  assert.deepEqual(smoothInkStroke([0, 0, 1, 0], [0, 0]).points, [0, 0, 1, 0]);
+  assert.deepEqual(rust().resampleInkStroke([3, 4], [1], 4).points, [3, 4]);
+  assert.deepEqual(rust().smoothInkStroke([0, 0, 1, 0], [0, 0]).points, [0, 0, 1, 0]);
 });
 
 test("the kernel takes the jitter out of a line and pins its ends", () => {
   const jittered: number[] = [];
   for (let i = 0; i <= 20; i += 1) jittered.push(i * 3, i % 2 === 0 ? 0.4 : -0.4);
-  const out = binomialSmooth(jittered, 2);
+  const out = rust().binomialSmooth(jittered, 2);
   assert.deepEqual(out.slice(0, 2), [0, 0.4]);
   assert.deepEqual(out.slice(-2), [60, 0.4]);
   for (let i = 3; i < 18; i += 1) {
@@ -56,7 +52,7 @@ test("a curve keeps its shape: the smoothed arc stays on the circle", () => {
     points.push(radius * Math.cos(angle), radius * Math.sin(angle));
     pressures.push(0.5);
   }
-  const { points: out } = smoothInkStroke(points, pressures);
+  const { points: out } = rust().smoothInkStroke(points, pressures);
   for (let i = 0; i < out.length; i += 2) {
     const r = Math.hypot(out[i]!, out[i + 1]!);
     assert.ok(Math.abs(r - radius) < 0.5, `point ${i / 2} left the circle: ${r}`);
@@ -66,7 +62,7 @@ test("a curve keeps its shape: the smoothed arc stays on the circle", () => {
 
 test("a corner rounds by less than half a millimetre", () => {
   const points = [0, 0, 30, 0, 30, 30];
-  const { points: out } = smoothInkStroke(points, [0.5, 0.5, 0.5]);
+  const { points: out } = rust().smoothInkStroke(points, [0.5, 0.5, 0.5]);
   let nearest = Infinity;
   for (let i = 0; i < out.length; i += 2) {
     nearest = Math.min(nearest, Math.hypot(out[i]! - 30, out[i + 1]!));

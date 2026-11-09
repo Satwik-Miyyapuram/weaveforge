@@ -9,12 +9,9 @@
  * web build fetch online and the desktop build read from setup.
  */
 
-import {
-  paperPdfPath,
-  type IPdfByteCache,
-  type IWorkspaceFs,
-} from "@weaveforge/core";
+import { type IPdfByteCache, type IWorkspaceFs } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 export class WorkspacePdfStore implements IPdfByteCache {
   /**
@@ -30,7 +27,7 @@ export class WorkspacePdfStore implements IPdfByteCache {
   async get(key: string): Promise<ArrayBuffer | null> {
     const fs = this.fs();
     if (!fs) return null;
-    const path = paperPdfPath(key, await this.projectRoot());
+    const path = typedCore().paperPdfPath(key, await this.projectRoot());
     if (!(await fs.stat(path))) return null;
     const bytes = await fs.readFile(path);
     return bytes.buffer.slice(
@@ -42,7 +39,7 @@ export class WorkspacePdfStore implements IPdfByteCache {
   async has(key: string): Promise<boolean> {
     const fs = this.fs();
     if (!fs) return false;
-    const stat = await fs.stat(paperPdfPath(key, await this.projectRoot()));
+    const stat = await fs.stat(typedCore().paperPdfPath(key, await this.projectRoot()));
     return (stat?.size ?? 0) > 0;
   }
 
@@ -52,13 +49,13 @@ export class WorkspacePdfStore implements IPdfByteCache {
     const core = await loadCore();
     const root = await this.projectRoot();
     await fs.mkdirp(core.entityDir("paper", root) + "/pdf");
-    await fs.writeFile(paperPdfPath(key, root), new Uint8Array(bytes));
+    await fs.writeFile(typedCore().paperPdfPath(key, root), new Uint8Array(bytes));
   }
 
   async remove(key: string): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
-    const path = paperPdfPath(key, await this.projectRoot());
+    const path = typedCore().paperPdfPath(key, await this.projectRoot());
     if (await fs.stat(path)) await fs.remove(path);
   }
 

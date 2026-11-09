@@ -1,12 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  decodeHtmlEntities,
-  extractPageTitle,
-  looksLikeImageUrl,
-} from "../../src/net/page-title.js";
+import { rust } from "../../src/shared/rust.js";
 
-const title = (html: string) => extractPageTitle(html)?.title;
+
+const title = (html: string) => rust().extractPageTitle(html)?.title;
 
 test("OpenGraph wins, because it is the site saying what to call this link", () => {
   assert.equal(
@@ -23,9 +20,9 @@ test("the title element is the fallback", () => {
 
 test("entities are decoded, ampersand last", () => {
   assert.equal(title("<title>Tom &amp; Jerry &#8212; a study</title>"), "Tom & Jerry — a study");
-  assert.equal(decodeHtmlEntities("&amp;lt;"), "&lt;");
-  assert.equal(decodeHtmlEntities("&#x2014;"), "—");
-  assert.equal(decodeHtmlEntities("&#999999999;"), "");
+  assert.equal(rust().decodeHtmlEntities("&amp;lt;"), "&lt;");
+  assert.equal(rust().decodeHtmlEntities("&#x2014;"), "—");
+  assert.equal(rust().decodeHtmlEntities("&#999999999;"), "");
 });
 
 test("whitespace across lines collapses", () => {
@@ -36,10 +33,10 @@ test("a challenge page is flagged rather than used silently", () => {
   // Answering 200 with an ordinary <title> is exactly what these pages do, so
   // without the flag a pasted link becomes "[Just a moment…](…)".
   for (const wall of ["Just a moment...", "Attention Required! | Cloudflare", "Access denied", "403 Forbidden"]) {
-    const result = extractPageTitle(`<title>${wall}</title>`);
+    const result = rust().extractPageTitle(`<title>${wall}</title>`);
     assert.equal(result?.suspect, true, wall);
   }
-  assert.equal(extractPageTitle("<title>A real article</title>")?.suspect, false);
+  assert.equal(rust().extractPageTitle("<title>A real article</title>")?.suspect, false);
 });
 
 test("an unclosed title element does not swallow the document", () => {
@@ -57,19 +54,19 @@ test("attributes in any quoting style are read", () => {
 });
 
 test("an image URL is recognised by its path, and nothing else is guessed", () => {
-  assert.equal(looksLikeImageUrl("https://a.example/figure.png"), true);
-  assert.equal(looksLikeImageUrl("https://a.example/figure.JPEG?width=200"), true);
-  assert.equal(looksLikeImageUrl("https://a.example/article"), false);
-  assert.equal(looksLikeImageUrl("https://a.example/a.png.html"), false);
-  assert.equal(looksLikeImageUrl("not a url"), false);
+  assert.equal(rust().looksLikeImageUrl("https://a.example/figure.png"), true);
+  assert.equal(rust().looksLikeImageUrl("https://a.example/figure.JPEG?width=200"), true);
+  assert.equal(rust().looksLikeImageUrl("https://a.example/article"), false);
+  assert.equal(rust().looksLikeImageUrl("https://a.example/a.png.html"), false);
+  assert.equal(rust().looksLikeImageUrl("not a url"), false);
 });
 
 // 01-08: one pass, so text an entity produces is never decoded a second time.
 test("an entity's output is not decoded again", () => {
-  assert.equal(decodeHtmlEntities("&#38;lt;"), "&lt;");
-  assert.equal(decodeHtmlEntities("&#x26;amp;"), "&amp;");
-  assert.equal(decodeHtmlEntities("&amp;#8212;"), "&#8212;");
-  assert.equal(decodeHtmlEntities("&amp;amp;"), "&amp;");
-  assert.equal(decodeHtmlEntities("&LT;b&GT; &Amp; &#39;x&#039; &apos;"), "<b> & 'x' '");
-  assert.equal(decodeHtmlEntities("&unknown; & alone"), "&unknown; & alone");
+  assert.equal(rust().decodeHtmlEntities("&#38;lt;"), "&lt;");
+  assert.equal(rust().decodeHtmlEntities("&#x26;amp;"), "&amp;");
+  assert.equal(rust().decodeHtmlEntities("&amp;#8212;"), "&#8212;");
+  assert.equal(rust().decodeHtmlEntities("&amp;amp;"), "&amp;");
+  assert.equal(rust().decodeHtmlEntities("&LT;b&GT; &Amp; &#39;x&#039; &apos;"), "<b> & 'x' '");
+  assert.equal(rust().decodeHtmlEntities("&unknown; & alone"), "&unknown; & alone");
 });

@@ -1,9 +1,10 @@
 import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { resolveResultsTables } from "@/features/report/application/results-table-refs";
-import { PRISMA_FIGURE_PACKAGES, uniqueFigureName } from "@weaveforge/core";
+import { PRISMA_FIGURE_PACKAGES } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 import { buildCiteByTitle, collectCitedKeys, joinBibtex, paperToBibtex } from "./bibtex-export";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface OverleafExportOptions {
   /** Document title for `\title{}`. */
@@ -136,7 +137,7 @@ function walkSections(
       stats.equationsApprox += (s.notes.match(/\$/g) ?? []).length;
       const renamed = new Map<string, string>();
       for (const img of converted.images) {
-        const fileName = uniqueFigureName(img.fileName, usedFigureNames);
+        const fileName = typedCore().uniqueFigureName(img.fileName, usedFigureNames);
         renamed.set(img.fileName, fileName);
         images.push({ storagePath: img.path, zipPath: `figures/${fileName}` });
         stats.figures += 1;

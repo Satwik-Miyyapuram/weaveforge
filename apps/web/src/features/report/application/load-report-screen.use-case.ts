@@ -4,8 +4,9 @@ import type {
   IShareRepository,
   ReportSection,
 } from "@weaveforge/core";
-import { buildSectionTree, loadPinnedScreenData } from "@weaveforge/core";
+import { loadPinnedScreenData } from "@weaveforge/core";
 import type { ReportSectionTreeNode } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 export interface ReportScreenData {
   tree: ReportSectionTreeNode[];
@@ -38,7 +39,7 @@ export class LoadReportScreenUseCase {
       // tree like any other: building the tree pre-merge put it in `flat` and
       // left it out of the only projection the screen paints, so the same data
       // had two different answers depending on which field you read.
-      tree: buildSectionTree(merged.items),
+      tree: typedCore().buildSectionTree(merged.items),
       flat: merged.items,
       pinnedSharedBy: merged.pinnedSharedBy,
       reportCanComment: merged.canComment,

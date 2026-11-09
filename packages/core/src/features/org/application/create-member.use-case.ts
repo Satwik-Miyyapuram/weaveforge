@@ -4,15 +4,10 @@
  * delegates the actual account creation to the injected provisioner. The server
  * re-enforces the same rules authoritatively — this is never the only gate.
  */
-import {
-  canCreateRole,
-  validateNewMember,
-  MemberPermissionError,
-  type Member,
-  type NewMemberInput,
-} from "../domain/member.js";
+import { MemberPermissionError, type Member, type NewMemberInput, type Role } from "../domain/member.js";
 import type { IMemberRepository } from "../domain/member-repository.js";
 import type { IAccountProvisioner } from "../domain/account-provisioner.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface CreateMemberDeps {
   members: IMemberRepository;
@@ -28,16 +23,16 @@ export class CreateMemberUseCase {
    * create the requested role.
    */
   async create(input: NewMemberInput): Promise<Member> {
-    const normalized = validateNewMember(input);
+    const normalized = rust().validateNewMember(input);
     const me = await this.deps.members.getMine();
     if (!me) {
       throw new MemberPermissionError("Only registered members can create accounts.");
     }
-    if (!canCreateRole(me.role, normalized.role)) {
+    if (!rust().canCreateRole(me.role, normalized.role)) {
       throw new MemberPermissionError(
         `A ${me.role} cannot create a ${normalized.role} account.`,
       );
     }
-    return this.deps.provisioner.createMember(normalized);
+    return this.deps.provisioner.createMember({ ...normalized, role: normalized.role as Role });
   }
 }

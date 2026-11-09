@@ -1,4 +1,5 @@
-import { errorMessage, isIpAddress, isPublicAddress } from "@weaveforge/core";
+import { errorMessage } from "@weaveforge/core";
+import { rust } from "@weaveforge/core";
 
 /** What every shell proxy shares: its injectable fetch, its error answer, and its host rule. */
 
@@ -39,7 +40,7 @@ export function upstreamFailed(
 export function isPrivateHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (host === "localhost" || host.endsWith(".localhost")) return true;
-  return isIpAddress(host) && !isPublicAddress(host);
+  return rust().isIpAddress(host) && !rust().isPublicAddress(host);
 }
 
 /** An https address without credentials on a public host. */

@@ -1,9 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  isReaderAnnotationType,
-  READER_ANNOTATION_TYPES,
-} from "../../src/reader/reader-annotation.js";
+import { READER_ANNOTATION_TYPES } from "../../src/reader/reader-annotation.js";
+import { rust } from "../../src/shared/rust.js";
 
 test("READER_ANNOTATION_TYPES is Zotero's six — no strikeout", () => {
   assert.deepEqual([...READER_ANNOTATION_TYPES], [
@@ -14,8 +12,8 @@ test("READER_ANNOTATION_TYPES is Zotero's six — no strikeout", () => {
     "ink",
     "text",
   ]);
-  assert.equal(isReaderAnnotationType("highlight"), true);
-  assert.equal(isReaderAnnotationType("text"), true);
-  assert.equal(isReaderAnnotationType("strikeout"), false);
-  assert.equal(isReaderAnnotationType(""), false);
+  assert.equal(rust().isReaderAnnotationType("highlight"), true);
+  assert.equal(rust().isReaderAnnotationType("text"), true);
+  assert.equal(rust().isReaderAnnotationType("strikeout"), false);
+  assert.equal(rust().isReaderAnnotationType(""), false);
 });

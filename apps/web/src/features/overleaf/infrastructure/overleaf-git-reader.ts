@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { parseLatexSectionTree, type LatexSourceFile } from "@weaveforge/core";
-import { OVERLEAF_PROJECT_ID } from "../domain/link-rules";
+import type { LatexSectionTreeResult, LatexSourceFile } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 const MAX_FILES = 250;
 const MAX_FILE_BYTES = 2_000_000;
@@ -15,7 +15,7 @@ export interface OverleafReadResult {
   projectId: string;
   entryFile: string;
   files: LatexSourceFile[];
-  sectionTree: ReturnType<typeof parseLatexSectionTree>;
+  sectionTree: LatexSectionTreeResult;
   overleafUrl: string;
 }
 
@@ -59,7 +59,7 @@ export async function readOverleafProject(
   entryFile: string,
   token: string,
 ): Promise<OverleafReadResult> {
-  if (!OVERLEAF_PROJECT_ID.test(projectId)) throw new Error("Overleaf project id is invalid.");
+  if (!typedCore().isOverleafProjectId(projectId)) throw new Error("Overleaf project id is invalid.");
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "weaveforge-overleaf-"));
   try {
     await git.clone({
@@ -78,7 +78,7 @@ export async function readOverleafProject(
       projectId,
       entryFile: normalizedEntry,
       files,
-      sectionTree: parseLatexSectionTree(files, normalizedEntry),
+      sectionTree: typedCore().parseLatexSectionTree(files, normalizedEntry),
       overleafUrl: `https://www.overleaf.com/project/${projectId}`,
     };
   } finally {

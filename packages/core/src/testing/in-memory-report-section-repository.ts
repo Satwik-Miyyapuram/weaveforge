@@ -4,13 +4,9 @@
  * Reference implementation for tests and the Liskov substitutability contract.
  */
 
-import {
-  buildSectionTree,
-  type ReportSection,
-  type ReportSectionFilter,
-  type ReportSectionTreeNode,
-} from "../features/report/domain/report-section.js";
+import { type ReportSection, type ReportSectionFilter, type ReportSectionTreeNode } from "../features/report/domain/report-section.js";
 import type { IReportSectionRepository } from "../features/report/domain/report-section-repository.js";
+import { rust } from "../shared/rust.js";
 
 export class InMemoryReportSectionRepository
   implements IReportSectionRepository
@@ -43,7 +39,7 @@ export class InMemoryReportSectionRepository
   }
 
   async getTree(): Promise<ReportSectionTreeNode[]> {
-    return buildSectionTree([...this.store.values()]);
+    return rust().buildSectionTree([...this.store.values()]);
   }
 
   async save(entity: ReportSection): Promise<void> {

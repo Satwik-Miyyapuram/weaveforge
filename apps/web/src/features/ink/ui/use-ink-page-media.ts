@@ -24,23 +24,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isEditableTarget } from "@/lib/editable-target";
 import { readyCore } from "@/lib/rust-core";
-import {
-  errorMessage,
-  INK_A4_WIDTH,
-  INK_A4_HEIGHT,
-  blankInkPage,
-  clampInkPageSize,
-  encodeInkChunk,
-  inkAttachmentIndex,
-  inkPageBackground,
-  inkPageFigures,
-  joinInkTextLayer,
-  newInkChunkId,
-  withInkPageBackground,
-  withInkPageFigures,
-  type FigureGeometry,
-  type InkNoteMeta,
-} from "@weaveforge/core";
+import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, inkPageFigures, withInkPageFigures, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
 
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
@@ -56,6 +40,7 @@ import {
   pdfPageBackgrounds,
 } from "../application/page-background";
 import { figureBoxForImage } from "./ink-figures";
+import { typedCore } from "@/lib/rust-core";
 
 /** How a page's media gets written; the host owns the sidecar and the saves. */
 export interface InkPageMediaDeps {
@@ -217,9 +202,9 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         const path = await deps.assets.upload(deps.noteId, png, "png");
         // The text layer first: the body is what the attachment index counts.
         deps.textPagesRef.current = deps.textPagesRef.current.map((text, index) =>
-          index === target ? withInkPageBackground(text, path) : text,
+          index === target ? typedCore().withInkPageBackground(text, path) : text,
         );
-        const background = inkAttachmentIndex(deps.noteBody(), path);
+        const background = typedCore().inkAttachmentIndex(deps.noteBody(), path);
         await writePageBackgroundChunk(target, background);
         // The page the work was for is still the one on screen, whichever page
         // the user was on when the click started: a page made for a new image
@@ -254,9 +239,9 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         0,
         Math.min(targetPageIndex ?? deps.pageIndexRef.current, pages.length - 1),
       );
-      if (!inkPageBackground(deps.textPagesRef.current[target] ?? "")) return;
+      if (!typedCore().inkPageBackground(deps.textPagesRef.current[target] ?? "")) return;
       deps.textPagesRef.current = deps.textPagesRef.current.map((text, index) =>
-        index === target ? withInkPageBackground(text, null) : text,
+        index === target ? typedCore().withInkPageBackground(text, null) : text,
       );
       await writePageBackgroundChunk(target, 0);
       // Only if the reader is still on that page: the chunk write above is an
@@ -454,7 +439,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         // first text-layer line. The attachment index counts the body, so the
         // text layer grows before each index is read — which is what makes a
         // later page's index different from an earlier one's.
-        const size = clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
+        const size = typedCore().clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
         const backgrounds = bytes
           ? pdfPageBackgrounds(bytes, numbers)
           : (async function* () {
@@ -462,18 +447,18 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
             })();
         for await (const png of backgrounds) {
           const path = await deps.assets.upload(deps.noteId, png, "png");
-          const text = withInkPageBackground("", path);
+          const text = typedCore().withInkPageBackground("", path);
           const nextTextPages = [...deps.textPagesRef.current, text];
           const body = readyCore().writeInkNoteBody(
             deps.metaRef.current,
-            joinInkTextLayer(nextTextPages),
+            typedCore().joinInkTextLayer(nextTextPages),
           );
-          const chunkId = newInkChunkId();
+          const chunkId = typedCore().newInkChunkId();
           const chunk = await encodeInkChunk({
-            ...blankInkPage(deps.metaRef.current.paper),
+            ...typedCore().blankInkPage(deps.metaRef.current.paper),
             width: size.width,
             height: size.height,
-            background: inkAttachmentIndex(body, path),
+            background: typedCore().inkAttachmentIndex(body, path),
           });
           await deps.chunks.write(deps.noteId, chunkId, chunk);
           deps.flushSave();

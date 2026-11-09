@@ -5,38 +5,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { simplifyPathIndices } from "../../src/reader/ink-stroke.js";
+
 import { rust } from "../../src/shared/rust.js";
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  INK_NOTE_MAX_PAGES,
-  INK_NOTE_TYPE,
-  INK_PAGE_STROKE_BUDGET,
-  INK_SIDECAR_DIR,
-  INK_STROKE_MAX_POINTS,
-  blankInkPage,
-  clampInkPageSize,
-  defaultInkNoteMeta,
-  inkAttachmentIndex,
-  inkPageBackground,
-  withInkPageBackground,
-  inkChunkPath,
-  inkPageMarker,
-  inkPageOverBudget,
-  inkSidecarDir,
-  isInkChunkId,
-  isInkNoteFrontmatter,
-  isInkNoteId,
-  joinInkTextLayer,
-  makeInkStroke,
-  newInkChunkId,
-  parseInkChunkPath,
-  readInkNoteMeta,
-  resolveInkPageOrder,
-  splitInkTextLayer,
-  writeInkNoteMeta,
-} from "../../src/ink/ink-note.js";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_SIDECAR_DIR, INK_STROKE_MAX_POINTS } from "../../src/ink/ink-note.js";
 import { packInkStroke } from "../../src/ink/stroke-packer.js";
 
 /** Chunk ids that are valid by construction (26 Crockford characters). */
@@ -57,13 +28,13 @@ test("ink metadata round-trips through the frontmatter the workspace writes", ()
       "weaveforge-id": "01JNOTE",
       "weaveforge-type": INK_NOTE_TYPE,
       title: "Supervisor meeting 11 Feb",
-      ...writeInkNoteMeta(meta),
+      ...rust().writeInkNoteMeta(meta),
     },
     "Drop the β sweep.\n",
   );
   const { frontmatter, body } = rust().readFrontmatter(file);
-  assert.equal(isInkNoteFrontmatter(frontmatter), true);
-  assert.deepEqual(readInkNoteMeta(frontmatter), meta);
+  assert.equal(rust().isInkNoteFrontmatter(frontmatter), true);
+  assert.deepEqual(rust().readInkNoteMeta(frontmatter), meta);
   assert.equal(body, "Drop the β sweep.\n");
 });
 
@@ -71,14 +42,14 @@ test("a note with no ink keys is a valid empty ink note: one blank page", () => 
   const { frontmatter } = rust().readFrontmatter(
     rust().writeFrontmatter({ "weaveforge-type": INK_NOTE_TYPE, title: "Untitled" }, ""),
   );
-  const meta = readInkNoteMeta(frontmatter);
-  assert.deepEqual(meta, defaultInkNoteMeta());
+  const meta = rust().readInkNoteMeta(frontmatter);
+  assert.deepEqual(meta, rust().defaultInkNoteMeta());
   assert.equal(meta.pages, 1);
   assert.deepEqual(meta.pageOrder, [], "the chunk list is empty until a page is written");
   assert.equal(meta.engine, null);
-  assert.deepEqual(blankInkPage().strokes, []);
-  assert.equal(blankInkPage().width, INK_A4_WIDTH);
-  assert.equal(blankInkPage().height, INK_A4_HEIGHT);
+  assert.deepEqual(rust().blankInkPage().strokes, []);
+  assert.equal(rust().blankInkPage().width, INK_A4_WIDTH);
+  assert.equal(rust().blankInkPage().height, INK_A4_HEIGHT);
 });
 
 test("nonsense in the ink keys is read as the default rather than trusted", () => {
@@ -95,7 +66,7 @@ test("nonsense in the ink keys is read as the default rather than trusted", () =
       "",
     ].join("\n"),
   );
-  const meta = readInkNoteMeta(frontmatter);
+  const meta = rust().readInkNoteMeta(frontmatter);
   assert.equal(meta.pages, 1);
   assert.equal(meta.paper, "blank");
   assert.deepEqual(meta.pageOrder, [CHUNK_A], "only ids shaped like chunk ids survive");
@@ -107,65 +78,65 @@ test("the page count is capped at the fifty pages a note may hold", () => {
   const { frontmatter } = rust().readFrontmatter(
     ["---", "weaveforge-type: ink_page", `ink-pages: ${INK_NOTE_MAX_PAGES + 20}`, "---", ""].join("\n"),
   );
-  assert.equal(readInkNoteMeta(frontmatter).pages, INK_NOTE_MAX_PAGES);
+  assert.equal(rust().readInkNoteMeta(frontmatter).pages, INK_NOTE_MAX_PAGES);
 });
 
 test("the text layer splits into pages on its markers and rejoins unchanged", () => {
   const body = [
     "Drop the β sweep for §3.2, see [[Graph-prior module]].",
     "",
-    inkPageMarker(2),
+    rust().inkPageMarker(2),
     "",
     "![](vault:papers/kipf-2016/page-3.png)",
     "Compare against [[VGAE]] table 2.",
     "",
   ].join("\n");
-  const pages = splitInkTextLayer(body);
+  const pages = rust().splitInkTextLayer(body);
   assert.equal(pages.length, 2);
   assert.equal(pages[0], "Drop the β sweep for §3.2, see [[Graph-prior module]].");
   assert.equal(pages[1], "![](vault:papers/kipf-2016/page-3.png)\nCompare against [[VGAE]] table 2.");
-  assert.equal(splitInkTextLayer(joinInkTextLayer(pages)).length, 2);
-  assert.deepEqual(splitInkTextLayer(joinInkTextLayer(pages)), pages);
+  assert.equal(rust().splitInkTextLayer(rust().joinInkTextLayer(pages)).length, 2);
+  assert.deepEqual(rust().splitInkTextLayer(rust().joinInkTextLayer(pages)), pages);
 });
 
 test("a note with no recognised text at all is one empty page, not zero", () => {
-  assert.deepEqual(splitInkTextLayer(""), [""]);
-  assert.deepEqual(splitInkTextLayer("\n\n"), [""]);
-  assert.equal(joinInkTextLayer([""]), "\n");
-  assert.deepEqual(splitInkTextLayer(joinInkTextLayer(["", ""])), ["", ""]);
+  assert.deepEqual(rust().splitInkTextLayer(""), [""]);
+  assert.deepEqual(rust().splitInkTextLayer("\n\n"), [""]);
+  assert.equal(rust().joinInkTextLayer([""]), "\n");
+  assert.deepEqual(rust().splitInkTextLayer(rust().joinInkTextLayer(["", ""])), ["", ""]);
 });
 
 test("the sidecar lives under .ink/<note id>, keyed by id so a rename cannot orphan it", () => {
-  assert.equal(inkSidecarDir("01JNOTE"), `${INK_SIDECAR_DIR}/01JNOTE`);
-  const path = inkChunkPath("01JNOTE", CHUNK_A);
+  assert.equal(rust().inkSidecarDir("01JNOTE"), `${INK_SIDECAR_DIR}/01JNOTE`);
+  const path = rust().inkChunkPath("01JNOTE", CHUNK_A);
   assert.equal(path, `.ink/01JNOTE/${CHUNK_A}.inkb`);
-  assert.deepEqual(parseInkChunkPath(path), { noteId: "01JNOTE", chunkId: CHUNK_A });
-  assert.equal(parseInkChunkPath(".ink/01JNOTE/not-a-chunk.inkb"), null);
-  assert.equal(parseInkChunkPath("notes/01JNOTE/x.inkb"), null);
-  assert.equal(parseInkChunkPath(".ink/01JNOTE/x.inkb/extra"), null);
-  assert.equal(parseInkChunkPath(""), null);
+  assert.deepEqual(rust().parseInkChunkPath(path), { noteId: "01JNOTE", chunkId: CHUNK_A });
+  assert.equal(rust().parseInkChunkPath(".ink/01JNOTE/not-a-chunk.inkb"), null);
+  assert.equal(rust().parseInkChunkPath("notes/01JNOTE/x.inkb"), null);
+  assert.equal(rust().parseInkChunkPath(".ink/01JNOTE/x.inkb/extra"), null);
+  assert.equal(rust().parseInkChunkPath(""), null);
 });
 
 test("a path-shaped id is refused rather than woven into the folder", () => {
-  assert.equal(isInkNoteId("01JNOTE"), true);
-  assert.equal(isInkNoteId("../escape"), false);
-  assert.equal(isInkNoteId("a/b"), false);
-  assert.equal(isInkNoteId(""), false);
-  assert.throws(() => inkSidecarDir("../escape"), /unusable note id/);
-  assert.throws(() => inkChunkPath("01JNOTE", "../../etc/passwd"), /unusable chunk id/);
-  assert.equal(parseInkChunkPath(".ink/../escape/01JABC0DEF0GH0JK0MN0PQ0RS.inkb"), null);
+  assert.equal(rust().isInkNoteId("01JNOTE"), true);
+  assert.equal(rust().isInkNoteId("../escape"), false);
+  assert.equal(rust().isInkNoteId("a/b"), false);
+  assert.equal(rust().isInkNoteId(""), false);
+  assert.throws(() => rust().inkSidecarDir("../escape"), /unusable note id/);
+  assert.throws(() => rust().inkChunkPath("01JNOTE", "../../etc/passwd"), /unusable chunk id/);
+  assert.equal(rust().parseInkChunkPath(".ink/../escape/01JABC0DEF0GH0JK0MN0PQ0RS.inkb"), null);
 });
 
 test("a chunk id is a ULID: twenty-six characters, sortable by creation", () => {
-  const fixed = newInkChunkId({ now: 1_700_000_000_000, randomBytes: (target) => target.fill(7) });
+  const fixed = rust().newInkChunkId({ now: 1_700_000_000_000, randomBytes: (target) => target.fill(7) });
   assert.equal(fixed.length, 26);
-  assert.equal(isInkChunkId(fixed), true);
-  assert.equal(newInkChunkId({ now: 1_700_000_000_000, randomBytes: (t) => t.fill(7) }), fixed);
+  assert.equal(rust().isInkChunkId(fixed), true);
+  assert.equal(rust().newInkChunkId({ now: 1_700_000_000_000, randomBytes: (t) => t.fill(7) }), fixed);
 
-  const later = newInkChunkId({ now: 1_700_000_001_000, randomBytes: (t) => t.fill(7) });
+  const later = rust().newInkChunkId({ now: 1_700_000_001_000, randomBytes: (t) => t.fill(7) });
   assert.ok(later > fixed, "ids sort by the time they were made");
   assert.notEqual(
-    newInkChunkId({ now: 1_700_000_000_000, randomBytes: (t) => t.fill(9) }),
+    rust().newInkChunkId({ now: 1_700_000_000_000, randomBytes: (t) => t.fill(9) }),
     fixed,
     "and differ when the randomness does",
   );
@@ -174,22 +145,22 @@ test("a chunk id is a ULID: twenty-six characters, sortable by creation", () => 
 });
 
 test("page order: what the note declares first, then whatever else is on disk", () => {
-  assert.deepEqual(resolveInkPageOrder([CHUNK_B, CHUNK_A], [CHUNK_A, CHUNK_B]), [CHUNK_B, CHUNK_A]);
+  assert.deepEqual(rust().resolveInkPageOrder([CHUNK_B, CHUNK_A], [CHUNK_A, CHUNK_B]), [CHUNK_B, CHUNK_A]);
   // A chunk that appeared without being recorded is not hidden.
-  assert.deepEqual(resolveInkPageOrder([CHUNK_B], [CHUNK_A, CHUNK_B]), [CHUNK_B, CHUNK_A]);
+  assert.deepEqual(rust().resolveInkPageOrder([CHUNK_B], [CHUNK_A, CHUNK_B]), [CHUNK_B, CHUNK_A]);
   // A chunk that vanished does not make the note unopenable.
-  assert.deepEqual(resolveInkPageOrder([CHUNK_B, CHUNK_A], [CHUNK_B]), [CHUNK_B]);
+  assert.deepEqual(rust().resolveInkPageOrder([CHUNK_B, CHUNK_A], [CHUNK_B]), [CHUNK_B]);
   // Files that are not chunks are ignored rather than ordered.
-  assert.deepEqual(resolveInkPageOrder([], ["notes.md", CHUNK_A]), [CHUNK_A]);
-  assert.equal(resolveInkPageOrder([], Array.from({ length: 60 }, () => CHUNK_A)).length, INK_NOTE_MAX_PAGES);
+  assert.deepEqual(rust().resolveInkPageOrder([], ["notes.md", CHUNK_A]), [CHUNK_A]);
+  assert.equal(rust().resolveInkPageOrder([], Array.from({ length: 60 }, () => CHUNK_A)).length, INK_NOTE_MAX_PAGES);
 });
 
 test("a page over the stroke budget says so rather than refusing to open", () => {
   const strokes = Array.from({ length: INK_PAGE_STROKE_BUDGET + 1 }, () =>
-    makeInkStroke({ points: [0, 0, 10, 10] }),
+    rust().makeInkStroke({ points: [0, 0, 10, 10] }),
   );
-  assert.equal(inkPageOverBudget(blankInkPage()), false);
-  assert.equal(inkPageOverBudget({ ...blankInkPage(), strokes }), true);
+  assert.equal(rust().inkPageOverBudget(rust().blankInkPage()), false);
+  assert.equal(rust().inkPageOverBudget({ ...rust().blankInkPage(), strokes }), true);
 });
 
 test("packing a stroke simplifies it and keeps its endpoints", () => {
@@ -229,7 +200,7 @@ test("pressure that the centreline pass would have dropped is put back (§4.4)",
   // A straight line: Ramer–Douglas–Peucker keeps the two endpoints and nothing
   // else, so every interior point here survives only for its pressure.
   const coords = [0, 0, 10, 0, 20, 0, 30, 0, 40, 0];
-  assert.deepEqual(simplifyPathIndices(coords, 1.2), [0, 4], "the centreline needs only the ends");
+  assert.deepEqual(rust().simplifyPathIndices(coords, 1.2), [0, 4], "the centreline needs only the ends");
 
   // A press that rises and falls is a taper, and losing it loses the stroke's
   // look while its centreline stays correct.
@@ -255,17 +226,17 @@ test("pressure of the wrong length is ignored rather than misaligned", () => {
 });
 
 test("a page size that could not fit an Int16 coordinate is clamped", () => {
-  assert.deepEqual(clampInkPageSize(0, 0), { width: INK_A4_WIDTH, height: INK_A4_HEIGHT });
-  assert.deepEqual(clampInkPageSize(Number.NaN, 12), { width: INK_A4_WIDTH, height: 12 });
-  assert.deepEqual(clampInkPageSize(100_000, 100_000), { width: 32767, height: 32767 });
-  assert.deepEqual(clampInkPageSize(2100.4, 2970.6), { width: 2100, height: 2971 });
+  assert.deepEqual(rust().clampInkPageSize(0, 0), { width: INK_A4_WIDTH, height: INK_A4_HEIGHT });
+  assert.deepEqual(rust().clampInkPageSize(Number.NaN, 12), { width: INK_A4_WIDTH, height: 12 });
+  assert.deepEqual(rust().clampInkPageSize(100_000, 100_000), { width: 32767, height: 32767 });
+  assert.deepEqual(rust().clampInkPageSize(2100.4, 2970.6), { width: 2100, height: 2971 });
 });
 
 /* -------------------------------------------------------------------------
  * The header line inside a stored body
  * ---------------------------------------------------------------------- */
 
-import { isInkNoteBody, readInkNoteBody, writeInkNoteBody } from "../../src/ink/ink-note.js";
+
 import { parseWorkspaceFile } from "../../src/workspace/deserialize-workspace.js";
 
 test("the body header round-trips the ink metadata and leaves the text layer alone", () => {
@@ -277,33 +248,33 @@ test("the body header round-trips the ink metadata and leaves the text layer alo
     engine: "windows-ink@1",
     hand: "left" as const,
   };
-  const body = writeInkNoteBody(meta, "first page\n\n<!-- page 2 -->\n\nsecond\n");
-  assert.ok(isInkNoteBody(body));
-  assert.ok(!isInkNoteBody("first page"));
-  const read = readInkNoteBody(body);
+  const body = rust().writeInkNoteBody(meta, "first page\n\n<!-- page 2 -->\n\nsecond\n");
+  assert.ok(rust().isInkNoteBody(body));
+  assert.ok(!rust().isInkNoteBody("first page"));
+  const read = rust().readInkNoteBody(body);
   assert.deepEqual(read.meta, meta);
   assert.equal(read.text, "first page\n\n<!-- page 2 -->\n\nsecond\n");
 });
 
 test("a stray header line at the top of the text layer is damage, not text", () => {
-  const meta = { ...defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"] };
+  const meta = { ...rust().defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"] };
   const cutOff = "<!-- weaveforge-ink ink-pages=9 ink-paper=blank ink-page-order=01M2B9Q6KR";
-  const read = readInkNoteBody(writeInkNoteBody(meta, `${cutOff}\n<!-- weaveforge-ink ink-pages=1 -->\nhello\n`));
+  const read = rust().readInkNoteBody(rust().writeInkNoteBody(meta, `${cutOff}\n<!-- weaveforge-ink ink-pages=1 -->\nhello\n`));
   assert.deepEqual(read.meta, meta);
   assert.equal(read.text, "hello\n");
   // A body whose text is only the damage reads as empty, and saves clean.
-  assert.equal(readInkNoteBody(writeInkNoteBody(meta, cutOff)).text, "");
+  assert.equal(rust().readInkNoteBody(rust().writeInkNoteBody(meta, cutOff)).text, "");
 });
 
 test("a plain body reads as an empty ink note, which is what a note never inked is", () => {
-  const read = readInkNoteBody("just words");
-  assert.deepEqual(read.meta, defaultInkNoteMeta());
+  const read = rust().readInkNoteBody("just words");
+  assert.deepEqual(read.meta, rust().defaultInkNoteMeta());
   assert.equal(read.text, "just words");
 });
 
 test("the mirror lifts the header into frontmatter and folds it back on import", () => {
-  const meta = { ...defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"], recognised: 0.5 };
-  const body = writeInkNoteBody(meta, "hello");
+  const meta = { ...rust().defaultInkNoteMeta(), pageOrder: ["01JABCDEFGHJKMNPQRSTVWXYZ0"], recognised: 0.5 };
+  const body = rust().writeInkNoteBody(meta, "hello");
   const out = rust().serializeWorkspace({
     papers: [],
     vaultPages: [
@@ -324,29 +295,29 @@ test("the mirror lifts the header into frontmatter and folds it back on import",
   assert.ok(!content.includes("weaveforge-ink"), "the header line does not leak into the file");
   const parsed = parseWorkspaceFile(path!, content);
   assert.equal(parsed?.type, "vault_page");
-  assert.deepEqual(readInkNoteBody(parsed!.body).meta, meta);
-  assert.equal(readInkNoteBody(parsed!.body).text, "hello");
+  assert.deepEqual(rust().readInkNoteBody(parsed!.body).meta, meta);
+  assert.equal(rust().readInkNoteBody(parsed!.body).text, "hello");
 });
 
 test("a page's background is the first-line image ref, and survives a text replacement", () => {
-  assert.equal(inkPageBackground(""), null);
-  assert.equal(inkPageBackground("hello\n![page background](vault:u/p/a.png)"), null, "not first line");
-  assert.equal(inkPageBackground("![figure](vault:u/p/a.png)"), null, "not a background");
-  const withBg = withInkPageBackground("first line\nsecond", "u/p/a.png");
+  assert.equal(rust().inkPageBackground(""), null);
+  assert.equal(rust().inkPageBackground("hello\n![page background](vault:u/p/a.png)"), null, "not first line");
+  assert.equal(rust().inkPageBackground("![figure](vault:u/p/a.png)"), null, "not a background");
+  const withBg = rust().withInkPageBackground("first line\nsecond", "u/p/a.png");
   assert.equal(withBg, "![page background](vault:u/p/a.png)\n\nfirst line\nsecond");
-  assert.equal(inkPageBackground(withBg), "u/p/a.png");
+  assert.equal(rust().inkPageBackground(withBg), "u/p/a.png");
   // Recognition replaces the text; re-applying keeps exactly one line, first.
-  const again = withInkPageBackground(withInkPageBackground(withBg, "u/p/b.png"), "u/p/b.png");
+  const again = rust().withInkPageBackground(rust().withInkPageBackground(withBg, "u/p/b.png"), "u/p/b.png");
   assert.equal(again.split("\n").filter((l) => l.startsWith("![page background]")).length, 1);
-  assert.equal(inkPageBackground(again), "u/p/b.png");
-  assert.equal(withInkPageBackground(withBg, null), "first line\nsecond");
-  assert.equal(withInkPageBackground("", "u/p/c.png"), "![page background](vault:u/p/c.png)");
+  assert.equal(rust().inkPageBackground(again), "u/p/b.png");
+  assert.equal(rust().withInkPageBackground(withBg, null), "first line\nsecond");
+  assert.equal(rust().withInkPageBackground("", "u/p/c.png"), "![page background](vault:u/p/c.png)");
 });
 
 test("the chunk's attachment index is the ref's position among the body's vault images", () => {
   const body = "![x](vault:u/p/a.png)\n\n<!-- page 2 -->\n\n![page background](vault:u/p/b.png)\n![x](vault:u/p/a.png)";
-  assert.equal(inkAttachmentIndex(body, "u/p/a.png"), 1);
-  assert.equal(inkAttachmentIndex(body, "u/p/b.png"), 2);
-  assert.equal(inkAttachmentIndex(body, "u/p/none.png"), 0);
-  assert.equal(inkAttachmentIndex(body, null), 0);
+  assert.equal(rust().inkAttachmentIndex(body, "u/p/a.png"), 1);
+  assert.equal(rust().inkAttachmentIndex(body, "u/p/b.png"), 2);
+  assert.equal(rust().inkAttachmentIndex(body, "u/p/none.png"), 0);
+  assert.equal(rust().inkAttachmentIndex(body, null), 0);
 });

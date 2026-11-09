@@ -4,10 +4,11 @@ import type {
   ManageVaultPageUseCase,
   VaultPage,
 } from "@weaveforge/core";
-import { LibraryPinError, vaultAssetPathsInBody } from "@weaveforge/core";
+import { LibraryPinError } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import type { IVaultAssetStore } from "@/features/vault/domain/vault-assets";
 import { logToApp } from "@/lib/error-report/app-log";
+import { typedCore } from "@/lib/rust-core";
 
 /** The copy, and the images it still borrows from the owner because they could not be copied. */
 export interface DuplicatedVaultPage {
@@ -44,7 +45,7 @@ export class DuplicateSharedVaultPageUseCase {
       body: source.body,
     });
 
-    const paths = vaultAssetPathsInBody(source.body);
+    const paths = typedCore().vaultAssetPathsInBody(source.body);
     if (paths.length === 0) return { page, failedAssets: [] };
 
     // Each asset is an independent download-then-upload pair. Copying them one

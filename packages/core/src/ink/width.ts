@@ -1,3 +1,5 @@
+/** Types for width. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
+
 /**
  * Ink nib widths, in **tenths of a millimetre**, for ink *notes*.
  *
@@ -57,6 +59,7 @@ export const INK_HIGHLIGHTER_MIN_WIDTH = 25;
 
 /** Tightest and widest a nib may be: 0.1 mm to 20 mm. */
 export const INK_MIN_WIDTH = 1;
+
 export const INK_MAX_WIDTH = 200;
 
 /** Speed at which the velocity taper reaches its floor, in 0.1 mm per ms. */
@@ -67,21 +70,20 @@ export const INK_VELOCITY_TAPER = 0.2;
 
 /** Lightest and heaviest a pressure of 0 and 1 scale the base width by. */
 export const INK_PRESSURE_MIN_FACTOR = 0.7;
+
 export const INK_PRESSURE_MAX_FACTOR = 1.3;
 
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface WidthFns {
+  /**
  * A stroke width clamped to what a nib can be.
  *
  * The fallback is the default pen rather than the minimum: a width that arrived
  * as `NaN` or as a string's worth of nonsense is a missing width, not a request
  * for a hairline.
  */
-export function clampInkNoteWidth(width: number, fallback = INK_PEN_WIDTH): number {
-  if (!Number.isFinite(width)) return fallback;
-  return Math.min(INK_MAX_WIDTH, Math.max(INK_MIN_WIDTH, Math.round(width)));
-}
-
-/**
+  clampInkNoteWidth(width: number, fallback?: number): number;
+  /**
  * How pressure scales the base width, as a multiplier.
  *
  * A device that does not report pressure reports `0`, and a mouse reports `0.5`
@@ -89,16 +91,8 @@ export function clampInkNoteWidth(width: number, fallback = INK_PEN_WIDTH): numb
  * alone. That is the same rule the reader learned, and it is why a pen on a
  * tablet that reports pressure looks different from a mouse without one.
  */
-export function inkPressureFactor(pressure: number | undefined): number {
-  if (typeof pressure !== "number" || !Number.isFinite(pressure)) return 1;
-  if (pressure <= 0 || pressure === 0.5) return 1;
-  const clamped = Math.min(1, pressure);
-  return (
-    INK_PRESSURE_MIN_FACTOR + clamped * (INK_PRESSURE_MAX_FACTOR - INK_PRESSURE_MIN_FACTOR)
-  );
-}
-
-/**
+  inkPressureFactor(pressure: number | undefined): number;
+  /**
  * How speed scales the base width, as a multiplier.
  *
  * The natural thinning on a fast stroke is most of what makes handwriting look
@@ -107,16 +101,8 @@ export function inkPressureFactor(pressure: number | undefined): number {
  * linear to {@link INK_VELOCITY_FULL_TAPER} and flat above it, so a stroke has a
  * floor rather than vanishing.
  */
-export function inkVelocityFactor(
-  velocity: number,
-  fullTaper = INK_VELOCITY_FULL_TAPER,
-): number {
-  if (!Number.isFinite(velocity) || velocity <= 0) return 1;
-  const fraction = Math.min(1, velocity / fullTaper);
-  return 1 - fraction * INK_VELOCITY_TAPER;
-}
-
-/**
+  inkVelocityFactor(velocity: number, fullTaper?: number): number;
+  /**
  * The rendered width at one point: base nib, pressure and speed together.
  *
  * This is `f(width, pressure, velocity)` from the plan, and it is the single
@@ -126,39 +112,16 @@ export function inkVelocityFactor(
  * GPU expands the strip at a fractional width, and rounding here would quantise
  * the taper the format was changed to keep.
  */
-export function nibWidth(
-  base: number,
-  pressure?: number,
-  velocity = 0,
-  options: { fullTaper?: number } = {},
-): number {
-  const clampedBase = clampInkNoteWidth(base);
-  const width =
-    clampedBase * inkPressureFactor(pressure) * inkVelocityFactor(velocity, options.fullTaper);
-  return Math.min(INK_MAX_WIDTH, Math.max(INK_MIN_WIDTH, width));
-}
-
-/**
+  nibWidth(base: number, pressure?: number, velocity?: number, options?: { fullTaper?: number }): number;
+  /**
  * Velocity in 0.1 mm per ms from two samples.
  *
  * Time is in milliseconds and the coordinates are 0.1 mm, so the division needs
  * no unit change; a zero gap is treated as infinitely fast, which is what a
  * duplicated timestamp means.
  */
-export function inkVelocityBetween(
-  x0: number,
-  y0: number,
-  t0: number,
-  x1: number,
-  y1: number,
-  t1: number,
-): number {
-  const dt = t1 - t0;
-  if (!Number.isFinite(dt) || dt <= 0) return dt === 0 ? Number.POSITIVE_INFINITY : 0;
-  return Math.hypot(x1 - x0, y1 - y0) / dt;
-}
-
-/**
+  inkVelocityBetween(x0: number, y0: number, t0: number, x1: number, y1: number, t1: number): number;
+  /**
  * Mean nib width for a whole stroke from its samples.
  *
  * The reader derives one width per stroke from a mean pressure, and the note
@@ -167,12 +130,5 @@ export function inkVelocityBetween(
  * geometry alone — an export, a thumbnail, the Canvas 2D fallback — still has
  * the width the user drew with.
  */
-export function strokeBaseWidth(
-  samples: readonly number[],
-  base: number,
-): number {
-  const usable = samples.filter((pressure) => Number.isFinite(pressure) && pressure > 0);
-  if (usable.length === 0) return clampInkNoteWidth(base);
-  const mean = usable.reduce((sum, pressure) => sum + pressure, 0) / usable.length;
-  return clampInkNoteWidth(base * inkPressureFactor(mean));
+  strokeBaseWidth(samples: readonly number[], base: number): number;
 }

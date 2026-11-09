@@ -13,4 +13,5 @@ pub mod paper_field;
 pub mod paper_merge;
 pub mod paper_ref;
 pub mod paper_title;
+pub mod reference_text;
 pub mod zotero_mapping;

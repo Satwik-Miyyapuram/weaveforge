@@ -1,4 +1,5 @@
-import { INK_COLOURS, INK_SHAPES, INK_TOOLS, makeInkStroke, type InkStroke } from "@weaveforge/core";
+import { INK_COLOURS, INK_SHAPES, INK_TOOLS, type InkStroke } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Lassoed strokes on the clipboard, as one line of text a note's paste turns
@@ -36,7 +37,7 @@ export function parseStrokeClip(text: string | null | undefined): InkStroke[] | 
       if (!points.every(Number.isFinite)) continue;
       const pressures = Array.isArray(raw.pressures) && raw.pressures.every(Number.isFinite) ? raw.pressures : [];
       out.push(
-        makeInkStroke({
+        typedCore().makeInkStroke({
           points,
           pressures,
           width: Number.isFinite(raw.width) ? raw.width : undefined,

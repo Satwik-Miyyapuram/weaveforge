@@ -6,26 +6,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  blankInkPage,
-  makeInkStroke,
-  type InkPage,
-  type InkRecogniser,
-  type RecognisedLine,
-} from "@weaveforge/core";
+import { type InkPage, type InkRecogniser, type RecognisedLine } from "@weaveforge/core";
 
 import { acceptLine, recognisePage } from "../application/recognise-page";
+import { typedCore } from "@/lib/rust-core";
 
 /** A short stroke at (x, y) starting at time t. */
 const at = (x: number, y: number, t: number) =>
-  makeInkStroke({
+  typedCore().makeInkStroke({
     points: [x, y, x + 40, y + 2, x + 80, y + 30],
     pressures: [128, 128, 128],
     t0: t,
   });
 
 function page(): InkPage {
-  const model = blankInkPage("blank");
+  const model = typedCore().blankInkPage("blank");
   model.strokes = [
     at(100, 100, 0),
     at(200, 102, 300),

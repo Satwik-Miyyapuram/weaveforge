@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-import { WorkspacePathError, projectDir } from "@weaveforge/core";
+import { WorkspacePathError } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -11,6 +11,7 @@ import {
   type VaultFileBridge,
 } from "../infrastructure/desktop-workspace-fs";
 import { followProjectRename } from "../application/mirror-manifest";
+import { typedCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();
@@ -152,7 +153,7 @@ test("a stat the desktop cannot answer is an error, not a missing file (29-04)",
 test("a failed stat does not let a rename follow-up delete the project's folder (29-04)", async () => {
   const memory = new MemoryWorkspaceFs();
   const project = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-  const root = projectDir(project);
+  const root = typedCore().projectDir(project);
   await memory.writeFile(`${root}/notes/a.md`, "keep me");
   const fs = new DesktopWorkspaceFs({
     ...bridgeOver(memory),

@@ -4,6 +4,7 @@
 pub mod ai;
 pub mod cache_invalidation;
 pub mod card_snippet;
+pub mod collab;
 pub mod dashboard;
 pub mod editor_workspace;
 pub mod error_report;
@@ -43,6 +44,7 @@ pub mod storage;
 pub mod sync;
 pub mod tag_tone;
 pub mod text;
+pub mod text_anchor;
 pub mod tree;
 pub mod units;
 pub mod vault;

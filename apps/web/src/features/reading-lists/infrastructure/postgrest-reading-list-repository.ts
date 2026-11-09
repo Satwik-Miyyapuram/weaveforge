@@ -1,13 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  buildListTree,
-  type IReadingListItemRepository,
-  type IReadingListRepository,
-  type ReadingList,
-  type ReadingListFilter,
-  type ReadingListItem,
-  type ReadingListTreeNode,
-} from "@weaveforge/core";
+import { type IReadingListItemRepository, type IReadingListRepository, type ReadingList, type ReadingListFilter, type ReadingListItem, type ReadingListTreeNode } from "@weaveforge/core";
 import {
   type ReadingListRow,
   type ReadingListItemRow,
@@ -18,6 +10,7 @@ import {
 } from "./reading-list-rows";
 import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * PostgREST implementations of the reading-list repositories.
@@ -84,7 +77,7 @@ export class PostgrestReadingListRepository extends ProjectRepository implements
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
-    return buildListTree(await this.list());
+    return typedCore().buildListTree(await this.list());
   }
 
   async save(entity: ReadingList): Promise<void> {

@@ -5,8 +5,11 @@
  * `extends` per stripped file.
  */
 import type { AiAccessPolicyFns } from "./../features/ai-assistant/domain/ai-access-policy.js";
+import type { AiExtractionFns } from "./../features/ai-assistant/domain/ai-extraction.js";
+import type { McpFolderDraftFns } from "./../features/ai-assistant/domain/mcp-folder-draft.js";
 import type { AiMcpResultFns } from "./../features/ai-assistant/domain/ai-mcp-result.js";
 import type { AiSettingsFns } from "./../features/ai-assistant/domain/ai-settings.js";
+import type { AiTypesFns } from "./../features/ai-assistant/domain/ai-types.js";
 import type { AnchorResolutionFns } from "./../reader/anchor-resolution.js";
 import type { AnchorStrategyFns } from "./../reader/anchor-strategy.js";
 import type { BibEntriesFns } from "./../features/report/domain/bib-entries.js";
@@ -17,40 +20,76 @@ import type { CiteKeyFns } from "./../features/report/domain/cite-key.js";
 import type { ColumnDetectionFns } from "./../features/reader/analysis/column-detection.js";
 import type { CommentFns } from "./../features/sharing/domain/comment.js";
 import type { CurveFns } from "./../ink/curve.js";
+import type { DecodeFns } from "./../ink/decode.js";
 import type { DocumentSearchFns } from "./../reader/document-search.js";
+import type { DownsampleMetricsFns } from "./../features/experiments/domain/downsample-metrics.js";
+import type { ExperimentFns } from "./../features/experiments/domain/experiment.js";
+import type { FolderLayoutFns } from "./../workspace/folder-layout.js";
+import type { GitRemoteFns } from "./../workspace/git-remote.js";
+import type { GraphPersistedStateFns } from "./../features/relations/domain/graph-persisted-state.js";
+import type { GraphViewSettingsFns } from "./../features/relations/domain/graph-view-settings.js";
 import type { HybridFusionFns } from "./../search/hybrid-fusion.js";
+import type { InkLassoFns } from "./../reader/ink-lasso.js";
+import type { InkNoteFns } from "./../ink/ink-note.js";
+import type { InkStrokeFns } from "./../reader/ink-stroke.js";
 import type { InkUndoFns } from "./../reader/ink-undo.js";
 import type { LabSnapshotFns } from "./../features/org/domain/lab-snapshot.js";
+import type { LatexSectionTreeFns } from "./../features/report/domain/latex-section-tree.js";
+import type { LineReconstructionFns } from "./../features/reader/analysis/line-reconstruction.js";
 import type { LinkCitationsFns } from "./../features/reader/link-citations.js";
 import type { LocusLinkFns } from "./../reader/locus-link.js";
 import type { LogEntryFns } from "./../features/logbook/domain/log-entry.js";
+import type { MarkdownToLatexFns } from "./../features/report/domain/markdown-to-latex.js";
+import type { MemberFns } from "./../features/org/domain/member.js";
 import type { MilestoneFns } from "./../features/plan/domain/milestone.js";
 import type { OrganizationFns } from "./../features/org/domain/organization.js";
+import type { PageTitleFns } from "./../net/page-title.js";
 import type { PaperRelationFns } from "./../features/relations/domain/paper-relation.js";
 import type { PersonalizedPagerankFns } from "./../search/personalized-pagerank.js";
+import type { PrismaFigureFns } from "./../features/report/domain/prisma-figure.js";
+import type { PrivacyDisclaimerFns } from "./../features/settings/domain/privacy-disclaimer.js";
 import type { ProjectPathFns } from "./../features/report/domain/project-path.js";
+import type { ReaderAnnotationFns } from "./../reader/reader-annotation.js";
+import type { ReaderViewportFns } from "./../reader/reader-viewport.js";
+import type { ReadingListFns } from "./../features/reading-lists/domain/reading-list.js";
 import type { RelatedFns } from "./../search/related.js";
+import type { ReportSectionFns } from "./../features/report/domain/report-section.js";
+import type { ScreeningFns } from "./../features/reading-lists/domain/screening.js";
 import type { SearchAcronymsFns } from "./../search/search-acronyms.js";
 import type { SearchSettingsFns } from "./../search/search-settings.js";
 import type { SearchTuningFns } from "./../search/search-tuning.js";
+import type { SegmentFns } from "./../ink/segment.js";
 import type { SelectionToAnchorFns } from "./../reader/selection-to-anchor.js";
 import type { ShareFns } from "./../features/sharing/domain/share.js";
+import type { SmoothFns } from "./../ink/smooth.js";
 import type { SortIndexFns } from "./../reader/sort-index.js";
 import type { TextChunksFns } from "./../search/text-chunks.js";
 import type { TextFingerprintFns } from "./../features/reader/text-fingerprint.js";
 import type { TextFns } from "./text.js";
+import type { ThemeConfigFns } from "./../features/settings/domain/theme-config.js";
 import type { ThreeWayMergeFns } from "./three-way-merge.js";
 import type { TitleSimilarityFns } from "./../features/reader/title-similarity.js";
+import type { UntrustedContextFns } from "./../features/ai-assistant/domain/untrusted-context.js";
+import type { UrlSafetyFns } from "./../net/url-safety.js";
+import type { UserAppearanceFns } from "./../features/settings/domain/user-appearance.js";
 import type { UserIntegrationCredentialsFns } from "./../features/settings/domain/user-integration-credentials.js";
 import type { UserSettingsFns } from "./../features/settings/domain/user-settings.js";
+import type { VaultPageFns } from "./../features/vault/domain/vault-page.js";
+import type { WidthFns } from "./../ink/width.js";
 import type { WikiGraphFns } from "./../search/wiki-graph.js";
 import type { WikiIndexFns } from "./../features/ai-assistant/domain/wiki-index.js";
+import type { WikiLintFns } from "./../features/ai-assistant/domain/wiki-lint.js";
 import type { WikiMergeFns } from "./../features/ai-assistant/domain/wiki-merge.js";
+import type { WorkspacePathFns } from "./../workspace/fs-port.js";
+import type { ZoomFns } from "./../ink/zoom.js";
 
 export interface CoreContract
   extends AiAccessPolicyFns,
+    AiExtractionFns,
+    McpFolderDraftFns,
     AiMcpResultFns,
     AiSettingsFns,
+    AiTypesFns,
     AnchorResolutionFns,
     AnchorStrategyFns,
     BibEntriesFns,
@@ -61,32 +100,65 @@ export interface CoreContract
     ColumnDetectionFns,
     CommentFns,
     CurveFns,
+    DecodeFns,
     DocumentSearchFns,
+    DownsampleMetricsFns,
+    ExperimentFns,
+    FolderLayoutFns,
+    GitRemoteFns,
+    GraphPersistedStateFns,
+    GraphViewSettingsFns,
     HybridFusionFns,
+    InkLassoFns,
+    InkNoteFns,
+    InkStrokeFns,
     InkUndoFns,
     LabSnapshotFns,
+    LatexSectionTreeFns,
+    LineReconstructionFns,
     LinkCitationsFns,
     LocusLinkFns,
     LogEntryFns,
+    MarkdownToLatexFns,
+    MemberFns,
     MilestoneFns,
     OrganizationFns,
+    PageTitleFns,
     PaperRelationFns,
     PersonalizedPagerankFns,
+    PrismaFigureFns,
+    PrivacyDisclaimerFns,
     ProjectPathFns,
+    ReaderAnnotationFns,
+    ReaderViewportFns,
+    ReadingListFns,
     RelatedFns,
+    ReportSectionFns,
+    ScreeningFns,
     SearchAcronymsFns,
     SearchSettingsFns,
     SearchTuningFns,
+    SegmentFns,
     SelectionToAnchorFns,
     ShareFns,
+    SmoothFns,
     SortIndexFns,
     TextChunksFns,
     TextFingerprintFns,
     TextFns,
+    ThemeConfigFns,
     ThreeWayMergeFns,
     TitleSimilarityFns,
+    UntrustedContextFns,
+    UrlSafetyFns,
+    UserAppearanceFns,
     UserIntegrationCredentialsFns,
     UserSettingsFns,
+    VaultPageFns,
+    WidthFns,
     WikiGraphFns,
     WikiIndexFns,
-    WikiMergeFns {}
+    WikiLintFns,
+    WikiMergeFns,
+    WorkspacePathFns,
+    ZoomFns {}

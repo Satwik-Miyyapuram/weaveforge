@@ -1,5 +1,5 @@
 /** Types for user-settings. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-export { normalizeAppearance } from "./user-appearance.js";
+
 import type { UserAppearance } from "./user-appearance.js";
 import type { AiAccessSettings } from "../../ai-assistant/index.js";
 import type { SearchSettings } from "../../../search/search-settings.js";

@@ -2,7 +2,7 @@
 
 import { enumLabel } from "@/lib/enum-label";
 import type { Paper } from "@weaveforge/core";
-import { formatMetricCell } from "@weaveforge/core";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
@@ -16,6 +16,7 @@ import { IconLink } from "@/components/button";
 import { Chip } from "@/components/controls";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
 import { readyCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */
 const CARD_COMMENTS = new Set(["milestone", "reading_list"]);
@@ -77,7 +78,7 @@ export function SharedItemRenderer({
                     and a number lost the precision every other surface shows
                     it with — `0.22` here against `0.2200` there, for the same
                     run. */}
-                <em>{k}</em> {formatMetricCell(k, v)}
+                <em>{k}</em> {typedCore().formatMetricCell(k, v)}
               </span>
             ))}
           </div>

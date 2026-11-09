@@ -5,7 +5,8 @@ import {
   imageExtensionForMime,
   markdownImage,
 } from "../../src/shared/markdown-image.js";
-import { vaultImageMarkdown } from "../../src/features/vault/domain/vault-page.js";
+import { rust } from "../../src/shared/rust.js";
+
 
 test("a bracket in the alt text cannot end the label early", () => {
   // A screenshot named "figure [2].png" used to produce ![figure [2].png](…),
@@ -15,7 +16,7 @@ test("a bracket in the alt text cannot end the label early", () => {
 });
 
 test("the vault builder escapes too, not only the other two", () => {
-  assert.equal(vaultImageMarkdown("u/p/f.png", "figure [2]"), "![figure \\[2\\]](vault:u/p/f.png)");
+  assert.equal(rust().vaultImageMarkdown("u/p/f.png", "figure [2]"), "![figure \\[2\\]](vault:u/p/f.png)");
 });
 
 test("a multiline or empty alt text becomes something usable", () => {

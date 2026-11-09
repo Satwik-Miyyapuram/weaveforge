@@ -1,11 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  filterLabMembers,
-  filterTeamMembers,
-  type ICurrentUserProvider,
-  type IMemberRepository,
-  type Member,
-} from "@weaveforge/core";
+import { type ICurrentUserProvider, type IMemberRepository, type Member } from "@weaveforge/core";
 import { singleFlight } from "@/lib/cache/single-flight";
 import {
   PROFILE_COLUMNS,
@@ -14,6 +8,8 @@ import {
   toDomain,
 } from "./member-rows";
 import { one } from "@/backend/providers/postgrest/row-access";
+import { typedCore } from "@/lib/rust-core";
+import type { CoreContract } from "@weaveforge/core";
 
 /**
  * PostgREST implementation of IMemberRepository. Reads the `profiles` table (the
@@ -56,15 +52,15 @@ export class PostgrestMemberRepository implements IMemberRepository {
   }
 
   async listTeam(): Promise<Member[]> {
-    return this.listMembers(filterTeamMembers);
+    return this.listMembers(typedCore().filterTeamMembers);
   }
 
   async listLab(): Promise<Member[]> {
-    return this.listMembers(filterLabMembers);
+    return this.listMembers(typedCore().filterLabMembers);
   }
 
   private async listMembers(
-    filter: typeof filterTeamMembers,
+    filter: CoreContract["filterTeamMembers"],
   ): Promise<Member[]> {
     const uid = await this.session.getCurrentUserId();
     if (!uid) return [];

@@ -1,10 +1,4 @@
-import {
-  createReportSection,
-  ReportSectionValidationError,
-  type NewReportSectionInput,
-  type ReportSection,
-  type ReportStatus,
-} from "../domain/report-section.js";
+import { ReportSectionValidationError, type NewReportSectionInput, type ReportSection, type ReportStatus } from "../domain/report-section.js";
 import type { IReportSectionRepository } from "../domain/report-section-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
@@ -22,7 +16,7 @@ export class ManageReportSectionUseCase {
   constructor(private readonly deps: ManageReportSectionDeps) {}
 
   async add(input: NewReportSectionInput): Promise<ReportSection> {
-    const section = createReportSection(input, {
+    const section = rust().createReportSection(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });

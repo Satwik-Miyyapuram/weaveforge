@@ -133,4 +133,5 @@ await Promise.all(
   ),
 );
 fs.copyFileSync(path.join(root, "src/plan-widget.html"), path.join(root, "dist/plan-widget.html"));
+fs.copyFileSync(path.join(root, "../../packages/wf-wasm/pkg/wf_wasm_bg.wasm"), path.join(root, "dist/wf_wasm_bg.wasm"));
 fs.cpSync(path.join(root, "src/fonts"), path.join(root, "dist/fonts"), { recursive: true });

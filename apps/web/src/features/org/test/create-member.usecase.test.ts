@@ -3,36 +3,14 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 import assert from "node:assert/strict";
 
-import {
-
-  canCreateRole,
-
-  creatableRoles,
-
-
-  filterTeamMembers,
-
-  filterLabMembers,
-
-  resolveSupervisorId,
-
-  resolveDisplayRole,
-
-  needsStandaloneRoleSync,
-
-  MemberPermissionError,
-
-  MemberValidationError,
-
-  type Member,
-
-} from "@weaveforge/core";
+import { MemberPermissionError, MemberValidationError, type Member } from "@weaveforge/core";
 
 import { CreateMemberUseCase } from "@weaveforge/core";
 
 import { InMemoryMemberRepository } from "@weaveforge/core/testing";
 
 import { InMemoryAccountProvisioner } from "@weaveforge/core/testing";
+import { typedCore } from "@/lib/rust-core";
 
 
 
@@ -52,11 +30,11 @@ before(async () => { await loadTestCore(); });
 
 test("creatableRoles: each role can create only strictly-lower ranks", () => {
 
-  assert.deepEqual(creatableRoles("professor"), ["phd", "masters"]);
+  assert.deepEqual(typedCore().creatableRoles("professor"), ["phd", "masters"]);
 
-  assert.deepEqual(creatableRoles("phd"), ["masters"]);
+  assert.deepEqual(typedCore().creatableRoles("phd"), ["masters"]);
 
-  assert.deepEqual(creatableRoles("masters"), []);
+  assert.deepEqual(typedCore().creatableRoles("masters"), []);
 
 });
 
@@ -64,15 +42,15 @@ test("creatableRoles: each role can create only strictly-lower ranks", () => {
 
 test("canCreateRole enforces the hierarchy", () => {
 
-  assert.equal(canCreateRole("professor", "phd"), true);
+  assert.equal(typedCore().canCreateRole("professor", "phd"), true);
 
-  assert.equal(canCreateRole("professor", "professor"), false);
+  assert.equal(typedCore().canCreateRole("professor", "professor"), false);
 
-  assert.equal(canCreateRole("phd", "masters"), true);
+  assert.equal(typedCore().canCreateRole("phd", "masters"), true);
 
-  assert.equal(canCreateRole("phd", "phd"), false);
+  assert.equal(typedCore().canCreateRole("phd", "phd"), false);
 
-  assert.equal(canCreateRole("masters", "masters"), false);
+  assert.equal(typedCore().canCreateRole("masters", "masters"), false);
 
 });
 
@@ -85,7 +63,7 @@ test("filterTeamMembers: standalone user sees only themselves", () => {
 
   const all = [prof, phd, msc, otherProf, otherMsc];
 
-  const solo = filterTeamMembers("msc2", all, { inLab: false });
+  const solo = typedCore().filterTeamMembers("msc2", all, { inLab: false });
 
   assert.deepEqual(solo.map((m) => m.id), ["msc2"]);
 
@@ -95,11 +73,11 @@ test("filterTeamMembers: standalone user sees only themselves", () => {
 
 test("resolveDisplayRole: not in lab shows standalone even when profile says masters", () => {
 
-  assert.equal(resolveDisplayRole("masters", { inLab: false }), "standalone");
+  assert.equal(typedCore().resolveDisplayRole("masters", { inLab: false }), "standalone");
 
-  assert.equal(resolveDisplayRole("masters", { inLab: true }), "masters");
+  assert.equal(typedCore().resolveDisplayRole("masters", { inLab: true }), "masters");
 
-  assert.equal(resolveDisplayRole("professor", { inLab: false, ownsOrg: true }), "professor");
+  assert.equal(typedCore().resolveDisplayRole("professor", { inLab: false, ownsOrg: true }), "professor");
 
 });
 
@@ -108,7 +86,7 @@ test("resolveDisplayRole: not in lab shows standalone even when profile says mas
 test("needsStandaloneRoleSync detects stale masters without lab", () => {
 
   assert.equal(
-    needsStandaloneRoleSync(
+    typedCore().needsStandaloneRoleSync(
       { role: "masters", orgSetupComplete: true },
       [],
       false,
@@ -117,7 +95,7 @@ test("needsStandaloneRoleSync detects stale masters without lab", () => {
   );
 
   assert.equal(
-    needsStandaloneRoleSync(
+    typedCore().needsStandaloneRoleSync(
       { role: "standalone", orgSetupComplete: true },
       [],
       false,
@@ -134,7 +112,7 @@ test("filterTeamMembers: in-lab scopes to org members", () => {
 
   const orgOnly = new Set(["prof", "phd", "msc"]);
 
-  const team = filterTeamMembers("prof", all, { inLab: true, orgMemberIds: orgOnly });
+  const team = typedCore().filterTeamMembers("prof", all, { inLab: true, orgMemberIds: orgOnly });
 
   assert.deepEqual([...team.map((m) => m.id)].sort(), ["msc", "phd", "prof"]);
 
@@ -148,7 +126,7 @@ test("filterTeamMembers: in-lab phd sees subtree only, not supervisor", () => {
 
   const orgOnly = new Set(["prof", "phd", "msc"]);
 
-  const team = filterTeamMembers("phd", all, { inLab: true, orgMemberIds: orgOnly });
+  const team = typedCore().filterTeamMembers("phd", all, { inLab: true, orgMemberIds: orgOnly });
 
   assert.deepEqual([...team.map((m) => m.id)].sort(), ["msc", "phd"]);
 
@@ -162,7 +140,7 @@ test("filterLabMembers: in-lab includes supervisors and full org roster", () => 
 
   const orgOnly = new Set(["prof", "phd", "msc"]);
 
-  const lab = filterLabMembers("phd", all, { inLab: true, orgMemberIds: orgOnly });
+  const lab = typedCore().filterLabMembers("phd", all, { inLab: true, orgMemberIds: orgOnly });
 
   assert.deepEqual([...lab.map((m) => m.id)].sort(), ["msc", "phd", "prof"]);
 
@@ -174,7 +152,7 @@ test("filterLabMembers: standalone user sees only themselves", () => {
 
   const all = [prof, phd, msc, otherProf, otherMsc];
 
-  const solo = filterLabMembers("msc2", all, { inLab: false });
+  const solo = typedCore().filterLabMembers("msc2", all, { inLab: false });
 
   assert.deepEqual(solo.map((m) => m.id), ["msc2"]);
 
@@ -188,7 +166,7 @@ test("filterLabMembers: excludes other-lab members when org scoped", () => {
 
   const orgOnly = new Set(["prof", "phd", "msc"]);
 
-  const lab = filterLabMembers("phd", all, { inLab: true, orgMemberIds: orgOnly });
+  const lab = typedCore().filterLabMembers("phd", all, { inLab: true, orgMemberIds: orgOnly });
 
   assert.deepEqual([...lab.map((m) => m.id)].sort(), ["msc", "phd", "prof"]);
 
@@ -202,7 +180,7 @@ test("filterLabMembers: fail closed when inLab but orgMemberIds empty", () => {
 
   const all = [prof, phd, msc, otherProf, otherMsc];
 
-  const lab = filterLabMembers("phd", all, { inLab: true, orgMemberIds: new Set() });
+  const lab = typedCore().filterLabMembers("phd", all, { inLab: true, orgMemberIds: new Set() });
 
   assert.deepEqual(lab.map((m) => m.id), ["phd"]);
 
@@ -214,7 +192,7 @@ test("filterTeamMembers: fail closed when inLab but orgMemberIds empty", () => {
 
   const all = [prof, phd, msc, otherProf, otherMsc];
 
-  const team = filterTeamMembers("phd", all, { inLab: true, orgMemberIds: new Set() });
+  const team = typedCore().filterTeamMembers("phd", all, { inLab: true, orgMemberIds: new Set() });
 
   assert.deepEqual(team.map((m) => m.id), ["phd"]);
 
@@ -224,9 +202,9 @@ test("filterTeamMembers: fail closed when inLab but orgMemberIds empty", () => {
 
 test("resolveSupervisorId always assigns the creator as supervisor", () => {
 
-  assert.equal(resolveSupervisorId(prof, { email: "a@b.c", password: "12345678", role: "phd", supervisorId: "someone" }), "prof");
+  assert.equal(typedCore().resolveSupervisorId(prof.id), "prof");
 
-  assert.equal(resolveSupervisorId(phd, { email: "a@b.c", password: "12345678", role: "masters" }), "phd");
+  assert.equal(typedCore().resolveSupervisorId(phd.id), "phd");
 
 });
 

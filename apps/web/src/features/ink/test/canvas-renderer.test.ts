@@ -6,12 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  blankInkPage,
-  makeInkStroke,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH } from "@weaveforge/core";
 
 import { InkPageBuffer } from "../application/page-buffer";
 import {
@@ -21,6 +16,7 @@ import {
   type Canvas2dLike,
   type Context2dLike,
 } from "../render/canvas-renderer";
+import { typedCore } from "@/lib/rust-core";
 
 interface Call {
   name: string;
@@ -59,9 +55,9 @@ function recordingCanvas(): {
 }
 
 function page(tools: ("pen" | "highlighter")[]) {
-  const model = blankInkPage("blank");
+  const model = typedCore().blankInkPage("blank");
   model.strokes = tools.map((tool, i) =>
-    makeInkStroke({
+    typedCore().makeInkStroke({
       points: [10, 10 + i * 100, 200, 10 + i * 100, 300, 30 + i * 100],
       pressures: [128, 200, 100],
       width: 6,

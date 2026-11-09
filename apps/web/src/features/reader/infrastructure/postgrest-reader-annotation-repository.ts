@@ -8,7 +8,7 @@ import type {
   ReaderAnnotationSyncRecord,
   WorkspaceAnnotation,
 } from "@weaveforge/core";
-import { isReaderAnnotationType } from "@weaveforge/core";
+
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 import { DEFAULT_ANNOTATION_COLOR } from "../application/reader-annotation-helpers";
 import {
@@ -67,7 +67,7 @@ export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestR
   }
 
   async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {
-    if (!isReaderAnnotationType(draft.type)) {
+    if (!typedCore().isReaderAnnotationType(draft.type)) {
       throw new Error(`Invalid annotation type: ${draft.type}`);
     }
     const userId = await this.session.requireUserId();

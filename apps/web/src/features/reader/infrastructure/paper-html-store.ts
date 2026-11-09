@@ -7,7 +7,7 @@
  * may have been edited by hand, and nothing unsanitised reaches the frame.
  */
 
-import { paperHtmlPath, type IWorkspaceFs } from "@weaveforge/core";
+import { type IWorkspaceFs } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
@@ -18,6 +18,7 @@ import {
 } from "../application/paper-html";
 import { PAPER_HTML_DB_NAME } from "./local-cache-names";
 import { sanitizePaperHtml } from "./sanitize-paper-html";
+import { typedCore } from "@/lib/rust-core";
 
 export interface PaperHtmlStore {
   get(paperId: string): Promise<PaperHtmlPage | null>;
@@ -33,7 +34,7 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   ) {}
 
   async get(paperId: string): Promise<PaperHtmlPage | null> {
-    const path = paperHtmlPath(paperId, await this.projectRoot());
+    const path = typedCore().paperHtmlPath(paperId, await this.projectRoot());
     if (!(await this.fs.stat(path))) return null;
     const page = parsePaperHtmlDocument(paperId, await this.fs.readText(path));
     if (!page) return null;
@@ -44,11 +45,11 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
     const core = await loadCore();
     const root = await this.projectRoot();
     await this.fs.mkdirp(core.entityDir("paper", root) + "/html");
-    await this.fs.writeFile(paperHtmlPath(page.paperId, root), buildPaperHtmlDocument(page));
+    await this.fs.writeFile(typedCore().paperHtmlPath(page.paperId, root), buildPaperHtmlDocument(page));
   }
 
   async remove(paperId: string): Promise<void> {
-    const path = paperHtmlPath(paperId, await this.projectRoot());
+    const path = typedCore().paperHtmlPath(paperId, await this.projectRoot());
     if (await this.fs.stat(path)) await this.fs.remove(path);
   }
 }

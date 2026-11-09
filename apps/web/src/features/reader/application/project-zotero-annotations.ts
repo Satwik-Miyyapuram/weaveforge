@@ -3,7 +3,7 @@
  * Notes (kind === "note") are excluded — they are not page-anchored.
  */
 
-import { isReaderAnnotationType, type CombinedPdfAnchor, type ReaderAnnotation } from "@weaveforge/core";
+import { type CombinedPdfAnchor, type ReaderAnnotation } from "@weaveforge/core";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 import { DEFAULT_ANNOTATION_COLOR } from "./reader-annotation-helpers";
 import { typedCore } from "@/lib/rust-core";
@@ -18,7 +18,7 @@ export function projectZoteroAnnotations(
 
   for (const ann of annotations) {
     if (ann.kind === "note") continue;
-    const type = ann.annotationType && isReaderAnnotationType(ann.annotationType)
+    const type = ann.annotationType && typedCore().isReaderAnnotationType(ann.annotationType)
       ? ann.annotationType
       : "highlight";
     const pageIndex = ann.annotationPosition?.pageIndex;

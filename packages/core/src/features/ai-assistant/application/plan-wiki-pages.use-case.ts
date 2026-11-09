@@ -9,11 +9,10 @@
  */
 
 import {
-  conceptKey,
-  withoutExisting,
   type ExtractedConcept,
   type ExtractionResult,
 } from "../domain/ai-extraction.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface WikiPagePlan {
   title: string;
@@ -97,11 +96,11 @@ export function planWikiPages(input: PlanWikiPagesInput): WikiPagePlan[] {
   const minMentions = input.minMentions ?? DEFAULT_MIN_MENTIONS;
   const maxPages = input.maxPages ?? DEFAULT_MAX_PAGES;
 
-  const fresh = withoutExisting(input.extraction, input.existingTitles);
+  const fresh = rust().withoutExisting(input.extraction, input.existingTitles);
 
   const mentionsByConcept = new Map<string, { id: string; title: string; evidence: string }[]>();
   for (const mention of fresh.mentions) {
-    const key = conceptKey(mention.conceptName);
+    const key = rust().conceptKey(mention.conceptName);
     const list = mentionsByConcept.get(key) ?? [];
     list.push({
       id: mention.documentId,
@@ -115,7 +114,7 @@ export function planWikiPages(input: PlanWikiPagesInput): WikiPagePlan[] {
     .filter((concept) => concept.mentions >= minMentions)
     .slice(0, maxPages)
     .map((concept) => {
-      const sources = mentionsByConcept.get(conceptKey(concept.name)) ?? [];
+      const sources = mentionsByConcept.get(rust().conceptKey(concept.name)) ?? [];
       return {
         title: concept.name,
         body: renderPage(concept, sources),

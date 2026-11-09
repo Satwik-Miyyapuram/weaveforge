@@ -38,8 +38,9 @@ import {
   chunkStrokePoints,
   pageFromChunk,
 } from "../../src/ink/ink-chunk-read.js";
-import { INK_PAPERS, makeInkStroke, type InkPage } from "../../src/ink/ink-note.js";
+import { INK_PAPERS, type InkPage } from "../../src/ink/ink-note.js";
 import { packInkStroke } from "../../src/ink/stroke-packer.js";
+import { rust } from "../../src/shared/rust.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */
 const brotliQ5: InkChunkCodec = {
@@ -107,7 +108,7 @@ function densePage(pressure: PressureModel): InkPage {
       else pressures.push(0);
     }
     strokes.push(
-      makeInkStroke({
+      rust().makeInkStroke({
         points: coords,
         pressures,
         width: 6,
@@ -170,7 +171,7 @@ function committedDensePage(keepPressure = true): {
     // stroke, delta x,y and an absolute pressure per point.
     jsonBytes += 48 + packed.points.length * 5 + (keepPressure ? packed.pressures.length * 4 : 0);
     strokes.push(
-      makeInkStroke({
+      rust().makeInkStroke({
         points: packed.points,
         pressures: keepPressure ? packed.pressures : [],
         width: 6,
@@ -194,7 +195,7 @@ function smallPage(): InkPage {
     paper: "ruled",
     background: 3,
     strokes: [
-      makeInkStroke({
+      rust().makeInkStroke({
         points: [10, 20, 40, 25, 90, 60],
         pressures: [0, 128, 255],
         width: 6,
@@ -203,7 +204,7 @@ function smallPage(): InkPage {
         t0: 1_500,
         lineIndex: 0,
       }),
-      makeInkStroke({
+      rust().makeInkStroke({
         points: [100, 120, 160, 122],
         pressures: [200, 180],
         width: 60,
@@ -213,7 +214,7 @@ function smallPage(): InkPage {
         shape: "none",
         lineIndex: -1,
       }),
-      makeInkStroke({
+      rust().makeInkStroke({
         points: [200, 300, 260, 360, 200, 420],
         pressures: [10, 90, 250],
         width: 10,
@@ -507,7 +508,7 @@ test("a stroke whose points exceed the format's u16 length is refused, not clipp
   const page: InkPage = {
     ...smallPage(),
     strokes: [
-      makeInkStroke({
+      rust().makeInkStroke({
         points: Array.from({ length: 70_000 * 2 }, (_unused, index) => index % 100),
       }),
     ],

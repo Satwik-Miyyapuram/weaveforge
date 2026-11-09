@@ -12,12 +12,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  imagePathsInBody,
-  markdownImage,
-  materializeBlobImages,
-  normalizeMarkdownImageSyntax,
-} from "../../src/index.js";
+import { imagePathsInBody, markdownImage, materializeBlobImages } from "../../src/index.js";
+import { rust } from "../../src/shared/rust.js";
 
 const body = (prefix: string) => `Body text.\n\n![](${prefix}user-1/p1/diagram.png)\n\n![a fig](${prefix}user-1/p1/fig.webp)`;
 
@@ -53,7 +49,7 @@ test("materializeBlobImages uploads each blob ref and rewrites it, keeping the a
       "p1",
       async (ownerId, _blob, ext) => `user-1/${ownerId}/new.${ext}`,
       "paperimg:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.equal(out, markdownImage("paperimg:user-1/p1/new.webp", "a diagram"));
     assert.equal(uploadError, undefined);
@@ -73,7 +69,7 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
       "p1",
       async () => "unused",
       "paperimg:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.equal(out, "![](blob:http://x/1)");
     // A stale blob is the browser's loss, not a failed save: nothing to report.
@@ -86,10 +82,10 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
 test("normalizeMarkdownImageSyntax stays linear on unclosed image syntax", () => {
   for (const unit of ["![\\", "![](blob:", "![](http://"]) {
     const started = performance.now();
-    normalizeMarkdownImageSyntax(unit.repeat(50_000));
+    rust().normalizeMarkdownImageSyntax(unit.repeat(50_000));
     assert.ok(performance.now() - started < 500, `slow on repeated ${unit}`);
   }
-  assert.equal(normalizeMarkdownImageSyntax("![](foo![x]( vault:a.png )"), "![](foo![x](vault:a.png)");
+  assert.equal(rust().normalizeMarkdownImageSyntax("![](foo![x]( vault:a.png )"), "![](foo![x](vault:a.png)");
 });
 
 test("image-ref scanning stays linear on unclosed refs", async () => {
@@ -112,7 +108,7 @@ test("replacement patterns in alt text are written literally, not expanded (01-0
         "p1",
         async () => "user-1/p1/new.png",
         "paperimg:",
-        normalizeMarkdownImageSyntax,
+        rust().normalizeMarkdownImageSyntax,
       );
       assert.equal(out, `intro ${markdownImage("paperimg:user-1/p1/new.png", alt)} outro`, alt);
     }
@@ -135,7 +131,7 @@ test("a failed upload keeps its ref, rewrites the others, and is reported (34-16
         return `user-1/p1/${n}.png`;
       },
       "reportimg:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.equal(
       body,
@@ -160,7 +156,7 @@ test("several failed uploads are counted in one report", async () => {
         throw "offline";
       },
       "vault:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.match(String(uploadError?.message), /2 images could not be uploaded: offline/);
   } finally {
@@ -175,7 +171,7 @@ test("a body with no blob refs comes back unchanged and without a fetch", async 
   }) as never;
   try {
     const text = "$$x$$ ![](vault:a.png) plain";
-    const out = await materializeBlobImages(text, "p1", async () => "unused", "vault:", normalizeMarkdownImageSyntax);
+    const out = await materializeBlobImages(text, "p1", async () => "unused", "vault:", rust().normalizeMarkdownImageSyntax);
     assert.deepEqual(out, { body: text, uploadError: undefined });
   } finally {
     globalThis.fetch = original;

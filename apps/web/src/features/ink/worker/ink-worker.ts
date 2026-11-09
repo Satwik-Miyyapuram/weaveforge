@@ -80,6 +80,7 @@ import {
   undo,
   type HistoryStep,
 } from "./ink-page-logic";
+import { loadCore } from "@/lib/rust-core";
 import { exportPage } from "./ink-export";
 import { addStrokes } from "./ink-paste";
 import { setBackground } from "./ink-background";
@@ -453,8 +454,24 @@ function startRenderer(delegating: boolean): void {
   post({ type: "ready", backend: renderer.backend });
 }
 
+// Core's chunk encoder calls the Rust core, and a worker has its own globals, so
+// it loads its own copy. Messages wait, in order, until it is in; a failed load
+// still lets them through, so the pen draws and only saving reports the error.
+const waiting: InkWorkerMessage[] = [];
+let coreSettled = false;
+void loadCore()
+  .catch(() => undefined)
+  .finally(() => {
+    coreSettled = true;
+    for (const message of waiting.splice(0)) handleMessage(message);
+  });
+
 scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
-  const message = event.data;
+  if (coreSettled) handleMessage(event.data);
+  else waiting.push(event.data);
+});
+
+function handleMessage(message: InkWorkerMessage): void {
   try {
     switch (message.type) {
       case "init": {
@@ -621,4 +638,4 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
     // Every message may change what is on screen, or leave buffers to return.
     ensureLoop();
   }
-});
+}

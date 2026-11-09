@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_A4_WIDTH, nibWidth } from "@weaveforge/core";
+import { INK_A4_WIDTH } from "@weaveforge/core";
 
 import {
   requestInkPresenter,
@@ -30,6 +30,7 @@ import {
   InkSamplePool,
   InkSampleWriter,
 } from "../application/capture-protocol";
+import { typedCore } from "@/lib/rust-core";
 
 const area = {} as Element;
 
@@ -80,13 +81,13 @@ test("the diameter is the nib's width on the page, and follows pressure", () => 
   const light = trailStyle({
     colour: "text",
     tool: "pen",
-    width: nibWidth(6, 0.2),
+    width: typedCore().nibWidth(6, 0.2),
     pageWidthPx: 800,
   });
   const firm = trailStyle({
     colour: "text",
     tool: "pen",
-    width: nibWidth(6, 0.9),
+    width: typedCore().nibWidth(6, 0.9),
     pageWidthPx: 800,
   });
   assert.ok(firm.diameter > light.diameter, "pressing harder widens the trail");

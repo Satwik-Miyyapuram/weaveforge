@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Paper, PaperSummary } from "@weaveforge/core";
-import { formatReference } from "../domain/reference-text";
+import { readyCore } from "@/lib/rust-core";
+const formatReference: ReturnType<typeof readyCore>["formatReference"] = (...a) => readyCore().formatReference(...a);
 import { copyPaperAs } from "../ui/copy-paper";
 
 function paper(over: Partial<Paper> = {}): Paper {

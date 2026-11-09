@@ -70,77 +70,12 @@ export interface IConceptExtractor {
 
 export const EMPTY_EXTRACTION: ExtractionResult = { concepts: [], mentions: [] };
 
-/** Normalized key for comparing concept names across casing and spacing. */
-export function conceptKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-/**
- * Merge results, summing mention counts and unioning aliases.
- *
- * Used to fold a batch of per-document extractions into one view, and to
- * reconcile a new run against what a previous one found.
- */
-export function mergeExtractions(
-  results: readonly ExtractionResult[],
-): ExtractionResult {
-  const concepts = new Map<string, ExtractedConcept>();
-  const mentions: ExtractedMention[] = [];
-  const seenMentions = new Set<string>();
-  let pending = false;
-
-  for (const result of results) {
-    if (result.pending) pending = true;
-
-    for (const concept of result.concepts) {
-      const key = conceptKey(concept.name);
-      const existing = concepts.get(key);
-      if (!existing) {
-        concepts.set(key, { ...concept, aliases: [...concept.aliases] });
-        continue;
-      }
-      concepts.set(key, {
-        ...existing,
-        mentions: existing.mentions + concept.mentions,
-        aliases: [...new Set([...existing.aliases, ...concept.aliases])],
-      });
-    }
-
-    for (const mention of result.mentions) {
-      const key = `${mention.documentId}|${conceptKey(mention.conceptName)}`;
-      if (seenMentions.has(key)) continue;
-      seenMentions.add(key);
-      mentions.push(mention);
-    }
-  }
-
-  return {
-    concepts: [...concepts.values()].sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name)),
-    mentions,
-    ...(pending ? { pending: true } : {}),
-  };
-}
-
-/**
- * Drop concepts that already exist in the wiki, so a second run does not
- * propose pages for everything it proposed the first time.
- */
-export function withoutExisting(
-  result: ExtractionResult,
-  existing: readonly string[],
-): ExtractionResult {
-  const known = new Set(existing.map(conceptKey));
-  const concepts = result.concepts.filter((concept) => {
-    if (known.has(conceptKey(concept.name))) return false;
-    // An alias colliding with an existing page is the same concept under
-    // another name; proposing it would create the duplicate we are avoiding.
-    return !concept.aliases.some((alias) => known.has(conceptKey(alias)));
-  });
-  const kept = new Set(concepts.map((concept) => conceptKey(concept.name)));
-
-  return {
-    ...result,
-    concepts,
-    mentions: result.mentions.filter((mention) => kept.has(conceptKey(mention.conceptName))),
-  };
+/** Signatures of the functions that moved to the Rust core (wf-wasm, crates/wf-core/src/ai/extraction.rs). */
+export interface AiExtractionFns {
+  /** Normalized key for comparing concept names across casing and spacing. */
+  conceptKey(name: string): string;
+  /** Merge results, summing mention counts and unioning aliases; most-mentioned first. */
+  mergeExtractions(results: readonly ExtractionResult[]): ExtractionResult;
+  /** Drop concepts (by name or alias) that already exist in the wiki, and their mentions. */
+  withoutExisting(result: ExtractionResult, existing: readonly string[]): ExtractionResult;
 }

@@ -6,6 +6,7 @@
 //! Pure: no I/O and no clock; the caller supplies both.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use crate::js_collate::locale_compare;
 use crate::reader_analysis::lines::js_trim;
@@ -225,18 +226,11 @@ pub fn verdict_for(
 /// TS `verdictsFor`: both stages' verdicts for each item, in item order, then stage order.
 #[must_use]
 pub fn verdicts_for(items: &[ScreeningItem], decisions: &[ScreeningDecision]) -> Vec<ItemVerdict> {
-    // One pass over the decisions: group them by item, then judge each item's group.
-    let mut by_item: std::collections::HashMap<&str, Vec<ScreeningDecision>> =
-        std::collections::HashMap::new();
-    for decision in decisions {
-        by_item
-            .entry(decision.item_id.as_str())
-            .or_default()
-            .push(decision.clone());
-    }
+    let groups = by_item(decisions);
+    let lookup = group_lookup(&groups);
     let mut verdicts = Vec::with_capacity(items.len() * 2);
     for item in items {
-        let group = by_item.get(item.id.as_str()).map_or(&[][..], Vec::as_slice);
+        let group = lookup.get(item.id.as_str()).copied().unwrap_or(&[]);
         for stage in [ScreeningStage::TitleAbstract, ScreeningStage::FullText] {
             verdicts.push(verdict_for(group, &item.id, stage));
         }
@@ -244,15 +238,32 @@ pub fn verdicts_for(items: &[ScreeningItem], decisions: &[ScreeningDecision]) ->
     verdicts
 }
 
-/// Distinct item ids in the order they first appear.
-fn item_ids(decisions: &[ScreeningDecision]) -> Vec<&str> {
-    let mut ids: Vec<&str> = Vec::new();
+/// Decisions grouped by item, items in the order they first appear. One pass, so a
+/// screen of thousands of decisions stays linear rather than rescanning per item.
+fn by_item(decisions: &[ScreeningDecision]) -> Vec<(&str, Vec<ScreeningDecision>)> {
+    let mut index: HashMap<&str, usize> = HashMap::new();
+    let mut groups: Vec<(&str, Vec<ScreeningDecision>)> = Vec::new();
     for decision in decisions {
-        if !ids.contains(&decision.item_id.as_str()) {
-            ids.push(&decision.item_id);
+        let id = decision.item_id.as_str();
+        let at = *index.entry(id).or_insert_with(|| {
+            groups.push((id, Vec::new()));
+            groups.len() - 1
+        });
+        if let Some((_, group)) = groups.get_mut(at) {
+            group.push(decision.clone());
         }
     }
-    ids
+    groups
+}
+
+/// Each item's group by id, for lookups in item order.
+fn group_lookup<'a>(
+    groups: &'a [(&'a str, Vec<ScreeningDecision>)],
+) -> HashMap<&'a str, &'a [ScreeningDecision]> {
+    groups
+        .iter()
+        .map(|(id, group)| (*id, group.as_slice()))
+        .collect()
 }
 
 fn count_u32(n: usize) -> u32 {
@@ -267,8 +278,8 @@ pub fn agreement_between(
     stage: ScreeningStage,
 ) -> Agreement {
     let mut pairs: Vec<(ScreeningState, ScreeningState)> = Vec::new();
-    for item_id in item_ids(decisions) {
-        let latest = latest_by_reviewer(decisions, item_id, stage);
+    for (item_id, group) in by_item(decisions) {
+        let latest = latest_by_reviewer(&group, item_id, stage);
         let state_of = |reviewer: &str| {
             latest
                 .iter()
@@ -334,8 +345,11 @@ pub fn prisma_counts(items: &[ScreeningItem], decisions: &[ScreeningDecision]) -
     let mut undecided = 0usize;
     let mut conflicts = 0usize;
 
+    let groups = by_item(decisions);
+    let lookup = group_lookup(&groups);
     for item in &screened {
-        let abstract_verdict = verdict_for(decisions, &item.id, ScreeningStage::TitleAbstract);
+        let group = lookup.get(item.id.as_str()).copied().unwrap_or(&[]);
+        let abstract_verdict = verdict_for(group, &item.id, ScreeningStage::TitleAbstract);
         if abstract_verdict.conflict {
             conflicts += 1;
         }
@@ -350,7 +364,7 @@ pub fn prisma_counts(items: &[ScreeningItem], decisions: &[ScreeningDecision]) -
         // `unsure` and an unresolved conflict both go on to the full text.
         eligible += 1;
 
-        let full = verdict_for(decisions, &item.id, ScreeningStage::FullText);
+        let full = verdict_for(group, &item.id, ScreeningStage::FullText);
         if full.conflict {
             conflicts += 1;
         }
@@ -386,11 +400,11 @@ pub fn exclusion_reasons(
     stage: ScreeningStage,
 ) -> Vec<ExclusionReasonCount> {
     let mut counts: Vec<(String, usize)> = Vec::new();
-    for item_id in item_ids(decisions) {
-        if verdict_for(decisions, item_id, stage).state != Some(ScreeningState::Excluded) {
+    for (item_id, group) in by_item(decisions) {
+        if verdict_for(&group, item_id, stage).state != Some(ScreeningState::Excluded) {
             continue;
         }
-        let Some(reason) = latest_by_reviewer(decisions, item_id, stage)
+        let Some(reason) = latest_by_reviewer(&group, item_id, stage)
             .into_iter()
             .filter_map(|decision| decision.reason.as_deref().map(js_trim))
             .find(|reason| !reason.is_empty())

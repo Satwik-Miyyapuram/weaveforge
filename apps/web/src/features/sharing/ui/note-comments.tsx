@@ -9,11 +9,12 @@ import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { buildMemberNameMap } from "../application/member-labels";
-import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
+import type { TextSpan } from "../domain/text-anchor";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
 import { CommentsBadge } from "./comments-badge";
 import { Button, IconButton } from "@/components/button";
 import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { typedCore } from "@/lib/rust-core";
 import { FoldButton } from "@/components/controls";
 
 const commentKey = (id: string) => `comment:${id}`;
@@ -122,7 +123,7 @@ export function NoteComments({
     const byRoot = new Map<string, Thread>();
     const shown = comments.filter((c) => !hiddenKeys.has(commentKey(c.id)));
     for (const c of shown) {
-      if (!c.parentId) byRoot.set(c.id, { root: c, replies: [], span: c.anchor ? locateAnchor(text, c.anchor) : null });
+      if (!c.parentId) byRoot.set(c.id, { root: c, replies: [], span: c.anchor ? typedCore().locateAnchor(text, c.anchor) : null });
     }
     for (const c of shown) if (c.parentId) byRoot.get(c.parentId)?.replies.push(c);
     // Pinned threads in reading order, then page-level ones, then detached ones.
@@ -156,7 +157,7 @@ export function NoteComments({
       if (!el.contains(range.commonAncestorContainer)) return setSelection(null);
       const start = offsetOf(el, range.startContainer, range.startOffset);
       const end = offsetOf(el, range.endContainer, range.endOffset);
-      const anchor = anchorAt(el.textContent ?? "", start, end);
+      const anchor = typedCore().anchorAt(el.textContent ?? "", start, end);
       if (!anchor) return setSelection(null);
       const box = range.getBoundingClientRect();
       setSelection({ anchor, x: box.right, y: box.top });

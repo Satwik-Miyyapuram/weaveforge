@@ -29,6 +29,7 @@ function experiment(input: Partial<Experiment> & { id: string }): Experiment {
     name: input.id,
     status: "running",
     startedAt: LONG_AGO,
+    createdAt: LONG_AGO,
     artifacts: [],
     config: {},
     metrics: {},

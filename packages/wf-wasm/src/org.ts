@@ -126,17 +126,32 @@ export function resolveSupervisorId(creatorId: string): string {
   return rawResolveSupervisorId(creatorId);
 }
 
-/** Validate and normalize a new member. Throws the validation message as a string. */
+/** A validated new member; absent optional fields are left out rather than null. */
+export type ValidNewMember = Omit<NewMember, "fullName" | "supervisorId"> & {
+  fullName?: string;
+  supervisorId?: string;
+};
+
+/** Validate and normalize a new member. Throws an `Error` named `MemberValidationError`. */
 export function validateNewMember(
   input: Pick<NewMember, "email" | "password" | "role"> & Partial<Pick<NewMember, "fullName" | "supervisorId">>,
-): NewMember {
-  return rawValidateNewMember(
-    input.email,
-    input.password,
-    input.fullName ?? undefined,
-    input.role,
-    input.supervisorId ?? undefined,
-  ) as NewMember;
+): ValidNewMember {
+  let member: NewMember;
+  try {
+    member = rawValidateNewMember(
+      input.email,
+      input.password,
+      input.fullName ?? undefined,
+      input.role,
+      input.supervisorId ?? undefined,
+    ) as NewMember;
+  } catch (thrown) {
+    if (typeof thrown !== "string") throw thrown;
+    const error = new Error(thrown);
+    error.name = "MemberValidationError";
+    throw error;
+  }
+  return { ...member, fullName: member.fullName ?? undefined, supervisorId: member.supervisorId ?? undefined };
 }
 
 /** Group an invite code as `XXX-XXX-XXX`. */

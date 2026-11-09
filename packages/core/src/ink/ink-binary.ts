@@ -86,19 +86,9 @@
  * read past its end.
  */
 
-import {
-  INK_COLOURS,
-  INK_PAPERS,
-  INK_SHAPES,
-  INK_TOOLS,
-  clampInkPageSize,
-  inkEnumIndex,
-  inkEnumValue,
-  pressureByte,
-  type InkPage,
-  type InkPaper,
-} from "./ink-note.js";
-import { clampInkNoteWidth, INK_PEN_WIDTH } from "./width.js";
+import { INK_COLOURS, INK_PAPERS, INK_SHAPES, INK_TOOLS, type InkPage, type InkPaper } from "./ink-note.js";
+import { INK_PEN_WIDTH } from "./width.js";
+import { rust } from "../shared/rust.js";
 
 /** Four bytes at the head of every chunk, so a foreign file is refused at once. */
 export const INK_CHUNK_MAGIC = "WFIK";
@@ -311,7 +301,7 @@ export function encodeInkChunkBody(page: InkPage): Uint8Array {
   const layout = inkChunkLayout(pointCount, strokes.length, lines.length, textBytes);
   const body = new Uint8Array(layout.total);
   const view = new DataView(body.buffer);
-  const size = clampInkPageSize(page.width, page.height);
+  const size = rust().clampInkPageSize(page.width, page.height);
 
   view.setUint32(0, pointCount, true);
   view.setUint32(4, strokes.length, true);
@@ -319,7 +309,7 @@ export function encodeInkChunkBody(page: InkPage): Uint8Array {
   view.setUint32(12, textBytes, true);
   view.setUint16(16, size.width, true);
   view.setUint16(18, size.height, true);
-  body[20] = inkEnumIndex(INK_PAPERS, page.paper);
+  body[20] = rust().inkEnumIndex(INK_PAPERS, page.paper);
   body[21] = Math.max(0, Math.min(255, Math.round(page.background)));
   view.setUint16(22, 0, true);
 
@@ -341,10 +331,10 @@ export function encodeInkChunkBody(page: InkPage): Uint8Array {
     strokePointCount[index] = count;
     // Width is clamped, never rejected: a width that arrived out of range is a
     // bug somewhere upstream, and refusing the stroke would lose the drawing.
-    strokeWidth[index] = Math.min(255, clampInkNoteWidth(stroke.width ?? INK_PEN_WIDTH));
-    strokeTool[index] = inkEnumIndex(INK_TOOLS, stroke.tool);
-    strokeColour[index] = inkEnumIndex(INK_COLOURS, stroke.colour);
-    strokeShape[index] = inkEnumIndex(INK_SHAPES, stroke.shape);
+    strokeWidth[index] = Math.min(255, rust().clampInkNoteWidth(stroke.width ?? INK_PEN_WIDTH));
+    strokeTool[index] = rust().inkEnumIndex(INK_TOOLS, stroke.tool);
+    strokeColour[index] = rust().inkEnumIndex(INK_COLOURS, stroke.colour);
+    strokeShape[index] = rust().inkEnumIndex(INK_SHAPES, stroke.shape);
     strokeLine[index] = clampI16(stroke.lineIndex);
     strokeT0[index] = Math.max(0, Math.min(0xffff_ffff, Math.round(stroke.t0 ?? 0)));
 
@@ -357,7 +347,7 @@ export function encodeInkChunkBody(page: InkPage): Uint8Array {
       // there, so one stroke's geometry is readable on its own.
       points[cursor] = i === 0 ? x : x - previousX;
       points[cursor + 1] = i === 0 ? y : y - previousY;
-      points[cursor + 2] = pressureByte(stroke.pressures?.[i]);
+      points[cursor + 2] = rust().pressureByte(stroke.pressures?.[i]);
       previousX = x;
       previousY = y;
       cursor += 3;
@@ -605,7 +595,7 @@ export function decodeInkChunkBody(body: Uint8Array): InkChunkView {
     flags: 0,
     width: view.getUint16(16, true),
     height: view.getUint16(18, true),
-    paper: inkEnumValue(INK_PAPERS, aligned[20]!),
+    paper: rust().inkEnumValue(INK_PAPERS, aligned[20]!),
     background: aligned[21]!,
     pointCount,
     strokeCount,

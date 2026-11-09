@@ -9,18 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  INK_CHUNK_HEADER_BYTES,
-  INK_CHUNK_MAGIC,
-  blankInkPage,
-  decodeInkChunkBody,
-  encodeInkChunkBody,
-  makeInkStroke,
-  pageFromChunk,
-  type InkPage,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_CHUNK_HEADER_BYTES, INK_CHUNK_MAGIC, decodeInkChunkBody, encodeInkChunkBody, pageFromChunk, type InkPage } from "@weaveforge/core";
 
 import {
   InkPageBuffer,
@@ -32,6 +21,7 @@ import {
   toGeometry,
   type InkStrokeGeometry,
 } from "../application/page-buffer";
+import { typedCore } from "@/lib/rust-core";
 
 /** A stroke that is a horizontal line at `y`, `count` points from `x0`. */
 function line(x0: number, y: number, count: number, width = 6) {
@@ -41,7 +31,7 @@ function line(x0: number, y: number, count: number, width = 6) {
     points.push(x0 + i * 20, y);
     pressures.push(120 + i);
   }
-  return makeInkStroke({ points, pressures, width, t0: 0 });
+  return typedCore().makeInkStroke({ points, pressures, width, t0: 0 });
 }
 
 function pageOf(...strokes: ReturnType<typeof line>[]): InkPage {
@@ -159,7 +149,7 @@ test("compaction renumbers, and says how", () => {
 });
 
 test("a blank page has bounds and no strokes", () => {
-  const buffer = new InkPageBuffer(blankInkPage());
+  const buffer = new InkPageBuffer(typedCore().blankInkPage());
   assert.equal(buffer.liveCount, 0);
   assert.deepEqual(buffer.bounds(), [0, 0, 0, 0]);
   assert.deepEqual(buffer.toPage().strokes, []);
@@ -190,7 +180,7 @@ test("geometry converts back to the model without losing a point", () => {
 });
 
 test("a stroke with no points is held without breaking the bounds", () => {
-  const buffer = new InkPageBuffer(blankInkPage());
+  const buffer = new InkPageBuffer(typedCore().blankInkPage());
   const index = buffer.append({
     points: [],
     pressures: [],

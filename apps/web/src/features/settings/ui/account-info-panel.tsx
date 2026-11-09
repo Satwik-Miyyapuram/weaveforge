@@ -1,6 +1,6 @@
 "use client";
 
-import { resolveDisplayRole, ROLE_LABELS } from "@weaveforge/core";
+import { ROLE_LABELS } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
@@ -51,7 +51,7 @@ export function AccountInfoPanel() {
     ?? null;
   const inLab = typedCore().hasActiveLab(activeOrgId, memberships);
   const ownsOrg = memberships.some((m) => m.joinSource === "create");
-  const displayRole = resolveDisplayRole(profile?.role ?? "standalone", { inLab, ownsOrg });
+  const displayRole = typedCore().resolveDisplayRole(profile?.role ?? "standalone", { inLab, ownsOrg });
   const labName = activeMembership?.orgName ?? null;
   const hasEmailPassword = user.providers.includes("email");
 

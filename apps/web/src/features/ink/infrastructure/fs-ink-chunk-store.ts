@@ -13,16 +13,13 @@
  * together.
  */
 
-import {
-  inkChunkPath,
-  inkSidecarDir,
-  type IWorkspaceFs,
-} from "@weaveforge/core";
+import { type IWorkspaceFs } from "@weaveforge/core";
 
 import {
   chunkIdOfFileName,
   type InkChunkStore,
 } from "../application/ink-chunk-store";
+import { typedCore } from "@/lib/rust-core";
 
 export class FsInkChunkStore implements InkChunkStore {
   constructor(private readonly fs: () => IWorkspaceFs | null) {}
@@ -36,7 +33,7 @@ export class FsInkChunkStore implements InkChunkStore {
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
     const fs = this.fs();
     if (!fs) return null;
-    const path = inkChunkPath(noteId, chunkId);
+    const path = typedCore().inkChunkPath(noteId, chunkId);
     if (!(await fs.stat(path))) return null;
     return fs.readFile(path);
   }
@@ -47,20 +44,20 @@ export class FsInkChunkStore implements InkChunkStore {
     bytes: Uint8Array,
   ): Promise<void> {
     const fs = this.require();
-    await fs.mkdirp(inkSidecarDir(noteId));
-    await fs.writeFile(inkChunkPath(noteId, chunkId), bytes);
+    await fs.mkdirp(typedCore().inkSidecarDir(noteId));
+    await fs.writeFile(typedCore().inkChunkPath(noteId, chunkId), bytes);
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
     const fs = this.require();
-    const path = inkChunkPath(noteId, chunkId);
+    const path = typedCore().inkChunkPath(noteId, chunkId);
     if (await fs.stat(path)) await fs.remove(path);
   }
 
   async list(noteId: string): Promise<string[] | null> {
     const fs = this.fs();
     if (!fs) return null;
-    const dir = inkSidecarDir(noteId);
+    const dir = typedCore().inkSidecarDir(noteId);
     if (!(await fs.stat(dir))) return [];
     const ids: string[] = [];
     for (const entry of await fs.list(dir)) {

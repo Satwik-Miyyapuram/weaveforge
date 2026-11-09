@@ -3,7 +3,6 @@ import { paperToBibtex } from "@/features/overleaf/application/bibtex-export";
 
 import { copyText } from "@/lib/toast/copy-text";
 import { showToast } from "@/lib/toast";
-import { formatReference } from "../domain/reference-text";
 import { typedCore } from "@/lib/rust-core";
 
 export type PaperCopyKind = "reference" | "bibtex";
@@ -30,6 +29,6 @@ export async function copyPaperAs(kind: PaperCopyKind, paper: Paper | PaperSumma
     notify("This paper is no longer in your library");
     return;
   }
-  const text = kind === "reference" ? formatReference(full) : paperToBibtex(full, typedCore().resolveCiteKey(full));
+  const text = kind === "reference" ? typedCore().formatReference(full) : paperToBibtex(full, typedCore().resolveCiteKey(full));
   await copy(text, MESSAGE[kind]);
 }
