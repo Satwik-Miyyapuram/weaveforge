@@ -111,7 +111,6 @@ export function PaperNote({
   const inkFocus = useInkFocus(mode === "ink");
   const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
-  const editing = mode !== "read";
   /** The body last written from Edit or Ink, reconciled into tags once put away. */
   const pendingTagsRef = useRef<string | null>(null);
   /** Set once the page has closed: a save that lands after that settles its tags at once. */
@@ -521,7 +520,7 @@ export function PaperNote({
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}
-            {!editing && !readOnly && <TagEditor paper={paper} onReplace={onReplace} />}
+            {mode === "edit" && !readOnly && <TagEditor paper={paper} onReplace={onReplace} editor={editorHandle} />}
           </RecordSection>
 
           <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>
