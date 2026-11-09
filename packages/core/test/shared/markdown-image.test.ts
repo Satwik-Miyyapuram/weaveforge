@@ -1,11 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  imageAltFromFilename,
-  imageExtensionForMime,
-  markdownImage,
-} from "../../src/shared/markdown-image.js";
 import { rust } from "../../src/shared/rust.js";
+
+const markdownImage = (target: string, alt: string) => rust().markdownImage(target, alt);
+const imageAltFromFilename = (name?: string) => rust().imageAltFromFilename(name);
+const imageExtensionForMime = (mime: string) => rust().imageExtensionForMime(mime);
 
 
 test("a bracket in the alt text cannot end the label early", () => {

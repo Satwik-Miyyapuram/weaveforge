@@ -7,37 +7,12 @@
  * writing an alt text straight from the filename: a screenshot called
  * `figure [2].png` produced `![figure [2].png](vault:…)`, and the link stopped
  * being a link. There is one implementation now, in Rust, and the prefix is an
- * argument. This file only forwards to it.
+ * argument. What stays here is the blob upload, which does IO.
  */
 
 import { rust } from "./rust.js";
 
-/** `![alt](target)`, with the alt text escaped by Rust. */
-export function markdownImage(target: string, alt = "image"): string {
-  return rust().markdownImage(target, alt);
-}
-
-/** A readable alt text from a file name (Rust `image_alt_from_filename`). */
-export function imageAltFromFilename(name: string | undefined): string {
-  return rust().imageAltFromFilename(name);
-}
-
-/** File extension for a blob's MIME type, defaulting to png (Rust). */
-export function imageExtensionForMime(mime: string): string {
-  return rust().imageExtensionForMime(mime);
-}
-
-/**
- * The stored paths a body references under `prefix`, deduplicated (Rust).
- *
- * Rust applies the markdown-image normalization itself before scanning, so
- * callers pass only the prefix.
- */
-export function imagePathsInBody(body: string, prefix: string): string[] {
-  return rust().imagePathsInBody(body, prefix);
-}
-
-export interface ImageRef {
+interface ImageRef {
   alt: string;
   /** `head` matched at the start of the target. */
   head: RegExpExecArray;
@@ -53,7 +28,7 @@ export interface ImageRef {
  * `fn` returns the replacement, or null to keep the ref as written. With
  * `allowSpace` the target may hold whitespace, as in `[^)]+`.
  */
-export function replaceImageRefs(
+function replaceImageRefs(
   body: string,
   head: RegExp,
   fn: (ref: ImageRef) => string | null,
@@ -133,9 +108,9 @@ export async function materializeBlobImages(
       continue; // stale blob URL: keep the original ref
     }
     try {
-      const path = await upload(ownerId, blob, imageExtensionForMime(blob.type));
+      const path = await upload(ownerId, blob, rust().imageExtensionForMime(blob.type));
       // A function, so `$&`, `$$` and the like in the alt text are not expanded.
-      result = result.replace(ref.text, () => markdownImage(`${prefix}${path}`, ref.alt || "image"));
+      result = result.replace(ref.text, () => rust().markdownImage(`${prefix}${path}`, ref.alt || "image"));
     } catch (err) {
       failures.push(err);
     }
