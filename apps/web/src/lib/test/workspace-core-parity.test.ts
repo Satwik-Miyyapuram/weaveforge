@@ -8,8 +8,6 @@ import {
   readInkNoteBody as tsReadInkNoteBody,
   writeInkNoteBody as tsWriteInkNoteBody,
   defaultInkNoteMeta as tsDefaultInkNoteMeta,
-  diffBody as tsDiffBody,
-  hasConflictMarkers as tsHasConflictMarkers,
   markdownImage as tsMarkdownImage,
   imageAltFromFilename as tsImageAltFromFilename,
   imageExtensionForMime as tsImageExtensionForMime,
@@ -18,12 +16,9 @@ import {
   toRelativeBlobLinks as tsToRelativeBlobLinks,
   relativeAssetPaths as tsRelativeAssetPaths,
   projectDir as tsProjectDir,
-  entityDir as tsEntityDir,
   projectMetaDir as tsProjectMetaDir,
   idSuffix as tsIdSuffix,
   stripKindSuffix as tsStripKindSuffix,
-  jsonKindOfPath as tsJsonKindOfPath,
-  isAppOwnedPath as tsIsAppOwnedPath,
   type InkNoteMeta,
   type WorkspaceEntityType,
 } from "@weaveforge/core";
@@ -103,30 +98,6 @@ const ID_INPUTS = [
   "../x",
   "a b",
   "a".repeat(200),
-];
-
-const DIFF_CASES: [string, string][] = [
-  ["", ""],
-  ["a", "a"],
-  ["a\nb", "a\nc"],
-  ["a\nb\nc\nd", "a\nx\nc\ny"],
-  ["a\n", "a"],
-  ["a\nb\n", "a\nb"],
-  ["a\r\nb\r\n", "a\r\nc\r\n"],
-  ["a\nb", "a\nx\ny\nb"],
-  ["a\nx\ny\nb", "a\nb"],
-  ["<<<<<<< this app\na\n=======\nb\n>>>>>>> the folder\n", "a\n"],
-  ["<<<<<<< this app\r\na\r\n=======\r\nb\r\n>>>>>>> the folder\r\n", "a\r\n"],
-  ["x <<<<<<< this app\na", "a"],
-];
-
-const MARKER_INPUTS = [
-  "<<<<<<< this app\na\n=======\nb\n>>>>>>> the folder\n",
-  "<<<<<<< this app\r\na\r\n=======\r\nb\r\n>>>>>>> the folder\r\n",
-  "plain",
-  "text with <<<<<<< in the middle",
-  "x ======= y",
-  "",
 ];
 
 const DEFAULT_META: InkNoteMeta = tsDefaultInkNoteMeta();
@@ -223,18 +194,6 @@ test("defaultInkNoteMeta matches the TS default", () => {
   assert.deepEqual(core.defaultInkNoteMeta(), tsDefaultInkNoteMeta());
 });
 
-test("diffBody matches the TS diff", () => {
-  for (const [ours, theirs] of DIFF_CASES) {
-    assert.deepEqual(core.diffBody(ours, theirs), tsDiffBody(ours, theirs), JSON.stringify([ours, theirs]));
-  }
-});
-
-test("hasConflictMarkers matches the TS check", () => {
-  for (const text of MARKER_INPUTS) {
-    assert.deepEqual(core.hasConflictMarkers(text), tsHasConflictMarkers(text), JSON.stringify(text));
-  }
-});
-
 test("markdownImage matches the TS builder", () => {
   const cases: [string, string][] = [
     ["vault:x.png", "photo"],
@@ -320,11 +279,21 @@ test("projectDir matches the TS folder name", () => {
   }
 });
 
-test("entityDir matches the TS directory for every type", () => {
+// Literal values: the TS entityDir is gone, so these pin the Rust ENTITY_DIRS table.
+test("entityDir gives the top-level folder per type, under a project root when given", () => {
+  const top: Record<WorkspaceEntityType, string> = {
+    vault_page: "notes",
+    ink_page: "notes",
+    paper: "papers",
+    reading_list: "reading-lists",
+    report_section: "report",
+    experiment: "experiments",
+    milestone: "plan",
+    log_entry: "logbook",
+  };
   for (const type of ENTITY_TYPES) {
-    for (const root of ["", "p--1"]) {
-      assert.deepEqual(core.entityDir(type, root), tsEntityDir(type, root), `${type} root ${JSON.stringify(root)}`);
-    }
+    assert.equal(core.entityDir(type, ""), top[type], `${type} no root`);
+    assert.equal(core.entityDir(type, "p--1"), `p--1/${top[type]}`, `${type} under p--1`);
   }
 });
 
@@ -354,25 +323,51 @@ test("projectMetaDir, idSuffix and stripKindSuffix match the TS helpers", () => 
   }
 });
 
-test("jsonKindOfPath and isAppOwnedPath match the TS path rules", () => {
-  const paths = [
-    ".weaveforge/relations.json",
-    "p--1/.weaveforge/tags.json",
-    "p--1/.weaveforge/reading-list-items.json",
-    "p--1/.weaveforge/mirror.json",
-    "p--1/.weaveforge/db/x",
-    "x/reading_list_items.json",
-    "notes/a.md",
-    "tags.json",
-    ".git/config",
-    "README.md",
-    "papers/pdf/a.pdf",
-    "x/papers/html/b.html",
-    "p--1/.weaveforge/manifest.json",
-    "p--1/.weaveforge/cache/z",
+test("jsonKindOfPath and isAppOwnedPath keep their literal path rules", () => {
+  // [path, jsonKindOfPath, isAppOwnedPath]: the kind is by basename, so a bare "tags.json" is a kind.
+  const cases: [string, string | null, boolean][] = [
+    [".weaveforge/relations.json", "relations", false],
+    ["p--1/.weaveforge/tags.json", "tags", false],
+    ["p--1/.weaveforge/reading-list-items.json", "reading_list_items", false],
+    ["p--1/.weaveforge/mirror.json", null, true],
+    ["p--1/.weaveforge/db/x", null, true],
+    ["x/reading_list_items.json", null, false],
+    ["notes/a.md", null, false],
+    ["tags.json", "tags", false],
+    [".git/config", null, true],
+    ["README.md", null, true],
+    ["papers/pdf/a.pdf", null, true],
+    ["x/papers/html/b.html", null, true],
+    ["p--1/.weaveforge/manifest.json", null, true],
+    ["p--1/.weaveforge/cache/z", null, true],
   ];
-  for (const path of paths) {
-    assert.deepEqual(core.jsonKindOfPath(path), tsJsonKindOfPath(path), JSON.stringify(path));
-    assert.deepEqual(core.isAppOwnedPath(path), tsIsAppOwnedPath(path), JSON.stringify(path));
+  for (const [path, kind, owned] of cases) {
+    assert.equal(core.jsonKindOfPath(path), kind, path);
+    assert.equal(core.isAppOwnedPath(path), owned, path);
   }
+});
+
+// Literal expectations for the Rust rules that replaced the deleted TS helpers.
+
+test("diffBody lists shared lines and the hunk between them", () => {
+  assert.deepEqual(core.diffBody("a\nb\nc", "a\nB\nc"), {
+    lines: [
+      { op: "same", text: "a" },
+      { op: "ours", text: "b" },
+      { op: "theirs", text: "B" },
+      { op: "same", text: "c" },
+    ],
+    hunks: [{ index: 0, ours: ["b"], theirs: ["B"] }],
+  });
+  assert.deepEqual(core.diffBody("", ""), { lines: [{ op: "same", text: "" }], hunks: [] });
+});
+
+test("hasConflictMarkers finds WeaveForge and git markers, not a bare =======", () => {
+  assert.equal(core.hasConflictMarkers("<<<<<<< this app\na\n=======\nb\n>>>>>>> the folder\n"), true);
+  assert.equal(core.hasConflictMarkers("<<<<<<< this app\r\na\r\n=======\r\nb\r\n>>>>>>> the folder\r\n"), true);
+  assert.equal(core.hasConflictMarkers("<<<<<<< HEAD\na\n=======\nb\n>>>>>>> branch"), true);
+  assert.equal(core.hasConflictMarkers("plain"), false);
+  assert.equal(core.hasConflictMarkers("text with <<<<<<< in the middle"), false);
+  assert.equal(core.hasConflictMarkers("x ======= y"), false);
+  assert.equal(core.hasConflictMarkers(""), false);
 });

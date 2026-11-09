@@ -93,18 +93,14 @@ test("normalizeMarkdownImageSyntax stays linear on unclosed image syntax", () =>
 });
 
 test("image-ref scanning stays linear on unclosed refs", async () => {
-  const { fromRelativeBlobLinks, relativeAssetPaths, toRelativeBlobLinks } = await import("../../src/workspace/blob-links.js");
-  const resolver = { resolve: () => null };
   for (const s of ["![".repeat(50_000), "![](vault:!".repeat(50_000), `${"![](assets/notes/x".repeat(50_000)})`]) {
     const t = performance.now();
-    toRelativeBlobLinks(s, "a.md");
-    fromRelativeBlobLinks(s, resolver);
-    relativeAssetPaths(s);
     imagePathsInBody(s, "vault:", (b) => b);
     assert.ok(performance.now() - t < 1000, `slow on ${s.slice(0, 20)}`);
   }
-  assert.deepEqual(relativeAssetPaths("![](assets/notes/x![a](../assets/report/r.png)"), [{ scope: "notes", path: "x![a](../assets/report/r.png" }]);
 });
+// The blob-link rewrite and its linearity are Rust's (`sync::blob_links`, with
+// literal asserts in crates/wf-core/tests/sync_blob_links.rs).
 
 test("replacement patterns in alt text are written literally, not expanded (01-02)", async () => {
   const original = globalThis.fetch;

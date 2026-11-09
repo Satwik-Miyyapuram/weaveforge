@@ -9,6 +9,8 @@
  * Slugs exist purely so the folder is navigable by a human.
  */
 
+import { rust } from "../shared/rust.js";
+
 export const WORKSPACE_META_DIR = ".weaveforge";
 
 export type WorkspaceEntityType =
@@ -128,11 +130,6 @@ export function projectDir(project: WorkspaceProject): string {
   return `${slugFor(project.name, "project")}--${idSuffix(project.id)}`;
 }
 
-/** The top-level directory for an entity type, inside a project when given one. */
-export function entityDir(type: WorkspaceEntityType, projectRoot = ""): string {
-  return projectRoot ? `${projectRoot}/${ENTITY_DIRS[type]}` : ENTITY_DIRS[type];
-}
-
 /** A project's own bookkeeping: `<project>/.weaveforge/`. */
 export function projectMetaDir(projectRoot: string): string {
   return `${projectRoot}/${WORKSPACE_META_DIR}`;
@@ -155,7 +152,7 @@ export function treePaths(
   type: WorkspaceEntityType,
   projectRoot = "",
 ): Map<string, string> {
-  const root = entityDir(type, projectRoot);
+  const root = rust().entityDir(type, projectRoot);
   const ext = `.${KIND_SUFFIX[type]}.md`;
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const childCount = new Map<string, number>();
@@ -216,13 +213,13 @@ export function flatPath(
   title: string,
   projectRoot = "",
 ): string {
-  return `${entityDir(type, projectRoot)}/${slugFor(title)}--${idSuffix(id)}.${KIND_SUFFIX[type]}.md`;
+  return `${rust().entityDir(type, projectRoot)}/${slugFor(title)}--${idSuffix(id)}.${KIND_SUFFIX[type]}.md`;
 }
 
 /** Logbook is dated rather than titled: `logbook/2026/03/2026-03-14--ab12cd.log.md`. */
 export function logPath(id: string, entryDate: string, projectRoot = ""): string {
   const [year, month] = entryDate.split("-");
-  return `${entityDir("log_entry", projectRoot)}/${year ?? "unknown"}/${month ?? "00"}/${entryDate}--${idSuffix(id)}.${KIND_SUFFIX.log_entry}.md`;
+  return `${rust().entityDir("log_entry", projectRoot)}/${year ?? "unknown"}/${month ?? "00"}/${entryDate}--${idSuffix(id)}.${KIND_SUFFIX.log_entry}.md`;
 }
 
 /** Assets live in one tree so a body's relative links resolve from anywhere. */
@@ -238,7 +235,7 @@ export const PAPER_PDF_DIR = `${ENTITY_DIRS.paper}/pdf`;
  * browser has only its own cache and fetches again when that is gone.
  */
 export function paperPdfPath(paperId: string, projectRoot = ""): string {
-  return `${entityDir("paper", projectRoot)}/pdf/${paperId}.pdf`;
+  return `${rust().entityDir("paper", projectRoot)}/pdf/${paperId}.pdf`;
 }
 
 /** Where a paper's full-text web page is kept: `papers/html/<paperId>.html`. */
@@ -250,7 +247,7 @@ export const PAPER_HTML_DIR = `${ENTITY_DIRS.paper}/html`;
  * sanitised — no scripts, no forms — so the file is safe to open on its own.
  */
 export function paperHtmlPath(paperId: string, projectRoot = ""): string {
-  return `${entityDir("paper", projectRoot)}/html/${paperId}.html`;
+  return `${rust().entityDir("paper", projectRoot)}/html/${paperId}.html`;
 }
 
 /**

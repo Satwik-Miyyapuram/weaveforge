@@ -40,6 +40,7 @@ const RUST_OWNED = [
   "decodeLocus",
   "DEFAULT_PASTE_SETTINGS",
   "DEPENDENCY_KINDS",
+  "describeChanges",
   "diffJsonData",
   "diffWorkspace",
   "effectiveRelationTypes",

@@ -35,35 +35,4 @@ export function digestText(text: string): string {
   return `${(low >>> 0).toString(16).padStart(8, "0")}${(high >>> 0).toString(16).padStart(8, "0")}`;
 }
 
-/** What the two sides look like now, against what they last agreed on. */
-export interface ChangeOrigin {
-  /** Digest of the file the last mirror run left in the folder, if known. */
-  base?: string;
-  /** Digest of the folder's copy as it reads now. */
-  folder?: string;
-  /** Digest of the file the mirror would write from the workspace now. */
-  workspace?: string;
-}
-
 export type ChangeSide = "neither" | "folder" | "workspace" | "both" | "unknown";
-
-/**
- * Who changed the file since the two sides last agreed.
- *
- * `unknown` where there is no base -- a folder written by an older version, a
- * manifest that was lost, a file the mirror never wrote. The caller must treat
- * it as it treated everything before this existed, which is to say: show the
- * difference and let the user decide.
- */
-export function changedSide(origin: ChangeOrigin): ChangeSide {
-  const { base, folder, workspace } = origin;
-  // The folder already holds what the mirror would write: nothing to import, base or not.
-  if (folder !== undefined && folder === workspace) return "neither";
-  if (base === undefined || folder === undefined || workspace === undefined) return "unknown";
-  const folderMoved = folder !== base;
-  const workspaceMoved = workspace !== base;
-  if (folderMoved && workspaceMoved) return folder === workspace ? "neither" : "both";
-  if (folderMoved) return "folder";
-  if (workspaceMoved) return "workspace";
-  return "neither";
-}

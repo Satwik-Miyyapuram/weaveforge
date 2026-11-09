@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  decideGitSyncPath,
-  GIT_SYNC_IGNORED_EXTENSIONS,
-  GIT_SYNC_LIMITS,
-  isUnderIgnoredFolder,
-} from "../../src/workspace/git-sync-policy.js";
+import { rust } from "../../src/shared/rust.js";
+import { GIT_SYNC_IGNORED_EXTENSIONS, GIT_SYNC_LIMITS } from "../../src/workspace/git-sync-policy.js";
 
 const MB = 1024 * 1024;
 const SMALL = 1024;
+
+// The decision is Rust's (wf-core git_gate / sync policy); these tests run against the real core.
+const decideGitSyncPath = (path: string, size: number, cap?: number) => rust().decideGitSyncPath(path, size, cap);
+const isUnderIgnoredFolder = (path: string) => rust().isUnderIgnoredFolder(path);
 
 function included(path: string, size = SMALL, cap?: number): boolean {
   return decideGitSyncPath(path, size, cap).include;

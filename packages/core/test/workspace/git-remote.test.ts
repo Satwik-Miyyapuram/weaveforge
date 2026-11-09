@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { rust } from "../../src/shared/rust.js";
 import { NoOpWorkspaceGit } from "../../src/workspace/git-port.js";
 import {
   checkGitRemoteUrl,
   describePull,
   describePush,
-  redactSecret,
   SYNC_AUTHOR,
 } from "../../src/workspace/git-remote.js";
 
@@ -45,9 +45,9 @@ test("a token is never echoed back in the refusal for a credentialed URL", () =>
 });
 
 test("redactSecret removes every occurrence of the token, and leaves text alone without one", () => {
-  assert.equal(redactSecret("auth abc failed for abc", "abc"), "auth *** failed for ***");
-  assert.equal(redactSecret("nothing here", undefined), "nothing here");
-  assert.equal(redactSecret("nothing here", ""), "nothing here");
+  assert.equal(rust().redactSecret("auth abc failed for abc", "abc"), "auth *** failed for ***");
+  assert.equal(rust().redactSecret("nothing here", undefined), "nothing here");
+  assert.equal(rust().redactSecret("nothing here", ""), "nothing here");
 });
 
 test("pull and push outcomes read as one sentence; conflicts name the files and say nothing changed", () => {

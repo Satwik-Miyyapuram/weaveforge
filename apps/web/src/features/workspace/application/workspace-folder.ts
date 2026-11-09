@@ -2,8 +2,6 @@ import {
   ASSET_DIR,
   FOLDER_DRAFTS_DIR,
   NoOpWorkspaceGit,
-  describeChanges,
-  GIT_OFF,
   idSuffix,
   type ImportDiff,
   type IWorkspaceFs,
@@ -13,6 +11,7 @@ import {
   type WorkspaceCommit,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { loadCore } from "@/lib/rust-core";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-library-pdfs";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -342,12 +341,14 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     // commit and not the mirror run that had already succeeded.
     const result = await shell.commitVault().catch((error: unknown) => ({ commit: null, reason: String(error) }));
     commit = result.commit ?? null;
-    // History switched off is a choice, not a failure worth a line.
-    if (!commit && result.reason && result.reason !== GIT_OFF) commitError = result.reason;
+    // History switched off is a choice, not a failure worth a line. The text is
+    // wf-core's GIT_OFF (git_gate.rs); the Rust verdict is the only source of it.
+    if (!commit && result.reason && result.reason !== "Folder history is switched off.") commitError = result.reason;
   } else if (activeGit.kind !== "none") {
     if (!(await activeGit.isRepo())) await activeGit.init();
     const status = await activeGit.status();
-    commit = await activeGit.commitAll(describeChanges(status), {
+    const core = await loadCore();
+    commit = await activeGit.commitAll(core.describeChanges(status), {
       name: "WeaveForge",
       email: "workspace@weaveforge.local",
     });

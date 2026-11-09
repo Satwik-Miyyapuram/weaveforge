@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   collectWorkspaceSnapshot,
-  workspaceSnapshotCounts,
+  rust,
   type WorkspaceSnapshotReaders,
 } from "../../src/index.js";
 
@@ -90,7 +90,7 @@ test("never reaches for a lossy summary reader when one is offered", async () =>
 test("counts summarise the snapshot for the export manifest", async () => {
   const snapshot = await collectWorkspaceSnapshot(readers(), () => NOW);
 
-  assert.deepEqual(workspaceSnapshotCounts(snapshot), {
+  assert.deepEqual(rust().workspaceSnapshotCounts(snapshot), {
     papers: 1,
     notes: 1,
     readingLists: 1,

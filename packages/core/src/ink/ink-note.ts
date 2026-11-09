@@ -319,7 +319,7 @@ export function writeInkNoteMeta(
  * no frontmatter — so the ink metadata (§4.2's `ink:` block) has to travel inside
  * the body when the note is a row rather than a file. It travels as one HTML
  * comment on the first line, which markdown renders as nothing, the mirror
- * lifts into frontmatter on the way out (`serialize-workspace.ts`) and puts back
+ * lifts into frontmatter on the way out (the Rust serializer) and puts back
  * on the way in. Everything after it is the text layer.
  */
 export const INK_BODY_HEADER = "<!-- weaveforge-ink";
