@@ -24,14 +24,13 @@ import { shortcutLabel } from "@/lib/shortcut-label";
 import { readMdSplitSide, setMdSplitSide, useMdPreviewMode, type MdSplitSide } from "@/lib/hooks/use-md-preview-mode";
 import { IconButton } from "./button";
 import { CardMenu } from "./card-menu";
-import { ToggleButton } from "./controls";
-import { toolIcon } from "./ink-tool-icons";
-import { TextIcon } from "./view-icons";
+import { HandwritingIcon, KeyboardIcon, SplitViewIcon } from "./view-icons";
 
 export type DocumentModeName = "edit" | "ink";
 
 const NAMES: Record<DocumentModeName, string> = { edit: "Text", ink: "Ink" };
-const ICONS: Record<DocumentModeName, () => ReactNode> = { edit: () => <TextIcon />, ink: () => toolIcon("pen") };
+// A keyboard and a handwritten stroke: a pencil read as "edit", a T as "font".
+const ICONS: Record<DocumentModeName, () => ReactNode> = { edit: () => <KeyboardIcon />, ink: () => <HandwritingIcon /> };
 const TITLES: Record<DocumentModeName, string> = {
   edit: "Edit the text",
   ink: "Ink — write by hand",
@@ -68,6 +67,8 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
   const inline = split === undefined;
   const on = preview !== "off";
   const toggle = () => setPreview(on ? "off" : readMdSplitSide());
+  // The icon shows where the preview opens: the open split's side, else the saved one.
+  const splitSide: MdSplitSide = preview === "off" ? readMdSplitSide() : preview;
   const side = (each: MdSplitSide, label: string) => ({
     id: each,
     label,
@@ -94,16 +95,16 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
         ))}
       </span>
       {split !== false && (
-      <span className="wf-seg pane-split">
-        <ToggleButton
-          pressed={on && canSplit(mode)}
+        <IconButton
+          size="sm"
+          label="Preview"
+          tip={`Preview ${splitSide === "below" ? "below" : "beside"} the text (${shortcutLabel("⌘E")})`}
+          aria-pressed={on && canSplit(mode)}
           disabled={!canSplit(mode)}
-          title={`Preview beside the text (${shortcutLabel("⌘E")})`}
           onClick={toggle}
         >
-          Preview
-        </ToggleButton>
-      </span>
+          <SplitViewIcon side={splitSide} />
+        </IconButton>
       )}
       {inline && on && canSplit(mode) && (
         <CardMenu label="Split options" items={[side("side", "Preview beside"), side("below", "Preview below")]} />

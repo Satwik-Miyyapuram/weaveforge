@@ -68,6 +68,29 @@ test("Text and Ink are plain icon buttons like the toolbar's, not boxed segments
   assert.match(css, /:root:root \.wf-btn\.wf-icon\[aria-pressed="true"\] \{ color: var\(--accent\); \}/);
 });
 
+test("Ink does not look like edit, Text is not a bare T, Preview shows the split side", () => {
+  const html = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="edit" onMode={() => {}} />);
+  const icon = (name: string) => html.match(new RegExp(`<button[^>]*aria-label="${name}"[^>]*>(.*?)</button>`))?.[1] ?? "";
+  // The pen tool's pencil path and the T glyph's crossbar read as "edit" and "font".
+  assert.doesNotMatch(icon("Ink"), /M17 3a2\.85/, "Ink is not the pencil");
+  assert.doesNotMatch(icon("Text"), /M4 7V4h16v3/, "Text is not the T glyph");
+  assert.notEqual(icon("Ink"), icon("Text"));
+  withStorage(() => {
+    setMdSplitSide("side");
+    const beside = renderToStaticMarkup(<DocumentModeSwitch modes={["edit"]} mode="edit" onMode={() => {}} />);
+    assert.match(beside, /aria-label="Preview"[^>]*>.*M12 4v16/, "beside: a vertical divider");
+    setMdSplitSide("below");
+    const below = renderToStaticMarkup(<DocumentModeSwitch modes={["edit"]} mode="edit" onMode={() => {}} />);
+    assert.match(below, /aria-label="Preview"[^>]*>.*M3 12h18/, "below: a horizontal divider");
+  });
+});
+
+test("the note toolbar leaves room for the first button's focus ring", () => {
+  const rule = read("app/styles/entity-detail.css").match(/\.document-toolbar \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /overflow: hidden/);
+  assert.match(rule, /padding: \S+ (?!0[;\s])\S+;/, "side padding, or overflow clips the ring");
+});
+
 test("there is no Read mode any more", () => {
   for (const modes of [["edit", "ink"], ["edit"], ["ink"]] as const) {
     assert.ok(!modeOptions(modes).some((o) => /read/i.test(o.ariaLabel)));
@@ -106,10 +129,15 @@ test("every editor and the header switch share one preview choice", () =>
 test("on a page the control is Mode then a Preview toggle, greyed outside Text", () => {
   const on = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="edit" onMode={() => {}} />);
   assert.match(on, /aria-label="Mode"/);
-  assert.match(on, /aria-pressed="false"[^>]*>Preview</);
+  const previewBtn = (html: string) => html.match(/<button[^>]*aria-label="Preview"[^>]*>(.*?)<\/button>/);
+  const btn = previewBtn(on);
+  assert.ok(btn, "Preview is a named button");
+  assert.match(btn[0], /aria-pressed="false"/);
+  assert.match(btn[1] ?? "", /^<svg/, "Preview is an icon, not a word");
+  assert.doesNotMatch(on, />Preview</);
   assert.doesNotMatch(on, />Read</);
   const ink = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="ink" onMode={() => {}} />);
-  assert.match(ink, /disabled=""[^>]*>Preview</, "Preview greys out on the sheet");
+  assert.match(previewBtn(ink)?.[0] ?? "", /disabled=""/, "Preview greys out on the sheet");
   const noInk = renderToStaticMarkup(<DocumentModeSwitch modes={["edit"]} mode="edit" onMode={() => {}} />);
   assert.match(noInk, /<button[^>]*aria-label="Ink"[^>]*disabled=""|<button[^>]*disabled=""[^>]*aria-label="Ink"/, "Ink is greyed, not gone");
   const preview = read("features/editor-workspace/ui/md-live-preview.tsx");
