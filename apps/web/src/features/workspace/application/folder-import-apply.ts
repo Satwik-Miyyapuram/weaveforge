@@ -1,11 +1,8 @@
 import {
-  ASSET_DIR,
-  fromRelativeBlobLinks,
-  type ImportDiff,
-  type ImportDiffEntry,
   type IWorkspaceFs,
   type JsonDiff,
 } from "@weaveforge/core";
+import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { loadCore } from "@/lib/rust-core";
 import { activeProject } from "./active-project";
@@ -221,9 +218,8 @@ async function reanchorAssets(
     resolved.set(ref.folderPath, await getContainer().vault.uploadAsset(pageId, blob, ext));
   }
 
-  return fromRelativeBlobLinks(body, {
-    resolve: (scope, path) => resolved.get(`${ASSET_DIR}/${scope}/${path}`) ?? null,
-  });
+  const core = await loadCore();
+  return core.fromRelativeBlobLinks(body, Object.fromEntries(resolved));
 }
 
 /** The title a renamed file's name gives: no folder, kind suffix or id suffix. */

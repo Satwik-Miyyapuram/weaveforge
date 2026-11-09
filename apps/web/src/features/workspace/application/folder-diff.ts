@@ -1,11 +1,9 @@
 import {
-  ASSET_DIR,
-  fromRelativeBlobLinks,
-  type ImportDiff,
   type JsonDiff,
   type VaultPageBase,
   type WorkspaceProject,
 } from "@weaveforge/core";
+import type { ImportDiff } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { loadCore, type RustCore } from "@/lib/rust-core";
 import { ownedAssetFolderPaths, workspaceBodies } from "./asset-reanchor";
@@ -64,6 +62,10 @@ export async function diffAgainstWorkspace(
 
   setPendingAssets(assets);
   const owned = ownedAssetFolderPaths(workspaceBodies(snapshot));
+  // folder path (`assets/<scope>/<path>`) -> storage path, which is the path itself.
+  const ownedStorage = Object.fromEntries(
+    [...owned].map((folderPath) => [folderPath, folderPath.split("/").slice(2).join("/")]),
+  );
   const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
   const parsed = importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
     ...entity,
@@ -71,9 +73,7 @@ export async function diffAgainstWorkspace(
     // Without it every note holding an image reads as changed on every import,
     // because the folder spells the reference `../assets/…` and the database
     // spells the same reference `vault:…`.
-    body: fromRelativeBlobLinks(entity.body, {
-      resolve: (scope, path) => (owned.has(`${ASSET_DIR}/${scope}/${path}`) ? path : null),
-    }),
+    body: core.fromRelativeBlobLinks(entity.body, ownedStorage),
   }));
 
   // What the mirror would write from the workspace as it stands now. Compared
