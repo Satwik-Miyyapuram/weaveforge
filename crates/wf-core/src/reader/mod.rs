@@ -8,6 +8,7 @@ pub mod ink_undo;
 pub mod link_citations;
 pub mod locate;
 pub mod locus;
+pub mod pdf_source_ladder;
 pub mod selection;
 pub mod viewport;
 pub mod zotero_sync;

@@ -1,26 +1,12 @@
-export * from "./outline-from-text.js";
+export type { OutlineTextItem, ReaderOutlineItem } from "./outline-types.js";
 export * from "./parse-reference-list.js";
 export * from "./find-citation-mentions.js";
 export * from "./link-citations.js";
-export * from "./find-figure-mentions.js";
 export * from "./text-fingerprint.js";
 export { titleSimilarity as bibliographicTitleSimilarity, isBibliographicMatch } from "./title-similarity.js";
 export * from "./analysis/analysis-types.js";
 export { pageTextFromItems, reconstructLines, type TextLine } from "./analysis/line-reconstruction.js";
 export { detectColumns, sortByReadingOrder } from "./analysis/column-detection.js";
-export { furnitureLines } from "./analysis/running-heads.js";
-export {
-  findHeadingLines,
-  headingOutline,
-  outlineIsPlausible,
-  type HeadingLine,
-} from "./analysis/heading-analysis.js";
-export {
-  REFERENCES_HEADING,
-  findReferenceSection,
-  fallbackNumberedRun,
-  type ReferenceSectionSpan,
-} from "./analysis/reference-section.js";
 export {
   LABEL,
   splitBibliographyEntries,
@@ -29,12 +15,6 @@ export {
   parseBibliography,
   extractVenue,
 } from "./analysis/bibliography-parser.js";
-export {
-  matchPageCitations,
-  type PageCitationInput,
-} from "./analysis/citation-matcher.js";
-export { nativeCitationMentions, isCitationDestination } from "./analysis/pdf-links.js";
-export { assemblePageCitations, coalesceMentions } from "./analysis/citation-assembly.js";
 // One rect maths for every mention: the one analysis itself uses.
 export { mentionRects } from "./analysis/citation-text.js";
 export {
@@ -45,4 +25,3 @@ export {
   type CitationCandidate as CitationTextCandidate,
 } from "./analysis/citations.js";
 export { composeSpacingAccents, searchTextFromItems, originalRange, stripInvisible, surnameKey } from "./analysis/citation-text.js";
-export { analyzePdfDocument, outlineItemOf } from "./analysis/document-analysis.js";

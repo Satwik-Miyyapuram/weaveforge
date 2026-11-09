@@ -14,7 +14,7 @@ import type {
   AnalysisResponse,
   AnalysisWorkerPage,
 } from "../../infrastructure/analysis.worker";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 
 const EMPTY_INDEX: ReaderReferenceIndex = {
   references: [],
@@ -62,10 +62,10 @@ export function analyzeInThread(
   outline: readonly ReaderOutlineItem[],
 ): { analysis: DocumentAnalysis; index: ReaderReferenceIndex } | null {
   try {
-    const analysis = typedCore().analyzePdfDocument(
+    const analysis = readyCore().analyzePdfDocument(
       pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
       outline,
-    );
+    ) as DocumentAnalysis;
     return { analysis, index: indexFromAnalysis(analysis, pages) };
   } catch (err) {
     logToApp({

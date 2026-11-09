@@ -9,6 +9,15 @@
  */
 export interface RustCoreFns {
   normalizeDoi(doi?: string): string | undefined;
+  // reader
+  isRotatedText(transform: Float64Array): boolean;
+  outlineTextLines(pages: any): any;
+  bodyFontSize(pages: any): number;
+  groupRecurringLines(texts: any, pages: any): any;
+  outlineFromText(allPages: any): any;
+  outlineIsPlausible(headings: any, page_count: number): boolean;
+  findReferenceSection(lines: any, body_font_size: number, page_count: number, furniture: any): any;
+  ladderOrder(supports: boolean[]): number[];
 }
 
 let core: RustCoreFns | null = null;

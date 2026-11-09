@@ -12,12 +12,12 @@
  * crosses `postMessage` as-is.
  */
 
-import {
-  analyzePdfDocument,
-  type DocumentAnalysis,
-  type PdfLink,
-  type ReaderOutlineItem,
+import type {
+  DocumentAnalysis,
+  PdfLink,
+  ReaderOutlineItem,
 } from "@weaveforge/core/reader-analysis";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import type { ReferencePage } from "../application/reader-references";
 
 export interface AnalysisWorkerPage extends ReferencePage {
@@ -37,16 +37,17 @@ export type AnalysisResponse =
 
 const post = (message: AnalysisResponse) => (self as unknown as Worker).postMessage(message);
 
-self.addEventListener("message", (event: MessageEvent<AnalysisRequest>) => {
+self.addEventListener("message", async (event: MessageEvent<AnalysisRequest>) => {
   const data = event.data;
   if (!data || typeof data.id !== "number" || !Array.isArray(data.pages)) return;
   const { id, pages, outline } = data;
   try {
     post({ id, type: "progress", percent: 20 });
-    const analysis = analyzePdfDocument(
+    await loadCore();
+    const analysis = readyCore().analyzePdfDocument(
       pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
       outline,
-    );
+    ) as DocumentAnalysis;
     post({ id, type: "complete", analysis });
   } catch (err) {
     post({ id, type: "error", message: err instanceof Error ? err.message : String(err) });
