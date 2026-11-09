@@ -7,7 +7,7 @@ export * from "./infra/postgrest-transport";
 export * from "./domain/adoption";
 export * from "./domain/sync-engine";
 export { SyncSettingsPanel } from "./ui/sync-settings-panel";
-export * from "./domain/merge";
+export type { FieldConflict, FieldMergeResult as MergeResult, Row } from "@weaveforge/core";
 export * from "./domain/conflicts";
 export { SyncIssuesPanel } from "./ui/sync-issues-panel";
 export * from "./domain/live-sync";

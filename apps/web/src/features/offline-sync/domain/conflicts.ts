@@ -1,4 +1,5 @@
-import { mergeRows, sameValue, type FieldConflict, type Row } from "./merge";
+import type { FieldConflict, FieldMergeResult, Row } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { Outbox, type SqlRunner } from "./outbox";
 import { quoteIdent } from "./sql-ident";
 
@@ -191,7 +192,7 @@ export class ConflictStore {
       await this.sql.exec("update sync_conflicts set kind = 'edit' where id = $1", [row.id]);
     }
 
-    const { merged, conflicts } = mergeRows(row.base, row.local, remote);
+    const { merged, conflicts } = readyCore().mergeRows(row.base, row.local, remote) as FieldMergeResult;
     if (conflicts.length === 0) {
       await this.write(table, rowId, merged, remote, version);
       await this.resolve(row.id);
@@ -278,7 +279,7 @@ export class ConflictStore {
     if (!remote) return;
 
     // Start from the merge, so a field only this device changed survives the pick.
-    const chosen: Row = { ...mergeRows(row.base, row.local, remote).merged };
+    const chosen: Row = { ...(readyCore().mergeRows(row.base, row.local, remote) as FieldMergeResult).merged };
     for (const [field, side] of Object.entries(picks)) {
       if (side === "local") chosen[field] = row.local[field];
     }
@@ -332,7 +333,7 @@ export class ConflictStore {
 }
 
 function sameRow(a: Row, b: Row): boolean {
-  return Object.keys({ ...a, ...b }).every((k) => sameValue(a[k] ?? null, b[k] ?? null));
+  return Object.keys({ ...a, ...b }).every((k) => readyCore().sameValue(a[k] ?? null, b[k] ?? null));
 }
 
 
