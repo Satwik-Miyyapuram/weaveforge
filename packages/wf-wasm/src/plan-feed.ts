@@ -3,6 +3,7 @@
  * dated milestones and the JSON summary a desktop or home-screen widget reads.
  */
 import {
+  addDays as rawAddDays,
   milestonesToIcs as rawMilestonesToIcs,
   planWidgetData as rawPlanWidgetData,
 } from "../pkg/wf_wasm.js";
@@ -32,4 +33,9 @@ export function planWidgetData(
     options.limit,
     options.now.getTime(),
   ) as PlanWidgetData;
+}
+
+/** `iso` (YYYY-MM-DD) moved by whole calendar days; no time zone can shift it. Throws on a non-date. */
+export function addDays(iso: string, days: number): string {
+  return rawAddDays(iso, Math.trunc(days));
 }

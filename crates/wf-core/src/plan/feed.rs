@@ -72,6 +72,14 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (year, month, day)
 }
 
+/// `iso` (`yyyy-mm-dd`) moved by `days` calendar days, or `None` unless `iso` is a real date.
+///
+/// Pure calendar arithmetic: no time zone or clock change can move the answer.
+#[must_use]
+pub fn add_days(iso: &str, days: i64) -> Option<String> {
+    parse_date(Some(iso)).map(|start| iso_day(start + days))
+}
+
 fn iso_day(days: i64) -> String {
     let (y, m, d) = civil_from_days(days);
     format!("{y:04}-{m:02}-{d:02}")
@@ -299,6 +307,18 @@ pub fn plan_widget(
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
+    #[test]
+    fn add_days_is_calendar_arithmetic() {
+        assert_eq!(add_days("2026-01-15", 14).as_deref(), Some("2026-01-29"));
+        assert_eq!(add_days("2026-01-15", 0).as_deref(), Some("2026-01-15"));
+        assert_eq!(add_days("2026-03-01", -1).as_deref(), Some("2026-02-28"));
+        assert_eq!(add_days("2024-02-28", 1).as_deref(), Some("2024-02-29"));
+        assert_eq!(add_days("2026-12-31", 1).as_deref(), Some("2027-01-01"));
+        assert_eq!(add_days("2026-10-24", 2).as_deref(), Some("2026-10-26"));
+        assert_eq!(add_days("2026-02-31", 1), None);
+        assert_eq!(add_days("soon", 1), None);
+    }
+
     use super::*;
     use serde_json::json;
 

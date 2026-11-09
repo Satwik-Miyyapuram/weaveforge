@@ -305,6 +305,37 @@ export function addCounts(a, b) {
 }
 
 /**
+ * [`add_days`](feed::add_days): `iso` moved by `days` calendar days.
+ *
+ * # Errors
+ *
+ * Throws if `iso` is not a real `yyyy-mm-dd` date.
+ * @param {string} iso
+ * @param {number} days
+ * @returns {string}
+ */
+export function addDays(iso, days) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(iso, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.addDays(ptr0, len0, days);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`agreement_between`](screening::agreement_between) (TS `agreementBetween`).
  *
  * # Errors
