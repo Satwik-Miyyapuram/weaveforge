@@ -96,7 +96,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `python/weaveforge` | 3,375 lines | The SDK training scripts import |
 | `python/tests` | 2,277 lines | Its tests |
 | `db/migrations` | 154 files | The schema, as an ordered sequence |
-| `docs` | 87 files | Documentation, this page included |
+| `docs` | 88 files | Documentation, this page included |
 
 **460,491 lines of code in all**, across 4,006 source files.
 

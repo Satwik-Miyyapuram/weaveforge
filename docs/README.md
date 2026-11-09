@@ -15,6 +15,7 @@ For somebody using the app.
 - [Paste](using/paste.md) — what happens to what you paste in
 - [Search](using/search.md)
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
+- [Reports](using/reports.md) — draft thesis sections, check the bibliography, convert Markdown to LaTeX
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
 - [Extending WeaveForge](using/extensions.md)
 
