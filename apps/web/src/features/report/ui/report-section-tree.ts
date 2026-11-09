@@ -3,12 +3,13 @@ import {
   type ReportSectionTreeNode,
 } from "@weaveforge/core";
 import { type ReportParentOption } from "./add-section-form";
-import { outlineProgress, sectionProgress, type SectionProgress } from "../lib/section-progress";
+import type { SectionProgress } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /** Rolled-up words for the section with this id, when it is in the outline. */
 export function progressOf(nodes: readonly ReportSectionTreeNode[], id: string): SectionProgress | undefined {
   for (const n of nodes) {
-    if (n.section.id === id) return sectionProgress(n);
+    if (n.section.id === id) return readyCore().sectionProgress(n);
     const inChild = progressOf(n.children, id);
     if (inChild) return inChild;
   }
@@ -46,7 +47,7 @@ export function flattenParentOptions(nodes: ReportSectionTreeNode[]): ReportPare
 /** "4 sections · 4,210 of 12,000 words" above the title, words rolled up from the top-level sections. */
 export function sectionsEyebrow(count: number, roots: readonly ReportSectionTreeNode[]): string | undefined {
   if (!count) return undefined;
-  const { words, target } = outlineProgress(roots);
+  const { words, target } = readyCore().outlineProgress(roots);
   const label = `${count} ${count === 1 ? "section" : "sections"}`;
   return target
     ? `${label} · ${words.toLocaleString()} of ${target.toLocaleString()} words`

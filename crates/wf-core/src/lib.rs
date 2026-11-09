@@ -2,16 +2,19 @@
 #![forbid(unsafe_code)]
 
 pub mod ai;
+pub mod auth_transition;
 pub mod cache_invalidation;
 pub mod card_snippet;
 pub mod collab;
 pub mod dashboard;
 pub mod editor_workspace;
 pub mod error_report;
+pub mod experiment_artifacts;
 pub mod experiment_status;
 pub mod experiments;
 pub mod heading_slug;
 pub mod ink;
+pub mod integrations;
 pub mod js_collate;
 pub mod lab_snapshot;
 pub mod latex_section_tree;
@@ -19,6 +22,7 @@ pub mod logbook;
 pub mod markdown_figure_alt;
 pub mod markdown_image_refs;
 pub mod markdown_image_width;
+pub mod markdown_mermaid_labels;
 pub mod mcp;
 pub mod member;
 pub mod net;

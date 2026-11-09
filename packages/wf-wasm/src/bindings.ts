@@ -473,6 +473,12 @@ export type AnchorConfidence =
 /**  Position fallback, ambiguous quote, or quote-only strategy. */
 "low";
 
+/**  The part of a TS `CombinedPdfAnchor` the rule reads. */
+export type AnchorInput = {
+	/**  Zotero page and rects, when the anchor has them. */
+	zoteroPosition?: PositionInput | null,
+};
+
 /**  `normaliseWhitespace` options (TS `NormaliseWhitespaceOptions`). */
 export type AnchorNormaliseOptions = {
 	/**  Absent or `true` trims; `false` keeps boundary whitespace. */
@@ -580,6 +586,48 @@ export type AnchorZoteroPosition = {
 	nextPageRects?: ((number | null)[])[] | null,
 };
 
+/**  The backlinks for one annotation (TS `AnnotationBacklinkHit`). Only annotations with targets appear. */
+export type AnnotationBacklinkHit = {
+	/**  The annotation's id. */
+	annotationId: string,
+	/**  The key used to find it: the trimmed Zotero key, or the id. */
+	annotationKey: string,
+	/**  The sections and pages that link to it, sections first. */
+	targets: AnnotationBacklinkTarget[],
+};
+
+/**  Where a backlink points (TS `AnnotationBacklinkTarget.kind`). */
+export type AnnotationBacklinkKind = 
+/**  A report section, reached through a pin. */
+"report_section" | 
+/**  A vault page whose body names the annotation. */
+"vault_page";
+
+/**  One thing that links back to an annotation (TS `AnnotationBacklinkTarget`). */
+export type AnnotationBacklinkTarget = {
+	/**  Whether this is a report section or a vault page. */
+	kind: AnnotationBacklinkKind,
+	/**  The section or page id. */
+	id: string,
+	/**  The section or page title. */
+	title: string,
+};
+
+/**
+ *  The fields of a TS `ReaderAnnotation` that the image-region rule reads.
+ *  Every other field is ignored on deserialisation.
+ */
+export type AnnotationInput = {
+	/**  Annotation id. */
+	id: string,
+	/**  Annotation type (`image`, `highlight`, ...), the TS `type` field. */
+	type: string,
+	/**  Display colour. */
+	color: string,
+	/**  The anchor; a missing anchor has no Zotero position. */
+	anchor?: AnchorInput,
+};
+
 /**  A reader annotation as the index reads it. */
 export type AnnotationSource = {
 	/**  Annotation id. */
@@ -598,6 +646,48 @@ export type AnnotationSource = {
 	createdAt?: string,
 	/**  Last edit timestamp; empty when unknown. */
 	updatedAt?: string,
+};
+
+/**  The caps an import is held to. */
+export type ArchiveLimits = {
+	/**  Total uncompressed bytes across every entry. */
+	maxTotalBytes: number,
+	/**  One file. */
+	maxFileBytes: number,
+	/**  Entries, directories included. */
+	maxEntries: number,
+};
+
+/**  What the app does with a session change. */
+export type AuthStep = 
+/**  Open with the local copy's account, offline. */
+{ kind: "offline" } | 
+/**  The session lapsed on the desktop: keep the work and ask to sign in again. */
+{ kind: "expired" } | 
+/**  Clear the session. */
+{ kind: "signedOut" } | 
+/**  This window reads another account's copy: start over against the server. */
+{ kind: "otherAccountOnDisk" } | 
+/**  Signed in as `user_id`. */
+{ kind: "signedIn"; 
+/**  Signing in as someone else: drop the last user's caches. */
+clearCaches: boolean; 
+/**  Back from a lapsed session as the same person: every screen asks again. */
+refetch: boolean };
+
+/**  One rect of an image annotation, ready for bulk extract (rasterised later). */
+export type BatchImageRegion = {
+	/**  The annotation the rect belongs to. */
+	annotationId: string,
+	/**  Zero-based page index. */
+	pageIndex: number,
+	/**
+	 *  The first four numbers of the rect. (`u32` only makes the TS type a
+	 *  plain `number[]`; the values stay fractional.)
+	 */
+	rect: number[],
+	/**  The annotation's colour. */
+	color: string,
 };
 
 /**  One `@type{key, ...}` entry. */
@@ -760,6 +850,37 @@ export type BlobAsset = {
 	folderPath: string,
 };
 
+/**  Client settings for one S3-compatible bucket. */
+export type BlobClientConfig = {
+	/**  Physical bucket name. */
+	physicalBucket: string,
+	/**  Signing region (always "auto" for R2 and MinIO here). */
+	region: string,
+	/**  Access key id. */
+	accessKeyId: string,
+	/**  Secret access key. */
+	secretAccessKey: string,
+	/**  Endpoint URL. */
+	endpoint: string,
+	/**  Path-style addressing (required for R2 and MinIO here). */
+	forcePathStyle: boolean,
+};
+
+/**  Blob adapter ids. `Supabase` is the legacy fallback when nothing is set. */
+export type BlobProviderId = 
+/**  Legacy Supabase storage. */
+"supabase" | 
+/**  Hot/cold tiered storage (R2 hot, MinIO cold). */
+"tiered";
+
+/**  Where the blob provider choice is being made. */
+export type BlobRuntime = {
+	/**  True in the browser, where the inlined public setting decides. */
+	inBrowser: boolean,
+	/**  The inlined `NEXT_PUBLIC_BLOB_PROVIDER` value, if any. */
+	publicProvider?: string | null,
+};
+
 /**  Storage scheme of an app blob ref. */
 export type BlobScheme = 
 /**  `vault:`, note images; scope `notes`. */
@@ -814,6 +935,28 @@ export type Bullets =
 /**  Rewrite them as Markdown list items. */
 "markdown";
 
+/**  One cached PDF: its key and when it was last written. */
+export type CachedPdfAge = {
+	/**  The cache key. */
+	key: string,
+	/**  Last write time in milliseconds, as JS `updatedAt`. */
+	updatedAt: number | null,
+};
+
+/**  One card type's size limits (the size fields of the TS `CardDef`). */
+export type CardLimit = {
+	/**  Card type id, as stored in the layout (`type`). */
+	type: string,
+	/**  Smallest size. */
+	minSize: Size,
+	/**  Largest size. */
+	maxSize: Size,
+	/**  Size on a wide (12-column) grid. */
+	defaultSize: Size,
+	/**  Size on a narrow (4-column) grid. */
+	defaultSizeSm: Size,
+};
+
 /**  How the brutal and CRT themes colour a paper card by its reading status. */
 export type CardTint = 
 /**  The whole card tinted. */
@@ -846,6 +989,34 @@ export type ChunkOptions = {
 	overlapChars?: number | null,
 	/**  Below this a trailing fragment is merged back rather than embedded alone. */
 	minChars?: number | null,
+};
+
+/**  A paper watched for new citing papers (TS `CitationAlertTrack`). */
+export type CitationAlertTrack = {
+	/**  Track id. */
+	id: string,
+	/**  The watched paper. */
+	paperId: string,
+	/**  When tracking started, ISO 8601 UTC. */
+	trackedAt: string,
+	/**  Absent until the first successful poll after tracking starts. */
+	lastCheckedAt?: string | null,
+	/**  Citing-paper ids already seen by the provider. */
+	seenCitingIds: string[],
+};
+
+/**  A stored `citation_alert_tracks` row (TS `TrackRow`). Columns are snake_case. */
+export type CitationAlertTrackRow = {
+	/**  Track id. */
+	id: string,
+	/**  The watched paper. */
+	paper_id: string,
+	/**  When tracking started. */
+	tracked_at: string,
+	/**  Last successful poll; null until one happens. */
+	last_checked_at: string | null,
+	/**  Seen citing-paper ids; null reads as none. */
+	seen_citing_ids: string[] | null,
 };
 
 /**  A candidate citation span in the page text (`CitationCandidate`). */
@@ -924,6 +1095,26 @@ export type CleanPasteResult = {
 	urlsCleaned: number,
 };
 
+/**  The part of a segment inside an area. */
+export type ClippedSegment = {
+	/**  Where the part starts. */
+	from: Point,
+	/**  Where the part ends. */
+	to: Point,
+};
+
+/**  Cold-tier fields, as read from env. */
+export type ColdFields = {
+	/**  MinIO / OCI endpoint. */
+	coldEndpoint?: string | null,
+	/**  Cold-tier access key id. */
+	coldAccessKeyId?: string | null,
+	/**  Cold-tier secret access key. */
+	coldSecretAccessKey?: string | null,
+	/**  Cold-tier bucket name. */
+	coldBucket?: string | null,
+};
+
 /**  What a node's colour says. */
 export type ColorBy = 
 /**  Reading status. */
@@ -958,6 +1149,28 @@ export type CommaPlacement =
 /**  Outside the closing quotation mark (British style). */
 "outside";
 
+/**  A comment as the app reads it (TS `Comment`). */
+export type Comment = {
+	/**  Row id. */
+	id: string,
+	/**  The author. */
+	authorId: string,
+	/**  The type of item commented on. */
+	resourceType: string,
+	/**  The item commented on. */
+	resourceId: string,
+	/**  The comment text. */
+	body: string,
+	/**  When the comment was made. */
+	createdAt: string,
+	/**  The passage the comment is about; `None` for a page-level comment. */
+	anchor: CommentAnchor | null,
+	/**  The thread root this answers. */
+	parentId: string | null,
+	/**  When the thread was resolved. */
+	resolvedAt: string | null,
+};
+
 /**  A passage with a little context either side (TS `CommentAnchor`, W3C TextQuoteSelector). */
 export type CommentAnchor = {
 	/**  The quoted text. */
@@ -966,6 +1179,32 @@ export type CommentAnchor = {
 	prefix: string,
 	/**  Text just after the quote. */
 	suffix: string,
+};
+
+/**  A `comments` row as the database returns it (snake_case columns; TS `CommentRow`). */
+export type CommentRow = {
+	/**  Row id. */
+	id: string,
+	/**  The author. */
+	author_id: string,
+	/**  The type of item commented on. */
+	resource_type: string,
+	/**  The item commented on. */
+	resource_id: string,
+	/**  The comment text. */
+	body: string,
+	/**  When the comment was made. */
+	created_at: string,
+	/**  The quoted passage; absent for a page-level comment. */
+	anchor_quote?: string | null,
+	/**  Text just before the quote. */
+	anchor_prefix?: string | null,
+	/**  Text just after the quote. */
+	anchor_suffix?: string | null,
+	/**  The thread root this answers. */
+	parent_id?: string | null,
+	/**  When the thread was resolved. */
+	resolved_at?: string | null,
 };
 
 /**  A compute requirement (TS `ComputeNeed`). */
@@ -1179,6 +1418,32 @@ export type DocumentSearchMatch = {
 	end: number | null,
 };
 
+/**  A box in client pixels. */
+export type DrawArea = {
+	/**  Left edge. */
+	left: number,
+	/**  Top edge. */
+	top: number,
+	/**  Right edge. */
+	right: number,
+	/**  Bottom edge. */
+	bottom: number,
+};
+
+/**  One outcome of a PDF drop, reduced to what the toast reads. */
+export type DropEntry = {
+	/**  The file became a paper (false: skipped as not a PDF, or too large). */
+	added: boolean,
+	/**  The paper is new (false: it was already in the library). */
+	created: boolean,
+	/**  The dropped PDF was kept as the paper's PDF. */
+	keptPdf: boolean,
+	/**  How the title was found; set when `added`. */
+	titledBy?: TitledBy | null,
+	/**  The drop ran offline, so no lookup was tried. */
+	offline: boolean,
+};
+
 /**  Papers that are the same paper. */
 export type DuplicateGroup = {
 	/**  The copy the others would be merged into. */
@@ -1206,6 +1471,25 @@ export type EdgeMode =
 "tags" | 
 /**  Both. */
 "both";
+
+/**  What an import does with one entry. */
+export type EntryAction = 
+/**  Import it. */
+"keep" | 
+/**  A directory marker or an empty file: nothing to import. */
+"empty" | 
+/**  Its name could reach outside the folder. */
+"unsafe-name" | 
+/**  Over the file cap. */
+"too-big";
+
+/**  A directory's name and size as an archive declares them, before inflating. */
+export type EntryInfo = {
+	/**  Path inside the archive, `/`-separated. */
+	name: string,
+	/**  Uncompressed size in bytes. */
+	size: number,
+};
 
 /**  Europe PMC's answer: its free full texts, and the PMCID when it has one. */
 export type EuropePmcAnswer = {
@@ -1286,6 +1570,16 @@ export type ExperimentStatusPatch = {
 	startedAt?: string | null,
 	/**  Set only while the status is terminal. */
 	finishedAt?: string | null,
+};
+
+/**  Where one section's rows sit in the scroller, all in CSS px. */
+export type ExplorerViewport = {
+	/**  The scroller's scroll offset. */
+	scrollTop: number | null,
+	/**  The scroller's visible height. */
+	height: number | null,
+	/**  The top of the section's first row inside the scrolled content. */
+	rowsTop: number | null,
 };
 
 /**  One concept a run found (TS `ExtractedConcept`). `kind` stays text so any value passes through. */
@@ -1495,6 +1789,28 @@ export type FilteredRows = {
 	rows: VisibleRow[],
 	/**  Keys the caller merges into its expansion set. */
 	expand: string[],
+};
+
+/**  An owned [`ImageRef`], for JS: what `materializeBlobImages` reads from each match. */
+export type FoundImageRef = {
+	/**  The alt text as written. */
+	alt: string,
+	/**  The head that matched at the start of the target. */
+	head: string,
+	/**  The target after `head`; never empty. */
+	rest: string,
+	/**  The whole `![alt](target)`. */
+	text: string,
+};
+
+/**  GitHub / GitLab: token, repo path and branch. */
+export type GitConnection = {
+	/**  API token, empty when unset. */
+	token: string,
+	/**  Repo path, empty when unset. */
+	repo: string,
+	/**  Branch the integration uses. */
+	branch: string,
 };
 
 /**  Result of a pull. `conflict` leaves the folder as it was. */
@@ -1945,6 +2261,48 @@ export type InkUndoStep = {
 	entry: InkUndoEntry,
 };
 
+/**  A stored integration, as far as these accessors read it. */
+export type Integration = {
+	/**  Whether the person switched this integration on. */
+	enabled: boolean,
+	/**  GitHub/GitLab: API token. Mattermost: bot token. */
+	token?: string | null,
+	/**  GitHub: "owner/name". GitLab: project path or id. Mattermost: server URL. */
+	repo?: string | null,
+	/**  GitHub/GitLab: branch. Mattermost: channel id. */
+	branch: string,
+	/**  Provider-specific settings, as stored (Mattermost: see `mattermost_options`). */
+	options?: unknown | null,
+};
+
+/**  The chosen provider per integration kind. */
+export type IntegrationConfig = {
+	/**  Bibliography provider id, or `none`. */
+	bibliography: string,
+	/**  Notification provider id, or `none`. */
+	notifications: string,
+	/**  Log-sync provider id, or `none`. */
+	logSync: string,
+	/**  Citation provider id, or `none`. */
+	citation: string,
+	/**  Git-read provider ids (empty when disabled). */
+	gitRead: string[],
+};
+
+/**  The `NEXT_PUBLIC_*` provider env values. Absent means unset. */
+export type IntegrationEnv = {
+	/**  `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER`. */
+	bibliographyProvider?: string | null,
+	/**  `NEXT_PUBLIC_NOTIFICATION_PROVIDER`. */
+	notificationProvider?: string | null,
+	/**  `NEXT_PUBLIC_LOG_SYNC_PROVIDER`. */
+	logSyncProvider?: string | null,
+	/**  `NEXT_PUBLIC_CITATION_PROVIDER`. */
+	citationProvider?: string | null,
+	/**  `NEXT_PUBLIC_GIT_READ_PROVIDERS` (comma list, or `none`). */
+	gitReadProviders?: string | null,
+};
+
 /**  The integrations bag built from legacy columns (TS `integrationsBagFromLegacy` output). */
 export type IntegrationsBag = {
 	/**  Zotero fields (`apiKey`, `library`), present when any is non-empty. */
@@ -2015,6 +2373,22 @@ export type JsonDiffEntry = {
 	reason?: string,
 	/**  Which conflict, when the entry is one. */
 	conflictKind?: ConflictKind,
+};
+
+/**  A key press, as the fields the workspace reads from a keyboard event. */
+export type KeyChord = {
+	/**  The character the key types, or a name such as `F2` or `Tab`. */
+	key: string,
+	/**  The physical key. Digits are read from here, since AZERTY types them as symbols. */
+	code?: string | null,
+	/**  Control is held. */
+	ctrlKey?: boolean,
+	/**  Meta (Cmd) is held. */
+	metaKey?: boolean,
+	/**  Shift is held. */
+	shiftKey?: boolean,
+	/**  Alt (Option) is held. */
+	altKey?: boolean,
 };
 
 /**
@@ -2122,6 +2496,24 @@ export type LatexSourceFile = {
 	path: string,
 	/**  Full file text. */
 	content: string,
+};
+
+/**  One card placed on the grid. Keys the rules do not read pass through unchanged. */
+export type LayoutItem = {
+	/**  Card instance id. */
+	id: string,
+	/**  Card type id. */
+	type: string,
+	/**  Column of the top-left cell. */
+	x: number,
+	/**  Row of the top-left cell. */
+	y: number,
+	/**  Width in columns. */
+	w: number,
+	/**  Height in rows. */
+	h: number,
+	/**  Per-card settings. */
+	config?: { [key in string]: unknown } | null,
 };
 
 /**  How nodes are arranged. */
@@ -2261,6 +2653,49 @@ export type MarkdownToLatexResult = {
 	images: MarkdownToLatexImageRef[],
 	/**  Bib keys emitted via `\cite{...}` (unique, insertion order). */
 	citedKeys: string[],
+};
+
+/**  Mattermost: bot token, server URL and channel id. */
+export type MattermostConnection = {
+	/**  Bot token, empty when unset. */
+	botToken: string,
+	/**  Server URL, empty when unset. */
+	serverUrl: string,
+	/**  Main channel id. */
+	channelId: string,
+};
+
+/**  Every kind of post the app can send to Mattermost. */
+export type MattermostEvent = 
+/**  A milestone was added on the plan. */
+"milestoneAdded" | 
+/**  A milestone moved to a new status. */
+"milestoneStatus" | 
+/**  A tracked paper gained citing papers. */
+"citationAlerts" | 
+/**  A daily logbook entry was added. */
+"dailyLogs" | 
+/**  A weekly logbook entry was added. */
+"weeklyLogs";
+
+/**  One event as the settings panel lists it. */
+export type MattermostEventInfo = {
+	/**  The event this row switches. */
+	id: MattermostEvent,
+	/**  Short name shown in the list. */
+	label: string,
+	/**  One line on when the event fires. */
+	hint: string,
+};
+
+/**  The stored Mattermost options, read with defaults for anything missing. */
+export type MattermostOptions = {
+	/**  Switched-on events by name. Anything missing is off, so linking a channel sends nothing until chosen. */
+	events: { [key in string]: boolean },
+	/**  True: every event goes to the connection's channel. False: per-event channels below. */
+	sameChannel: boolean,
+	/**  Per-event channel id, used only when `same_channel` is false; blank falls back to the main channel. */
+	channels: { [key in string]: string },
 };
 
 /**  One bounded, fenced result (TS `McpResult`). */
@@ -2473,6 +2908,12 @@ export type MirrorResult = {
 	heldBack: string[],
 	/**  Note bases, in write order. */
 	bases: ([string, VaultPageBase])[],
+};
+
+/**  The part of a reading list the graph tags read: its name. */
+export type NamedList = {
+	/**  List name, lowercased when shown as a tag. */
+	name: string,
 };
 
 /**  A comment request (TS `NewCommentInput`). Optional fields may be absent. */
@@ -2868,6 +3309,14 @@ export type PageMetadata = {
 	isArticle: boolean,
 };
 
+/**  Which pages an answer names. */
+export type PageSelection = {
+	/**  Every page named that the document has, sorted and deduplicated. */
+	pages: (number | null)[],
+	/**  The lowest page named past the page count, if any. */
+	outOfRange?: number | null,
+};
+
 /**  Headings, in the order the palette shows them. */
 export type PaletteGroup = 
 /**  Recently opened items. */
@@ -3070,6 +3519,24 @@ export type PaperRelation = {
 	createdAt: string,
 };
 
+/**  A stored `paper_relations` row (TS `PaperRelationRow`). Columns are snake_case. */
+export type PaperRelationRow = {
+	/**  Relation id. */
+	id: string,
+	/**  The paper the edge starts from. */
+	from_paper: string,
+	/**  The paper the edge points to. */
+	to_paper: string,
+	/**  The kind of relation. */
+	relation: RelationType,
+	/**  Optional note; stored as null when absent. */
+	note: string | null,
+	/**  How the edge was created. */
+	source: RelationSource,
+	/**  Creation time, ISO 8601 UTC. */
+	created_at: string,
+};
+
 /**  Reading status of a paper. */
 export type PaperStatus = 
 /**  Not started. */
@@ -3175,6 +3642,14 @@ export type PasteSettings = {
 	cleanPdfOnPaste: boolean,
 };
 
+/**  The toast for a drop, and whether it opens the paper (only a one-file drop does). */
+export type PdfDropSummary = {
+	/**  One line for the toast. */
+	message: string,
+	/**  True when the drop was a single added file, whose paper should open. */
+	opensPaper: boolean,
+};
+
 /**  A paper's extracted PDF text, ready for indexing. */
 export type PdfIndexSource = {
 	/**  Paper id. */
@@ -3213,6 +3688,18 @@ export type Peer = {
 	color: string,
 };
 
+/**  Where a background is drawn on the sheet. */
+export type Placement = {
+	/**  Left edge on the sheet, in pixels. */
+	x: number,
+	/**  Top edge on the sheet, in pixels. */
+	y: number,
+	/**  Drawn width, in pixels. */
+	width: number,
+	/**  Drawn height, in pixels. */
+	height: number,
+};
+
 /**  The JSON summary a home-screen or desktop widget reads. */
 export type PlanWidgetData = {
 	/**  Always 1. */
@@ -3243,6 +3730,30 @@ export type PlanWidgetItem = {
 	status: string,
 	/**  Whole days from `today` to `date`; negative when overdue. */
 	daysLeft: number,
+};
+
+/**  One entry of an archive and the action an import takes on it. */
+export type PlannedEntry = {
+	/**  The entry's name, as archived. */
+	name: string,
+	/**  What to do with it. */
+	action: EntryAction,
+};
+
+/**  A point in client pixels. */
+export type Point = {
+	/**  Horizontal position. */
+	x: number,
+	/**  Vertical position. */
+	y: number,
+};
+
+/**  The part of a TS `ZoteroRectPosition` the rule reads. */
+export type PositionInput = {
+	/**  Zero-based page index. */
+	pageIndex: number | null,
+	/**  PDF user-space rects `[x1, y1, x2, y2]`. */
+	rects?: ((number | null)[])[] | null,
 };
 
 /**  Walk settings (TS `PprOptions` without the injected `rng`). Unset fields take the defaults. */
@@ -3299,6 +3810,30 @@ export type ProfileState = {
 	activeOrgId?: string | null,
 };
 
+/**  A draft's preview split for a card: bold first line → title, "Why:" → reason. */
+export type ProposalPreview = {
+	/**  The bold first line, trimmed; `None` when the draft has none. */
+	title: string | null,
+	/**  The `Why:` line, trimmed; `None` when the draft has none. */
+	why: string | null,
+	/**  What is left after the title and reason, with leading whitespace removed. */
+	body: string,
+};
+
+/**  Registered provider ids per integration kind, from the manifest registry. */
+export type ProviderIds = {
+	/**  Bibliography provider ids. */
+	bibliography: string[],
+	/**  Notification provider ids. */
+	notification: string[],
+	/**  Log-sync provider ids. */
+	logSync: string[],
+	/**  Citation provider ids. */
+	citation: string[],
+	/**  Git-read provider ids. */
+	gitRead: string[],
+};
+
 /**  Citavi-style taxonomy for how an annotation will be used in writing. */
 export type QuotationType = 
 /**  Quoted word for word. */
@@ -3307,6 +3842,18 @@ export type QuotationType =
 "paraphrase" | 
 /**  Condensed. */
 "summary";
+
+/**  R2 hot-tier fields, as read from env. */
+export type R2Fields = {
+	/**  Cloudflare account id. */
+	r2AccountId?: string | null,
+	/**  R2 access key id. */
+	r2AccessKeyId?: string | null,
+	/**  R2 secret access key. */
+	r2SecretAccessKey?: string | null,
+	/**  R2 bucket name. */
+	r2Bucket?: string | null,
+};
 
 /**  The document fields `document_boost` reads (TS `SearchDoc` subset). */
 export type RankedDoc = {
@@ -3455,6 +4002,13 @@ export type ReaderScreenPoint = {
 	y: number | null,
 };
 
+/**  The pane open beside the PDF (TS `ReaderSplitPane` without `null`). */
+export type ReaderSplitPane = 
+/**  The report section. */
+"report" | 
+/**  The vault note. */
+"vault";
+
 /**  The fields `resolve_viewport_scale` reads. Mirrors the `Pick` in the TS copy. */
 export type ReaderViewportScaleState = {
 	/**  Stored zoom scale. */
@@ -3523,6 +4077,14 @@ export type ReadingListTreeNode = {
 	children: ReadingListTreeNode[],
 };
 
+/**  Redacted text and how many spans were replaced. */
+export type Redacted = {
+	/**  The text after redaction and any truncation. */
+	text: string,
+	/**  How many spans were replaced, so a caller can say "12 items redacted". */
+	redactions: number,
+};
+
 /**  The paper fields a reference uses (a subset of TS `Paper`). */
 export type ReferencePaper = {
 	/**  Title. */
@@ -3555,6 +4117,13 @@ export type ReferenceSectionSpan = {
 	/**  Heading score; the fallback reports 3. */
 	score: number | null,
 };
+
+/**  Which kind of region a marker opens. */
+export type RegionKind = 
+/**  Refreshed from the template on every render. */
+"generated" | 
+/**  Kept byte-for-byte across re-renders. */
+"editable";
 
 /**  How a rejoin decides which lines belong to the same paragraph. */
 export type Rejoin = 
@@ -3636,6 +4205,24 @@ export type RelativeLinks = {
 	body: string,
 	/**  Every rewritten blob ref, in body order. */
 	assets: BlobAsset[],
+};
+
+/**  The body of a report, as the form posts it. Optional fields may be absent. */
+export type ReportMarkdown = {
+	/**  What happened, in the app's words. */
+	detail: string,
+	/**  The route the error was shown on. */
+	route?: string | null,
+	/**  The app version. */
+	version?: string | null,
+	/**  Recent errors and warnings, already redacted by the caller. */
+	logs?: string | null,
+	/**  What the reader was doing: the steps that reproduce it. */
+	steps?: string | null,
+	/**  Labelled context lines; an empty value is left out. */
+	context?: ([string, string])[] | null,
+	/**  False leaves off the "What happened" heading. Absent means true. */
+	withHeading?: boolean | null,
 };
 
 /**  One node of the thesis outline. */
@@ -3738,6 +4325,14 @@ export type ResourceType =
 /**  Graph settings. */
 "graph_settings";
 
+/**  Runs × metrics as display text (TS `resultsTable`): a Run column, then one column per metric. */
+export type ResultsTable = {
+	/**  `Run`, then every metric name in [`metric_keys`] order. */
+	header: string[],
+	/**  One row per run; each cell follows the header's column order. */
+	rows: string[][],
+};
+
 /**  A field definition as a rollup reads it. Only a rollup's own `options` are read. */
 export type RollupFieldDef = {
 	/**  Field id. */
@@ -3756,6 +4351,38 @@ export type RollupValue = {
 	fieldId: string,
 	/**  The stored value. */
 	value: PaperFieldValueData,
+};
+
+/**  The panel's row geometry, passed in from the TS constants. */
+export type RowMetrics = {
+	/**  One row's height in CSS px. */
+	rowPx: number | null,
+	/**  Rows painted before the panel has a size to measure. */
+	firstPaintRows: number | null,
+	/**  Rows painted past each edge of the view. */
+	overscanRows: number | null,
+};
+
+/**  One painted row, or a gap standing in for `rows` unpainted rows. */
+export type RowSlot = 
+/**  A painted row at `index`. */
+{ kind: "row"; 
+/**  Position of the row in the section. */
+index: number } | 
+/**  `rows` unpainted rows, sized so the scrollbar keeps its place. */
+{ kind: "gap"; 
+/**  How many rows the gap stands for. */
+rows: number };
+
+/**  A descriptor's runtime gate: the gate kind and the provider it needs. */
+export type RuntimeGate = {
+	/**
+	 *  Gate kind: `bibliography`, `citation`, `notifications`, `logSync`, `gitRead`.
+	 *  Any other kind is always open.
+	 */
+	kind: string,
+	/**  The provider id this gate needs selected. */
+	providerId: string,
 };
 
 /**  One reviewer's decision on one item at one stage. */
@@ -3924,6 +4551,35 @@ export type SectionNode = {
 	parentId?: string | null,
 };
 
+/**  A section's (or outline's) word count against its target. */
+export type SectionProgress = {
+	/**  Words written, the section's own text plus every subsection's. */
+	words: number,
+	/**  Words aimed for, or `None` when there is no target to measure against. */
+	target: number | null,
+	/**  0 to 100, or `None` with no target to measure against. */
+	pct: number | null,
+};
+
+/**  One piece of a parsed document: plain text, or a marked region. */
+export type Segment = 
+/**  Text outside every region. */
+{ type: "text"; 
+/**  The raw text. */
+text: string } | 
+/**  A well-formed marked region. */
+{ type: "region"; 
+/**  Generated or editable. */
+kind: RegionKind; 
+/**  The region name from the marker. */
+name: string; 
+/**  Text between the open and close markers. */
+body: string; 
+/**  The exact open marker as written. */
+open: string; 
+/**  The exact close marker as written. */
+close: string };
+
 /**  One page's text geometry (TS `PageTextGeometry`). `pageWidth`/`pageHeight` are ignored. */
 export type SelectionPageTextGeometry = {
 	/**  Zero-based page index. */
@@ -4018,6 +4674,24 @@ export type SerializedWorkspace = {
 	assets: SerializedAsset[],
 };
 
+/**  A share as the app reads it (TS `Share`). */
+export type Share = {
+	/**  Row id. */
+	id: string,
+	/**  The sharer. */
+	ownerId: string,
+	/**  The recipient. */
+	recipientId: string,
+	/**  The type of item shared. */
+	resourceType: ShareableType,
+	/**  The item shared; `None` shares every item of the type. */
+	resourceId: string | null,
+	/**  The access level. */
+	access: ShareAccess,
+	/**  When the grant was made. */
+	createdAt: string,
+};
+
 /**  How much a share lets the recipient do (TS `ShareAccess`). */
 export type ShareAccess = 
 /**  Read only. */
@@ -4037,6 +4711,24 @@ export type ShareGrant = {
 	ownerId: string,
 	/**  The access level. */
 	access: ShareAccess,
+};
+
+/**  A `shares` row as the database returns it (snake_case columns; TS `ShareRow`). */
+export type ShareRow = {
+	/**  Row id. */
+	id: string,
+	/**  The sharer. */
+	owner_id: string,
+	/**  The recipient. */
+	recipient_id: string,
+	/**  The type of item shared. */
+	resource_type: ShareableType,
+	/**  The item shared; `None` shares every item of the type. */
+	resource_id: string | null,
+	/**  The access level. */
+	access: ShareAccess,
+	/**  When the grant was made. */
+	created_at: string,
 };
 
 /**  The fields of TS `Share` that coverage reads (`Pick` of type, resource and owner). */
@@ -4064,6 +4756,41 @@ export type ShareableType =
 /**  A vault page. */
 "vault_page";
 
+/**  A shared item as the reader shows it (TS `SharedItem`). */
+export type SharedItem = {
+	/**  The item id. */
+	id: string,
+	/**  The type of item. */
+	kind: ShareableType,
+	/**  The title, or `(untitled)`. */
+	title: string,
+	/**  The status, or `""`. */
+	status: string,
+	/**  The owner's user id. */
+	ownerId: string,
+	/**  The paper's metadata object (or array), for papers only. */
+	metadata?: { [key in string]: unknown },
+};
+
+/**
+ *  Which columns hold a shared item's title and status (TS `SHARED_SOURCES` entry).
+ *  The TS `table` field is ignored: the fetch stays in TS.
+ */
+export type SharedSource = {
+	/**  Column holding the title. */
+	title: string,
+	/**  Column holding the status; `None` for types without one. */
+	status: string | null,
+};
+
+/**  A width and height in grid cells. */
+export type Size = {
+	/**  Width in columns. */
+	w: number | null,
+	/**  Height in rows. */
+	h: number | null,
+};
+
 /**  A snapped mark: flat edge-sampled points and the shape it was fitted as. */
 export type SnappedShape = {
 	/**  Flat `[x0, y0, x1, y1, …]` in 0.1 mm. */
@@ -4078,6 +4805,44 @@ export type SplitDirection =
 "row" | 
 /**  Children are stacked top and bottom. */
 "column";
+
+/**  Blob and tiering settings read from env. */
+export type StorageConfig = {
+	/**  Primary blob adapter. */
+	provider: BlobProviderId,
+	/**  Hot-tier quota in GB. */
+	hotQuotaGb: number | null,
+	/**  Hot-tier fill ratio that starts eviction. */
+	hotHighWatermark: number | null,
+	/**  Hot-tier fill ratio eviction stops at. */
+	hotLowWatermark: number | null,
+	/**  Objects moved per eviction batch. */
+	tierBatchSize: number | null,
+	/**  Eviction score weight on access count. */
+	tierAlpha: number | null,
+	/**  Eviction score weight on age. */
+	tierBeta: number | null,
+	/**  Eviction score weight on priority. */
+	tierGamma: number | null,
+	/**  Promote a cold object to hot when it is read. */
+	promoteOnAccess: boolean,
+	/**  R2 account id. */
+	r2AccountId?: string | null,
+	/**  R2 access key id. */
+	r2AccessKeyId?: string | null,
+	/**  R2 secret access key. */
+	r2SecretAccessKey?: string | null,
+	/**  R2 bucket name. */
+	r2Bucket?: string | null,
+	/**  MinIO / OCI cold-tier endpoint. */
+	coldEndpoint?: string | null,
+	/**  Cold-tier access key id. */
+	coldAccessKeyId?: string | null,
+	/**  Cold-tier secret access key. */
+	coldSecretAccessKey?: string | null,
+	/**  Cold-tier bucket name. */
+	coldBucket?: string | null,
+};
 
 /**  How surfaces are separated from each other. */
 export type SurfaceStyle = 
@@ -4163,6 +4928,20 @@ export type TabRun = {
 	size: number,
 };
 
+/**  The part of a note the graph tags read: its title and body. */
+export type TaggedNote = {
+	/**  Note title; hashtags here count. */
+	title: string,
+	/**  Note body; hashtags here count. */
+	body: string,
+};
+
+/**  The part of a paper the graph tags read: its tag list. */
+export type TaggedPaper = {
+	/**  Tags as stored on the paper. */
+	tags: string[],
+};
+
 /**  One passage of a document (TS `TextChunk`). */
 export type TextChunk = {
 	/**  The passage, trimmed. */
@@ -4172,6 +4951,29 @@ export type TextChunk = {
 	/**  UTF-16 offset just past the passage in the trimmed source. */
 	end: number | null,
 };
+
+/**  One component of an op: an insert, a delete, or a comment. */
+export type TextComponent = 
+/**  Insert `i` at UTF-16 position `p`. */
+({ 
+/**  UTF-16 position. */
+p: number; 
+/**  Text to insert. */
+i: string }) & { c?: never; d?: never; t?: never } | 
+/**  Delete `d` starting at UTF-16 position `p`. */
+({ 
+/**  UTF-16 position. */
+p: number; 
+/**  Text expected at `p`, and removed. */
+d: string }) & { c?: never; i?: never; t?: never } | 
+/**  A comment at `p`: changes no text. */
+({ 
+/**  UTF-16 position. */
+p: number; 
+/**  Comment body. */
+c: string; 
+/**  Optional thread id. */
+t?: string | null }) & { d?: never; i?: never };
 
 /**
  *  A rule's output: the new text and whether it differs from the input.
@@ -4279,6 +5081,15 @@ export type TitleLookup = {
 	/**  Trimmed arXiv id. */
 	arxivId?: string | null,
 };
+
+/**  Where a dropped paper's title came from. */
+export type TitledBy = 
+/**  A bibliographic lookup matched the paper. */
+"lookup" | 
+/**  The PDF's own metadata or first page. */
+"pdf" | 
+/**  Nothing readable in the PDF, so the file name. */
+"file";
 
 /**  Options for term normalization. Callers always pass them explicitly. */
 export type TokenizerOptions = {
@@ -4453,6 +5264,18 @@ export type VaultPageSide = {
 	body: string,
 };
 
+/**  The JSON head of a stored vector file. */
+export type VectorFileHead = {
+	/**  Encoder id the vectors came from. */
+	model: string,
+	/**  Width of each vector. */
+	dimensions: number,
+	/**  Corpus fingerprint the vectors were built for. */
+	revision: string,
+	/**  Per-document text hashes, so a reload re-embeds only what changed. */
+	hashes?: { [key in string]: string },
+};
+
 /**  One ranked match. `score` is cosine similarity in [-1, 1]. */
 export type VectorHit = {
 	/**  The id the vector was added under. */
@@ -4467,6 +5290,22 @@ export type VisibleRow = {
 	node: WorkspaceTreeNode,
 	/**  How deep the row sits. Roots are 0. */
 	depth: number,
+};
+
+/**  One rewrite: the words as the engine wrote them, and the entry they became. */
+export type VocabMatch = {
+	/**  The words as the engine wrote them. */
+	from: string,
+	/**  The vocabulary entry they were rewritten to. */
+	to: string,
+};
+
+/**  The rewritten line and every rewrite made in it. */
+export type VocabMatchResult = {
+	/**  The line after the rewrites. */
+	text: string,
+	/**  The rewrites, in the order they were made. */
+	matches: VocabMatch[],
 };
 
 /**  The wiki-link graph over a workspace (TS `WikiGraph`). */

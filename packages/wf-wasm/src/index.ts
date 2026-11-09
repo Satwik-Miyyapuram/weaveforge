@@ -24,6 +24,7 @@ import init, {
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
   changedSide as rawChangedSide,
+  digestText as rawDigestText,
   isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
   decideGitSyncPath as rawDecideGitSyncPath,
   decideVaultCommit as rawDecideVaultCommit,
@@ -36,6 +37,8 @@ import init, {
   applyDelta as rawApplyDelta,
   safeWorkspacePath as rawSafeWorkspacePath,
   isSafeWorkspacePath as rawIsSafeWorkspacePath,
+  planArchiveEntries as rawPlanArchiveEntries,
+  stripArchiveRoot as rawStripArchiveRoot,
   parsePaperRef as rawParsePaperRef,
   normalizeArxivId as rawNormalizeArxivId,
   extractDoi as rawExtractDoi,
@@ -60,6 +63,7 @@ import init, {
   isKnownResourceType as rawIsKnownResourceType,
   invalidationMap as rawInvalidationMap,
   cardSnippet as rawCardSnippet,
+  ArchiveBudget,
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
@@ -258,6 +262,8 @@ export { init, initSync };
 export * from "./ink.js";
 export * from "./ink-chunk.js";
 export * from "./ink-lines.js";
+export * from "./integration-config.js";
+export * from "./storage-config.js";
 export * from "./ink-note.js";
 export * from "./reader-anchor.js";
 export * from "./reader-annotation.js";
@@ -274,6 +280,8 @@ export * from "./reader-analysis-citations.js";
 export * from "./reader-analysis-document.js";
 export * from "./reader-analysis-outline.js";
 export * from "./reader-analysis-structure.js";
+export * from "./reader-annotation-backlinks.js";
+export * from "./reader-github-repo-path.js";
 export * from "./reader-pdf-source-ladder.js";
 export * from "./papers-bib-import.js";
 export * from "./papers-field-value.js";
@@ -285,12 +293,16 @@ export * from "./papers-paper-title.js";
 export * from "./papers-records.js";
 export * from "./papers-zotero-mapping.js";
 export * from "./papers-metadata-mapping.js";
+export * from "./papers-text.js";
 export * from "./report-bib-entries.js";
 export * from "./report-cite-key.js";
 export * from "./report-markdown-to-latex.js";
 export * from "./report-records.js";
 export * from "./screening-records.js";
 export * from "./graph-settings.js";
+export * from "./graph-tags.js";
+export * from "./node-colouring.js";
+export * from "./repo-web-url.js";
 export * from "./vault-page.js";
 export * from "./experiment-status.js";
 export * from "./projects.js";
@@ -306,6 +318,11 @@ export * from "./milestone.js";
 export * from "./plan-feed.js";
 export * from "./figure.js";
 export * from "./citation-alerts.js";
+export * from "./citation-alert-track.js";
+export * from "./relations-local-graph.js";
+export * from "./sync-sql-ident.js";
+export * from "./sync-conflict-deletion.js";
+export * from "./auth-transition.js";
 export * from "./org.js";
 export * from "./paper-relation.js";
 export * from "./reader-ink-undo.js";
@@ -336,7 +353,9 @@ export * from "./pane-tree.js";
 export * from "./tab-groups.js";
 export * from "./document-stats.js";
 export * from "./paste-text.js";
+export * from "./error-report.js";
 export * from "./markdown-images.js";
+export * from "./mermaid-labels.js";
 export * from "./workspace-folder.js";
 export * from "./command-palette.js";
 
@@ -449,6 +468,11 @@ export function changedSide(origin: { base?: string; folder?: string; workspace?
   return rawChangedSide(origin.base, origin.folder, origin.workspace) as ChangeSide;
 }
 
+/** Short FNV-1a digest of a file's text, for change detection only. */
+export function digestText(text: string): string {
+  return rawDigestText(text);
+}
+
 /** True when the path sits inside a folder git sync never touches. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function isUnderIgnoredFolder(relPath: string): boolean {
   checkIndexText(relPath);
@@ -539,6 +563,36 @@ export function safeWorkspacePath(path: string): string {
 export function isSafeWorkspacePath(path: string): boolean {
   checkIndexText(path);
   return rawIsSafeWorkspacePath(path);
+}
+
+/** Declared-size budget for an import, checked as entries are inflated (Rust `ArchiveBudget`). */
+export function createArchiveBudget(limits: ArchiveLimitsInput): ArchiveBudget {
+  return new ArchiveBudget(limits);
+}
+
+/** The caps, an archive entry as declared, and what an import does with it (Rust `archive_limits`). */
+export type {
+  ArchiveLimits as ArchiveLimitsInput,
+  EntryInfo as ArchiveEntryFacts,
+  PlannedEntry as PlannedArchiveEntry,
+} from "./bindings.js";
+import type {
+  ArchiveLimits as ArchiveLimitsInput,
+  EntryInfo as ArchiveEntryFacts,
+  PlannedEntry as PlannedArchiveEntry,
+} from "./bindings.js";
+
+/** Decide each archive entry, in order (Rust `plan_entries`). Throws past the entry or total cap. */
+export function planArchiveEntries(
+  entries: readonly ArchiveEntryFacts[],
+  limits: ArchiveLimitsInput,
+): PlannedArchiveEntry[] {
+  return rawPlanArchiveEntries(entries, limits) as PlannedArchiveEntry[];
+}
+
+/** The paths with their single wrapping folder removed, when every path has one (Rust `strip_archive_root`). */
+export function stripArchiveRoot(paths: readonly string[]): string[] {
+  return rawStripArchiveRoot(paths) as string[];
 }
 
 /** The paper id a `kind` reference points to, normalized (Rust `parse_paper_ref`). Throws over MAX_INDEX_TEXT_UTF16 units. */
@@ -710,3 +764,26 @@ export function cardSnippet(body: string, max = 180): string {
 export * from "./core-extra.js";
 export * from "./metrics-overleaf.js";
 export * from "./leaf-ports.js";
+export * from "./ai-model-concepts.js";
+export * from "./ai-retrieval.js";
+export * from "./batch-annotation-ops.js";
+export * from "./clip-to-area.js";
+export * from "./dashboard-packing.js";
+export * from "./dashboard-stats.js";
+export * from "./experiment-artifacts.js";
+export * from "./explorer-window.js";
+export * from "./graph-topology.js";
+export * from "./hit-test.js";
+export * from "./integration-fields.js";
+export * from "./mattermost-options.js";
+export * from "./merge-reader-annotations.js";
+export * from "./overleaf-text-ot.js";
+export * from "./page-background.js";
+export * from "./pdf-cache-eviction.js";
+export * from "./pdf-pages.js";
+export * from "./proposal-preview.js";
+export * from "./reader-split.js";
+export * from "./sync-pglite-sql.js";
+export * from "./vault-template.js";
+export * from "./vector-codec.js";
+export * from "./vocab-match.js";

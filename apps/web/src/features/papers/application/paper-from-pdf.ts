@@ -13,7 +13,8 @@
  */
 
 import { MetadataResolutionError, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
+import type { PdfDropEntry } from "@weaveforge/wasm";
+import { loadCore, readyCore } from "@/lib/rust-core";
 
 /** Past this a PDF is more likely a scanned book than a paper; the byte cache is not meant for it. */
 export const MAX_PDF_BYTES = 200 * 1024 * 1024;
@@ -60,31 +61,20 @@ export type PdfDropOutcome =
   | { kind: "skipped"; file: string; reason: "not a PDF" | "too large" };
 
 export function isPdfFile(file: Pick<PdfFileLike, "name" | "type">): boolean {
-  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  return readyCore().isPdfFile(file.name, file.type);
 }
 
 /** An `arXiv:` id in running text, new style (`2301.12345`) or old (`hep-th/9711200`). */
 const ARXIV_STAMP = /\barxiv:\s*(?:[a-z-]+(?:\.[a-z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?/i;
 
-const HEADER_NOISE = /arxiv|doi|preprint|under review|journal|proceedings|conference|https?:|©|copyright/i;
-
 /** The first of the opening lines that reads like a title, if any. */
 export function guessTitle(text: string): string | undefined {
-  return text
-    .split("\n")
-    .slice(0, 8)
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .find((line) => line.length >= 12 && line.length <= 250 && line.split(" ").length >= 3 && /[a-z]/i.test(line) && !HEADER_NOISE.test(line));
+  return readyCore().guessTitle(text);
 }
-
-// What writing tools leave in the Title field when the author set none.
-const PLACEHOLDER_TITLE = /^(microsoft (word|powerpoint)\b|untitled\b)|\.(pdf|docx?|tex|dvi|ps|rtf|odt)$/i;
 
 /** The metadata title, unless it is a tool's placeholder or a file name. */
 export function metadataTitle(raw: string | undefined): string | undefined {
-  const title = raw?.replace(/\s+/g, " ").trim();
-  if (!title || title.length < 6 || title.split(" ").length < 2 || PLACEHOLDER_TITLE.test(title)) return undefined;
-  return title;
+  return readyCore().metadataTitle(raw);
 }
 
 /** Try one lookup; "no source knows it" is a miss, anything else is a fault. */
@@ -143,38 +133,15 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   };
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
 /** One toast for the whole drop, and the paper to open when there was just one. */
 export function summarizePdfDrop(outcomes: readonly PdfDropOutcome[]): { message: string; open?: Paper } {
-  const added = outcomes.filter((o) => o.kind === "added");
-  const created = added.filter((o) => o.created);
-  const dupes = added.length - created.length;
-  const byPdf = created.filter((o) => o.titledBy === "pdf");
-  const byName = created.filter((o) => o.titledBy === "file");
-  const offline = byPdf.some((o) => o.offline);
-  const skipped = outcomes.length - added.length;
+  const { message, opensPaper } = readyCore().summarizePdfDrop(outcomes.map(toDropEntry));
+  const only = outcomes[0];
+  return opensPaper && only?.kind === "added" ? { message, open: only.paper } : { message };
+}
 
-  const only = added[0];
-  if (outcomes.length === 1 && only) {
-    if (!only.created) return { message: only.keptPdf ? "Already in library — PDF attached" : "Already in library", open: only.paper };
-    if (only.titledBy === "lookup") return { message: "Paper added", open: only.paper };
-    if (only.titledBy === "pdf") {
-      return {
-        message: only.offline
-          ? "Paper added with the PDF's own title — offline, so details were not looked up"
-          : "Paper added with the PDF's own title — no match found online",
-        open: only.paper,
-      };
-    }
-    return { message: "Paper added, titled from the file name — the PDF has no readable title", open: only.paper };
-  }
-  const parts = [
-    created.length > 0 && plural(created.length, "paper added", "papers added"),
-    dupes > 0 && `${dupes} already in library`,
-    byPdf.length > 0 && (offline ? `${byPdf.length} not looked up (offline)` : `${byPdf.length} not found online`),
-    byName.length > 0 && `${byName.length} titled from the file name`,
-    skipped > 0 && `${skipped} skipped`,
-  ].filter(Boolean);
-  return { message: parts.length > 0 ? parts.join(" · ") : "No PDFs to add" };
+function toDropEntry(o: PdfDropOutcome): PdfDropEntry {
+  return o.kind === "added"
+    ? { added: true, created: o.created, keptPdf: o.keptPdf, titledBy: o.titledBy, offline: o.offline }
+    : { added: false, created: false, keptPdf: false, offline: false };
 }

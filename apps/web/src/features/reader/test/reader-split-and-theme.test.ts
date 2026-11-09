@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { shouldUseDarkPdfRendering } from "../application/reader-pdf-theme.js";
-import { parseReaderSplitPane } from "../application/reader-split.js";
+import { readyCore } from "@/lib/rust-core";
+
+const { parseReaderSplitPane } = readyCore();
 
 test("shouldUseDarkPdfRendering recognises dark theme ids", () => {
   assert.equal(shouldUseDarkPdfRendering("mocha"), true);

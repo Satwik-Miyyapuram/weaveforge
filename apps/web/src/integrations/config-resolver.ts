@@ -1,58 +1,29 @@
 import type { IntegrationConfig, EnvReader } from "./config";
 import type { IntegrationManifestRegistry } from "./manifests/types";
 import { getAppConfig } from "@/deployment/app-config";
+import { readyCore } from "@/lib/rust-core";
 
-const DEFAULTS = {
-  bibliography: "zotero",
-  notifications: "mattermost",
-  logSync: "gitlab",
-  citation: "semantic-scholar",
-  gitRead: ["github", "gitlab"] as const,
-} as const;
-
-function pickProvider(
-  value: string | undefined,
-  allowed: readonly string[],
-  fallback: string,
-): string {
-  const safeFallback = allowed.includes(fallback) ? fallback : allowed[0] ?? "none";
-  if (!value?.trim()) return safeFallback;
-  if (value === "none") return "none";
-  return allowed.includes(value) ? value : safeFallback;
-}
-
-function parseGitReadList(
-  raw: string | undefined,
-  allowed: readonly string[],
-  fallback: readonly string[],
-): string[] {
-  const safeFallback = fallback.filter((id) => allowed.includes(id));
-  if (!raw?.trim()) return safeFallback;
-  if (raw.trim().toLowerCase() === "none") return [];
-  const picked = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => allowed.includes(s));
-  return picked.length ? picked : safeFallback;
-}
-
+/** Provider choice (defaults, `none`, unknown ids) is resolved in the Rust core (`integrations::config`). */
 function integrationConfigFromEnv(
   env: EnvReader,
   registry: IntegrationManifestRegistry = getAppConfig().integrationManifests,
 ): IntegrationConfig {
-  const bibIds = registry.bibliography.map((m) => m.id);
-  const notifIds = registry.notification.map((m) => m.id);
-  const logIds = registry.logSync.map((m) => m.id);
-  const citIds = registry.citation.map((m) => m.id);
-  const gitIds = registry.gitRead.map((m) => m.id);
-
-  return {
-    bibliography: pickProvider(env.NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER, bibIds, DEFAULTS.bibliography),
-    notifications: pickProvider(env.NEXT_PUBLIC_NOTIFICATION_PROVIDER, notifIds, DEFAULTS.notifications),
-    logSync: pickProvider(env.NEXT_PUBLIC_LOG_SYNC_PROVIDER, logIds, DEFAULTS.logSync),
-    citation: pickProvider(env.NEXT_PUBLIC_CITATION_PROVIDER, citIds, DEFAULTS.citation),
-    gitRead: parseGitReadList(env.NEXT_PUBLIC_GIT_READ_PROVIDERS, gitIds, DEFAULTS.gitRead),
-  };
+  return readyCore().resolveIntegrationConfig(
+    {
+      bibliographyProvider: env.NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER,
+      notificationProvider: env.NEXT_PUBLIC_NOTIFICATION_PROVIDER,
+      logSyncProvider: env.NEXT_PUBLIC_LOG_SYNC_PROVIDER,
+      citationProvider: env.NEXT_PUBLIC_CITATION_PROVIDER,
+      gitReadProviders: env.NEXT_PUBLIC_GIT_READ_PROVIDERS,
+    },
+    {
+      bibliography: registry.bibliography.map((m) => m.id),
+      notification: registry.notification.map((m) => m.id),
+      logSync: registry.logSync.map((m) => m.id),
+      citation: registry.citation.map((m) => m.id),
+      gitRead: registry.gitRead.map((m) => m.id),
+    },
+  );
 }
 
 /** Read provider selection from env + manifest registry (composition root only). */

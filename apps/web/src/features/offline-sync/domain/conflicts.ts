@@ -1,7 +1,6 @@
 import type { FieldConflict, FieldMergeResult, Row } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { Outbox, type SqlRunner } from "./outbox";
-import { quoteIdent } from "./sql-ident";
 
 /**
  * The disagreements the device could not settle, and how they get settled.
@@ -101,7 +100,7 @@ export class ConflictStore {
     const outbox = new Outbox(this.sql);
     const owed = (await outbox.forRow(table, rowId)).filter((op) => op.op !== "delete");
     const stored = await this.sql.queryOne<{ row: Row }>(
-      `select sync_payload($1, to_jsonb(t)) as row from public.${quoteIdent(table)} t where id = $2`,
+      `select sync_payload($1, to_jsonb(t)) as row from public.${readyCore().quoteIdent(table)} t where id = $2`,
       [table, rowId],
     );
     const mine = stored?.row ?? owed[owed.length - 1]?.payload;
@@ -337,9 +336,3 @@ function sameRow(a: Row, b: Row): boolean {
 }
 
 
-/** A bulk "mine"/"cloud" pick as a delete conflict's choice: mine keeps what this device did. */
-export function deletionFor(kind: Exclude<ConflictKind, "edit">, side: "local" | "remote"): "keep" | "delete" {
-  const mine = kind === "deleted_remote" ? "keep" : "delete";
-  if (side === "local") return mine;
-  return mine === "keep" ? "delete" : "keep";
-}

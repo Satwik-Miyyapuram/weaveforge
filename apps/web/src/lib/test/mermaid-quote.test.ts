@@ -1,7 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { quoteAwkwardLabels } from "../mermaid-render";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
+
+before(async () => {
+  await loadTestCore();
+});
 test("labels with parens or pipes are quoted", () => {
   const out = quoteAwkwardLabels("flowchart LR\n  X[image] --> Q[q(z|x)]\n  G --> P[GIN prior p(z|G)]");
   assert.equal(out, 'flowchart LR\n  X[image] --> Q["q(z|x)"]\n  G --> P["GIN prior p(z|G)"]');

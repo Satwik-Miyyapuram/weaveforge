@@ -30,30 +30,7 @@ export function summarizeSupervisee(
   logs: readonly LogEntry[],
   today = localIsoDate(),
 ): SuperviseeSummary {
-  const milestonesDone = milestones.filter((m) => m.status === "done").length;
-  const blocked = milestones.filter((m) => m.status === "blocked").length;
-  const horizon = typedCore().addDays(today, 14);
-  const upcomingDue = milestones.filter(
-    (m) =>
-      m.status !== "done" &&
-      m.targetDate &&
-      m.targetDate >= today &&
-      m.targetDate <= horizon,
-  ).length;
-  const lastLog = [...logs].sort((a, b) => b.entryDate.localeCompare(a.entryDate))[0];
-  let statusLabel = "on track";
-  if (blocked > 0) statusLabel = "blocked";
-  else if (upcomingDue > 0) statusLabel = `${upcomingDue} due soon`;
-
-  return {
-    member,
-    milestonesTotal: milestones.length,
-    milestonesDone,
-    blocked,
-    upcomingDue,
-    lastLogDate: lastLog?.entryDate ?? null,
-    statusLabel,
-  };
+  return { member, ...typedCore().dashboardSuperviseeCounts(milestones, logs, today) };
 }
 
 export function teamAttentionItems(
@@ -61,29 +38,11 @@ export function teamAttentionItems(
   milestonesByMember: ReadonlyMap<string, readonly Milestone[]>,
   today = localIsoDate(),
 ): TeamAttentionItem[] {
-  const items: TeamAttentionItem[] = [];
-  for (const s of summaries) {
-    const name = s.member.fullName || s.member.email || "Unknown";
-    const ms = milestonesByMember.get(s.member.id) ?? [];
-    for (const m of ms) {
-      if (m.status === "blocked") {
-        items.push({
-          memberId: s.member.id,
-          memberName: name,
-          label: `${name}: ${m.title} (blocked)`,
-          href: `/supervision?member=${s.member.id}`,
-        });
-      } else if (m.status !== "done" && m.targetDate && m.targetDate < today) {
-        items.push({
-          memberId: s.member.id,
-          memberName: name,
-          label: `${name}: ${m.title} (overdue ${m.targetDate})`,
-          href: `/supervision?member=${s.member.id}`,
-        });
-      }
-    }
-  }
-  return items;
+  const supervisees = summaries.map((s) => ({
+    member: s.member,
+    milestones: milestonesByMember.get(s.member.id) ?? [],
+  }));
+  return [...typedCore().dashboardTeamAttention(supervisees, today)];
 }
 
 export function buildSupervisionStats(

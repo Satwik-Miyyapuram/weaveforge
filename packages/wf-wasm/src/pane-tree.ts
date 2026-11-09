@@ -27,6 +27,7 @@ import {
   openTabKeys as rawOpenTabKeys,
   closedTabs as rawClosedTabs,
   focusedTabCount as rawFocusedTabCount,
+  commandForChord as rawCommandForChord,
   layoutForCommand as rawLayoutForCommand,
   layoutForTabMenu as rawLayoutForTabMenu,
   pruneLayout as rawPruneLayout,
@@ -34,6 +35,7 @@ import {
 } from "../pkg/wf_wasm.js";
 import type {
   DocumentMode,
+  KeyChord,
   PaneCommand,
   PaneLayout,
   PaneLeaf,
@@ -162,6 +164,27 @@ export function closedTabs(before: PaneLayout, after: PaneLayout): TabRef[] {
 
 export function focusedTabCount(layout: PaneLayout): number {
   return rawFocusedTabCount(layout);
+}
+
+/** The fields of a key press that a chord reads (a DOM `KeyboardEvent` also fits). */
+export type { KeyChord };
+
+/**
+ * The workspace command a chord means (Rust `keybindings::command_for_chord`).
+ * The fields are copied out first: a DOM event keeps its modifiers on prototype getters.
+ * `tabCount` defaults to unbounded.
+ */
+export function commandForChord(chord: KeyChord, tabCount = Infinity): string | null {
+  const plain = {
+    key: chord.key,
+    code: chord.code ?? null,
+    ctrlKey: chord.ctrlKey ?? false,
+    metaKey: chord.metaKey ?? false,
+    shiftKey: chord.shiftKey ?? false,
+    altKey: chord.altKey ?? false,
+  };
+  const count = Number.isFinite(tabCount) ? tabCount : undefined;
+  return (rawCommandForChord(plain, count) ?? null) as string | null;
 }
 
 export function layoutForCommand(

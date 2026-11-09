@@ -126,7 +126,16 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   policy) ~28 KB, org and member types ~13 KB: the TypeScript twins these
 //   replace are deleted, so the app ships one copy. 1080 KB is this batch's
 //   ceiling.
-export const WASM_GZIP_BUDGET = 1080 * 1024;
+// - TS removal (lanes 1-5, A-E, second round): ~1280.7 KB gzipped, Windows
+//   build. ~255 KB over ~60 wf-core modules: reader (annotation backlinks,
+//   batch ops, merge, split, cache eviction), relations (graph tags, topology,
+//   local graph, node colouring), ink (clip, vocab match, PDF pages, chunk
+//   read), sync (Mattermost, integration fields, PGlite SQL, deletion
+//   conflicts), storage and integration config, workspace, dashboard, AI
+//   retrieval and the vault template engine, mostly serde for their record
+//   shapes. Their TypeScript twins are deleted. 1340 KB is this batch's
+//   ceiling.
+export const WASM_GZIP_BUDGET = 1340 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

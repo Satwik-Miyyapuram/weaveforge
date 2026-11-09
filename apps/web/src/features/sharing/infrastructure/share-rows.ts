@@ -2,6 +2,7 @@ import type {
   Share,
   ShareableType,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How share rows are stored, and how they map to the domain type.
@@ -22,13 +23,5 @@ export interface ShareRow {
 }
 
 export function toDomain(r: ShareRow): Share {
-  return {
-    id: r.id,
-    ownerId: r.owner_id,
-    recipientId: r.recipient_id,
-    resourceType: r.resource_type,
-    resourceId: r.resource_id,
-    access: r.access,
-    createdAt: r.created_at,
-  };
+  return readyCore().shareFromRow(r);
 }

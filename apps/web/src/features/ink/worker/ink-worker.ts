@@ -67,7 +67,6 @@ import {
   lasso,
   loadPage,
   moveSelection,
-  pointInPolygon,
   redo,
   reportHistory,
   reportState,
@@ -79,8 +78,6 @@ import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import { exportPage } from "./ink-export";
 import { addStrokes } from "./ink-paste";
 import { setBackground } from "./ink-background";
-
-export { pointInPolygon };
 
 /** The stroke being drawn: raw samples, with its predicted tail marked off. */
 export interface LiveStroke {

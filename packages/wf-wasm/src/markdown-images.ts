@@ -2,6 +2,7 @@
  * Markdown image and blob link helpers (Rust `markdown_images`), re-exported from index.ts.
  */
 import {
+  findImageRefs as rawFindImageRefs,
   fromRelativeBlobLinks as rawFromRelativeBlobLinks,
   imageAltFromFilename as rawImageAltFromFilename,
   imageExtensionForMime as rawImageExtensionForMime,
@@ -17,6 +18,7 @@ import {
   withMdImageAlt as rawWithMdImageAlt,
 } from "../pkg/wf_wasm.js";
 import type {
+  FoundImageRef,
   ImagePlacementPatch,
   MdImageAlt,
   MdPlacement,
@@ -24,6 +26,15 @@ import type {
   RelativeLinks,
 } from "./bindings.js";
 import { checkIndexText } from "./text-check.js";
+
+export type { FoundImageRef };
+
+/** The refs whose target starts with `head`, in body order, none rewritten (Rust `find_image_refs`). */
+export function findImageRefs(body: string, head: string, allowSpace: boolean): FoundImageRef[] {
+  checkIndexText(body);
+  checkIndexText(head);
+  return rawFindImageRefs(body, head, allowSpace) as FoundImageRef[];
+}
 
 /** A markdown image for `target` with `alt` text (Rust `markdown_image`). */
 export function markdownImage(target: string, alt: string): string {

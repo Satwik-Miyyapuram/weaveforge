@@ -9,7 +9,7 @@ import {
   annotationPinKey,
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers";
-import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
+import type { AnnotationBacklinkTarget } from "@weaveforge/wasm";
 import { Select } from "@/components/select";
 import { Button } from "@/components/button";
 import { RowButton, Swatch } from "@/components/controls";

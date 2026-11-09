@@ -20,7 +20,6 @@ import { INK_ENGINE_MAX_CONFIDENCE, type InkLine, type InkLineRecord, type InkPa
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
-import { matchVocabulary } from "./vocab-match";
 import { typedCore } from "@/lib/rust-core";
 
 export interface RecognisePageInput {
@@ -139,7 +138,7 @@ async function recogniseLine(
     raw = undefined;
   }
   if (!raw) return { text: "", conf: 0 };
-  const matched = matchVocabulary(raw.text, hints.vocabulary);
+  const matched = readyCore().matchVocabulary(raw.text, hints.vocabulary);
   return {
     text: matched.text,
     // Never `1` from an engine: that is the mark of a correction, which the

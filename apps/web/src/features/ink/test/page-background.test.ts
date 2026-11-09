@@ -10,8 +10,11 @@ import {
   A4_RASTER_HEIGHT,
   A4_RASTER_WIDTH,
   isPageSource,
-  placeOnSheet,
 } from "../application/page-background";
+import { readyCore } from "@/lib/rust-core";
+
+const placeOnSheet = (sourceWidth: number, sourceHeight: number) =>
+  readyCore().placeOnSheet(sourceWidth, sourceHeight, A4_RASTER_WIDTH, A4_RASTER_HEIGHT);
 
 test("the sheet is A4 at 200 dpi", () => {
   assert.equal(A4_RASTER_WIDTH, 1654);

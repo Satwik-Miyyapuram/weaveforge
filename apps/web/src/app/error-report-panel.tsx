@@ -7,7 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { redactAndCap } from "@/lib/error-report/redact";
+import { readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 
 /** Where the error was shown, read off the page when "Report" was pressed. */
@@ -76,9 +76,9 @@ export function ErrorReportPanel({
     { status: "idle" } | { status: "sending" } | { status: "sent"; url: string | null } | { status: "failed"; message: string; fallback: boolean }
   >({ status: "idle" });
 
-  const logs = useMemo(() => redactAndCap(recentLogs()).text, []);
+  const logs = useMemo(() => readyCore().redactAndCap(recentLogs()).text, []);
   const logCount = logs ? logs.split("\n").filter((line) => line.trim()).length : 0;
-  const shown = redactAndCap(detail).text;
+  const shown = readyCore().redactAndCap(detail).text;
   const where = route ?? (typeof location === "undefined" ? "" : `${location.pathname}${location.search}`);
   const version = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
   // No server in the desktop app, so no endpoint: go straight to GitHub's form.
@@ -98,7 +98,7 @@ export function ErrorReportPanel({
     ["Platform", platform],
     ["Time", at.replace("T", " ").replace(/\.\d+Z$/, " UTC")],
   ];
-  const cleanSteps = redactAndCap(steps).text;
+  const cleanSteps = readyCore().redactAndCap(steps).text;
   const markdown = (withHeading = true) =>
     reportMarkdown({
       withHeading,

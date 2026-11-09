@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  isAllPages,
-  pageListProblem,
-  parsePageList,
-  selectedPdfPages,
-} from "../application/pdf-pages";
+import { readyCore } from "@/lib/rust-core";
+
+const { isAllPages, pageListProblem, parsePageList, selectedPdfPages } = readyCore();
 
 test("a number, a list and ranges name their pages, deduplicated and sorted", () => {
   assert.deepEqual(parsePageList("3", 9).pages, [3]);

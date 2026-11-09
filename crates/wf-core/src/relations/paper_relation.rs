@@ -102,9 +102,88 @@ pub fn create_paper_relation(
     })
 }
 
+/// A stored `paper_relations` row (TS `PaperRelationRow`). Columns are snake_case.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct PaperRelationRow {
+    /// Relation id.
+    pub id: String,
+    /// The paper the edge starts from.
+    pub from_paper: String,
+    /// The paper the edge points to.
+    pub to_paper: String,
+    /// The kind of relation.
+    pub relation: RelationType,
+    /// Optional note; stored as null when absent.
+    pub note: Option<String>,
+    /// How the edge was created.
+    pub source: RelationSource,
+    /// Creation time, ISO 8601 UTC.
+    pub created_at: String,
+}
+
+/// Map a stored row to the domain relation (TS `toDomain`). A null note reads as absent.
+#[must_use]
+pub fn paper_relation_from_row(row: PaperRelationRow) -> PaperRelation {
+    PaperRelation {
+        id: row.id,
+        from_paper: row.from_paper,
+        to_paper: row.to_paper,
+        relation: row.relation,
+        note: row.note,
+        source: row.source,
+        created_at: row.created_at,
+    }
+}
+
+/// Map a relation to its stored row (TS `toRow`). An absent note is stored as null.
+#[must_use]
+pub fn paper_relation_to_row(relation: PaperRelation) -> PaperRelationRow {
+    PaperRelationRow {
+        id: relation.id,
+        from_paper: relation.from_paper,
+        to_paper: relation.to_paper,
+        relation: relation.relation,
+        note: relation.note,
+        source: relation.source,
+        created_at: relation.created_at,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn row(note: Option<&str>) -> PaperRelationRow {
+        PaperRelationRow {
+            id: "r1".to_owned(),
+            from_paper: "a".to_owned(),
+            to_paper: "b".to_owned(),
+            relation: RelationType::Extends,
+            note: note.map(str::to_owned),
+            source: RelationSource::Auto,
+            created_at: "2026-01-02T03:04:05.000Z".to_owned(),
+        }
+    }
+
+    #[test]
+    fn null_note_reads_as_absent_and_round_trips() {
+        let rel = paper_relation_from_row(row(None));
+        assert_eq!(rel.note, None);
+        assert_eq!(paper_relation_to_row(rel), row(None));
+    }
+
+    #[test]
+    fn row_uses_snake_case_columns_and_null_note() {
+        let json = serde_json::to_string(&paper_relation_to_row(paper_relation_from_row(row(
+            Some(""),
+        ))))
+        .expect("serializes");
+        assert!(json.contains(r#""from_paper":"a""#));
+        assert!(json.contains(r#""created_at":"2026-01-02T03:04:05.000Z""#));
+        assert!(json.contains(r#""note":"""#));
+    }
 
     fn input(from: &str, to: &str) -> NewPaperRelationInput {
         NewPaperRelationInput {

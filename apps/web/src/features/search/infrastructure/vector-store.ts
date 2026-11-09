@@ -7,6 +7,7 @@ import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
 import { warnOnce } from "@/lib/error-report/warn-once";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Where a corpus's vectors are kept between sessions.
@@ -191,23 +192,15 @@ const folderStore = {
 };
 
 export function packBinary(value: StoredVectors): Uint8Array {
-  const head = new TextEncoder().encode(headJson(value));
-  const out = new Uint8Array(4 + head.byteLength + value.bytes.byteLength);
-  new DataView(out.buffer).setUint32(0, head.byteLength, true);
-  out.set(head, 4);
-  out.set(value.bytes, 4 + head.byteLength);
-  return out;
+  return readyCore().packVectors(
+    { model: value.model, dimensions: value.dimensions, revision: value.revision, hashes: value.hashes },
+    value.bytes,
+  );
 }
 
 export function unpackBinary(bytes: Uint8Array): StoredVectors | null {
-  try {
-    const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true);
-    const head = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + length))) as Omit<StoredVectors, "bytes">;
-    // The blob is validated where it is loaded (`vectorIndexFromBytes`), which rejects a short or torn one.
-    return { ...head, bytes: bytes.slice(4 + length) };
-  } catch {
-    return null;
-  }
+  // The blob is validated where it is loaded (`vectorIndexFromBytes`), which rejects a short or torn one.
+  return readyCore().unpackVectors(bytes);
 }
 
 let chosen: VectorStore | null = null;

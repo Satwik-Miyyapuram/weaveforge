@@ -6,7 +6,8 @@
  * both and a bug in either shows up on both surfaces.
  */
 
-import { clipSegmentToArea, pointInArea, type DrawArea, type Point } from "./clip-to-area";
+import { readyCore } from "@/lib/rust-core";
+import type { DrawArea, Point } from "@weaveforge/wasm";
 import { EraserSweep, isPenBarrelPointer, type EraserHoverEvent, type EraserSweepEvent } from "./eraser-tip";
 
 /** The armed tool, as the gesture sees it. */
@@ -107,16 +108,16 @@ export class StrokeEdgeSplit {
   move(at: Point, area: DrawArea | null): EdgeStep {
     const previous = this.last ?? at;
     this.last = at;
-    const onPaper = !area || pointInArea(area, at.x, at.y);
+    const onPaper = !area || readyCore().pointInArea(area, at.x, at.y);
     if (this.out) {
       if (!onPaper) return { kind: "outside" };
       this.out = false;
-      const clipped = area ? clipSegmentToArea(area, previous, at) : null;
+      const clipped = area ? readyCore().clipSegmentToArea(area, previous, at) : null;
       return { kind: "enter", at: clipped?.from ?? at };
     }
     if (onPaper) return { kind: "inside" };
     this.out = true;
-    const clipped = area ? clipSegmentToArea(area, previous, at) : null;
+    const clipped = area ? readyCore().clipSegmentToArea(area, previous, at) : null;
     return { kind: "exit", at: clipped?.to ?? at };
   }
 

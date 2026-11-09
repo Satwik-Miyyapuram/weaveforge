@@ -1,35 +1,26 @@
-import { wrapRegion } from "./note-template-engine";
-
 /**
  * Default source-note template (Phase C1 / P0).
  *
  * Generated regions refresh on explicit re-render; editable regions and any
- * unmarked text the researcher adds are preserved by {@link applyTemplate}.
+ * unmarked text the researcher adds are preserved by `applyTemplate`.
+ *
+ * The region markers are spelled out here (the same text `wrapRegion` in
+ * wf-core `vault::template` produces), because a module-scope constant cannot
+ * call the wasm core, which loads asynchronously.
  */
 export const DEFAULT_SOURCE_NOTE_TEMPLATE = [
-  wrapRegion(
-    "generated",
-    "metadata",
-    [
-      "# {{title}}",
-      "",
-      "- Authors: {{authors}}",
-      "- Year: {{year}}",
-      "- Venue: {{venue}}",
-      "- DOI: {{doi}}",
-      "- Cite key: {{citeKey}}",
-      "",
-    ].join("\n"),
-  ),
+  "<!-- wf:generated:metadata -->" +
+    "# {{title}}\n\n- Authors: {{authors}}\n- Year: {{year}}\n- Venue: {{venue}}\n- DOI: {{doi}}\n- Cite key: {{citeKey}}\n" +
+    "<!-- /wf:generated:metadata -->",
   "## Summary",
   "",
-  wrapRegion("editable", "summary", ["", "Write a short summary.", ""].join("\n")),
+  "<!-- wf:editable:summary -->\nWrite a short summary.\n<!-- /wf:editable:summary -->",
   "## Key points",
   "",
-  wrapRegion("editable", "key-points", ["", "- ", ""].join("\n")),
+  "<!-- wf:editable:key-points -->\n- \n<!-- /wf:editable:key-points -->",
   "## Notes",
   "",
-  wrapRegion("editable", "notes", ["", "Your notes stay here across re-renders.", ""].join("\n")),
+  "<!-- wf:editable:notes -->\nYour notes stay here across re-renders.\n<!-- /wf:editable:notes -->",
   "",
 ].join("\n");
 

@@ -5,27 +5,30 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyOp, transformX, type TextOp } from "../domain/text-ot";
+import type { TextComponent } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
-function converges(doc: string, ours: TextOp, theirs: TextOp): string {
-  const [oursAfter, theirsAfter] = transformX(ours, theirs);
-  const here = applyOp(applyOp(doc, ours), theirsAfter);
-  const there = applyOp(applyOp(doc, theirs), oursAfter);
+const { applyTextOp, transformTextOps } = readyCore();
+
+function converges(doc: string, ours: TextComponent[], theirs: TextComponent[]): string {
+  const [oursAfter, theirsAfter] = transformTextOps(ours, theirs);
+  const here = applyTextOp(applyTextOp(doc, ours), theirsAfter);
+  const there = applyTextOp(applyTextOp(doc, theirs), oursAfter);
   assert.equal(here, there);
   return here;
 }
 
 test("inserts and deletes apply in order", () => {
-  assert.equal(applyOp("hello", [{ p: 5, i: " world" }, { p: 0, d: "h" }, { p: 0, i: "H" }]), "Hello world");
+  assert.equal(applyTextOp("hello", [{ p: 5, i: " world" }, { p: 0, d: "h" }, { p: 0, i: "H" }]), "Hello world");
 });
 
 test("a delete that does not match the text throws", () => {
-  assert.throws(() => applyOp("abc", [{ p: 1, d: "x" }]), /does not match/);
-  assert.throws(() => applyOp("abc", [{ p: 4, i: "x" }]), /past the end/);
+  assert.throws(() => applyTextOp("abc", [{ p: 1, d: "x" }]), /does not match/);
+  assert.throws(() => applyTextOp("abc", [{ p: 4, i: "x" }]), /past the end/);
 });
 
 test("comments change no text", () => {
-  assert.equal(applyOp("abc", [{ p: 1, c: "b", t: "t1" }]), "abc");
+  assert.equal(applyTextOp("abc", [{ p: 1, c: "b", t: "t1" }]), "abc");
 });
 
 test("two inserts at one spot put ours first, as the server does", () => {
@@ -61,8 +64,8 @@ function rng(seed: number): () => number {
   };
 }
 
-function randomOp(doc: string, next: () => number): TextOp {
-  const op: TextOp = [];
+function randomOp(doc: string, next: () => number): TextComponent[] {
+  const op: TextComponent[] = [];
   let text = doc;
   const count = 1 + Math.floor(next() * 3);
   for (let n = 0; n < count; n += 1) {

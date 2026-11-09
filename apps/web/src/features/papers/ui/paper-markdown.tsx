@@ -4,7 +4,6 @@ import { useCallback, useMemo } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
-import { stripRegionMarkers } from "@/features/vault/application/note-template-engine";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
@@ -13,7 +12,7 @@ import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/image-variants
 const PAPER_IMAGES_BUCKET = "paper-images";
 
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  const normalized = stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
+  const normalized = readyCore().stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
   return readyCore().stripUnresolvedImageRefs(normalized, PAPER_IMAGE_PREFIX, paths, [...urls.keys()]);
 }
 

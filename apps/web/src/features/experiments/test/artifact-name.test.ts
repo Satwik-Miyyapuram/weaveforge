@@ -1,6 +1,11 @@
-import test from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { safeName } from "../infrastructure/experiment-artifact-store";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("a picked filename becomes one storage segment", () => {
   assert.equal(safeName("loss curve.png"), "loss-curve.png");

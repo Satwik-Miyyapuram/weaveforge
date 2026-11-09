@@ -1,7 +1,6 @@
-import type {
-  PaperRelation,
-  RelationType,
-} from "@weaveforge/core";
+import type { PaperRelation } from "@weaveforge/core";
+import type { PaperRelationRow } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How paper relation rows are stored, and how they map to the domain type.
@@ -9,38 +8,17 @@ import type {
  * Shared by both backend providers. They talk to the *same* table — one through
  * supabase-js, the other through `pg` — so the column shape and the mapping are
  * not per-provider facts, and holding two copies of them is how they drift.
+ *
+ * The mapping itself is Rust (`paper_relation_from_row` / `paper_relation_to_row`);
+ * this file only names it for the repositories.
  */
 
-export interface PaperRelationRow {
-  id: string;
-  from_paper: string;
-  to_paper: string;
-  relation: RelationType;
-  note: string | null;
-  source: "manual" | "auto";
-  created_at: string;
-}
+export type { PaperRelationRow };
 
 export function toDomain(row: PaperRelationRow): PaperRelation {
-  return {
-    id: row.id,
-    fromPaper: row.from_paper,
-    toPaper: row.to_paper,
-    relation: row.relation,
-    note: row.note ?? undefined,
-    source: row.source,
-    createdAt: row.created_at,
-  };
+  return readyCore().paperRelationFromRow(row) as PaperRelation;
 }
 
-export function toRow(r: PaperRelation): Record<string, unknown> {
-  return {
-    id: r.id,
-    from_paper: r.fromPaper,
-    to_paper: r.toPaper,
-    relation: r.relation,
-    note: r.note ?? null,
-    source: r.source,
-    created_at: r.createdAt,
-  };
+export function toRow(r: PaperRelation): PaperRelationRow {
+  return readyCore().paperRelationToRow(r);
 }

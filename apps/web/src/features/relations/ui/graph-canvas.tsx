@@ -18,8 +18,9 @@ import {
   type GLink,
   type GNode,
 } from "../application/build-graph-data";
-import { cloneLinks, filterGraphByNodes, linkNodeId, localSubgraph } from "../application/local-graph";
-import { graphTopologyKey, timelineLaneX } from "../application/graph-timeline";
+import { cloneLinks, filterGraphByNodes, linkNodeId } from "../application/local-graph";
+import { timelineLaneX } from "../application/graph-timeline";
+import { readyCore } from "@/lib/rust-core";
 import { EdgeDetailPopover } from "./graph-side-panel";
 import {
   type FgHandle,
@@ -169,12 +170,12 @@ export function GraphCanvas({
   }, [tagToNotes, onTagToNotes]);
 
   const localSet = useMemo(
-    () => localSubgraph(localSeed, localDepth, neighbors),
+    () => readyCore().localSubgraph(localSeed, localDepth, neighbors),
     [localSeed, localDepth, neighbors],
   );
 
   const topologyKey = useMemo(
-    () => graphTopologyKey(filterGraphByNodes(rawData.nodes, rawData.links, localSet), localSeed, localDepth),
+    () => readyCore().graphTopologyKey(filterGraphByNodes(rawData.nodes, rawData.links, localSet), localSeed, localDepth),
     [rawData, localSet, localSeed, localDepth],
   );
 

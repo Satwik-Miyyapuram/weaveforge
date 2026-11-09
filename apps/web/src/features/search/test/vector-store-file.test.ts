@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { packBinary, unpackBinary } from "@/features/search/infrastructure/vector-store";
+
+before(async () => { await loadTestCore(); });
 
 test("the workspace-folder cache file reads back what was written", () => {
   const bytes = new Uint8Array(Float32Array.from([1, 2, 3, 4, 5, 6]).buffer);

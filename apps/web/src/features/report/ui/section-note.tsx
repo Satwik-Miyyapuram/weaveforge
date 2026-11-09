@@ -15,7 +15,8 @@ import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import { materializeReportBlobImages } from "../lib/report-images-md";
-import { sectionProgress, type SectionProgress } from "../lib/section-progress";
+import type { SectionProgress } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 import { StatusSelect } from "@/components/status-select";
@@ -67,7 +68,7 @@ export function SectionNote({
   const [pickingArtifact, setPickingArtifact] = useState(false);
 
   const hasNotes = Boolean(section.notes?.trim());
-  const { words, target, pct: progress } = rolled ?? sectionProgress({ section, children: [] });
+  const { words, target, pct: progress } = rolled ?? readyCore().sectionProgress({ section, children: [] });
   const meta = [
     target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,
     section.deadline ? `due ${section.deadline}` : null,

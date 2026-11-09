@@ -1,10 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { ReportSection, ReportSectionTreeNode } from "@weaveforge/core";
-import { outlineProgress, sectionProgress } from "../lib/section-progress";
+import { readyCore } from "@/lib/rust-core";
+
+const { outlineProgress, sectionProgress } = readyCore();
 
 function node(wordCount: number, targetWords: number | null, children: ReportSectionTreeNode[] = []): ReportSectionTreeNode {
-  return { section: { wordCount, targetWords } as ReportSection, children };
+  const section = {
+    id: "s",
+    title: "t",
+    status: "not_started",
+    wordCount,
+    targetWords,
+    sortOrder: 0,
+    createdAt: "2026-01-01T00:00:00Z",
+  } as ReportSection;
+  return { section, children };
 }
 
 test("a leaf measures its own words", () => {

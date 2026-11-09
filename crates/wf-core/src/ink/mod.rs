@@ -14,18 +14,23 @@
 
 pub mod chunk;
 pub mod chunk_read;
+pub mod clip_to_area;
 pub mod curve;
 pub mod decode;
 pub mod figure;
+pub mod hit_test;
 pub mod ink_engine;
 pub mod ink_page;
 pub mod ink_paths;
 pub mod js_math;
+pub mod page_background;
+pub mod pdf_pages;
 pub mod recognise;
 pub mod segment;
 pub mod shape_snap;
 pub mod smooth;
 pub mod stroke_packer;
+pub mod vocab_match;
 pub mod width;
 pub mod zoom;
 

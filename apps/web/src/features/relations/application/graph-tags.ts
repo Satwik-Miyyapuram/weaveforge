@@ -13,11 +13,7 @@ export function graphTagNames(
   lists: readonly Pick<ReadingList, "name">[],
   includeLists: boolean,
 ): string[] {
-  const set = new Set<string>();
-  for (const p of papers) for (const t of p.tags) set.add(t);
-  for (const n of notes) for (const t of noteTags(n)) set.add(t);
-  if (includeLists) for (const l of lists) set.add(l.name.toLowerCase());
-  return [...set].sort();
+  return readyCore().graphTagNames(papers, notes, lists, includeLists);
 }
 
 /** The tags seen most often beside `name`: each paper and note counts a tag once. Top `limit`, most first. */
@@ -27,13 +23,7 @@ export function relatedConcepts(
   notes: readonly Pick<VaultPage, "title" | "body">[],
   limit = 12,
 ): [string, number][] {
-  const counts = new Map<string, number>();
-  const count = (tags: Iterable<string>) => {
-    for (const t of tags) if (t !== name) counts.set(t, (counts.get(t) ?? 0) + 1);
-  };
-  for (const p of papers) count(new Set(p.tags));
-  for (const n of notes) count(noteTags(n));
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+  return readyCore().relatedConcepts(name, papers, notes, limit);
 }
 
 /** The notes carrying any of `tags` as a whole hashtag (`#ml` is not `#mlops`); all of them when none is chosen. */
@@ -41,7 +31,5 @@ export function notesTagged<N extends Pick<VaultPage, "title" | "body">>(
   notes: readonly N[],
   tags: readonly string[],
 ): N[] {
-  if (tags.length === 0) return [...notes];
-  const wanted = new Set(tags);
-  return notes.filter((n) => noteTags(n).some((t) => wanted.has(t)));
+  return readyCore().notesTagged(notes, tags).map((i) => notes[i]!);
 }

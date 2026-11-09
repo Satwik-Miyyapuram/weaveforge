@@ -7,6 +7,8 @@
  * where Ctrl is not.
  */
 
+import { readyCore } from "@/lib/rust-core";
+
 export type WorkspaceCommand =
   | "quick-open"
   | "split-right"
@@ -40,61 +42,17 @@ export interface KeyChord {
 }
 
 /**
- * The command a chord means, or `null`.
+ * The command a chord means, or `null`. The rule is in Rust
+ * (`wf-core` `editor_workspace::keybindings`), so web and tests agree on it.
  *
- * `Ctrl` and `Cmd` are interchangeable rather than platform-detected: a mac
- * keyboard sends Cmd, an external PC keyboard on the same machine sends Ctrl,
- * and both mean "the modifier" to the person pressing it.
+ * `Ctrl` and `Cmd` are the same modifier: a mac keyboard sends Cmd, a PC
+ * keyboard sends Ctrl, and both mean "the modifier" to the person pressing it.
  *
  * `tabCount` is how many tabs the focused pane has. A tab-number chord with no
  * tab behind it is not claimed, so the browser keeps it (its own tab switch).
  */
 export function commandForChord(chord: KeyChord, tabCount = Number.POSITIVE_INFINITY): WorkspaceCommand | null {
-  const mod = Boolean(chord.ctrlKey || chord.metaKey);
-  // F2 and F11 work bare, as in a file manager and a browser; a modified one
-  // (Alt+F2, Ctrl+F11) belongs to someone else.
-  if (!mod && !chord.altKey && !chord.shiftKey) {
-    if (chord.key === "F2") return "rename-doc";
-    // F11: the document alone — no rail, no explorer, no strip, no status
-    // bar. For a hand on a pen the chrome is inches of page it cannot write on.
-    if (chord.key === "F11") return "toggle-focus";
-  }
-  if (!mod || chord.altKey) return null;
-
-  const key = chord.key.toLowerCase();
-  if (key === "p") return chord.shiftKey ? "command-palette" : "quick-open";
-  // `⌘D` duplicates the note; inside the editor CodeMirror takes it first
-  // ("select next match") and the workspace skips a handled key.
-  if (key === "d" && !chord.shiftKey) return "duplicate-note";
-  if (key === "e" && !chord.shiftKey) return "toggle-mode";
-  // `Ctrl-N` is "new window" to a browser; the workspace claims it the way an
-  // editor does, and Electron does not give the browser's meaning a chance.
-  if (key === "n" && !chord.shiftKey) return "new-note";
-  // `⌘B` is VS Code's "toggle side bar"; the explorer is the side bar here.
-  // `⌘⇧B` hides the app's own sidebar, the one around the workspace.
-  if (key === "b") return chord.shiftKey ? "toggle-sidebar" : "toggle-explorer";
-  // `⌘⇧F` is an editor's "search the workspace".
-  if (key === "f" && chord.shiftKey) return "workspace-search";
-  // `⌘/` is read by physical key: on many layouts `/` needs Shift and types `?`.
-  if (key === "/" || chord.code === "Slash") return "show-shortcuts";
-  // `⌘⇧T` is a browser's "reopen closed tab"; plain `⌘T` stays its "new tab".
-  if (key === "t" && chord.shiftKey) return "reopen-tab";
-  if (key === "\\") return "split-right";
-  if (key === "w") return "close-tab";
-  if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
-  // `⌘0` stays the host's "reset zoom"; a shifted digit is a symbol.
-  const digit = digitOf(chord);
-  if (digit === null || chord.shiftKey) return null;
-  if (digit === 9) return tabCount >= 1 ? "last-tab" : null;
-  if (digit > tabCount) return null;
-  return `tab-${digit}` as TabNumberCommand;
-}
-
-/** The digit 1–9 a chord names by its physical key, else by its character. */
-function digitOf(chord: KeyChord): number | null {
-  const fromCode = /^Digit([1-9])$/.exec(chord.code ?? "");
-  const digit = fromCode ? fromCode[1] : /^[1-9]$/.test(chord.key) ? chord.key : null;
-  return digit === null ? null : Number(digit);
+  return readyCore().commandForChord(chord, tabCount) as WorkspaceCommand | null;
 }
 
 /**

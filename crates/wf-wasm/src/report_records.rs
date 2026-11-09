@@ -10,7 +10,10 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::report::bibliography_report::{self, BibliographyInput};
 use wf_core::report::prisma_figure::{self, PrismaCounts, PrismaFigureOptions};
 use wf_core::report::project_path;
-use wf_core::report::report_section::{self, NewReportSectionInput, ReportSection};
+use wf_core::report::report_section::{
+    self, NewReportSectionInput, ReportSection, ReportSectionTreeNode,
+};
+use wf_core::report::section_progress;
 
 use super::to_js;
 
@@ -98,4 +101,26 @@ pub fn create_report_section_js(
 pub fn build_section_tree_js(sections: JsValue) -> JsResult<JsValue> {
     let sections: Vec<ReportSection> = serde_wasm_bindgen::from_value(sections)?;
     to_js(&report_section::build_section_tree(sections))
+}
+
+/// [`section_progress`](section_progress::section_progress) (TS `sectionProgress`).
+///
+/// # Errors
+///
+/// Fails if `node` is not a section tree node.
+#[wasm_bindgen(js_name = sectionProgress)]
+pub fn section_progress_js(node: JsValue) -> JsResult<JsValue> {
+    let node: ReportSectionTreeNode = serde_wasm_bindgen::from_value(node)?;
+    to_js(&section_progress::section_progress(&node))
+}
+
+/// [`outline_progress`](section_progress::outline_progress) (TS `outlineProgress`).
+///
+/// # Errors
+///
+/// Fails if `roots` is not a list of section tree nodes.
+#[wasm_bindgen(js_name = outlineProgress)]
+pub fn outline_progress_js(roots: JsValue) -> JsResult<JsValue> {
+    let roots: Vec<ReportSectionTreeNode> = serde_wasm_bindgen::from_value(roots)?;
+    to_js(&section_progress::outline_progress(&roots))
 }

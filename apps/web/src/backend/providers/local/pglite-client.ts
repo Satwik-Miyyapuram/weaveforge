@@ -1,6 +1,7 @@
 import { errorMessage, LOCAL_USER_ID } from "@weaveforge/core";
 
 import { decodeBytea } from "@/lib/bytea";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * A PostgREST-shaped client over the local database.
@@ -78,28 +79,17 @@ const OPERATORS: Record<string, string> = {
 
 /** Column and table names are never parameters, so they are checked instead. */
 function ident(name: string): string {
-  const trimmed = name.trim();
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
-    throw new Error(`Not a column name the local database will accept: ${name}`);
-  }
-  return `"${trimmed}"`;
+  return readyCore().ident(name);
 }
 
-/** The right side of `is` is spliced into the SQL, so only these three pass. */
+/** The right side of `is` is spliced into the SQL, so the core accepts only null, true or false. */
 function isLiteral(value: unknown): "null" | "true" | "false" {
-  const text = value === null ? "null" : String(value);
-  if (text === "null" || text === "true" || text === "false") return text;
-  throw new Error(`\`is\` takes null, true or false, not: ${text}`);
+  return readyCore().isLiteral(value === null ? "null" : String(value));
 }
 
 /** `"id, title"` and `"*"` both mean a projection; nothing here has joins. */
 function projection(columns: string): string {
-  const trimmed = columns.trim();
-  if (trimmed === "" || trimmed === "*") return "*";
-  return trimmed
-    .split(",")
-    .map((c) => (c.trim() === "*" ? "*" : ident(c)))
-    .join(", ");
+  return readyCore().projection(columns);
 }
 
 const BYTEA_HEX = /^\\x(?:[0-9a-fA-F]{2})*$/;
@@ -128,9 +118,9 @@ export const JSON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   paper_field_values: ["value"],
 };
 
-/** A Postgres array literal, each element quoted with `"` and `\` escaped. */
+/** A Postgres array literal, each element quoted and escaped by the core. */
 export function pgArray(values: readonly unknown[]): string {
-  return `{${values.map((v) => `"${String(v).replace(/(["\\])/g, "\\$1")}"`).join(",")}}`;
+  return readyCore().pgArray(values);
 }
 
 /**
@@ -186,37 +176,9 @@ function encode(
   return value as string | number | boolean;
 }
 
-/**
- * Splits top-level comma-separated expressions, ignoring commas inside
- * parentheses like `col.in.(a,b)` and inside PostgREST's double-quoted values,
- * where `\` escapes the next character.
- */
+/** Top-level comma-separated pieces of a PostgREST expression, split by the core. */
 function splitTopLevel(expression: string): string[] {
-  const parts: string[] = [];
-  let current = "";
-  let depth = 0;
-  let quoted = false;
-  let escaped = false;
-  for (const ch of expression) {
-    if (quoted) {
-      current += ch;
-      if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
-      else if (ch === '"') quoted = false;
-      continue;
-    }
-    if (ch === '"') quoted = true;
-    else if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    if (ch === "," && depth === 0) {
-      if (current.trim()) parts.push(current.trim());
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  if (current.trim()) parts.push(current.trim());
-  return parts;
+  return readyCore().splitTopLevel(expression);
 }
 
 class Builder<T> implements PromiseLike<Reply<T>> {

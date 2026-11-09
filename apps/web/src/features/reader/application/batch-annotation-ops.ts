@@ -1,4 +1,5 @@
 import type { ReaderAnnotation } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface BatchImageRegion {
   annotationId: string;
@@ -11,22 +12,7 @@ export interface BatchImageRegion {
 export function collectAnnotationImageRegions(
   annotations: readonly ReaderAnnotation[],
 ): BatchImageRegion[] {
-  const out: BatchImageRegion[] = [];
-  for (const ann of annotations) {
-    if (ann.type !== "image") continue;
-    const pos = ann.anchor.zoteroPosition;
-    if (!pos?.rects?.length) continue;
-    for (const rect of pos.rects) {
-      if (!Array.isArray(rect) || rect.length < 4) continue;
-      out.push({
-        annotationId: ann.id,
-        pageIndex: pos.pageIndex,
-        rect: rect.slice(0, 4),
-        color: ann.color,
-      });
-    }
-  }
-  return out;
+  return readyCore().collectAnnotationImageRegions(annotations);
 }
 
 export interface ActivityLogEntry {

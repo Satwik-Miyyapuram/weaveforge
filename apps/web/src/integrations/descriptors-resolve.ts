@@ -1,5 +1,6 @@
 import type { UserIntegrationDescriptor } from "@weaveforge/core";
 import { getAppConfig } from "@/deployment/app-config";
+import { readyCore } from "@/lib/rust-core";
 import type { IntegrationConfig } from "./config";
 import type { ProjectSyncDescriptor } from "./descriptors-types";
 
@@ -34,29 +35,16 @@ function projectDescriptorsFromManifests(): ProjectSyncDescriptor[] {
   ];
 }
 
-function gateOpen(config: IntegrationConfig, gate: UserIntegrationDescriptor["runtimeGate"]): boolean {
-  if (!gate) return true;
-  if (gate.kind === "bibliography") return config.bibliography === gate.providerId;
-  if (gate.kind === "citation") return config.citation === gate.providerId;
-  return true;
-}
-
-function projectGateOpen(config: IntegrationConfig, gate: ProjectSyncDescriptor["runtimeGate"]): boolean {
-  if (gate.kind === "notifications") return config.notifications === gate.providerId;
-  if (gate.kind === "logSync") return config.logSync === gate.providerId;
-  if (gate.kind === "gitRead") return config.gitRead.includes(gate.providerId);
-  return true;
-}
-
+/** Gate predicates live in the Rust core (`integrations::gates`). */
 export function userIntegrationsForConfig(config: IntegrationConfig): UserIntegrationDescriptor[] {
-  return userDescriptorsFromManifests().filter((d) => gateOpen(config, d.runtimeGate));
+  const core = readyCore();
+  return userDescriptorsFromManifests().filter((d) => core.userGateOpen(config, d.runtimeGate));
 }
 
 export function projectSyncDescriptorsForConfig(config: IntegrationConfig): ProjectSyncDescriptor[] {
-  const visible = projectDescriptorsFromManifests().filter((d) => projectGateOpen(config, d.runtimeGate));
-  const gitlabRead = config.gitRead.includes("gitlab");
-  const gitlabLog = config.logSync === "gitlab";
-  if (gitlabRead && gitlabLog) {
+  const core = readyCore();
+  const visible = projectDescriptorsFromManifests().filter((d) => core.projectGateOpen(config, d.runtimeGate));
+  if (core.gitlabCombinedActive(config)) {
     return visible
       .filter((d) => d.id !== "gitlab-git-read" && d.id !== "gitlab-log-sync")
       .concat([GITLAB_MERGED_DESCRIPTOR]);

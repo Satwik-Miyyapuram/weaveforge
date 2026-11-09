@@ -5,7 +5,8 @@ import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
 import { Puller } from "../domain/puller";
 import { Outbox } from "../domain/outbox";
-import { ConflictStore, deletionFor } from "../domain/conflicts";
+import { ConflictStore } from "../domain/conflicts";
+import { readyCore } from "@/lib/rust-core";
 import { SyncStateStore } from "../domain/sync-state";
 import type { RemoteChange, SyncTransport } from "../domain/sync-ports";
 
@@ -518,7 +519,7 @@ describe("a delete the reader settles", () => {
 
     for (const c of [...(await open(r, remoteId)), ...(await open(l, localId))]) {
       assert.notEqual(c.kind, "edit");
-      await r.conflicts.resolveDeletion(c.id, deletionFor(c.kind as "deleted_remote" | "deleted_local", "local"));
+      await r.conflicts.resolveDeletion(c.id, readyCore().deletionFor(c.kind as "deleted_remote" | "deleted_local", "local"));
     }
 
     assert.equal((await r.db.sql<{ name: string }>("select name from projects where id = $1", [remoteId]))[0]?.name, "Mine");
@@ -528,9 +529,9 @@ describe("a delete the reader settles", () => {
   });
 
   it("maps a bulk pick to each delete kind", () => {
-    assert.equal(deletionFor("deleted_remote", "local"), "keep");
-    assert.equal(deletionFor("deleted_remote", "remote"), "delete");
-    assert.equal(deletionFor("deleted_local", "local"), "delete");
-    assert.equal(deletionFor("deleted_local", "remote"), "keep");
+    assert.equal(readyCore().deletionFor("deleted_remote", "local"), "keep");
+    assert.equal(readyCore().deletionFor("deleted_remote", "remote"), "delete");
+    assert.equal(readyCore().deletionFor("deleted_local", "local"), "delete");
+    assert.equal(readyCore().deletionFor("deleted_local", "remote"), "keep");
   });
 });

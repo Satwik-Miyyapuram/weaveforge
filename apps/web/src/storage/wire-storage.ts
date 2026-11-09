@@ -1,5 +1,6 @@
 import type { IBlobStore } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readyCore } from "@/lib/rust-core";
 import { readStorageConfig, type BlobProviderId, type StorageConfig } from "./config";
 import { HttpBlobStore } from "./providers/http/http-blob-store";
 import { SupabaseBlobStore } from "./providers/supabase/blob-store";
@@ -15,7 +16,7 @@ export function blobProviderForRuntime(
   configured: BlobProviderId,
   runtime: { inBrowser: boolean; publicProvider: string | undefined },
 ): BlobProviderId {
-  return runtime.inBrowser && runtime.publicProvider === "tiered" ? "tiered" : configured;
+  return readyCore().blobProviderForRuntime(configured, runtime) as BlobProviderId;
 }
 
 /**

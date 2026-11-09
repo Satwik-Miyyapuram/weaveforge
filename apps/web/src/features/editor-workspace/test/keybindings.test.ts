@@ -1,7 +1,10 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { commandForChord, isTypingTarget, shortcutTable } from "../application/keybindings";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("Ctrl and Cmd mean the same thing, because both keyboards exist", () => {
   assert.equal(commandForChord({ key: "p", ctrlKey: true }), "quick-open");

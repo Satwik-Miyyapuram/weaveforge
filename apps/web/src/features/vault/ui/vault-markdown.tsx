@@ -6,7 +6,6 @@ import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { readyCore } from "@/lib/rust-core";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { makeWikilinkResolver, useWikilinkClick, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
-import { stripRegionMarkers } from "../application/note-template-engine";
 import { assetOrNull, hashTargetId } from "./vault-markdown-helpers";
 
 /** Minimal title/id pair for wikilink resolution. */
@@ -33,7 +32,7 @@ function expandEmbeds(body: string, resolveEmbed: (title: string) => string | nu
 const VAULT_ASSETS_BUCKET = "vault-assets";
 
 function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
+  let next = readyCore().stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
   for (const path of paths) {
     if (urls.has(path)) continue;
     const ref = `${readyCore().VAULT_IMAGE_PREFIX}${path}`;

@@ -19,5 +19,6 @@ pub mod search_tuning;
 pub mod text_chunks;
 pub mod tokenizer;
 pub mod url_parts;
+pub mod vector_codec;
 pub mod vector_index;
 pub mod wiki_graph;

@@ -14,7 +14,7 @@ import type {
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 type Listener = (event: { data: InkWorkerMessage }) => void;
 
@@ -28,11 +28,6 @@ function runFrames(limit = 10): void {
   }
 }
 let listener: Listener | null = null;
-let pointInPolygon: (
-  px: number,
-  py: number,
-  polygon: readonly number[],
-) => boolean;
 let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
 let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
 let appendSamples: typeof import("../worker/ink-worker").appendSamples;
@@ -47,7 +42,6 @@ before(async () => {
     requestAnimationFrame: (cb: () => void) => frames.push(cb),
   };
   const worker = await import("../worker/ink-worker");
-  pointInPolygon = worker.pointInPolygon;
   liveForRenderer = worker.liveForRenderer;
   newLiveStroke = worker.newLiveStroke;
   appendSamples = worker.appendSamples;
@@ -484,10 +478,11 @@ function curveStrays(points: readonly number[]): number {
 }
 
 test("pointInPolygon follows the even-odd rule", () => {
+  const { inkPointInPolygon } = readyCore();
   const square = [0, 0, 10, 0, 10, 10, 0, 10];
-  assert.equal(pointInPolygon(5, 5, square), true);
-  assert.equal(pointInPolygon(15, 5, square), false);
-  assert.equal(pointInPolygon(5, -1, square), false);
+  assert.equal(inkPointInPolygon(5, 5, square), true);
+  assert.equal(inkPointInPolygon(15, 5, square), false);
+  assert.equal(inkPointInPolygon(5, -1, square), false);
 });
 test("live stroke simplifies dense staircases so live curves match commit curves", () => {
   fresh();

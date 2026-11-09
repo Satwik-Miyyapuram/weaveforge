@@ -1,12 +1,13 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  cloneLinks,
-  filterGraphByNodes,
-  linkNodeId,
-  localSubgraph,
-} from "../application/local-graph";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { cloneLinks, filterGraphByNodes, linkNodeId } from "../application/local-graph";
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("linkNodeId", () => {
   it("returns string sources unchanged", () => {
@@ -19,6 +20,7 @@ describe("linkNodeId", () => {
 });
 
 describe("localSubgraph", () => {
+
   const neighbors = new Map<string, Set<string>>([
     ["a", new Set(["b", "c"])],
     ["b", new Set(["a", "d"])],
@@ -27,16 +29,16 @@ describe("localSubgraph", () => {
   ]);
 
   it("returns null when seed or depth is invalid", () => {
-    assert.equal(localSubgraph(null, 2, neighbors), null);
-    assert.equal(localSubgraph("a", 0, neighbors), null);
+    assert.equal(readyCore().localSubgraph(null, 2, neighbors), null);
+    assert.equal(readyCore().localSubgraph("a", 0, neighbors), null);
   });
 
   it("expands to depth-limited neighborhood", () => {
-    const depth1 = localSubgraph("a", 1, neighbors);
+    const depth1 = readyCore().localSubgraph("a", 1, neighbors);
     assert.ok(depth1);
     assert.deepEqual([...depth1!].sort(), ["a", "b", "c"]);
 
-    const depth2 = localSubgraph("a", 2, neighbors);
+    const depth2 = readyCore().localSubgraph("a", 2, neighbors);
     assert.ok(depth2);
     assert.deepEqual([...depth2!].sort(), ["a", "b", "c", "d"]);
   });

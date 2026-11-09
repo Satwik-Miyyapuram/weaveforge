@@ -1,5 +1,7 @@
 //! Overleaf link rules: project id and entry file validation, section target sanitizing, and project URLs.
 
+pub mod text_ot;
+
 use serde_json::{Map, Value};
 
 /// Entry file used when a report does not name one.

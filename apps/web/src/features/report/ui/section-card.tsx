@@ -13,7 +13,8 @@ import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { editedLabel } from "../lib/edited-label";
 import { countSectionSources } from "../lib/section-sources";
-import { sectionProgress, type SectionProgress } from "../lib/section-progress";
+import type { SectionProgress } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { Markdown } from "@/components/markdown/markdown";
 import { StatusSelect } from "@/components/status-select";
 import { runReported } from "@/lib/run-reported";
@@ -73,7 +74,7 @@ export function SectionRow({
     <li id={`section-${s.id}`} className="section-node">
       <SectionCard
         section={s}
-        progress={sectionProgress(node)}
+        progress={readyCore().sectionProgress(node)}
         readOnly={readOnly}
         sharedByName={sharedByName}
         collapse={collapse}
@@ -146,7 +147,7 @@ export function SectionCard({
 }) {
   const hasNotes = Boolean(s.notes?.trim());
   const sources = countSectionSources(s.notes);
-  const { words, target, pct: progress } = rolled ?? sectionProgress({ section: s, children: [] });
+  const { words, target, pct: progress } = rolled ?? readyCore().sectionProgress({ section: s, children: [] });
   const meta = [
     target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,
     s.deadline ? `due ${s.deadline}` : null,

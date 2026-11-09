@@ -1,6 +1,11 @@
-import { test } from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_REPORT_REPO, newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("newIssueUrl: prefills title, body and labels on the default repo", () => {
   const url = new URL(newIssueUrl({ title: "Papers failed", body: "boom" }));

@@ -8,6 +8,10 @@ import type { AiAccessPolicyFns } from "./../features/ai-assistant/domain/ai-acc
 import type { AiExtractionFns } from "./../features/ai-assistant/domain/ai-extraction.js";
 import type { McpFolderDraftFns } from "./../features/ai-assistant/domain/mcp-folder-draft.js";
 import type { AiMcpResultFns } from "./../features/ai-assistant/domain/ai-mcp-result.js";
+import type { AiRetrievalFns } from "./../features/ai-assistant/domain/ai-retrieval.js";
+import type { MarkdownImageFns } from "./markdown-image.js";
+import type { ModelConceptFns } from "./../features/ai-assistant/domain/model-concept-extractor.js";
+import type { DashboardStatsFns } from "./../features/dashboard/domain/dashboard-stats.js";
 import type { AiSettingsFns } from "./../features/ai-assistant/domain/ai-settings.js";
 import type { AiTypesFns } from "./../features/ai-assistant/domain/ai-types.js";
 import type { AnchorResolutionFns } from "./../reader/anchor-resolution.js";
@@ -96,6 +100,10 @@ export interface CoreContract
     AiExtractionFns,
     McpFolderDraftFns,
     AiMcpResultFns,
+    AiRetrievalFns,
+    MarkdownImageFns,
+    ModelConceptFns,
+    DashboardStatsFns,
     AiSettingsFns,
     AiTypesFns,
     AnchorResolutionFns,

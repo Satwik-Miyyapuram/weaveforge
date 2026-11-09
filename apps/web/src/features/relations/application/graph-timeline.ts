@@ -1,6 +1,6 @@
 import type { GraphViewSettings } from "@weaveforge/core";
 
-import type { GLink, GNode } from "./build-graph-data";
+import type { GNode } from "./build-graph-data";
 
 /** Canvas units between one publication year and the next in the timeline layout. */
 export const YEAR_SPACING = 90;
@@ -30,15 +30,4 @@ export function timelineLaneX(
   // does not start halfway across the canvas.
   const mid = Math.round(years.reduce((a, b) => a + b, 0) / years.length);
   return (node: GNode) => (typeof node.year === "number" ? (node.year - mid) * YEAR_SPACING : null);
-}
-
-/** What the simulation is laid out over; a change restarts it. */
-export function graphTopologyKey(
-  shown: { nodes: readonly GNode[]; links: readonly GLink[] },
-  localSeed: string | null,
-  localDepth: number,
-): string {
-  const nodeIds = shown.nodes.map((n) => n.id).sort().join(",");
-  const linkIds = shown.links.map((l) => l.id).sort().join(",");
-  return `${nodeIds}|${linkIds}|${localSeed ?? ""}|${localDepth}`;
 }

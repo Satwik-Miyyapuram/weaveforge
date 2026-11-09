@@ -16,7 +16,6 @@ import {
   ExperimentTitleLink,
 } from "./experiment-panels";
 import { readyCore } from "@/lib/rust-core";
-import { metricKeysOf } from "../application/results-table";
 import { typedCore } from "@/lib/rust-core";
 
 const PALETTE = [
@@ -35,7 +34,7 @@ function asNumber(v: unknown): number | null {
  * a per-card list can't answer.
  */
 export function CompareView({ experiments }: { experiments: Experiment[] }) {
-  const metricKeys = useMemo(() => metricKeysOf(experiments), [experiments]);
+  const metricKeys = useMemo(() => readyCore().metricKeysOf(experiments), [experiments]);
 
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");

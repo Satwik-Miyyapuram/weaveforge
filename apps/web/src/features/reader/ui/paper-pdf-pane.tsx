@@ -39,7 +39,7 @@ import {
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
-import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
+import { readyCore } from "@/lib/rust-core";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 import { formatError } from "@/lib/format-error";
 import type { PaperHtmlPage } from "../application/paper-html";
@@ -202,7 +202,7 @@ export function PaperPdfPane({
           });
           local = [];
         }
-        if (!cancelled) setAnnotations(mergeReaderAnnotations(projected, local));
+        if (!cancelled) setAnnotations(readyCore().mergeReaderAnnotations(projected, local));
         try {
           const types = await getContainer().papers.listAnnotationQuotationTypesForPaper(paper.id);
           if (!cancelled) {

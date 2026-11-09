@@ -33,6 +33,7 @@ import {
 } from "../application/page-buffer";
 import { ERASER_RADIUS, InkStrokeIndex } from "../application/stroke-index";
 import type { InkRenderer } from "../render/ink-renderer";
+import { readyCore } from "@/lib/rust-core";
 
 /** One undoable step. `indices` are buffer indices; a move also carries its delta. */
 export type HistoryStep =
@@ -276,31 +277,6 @@ export function translateIndices(
   reportState(state, post);
 }
 
-/**
- * Whether a point is inside a closed polygon, by the even-odd rule.
- *
- * `polygon` is flat `[x, y, …]` in page units. The lasso is a hand-drawn loop,
- * so the polygon is closed implicitly from its last point back to its first.
- */
-export function pointInPolygon(
-  px: number,
-  py: number,
-  polygon: readonly number[],
-): boolean {
-  const count = polygon.length / 2;
-  let inside = false;
-  for (let i = 0, j = count - 1; i < count; j = i, i += 1) {
-    const xi = polygon[i * 2]!;
-    const yi = polygon[i * 2 + 1]!;
-    const xj = polygon[j * 2]!;
-    const yj = polygon[j * 2 + 1]!;
-    const crosses =
-      yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
-    if (crosses) inside = !inside;
-  }
-  return inside;
-}
-
 /** Select what a lasso loop enclosed: strokes with most of their points inside. */
 export function lasso(
   state: InkPageState,
@@ -335,7 +311,7 @@ export function lasso(
     if (!geometry || geometry.x.length === 0) continue;
     let inside = 0;
     for (let i = 0; i < geometry.x.length; i += 1) {
-      if (pointInPolygon(geometry.x[i]!, geometry.y[i]!, polygon)) inside += 1;
+      if (readyCore().inkPointInPolygon(geometry.x[i]!, geometry.y[i]!, polygon)) inside += 1;
     }
     if (inside * 2 < geometry.x.length) continue;
     chosen.push(candidate);
@@ -404,7 +380,7 @@ export function strokeNearPoint(
     }
     for (let i = 0; i + 1 < stroke.x.length; i += 1) {
       if (
-        distanceToSegmentSquared(
+        readyCore().distanceToSegmentSquared(
           px,
           py,
           stroke.x[i]!,
@@ -418,26 +394,6 @@ export function strokeNearPoint(
     }
   }
   return false;
-}
-
-export function distanceToSegmentSquared(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): number {
-  const vx = bx - ax;
-  const vy = by - ay;
-  const length2 = vx * vx + vy * vy;
-  const t =
-    length2 === 0
-      ? 0
-      : Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / length2));
-  const dx = ax + vx * t - px;
-  const dy = ay + vy * t - py;
-  return dx * dx + dy * dy;
 }
 
 /** Undo the last action (erase, draw, or move). */

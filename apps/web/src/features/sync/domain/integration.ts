@@ -2,7 +2,7 @@
  * Per-project integration config (git sync + notifications). Web-side type —
  * the sync layer is infrastructure, so this lives outside @weaveforge/core.
  *
- * Field semantics per provider: see `integration-fields.ts` (e.g. Mattermost
+ * Field semantics per provider: see `wf-core` `sync::integration_fields` (e.g. Mattermost
  * stores server URL in `repo` and channel id in `branch`).
  */
 export type SyncProvider = "github" | "gitlab" | "mattermost";
@@ -16,7 +16,7 @@ export interface Integration {
   repo?: string;
   /** GitHub/GitLab: branch. Mattermost: channel id. */
   branch: string;
-  /** Provider-specific settings (Mattermost: see `mattermost-options.ts`). */
+  /** Provider-specific settings (Mattermost: see `sync::mattermost_options`). */
   options?: Record<string, unknown>;
 }
 

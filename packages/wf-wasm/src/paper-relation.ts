@@ -4,9 +4,18 @@
  */
 import {
   createPaperRelationWith as rawCreatePaperRelationWith,
+  paperRelationFromRow as rawPaperRelationFromRow,
   paperRelationInputError as rawPaperRelationInputError,
+  paperRelationToRow as rawPaperRelationToRow,
 } from "../pkg/wf_wasm.js";
-import type { NewPaperRelationInput, PaperRelation, RelationType } from "./bindings.js";
+import type {
+  NewPaperRelationInput,
+  PaperRelation,
+  PaperRelationRow,
+  RelationType,
+} from "./bindings.js";
+
+export type { PaperRelationRow };
 
 export const RELATION_TYPES: readonly RelationType[] = [
   "cites",
@@ -47,4 +56,14 @@ export function createPaperRelation(
   const id = deps.ids.newId();
   const now = deps.clock.nowIso();
   return createPaperRelationWith(input, id, now);
+}
+
+/** The domain relation for a stored row. A null note reads as absent. */
+export function paperRelationFromRow(row: PaperRelationRow): PaperRelation {
+  return rawPaperRelationFromRow(row) as PaperRelation;
+}
+
+/** The stored row for a relation. An absent note is stored as null. */
+export function paperRelationToRow(relation: PaperRelation): PaperRelationRow {
+  return rawPaperRelationToRow(relation) as PaperRelationRow;
 }

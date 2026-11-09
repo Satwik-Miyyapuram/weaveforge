@@ -349,9 +349,341 @@ pub fn decode_share_link_token(encoded: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// A `shares` row as the database returns it (snake_case columns; TS `ShareRow`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ShareRow {
+    /// Row id.
+    pub id: String,
+    /// The sharer.
+    pub owner_id: String,
+    /// The recipient.
+    pub recipient_id: String,
+    /// The type of item shared.
+    pub resource_type: ShareableType,
+    /// The item shared; `None` shares every item of the type.
+    pub resource_id: Option<String>,
+    /// The access level.
+    pub access: ShareAccess,
+    /// When the grant was made.
+    pub created_at: String,
+}
+
+/// A share as the app reads it (TS `Share`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct Share {
+    /// Row id.
+    pub id: String,
+    /// The sharer.
+    pub owner_id: String,
+    /// The recipient.
+    pub recipient_id: String,
+    /// The type of item shared.
+    pub resource_type: ShareableType,
+    /// The item shared; `None` shares every item of the type.
+    pub resource_id: Option<String>,
+    /// The access level.
+    pub access: ShareAccess,
+    /// When the grant was made.
+    pub created_at: String,
+}
+
+#[must_use]
+/// Map a `shares` row to a [`Share`] (TS `toDomain` in `share-rows.ts`).
+pub fn share_from_row(row: &ShareRow) -> Share {
+    Share {
+        id: row.id.clone(),
+        owner_id: row.owner_id.clone(),
+        recipient_id: row.recipient_id.clone(),
+        resource_type: row.resource_type,
+        resource_id: row.resource_id.clone(),
+        access: row.access,
+        created_at: row.created_at.clone(),
+    }
+}
+
+/// A `comments` row as the database returns it (snake_case columns; TS `CommentRow`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct CommentRow {
+    /// Row id.
+    pub id: String,
+    /// The author.
+    pub author_id: String,
+    /// The type of item commented on.
+    pub resource_type: String,
+    /// The item commented on.
+    pub resource_id: String,
+    /// The comment text.
+    pub body: String,
+    /// When the comment was made.
+    pub created_at: String,
+    /// The quoted passage; absent for a page-level comment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub anchor_quote: Option<String>,
+    /// Text just before the quote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub anchor_prefix: Option<String>,
+    /// Text just after the quote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub anchor_suffix: Option<String>,
+    /// The thread root this answers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub parent_id: Option<String>,
+    /// When the thread was resolved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub resolved_at: Option<String>,
+}
+
+/// A comment as the app reads it (TS `Comment`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct Comment {
+    /// Row id.
+    pub id: String,
+    /// The author.
+    pub author_id: String,
+    /// The type of item commented on.
+    pub resource_type: String,
+    /// The item commented on.
+    pub resource_id: String,
+    /// The comment text.
+    pub body: String,
+    /// When the comment was made.
+    pub created_at: String,
+    /// The passage the comment is about; `None` for a page-level comment.
+    pub anchor: Option<CommentAnchor>,
+    /// The thread root this answers.
+    pub parent_id: Option<String>,
+    /// When the thread was resolved.
+    pub resolved_at: Option<String>,
+}
+
+#[must_use]
+/// Map a `comments` row to a [`Comment`] (TS `commentToDomain` in `comment-rows.ts`).
+///
+/// An anchor exists only when the quote is non-empty; its prefix and suffix default to `""`.
+pub fn comment_from_row(row: &CommentRow) -> Comment {
+    let anchor = row
+        .anchor_quote
+        .as_deref()
+        .filter(|quote| !quote.is_empty())
+        .map(|quote| CommentAnchor {
+            quote: quote.to_owned(),
+            prefix: row.anchor_prefix.clone().unwrap_or_default(),
+            suffix: row.anchor_suffix.clone().unwrap_or_default(),
+        });
+    Comment {
+        id: row.id.clone(),
+        author_id: row.author_id.clone(),
+        resource_type: row.resource_type.clone(),
+        resource_id: row.resource_id.clone(),
+        body: row.body.clone(),
+        created_at: row.created_at.clone(),
+        anchor,
+        parent_id: row.parent_id.clone(),
+        resolved_at: row.resolved_at.clone(),
+    }
+}
+
+/// Which columns hold a shared item's title and status (TS `SHARED_SOURCES` entry).
+/// The TS `table` field is ignored: the fetch stays in TS.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct SharedSource {
+    /// Column holding the title.
+    pub title: String,
+    /// Column holding the status; `None` for types without one.
+    pub status: Option<String>,
+}
+
+/// A shared item as the reader shows it (TS `SharedItem`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct SharedItem {
+    /// The item id.
+    pub id: String,
+    /// The type of item.
+    pub kind: ShareableType,
+    /// The title, or `(untitled)`.
+    pub title: String,
+    /// The status, or `""`.
+    pub status: String,
+    /// The owner's user id.
+    pub owner_id: String,
+    /// The paper's metadata object (or array), for papers only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[must_use]
+/// Shape one table row into a [`SharedItem`] (TS `toSharedItem` in `shared-reader-sources.ts`).
+///
+/// Reads values the way JS `String(x ?? fallback)` does, so the TS and Rust mappings agree.
+pub fn shared_item(
+    kind: ShareableType,
+    row: &serde_json::Value,
+    source: &SharedSource,
+) -> SharedItem {
+    let metadata = if kind == ShareableType::Paper {
+        row.get("metadata")
+            .filter(|value| {
+                matches!(
+                    value,
+                    serde_json::Value::Object(_) | serde_json::Value::Array(_)
+                )
+            })
+            .cloned()
+    } else {
+        None
+    };
+    SharedItem {
+        id: js_string(row.get("id")).unwrap_or_default(),
+        kind,
+        title: js_string(row.get(source.title.as_str())).unwrap_or_else(|| "(untitled)".to_owned()),
+        status: source
+            .status
+            .as_deref()
+            .and_then(|column| js_string(row.get(column)))
+            .unwrap_or_default(),
+        owner_id: js_string(row.get("user_id")).unwrap_or_default(),
+        metadata,
+    }
+}
+
+/// JS `String(value ?? …)`: `None` when the value is absent or `null`.
+fn js_string(value: Option<&serde_json::Value>) -> Option<String> {
+    match value? {
+        serde_json::Value::Null => None,
+        other => Some(js_string_of(other)),
+    }
+}
+
+/// JS `String(value)` for a non-null JSON value. Arrays join with commas and objects read as JS does.
+fn js_string_of(value: &serde_json::Value) -> String {
+    use serde_json::Value;
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(flag) => flag.to_string(),
+        Value::Number(number) => match number.as_f64() {
+            Some(float) if float.fract() == 0.0 && float.abs() < 1e15 => {
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    reason = "checked: whole and below 1e15"
+                )]
+                let whole = float as i64;
+                whole.to_string()
+            }
+            _ => number.to_string(),
+        },
+        Value::String(text) => text.clone(),
+        Value::Array(items) => items.iter().map(js_string_of).collect::<Vec<_>>().join(","),
+        Value::Object(_) => "[object Object]".to_owned(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn source(title: &str, status: Option<&str>) -> SharedSource {
+        SharedSource {
+            title: title.to_owned(),
+            status: status.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn share_from_row_maps_snake_case_to_camel_case() {
+        let row = ShareRow {
+            id: "s1".into(),
+            owner_id: "o1".into(),
+            recipient_id: "r1".into(),
+            resource_type: ShareableType::VaultPage,
+            resource_id: None,
+            access: ShareAccess::Comment,
+            created_at: "2026-01-02T00:00:00Z".into(),
+        };
+        let share = share_from_row(&row);
+        assert_eq!(share.owner_id, "o1");
+        assert_eq!(share.recipient_id, "r1");
+        assert_eq!(share.resource_id, None);
+        assert_eq!(share.access, ShareAccess::Comment);
+        assert_eq!(share.created_at, "2026-01-02T00:00:00Z");
+    }
+
+    #[test]
+    fn comment_from_row_builds_anchor_only_for_a_non_empty_quote() {
+        let mut row = CommentRow {
+            id: "c1".into(),
+            author_id: "a1".into(),
+            resource_type: "paper".into(),
+            resource_id: "p1".into(),
+            body: "hi".into(),
+            created_at: "t".into(),
+            anchor_quote: Some("quoted".into()),
+            anchor_prefix: None,
+            anchor_suffix: Some("after".into()),
+            parent_id: None,
+            resolved_at: None,
+        };
+        let anchored = comment_from_row(&row);
+        assert_eq!(
+            anchored.anchor,
+            Some(CommentAnchor {
+                quote: "quoted".into(),
+                prefix: String::new(),
+                suffix: "after".into(),
+            })
+        );
+        assert_eq!(anchored.parent_id, None);
+        assert_eq!(anchored.resolved_at, None);
+
+        row.anchor_quote = Some(String::new());
+        assert_eq!(comment_from_row(&row).anchor, None);
+        row.anchor_quote = None;
+        assert_eq!(comment_from_row(&row).anchor, None);
+    }
+
+    #[test]
+    fn shared_item_falls_back_like_the_ts_mapping() {
+        let row = serde_json::json!({ "id": 7, "title": null, "status": "open", "user_id": "u1" });
+        let item = shared_item(
+            ShareableType::Experiment,
+            &row,
+            &source("name", Some("status")),
+        );
+        assert_eq!(item.id, "7");
+        assert_eq!(item.title, "(untitled)");
+        assert_eq!(item.status, "open");
+        assert_eq!(item.owner_id, "u1");
+        assert_eq!(item.metadata, None);
+
+        let no_status = shared_item(ShareableType::ReadingList, &row, &source("title", None));
+        assert_eq!(no_status.status, "");
+    }
+
+    #[test]
+    fn shared_item_keeps_paper_metadata_only_for_papers() {
+        let row = serde_json::json!({ "id": "p", "title": "T", "user_id": "u", "metadata": { "doi": "x" } });
+        let paper = shared_item(ShareableType::Paper, &row, &source("title", Some("status")));
+        assert_eq!(paper.title, "T");
+        assert_eq!(paper.metadata, Some(serde_json::json!({ "doi": "x" })));
+        let vault = shared_item(ShareableType::VaultPage, &row, &source("title", None));
+        assert_eq!(vault.metadata, None);
+    }
 
     #[test]
     fn share_link_token_round_trips_unpadded_base64url() {

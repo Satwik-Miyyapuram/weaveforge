@@ -5,7 +5,6 @@
  */
 
 import { type Paper } from "@weaveforge/core";
-import { applyTemplate } from "@/features/vault/application/note-template-engine";
 import {
   DEFAULT_SOURCE_NOTE_TEMPLATE,
   sourceNoteTemplateContext,
@@ -20,7 +19,7 @@ export function paperSourceNoteScaffold(input: {
   doi?: string;
   citeKey?: string;
 }): string {
-  return applyTemplate(null, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
+  return readyCore().applyTemplate(null, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
 }
 
 /** Explicit re-render — never call silently on load. */
@@ -35,7 +34,7 @@ export function reRenderPaperSourceNote(
     citeKey?: string;
   },
 ): string {
-  return applyTemplate(existing, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
+  return readyCore().applyTemplate(existing, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
 }
 
 /**

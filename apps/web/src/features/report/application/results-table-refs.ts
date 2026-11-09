@@ -7,7 +7,7 @@
  * metrics on every render and export, so it never goes stale.
  */
 import type { Experiment } from "@weaveforge/core";
-import { resultsTable, type ResultsTable } from "@/features/experiments/application/results-table";
+import type { ResultsTable } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { safeArtifactCaption } from "./resolve-artifact-markdown";
 
@@ -106,7 +106,7 @@ export function resolveResultsTables(
     const caption = ref.caption || "Results";
     const parts: string[] = [];
     if (runs.length > 0) {
-      const table = resultsTable(runs);
+      const table = readyCore().resultsTable(runs);
       parts.push(format === "latex" ? resultsTableLatex(table, caption) : resultsTableMarkdown(table, caption));
     }
     if (missing > 0) parts.push(notFound(caption, missing));

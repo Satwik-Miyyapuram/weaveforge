@@ -1,3 +1,4 @@
+import { readyCore } from "@/lib/rust-core";
 import type { AuthUser } from "./auth";
 
 /** The account whose copy this desktop works on, if any. */
@@ -28,32 +29,32 @@ export type AuthStep =
   | { kind: "otherAccountOnDisk" }
   | { kind: "signedIn"; user: AuthUser; clearCaches: boolean; refetch: boolean };
 
-/** Decide what a session change means for the app. Pure; the provider applies it. */
+/**
+ * Decide what a session change means for the app. Pure; the provider applies it.
+ * The decision is Rust (`next_auth_step`); this adds the user objects and reads
+ * the local copy only where a branch needs it.
+ */
 export function nextAuthStep(input: AuthTransitionInput): AuthStep {
   const { user, previous, signingOut } = input;
-  if (user === null) {
-    // A desktop working on its own copy of the account opens with that
-    // account even when the session is gone: the work is on this computer,
-    // and only syncing it needs a sign-in.
-    const account = previous || signingOut ? null : input.localAccount();
-    if (account) {
-      return { kind: "offline", user: { id: account.id, email: account.email ?? undefined, providers: [] } };
-    }
-    // An expired or revoked session is not a sign-out. On the desktop the
-    // person has a workspace folder open and work in progress; keep everything
-    // and ask them to sign back in. Only a deliberate sign-out (or a browser,
-    // which has no folder to lose) clears the session.
-    if (previous && !signingOut && input.desktop) return { kind: "expired" };
-    return { kind: "signedOut" };
+  // The local copy matters with no session (unless signing out or a last user
+  // exists) and whenever a session exists (to spot another account's copy).
+  const account = user !== null || (!previous && !signingOut) ? input.localAccount() : null;
+  const step = readyCore().nextAuthStep({
+    userId: user?.id ?? null,
+    previousId: previous?.id ?? null,
+    signingOut,
+    wasExpired: input.wasExpired,
+    desktop: input.desktop,
+    localAccountId: account?.id ?? null,
+  });
+  if (step.kind === "offline" && account) {
+    return { kind: "offline", user: { id: account.id, email: account.email ?? undefined, providers: [] } };
   }
-  // This window reads another account's copy on this computer. Start over
-  // against the server; the new account's copy is set up from there.
-  const onDisk = input.localAccount();
-  if (onDisk && onDisk.id !== user.id) return { kind: "otherAccountOnDisk" };
-  // Signing back in as someone else must not inherit the last user's caches.
-  const clearCaches = Boolean(previous && previous.id !== user.id);
-  // Back from a lapsed session as the same person: only what was fetched while
-  // signed out is wrong, so every screen asks again.
-  const refetch = !clearCaches && input.wasExpired;
-  return { kind: "signedIn", user, clearCaches, refetch };
+  if (step.kind === "signedIn" && user) {
+    return { kind: "signedIn", user, clearCaches: step.clearCaches, refetch: step.refetch };
+  }
+  if (step.kind === "offline" || step.kind === "signedIn") {
+    throw new Error(`nextAuthStep: ${step.kind} without its account`);
+  }
+  return { kind: step.kind };
 }

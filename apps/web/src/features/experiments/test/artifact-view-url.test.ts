@@ -1,9 +1,14 @@
-import test from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import {
   isTauriShell,
   viewableArtifactUrl,
 } from "../infrastructure/experiment-artifact-store";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("inside the Tauri shell a desktop-local upload renders on the page origin", () => {
   assert.equal(

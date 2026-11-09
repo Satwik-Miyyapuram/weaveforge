@@ -1,6 +1,6 @@
 import type { CitationCandidate, INotificationIntegration, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
-import type { MattermostEvent } from "@/features/sync/domain/mattermost-options";
+import type { MattermostEvent } from "@weaveforge/wasm";
 import type { MattermostNotifier } from "@/features/sync/infrastructure/mattermost-notifier";
 
 type Notifier = typeof import("@/features/sync/infrastructure/mattermost-notifier");
@@ -38,8 +38,8 @@ export class MattermostNotificationIntegration implements INotificationIntegrati
     const pid = this.deps.projectId();
     if (!pid) return;
     const integration = await this.deps.integrations.get(pid, "mattermost");
-    const { mattermostChannelFor } = await import("@/features/sync/domain/mattermost-options");
-    const channel = mattermostChannelFor(integration, event);
+    const { readyCore } = await import("@/lib/rust-core");
+    const channel = readyCore().mattermostChannelFor(integration, event);
     if (!channel) return;
     const m = await loadNotifier();
     const notifier = this.deps.notifier ?? new m.MattermostNotifier();

@@ -1,4 +1,4 @@
-import type { RustCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 
 /**
  * Bounds on an imported archive.
@@ -27,6 +27,11 @@ export class ImportLimitError extends Error {
 
 type ImportLimits = { readonly [K in keyof typeof IMPORT_LIMITS]: number };
 
+/** Rust reports a cap as a plain error; the callers match `ImportLimitError`. */
+function asImportLimitError(error: unknown): unknown {
+  return error instanceof Error ? new ImportLimitError(error.message) : error;
+}
+
 /** What the archive's directory says about one entry, before it is inflated. */
 export interface ArchiveEntryInfo {
   name: string;
@@ -39,33 +44,26 @@ export interface ArchiveEntryInfo {
  * Too many entries, or a declared total past the cap, throws before anything
  * is inflated. An entry declared over the file cap is skipped and named in
  * `oversize`. A declared size can lie, so `sanitizeArchiveEntries` still checks
- * the real bytes afterwards.
+ * the real bytes afterwards. The counting is Rust's (`ArchiveBudget`).
  */
 export function archiveBudget(limits: ImportLimits = IMPORT_LIMITS): {
   filter: (info: ArchiveEntryInfo) => boolean;
-  oversize: string[];
+  readonly oversize: string[];
 } {
-  const oversize: string[] = [];
-  let count = 0;
-  let total = 0;
-  const filter = (info: ArchiveEntryInfo): boolean => {
-    count += 1;
-    if (count > limits.maxEntries) {
-      throw new ImportLimitError(`Archive has more than ${limits.maxEntries} entries.`);
-    }
-    if (info.originalSize > limits.maxFileBytes) {
-      oversize.push(info.name);
-      return false;
-    }
-    total += info.originalSize;
-    if (total > limits.maxTotalBytes) {
-      throw new ImportLimitError(
-        `Archive expands past ${Math.round(limits.maxTotalBytes / 1024 / 1024)} MB; refusing to continue.`,
-      );
-    }
-    return true;
+  const core = readyCore();
+  const budget = core.createArchiveBudget(limits);
+  return {
+    filter: (info) => {
+      try {
+        return budget.admit(info.name, info.originalSize);
+      } catch (error) {
+        throw asImportLimitError(error);
+      }
+    },
+    get oversize() {
+      return budget.oversize;
+    },
   };
-  return { filter, oversize };
 }
 
 /** Inflate only the entries `archiveBudget` lets through. */
@@ -73,6 +71,8 @@ export async function unzipWithinLimits(
   bytes: Uint8Array,
   limits: ImportLimits = IMPORT_LIMITS,
 ): Promise<{ entries: Record<string, Uint8Array>; oversize: string[] }> {
+  // `archiveBudget` runs Rust, so the core has to be loaded first.
+  await loadCore();
   const { unzipSync } = await import("fflate");
   const budget = archiveBudget(limits);
   const entries = unzipSync(bytes, { filter: budget.filter });
@@ -96,65 +96,43 @@ export const SKIP_TOO_BIG = `it is over the ${Math.round(IMPORT_LIMITS.maxFileBy
 /**
  * Drop unsafe entries and stop if the archive exceeds its budget.
  *
- * Traversal attempts are skipped rather than fatal — one bad name in an
- * otherwise good archive should not cost the user the whole import — but the
- * size and count caps throw, because past them nothing can be trusted to
- * finish.
+ * Traversal attempts are skipped rather than fatal, so one bad name in an
+ * otherwise good archive does not cost the user the whole import. The size and
+ * count caps throw, because past them nothing can be trusted to finish. The
+ * decision is Rust's (`planArchiveEntries`); this only maps it back onto bytes.
+ * Needs the core loaded, which `unzipWithinLimits` ensures.
  */
-export function sanitizeArchiveEntries(
-  core: RustCore,
-  entries: Record<string, Uint8Array>,
-): { safe: ArchiveEntry[]; skipped: SkippedFile[] } {
+export function sanitizeArchiveEntries(entries: Record<string, Uint8Array>): {
+  safe: ArchiveEntry[];
+  skipped: SkippedFile[];
+} {
   const names = Object.keys(entries);
-  if (names.length > IMPORT_LIMITS.maxEntries) {
-    throw new ImportLimitError(
-      `Archive has ${names.length} entries, over the ${IMPORT_LIMITS.maxEntries} limit.`,
+  let plan;
+  try {
+    plan = readyCore().planArchiveEntries(
+      names.map((name) => ({ name, size: entries[name]!.byteLength })),
+      IMPORT_LIMITS,
     );
+  } catch (error) {
+    throw asImportLimitError(error);
   }
 
   const safe: ArchiveEntry[] = [];
   const skipped: SkippedFile[] = [];
-  let total = 0;
-
-  for (const name of names) {
-    const bytes = entries[name]!;
-    // Directory markers carry no content.
-    if (name.endsWith("/") || bytes.byteLength === 0) continue;
-
-    if (!core.isSafeWorkspacePath(name)) {
-      skipped.push({ path: name, reason: SKIP_UNSAFE_NAME });
-      continue;
-    }
-    if (bytes.byteLength > IMPORT_LIMITS.maxFileBytes) {
-      skipped.push({ path: name, reason: SKIP_TOO_BIG });
-      continue;
-    }
-
-    total += bytes.byteLength;
-    if (total > IMPORT_LIMITS.maxTotalBytes) {
-      throw new ImportLimitError(
-        `Archive expands past ${Math.round(IMPORT_LIMITS.maxTotalBytes / 1024 / 1024)} MB; refusing to continue.`,
-      );
-    }
-
-    safe.push({ path: name, bytes });
+  for (const { name, action } of plan) {
+    if (action === "keep") safe.push({ path: name, bytes: entries[name]! });
+    else if (action === "unsafe-name") skipped.push({ path: name, reason: SKIP_UNSAFE_NAME });
+    else if (action === "too-big") skipped.push({ path: name, reason: SKIP_TOO_BIG });
   }
-
   return { safe, skipped };
 }
 
 /**
  * Strip the single wrapping directory an export ZIP carries, so
- * `weaveforge-2026-08-05/notes/x.md` imports as `notes/x.md`.
+ * `weaveforge-2026-08-05/notes/x.md` imports as `notes/x.md`. The rule is Rust's
+ * (`stripArchiveRoot`).
  */
 export function stripArchiveRoot(entries: readonly ArchiveEntry[]): ArchiveEntry[] {
-  if (entries.length === 0) return [];
-  const roots = new Set(entries.map((entry) => entry.path.split("/")[0]));
-  if (roots.size !== 1) return [...entries];
-  const root = `${[...roots][0]}/`;
-  // Only strip when every entry is inside it and something remains after.
-  if (!entries.every((entry) => entry.path.startsWith(root) && entry.path.length > root.length)) {
-    return [...entries];
-  }
-  return entries.map((entry) => ({ ...entry, path: entry.path.slice(root.length) }));
+  const paths = readyCore().stripArchiveRoot(entries.map((entry) => entry.path));
+  return entries.map((entry, index) => ({ ...entry, path: paths[index]! }));
 }
