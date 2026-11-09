@@ -8,8 +8,9 @@ import {
 import type { IReportSectionRepository } from "../domain/report-section-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
-import { countWords } from "../../../shared/text.js";
+
 import { assertNotUnder } from "../../../shared/tree.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageReportSectionDeps {
   repository: IReportSectionRepository;
@@ -70,7 +71,7 @@ export class ManageReportSectionUseCase {
     return this.mutate(id, (s) => ({
       ...s,
       notes: text || undefined,
-      wordCount: countWords(text),
+      wordCount: rust().countWords(text),
     }));
   }
 

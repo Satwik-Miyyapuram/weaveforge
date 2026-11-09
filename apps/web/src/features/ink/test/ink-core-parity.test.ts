@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as ts from "@weaveforge/core";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { typedCore } from "@/lib/rust-core";
 
 let rs: RustCore;
 before(async () => {
@@ -75,13 +76,13 @@ test("curve: tangents and span points match on seeded strokes", () => {
     const [xs, ys] = xsYs(stroke(random(seed)).points);
     for (let i = 0; i < xs.length; i += 1) {
       for (const side of ["in", "out"] as const) {
-        const a = ts.inkTangentAt(xs, ys, i, side);
+        const a = typedCore().inkTangentAt(xs, ys, i, side);
         const b = rs.inkTangentAt(xs, ys, i, side);
         same([a.x, a.y], [b.x, b.y], `seed ${seed} tangent ${i} ${side}`);
       }
       if (i + 1 < xs.length) {
         for (const u of [0, 0.25, 0.5, 1 / 3, 0.9, 1]) {
-          const a = ts.inkCurveAt(xs, ys, i, u);
+          const a = typedCore().inkCurveAt(xs, ys, i, u);
           const b = rs.inkCurveAt(xs, ys, i, u);
           same([a.x, a.y], [b.x, b.y], `seed ${seed} curve ${i} ${u}`);
         }
@@ -191,13 +192,13 @@ test("edge values: curve, smooth and packer match on NaN, Infinity, -0 and ties"
     const [xs, ys] = xsYs(points);
     for (let i = 0; i < xs.length; i += 1) {
       for (const side of ["in", "out"] as const) {
-        const a = ts.inkTangentAt(xs, ys, i, side);
+        const a = typedCore().inkTangentAt(xs, ys, i, side);
         const b = rs.inkTangentAt(xs, ys, i, side);
         same([a.x, a.y], [b.x, b.y], `${points} tangent ${i} ${side}`);
       }
       if (i + 1 < xs.length) {
         for (const u of [0, 0.5, 1]) {
-          const a = ts.inkCurveAt(xs, ys, i, u);
+          const a = typedCore().inkCurveAt(xs, ys, i, u);
           const b = rs.inkCurveAt(xs, ys, i, u);
           same([a.x, a.y], [b.x, b.y], `${points} curve ${i} ${u}`);
         }

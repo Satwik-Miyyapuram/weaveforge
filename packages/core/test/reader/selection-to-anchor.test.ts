@@ -1,10 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  itemToRect,
-  selectionToAnchor,
-  type PageTextGeometry,
-} from "../../src/reader/selection-to-anchor.js";
+import { type PageTextGeometry } from "../../src/reader/selection-to-anchor.js";
+import { rust } from "../../src/shared/rust.js";
 
 function geometry(overrides?: Partial<PageTextGeometry>): PageTextGeometry {
   return {
@@ -24,14 +21,14 @@ function geometry(overrides?: Partial<PageTextGeometry>): PageTextGeometry {
 test("selectionToAnchor returns null for empty or out-of-range selection", () => {
   const page = geometry();
   assert.equal(
-    selectionToAnchor(
+    rust().selectionToAnchor(
       { startItemIndex: 0, startOffset: 1, endItemIndex: 0, endOffset: 1 },
       page,
     ),
     null,
   );
   assert.equal(
-    selectionToAnchor(
+    rust().selectionToAnchor(
       { startItemIndex: 9, startOffset: 0, endItemIndex: 9, endOffset: 1 },
       page,
     ),
@@ -41,7 +38,7 @@ test("selectionToAnchor returns null for empty or out-of-range selection", () =>
 
 test("selectionToAnchor builds quote + rects + contentHash", () => {
   const page = geometry();
-  const anchor = selectionToAnchor(
+  const anchor = rust().selectionToAnchor(
     { startItemIndex: 0, startOffset: 0, endItemIndex: 1, endOffset: 5 },
     page,
   );
@@ -57,7 +54,7 @@ test("selectionToAnchor builds quote + rects + contentHash", () => {
 
 test("selectionToAnchor normalises inverted ranges", () => {
   const page = geometry();
-  const anchor = selectionToAnchor(
+  const anchor = rust().selectionToAnchor(
     { startItemIndex: 1, startOffset: 5, endItemIndex: 0, endOffset: 0 },
     page,
   );
@@ -66,28 +63,28 @@ test("selectionToAnchor normalises inverted ranges", () => {
 
 test("itemToRect maps transform to PDF user-space box", () => {
   assert.deepEqual(
-    itemToRect({ str: "x", transform: [1, 0, 0, 1, 10, 20], width: 5, height: 8 }),
+    rust().itemToRect({ str: "x", transform: [1, 0, 0, 1, 10, 20], width: 5, height: 8 }),
     [10, 20, 15, 28],
   );
-  assert.equal(itemToRect({ str: "x", transform: [1], width: 1, height: 1 }), null);
+  assert.equal(rust().itemToRect({ str: "x", transform: [1], width: 1, height: 1 }), null);
 });
 
 test("itemToRect narrows to a character sub-range", () => {
   const item = { str: "abcd", transform: [1, 0, 0, 1, 100, 500], width: 40, height: 10 };
   // Whole item, explicitly and by default.
-  assert.deepEqual(itemToRect(item), [100, 500, 140, 510]);
-  assert.deepEqual(itemToRect(item, 0, 4), [100, 500, 140, 510]);
+  assert.deepEqual(rust().itemToRect(item), [100, 500, 140, 510]);
+  assert.deepEqual(rust().itemToRect(item, 0, 4), [100, 500, 140, 510]);
   // Second half only — half the advance width, same baseline.
-  assert.deepEqual(itemToRect(item, 2, 4), [120, 500, 140, 510]);
-  assert.deepEqual(itemToRect(item, 1, 2), [110, 500, 120, 510]);
+  assert.deepEqual(rust().itemToRect(item, 2, 4), [120, 500, 140, 510]);
+  assert.deepEqual(rust().itemToRect(item, 1, 2), [110, 500, 120, 510]);
 });
 
 test("itemToRect clamps out-of-range bounds and drops empty slices", () => {
   const item = { str: "abcd", transform: [1, 0, 0, 1, 100, 500], width: 40, height: 10 };
-  assert.deepEqual(itemToRect(item, -5, 99), [100, 500, 140, 510]);
-  assert.equal(itemToRect(item, 2, 2), null);
+  assert.deepEqual(rust().itemToRect(item, -5, 99), [100, 500, 140, 510]);
+  assert.equal(rust().itemToRect(item, 2, 2), null);
   // Reversed bounds collapse rather than producing a negative-width rect.
-  assert.equal(itemToRect(item, 3, 1), null);
+  assert.equal(rust().itemToRect(item, 3, 1), null);
 });
 
 test("selectionToAnchor clips the first and last rect to the selected characters", () => {
@@ -95,7 +92,7 @@ test("selectionToAnchor clips the first and last rect to the selected characters
   // at "world"'s end. The old code emitted the full "Hello " rect, so a
   // mid-word highlight painted the words before it too.
   const page = geometry();
-  const anchor = selectionToAnchor(
+  const anchor = rust().selectionToAnchor(
     { startItemIndex: 0, startOffset: 4, endItemIndex: 1, endOffset: 5 },
     page,
   );
@@ -111,7 +108,7 @@ test("selectionToAnchor clips the first and last rect to the selected characters
 
 test("selectionToAnchor keeps whole rects for fully covered middle items", () => {
   const page = geometry();
-  const anchor = selectionToAnchor(
+  const anchor = rust().selectionToAnchor(
     { startItemIndex: 0, startOffset: 0, endItemIndex: 2, endOffset: 5 },
     page,
   );

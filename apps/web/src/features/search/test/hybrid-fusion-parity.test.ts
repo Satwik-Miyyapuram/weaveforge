@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as ts from "@weaveforge/core";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { typedCore } from "@/lib/rust-core";
 
 // Proves the Rust hybrid fusion helpers match packages/core/src/search/hybrid-fusion.ts
 // (stopword stripping, term counts, keyword coverage and vector floor gating).
@@ -71,7 +72,7 @@ const randomHits = (rand: () => number): Hit[] =>
 test("stripStopwords matches TS on seeded queries", () => {
   for (let seed = 1; seed <= 400; seed += 1) {
     const query = randomQuery(random(seed));
-    assert.equal(rs.stripStopwords(query), ts.stripStopwords(query), `seed ${seed}`);
+    assert.equal(rs.stripStopwords(query), typedCore().stripStopwords(query), `seed ${seed}`);
   }
 });
 
@@ -82,16 +83,16 @@ test("stripStopwords matches TS on BOM, NBSP, NEL, quotes and all-stopword edge 
     "the  of", "\"", "the \" of", " the ", "THE﻿OF",
   ];
   for (const query of queries) {
-    assert.equal(rs.stripStopwords(query), ts.stripStopwords(query), JSON.stringify(query));
+    assert.equal(rs.stripStopwords(query), typedCore().stripStopwords(query), JSON.stringify(query));
   }
 });
 
 test("queryTermCount matches TS on seeded term lists", () => {
   for (let seed = 1; seed <= 300; seed += 1) {
     const terms = randomTerms(random(seed));
-    assert.deepEqual(plain(rs.queryTermCount(terms)), plain(ts.queryTermCount(terms)), `seed ${seed}`);
+    assert.deepEqual(plain(rs.queryTermCount(terms)), plain(typedCore().queryTermCount(terms)), `seed ${seed}`);
   }
-  assert.equal(rs.queryTermCount([]), ts.queryTermCount([]));
+  assert.equal(rs.queryTermCount([]), typedCore().queryTermCount([]));
 });
 
 test("coveredHits matches TS on seeded hits and term counts", () => {
@@ -102,10 +103,10 @@ test("coveredHits matches TS on seeded hits and term counts", () => {
     const minCoverage = pick(rand, MIN_COVERAGES);
     assert.deepEqual(
       plain(rs.coveredHits(hits, termCount, minCoverage)),
-      plain(ts.coveredHits(hits, termCount, minCoverage)),
+      plain(typedCore().coveredHits(hits, termCount, minCoverage)),
       `seed ${seed}`,
     );
-    assert.deepEqual(plain(rs.coveredHits(hits, termCount)), plain(ts.coveredHits(hits, termCount)), `default seed ${seed}`);
+    assert.deepEqual(plain(rs.coveredHits(hits, termCount)), plain(typedCore().coveredHits(hits, termCount)), `default seed ${seed}`);
   }
 });
 
@@ -117,17 +118,17 @@ test("gateVectorHits matches TS on seeded hits, floors and keepTop", () => {
     const keepTop = pick(rand, KEEP_TOPS);
     assert.deepEqual(
       plain(rs.gateVectorHits(hits, floor, keepTop)),
-      plain(ts.gateVectorHits(hits, floor, keepTop)),
+      plain(typedCore().gateVectorHits(hits, floor, keepTop)),
       `seed ${seed}`,
     );
-    assert.deepEqual(plain(rs.gateVectorHits(hits, floor)), plain(ts.gateVectorHits(hits, floor)), `default seed ${seed}`);
+    assert.deepEqual(plain(rs.gateVectorHits(hits, floor)), plain(typedCore().gateVectorHits(hits, floor)), `default seed ${seed}`);
   }
 });
 
 test("coverage and gating masks match TS on empty hit lists", () => {
-  assert.deepEqual(plain(rs.coveredHits([], 3)), plain(ts.coveredHits([], 3)));
-  assert.deepEqual(plain(rs.coveredHits([], 1)), plain(ts.coveredHits([], 1)));
-  assert.deepEqual(plain(rs.gateVectorHits([], 0.5)), plain(ts.gateVectorHits([], 0.5)));
+  assert.deepEqual(plain(rs.coveredHits([], 3)), plain(typedCore().coveredHits([], 3)));
+  assert.deepEqual(plain(rs.coveredHits([], 1)), plain(typedCore().coveredHits([], 1)));
+  assert.deepEqual(plain(rs.gateVectorHits([], 0.5)), plain(typedCore().gateVectorHits([], 0.5)));
 });
 
 test("masks match TS on duplicate ids, exact coverage, exact floor ties and keepTop 0", () => {
@@ -136,10 +137,10 @@ test("masks match TS on duplicate ids, exact coverage, exact floor ties and keep
     { id: "d1", score: 0.9, queryTerms: ["a"] },
     { id: "d2", score: 0.2 },
   ];
-  assert.deepEqual(plain(rs.coveredHits(dup, 4)), plain(ts.coveredHits(dup, 4)));
+  assert.deepEqual(plain(rs.coveredHits(dup, 4)), plain(typedCore().coveredHits(dup, 4)));
   // 2 of 4 terms is exactly the 0.5 coverage floor: kept on both sides.
   const half: Hit[] = [{ id: "x", score: 0, queryTerms: ["a", "b"] }];
-  assert.deepEqual(plain(rs.coveredHits(half, 4)), plain(ts.coveredHits(half, 4)));
+  assert.deepEqual(plain(rs.coveredHits(half, 4)), plain(typedCore().coveredHits(half, 4)));
   assert.equal(rs.coveredHits(half, 4).length, 1);
 
   const ties: Hit[] = [
@@ -148,11 +149,11 @@ test("masks match TS on duplicate ids, exact coverage, exact floor ties and keep
     { id: "c", score: 0.7 },
     { id: "d", score: 0.2 },
   ];
-  assert.deepEqual(plain(rs.gateVectorHits(ties, 0.6)), plain(ts.gateVectorHits(ties, 0.6)));
-  assert.deepEqual(plain(rs.gateVectorHits(ties, 0.6, 0)), plain(ts.gateVectorHits(ties, 0.6, 0)));
-  assert.deepEqual(plain(rs.gateVectorHits(ties, 0.6, 1.5)), plain(ts.gateVectorHits(ties, 0.6, 1.5)));
+  assert.deepEqual(plain(rs.gateVectorHits(ties, 0.6)), plain(typedCore().gateVectorHits(ties, 0.6)));
+  assert.deepEqual(plain(rs.gateVectorHits(ties, 0.6, 0)), plain(typedCore().gateVectorHits(ties, 0.6, 0)));
+  assert.deepEqual(plain(rs.gateVectorHits(ties, 0.6, 1.5)), plain(typedCore().gateVectorHits(ties, 0.6, 1.5)));
 
   const underFloor: Hit[] = [{ id: "a", score: 0.59 }, { id: "b", score: 0.9 }];
-  assert.deepEqual(plain(rs.gateVectorHits(underFloor, 0.6)), plain(ts.gateVectorHits(underFloor, 0.6)));
+  assert.deepEqual(plain(rs.gateVectorHits(underFloor, 0.6)), plain(typedCore().gateVectorHits(underFloor, 0.6)));
   assert.deepEqual(plain(rs.gateVectorHits(underFloor, 0.6)), []);
 });

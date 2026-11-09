@@ -2,7 +2,7 @@
  * Packing a stroke for storage while it is written: points are only appended,
  * so the stroke committed on lift is the last one drawn.
  */
-import { inkCurveAt } from "./curve.js";
+
 import {
   INK_COORD_LIMIT,
   INK_PACK_PRESSURE_TOLERANCE,
@@ -11,6 +11,7 @@ import {
   pressureByte,
   type PackedInkStroke,
 } from "./ink-note.js";
+import { rust } from "../shared/rust.js";
 
 /**
  * Storage-ready form of one captured stroke, pressure included.
@@ -176,7 +177,7 @@ export class InkStrokePacker {
     const ys = ids.map((i) => this.ys[i]!);
     const { curveX, curveY } = this;
     for (let k = 0; k <= PACK_SPAN_STEPS; k += 1) {
-      const p = inkCurveAt(xs, ys, s, k / PACK_SPAN_STEPS);
+      const p = rust().inkCurveAt(xs, ys, s, k / PACK_SPAN_STEPS);
       curveX[k] = p.x;
       curveY[k] = p.y;
     }

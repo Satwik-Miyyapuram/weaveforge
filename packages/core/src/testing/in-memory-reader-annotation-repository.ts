@@ -1,15 +1,6 @@
-import {
-  buildAnnotationSortIndex,
-  isReaderAnnotationType,
-  type IReaderAnnotationSink,
-  type IReaderAnnotationSource,
-  type IReaderAnnotationSyncRecorder,
-  type NewReaderAnnotation,
-  type ReaderAnnotation,
-  type ReaderAnnotationPatch,
-  type ReaderAnnotationSyncRecord,
-} from "../reader/index.js";
+import { isReaderAnnotationType, type IReaderAnnotationSink, type IReaderAnnotationSource, type IReaderAnnotationSyncRecorder, type NewReaderAnnotation, type ReaderAnnotation, type ReaderAnnotationPatch, type ReaderAnnotationSyncRecord } from "../reader/index.js";
 import { ConflictError, NotFoundError } from "../shared/errors.js";
+import { rust } from "../shared/rust.js";
 
 /** Combined source+sink for tests and local-only composition. */
 export class InMemoryReaderAnnotationRepository
@@ -38,7 +29,7 @@ export class InMemoryReaderAnnotationRepository
     const pageIndex = draft.pageIndex;
     const sortIndex =
       draft.sortIndex?.trim() ||
-      buildAnnotationSortIndex(pageIndex, 0, 0);
+      rust().buildAnnotationSortIndex(pageIndex, 0, 0);
     const row: ReaderAnnotation & { paperId: string } = {
       id: draft.id ?? `local-ann-${this.seq}`,
       origin: "local",

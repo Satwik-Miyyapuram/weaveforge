@@ -13,7 +13,6 @@ import {
   bodyLinksTo,
   canonicalAiToolName,
   extractWikilinks,
-  mcpReadResult,
   normalizeTitleKey,
   paperPdfPath,
   parseFolderDraft,
@@ -82,7 +81,7 @@ function err(id: JsonRpcResponse["id"], code: number, message: string): JsonRpcR
 
 /** A tool answer, fenced and bounded, in the shape MCP expects. */
 function content(items: readonly UntrustedItem[]): unknown {
-  const result = mcpReadResult(items);
+  const result = rust().mcpReadResult(items);
   return {
     content: [{ type: "text", text: result.text }],
     _meta: { nonce: result.nonce, omitted: result.omitted, truncated: result.truncated },

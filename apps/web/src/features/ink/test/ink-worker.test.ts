@@ -6,15 +6,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  decodeInkChunk,
-  INK_PACK_TOLERANCE,
-  inkCurveAt,
-  makeInkStroke,
-  packInkStroke,
-  pageFromChunk,
-  simplifyPathIndices,
-} from "@weaveforge/core";
+import { decodeInkChunk, INK_PACK_TOLERANCE, makeInkStroke, packInkStroke, pageFromChunk, simplifyPathIndices } from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -22,6 +14,7 @@ import type {
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
+import { typedCore } from "@/lib/rust-core";
 
 type Listener = (event: { data: InkWorkerMessage }) => void;
 
@@ -185,7 +178,7 @@ function farthestSampleOffCurve(points: readonly number[], drawn: readonly numbe
   const ys = points.filter((_, i) => i % 2 === 1);
   const curve: { x: number; y: number }[] = [];
   for (let i = 0; i + 1 < xs.length; i += 1) {
-    for (let k = 0; k <= 64; k += 1) curve.push(inkCurveAt(xs, ys, i, k / 64));
+    for (let k = 0; k <= 64; k += 1) curve.push(typedCore().inkCurveAt(xs, ys, i, k / 64));
   }
   let worst = 0;
   for (let i = 0; i < drawn.length; i += 2) {
@@ -473,7 +466,7 @@ function curveStrays(points: readonly number[]): number {
   let worst = 0;
   for (let i = 0; i + 1 < n; i += 1) {
     for (let k = 0; k <= 32; k += 1) {
-      const p = inkCurveAt(xs, ys, i, k / 32);
+      const p = typedCore().inkCurveAt(xs, ys, i, k / 32);
       let best = Infinity;
       for (let j = 0; j + 1 < n; j += 1) {
         const ax = xs[j]!;

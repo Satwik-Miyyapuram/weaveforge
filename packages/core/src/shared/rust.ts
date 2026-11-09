@@ -12,6 +12,7 @@
 import type { TextLine } from "../features/reader/analysis/line-reconstruction.js";
 import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outline-types.js";
 import type { Row } from "./three-way-merge.js";
+import type { CoreContract } from "./core-contract.js";
 import type { FrontmatterValue, ParsedDocument } from "../workspace/frontmatter.js";
 import type { ChangeSide } from "../workspace/change-origin.js";
 import type {
@@ -241,7 +242,7 @@ export function setRustCore(module: RustCoreFns): void {
   core = module;
 }
 
-export function rust(): RustCoreFns {
+export function rust(): RustCoreFns & CoreContract {
   if (!core) throw new Error("Rust core not registered yet: the app calls setRustCore() after loading it");
-  return core;
+  return core as RustCoreFns & CoreContract;
 }

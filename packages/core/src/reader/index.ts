@@ -3,16 +3,7 @@ export type {
   TextPositionSelector,
   PdfLocus,
 } from "./pdf-locus.js";
-export {
-  normaliseWhitespace,
-  findQuoteMatches,
-  pickNearestMatch,
-  resolvePositionSelector,
-  resolveTextAnchor,
-  type TextSpan,
-  type AnchorConfidence,
-  type ResolvedAnchor,
-} from "./anchor-resolution.js";
+export { type TextSpan, type AnchorConfidence, type ResolvedAnchor } from "./anchor-resolution.js";
 export { type ZoteroRectPosition, type CombinedPdfAnchor, type AnchorStrategy } from "./anchor-strategy.js";
 export {
   resolvePdfSource,
@@ -66,15 +57,9 @@ export {
   type IReaderAnnotationProjectSource,
   type AnnotationSyncState,
 } from "./reader-annotation.js";
-export {
-  selectionToAnchor,
-  itemToRect,
-  type PageTextItem,
-  type PageTextGeometry,
-  type TextSelectionRange,
-} from "./selection-to-anchor.js";
+export { type PageTextItem, type PageTextGeometry, type TextSelectionRange } from "./selection-to-anchor.js";
 export { type DocumentPageText, type DocumentSearchMatch } from "./document-search.js";
-export { buildAnnotationSortIndex } from "./sort-index.js";
+
 export {
   shouldAppendInkPoint,
   simplifyInkPath,

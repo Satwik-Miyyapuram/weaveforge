@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  AiAccessPolicy,
-  normalizeAiAccessSettings,
-  type AiAccessSettings,
-  type AiSessionGrant,
-} from "../../../src/index.js";
+import { AiAccessPolicy, type AiAccessSettings, type AiSessionGrant } from "../../../src/index.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const settings: AiAccessSettings = {
   enabled: true,
@@ -34,14 +30,14 @@ const base = {
 };
 
 test("AI settings normalize to an explicit opt-in and known capabilities", () => {
-  assert.deepEqual(normalizeAiAccessSettings({}), {
+  assert.deepEqual(rust().normalizeAiAccessSettings({}), {
     enabled: false,
     readCategories: [],
     proposalKinds: [],
     autoIncludeNewSourceCategories: [],
   });
   assert.deepEqual(
-    normalizeAiAccessSettings({
+    rust().normalizeAiAccessSettings({
       enabled: true,
       disclosureAcceptedAt: "  2026-07-14T00:00:00.000Z  ",
       readCategories: ["paper_notes", "paper_notes", "unknown" as never],

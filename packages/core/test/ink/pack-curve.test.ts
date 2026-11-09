@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_PACK_TOLERANCE, InkStrokePacker, inkCurveAt, packInkStroke } from "../../src/index.js";
+import { INK_PACK_TOLERANCE, InkStrokePacker, packInkStroke } from "../../src/index.js";
+import { rust } from "../../src/shared/rust.js";
 
 // Strokes in the model's unit, 0.1 mm. A pen reports at 240 Hz, so a stroke
 // written at v mm/s leaves a sample every (v / 240) * 10 units.
@@ -48,9 +49,9 @@ function loops(r: number, step: number, turns = 2): number[] {
 /** Distance from a point to the drawn curve of one span, the span cut into 32 chords. */
 function spanDistance(xs: Float64Array, ys: Float64Array, span: number, px: number, py: number): number {
   let best = Infinity;
-  let a = inkCurveAt(xs, ys, span, 0);
+  let a = rust().inkCurveAt(xs, ys, span, 0);
   for (let k = 1; k <= 32; k += 1) {
-    const b = inkCurveAt(xs, ys, span, k / 32);
+    const b = rust().inkCurveAt(xs, ys, span, k / 32);
     const vx = b.x - a.x;
     const vy = b.y - a.y;
     const length = vx * vx + vy * vy;
@@ -115,7 +116,7 @@ test("a clean box is drawn as a box: its edges do not bow out past the tolerance
     let out = 0;
     for (let i = 0; i + 1 < n; i += 1)
       for (let k = 0; k <= 64; k += 1) {
-        const p = inkCurveAt(xs, ys, i, k / 64);
+        const p = rust().inkCurveAt(xs, ys, i, k / 64);
         out = Math.max(out, 100 - p.x, p.x - (100 + w), 500 - p.y, p.y - (500 + h));
       }
     assert.ok(out <= bound, `${w}x${h} at ${speed} mm/s: the curve bows ${out.toFixed(2)} units past an edge`);
@@ -177,7 +178,7 @@ test("ink behind the pen is drawn the same in every later frame", () => {
     const out: number[] = [];
     for (let s = 0; s < spans; s += 1)
       for (let k = 0; k <= 8; k += 1) {
-        const p = inkCurveAt(xs, ys, s, k / 8);
+        const p = rust().inkCurveAt(xs, ys, s, k / 8);
         out.push(p.x, p.y);
       }
     return out;

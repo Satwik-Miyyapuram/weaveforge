@@ -23,15 +23,11 @@
  * 10–15× a review claimed for geometry this engine does not draw.
  */
 
-import {
-  inkCurveAt,
-  inkTangentAt,
-  type InkColour,
-  type InkTool,
-} from "@weaveforge/core";
+import { type InkColour, type InkTool } from "@weaveforge/core";
 
 import type { InkStrokeGeometry } from "../application/page-buffer";
 import type { InkPalette } from "./ink-palette";
+import { typedCore } from "@/lib/rust-core";
 
 /** Which renderer is actually drawing. Reported in the status bar. */
 export type InkBackend = "webgl2" | "canvas2d" | "none";
@@ -202,7 +198,7 @@ export function strokeTangentAt(
   i: number,
   side: "in" | "out" = "out",
 ): { x: number; y: number } {
-  return inkTangentAt(stroke.x, stroke.y, i, side);
+  return typedCore().inkTangentAt(stroke.x, stroke.y, i, side);
 }
 
 /**
@@ -215,7 +211,7 @@ export function strokeCurveAt(
   i: number,
   u: number,
 ): { x: number; y: number; r: number } {
-  const p = inkCurveAt(stroke.x, stroke.y, i, u);
+  const p = typedCore().inkCurveAt(stroke.x, stroke.y, i, u);
   return {
     x: p.x,
     y: p.y,

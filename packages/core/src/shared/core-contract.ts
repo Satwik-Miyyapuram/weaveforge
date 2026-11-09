@@ -5,42 +5,74 @@
  * `extends` per stripped file.
  */
 import type { AiMcpResultFns } from "./../features/ai-assistant/domain/ai-mcp-result.js";
+import type { AiSettingsFns } from "./../features/ai-assistant/domain/ai-settings.js";
+import type { AnchorResolutionFns } from "./../reader/anchor-resolution.js";
 import type { AnchorStrategyFns } from "./../reader/anchor-strategy.js";
 import type { BibEntriesFns } from "./../features/report/domain/bib-entries.js";
 import type { BibliographyReportFns } from "./../features/report/domain/bibliography-report.js";
 import type { CitationsFns } from "./../features/reader/analysis/citations.js";
+import type { CitationTextFns } from "./../features/reader/analysis/citation-text.js";
+import type { CiteKeyFns } from "./../features/report/domain/cite-key.js";
 import type { ColumnDetectionFns } from "./../features/reader/analysis/column-detection.js";
+import type { CurveFns } from "./../ink/curve.js";
 import type { DocumentSearchFns } from "./../reader/document-search.js";
+import type { HybridFusionFns } from "./../search/hybrid-fusion.js";
 import type { InkUndoFns } from "./../reader/ink-undo.js";
+import type { LabSnapshotFns } from "./../features/org/domain/lab-snapshot.js";
 import type { LinkCitationsFns } from "./../features/reader/link-citations.js";
 import type { LocusLinkFns } from "./../reader/locus-link.js";
 import type { PersonalizedPagerankFns } from "./../search/personalized-pagerank.js";
+import type { ProjectPathFns } from "./../features/report/domain/project-path.js";
 import type { RelatedFns } from "./../search/related.js";
 import type { SearchAcronymsFns } from "./../search/search-acronyms.js";
+import type { SearchSettingsFns } from "./../search/search-settings.js";
+import type { SearchTuningFns } from "./../search/search-tuning.js";
+import type { SelectionToAnchorFns } from "./../reader/selection-to-anchor.js";
+import type { SortIndexFns } from "./../reader/sort-index.js";
 import type { TextChunksFns } from "./../search/text-chunks.js";
 import type { TextFingerprintFns } from "./../features/reader/text-fingerprint.js";
+import type { TextFns } from "./text.js";
 import type { ThreeWayMergeFns } from "./three-way-merge.js";
 import type { TitleSimilarityFns } from "./../features/reader/title-similarity.js";
+import type { UserIntegrationCredentialsFns } from "./../features/settings/domain/user-integration-credentials.js";
+import type { UserSettingsFns } from "./../features/settings/domain/user-settings.js";
+import type { WikiGraphFns } from "./../search/wiki-graph.js";
 import type { WikiIndexFns } from "./../features/ai-assistant/domain/wiki-index.js";
 import type { WikiMergeFns } from "./../features/ai-assistant/domain/wiki-merge.js";
 
 export interface CoreContract
   extends AiMcpResultFns,
+    AiSettingsFns,
+    AnchorResolutionFns,
     AnchorStrategyFns,
     BibEntriesFns,
     BibliographyReportFns,
     CitationsFns,
+    CitationTextFns,
+    CiteKeyFns,
     ColumnDetectionFns,
+    CurveFns,
     DocumentSearchFns,
+    HybridFusionFns,
     InkUndoFns,
+    LabSnapshotFns,
     LinkCitationsFns,
     LocusLinkFns,
     PersonalizedPagerankFns,
+    ProjectPathFns,
     RelatedFns,
     SearchAcronymsFns,
+    SearchSettingsFns,
+    SearchTuningFns,
+    SelectionToAnchorFns,
+    SortIndexFns,
     TextChunksFns,
     TextFingerprintFns,
+    TextFns,
     ThreeWayMergeFns,
     TitleSimilarityFns,
+    UserIntegrationCredentialsFns,
+    UserSettingsFns,
+    WikiGraphFns,
     WikiIndexFns,
     WikiMergeFns {}

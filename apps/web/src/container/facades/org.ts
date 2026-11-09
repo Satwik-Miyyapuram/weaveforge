@@ -1,4 +1,3 @@
-import { buildLabSnapshotContent } from "@weaveforge/core";
 import type {
   CreateMemberUseCase,
   IExperimentRepository,
@@ -10,6 +9,7 @@ import type {
   Member,
 } from "@weaveforge/core";
 import type { ISupervisionRepository } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 export class OrgFacade {
   constructor(
@@ -71,7 +71,7 @@ export class OrgFacade {
     return this.deps.labSnapshots.publish({
       title: input.title,
       note: input.note,
-      content: buildLabSnapshotContent({ milestones, logs, experiments, report, aiAssisted }),
+      content: typedCore().buildLabSnapshotContent({ milestones, logs, experiments, report, aiAssisted }),
     });
   }
 
