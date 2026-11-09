@@ -13,6 +13,7 @@ use crate::reader_analysis::citations::{LETTER_CLASS, UPPER_CLASS};
 /// Which citation convention the body uses (`CitationStyle`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum CitationStyle {
     /// `[n]` brackets only.
     Numeric,

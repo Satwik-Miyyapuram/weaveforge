@@ -165,6 +165,10 @@ fn analysis_types(types: Types) -> Types {
         .register::<wf_core::reader_analysis::figure_mentions::FigureMention>()
         .register::<wf_core::reader_analysis::document_analysis::PageAnalysis>()
         .register::<wf_core::reader_analysis::document_analysis::DocumentAnalysis>()
+        .register::<wf_core::reader_analysis::figure_mentions::FigurePage>()
+        .register::<wf_core::reader_analysis::citation_matcher::PageCitationInput>()
+        .register::<wf_core::reader_analysis::reference_section::ReferenceSectionSpan>()
+        .register::<wf_core::reader_analysis::citation_style::CitationStyle>()
 }
 
 /// The report, LaTeX and vault page types.

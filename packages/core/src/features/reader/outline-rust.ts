@@ -8,7 +8,7 @@ import type { OutlineTextItem, ReaderOutlineItem } from "./outline-types.js";
 
 /** Whether a pdf.js text matrix `[a, b, c, d, e, f]` sets its run rotated or mirrored. */
 export function isRotatedText(transform: readonly number[]): boolean {
-  return rust().isRotatedText(Float64Array.from(transform));
+  return rust().isRotatedText(transform);
 }
 
 /** Consecutive text runs on a baseline, in reading order. */
@@ -37,13 +37,5 @@ export function groupRecurringLines<T>(
   textOf: (line: T) => string,
   pageOf: (line: T) => number,
 ): { key: string; pages: Set<number>; members: T[] }[] {
-  const groups = rust().groupRecurringLines(
-    lines.map((line) => textOf(line)),
-    lines.map((line) => pageOf(line)),
-  ) as { key: string; pages: number[]; members: number[] }[];
-  return groups.map((group) => ({
-    key: group.key,
-    pages: new Set(group.pages),
-    members: group.members.map((index) => lines[index]!),
-  }));
+  return rust().groupRecurringLines(lines, textOf, pageOf);
 }
