@@ -6,8 +6,8 @@ use std::collections::HashSet;
 
 use weaveforge_shell_lib::menu::{
     BAD_TITLE_BAR_COLOR, DOCS_URL, MenuGroup, MenuHost, MenuItem, MenuItemKind, MenuRole,
-    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command, page_command_script, page_route_script,
-    menu_invoke, menu_model,
+    NOT_AVAILABLE, PAGE_COMMAND_EVENT, accelerator_label, check_title_bar_colors, edit_command,
+    menu_invoke, menu_model, page_command_script, page_route_script,
 };
 
 /// Records every native action the menu asks for, instead of doing it.

@@ -217,7 +217,10 @@ fn a_checked_write_is_refused_when_the_file_changed_since_it_was_read() {
     session.write_text("a.md", "read").unwrap();
     fs::write(dir.path().join("a.md"), "edited outside").unwrap();
 
-    assert_eq!(session.write_text_if("a.md", "app", Some("read")), Ok(false));
+    assert_eq!(
+        session.write_text_if("a.md", "app", Some("read")),
+        Ok(false)
+    );
     assert_eq!(
         fs::read_to_string(dir.path().join("a.md")).unwrap(),
         "edited outside"

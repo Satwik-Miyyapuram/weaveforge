@@ -6,7 +6,8 @@ use std::path::Path;
 use std::time::{Duration, Instant, SystemTime};
 
 use weaveforge_shell_lib::vault_watch::{
-    Digest, DigestCache, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
+    Digest, DigestCache, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest,
+    digest_reader,
 };
 
 /// A fake clock: a fixed base instant plus an offset the test moves.
@@ -522,6 +523,10 @@ fn a_failed_read_is_not_kept() {
     let mut cache = DigestCache::default();
     let path = Path::new("notes/a.md");
     let at = SystemTime::UNIX_EPOCH;
-    assert!(cache.digest(path, 5, at, || Err(io::Error::other("busy"))).is_err());
+    assert!(
+        cache
+            .digest(path, 5, at, || Err(io::Error::other("busy")))
+            .is_err()
+    );
     assert_eq!(cache.digest(path, 5, at, || Ok(7)).unwrap(), 7);
 }
