@@ -1,3 +1,6 @@
+import type { TextLine } from "../features/reader/analysis/line-reconstruction.js";
+import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outline-types.js";
+
 /**
  * The Rust core, as packages/core sees it. This package cannot import the wasm
  * package, so the app registers the loaded module here (apps/web
@@ -53,14 +56,23 @@ export interface RustCoreFns {
     ownsActiveOrg?: boolean,
   ): boolean;
   // reader
-  isRotatedText(transform: Float64Array): boolean;
-  outlineTextLines(pages: any): any;
-  bodyFontSize(pages: any): number;
-  groupRecurringLines(texts: any, pages: any): any;
-  outlineFromText(allPages: any): any;
-  outlineIsPlausible(headings: any, page_count: number): boolean;
-  findReferenceSection(lines: any, body_font_size: number, page_count: number, furniture: any): any;
-  ladderOrder(supports: boolean[]): number[];
+  isRotatedText(transform: readonly number[]): boolean;
+  outlineTextLines(pages: readonly (readonly OutlineTextItem[])[]): OutlineTextItem[];
+  bodyFontSize(pages: readonly (readonly OutlineTextItem[])[]): number;
+  groupRecurringLines<T>(
+    lines: readonly T[],
+    textOf: (line: T) => string,
+    pageOf: (line: T) => number,
+  ): { key: string; pages: Set<number>; members: T[] }[];
+  outlineFromText(allPages: readonly (readonly OutlineTextItem[])[]): ReaderOutlineItem[];
+  outlineIsPlausible(headings: readonly { page: number }[], pageCount: number): boolean;
+  findReferenceSection(
+    lines: readonly TextLine[],
+    bodyFontSize: number,
+    pageCount: number,
+    furniture?: readonly boolean[] | null,
+  ): { start: number; end: number; headingIndex: number; score: number } | null;
+  ladderOrder(supports: readonly boolean[]): number[];
 }
 
 let core: RustCoreFns | null = null;
