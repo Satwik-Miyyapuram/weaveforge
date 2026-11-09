@@ -1,6 +1,60 @@
 /* @ts-self-types="./wf_wasm.d.ts" */
 
 /**
+ * The live packer: [`CorePacker`] fed one pen sample at a time, so the
+ * stroke drawn while writing is the one saved on lift.
+ */
+export class InkStrokePacker {
+    static __wrap(ptr) {
+        const obj = Object.create(InkStrokePacker.prototype);
+        obj.__wbg_ptr = ptr;
+        InkStrokePackerFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        InkStrokePackerFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_inkstrokepacker_free(ptr, 0);
+    }
+    /**
+     * The kept points so far, then the pen's latest sample, as flat x,y pairs.
+     * @returns {Float64Array}
+     */
+    points() {
+        const ret = wasm.inkstrokepacker_points(this.__wbg_ptr);
+        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+        return v1;
+    }
+    /**
+     * One pressure byte per point of [`InkStrokePacker::points`].
+     * @returns {Float64Array}
+     */
+    pressures() {
+        const ret = wasm.inkstrokepacker_pressures(this.__wbg_ptr);
+        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+        return v1;
+    }
+    /**
+     * Adds the pen's next sample, in 0.1 mm, with its 0-255 pressure if it
+     * has one. A non-finite sample is skipped.
+     * @param {number} x
+     * @param {number} y
+     * @param {number | null} [pressure]
+     */
+    push(x, y, pressure) {
+        wasm.inkstrokepacker_push(this.__wbg_ptr, x, y, !isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure);
+    }
+}
+if (Symbol.dispose) InkStrokePacker.prototype[Symbol.dispose] = InkStrokePacker.prototype.free;
+
+/**
  * Brute-force cosine index over normalized vectors.
  */
 export class VectorIndex {
@@ -1582,6 +1636,24 @@ export function createExperimentWith(input, id, now) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * A new [`InkStrokePacker`]; `options` is the TS `InkStrokePackerOptions`
+ * or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object.
+ * @param {any} options
+ * @returns {InkStrokePacker}
+ */
+export function createInkStrokePacker(options) {
+    const ret = wasm.createInkStrokePacker(options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return InkStrokePacker.__wrap(ret[0]);
 }
 
 /**
@@ -10871,6 +10943,9 @@ function __wbg_get_imports() {
     };
 }
 
+const InkStrokePackerFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_inkstrokepacker_free(ptr, 1));
 const VectorIndexFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_vectorindex_free(ptr, 1));

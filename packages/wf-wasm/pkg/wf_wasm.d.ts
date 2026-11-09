@@ -2,6 +2,29 @@
 /* eslint-disable */
 
 /**
+ * The live packer: [`CorePacker`] fed one pen sample at a time, so the
+ * stroke drawn while writing is the one saved on lift.
+ */
+export class InkStrokePacker {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * The kept points so far, then the pen's latest sample, as flat x,y pairs.
+     */
+    points(): Float64Array;
+    /**
+     * One pressure byte per point of [`InkStrokePacker::points`].
+     */
+    pressures(): Float64Array;
+    /**
+     * Adds the pen's next sample, in 0.1 mm, with its 0-255 pressure if it
+     * has one. A non-finite sample is skipped.
+     */
+    push(x: number, y: number, pressure?: number | null): void;
+}
+
+/**
  * Brute-force cosine index over normalized vectors.
  */
 export class VectorIndex {
@@ -676,6 +699,16 @@ export function creatableRoles(creator: string): any;
  * Fails if `input` has the wrong shape or its name is blank.
  */
 export function createExperimentWith(input: any, id: string, now: string): any;
+
+/**
+ * A new [`InkStrokePacker`]; `options` is the TS `InkStrokePackerOptions`
+ * or undefined.
+ *
+ * # Errors
+ *
+ * Fails if `options` is not an options object.
+ */
+export function createInkStrokePacker(options: any): InkStrokePacker;
 
 /**
  * [`create_log_entry`](log_entry::create_log_entry). `id` and `now` come from the TS clock and
@@ -4426,6 +4459,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly __wbg_inkstrokepacker_free: (a: number, b: number) => void;
     readonly __wbg_vectorindex_free: (a: number, b: number) => void;
     readonly acronymsForTitle: (a: number, b: number) => [number, number, number];
     readonly activateTab: (a: any, b: number, c: number, d: number) => [number, number, number];
@@ -4504,6 +4538,7 @@ export interface InitOutput {
     readonly coveredTextSpans: (a: any, b: any) => [number, number, number];
     readonly creatableRoles: (a: number, b: number) => [number, number, number];
     readonly createExperimentWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly createInkStrokePacker: (a: any) => [number, number, number];
     readonly createLogEntry: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createMilestoneWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createPaperRelationWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
@@ -4633,6 +4668,9 @@ export interface InitOutput {
     readonly inkWidthForPressure: (a: number, b: number, c: number, d: number) => number;
     readonly inkZoomIn: (a: number) => number;
     readonly inkZoomOut: (a: number) => number;
+    readonly inkstrokepacker_points: (a: number) => [number, number];
+    readonly inkstrokepacker_pressures: (a: number) => [number, number];
+    readonly inkstrokepacker_push: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly integrationsBagFromLegacy: (a: any) => [number, number, number];
     readonly invalidationMap: () => [number, number, number];
     readonly invalidationPlan: (a: number, b: number) => [number, number, number];

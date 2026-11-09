@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_PACK_TOLERANCE, packInkStroke } from "@weaveforge/core";
+import { INK_PACK_TOLERANCE } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 import {
   INK_INSTANCE_FLOATS,
   packStrokeInstances,
@@ -62,7 +63,7 @@ test("a small handwritten loop is drawn without visible facets", () => {
   // 0.8 mm to 4 mm radius: the bowls of letters at normal handwriting size.
   // A facet a fiftieth of a millimetre deep is a third of a pixel at 400%.
   for (const radius of [8, 12, 20, 40]) {
-    const packed = packInkStroke(loop(radius), [], { tolerance: INK_PACK_TOLERANCE });
+    const packed = typedCore().packInkStroke(loop(radius), [], { tolerance: INK_PACK_TOLERANCE });
     const worst = deepestFacet(packed.points);
     assert.ok(worst <= 0.2, `radius ${radius / 10} mm: a facet ${worst.toFixed(3)} units deep`);
   }
@@ -164,7 +165,7 @@ test("a small cursive loop written at speed follows the pen, not chords", () => 
     const end = 4 * Math.PI;
     // speed mm/s over 240 Hz is mm per sample; the model's unit is 0.1 mm.
     const raw = sample(path, end, (speed / 240) * 10);
-    const packed = packInkStroke(raw, [], { tolerance: INK_PACK_TOLERANCE });
+    const packed = typedCore().packInkStroke(raw, [], { tolerance: INK_PACK_TOLERANCE });
     const worst = worstDirection(packed.points, path, end);
     assert.ok(
       worst <= 40,

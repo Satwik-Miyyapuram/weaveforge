@@ -31,6 +31,7 @@ import type { GraphViewSettingsFns } from "./../features/relations/domain/graph-
 import type { HybridFusionFns } from "./../search/hybrid-fusion.js";
 import type { InkLassoFns } from "./../reader/ink-lasso.js";
 import type { InkNoteFns } from "./../ink/ink-note.js";
+import type { StrokePackerFns } from "./../ink/stroke-packer.js";
 import type { InkStrokeFns } from "./../reader/ink-stroke.js";
 import type { InkUndoFns } from "./../reader/ink-undo.js";
 import type { LabSnapshotFns } from "./../features/org/domain/lab-snapshot.js";
@@ -111,6 +112,7 @@ export interface CoreContract
     HybridFusionFns,
     InkLassoFns,
     InkNoteFns,
+  StrokePackerFns,
     InkStrokeFns,
     InkUndoFns,
     LabSnapshotFns,

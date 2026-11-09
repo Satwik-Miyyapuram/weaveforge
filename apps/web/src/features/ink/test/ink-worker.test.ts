@@ -6,7 +6,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeInkChunk, INK_PACK_TOLERANCE, packInkStroke, pageFromChunk } from "@weaveforge/core";
+import { decodeInkChunk, INK_PACK_TOLERANCE, pageFromChunk } from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -596,7 +596,7 @@ test("the live stroke's real part is the stroke that will be saved, whatever the
     points.push(100 + t * 400 + 7 * Math.cos(t * 40), 300 + 9 * Math.sin(t * 40));
     pressures.push(128);
   }
-  const saved = packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
+  const saved = typedCore().packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
   // Two predicted samples that overshoot sideways, as a guess about a hand can.
   const stroke = newLiveStroke(header());
   appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));

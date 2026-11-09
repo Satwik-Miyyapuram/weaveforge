@@ -32,7 +32,7 @@ export interface CurveFns {
  *   fast leaves samples 60–110° apart round its tight end, and a tangent faded
  *   there draws that end as straight chords (64° off the pen at 0.5 mm,
  *   50 mm/s). Unfaded, a corner with few points left would round off; it
- *   stays tight because `InkStrokePacker` keeps samples until the curve is
+ *   stays tight because the stroke packer keeps samples until the curve is
  *   within its tolerance of every one.
  *
  * At either end of the stroke the tangent is the one chord there, which makes

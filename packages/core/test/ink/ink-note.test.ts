@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import { rust } from "../../src/shared/rust.js";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_SIDECAR_DIR, INK_STROKE_MAX_POINTS } from "../../src/ink/ink-note.js";
-import { packInkStroke } from "../../src/ink/stroke-packer.js";
+import { rust } from "../../src/shared/rust.js";
 
 /** Chunk ids that are valid by construction (26 Crockford characters). */
 const CHUNK_A = "01JABC0DEF0GH0JK0MN0PQ0RST";
@@ -166,7 +166,7 @@ test("a page over the stroke budget says so rather than refusing to open", () =>
 test("packing a stroke simplifies it and keeps its endpoints", () => {
   const coords: number[] = [];
   for (let i = 0; i < 200; i += 1) coords.push(i * 4, 400 + Math.sin(i / 6) * 12);
-  const packed = packInkStroke(coords);
+  const packed = rust().packInkStroke(coords);
   assert.ok(packed.points.length >= 4);
   assert.ok(packed.points.length < coords.length / 2, "the curve no longer needs every sample");
   assert.deepEqual(packed.points.slice(0, 2), [coords[0], Math.round(coords[1]!)], "the start is kept");
@@ -180,9 +180,9 @@ test("packing a stroke simplifies it and keeps its endpoints", () => {
 });
 
 test("a stroke with nothing drawable in it packs to nothing", () => {
-  assert.deepEqual(packInkStroke([]), { points: [], pressures: [] });
-  assert.deepEqual(packInkStroke([10, 10]), { points: [], pressures: [] });
-  assert.deepEqual(packInkStroke([Number.NaN, 1, 2, 3]), { points: [], pressures: [] });
+  assert.deepEqual(rust().packInkStroke([]), { points: [], pressures: [] });
+  assert.deepEqual(rust().packInkStroke([10, 10]), { points: [], pressures: [] });
+  assert.deepEqual(rust().packInkStroke([Number.NaN, 1, 2, 3]), { points: [], pressures: [] });
 });
 
 test("packing never exceeds the stroke point cap, and keeps the true end", () => {
@@ -191,7 +191,7 @@ test("packing never exceeds the stroke point cap, and keeps the true end", () =>
     // A zig-zag: no tolerance removes these without losing the shape.
     coords.push(i, i % 2 === 0 ? 0 : 40);
   }
-  const packed = packInkStroke(coords);
+  const packed = rust().packInkStroke(coords);
   assert.ok(packed.points.length / 2 <= INK_STROKE_MAX_POINTS);
   assert.deepEqual(packed.points.slice(-2), coords.slice(-2));
 });
@@ -204,7 +204,7 @@ test("pressure that the centreline pass would have dropped is put back (§4.4)",
 
   // A press that rises and falls is a taper, and losing it loses the stroke's
   // look while its centreline stays correct.
-  const tapered = packInkStroke(coords, [0, 190, 220, 190, 0]);
+  const tapered = rust().packInkStroke(coords, [0, 190, 220, 190, 0]);
   assert.ok(tapered.points.length / 2 > 2, "the taper kept points the centreline did not");
   assert.deepEqual(tapered.pressures.slice(0, 1), [0]);
   assert.deepEqual(tapered.pressures.slice(-1), [0]);
@@ -213,14 +213,14 @@ test("pressure that the centreline pass would have dropped is put back (§4.4)",
 
 test("pressure that follows the centreline adds no points at all", () => {
   const coords = [0, 0, 10, 0, 20, 0, 30, 0, 40, 0];
-  const linear = packInkStroke(coords, [0, 64, 128, 191, 255]);
+  const linear = rust().packInkStroke(coords, [0, 64, 128, 191, 255]);
   assert.equal(linear.points.length / 2, 2, "a linear ramp is implied by its endpoints");
   assert.deepEqual(linear.pressures, [0, 255]);
 });
 
 test("pressure of the wrong length is ignored rather than misaligned", () => {
   const coords = [0, 0, 10, 0, 20, 0, 30, 0, 40, 0];
-  const packed = packInkStroke(coords, [128, 128]);
+  const packed = rust().packInkStroke(coords, [128, 128]);
   assert.equal(packed.points.length / 2, 2);
   assert.deepEqual(packed.pressures, [0, 0], "a point with no pressure sample stores none");
 });

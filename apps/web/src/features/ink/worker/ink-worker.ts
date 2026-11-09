@@ -17,7 +17,7 @@
  * - the page's geometry ({@link InkPageBuffer}) and the R-tree over it
  *   ({@link InkStrokeIndex}), so a pick never costs the main thread a milisecond;
  * - the live stroke, with its predicted tail **replaced rather than committed**;
- * - packing the stroke as it is drawn with core's `InkStrokePacker`, which only
+ * - packing the stroke as it is drawn with the Rust core's live packer, which only
  *   ever appends points, so ink on the page never moves and lifting the pen
  *   stores exactly the last frame drawn;
  * - a one-byte progress counter every frame, which is what the delegated trail
@@ -35,10 +35,10 @@ import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   INK_PACK_TOLERANCE,
-  InkStrokePacker,
-  packInkStroke,
   type InkChunkCodec,
   type InkShape,
+  type LiveInkStrokePacker,
+  type PackedInkStroke,
 } from "@weaveforge/core";
 
 import {
@@ -75,7 +75,7 @@ import {
   undo,
   type HistoryStep,
 } from "./ink-page-logic";
-import { loadCore, readyCore } from "@/lib/rust-core";
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import { exportPage } from "./ink-export";
 import { addStrokes } from "./ink-paste";
 import { setBackground } from "./ink-background";
@@ -99,7 +99,12 @@ export interface LiveStroke {
   /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
   changed: boolean;
   /** The real samples, packed as they arrive: what is drawn and what is saved. */
-  packer: InkStrokePacker;
+  packer: LiveInkStrokePacker;
+}
+
+/** What the live packer holds so far, as plain arrays. */
+function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
+  return { points: Array.from(packer.points()), pressures: Array.from(packer.pressures()) };
 }
 
 /** A stroke the pen has just put down, with nothing in it yet. */
@@ -110,7 +115,7 @@ export function newLiveStroke(header: InkStrokeHeader): LiveStroke {
     pressures: [],
     realSamples: 0,
     changed: true,
-    packer: new InkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
+    packer: typedCore().createInkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
   };
 }
 
@@ -220,7 +225,7 @@ function pressureByte(pressure: number): number {
  */
 export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   const real = stroke.realSamples;
-  const { points, pressures } = stroke.packer.packed();
+  const { points, pressures } = packedSoFar(stroke.packer);
   const realCount = points.length / 2;
   const tail = stroke.points.length / 2 - real;
   const count = realCount + tail;
@@ -253,7 +258,7 @@ function commitStroke(stroke: LiveStroke): void {
   let rawPressures: readonly number[] = stroke.pressures.slice(0, real);
   let shape: InkShape = "none";
   // What was drawn live is what is saved, unless the mark is replaced below.
-  let packed = stroke.packer.packed();
+  let packed = packedSoFar(stroke.packer);
   if (stroke.header.tool === "shape") {
     // The shape tool snaps on lift (§6.3): the mark is fitted here, once, and what
     // is stored is the fitted path with a flat pressure, so a rectangle is a
@@ -263,14 +268,14 @@ function commitStroke(stroke: LiveStroke): void {
       raw = snapped.points;
       rawPressures = new Array(raw.length / 2).fill(128);
       shape = snapped.shape;
-      packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
+      packed = typedCore().packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
     }
   }
   // A single tap: preserve as a 2-point dot segment [x, y, x, y] so dots on 'i' or periods are not discarded
   if (raw.length === 2) {
     raw = [raw[0]!, raw[1]!, raw[0]!, raw[1]!];
     rawPressures = [rawPressures[0] ?? 128, rawPressures[0] ?? 128];
-    packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
+    packed = typedCore().packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
   }
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({

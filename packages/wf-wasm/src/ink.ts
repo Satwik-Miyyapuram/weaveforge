@@ -21,6 +21,7 @@ import {
   inkZoomIn as rawInkZoomIn,
   inkZoomOut as rawInkZoomOut,
   packInkStroke as rawPackInkStroke,
+  createInkStrokePacker as rawCreateInkStrokePacker,
   pressureByte as rawPressureByte,
   snapInkShape as rawSnapInkShape,
 } from "../pkg/wf_wasm.js";
@@ -126,6 +127,16 @@ export function inkZoomIn(zoom: number): number {
 /** One zoom step out (Rust `ink_zoom_out`). */
 export function inkZoomOut(zoom: number): number {
   return rawInkZoomOut(zoom);
+}
+
+/**
+ * A live packer for one stroke (Rust `InkStrokePacker`): `push` each pen
+ * sample, read `points()` / `pressures()` for the stroke so far.
+ */
+export function createInkStrokePacker(
+  options: InkStrokePackerOptions = {},
+): ReturnType<typeof rawCreateInkStrokePacker> {
+  return rawCreateInkStrokePacker(options);
 }
 
 /** A whole stroke packed as the live packer would (Rust `pack_ink_stroke`). */

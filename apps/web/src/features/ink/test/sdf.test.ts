@@ -14,7 +14,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_PACK_TOLERANCE, packInkStroke } from "@weaveforge/core";
+import { INK_PACK_TOLERANCE } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 import {
   INK_MAX_BACKING_DIMENSION,
   INK_MAX_BACKING_PIXELS,
@@ -171,7 +172,7 @@ test("a packed box is drawn as a box, with nothing visible past it", () => {
     for (let k = 0; k < n; k += 1) raw.push(ax! + ((bx! - ax!) * k) / n, ay! + ((by! - ay!) * k) / n);
   }
   raw.push(100, 500);
-  const packed = packInkStroke(raw).points;
+  const packed = typedCore().packInkStroke(raw).points;
   const stroke = {
     x: Float32Array.from(packed.filter((_, i) => i % 2 === 0)),
     y: Float32Array.from(packed.filter((_, i) => i % 2 === 1)),
