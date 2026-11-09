@@ -136,9 +136,11 @@ test("countWords counts runs of non-whitespace", () => {
 
 test("the wrapper modules declare no types of their own", () => {
   // Every type comes from bindings.ts, which wf-bindings generates from Rust,
-  // so a type cannot drift from its Rust struct.
-  const src = wrapperSources();
-  assert.doesNotMatch(src, /^\s*(export\s+)?(type|interface)\s+\w+/m);
+  // so a type cannot drift from its Rust struct. The exceptions only narrow a
+  // generated type where Specta's export is looser than what Rust sends.
+  const NARROWINGS = ["AiPolicyDecision", "GroupColor", "PdfIndexSource", "PdfPageText", "ReadonlyInput", "RelatedHit"];
+  const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
+  assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);
 });
 
 test("every raw wasm export has a typed wrapper", () => {
@@ -155,8 +157,10 @@ test("every raw wasm export has a typed wrapper", () => {
 test("wf-wasm exports no classes or enums", () => {
   // A #[wasm_bindgen] struct or enum would bypass the wrapper and bindings.ts.
   // Agree how to type them before adding one.
+  // VectorIndex is the one agreed class: vector-index.ts builds it; wasm-bindgen types its methods.
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
-  assert.doesNotMatch(dts, /^export (declare )?(class|enum) /m);
+  const declared = [...dts.matchAll(/^export (?:declare )?(?:class|enum) (\w+)/gm)].map((m) => m[1]);
+  assert.deepEqual(declared, ["VectorIndex"]);
 });
 
 const ALL_ON: TokenizerOptions = {

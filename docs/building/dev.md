@@ -94,7 +94,7 @@ When landing sharing, library, or org onboarding work, confirm:
 | **Screen data** | Multi-repo orchestration lives in `Load*ScreenUseCase` classes wired in `bootstrap.ts`, not in React screens. Pin merge uses `mergePinnedScreenData` from `@weaveforge/core`. |
 | **Pinned owner labels** | `buildMemberNameMap` may be named only in `features/sharing/application/member-labels.ts` (the definition), `features/sharing/application/load-pinned-owner-names.ts` (the wrapper) and `features/sharing/ui/shared-with-me-screen.tsx` (which builds from members its use-case already loaded, so it costs no extra directory read). Anywhere else, call `loadPinnedOwnerNames()`. `check:dry` searches all of `features/`, not just `ui/`, and fails on a fourth caller — it could not see `application/` before, which is where the real callers are. |
 | **Duplicate copy** | Papers: `DuplicateSharedPaperUseCase` (core). Vault pages: `DuplicateSharedVaultPageUseCase` (web, asset re-upload). Both require an active share grant. |
-| **Org API routes** | Shared helpers in `apps/web/src/app/api/org/_shared.ts`; code preview requires auth. |
+| **Org API routes** | Shared helpers in `apps/relay/server/src/org_routes.rs`; code preview requires auth. |
 | **Standalone onboarding** | Client calls `complete_org_setup()` RPC; `/api/org/standalone` is the JWT fallback only. |
 | **Module barrels** | Import web library adapter via `@/features/library`, not deep infrastructure paths. |
 
