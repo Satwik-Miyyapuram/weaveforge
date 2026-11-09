@@ -6,9 +6,11 @@
 use std::time::{Duration, Instant};
 
 use proptest::prelude::*;
+use std::collections::BTreeMap;
+
 use wf_core::sync::blob_links::{
     BlobScheme, ImportedAssetResolver, RelativeAsset, from_relative_blob_links,
-    relative_asset_paths, to_relative_blob_links,
+    from_relative_blob_links_mapped, relative_asset_paths, to_relative_blob_links,
 };
 use wf_core::sync::folder_layout::AssetScope;
 use wf_core::sync::markdown_image::image_paths_in_body;
@@ -69,6 +71,29 @@ fn import_reanchors_assets_and_never_trusts_a_written_storage_path() {
         from_relative_blob_links(body, &Fixed("me/n9/secret.png")),
         "![](vault:me/n9/secret.png)"
     );
+}
+
+#[test]
+fn import_reanchors_through_a_folder_path_map() {
+    let body = "![](../assets/notes/other-user/n9/secret.png)";
+    let mut files = BTreeMap::new();
+    files.insert(
+        "assets/notes/other-user/n9/secret.png".to_owned(),
+        "me/n9/secret.png".to_owned(),
+    );
+
+    assert_eq!(
+        from_relative_blob_links_mapped(body, &files),
+        "![](vault:me/n9/secret.png)"
+    );
+    // No entry for the ref, so it stays as written.
+    assert_eq!(
+        from_relative_blob_links_mapped(body, &BTreeMap::new()),
+        body
+    );
+    // An empty storage path keeps the ref as written.
+    files.insert("assets/notes/other-user/n9/secret.png".to_owned(), String::new());
+    assert_eq!(from_relative_blob_links_mapped(body, &files), body);
 }
 
 // ---- markdown-image-refs.test.ts ----

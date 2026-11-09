@@ -4,6 +4,8 @@
 //! the app. Import never trusts a stored path; it re-anchors through
 //! [`ImportedAssetResolver`].
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::sync::folder_layout::{ASSET_DIR, AssetScope, asset_path};
@@ -137,6 +139,22 @@ pub fn from_relative_blob_links(body: &str, resolver: &dyn ImportedAssetResolver
         },
         false,
     )
+}
+
+/// [`from_relative_blob_links`] with the archive's files given as a map from
+/// folder path (`assets/<scope>/<path>`) to storage path. A key-value map crosses
+/// the wasm boundary where a trait object cannot. Missing or empty entries keep the ref.
+#[must_use]
+pub fn from_relative_blob_links_mapped(body: &str, resolved: &BTreeMap<String, String>) -> String {
+    struct Mapped<'a>(&'a BTreeMap<String, String>);
+
+    impl ImportedAssetResolver for Mapped<'_> {
+        fn resolve(&self, scope: AssetScope, relative_path: &str) -> Option<String> {
+            self.0.get(&asset_path(scope, relative_path)).cloned()
+        }
+    }
+
+    from_relative_blob_links(body, &Mapped(resolved))
 }
 
 /// Every folder-relative asset path a body references, in body order.

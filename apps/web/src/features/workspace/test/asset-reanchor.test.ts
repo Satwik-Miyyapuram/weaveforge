@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fromRelativeBlobLinks, toRelativeBlobLinks } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import {
   assetExtension,
   assetMimeType,
@@ -10,6 +10,10 @@ import {
 
 const OWN = "user-1/page-1/a1b2.png";
 const OTHER = "user-2/page-9/secret.png";
+
+function toRelativeBlobLinks(body: string, filePath: string) {
+  return readyCore().toRelativeBlobLinks(body, filePath);
+}
 
 function bodyWith(storagePath: string): string {
   return `Before\n\n![shot](vault:${storagePath})\n\nAfter`;
@@ -26,9 +30,10 @@ test("a body exported and read back resolves to the same storage path", () => {
   assert.equal(plan.upload.length, 0);
   assert.equal(plan.unresolved.length, 0);
 
-  const restored = fromRelativeBlobLinks(onDisk, {
-    resolve: (_scope, path) => (plan.keep.some((ref) => ref.storagePath === path) ? path : null),
-  });
+  const restored = readyCore().fromRelativeBlobLinks(
+    onDisk,
+    Object.fromEntries(plan.keep.map((ref) => [ref.folderPath, ref.storagePath])),
+  );
   assert.equal(restored, original, "the round trip is lossless");
 });
 
