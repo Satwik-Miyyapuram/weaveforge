@@ -229,6 +229,7 @@ export const prismaCounts: (a: any, b: any) => [number, number, number];
 export const prismaFigureTex: (a: any, b: any) => [number, number, number, number];
 export const projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const projectMetaDir: (a: number, b: number) => [number, number, number, number];
+export const projectName: (a: number, b: number) => [number, number];
 export const projectedPageSize: (a: any) => [number, number, number];
 export const pushInkUndo: (a: any, b: any) => [number, number, number];
 export const quantizeInkPath: (a: number, b: number, c: number, d: number) => [number, number];

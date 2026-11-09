@@ -1850,6 +1850,11 @@ export function projectDir(id: string, name: string): string;
 export function projectMetaDir(project_root: string): string;
 
 /**
+ * [`project_name`](project_name): the trimmed name, or `undefined` when blank.
+ */
+export function projectName(name: string): string | undefined;
+
+/**
  * [`projected_page_size`] as `{ width, height }` (TS `projectedPageSize`).
  *
  * # Errors
@@ -2778,6 +2783,7 @@ export interface InitOutput {
     readonly prismaFigureTex: (a: any, b: any) => [number, number, number, number];
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
+    readonly projectName: (a: number, b: number) => [number, number];
     readonly projectedPageSize: (a: any) => [number, number, number];
     readonly pushInkUndo: (a: any, b: any) => [number, number, number];
     readonly quantizeInkPath: (a: number, b: number, c: number, d: number) => [number, number];
