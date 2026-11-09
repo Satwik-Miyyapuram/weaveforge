@@ -1111,6 +1111,15 @@ export type DocumentBoostOptions = {
 	recency?: boolean | null,
 };
 
+/**  Which view a tab is in. The shipped editor is Edit and stays the default. */
+export type DocumentMode = 
+/**  Editable document view. */
+"edit" | 
+/**  Read-only document view. */
+"read" | 
+/**  Ink annotation view. */
+"ink";
+
 /**  One page's extracted text (TS `DocumentPageText`). */
 export type DocumentPageText = {
 	/**  Zero-based page index, passed through unchanged. */
@@ -1305,6 +1314,14 @@ export type FigureTarget = {
 	label?: string | null,
 	/**  Kind of the target, as the mention kind names it. */
 	kind?: string | null,
+};
+
+/**  The rows a filter leaves, and the keys that must be open to show them. */
+export type FilteredRows = {
+	/**  The rows to paint, in order. */
+	rows: VisibleRow[],
+	/**  Keys the caller merges into its expansion set. */
+	expand: string[],
 };
 
 /**  Result of a pull. `conflict` leaves the folder as it was. */
@@ -1826,6 +1843,58 @@ export type LinkCitationPage = {
 	items: SelectionPageTextItem[],
 };
 
+/**  A reading list as the tree needs it. Ids and parents, nothing else. */
+export type ListEntry = {
+	/**  List id. */
+	id: string,
+	/**  List title. */
+	title: string,
+	/**  Parent list id. Empty or absent means a top-level list. */
+	parentId?: string | null,
+	/**  The list's slug, when the caller already computed it. */
+	slug?: string | null,
+	/**  The parent's slug, when the caller already computed it. */
+	parentSlug?: string | null,
+};
+
+/**  One membership row: a paper or a vault page in a list. */
+export type ListItemEntry = {
+	/**  The list this membership belongs to. */
+	listId: string,
+	/**  The entity kind. */
+	kind: ListItemKind,
+	/**  The entity id. */
+	id: string,
+	/**  Overrides the entity's own title when the membership renamed it. */
+	label?: string | null,
+	/**  The list this membership was inherited from. */
+	inheritedFromListId?: string | null,
+	/**  Set on a duplicate, which the explorer does not show. */
+	duplicateOfItemId?: string | null,
+};
+
+/**  Which kind of item a reading-list membership refers to. */
+export type ListItemKind = 
+/**  A paper. */
+"paper" | 
+/**  A vault page (a note). */
+"vault_page";
+
+/**  Everything the reading-lists tree is built from. */
+export type ListsTreeInput = {
+	/**  The lists, in any order. */
+	lists?: ListEntry[],
+	/**  The memberships, in any order. */
+	items?: ListItemEntry[],
+	/**  Titles for member rows, keyed `kind:id`. A row with no entry falls back to its id. */
+	titles?: { [key in string]: string },
+	/**
+	 *  Display rank per member kind (`paper`, `vault_page`), lower first. Passed in as data
+	 *  because the presentation order lives in the UI's kind table. Absent means no ranking.
+	 */
+	memberRank?: { [key in string]: number } | null,
+};
+
 /**  A stored log entry (TS `LogEntry`). */
 export type LogEntry = {
 	/**  Entry id. */
@@ -2269,6 +2338,25 @@ export type NormalizedShareInput = {
 	access: ShareAccess,
 };
 
+/**
+ *  A note in the notes tree, with the kind its body claims.
+ * 
+ *  An ink note sits among the notes: same folder, same parent chain. Only its
+ *  row and its suffix differ.
+ */
+export type NoteNode = {
+	/**  Note id. */
+	id: string,
+	/**  Note title. */
+	title: string,
+	/**  Parent note id. Empty or absent means the root. */
+	parentId?: string | null,
+	/**  `vault_page` or `ink_page`. Absent means a plain note. */
+	kind?: WorkspaceEntityType | null,
+	/**  Whether the note is a folder. */
+	folder?: boolean,
+};
+
 /**  One place a paper may be read for free. `url` is https, with no credentials. */
 export type OpenAccessCandidate = {
 	/**  Where to read it. */
@@ -2417,6 +2505,14 @@ export type OutlineTextItem = {
 	rotated?: boolean | null,
 };
 
+/**  An Overleaf project the sidebar lists. */
+export type OverleafProject = {
+	/**  Project id. */
+	id: string,
+	/**  Project name. */
+	name: string,
+};
+
 /**
  *  One stroke ready for storage: flat x,y pairs and one pressure byte per point.
  *  The smoothing functions return this shape too.
@@ -2513,6 +2609,88 @@ export type PaletteMode =
 "search" | 
 /**  List commands. */
 "commands";
+
+/**  The pane chords: each acts on the focused pane's active tab. */
+export type PaneCommand = 
+/**  Split the focused pane to the right. */
+"split-right" | 
+/**  Close the active tab. */
+"close-tab" | 
+/**  Activate the next tab. */
+"next-tab" | 
+/**  Activate the previous tab. */
+"previous-tab" | 
+/**  Toggle the active tab document mode. */
+"toggle-mode" | 
+/**  Activate tab 1. */
+"tab-1" | 
+/**  Activate tab 2. */
+"tab-2" | 
+/**  Activate tab 3. */
+"tab-3" | 
+/**  Activate tab 4. */
+"tab-4" | 
+/**  Activate tab 5. */
+"tab-5" | 
+/**  Activate tab 6. */
+"tab-6" | 
+/**  Activate tab 7. */
+"tab-7" | 
+/**  Activate tab 8. */
+"tab-8" | 
+/**  Activate the last tab. */
+"last-tab";
+
+/**  The whole layout: the pane tree and the focused pane id. */
+export type PaneLayout = {
+	/**  Root node of the pane tree. */
+	root: PaneNode,
+	/**  Id of the pane that has focus. */
+	focusedPaneId: string,
+};
+
+/**  A pane: its id, its tabs, and the index of its active tab. */
+export type PaneLeaf = {
+	/**  Pane id, unique within the layout. */
+	id: string,
+	/**  Tabs in this pane, in display order. */
+	tabs: TabRef[],
+	/**  Index into `tabs`; clamped by every operation, never trusted on read. */
+	activeIndex: number,
+	/**  Tab groups in this pane, when any exist. */
+	groups?: TabGroup[] | null,
+};
+
+/**  A node in the pane tree: a leaf pane or a split of two nodes. */
+export type PaneNode = 
+/**  A leaf pane holding tabs. */
+{
+	type: "leaf",
+} & PaneLeaf | 
+/**  A split of two child nodes. */
+{
+	type: "split",
+} & PaneSplit;
+
+/**  A split node: two children along one axis, sized by ratio. */
+export type PaneSplit = {
+	/**  Axis the two children share. */
+	direction: SplitDirection,
+	/**  First child's share of the axis, 0.1–0.9 so neither side can vanish. */
+	ratio: number | null,
+	/**  The first and second child nodes. */
+	children: [PaneNode, PaneNode],
+};
+
+/**  A paper as the tree needs it. */
+export type PaperEntry = {
+	/**  Paper id. */
+	id: string,
+	/**  Paper title. */
+	title: string,
+	/**  Whether the paper already has a note. */
+	hasNote: boolean,
+};
 
 /**  Supported custom field kinds on papers. */
 export type PaperFieldKind = 
@@ -3330,6 +3508,16 @@ export type SearchSettings = {
 	ignoreArabicDiacritics?: boolean | null,
 };
 
+/**  A report section in the report tree. */
+export type SectionNode = {
+	/**  Section id. */
+	id: string,
+	/**  Section title. */
+	title: string,
+	/**  Parent section id. Empty or absent means the root. */
+	parentId?: string | null,
+};
+
 /**  One page's text geometry (TS `PageTextGeometry`). `pageWidth`/`pageHeight` are ignored. */
 export type SelectionPageTextGeometry = {
 	/**  Zero-based page index. */
@@ -3470,12 +3658,96 @@ export type ShareableType =
 /**  A vault page. */
 "vault_page";
 
+/**  Axis a split divides along. */
+export type SplitDirection = 
+/**  Children sit side by side. */
+"row" | 
+/**  Children are stacked top and bottom. */
+"column";
+
 /**  How surfaces are separated from each other. */
 export type SurfaceStyle = 
 /**  No borders between surfaces. */
 "borderless" | 
 /**  Bordered surfaces (high contrast). */
 "bordered";
+
+/**  A tab group: a named, colored set of tabs in one pane. */
+export type TabGroup = {
+	/**  Stable id of the group. */
+	id: string,
+	/**  May be empty: the chip then shows only its colour. */
+	name: string,
+	/**  One of `GROUP_COLORS`. */
+	color: number,
+	/**  Only stored when true. */
+	collapsed?: boolean | null,
+};
+
+/**  A change to a tab group: create, join, leave, collapse, rename, recolor or dissolve. */
+export type TabGroupCommand = 
+/**  Create a new group. */
+{ group: "new" } | 
+/**  Move the tab into the group with this id. */
+{ group: "join"; 
+/**  Id of the group to join. */
+id: string } | 
+/**  Take the tab out of its group. */
+{ group: "leave" } | 
+/**  Collapse or expand the group. */
+{ group: "toggle" } | 
+/**  Rename the group. */
+{ group: "rename"; 
+/**  New name for the group. */
+name: string } | 
+/**  Recolor the group. */
+{ group: "color"; 
+/**  Index into `GROUP_COLORS`. */
+color: number } | 
+/**  Remove the group, keeping its tabs. */
+{ group: "dissolve" };
+
+/**  Actions in a tab right-click menu. */
+export type TabMenuAction = 
+/**  Close this tab. */
+"close" | 
+/**  Close the other tabs. */
+"close-others" | 
+/**  Close the tabs to the right of this one. */
+"close-right" | 
+/**  Split the pane to the right. */
+"split-right" | 
+/**  Split the pane downward. */
+"split-down";
+
+/**  The items of a tab's right-click menu, as VS Code names them. */
+export type TabMenuCommand = 
+/**  A plain tab menu action. */
+TabMenuAction | 
+/**  A tab group command. */
+TabGroupCommand;
+
+/**  One open tab: the document kind and id it shows, plus its remembered mode and group. */
+export type TabRef = {
+	/**  Document kind, for example vault_page. */
+	kind: string,
+	/**  Id of the document within its kind. */
+	id: string,
+	/**  Remembered per tab. Absent means the tab was never switched. */
+	mode?: DocumentMode | null,
+	/**  Id of a group in the same pane. */
+	group?: string | null,
+};
+
+/**  One tab's place in a strip: where a chip goes and which tabs fold away. */
+export type TabRun = {
+	/**  Set on the first tab of a group's run: draw the group's chip before it. */
+	chip: TabGroup | null,
+	/**  In a folded group and not the open tab. */
+	hidden: boolean,
+	/**  Tabs in the run, when `chip` is set; else 0. */
+	size: number,
+};
 
 /**  One passage of a document (TS `TextChunk`). */
 export type TextChunk = {
@@ -3605,6 +3877,31 @@ export type TokenizerOptions = {
 	/**  Emit host and path segments of a URL as separate terms. TS default: `true`. */
 	tokenizeUrls: boolean,
 };
+
+/**  What a tree row is: an entity kind, or one of the tree's own rows. */
+export type TreeNodeKind = 
+/**  A note. */
+"vault_page" | 
+/**  An ink note. */
+"ink_page" | 
+/**  A paper. */
+"paper" | 
+/**  A reading list. */
+"reading_list" | 
+/**  A report section. */
+"report_section" | 
+/**  An experiment. */
+"experiment" | 
+/**  A milestone. */
+"milestone" | 
+/**  A log entry. */
+"log_entry" | 
+/**  A grouping row, which is not a document. */
+"folder" | 
+/**  A paper's PDF. */
+"paper_pdf" | 
+/**  An Overleaf project. */
+"overleaf";
 
 /**  One piece of untrusted text to fence (TS `UntrustedItem`). */
 export type UntrustedItem = {
@@ -3742,6 +4039,14 @@ export type VaultPageSide = {
 	body: string,
 };
 
+/**  A visible row of the explorer, with its indent. */
+export type VisibleRow = {
+	/**  The row. */
+	node: WorkspaceTreeNode,
+	/**  How deep the row sits. Roots are 0. */
+	depth: number,
+};
+
 /**  The wiki-link graph over a workspace (TS `WikiGraph`). */
 export type WikiGraph = {
 	/**  Nodes in insertion order. */
@@ -3834,6 +4139,14 @@ export type WorkspaceJsonKind =
 /**  `reading-list-items.json`. */
 "reading_list_items";
 
+/**  A log entry. The row's label is its date, so there is no second field to disagree with it. */
+export type WorkspaceLogEntry = {
+	/**  Entry id. */
+	id: string,
+	/**  The entry's date, `YYYY-MM-DD`. */
+	entryDate: string,
+};
+
 /**  How many rows of each kind a snapshot holds. */
 export type WorkspaceSnapshotCounts = {
 	/**  Number of papers. */
@@ -3854,6 +4167,52 @@ export type WorkspaceSnapshotCounts = {
 	relations: number,
 	/**  Number of tag rows. */
 	tags: number,
+};
+
+/**  Everything the workspace tree is built from. */
+export type WorkspaceTreeInput = {
+	/**  The project's folder, which every path in the tree is inside. Empty is the flat layout. */
+	projectRoot?: string,
+	/**  Notes, in any order. */
+	notes?: NoteNode[],
+	/**  Papers, in any order. */
+	papers?: PaperEntry[],
+	/**  Report sections, in any order. */
+	reportSections?: SectionNode[],
+	/**  Logbook entries, in any order. */
+	logEntries?: WorkspaceLogEntry[],
+	/**  Overleaf projects, one row each. */
+	overleafProjects?: OverleafProject[],
+};
+
+/**  One row of the explorer tree. */
+export type WorkspaceTreeNode = {
+	/**  Stable across renames: `kind:id` for entities, the directory name for roots. */
+	key: string,
+	/**  What the row is. */
+	kind: TreeNodeKind,
+	/**  The entity's id. Absent on a grouping row. */
+	id?: string | null,
+	/**  The text the user sees. */
+	label: string,
+	/**  The entity's title, where the label is not it (a paper's two files). */
+	title?: string | null,
+	/**  The mirrored path: a tooltip, and what quick open matches. */
+	path: string,
+	/**  Child rows, in display order. */
+	children: WorkspaceTreeNode[],
+	/**  A paper with no note yet. It is still listed, so the explorer can offer to start one. */
+	missingNote?: boolean,
+	/**  A row inside Reading lists: the same document seen through a list. */
+	isMember?: boolean,
+	/**  Inherited from a parent list. */
+	inherited?: boolean,
+	/**  The label of the list an inherited row came from. */
+	inheritedFrom?: string | null,
+	/**  An Outline heading level. Not produced here; kept so the row shape matches the TypeScript type. */
+	headingLevel?: number | null,
+	/**  A note made as a folder: it holds notes and folders and opens nothing. */
+	folder?: boolean,
 };
 
 /**  Options for [`clean_wrapped_text`]. */

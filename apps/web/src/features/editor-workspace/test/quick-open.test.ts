@@ -11,10 +11,11 @@ import {
   titleOf,
   type QuickOpenResult,
 } from "../application/quick-open";
-import { buildWorkspaceTree, flattenTree, type WorkspaceTreeNode } from "../application/workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
-const DOCUMENTS = flattenTree(
-  buildWorkspaceTree({
+const DOCUMENTS = readyCore().flattenTree(
+  readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [
       { id: "n1", title: "Baselines" },

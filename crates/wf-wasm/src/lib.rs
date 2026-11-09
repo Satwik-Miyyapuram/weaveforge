@@ -19,6 +19,7 @@ mod folder;
 mod heading_slug;
 mod graph_settings;
 mod hybrid_fusion;
+mod editor_workspace;
 mod ink;
 mod integration_credentials;
 mod lab_snapshot;

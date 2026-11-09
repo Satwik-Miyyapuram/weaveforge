@@ -5,6 +5,7 @@ pub mod ai;
 pub mod cache_invalidation;
 pub mod card_snippet;
 pub mod dashboard;
+pub mod editor_workspace;
 pub mod error_report;
 pub mod experiment_status;
 pub mod experiments;

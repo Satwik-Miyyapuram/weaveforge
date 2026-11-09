@@ -12,12 +12,8 @@ import {
   writeExpanded,
   type ExplorerSection,
 } from "../application/explorer-state";
-import {
-  buildWorkspaceTree,
-  filterRows,
-  visibleRows,
-  type WorkspaceTreeNode,
-} from "../application/workspace-tree";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The roots a workspace with one of everything has.
@@ -27,7 +23,7 @@ import {
  * and the tree had four, so the logbook was the one section a first run left
  * shut. A test that spells the four keys by hand would have had the same gap.
  */
-const ROOTS = buildWorkspaceTree({
+const ROOTS = readyCore().buildWorkspaceTree({
   projectRoot: "",
   notes: [],
   papers: [],
@@ -164,7 +160,7 @@ test("toggling is a new set, so React sees the change", () => {
 });
 
 test("only the open rows are painted, and each knows its indent", () => {
-  const tree = buildWorkspaceTree({
+  const tree = readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [
       { id: "a", title: "Method" },
@@ -174,7 +170,7 @@ test("only the open rows are painted, and each knows its indent", () => {
     reportSections: [],
   });
 
-  const collapsedNote = visibleRows(tree, new Set(["notes", "papers", "report"]));
+  const collapsedNote = readyCore().visibleRows(tree, new Set(["notes", "papers", "report"]));
   assert.deepEqual(
     collapsedNote.map((row) => [row.node.label, row.depth]),
     [
@@ -187,7 +183,7 @@ test("only the open rows are painted, and each knows its indent", () => {
     ],
   );
 
-  const openNote = visibleRows(tree, new Set(["notes", "vault_page:a"]));
+  const openNote = readyCore().visibleRows(tree, new Set(["notes", "vault_page:a"]));
   assert.deepEqual(
     openNote.map((row) => [row.node.label, row.depth]),
     [
@@ -213,7 +209,7 @@ const SECTIONS: ExplorerSection[] = [
 ];
 
 function nestedTree(): WorkspaceTreeNode[] {
-  return buildWorkspaceTree({
+  return readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [
       { id: "c", title: "Baselines", parentId: "b" },
@@ -240,14 +236,14 @@ function allBranches(nodes: readonly WorkspaceTreeNode[]): Set<string> {
 
 test("with nothing open there is one row per root and nothing else", () => {
   assert.deepEqual(
-    visibleRows(nestedTree(), new Set()).map((row) => row.node.label),
+    readyCore().visibleRows(nestedTree(), new Set()).map((row) => row.node.label),
     ["Notes", "Papers", "Report", "Log", "Overleaf"],
   );
 });
 
 test("the filter keeps a match, its ancestors and its subtree", () => {
-  const rows = visibleRows(nestedTree(), allBranches(nestedTree()));
-  const { rows: kept, expand } = filterRows(rows, "Baselines");
+  const rows = readyCore().visibleRows(nestedTree(), allBranches(nestedTree()));
+  const { rows: kept, expand } = readyCore().filterRows(rows, "Baselines");
   const labels = kept.map((row) => row.node.label);
 
   assert.ok(labels.includes("Baselines"));
@@ -257,8 +253,8 @@ test("the filter keeps a match, its ancestors and its subtree", () => {
 });
 
 test("the filter matches the mirrored path as well as the label", () => {
-  const rows = visibleRows(nestedTree(), allBranches(nestedTree()));
-  const { rows: kept } = filterRows(rows, ".paper.md");
+  const rows = readyCore().visibleRows(nestedTree(), allBranches(nestedTree()));
+  const { rows: kept } = readyCore().filterRows(rows, ".paper.md");
   assert.deepEqual(
     kept.filter((row) => row.node.kind === "paper").map((row) => row.node.title),
     ["β-VAE"],
@@ -266,15 +262,15 @@ test("the filter matches the mirrored path as well as the label", () => {
 });
 
 test("an empty query returns the visible rows and opens nothing", () => {
-  const rows = visibleRows(nestedTree(), new Set(["notes"]));
-  const result = filterRows(rows, "   ");
+  const rows = readyCore().visibleRows(nestedTree(), new Set(["notes"]));
+  const result = readyCore().filterRows(rows, "   ");
   assert.equal(result.rows.length, rows.length);
   assert.equal(result.expand.size, 0);
 });
 
 test("a filter that matches nothing paints nothing", () => {
-  const rows = visibleRows(nestedTree(), allBranches(nestedTree()));
-  assert.equal(filterRows(rows, "zzzz").rows.length, 0);
+  const rows = readyCore().visibleRows(nestedTree(), allBranches(nestedTree()));
+  assert.equal(readyCore().filterRows(rows, "zzzz").rows.length, 0);
 });
 
 test("sections default from their own declaration, not one global flag", () => {
@@ -319,12 +315,12 @@ test("a match inside a matched branch does not cut off its siblings", () => {
   // "Plans" matches and so keeps everything under it. "Plan A" matches too;
   // "Budget" does not, but it is still under "Plans" and must stay.
   const rows = [row("Plans", 0), row("Plan A", 1), row("Plan A notes", 2), row("Budget", 1), row("Other", 0)];
-  const labels = filterRows(rows, "plan").rows.map((r) => r.node.label);
+  const labels = readyCore().filterRows(rows, "plan").rows.map((r) => r.node.label);
   assert.deepEqual(labels, ["Plans", "Plan A", "Plan A notes", "Budget"]);
 });
 
 test("a branch ends at the first row back at its own depth", () => {
   const rows = [row("Inbox", 0), row("Drafts", 1), row("Plan", 1), row("Child", 2), row("Sibling", 1)];
-  const labels = filterRows(rows, "plan").rows.map((r) => r.node.label);
+  const labels = readyCore().filterRows(rows, "plan").rows.map((r) => r.node.label);
   assert.deepEqual(labels, ["Inbox", "Plan", "Child"]);
 });
