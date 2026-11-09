@@ -239,6 +239,7 @@ export * from "./screening-records.js";
 export * from "./graph-settings.js";
 export * from "./vault-page.js";
 export * from "./experiment-status.js";
+export * from "./projects.js";
 export * from "./lab-snapshot.js";
 export * from "./untrusted-context.js";
 export * from "./wiki-index.js";

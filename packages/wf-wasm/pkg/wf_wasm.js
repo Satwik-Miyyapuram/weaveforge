@@ -4336,6 +4336,23 @@ export function projectMetaDir(project_root) {
 }
 
 /**
+ * [`project_name`](project_name): the trimmed name, or `undefined` when blank.
+ * @param {string} name
+ * @returns {string | undefined}
+ */
+export function projectName(name) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.projectName(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * [`projected_page_size`] as `{ width, height }` (TS `projectedPageSize`).
  *
  * # Errors
