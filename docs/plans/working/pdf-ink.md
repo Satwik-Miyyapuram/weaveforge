@@ -33,7 +33,7 @@ stays a Zotero annotation.
   `packages/core/src/reader/reader-annotation.ts` (the annotation model, the
   sink port), `packages/core/src/reader/ink-stroke.ts` (`clampInkWidth`,
   `inkWidthForPressure`, `INK_DEFAULT_WIDTH`, point caps),
-  `packages/core/src/reader/zotero-write-back.ts` (what R5 syncs — ink is in),
+  `crates/wf-core/src/reader/zotero_sync.rs` (what R5 syncs — ink is in),
   `apps/web/src/features/reader/ui/pdf-reader/pdf-reader.tsx` (`createTool`,
   `createColor`, `canCreate`, the tool `<select>` near line 630, the page loop
   near line 730), `apps/web/src/features/reader/ui/pdf-reader/use-page-pointer.ts`
@@ -45,7 +45,7 @@ stays a Zotero annotation.
   the `aside` slot), `apps/web/src/features/ink/ui/ink-bar.tsx` (the ink
   note's tool bar: `INK_BAR_TOOLS`, `nibForTool`, `InkBar`),
   `packages/core/src/ink/width.ts` (the ink note's nib set),
-  `apps/web/src/features/editor-workspace/application/pane-tree.ts`
+  `crates/wf-core/src/editor_workspace/pane_tree.rs`
   (`splitPane`, `openTab`, `setTabMode`, `DocumentMode`) and
   `apps/web/src/features/editor-workspace/ui/kind.ts`.
 - Pure logic goes in `packages/core` with tests under `packages/core/test/`;

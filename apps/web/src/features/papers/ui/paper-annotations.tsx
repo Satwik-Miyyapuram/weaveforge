@@ -5,7 +5,7 @@ import { type Paper, type QuotationType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
-import { QUOTATION_TYPES, QUOTATION_TYPE_LABELS } from "@/features/papers/ui/quotation-type-labels";
+import { QUOTATION_TYPES, QUOTATION_TYPE_LABELS } from "@/lib/quotation-types";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import type { StoredZoteroAnnotation } from "../domain/zotero";
 import { Button } from "@/components/button";

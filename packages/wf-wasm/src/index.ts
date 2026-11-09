@@ -53,59 +53,13 @@ import init, {
   sameValue as rawSameValue,
   diffBody as rawDiffBody,
   hasConflictMarkers as rawHasConflictMarkers,
-  markdownImage as rawMarkdownImage,
-  imageAltFromFilename as rawImageAltFromFilename,
-  imageExtensionForMime as rawImageExtensionForMime,
-  imagePathsInBody as rawImagePathsInBody,
-  normalizeMarkdownImageSyntax as rawNormalizeMarkdownImageSyntax,
-  toRelativeBlobLinks as rawToRelativeBlobLinks,
-  relativeAssetPaths as rawRelativeAssetPaths,
-  fromRelativeBlobLinks as rawFromRelativeBlobLinks,
-  projectDir as rawProjectDir,
-  entityDir as rawEntityDir,
-  projectMetaDir as rawProjectMetaDir,
-  idSuffix as rawIdSuffix,
-  stripKindSuffix as rawStripKindSuffix,
-  jsonKindOfPath as rawJsonKindOfPath,
-  isAppOwnedPath as rawIsAppOwnedPath,
-  serializeWorkspace as rawSerializeWorkspace,
-  workspaceSnapshotCounts as rawWorkspaceSnapshotCounts,
-  parseWorkspaceFolder as rawParseWorkspaceFolder,
-  diffWorkspace as rawDiffWorkspace,
-  jsonDataPath as rawJsonDataPath,
-  parseJsonData as rawParseJsonData,
-  diffJsonData as rawDiffJsonData,
-  countJsonActions as rawCountJsonActions,
   countWords as rawCountWords,
   tagTone as rawTagTone,
   headingSlug as rawHeadingSlug,
-  stripUnresolvedImageRefs as rawStripUnresolvedImageRefs,
-  parseMdImageAlt as rawParseMdImageAlt,
-  withMdImageAlt as rawWithMdImageAlt,
-  withImageWidth as rawWithImageWidth,
-  setImagePlacement as rawSetImagePlacement,
-  sortHitOrder as rawSortHitOrder,
-  isPreviewKey as rawIsPreviewKey,
-  groupPaletteRows as rawGroupPaletteRows,
-  matchingPageIndices as rawMatchingPageIndices,
-  commandMatchIndices as rawCommandMatchIndices,
-  paletteModeFor as rawPaletteModeFor,
   invalidationPlan as rawInvalidationPlan,
   isKnownResourceType as rawIsKnownResourceType,
   invalidationMap as rawInvalidationMap,
   cardSnippet as rawCardSnippet,
-  addCounts as rawAddCounts,
-  planMirror as rawPlanMirror,
-  cleanPastedText as rawCleanPastedText,
-  pasteLandsInVerbatimContext as rawPasteLandsInVerbatimContext,
-  cleanWrappedText as rawCleanWrappedText,
-  cleanPdfText as rawCleanPdfText,
-  applyCommaPlacement as rawApplyCommaPlacement,
-  tabSeparatedToMarkdownTable as rawTabSeparatedToMarkdownTable,
-  cleanUrlsWithRules as rawCleanUrlsWithRules,
-  defaultPasteSettings as rawDefaultPasteSettings,
-  normalizePasteSettings as rawNormalizePasteSettings,
-  parseLinkRemovalText as rawParseLinkRemovalText,
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
@@ -183,6 +137,7 @@ import type {
   InvalidationPlan,
   InvalidationEntry,
 } from "./bindings.js";
+import { checkIndexText } from "./text-check.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
 export type {
@@ -365,7 +320,10 @@ export * from "./user-settings.js";
 export * from "./workspace-tree.js";
 export * from "./pane-tree.js";
 export * from "./tab-groups.js";
-
+export * from "./paste-text.js";
+export * from "./markdown-images.js";
+export * from "./workspace-folder.js";
+export * from "./command-palette.js";
 
 /** Facts about this core build, such as its version. */
 export function coreInfo(): CoreInfo {
@@ -375,14 +333,6 @@ export function coreInfo(): CoreInfo {
 /** Largest text, in UTF-16 units, that `tokenize`, `indexTerms` and `parseQuery` accept (Rust `MAX_INDEX_TEXT_UTF16`). */
 export function maxIndexTextUtf16(): number {
   return rawMaxIndexTextUtf16();
-}
-
-/** Throws before the text is copied into WASM, which would grow linear memory for good. */
-function checkIndexText(text: string): void {
-  const max = rawMaxIndexTextUtf16();
-  if (text.length > max) {
-    throw new RangeError(`text is ${text.length} UTF-16 units; MAX_INDEX_TEXT_UTF16 is ${max}`);
-  }
 }
 
 /** Search terms of `text`, deduplicated, first occurrence wins. Throws over MAX_INDEX_TEXT_UTF16 units. */
@@ -703,163 +653,6 @@ export function hasConflictMarkers(text: string): boolean {
   return rawHasConflictMarkers(text);
 }
 
-/** A markdown image for `target` with `alt` text (Rust `markdown_image`). */
-export function markdownImage(target: string, alt: string): string {
-  checkIndexText(target);
-  checkIndexText(alt);
-  return rawMarkdownImage(target, alt);
-}
-
-/** Alt text from a file name (Rust `image_alt_from_filename`). */
-export function imageAltFromFilename(name?: string | null): string {
-  if (name) checkIndexText(name);
-  return rawImageAltFromFilename(name ?? undefined);
-}
-
-/** File extension for an image MIME type (Rust `image_extension_for_mime`). */
-export function imageExtensionForMime(mime: string): string {
-  checkIndexText(mime);
-  return rawImageExtensionForMime(mime);
-}
-
-/** Image targets in `body` under `prefix`. The body is normalised first; `prefix` is literal text, not a regex. */
-export function imagePathsInBody(body: string, prefix: string): string[] {
-  checkIndexText(body);
-  checkIndexText(prefix);
-  return rawImagePathsInBody(body, prefix) as string[];
-}
-
-/** `body` with markdown image syntax normalised (Rust `normalize_markdown_image_syntax`). */
-export function normalizeMarkdownImageSyntax(body: string): string {
-  checkIndexText(body);
-  return rawNormalizeMarkdownImageSyntax(body);
-}
-
-/** `body` with blob links made relative to `filePath`, and the assets they name (Rust `to_relative_blob_links`). */
-export function toRelativeBlobLinks(
-  body: string,
-  filePath: string,
-): RelativeLinks {
-  checkIndexText(body);
-  checkIndexText(filePath);
-  return rawToRelativeBlobLinks(body, filePath) as RelativeLinks;
-}
-
-/** The asset paths a body's relative links point at (Rust `relative_asset_paths`). */
-export function relativeAssetPaths(body: string): RelativeAsset[] {
-  checkIndexText(body);
-  return rawRelativeAssetPaths(body) as RelativeAsset[];
-}
-
-/** Folder-relative asset links re-anchored; `resolved` maps `assets/<scope>/<path>` to a storage path (Rust `from_relative_blob_links_mapped`). */
-export function fromRelativeBlobLinks(body: string, resolved: Readonly<Record<string, string>>): string {
-  checkIndexText(body);
-  return rawFromRelativeBlobLinks(body, resolved);
-}
-
-/** The folder of a project, named from its id and name (Rust `project_dir`). */
-export function projectDir(project: { id: string; name: string }): string {
-  checkIndexText(project.id);
-  checkIndexText(project.name);
-  return rawProjectDir(project.id, project.name);
-}
-
-/** The folder for one entity type under `projectRoot` (Rust `entity_dir`). */
-export function entityDir(type: WorkspaceEntityType, projectRoot = ""): string {
-  checkIndexText(projectRoot);
-  return rawEntityDir(type, projectRoot);
-}
-
-/** The metadata folder under `projectRoot` (Rust `project_meta_dir`). */
-export function projectMetaDir(projectRoot = ""): string {
-  checkIndexText(projectRoot);
-  return rawProjectMetaDir(projectRoot);
-}
-
-/** The short suffix that makes a folder name unique to its id (Rust `id_suffix`). */
-export function idSuffix(id: string): string {
-  checkIndexText(id);
-  return rawIdSuffix(id);
-}
-
-/** `name` without its entity-kind suffix (Rust `strip_kind_suffix`). */
-export function stripKindSuffix(name: string): string {
-  checkIndexText(name);
-  return rawStripKindSuffix(name);
-}
-
-/** The JSON entity kind a path holds, or null for any other path (Rust `json_kind_of_path`). */
-export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
-  checkIndexText(path);
-  return (rawJsonKindOfPath(path) ?? null) as WorkspaceJsonKind | null;
-}
-
-/** Whether `path` is a file the app owns rather than user content (Rust `is_app_owned_path`). */
-export function isAppOwnedPath(path: string): boolean {
-  checkIndexText(path);
-  return rawIsAppOwnedPath(path);
-}
-
-/** The project's folder-mirror files for a snapshot (Rust `serialize_workspace`). */
-export function serializeWorkspace(
-  snapshot: object,
-  project: { id: string; name: string },
-): { files: Record<string, string>; assets: SerializedAsset[] } {
-  const out = rawSerializeWorkspace(JSON.stringify(snapshot), project.id, project.name) as SerializedWorkspace;
-  return { files: Object.fromEntries(out.files), assets: out.assets };
-}
-
-/** Row counts of a snapshot, as the manifest records them (Rust `workspace_snapshot_counts`). */
-export function workspaceSnapshotCounts(snapshot: object): WorkspaceSnapshotCounts {
-  return rawWorkspaceSnapshotCounts(JSON.stringify(snapshot)) as WorkspaceSnapshotCounts;
-}
-
-/** Every importable entity in a folder's files (Rust `parse_workspace_folder`). Throws over MAX_INDEX_TEXT_UTF16 units per file. */
-export function parseWorkspaceFolder(files: Readonly<Record<string, string>>): ParsedEntity[] {
-  return rawParseWorkspaceFolder(Object.entries(files)) as ParsedEntity[];
-}
-
-/**
- * What importing `parsed` would do to `existing` (Rust `diff_workspace`).
- * `origin` is asked once for every parsed path up front, so it must be pure.
- */
-export function diffWorkspace(
-  parsed: readonly ParsedEntity[],
-  existing: readonly ExistingEntity[],
-  options: { origin?(path: string): ChangeSide } = {},
-): ImportDiff {
-  const origin = options.origin;
-  const sides = origin ? Object.fromEntries(parsed.map((entity) => [entity.path, origin(entity.path)])) : undefined;
-  return rawDiffWorkspace(parsed, existing, sides) as ImportDiff;
-}
-
-/** Path of one of the project's JSON data files (Rust `json_data_path`). */
-export function jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string {
-  checkIndexText(projectRoot);
-  return rawJsonDataPath(projectRoot, kind);
-}
-
-/** The rows of a JSON data file, or null when it is not a JSON array (Rust `parse_json_data`). */
-export function parseJsonData(path: string, content: string, kind: WorkspaceJsonKind): ParsedJsonData | null {
-  checkIndexText(path);
-  checkIndexText(content);
-  return (rawParseJsonData(path, content, kind) ?? null) as ParsedJsonData | null;
-}
-
-/** What importing a JSON data file would do to the stored rows (Rust `diff_json_data`). */
-export function diffJsonData(
-  parsed: ParsedJsonData,
-  existing: readonly Readonly<Record<string, unknown>>[],
-  options: { origin?(path: string): ChangeSide } = {},
-): JsonDiff {
-  return rawDiffJsonData(parsed, JSON.stringify(existing), options.origin?.(parsed.path)) as JsonDiff;
-}
-
-/** How many entries there are of each action (Rust `count_json_actions`). */
-export function countJsonActions(entries: readonly JsonDiffEntry[]): ActionCounts {
-  return rawCountJsonActions(entries) as ActionCounts;
-}
-
 /** Words in plain text: runs of non-whitespace (Rust `count_words`). */
 export function countWords(text: string): number {
   return rawCountWords(text);
@@ -875,71 +668,6 @@ export function tagTone(tag: string): number {
 export function headingSlug(text: string): string {
   checkIndexText(text);
   return rawHeadingSlug(text);
-}
-
-/** Drop `![alt](prefix+path)` refs whose path is not in `resolved` (Rust `strip_unresolved_image_refs`). */
-export function stripUnresolvedImageRefs(body: string, prefix: string, paths: readonly string[], resolved: readonly string[]): string {
-  checkIndexText(body);
-  return rawStripUnresolvedImageRefs(body, prefix, paths, resolved);
-}
-
-/** Crop, side and width split out of an image alt (Rust `parse_md_image_alt`). */
-export function parseMdImageAlt(raw: string): MdImageAlt {
-  checkIndexText(raw);
-  return rawParseMdImageAlt(raw) as MdImageAlt;
-}
-
-/** The alt for a figure's own text and placement, in the spelling the reader reads (Rust `with_md_image_alt`). */
-export function withMdImageAlt(alt: string, placement: MdPlacement): string {
-  checkIndexText(alt);
-  return rawWithMdImageAlt(alt, placement);
-}
-
-/** The alt for a width, keeping any crop or side; `null` clears it (Rust `with_image_width`). */
-export function withImageWidth(alt: string, width: string | null): string {
-  checkIndexText(alt);
-  return rawWithImageWidth(alt, width);
-}
-
-/** Rewrite the `ordinal`-th image whose alt is `alt` to the patched placement (Rust `set_image_placement`). */
-export function setImagePlacement(body: string, alt: string, ordinal: number, patch: ImagePlacementPatch): string {
-  checkIndexText(body);
-  checkIndexText(alt);
-  // serde reads a key that is present as an explicit null, so an absent (undefined) field is dropped here to keep its value.
-  const fields = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
-  return rawSetImagePlacement(body, alt, ordinal, fields);
-}
-
-/** The indices of `rows` in the chosen hit order (Rust `sort_hit_order`). */
-export function sortHitOrder(rows: readonly HitKey[], order: HitSort): number[] {
-  return rawSortHitOrder(rows, order) as number[];
-}
-
-/** Whether a key press opens the preview (Rust `is_preview_key`). */
-export function isPreviewKey(event: PaletteKey, inTextBox: boolean): boolean {
-  return rawIsPreviewKey(event, inTextBox) as boolean;
-}
-
-/** The headings present, in display order, each with the indices of its rows (Rust `group_palette_rows`). */
-export function groupPaletteRows(groups: readonly PaletteGroup[]): GroupedRows[] {
-  return rawGroupPaletteRows(groups) as GroupedRows[];
-}
-
-/** The indices of the labels that hold the query, names that start with it first (Rust `matching_page_indices`). */
-export function matchingPageIndices(labels: readonly string[], query: string): number[] {
-  checkIndexText(query);
-  return rawMatchingPageIndices(labels, query) as number[];
-}
-
-/** Every index for an empty query, else the page rule (Rust `command_match_indices`). */
-export function commandMatchIndices(labels: readonly string[], query: string): number[] {
-  checkIndexText(query);
-  return rawCommandMatchIndices(labels, query) as number[];
-}
-
-/** The palette mode a key press opens, or `null` (Rust `palette_mode_for`). */
-export function paletteModeFor(event: PaletteKey): PaletteMode | null {
-  return (rawPaletteModeFor(event) as PaletteMode | undefined) ?? null;
 }
 
 /** The caches a write of this resource type clears, or `null` for an unknown name (Rust `invalidation_plan`). */
@@ -964,88 +692,3 @@ export function cardSnippet(body: string, max = 180): string {
   return rawCardSnippet(body, max);
 }
 
-/** Two sets of counts summed (Rust `add_counts`). */
-export function addCounts(a: Readonly<ActionCounts>, b: Readonly<ActionCounts>): ActionCounts {
-  return rawAddCounts(a, b) as ActionCounts;
-}
-
-/**
- * What mirroring `serialized` into the folder would do (Rust `plan_mirror`), without
- * touching it. `disk` holds the folder's text for every file path and for every previous
- * path that is not present but has a `base` entry; a missing key is a missing file.
- * Assets are not fetched: their folder paths only count as present, so they are never removed.
- */
-export function planMirror(
-  serialized: { files: Readonly<Record<string, string>>; assets: readonly SerializedAsset[] },
-  previousPaths: readonly string[],
-  base: Readonly<Record<string, string>> | undefined,
-  disk: Readonly<Record<string, string>>,
-): MirrorResult {
-  return rawPlanMirror(
-    Object.entries(serialized.files),
-    serialized.assets.map((asset) => asset.folderPath),
-    previousPaths,
-    base,
-    disk,
-  ) as MirrorResult;
-}
-
-/** The automatic paste rules over `input` (Rust `clean_pasted_text`). */
-export function cleanPastedText(input: string, settings: PasteSettings): CleanPasteResult {
-  checkIndexText(input);
-  return rawCleanPastedText(input, settings) as CleanPasteResult;
-}
-
-/** Whether a paste at UTF-16 `offset` lands in code or frontmatter (Rust `paste_lands_in_verbatim_context`). */
-export function pasteLandsInVerbatimContext(document: string, offset: number): boolean {
-  checkIndexText(document);
-  return rawPasteLandsInVerbatimContext(document, Math.max(0, Math.floor(offset)));
-}
-
-/** Rejoins wrapped terminal or PDF lines (Rust `clean_wrapped_text`). */
-export function cleanWrappedText(input: string, options: WrappedTextOptions): TextResult {
-  checkIndexText(input);
-  return rawCleanWrappedText(input, options) as TextResult;
-}
-
-/** Repairs text copied out of a PDF (Rust `clean_pdf_text`). */
-export function cleanPdfText(input: string, options: PdfTextOptions): TextResult {
-  checkIndexText(input);
-  return rawCleanPdfText(input, options) as TextResult;
-}
-
-/** Moves commas to the chosen side of a closing quote (Rust `apply_comma_placement`). */
-export function applyCommaPlacement(input: string, placement: CommaPlacement): TextResult {
-  checkIndexText(input);
-  return rawApplyCommaPlacement(input, placement) as TextResult;
-}
-
-/** A tab-separated text as a Markdown table, or unchanged (Rust `tab_separated_to_markdown_table`). */
-export function tabSeparatedToMarkdownTable(input: string): TextResult {
-  checkIndexText(input);
-  return rawTabSeparatedToMarkdownTable(input) as TextResult;
-}
-
-/** The URLs in `text` cleaned by the built-in rules plus `rules` (Rust `clean_urls_in_text`). */
-export function cleanUrlsWithRules(text: string, rules: readonly string[]): UrlCleanupResult {
-  checkIndexText(text);
-  return rawCleanUrlsWithRules(text, rules) as UrlCleanupResult;
-}
-
-/** The default paste settings (Rust `PasteSettings::default`). */
-export function defaultPasteSettings(): PasteSettings {
-  return rawDefaultPasteSettings() as PasteSettings;
-}
-
-/** Settings the pipeline can trust from whatever was stored (Rust `normalize_paste_settings`). */
-export function normalizePasteSettings(raw: unknown): PasteSettings {
-  const json = JSON.stringify(raw) ?? "null";
-  checkIndexText(json);
-  return rawNormalizePasteSettings(json) as PasteSettings;
-}
-
-/** The link removal rules in a textarea, one per line (Rust `parse_link_removal_text`). */
-export function parseLinkRemovalText(text: string): string[] {
-  checkIndexText(text);
-  return rawParseLinkRemovalText(text) as string[];
-}
