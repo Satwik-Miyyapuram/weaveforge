@@ -6,6 +6,7 @@
 import {
   isReaderAnnotationType as rawIsReaderAnnotationType,
   isAnnotationSyncState as rawIsAnnotationSyncState,
+  isEditableReaderTarget as rawIsEditableReaderTarget,
   readerKeyboardCommand as rawReaderKeyboardCommand,
 } from "../pkg/wf_wasm.js";
 import type { ReaderKeyboardCommand } from "./bindings.js";
@@ -20,6 +21,18 @@ export function isReaderAnnotationType(
 /** Whether `value` is an R5 write-back sync state (Rust `is_annotation_sync_state`). */
 export function isAnnotationSyncState(value: string): value is "local" | "synced" | "pending" | "conflict" {
   return rawIsAnnotationSyncState(value);
+}
+
+/**
+ * Whether an event target owns its keystrokes: a text field, a select or its
+ * option, or anything contenteditable (Rust `is_editable_reader_target`).
+ */
+export function isEditableReaderTarget(
+  target: { tagName?: unknown; isContentEditable?: unknown } | null | undefined,
+): boolean {
+  if (!target) return false;
+  const tag = typeof target.tagName === "string" ? target.tagName : undefined;
+  return rawIsEditableReaderTarget(tag, Boolean(target.isContentEditable));
 }
 
 /**

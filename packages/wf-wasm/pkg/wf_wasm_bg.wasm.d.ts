@@ -234,6 +234,7 @@ export const isBoldFont: (a: number, b: number) => number;
 export const isCitationDestination: (a: any) => [number, number, number];
 export const isConferenceCopy: (a: any) => [number, number, number];
 export const isDocumentNode: (a: any) => [number, number, number];
+export const isEditableReaderTarget: (a: number, b: number, c: number) => number;
 export const isEmptyPaperSummary: (a: number, b: number) => number;
 export const isExplicitLabMembership: (a: any) => [number, number, number];
 export const isHighlighterInk: (a: number, b: number) => number;

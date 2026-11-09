@@ -96,6 +96,7 @@ const RUST_OWNED = [
   "isBibliographicMatch",
   "isDocumentNode",
   "isBlanketShare",
+  "isEditableReaderTarget",
   "isHighlighterInk",
   "isKnownResourceType",
   "isPreviewKey",

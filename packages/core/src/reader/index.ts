@@ -16,12 +16,7 @@ export { OpenAccessPdfResolver, type OpenAccessPdfResolverOptions } from "./open
 export { WebDavPdfResolver, type WebDavPdfResolverOptions } from "./webdav-pdf-resolver.js";
 export { GitHubRepoPdfResolver, type GitHubRepoPdfResolverOptions } from "./github-repo-pdf-resolver.js";
 export { READER_MIN_SCALE, READER_MAX_SCALE, type ReaderFitMode, type ReaderRotation, type ReaderPageSize, type ReaderContainerSize, type ReaderViewportState } from "./reader-viewport.js";
-export {
-  readerKeyboardCommand,
-  isEditableReaderTarget,
-  type ReaderKeyboardCommand,
-  type ReaderKeyEvent,
-} from "./reader-keyboard.js";
+export { type ReaderKeyboardCommand, type ReaderKeyEvent } from "./reader-keyboard.js";
 export { READER_ANNOTATION_TYPES, type AnnotationOrigin, type ReaderAnnotationType, type ReaderAnnotation, type NewReaderAnnotation, type ReaderAnnotationPatch, type IReaderAnnotationSource, type IReaderAnnotationSink, type IReaderAnnotationSyncRecorder, type ReaderAnnotationSyncRecord, type IReaderAnnotationProjectSource, type AnnotationSyncState } from "./reader-annotation.js";
 export { type PageTextItem, type PageTextGeometry, type TextSelectionRange } from "./selection-to-anchor.js";
 export { type DocumentPageText, type DocumentSearchMatch } from "./document-search.js";

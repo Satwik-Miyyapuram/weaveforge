@@ -1,6 +1,7 @@
 /**
  * Map keyboard events to reader viewport commands.
- * Pure — no DOM. The UI binds these to the viewport controller.
+ * The mapping lives in the Rust core (`reader::annotation`); this file keeps
+ * the types and the signatures callers reach through `typedCore()`.
  */
 
 export type ReaderKeyboardCommand =
@@ -22,77 +23,18 @@ export interface ReaderKeyEvent {
   fromEditable?: boolean;
 }
 
-/**
- * Tag names whose own keyboard handling must win over reader shortcuts.
- * `SELECT` matters as much as the text inputs: arrows change the selected
- * option and printable keys type-ahead, so swallowing them breaks the
- * annotation-tool and sidebar dropdowns.
- */
-const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "OPTION"]);
-
-/**
- * Whether an event target owns its keystrokes. Pure so the reader's DOM
- * handler and its tests agree on one rule.
- */
-export function isEditableReaderTarget(
-  target: { tagName?: string; isContentEditable?: boolean } | null | undefined,
-): boolean {
-  if (!target) return false;
-  if (target.isContentEditable) return true;
-  return EDITABLE_TAGS.has((target.tagName ?? "").toUpperCase());
-}
-
-/**
- * Return a command for navigable keys, or null when the event should pass through.
- * Ignores events from editable fields so page-jump inputs keep working.
- */
-export function readerKeyboardCommand(event: ReaderKeyEvent): ReaderKeyboardCommand | null {
-  if (event.fromEditable) return null;
-  if (event.altKey) return null;
-
-  const key = event.key;
-  const code = event.code;
-  const mod = Boolean(event.ctrlKey || event.metaKey);
-
-  if (
-    key === "+" ||
-    key === "=" ||
-    key === "Add" ||
-    code === "NumpadAdd" ||
-    (mod && (code === "Equal" || key === "=" || key === "+"))
-  ) {
-    return { type: "zoom_in" };
-  }
-  if (
-    key === "-" ||
-    key === "_" ||
-    key === "Subtract" ||
-    code === "NumpadSubtract" ||
-    (mod && (code === "Minus" || key === "-" || key === "_"))
-  ) {
-    return { type: "zoom_out" };
-  }
-  if ((key === "r" || key === "R") && !mod) return { type: "rotate" };
-  if ((key === "0" || code === "Digit0" || code === "Numpad0") && mod) return { type: "fit_width" };
-
-  switch (key) {
-    case "ArrowDown":
-    case "PageDown":
-    case "j":
-      return { type: "page_delta", delta: 1 };
-    case "ArrowUp":
-    case "PageUp":
-    case "k":
-      return { type: "page_delta", delta: -1 };
-    case "Home":
-      return { type: "page_home" };
-    case "End":
-      return { type: "page_end" };
-    case "ArrowRight":
-      return { type: "page_delta", delta: 1 };
-    case "ArrowLeft":
-      return { type: "page_delta", delta: -1 };
-    default:
-      return null;
-  }
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface ReaderKeyboardFns {
+  /**
+   * Whether an event target owns its keystrokes: INPUT, TEXTAREA, SELECT or
+   * OPTION in any case, or anything contenteditable.
+   */
+  isEditableReaderTarget(
+    target: { tagName?: string; isContentEditable?: boolean } | null | undefined,
+  ): boolean;
+  /**
+   * Return a command for navigable keys, or null when the event should pass through.
+   * Ignores events from editable fields so page-jump inputs keep working.
+   */
+  readerKeyboardCommand(event: ReaderKeyEvent): ReaderKeyboardCommand | null;
 }
