@@ -245,9 +245,10 @@ const nextConfig = {
     });
     // pdf.js's worker names its wasm with `new URL(...)` beside itself, where
     // the package has none; the IDE passes `wasmUrl` instead, as Overleaf does.
+    // Matched by package, since npm ci may hoist it out of the vendored tree.
     config.module.rules.push({
       test: /pdf\.worker\.mjs$/,
-      include: overleaf,
+      include: /[\\/]pdfjs-dist-overleaf[\\/]/,
       parser: { url: false },
     });
     // Overleaf's components import their own stylesheets; the build script
