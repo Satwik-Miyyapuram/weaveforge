@@ -4,13 +4,12 @@
  * documents, so they go to the model fenced as untrusted data.
  */
 import {
-  UNTRUSTED_CONTEXT_RULE,
   contextNonce,
-  fenceUntrusted,
   type AiModelRequest,
   type IModelConversation,
   type SearchHit,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface CitedSource {
   n: number;
@@ -37,7 +36,7 @@ function sourceText(hit: SearchHit): string {
 }
 
 export function buildAskRequest(question: string, hits: readonly SearchHit[], nonce: string): AiModelRequest {
-  const sources = fenceUntrusted(
+  const sources = readyCore().fenceUntrusted(
     hits.map((hit, i) => ({ label: String(i + 1), text: sourceText(hit) })),
     nonce,
   );
@@ -48,7 +47,7 @@ export function buildAskRequest(question: string, hits: readonly SearchHit[], no
         content: [
           SYSTEM_PROMPT,
           `Sources are delimited by <<context-${nonce}>> and <</context-${nonce}>>, each headed by its number.`,
-          UNTRUSTED_CONTEXT_RULE,
+          readyCore().untrustedContextRule(),
         ].join("\n"),
       },
       { role: "user", content: `${sources}\n\nQuestion: ${question}` },

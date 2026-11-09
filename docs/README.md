@@ -14,6 +14,7 @@ For somebody using the app.
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
 - [Organisations](using/organisations.md) — labs: create or join with an invite code, roles, who sees whom
 - [Paste](using/paste.md) — what happens to what you paste in
+- [The AI assistant](using/ai-assistant.md) — what it may read, what it may suggest, and how grants expire
 - [Sharing](using/sharing.md) — share with one member, pick view, comment or edit, and how blanket shares work
 - [Search](using/search.md) — one box over the workspace, typo recovery, acronyms, query filters, and how results are ranked
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
