@@ -672,6 +672,25 @@ export function bodyLinksTo(body, target_key) {
 }
 
 /**
+ * [`body_stats`](stats::body_stats).
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ * @param {string} body
+ * @returns {any}
+ */
+export function bodyStats(body) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.bodyStats(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`bounded_body`](search_document::bounded_body).
  * @param {string} body
  * @returns {string}
@@ -3310,6 +3329,43 @@ export function formatCitation(key, format) {
 }
 
 /**
+ * [`format_count`](stats::format_count).
+ * @param {number} value
+ * @returns {string}
+ */
+export function formatCount(value) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.formatCount(value);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * [`format_cursor`](stats::format_cursor).
+ * @param {number} line
+ * @param {number} col
+ * @returns {string}
+ */
+export function formatCursorLabel(line, col) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.formatCursorLabel(line, col);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`format_figure_tokens`](figure::format_figure_tokens): the tokens written in an alt.
  *
  * # Errors
@@ -3465,6 +3521,24 @@ export function formatReference(paper) {
         return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`format_words`](stats::format_words).
+ * @param {number} words
+ * @returns {string}
+ */
+export function formatWords(words) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.formatWords(words);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
     }
 }
 

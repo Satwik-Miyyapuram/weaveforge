@@ -785,6 +785,14 @@ export type BodySides = {
 	theirs: string,
 };
 
+/**  Words and characters in a document body. */
+export type BodyStats = {
+	/**  Runs of non-whitespace, as JS `split(/\s+/)` without empty tokens. */
+	words: number,
+	/**  UTF-16 code units, as JS `String.length`. */
+	chars: number,
+};
+
 /**  The live records `buildLabSnapshotContent` freezes (its TS parameter object). */
 export type BuildLabSnapshotInput = {
 	/**  Milestones to freeze. */

@@ -408,6 +408,7 @@ fn port_types_1(types: Types) -> Types {
         .register::<wf_core::editor_workspace::tab_groups::TabGroup>()
         .register::<wf_core::editor_workspace::tab_groups::TabGroupCommand>()
         .register::<wf_core::editor_workspace::tab_groups::TabRun>()
+        .register::<wf_core::editor_workspace::document_stats::BodyStats>()
         .register::<wf_core::relations::paper_relation::RelationSource>()
         .register::<wf_core::relations::paper_relation::PaperRelation>()
         .register::<wf_core::relations::paper_relation::NewPaperRelationInput>()

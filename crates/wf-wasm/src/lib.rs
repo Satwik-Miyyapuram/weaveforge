@@ -16,6 +16,7 @@ mod cache_invalidation;
 mod card_snippet;
 mod citation_alerts;
 mod dashboard_layout;
+mod document_stats;
 mod editor_workspace;
 mod experiment_member;
 mod experiment_status;
