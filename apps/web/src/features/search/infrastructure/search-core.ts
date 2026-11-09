@@ -2,7 +2,7 @@ import type { TokenizerOptions } from "@weaveforge/wasm";
 import type { RustCore } from "@/lib/rust-core";
 
 /** The Rust search functions the index uses. Tests pass the real core. */
-export type SearchCore = Pick<RustCore, "indexTerms" | "parseQuery" | "buildExcerpt" | "maxIndexTextUtf16">;
+export type SearchCore = Pick<RustCore, "indexTerms" | "parseQuery" | "buildExcerpt" | "maxIndexTextUtf16" | "planFuzzyRetry">;
 
 /** The TS tokenizer's defaults. Index and query share them, or terms never match. */
 export const TOKENIZER_OPTIONS: TokenizerOptions = {
