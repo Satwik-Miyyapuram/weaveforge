@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  MIN_SEED_DEGREE_FOR_PPR,
   buildWikiGraph,
   explainArm,
-  findRelated,
   graphDegrees,
   graphDensity,
   personalizedPageRank,
@@ -189,74 +187,7 @@ test("related excludes the seed and is ordered by score", () => {
   }
 });
 
-// ----------------------------------------------------------------- cascade
-
-test("a well-connected seed uses the graph arm", () => {
-  const result = findRelated("note:hub", { graph: hubGraph() }, 5, { rng: seededRng(), numWalks: 500 });
-
-  assert.ok(result.length > 0);
-  assert.equal(result[0]!.arm, "graph");
-});
-
-test("a sparse seed falls back to lexical rather than returning nothing", () => {
-  const graph = buildWikiGraph(snapshot({ vaultPages: [note("a", "A"), note("b", "B")] }));
-
-  const result = findRelated("note:a", {
-    graph,
-    lexical: () => [{ id: "note:b", score: 0.4 }],
-  });
-
-  assert.equal(result[0]!.arm, "lexical");
-  assert.equal(result[0]!.id, "note:b");
-});
-
-test("tags are the last resort before giving up", () => {
-  const graph = buildWikiGraph(snapshot({ vaultPages: [note("a", "A")] }));
-
-  const result = findRelated("note:a", {
-    graph,
-    lexical: () => [],
-    tagged: () => [{ id: "note:z", score: 0.1 }],
-  });
-
-  assert.equal(result[0]!.arm, "tags");
-});
-
-test("an empty workspace returns nothing without throwing", () => {
-  const graph = buildWikiGraph(snapshot());
-
-  assert.deepEqual(findRelated("note:none", { graph }), []);
-});
-
-test("the PPR threshold is what decides the arm", () => {
-  // Two links is below the bar; the walk has too little to say.
-  const thin = buildWikiGraph(
-    snapshot({
-      vaultPages: [note("s", "S", "[[A]] [[B]]"), note("a", "A"), note("b", "B")],
-    }),
-  );
-  assert.ok((graphDegrees(thin).get("note:s") ?? 0) < MIN_SEED_DEGREE_FOR_PPR);
-
-  const result = findRelated("note:s", { graph: thin, lexical: () => [{ id: "note:a", score: 1 }] });
-  assert.equal(result[0]!.arm, "lexical");
-});
-
-// 01-09: choosing the arm reads the seed's own links, not a degree map of every node.
-test("choosing the arm does not walk the whole graph", () => {
-  class NoWalk<K, V> extends Map<K, V> {
-    override [Symbol.iterator](): MapIterator<[K, V]> {
-      throw new Error("walked every node");
-    }
-    override entries(): MapIterator<[K, V]> {
-      throw new Error("walked every node");
-    }
-  }
-  const edges = new NoWalk<string, string[]>([["note:s", ["note:a"]], ["note:a", ["note:s"]]]);
-  const graph = { nodes: ["note:s", "note:a"], edges };
-  const result = findRelated("note:s", { graph, lexical: () => [{ id: "note:a", score: 1 }] });
-  assert.equal(result[0]!.arm, "lexical");
-  assert.deepEqual(findRelated("note:missing", { graph }), []);
-});
+// The findRelated cascade (graph, lexical, tags) is tested in Rust: wf-core `search::related`.
 
 test("every arm has an explanation for the UI", () => {
   for (const arm of ["graph", "lexical", "tags", "none"] as const) {

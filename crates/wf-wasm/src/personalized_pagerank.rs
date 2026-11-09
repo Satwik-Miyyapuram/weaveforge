@@ -21,7 +21,7 @@ extern "C" {
 }
 
 /// Options as JSON; `undefined` and `null` mean the defaults.
-fn options_from(raw: JsValue) -> JsResult<PprOptions> {
+pub(crate) fn options_from(raw: JsValue) -> JsResult<PprOptions> {
     if raw.is_undefined() || raw.is_null() {
         return Ok(PprOptions::default());
     }
@@ -29,7 +29,7 @@ fn options_from(raw: JsValue) -> JsResult<PprOptions> {
 }
 
 /// The JS `rng` as a Rust closure. A non-numeric result reads as NaN, which teleports.
-fn rng_from(rng: &RngFn) -> impl FnMut() -> f64 + '_ {
+pub(crate) fn rng_from(rng: &RngFn) -> impl FnMut() -> f64 + '_ {
     move || {
         rng.call_with_this(&JsValue::UNDEFINED)
             .as_f64()

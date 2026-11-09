@@ -56,3 +56,13 @@ pub fn apply_user_integration_fields_js(
         &fields,
     ))
 }
+
+/// [`needs_disclaimer_acceptance`](user_settings::needs_disclaimer_acceptance).
+///
+/// # Errors
+///
+/// Fails if `settings` cannot be read as JSON.
+#[wasm_bindgen(js_name = needsDisclaimerAcceptance)]
+pub fn needs_disclaimer_acceptance_js(settings: JsValue) -> JsResult<bool> {
+    Ok(user_settings::needs_disclaimer_acceptance(&read(settings)?))
+}

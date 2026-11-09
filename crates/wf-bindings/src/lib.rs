@@ -38,6 +38,7 @@ pub fn types() -> Types {
     .register::<wf_core::search::query::SearchKind>()
     .register::<wf_core::search::query::ParsedQuery>()
     .register::<wf_core::search::fusion::RankedList>()
+    .register::<wf_core::search::vector_index::VectorHit>()
     .register::<wf_core::search::excerpt::ExcerptRange>()
     .register::<wf_core::sync::change_origin::ChangeSide>()
     .register::<wf_core::sync::git_policy::GitSyncSkipReason>()
@@ -411,6 +412,10 @@ fn port_types_1(types: Types) -> Types {
 /// Rust port types, part 2 (search, AI, sharing, plan, logbook and settings).
 fn port_types_2(types: Types) -> Types {
     types
+        .register::<wf_core::search::search_document::SearchDoc>()
+        .register::<wf_core::search::search_document::PdfPageText>()
+        .register::<wf_core::search::search_document::PdfIndexSource>()
+        .register::<wf_core::search::search_document::AnnotationSource>()
         .register::<wf_core::search::text_chunks::TextChunk>()
         .register::<wf_core::search::wiki_graph::WikiGraphEdges>()
         .register::<wf_core::search::wiki_graph::WikiGraph>()

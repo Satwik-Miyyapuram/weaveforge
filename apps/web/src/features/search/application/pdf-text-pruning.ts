@@ -1,4 +1,5 @@
-import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
+import type { WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { loadPdfTexts } from "../infrastructure/pdf-text-store";
 import { reconcilePdfTextFolder, removePdfTextsDurably } from "./pdf-text-folder";
 

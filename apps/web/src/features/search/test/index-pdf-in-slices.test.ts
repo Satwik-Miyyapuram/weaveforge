@@ -1,7 +1,8 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
+import type { WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

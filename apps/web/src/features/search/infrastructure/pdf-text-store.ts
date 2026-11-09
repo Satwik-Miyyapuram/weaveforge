@@ -10,7 +10,7 @@
  * load on blob storage.
  */
 
-import type { PdfIndexSource } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { PDF_TEXT_STORE, openAppDb } from "@/lib/cache/app-idb";
 import { warnOnce } from "@/lib/error-report/warn-once";
 

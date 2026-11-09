@@ -1,10 +1,10 @@
 import type {
   GraphDensity,
   IWorkspaceSearchIndex,
-  PdfIndexSource,
   SearchKind,
   WikiGraph,
 } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 
 /**
  * Which search kinds a write to a repository can change.

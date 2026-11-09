@@ -1,14 +1,6 @@
-import {
-  buildWikiGraph,
-  graphDegrees,
-  toAnnotationSearchDocs,
-  toPdfSearchDocs,
-  toSearchDocs,
-  type PdfIndexSource,
-  type SearchDoc,
-  type WikiGraph,
-  type WorkspaceSnapshot,
-} from "@weaveforge/core";
+import { buildWikiGraph, graphDegrees, type SearchDoc, type WikiGraph, type WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * A snapshot, projected into the documents the index holds.
@@ -36,10 +28,11 @@ export function projectSearchDocuments(input: {
 }): SearchDoc[] {
   const degrees = input.graph ? graphDegrees(input.graph) : new Map<string, number>();
   const paperTitles = new Map(input.snapshot.papers.map((paper) => [paper.id, paper.title]));
+  const core = readyCore();
   return [
-    ...toSearchDocs(input.snapshot, degrees),
-    ...toPdfSearchDocs(input.pdfTexts, degrees),
-    ...toAnnotationSearchDocs(input.snapshot.readerAnnotations, paperTitles, degrees),
+    ...core.toSearchDocs(input.snapshot, degrees),
+    ...core.toPdfSearchDocs(input.pdfTexts, degrees),
+    ...core.toAnnotationSearchDocs(input.snapshot.readerAnnotations, paperTitles, degrees),
   ];
 }
 

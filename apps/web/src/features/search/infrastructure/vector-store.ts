@@ -105,17 +105,17 @@ export function localVectorStore(run: (sql: string, params: unknown[]) => Promis
 /**
  * One JSON head and one buffer, base64 in a single string.
  *
- * Kept together because they are only ever read together: a set of ids with no
- * vectors, or vectors with no ids, is not half an index but none of one.
+ * Kept together because they are only ever read together: the index blob carries
+ * its own ids and widths, so the head holds only what describes the blob.
  */
-/** The fields both formats store ahead of the vectors, as JSON. */
+/** The fields both formats store ahead of the blob, as JSON. */
 function headJson(value: StoredVectors): string {
-  return JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
+  return JSON.stringify({ model: value.model, dimensions: value.dimensions, revision: value.revision, hashes: value.hashes });
 }
 
 function pack(value: StoredVectors): string {
   const head = headJson(value);
-  return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(new Uint8Array(value.vectors))}`;
+  return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(value.bytes)}`;
 }
 
 function unpack(packed: string): StoredVectors | null {
@@ -124,12 +124,9 @@ function unpack(packed: string): StoredVectors | null {
   try {
     const head = JSON.parse(new TextDecoder().decode(decodeBase64(packed.slice(0, split)))) as Omit<
       StoredVectors,
-      "vectors"
+      "bytes"
     >;
-    const bytes = decodeBase64(packed.slice(split + 1));
-    const vectors = new ArrayBuffer(bytes.byteLength);
-    new Uint8Array(vectors).set(bytes);
-    return { ...head, vectors };
+    return { ...head, bytes: decodeBase64(packed.slice(split + 1)) };
   } catch {
     return null;
   }
@@ -195,20 +192,19 @@ const folderStore = {
 
 export function packBinary(value: StoredVectors): Uint8Array {
   const head = new TextEncoder().encode(headJson(value));
-  const out = new Uint8Array(4 + head.byteLength + value.vectors.byteLength);
+  const out = new Uint8Array(4 + head.byteLength + value.bytes.byteLength);
   new DataView(out.buffer).setUint32(0, head.byteLength, true);
   out.set(head, 4);
-  out.set(new Uint8Array(value.vectors), 4 + head.byteLength);
+  out.set(value.bytes, 4 + head.byteLength);
   return out;
 }
 
 export function unpackBinary(bytes: Uint8Array): StoredVectors | null {
   try {
     const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true);
-    const head = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + length))) as Omit<StoredVectors, "vectors">;
-    const vectors = bytes.slice(4 + length).buffer;
-    if (vectors.byteLength !== head.ids.length * head.dimensions * 4) return null;
-    return { ...head, vectors };
+    const head = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + length))) as Omit<StoredVectors, "bytes">;
+    // The blob is validated where it is loaded (`vectorIndexFromBytes`), which rejects a short or torn one.
+    return { ...head, bytes: bytes.slice(4 + length) };
   } catch {
     return null;
   }

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { searchRevision, type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
+import { type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
 import { projectStoredPdfTexts } from "../application/search-projection";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
@@ -55,8 +55,9 @@ self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {
   void (async () => {
     try {
       const { docs, pdfPageCounts } = await project(request.snapshot, request.projectId);
-      const revision = searchRevision(docs);
-      const index = buildSearchIndex(await loadCore(), docs, revision, request.settings);
+      const core = await loadCore();
+      const revision = core.searchRevision(docs);
+      const index = buildSearchIndex(core, docs, revision, request.settings);
 
       post({
         id: request.id,

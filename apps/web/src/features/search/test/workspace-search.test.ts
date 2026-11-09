@@ -1,7 +1,8 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import type { PdfIndexSource, SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
+import type { SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { collapseToEntities, distinctRelated } from "@/features/search/application/collapse-to-entities";
 import { loadTestCore } from "@/lib/test/load-test-core";

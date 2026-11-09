@@ -6,6 +6,7 @@
 import {
   applyUserIntegrationFields as rawApplyUserIntegrationFields,
   hydrateUserSettings as rawHydrateUserSettings,
+  needsDisclaimerAcceptance as rawNeedsDisclaimerAcceptance,
   normalizeUserSettings as rawNormalizeUserSettings,
 } from "../pkg/wf_wasm.js";
 import type { UserSettings } from "./bindings.js";
@@ -25,6 +26,11 @@ export function hydrateUserSettings(settings: UserSettings): UserSettings {
 /** Trim strings and drop empties before persistence. */
 export function normalizeUserSettings(settings: UserSettings): UserSettings {
   return rawNormalizeUserSettings(plain(settings)) as UserSettings;
+}
+
+/** Whether the user must accept the disclaimer again (no acceptance, or an older version). */
+export function needsDisclaimerAcceptance(settings: UserSettings): boolean {
+  return rawNeedsDisclaimerAcceptance(plain(settings));
 }
 
 /** Set a provider's credential fields in its bag and the matching legacy columns. */

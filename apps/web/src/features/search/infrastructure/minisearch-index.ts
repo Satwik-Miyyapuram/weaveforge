@@ -137,7 +137,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
       // No matched terms either: nothing in this document matched a keyword, so
       // highlighting it would draw a box around an arbitrary word.
       terms: [],
-      ...(fields.page !== undefined ? { page: fields.page } : {}),
+      ...(fields.page != null ? { page: fields.page } : {}),
       ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),
     };
   }
@@ -214,7 +214,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         title: fields.title,
         href: fields.href,
         score: result.score,
-        page: fields.page,
+        page: fields.page ?? undefined,
         updatedAt: fields.updatedAt || undefined,
         terms: result.terms,
         queryTerms: result.queryTerms,

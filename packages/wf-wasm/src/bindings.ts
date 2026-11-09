@@ -580,6 +580,26 @@ export type AnchorZoteroPosition = {
 	nextPageRects?: ((number | null)[])[] | null,
 };
 
+/**  A reader annotation as the index reads it. */
+export type AnnotationSource = {
+	/**  Annotation id. */
+	id?: string,
+	/**  Paper the annotation belongs to. */
+	paperId?: string,
+	/**  Zero-based page index. */
+	pageIndex?: number,
+	/**  Quoted passage. */
+	text?: string,
+	/**  The reader's own comment. */
+	comment?: string,
+	/**  Tags. */
+	tags?: string[],
+	/**  Creation timestamp. */
+	createdAt?: string,
+	/**  Last edit timestamp; empty when unknown. */
+	updatedAt?: string,
+};
+
 /**  One `@type{key, ...}` entry. */
 export type BibEntry = {
 	/**  Lower-cased entry type: `article`, `inproceedings`, `misc`. */
@@ -2879,6 +2899,26 @@ export type PasteSettings = {
 	cleanPdfOnPaste: boolean,
 };
 
+/**  A paper's extracted PDF text, ready for indexing. */
+export type PdfIndexSource = {
+	/**  Paper id. */
+	paperId?: string,
+	/**  Paper title. */
+	title?: string,
+	/**  Extracted pages. */
+	pages?: PdfPageText[],
+	/**  When the text was extracted; drives the recency tiebreak. */
+	extractedAt?: string,
+};
+
+/**  One PDF page's extracted text. */
+export type PdfPageText = {
+	/**  Zero-based page index. */
+	pageIndex?: number,
+	/**  Extracted text of the page. */
+	text?: string,
+};
+
 /**  Options for [`clean_pdf_text`]. */
 export type PdfTextOptions = {
 	/**  Remove page-number lines along with the page break around them. */
@@ -3438,6 +3478,36 @@ export type ScreeningState =
 "excluded" | 
 /**  Could not tell; goes on to the full text. */
 "unsure";
+
+/**  One indexed record. Field names match the TypeScript `SearchDoc`. */
+export type SearchDoc = {
+	/**  `${kind}:${entityId}`, unique across kinds (PDF pages use `pdf:<paper>#<page>`). */
+	id: string,
+	/**  Entity kind. */
+	kind: SearchKind,
+	/**  Id of the entity the document is about. */
+	entityId: string,
+	/**  Title shown in a result list. */
+	title: string,
+	/**  Alternative names a query may match. */
+	aliases: string[],
+	/**  Markdown h1–h3 headings lifted out of the body. */
+	headings: string[],
+	/**  Tags. */
+	tags: string[],
+	/**  Breadcrumb or position text, e.g. "Method/Baselines" or "page 12". */
+	path: string,
+	/**  Indexed body text, capped at `MAX_INDEXED_BODY_CHARS` UTF-16 units. */
+	body: string,
+	/**  Last change, ISO-8601. */
+	updatedAt: string,
+	/**  In-app link. */
+	href: string,
+	/**  Zero-based PDF page, for `pdf` and `annotation` documents. */
+	page?: number | null,
+	/**  Wiki-graph link degree; zero when unknown. */
+	degree: number,
+};
 
 /**  Searchable field (TS `SearchField`). Declaration order matches `SEARCH_FIELDS`. */
 export type SearchField = 
@@ -4037,6 +4107,14 @@ export type VaultPageSide = {
 	fields: { [key in string]: unknown },
 	/**  Body text after the frontmatter. */
 	body: string,
+};
+
+/**  One ranked match. `score` is cosine similarity in [-1, 1]. */
+export type VectorHit = {
+	/**  The id the vector was added under. */
+	id: string,
+	/**  Cosine similarity to the query. */
+	score: number | null,
 };
 
 /**  A visible row of the explorer, with its indent. */
