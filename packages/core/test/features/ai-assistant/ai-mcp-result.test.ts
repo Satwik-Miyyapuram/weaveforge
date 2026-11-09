@@ -3,7 +3,6 @@ import { test } from "node:test";
 
 import {
   MCP_RESULT_NOTICE,
-  aiMcpToolManifest,
   mcpReadResult,
 } from "../../../src/features/ai-assistant/index.js";
 
@@ -68,21 +67,4 @@ test("a fresh nonce is used when none is supplied", () => {
   const second = mcpReadResult([{ label: "a", text: "b" }]);
   assert.notEqual(first.nonce, second.nonce);
   assert.equal(first.nonce.length, 16);
-});
-
-test("every read tool declares its results untrusted, and no propose tool does", () => {
-  for (const entry of aiMcpToolManifest()) {
-    assert.equal(
-      entry.resultsAreUntrusted,
-      entry.readOnly,
-      `${entry.name} must declare untrusted results exactly when it returns library content`,
-    );
-  }
-});
-
-test("no tool is both read-only and a write the user must confirm", () => {
-  for (const entry of aiMcpToolManifest()) {
-    assert.notEqual(entry.readOnly, entry.requiresUserConfirmation, entry.name);
-    assert.equal(entry.requiresBrowserPairing, true, entry.name);
-  }
 });

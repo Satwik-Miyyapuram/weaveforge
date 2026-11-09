@@ -14,7 +14,6 @@ import assert from "node:assert/strict";
 
 import {
   AddLogEntryUseCase,
-  AiBrowserPairingRequiredError,
   CitationAlertTrackError,
   CommentValidationError,
   ConflictError,
@@ -112,7 +111,7 @@ test("every legacy error class keeps its name and gains a typed branch", () => {
 test("errors without a clear HTTP meaning still extend the root, not Error", () => {
   // These two describe a local transport precondition and a metadata fetch
   // failure: neither has a defensible status of its own, so they claim none.
-  for (const error of [new AiBrowserPairingRequiredError(), new CitationAlertTrackError("x")]) {
+  for (const error of [new CitationAlertTrackError("x")]) {
     assert.ok(error instanceof WeaveForgeError);
     assert.equal(error instanceof ValidationError, false);
     assert.equal(error instanceof NotFoundError, false);

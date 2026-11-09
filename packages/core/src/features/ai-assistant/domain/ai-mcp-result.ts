@@ -26,9 +26,8 @@
  *
  * What actually keeps this safe is not either of those. It is that no tool here
  * writes: the read tools read, the propose tools queue a draft, and a draft
- * reaches the workspace only when a person accepts it. See `ai-mcp-gateway.ts`
- * for the manifest that says so and `ai-write-proposal.ts` for the executors no
- * tool call can reach.
+ * reaches the workspace only when a person accepts it. See `ai-write-proposal.ts`
+ * for the executors no tool call can reach.
  */
 
 import { contextNonce, fenceUntrusted, type UntrustedItem } from "./untrusted-context.js";
