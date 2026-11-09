@@ -1,5 +1,5 @@
+import { mergePaperInto } from "@weaveforge/wasm";
 import {
-  mergePaperInto,
   ValidationError,
   type IAnnotationPinRepository,
   type IBibliographyIntegration,

@@ -14,6 +14,7 @@ For somebody using the app.
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
 - [Paste](using/paste.md) — what happens to what you paste in
 - [Search](using/search.md)
+- [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
 - [Extending WeaveForge](using/extensions.md)

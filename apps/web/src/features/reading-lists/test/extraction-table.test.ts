@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@weaveforge/core";
-import { encodeRollupOptions } from "@weaveforge/core";
 import {
   buildProposeFillPrompt,
   emptyCellPaperIds,
@@ -12,6 +11,7 @@ import {
   pendingKey,
   relationTitles,
 } from "../application/extraction-table";
+import { readyCore } from "@/lib/rust-core";
 
 function paper(id: string, title: string): Paper {
   return {
@@ -148,7 +148,7 @@ test("a large extraction table is built in time proportional to its size", () =>
       id: `rollup${index}`,
       name: `Rollup ${index}`,
       kind: "rollup" as const,
-      options: encodeRollupOptions({ relationFieldId: "rel", sourceFieldId: "src", agg: "sum" }),
+      options: readyCore().encodeRollupOptions({ relationFieldId: "rel", sourceFieldId: "src", agg: "sum" }),
       sortOrder: 2 + index,
     })),
   ];

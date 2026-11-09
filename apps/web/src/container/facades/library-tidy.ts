@@ -1,17 +1,19 @@
+import { loadCore } from "@/lib/rust-core";
 import {
-  findDuplicateGroups,
-  isConferenceCopy,
-  isPlaceholderTitle,
-  pickKeeper,
-  titleFixes,
-  type DuplicateGroup,
   type IPaperRepository,
   type MetadataResolver,
   type Paper,
   type PaperSummary,
-  type TitleFix,
   type UpdatePaperUseCase,
 } from "@weaveforge/core";
+import {
+  findDuplicateGroups,
+  isConferenceCopy,
+  pickKeeper,
+  titleFixes,
+  type DuplicateGroup,
+  type TitleFix,
+} from "@weaveforge/wasm";
 import type { MergePapersUseCase } from "@/features/papers/application/merge-papers.use-case";
 
 /** A duplicate group as the screen shows it. */
@@ -66,7 +68,7 @@ export class LibraryTidyFacade {
     const duplicates = groups.map((group): TidyDuplicateGroup => {
       const members = group.ids.map((id) => full.get(id)).filter((p): p is Paper => !!p);
       if (members.length !== group.ids.length) return group;
-      const keepId = pickKeeper(members).id;
+      const keepId = pickKeeper(members);
       const published = members.filter(isConferenceCopy);
       const conferenceId = published.length === 1 && published[0]!.id !== keepId ? published[0]!.id : undefined;
       return { ...group, keepId, ...(conferenceId ? { conferenceId } : {}) };
@@ -79,6 +81,7 @@ export class LibraryTidyFacade {
    * or the answer is itself a placeholder.
    */
   async lookUpTitle(lookup: NonNullable<TitleFix["lookup"]>): Promise<string | null> {
+    const core = await loadCore();
     const refs = [
       ...(lookup.doi ? [{ kind: "doi" as const, value: lookup.doi }] : []),
       ...(lookup.arxivId ? [{ kind: "arxiv" as const, value: lookup.arxivId }] : []),
@@ -86,7 +89,7 @@ export class LibraryTidyFacade {
     for (const ref of refs) {
       try {
         const title = (await this.deps.resolver.resolve(ref)).title?.trim();
-        if (title && !isPlaceholderTitle(title)) return title;
+        if (title && !core.isPlaceholderTitle(title)) return title;
       } catch {
         /* the next identifier, or no proposal */
       }

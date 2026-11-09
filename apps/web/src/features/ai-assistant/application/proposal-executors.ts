@@ -5,7 +5,7 @@ import type {
   ManageVaultPageUseCase, NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
   PaperStatus, UpdatePaperUseCase,
 } from "@weaveforge/core";
-import { EXPERIMENT_STATUSES, MILESTONE_STATUSES, parsePaperFieldValue, proposalApplies } from "@weaveforge/core";
+import { EXPERIMENT_STATUSES, MILESTONE_STATUSES, proposalApplies } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
@@ -60,7 +60,7 @@ export function createAiProposalExecutors(deps: {
       if (def.kind !== "text" && def.kind !== "number" && def.kind !== "select" && def.kind !== "multi_select") {
         throw new Error("Only text, number, select, and multi_select fields can be filled via AI.");
       }
-      const value = parsePaperFieldValue(p.value, "Proposal value");
+      const value = readyCore().parsePaperFieldValue(p.value, "Proposal value");
       if (def.kind === "select") {
         if (typeof value !== "string" || !def.options.includes(value)) {
           throw new Error(`Value is not one of the allowed options for «${def.name}».`);

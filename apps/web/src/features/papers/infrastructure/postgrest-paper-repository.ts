@@ -1,12 +1,5 @@
-import {
-  normalizeDoi,
-  titleKey,
-  type IPaperRepository,
-  type Paper,
-  type PaperFilter,
-  type PaperIdentity,
-  type PaperSummary,
-} from "@weaveforge/core";
+import { loadCore, readyCore } from "@/lib/rust-core";
+import { type IPaperRepository, type Paper, type PaperFilter, type PaperIdentity, type PaperSummary } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
 import {
   emptyToNull,
@@ -125,7 +118,7 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
       // `undefined` — either a request error or a match on nothing, depending on
       // the client version, with nothing to tell the caller which. A DOI that
       // cannot be normalised is not a DOI this library holds.
-      const doi = normalizeDoi(filter.doi);
+      const doi = readyCore().normalizeDoi(filter.doi);
       if (doi) query = query.eq("doi", doi);
     }
     if (filter?.titleContains) {
@@ -205,7 +198,8 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
     if (words.length > 0) query = query.or(words.map((w) => `title.ilike.%${w}%`).join(","));
     query = query.order("created_at", { ascending: false });
     query = query.order("id", { ascending: true });
-    const hit = (await rows<{ id: string; title: string }>(query)).find((row) => titleKey(row.title) === key);
+    const core = await loadCore();
+    const hit = (await rows<{ id: string; title: string }>(query)).find((row) => core.titleKey(row.title) === key);
     return hit ? this.getById(hit.id) : null;
   }
 
@@ -244,7 +238,7 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
   }
 
   async findByDoi(doi: string): Promise<Paper | null> {
-    const normalized = normalizeDoi(doi);
+    const normalized = readyCore().normalizeDoi(doi);
     return normalized ? this.findBy("doi", normalized) : null;
   }
 
@@ -262,7 +256,7 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
   }
 
   async findIdentityByDoi(doi: string): Promise<PaperIdentity | null> {
-    const normalized = normalizeDoi(doi);
+    const normalized = readyCore().normalizeDoi(doi);
     return normalized ? this.findIdentity("doi", normalized) : null;
   }
 

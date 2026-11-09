@@ -1,4 +1,4 @@
-import { titleFromFileName } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { IMetadataSource, PaperMetadata, PaperRef } from "@weaveforge/core";
 import { isChildItem, zoteroHeaders, zoteroLibraryUrl, type ZoteroItemData } from "./zotero-web-api";
 
@@ -57,9 +57,9 @@ export class ZoteroMetadataSource implements IMetadataSource {
           `Zotero item ${key} is a ${data.itemType ?? "child item"} with no parent entry, so it has no paper metadata to import.`,
         );
       }
-      return toMetadata(await this.readItem(libraryUrl, headers, data.parentItem));
+      return readyCore().zoteroRemoteToMetadata(await this.readItem(libraryUrl, headers, data.parentItem));
     }
-    return toMetadata(data);
+    return readyCore().zoteroRemoteToMetadata(data);
   }
 
   private async readItem(
@@ -77,22 +77,4 @@ export class ZoteroMetadataSource implements IMetadataSource {
     const body = (await res.json()) as { data?: ZoteroItemData };
     return body.data ?? {};
   }
-}
-
-function toMetadata(d: ZoteroItemData): PaperMetadata {
-  const authors = (d.creators ?? [])
-    .map((c) => c.name ?? [c.firstName, c.lastName].filter(Boolean).join(" "))
-    .filter((x) => x.length > 0);
-  const year = d.date ? Number(/\d{4}/.exec(d.date)?.[0]) || undefined : undefined;
-  const arxivId = /arXiv:\s*([\w.\/-]+)/i.exec(d.extra ?? "")?.[1];
-  return {
-    title: d.title ? titleFromFileName(d.title) : "Untitled (Zotero)",
-    authors,
-    venue: d.publicationTitle,
-    year,
-    doi: d.DOI || undefined,
-    arxivId,
-    url: d.url,
-    abstract: d.abstractNote?.replace(/\s+/g, " ").trim(),
-  };
 }

@@ -16,7 +16,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Paper } from "../features/papers/domain/paper.js";
 import type { IPaperRepository } from "../features/papers/domain/paper-repository.js";
-import { titleKey } from "../features/papers/domain/paper-title.js";
+import { rust } from "../shared/rust.js";
 
 /**
  * Ids for one test, by name. UUIDs, and fresh per test, because a database
@@ -380,7 +380,7 @@ export function runPaperRepositoryContract(
     await repo.save(samplePaper({ id: id("a"), title: "Attention Is All You Need: A Study", abstract: "We introduce" }));
     await repo.save(samplePaper({ id: id("b"), title: "Graph Neural Networks for Molecules" }));
 
-    const found = await repo.findByTitleKey(titleKey("attention is all you need -- a study!")!);
+    const found = await repo.findByTitleKey(rust().titleKey("attention is all you need -- a study!")!);
     assert.equal(found?.id, id("a"));
     assert.equal(found?.abstract, "We introduce", "a hit is the whole paper");
   });
@@ -391,15 +391,15 @@ export function runPaperRepositoryContract(
     await repo.save(samplePaper({ id: id("a"), title: "Kingma - 2013 - Auto-Encoding Variational Bayes.pdf" }));
     await repo.save(samplePaper({ id: id("b"), title: "Über die Quantenmechanik der Elektronen" }));
 
-    assert.equal((await repo.findByTitleKey(titleKey("Auto-Encoding Variational Bayes")!))?.id, id("a"));
-    assert.equal((await repo.findByTitleKey(titleKey("über die quantenmechanik der elektronen")!))?.id, id("b"));
+    assert.equal((await repo.findByTitleKey(rust().titleKey("Auto-Encoding Variational Bayes")!))?.id, id("a"));
+    assert.equal((await repo.findByTitleKey(rust().titleKey("über die quantenmechanik der elektronen")!))?.id, id("b"));
   });
 
   test(`[${label}] findByTitleKey does not match a title that only contains the key`, async () => {
     const repo = await makeRepo();
     const id = ids();
     await repo.save(samplePaper({ id: id("a"), title: "Attention Is All You Need: A Study, Revisited" }));
-    assert.equal(await repo.findByTitleKey(titleKey("Attention Is All You Need: A Study")!), null);
+    assert.equal(await repo.findByTitleKey(rust().titleKey("Attention Is All You Need: A Study")!), null);
   });
 
   test(`[${label}] findByTitleKey with only short words still finds the paper`, async () => {
@@ -407,7 +407,7 @@ export function runPaperRepositoryContract(
     const id = ids();
     const title = "Of the art of a cat on a mat in a hat";
     await repo.save(samplePaper({ id: id("a"), title }));
-    assert.equal((await repo.findByTitleKey(titleKey(title)!))?.id, id("a"));
-    assert.equal(await repo.findByTitleKey(titleKey("Of the art of a dog on a mat in a hat")!), null);
+    assert.equal((await repo.findByTitleKey(rust().titleKey(title)!))?.id, id("a"));
+    assert.equal(await repo.findByTitleKey(rust().titleKey("Of the art of a dog on a mat in a hat")!), null);
   });
 }

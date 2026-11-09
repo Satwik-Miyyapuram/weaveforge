@@ -1,4 +1,5 @@
-import { titleKey, type PaperMetadata, type PaperRef, type PaperIdentity } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
+import { type PaperMetadata, type PaperRef, type PaperIdentity } from "@weaveforge/core";
 import type { IPaperIdentityLookup, IPaperRepository, ParsedReference } from "@weaveforge/core";
 
 /**
@@ -133,9 +134,10 @@ export class ReferenceLookupService {
    * for a paper the add step would answer with "Already in library".
    */
   private async findByTitle(title: string): Promise<PaperIdentity | undefined> {
-    const key = titleKey(title);
+    const core = await loadCore();
+    const key = core.titleKey(title);
     if (!key) return undefined;
-    const match = (await this.librarySummaries()).find((p) => titleKey(p.title) === key);
+    const match = (await this.librarySummaries()).find((p) => core.titleKey(p.title) === key);
     return match ? { id: match.id, title: match.title, status: match.status } : undefined;
   }
 
