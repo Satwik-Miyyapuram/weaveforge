@@ -127,7 +127,7 @@ export class ZoteroFacade {
    * mistyped argument away from actually writing.
    */
   async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
-    const { DryRunZoteroAnnotationWriteBack } = await import("@weaveforge/core");
+    const { DryRunZoteroAnnotationWriteBack } = await import("./dry-run-zotero-write-back");
     const annotations = await this.deps.readerAnnotations.list(paperId);
     return new DryRunZoteroAnnotationWriteBack().push(parentItemKey, annotations);
   }

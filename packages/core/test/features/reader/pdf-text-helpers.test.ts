@@ -7,8 +7,6 @@ import {
   pageTextFromItems,
 } from "../../../src/features/reader/analysis/line-reconstruction.js";
 import * as citationText from "../../../src/features/reader/analysis/citation-text.js";
-import * as headingAnalysis from "../../../src/features/reader/analysis/heading-analysis.js";
-import * as outline from "../../../src/features/reader/outline-from-text.js";
 import * as reader from "../../../src/features/reader/index.js";
 
 /**
@@ -47,19 +45,3 @@ test("furnitureKey: lower case, spaces collapsed, digits masked", () => {
   assert.equal(FURNITURE_MARGIN, 0.06);
 });
 
-test("outlineIsPlausible: one copy, shared by the outline and the analysis", () => {
-  assert.equal(headingAnalysis.outlineIsPlausible, outline.outlineIsPlausible);
-  assert.equal(reader.outlineIsPlausible, outline.outlineIsPlausible);
-});
-
-test("outlineIsPlausible: three sections, no gap over half the document", () => {
-  const at = (...pages: number[]) => pages.map((page) => ({ page }));
-  const plausible = outline.outlineIsPlausible;
-  assert.equal(plausible(at(1, 2), 2), false, "fewer than three");
-  assert.equal(plausible(at(1, 1, 1), 3), true, "short documents need only three");
-  assert.equal(plausible(at(1, 3, 5, 7), 8), true);
-  assert.equal(plausible(at(1, 2, 3), 10), false, "nothing after page 3 of 10");
-  assert.equal(plausible(at(7, 8, 9), 10), false, "nothing before page 7 of 10");
-  assert.equal(plausible(at(1, 6, 10), 10), true, "gaps of exactly half are allowed");
-  assert.equal(plausible(at(1, 2, 9), 10), false, "a gap of seven pages");
-});

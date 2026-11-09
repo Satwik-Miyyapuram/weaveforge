@@ -6,6 +6,8 @@
 //! coalesced with its neighbours. That keeps an author-year citation hyperref set as two
 //! boxes one citation rather than two.
 
+use serde::Deserialize;
+
 use crate::reader_analysis::citation_assembly::assemble_page_citations;
 use crate::reader_analysis::citations::{
     CitationPage, find_citation_candidates, find_pattern_citation_mentions,
@@ -19,6 +21,8 @@ use crate::reader_analysis::types::{
 };
 
 /// One page as the matcher reads it. Twin of `PageCitationInput`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PageCitationInput {
     /// Page number, 1-based.
     pub number: f64,

@@ -4,6 +4,7 @@
 pub mod bibliography;
 pub mod citation_assembly;
 pub mod citation_matcher;
+pub mod citation_style;
 pub mod citations;
 pub mod document_analysis;
 pub mod figure_mentions;
