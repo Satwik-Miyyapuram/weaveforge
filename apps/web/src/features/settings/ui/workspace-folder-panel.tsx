@@ -1,7 +1,8 @@
 "use client";
 
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
+import type { WorkspaceCommit } from "@weaveforge/core";
+import type { ImportDiff } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
