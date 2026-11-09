@@ -9,9 +9,6 @@
  * rather than silently returning a worse result.
  */
 
-import { relatedByPpr, type PprOptions } from "./personalized-pagerank.js";
-import type { WikiGraph } from "./wiki-graph.js";
-
 export type RelatedArm = "graph" | "lexical" | "semantic" | "tags" | "none";
 
 export interface RelatedResult {
@@ -33,49 +30,6 @@ export interface RelatedResult {
 
 /** Below this the seed has too little neighbourhood for a walk to say anything. */
 export const MIN_SEED_DEGREE_FOR_PPR = 3;
-
-export interface RelatedDeps {
-  graph: WikiGraph;
-  /** Lexical fallback: more-like-this over the seed's own text. */
-  lexical?(seedId: string, limit: number): readonly { id: string; score: number }[];
-  /** Last resort: documents sharing a tag with the seed. */
-  tagged?(seedId: string, limit: number): readonly { id: string; score: number }[];
-}
-
-/**
- * Related documents for a seed, trying graph expansion first and falling back.
- *
- * Each arm is tried in turn and the first non-empty one wins; an arm returning
- * nothing is not an error, it is information about the workspace.
- */
-export function findRelated(
-  seedId: string,
-  deps: RelatedDeps,
-  limit = 10,
-  options: PprOptions = {},
-): RelatedResult[] {
-  // The seed's own link count; the rest of the graph is not needed to decide.
-  const degree = deps.graph.edges.get(seedId)?.length ?? 0;
-
-  if (degree >= MIN_SEED_DEGREE_FOR_PPR) {
-    const hits = relatedByPpr(deps.graph, seedId, limit, options);
-    if (hits.length > 0) {
-      return hits.map((hit) => ({ ...hit, arm: "graph" as const }));
-    }
-  }
-
-  const lexical = deps.lexical?.(seedId, limit) ?? [];
-  if (lexical.length > 0) {
-    return lexical.map((hit) => ({ ...hit, arm: "lexical" as const }));
-  }
-
-  const tagged = deps.tagged?.(seedId, limit) ?? [];
-  if (tagged.length > 0) {
-    return tagged.map((hit) => ({ ...hit, arm: "tags" as const }));
-  }
-
-  return [];
-}
 
 /** Human-readable reason, so a thin result set is explained rather than puzzling. */
 export function explainArm(arm: RelatedArm): string {

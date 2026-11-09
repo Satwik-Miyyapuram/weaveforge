@@ -8,7 +8,9 @@ use crate::search::js_text::is_js_whitespace;
 pub const MAX_MODIFIED_DAYS: u32 = 36_500;
 
 /// Every entity kind the workspace index covers (TS `SEARCH_KINDS`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum SearchKind {

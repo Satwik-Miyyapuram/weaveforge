@@ -1,6 +1,147 @@
 /* @ts-self-types="./wf_wasm.d.ts" */
 
 /**
+ * Brute-force cosine index over normalized vectors.
+ */
+export class VectorIndex {
+    static __wrap(ptr) {
+        const obj = Object.create(VectorIndex.prototype);
+        obj.__wbg_ptr = ptr;
+        VectorIndexFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        VectorIndexFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_vectorindex_free(ptr, 0);
+    }
+    /**
+     * Insert or replace; `values` is `ids.length * dimensions` long and is all-or-nothing.
+     *
+     * # Errors
+     *
+     * Fails when `ids` is not a string array or `values` has the wrong length.
+     * @param {string[]} ids
+     * @param {Float32Array} values
+     */
+    add(ids, values) {
+        const ptr0 = passArrayF32ToWasm0(values, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.vectorindex_add(this.__wbg_ptr, ids, ptr0, len0);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Every id held, in slot order.
+     * @returns {string[]}
+     */
+    allIds() {
+        const ret = wasm.vectorindex_allIds(this.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * Drop every vector.
+     */
+    clear() {
+        wasm.vectorindex_clear(this.__wbg_ptr);
+    }
+    /**
+     * The width every vector must have.
+     * @returns {number}
+     */
+    get dimensions() {
+        const ret = wasm.vectorindex_dimensions(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Whether `id` is held.
+     * @param {string} id
+     * @returns {boolean}
+     */
+    has(id) {
+        const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.vectorindex_has(this.__wbg_ptr, ptr0, len0);
+        return ret !== 0;
+    }
+    /**
+     * Remove by id; unknown ids are ignored.
+     *
+     * # Errors
+     *
+     * Fails when `ids` is not a string array.
+     * @param {string[]} ids
+     */
+    remove(ids) {
+        const ret = wasm.vectorindex_remove(this.__wbg_ptr, ids);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Top `limit` by cosine similarity, best first; scores below `minScore` are dropped.
+     *
+     * # Errors
+     *
+     * Fails when `query` is not the index width.
+     * @param {Float32Array} query
+     * @param {number} limit
+     * @param {number} min_score
+     * @returns {{ id: string; score: number }[]}
+     */
+    search(query, limit, min_score) {
+        const ptr0 = passArrayF32ToWasm0(query, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.vectorindex_search(this.__wbg_ptr, ptr0, len0, limit, min_score);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * How many vectors are held.
+     * @returns {number}
+     */
+    get size() {
+        const ret = wasm.vectorindex_size(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * The packed bytes; read back with `vectorIndexFromBytes`.
+     * @returns {Uint8Array}
+     */
+    toBytes() {
+        const ret = wasm.vectorindex_toBytes(this.__wbg_ptr);
+        var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        return v1;
+    }
+    /**
+     * The stored unit vector for `id`; empty when absent (dimensions are at least 1).
+     * @param {string} id
+     * @returns {Float32Array}
+     */
+    vectorOf(id) {
+        const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.vectorindex_vectorOf(this.__wbg_ptr, ptr0, len0);
+        var v2 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v2;
+    }
+}
+if (Symbol.dispose) VectorIndex.prototype[Symbol.dispose] = VectorIndex.prototype.free;
+
+/**
  * [`acronyms_for_title`](acronyms::acronyms_for_title) as a JS array of strings.
  *
  * # Errors
@@ -161,6 +302,26 @@ export function analyzePdfDocument(pages, outline) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`annotation_doc_id`](search_document::annotation_doc_id).
+ * @param {string} annotation_id
+ * @returns {string}
+ */
+export function annotationDocId(annotation_id) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(annotation_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.annotationDocId(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -352,6 +513,26 @@ export function bodyLinksTo(body, target_key) {
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.bodyLinksTo(ptr0, len0, ptr1, len1);
     return ret !== 0;
+}
+
+/**
+ * [`bounded_body`](search_document::bounded_body).
+ * @param {string} body
+ * @returns {string}
+ */
+export function boundedBody(body) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.boundedBody(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -1291,6 +1472,23 @@ export function createReportSectionWith(input, id, now_iso) {
 }
 
 /**
+ * An empty index `dimensions` wide.
+ *
+ * # Errors
+ *
+ * Fails when `dimensions` is zero.
+ * @param {number} dimensions
+ * @returns {VectorIndex}
+ */
+export function createVectorIndex(dimensions) {
+    const ret = wasm.createVectorIndex(dimensions);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return VectorIndex.__wrap(ret[0]);
+}
+
+/**
  * [`crossref_to_metadata`] (TS `crossrefToMetadata`). A Crossref `message` as a paper.
  *
  * # Errors
@@ -1993,6 +2191,20 @@ export function extractHashtags(text) {
 }
 
 /**
+ * [`extract_headings`](search_document::extract_headings).
+ * @param {string | null} [body]
+ * @returns {string[]}
+ */
+export function extractHeadings(body) {
+    var ptr0 = isLikeNone(body) ? 0 : passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.extractHeadings(ptr0, len0);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
  * [`wf_core::papers::page_metadata::extract_page_metadata`]: metadata of a
  * fetched page (`PageMetadata` in `bindings.ts`).
  *
@@ -2293,6 +2505,31 @@ export function findQuoteMatches(text, quote) {
  */
 export function findReferenceSection(lines, body_font_size, page_count, furniture) {
     const ret = wasm.findReferenceSection(lines, body_font_size, page_count, furniture);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`find_related`](related::find_related); `[{ id, score, arm, arms?, similarity? }]`, best first.
+ *
+ * # Errors
+ *
+ * Fails if `graph` or `options` has the wrong shape.
+ * @param {any} graph
+ * @param {string} seed
+ * @param {number} limit
+ * @param {any} options
+ * @param {() => number} rng
+ * @param {(seedId: string, limit: number) => { id: string; score: number }[]} lexical
+ * @param {(seedId: string, limit: number) => { id: string; score: number }[]} tagged
+ * @returns {any}
+ */
+export function findRelated(graph, seed, limit, options, rng, lexical, tagged) {
+    const ptr0 = passStringToWasm0(seed, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.findRelated(graph, ptr0, len0, limit, options, rng, lexical, tagged);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4524,6 +4761,23 @@ export function nativeCitationMentions(page, refs, excluded) {
 }
 
 /**
+ * [`needs_disclaimer_acceptance`](user_settings::needs_disclaimer_acceptance).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ * @param {any} settings
+ * @returns {boolean}
+ */
+export function needsDisclaimerAcceptance(settings) {
+    const ret = wasm.needsDisclaimerAcceptance(settings);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`needs_org_setup`](org::needs_org_setup).
  *
  * # Errors
@@ -5737,6 +5991,63 @@ export function pasteLandsInVerbatimContext(document, offset) {
 }
 
 /**
+ * [`pdf_doc_id`](search_document::pdf_doc_id).
+ * @param {string} paper_id
+ * @param {number} page_index
+ * @returns {string}
+ */
+export function pdfDocId(paper_id, page_index) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.pdfDocId(ptr0, len0, page_index);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`pdf_doc_ids_for`](search_document::pdf_doc_ids_for).
+ * @param {string} paper_id
+ * @param {number} page_count
+ * @returns {string[]}
+ */
+export function pdfDocIdsFor(paper_id, page_count) {
+    const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pdfDocIdsFor(ptr0, len0, page_count);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
+ * [`pdf_page_href`](search_document::pdf_page_href).
+ * @param {string} paper_id
+ * @param {number} page_index
+ * @returns {string}
+ */
+export function pdfPageHref(paper_id, page_index) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.pdfPageHref(ptr0, len0, page_index);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`pdf_point_to_screen`] as `{ x, y }` (TS `pdfPointToScreen`).
  *
  * # Errors
@@ -6922,6 +7233,34 @@ export function screeningDecisionError(next, existing) {
 }
 
 /**
+ * [`search_revision`](search_document::search_revision).
+ *
+ * # Errors
+ *
+ * Fails if `docs` is not an array of search documents.
+ * @param {any} docs
+ * @returns {string}
+ */
+export function searchRevision(docs) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.searchRevision(docs);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`search_text_from_items`](analysis_text::search_text_from_items) (TS `searchTextFromItems`).
  *
  * # Errors
@@ -7964,6 +8303,44 @@ export function titleSimilarity(left, right) {
 }
 
 /**
+ * [`to_annotation_search_docs`](search_document::to_annotation_search_docs).
+ * `paper_titles` is a plain `{ paperId: title }` object.
+ *
+ * # Errors
+ *
+ * Fails if an argument does not match the expected shape.
+ * @param {any} annotations
+ * @param {any} paper_titles
+ * @param {any} degrees
+ * @returns {any}
+ */
+export function toAnnotationSearchDocs(annotations, paper_titles, degrees) {
+    const ret = wasm.toAnnotationSearchDocs(annotations, paper_titles, degrees);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_pdf_search_docs`](search_document::to_pdf_search_docs).
+ *
+ * # Errors
+ *
+ * Fails if `sources` or `degrees` do not match the expected shape.
+ * @param {any} sources
+ * @param {any} degrees
+ * @returns {any}
+ */
+export function toPdfSearchDocs(sources, degrees) {
+    const ret = wasm.toPdfSearchDocs(sources, degrees);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::blob_links::to_relative_blob_links`] for JS, as
  * `{ body, assets: [{ scheme, storagePath, folderPath }] }`.
  *
@@ -7980,6 +8357,25 @@ export function toRelativeBlobLinks(body, file_path) {
     const ptr1 = passStringToWasm0(file_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.toRelativeBlobLinks(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_search_docs`](search_document::to_search_docs). `degrees` is a plain
+ * `{ "kind:id": count }` object.
+ *
+ * # Errors
+ *
+ * Fails if `snapshot` or `degrees` do not match the expected shape.
+ * @param {any} snapshot
+ * @param {any} degrees
+ * @returns {any}
+ */
+export function toSearchDocs(snapshot, degrees) {
+    const ret = wasm.toSearchDocs(snapshot, degrees);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8401,6 +8797,25 @@ export function vaultPageSide(path, content) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Rebuild an index from `VectorIndex.toBytes()` output.
+ *
+ * # Errors
+ *
+ * Fails when the bytes are truncated, have trailing data, or repeat an id.
+ * @param {Uint8Array} bytes
+ * @returns {VectorIndex}
+ */
+export function vectorIndexFromBytes(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.vectorIndexFromBytes(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return VectorIndex.__wrap(ret[0]);
 }
 
 /**
@@ -8862,6 +9277,10 @@ function __wbg_get_imports() {
         __wbg___wbindgen_throw_41e9ee4f547fc59a: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
+        __wbg_call_16afc35a43d64f2a: function(arg0, arg1, arg2, arg3, arg4) {
+            const ret = arg0.call(arg1, getStringFromWasm0(arg2, arg3), arg4 >>> 0);
+            return ret;
+        },
         __wbg_call_6137034ef55c9d0f: function() { return handleError(function (arg0, arg1) {
             const ret = arg0.call(arg1);
             return ret;
@@ -9020,6 +9439,10 @@ function __wbg_get_imports() {
         "./wf_wasm_bg.js": import0,
     };
 }
+
+const VectorIndexFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_vectorindex_free(ptr, 1));
 
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();

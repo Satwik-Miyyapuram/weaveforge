@@ -1,100 +1,131 @@
 # Search
 
-One search box over the whole workspace — papers, notes, report sections,
-experiments, milestones, log entries, PDF text and annotations. It runs **in the
-browser**, over an index built from a snapshot of your project, so it works
-offline and never sends a query anywhere.
+Search is one box over the whole workspace: papers, notes, report sections,
+experiments, milestones, log entries, PDF text and annotations. It runs in your
+browser over an index built from your project, so it works offline and never
+sends a query anywhere.
 
-## Typing it wrong still finds it
+## How to
 
-Spelling is not a precondition. Measured against a corpus of real paper titles
-and seventeen plausible misspellings, search recovers **sixteen**:
+### Find something when you misspell it
 
-| you type | you get |
-|---|---|
-| `attension` | Attention Is All You Need |
-| `disentangelment` | Disentanglement reading cluster |
-| `nerual` | Neural Message Passing for Quantum Chemistry |
-| `abaltion` | Graph-prior module ablation |
-| `gan` | Generative Adversarial Networks |
-| `seuqence` | Sequence to Sequence Learning… |
+1. Type the word as you remember it, such as `attension` or `nerual`.
+2. Read the results. If nothing matches, search retries once with one more
+   edit allowed per term. You do not need to do anything.
 
-Three mechanisms, in the order they apply.
+Search recovers the intended paper in sixteen of seventeen plausible misspellings
+in our test corpus of real paper titles. The one it misses is a typo inside a
+three-character acronym, such as `vea` for `β-VAE`.
 
-### 1. Graduated fuzziness
+### Find a paper by its acronym
 
-Edit distance is allowed as a fraction of term length: none below four
-characters, 0.1 to five, 0.2 beyond. Short terms get none deliberately — at
-three characters most of the dictionary is one edit away, so tolerance there
-returns noise instead of the thing you meant.
+Type the acronym, such as `gan` for *Generative Adversarial Networks*. Search
+derives acronyms from each title when it builds the index.
 
-### 2. One more edit, but only when nothing matched
+### Narrow a search with filters
 
-A transposition — `nerual` for `neural`, `attnetion` for `attention` — is a
-single Damerau edit but **two** Levenshtein edits, and Levenshtein is what the
-index measures. A six-letter term is allowed one edit, so it can never reach its
-own transposition.
+1. Add a filter as `field:value`, such as `kind:note`, `tag:vae` or
+   `path:chapter-3`.
+2. Add `"exact phrase"` to match the words in order, or `-word` to exclude a term.
+3. Read the results. A query made only of filters lists matches rather than
+   ranking them.
 
-Raising the tolerance everywhere would fix that and make every working query
-worse, by pulling unrelated documents into results that were already correct.
-So the escalation is conditional: **if a query returns nothing, it is retried
-once with one more edit per term.** A query that found something is never
-touched, and the retry costs nothing on the path that matters — measured at
-3,000 documents, matching queries are unchanged and a non-matching query costs
-0.56 ms including the second pass.
+## Reference
 
-Long queries are exempt. Five words that match nothing usually mean the thing is
-genuinely absent, and loosening every term returns a pile of weak matches rather
-than the one right answer.
+### Query syntax
 
-### 3. Acronyms
+| Syntax | Meaning |
+| --- | --- |
+| `kind:<value>` or `type:<value>` | Limit to one kind of item |
+| `path:<value>` or `in:<value>` | Limit to items whose path matches. `in:` is the same filter |
+| `tag:<value>` | Limit to items with a tag. A leading `#` is ignored |
+| `modified:<n><unit>` | Limit to items changed within the last `n` days, weeks, months or years. Units are `d`, `w`, `m` and `y`. The span is capped at 36,500 days |
+| `"..."` | Match an exact phrase |
+| `-term` | Exclude items containing the term |
 
-`gan` is not a misspelling of *Generative Adversarial Networks* — it is three
-characters against ten, unreachable by any edit distance, and it is how people
-actually refer to papers. Initialisms are therefore derived from each title at
-index time and stored in `aliases`, which is already a boosted searchable field.
+### Field boosts
 
-The derivation skips grammar words (so it is `gan`, not `ganfi`), stops at a
-colon (paper titles are overwhelmingly `SHORTNAME: the long descriptive part`,
-and the initials of the second half are not a handle anyone uses), and also
-picks up an initialism the title already contains — `β-VAE`, `BERT`, `DDPM` —
-which is one word and would never survive the word-count rule on its own.
+Matches in a field score higher the more the field is boosted.
 
-## What it does not do
+| Field | Default boost |
+| --- | --- |
+| `title` | 8 |
+| `aliases` (derived acronyms) | 6 |
+| `headings` | 3 |
+| `tags` | 3 |
+| `path` | 2 |
+| `body` | 1 |
 
-- **No "did you mean".** The retry silently widens rather than suggesting a
-  correction, so there is no second click.
-- **No stemming.** `training` does not match `trained`. Fuzziness covers some of
-  this by accident, not by design.
-- **A typo inside a three-character acronym is not recovered** — `vea` will not
-  find `β-VAE`. Tolerance at that length matches too much to be worth it.
+Each boost can be changed in Settings, within 0 to 20. Values outside that range
+are clamped to it. Unknown field names are ignored.
 
-## Query syntax
+### Fuzziness by term length
 
-`kind:note`, `tag:vae`, `path:chapter-3`, `"exact phrase"`, and `-excluded`.
-Filters combine with terms; a query that is only filters enumerates rather than
-ranks.
+Length counts characters in the term.
 
-## Ranking
+| Term length | Edits allowed on the first pass | Edits allowed on a retry |
+| --- | --- | --- |
+| 3 or fewer | 0 | 0 |
+| 4 or 5 | 0.1 of the length, rounded | the same, plus 1 |
+| 6 or more | 0.2 of the length, rounded | the same, plus 1 |
 
-BM25 over boosted fields — `title` 8, `aliases` 6, `headings` 3, `tags` 3,
-`path` 2, `body` 1 — multiplied by a document signal: link degree first,
-recency only as a tiebreak. Field boosts and kind weighting are user settings.
+Retry happens only when the first pass returns no results, and only for queries
+of 1 to 4 terms. Terms shorter than 4 characters are never retried.
 
-An optional semantic arm can be turned on in Settings; when present its results
-are fused with the keyword arm rather than replacing them.
+### Ranking and recency
 
-## Where it lives
+Ranking is BM25 over the boosted fields above, multiplied by a document signal:
+link degree first. Recency multiplies the score by `1 + 0.15 × 0.5^(age ÷ 180 days)`.
+An item changed today gets up to 15% more score. That bonus halves every 180
+days and fades toward none. Recency can be switched off in Settings with
+`recencyBoost`.
 
-| | |
-|---|---|
-| Ranking and tuning | [`search-tuning.ts`](../../packages/core/src/search/search-tuning.ts) |
-| Acronyms | [`search-acronyms.ts`](../../packages/core/src/search/search-acronyms.ts) |
-| Retry policy | [`search-retry.ts`](../../packages/core/src/search/search-retry.ts) |
-| The one file that imports MiniSearch | [`minisearch-index.ts`](../../apps/web/src/features/search/infrastructure/minisearch-index.ts) |
+Items of a downranked kind are multiplied by 0.25. Downranking sinks them but
+does not hide them.
 
-The ranking rules live in `@weaveforge/core` deliberately, so they are testable
-without a search library and can be exposed as settings. `SEARCH_SCHEMA_VERSION`
-must be bumped whenever the indexed shape changes — a cached index from an older
-shape is discarded rather than migrated, because a subtly mismatched index
-returns wrong results indefinitely with no visible symptom.
+### Semantic results
+
+When semantic search is on in Settings, its results are fused with the keyword
+results rather than replacing them. The app drops semantic matches with a score
+below 0.2.
+
+### Limits
+
+| Limit | Value |
+| --- | --- |
+| Indexed body text per document | 256,000 characters |
+| Corpus size before a warning appears | 5,000 documents |
+| Recent searches kept | 12 |
+
+## How it works
+
+Search runs in your browser. The ranking rules live in the Rust core
+(`crates/wf-core/src/search/`), and the browser calls them through WebAssembly.
+The app builds the index from a snapshot of your project and rebuilds it when the
+content changes.
+
+Edit distance is allowed as a fraction of term length, and short terms get none
+on purpose. At three characters most of the dictionary is one edit away, so
+tolerance there returns noise instead of the word you meant.
+
+A transposition, such as `nerual` for `neural`, is one edit in Damerau distance
+but two in Levenshtein distance, which is what the index measures. A six-letter
+term allowed one edit can never reach its own transposition. Raising the
+tolerance everywhere would fix that, but it would pull unrelated documents into
+results that were already right. So the extra edit applies only on the retry.
+Long queries are exempt, because five words that match nothing usually mean the
+thing is genuinely absent.
+
+Acronyms are derived at index time from each title and stored as aliases. The
+derivation skips grammar words, stops at a colon, and also takes an initialism
+the title already contains, such as `β-VAE`, `BERT` or `DDPM`.
+
+Search does not stem. `training` does not match `trained`.
+
+Source: `crates/wf-core/src/search/`. The rules are in `search_tuning.rs`,
+`search_retry.rs`, `acronyms.rs`, `search_settings.rs` and `query.rs`.
+
+## Related
+
+- [Projects and workspaces](workspaces.md): the boundary search covers.
+- [Integrations](integrations.md): the MCP tools that search your workspace.

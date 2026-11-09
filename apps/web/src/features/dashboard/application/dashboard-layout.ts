@@ -18,7 +18,7 @@ import {
   normalizeSmLayout,
   packSmLayout,
 } from "./dashboard-layout-packing";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 
 export {
   closeLayoutGaps,
@@ -244,6 +244,7 @@ export function finalizeDashboardLayout(layout: DashboardLayout): DashboardLayou
 
 /** Parse layout JSON and apply compaction defaults for the active breakpoints. */
 export function parseDashboardLayout(raw: unknown): DashboardLayout | null {
-  const parsed = typedCore().parseDashboardLayout(raw);
+  // Rust keeps only cards with a known card type.
+  const parsed = readyCore().parseDashboardLayout(raw) as DashboardLayout | null;
   return parsed ? finalizeDashboardLayout(parsed) : null;
 }

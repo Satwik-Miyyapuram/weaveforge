@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DashboardLayout, IDashboardLayoutRepository } from "@weaveforge/core";
-import { parseDashboardLayout } from "@weaveforge/core";
 import { run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
 
 const TABLE = "projects";
 
@@ -16,7 +16,8 @@ export class PostgrestDashboardLayoutRepository implements IDashboardLayoutRepos
       .maybeSingle();
     if (error) throw error;
     if (!data?.dashboard_layout) return null;
-    return parseDashboardLayout(data.dashboard_layout);
+    // Rust keeps only cards with a known card type.
+    return readyCore().parseDashboardLayout(data.dashboard_layout) as DashboardLayout | null;
   }
 
   async save(projectId: string, layout: DashboardLayout): Promise<void> {

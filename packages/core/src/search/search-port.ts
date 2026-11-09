@@ -59,7 +59,7 @@ export interface SearchDoc {
    * Zero-based PDF page, for `pdf` documents only. Carried so a hit can
    * deep-link to the page the match is actually on.
    */
-  page?: number;
+  page?: number | null;
   /**
    * Wiki-graph link degree. Zero until the graph phase populates it; the
    * ranker treats it as the primary document-level signal once present.

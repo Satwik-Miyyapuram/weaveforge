@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { EmbedRequest, IEmbedder, SearchDoc } from "@weaveforge/core";
+import type { SearchDoc } from "@weaveforge/core";
+import type { EmbedRequest, IEmbedder } from "../application/embedder";
 import { SemanticIndex, documentIdOf } from "@/features/search/application/semantic-index";
 
 /**

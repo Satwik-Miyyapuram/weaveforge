@@ -10,12 +10,16 @@ import {
 } from "../pkg/wf_wasm.js";
 import type {
   AiAccessSettings,
-  AiPolicyDecision,
+  AiPolicyDenyReason,
   AiPolicyInput,
   AiProposalKind,
   AiReadCategory,
   AiResourceType,
 } from "./bindings.js";
+import type { ReadonlyInput } from "./readonly-input.js";
+
+/** Allowed, or denied with the reason (Rust sets `reason` exactly when `allowed` is false). */
+export type AiPolicyDecision = { allowed: true } | { allowed: false; reason: AiPolicyDenyReason };
 
 /** Read categories an AI session may be granted (TS `AI_READ_CATEGORIES`). */
 export const AI_READ_CATEGORIES: readonly AiReadCategory[] = [
@@ -56,13 +60,13 @@ export function aiReadCategoryForResource(resourceType: AiResourceType): AiReadC
 }
 
 /** Evaluate one policy input at an ISO time. */
-export function evaluateAiAccess(input: AiPolicyInput, now: string): AiPolicyDecision {
+export function evaluateAiAccess(input: ReadonlyInput<AiPolicyInput>, now: string): AiPolicyDecision {
   return rawEvaluateAiAccess(input, now) as AiPolicyDecision;
 }
 
 /** Single policy evaluator shared by in-app tools and the future MCP adapter. */
 export class AiAccessPolicy {
-  evaluate(input: AiPolicyInput & { now?: string }): AiPolicyDecision {
+  evaluate(input: ReadonlyInput<AiPolicyInput> & { now?: string }): AiPolicyDecision {
     // The clock is read here, not in WASM, so the Rust side stays pure.
     const { now, ...rest } = input;
     return evaluateAiAccess(rest, now ?? new Date().toISOString());

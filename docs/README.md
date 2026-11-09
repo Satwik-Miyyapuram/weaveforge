@@ -14,7 +14,12 @@ For somebody using the app.
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
 - [Organisations](using/organisations.md) — labs: create or join with an invite code, roles, who sees whom
 - [Paste](using/paste.md) — what happens to what you paste in
-- [Search](using/search.md)
+- [The AI assistant](using/ai-assistant.md) — what it may read, what it may suggest, and how grants expire
+- [Sharing](using/sharing.md) — share with one member, pick view, comment or edit, and how blanket shares work
+- [The dashboard](using/dashboard.md) — the eleven cards, how the layout is saved, and what happens to an unknown card
+- [Settings](using/settings.md) — appearance, your theme file, integration keys, and the disclaimer
+- [The wiki](using/wiki.md) — the generated index, merging two pages, and what a merge keeps
+- [Search](using/search.md) — one box over the workspace, typo recovery, acronyms, query filters, and how results are ranked
 - [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)

@@ -1,15 +1,8 @@
 import type { ICurrentUserProvider } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  EMPTY_SETTINGS,
-  hydrateUserSettings,
-  normalizeAppearance,
-  normalizeAiAccessSettings,
-  type SettingsMetadata,
-  type ISettingsRepository,
-  type UserSettings,
-} from "@weaveforge/core";
+import type { SettingsMetadata, ISettingsRepository, UserSettings } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 import { run } from "@/backend/providers/postgrest/row-access";
 
 /**
@@ -167,7 +160,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
 
   private async readSettings(): Promise<UserSettings> {
     const row = await this.readRow();
-    if (!row) return { ...EMPTY_SETTINGS };
+    if (!row) return { ...typedCore().EMPTY_SETTINGS };
     return this.fromRow(row, await this.secrets.load());
   }
 
@@ -179,15 +172,15 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
   }
 
   private fromRow(row: SettingsRow, secrets: Secrets): UserSettings {
-    return hydrateUserSettings({
+    return typedCore().hydrateUserSettings({
       zoteroApiKey: secrets.zoteroApiKey ?? undefined,
       zoteroLibrary: row.zotero_library ?? undefined,
       semanticScholarKey: secrets.semanticScholarKey ?? undefined,
       integrations: secrets.integrations ?? undefined,
       disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
       disclaimerVersion: row.disclaimer_version ?? undefined,
-      appearance: normalizeAppearance(row.appearance),
-      aiAccess: row.ai_access ? normalizeAiAccessSettings(row.ai_access as never) : undefined,
+      appearance: typedCore().normalizeAppearance(row.appearance),
+      aiAccess: row.ai_access ? typedCore().normalizeAiAccessSettings(row.ai_access as never) : undefined,
     });
   }
 
@@ -215,7 +208,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     return {
       disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
       disclaimerVersion: row.disclaimer_version ?? undefined,
-      appearance: normalizeAppearance(row.appearance),
+      appearance: typedCore().normalizeAppearance(row.appearance),
     };
   }
 
@@ -225,7 +218,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     // onto a minute-old copy could drop a field another tab just wrote. Only the
     // row is merged; the secrets below are replaced, so they are not read.
     const row = await this.readRow();
-    const existing = row ? this.fromRow(row, {}) : EMPTY_SETTINGS;
+    const existing = row ? this.fromRow(row, {}) : typedCore().EMPTY_SETTINGS;
     // Seal secrets first (owns credentials_enc + clears plaintext).
     await this.secrets.save({
       zoteroApiKey: settings.zoteroApiKey,

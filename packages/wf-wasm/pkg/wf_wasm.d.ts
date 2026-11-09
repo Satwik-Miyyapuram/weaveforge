@@ -2,6 +2,67 @@
 /* eslint-disable */
 
 /**
+ * Brute-force cosine index over normalized vectors.
+ */
+export class VectorIndex {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Insert or replace; `values` is `ids.length * dimensions` long and is all-or-nothing.
+     *
+     * # Errors
+     *
+     * Fails when `ids` is not a string array or `values` has the wrong length.
+     */
+    add(ids: string[], values: Float32Array): void;
+    /**
+     * Every id held, in slot order.
+     */
+    allIds(): string[];
+    /**
+     * Drop every vector.
+     */
+    clear(): void;
+    /**
+     * Whether `id` is held.
+     */
+    has(id: string): boolean;
+    /**
+     * Remove by id; unknown ids are ignored.
+     *
+     * # Errors
+     *
+     * Fails when `ids` is not a string array.
+     */
+    remove(ids: string[]): void;
+    /**
+     * Top `limit` by cosine similarity, best first; scores below `minScore` are dropped.
+     *
+     * # Errors
+     *
+     * Fails when `query` is not the index width.
+     */
+    search(query: Float32Array, limit: number, min_score: number): { id: string; score: number }[];
+    /**
+     * The packed bytes; read back with `vectorIndexFromBytes`.
+     */
+    toBytes(): Uint8Array;
+    /**
+     * The stored unit vector for `id`; empty when absent (dimensions are at least 1).
+     */
+    vectorOf(id: string): Float32Array;
+    /**
+     * The width every vector must have.
+     */
+    readonly dimensions: number;
+    /**
+     * How many vectors are held.
+     */
+    readonly size: number;
+}
+
+/**
  * [`acronyms_for_title`](acronyms::acronyms_for_title) as a JS array of strings.
  *
  * # Errors
@@ -81,6 +142,11 @@ export function aiReadCategoryForResource(resource_type: any): any;
  * Fails if `pages` is not an array of analysis pages or `outline` not an array of outline items.
  */
 export function analyzePdfDocument(pages: any, outline: any): any;
+
+/**
+ * [`annotation_doc_id`](search_document::annotation_doc_id).
+ */
+export function annotationDocId(annotation_id: string): string;
 
 /**
  * [`apply_comma_placement`] for JS, as `{ text, changed }`.
@@ -165,6 +231,11 @@ export function bodyFontSize(pages: any): number;
  * [`body_links_to`](page::body_links_to) (TS `bodyLinksTo`).
  */
 export function bodyLinksTo(body: string, target_key: string): boolean;
+
+/**
+ * [`bounded_body`](search_document::bounded_body).
+ */
+export function boundedBody(body: string): string;
 
 /**
  * [`build_annotation_sort_index`] (TS `buildAnnotationSortIndex`).
@@ -566,6 +637,15 @@ export function createPaperRelationWith(input: any, id: string, created_at: stri
 export function createReportSectionWith(input: any, id: string, now_iso: string): any;
 
 /**
+ * An empty index `dimensions` wide.
+ *
+ * # Errors
+ *
+ * Fails when `dimensions` is zero.
+ */
+export function createVectorIndex(dimensions: number): VectorIndex;
+
+/**
  * [`crossref_to_metadata`] (TS `crossrefToMetadata`). A Crossref `message` as a paper.
  *
  * # Errors
@@ -871,6 +951,11 @@ export function extractHashtagRefs(text?: string | null): any;
 export function extractHashtags(text?: string | null): string[];
 
 /**
+ * [`extract_headings`](search_document::extract_headings).
+ */
+export function extractHeadings(body?: string | null): string[];
+
+/**
  * [`wf_core::papers::page_metadata::extract_page_metadata`]: metadata of a
  * fetched page (`PageMetadata` in `bindings.ts`).
  *
@@ -1005,6 +1090,15 @@ export function findQuoteMatches(text: string, quote: any): any;
  * Fails if `lines` is not an array of text lines or `furniture` is not an array of booleans.
  */
 export function findReferenceSection(lines: any, body_font_size: number, page_count: number, furniture: any): any;
+
+/**
+ * [`find_related`](related::find_related); `[{ id, score, arm, arms?, similarity? }]`, best first.
+ *
+ * # Errors
+ *
+ * Fails if `graph` or `options` has the wrong shape.
+ */
+export function findRelated(graph: any, seed: string, limit: number, options: any, rng: () => number, lexical: (seedId: string, limit: number) => { id: string; score: number }[], tagged: (seedId: string, limit: number) => { id: string; score: number }[]): any;
 
 /**
  * [`flatten_tree`](tree::flatten_tree).
@@ -1958,6 +2052,15 @@ export function moveTab(layout: any, from_pane_id: string, from_index: number, t
 export function nativeCitationMentions(page: any, refs: any, excluded: any): any;
 
 /**
+ * [`needs_disclaimer_acceptance`](user_settings::needs_disclaimer_acceptance).
+ *
+ * # Errors
+ *
+ * Fails if `settings` cannot be read as JSON.
+ */
+export function needsDisclaimerAcceptance(settings: any): boolean;
+
+/**
  * [`needs_org_setup`](org::needs_org_setup).
  *
  * # Errors
@@ -2509,6 +2612,21 @@ export function parseZenodo(body: any): any;
 export function pasteLandsInVerbatimContext(document: string, offset: number): boolean;
 
 /**
+ * [`pdf_doc_id`](search_document::pdf_doc_id).
+ */
+export function pdfDocId(paper_id: string, page_index: number): string;
+
+/**
+ * [`pdf_doc_ids_for`](search_document::pdf_doc_ids_for).
+ */
+export function pdfDocIdsFor(paper_id: string, page_count: number): string[];
+
+/**
+ * [`pdf_page_href`](search_document::pdf_page_href).
+ */
+export function pdfPageHref(paper_id: string, page_index: number): string;
+
+/**
  * [`pdf_point_to_screen`] as `{ x, y }` (TS `pdfPointToScreen`).
  *
  * # Errors
@@ -2981,6 +3099,15 @@ export function screenPointToPdf(sx: number, sy: number, p: any): any;
 export function screeningDecisionError(next: any, existing: any): string | undefined;
 
 /**
+ * [`search_revision`](search_document::search_revision).
+ *
+ * # Errors
+ *
+ * Fails if `docs` is not an array of search documents.
+ */
+export function searchRevision(docs: any): string;
+
+/**
  * [`search_text_from_items`](analysis_text::search_text_from_items) (TS `searchTextFromItems`).
  *
  * # Errors
@@ -3393,6 +3520,25 @@ export function titleKey(title?: string | null): string | undefined;
 export function titleSimilarity(left: string, right: string): number;
 
 /**
+ * [`to_annotation_search_docs`](search_document::to_annotation_search_docs).
+ * `paper_titles` is a plain `{ paperId: title }` object.
+ *
+ * # Errors
+ *
+ * Fails if an argument does not match the expected shape.
+ */
+export function toAnnotationSearchDocs(annotations: any, paper_titles: any, degrees: any): any;
+
+/**
+ * [`to_pdf_search_docs`](search_document::to_pdf_search_docs).
+ *
+ * # Errors
+ *
+ * Fails if `sources` or `degrees` do not match the expected shape.
+ */
+export function toPdfSearchDocs(sources: any, degrees: any): any;
+
+/**
  * [`wf_core::sync::blob_links::to_relative_blob_links`] for JS, as
  * `{ body, assets: [{ scheme, storagePath, folderPath }] }`.
  *
@@ -3401,6 +3547,16 @@ export function titleSimilarity(left: string, right: string): number;
  * Fails when `body` or `file_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function toRelativeBlobLinks(body: string, file_path: string): any;
+
+/**
+ * [`to_search_docs`](search_document::to_search_docs). `degrees` is a plain
+ * `{ "kind:id": count }` object.
+ *
+ * # Errors
+ *
+ * Fails if `snapshot` or `degrees` do not match the expected shape.
+ */
+export function toSearchDocs(snapshot: any, degrees: any): any;
 
 /**
  * [`to_zotero_item`] (TS `toZoteroItem`). The `journalArticle` written to Zotero for a paper.
@@ -3549,6 +3705,15 @@ export function vaultPageBase(path: string, content: string): any;
  * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function vaultPageSide(path: string, content: string): any;
+
+/**
+ * Rebuild an index from `VectorIndex.toBytes()` output.
+ *
+ * # Errors
+ *
+ * Fails when the bytes are truncated, have trailing data, or repeat an id.
+ */
+export function vectorIndexFromBytes(bytes: Uint8Array): VectorIndex;
 
 /**
  * [`verdict_for`](screening::verdict_for) (TS `verdictFor`).
@@ -3702,6 +3867,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly __wbg_vectorindex_free: (a: number, b: number) => void;
     readonly acronymsForTitle: (a: number, b: number) => [number, number, number];
     readonly activateTab: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly activeTab: (a: any) => [number, number, number];
@@ -3711,6 +3877,7 @@ export interface InitOutput {
     readonly agreementBetween: (a: any, b: any, c: any) => [number, number, number];
     readonly aiReadCategoryForResource: (a: any) => [number, number, number];
     readonly analyzePdfDocument: (a: any, b: any) => [number, number, number];
+    readonly annotationDocId: (a: number, b: number) => [number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
     readonly applyDelta: (a: any, b: any, c: any) => [number, number, number];
     readonly applyGroupCommand: (a: any, b: number, c: any) => [number, number, number];
@@ -3721,6 +3888,7 @@ export interface InitOutput {
     readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
     readonly bodyFontSize: (a: any) => [number, number, number];
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
+    readonly boundedBody: (a: number, b: number) => [number, number];
     readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly buildLabSnapshotContent: (a: any) => [number, number, number];
@@ -3771,6 +3939,7 @@ export interface InitOutput {
     readonly createMilestoneWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createPaperRelationWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createReportSectionWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly createVectorIndex: (a: number) => [number, number, number];
     readonly crossrefToMetadata: (a: any, b: number, c: number) => [number, number, number];
     readonly decideAnnotationSync: (a: any, b: number, c: number) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -3805,6 +3974,7 @@ export interface InitOutput {
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractHashtagRefs: (a: number, b: number) => [number, number, number];
     readonly extractHashtags: (a: number, b: number) => [number, number];
+    readonly extractHeadings: (a: number, b: number) => [number, number];
     readonly extractPageMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly extractVenue: (a: number, b: number) => [number, number];
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
@@ -3820,6 +3990,7 @@ export interface InitOutput {
     readonly findPatternCitationMentions: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly findReferenceSection: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly findRelated: (a: any, b: number, c: number, d: number, e: any, f: any, g: any, h: any) => [number, number, number];
     readonly flattenTree: (a: any) => [number, number, number];
     readonly focusPane: (a: any, b: number, c: number) => [number, number, number];
     readonly focusedTabCount: (a: any) => [number, number, number];
@@ -3942,6 +4113,7 @@ export interface InitOutput {
     readonly milestoneInputError: (a: any) => [number, number, number, number];
     readonly moveTab: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly nativeCitationMentions: (a: any, b: any, c: any) => [number, number, number];
+    readonly needsDisclaimerAcceptance: (a: any) => [number, number, number];
     readonly needsOrgSetup: (a: any) => [number, number, number];
     readonly needsStandaloneRoleSync: (a: any, b: any, c: number) => [number, number, number];
     readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
@@ -4008,6 +4180,9 @@ export interface InitOutput {
     readonly parseWorkspaceFolder: (a: any) => [number, number, number];
     readonly parseZenodo: (a: any) => [number, number, number];
     readonly pasteLandsInVerbatimContext: (a: number, b: number, c: number) => [number, number, number];
+    readonly pdfDocId: (a: number, b: number, c: number) => [number, number];
+    readonly pdfDocIdsFor: (a: number, b: number, c: number) => [number, number];
+    readonly pdfPageHref: (a: number, b: number, c: number) => [number, number];
     readonly pdfPointToScreen: (a: number, b: number, c: any) => [number, number, number];
     readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
     readonly personalizedPageRank: (a: any, b: number, c: number, d: any, e: any) => [number, number, number];
@@ -4064,6 +4239,7 @@ export interface InitOutput {
     readonly sameValue: (a: any, b: any) => [number, number, number];
     readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
     readonly screeningDecisionError: (a: any, b: any) => [number, number, number, number];
+    readonly searchRevision: (a: any) => [number, number, number, number];
     readonly searchTextFromItems: (a: any) => [number, number, number];
     readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
     readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
@@ -4116,7 +4292,10 @@ export interface InitOutput {
     readonly titleFromFileName: (a: number, b: number) => [number, number];
     readonly titleKey: (a: number, b: number) => [number, number];
     readonly titleSimilarity: (a: number, b: number, c: number, d: number) => number;
+    readonly toAnnotationSearchDocs: (a: any, b: any, c: any) => [number, number, number];
+    readonly toPdfSearchDocs: (a: any, b: any) => [number, number, number];
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly toSearchDocs: (a: any, b: any) => [number, number, number];
     readonly toZoteroItem: (a: any) => [number, number, number];
     readonly toZoteroWritePayload: (a: any, b: number, c: number) => [number, number, number];
     readonly togglePreview: (a: any, b: number, c: number) => [number, number, number];
@@ -4136,6 +4315,17 @@ export interface InitOutput {
     readonly vaultImageMarkdown: (a: number, b: number, c: number, d: number) => [number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly vectorIndexFromBytes: (a: number, b: number) => [number, number, number];
+    readonly vectorindex_add: (a: number, b: any, c: number, d: number) => [number, number];
+    readonly vectorindex_allIds: (a: number) => [number, number, number];
+    readonly vectorindex_clear: (a: number) => void;
+    readonly vectorindex_dimensions: (a: number) => number;
+    readonly vectorindex_has: (a: number, b: number, c: number) => number;
+    readonly vectorindex_remove: (a: number, b: any) => [number, number];
+    readonly vectorindex_search: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly vectorindex_size: (a: number) => number;
+    readonly vectorindex_toBytes: (a: number) => [number, number];
+    readonly vectorindex_vectorOf: (a: number, b: number, c: number) => [number, number];
     readonly verdictFor: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly visibleRows: (a: any, b: any) => [number, number, number];
     readonly visualPageSize: (a: any, b: number) => [number, number, number];

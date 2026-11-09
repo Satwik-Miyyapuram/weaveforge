@@ -1,4 +1,4 @@
-import type { PdfIndexSource } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { FOLDER_CACHE_DIR } from "../infrastructure/vector-store";
 import { loadPdfTexts, removePdfTexts, savePdfText } from "../infrastructure/pdf-text-store";

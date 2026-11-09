@@ -6,7 +6,8 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 // Proves the Rust related-arm helpers return exactly what the TS originals in
 // packages/core/src/search/related.ts return: explainArm and MIN_SEED_DEGREE_FOR_PPR.
-// findRelated is not covered: it has no Rust port (see related.rs header).
+// findRelated has no TS original any more: it is Rust only (wf-core search::related),
+// tested by its literal Rust tests, and called through readyCore().findRelated.
 
 let rs: RustCore;
 before(async () => {

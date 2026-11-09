@@ -1,4 +1,4 @@
-import type { EmbedRequest, IEmbedder } from "@weaveforge/core";
+import type { EmbedRequest, IEmbedder } from "../application/embedder";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { DEFAULT_EMBEDDING_MODEL, embeddingProfile, type EmbeddingModelProfile } from "./embedding-models";
 

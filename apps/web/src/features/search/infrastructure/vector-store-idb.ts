@@ -6,15 +6,15 @@ import { warnOnce } from "@/lib/error-report/warn-once";
  *
  * Worth storing because they are expensive to produce: a corpus that takes
  * minutes to embed should not be re-embedded because a tab was closed. Written
- * as one record per project holding a single `ArrayBuffer` — thousands of small
+ * as one record per project holding a single byte buffer — thousands of small
  * rows would make the read slower than the arithmetic it saves.
  */
 
 export interface StoredVectors {
   model: string;
   dimensions: number;
-  ids: string[];
-  vectors: ArrayBuffer;
+  /** The Rust index blob (`VectorIndex.toBytes`): ids and vectors together. */
+  bytes: Uint8Array;
   /** Corpus fingerprint when stored. */
   revision: string;
   /** Per-document text hashes, so a reload re-embeds only what changed. */
