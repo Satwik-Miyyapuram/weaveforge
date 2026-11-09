@@ -36,7 +36,6 @@
  */
 
 import { extractWikilinks } from "../../vault/domain/vault-page.js";
-import { extractHashtagRefs } from "../../papers/domain/paper.js";
 import {
   conceptKey,
   type ConceptKind,
@@ -46,6 +45,7 @@ import {
   type ExtractionResult,
   type IConceptExtractor,
 } from "./ai-extraction.js";
+import { rust } from "../../../shared/rust.js";
 
 /** Below this a phrase is incidental capitalisation, not a name. */
 const MIN_MENTIONS = 2;
@@ -319,7 +319,7 @@ function harvestStated(doc: PreparedDocument): HarvestedMention[] {
   };
 
   const withoutLinks = withoutWikilinks(doc.raw);
-  for (const ref of extractHashtagRefs(withoutLinks)) record(ref.tag, ref.index, ref.length);
+  for (const ref of rust().extractHashtagRefs(withoutLinks)) record(ref.tag, ref.index, ref.length);
 
   for (const link of extractWikilinks(doc.raw)) {
     // `[[#Heading]]` and `[[|alias]]` name nothing to file.

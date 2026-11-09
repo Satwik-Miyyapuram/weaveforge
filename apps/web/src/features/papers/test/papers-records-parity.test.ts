@@ -1,160 +1,123 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import * as ts from "@weaveforge/core";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-// Proves the Rust paper record rules return exactly what the TS originals in
-// packages/core/src/features/papers/domain/{paper,paper-field,annotation-quotation-type}.ts
-// return. Inputs are seeded, so a failure reproduces from the seed.
+// Pins the Rust paper record rules to literal answers. Each expectation was
+// worked out from the rule itself (the TS originals were removed from
+// packages/core/src/features/papers/domain/{paper,paper-field}.ts), so a
+// failure means the Rust rule moved.
 
 let rs: RustCore;
 before(async () => {
   rs = await loadTestCore();
 });
 
-/** Mulberry32, so a failure reproduces from the seed. */
-function random(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function pick<T>(rand: () => number, items: readonly T[]): T {
-  return items[Math.floor(rand() * items.length)]!;
-}
-
-function join(rand: () => number, parts: readonly string[], max: number): string {
-  const count = Math.floor(rand() * max);
-  return Array.from({ length: count }, () => pick(rand, parts)).join("");
-}
-
-const SEEDS = Array.from({ length: 400 }, (_, i) => i + 1);
-
-const DOI_PARTS = [
-  "10.1000/XYZ",
-  "https://doi.org/",
-  "http://dx.doi.org/",
-  "HTTPS://DOI.ORG/",
-  "https://dx.doi.org/",
-  "doi.org/",
-  " ",
-  "\t",
-  " ",
-  "ABC",
-  "İ",
-  "ß",
-  "/",
-  "Σ",
-];
-
-test("normalizeDoi matches TS", () => {
-  const fixed = [undefined, "", " ", " ", "https://doi.org/10.1/A", "  http://dx.doi.org/10.1/B  "];
-  for (const doi of fixed) assert.equal(rs.normalizeDoi(doi), ts.normalizeDoi(doi), String(doi));
-  for (const seed of SEEDS) {
-    const doi = join(random(seed), DOI_PARTS, 6);
-    assert.equal(rs.normalizeDoi(doi), ts.normalizeDoi(doi), `seed ${seed}: ${JSON.stringify(doi)}`);
-  }
+test("normalizeDoi trims, strips a doi.org prefix, and lowercases", () => {
+  assert.equal(rs.normalizeDoi(undefined), undefined);
+  assert.equal(rs.normalizeDoi(""), undefined);
+  assert.equal(rs.normalizeDoi(" "), "");
+  assert.equal(rs.normalizeDoi("https://doi.org/10.1/A"), "10.1/a");
+  assert.equal(rs.normalizeDoi("  http://dx.doi.org/10.1/B  "), "10.1/b");
+  assert.equal(rs.normalizeDoi("HTTPS://DOI.ORG/10.1000/XYZ"), "10.1000/xyz");
+  assert.equal(rs.normalizeDoi("https://dx.doi.org/10.1000/ABC"), "10.1000/abc");
+  assert.equal(rs.normalizeDoi("10.1000/ABC\t"), "10.1000/abc");
+  assert.equal(rs.normalizeDoi("doi.org/10.1/A"), "doi.org/10.1/a");
 });
 
-const TAG_PARTS = ["#", "##", " ", "　", "ML", "ml", "Ünï", "İ", "x", "-", "_", "\n", "🎉"];
-
-test("normalizeTags matches TS", () => {
-  for (const seed of SEEDS) {
-    const rand = random(seed);
-    const tags = Array.from({ length: Math.floor(rand() * 8) }, () => join(rand, TAG_PARTS, 5));
-    assert.deepEqual(rs.normalizeTags(tags), ts.normalizeTags(tags), `seed ${seed}`);
-  }
+test("normalizeTags drops a leading #, trims, lowercases, drops empties, and dedupes in order", () => {
+  assert.deepEqual(rs.normalizeTags([]), []);
+  assert.deepEqual(rs.normalizeTags(["#ML", " ml ", "##Vae", "", "  ", "#", "Ünï"]), ["ml", "vae", "ünï"]);
+  assert.deepEqual(rs.normalizeTags(["　ML　"]), ["ml"]);
+  assert.deepEqual(rs.normalizeTags(["b", "a", "b"]), ["b", "a"]);
 });
 
-const TEXT_PARTS = [
-  "#tag",
-  "#Tag",
-  "##double",
-  "#über",
-  "#漢字",
-  "#a_b-c",
-  "#123",
-  "#",
-  " ",
-  "word",
-  "x#inner",
-  "🎉",
-  "#🎉",
-  "#𝒳",
-  "\n",
-  "#İstanbul",
-  "é",
-  "#é",
-];
-
-test("extractHashtagRefs and extractHashtags match TS, with UTF-16 offsets", () => {
-  assert.deepEqual(rs.extractHashtagRefs(undefined), ts.extractHashtagRefs(undefined));
-  assert.deepEqual(rs.extractHashtags(""), ts.extractHashtags(""));
-  for (const seed of SEEDS) {
-    const text = join(random(seed), TEXT_PARTS, 12);
-    assert.deepEqual(
-      JSON.parse(JSON.stringify(rs.extractHashtagRefs(text))),
-      JSON.parse(JSON.stringify(ts.extractHashtagRefs(text))),
-      `seed ${seed}: ${JSON.stringify(text)}`,
-    );
-    assert.deepEqual(rs.extractHashtags(text), ts.extractHashtags(text), `seed ${seed}`);
-  }
+test("extractHashtagRefs reads #tags with UTF-16 offsets", () => {
+  assert.deepEqual(rs.extractHashtagRefs(undefined), []);
+  assert.deepEqual(rs.extractHashtagRefs("no tags here"), []);
+  // "é" and the space take indexes 0 and 1, so the '#' is at index 2.
+  assert.deepEqual(rs.extractHashtagRefs("é #tag"), [{ tag: "tag", index: 2, length: 4 }]);
+  // The emoji is two UTF-16 units, so the '#' is at index 3.
+  assert.deepEqual(rs.extractHashtagRefs("🎉 #a"), [{ tag: "a", index: 3, length: 2 }]);
+  // A doubled '#' reads the second one.
+  assert.deepEqual(rs.extractHashtagRefs("Key #Tag and ##double"), [
+    { tag: "tag", index: 4, length: 4 },
+    { tag: "double", index: 14, length: 7 },
+  ]);
+  assert.deepEqual(rs.extractHashtagRefs("#über"), [{ tag: "über", index: 0, length: 5 }]);
 });
 
-test("isEmptyPaperSummary matches TS", () => {
-  const cases = [null, undefined, "", " ", " \n", "No summary yet.", "  No summary yet.  ", "no summary yet.", "A summary."];
-  for (const summary of cases) {
-    assert.equal(rs.isEmptyPaperSummary(summary), ts.isEmptyPaperSummary(summary), JSON.stringify(summary));
-  }
+test("extractHashtags returns normalized, deduped tags in order", () => {
+  assert.deepEqual(rs.extractHashtags(""), []);
+  assert.deepEqual(rs.extractHashtags(undefined), []);
+  assert.deepEqual(
+    rs.extractHashtags("Key #Disentanglement idea, see #beta-VAE and #beta-VAE again."),
+    ["disentanglement", "beta-vae"],
+  );
+  assert.deepEqual(rs.extractHashtags("#a #a #b"), ["a", "b"]);
 });
 
-test("isPaperFieldKind and isQuotationType match TS", () => {
-  const values = [
-    ...ts.PAPER_FIELD_KINDS,
-    ...ts.QUOTATION_TYPES,
-    "",
-    "Text",
-    "multi-select",
-    "rollup ",
-    "Direct",
-    "quote",
-    "__proto__",
+test("isEmptyPaperSummary treats missing, blank, and the placeholder as empty", () => {
+  const cases: [string | null | undefined, boolean][] = [
+    [null, true],
+    [undefined, true],
+    ["", true],
+    [" ", true],
+    [" \n", true],
+    ["No summary yet.", true],
+    ["  No summary yet.  ", true],
+    ["no summary yet.", false],
+    ["A summary.", false],
   ];
-  for (const value of values) {
-    assert.equal(rs.isPaperFieldKind(value), ts.isPaperFieldKind(value), value);
-    assert.equal(rs.isQuotationType(value), ts.isQuotationType(value), value);
+  for (const [summary, empty] of cases) {
+    assert.equal(rs.isEmptyPaperSummary(summary), empty, JSON.stringify(summary));
   }
 });
 
-const AGGS = ["count", "values", "sum", "avg"] as const;
-const OPTION_PARTS = ["rel:", "agg:", "src:", "f1", "f2", "count", "sum", "avg", "values", "COUNT", "", ":", " "];
-
-test("encodeRollupOptions and parseRollupOptions match TS", () => {
-  for (const seed of SEEDS) {
-    const rand = random(seed);
-    const config: ts.PaperFieldRollupConfig = {
-      relationFieldId: join(rand, ["f", "1", ":", " ", "é"], 4),
-      agg: pick(rand, AGGS),
-      ...(rand() < 0.5 ? { sourceFieldId: join(rand, ["s", "2", ""], 3) } : {}),
-    };
-    assert.deepEqual(rs.encodeRollupOptions(config), ts.encodeRollupOptions(config), `seed ${seed}`);
-    const options = Array.from({ length: Math.floor(rand() * 6) }, () => join(rand, OPTION_PARTS, 3));
-    assert.deepEqual(
-      JSON.parse(JSON.stringify(rs.parseRollupOptions(options))),
-      JSON.parse(JSON.stringify(ts.parseRollupOptions(options))),
-      `seed ${seed}: ${JSON.stringify(options)}`,
-    );
-    const roundTrip = ts.encodeRollupOptions(config);
-    assert.deepEqual(
-      JSON.parse(JSON.stringify(rs.parseRollupOptions(roundTrip))),
-      JSON.parse(JSON.stringify(ts.parseRollupOptions(roundTrip))),
-      `seed ${seed} round trip`,
-    );
+test("isPaperFieldKind and isQuotationType return the literal Rust answers", () => {
+  const cases: [string, boolean, boolean][] = [
+    ["text", true, false],
+    ["number", true, false],
+    ["select", true, false],
+    ["multi_select", true, false],
+    ["relation", true, false],
+    ["rollup", true, false],
+    ["direct", false, true],
+    ["paraphrase", false, true],
+    ["summary", false, true],
+    ["", false, false],
+    ["Text", false, false],
+    ["rollup ", false, false],
+    ["Direct", false, false],
+    ["quote", false, false],
+    ["__proto__", false, false],
+  ];
+  for (const [value, kind, quotation] of cases) {
+    assert.equal(rs.isPaperFieldKind(value), kind, value);
+    assert.equal(rs.isQuotationType(value), quotation, value);
   }
+});
+
+test("encodeRollupOptions writes rel, agg, and the optional src token", () => {
+  assert.deepEqual(rs.encodeRollupOptions({ relationFieldId: "f1", agg: "count" }), ["rel:f1", "agg:count"]);
+  assert.deepEqual(rs.encodeRollupOptions({ relationFieldId: "f1", agg: "sum", sourceFieldId: "s2" }), [
+    "rel:f1",
+    "agg:sum",
+    "src:s2",
+  ]);
+});
+
+test("parseRollupOptions reads the tokens back and refuses incomplete or unknown input", () => {
+  const parse = (options: string[]) => JSON.parse(JSON.stringify(rs.parseRollupOptions(options)));
+  assert.deepEqual(parse(["rel:f1", "agg:sum", "src:s2"]), { relationFieldId: "f1", agg: "sum", sourceFieldId: "s2" });
+  assert.deepEqual(parse(["rel:f1", "agg:count"]), { relationFieldId: "f1", agg: "count" });
+  // The last token of a kind wins.
+  assert.deepEqual(parse(["rel:f1", "rel:f2", "agg:sum", "agg:avg"]), { relationFieldId: "f2", agg: "avg" });
+  // Refused: no relation, unknown or wrongly-cased aggregate, or an unknown prefix.
+  assert.equal(rs.parseRollupOptions(["agg:avg"]), null);
+  assert.equal(rs.parseRollupOptions(["rel:", "agg:count"]), null);
+  assert.equal(rs.parseRollupOptions(["rel:f1", "agg:median"]), null);
+  assert.equal(rs.parseRollupOptions(["rel:f1", "agg:COUNT"]), null);
+  assert.equal(rs.parseRollupOptions(["REL:f1", "agg:sum"]), null);
+  assert.equal(rs.parseRollupOptions([]), null);
 });

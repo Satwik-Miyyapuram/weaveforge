@@ -1,4 +1,5 @@
-import { isQuotationType, type AnnotationQuotationType, type QuotationType } from "@weaveforge/core";
+import type { AnnotationQuotationType, QuotationType } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How annotation quotation type rows are stored, and how they map to the domain type.
@@ -18,7 +19,7 @@ export interface AnnotationQuotationTypeRow {
 }
 
 export function toDomain(row: AnnotationQuotationTypeRow): AnnotationQuotationType {
-  if (!isQuotationType(row.quotation_type)) {
+  if (!readyCore().isQuotationType(row.quotation_type)) {
     throw new Error(`Invalid quotation type in store: ${row.quotation_type}`);
   }
   return {

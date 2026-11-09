@@ -8,8 +8,8 @@
  */
 
 import { extractWikilinks, normalizeTitleKey } from "../features/vault/domain/vault-page.js";
-import { extractHashtags } from "../features/papers/domain/paper.js";
 import type { WorkspaceSnapshot } from "../workspace/workspace-snapshot.js";
+import { rust } from "../shared/rust.js";
 
 export interface WikiGraph {
   nodes: string[];
@@ -96,7 +96,7 @@ export function buildWikiGraph(snapshot: WorkspaceSnapshot): WikiGraph {
       byTag.set(tag, list);
     }
   };
-  for (const page of snapshot.vaultPages) collect(`note:${page.id}`, extractHashtags(page.body));
+  for (const page of snapshot.vaultPages) collect(`note:${page.id}`, rust().extractHashtags(page.body));
   for (const paper of snapshot.papers) collect(`paper:${paper.id}`, paper.tags);
 
   for (const members of byTag.values()) {

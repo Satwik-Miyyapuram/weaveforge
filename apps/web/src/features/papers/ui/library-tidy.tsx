@@ -2,13 +2,13 @@
 
 import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useState } from "react";
+import { type PaperSummary } from "@weaveforge/core";
 import {
   findDuplicateGroups,
   titleFixes,
   type DuplicateGroup,
-  type PaperSummary,
   type TitleFix,
-} from "@weaveforge/core";
+} from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import type { LibraryTidyScan, TidyDuplicateGroup } from "@/container/facades/library-tidy";
 import { formatError } from "@/lib/format-error";

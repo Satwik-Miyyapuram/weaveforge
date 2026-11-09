@@ -3,7 +3,7 @@ import type {
   IAnnotationQuotationTypeRepository,
   SaveAnnotationQuotationTypeInput,
 } from "@weaveforge/core";
-import { isQuotationType } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 import {
   type AnnotationQuotationTypeRow,
@@ -26,7 +26,7 @@ export class PostgrestAnnotationQuotationTypeRepository extends ProjectScopedPos
   protected readonly action = "managing quotation types";
 
   async save(input: SaveAnnotationQuotationTypeInput): Promise<AnnotationQuotationType> {
-    if (!isQuotationType(input.quotationType)) {
+    if (!readyCore().isQuotationType(input.quotationType)) {
       throw new Error(`Invalid quotation type: ${input.quotationType}`);
     }
     const userId = await this.session.requireUserId();

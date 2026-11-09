@@ -1,16 +1,6 @@
-import { normalizeDoi, type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import { type IMetadataSource, type PaperMetadata, type PaperRef } from "@weaveforge/core";
+import type { OpenAlexWork } from "@weaveforge/wasm";
 import { loadCore } from "@/lib/rust-core";
-
-interface OpenAlexWork {
-  id?: string;
-  title?: string;
-  doi?: string | null;
-  publication_year?: number;
-  authorships?: { author?: { display_name?: string } }[];
-  primary_location?: { source?: { display_name?: string }; pdf_url?: string | null };
-  best_oa_location?: { pdf_url?: string | null } | null;
-  cited_by_count?: number;
-}
 
 export class OpenAlexMetadataSource implements IMetadataSource {
   readonly id = "openalex";
@@ -35,16 +25,8 @@ export class OpenAlexMetadataSource implements IMetadataSource {
     const body = await response.json() as { results?: OpenAlexWork[] };
     const core = await loadCore();
     for (const work of body.results ?? []) {
-      if (!work.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: work.title, year: work.publication_year })) continue;
-      return {
-        title: work.title,
-        authors: (work.authorships ?? []).flatMap((entry) => entry.author?.display_name ? [entry.author.display_name] : []),
-        year: work.publication_year,
-        doi: normalizeDoi(work.doi ?? undefined),
-        venue: work.primary_location?.source?.display_name,
-        url: work.doi ?? work.id,
-        metadata: { openAccessPdf: work.best_oa_location?.pdf_url ?? work.primary_location?.pdf_url, citationCount: work.cited_by_count },
-      };
+      if (!work.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: work.title, year: work.publication_year ?? undefined })) continue;
+      return core.openAlexToMetadata(work);
     }
     throw new Error("No sufficiently similar OpenAlex match");
   }

@@ -1,6 +1,6 @@
 import { enumLabel } from "@/lib/enum-label";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@weaveforge/core";
-import { computeRollupFromIndex, createValueIndex } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export type ExtractionColumnId = "title" | "year" | "status" | `field:${string}`;
 
@@ -88,25 +88,42 @@ export function emptyCellPaperIds(
     .map((row) => row.paper.id);
 }
 
+/** Each rollup column's value per paper, keyed by the rollup field id. */
+function rollupColumns(
+  paperIds: readonly string[],
+  allValues: readonly PaperFieldValue[],
+  defs: readonly PaperFieldDef[],
+): Map<string, Map<string, PaperFieldValueData>> {
+  const core = readyCore();
+  const columns = new Map<string, Map<string, PaperFieldValueData>>();
+  for (const def of defs) {
+    if (def.kind !== "rollup") continue;
+    // One call per column rather than per cell: the values cross into wasm once per column.
+    const computed = core.computeRollupsForPapers(paperIds, def, defs, allValues);
+    const column = new Map<string, PaperFieldValueData>();
+    paperIds.forEach((id, i) => {
+      const value = computed[i];
+      if (value != null) column.set(id, value);
+    });
+    columns.set(def.id, column);
+  }
+  return columns;
+}
+
 /**
  * One paper's cells: its stored values, plus every rollup column computed.
  *
- * Both indexes are built once per table and passed in. This function used to
- * scan *every* project value to find this paper's (O(values) per row, so
- * quadratic in the table) and `computeRollup` built a fresh index per cell on
- * top of that. Fixing the rollup alone would have left the table quadratic.
+ * Both inputs are built once per table and passed in, so a row is a lookup.
  */
 function valueMapForPaper(
   paperId: string,
   valuesByPaper: Map<string, Map<string, PaperFieldValueData>>,
-  valuesByKey: Map<string, PaperFieldValue>,
-  defs: readonly PaperFieldDef[] = [],
+  columns: ReadonlyMap<string, ReadonlyMap<string, PaperFieldValueData>>,
 ): Map<string, PaperFieldValueData> {
   const map = new Map(valuesByPaper.get(paperId) ?? []);
-  for (const def of defs) {
-    if (def.kind !== "rollup") continue;
-    const computed = computeRollupFromIndex(paperId, def, defs, valuesByKey);
-    if (computed != null) map.set(def.id, computed);
+  for (const [fieldId, column] of columns) {
+    const computed = column.get(paperId);
+    if (computed != null) map.set(fieldId, computed);
   }
   return map;
 }
@@ -132,9 +149,9 @@ export function flattenPaperRows(
   defs: readonly PaperFieldDef[] = [],
 ): ExtractionRow[] {
   const byId = new Map(papers.map((p) => [p.id, p]));
-  // Hoisted out of the row loop: neither index depends on the paper.
+  // Hoisted out of the row loop: neither depends on the paper.
   const valuesByPaper = valuesByPaperIndex(allValues);
-  const valuesByKey = createValueIndex(allValues);
+  const columns = rollupColumns(paperIds, allValues, defs);
   const seen = new Set<string>();
   const rows: ExtractionRow[] = [];
   for (const id of paperIds) {
@@ -142,7 +159,7 @@ export function flattenPaperRows(
     seen.add(id);
     const paper = byId.get(id);
     if (!paper) continue;
-    rows.push({ paper, values: valueMapForPaper(id, valuesByPaper, valuesByKey, defs) });
+    rows.push({ paper, values: valueMapForPaper(id, valuesByPaper, columns) });
   }
   return rows;
 }

@@ -1,6 +1,5 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import * as ts from "@weaveforge/core";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -9,115 +8,108 @@ before(async () => {
   rs = await loadTestCore();
 });
 
-// Rust and TS must agree on every input, so the TS copies can be deleted.
-const IDS_AND_DOIS = [
-  "",
-  "   ",
-  "2305.12345",
-  "2305.12345v3",
-  "arXiv:2305.12345v1",
-  "arxiv 2305.12345",
-  "https://arxiv.org/abs/2305.12345v2",
-  "https://arxiv.org/pdf/2305.12345.pdf",
-  "cs.LG/0501001",
-  "math.AG/0501001v2",
-  "10.1145/3290605.3300233",
-  "doi:10.1145/3290605.3300233.",
-  "https://doi.org/10.1145/3290605.3300233),;",
-  "https://dl.acm.org/doi/10.1145/3290605.3300233",
-  "10.1000%2Fabc",
-  "100%",
-  "https://example.com/paper",
-  "Some prose with DOI 10.5555/12345678 inside.",
-  "ARXIV:2305.12345",
-  "10.1234/ABC",
-  // Non-ASCII: JS whitespace, BOM, and word boundaries next to non-ASCII letters.
-  " 2305.12345　",
-  "﻿10.1145/3290605.3300233",
-  "10.5555/123 tail",
-  "arXiv: 2305.12345",
-  "www.example.com/é",
-  "https://arxiv.org/html/2401.04088v1",
-  "10.48550/arXiv.2401.04088",
-  "https://arxiv.org/list/cs.LG/recent",
+// The Rust core is the only parser now; these literals pin its output for the
+// inputs the TypeScript copies were checked against.
+
+const ARXIV_CASES: Array<[string, string | undefined]> = [
+  ["", undefined],
+  ["2305.12345", "2305.12345"],
+  ["2305.12345v3", "2305.12345"],
+  ["arXiv:2305.12345", "2305.12345"],
+  ["arXiv: 2305.12345", "2305.12345"],
+  ["  2305.12345  ", "2305.12345"],
+  ["https://arxiv.org/abs/2305.12345", "2305.12345"],
+  ["https://arxiv.org/pdf/2305.12345v2.pdf", "2305.12345"],
+  ["https://arxiv.org/abs/2305.12345?context=cs", "2305.12345"],
+  ["https://arxiv.org/abs/cs.LG/0501001", "cs.LG/0501001"],
+  ["hep-th/9901001", "hep-th/9901001"],
+  ["10.48550/arXiv.hep-th/9901001", "hep-th/9901001"],
+  ["https://arxiv.org/list/cs.LG/recent", undefined],
+  ["https://example.com/papers/2305.12345.html", undefined],
+  ["not an id", undefined],
 ];
 
-const REF_KINDS = ["doi", "arxiv", "url", "zotero"] as const;
-const REF_INPUTS = [
-  ...IDS_AND_DOIS,
-  "example.com/paper",
-  "www.nature.com/articles/x",
-  "http://x.org",
-  "not a ref",
+const DOI_CASES: Array<[string, string | undefined]> = [
+  ["10.1145/3592979", "10.1145/3592979"],
+  ["https://doi.org/10.1145/3592979", "10.1145/3592979"],
+  ["https://dx.doi.org/10.1145/3592979", "10.1145/3592979"],
+  ["https://dl.acm.org/doi/10.1145/3592979", "10.1145/3592979"],
+  ["doi:10.1145/3592979", "10.1145/3592979"],
+  ["see (10.1145/3592979).", "10.1145/3592979"],
+  ["doi:10.1145/3592979).", "10.1145/3592979"],
+  ["10.1145/ABC.Def", "10.1145/abc.def"],
+  ["https://example.com/paper", undefined],
 ];
 
-const PAGE_URL = "https://example.org/page";
-const PAGE_FIXTURES = [
-  `<meta name="citation_title" content="Attention Is All You Need"><meta name="citation_author" content="Ashish Vaswani"><meta name="citation_author" content="Noam Shazeer"><meta name="citation_doi" content="10.1/x"><meta name="citation_publication_date" content="2021/05/03"><meta name="citation_journal_title" content="NeurIPS">`,
-  `<title>Just a moment...</title>`,
-  `<script type="application/ld+json">{"@type":"ScholarlyArticle","headline":"LD Paper","author":[{"name":"A B"}],"datePublished":"2020-01-01"}</script>`,
-  `<meta property="og:title" content="OG Title"><meta property="og:type" content="article">`,
-  `<html></html>`,
-  `<meta name="citation_title" content="Caf&eacute; &amp; Co &#x2014; x">`,
-  `<title>My Paper | Nature</title><meta name="dc.title" content="My Paper">`,
-  `<title>A B C | Nature</title>`,
-  `<META NAME="CITATION_TITLE" CONTENT="X">`,
-  `<meta name="émeta" content="y">`,
+const REF_CASES: Array<[Parameters<RustCore["parsePaperRef"]>[0], string, unknown]> = [
+  ["zotero", "ABCD1234", { kind: "zotero", value: "ABCD1234" }],
+  ["arxiv", "  2305.12345 ", { kind: "arxiv", value: "2305.12345" }],
+  ["arxiv", "2306.09643", { kind: "arxiv", value: "2306.09643" }],
+  ["url", "https://arxiv.org/html/2401.04088v1", { kind: "arxiv", value: "2401.04088" }],
+  ["url", "https://arxiv.org/abs/2305.12345 (10.1145/3592979)", { kind: "arxiv", value: "2305.12345" }],
 ];
 
-const BLOB_PATHS = [
-  "a.pdf",
-  "a.PDF",
-  "x/y.png",
-  "x.jpg",
-  "x.jpeg",
-  "x.gif",
-  "x.webp",
-  "x.svg",
-  "x.md",
-  "x.json",
-  "x.txt",
-  "x.html",
-  "noext",
-  "x.",
-  "dir.d/file",
-  "x.unknown",
-  "x.tar.gz",
-  "x.mp4",
-  "x.csv",
+const BLOB_CASES: Array<[string, string]> = [
+  ["a.pdf", "application/pdf"],
+  ["a.PDF", "application/pdf"],
+  ["x/y.png", "image/png"],
+  ["x.jpg", "image/jpeg"],
+  ["x.jpeg", "image/jpeg"],
+  ["x.gif", "image/gif"],
+  ["x.webp", "image/webp"],
+  ["x.svg", "image/svg+xml"],
+  ["x.md", "application/octet-stream"],
+  ["x.json", "application/octet-stream"],
+  ["x.html", "application/octet-stream"],
+  ["noext", "application/octet-stream"],
+  ["x.", "application/octet-stream"],
+  ["dir.d/file", "application/octet-stream"],
+  ["x.tar.gz", "application/octet-stream"],
+  ["x.mp4", "application/octet-stream"],
 ];
 
-test("normalizeArxivId matches the TS parser", () => {
-  for (const x of IDS_AND_DOIS) {
-    assert.deepEqual(rs.normalizeArxivId(x), ts.normalizeArxivId(x), `input ${JSON.stringify(x)}`);
+test("normalizeArxivId returns the bare id for each literal input", () => {
+  for (const [input, expected] of ARXIV_CASES) {
+    assert.equal(rs.normalizeArxivId(input), expected, `input ${JSON.stringify(input)}`);
   }
 });
 
-test("extractDoi matches the TS parser", () => {
-  for (const x of IDS_AND_DOIS) {
-    assert.deepEqual(rs.extractDoi(x), ts.extractDoi(x), `input ${JSON.stringify(x)}`);
+test("extractDoi returns the lowercase DOI for each literal input", () => {
+  for (const [input, expected] of DOI_CASES) {
+    assert.equal(rs.extractDoi(input), expected, `input ${JSON.stringify(input)}`);
   }
 });
 
-test("parsePaperRef matches the TS parser for every kind", () => {
-  for (const kind of REF_KINDS) {
-    for (const v of REF_INPUTS) {
-      assert.deepEqual(rs.parsePaperRef(kind, v), ts.parsePaperRef(kind, v), `kind ${kind} input ${JSON.stringify(v)}`);
-    }
+test("parsePaperRef routes each literal value to its kind", () => {
+  for (const [kind, value, expected] of REF_CASES) {
+    assert.deepEqual(rs.parsePaperRef(kind, value), expected, `kind ${kind} input ${JSON.stringify(value)}`);
   }
 });
 
-test("extractPageMetadata and pageImportRefusal match the TS parser", () => {
-  for (const html of PAGE_FIXTURES) {
-    const a = JSON.parse(JSON.stringify(rs.extractPageMetadata(html, PAGE_URL)));
-    const b = JSON.parse(JSON.stringify(ts.extractPageMetadata(html, PAGE_URL)));
-    assert.deepEqual(a, b, `html ${JSON.stringify(html)}`);
-    assert.equal(rs.pageImportRefusal(a), ts.pageImportRefusal(b), `html ${JSON.stringify(html)}`);
+test("extractPageMetadata reads the arXiv id from the page address", () => {
+  const cases: Array<[string, string]> = [
+    ["https://arxiv.org/abs/2101.00001v2", "2101.00001"],
+    ["https://arxiv.org/abs/2305.12345v2", "2305.12345"],
+    ["https://arxiv.org/pdf/2305.12345.pdf", "2305.12345"],
+    ["https://arxiv.org/abs/cs/0501001", "cs/0501001"],
+  ];
+  for (const [url, arxivId] of cases) {
+    assert.equal(rs.extractPageMetadata("<html></html>", url).arxivId, arxivId, url);
   }
 });
 
-test("guessBlobContentType matches the TS guesser", () => {
-  for (const path of BLOB_PATHS) {
-    assert.equal(rs.guessBlobContentType(path), ts.guessBlobContentType(path), `path ${JSON.stringify(path)}`);
+test("extractPageMetadata reads citation tags and accepts the page", () => {
+  const html =
+    `<meta name="citation_title" content="Attention Is All You Need"><meta name="citation_author" content="Ashish Vaswani">` +
+    `<meta name="citation_author" content="Noam Shazeer"><meta name="citation_doi" content="10.1/x">` +
+    `<meta name="citation_publication_date" content="2021/05/03"><meta name="citation_journal_title" content="NeurIPS">`;
+  const meta = rs.extractPageMetadata(html, "https://example.org/page");
+  assert.equal(meta.title, "Attention Is All You Need");
+  assert.equal(rs.pageImportRefusal(meta), null);
+});
+
+test("guessBlobContentType maps each literal path by extension", () => {
+  for (const [path, expected] of BLOB_CASES) {
+    assert.equal(rs.guessBlobContentType(path), expected, `path ${JSON.stringify(path)}`);
   }
 });

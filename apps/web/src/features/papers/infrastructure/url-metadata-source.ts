@@ -1,6 +1,4 @@
 import {
-  isPlaceholderTitle,
-  titleFromFileName,
   type IMetadataSource,
   type PaperMetadata,
   type PaperRef,
@@ -8,6 +6,7 @@ import {
 import { authHeaders } from "@/lib/auth-headers";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import type { UrlMetaResponse } from "@weaveforge/wasm";
 import { loadCore } from "@/lib/rust-core";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "@/features/reader/application/paper-html-rules";
 import { relayUrl } from "@/lib/relay-url";
@@ -30,17 +29,6 @@ import { relayUrl } from "@/lib/relay-url";
  * but says it is an article (JSON-LD, OpenGraph), and is accepted on that.
  */
 
-interface UrlMetaResponse {
-  title?: string;
-  authors?: string[];
-  year?: number;
-  venue?: string;
-  doi?: string;
-  arxivId?: string;
-  abstract?: string;
-  url: string;
-}
-
 export class UrlMetadataSource implements IMetadataSource {
   readonly id = "url";
 
@@ -59,7 +47,8 @@ export class UrlMetadataSource implements IMetadataSource {
 
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
     const d = this.inShell() ? await this.readInShell(ref.value.trim()) : await this.readViaRoute(ref.value.trim());
-    return this.toMetadata(d);
+    const core = await loadCore();
+    return core.urlMetaToMetadata(d);
   }
 
   /** The desktop path: the relay fetches the page, the parser runs here. */
@@ -109,27 +98,4 @@ export class UrlMetadataSource implements IMetadataSource {
     return (await res.json()) as UrlMetaResponse;
   }
 
-  private toMetadata(d: UrlMetaResponse): PaperMetadata {
-    if (!d.title) {
-      throw new Error("That page has no title to file the paper under. Add the paper manually.");
-    }
-    // A page with no citation tags falls back to its <title>, which on a
-    // publisher's PDF viewer or catalogue is the site's name for the page, not
-    // the paper's. Imported, it becomes a row called "Catalog Page".
-    if (isPlaceholderTitle(d.title)) {
-      throw new Error(
-        `That page is titled "${d.title.trim()}", which names the page, not a paper. Add it by DOI or arXiv id instead.`,
-      );
-    }
-    return {
-      title: titleFromFileName(d.title),
-      authors: d.authors ?? [],
-      year: d.year,
-      venue: d.venue,
-      doi: d.doi,
-      arxivId: d.arxivId,
-      abstract: d.abstract,
-      url: d.url,
-    };
-  }
 }

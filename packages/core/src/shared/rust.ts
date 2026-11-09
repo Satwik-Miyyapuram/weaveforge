@@ -78,6 +78,14 @@ export interface JsonDiff {
   counts: Record<ImportAction, number>;
 }
 
+import type { PaperRef } from "../features/papers/application/metadata-source.js";
+import type { HashtagRef } from "../features/papers/domain/paper.js";
+import type { PaperFieldKind, PaperFieldRollupConfig } from "../features/papers/domain/paper-field.js";
+import type {
+  EuropePmcAnswer,
+  OpenAccessCandidate,
+} from "../features/papers/application/open-access.js";
+
 export interface RustCoreFns {
   normalizeDoi(doi?: string): string | undefined;
   projectName(name: string): string | undefined;
@@ -186,6 +194,33 @@ export interface RustCoreFns {
   decideGitSyncPath(relPath: string, sizeBytes: number, maxFileBytes?: number): GitSyncDecision;
   isUnderIgnoredFolder(relPath: string): boolean;
   entityDir(type: WorkspaceEntityType, projectRoot?: string): string;
+  // papers: open access
+  resolveArxivId(arxivId: string | null | undefined, doi: string | null | undefined): string | undefined;
+  cleanPmcid(id: string | null | undefined): string | undefined;
+  knownCandidates(knownPdf: string | null | undefined, page: string | null | undefined): OpenAccessCandidate[];
+  pmcCandidates(pmcid: string, license?: string): OpenAccessCandidate[];
+  arxivCandidates(arxivId: string): OpenAccessCandidate[];
+  parseOpenalex(body: unknown): OpenAccessCandidate[];
+  parseUnpaywall(body: unknown): OpenAccessCandidate[];
+  parseSemanticScholar(body: unknown): OpenAccessCandidate[];
+  parseEuropePmc(body: unknown): EuropePmcAnswer;
+  parseBiorxiv(body: unknown, server: string): OpenAccessCandidate[];
+  parseDoaj(body: unknown): OpenAccessCandidate[];
+  parseZenodo(body: unknown): OpenAccessCandidate[];
+  parseHal(body: unknown): OpenAccessCandidate[];
+  rankOpenAccessCandidates(candidates: readonly OpenAccessCandidate[]): OpenAccessCandidate[];
+  // papers
+  titleKey(title?: string | null): string | undefined;
+  isPlaceholderTitle(title?: string | null): boolean;
+  titleFromFileName(title: string): string;
+  parsePaperRef(kind: PaperRef["kind"], value: string): PaperRef;
+  normalizeTags(tags: string[]): string[];
+  extractHashtagRefs(text?: string): HashtagRef[];
+  extractHashtags(text?: string): string[];
+  isEmptyPaperSummary(summary: string | null | undefined): boolean;
+  isPaperFieldKind(value: string): value is PaperFieldKind;
+  encodeRollupOptions(config: PaperFieldRollupConfig): string[];
+  parseRollupOptions(options: readonly string[]): PaperFieldRollupConfig | null;
 }
 
 let core: RustCoreFns | null = null;

@@ -15,6 +15,7 @@ For somebody using the app.
 - [Organisations](using/organisations.md) — labs: create or join with an invite code, roles, who sees whom
 - [Paste](using/paste.md) — what happens to what you paste in
 - [Search](using/search.md)
+- [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension
