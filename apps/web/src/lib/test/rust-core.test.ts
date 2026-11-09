@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { rust } from "@weaveforge/core";
 import { loadCore, readyCore } from "../rust-core";
 
 const wasm = readFileSync(new URL("../../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url));
@@ -44,4 +45,9 @@ test("loadCore loads the module once", async () => {
 test("readyCore returns the core once loadCore has resolved", async () => {
   const core = await loadCore(wasm);
   assert.equal(readyCore(), core);
+});
+
+test("loadCore hands the core to packages/core, so core glue calls Rust", async () => {
+  await loadCore(wasm);
+  assert.equal(rust().normalizeDoi("https://doi.org/10.1145/3592979"), "10.1145/3592979");
 });

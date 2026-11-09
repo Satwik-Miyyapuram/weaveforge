@@ -6,6 +6,8 @@
  * passes nothing and the browser fetches the module next to the glue.
  * `readyCore()` returns it synchronously once loaded.
  */
+import { setRustCore } from "@weaveforge/core";
+
 export type RustCore = typeof import("@weaveforge/wasm");
 
 let loaded: Promise<RustCore> | null = null;
@@ -18,6 +20,7 @@ export function loadCore(source?: BufferSource): Promise<RustCore> {
         source === undefined ? undefined : { module_or_path: source },
       );
       ready = core;
+      setRustCore(core);
       return core;
     })
     .catch((error: unknown) => {
