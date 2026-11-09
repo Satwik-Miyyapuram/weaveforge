@@ -210,7 +210,7 @@ export function indexFromAnalysis(
     if (!pageLinks.length) continue;
     const text = texts.get(page.pageNumber) ?? "";
     const hits = hitsFor(page.pageNumber);
-    const { spans } = readyCore().coveredTextSpans({ number: page.pageNumber, items: page.items }, pageLinks) as {
+    const { spans } = readyCore().coveredTextSpans({ number: page.pageNumber, items: [...page.items] }, [...pageLinks]) as {
       spans: { start: number; end: number; link: PdfLink }[];
     };
     for (const span of spans) {
@@ -273,7 +273,7 @@ export function buildReferenceIndex(
     pages.map((page) => ({
       pageNumber: page.pageNumber,
       items: [...page.items],
-      links: page.links ?? [],
+      links: [...(page.links ?? [])],
     })),
     outline,
   ) as DocumentAnalysis;

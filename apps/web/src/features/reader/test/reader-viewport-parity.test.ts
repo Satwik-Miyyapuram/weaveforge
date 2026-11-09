@@ -84,8 +84,8 @@ test("pdfPointToScreen keeps a page corner inside the page box at every rotation
     const s = rs.projectedPageSize(p);
     for (const [x, y] of corners) {
       const q = rs.pdfPointToScreen(x, y, p);
-      assert.ok(q.x >= -1e-6 && q.x <= s.width + 1e-6, `x at ${rotation}`);
-      assert.ok(q.y >= -1e-6 && q.y <= s.height + 1e-6, `y at ${rotation}`);
+      assert.ok(q.x >= -1e-6 && q.x <= (s.width ?? 0) + 1e-6, `x at ${rotation}`);
+      assert.ok(q.y >= -1e-6 && q.y <= (s.height ?? 0) + 1e-6, `y at ${rotation}`);
     }
   }
 });

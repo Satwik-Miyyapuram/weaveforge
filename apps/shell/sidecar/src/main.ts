@@ -153,8 +153,12 @@ async function main(): Promise<void> {
     return;
   }
   const { dataDir, migrations, backupsDir, migrateFrom } = parsed;
-  // The Rust core, registered before any handler runs. The .wasm sits beside main.mjs in the staged layout (stage.mjs).
-  rustWasm.initSync({ module: fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "wf_wasm_bg.wasm")) });
+  // The Rust core, registered before any handler runs. The .wasm sits beside main.mjs in the staged layout (stage.mjs);
+  // run from source (tests, `tsx src/main.ts`) it is the repo build in packages/wf-wasm/pkg.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const staged = path.join(here, "wf_wasm_bg.wasm");
+  const wasmPath = fs.existsSync(staged) ? staged : path.join(here, "../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm");
+  rustWasm.initSync({ module: fs.readFileSync(wasmPath) });
   setRustCore(rustWasm as never);
 
   if (migrateFrom !== undefined && !migrateOldData(migrateFrom, path.dirname(dataDir))) return;

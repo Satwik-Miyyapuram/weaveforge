@@ -7,14 +7,16 @@
  */
 
 import type {
+  IWorkspaceFs,
+  VaultPageBase,
+} from "@weaveforge/core";
+import type {
   ImportAction,
   ImportDiff,
   ImportDiffEntry,
-  IWorkspaceFs,
   ImportMergeDetail,
   MergeFieldDispute,
-  VaultPageBase,
-} from "@weaveforge/core";
+} from "@weaveforge/wasm";
 import type { HunkPick } from "@/lib/rust-core";
 import type { RustCore } from "@/lib/rust-core";
 

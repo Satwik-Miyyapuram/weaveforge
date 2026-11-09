@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import { digestText, type ImportDiffEntry } from "@weaveforge/core";
+import { digestText } from "@weaveforge/core";
+import type { ImportDiffEntry } from "@weaveforge/wasm";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

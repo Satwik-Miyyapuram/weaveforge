@@ -3,13 +3,15 @@ import {
   FOLDER_DRAFTS_DIR,
   NoOpWorkspaceGit,
   idSuffix,
-  type ImportDiff,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type MirrorResult,
   type JsonDiff,
   type WorkspaceCommit,
 } from "@weaveforge/core";
+import type {
+  ImportDiff,
+} from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-library-pdfs";
 import { desktop } from "@/lib/desktop/desktop-bridge";

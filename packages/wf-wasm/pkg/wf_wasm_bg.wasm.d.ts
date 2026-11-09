@@ -104,6 +104,7 @@ export const formatInviteCode: (a: number, b: number) => [number, number];
 export const formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
 export const formatMetricValue: (a: number, b: number, c: number) => [number, number];
 export const formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
+export const fromRelativeBlobLinks: (a: number, b: number, c: any) => [number, number, number, number];
 export const furnitureKey: (a: number, b: number) => [number, number];
 export const furnitureLines: (a: any) => [number, number, number];
 export const fuseRankings: (a: any, b: number, c: number) => [number, number, number];

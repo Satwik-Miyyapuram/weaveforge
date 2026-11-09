@@ -869,6 +869,17 @@ export function formatMetricValue(metric: string, value: number): string;
 export function formatPaperCitation(paper: any, format: string): string;
 
 /**
+ * [`wf_core::sync::blob_links::from_relative_blob_links_mapped`] for JS. `resolved`
+ * is `{ "assets/<scope>/<path>": storagePath }`.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `resolved` is
+ * not an object of strings.
+ */
+export function fromRelativeBlobLinks(body: string, resolved: any): string;
+
+/**
  * [`furniture_key`].
  */
 export function furnitureKey(s: string): string;
@@ -3002,6 +3013,7 @@ export interface InitOutput {
     readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
     readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly fromRelativeBlobLinks: (a: number, b: number, c: any) => [number, number, number, number];
     readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly furnitureLines: (a: any) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];

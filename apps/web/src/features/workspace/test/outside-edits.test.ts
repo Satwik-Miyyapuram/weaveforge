@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ChangeSide, ImportAction, ImportDiffEntry, JsonDiffEntry } from "@weaveforge/core";
+import type { ChangeSide, JsonDiffEntry } from "@weaveforge/core";
+import type { ImportAction, ImportDiffEntry } from "@weaveforge/wasm";
 
 import {
   applyOutsideEdits,
