@@ -1,9 +1,10 @@
 import type { IShareRepository } from "../../sharing/domain/share-repository.js";
-import { shareCoversResource } from "../../sharing/domain/share.js";
+
 import type { AddPaperUseCase } from "../../papers/application/add-paper.use-case.js";
 import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
 import type { Paper } from "../../papers/domain/paper.js";
 import { LibraryPinError } from "../domain/library-pin.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface DuplicateSharedPaperDeps {
   shares: IShareRepository;
@@ -18,7 +19,7 @@ export class DuplicateSharedPaperUseCase {
   async execute(input: { resourceId: string; ownerId: string }): Promise<Paper> {
     const shares = await this.deps.shares.listSharedWithMe("paper");
     const allowed = shares.some((s) =>
-      shareCoversResource(s, "paper", input.resourceId, input.ownerId),
+      rust().shareCoversResource(s, "paper", input.resourceId, input.ownerId),
     );
     if (!allowed) {
       throw new LibraryPinError("This paper is not shared with you.");

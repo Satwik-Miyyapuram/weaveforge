@@ -4,11 +4,13 @@
 //! Offsets and lengths are UTF-16 code units, as JS counts them. Code masking keeps the
 //! input's offsets by replacing each match with spaces of the same UTF-16 length.
 
+use std::cmp::Ordering;
 use std::sync::LazyLock;
 
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
 
+use crate::js_collate::locale_compare;
 use crate::papers::js_regex::compile;
 use crate::search::js_text::{is_js_whitespace, utf16_len};
 use crate::sync::markdown_image::{
@@ -377,6 +379,238 @@ pub fn vault_body_preview(body: &str, max: usize) -> String {
     }
 }
 
+/// A vault page's card/tree projection (TS `VaultPageSummary`). Optional fields are left out of
+/// the JSON when absent, as the TS object omits them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[allow(missing_docs)]
+pub struct VaultPageSummary {
+    pub id: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_preview: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<bool>,
+    pub sort_order: f64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A full page: the summary plus its markdown body (TS `VaultPage`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[allow(missing_docs)]
+pub struct VaultPage {
+    #[serde(flatten)]
+    pub summary: VaultPageSummary,
+    pub body: String,
+}
+
+/// Input for `createVaultPage` (TS `NewVaultPageInput`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct NewVaultPageInput {
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
+    pub folder: Option<bool>,
+    #[serde(default)]
+    pub sort_order: Option<f64>,
+}
+
+/// The fields a page tree is built from; both `VaultPage` and `VaultPageSummary` have them.
+pub trait TreePage {
+    /// The page id.
+    fn id(&self) -> &str;
+    /// The page title.
+    fn title(&self) -> &str;
+    /// The parent page id, when nested.
+    fn parent_id(&self) -> Option<&str>;
+    /// Sibling order within one level.
+    fn sort_order(&self) -> f64;
+}
+
+impl TreePage for VaultPageSummary {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn title(&self) -> &str {
+        &self.title
+    }
+    fn parent_id(&self) -> Option<&str> {
+        self.parent_id.as_deref()
+    }
+    fn sort_order(&self) -> f64 {
+        self.sort_order
+    }
+}
+
+impl TreePage for VaultPage {
+    fn id(&self) -> &str {
+        &self.summary.id
+    }
+    fn title(&self) -> &str {
+        &self.summary.title
+    }
+    fn parent_id(&self) -> Option<&str> {
+        self.summary.parent_id.as_deref()
+    }
+    fn sort_order(&self) -> f64 {
+        self.summary.sort_order
+    }
+}
+
+/// A node in the page tree (TS `VaultPageTreeNode`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct VaultPageTreeNode<P> {
+    pub page: P,
+    pub children: Vec<VaultPageTreeNode<P>>,
+}
+
+/// `createVaultPage` with the id and time supplied. `Err` carries the TS validation message.
+///
+/// # Errors
+///
+/// Fails with `Page title is required.` when the trimmed title is empty.
+pub fn create_vault_page(
+    input: &NewVaultPageInput,
+    id: &str,
+    now: &str,
+) -> Result<VaultPage, String> {
+    let title = js_trim(&input.title);
+    if title.is_empty() {
+        return Err("Page title is required.".to_owned());
+    }
+    Ok(VaultPage {
+        summary: VaultPageSummary {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            body_preview: None,
+            parent_id: input.parent_id.clone(),
+            pinned: None,
+            folder: input.folder.filter(|folder| *folder),
+            sort_order: input.sort_order.unwrap_or(0.0),
+            created_at: now.to_owned(),
+            updated_at: now.to_owned(),
+        },
+        body: input.body.clone().unwrap_or_default(),
+    })
+}
+
+/// `buildPageTree` ordering: `sortOrder` first, then `title` by `localeCompare`. A `NaN` difference
+/// falls through to the title, as JS `||` does.
+fn compare_pages<P: TreePage>(a: &P, b: &P) -> Ordering {
+    let diff = a.sort_order() - b.sort_order();
+    if diff < 0.0 {
+        Ordering::Less
+    } else if diff > 0.0 {
+        Ordering::Greater
+    } else {
+        locale_compare(a.title(), b.title())
+    }
+}
+
+/// Marks `start` and everything under it as reached.
+fn mark_reached(start: usize, children: &[Vec<usize>], reached: &mut [bool]) {
+    let mut stack = vec![start];
+    while let Some(node) = stack.pop() {
+        if reached[node] {
+            continue;
+        }
+        reached[node] = true;
+        stack.extend(children[node].iter().copied());
+    }
+}
+
+/// Sorts one level, then builds each node's children the same way.
+fn build_level<P: TreePage + Clone>(
+    slots: &[usize],
+    items: &[&P],
+    children: &[Vec<usize>],
+) -> Vec<VaultPageTreeNode<P>> {
+    let mut sorted = slots.to_vec();
+    sorted.sort_by(|&a, &b| compare_pages(items[a], items[b]));
+    sorted
+        .into_iter()
+        .map(|slot| VaultPageTreeNode {
+            page: items[slot].clone(),
+            children: build_level(&children[slot], items, children),
+        })
+        .collect()
+}
+
+/// Nests `pages` by `parentId` (`buildPageTree`). A repeated id keeps its first position and takes
+/// its last page; a missing or empty parent makes a root; a parent loop is cut at one node.
+#[must_use]
+pub fn build_page_tree<P: TreePage + Clone>(pages: &[P]) -> Vec<VaultPageTreeNode<P>> {
+    let mut slot_of: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    let mut items: Vec<&P> = Vec::new();
+    for page in pages {
+        match slot_of.get(page.id()).copied() {
+            Some(slot) => items[slot] = page,
+            None => {
+                let _ = slot_of.insert(page.id(), items.len());
+                items.push(page);
+            }
+        }
+    }
+    let parent: Vec<Option<usize>> = items
+        .iter()
+        .map(|page| {
+            page.parent_id()
+                .filter(|id| !id.is_empty())
+                .and_then(|id| slot_of.get(id).copied())
+        })
+        .collect();
+    let n = items.len();
+    let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+    let mut roots: Vec<usize> = Vec::new();
+    for (slot, owner) in parent.iter().copied().enumerate() {
+        match owner {
+            Some(owner) => children[owner].push(slot),
+            None => roots.push(slot),
+        }
+    }
+    let mut reached = vec![false; n];
+    for &root in &roots {
+        mark_reached(root, &children, &mut reached);
+    }
+    for start in 0..n {
+        if reached[start] {
+            continue;
+        }
+        // Unreached nodes all have an existing parent, so walking up must repeat a node.
+        let mut seen = vec![false; n];
+        let mut on_loop = start;
+        while !seen[on_loop] {
+            seen[on_loop] = true;
+            match parent[on_loop] {
+                Some(next) => on_loop = next,
+                None => break,
+            }
+        }
+        let Some(owner) = parent[on_loop] else {
+            continue;
+        };
+        children[owner].retain(|&child| child != on_loop);
+        roots.push(on_loop);
+        mark_reached(on_loop, &children, &mut reached);
+    }
+    build_level(&roots, &items, &children)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -493,5 +727,122 @@ mod tests {
         assert_eq!(normalize_title_key("  Foo   BAR "), "foo bar");
         assert!(body_links_to("see [[ Foo |x]]", "foo"));
         assert!(!body_links_to("see [[Bar]]", "foo"));
+    }
+
+    fn new_input(title: &str) -> NewVaultPageInput {
+        NewVaultPageInput {
+            title: title.to_owned(),
+            body: None,
+            parent_id: None,
+            folder: None,
+            sort_order: None,
+        }
+    }
+
+    fn summary(id: &str, title: &str, parent: Option<&str>, sort_order: f64) -> VaultPageSummary {
+        VaultPageSummary {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            body_preview: None,
+            parent_id: parent.map(str::to_owned),
+            pinned: None,
+            folder: None,
+            sort_order,
+            created_at: "t".to_owned(),
+            updated_at: "t".to_owned(),
+        }
+    }
+
+    #[test]
+    fn create_trims_title_and_fills_defaults() {
+        let page = create_vault_page(&new_input("  Notes "), "p1", "now").unwrap();
+        assert_eq!(page.summary.id, "p1");
+        assert_eq!(page.summary.title, "Notes");
+        assert_eq!(page.body, "");
+        assert!((page.summary.sort_order - 0.0).abs() < f64::EPSILON);
+        assert_eq!(page.summary.folder, None);
+        assert_eq!(page.summary.created_at, "now");
+        assert_eq!(page.summary.updated_at, "now");
+        let json = serde_json::to_value(&page).unwrap();
+        assert!(json.get("parentId").is_none());
+        assert!(json.get("folder").is_none());
+    }
+
+    #[test]
+    fn create_rejects_blank_title_and_keeps_folder_only_when_true() {
+        let err = create_vault_page(&new_input("  "), "p1", "now").unwrap_err();
+        assert_eq!(err, "Page title is required.");
+        let mut folder = new_input("F");
+        folder.folder = Some(true);
+        let made = create_vault_page(&folder, "p2", "now").unwrap();
+        assert_eq!(made.summary.folder, Some(true));
+        folder.folder = Some(false);
+        let made = create_vault_page(&folder, "p3", "now").unwrap();
+        assert_eq!(made.summary.folder, None);
+    }
+
+    #[test]
+    fn tree_orders_by_sort_order_then_title() {
+        let pages = vec![
+            summary("b", "Beta", None, 1.0),
+            summary("a", "Alpha", None, 1.0),
+            summary("c", "Zeta", None, 0.0),
+        ];
+        let tree = build_page_tree(&pages);
+        let ids: Vec<&str> = tree.iter().map(|n| n.page.id.as_str()).collect();
+        assert_eq!(ids, vec!["c", "a", "b"]);
+    }
+
+    #[test]
+    fn tree_nests_children_and_orders_them() {
+        let pages = vec![
+            summary("p", "P", None, 0.0),
+            summary("c1", "A", Some("p"), 2.0),
+            summary("c2", "B", Some("p"), 1.0),
+        ];
+        let tree = build_page_tree(&pages);
+        assert_eq!(tree.len(), 1);
+        let kids: Vec<&str> = tree[0]
+            .children
+            .iter()
+            .map(|n| n.page.id.as_str())
+            .collect();
+        assert_eq!(kids, vec!["c2", "c1"]);
+    }
+
+    #[test]
+    fn tree_missing_or_empty_parent_is_a_root() {
+        let pages = vec![
+            summary("x", "X", Some("ghost"), 0.0),
+            summary("y", "Y", Some(""), 0.0),
+        ];
+        assert_eq!(build_page_tree(&pages).len(), 2);
+    }
+
+    #[test]
+    fn tree_repeated_id_keeps_first_slot_and_last_page() {
+        let pages = vec![
+            summary("a", "Old", None, 0.0),
+            summary("b", "B", None, 0.0),
+            summary("a", "New", None, 0.0),
+        ];
+        let tree = build_page_tree(&pages);
+        assert_eq!(tree.len(), 2);
+        let titles: Vec<&str> = tree.iter().map(|n| n.page.title.as_str()).collect();
+        assert_eq!(titles, vec!["B", "New"]);
+    }
+
+    #[test]
+    fn tree_cuts_a_parent_loop_so_nothing_vanishes() {
+        let pages = vec![
+            summary("a", "A", Some("b"), 0.0),
+            summary("b", "B", Some("a"), 0.0),
+        ];
+        let tree = build_page_tree(&pages);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].page.id, "a");
+        assert_eq!(tree[0].children.len(), 1);
+        assert_eq!(tree[0].children[0].page.id, "b");
+        assert!(tree[0].children[0].children.is_empty());
     }
 }

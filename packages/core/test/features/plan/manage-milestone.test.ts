@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ManageMilestoneUseCase,
-  MilestoneValidationError,
   type Milestone,
   type IMilestoneRepository,
 } from "../../../src/index.js";
@@ -39,7 +38,7 @@ test("add: defaults status to planned, requires a title, validates targetDate", 
   const ms = await uc.add({ title: "  Draft intro  " });
   assert.equal(ms.title, "Draft intro");
   assert.equal(ms.status, "planned");
-  await assert.rejects(uc.add({ title: " " }), MilestoneValidationError);
+  await assert.rejects(uc.add({ title: " " }), { name: "MilestoneValidationError" });
   await assert.rejects(uc.add({ title: "x", targetDate: "07/2026" }), /yyyy-mm-dd/);
 });
 

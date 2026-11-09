@@ -1,6 +1,3 @@
-import {
-  aiReadCategoryForResource,
-} from "../domain/ai-access-policy.js";
 import type {
   AiAccessSettings,
   AiProposalKind,
@@ -10,6 +7,7 @@ import type {
   AiWorkspaceSource,
 } from "../domain/ai-types.js";
 import { AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS } from "../domain/ai-types.js";
+import { rust } from "../../../shared/rust.js";
 
 export const AI_SESSION_DEFAULT_TTL_MS = 30 * 60 * 1000;
 /** Long grants are still browser-memory-only and end immediately on lock, reload, or sign-out. */
@@ -48,7 +46,7 @@ export class CreateAiSessionGrantUseCase {
     const sources = uniqueSources(input.sources);
     if (sources.length === 0) throw new Error("Select at least one source.");
     for (const source of sources) {
-      if (!input.settings.readCategories.includes(aiReadCategoryForResource(source.resourceType))) {
+      if (!input.settings.readCategories.includes(rust().aiReadCategoryForResource(source.resourceType))) {
         throw new Error(`AI reading is not enabled for ${source.resourceType}.`);
       }
     }

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  AiAccessPolicy,
   CreateAiProposalDraftUseCase,
   type AiAccessSettings,
   type AiSessionGrant,
   type AiWriteProposal,
 } from "../../../src/index.js";
+// The policy is the Rust core class (wf-wasm).
+import { AiAccessPolicy } from "../../../../wf-wasm/src/index.ts";
 
 const settings: AiAccessSettings = {
   enabled: true,

@@ -1,11 +1,4 @@
-/**
- * Paper relations domain model — pure, no I/O, no SDK imports.
- *
- * A `PaperRelation` is a typed, directed edge between two papers. Together the
- * edges + papers form the literature graph. One reason to change: the rules of
- * what a relation *is* (SRP).
- */
-
+/** Types for paper-relation. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
@@ -59,26 +52,7 @@ export class PaperRelationValidationError extends ValidationError {
   }
 }
 
-export function createPaperRelation(
-  input: NewPaperRelationInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): PaperRelation {
-  if (!input.fromPaper || !input.toPaper) {
-    throw new PaperRelationValidationError("Both fromPaper and toPaper are required.");
-  }
-  if (input.fromPaper === input.toPaper) {
-    throw new PaperRelationValidationError("A paper cannot relate to itself.");
-  }
-  if (!RELATION_TYPES.includes(input.relation)) {
-    throw new PaperRelationValidationError(`Unknown relation "${input.relation}".`);
-  }
-  return {
-    id: deps.ids.newId(),
-    fromPaper: input.fromPaper,
-    toPaper: input.toPaper,
-    relation: input.relation,
-    note: input.note,
-    source: input.source ?? "manual",
-    createdAt: deps.clock.nowIso(),
-  };
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface PaperRelationFns {
+  createPaperRelation(input: NewPaperRelationInput, deps: { clock: Clock; ids: IdGenerator }): PaperRelation;
 }

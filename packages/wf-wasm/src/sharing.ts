@@ -31,9 +31,12 @@ export const SHAREABLE_TYPES: readonly ShareableType[] = [
 /** Share types that support collaborative editing (TS `CRDT_EDITABLE_SHARE_TYPES`). */
 export const CRDT_EDITABLE_SHARE_TYPES: readonly ShareableType[] = ["vault_page", "report_section"];
 
-/** A thrown validation message becomes an `Error`, as the TS validators threw. */
-function asError(thrown: unknown): unknown {
-  return typeof thrown === "string" ? new Error(thrown) : thrown;
+/** A thrown validation message becomes an `Error` named like the TS validation class. */
+function asError(thrown: unknown, name: string): unknown {
+  if (typeof thrown !== "string") return thrown;
+  const error = new Error(thrown);
+  error.name = name;
+  return error;
 }
 
 /** Whether a share grant covers every resource of a type (`resourceId` is null). */
@@ -81,10 +84,14 @@ export function shareAllowsEdit(
 
 /** Normalize + validate a grant request (pure). Throws an `Error` with the validation message. */
 export function normalizeShareInput(input: NewShareInput): Required<NewShareInput> {
+  // An unknown type would fail to deserialize in Rust; report it as the TS rule did.
+  if (input.recipientId && !SHAREABLE_TYPES.includes(input.resourceType)) {
+    throw asError(`Unknown resource type "${input.resourceType}".`, "ShareValidationError");
+  }
   try {
     return rawNormalizeShareInput(input) as Required<NewShareInput>;
   } catch (error) {
-    throw asError(error);
+    throw asError(error, "ShareValidationError");
   }
 }
 
@@ -93,6 +100,6 @@ export function normalizeCommentInput(input: NewCommentInput): NewCommentInput {
   try {
     return rawNormalizeCommentInput(input) as NewCommentInput;
   } catch (error) {
-    throw asError(error);
+    throw asError(error, "CommentValidationError");
   }
 }

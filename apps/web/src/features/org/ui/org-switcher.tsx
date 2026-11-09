@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { isExplicitLabMembership, ROLE_LABELS, type Member, type OrgMembershipView } from "@weaveforge/core";
+import { ROLE_LABELS, type Member, type OrgMembershipView } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { Button } from "@/components/button";
 import { MenuItemButton } from "@/components/controls";
+import { typedCore } from "@/lib/rust-core";
 
 /** Header chip for switching between labs when the user has multiple memberships. */
 export function OrgSwitcher() {
@@ -30,7 +31,7 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
   const ref = useRef<HTMLDivElement>(null);
   useDismissOnOutside(open, () => setOpen(false), ref);
 
-  const labs = memberships.filter(isExplicitLabMembership);
+  const labs = memberships.filter(typedCore().isExplicitLabMembership);
   if (!profile || labs.length <= 1) return null;
 
   const active =

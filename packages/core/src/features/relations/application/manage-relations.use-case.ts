@@ -7,11 +7,7 @@
  * in the library, and create `cites` edges for the matches — idempotently.
  */
 
-import {
-  createPaperRelation,
-  type NewPaperRelationInput,
-  type PaperRelation,
-} from "../domain/paper-relation.js";
+import { type NewPaperRelationInput, type PaperRelation } from "../domain/paper-relation.js";
 import type { IPaperRelationRepository } from "../domain/paper-relation-repository.js";
 import type { ICitationSource } from "./citation-source.js";
 import { paperRef } from "./paper-ref.js";
@@ -39,7 +35,7 @@ export class AddRelationUseCase {
     );
     if (existing) return existing;
 
-    const relation = createPaperRelation(input, {
+    const relation = rust().createPaperRelation(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });

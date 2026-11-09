@@ -10,6 +10,8 @@ import {
   readableText as rawReadableText,
   writeInkNoteBody as rawWriteInkNoteBody,
   defaultInkNoteMeta as rawDefaultInkNoteMeta,
+  readInkNoteMeta as rawReadInkNoteMeta,
+  splitInkTextLayer as rawSplitInkTextLayer,
 } from "../pkg/wf_wasm.js";
 import type { InkNoteMeta } from "./bindings.js";
 
@@ -56,4 +58,14 @@ export function writeInkNoteBody(
 /** The header of a new, empty ink note (Rust `default_ink_note_meta`). */
 export function defaultInkNoteMeta(): InkNoteMeta {
   return rawDefaultInkNoteMeta() as InkNoteMeta;
+}
+
+/** The ink note header read from frontmatter, with defaults for missing keys. */
+export function readInkNoteMeta(frontmatter: Readonly<Record<string, unknown>>): InkNoteMeta {
+  return rawReadInkNoteMeta(frontmatter) as InkNoteMeta;
+}
+
+/** The recognised text of each page, split at the page markers. */
+export function splitInkTextLayer(body: string): string[] {
+  return rawSplitInkTextLayer(body) as string[];
 }

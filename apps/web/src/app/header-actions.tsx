@@ -9,7 +9,7 @@ import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
 import { Popover } from "@/components/popover";
 import { SubmenuFlyout } from "@/components/menu";
-import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
+import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
 import { NavIcon } from "./nav-icon";
@@ -19,6 +19,7 @@ import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
 import { syncStatus } from "@/features/offline-sync/domain/sync-status";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { accountAttention } from "./account-attention";
+import { typedCore } from "@/lib/rust-core";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -94,7 +95,7 @@ export function HeaderActions({
   const attention = accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
   // Sync runs on the desktop only; its state is words in the menu, not a dot.
   const sync = desktop() ? syncStatus(live) : null;
-  const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
+  const labs = memberships ? memberships.filter(typedCore().isExplicitLabMembership) : [];
 
   if (!user) return null;
 

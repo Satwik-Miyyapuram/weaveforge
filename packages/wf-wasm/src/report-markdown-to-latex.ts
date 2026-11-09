@@ -5,6 +5,7 @@
  */
 import {
   escapeLatexText as rawEscapeLatexText,
+  uniqueFigureNameIn as rawUniqueFigureNameIn,
   markdownToLatex as rawMarkdownToLatex,
 } from "../pkg/wf_wasm.js";
 import type { MarkdownToLatexResult } from "./bindings.js";
@@ -24,4 +25,11 @@ export function markdownToLatex(
 ): MarkdownToLatexResult {
   const citeByTitle = opts.citeByTitle ? Object.fromEntries(opts.citeByTitle) : undefined;
   return rawMarkdownToLatex(md ?? "", { citeByTitle }) as MarkdownToLatexResult;
+}
+
+/** A file-safe figure name not in `used`; the name is added to `used`. */
+export function uniqueFigureName(raw: string, used: Set<string>): string {
+  const name = rawUniqueFigureNameIn(raw, [...used]);
+  used.add(name);
+  return name;
 }

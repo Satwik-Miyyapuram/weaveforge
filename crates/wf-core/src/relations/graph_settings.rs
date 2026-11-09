@@ -428,6 +428,19 @@ fn parse_pinned(raw: Option<&Value>) -> Map<String, Value> {
     out
 }
 
+/// `mergeGraphPersistedState`: the stored state as given, or the defaults when nothing is stored.
+#[must_use]
+pub fn merge_graph_persisted_state(stored: Option<GraphPersistedState>) -> GraphPersistedState {
+    stored.unwrap_or_else(|| GraphPersistedState {
+        settings: default_graph_settings(),
+        selected_lists: Vec::new(),
+        selected_tags: Vec::new(),
+        local_seed: None,
+        local_depth: 2.0,
+        pinned: Map::new(),
+    })
+}
+
 /// Parses graph state from persistence; `None` when the payload is absent or not an object.
 #[must_use]
 pub fn parse_graph_persisted_state(raw: &Value) -> Option<GraphPersistedState> {
@@ -510,5 +523,25 @@ mod tests {
         assert_eq!(js_slice_start("ab", 1), "a");
         assert_eq!(js_slice_start("a\u{1F600}", 2), "a");
         assert_eq!(js_slice_start("a\u{1F600}", 3), "a\u{1F600}");
+    }
+
+    #[test]
+    fn merge_defaults_when_nothing_stored() {
+        let merged = merge_graph_persisted_state(None);
+        assert_eq!(merged.settings, default_graph_settings());
+        assert!(merged.selected_lists.is_empty());
+        assert!(merged.selected_tags.is_empty());
+        assert_eq!(merged.local_seed, None);
+        assert!((merged.local_depth - 2.0).abs() < f64::EPSILON);
+        assert!(merged.pinned.is_empty());
+    }
+
+    #[test]
+    fn merge_returns_stored_state_unchanged() {
+        let stored = parse_graph_persisted_state(&json!({
+            "localDepth": 4, "selectedTags": ["t"], "pinned": { "n": { "x": 1, "y": 2 } }
+        }))
+        .unwrap();
+        assert_eq!(merge_graph_persisted_state(Some(stored.clone())), stored);
     }
 }

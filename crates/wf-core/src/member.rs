@@ -709,3 +709,84 @@ mod tests {
         assert_eq!(parse_otp_or_link("short!"), None);
     }
 }
+
+/// The member field the role label reads (TS `Member.role`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct MemberRole {
+    /// The stored role.
+    pub role: String,
+}
+
+/// Display label for a role (TS `ROLE_LABELS`); `None` for a role with no label.
+#[must_use]
+pub fn role_label(role: &str) -> Option<&'static str> {
+    match role {
+        "professor" => Some("Professor"),
+        "phd" => Some("PhD supervisor"),
+        "masters" => Some("Master's student"),
+        "standalone" => Some("Standalone"),
+        _ => None,
+    }
+}
+
+/// Label shown for a member (TS `memberRoleLabel`): `None` when the display role has no label.
+#[must_use]
+pub fn member_role_label(
+    member: &MemberRole,
+    in_lab: bool,
+    owns_org: bool,
+) -> Option<&'static str> {
+    role_label(resolve_display_role(&member.role, in_lab, owns_org))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod role_label_tests {
+    use super::*;
+
+    fn role(r: &str) -> MemberRole {
+        MemberRole { role: r.to_owned() }
+    }
+
+    #[test]
+    fn labels_match_ts_role_labels() {
+        assert_eq!(role_label("professor"), Some("Professor"));
+        assert_eq!(role_label("phd"), Some("PhD supervisor"));
+        assert_eq!(role_label("masters"), Some("Master's student"));
+        assert_eq!(role_label("standalone"), Some("Standalone"));
+        assert_eq!(role_label("admin"), None);
+    }
+
+    #[test]
+    fn outside_a_lab_everyone_is_standalone_except_owner_professor() {
+        assert_eq!(
+            member_role_label(&role("masters"), false, false),
+            Some("Standalone")
+        );
+        assert_eq!(
+            member_role_label(&role("professor"), false, true),
+            Some("Professor")
+        );
+        assert_eq!(
+            member_role_label(&role("phd"), false, true),
+            Some("Standalone")
+        );
+    }
+
+    #[test]
+    fn in_a_lab_the_stored_role_shows() {
+        assert_eq!(
+            member_role_label(&role("masters"), true, false),
+            Some("Master's student")
+        );
+        assert_eq!(
+            member_role_label(&role("phd"), true, true),
+            Some("PhD supervisor")
+        );
+    }
+
+    #[test]
+    fn unknown_role_has_no_label_in_a_lab() {
+        assert_eq!(member_role_label(&role("admin"), true, false), None);
+    }
+}

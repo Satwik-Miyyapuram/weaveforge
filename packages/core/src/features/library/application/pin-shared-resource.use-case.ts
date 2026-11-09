@@ -1,11 +1,12 @@
 import type { IShareRepository } from "../../sharing/domain/share-repository.js";
-import { shareCoversResource } from "../../sharing/domain/share.js";
+
 import type { ILibraryPinRepository } from "../domain/library-pin-repository.js";
 import {
   LibraryPinError,
   type LibraryPin,
   type NewLibraryPinInput,
 } from "../domain/library-pin.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface PinSharedResourceDeps {
   pins: ILibraryPinRepository;
@@ -18,7 +19,7 @@ export class PinSharedResourceUseCase {
   async execute(input: NewLibraryPinInput): Promise<LibraryPin> {
     const shares = await this.deps.shares.listSharedWithMe(input.resourceType);
     const allowed = shares.some((s) =>
-      shareCoversResource(s, input.resourceType, input.resourceId, input.ownerId),
+      rust().shareCoversResource(s, input.resourceType, input.resourceId, input.ownerId),
     );
     if (!allowed) {
       throw new LibraryPinError("This item is not shared with you.");

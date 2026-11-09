@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AddLogEntryUseCase,
-  LogEntryValidationError,
   type LogEntry,
   type ILogEntryRepository,
 } from "../../../src/index.js";
@@ -61,7 +60,7 @@ test("add: honours explicit kind, date, and links", async () => {
 
 test("add: rejects an empty body", async () => {
   const { uc } = makeUseCase();
-  await assert.rejects(uc.add({ body: "   " }), LogEntryValidationError);
+  await assert.rejects(uc.add({ body: "   " }), { name: "LogEntryValidationError" });
 });
 
 test("update: edits body/kind while preserving id, date, createdAt", async () => {

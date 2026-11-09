@@ -1,13 +1,6 @@
-/**
- * Logbook domain model — pure, no I/O, no SDK imports.
- *
- * The `LogEntry` entity and its invariants live here. Persistence is someone
- * else's job (infrastructure). One reason to change: the rules of what a log
- * entry *is* (Single Responsibility).
- */
-
+/** Types for log-entry. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import { isoDate, type Clock, type IdGenerator } from "../../../shared/clock.js";
+import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export type LogKind = "daily" | "weekly";
@@ -57,25 +50,11 @@ export class LogEntryValidationError extends ValidationError {
   }
 }
 
-/**
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface LogEntryFns {
+  /**
  * Build a valid LogEntry from partial input, applying defaults and invariants.
  * Throwing here keeps invalid entities from ever reaching a repository.
  */
-export function createLogEntry(
-  input: NewLogEntryInput,
-  deps: { clock: Clock; ids: IdGenerator },
-): LogEntry {
-  const body = input.body?.trim();
-  if (!body) {
-    throw new LogEntryValidationError("Log entry body is required.");
-  }
-  const now = deps.clock.nowIso();
-  return {
-    id: deps.ids.newId(),
-    entryDate: input.entryDate ?? isoDate(now),
-    kind: input.kind ?? "daily",
-    body,
-    links: input.links ?? [],
-    createdAt: now,
-  };
+  createLogEntry(input: NewLogEntryInput, deps: { clock: Clock; ids: IdGenerator }): LogEntry;
 }

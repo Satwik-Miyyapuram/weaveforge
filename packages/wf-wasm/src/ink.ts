@@ -5,6 +5,8 @@
  */
 import {
   inkTangentAt as rawInkTangentAt,
+  inkStrokeBandOf as rawInkStrokeBandOf,
+  inkVocabularyWordList as rawInkVocabularyWordList,
   inkCurveAt as rawInkCurveAt,
   resampleInkStroke as rawResampleInkStroke,
   binomialSmooth as rawBinomialSmooth,
@@ -131,4 +133,15 @@ export function packInkStroke(
   options: InkStrokePackerOptions = {},
 ): PackedInkStroke {
   return rawPackInkStroke(Float64Array.from(points), Float64Array.from(pressures), options) as PackedInkStroke;
+}
+
+/** The words a recogniser vocabulary allows, one per whitespace-separated token. */
+export function inkVocabularyWords(vocabulary: readonly string[]): Set<string> {
+  return new Set(rawInkVocabularyWordList([...vocabulary]) as string[]);
+}
+
+/** The y band [min, max] of a stroke, or null for a stroke with no points. */
+export function inkStrokeBand(stroke: { points: ArrayLike<number> }): [number, number] | null {
+  const band = rawInkStrokeBandOf(Float64Array.from(stroke.points));
+  return band ? [band[0] as number, band[1] as number] : null;
 }

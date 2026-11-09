@@ -1,9 +1,4 @@
-/**
- * Comment domain — a flat feedback thread on a shared (or owned) item, so a
- * supervisor can respond in-app. Persisted in the `comments` table (0018);
- * visibility/insert are gated by the same access rules as the resource.
- */
-
+/** Types for comment. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
 import { ValidationError } from "../../../shared/errors.js";
 
@@ -49,20 +44,7 @@ export class CommentValidationError extends ValidationError {
   }
 }
 
-export function normalizeCommentInput(input: NewCommentInput): NewCommentInput {
-  const body = input.body?.trim();
-  if (!body) throw new CommentValidationError("A comment can't be empty.");
-  if (!input.resourceId) throw new CommentValidationError("A target resource is required.");
-  const quote = input.anchor?.quote?.trim();
-  // A reply belongs to its root's passage; an anchor on it would be a second one.
-  const anchor = quote && !input.parentId
-    ? { quote: input.anchor!.quote, prefix: input.anchor!.prefix ?? "", suffix: input.anchor!.suffix ?? "" }
-    : null;
-  return {
-    resourceType: input.resourceType,
-    resourceId: input.resourceId,
-    body,
-    anchor,
-    parentId: input.parentId || null,
-  };
+/** Signatures of the functions that moved to the Rust core (wf-wasm). */
+export interface CommentFns {
+  normalizeCommentInput(input: NewCommentInput): NewCommentInput;
 }

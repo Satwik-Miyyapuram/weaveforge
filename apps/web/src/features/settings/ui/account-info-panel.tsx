@@ -1,6 +1,6 @@
 "use client";
 
-import { hasActiveLab, resolveDisplayRole, ROLE_LABELS } from "@weaveforge/core";
+import { resolveDisplayRole, ROLE_LABELS } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
@@ -9,6 +9,7 @@ import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 /** The web app, where labs and sharing are managed. A self-hosted build names its own. */
 const WEB_APP_URL = /^https?:\/\//.test(process.env.NEXT_PUBLIC_APP_URL ?? "")
@@ -48,7 +49,7 @@ export function AccountInfoPanel() {
     memberships.find((m) => m.orgId === activeOrgId)
     ?? memberships.find((m) => m.joinSource === "invite" || m.joinSource === "create")
     ?? null;
-  const inLab = hasActiveLab(activeOrgId, memberships);
+  const inLab = typedCore().hasActiveLab(activeOrgId, memberships);
   const ownsOrg = memberships.some((m) => m.joinSource === "create");
   const displayRole = resolveDisplayRole(profile?.role ?? "standalone", { inLab, ownsOrg });
   const labName = activeMembership?.orgName ?? null;

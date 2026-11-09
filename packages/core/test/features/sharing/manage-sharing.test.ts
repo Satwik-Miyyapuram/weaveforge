@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ManageSharingUseCase,
-  ShareValidationError,
   type Share,
   type NewShareInput,
   type ShareableType,
@@ -49,7 +48,7 @@ test("grant: honours an explicit access level and resource id", async () => {
 
 test("grant: rejects a missing recipient and an unknown resource type", async () => {
   const { uc } = makeSetup();
-  await assert.rejects(uc.grant({ recipientId: "", resourceType: "paper" }), ShareValidationError);
+  await assert.rejects(uc.grant({ recipientId: "", resourceType: "paper" }), { name: "ShareValidationError" });
   await assert.rejects(
     uc.grant({ recipientId: "u2", resourceType: "bogus" as ShareableType }),
     /Unknown resource type/,
@@ -70,11 +69,11 @@ test("grant: refuses edit access where collaborative editing does not exist", as
   const { repo, uc } = makeSetup();
   await assert.rejects(
     uc.grant({ recipientId: "u2", resourceType: "paper", resourceId: "p1", access: "edit" }),
-    ShareValidationError,
+    { name: "ShareValidationError" },
   );
   await assert.rejects(
     uc.grant({ recipientId: "u2", resourceType: "vault_page", resourceId: null, access: "edit" }),
-    ShareValidationError,
+    { name: "ShareValidationError" },
     "a blanket grant has no single document to edit",
   );
   assert.equal(repo.lastGrant, null);

@@ -222,6 +222,28 @@ pub fn verdict_for(
     }
 }
 
+/// TS `verdictsFor`: both stages' verdicts for each item, in item order, then stage order.
+#[must_use]
+pub fn verdicts_for(items: &[ScreeningItem], decisions: &[ScreeningDecision]) -> Vec<ItemVerdict> {
+    // One pass over the decisions: group them by item, then judge each item's group.
+    let mut by_item: std::collections::HashMap<&str, Vec<ScreeningDecision>> =
+        std::collections::HashMap::new();
+    for decision in decisions {
+        by_item
+            .entry(decision.item_id.as_str())
+            .or_default()
+            .push(decision.clone());
+    }
+    let mut verdicts = Vec::with_capacity(items.len() * 2);
+    for item in items {
+        let group = by_item.get(item.id.as_str()).map_or(&[][..], Vec::as_slice);
+        for stage in [ScreeningStage::TitleAbstract, ScreeningStage::FullText] {
+            verdicts.push(verdict_for(group, &item.id, stage));
+        }
+    }
+    verdicts
+}
+
 /// Distinct item ids in the order they first appear.
 fn item_ids(decisions: &[ScreeningDecision]) -> Vec<&str> {
     let mut ids: Vec<&str> = Vec::new();
@@ -525,5 +547,34 @@ mod tests {
                 count: 1.0
             }]
         );
+    }
+
+    #[test]
+    fn verdicts_for_gives_both_stages_per_item_in_order() {
+        let ds = [
+            decision("a", "ana", TitleAbstract, Included, "1"),
+            decision("a", "bo", TitleAbstract, Excluded, "2"),
+            decision("b", "ana", FullText, Unsure, "3"),
+            decision("b", "ana", FullText, Included, "4"),
+        ];
+        let items: Vec<ScreeningItem> = ["a", "b", "z"]
+            .iter()
+            .map(|id| ScreeningItem {
+                id: (*id).to_owned(),
+                duplicate_of_item_id: None,
+            })
+            .collect();
+        let mut expected = Vec::new();
+        for id in ["a", "b", "z"] {
+            for stage in [TitleAbstract, FullText] {
+                expected.push(verdict_for(&ds, id, stage));
+            }
+        }
+        let got = verdicts_for(&items, &ds);
+        assert_eq!(got, expected);
+        assert_eq!(got.len(), 6);
+        assert!(got[0].conflict);
+        assert_eq!(got[3].state, Some(Included));
+        assert_eq!(got[4].answered, 0);
     }
 }

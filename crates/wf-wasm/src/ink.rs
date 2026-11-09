@@ -331,3 +331,27 @@ pub fn decode_ink_words_js(
         engine_text.as_deref(),
     ))
 }
+
+/// [`ink_vocabulary_words`](wf_core::ink::decode::ink_vocabulary_words), sorted
+/// (TS `inkVocabularyWords`; the TS wrapper makes it a `Set`).
+///
+/// # Errors
+///
+/// Fails if `vocabulary` is not an array of strings.
+#[wasm_bindgen(js_name = inkVocabularyWordList)]
+pub fn ink_vocabulary_word_list_js(vocabulary: JsValue) -> JsResult<JsValue> {
+    let vocabulary: Vec<String> = serde_wasm_bindgen::from_value(vocabulary)?;
+    let mut words: Vec<String> = wf_core::ink::decode::ink_vocabulary_words(&vocabulary)
+        .into_iter()
+        .collect();
+    words.sort_unstable();
+    to_js(&words)
+}
+
+/// [`ink_stroke_band`](wf_core::ink::segment::ink_stroke_band): `[yMin, yMax]` over a
+/// stroke's flat x,y points, or `undefined` when no y is finite.
+#[wasm_bindgen(js_name = inkStrokeBandOf)]
+#[must_use]
+pub fn ink_stroke_band_js(points: &[f64]) -> Option<Vec<f64>> {
+    wf_core::ink::segment::ink_stroke_band(points).map(|(lo, hi)| vec![lo, hi])
+}
