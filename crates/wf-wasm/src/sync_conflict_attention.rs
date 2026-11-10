@@ -32,8 +32,11 @@ pub fn count_open_js(open: JsValue) -> Result<usize, serde_wasm_bindgen::Error> 
 /// # Errors
 ///
 /// Fails if `fields` is not an array of strings, or `side` is not `"local"` or `"remote"`.
-#[wasm_bindgen(js_name = keepAllPicks)]
-pub fn keep_all_picks_js(fields: JsValue, side: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = keepAllPicks, unchecked_return_type = "{ field: string; side: \"local\" | \"remote\" }[]")]
+pub fn keep_all_picks_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] fields: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "\"local\" | \"remote\"")] side: JsValue,
+) -> JsResult<JsValue> {
     let fields: Vec<String> = serde_wasm_bindgen::from_value(fields)?;
     let side: PickSide = serde_wasm_bindgen::from_value(side)?;
     to_js(&keep_all_picks(&fields, side))

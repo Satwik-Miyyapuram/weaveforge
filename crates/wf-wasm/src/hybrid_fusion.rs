@@ -20,7 +20,9 @@ pub fn strip_stopwords_js(query: &str) -> String {
 ///
 /// Fails if `terms` is not an array of strings.
 #[wasm_bindgen(js_name = queryTermCount)]
-pub fn query_term_count_js(terms: JsValue) -> JsResult<f64> {
+pub fn query_term_count_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] terms: JsValue,
+) -> JsResult<f64> {
     let terms: Vec<String> = serde_wasm_bindgen::from_value(terms)?;
     Ok(hybrid_fusion::query_term_count(&terms))
 }

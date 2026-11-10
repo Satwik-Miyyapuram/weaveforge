@@ -5,9 +5,6 @@
  */
 import {
   flattenPaperRows as rawFlattenPaperRows,
-  extractionMarkdown as rawExtractionMarkdown,
-  extractionCsv as rawExtractionCsv,
-  emptyCellPaperIds as rawEmptyCellPaperIds,
   pendingFieldFills as rawPendingFieldFills,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -19,6 +16,12 @@ import type {
   ProposeFillInput,
   RollupValue,
 } from "./bindings.js";
+
+export {
+  emptyCellPaperIds,
+  extractionCsv,
+  extractionMarkdown,
+} from "../pkg/wf_wasm.js";
 
 export {
   buildProposeFillPrompt,
@@ -52,33 +55,6 @@ export function flattenPaperRows(
   defs: readonly ExtractionFieldDef[],
 ): FlatPaperRow[] {
   return rawFlattenPaperRows(knownIds, paperIds, values, defs) as FlatPaperRow[];
-}
-
-/** The table as a Markdown table over `columns` (`title`, `year`, `status`, `field:<id>`). */
-export function extractionMarkdown(
-  rows: readonly ExtractionRow[],
-  defs: readonly ExtractionFieldDef[],
-  columns: readonly string[],
-): string {
-  return rawExtractionMarkdown(rows, defs, columns);
-}
-
-/** The table as CSV over `columns`, with a header line. */
-export function extractionCsv(
-  rows: readonly ExtractionRow[],
-  defs: readonly ExtractionFieldDef[],
-  columns: readonly string[],
-): string {
-  return rawExtractionCsv(rows, defs, columns);
-}
-
-/** Papers whose `fieldId` cell is empty and not in `pendingPaperIds`, in row order. */
-export function emptyCellPaperIds(
-  rows: readonly ExtractionRow[],
-  fieldId: string,
-  pendingPaperIds: readonly string[],
-): string[] {
-  return rawEmptyCellPaperIds(rows, fieldId, pendingPaperIds) as string[];
 }
 
 /** Pending `paper_field_value` proposals as cell fills, optionally for one field. */

@@ -4,10 +4,17 @@
  */
 import {
   importableEntities as rawImportableEntities,
-  renameSources as rawRenameSources,
   seenFiles as rawSeenFiles,
 } from "../pkg/wf_wasm.js";
-import type { ChangeSide, FolderParsedEntity, ParsedEntity } from "./bindings.js";
+import type {
+  ChangeSide,
+  FolderParsedEntity,
+  ParsedEntity,
+} from "./bindings.js";
+
+export {
+  renameSources,
+} from "../pkg/wf_wasm.js";
 
 export type { FolderParsedEntity } from "./bindings.js";
 
@@ -17,15 +24,6 @@ export interface FolderSeenFile {
   digest: string;
   newPath?: boolean;
   renamedFrom?: string;
-}
-
-/** New folder paths that are renames, mapped to the old path. */
-export function renameSources(
-  parsed: readonly FolderParsedEntity[],
-  folder: Readonly<Record<string, string>>,
-  current: Readonly<Record<string, string>>,
-): Record<string, string> {
-  return rawRenameSources(parsed, folder, current) as Record<string, string>;
 }
 
 /** The folder files a folder import may bring in: vault pages, and files whose note id is in `noteIds`. */

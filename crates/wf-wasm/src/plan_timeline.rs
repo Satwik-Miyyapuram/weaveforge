@@ -31,8 +31,11 @@ pub fn plan_timeline_js(milestones: JsValue, today: String) -> JsResult<JsValue>
 /// # Errors
 ///
 /// Fails if `marks` has the wrong shape.
-#[wasm_bindgen(js_name = clusterMarks)]
-pub fn cluster_marks_js(marks: JsValue, min_gap: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = clusterMarks, unchecked_return_type = "B.PlanTimelineCluster[]")]
+pub fn cluster_marks_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.PlanTimelineMark[]")] marks: JsValue,
+    min_gap: f64,
+) -> JsResult<JsValue> {
     let marks: Vec<PlanTimelineMark> = serde_wasm_bindgen::from_value(marks)?;
     let clusters: Vec<PlanTimelineCluster> = timeline::cluster_marks(&marks, min_gap);
     to_js(&clusters)

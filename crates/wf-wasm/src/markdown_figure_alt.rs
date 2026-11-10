@@ -10,7 +10,7 @@ use wf_core::markdown_figure_alt::{self, MdPlacement};
 /// # Errors
 ///
 /// Fails if `raw` is longer than the index text limit.
-#[wasm_bindgen(js_name = parseMdImageAlt)]
+#[wasm_bindgen(js_name = parseMdImageAlt, unchecked_return_type = "B.MdImageAlt")]
 pub fn parse_md_image_alt_js(raw: js_sys::JsString) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let raw = &crate::guarded_text(&raw)?;
     super::to_js(&markdown_figure_alt::parse_md_image_alt(raw))
@@ -25,7 +25,7 @@ pub fn parse_md_image_alt_js(raw: js_sys::JsString) -> Result<JsValue, serde_was
 #[wasm_bindgen(js_name = withMdImageAlt)]
 pub fn with_md_image_alt_js(
     alt: js_sys::JsString,
-    placement: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.MdPlacement")] placement: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let alt = &crate::guarded_text(&alt)?;
     let placement: MdPlacement = serde_wasm_bindgen::from_value(placement)?;

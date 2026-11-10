@@ -19,8 +19,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `dest` or `refs` do not have the expected shape.
-#[wasm_bindgen(js_name = referenceForDestination)]
-pub fn reference_for_destination_js(dest: JsValue, refs: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = referenceForDestination, unchecked_return_type = "B.AnalysisParsedReference | null")]
+pub fn reference_for_destination_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AnalysisLinkDest")] dest: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisParsedReference[]")] refs: JsValue,
+) -> JsResult<JsValue> {
     let dest: AnalysisLinkDest = serde_wasm_bindgen::from_value(dest)?;
     let refs: Vec<AnalysisParsedReference> = serde_wasm_bindgen::from_value(refs)?;
     to_js(&link_citations::reference_for_destination(&dest, &refs).cloned())
@@ -31,8 +34,11 @@ pub fn reference_for_destination_js(dest: JsValue, refs: JsValue) -> JsResult<Js
 /// # Errors
 ///
 /// Fails if `page` or `links` do not have the expected shape.
-#[wasm_bindgen(js_name = coveredTextSpans)]
-pub fn covered_text_spans_js(page: JsValue, links: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = coveredTextSpans, unchecked_return_type = "B.CoveredTextSpans")]
+pub fn covered_text_spans_js(
+    #[wasm_bindgen(unchecked_param_type = "B.LinkCitationPage")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfLink[]")] links: JsValue,
+) -> JsResult<JsValue> {
     let page: LinkCitationPage = serde_wasm_bindgen::from_value(page)?;
     let links: Vec<AnalysisPdfLink> = serde_wasm_bindgen::from_value(links)?;
     to_js(&link_citations::covered_text_spans(&page, &links))
@@ -44,11 +50,11 @@ pub fn covered_text_spans_js(page: JsValue, links: JsValue) -> JsResult<JsValue>
 /// # Errors
 ///
 /// Fails if `page`, `links` or `refs` do not have the expected shape.
-#[wasm_bindgen(js_name = linkCitationMentions)]
+#[wasm_bindgen(js_name = linkCitationMentions, unchecked_return_type = "B.AnalysisCitationMention[]")]
 pub fn link_citation_mentions_js(
-    page: JsValue,
-    links: JsValue,
-    refs: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.LinkCitationPage")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfLink[]")] links: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisParsedReference[]")] refs: JsValue,
 ) -> JsResult<JsValue> {
     let page: LinkCitationPage = serde_wasm_bindgen::from_value(page)?;
     let links: Vec<AnalysisPdfLink> = serde_wasm_bindgen::from_value(links)?;

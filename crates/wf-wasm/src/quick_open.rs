@@ -12,9 +12,9 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `documents` is not an array of tree rows.
-#[wasm_bindgen(js_name = quickOpenResults)]
+#[wasm_bindgen(js_name = quickOpenResults, unchecked_return_type = "B.QuickOpenResult[]")]
 pub fn quick_open_results_js(
-    documents: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WorkspaceTreeNode[]")] documents: JsValue,
     query: &str,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let documents: Vec<WorkspaceTreeNode> = serde_wasm_bindgen::from_value(documents)?;
@@ -26,8 +26,10 @@ pub fn quick_open_results_js(
 /// # Errors
 ///
 /// Fails if `results` is not an array of quick-open results.
-#[wasm_bindgen(js_name = groupResults)]
-pub fn group_results_js(results: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = groupResults, unchecked_return_type = "B.QuickOpenGroup[]")]
+pub fn group_results_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.QuickOpenResult[]")] results: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let results: Vec<QuickOpenResult> = serde_wasm_bindgen::from_value(results)?;
     to_js(&quick::group_results(&results))
 }
@@ -37,8 +39,10 @@ pub fn group_results_js(results: JsValue) -> Result<JsValue, serde_wasm_bindgen:
 /// # Errors
 ///
 /// Fails if `results` is not an array of quick-open results.
-#[wasm_bindgen(js_name = paintedOrder)]
-pub fn painted_order_js(results: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = paintedOrder, unchecked_return_type = "B.QuickOpenResult[]")]
+pub fn painted_order_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.QuickOpenResult[]")] results: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let results: Vec<QuickOpenResult> = serde_wasm_bindgen::from_value(results)?;
     to_js(&quick::painted_order(&results))
 }

@@ -5,7 +5,10 @@
 import {
   menuPaletteActions as rawMenuPaletteActions,
   settingsPaletteRows as rawSettingsPaletteRows,
-  textWithinCap as rawTextWithinCap,
+} from "../pkg/wf_wasm.js";
+
+export {
+  textWithinCap,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -53,10 +56,5 @@ export function menuPaletteActions(groups: readonly AppLibMenuGroup[]): AppLibMe
 /** The Settings palette rows the bridge can back. */
 export function settingsPaletteRows(hasPlanWidget: boolean, hasInk: boolean): AppLibSettingsPaletteRow[] {
   return rawSettingsPaletteRows(hasPlanWidget, hasInk) as AppLibSettingsPaletteRow[];
-}
-
-/** Whether `text` is within the index cap (16Mi UTF-16 units). Above it, callers keep the TS rule. */
-export function textWithinCap(text: string): boolean {
-  return rawTextWithinCap(text);
 }
 

@@ -10,8 +10,8 @@ use wf_core::markdown_image_refs;
 pub fn strip_unresolved_image_refs_js(
     body: js_sys::JsString,
     prefix: &str,
-    paths: JsValue,
-    resolved: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paths: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] resolved: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let body = &crate::guarded_text(&body)?;
     let paths: Vec<String> = serde_wasm_bindgen::from_value(paths)?;

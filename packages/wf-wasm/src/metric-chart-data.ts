@@ -5,13 +5,16 @@
  */
 import {
   emaSmooth as rawEmaSmooth,
-  tickFormat as rawTickFormat,
 } from "../pkg/wf_wasm.js";
 import type {
   AlignedChart,
   ChartSeries,
   TickFormat,
 } from "./bindings.js";
+
+export {
+  tickFormat,
+} from "../pkg/wf_wasm.js";
 
 export {
   alignSeries,
@@ -24,7 +27,3 @@ export function emaSmooth(values: (number | null)[], alpha: number): (number | n
   return rawEmaSmooth(values, alpha) as (number | null)[];
 }
 
-/** How the tick labels are rendered for these values. */
-export function tickFormat(values: readonly number[]): TickFormat {
-  return rawTickFormat(values) as TickFormat;
-}

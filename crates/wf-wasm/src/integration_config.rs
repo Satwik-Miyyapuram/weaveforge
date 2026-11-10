@@ -47,10 +47,13 @@ pub fn user_gate_open_js(
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = projectGateOpen)]
+#[wasm_bindgen(js_name = projectGateOpen, unchecked_return_type = "boolean")]
 pub fn project_gate_open_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Omit<B.IntegrationConfig, \"gitRead\"> & { gitRead: readonly string[] }"
+    )]
     config: JsValue,
-    gate: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.RuntimeGate")] gate: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let config: IntegrationConfig = serde_wasm_bindgen::from_value(config)?;
     let gate: RuntimeGate = serde_wasm_bindgen::from_value(gate)?;
@@ -62,8 +65,13 @@ pub fn project_gate_open_js(
 /// # Errors
 ///
 /// Fails if `config` has the wrong shape, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = gitlabCombinedActive)]
-pub fn gitlab_combined_active_js(config: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = gitlabCombinedActive, unchecked_return_type = "boolean")]
+pub fn gitlab_combined_active_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Omit<B.IntegrationConfig, \"gitRead\"> & { gitRead: readonly string[] }"
+    )]
+    config: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let config: IntegrationConfig = serde_wasm_bindgen::from_value(config)?;
     to_js(&gitlab_combined_active(&config))
 }

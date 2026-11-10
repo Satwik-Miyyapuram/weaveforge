@@ -14,7 +14,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `marks` is not a list of digest marks.
 #[wasm_bindgen(js_name = highlightsDigest)]
-pub fn highlights_digest_js(marks: JsValue, existing: &str) -> JsResult<String> {
+pub fn highlights_digest_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.DigestMark[]")] marks: JsValue,
+    existing: &str,
+) -> JsResult<String> {
     let marks: Vec<DigestMark> = serde_wasm_bindgen::from_value(marks)?;
     Ok(reading_digest::highlights_digest(&marks, existing))
 }
@@ -25,7 +28,11 @@ pub fn highlights_digest_js(marks: JsValue, existing: &str) -> JsResult<String> 
 ///
 /// Fails if `papers` or `marks` are not lists of the right shape.
 #[wasm_bindgen(js_name = draftReadingLog)]
-pub fn draft_reading_log_js(papers: JsValue, marks: JsValue, day: &str) -> JsResult<String> {
+pub fn draft_reading_log_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingPaper[]")] papers: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingMark[]")] marks: JsValue,
+    day: &str,
+) -> JsResult<String> {
     let papers: Vec<ReadingPaper> = serde_wasm_bindgen::from_value(papers)?;
     let marks: Vec<ReadingMark> = serde_wasm_bindgen::from_value(marks)?;
     Ok(reading_digest::draft_reading_log(&papers, &marks, day))

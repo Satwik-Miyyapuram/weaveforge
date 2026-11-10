@@ -122,9 +122,12 @@ pub fn clamp_page_js(page: f64, num_pages: f64) -> f64 {
 /// Fails if an argument is not an object of the expected shape.
 #[wasm_bindgen(js_name = resolveViewportScale)]
 pub fn resolve_viewport_scale_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Pick<B.ReaderViewportState, \"scale\" | \"fit\" | \"rotation\">"
+    )]
     state: JsValue,
-    page: JsValue,
-    container: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageSize")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderContainerSize")] container: JsValue,
 ) -> JsResult<f64> {
     Ok(resolve_viewport_scale(
         serde_wasm_bindgen::from_value::<ReaderViewportScaleState>(state)?,

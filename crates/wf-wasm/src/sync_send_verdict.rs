@@ -37,8 +37,12 @@ pub fn is_link_insert_js(op: &str, table: &str) -> bool {
 /// # Errors
 ///
 /// Fails if any argument is not an array of strings.
-#[wasm_bindgen(js_name = missingIds)]
-pub fn missing_ids_js(chunk: JsValue, held: JsValue, tombstoned: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = missingIds, unchecked_return_type = "string[]")]
+pub fn missing_ids_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] chunk: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] held: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] tombstoned: JsValue,
+) -> JsResult<JsValue> {
     let chunk: Vec<String> = serde_wasm_bindgen::from_value(chunk)?;
     let held: Vec<String> = serde_wasm_bindgen::from_value(held)?;
     let tombstoned: Vec<String> = serde_wasm_bindgen::from_value(tombstoned)?;

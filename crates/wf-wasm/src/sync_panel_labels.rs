@@ -13,8 +13,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `lines` has the wrong shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = groupHunks)]
-pub fn group_hunks_js(lines: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = groupHunks, unchecked_return_type = "B.HunkGroup[]")]
+pub fn group_hunks_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.DiffLine[]")] lines: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let lines: Vec<DiffLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&panel_labels::group_hunks(&lines))
 }
@@ -89,7 +91,7 @@ pub fn device_label_js(platform: &str) -> String {
 pub fn unique_device_name_js(
     name: &str,
     device_label: &str,
-    taken: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] taken: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let taken: Vec<String> = serde_wasm_bindgen::from_value(taken)?;
     Ok(panel_labels::unique_device_name(name, device_label, &taken))

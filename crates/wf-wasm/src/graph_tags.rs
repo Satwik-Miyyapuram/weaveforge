@@ -12,11 +12,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `papers`, `notes` or `lists` has the wrong shape.
-#[wasm_bindgen(js_name = graphTagNames)]
+#[wasm_bindgen(js_name = graphTagNames, unchecked_return_type = "string[]")]
 pub fn graph_tag_names_js(
-    papers: JsValue,
-    notes: JsValue,
-    lists: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TaggedPaper[]")] papers: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TaggedNote[]")] notes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.NamedList[]")] lists: JsValue,
     include_lists: bool,
 ) -> Result<JsValue, JsValue> {
     let papers: Vec<TaggedPaper> = serde_wasm_bindgen::from_value(papers)?;
@@ -35,12 +35,12 @@ pub fn graph_tag_names_js(
 /// # Errors
 ///
 /// Fails if `papers` or `notes` has the wrong shape.
-#[wasm_bindgen(js_name = relatedConcepts)]
+#[wasm_bindgen(js_name = relatedConcepts, unchecked_return_type = "[string, number][]")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn related_concepts_js(
     name: String,
-    papers: JsValue,
-    notes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TaggedPaper[]")] papers: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TaggedNote[]")] notes: JsValue,
     limit: u32,
 ) -> Result<JsValue, JsValue> {
     let papers: Vec<TaggedPaper> = serde_wasm_bindgen::from_value(papers)?;
@@ -58,8 +58,11 @@ pub fn related_concepts_js(
 /// # Errors
 ///
 /// Fails if `notes` or `tags` has the wrong shape.
-#[wasm_bindgen(js_name = notesTagged)]
-pub fn notes_tagged_js(notes: JsValue, tags: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = notesTagged, unchecked_return_type = "number[]")]
+pub fn notes_tagged_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TaggedNote[]")] notes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] tags: JsValue,
+) -> Result<JsValue, JsValue> {
     let notes: Vec<TaggedNote> = serde_wasm_bindgen::from_value(notes)?;
     let tags: Vec<String> = serde_wasm_bindgen::from_value(tags)?;
     Ok(to_js(&graph_tags::notes_tagged(&notes, &tags))?)

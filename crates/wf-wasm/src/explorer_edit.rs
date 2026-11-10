@@ -48,8 +48,10 @@ pub fn root_of_js(node: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
 /// # Errors
 ///
 /// Fails if the node does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = creatableUnder)]
-pub fn creatable_under_js(node: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = creatableUnder, unchecked_return_type = "readonly B.CreateKind[]")]
+pub fn creatable_under_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] node: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let node: WorkspaceTreeNode = serde_wasm_bindgen::from_value(node)?;
     to_js(&edit::creatable_under(&node))
 }

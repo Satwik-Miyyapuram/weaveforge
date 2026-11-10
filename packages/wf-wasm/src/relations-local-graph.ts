@@ -5,14 +5,12 @@
 import {
   cloneLinks as rawCloneLinks,
   filterGraphByNodes as rawFilterGraphByNodes,
-  linkNodeId as rawLinkNodeId,
   localSubgraph as rawLocalSubgraph,
 } from "../pkg/wf_wasm.js";
 
-/** The id a link endpoint names: the string itself, or the `id` of an endpoint object. */
-export function linkNodeId(source: string | { id: string }): string {
-  return rawLinkNodeId(source) as string;
-}
+export {
+  linkNodeId,
+} from "../pkg/wf_wasm.js";
 
 /**
  * The nodes whose id is in `allowed` (all of them when `null`), and the links whose two

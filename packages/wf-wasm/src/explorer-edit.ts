@@ -3,7 +3,6 @@
  * re-exported from index.ts. The drag MIME type is a UI constant and lives with the panel.
  */
 import {
-  creatableUnder as rawCreatableUnder,
   creationKindFor as rawCreationKindFor,
   creationTarget as rawCreationTarget,
   dropParentId as rawDropParentId,
@@ -18,6 +17,10 @@ import type {
   EditableRoot,
   WorkspaceTreeNode,
 } from "./bindings.js";
+
+export {
+  creatableUnder,
+} from "../pkg/wf_wasm.js";
 
 export {
   canDrop,
@@ -46,11 +49,6 @@ export function rootOfKind(kind: string): EditableRoot | null {
 /** The root a row sits under, or `null` for a list member or outline heading. */
 export function rootOf(node: WorkspaceTreeNode): EditableRoot | null {
   return rawRootOf(node) ?? null;
-}
-
-/** The kinds a draft under `node` may take; empty when it holds nothing. */
-export function creatableUnder(node: WorkspaceTreeNode): readonly CreateKind[] {
-  return rawCreatableUnder(node);
 }
 
 /** The kind the "new file" gestures make for the document on screen. */

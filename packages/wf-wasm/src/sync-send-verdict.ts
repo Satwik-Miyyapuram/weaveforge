@@ -3,7 +3,10 @@
  */
 import {
   classifySend as rawClassifySend,
-  missingIds as rawMissingIds,
+} from "../pkg/wf_wasm.js";
+
+export {
+  missingIds,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -28,11 +31,3 @@ export function classifySend(status: number, errorCode: string | null, rows: num
   return rawClassifySend(status, errorCode, rows) as SendVerdict;
 }
 
-/** The ids in `chunk` the server did not return and has no tombstone for. */
-export function missingIds(
-  chunk: readonly string[],
-  held: readonly string[],
-  tombstoned: readonly string[],
-): string[] {
-  return rawMissingIds(chunk, held, tombstoned) as string[];
-}

@@ -36,10 +36,10 @@ pub fn dashboard_layout_floors_js(limit: JsValue, cols: f64) -> Result<JsValue, 
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardNormalizeItem)]
+#[wasm_bindgen(js_name = dashboardNormalizeItem, unchecked_return_type = "B.LayoutItem")]
 pub fn dashboard_normalize_item_js(
-    item: JsValue,
-    limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.LayoutItem")] item: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
     cols: f64,
 ) -> Result<JsValue, JsError> {
     let item: LayoutItem = serde_wasm_bindgen::from_value(item).map_err(js_error)?;
@@ -53,8 +53,11 @@ pub fn dashboard_normalize_item_js(
 /// # Errors
 ///
 /// Fails on a bad input shape.
-#[wasm_bindgen(js_name = dashboardCompactVertical)]
-pub fn dashboard_compact_vertical_js(items: JsValue, cols: f64) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = dashboardCompactVertical, unchecked_return_type = "B.LayoutItem[]")]
+pub fn dashboard_compact_vertical_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    cols: f64,
+) -> Result<JsValue, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
     js(&packing::compact_vertical(&items, cols))
 }
@@ -64,8 +67,11 @@ pub fn dashboard_compact_vertical_js(items: JsValue, cols: f64) -> Result<JsValu
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardPackSm)]
-pub fn dashboard_pack_sm_js(items: JsValue, limits: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = dashboardPackSm, unchecked_return_type = "B.LayoutItem[]")]
+pub fn dashboard_pack_sm_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
+) -> Result<JsValue, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
     let limits: Vec<CardLimit> = serde_wasm_bindgen::from_value(limits).map_err(js_error)?;
     let out = packing::pack_sm(&items, &limits).map_err(js_error)?;
@@ -77,10 +83,10 @@ pub fn dashboard_pack_sm_js(items: JsValue, limits: JsValue) -> Result<JsValue, 
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardCloseGaps)]
+#[wasm_bindgen(js_name = dashboardCloseGaps, unchecked_return_type = "B.LayoutItem[]")]
 pub fn dashboard_close_gaps_js(
-    items: JsValue,
-    limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
     cols: f64,
 ) -> Result<JsValue, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;

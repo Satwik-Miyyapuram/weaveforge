@@ -40,8 +40,11 @@ fn byte_offset(text: &str, utf16: usize) -> usize {
 /// # Errors
 ///
 /// Fails when `settings` is not a `PasteSettings` object, or `input` is over the text cap.
-#[wasm_bindgen(js_name = cleanPastedText)]
-pub fn clean_pasted_text_js(input: js_sys::JsString, settings: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = cleanPastedText, unchecked_return_type = "B.CleanPasteResult")]
+pub fn clean_pasted_text_js(
+    input: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "B.PasteSettings")] settings: JsValue,
+) -> JsResult<JsValue> {
     let input = &crate::guarded_text(&input)?;
     let settings: PasteSettings = serde_wasm_bindgen::from_value(settings)?;
     to_js(&clean_pasted_text(input, &settings))
@@ -69,8 +72,11 @@ pub fn paste_lands_in_verbatim_context_js(
 /// # Errors
 ///
 /// Fails when `options` is not a `WrappedTextOptions` object, or `input` is over the text cap.
-#[wasm_bindgen(js_name = cleanWrappedText)]
-pub fn clean_wrapped_text_js(input: js_sys::JsString, options: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = cleanWrappedText, unchecked_return_type = "B.TextResult")]
+pub fn clean_wrapped_text_js(
+    input: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "B.WrappedTextOptions")] options: JsValue,
+) -> JsResult<JsValue> {
     let input = &crate::guarded_text(&input)?;
     let options: WrappedTextOptions = serde_wasm_bindgen::from_value(options)?;
     to_js(&clean_wrapped_text(input, &options))
@@ -81,8 +87,11 @@ pub fn clean_wrapped_text_js(input: js_sys::JsString, options: JsValue) -> JsRes
 /// # Errors
 ///
 /// Fails when `options` is not a `PdfTextOptions` object, or `input` is over the text cap.
-#[wasm_bindgen(js_name = cleanPdfText)]
-pub fn clean_pdf_text_js(input: js_sys::JsString, options: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = cleanPdfText, unchecked_return_type = "B.TextResult")]
+pub fn clean_pdf_text_js(
+    input: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "B.PdfTextOptions")] options: JsValue,
+) -> JsResult<JsValue> {
     let input = &crate::guarded_text(&input)?;
     let options: PdfTextOptions = serde_wasm_bindgen::from_value(options)?;
     to_js(&clean_pdf_text(input, &options))
@@ -93,8 +102,11 @@ pub fn clean_pdf_text_js(input: js_sys::JsString, options: JsValue) -> JsResult<
 /// # Errors
 ///
 /// Fails when `placement` is not `"inside"` or `"outside"`, or `input` is over the text cap.
-#[wasm_bindgen(js_name = applyCommaPlacement)]
-pub fn apply_comma_placement_js(input: js_sys::JsString, placement: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = applyCommaPlacement, unchecked_return_type = "B.TextResult")]
+pub fn apply_comma_placement_js(
+    input: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "B.CommaPlacement")] placement: JsValue,
+) -> JsResult<JsValue> {
     let input = &crate::guarded_text(&input)?;
     let placement: CommaPlacement = serde_wasm_bindgen::from_value(placement)?;
     to_js(&apply_comma_placement(input, placement))
@@ -105,7 +117,7 @@ pub fn apply_comma_placement_js(input: js_sys::JsString, placement: JsValue) -> 
 /// # Errors
 ///
 /// Fails when `input` is over the text cap.
-#[wasm_bindgen(js_name = tabSeparatedToMarkdownTable)]
+#[wasm_bindgen(js_name = tabSeparatedToMarkdownTable, unchecked_return_type = "B.TextResult")]
 pub fn tab_separated_to_markdown_table_js(input: js_sys::JsString) -> JsResult<JsValue> {
     let input = &crate::guarded_text(&input)?;
     to_js(&tab_separated_to_markdown_table(input))
@@ -117,8 +129,11 @@ pub fn tab_separated_to_markdown_table_js(input: js_sys::JsString) -> JsResult<J
 /// # Errors
 ///
 /// Fails when `rules` is not a string array, or `text` is over the text cap.
-#[wasm_bindgen(js_name = cleanUrlsWithRules)]
-pub fn clean_urls_with_rules_js(text: js_sys::JsString, rules: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = cleanUrlsWithRules, unchecked_return_type = "B.UrlCleanupResult")]
+pub fn clean_urls_with_rules_js(
+    text: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] rules: JsValue,
+) -> JsResult<JsValue> {
     let text = &crate::guarded_text(&text)?;
     let rules: Vec<String> = serde_wasm_bindgen::from_value(rules)?;
     to_js(&clean_urls_in_text(
@@ -156,7 +171,7 @@ pub fn normalize_paste_settings_js(json: js_sys::JsString) -> JsResult<JsValue> 
 /// # Errors
 ///
 /// Fails when `text` is over the text cap.
-#[wasm_bindgen(js_name = parseLinkRemovalText)]
+#[wasm_bindgen(js_name = parseLinkRemovalText, unchecked_return_type = "string[]")]
 pub fn parse_link_removal_text_js(text: js_sys::JsString) -> JsResult<JsValue> {
     let text = &crate::guarded_text(&text)?;
     to_js(&parse_link_removal_text(text))

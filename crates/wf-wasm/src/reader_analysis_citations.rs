@@ -21,8 +21,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `refs` is not an array of parsed references.
-#[wasm_bindgen(js_name = matchAuthorYearText)]
-pub fn match_author_year_text_js(text: &str, refs: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = matchAuthorYearText, unchecked_return_type = "number[]")]
+pub fn match_author_year_text_js(
+    text: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisParsedReference[]")] refs: JsValue,
+) -> JsResult<JsValue> {
     let refs: Vec<AnalysisParsedReference> = serde_wasm_bindgen::from_value(refs)?;
     to_js(&analysis_citations::match_author_year_text(text, &refs))
 }
@@ -33,7 +36,12 @@ pub fn match_author_year_text_js(text: &str, refs: JsValue) -> JsResult<JsValue>
 ///
 /// Fails if `ranges` is not an array of page text ranges.
 #[wasm_bindgen(js_name = inReferenceList)]
-pub fn in_reference_list_js(page: f64, start: f64, end: f64, ranges: JsValue) -> JsResult<bool> {
+pub fn in_reference_list_js(
+    page: f64,
+    start: f64,
+    end: f64,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPageTextRange[]")] ranges: JsValue,
+) -> JsResult<bool> {
     let ranges: Vec<AnalysisPageTextRange> = serde_wasm_bindgen::from_value(ranges)?;
     Ok(analysis_citations::in_reference_list(
         page, start, end, &ranges,

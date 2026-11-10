@@ -12,10 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `rows` or `order` has the wrong shape.
-#[wasm_bindgen(js_name = sortHitOrder)]
+#[wasm_bindgen(js_name = sortHitOrder, unchecked_return_type = "number[]")]
 pub fn sort_hit_order_js(
-    rows: JsValue,
-    order: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.HitKey[]")] rows: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.HitSort")] order: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let rows: Vec<HitKey> = serde_wasm_bindgen::from_value(rows)?;
     let order: HitSort = serde_wasm_bindgen::from_value(order)?;

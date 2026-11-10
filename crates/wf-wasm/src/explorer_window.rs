@@ -12,12 +12,12 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if an argument does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = rowSlots)]
+#[wasm_bindgen(js_name = rowSlots, unchecked_return_type = "B.RowSlot[]")]
 pub fn row_slots_js(
     count: f64,
-    viewport: JsValue,
-    pinned: JsValue,
-    metrics: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ExplorerViewport | null")] viewport: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] pinned: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.RowMetrics")] metrics: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let viewport: Option<window::ExplorerViewport> = serde_wasm_bindgen::from_value(viewport)?;
     let pinned: Vec<f64> = serde_wasm_bindgen::from_value(pinned)?;

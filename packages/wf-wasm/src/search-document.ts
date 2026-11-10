@@ -14,7 +14,6 @@ import {
   pdfDocIdsFor as rawPdfDocIdsFor,
   pdfPageHref as rawPdfPageHref,
   projectSearchDocuments as rawProjectSearchDocuments,
-  projectStoredPdfTexts as rawProjectStoredPdfTexts,
   searchRevision as rawSearchRevision,
   toAnnotationSearchDocs as rawToAnnotationSearchDocs,
   toPdfSearchDocs as rawToPdfSearchDocs,
@@ -25,10 +24,13 @@ import type {
   PdfIndexSource as StoredPdfIndexSource,
   PdfPageText as StoredPdfPageText,
   SearchDoc,
-  StoredPdfProjection,
   WikiGraph,
 } from "./bindings.js";
 import type { ReadonlyInput } from "./readonly-input.js";
+
+export {
+  projectStoredPdfTexts,
+} from "../pkg/wf_wasm.js";
 
 /** One PDF page's extracted text. */
 export type PdfPageText = Required<StoredPdfPageText>;
@@ -138,17 +140,6 @@ export function projectSearchDocuments(
   pdfTexts: readonly PdfIndexSource[],
 ): SearchDoc[] {
   return rawProjectSearchDocuments(snapshot, toWireGraph(graph), pdfTexts) as SearchDoc[];
-}
-
-/**
- * The worker's build: stored PDF text minus papers the library no longer holds, projected
- * with a graph built from the snapshot. Rust `project_stored_pdf_texts`.
- */
-export function projectStoredPdfTexts(
-  snapshot: object,
-  stored: readonly PdfIndexSource[],
-): StoredPdfProjection {
-  return rawProjectStoredPdfTexts(snapshot, stored) as StoredPdfProjection;
 }
 
 /** Project reader annotations into search documents; titles are the paper's. */

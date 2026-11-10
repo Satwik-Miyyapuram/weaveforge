@@ -34,8 +34,11 @@ pub fn layout_margin_notes_js(
 /// # Errors
 ///
 /// Fails if `anchorTops` is not an array of numbers.
-#[wasm_bindgen(js_name = stackMarginNotes)]
-pub fn stack_margin_notes_js(anchor_tops: JsValue, card_height: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = stackMarginNotes, unchecked_return_type = "B.MarginSlot[]")]
+pub fn stack_margin_notes_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] anchor_tops: JsValue,
+    card_height: f64,
+) -> JsResult<JsValue> {
     let anchor_tops: Vec<f64> = serde_wasm_bindgen::from_value(anchor_tops)?;
     to_js(&stack_margin_notes(&anchor_tops, card_height))
 }

@@ -32,8 +32,12 @@ pub fn importable_entities_js(entities: JsValue, note_ids: Vec<String>) -> JsRes
 /// # Errors
 ///
 /// Fails if the inputs do not match the shape, or the result cannot be serialized.
-#[wasm_bindgen(js_name = renameSources)]
-pub fn rename_sources_js(parsed: JsValue, folder: JsValue, current: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = renameSources, unchecked_return_type = "Record<string, string>")]
+pub fn rename_sources_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.FolderParsedEntity[]")] parsed: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] folder: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] current: JsValue,
+) -> JsResult<JsValue> {
     let parsed: Vec<ParsedEntity> = serde_wasm_bindgen::from_value(parsed)?;
     let folder: BTreeMap<String, String> = serde_wasm_bindgen::from_value(folder)?;
     let current: BTreeMap<String, String> = serde_wasm_bindgen::from_value(current)?;

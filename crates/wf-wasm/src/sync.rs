@@ -115,7 +115,12 @@ struct FileStatusIn {
 ///
 /// Fails when `status` is not that shape.
 #[wasm_bindgen(js_name = describeChanges)]
-pub fn describe_changes_js(status: JsValue) -> JsResult<String> {
+pub fn describe_changes_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { state: \"added\" | \"modified\" | \"deleted\" }[]"
+    )]
+    status: JsValue,
+) -> JsResult<String> {
     let rows: Vec<FileStatusIn> = serde_wasm_bindgen::from_value(status)?;
     let states: Vec<FileState> = rows.iter().map(|row| row.state).collect();
     Ok(describe_changes(&states))
@@ -512,8 +517,10 @@ pub fn plan_archive_entries_js(entries: JsValue, limits: JsValue) -> Result<JsVa
 /// # Errors
 ///
 /// Fails if `paths` has the wrong shape.
-#[wasm_bindgen(js_name = stripArchiveRoot)]
-pub fn strip_archive_root_js(paths: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = stripArchiveRoot, unchecked_return_type = "string[]")]
+pub fn strip_archive_root_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paths: JsValue,
+) -> Result<JsValue, JsError> {
     let paths: Vec<String> = serde_wasm_bindgen::from_value(paths).map_err(js_error)?;
     to_js(&archive::strip_archive_root(&paths)).map_err(js_error)
 }

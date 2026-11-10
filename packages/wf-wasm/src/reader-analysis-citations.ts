@@ -4,8 +4,6 @@
  * CitationsFns in packages/core/src/shared/core-contract.ts. Object shapes come from ./bindings.ts.
  */
 import {
-  matchAuthorYearText as rawMatchAuthorYearText,
-  inReferenceList as rawInReferenceList,
   findCitationCandidates as rawFindCitationCandidates,
   findPatternCitationMentions as rawFindPatternCitationMentions,
 } from "../pkg/wf_wasm.js";
@@ -17,20 +15,10 @@ import type {
   CitationCandidate,
 } from "./bindings.js";
 
-/** Indexes of the bibliography entries that author-year and numeric citations in `text` name. */
-export function matchAuthorYearText(text: string, refs: readonly AnalysisParsedReference[]): number[] {
-  return rawMatchAuthorYearText(text, refs) as number[];
-}
-
-/** True when `start..end` on `page` overlaps one of `ranges`. */
-export function inReferenceList(
-  page: number,
-  start: number,
-  end: number,
-  ranges: readonly AnalysisPageTextRange[],
-): boolean {
-  return rawInReferenceList(page, start, end, ranges);
-}
+export {
+  inReferenceList,
+  matchAuthorYearText,
+} from "../pkg/wf_wasm.js";
 
 /** Numeric and author-year citation candidates in the page items, sorted by start. */
 export function findCitationCandidates(items: readonly AnalysisPdfItem[]): CitationCandidate[] {

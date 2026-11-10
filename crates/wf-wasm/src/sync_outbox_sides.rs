@@ -16,8 +16,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails when `ops` is not a list of outbox ops.
-#[wasm_bindgen(js_name = editSides)]
-pub fn edit_sides_js(ops: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = editSides, unchecked_return_type = "B.Sides | null")]
+pub fn edit_sides_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.OwedOp[]")] ops: JsValue,
+) -> JsResult<JsValue> {
     let ops: Vec<OwedOp> = serde_wasm_bindgen::from_value(ops)?;
     to_js(&edit_sides(&ops))
 }
@@ -28,8 +30,11 @@ pub fn edit_sides_js(ops: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `ops` is not a list of outbox ops or `stored` is not a plain object.
-#[wasm_bindgen(js_name = deletedRemoteSides)]
-pub fn deleted_remote_sides_js(ops: JsValue, stored: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = deletedRemoteSides, unchecked_return_type = "B.Sides | null")]
+pub fn deleted_remote_sides_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.OwedOp[]")] ops: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown> | null")] stored: JsValue,
+) -> JsResult<JsValue> {
     let ops: Vec<OwedOp> = serde_wasm_bindgen::from_value(ops)?;
     let stored: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(stored)?;
     to_js(&deleted_remote_sides(&ops, stored))
@@ -40,8 +45,10 @@ pub fn deleted_remote_sides_js(ops: JsValue, stored: JsValue) -> JsResult<JsValu
 /// # Errors
 ///
 /// Fails when `ops` is not a list of outbox ops.
-#[wasm_bindgen(js_name = deletedLocalBase)]
-pub fn deleted_local_base_js(ops: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = deletedLocalBase, unchecked_return_type = "Record<string, unknown>")]
+pub fn deleted_local_base_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.OwedOp[]")] ops: JsValue,
+) -> JsResult<JsValue> {
     let ops: Vec<OwedOp> = serde_wasm_bindgen::from_value(ops)?;
     to_js(&deleted_local_base(&ops))
 }

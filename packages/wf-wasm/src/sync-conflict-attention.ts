@@ -3,7 +3,10 @@
  */
 import {
   countOpen as rawCountOpen,
-  keepAllPicks as rawKeepAllPicks,
+} from "../pkg/wf_wasm.js";
+
+export {
+  keepAllPicks,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -27,7 +30,3 @@ export function countOpen(open: readonly OpenConflictRef[]): number {
   return rawCountOpen(open);
 }
 
-/** The field picks a "keep all" on an edit conflict makes, all on one side. */
-export function keepAllPicks(fields: readonly string[], side: "local" | "remote"): FieldPick[] {
-  return rawKeepAllPicks(fields, side) as FieldPick[];
-}

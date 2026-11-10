@@ -4,7 +4,10 @@
 import {
   mergeOverleafProjects as rawMergeOverleafProjects,
   overleafProjectMatches as rawOverleafProjectMatches,
-  overleafProjectShown as rawOverleafProjectShown,
+} from "../pkg/wf_wasm.js";
+
+export {
+  overleafProjectShown,
 } from "../pkg/wf_wasm.js";
 
 /** One merged row. `linkedIndex` is the position in the linked list, or null when none links it. */
@@ -28,7 +31,3 @@ export function overleafProjectMatches(name: string, linkedTitle: string | null,
   return rawOverleafProjectMatches(name, linkedTitle ?? undefined, query);
 }
 
-/** Whether a row is shown: linked rows always, others only when their id is in `picked`. */
-export function overleafProjectShown(hasLink: boolean, id: string, picked: readonly string[]): boolean {
-  return rawOverleafProjectShown(hasLink, id, picked);
-}

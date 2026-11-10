@@ -16,8 +16,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails when `entryDates` is not an array of strings.
-#[wasm_bindgen(js_name = groupByDay)]
-pub fn group_by_day_js(entry_dates: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = groupByDay, unchecked_return_type = "B.LogDayGroup[]")]
+pub fn group_by_day_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] entry_dates: JsValue,
+) -> JsResult<JsValue> {
     let dates: Vec<String> = serde_wasm_bindgen::from_value(entry_dates)?;
     to_js(&group_by_day(&dates))
 }
@@ -28,7 +30,10 @@ pub fn group_by_day_js(entry_dates: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails when `entryDates` is not an array of strings.
 #[wasm_bindgen(js_name = streakDays)]
-pub fn streak_days_js(entry_dates: JsValue, today: &str) -> JsResult<u32> {
+pub fn streak_days_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] entry_dates: JsValue,
+    today: &str,
+) -> JsResult<u32> {
     let dates: Vec<String> = serde_wasm_bindgen::from_value(entry_dates)?;
     Ok(streak_days(&dates, today))
 }
@@ -38,8 +43,11 @@ pub fn streak_days_js(entry_dates: JsValue, today: &str) -> JsResult<u32> {
 /// # Errors
 ///
 /// Fails when `entryDates` is not an array of strings.
-#[wasm_bindgen(js_name = logEyebrow)]
-pub fn log_eyebrow_js(entry_dates: JsValue, today: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = logEyebrow, unchecked_return_type = "string | undefined")]
+pub fn log_eyebrow_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] entry_dates: JsValue,
+    today: &str,
+) -> JsResult<JsValue> {
     let dates: Vec<String> = serde_wasm_bindgen::from_value(entry_dates)?;
     to_js(&log_eyebrow(&dates, today))
 }
@@ -55,8 +63,10 @@ pub fn split_headline_js(body: &str) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `publishedAt` is not an array of strings.
-#[wasm_bindgen(js_name = newestFirstOrder)]
-pub fn newest_first_order_js(published_at: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = newestFirstOrder, unchecked_return_type = "number[]")]
+pub fn newest_first_order_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] published_at: JsValue,
+) -> JsResult<JsValue> {
     let stamps: Vec<String> = serde_wasm_bindgen::from_value(published_at)?;
     to_js(&newest_first_order(&stamps))
 }

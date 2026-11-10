@@ -98,7 +98,10 @@ pub fn outline_from_text_js(all_pages: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `headings` is not an array of `{ page }` objects.
 #[wasm_bindgen(js_name = outlineIsPlausible)]
-pub fn outline_is_plausible_js(headings: JsValue, page_count: f64) -> JsResult<bool> {
+pub fn outline_is_plausible_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly { page: number }[]")] headings: JsValue,
+    page_count: f64,
+) -> JsResult<bool> {
     let headings: Vec<OutlinePageRef> = serde_wasm_bindgen::from_value(headings)?;
     Ok(analysis_outline::outline_is_plausible(
         &headings, page_count,

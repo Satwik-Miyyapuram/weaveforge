@@ -15,8 +15,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `supports` is not an array of booleans.
-#[wasm_bindgen(js_name = ladderOrder)]
-pub fn ladder_order_js(supports: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = ladderOrder, unchecked_return_type = "number[]")]
+pub fn ladder_order_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly boolean[]")] supports: JsValue,
+) -> JsResult<JsValue> {
     let supports: Vec<bool> = serde_wasm_bindgen::from_value(supports)?;
     to_js(&ladder_order(&supports))
 }

@@ -10,7 +10,6 @@ import {
   zoomIn as rawZoomIn,
   zoomOut as rawZoomOut,
   nextRotation as rawNextRotation,
-  resolveViewportScale as rawResolveViewportScale,
   initialReaderViewport as rawInitialReaderViewport,
   pdfPointToScreen as rawPdfPointToScreen,
   screenPointToPdf as rawScreenPointToPdf,
@@ -21,8 +20,11 @@ import type {
   ReaderFitMode,
   ReaderPageProjection,
   ReaderPageSize,
-  ReaderViewportState,
 } from "./bindings.js";
+
+export {
+  resolveViewportScale,
+} from "../pkg/wf_wasm.js";
 
 export {
   buildAnnotationSortIndex,
@@ -67,15 +69,6 @@ export function zoomOut(scale: number, step = 1.25): number {
 /** The rotation after turning by `delta` degrees, wrapped into [0, 360). */
 export function nextRotation(current: 0 | 90 | 180 | 270, delta: 90 | -90 = 90): 0 | 90 | 180 | 270 {
   return rawNextRotation(current, delta) as 0 | 90 | 180 | 270;
-}
-
-/** The effective render scale for the current fit mode; `custom` returns the clamped stored scale. */
-export function resolveViewportScale(
-  state: Pick<ReaderViewportState, "scale" | "fit" | "rotation">,
-  page: ReaderPageSize,
-  container: ReaderContainerSize,
-): number {
-  return rawResolveViewportScale(state, page, container);
 }
 
 /** The starting viewport: fit-width, rotation 0, scale 1, on the clamped page. */

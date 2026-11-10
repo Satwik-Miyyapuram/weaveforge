@@ -92,8 +92,8 @@ pub fn resolve_display_role_js(role: &str, in_lab: bool, owns_org: bool) -> Stri
 /// Fails if `profile` or `memberships` has the wrong shape.
 #[wasm_bindgen(js_name = needsStandaloneRoleSync)]
 pub fn needs_standalone_role_sync_js(
-    profile: JsValue,
-    memberships: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ProfileState | null")] profile: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Membership[]")] memberships: JsValue,
     in_lab: bool,
 ) -> JsResult<bool> {
     let profile: Option<ProfileState> = serde_wasm_bindgen::from_value(profile)?;
@@ -156,7 +156,10 @@ pub fn has_active_lab_js(
 ///
 /// Fails if `profile` or `labs` has the wrong shape.
 #[wasm_bindgen(js_name = shouldSyncStandalone)]
-pub fn should_sync_standalone_js(profile: JsValue, labs: JsValue) -> JsResult<bool> {
+pub fn should_sync_standalone_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ProfileState | null")] profile: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Membership[] | null")] labs: JsValue,
+) -> JsResult<bool> {
     let profile: Option<ProfileState> = serde_wasm_bindgen::from_value(profile)?;
     let labs: Option<Vec<Membership>> = serde_wasm_bindgen::from_value(labs)?;
     Ok(org::should_sync_standalone(

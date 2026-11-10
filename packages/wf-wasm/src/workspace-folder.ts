@@ -5,14 +5,10 @@ import {
   checkGitRemoteUrl as rawCheckGitRemoteUrl,
   slugFor as rawSlugFor,
   treePathPairs as rawTreePathPairs,
-  countJsonActions as rawCountJsonActions,
   diffJsonData as rawDiffJsonData,
   diffWorkspace as rawDiffWorkspace,
   entityDir as rawEntityDir,
   folderKeys as rawFolderKeys,
-  idSuffix as rawIdSuffix,
-  isAppOwnedPath as rawIsAppOwnedPath,
-  jsonDataPath as rawJsonDataPath,
   jsonKindOfPath as rawJsonKindOfPath,
   parseJsonData as rawParseJsonData,
   parseWorkspaceFolder as rawParseWorkspaceFolder,
@@ -20,16 +16,13 @@ import {
   projectDir as rawProjectDir,
   projectMetaDir as rawProjectMetaDir,
   serializeWorkspace as rawSerializeWorkspace,
-  stripKindSuffix as rawStripKindSuffix,
   workspaceSnapshotCounts as rawWorkspaceSnapshotCounts,
 } from "../pkg/wf_wasm.js";
 import type {
-  ActionCounts,
   ChangeSide,
   ExistingEntity,
   ImportDiff,
   JsonDiff,
-  JsonDiffEntry,
   MirrorResult,
   ParsedEntity,
   ParsedJsonData,
@@ -39,6 +32,14 @@ import type {
   WorkspaceJsonKind,
   WorkspaceSnapshotCounts,
 } from "./bindings.js";
+
+export {
+  countJsonActions,
+  idSuffix,
+  isAppOwnedPath,
+  jsonDataPath,
+  stripKindSuffix,
+} from "../pkg/wf_wasm.js";
 
 export {
   addCounts,
@@ -67,23 +68,9 @@ export function folderKeys(relativePaths: readonly string[]): string[] {
   return rawFolderKeys([...relativePaths]);
 }
 
-export function idSuffix(id: string): string {
-  return rawIdSuffix(id);
-}
-
-/** `name` without its entity-kind suffix (Rust `strip_kind_suffix`). */
-export function stripKindSuffix(name: string): string {
-  return rawStripKindSuffix(name);
-}
-
 /** The JSON entity kind a path holds, or null for any other path (Rust `json_kind_of_path`). */
 export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
   return (rawJsonKindOfPath(path) ?? null) as WorkspaceJsonKind | null;
-}
-
-/** Whether `path` is a file the app owns rather than user content (Rust `is_app_owned_path`). */
-export function isAppOwnedPath(path: string): boolean {
-  return rawIsAppOwnedPath(path);
 }
 
 /** The project's folder-mirror files for a snapshot (Rust `serialize_workspace`). */
@@ -119,11 +106,6 @@ export function diffWorkspace(
   return rawDiffWorkspace(parsed, existing, sides) as ImportDiff;
 }
 
-/** Path of one of the project's JSON data files (Rust `json_data_path`). */
-export function jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string {
-  return rawJsonDataPath(projectRoot, kind);
-}
-
 /** The rows of a JSON data file, or null when it is not a JSON array (Rust `parse_json_data`). */
 export function parseJsonData(path: string, content: string, kind: WorkspaceJsonKind): ParsedJsonData | null {
   return (rawParseJsonData(path, content, kind) ?? null) as ParsedJsonData | null;
@@ -136,11 +118,6 @@ export function diffJsonData(
   options: { origin?(path: string): ChangeSide } = {},
 ): JsonDiff {
   return rawDiffJsonData(parsed, JSON.stringify(existing), options.origin?.(parsed.path)) as JsonDiff;
-}
-
-/** How many entries there are of each action (Rust `count_json_actions`). */
-export function countJsonActions(entries: readonly JsonDiffEntry[]): ActionCounts {
-  return rawCountJsonActions(entries) as ActionCounts;
 }
 
 /**

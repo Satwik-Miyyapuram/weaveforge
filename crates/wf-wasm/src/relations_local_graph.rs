@@ -37,9 +37,11 @@ pub fn local_subgraph_js(
 /// # Errors
 ///
 /// Fails if `source` cannot be read as a JSON value.
-#[wasm_bindgen(js_name = linkNodeId)]
+#[wasm_bindgen(js_name = linkNodeId, unchecked_return_type = "string")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn link_node_id_js(source: JsValue) -> JsResult<JsValue> {
+pub fn link_node_id_js(
+    #[wasm_bindgen(unchecked_param_type = "string | { id: string }")] source: JsValue,
+) -> JsResult<JsValue> {
     let source: Value = serde_wasm_bindgen::from_value(source)?;
     to_js(&link_node_id(&source))
 }

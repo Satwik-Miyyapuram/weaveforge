@@ -221,8 +221,14 @@ pub fn project_search_documents_js(
 /// # Errors
 ///
 /// Fails if an argument or a reader annotation does not match the expected shape.
-#[wasm_bindgen(js_name = projectStoredPdfTexts)]
-pub fn project_stored_pdf_texts_js(snapshot: JsValue, stored: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = projectStoredPdfTexts, unchecked_return_type = "B.StoredPdfProjection")]
+pub fn project_stored_pdf_texts_js(
+    #[wasm_bindgen(unchecked_param_type = "object")] snapshot: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly (Omit<B.PdfIndexSource, \"pages\"> & { pages?: readonly B.PdfPageText[] })[]"
+    )]
+    stored: JsValue,
+) -> Result<JsValue, JsValue> {
     let snapshot: WorkspaceSnapshot = serde_wasm_bindgen::from_value(snapshot)?;
     let stored: Vec<PdfIndexSource> = serde_wasm_bindgen::from_value(stored)?;
     let projection = projection::project_stored_pdf_texts(&snapshot, &stored)

@@ -109,7 +109,7 @@ pub fn write_conflict_markers_js(
 /// # Errors
 ///
 /// Fails when `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = readFrontmatter)]
+#[wasm_bindgen(js_name = readFrontmatter, unchecked_return_type = "B.ParsedDocument")]
 pub fn read_frontmatter_js(content: js_sys::JsString) -> JsResult<JsValue> {
     let content = &crate::guarded_text(&content)?;
     to_js(&read_frontmatter(content))
@@ -123,7 +123,10 @@ pub fn read_frontmatter_js(content: js_sys::JsString) -> JsResult<JsValue> {
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
 /// `fields` is not an object.
 #[wasm_bindgen(js_name = writeFrontmatter)]
-pub fn write_frontmatter_js(fields: JsValue, body: js_sys::JsString) -> JsResult<String> {
+pub fn write_frontmatter_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, unknown>>")] fields: JsValue,
+    body: js_sys::JsString,
+) -> JsResult<String> {
     let body = &crate::guarded_text(&body)?;
     let fields: Map<String, Value> = serde_wasm_bindgen::from_value(fields)?;
     let pairs: Vec<(String, Value)> = fields.into_iter().collect();

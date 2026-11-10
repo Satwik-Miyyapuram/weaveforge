@@ -8,12 +8,15 @@
 import {
   pageTextFromItems as rawPageTextFromItems,
   reconstructLines as rawReconstructLines,
-  detectColumns as rawDetectColumns,
   sortByReadingOrder as rawSortByReadingOrderIndices,
 } from "../pkg/wf_wasm.js";
 import type {
   AnalysisTextLine as TextLine,
 } from "./bindings.js";
+
+export {
+  detectColumns,
+} from "../pkg/wf_wasm.js";
 
 export {
   furnitureKey,
@@ -36,11 +39,6 @@ export function reconstructLines(
 ): TextLine[] {
   const flags = items.map((item) => !!item.str.trim() && keep(item));
   return rawReconstructLines(page, items, flags) as TextLine[];
-}
-
-/** Column index (0-based) for each line, all on one page (Rust `detect_columns`). */
-export function detectColumns(lines: readonly TextLine[]): number[] {
-  return rawDetectColumns(lines) as number[];
 }
 
 /**

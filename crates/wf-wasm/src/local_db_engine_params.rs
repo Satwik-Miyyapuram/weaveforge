@@ -12,8 +12,10 @@ pub fn local_db_shared_buffers() -> String {
 }
 
 /// [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
-#[wasm_bindgen(js_name = engineStartParams)]
-pub fn engine_start_params_js(defaults: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = engineStartParams, unchecked_return_type = "string[]")]
+pub fn engine_start_params_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] defaults: JsValue,
+) -> JsResult<JsValue> {
     let defaults: Vec<String> = serde_wasm_bindgen::from_value(defaults)?;
     serde_wasm_bindgen::to_value(&local_db_engine_params::engine_start_params(&defaults))
 }

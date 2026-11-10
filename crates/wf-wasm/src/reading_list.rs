@@ -16,8 +16,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `lists` has the wrong shape.
-#[wasm_bindgen(js_name = buildListTree)]
-pub fn build_list_tree_js(lists: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = buildListTree, unchecked_return_type = "B.ReadingListTreeNode[]")]
+pub fn build_list_tree_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingList[]")] lists: JsValue,
+) -> JsResult<JsValue> {
     let lists: Vec<ReadingList> = serde_wasm_bindgen::from_value(lists)?;
     to_js(&reading_list::build_list_tree(&lists))
 }
@@ -59,7 +61,10 @@ pub fn list_membership_by_key_js(
 ///
 /// Fails if `lists` has the wrong shape.
 #[wasm_bindgen(js_name = deepestFirstListIds)]
-pub fn deepest_first_list_ids_js(list_id: &str, lists: JsValue) -> JsResult<Vec<String>> {
+pub fn deepest_first_list_ids_js(
+    list_id: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingList[]")] lists: JsValue,
+) -> JsResult<Vec<String>> {
     let lists: Vec<ReadingList> = serde_wasm_bindgen::from_value(lists)?;
     Ok(reading_list::deepest_first_list_ids(list_id, &lists))
 }
