@@ -56,4 +56,5 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [url-meta](url-meta.md) | Paper-from-URL rules in the desktop shell: relay target with `https://` default and read failure messages (`shell_target`, `read_failure_message`). |
 | [local_api_guard](local_api_guard.md) | Local API request guards: loopback Host check, Bearer credential extraction and legacy token shape (is_loopback_host, bearer_token, is_legacy_token_hex). |
 | [secret_names](secret_names.md) | The four stored secret names and the exact-match check (SECRET_NAMES, is_secret_name). |
+| [data-access](data-access.md) | How data access is split: Rust builds requests and handles replies, one TS sender sends them. Records that a Rust network stack was deliberately not built. |
 | [project_folder](project_folder.md) | Project folder name from a --xxxxxx id suffix (project_folder_name). |
