@@ -5,6 +5,7 @@
 import {
   isZoteroChildItem as rawIsZoteroChildItem,
   normalizeZoteroLibrary as rawNormalizeZoteroLibrary,
+  zoteroHeaders as rawZoteroHeaders,
   zoteroLibraryUrl as rawZoteroLibraryUrl,
   zoteroTopLevelPath as rawZoteroTopLevelPath,
 } from "../pkg/wf_wasm.js";
@@ -17,6 +18,11 @@ export function isZoteroChildItem(item: unknown): boolean {
 /** The library path for a pasted library id or path, or undefined when it is not one. */
 export function normalizeZoteroLibrary(library: string | undefined): string | undefined {
   return (rawNormalizeZoteroLibrary(library) as string | null) ?? undefined;
+}
+
+/** The headers every Zotero Web API request carries: the API key and the API version. */
+export function zoteroHeaders(apiKey: string): Record<string, string> {
+  return rawZoteroHeaders(apiKey) as Record<string, string>;
 }
 
 /** The API URL for a library path under an origin. */

@@ -6,11 +6,12 @@
 use std::time::{Duration, Instant};
 
 use proptest::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use wf_core::sync::blob_links::{
-    BlobScheme, ImportedAssetResolver, RelativeAsset, from_relative_blob_links,
-    from_relative_blob_links_mapped, relative_asset_paths, to_relative_blob_links,
+    AssetRef, BlobScheme, ImportedAssetResolver, RelativeAsset, from_relative_blob_links,
+    from_relative_blob_links_mapped, owned_asset_folder_paths, plan_asset_reanchor,
+    relative_asset_paths, to_relative_blob_links,
 };
 use wf_core::sync::folder_layout::AssetScope;
 use wf_core::sync::markdown_image::image_paths_in_body;
@@ -258,4 +259,91 @@ proptest! {
         prop_assert_eq!(folder.assets.len(), 1);
         prop_assert_eq!(from_relative_blob_links(&folder.body, &AllFiles), body);
     }
+}
+
+// ---- asset re-anchoring on import ----
+
+fn set(items: &[&str]) -> BTreeSet<String> {
+    items.iter().map(|s| (*s).to_owned()).collect()
+}
+
+#[test]
+fn owned_paths_are_the_folder_forms_of_every_blob_ref() {
+    let bodies = vec![
+        "![](vault:u/n1/a.png) ![](paperimg:u/p1/b.png)".to_owned(),
+        "no refs here".to_owned(),
+    ];
+
+    assert_eq!(
+        owned_asset_folder_paths(&bodies),
+        set(&["assets/notes/u/n1/a.png", "assets/papers/u/p1/b.png"])
+    );
+}
+
+#[test]
+fn a_ref_the_workspace_owns_is_kept_as_written() {
+    let plan = plan_asset_reanchor(
+        "![](../assets/notes/u/n1/a.png)",
+        &set(&["assets/notes/u/n1/a.png"]),
+        &BTreeSet::new(),
+    );
+
+    assert_eq!(
+        plan.keep,
+        vec![AssetRef {
+            folder_path: "assets/notes/u/n1/a.png".to_owned(),
+            storage_path: "u/n1/a.png".to_owned(),
+            scope: "notes".to_owned(),
+        }]
+    );
+    assert!(plan.upload.is_empty());
+    assert!(plan.unresolved.is_empty());
+}
+
+#[test]
+fn an_unowned_notes_ref_that_arrived_with_the_import_is_uploaded() {
+    let plan = plan_asset_reanchor(
+        "![](../assets/notes/other/n2/c.png)",
+        &BTreeSet::new(),
+        &set(&["assets/notes/other/n2/c.png"]),
+    );
+
+    assert_eq!(plan.upload.len(), 1);
+    assert_eq!(plan.upload[0].storage_path, "other/n2/c.png");
+    assert!(plan.keep.is_empty());
+    assert!(plan.unresolved.is_empty());
+}
+
+#[test]
+fn papers_and_reports_are_never_uploaded() {
+    let body = "![](../assets/papers/u/p.png) ![](../assets/report/u/r.png)";
+    let available = set(&["assets/papers/u/p.png", "assets/report/u/r.png"]);
+
+    let plan = plan_asset_reanchor(body, &BTreeSet::new(), &available);
+
+    assert!(plan.upload.is_empty());
+    assert_eq!(plan.unresolved.len(), 2);
+}
+
+#[test]
+fn a_missing_notes_ref_is_unresolved() {
+    let plan = plan_asset_reanchor(
+        "![](../assets/notes/u/x.png)",
+        &BTreeSet::new(),
+        &BTreeSet::new(),
+    );
+
+    assert_eq!(plan.unresolved.len(), 1);
+    assert_eq!(plan.unresolved[0].folder_path, "assets/notes/u/x.png");
+}
+
+#[test]
+fn each_folder_path_is_decided_once_at_its_first_ref() {
+    let body = "![](../assets/notes/u/a.png) ![x](../assets/notes/u/a.png)";
+
+    let plan = plan_asset_reanchor(body, &BTreeSet::new(), &set(&["assets/notes/u/a.png"]));
+
+    assert_eq!(plan.upload.len(), 1);
+    assert!(plan.keep.is_empty());
+    assert!(plan.unresolved.is_empty());
 }

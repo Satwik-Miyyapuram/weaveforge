@@ -90,7 +90,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | Where | Size | What lives there |
 | --- | --- | --- |
 | `packages/core` | 32,669 lines | Domain and application logic shared by every surface |
-| `apps/web` | 363,169 lines | The app itself: screens, features, API routes, backend wiring |
+| `apps/web` | 362,526 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/desktop` | 11,714 lines | The Electron shell — what only an installed app can do |
 | `apps/pitch` | 904 lines | The public site and this documentation |
 | `python/weaveforge` | 3,375 lines | The SDK training scripts import |
@@ -98,7 +98,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `db/migrations` | 154 files | The schema, as an ordered sequence |
 | `docs` | 96 files | Documentation, this page included |
 
-**414,108 lines of code in all**, across 3,745 source files.
+**413,465 lines of code in all**, across 3,721 source files.
 
 <!-- /generated:code-map -->
 
@@ -199,3 +199,4 @@ that only ever goes up is a figure somebody should be arguing with.
 - [Collaborative editing](../using/collaborative-editing.md)
 - [Integrations](../using/integrations.md)
 - [Design principles](design.md)
+- [Core modules](core/README.md)

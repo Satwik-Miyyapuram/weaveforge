@@ -40,6 +40,17 @@ pub fn zotero_library_url_js(library: &str, api_origin: &str) -> String {
     zotero_library::zotero_library_url(library, api_origin)
 }
 
+/// [`zotero_headers`](zotero_library::zotero_headers): the API key and version headers for a
+/// request, as a plain object.
+///
+/// # Errors
+///
+/// Fails only if the headers cannot be converted to a JS value.
+#[wasm_bindgen(js_name = zoteroHeaders)]
+pub fn zotero_headers_js(api_key: &str) -> Result<JsValue, JsValue> {
+    Ok(to_js(&zotero_library::zotero_headers(api_key))?)
+}
+
 /// [`zotero_top_level_path`](zotero_library::zotero_top_level_path): the top-level items path,
 /// inside a collection when one is given.
 #[wasm_bindgen(js_name = zoteroTopLevelPath)]
