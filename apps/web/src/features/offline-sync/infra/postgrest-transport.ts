@@ -1,5 +1,6 @@
 import { errorMessage } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 import type { OutboxEntry } from "../domain/outbox";
 import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-ports";
 
@@ -44,16 +45,16 @@ interface Attempt {
   rows: unknown[] | null;
 }
 
-/** Columns the server computes; PostgREST refuses any write that names them. */
-const GENERATED: Record<string, readonly string[]> = {
-  vault_pages: ["body_preview"],
-  paper_tags: ["id"],
-};
-
+/** The write's columns minus the table's generated ones (wf-core `postgrest_wire::writable`). */
 function writable(table: string, payload: Record<string, unknown> | undefined): Record<string, unknown> {
-  const body = { ...(payload ?? {}) };
-  for (const col of GENERATED[table] ?? []) delete body[col];
-  return body;
+  // Rust reads a BigInt as a number, so an unencodable payload must fail here as the JSON body did before the port (xlog-03).
+  if (payload) JSON.stringify(payload);
+  return readyCore().postgrestWritable(table, payload ?? null) as Record<string, unknown>;
+}
+
+/** Postgres code and reason of an error body (wf-core `postgrest_wire::error_info`). */
+function readError(body: string): { code: string | null; firstLine: string } {
+  return readyCore().postgrestErrorInfo(body) as { code: string | null; firstLine: string };
 }
 
 export class PostgrestTransport implements SyncTransport {
@@ -74,8 +75,8 @@ export class PostgrestTransport implements SyncTransport {
     // A missing parent is not a conflict over this row: nothing sits at its id,
     // and read as one the insert was dropped. Refused, it is kept and retried
     // once the parent has gone up.
-    if (attempt.status === 409 && errorCode(attempt.body) === FK_VIOLATION) {
-      return { status: "refused", reason: firstLine(attempt.body), awaitingParent: true };
+    if (attempt.status === 409 && readError(attempt.body).code === FK_VIOLATION) {
+      return { status: "refused", reason: readError(attempt.body).firstLine, awaitingParent: true };
     }
     if (attempt.status === 409) {
       const outcome = await this.conflict(entry);
@@ -94,11 +95,11 @@ export class PostgrestTransport implements SyncTransport {
     // this row, not on the session. Read as offline it halted the whole queue
     // behind one op, forever and without a word; refused, it burns an attempt
     // and the ops behind it (often the parent it was waiting for) still go.
-    if (attempt.status === 403 && errorCode(attempt.body) === RLS_VIOLATION) {
-      return { status: "refused", reason: firstLine(attempt.body) };
+    if (attempt.status === 403 && readError(attempt.body).code === RLS_VIOLATION) {
+      return { status: "refused", reason: readError(attempt.body).firstLine };
     }
     if (attempt.status === 401 || attempt.status === 403) return { status: "offline" };
-    if (attempt.status >= 400) return { status: "refused", reason: firstLine(attempt.body) };
+    if (attempt.status >= 400) return { status: "refused", reason: readError(attempt.body).firstLine };
     // A guarded write that matched nothing means the base version moved on —
     // unless it was a delete and the row is already gone, which is the outcome
     // the delete wanted.
@@ -116,7 +117,7 @@ export class PostgrestTransport implements SyncTransport {
       p_limit: limit,
     });
     if (response.status >= 400) {
-      throw new Error(`sync_changes failed (${response.status}): ${firstLine(response.body)}`);
+      throw new Error(`sync_changes failed (${response.status}): ${readError(response.body).firstLine}`);
     }
     const rows = Array.isArray(response.rows) ? response.rows : [];
     return rows.map((row) => toChange(row as Record<string, unknown>));
@@ -296,26 +297,6 @@ const MISSING_IDS_CHUNK = 100;
 
 /** Postgres `insufficient_privilege`, which is what a failed RLS check raises. */
 const RLS_VIOLATION = "42501";
-
-function errorCode(body: string): string | null {
-  try {
-    const parsed = JSON.parse(body) as { code?: unknown };
-    return typeof parsed.code === "string" ? parsed.code : null;
-  } catch {
-    return null;
-  }
-}
-
-/** PostgREST errors are JSON; the message is the part worth keeping. */
-function firstLine(body: string): string {
-  try {
-    const parsed = JSON.parse(body) as { message?: unknown };
-    if (typeof parsed.message === "string") return parsed.message;
-  } catch {
-    // Not JSON — fall through to the raw text.
-  }
-  return body.slice(0, 200);
-}
 
 function toChange(row: Record<string, unknown>): RemoteChange {
   return {

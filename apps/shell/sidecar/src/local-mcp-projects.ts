@@ -47,10 +47,6 @@ export const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g
 
 /** By id, name or folder, then a unique partial name; a miss lists what there is. */
 export function pickProject(projects: readonly ProjectRef[], needle: unknown): ProjectRef {
-  const wanted = typeof needle === "string" ? norm(needle) : "";
-  const names = projects.map((p) => p.name).join(", ");
-  const exact = projects.filter((p) => [p.id, p.name, p.dir].some((v) => v && norm(v) === wanted));
-  const found = exact.length ? exact : projects.filter((p) => wanted && norm(p.name).includes(wanted));
-  if (found.length === 1) return found[0] as ProjectRef;
-  throw new Error(`${found.length ? `'${wanted}' matches more than one project` : `No project matches '${wanted}'`}. Projects: ${names}.`);
+  const index = rust().pickProject(projects, typeof needle === "string" ? needle : null);
+  return projects[index] as ProjectRef;
 }

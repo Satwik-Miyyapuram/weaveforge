@@ -15,14 +15,13 @@ import {
   dropParentId,
   rootKey,
   rootOf,
-  EXPLORER_DRAG_TYPE,
   type CreateKind,
   type Draft,
-} from "../application/explorer-edit";
-import {
   isSectionOpen,
   toggleExpanded,
   toggleSection,
+} from "@weaveforge/wasm";
+import {
   writeExpanded,
   writeSections,
   type ExplorerSection,
@@ -32,18 +31,21 @@ import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import type { TreeNodeKind, VisibleRow, WorkspaceTreeNode } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { isDocumentKind, kindIcon, kindIconClass } from "./kind";
+import { isDocumentKind, kindIcon, kindIconClass } from "@weaveforge/wasm";
 import {
   DraftIcon,
   HideGlyph,
   InlineTitle,
   RefreshGlyph,
 } from "./explorer-glyphs";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { FoldButton } from "@/components/controls";
 import { Button, CloseButton, IconButton } from "@/components/button";
 
 /** The "new in here" hover actions on a row, in the order they show. */
+/** The MIME type explorer rows drag as. */
+const EXPLORER_DRAG_TYPE = "application/x-weaveforge-node";
+
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
   { kind: "note", label: "New note here", icon: <NavIcon name="notes" /> },
   { kind: "section", label: "New section here", icon: <NavIcon name="doc" /> },
@@ -430,7 +432,7 @@ export function ExplorerPanel({
             </>
           ) : null}
           {onHide ? (
-            <IconButton size="sm" label="Hide explorer" tip={`Hide explorer (${shortcutLabel("⌘B")})`} onClick={onHide}>
+            <IconButton size="sm" label="Hide explorer" tip={`Hide explorer (${readyCore().shortcutLabel("⌘B", isMacPlatform())})`} onClick={onHide}>
               <HideGlyph />
             </IconButton>
           ) : null}

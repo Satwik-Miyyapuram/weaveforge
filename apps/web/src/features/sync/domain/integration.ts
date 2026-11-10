@@ -22,7 +22,3 @@ export interface Integration {
 
 /** The branch a git integration uses when none is set. */
 export const DEFAULT_GIT_BRANCH = "main";
-
-export function emptyIntegration(provider: SyncProvider): Integration {
-  return { provider, enabled: false, branch: provider === "mattermost" ? "" : DEFAULT_GIT_BRANCH };
-}

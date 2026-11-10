@@ -1,13 +1,7 @@
-import { loadCore, readyCore } from "@/lib/rust-core";
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import { type IPaperRepository, type Paper, type PaperFilter, type PaperIdentity, type PaperSummary } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
-import {
-  emptyToNull,
-  type PaperRow,
-  toRow,
-  toDomain,
-  toSummary,
-} from "./paper-rows";
+import type { PaperRow } from "@weaveforge/wasm";
 import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
@@ -53,6 +47,48 @@ const PAPER_STAMP_COLUMNS = "id,updated_at,created_at";
  * whether the reader has read the paper it linked to.
  */
 const PAPER_IDENTITY_COLUMNS = "id,title,status";
+
+// Row mapping runs in the Rust core (wf-core `papers::paper_row`).
+/** Bindings type absent fields as `null`; the domain uses `undefined`. */
+const orUndef = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
+
+const toDomain = (row: PaperRow): Paper => {
+  const p = typedCore().paperRowToDomain(row);
+  return {
+    ...p,
+    title: p.title ?? "",
+    authors: p.authors ?? [],
+    year: orUndef(p.year),
+    venue: orUndef(p.venue),
+    doi: orUndef(p.doi),
+    arxivId: orUndef(p.arxivId),
+    url: orUndef(p.url),
+    pdfPath: orUndef(p.pdfPath),
+    abstract: orUndef(p.abstract),
+    summary: orUndef(p.summary),
+    rating: orUndef(p.rating),
+    readAt: orUndef(p.readAt),
+    bibtex: orUndef(p.bibtex),
+    tags: p.tags ?? [],
+    metadata: (p.metadata ?? {}) as Record<string, unknown>,
+  };
+};
+const toSummary = (row: PaperRow): PaperSummary => {
+  const p = typedCore().paperRowToSummary(row);
+  return {
+    ...p,
+    year: orUndef(p.year),
+    readAt: orUndef(p.readAt),
+    pdfPath: orUndef(p.pdfPath),
+    doi: orUndef(p.doi),
+    arxivId: orUndef(p.arxivId),
+    url: orUndef(p.url),
+    summary: orUndef(p.summary),
+    tags: p.tags ?? [],
+  };
+};
+const toRow = (paper: Paper) => typedCore().paperToRow(paper);
+const emptyToNull = (value: string | null | undefined) => typedCore().emptyToNull(value);
 
 export class PostgrestPaperRepository extends ProjectRepository implements IPaperRepository {
 
@@ -152,8 +188,7 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
   }
 
   async save(entity: Paper): Promise<void> {
-    const row = toRow(entity);
-    if (this.pid) row.project_id = this.pid;
+    const row = { ...toRow(entity), ...(this.pid ? { project_id: this.pid } : {}) };
     await run(this.db.from(TABLE).upsert(row, { onConflict: "id" }));
   }
 

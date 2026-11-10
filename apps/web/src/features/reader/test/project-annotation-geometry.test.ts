@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CombinedPdfAnchor, ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
 import {
   bucketAnnotationsByPage,
   projectPageAnnotationGeometry,
 } from "../application/project-annotation-geometry";
+import type { CombinedPdfAnchor } from "@weaveforge/wasm";
 
 const PAGE_HEIGHT = 792;
 const PAGE_WIDTH = 612;

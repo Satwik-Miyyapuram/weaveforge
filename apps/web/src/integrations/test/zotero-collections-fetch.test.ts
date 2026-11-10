@@ -20,8 +20,14 @@
  * which does.
  */
 import assert from "node:assert/strict";
-import { describe, it, afterEach } from "node:test";
+import { before, describe, it, afterEach } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import { zoteroCollectionsFetch } from "../providers/zotero/wire-zotero-bibliography";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const realFetch = globalThis.fetch;
 

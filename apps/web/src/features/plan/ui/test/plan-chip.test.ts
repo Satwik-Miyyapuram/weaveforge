@@ -1,7 +1,10 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { planChipTarget } from "../plan-chip";
+
+before(loadTestCore);
 
 const known = new Set(["p1", "e1", "m1"]);
 const milestones = [{ id: "m1", title: "Pilot study" }];

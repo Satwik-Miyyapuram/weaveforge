@@ -13,6 +13,8 @@
  * back tip erases only where the finger would — on contact.
  */
 
+import { readyCore } from "@/lib/rust-core";
+
 /** The `button` a down reports when the eraser end made the contact. */
 export const PEN_ERASER_BUTTON = 5;
 
@@ -34,9 +36,7 @@ export interface PenEraserEvent {
  * which is what keeps an inverted pen from erasing mid-air.
  */
 export function isPenEraserPointer(event: PenEraserEvent): boolean {
-  if (event.pointerType !== "pen") return false;
-  if (event.button === PEN_ERASER_BUTTON) return true;
-  return ((event.buttons ?? 0) & PEN_ERASER_BIT) !== 0;
+  return readyCore().isPenEraserPointer(event.pointerType, event.button, event.buttons);
 }
 
 /** The `buttons` bit a pen's barrel button sets while it is held. */
@@ -47,8 +47,7 @@ export const PEN_BARREL_BIT = 2;
  * (a lasso), as in OneNote, rather than drawing a stray stroke (E33).
  */
 export function isPenBarrelPointer(event: PenEraserEvent): boolean {
-  if (event.pointerType !== "pen") return false;
-  return event.button === 2 || ((event.buttons ?? 0) & PEN_BARREL_BIT) !== 0;
+  return readyCore().isPenBarrelPointer(event.pointerType, event.button, event.buttons);
 }
 
 /** What a sweep needs from a pointer event; a React or DOM `PointerEvent` fits. */

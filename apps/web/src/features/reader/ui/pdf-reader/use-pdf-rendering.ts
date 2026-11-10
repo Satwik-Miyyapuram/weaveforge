@@ -2,17 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
-import type { PageTextItem } from "@weaveforge/core";
+import type { DocumentPageText, ReaderContainerSize, ReaderPageSize, PageTextItem, PageTextGeometry } from "@weaveforge/wasm";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
 import { useContainerSize } from "./container-resize";
 
-import type {
-  DocumentPageText,
-  ReaderContainerSize,
-  ReaderPageSize,
-} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { perfEnd, perfStart } from "@/lib/perf-marks";
 import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
@@ -37,7 +32,6 @@ import {
   mapOutline,
   textItemsFromContent,
 } from "./pdf-document";
-import type { PageTextGeometry } from "@weaveforge/core";
 import { relayPath } from "@/lib/relay-url";
 import { readyCore } from "@/lib/rust-core";
 

@@ -5,6 +5,7 @@
 //! input's offsets by replacing each match with spaces of the same UTF-16 length.
 
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use regex_lite::Regex;
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::js_collate::locale_compare;
 use crate::papers::js_regex::compile;
+use crate::papers::paper::extract_hashtags;
 use crate::search::js_text::{is_js_whitespace, utf16_len};
 use crate::sync::markdown_image::{
     image_paths_in_body, markdown_image, normalize_markdown_image_syntax,
@@ -24,6 +26,12 @@ static INLINE_CODE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"`[^`
 /// One `[[...]]` on one line; group 1 is the inside.
 pub(crate) static WIKILINK_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(r"\[\[([^\[\]\n]+?)\]\]").ok());
+/// One `![[...]]` embed on one line; group 1 is the title before any `#` or `|`.
+static EMBED_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"!\[\[([^\]\n|#]+)(?:[#|][^\]\n]*)?\]\]").ok());
+/// Any `![[...]]` on one line, dropped from a transcluded body so the expansion is one level deep.
+static NESTED_EMBED_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"!\[\[[^\]\n]*\]\]").ok());
 /// Leading `---` frontmatter block, after an optional BOM.
 static FRONTMATTER_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(concat!("^\u{FEFF}?", r"---\r?\n([\s\S]*?)\r?\n---\r?\n?")).ok());
@@ -183,6 +191,73 @@ pub fn extract_wikilinks(body: &str) -> Vec<WikilinkRef> {
         out.push(link);
     }
     out
+}
+
+/// The trimmed title of each `![[...]]` embed in `body`, in order (repeats kept).
+#[must_use]
+pub fn embed_titles(body: &str) -> Vec<String> {
+    let Some(re) = EMBED_RE.as_ref() else {
+        return Vec::new();
+    };
+    re.captures_iter(body)
+        .filter_map(|caps| caps.get(1).map(|title| js_trim(title.as_str()).to_owned()))
+        .collect()
+}
+
+/// `body` with each `vault:{old}` replaced by `vault:{new}`, one pair after another (TS
+/// `duplicateSharedVault` rewrite). Literal matches, not a regex.
+#[must_use]
+pub fn replace_vault_asset_paths(body: &str, pairs: &[(String, String)]) -> String {
+    pairs.iter().fold(body.to_owned(), |text, (old, new)| {
+        text.replace(&format!("vault:{old}"), &format!("vault:{new}"))
+    })
+}
+
+/// `body` with each `![[title]]` whose title is resolved replaced by a titled callout quoting
+/// that note's body. `bodies[i]` is the body of `titles[i]`. Embeds inside a transcluded body
+/// are dropped (one level deep, so a cycle cannot blow up); unresolved embeds stay as written.
+#[must_use]
+pub fn expand_embeds(body: &str, titles: &[String], bodies: &[String]) -> String {
+    let (Some(embed), Some(nested)) = (EMBED_RE.as_ref(), NESTED_EMBED_RE.as_ref()) else {
+        return body.to_owned();
+    };
+    let resolved: HashMap<&str, &str> = titles
+        .iter()
+        .map(String::as_str)
+        .zip(bodies.iter().map(String::as_str))
+        .collect();
+    let mut out = String::with_capacity(body.len());
+    let mut last = 0;
+    for caps in embed.captures_iter(body) {
+        let (Some(whole), Some(raw)) = (caps.get(0), caps.get(1)) else {
+            continue;
+        };
+        let title = js_trim(raw.as_str());
+        let Some(inner) = resolved.get(title) else {
+            continue;
+        };
+        out.push_str(&body[last..whole.start()]);
+        out.push_str(&embed_callout(title, inner, nested));
+        last = whole.end();
+    }
+    out.push_str(&body[last..]);
+    out
+}
+
+/// The callout one resolved embed becomes: its body quoted line by line, or a placeholder
+/// when nothing is left after dropping nested embeds.
+fn embed_callout(title: &str, inner: &str, nested: &Regex) -> String {
+    let one_level = js_trim(&nested.replace_all(inner, "")).to_owned();
+    let quoted = if one_level.is_empty() {
+        "> _(empty note)_".to_owned()
+    } else {
+        one_level
+            .split('\n')
+            .map(|line| format!("> {line}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    format!("\n\n> [!note] {title}\n{quoted}\n\n")
 }
 
 /// Normalizes a title for case-insensitive wikilink resolution (`normalizeTitleKey`).
@@ -611,9 +686,146 @@ pub fn build_page_tree<P: TreePage + Clone>(pages: &[P]) -> Vec<VaultPageTreeNod
     build_level(&roots, &items, &children)
 }
 
+/// A note as the notes screen derives from it: a summary (`bodyPreview`) or a full page (`body`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DerivedNote {
+    /// Row id.
+    pub id: String,
+    /// Title.
+    pub title: String,
+    /// Full body, when the note is hydrated.
+    #[serde(default)]
+    pub body: Option<String>,
+    /// Head of the body, on a summary row.
+    #[serde(default)]
+    pub body_preview: Option<String>,
+}
+
+/// A note's id and title, as the backlinks list shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteRef {
+    /// Row id.
+    pub id: String,
+    /// Title.
+    pub title: String,
+}
+
+/// The text a note's links and tags are read from: the full body when there is one, else the
+/// preview, else empty (TS `noteBodyText`).
+#[must_use]
+pub fn note_body_text(note: &DerivedNote) -> &str {
+    match note.body.as_deref() {
+        Some(body) if !body.is_empty() => body,
+        _ => note.body_preview.as_deref().unwrap_or(""),
+    }
+}
+
+/// The other notes whose body links to the selected note's title (TS `noteBacklinks`). Empty when
+/// nothing is selected or the selected id is not in `notes`.
+#[must_use]
+pub fn note_backlinks(notes: &[DerivedNote], selected_id: Option<&str>) -> Vec<NoteRef> {
+    let Some(selected) = selected_id.filter(|id| !id.is_empty()) else {
+        return Vec::new();
+    };
+    let Some(target) = notes.iter().find(|note| note.id == selected) else {
+        return Vec::new();
+    };
+    let key = normalize_title_key(&target.title);
+    notes
+        .iter()
+        .filter(|note| note.id != target.id && body_links_to(note_body_text(note), &key))
+        .map(|note| NoteRef {
+            id: note.id.clone(),
+            title: note.title.clone(),
+        })
+        .collect()
+}
+
+/// Every hashtag used across the notes, distinct, in JS string order (TS `noteTags`). JS sorts
+/// by UTF-16 code unit, so the comparison does too.
+#[must_use]
+pub fn note_tags(notes: &[DerivedNote]) -> Vec<String> {
+    let mut tags: HashSet<String> = HashSet::new();
+    for note in notes {
+        tags.extend(extract_hashtags(Some(note_body_text(note))));
+    }
+    let mut sorted: Vec<String> = tags.into_iter().collect();
+    sorted.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
+    sorted
+}
+
+/// Positions of the notes in any chosen list and carrying any chosen tag (TS `scopeNotes`). An
+/// empty filter keeps everything, in order. The caller maps the positions back to its own objects.
+#[must_use]
+pub fn scope_notes(
+    notes: &[DerivedNote],
+    list_filter: &[String],
+    tag_filter: &[String],
+    membership: &HashMap<String, HashSet<String>>,
+) -> Vec<usize> {
+    notes
+        .iter()
+        .enumerate()
+        .filter(|(_, note)| {
+            let in_list = list_filter.is_empty()
+                || list_filter.iter().any(|list| {
+                    membership
+                        .get(list)
+                        .is_some_and(|ids| ids.contains(&note.id))
+                });
+            let tagged = tag_filter.is_empty() || {
+                let tags = extract_hashtags(Some(note_body_text(note)));
+                tag_filter.iter().any(|tag| tags.contains(tag))
+            };
+            in_list && tagged
+        })
+        .map(|(index, _)| index)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embed_titles_are_trimmed_and_ordered() {
+        assert_eq!(
+            embed_titles("a ![[ Note One ]] b ![[Two#Heading]] ![[Three|alias]] ![[Two]]"),
+            ["Note One", "Two", "Three", "Two"]
+        );
+    }
+
+    #[test]
+    fn expand_embeds_quotes_resolved_bodies_and_keeps_the_rest() {
+        let body = "x ![[Ideas]] y ![[Missing]]";
+        let titles = vec!["Ideas".to_owned()];
+        let bodies = vec!["one\n![[Ideas]]\ntwo".to_owned()];
+        assert_eq!(
+            expand_embeds(body, &titles, &bodies),
+            "x \n\n> [!note] Ideas\n> one\n> \n> two\n\n y ![[Missing]]"
+        );
+    }
+
+    #[test]
+    fn replace_vault_asset_paths_rewrites_each_pair_in_order() {
+        let pairs = vec![
+            ("a.png".to_owned(), "b.png".to_owned()),
+            ("x.pdf".to_owned(), "y.pdf".to_owned()),
+        ];
+        let body = "![](vault:a.png) and ![](vault:x.pdf) and vault:a.png2 and a.png";
+        assert_eq!(
+            replace_vault_asset_paths(body, &pairs),
+            "![](vault:b.png) and ![](vault:y.pdf) and vault:b.png2 and a.png"
+        );
+    }
+
+    #[test]
+    fn expand_embeds_marks_an_empty_note() {
+        let out = expand_embeds("![[Blank]]", &["Blank".to_owned()], &["  ".to_owned()]);
+        assert_eq!(out, "\n\n> [!note] Blank\n> _(empty note)_\n\n");
+    }
 
     #[test]
     fn wikilink_forms_read_alias_heading_and_block() {

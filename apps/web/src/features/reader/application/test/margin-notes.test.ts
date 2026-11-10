@@ -1,7 +1,10 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { ReaderAnnotation } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { layoutMarginNotes } from "../margin-notes";
+
+before(loadTestCore);
 
 const projection = { pageWidth: 600, pageHeight: 800, scale: 1, rotation: 0 };
 

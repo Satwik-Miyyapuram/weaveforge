@@ -19,7 +19,7 @@ import {
   regenerateWikiIndex,
   runWikiLint,
   type WikiBuildPreview,
-} from "../application/build-wiki";
+} from "../application/wiki-build";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 import { WikiRecentlyApproved } from "./wiki-recent";

@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { LexicalConceptExtractor, planWikiPages } from "@weaveforge/core";
 
-import { missingPagePlans, takenTitles } from "../application/build-wiki";
+import { missingPagePlans, takenTitles } from "../application/wiki-build";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("each dead-link target becomes one placeholder page", () => {
   const plans = missingPagePlans(["Diffusion Model", "VAE"]);

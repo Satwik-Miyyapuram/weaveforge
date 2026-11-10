@@ -1,6 +1,5 @@
 "use client";
 
-import { enumOptions } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Member, Share, ShareableType, ShareAccess } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
@@ -120,7 +119,7 @@ export function ShareDialog({
   }
 
   // One order everywhere: view, comment, edit (D-16); edit only where it applies.
-  const accessOptions = enumOptions("shareAccess").filter((o) => supportsEdit || o.value !== "edit");
+  const accessOptions = readyCore().enumOptions("shareAccess").filter((o) => supportsEdit || o.value !== "edit");
   return (
     <Modal title={title} onClose={onClose}>
       {error && <FormError>{error}</FormError>}

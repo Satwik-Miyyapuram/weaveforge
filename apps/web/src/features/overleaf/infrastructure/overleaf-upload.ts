@@ -37,18 +37,3 @@ function reason(body: Uint8Array): string {
     return "";
   }
 }
-
-/**
- * The project's root folder id from Overleaf's join answer, or null when the
- * project is read-only or the answer has none.
- */
-export function rootFolderIdOf(join: readonly unknown[]): string | null {
-  for (const arg of join) {
-    if (typeof arg !== "object" || arg === null) continue;
-    const { project, permissionsLevel } = arg as { project?: { rootFolder?: { _id?: unknown }[] }; permissionsLevel?: unknown };
-    const id = project?.rootFolder?.[0]?._id;
-    if (typeof id !== "string") continue;
-    return permissionsLevel === "readOnly" ? null : id;
-  }
-  return null;
-}

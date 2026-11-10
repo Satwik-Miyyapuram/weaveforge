@@ -1,5 +1,6 @@
 import type { WorkspaceSnapshot } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { loadPdfTexts } from "../infrastructure/pdf-text-store";
 import { reconcilePdfTextFolder, removePdfTextsDurably } from "./pdf-text-folder";
 
@@ -32,13 +33,13 @@ export async function pruneMissingPaperTexts(
 ): Promise<PdfTextForIndex> {
   await reconcilePdfTextFolder(projectId);
   const stored = await loadPdfTexts(projectId);
-  const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
+  const { kept, pageCounts, orphanPaperIds } = readyCore().partitionPdfTexts(
+    stored,
+    snapshot.papers.map((paper) => paper.id),
+  );
 
-  const texts = stored.filter((source) => paperIds.has(source.paperId));
-  const pageCounts = new Map(texts.map((source) => [source.paperId, source.pages.length]));
+  const texts = kept.map((index) => stored[index]!);
+  if (orphanPaperIds.length) await removePdfTextsDurably(projectId, orphanPaperIds);
 
-  const orphans = stored.filter((source) => !paperIds.has(source.paperId));
-  if (orphans.length) await removePdfTextsDurably(projectId, orphans.map((source) => source.paperId));
-
-  return { texts, pageCounts, removed: orphans.length };
+  return { texts, pageCounts, removed: orphanPaperIds.length };
 }

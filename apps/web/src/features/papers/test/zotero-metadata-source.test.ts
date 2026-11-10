@@ -1,6 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import assert from "node:assert/strict";
 import { ZoteroMetadataSource } from "../infrastructure/zotero-metadata-source";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const PAPER = {
   key: "PAPER1",

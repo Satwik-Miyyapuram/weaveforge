@@ -8,10 +8,13 @@
  * measured, coming back from hidden is measured at once, and an ordinary resize
  * still waits for the size to settle.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { containerResize } from "../ui/pdf-reader/container-resize";
+
+before(loadTestCore);
 
 test("a container that is hidden is not measured", () => {
   assert.equal(containerResize({ width: 800, height: 600 }, { width: 0, height: 0 }), "ignore");

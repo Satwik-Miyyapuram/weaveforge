@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 import type { ReaderAnnotation, WorkspaceAnnotation } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { draftReadingLog, highlightsDigest } from "../application/reading-digest";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function mark(over: Partial<ReaderAnnotation> & { page?: number }): ReaderAnnotation {
   const { page, ...rest } = over;

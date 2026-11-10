@@ -5,7 +5,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
 import { ToolbarSlotContext } from "@/components/toolbar-slot";
-import type { Crumb } from "../application/breadcrumbs";
+import type { Crumb } from "@weaveforge/wasm";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import type { DocumentMode, PaneLayout, PaneLeaf, PaneNode, PaneSplit, TabMenuCommand, TabRef } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
@@ -13,9 +13,9 @@ import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PaneModeSwitch, WorkspaceToolbar } from "./workspace-toolbar";
-import { kindIcon, kindSuffix, kindTintClass } from "./kind";
+import { kindIcon, kindSuffix, kindTintClass } from "@weaveforge/wasm";
 import { followPointer } from "./follow-pointer";
-import { keyLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { TabButton } from "@/components/controls";
 import { CloseButton } from "@/components/button";
 import { DocumentPresence } from "@/features/collab";
@@ -47,7 +47,7 @@ export function tabMenuItems(
 ): MenuItem[] {
   const groups = leaf ? groupMenuItems(leaf, index, run) : [];
   return [
-    { id: "close", label: "Close", accelerator: keyLabel("Mod-w"), onSelect: () => run("close") },
+    { id: "close", label: "Close", accelerator: readyCore().keyLabel("Mod-w", isMacPlatform()), onSelect: () => run("close") },
     { id: "close-others", label: "Close others", disabled: count < 2, onSelect: () => run("close-others") },
     {
       id: "close-right",
@@ -366,7 +366,7 @@ export function ShortcutGrid({ commands }: { commands: readonly WorkspaceCommand
         <div className="pane-shortcut" key={command}>
           <dt>
             {chordKeys(table[command]).map((key, index) => (
-              <kbd key={`${command}-${index}`}>{keyLabel(key)}</kbd>
+              <kbd key={`${command}-${index}`}>{readyCore().keyLabel(key, isMacPlatform())}</kbd>
             ))}
           </dt>
           <dd>{SHORTCUT_LABEL[command]}</dd>

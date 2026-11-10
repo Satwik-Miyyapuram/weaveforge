@@ -6,7 +6,7 @@
  * them needs a device. The session's "no-render-during-stroke" tests live in
  * pen-capture-session.test.ts.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -17,6 +17,9 @@ import {
   contactAreaMm2,
   type PenPointerEvent,
 } from "../index";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** A pointer event with sane defaults, so each test states only what it means. */
 function pointer(

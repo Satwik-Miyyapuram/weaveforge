@@ -221,3 +221,7 @@ mod tests {
         assert_eq!(out.get("c"), Some(&json!(3)));
     }
 }
+pub mod bibtex;
+pub mod error_redact;
+pub mod export_path;
+pub mod upload;

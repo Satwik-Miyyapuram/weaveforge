@@ -168,6 +168,5 @@ export class UpdatePaperUseCase {
 
 /** Storage paths of a paper's attached images (kept in metadata.images). */
 export function imagesOf(paper: Paper): string[] {
-  const raw = paper.metadata?.["images"];
-  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  return rust().imagesOf(paper.metadata);
 }

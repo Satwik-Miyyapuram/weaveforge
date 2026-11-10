@@ -6,7 +6,7 @@
  * callback a screen may re-render for fires once per stroke. Split from
  * use-pen-capture.test.ts, which keeps the palm rules.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -22,6 +22,9 @@ import {
   type InkWorkerMessage,
   readInkSamples,
 } from "../application/capture-protocol";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** A pointer event with sane defaults, so each test states only what it means. */
 function pointer(

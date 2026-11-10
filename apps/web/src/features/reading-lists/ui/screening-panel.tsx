@@ -16,10 +16,9 @@ import {
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { latestGate } from "@/lib/latest-gate";
-import { collectListIds } from "./list-ui";
+import { readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 import { ToggleButton } from "@/components/controls";
-import { readyCore } from "@/lib/rust-core";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
   title_abstract: "Title & abstract",
@@ -81,7 +80,7 @@ export function ScreeningPanel({
   const reload = useCallback(async () => {
     const isCurrent = beginReload();
     const container = getContainer();
-    const rows = await container.readingLists.listItemsForLists(collectListIds([node]));
+    const rows = await container.readingLists.listItemsForLists(readyCore().collectListIds([node]));
     const screened = rows.filter((row) => !row.inheritedFromListId);
     const nextSummary = await container.readingLists.screenItems.summarize(screened);
     if (!isCurrent()) return;

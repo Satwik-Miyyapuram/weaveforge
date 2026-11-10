@@ -14,7 +14,7 @@ import { FolderIcon } from "@/components/view-icons";
 import { isCommitEnter } from "@/lib/commit-enter";
 import { NavIcon } from "@/app/nav-icon";
 
-import { draftIcon, type CreateKind } from "../application/explorer-edit";
+import { draftIcon, type CreateKind } from "@weaveforge/wasm";
 
 /**
  * The glyph a draft row shows while it is being named.

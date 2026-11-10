@@ -2,15 +2,26 @@ import type {
   IPaperFieldRepository,
   PaperFieldDef,
   PaperFieldValue,
+  PaperFieldValueData,
   SetPaperFieldValueInput,
 } from "@weaveforge/core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import {
-  type DefRow,
-  type ValueRow,
-  toDef,
-  toValue,
-} from "./paper-field-rows";
+import type {
+  PaperFieldDefRow as DefRow,
+  PaperFieldValueRow as ValueRow,
+} from "@weaveforge/wasm";
+import { typedCore } from "@/lib/rust-core";
+
+// Row mapping runs in the Rust core (wf-core `papers::paper_field_row`).
+const toDef = (row: DefRow): PaperFieldDef => {
+  const def = typedCore().paperFieldDefRowToDomain(row);
+  return { ...def, sortOrder: def.sortOrder ?? 0 };
+};
+const toValue = (row: ValueRow): PaperFieldValue => {
+  const val = typedCore().paperFieldValueRowToDomain(row);
+  // Bindings type f64 as number | null (NaN/Infinity serialise as null); field values are always finite.
+  return { ...val, value: val.value as PaperFieldValueData };
+};
 import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
 
 const DEFS = "paper_field_defs";

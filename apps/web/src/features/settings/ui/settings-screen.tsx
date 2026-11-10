@@ -5,6 +5,7 @@ import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/user-settings-core";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
@@ -24,7 +25,6 @@ import { CoreVersion } from "./core-version";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
-import { railGroupText, type RailGroupWords } from "./rail-group-text";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { AiAccessPanel } from "./ai-access-panel";
 import { AppearancePanel } from "./appearance-panel";
@@ -38,7 +38,7 @@ import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { RowButton, TabButton } from "@/components/controls";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
@@ -77,6 +77,15 @@ const SETTINGS_TABS = [
 ] as const;
 
 type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
+
+/** What a settings rail group says about itself; readyCore().railGroupText picks the words shown. */
+type RailGroupWords = {
+  label: string;
+  /** The label to use when the tab it names is hidden: "Account" with no lab tab. */
+  labelWithout?: { tab: string; label: string };
+  /** One word or phrase per tab, in rail order. The integrations tab's is filled in from config. */
+  hints: readonly (readonly [tab: string, text: string])[];
+};
 
 /**
  * The tabs, gathered into the six groups the side rail lists. Choosing a group
@@ -314,7 +323,7 @@ export function SettingsScreen() {
   }
 
   function patchProviderField(providerId: string, fieldId: string, value: string) {
-    setSettings((s) => typedCore().applyUserIntegrationFields(s, providerId, { [fieldId]: value }));
+    setSettings((s) => userSettingsFromCore(typedCore().applyUserIntegrationFields(userSettingsToCore(s), providerId, { [fieldId]: value })));
   }
 
   const showBibliographyCollection =
@@ -342,7 +351,11 @@ export function SettingsScreen() {
   const groups = SETTINGS_GROUPS
     .map((g) => ({
       ...g,
-      ...railGroupText(g, visible, userIntegrations.map((d) => d.title)),
+      ...readyCore().railGroupText(
+        { ...g, hints: g.hints.map(([tab, text]): [string, string] => [tab, text]) },
+        [...visible],
+        userIntegrations.map((d) => d.title),
+      ),
       tabs: g.tabs.filter((id) => visible.has(id)),
     }))
     .filter((g) => g.tabs.length > 0);

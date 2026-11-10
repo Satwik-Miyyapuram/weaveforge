@@ -1,8 +1,14 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("the batch cap is a real bound, not a placeholder", () => {
-  assert.ok(Number.isInteger(MAX_SIGNED_URL_PATHS));
-  assert.ok(MAX_SIGNED_URL_PATHS > 0 && MAX_SIGNED_URL_PATHS <= 1000);
+  const cap = readyCore().maxSignedUrlPaths();
+  assert.ok(Number.isInteger(cap));
+  assert.ok(cap > 0 && cap <= 1000);
 });

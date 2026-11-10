@@ -1,3 +1,4 @@
+import { readyCore } from "@/lib/rust-core";
 import { idbSetSearchIndex } from "./search-index-idb";
 
 /**
@@ -47,7 +48,7 @@ export function isInstalledApp(): boolean {
 }
 
 export function shouldPersistIndex(documentCount: number): boolean {
-  return isInstalledApp() || documentCount <= WEB_CACHE_DOCUMENT_LIMIT;
+  return readyCore().shouldPersistIndex(isInstalledApp(), documentCount);
 }
 
 /**

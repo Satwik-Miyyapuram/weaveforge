@@ -1,7 +1,10 @@
 /**
- * Typed reads of frontmatter fields for workspace files. The parser and writer are
- * Rust (`read_frontmatter` / `write_frontmatter`), reached through `rust()`.
+ * Typed reads of frontmatter fields for workspace files. The parser, writer and field
+ * reads are Rust (`read_frontmatter` / `write_frontmatter` / `frontmatter_string` /
+ * `frontmatter_list`), reached through `rust()`.
  */
+
+import { rust } from "../shared/rust.js";
 
 export type FrontmatterValue = string | number | boolean | string[];
 
@@ -15,18 +18,12 @@ export function frontmatterString(
   frontmatter: Record<string, FrontmatterValue>,
   key: string,
 ): string | undefined {
-  const value = frontmatter[key];
-  if (value === undefined || Array.isArray(value)) return undefined;
-  const text = String(value).trim();
-  return text || undefined;
+  return rust().frontmatterString(frontmatter, key);
 }
 
 export function frontmatterList(
   frontmatter: Record<string, FrontmatterValue>,
   key: string,
 ): string[] {
-  const value = frontmatter[key];
-  if (Array.isArray(value)) return value.map((entry) => String(entry));
-  if (typeof value === "string" && value.trim()) return [value.trim()];
-  return [];
+  return rust().frontmatterList(frontmatter, key);
 }

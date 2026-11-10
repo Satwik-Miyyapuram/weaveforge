@@ -5,7 +5,7 @@
  */
 import { type PaperSummary } from "@weaveforge/core";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export type RelatedPaperHit = {
   title: string;
@@ -30,32 +30,21 @@ type S2Paper = {
 };
 
 export function resolveRelatedPaperUrl(hit: Pick<RelatedPaperHit, "url" | "doi" | "arxivId">): string | undefined {
-  if (hit.url?.trim()) return hit.url.trim();
-  const doi = readyCore().normalizeDoi(hit.doi);
-  if (doi) return `https://doi.org/${doi}`;
-  if (hit.arxivId?.trim()) return `https://arxiv.org/abs/${hit.arxivId.trim()}`;
-  return undefined;
+  return typedCore().resolveRelatedPaperUrl(hit);
 }
 
+/**
+ * Rust sends an absent field as null; the hit type and the old TS have it undefined, key kept.
+ * Takes the Rust row as an object: its nullable fields (year, doi, ...) are what this rewrites.
+ */
+function undefinedForNull(hit: object | null): RelatedPaperHit | null {
+  if (!hit) return hit;
+  return Object.fromEntries(Object.entries(hit).map(([k, v]) => [k, v ?? undefined])) as RelatedPaperHit;
+}
+
+/** The hit for a Semantic Scholar paper; the field rules are in Rust (`related_paper_hit`). */
 function s2ToHit(p: S2Paper): RelatedPaperHit | null {
-  const title = p.title?.trim();
-  if (!title) return null;
-  const doi = p.externalIds?.DOI ? readyCore().normalizeDoi(p.externalIds.DOI) : undefined;
-  const arxivId = p.externalIds?.ArXiv?.trim() || undefined;
-  return {
-    title,
-    authors: (p.authors ?? []).map((a) => a.name?.trim()).filter((n): n is string => Boolean(n)),
-    year: p.year,
-    doi: doi || undefined,
-    arxivId,
-    url: resolveRelatedPaperUrl({ url: p.url, doi: doi || undefined, arxivId }),
-    abstract: p.abstract?.trim() || undefined,
-    citationCount: toCount(p.citationCount),
-  };
-}
-
-function toCount(n: unknown): number | undefined {
-  return typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : undefined;
+  return undefinedForNull(typedCore().s2ToHit(p));
 }
 
 /**
@@ -178,36 +167,14 @@ async function openAlexJson<T>(url: string, key?: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** OpenAlex sends an abstract as word -> positions; this puts the words back in order. */
-function invertedAbstract(index?: Record<string, number[]> | null): string | undefined {
-  if (!index) return undefined;
-  const words: string[] = [];
-  for (const [word, positions] of Object.entries(index)) for (const at of positions) words[at] = word;
-  return words.filter(Boolean).join(" ") || undefined;
-}
-
+/** The hit for an OpenAlex work, its abstract rebuilt in Rust (`related_paper_hit`). */
 function openAlexToHit(w: OpenAlexWork): RelatedPaperHit | null {
-  const title = w.title?.trim();
-  if (!title) return null;
-  const doi = readyCore().normalizeDoi(w.doi ?? undefined) || undefined;
-  return {
-    title,
-    authors: (w.authorships ?? []).flatMap((a) => (a.author?.display_name?.trim() ? [a.author.display_name.trim()] : [])),
-    year: w.publication_year,
-    doi,
-    arxivId: undefined,
-    url: resolveRelatedPaperUrl({ doi }),
-    abstract: invertedAbstract(w.abstract_inverted_index),
-    citationCount: toCount(w.cited_by_count),
-  };
+  return undefinedForNull(typedCore().openAlexToHit(w));
 }
 
 /** The seed's DOI, or for an arXiv paper the arXiv DOI OpenAlex files it under. */
 function seedDoi(seed: PaperSummary): string | undefined {
-  const doi = readyCore().normalizeDoi(seed.doi);
-  if (doi) return doi;
-  const arxiv = seed.arxivId?.trim().replace(/v\d+$/i, "");
-  return arxiv ? `10.48550/arXiv.${arxiv}` : undefined;
+  return typedCore().seedDoi(seed.doi, seed.arxivId);
 }
 
 const workId = (url: string) => url.split("/").pop() ?? "";

@@ -1,19 +1,23 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   EXPLORER_STORAGE_KEY,
-  defaultExpanded,
-  isSectionOpen,
   readExpanded,
   readSections,
-  toggleExpanded,
-  toggleSection,
   writeExpanded,
   type ExplorerSection,
 } from "../application/explorer-state";
-import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import {
+  defaultExpanded,
+  isSectionOpen,
+  parseExplorerKeys,
+  toggleExpanded,
+  toggleSection,
+  type WorkspaceTreeNode,
+} from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 /**
  * The roots a workspace with one of everything has.
@@ -23,13 +27,20 @@ import { readyCore } from "@/lib/rust-core";
  * and the tree had four, so the logbook was the one section a first run left
  * shut. A test that spells the four keys by hand would have had the same gap.
  */
-const ROOTS = readyCore().buildWorkspaceTree({
-  projectRoot: "",
-  notes: [],
-  papers: [],
-  reportSections: [],
-  logEntries: [],
-}).map((node) => node.key);
+let ROOTS: readonly string[] = [];
+
+before(async () => {
+  await loadTestCore();
+  ROOTS = readyCore()
+    .buildWorkspaceTree({
+      projectRoot: "",
+      notes: [],
+      papers: [],
+      reportSections: [],
+      logEntries: [],
+    })
+    .map((node) => node.key);
+});
 
 function memoryStore(initial: string | null = null) {
   let value = initial;
@@ -147,6 +158,20 @@ test("storage that throws never stops the explorer", () => {
   assert.deepEqual([...readExpanded(hostile, ROOTS)], [...defaultExpanded(ROOTS)]);
   assert.doesNotThrow(() => writeExpanded(hostile, ["notes"]));
   assert.equal(EXPLORER_STORAGE_KEY, "weaveforge.explorer.expanded");
+});
+
+test("a stored key list parses to its string keys, in order", () => {
+  assert.deepEqual(parseExplorerKeys('[1, "notes", null, "papers"]'), ["notes", "papers"]);
+});
+
+test("an empty stored list is a decision, not a missing record", () => {
+  assert.deepEqual(parseExplorerKeys("[]"), []);
+});
+
+test("an absent or unusable record parses to null", () => {
+  assert.equal(parseExplorerKeys(null), null);
+  assert.equal(parseExplorerKeys("not json"), null);
+  assert.equal(parseExplorerKeys('{"notes":true}'), null);
 });
 
 test("toggling is a new set, so React sees the change", () => {

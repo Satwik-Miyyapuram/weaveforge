@@ -8,7 +8,7 @@
  * comments at all prints portrait either way; an empty margin is wasted paper.
  */
 
-import { escapeHtml } from "@/lib/escape-html";
+import { readyCore } from "@/lib/rust-core";
 
 /** One comment card beside a printed page. */
 export interface ReaderPrintNote {
@@ -53,8 +53,8 @@ function noteCard(note: ReaderPrintNote, pageHeight: number): string {
   const clipped = quote.length > QUOTE_LIMIT ? `${quote.slice(0, QUOTE_LIMIT - 1)}…` : quote;
   return (
     `<div class="note" style="top:${top.toFixed(3)}%;border-left-color:${safeColour(note.colour)}">` +
-    (clipped ? `<p class="quote">${escapeHtml(clipped)}</p>` : "") +
-    `<p class="comment">${escapeHtml(note.comment.trim())}</p>` +
+    (clipped ? `<p class="quote">${readyCore().escapeHtml(clipped)}</p>` : "") +
+    `<p class="comment">${readyCore().escapeHtml(note.comment.trim())}</p>` +
     `</div>`
   );
 }
@@ -85,7 +85,7 @@ export function readerPrintDocument(input: {
     })
     .join("");
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><title>${escapeHtml(input.title)}</title>
+<html lang="en"><head><meta charset="utf-8" /><title>${readyCore().escapeHtml(input.title)}</title>
 <style>
 @page { size: A4 ${orientation}; margin: 0; }
 * { box-sizing: border-box; }

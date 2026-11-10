@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PopoverLayer } from "../reference-popover-layer";
 import { ReferencePopover } from "../reference-popover";
-import { noticeFor } from "../../application/reference-notice";
+import { readyCore } from "@/lib/rust-core";
 import type { useReaderReferences } from "./use-reader-references";
 import { TabButton } from "@/components/controls";
 
@@ -30,7 +30,7 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
   const resolution = resolutions.get(entry.index) ?? { status: "pending" as const };
   const paper = resolution.status === "resolved" ? resolution.inLibrary : undefined;
   const metadata = resolution.status === "resolved" ? resolution.metadata : undefined;
-  const status = noticeFor(notice, entry.index);
+  const status = readyCore().noticeFor(notice, entry.index);
   return (
     <PopoverLayer anchorKey={hit.key} anchor={anchor} onRequestClose={close}>
       {cited.length > 1 && (

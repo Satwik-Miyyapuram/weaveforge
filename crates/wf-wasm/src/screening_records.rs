@@ -60,6 +60,12 @@ pub fn latest_by_reviewer_js(
 ///
 /// # Errors
 ///
+/// Fails if `decisions` has the wrong shape.
+#[wasm_bindgen(js_name = reviewers)]
+pub fn reviewers_js(decisions: JsValue) -> JsResult<Vec<String>> {
+    Ok(screening::reviewers(&decisions_from(decisions)?))
+}
+
 /// Fails if `decisions` or `stage` has the wrong shape.
 #[wasm_bindgen(js_name = verdictFor)]
 pub fn verdict_for_js(decisions: JsValue, item_id: &str, stage: JsValue) -> JsResult<JsValue> {
@@ -97,6 +103,31 @@ pub fn prisma_counts_js(items: JsValue, decisions: JsValue) -> JsResult<JsValue>
         &items,
         &decisions_from(decisions)?,
     ))
+}
+
+/// [`decision_from_row`](screening::decision_from_row) (TS `PostgrestScreeningRepository`
+/// `toDomain`): a stored `screening_decisions` row as a decision.
+///
+/// # Errors
+///
+/// Fails if `row` has the wrong shape, or its stage or state is not one the enums know.
+#[wasm_bindgen(js_name = screeningDecisionFromRow)]
+pub fn screening_decision_from_row_js(row: JsValue) -> JsResult<JsValue> {
+    let row: screening::ScreeningDecisionRow = serde_wasm_bindgen::from_value(row)?;
+    let decision = screening::decision_from_row(&row).map_err(serde_wasm_bindgen::Error::new)?;
+    to_js(&decision)
+}
+
+/// [`decision_to_row`](screening::decision_to_row) (TS `PostgrestScreeningRepository`
+/// `record`): a decision as the `screening_decisions` row the table takes.
+///
+/// # Errors
+///
+/// Fails if `decision` has the wrong shape.
+#[wasm_bindgen(js_name = screeningDecisionToRow)]
+pub fn screening_decision_to_row_js(decision: JsValue) -> JsResult<JsValue> {
+    let decision: ScreeningDecision = serde_wasm_bindgen::from_value(decision)?;
+    to_js(&screening::decision_to_row(&decision))
 }
 
 /// [`exclusion_reasons`](screening::exclusion_reasons) (TS `exclusionReasons`).

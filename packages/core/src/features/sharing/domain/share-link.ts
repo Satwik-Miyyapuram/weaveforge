@@ -3,14 +3,14 @@
  */
 
 import type { ShareableType } from "./share.js";
+import { rust } from "../../../shared/rust.js";
 
 /** Default TTL for view links when the caller does not set `expiresAt`. */
 export const SHARE_LINK_DEFAULT_TTL_DAYS = 7;
 
-export function defaultShareLinkExpiresAt(nowIso: () => string): string {
-  const d = new Date(nowIso());
-  d.setUTCDate(d.getUTCDate() + SHARE_LINK_DEFAULT_TTL_DAYS);
-  return d.toISOString();
+/** The default expiry of a new view link, `SHARE_LINK_DEFAULT_TTL_DAYS` after `nowMs`. */
+export function defaultShareLinkExpiresAt(nowMs: number = Date.now()): string {
+  return rust().defaultShareLinkExpiresAt(nowMs);
 }
 
 export interface ShareLink {

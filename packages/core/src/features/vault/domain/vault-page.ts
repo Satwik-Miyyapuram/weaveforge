@@ -104,7 +104,6 @@ export interface WikilinkRef {
   length?: number;
 }
 
-export { wikilinkPattern } from "./wikilink-pattern.js";
 
 export interface ParsedFrontmatter {
   body: string;

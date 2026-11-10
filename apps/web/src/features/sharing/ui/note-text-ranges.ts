@@ -1,4 +1,5 @@
-import type { TextSpan } from "../domain/text-anchor";
+import type { TextSpan } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * DOM helpers for comment anchors: mapping between character offsets in the
@@ -8,29 +9,6 @@ import type { TextSpan } from "../domain/text-anchor";
 
 export const HL = "wf-comment";
 export const HL_ACTIVE = "wf-comment-active";
-
-/** Where a span starts and ends, as [text node index, offset within it]. */
-export interface SpanPoints {
-  start: [number, number];
-  end: [number, number];
-}
-
-/**
- * Locate `span` across text nodes of the given lengths, or null when the text
- * is shorter than the span (it has moved on). A boundary that falls between two
- * nodes lands at the end of the earlier one, as the DOM walk always did.
- */
-export function spanPoints(lengths: readonly number[], span: TextSpan): SpanPoints | null {
-  let seen = 0;
-  let start: [number, number] | null = null;
-  for (let i = 0; i < lengths.length; i++) {
-    const len = lengths[i] ?? 0;
-    if (!start && span.start <= seen + len) start = [i, span.start - seen];
-    if (start && span.end <= seen + len) return { start, end: [i, span.end - seen] };
-    seen += len;
-  }
-  return null;
-}
 
 /** Character offset of a DOM point within `root`'s text. */
 export function offsetOf(root: Node, node: Node, offset: number): number {
@@ -45,7 +23,7 @@ export function rangeAt(root: Node, span: TextSpan): Range | null {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: Node[] = [];
   for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
-  const points = spanPoints(nodes.map((n) => n.nodeValue?.length ?? 0), span);
+  const points = readyCore().spanPoints(nodes.map((n) => n.nodeValue?.length ?? 0), span);
   if (!points) return null;
   const startNode = nodes[points.start[0]];
   const endNode = nodes[points.end[0]];

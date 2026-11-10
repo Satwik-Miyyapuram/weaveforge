@@ -8,7 +8,8 @@ import {
   draftTextBox,
   eraseInkPaths,
 } from "../application/draft-local-annotation.js";
-import { INK_MAX_PATHS_PER_ANNOTATION, type PageTextGeometry } from "@weaveforge/core";
+import { INK_MAX_PATHS_PER_ANNOTATION } from "@weaveforge/core";
+import type { PageTextGeometry } from "@weaveforge/wasm";
 
 const page: PageTextGeometry = {
   pageIndex: 2,

@@ -17,7 +17,8 @@ use wf_core::sync::git_policy::{
 // check_git_remote_url is bound below: the TS copy is gone, so the url crate's ~88 KB gzipped is the cost.
 use wf_core::sync::git_gate::{GitAction, GitVerdict, VaultRepoState, decide_vault_commit};
 use wf_core::sync::git_remote::{
-    GitPullResult, GitPushResult, describe_pull, describe_push, redact_secret,
+    GitPullResult, GitPushResult, RemoteStatus, describe_pull, describe_push, describe_status,
+    redact_secret,
 };
 use wf_core::sync::snapshot_delta::{EntityStamp, apply_delta, plan_delta};
 use wf_core::sync::stamp_workspace_id::stamp_workspace_id;
@@ -208,6 +209,17 @@ pub fn describe_pull_js(result: JsValue) -> JsResult<String> {
 pub fn describe_push_js(result: JsValue) -> JsResult<String> {
     let result: GitPushResult = serde_wasm_bindgen::from_value(result)?;
     Ok(describe_push(&result))
+}
+
+/// [`wf_core::sync::git_remote::describe_status`] for JS.
+///
+/// # Errors
+///
+/// Fails when `status` is not a valid `{ url, branch, ahead, behind }` object.
+#[wasm_bindgen(js_name = describeRemoteStatus)]
+pub fn describe_remote_status_js(status: JsValue) -> JsResult<String> {
+    let status: RemoteStatus = serde_wasm_bindgen::from_value(status)?;
+    Ok(describe_status(&status))
 }
 
 /// A `{ id, updatedAt }` entry from the database's stamp listing.

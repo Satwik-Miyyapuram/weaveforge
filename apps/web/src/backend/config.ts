@@ -1,3 +1,7 @@
+import type { BackendConfigField } from "@weaveforge/wasm";
+
+import { readyCore } from "@/lib/rust-core";
+
 /** Active persistence + auth backend — swap by env without touching features. */
 type BackendProviderId = "postgrest" | "postgres";
 
@@ -67,37 +71,16 @@ function fromEnv(env: EnvReader): BackendConfig {
   };
 }
 
-/** The env var each config field comes from, for naming what is absent. */
-const ENV_VAR_NAMES = {
-  supabaseUrl: "NEXT_PUBLIC_SUPABASE_URL",
-  supabaseAnonKey: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  supabaseServiceRoleKey: "SUPABASE_SERVICE_ROLE_KEY",
-  supabaseJwtSecret: "SUPABASE_JWT_SECRET",
-  overleafCredentialKey: "OVERLEAF_CREDENTIAL_KEY",
-  databaseUrl: "DATABASE_URL",
-} as const;
-
-export type ConfigField = keyof typeof ENV_VAR_NAMES;
-
-/** Names of the required fields that are absent, in the order given. */
-function missingConfig(cfg: BackendConfig, required: readonly ConfigField[]): string[] {
-  return required.filter((field) => !cfg[field]).map((field) => ENV_VAR_NAMES[field]);
-}
+/** Config fields that can be required (names as in the Rust `ConfigField`). */
+export type ConfigField = BackendConfigField;
 
 /**
  * Names which env vars are absent — never their values. One of these is the
- * service-role key, and these messages reach the browser.
- *
- * Worth the words: a variable scoped to Production only is invisible on Preview
- * deployments, and a message that just says "missing config" gives no way to
- * tell that apart from a bad key or a broken integration.
+ * service-role key, and these messages reach the browser. Ported to Rust
+ * (`backend_config`); this wrapper only supplies the loaded core.
  */
 export function missingConfigMessage(cfg: BackendConfig, required: readonly ConfigField[]): string | null {
-  const missing = missingConfig(cfg, required);
-  if (!missing.length) return null;
-  return `Missing server config: ${missing.join(", ")}. Set ${
-    missing.length > 1 ? "these" : "this"
-  } for the environment this deployment runs in (a Production-only variable is absent on Preview builds), then redeploy.`;
+  return readyCore().missingConfigMessage(cfg, required);
 }
 
 /** Read backend selection from env (composition root only). */

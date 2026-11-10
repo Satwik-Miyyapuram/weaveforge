@@ -2,8 +2,8 @@ import {
   isAllowedPdfProxyUrl,
   PDF_PROXY_MAX_BYTES,
 } from "@/features/reader/application/sanitize-reader-url";
-import { hasPdfMagic, isPdfContentType } from "@/features/reader/application/pdf-response-rules";
 import { readCapped } from "@/lib/read-capped";
+import { readyCore } from "@/lib/rust-core";
 import { fetchCheckedHops, isPublicHttpsUrl, refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 /**
@@ -64,7 +64,7 @@ export async function proxyPdf(
   if (!fetched.ok) return fetched.refusal;
   const upstream = fetched.response;
   if (!upstream.ok) return refuse(502, `Upstream returned ${upstream.status}`);
-  if (!isPdfContentType(upstream.headers.get("content-type"))) {
+  if (!readyCore().isPdfContentType(upstream.headers.get("content-type"))) {
     return refuse(415, "Upstream did not return a PDF");
   }
   const declared = Number(upstream.headers.get("content-length") ?? "0");
@@ -79,7 +79,7 @@ export async function proxyPdf(
     return upstreamFailed("pdf", error, 504, "Upstream body did not arrive in time");
   }
   if (!bytes) return refuse(413, "PDF too large");
-  if (!hasPdfMagic(bytes)) return refuse(415, "Upstream did not return a PDF");
+  if (!readyCore().hasPdfMagic(bytes)) return refuse(415, "Upstream did not return a PDF");
 
   return new Response(bytes, {
     status: 200,

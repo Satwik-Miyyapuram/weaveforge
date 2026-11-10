@@ -121,3 +121,27 @@ test("parseRollupOptions reads the tokens back and refuses incomplete or unknown
   assert.equal(rs.parseRollupOptions(["REL:f1", "agg:sum"]), null);
   assert.equal(rs.parseRollupOptions([]), null);
 });
+
+test("coercePaperFieldValue follows JS Number() for number fields and clears blanks", () => {
+  // Absent, blank text and an empty list clear the value.
+  assert.equal(rs.coercePaperFieldValue("text", null), null);
+  assert.equal(rs.coercePaperFieldValue("text", "   "), null);
+  assert.equal(rs.coercePaperFieldValue("relation", []), null);
+  // Text and select are trimmed; a number or list is refused.
+  assert.equal(rs.coercePaperFieldValue("select", "  VAE  "), "VAE");
+  assert.throws(() => rs.coercePaperFieldValue("text", 1), /expects a string/);
+  // Number reads text the way JS Number() does.
+  assert.equal(rs.coercePaperFieldValue("number", " 1.5 "), 1.5);
+  assert.equal(rs.coercePaperFieldValue("number", "0x1F"), 31);
+  assert.equal(rs.coercePaperFieldValue("number", "0b101"), 5);
+  assert.equal(rs.coercePaperFieldValue("number", ["5"]), 5);
+  assert.equal(rs.coercePaperFieldValue("number", [""]), 0);
+  assert.equal(rs.coercePaperFieldValue("number", 2), 2);
+  assert.throws(() => rs.coercePaperFieldValue("number", "-0x1F"), /finite number/);
+  assert.throws(() => rs.coercePaperFieldValue("number", "Infinity"), /finite number/);
+  assert.throws(() => rs.coercePaperFieldValue("number", ["1", "2"]), /finite number/);
+  // Multi-select trims, drops blanks and repeats.
+  assert.deepEqual(rs.coercePaperFieldValue("multi_select", [" a ", "a", "", "b"]), ["a", "b"]);
+  // Rollup is computed and refused.
+  assert.throws(() => rs.coercePaperFieldValue("rollup", "x"), /read-only/);
+});

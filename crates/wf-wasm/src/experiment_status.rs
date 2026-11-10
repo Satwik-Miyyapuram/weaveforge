@@ -114,3 +114,17 @@ pub fn results_table_js(experiments: JsValue) -> JsResult<JsValue> {
     let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
     to_js(&experiment_status::results_table(&experiments))
 }
+
+/// [`experiment_href`](experiment_status::experiment_href): where an experiment opens.
+#[wasm_bindgen(js_name = experimentHref)]
+#[must_use]
+pub fn experiment_href_js(id: &str, is_offline_build: bool) -> String {
+    experiment_status::experiment_href(id, is_offline_build)
+}
+
+/// [`EXPERIMENTS_HREF`](experiment_status::EXPERIMENTS_HREF): the experiments list.
+#[wasm_bindgen(js_name = experimentsListHref)]
+#[must_use]
+pub fn experiments_list_href_js() -> String {
+    experiment_status::EXPERIMENTS_HREF.to_owned()
+}

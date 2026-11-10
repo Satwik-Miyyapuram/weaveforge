@@ -3,7 +3,7 @@
  * page, the figure editor and the PDF reader round a resize the same way
  * (20-06).
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement, createRef } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
@@ -11,6 +11,9 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { InkPage } from "../ui/ink-page";
 import type { InkPageProps } from "../ui/ink-page-props";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= { requestAnimationFrame: () => 0, cancelAnimationFrame() {} };

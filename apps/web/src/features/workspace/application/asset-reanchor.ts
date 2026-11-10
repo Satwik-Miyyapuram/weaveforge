@@ -71,39 +71,6 @@ export function planAssetReanchor(
   return plan;
 }
 
-/**
- * Content type for an imported asset.
- *
- * Derived from the extension rather than sniffed. SVG is deliberately not
- * served as `image/svg+xml`: that type is a scripting context, and an imported
- * file is stored, not trusted. Anything unrecognised gets the same treatment.
- */
-export function assetMimeType(ext: string): string {
-  switch (ext) {
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    case "avif":
-      return "image/avif";
-    default:
-      return "application/octet-stream";
-  }
-}
-
-/** Lowercased extension of a path, defaulting to `png` when there is none. */
-export function assetExtension(path: string): string {
-  const dot = path.lastIndexOf(".");
-  const slash = path.lastIndexOf("/");
-  if (dot <= slash + 1) return "png";
-  return path.slice(dot + 1).toLowerCase();
-}
-
 /** Every body the workspace holds that can carry an image reference. */
 export function workspaceBodies(snapshot: WorkspaceSnapshot): string[] {
   return [

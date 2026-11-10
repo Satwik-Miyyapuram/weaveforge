@@ -13,6 +13,7 @@
  */
 
 import { net } from "electron";
+import { rust } from "@weaveforge/core";
 import { randomUUID } from "node:crypto";
 import { readFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -55,9 +56,6 @@ export function isUpstreamHost(hostname: string): boolean {
 /** The cache's own hostname; the file a URL names is its path under this host. */
 export const MODEL_HOST = "models";
 
-/** The folder of the app's own origin the renderer asks for weights under. */
-const MODEL_PATH = "/models/";
-
 /**
  * The cache URL a request names, or null when it is not a weights request.
  *
@@ -66,10 +64,8 @@ const MODEL_PATH = "/models/";
  * `app://weaveforge` to `app://models` before this shell ever sees it.
  */
 export function modelCacheUrl(url: string, appHost: string): string | null {
-  const parsed = new URL(url);
-  if (parsed.hostname === MODEL_HOST) return url;
-  if (parsed.hostname !== appHost || !parsed.pathname.startsWith(MODEL_PATH)) return null;
-  return `app://${MODEL_HOST}/${parsed.pathname.slice(MODEL_PATH.length)}${parsed.search}`;
+  // Rust's `None` crosses the boundary as undefined; the old TS returned null.
+  return rust().modelCacheUrl(url, appHost) ?? null;
 }
 
 /** A model file is tens of megabytes; anything far past that is not one. */
@@ -82,10 +78,8 @@ const MAX_FILE_BYTES = 512 * 1024 * 1024;
  * applies: traversal and absolute paths are refused rather than normalised.
  */
 export function cachePathFor(root: string, url: string): string | null {
-  const { pathname } = new URL(url);
-  const parts = decodeURIComponent(pathname).split("/").filter(Boolean);
-  if (!parts.length || parts.some((part) => part === "." || part === ".." || part.includes("\\"))) return null;
-  return path.join(root, ...parts);
+  const segments = rust().cachePathSegments(url);
+  return segments ? path.join(root, ...segments) : null;
 }
 
 /**

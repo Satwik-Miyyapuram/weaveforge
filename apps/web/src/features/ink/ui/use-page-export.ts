@@ -6,16 +6,38 @@ import { type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/c
 import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import { containsMath } from "@/components/markdown/math-renderer";
-import {
-  documentStyleSheets,
-  inkPrintDocument,
-  type InkPrintFigure,
-} from "../application/ink-print";
-import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
+import type { InkPrintFigure, InkSvgFigure } from "@weaveforge/wasm";
 import { loadInOrder } from "../application/load-in-order";
 import type { InkPalette } from "../render/ink-palette";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
+
+/**
+ * The app's stylesheets as the print document links them: the linked ones by
+ * address, the inline ones by text. A sheet whose rules cannot be read (a
+ * cross-origin one) is linked by address or, failing that, left out.
+ */
+function documentStyleSheets(
+  root: Document,
+): { href?: string | null; text?: string | null }[] {
+  const sheets: { href?: string | null; text?: string | null }[] = [];
+  for (const sheet of Array.from(root.styleSheets)) {
+    if (sheet.href) {
+      sheets.push({ href: sheet.href });
+      continue;
+    }
+    try {
+      sheets.push({
+        text: Array.from(sheet.cssRules)
+          .map((rule) => rule.cssText)
+          .join("\n"),
+      });
+    } catch {
+      // Unreadable and unaddressed: nothing to carry over.
+    }
+  }
+  return sheets;
+}
 
 /**
  * Pixels per 0.1 mm unit in an exported or printed page.
@@ -231,7 +253,7 @@ export function usePageExport(deps: PageExportDeps) {
     const title = `${noteId} — page ${pageIndex + 1}`;
     setPrintDoc({
       title,
-      html: inkPrintDocument({
+      html: readyCore().inkPrintDocument({
         title,
         pageSize,
         scale,
@@ -281,7 +303,7 @@ export function usePageExport(deps: PageExportDeps) {
         dataUrl: await blobToDataUrl(await fetchBlob(figure.path)),
       }),
     );
-    const svg = inkPageSvg(page, {
+    const svg = readyCore().inkPageSvg(toWasmInkPage(page), {
       palette,
       backgroundDataUrl,
       figures,

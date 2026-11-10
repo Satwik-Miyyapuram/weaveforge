@@ -1,10 +1,9 @@
 import { zipSync, strToU8 } from "fflate";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readyCore } from "@/lib/rust-core";
 import {
-  assertSafeExportPath,
   buildOverleafExportPackage,
-  missingFigureWarning,
   withMissingFigures,
   type OverleafExportImage,
   type OverleafExportOptions,
@@ -37,8 +36,8 @@ export async function downloadOverleafExportPackage(
   const warnings = [...result.warnings];
   const root = `weaveforge-overleaf-export-${new Date().toISOString().slice(0, 10)}`;
   const files: Record<string, Uint8Array> = {};
-  for (const f of result.files) assertSafeExportPath(f.path);
-  for (const img of result.images) assertSafeExportPath(img.zipPath);
+  for (const f of result.files) readyCore().assertSafeExportPath(f.path);
+  for (const img of result.images) readyCore().assertSafeExportPath(img.zipPath);
 
   const missing: OverleafExportImage[] = [];
   if (result.images.length > 0) {
@@ -47,7 +46,7 @@ export async function downloadOverleafExportPackage(
     for (const img of result.images) {
       const blob = blobs.get(img.storagePath);
       if (!blob) {
-        warnings.push(missingFigureWarning(img));
+        warnings.push(readyCore().missingFigureWarning(img));
         missing.push(img);
         continue;
       }

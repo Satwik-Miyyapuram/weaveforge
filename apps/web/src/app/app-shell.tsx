@@ -17,7 +17,6 @@ import { useIsDetailView } from "@/lib/hooks/use-detail-view";
 import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
 import { useNavFolded } from "@/lib/hooks/use-nav-fold";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
-import { titleForPath } from "@/lib/route-title";
 import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/keybindings";
 import { HeaderActions } from "./header-actions";
 import { TabBar } from "./tabbar";
@@ -35,7 +34,7 @@ import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
 import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
@@ -138,7 +137,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // reader's page announcement say where you are rather than "WeaveForge".
   useEffect(() => {
     const items = [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)];
-    document.title = titleForPath(pathname, items);
+    document.title = readyCore().titleForPath(pathname, items);
   }, [pathname, registry]);
   const { breakpoint, navEnter, railByDefault } = useLayoutBreakpoint();
   const detailView = useIsDetailView();

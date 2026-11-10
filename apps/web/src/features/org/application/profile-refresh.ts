@@ -61,18 +61,3 @@ export async function loadProfileBundle(src: ProfileSources): Promise<ProfileBun
     return { profile: mine, team: members, labMembers: lab, memberships: labs };
   }
 }
-
-/**
- * Lets only the latest of overlapping requests apply its answer. `begin` is
- * called when a request starts; the check it returns is true until a later
- * request begins.
- */
-export function latestGate(): { begin(): () => boolean } {
-  let seq = 0;
-  return {
-    begin() {
-      const mine = (seq += 1);
-      return () => mine === seq;
-    },
-  };
-}

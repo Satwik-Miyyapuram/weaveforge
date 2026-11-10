@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Paper, PageTextItem, PaperMetadata, ParsedReference, PdfLink, ReaderOutlineItem } from "@weaveforge/core";
+import type { FigureTarget, Paper, PaperMetadata, ParsedReference, PdfLink, ReaderOutlineItem } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, formatError } from "@/lib/format-error";
-import {
-  type MentionHit,
-} from "../../application/reader-references";
 import type { ResolvedReference } from "../../application/reference-lookup";
-import { addedNotice, type ReferenceNotice } from "../../application/reference-notice";
+import type { MentionHit, ReferenceNotice, PageTextItem } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import type { AnchorBox } from "../reference-popover-layer";
 import { useDocumentAnalyzer } from "./use-document-analyzer";
 
@@ -30,7 +28,7 @@ export interface UseReaderReferencesInput {
   paperId?: string;
   setPage: (pageNumber: number) => void;
   /** Called with a figure target's page and caption offsets, for the flash. */
-  onFigureTarget?: (target: NonNullable<MentionHit["target"]>) => void;
+  onFigureTarget?: (target: FigureTarget) => void;
   /** Looks one reference up; defaults to the container's reference facade. */
   lookup?: (documentKey: string, entry: ParsedReference) => Promise<ResolvedReference>;
 }
@@ -189,10 +187,12 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   }, [index.byIndex, resolutions, resolve]);
 
   const openMention = useCallback((hit: MentionHit, anchor: AnchorBox | null) => {
+    // `MentionHit.target` is `unknown` in the wrapper; the Rust side sends a FigureTarget.
+    const target = hit.target as FigureTarget | undefined;
     if (hit.kind === "figure") {
-      if (hit.target) {
-        setPage(hit.target.page);
-        onFigureTarget?.(hit.target);
+      if (target) {
+        setPage(target.page);
+        onFigureTarget?.(target);
       }
       return;
     }
@@ -203,9 +203,9 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     if (existingEntry) {
       entry = existingEntry;
     } else {
-      if (hit.target) {
-        setPage(hit.target.page);
-        onFigureTarget?.(hit.target);
+      if (target) {
+        setPage(target.page);
+        onFigureTarget?.(target);
       }
       let h = 0;
       for (let i = 0; i < hit.key.length; i++) {
@@ -218,9 +218,9 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         raw: labelText,
         title: labelText,
         authors: [],
-        page: hit.target?.page ?? 1,
-        x: hit.target?.x ?? 0,
-        y: hit.target?.y ?? 0,
+        page: target?.page ?? 1,
+        x: target?.x ?? 0,
+        y: target?.y ?? 0,
       };
     }
     setNotice(null);
@@ -266,13 +266,13 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   const actions = useMemo(() => ({
     addManually: (entry: ParsedReference) =>
       facade().actions.addManually(entry)
-        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, addedNotice(created)); })
+        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, readyCore().addedNotice(created)); })
         .catch(fail("Add manually", entry)),
     // `metadata` is the record the popover showed; adding it skips a second
     // search that could find a different paper.
     addToLibrary: (entry: ParsedReference, metadata?: PaperMetadata) =>
       facade().actions.addToLibrary(entry, metadata)
-        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, addedNotice(created)); })
+        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, readyCore().addedNotice(created)); })
         .catch(fail("Add to library", entry)),
     linkPapers: (entry: ParsedReference, citedId: string) => {
       if (!paperId) return Promise.resolve();

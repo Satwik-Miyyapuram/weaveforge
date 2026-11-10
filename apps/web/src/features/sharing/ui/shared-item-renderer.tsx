@@ -1,6 +1,5 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import type { Paper } from "@weaveforge/core";
 
 import Link from "next/link";
@@ -206,7 +205,7 @@ function SharedPaperCard({
         )}
         <div className="metric-chips">
           <span className="metric-chip">
-            <em>status</em> {enumLabel("paperStatus", paper.status)}
+            <em>status</em> {readyCore().enumLabel("paperStatus", paper.status)}
           </span>
         </div>
         <SharedPaperImages metadata={paper.metadata} />

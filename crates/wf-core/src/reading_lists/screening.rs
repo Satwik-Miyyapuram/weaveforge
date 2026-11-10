@@ -195,6 +195,20 @@ pub fn latest_by_reviewer<'a>(
     latest
 }
 
+/// TS `ScreenItemsUseCase.summarize` reviewers: every distinct reviewer id, in UTF-16 order
+/// (`[...new Set(ids)].sort()`).
+#[must_use]
+pub fn reviewers(decisions: &[ScreeningDecision]) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for decision in decisions {
+        if !ids.contains(&decision.reviewer_id) {
+            ids.push(decision.reviewer_id.clone());
+        }
+    }
+    ids.sort_by(|a, b| js_str_cmp(a, b));
+    ids
+}
+
 /// TS `verdictFor`: one reviewer's answer stands alone; two who disagree is a conflict
 /// with no state.
 #[must_use]
@@ -427,6 +441,87 @@ pub fn exclusion_reasons(
         .collect()
 }
 
+/// A `screening_decisions` row, snake_case as the table names its columns. Stage and state
+/// stay strings, as the table holds them; [`decision_from_row`] checks them.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ScreeningDecisionRow {
+    /// Row id.
+    pub id: String,
+    /// The `reading_list_items` row.
+    pub item_id: String,
+    /// Who decided.
+    pub reviewer_id: String,
+    /// `title_abstract` or `full_text`.
+    pub stage: String,
+    /// `included`, `excluded` or `unsure`.
+    pub state: String,
+    /// Why, or null.
+    pub reason: Option<String>,
+    /// ISO time of the decision.
+    pub decided_at: String,
+}
+
+fn stage_from_str(text: &str) -> Result<ScreeningStage, String> {
+    match text {
+        "title_abstract" => Ok(ScreeningStage::TitleAbstract),
+        "full_text" => Ok(ScreeningStage::FullText),
+        other => Err(format!("'{other}' is not a screening stage.")),
+    }
+}
+
+fn stage_to_str(stage: ScreeningStage) -> &'static str {
+    match stage {
+        ScreeningStage::TitleAbstract => "title_abstract",
+        ScreeningStage::FullText => "full_text",
+    }
+}
+
+fn state_from_str(text: &str) -> Result<ScreeningState, String> {
+    match text {
+        "included" => Ok(ScreeningState::Included),
+        "excluded" => Ok(ScreeningState::Excluded),
+        "unsure" => Ok(ScreeningState::Unsure),
+        other => Err(format!("'{other}' is not a screening decision.")),
+    }
+}
+
+fn state_to_str(state: ScreeningState) -> &'static str {
+    match state {
+        ScreeningState::Included => "included",
+        ScreeningState::Excluded => "excluded",
+        ScreeningState::Unsure => "unsure",
+    }
+}
+
+/// TS `PostgrestScreeningRepository` `toDomain`: a stored row as a decision. Errors on a
+/// stage or state the enums do not know, where the TS cast accepted anything.
+pub fn decision_from_row(row: &ScreeningDecisionRow) -> Result<ScreeningDecision, String> {
+    Ok(ScreeningDecision {
+        id: row.id.clone(),
+        item_id: row.item_id.clone(),
+        reviewer_id: row.reviewer_id.clone(),
+        stage: stage_from_str(&row.stage)?,
+        state: state_from_str(&row.state)?,
+        reason: row.reason.clone(),
+        decided_at: row.decided_at.clone(),
+    })
+}
+
+/// TS `PostgrestScreeningRepository.record` row: a decision as the table takes it.
+#[must_use]
+pub fn decision_to_row(decision: &ScreeningDecision) -> ScreeningDecisionRow {
+    ScreeningDecisionRow {
+        id: decision.id.clone(),
+        item_id: decision.item_id.clone(),
+        reviewer_id: decision.reviewer_id.clone(),
+        stage: stage_to_str(decision.stage).to_owned(),
+        state: state_to_str(decision.state).to_owned(),
+        reason: decision.reason.clone(),
+        decided_at: decision.decided_at.clone(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -460,6 +555,18 @@ mod tests {
 
     use ScreeningStage::{FullText, TitleAbstract};
     use ScreeningState::{Excluded, Included, Unsure};
+
+    #[test]
+    fn reviewers_are_distinct_and_sorted_by_utf16() {
+        let decisions = [
+            decision("i", "beta", TitleAbstract, Included, "t1"),
+            decision("i", "Zed", TitleAbstract, Included, "t2"),
+            decision("j", "beta", FullText, Unsure, "t3"),
+            decision("j", "alpha", FullText, Unsure, "t4"),
+        ];
+        assert_eq!(reviewers(&decisions), vec!["Zed", "alpha", "beta"]);
+        assert!(reviewers(&[]).is_empty());
+    }
 
     #[test]
     fn decision_error_follows_ts_rules() {

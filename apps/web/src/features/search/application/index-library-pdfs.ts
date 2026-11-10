@@ -1,4 +1,5 @@
-import { errorMessage, type DocumentPageText, type Paper } from "@weaveforge/core";
+import { errorMessage, type Paper } from "@weaveforge/core";
+import type { DocumentPageText } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
@@ -6,7 +7,7 @@ import {
   pdfBytesForSource,
   resolvePaperPdfSourceForReader,
 } from "@/features/reader/application/resolve-paper-pdf-for-reader";
-import type { PaperHtmlPage } from "@/features/reader/application/paper-html";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { savePdfTextDurably } from "./pdf-text-folder";
 
 /**
@@ -161,11 +162,7 @@ const pause = (ms: number, signal?: AbortSignal) =>
  * tokens — which also expire, so the line was unreadable and useless to copy.
  */
 export function hostOf(url: string): string {
-  try {
-    return new URL(url).host || url;
-  } catch {
-    return url.length > 60 ? `${url.slice(0, 57)}…` : url;
-  }
+  return readyCore().hostOf(url);
 }
 
 /**
@@ -184,12 +181,7 @@ export function hostOf(url: string): string {
  * fetch` identical to a dead network is worth naming when it happens.
  */
 export function readFailureReason(error: unknown, status?: number): string {
-  if (status !== undefined) return `the host answered ${status}`;
-  const message = errorMessage(error);
-  if (/failed to fetch|networkerror|load failed/i.test(message)) {
-    return "the host does not allow this app to read its PDF (cross-origin)";
-  }
-  return message;
+  return readyCore().readFailureReason(errorMessage(error), status);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { figureLabel } from "./figure-label";
+import { readyCore } from "@/lib/rust-core";
 
 export interface ArtifactItem {
   url: string;
@@ -58,16 +58,16 @@ export function artifactItems(
   const missing: MissingArtifact[] = [];
   entries.forEach((entry, i) => {
     if (!inShell && entry.startsWith(LOCAL_PREFIX)) {
-      missing.push({ label: figureLabel(entry, missing.length), reason: "desktop" });
+      missing.push({ label: readyCore().figureLabel(entry, missing.length), reason: "desktop" });
       return;
     }
     const url = urls[i];
     if (!url) {
-      if (settled || isAbsolute(entry)) missing.push({ label: figureLabel(entry, missing.length), reason: "missing" });
+      if (settled || isAbsolute(entry)) missing.push({ label: readyCore().figureLabel(entry, missing.length), reason: "missing" });
       return;
     }
     const group = isImage(entry) ? images : isPdf(entry) ? pdfs : links;
-    group.push({ url, label: figureLabel(entry, group.length) });
+    group.push({ url, label: readyCore().figureLabel(entry, group.length) });
   });
   return { images, pdfs, links, missing };
 }

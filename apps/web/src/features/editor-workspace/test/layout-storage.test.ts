@@ -1,9 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { LAYOUT_STORAGE_KEY, readLayout, writeLayout } from "../application/layout-storage";
 import type { PaneSplit } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 function memoryStore(initial: string | null = null) {
   let value = initial;

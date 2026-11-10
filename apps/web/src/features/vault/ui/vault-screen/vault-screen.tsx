@@ -9,7 +9,7 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
 import { untitledTitle } from "../../application/untitled-title";
-import { importNotesFromFiles, isNoteImportFile } from "../../application/import-notes";
+import { importNotesFromFiles } from "../../application/import-notes";
 import { loadLinkTargets } from "../../application/load-link-targets";
 import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -328,7 +328,7 @@ export function VaultScreen() {
       {!selectedId && !isSharedView && (
         <FileDropZone
           label="Drop .md files or a .zip to import notes"
-          onFiles={(files) => void onImportFiles(files.filter((f) => isNoteImportFile(f.name)))}
+          onFiles={(files) => void onImportFiles(files.filter((f) => readyCore().isNoteImportFile(f.name)))}
         />
       )}
       {/* An open note is a record page, as a paper is: its own bar carries

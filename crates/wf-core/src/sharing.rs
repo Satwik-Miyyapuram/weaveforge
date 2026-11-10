@@ -1,7 +1,24 @@
 //! Sharing and comment rules: grant coverage and access, and comment-input normalization. Pure.
 //! The JS names match `packages/core/src/features/sharing/domain/share.ts` and `comment.ts`.
 
+use crate::overleaf_workshop::encode_uri_component;
+use crate::reader::zotero_projection::{ZoteroAnnotationInput, project_zotero_annotations};
 use crate::reader_analysis::lines::js_trim;
+use crate::sync::instant::format_instant;
+
+/// Days a new view link lives when the caller sets no expiry (TS `SHARE_LINK_DEFAULT_TTL_DAYS`).
+pub const SHARE_LINK_DEFAULT_TTL_DAYS: i64 = 7;
+
+/// Milliseconds in one UTC day.
+const DAY_MS: i64 = 86_400_000;
+
+/// The default expiry of a new view link: [`SHARE_LINK_DEFAULT_TTL_DAYS`] after `now_ms`,
+/// as ISO-8601 UTC. The caller passes the time, so this stays clock-free.
+/// Port of `defaultShareLinkExpiresAt` in `packages/core/src/features/sharing/domain/share-link.ts`.
+#[must_use]
+pub fn default_share_link_expires_at(now_ms: i64) -> String {
+    format_instant(now_ms.saturating_add(SHARE_LINK_DEFAULT_TTL_DAYS * DAY_MS))
+}
 
 /// A type a share can cover (TS `ShareableType`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -591,6 +608,88 @@ fn js_string_of(value: &serde_json::Value) -> String {
         Value::String(text) => text.clone(),
         Value::Array(items) => items.iter().map(js_string_of).collect::<Vec<_>>().join(","),
         Value::Object(_) => "[object Object]".to_owned(),
+    }
+}
+
+/// The kind's snake_case name, as the TS `ShareableType` spells it.
+const fn kind_name(kind: ShareableType) -> &'static str {
+    match kind {
+        ShareableType::Milestone => "milestone",
+        ShareableType::Experiment => "experiment",
+        ShareableType::ReportSection => "report_section",
+        ShareableType::ReadingList => "reading_list",
+        ShareableType::Paper => "paper",
+        ShareableType::VaultPage => "vault_page",
+    }
+}
+
+/// Deep-link route for a shared resource (TS `sharedResourceHref`): a read-only detail shell.
+#[must_use]
+pub fn shared_resource_href(kind: ShareableType, resource_id: &str) -> String {
+    let id = encode_uri_component(resource_id);
+    match kind {
+        ShareableType::Paper => format!("/papers?paper={id}&shared=1"),
+        ShareableType::Experiment => format!("/experiments?experiment={id}&shared=1"),
+        ShareableType::ReportSection => format!("/report?section={id}&shared=1"),
+        ShareableType::ReadingList => format!("/lists?list={id}&shared=1"),
+        ShareableType::Milestone => format!("/plan?milestone={id}&shared=1"),
+        ShareableType::VaultPage => format!("/notes?page={id}&shared=1"),
+    }
+}
+
+/// Deep-link route for a shared item (TS `sharedItemHref`).
+#[must_use]
+pub fn shared_item_href(item: &SharedItem) -> String {
+    shared_resource_href(item.kind, &item.id)
+}
+
+/// The lower-case noun for a shared item's kind (TS `sharedItemTypeLabel`).
+#[must_use]
+pub fn shared_item_type_label(kind: ShareableType) -> String {
+    if kind == ShareableType::VaultPage {
+        return "note".to_owned();
+    }
+    crate::enum_label::humanise(kind_name(kind)).to_lowercase()
+}
+
+/// What a shared paper shows of its Zotero annotations (TS `sharedPaperAnnotationSummary`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct SharedPaperAnnotationSummary {
+    /// Annotations shown (notes excluded).
+    #[cfg_attr(feature = "specta", specta(type = u32))]
+    pub count: usize,
+    /// Up to three trimmed texts, falling back to the comment.
+    pub samples: Vec<String>,
+}
+
+/// Summarise the Zotero annotations cached on a shared paper's `metadata.annotations`.
+#[must_use]
+pub fn shared_paper_annotation_summary(
+    metadata: Option<&serde_json::Value>,
+) -> SharedPaperAnnotationSummary {
+    let annotations: Vec<ZoteroAnnotationInput> = metadata
+        .and_then(|m| m.get("annotations"))
+        .and_then(|a| serde_json::from_value(a.clone()).ok())
+        .unwrap_or_default();
+    let projected = project_zotero_annotations(&annotations, None, None);
+    let samples = projected
+        .iter()
+        .map(|a| {
+            if a.text.is_empty() {
+                &a.comment
+            } else {
+                &a.text
+            }
+        })
+        .map(|s| js_trim(s).to_owned())
+        .filter(|s| !s.is_empty())
+        .take(3)
+        .collect();
+    SharedPaperAnnotationSummary {
+        count: projected.len(),
+        samples,
     }
 }
 

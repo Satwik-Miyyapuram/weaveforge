@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
@@ -6,9 +6,14 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   MINILM_L6,
   embeddingProfile,
-  planEmbeddingStart,
   targetEmbeddingModel,
 } from "@/features/search/infrastructure/embedding-models";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("the default encoder is the asymmetric retriever, with its query instruction", () => {
   assert.equal(DEFAULT_EMBEDDING_MODEL.id, ARCTIC_EMBED_M.id);
@@ -24,11 +29,11 @@ test("an unknown encoder is treated as symmetric and mean-pooled", () => {
 });
 
 test("an upgrade serves the old vectors when the old model is still known", () => {
-  assert.equal(planEmbeddingStart(MINILM_L6.id, ARCTIC_EMBED_M.id), "swap");
-  assert.equal(planEmbeddingStart(ARCTIC_EMBED_M.id, ARCTIC_EMBED_M.id), "reuse");
-  assert.equal(planEmbeddingStart(null, ARCTIC_EMBED_M.id), "rebuild");
+  assert.equal(readyCore().planEmbeddingStart(MINILM_L6.id, ARCTIC_EMBED_M.id), "swap");
+  assert.equal(readyCore().planEmbeddingStart(ARCTIC_EMBED_M.id, ARCTIC_EMBED_M.id), "reuse");
+  assert.equal(readyCore().planEmbeddingStart(null, ARCTIC_EMBED_M.id), "rebuild");
   // A model no profile describes cannot be queried correctly, so it is not served.
-  assert.equal(planEmbeddingStart("someone/retired-model", ARCTIC_EMBED_M.id), "rebuild");
+  assert.equal(readyCore().planEmbeddingStart("someone/retired-model", ARCTIC_EMBED_M.id), "rebuild");
 });
 
 test("the target model is the default", () => {

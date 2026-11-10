@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { pagesToEvict } from "./pdf-page-window";
+import { readyCore } from "@/lib/rust-core";
 
 export interface UsePdfPageWindowOpts {
   rootRef: RefObject<HTMLElement | null>;
@@ -42,7 +42,7 @@ export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
             near.delete(n);
           }
         }
-        for (const p of pagesToEvict(held, near)) {
+        for (const p of readyCore().pagesToEvict([...held], [...near])) {
           evictPage(p);
           held.delete(p);
         }

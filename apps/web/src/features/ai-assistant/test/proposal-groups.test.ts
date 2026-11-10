@@ -1,7 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { AiWriteProposal } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { groupProposals, runBulk } from "../application/proposal-groups";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function proposal(id: string, kind: AiWriteProposal["kind"], resourceId: string): AiWriteProposal {
   return { id, kind, resourceId, content: id, createdAt: "2026-11-05T00:00:00Z", status: "pending", sourceLinks: [] };
@@ -83,12 +88,12 @@ test("a reject (void result) counts as done", async () => {
 // id, so grouping by it gave one group per suggestion, headed by that id.
 // Ids that resolve to nothing are grouped under their kind instead.
 test("by document, unknown targets are grouped under their kind", () => {
-  const known = (id: string) => id === "paper-1";
+  const knownIds = ["paper-1"];
   const groups = groupProposals([
     proposal("a", "create_log_entry", "rand-1"),
     proposal("b", "append_paper_note", "paper-1"),
     proposal("c", "create_log_entry", "rand-2"),
-  ], "document", known);
+  ], "document", knownIds);
   assert.deepEqual(
     groups.map((group) => [group.key, group.items.map((item) => item.id)]),
     [["kind:create_log_entry", ["a", "c"]], ["paper-1", ["b"]]],

@@ -2,7 +2,7 @@
  * The application log as the page sees it: report a line, read the log, show
  * the file. Moved out of `main.ts` with the comments it carried there.
  */
-import { errorMessage } from "@weaveforge/core";
+import { errorMessage, rust } from "@weaveforge/core";
 import { shell } from "electron";
 import { MAX_ENTRIES, type AppLog, type AppLogEntry } from "./app-log";
 import { CHANNELS, type AppLogPayload, type IpcResult } from "../../shell/sidecar/src/channels";
@@ -17,9 +17,7 @@ import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
  * the status and the head of the body, which is the whole reason the log exists.
  */
 function formatLogLine(entry: AppLogEntry): string {
-  const stamp = entry.at.replace("T", " ").replace("Z", "");
-  const head = `${stamp} ${entry.level.toUpperCase().padEnd(5)} [${entry.source}] ${entry.message}`;
-  return entry.detail ? `${head}\n    ${entry.detail.replace(/\n/g, "\n    ")}` : head;
+  return rust().formatLogLine(entry);
 }
 
 export function registerMainAppLog(deps: { ipc: IpcSurface; appLog: AppLog }): void {

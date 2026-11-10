@@ -1,12 +1,17 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement, type ContextType, type ReactElement } from "react";
 import { act, create } from "react-test-renderer";
 import type { DashboardCardType, Member, Project, TagWithPaperCount } from "@weaveforge/core";
 
 import { ProjectContext } from "@/features/projects";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
 import { useDashboardStats } from "../ui/use-dashboard-stats";
+
+before(async () => {
+  await loadTestCore();
+});
 
 type ProjectState = NonNullable<ContextType<typeof ProjectContext>>;
 

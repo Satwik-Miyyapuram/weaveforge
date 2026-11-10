@@ -1,14 +1,9 @@
 "use client";
 
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
-import {
-  type DocumentSearchMatch,
-  type PageProjection,
-  type PageTextItem,
-} from "@weaveforge/core";
+import { type PageProjection } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { locateMention } from "../application/reference-locate";
-import type { FindMark } from "../application/find-marks";
+import type { DocumentSearchMatch, PageTextItem } from "@weaveforge/wasm";
 
 interface FindOverlayProps {
   /** The document's matches; only those on `pageIndex` are painted. */
@@ -149,7 +144,7 @@ function FindOverlayInner({ matches, active, pageIndex, items, projection }: Fin
     const out: FindHitBox[] = [];
     matches.forEach((match, index) => {
       if (match.pageIndex !== pageIndex) return;
-      const { rects } = locateMention(items, match.start, match.end);
+      const { rects } = readyCore().locateMention(items, match.start, match.end);
       rects.forEach((rect, i) => {
         const box = readyCore().pdfRectToScreenBox(rect, projection);
         if (box.width < 1 || box.height < 1) return;
@@ -214,7 +209,7 @@ function FindOverlayInner({ matches, active, pageIndex, items, projection }: Fin
 export const FindOverlay = memo(FindOverlayInner);
 
 /** Ticks beside the scrollbar, one per match, the current one in the accent. */
-export function FindMarks({ marks, active }: { marks: readonly FindMark[]; active: number }) {
+export function FindMarks({ marks, active }: { marks: readonly { index: number; fraction: number }[]; active: number }) {
   if (!marks.length) return null;
   return (
     <div className="pdf-reader-find-marks" aria-hidden="true">

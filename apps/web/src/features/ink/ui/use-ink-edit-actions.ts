@@ -8,9 +8,9 @@
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import type { FigureGeometry } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { fromWasmFigures, readyCore } from "@/lib/rust-core";
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import type { PageStep } from "../application/ink-page-history";
+import type { PageStep } from "@weaveforge/wasm";
 import { ERASER_SCREEN_RADIUS } from "./ink-page-pointer";
 
 type Point = { x: number; y: number };
@@ -66,7 +66,7 @@ export function useInkEditActions({
         send({ type: direction });
         scheduleSave();
       } else {
-        restoreFigures(direction === "undo" ? next.before : next.after);
+        restoreFigures(fromWasmFigures(direction === "undo" ? next.before : next.after));
       }
     },
     [restoreFigures, scheduleSave, send, takeStep],

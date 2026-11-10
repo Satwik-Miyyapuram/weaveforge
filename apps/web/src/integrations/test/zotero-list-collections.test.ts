@@ -1,7 +1,13 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import assert from "node:assert/strict";
 import type { ISettingsRepository, UserSettings } from "@weaveforge/core";
 import { ZoteroBibliographyIntegration } from "../providers/zotero/bibliography-integration";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function integrationWith(stored: UserSettings, fetchFn: typeof fetch) {
   const settings: ISettingsRepository = {

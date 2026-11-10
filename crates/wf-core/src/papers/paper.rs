@@ -67,7 +67,7 @@ fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
 }
 
 /// Whether a character can appear in a hashtag body: `[\p{L}\p{N}_-]`.
-fn is_tag_char(ch: char) -> bool {
+pub(crate) fn is_tag_char(ch: char) -> bool {
     ch == '_' || ch == '-' || is_letter_or_number(ch)
 }
 

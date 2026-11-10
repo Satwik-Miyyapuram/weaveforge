@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "./focus-glyph";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { readyCore } from "@/lib/rust-core";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { IconButton } from "./button";
 
 /**
@@ -50,7 +51,7 @@ export function useInkFocus(inkOn: boolean) {
 /** The way into focus, beside the Edit / Read / Ink switch. */
 export function InkFocusButton({ onClick }: { onClick: () => void }) {
   return (
-    <IconButton label="Focus" tip={`Focus (${shortcutLabel("F11")})`} size="sm" onClick={onClick}>
+    <IconButton label="Focus" tip={`Focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} size="sm" onClick={onClick}>
       <FocusGlyph on={false} />
     </IconButton>
   );
@@ -60,7 +61,7 @@ export function InkFocusButton({ onClick }: { onClick: () => void }) {
 export function InkFocusExit({ onClick }: { onClick: () => void }) {
   return (
     <span className="focus-exit">
-      <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} size="sm" onClick={onClick}>
+      <IconButton label="Exit focus" tip={`Exit focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} size="sm" onClick={onClick}>
         <FocusGlyph on />
       </IconButton>
     </span>

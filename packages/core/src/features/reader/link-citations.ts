@@ -1,5 +1,5 @@
 /** Types for link-citations. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { PageTextItem } from "../../reader/selection-to-anchor.js";
+import type { PageTextItem } from "./page-text-item.js";
 import type { CitationMention, ParsedReference, PdfLink } from "./analysis/analysis-types.js";
 
 export type { PdfLink };

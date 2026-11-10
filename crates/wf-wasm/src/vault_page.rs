@@ -4,13 +4,20 @@
 //! The TS wrappers in `packages/wf-wasm/src/vault-page.ts` apply the `undefined` handling and
 //! the defaults.
 
+use std::collections::{HashMap, HashSet};
+
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::vault::page;
+use wf_core::vault::page::{self, DerivedNote};
 
 use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
+
+/// Notes as objects with `id`, `title`, and `body` or `bodyPreview`, from TS.
+fn notes_from(value: JsValue) -> JsResult<Vec<DerivedNote>> {
+    serde_wasm_bindgen::from_value(value)
+}
 
 /// [`parse_wikilink_inner`](page::parse_wikilink_inner) (TS `parseWikilinkInner`).
 ///
@@ -87,4 +94,87 @@ pub fn vault_asset_paths_in_body_js(body: &str) -> Vec<String> {
 #[must_use]
 pub fn vault_body_preview_js(body: &str, max: usize) -> String {
     page::vault_body_preview(body, max)
+}
+
+/// [`note_backlinks`](page::note_backlinks) (TS `noteBacklinks`), as `{ id, title }` objects.
+///
+/// # Errors
+///
+/// Fails if `notes` has the wrong shape.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes the optional id by value"
+)]
+#[wasm_bindgen(js_name = noteBacklinks)]
+pub fn note_backlinks_js(notes: JsValue, selected_id: Option<String>) -> JsResult<JsValue> {
+    let notes = notes_from(notes)?;
+    to_js(&page::note_backlinks(&notes, selected_id.as_deref()))
+}
+
+/// [`note_tags`](page::note_tags) (TS `noteTags`): the distinct hashtags, sorted by UTF-16 order.
+///
+/// # Errors
+///
+/// Fails if `notes` has the wrong shape.
+#[wasm_bindgen(js_name = noteTags)]
+pub fn note_tags_js(notes: JsValue) -> JsResult<Vec<String>> {
+    Ok(page::note_tags(&notes_from(notes)?))
+}
+
+/// [`scope_notes`](page::scope_notes) (TS `scopeNotes`): the indices of the notes that pass the
+/// list and tag filters. `membership` is an object of list id to an array of note ids.
+///
+/// # Errors
+///
+/// Fails if an argument has the wrong shape.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes arrays by value"
+)]
+#[wasm_bindgen(js_name = scopeNoteIndices)]
+pub fn scope_note_indices_js(
+    notes: JsValue,
+    list_filter: Vec<String>,
+    tag_filter: Vec<String>,
+    membership: JsValue,
+) -> JsResult<JsValue> {
+    let notes = notes_from(notes)?;
+    let membership: HashMap<String, HashSet<String>> = serde_wasm_bindgen::from_value(membership)?;
+    to_js(&page::scope_notes(
+        &notes,
+        &list_filter,
+        &tag_filter,
+        &membership,
+    ))
+}
+
+/// [`embed_titles`](page::embed_titles): the trimmed title of each `![[...]]` in `body`.
+#[wasm_bindgen(js_name = embedTitles)]
+#[must_use]
+pub fn embed_titles_js(body: &str) -> Vec<String> {
+    page::embed_titles(body)
+}
+
+/// [`expand_embeds`](page::expand_embeds): `bodies[i]` is the body that `titles[i]` resolves to.
+#[wasm_bindgen(js_name = expandEmbeds)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn expand_embeds_js(body: &str, titles: Vec<String>, bodies: Vec<String>) -> String {
+    page::expand_embeds(body, &titles, &bodies)
+}
+
+/// [`replace_vault_asset_paths`](page::replace_vault_asset_paths): `old_paths[i]` becomes `new_paths[i]`.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes arrays by value"
+)]
+#[wasm_bindgen(js_name = replaceVaultAssetPaths)]
+#[must_use]
+pub fn replace_vault_asset_paths_js(
+    body: &str,
+    old_paths: Vec<String>,
+    new_paths: Vec<String>,
+) -> String {
+    let pairs: Vec<(String, String)> = old_paths.into_iter().zip(new_paths).collect();
+    page::replace_vault_asset_paths(body, &pairs)
 }

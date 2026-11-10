@@ -10,7 +10,6 @@
 import { type NewPaperRelationInput, type PaperRelation } from "../domain/paper-relation.js";
 import type { IPaperRelationRepository } from "../domain/paper-relation-repository.js";
 import type { ICitationSource } from "./citation-source.js";
-import { paperRef } from "./paper-ref.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { type Paper } from "../../papers/domain/paper.js";
 import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/paper-identity.js";
@@ -67,7 +66,7 @@ export class LinkCitationsUseCase {
    * the edges created and how many references found no local match.
    */
   async forPaper(paper: Paper): Promise<LinkCitationsResult> {
-    const ref = paperRef(paper);
+    const ref = rust().primaryPaperRef(paper.arxivId, paper.doi);
     if (!ref) return { created: [], unmatched: 0, failed: 0 };
 
     const source = this.sources.find((s) => s.supports(ref));
@@ -138,7 +137,7 @@ export class LinkCitationsUseCase {
     }
 
     // Resolve each paper's references (aligned to `library` by index).
-    const refs = library.map((p) => paperRef(p));
+    const refs = library.map((p) => rust().primaryPaperRef(p.arxivId, p.doi));
     const resolvable = refs
       .map((r, i) => ({ r, i }))
       .filter((x): x is { r: PaperRef; i: number } => !!x.r);

@@ -762,7 +762,5 @@ export async function syncVault(
 
 /** Git's own error lines, not the command echo and per-file warnings around them. */
 export function gitReason(error: unknown): string {
-  const text = errorMessage(error, "");
-  const lines = text.split(/\r?\n/).filter((line) => /^(fatal|error):/.test(line));
-  return lines.length > 0 ? lines.join(" ") : text.split(/\r?\n/)[0] || "Could not commit.";
+  return rust().gitReason(errorMessage(error, ""));
 }

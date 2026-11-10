@@ -16,14 +16,10 @@
  * page index rather than closing over its own.
  */
 
-import {
-  parseFigureClip,
-  pastedFigurePlace,
-  type FigureClip,
-} from "../application/figure-clipboard";
+import type { FigureClip } from "@weaveforge/wasm";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isEditableTarget } from "@/lib/editable-target";
-import { readyCore } from "@/lib/rust-core";
+import { fromWasmFigure, readyCore, typedCore } from "@/lib/rust-core";
 import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
 
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
@@ -40,7 +36,6 @@ import {
   pdfPageBackgrounds,
 } from "../application/page-background";
 import { figureBoxForImage } from "./ink-figures";
-import { typedCore } from "@/lib/rust-core";
 
 /** How a page's media gets written; the host owns the sidecar and the saves. */
 export interface InkPageMediaDeps {
@@ -357,7 +352,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
       let index = 0;
       const live = addFigureToPage(target, (onPage) => {
         index = onPage.length;
-        return pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
+        return fromWasmFigure(readyCore().pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize));
       });
       if (live) deps.selectFigure?.(index);
     },
@@ -391,7 +386,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
       // A figure copied from a note (§figure-clipboard) comes back as itself,
       // box and crop. In the note that owns its attachment it shows the same
       // one; in another note the bytes are uploaded again, as this note's own.
-      const clip = parseFigureClip(event.clipboardData?.getData("text/plain"));
+      const clip = readyCore().parseFigureClip(event.clipboardData?.getData("text/plain"));
       if (clip) {
         event.preventDefault();
         void pasteFigure(clip);

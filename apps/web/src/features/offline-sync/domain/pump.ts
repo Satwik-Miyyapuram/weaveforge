@@ -1,3 +1,5 @@
+import { readyCore } from "@/lib/rust-core";
+import type { ConflictRoute } from "@weaveforge/wasm";
 import type { Outbox, OutboxEntry } from "./outbox";
 import type { ConflictStore } from "./conflicts";
 import type { SendOutcome, SyncTransport } from "./sync-ports";
@@ -83,55 +85,39 @@ export class OutboxPump {
     serverRow: Record<string, unknown> | null | undefined,
     deletedElsewhere?: boolean,
   ): Promise<void> {
-    if (entry.op === "delete") {
-      // Deleted here, edited elsewhere: the reader decides whether the delete stands.
-      if (serverRow && this.conflicts) {
-        await this.conflicts.openDeletedLocal(entry.table, entry.rowId, serverRow, serverVersion);
+    const route = readyCore().conflictRoute({
+      op: entry.op,
+      serverVersion: serverVersion ?? null,
+      serverRow: serverRow === undefined ? "unknown" : serverRow === null ? "absent" : "row",
+      deletedElsewhere: deletedElsewhere ?? null,
+      hasStore: this.conflicts !== undefined,
+    }) as ConflictRoute;
+    switch (route.action) {
+      case "openDeletedLocal":
+        if (this.conflicts && serverRow) {
+          await this.conflicts.openDeletedLocal(entry.table, entry.rowId, serverRow, serverVersion);
+        }
         return;
-      }
-      if (serverRow === null && deletedElsewhere === true) {
+      case "dropRow":
         await this.outbox.dropRow(entry.table, entry.rowId);
         return;
-      }
-      if (serverVersion != null) await this.outbox.rebase(entry.table, entry.rowId, serverVersion);
-      await this.outbox.fail(entry.opId, "Deleted here, edited elsewhere; kept until you decide.");
-      return;
-    }
-    if (serverRow === null && entry.op === "update") {
-      // Deleted elsewhere while edited here: never dropped, the reader decides.
-      if (deletedElsewhere === true) {
+      case "fail":
+        if (route.rebaseTo != null) await this.outbox.rebase(entry.table, entry.rowId, route.rebaseTo);
+        await this.outbox.fail(entry.opId, route.reason);
+        return;
+      case "openDeletedRemote":
         if (this.conflicts) await this.conflicts.openDeletedRemote(entry.table, entry.rowId);
-        else await this.outbox.fail(entry.opId, "Deleted elsewhere, edited here; kept until you decide.");
         return;
-      }
-      // Never received. Dropping this lost papers whose insert had not landed;
-      // the op carries the whole row, so it goes up as the missing insert.
-      if (deletedElsewhere === false) {
-        await this.outbox.reinsert(entry.opId, "The server never got this row; sending it whole.");
+      case "reinsert":
+        await this.outbox.reinsert(entry.opId, route.reason);
         return;
-      }
-      await this.outbox.fail(entry.opId, "The server has no row here; kept until it says why.");
-      return;
+      case "merge":
+        if (!this.conflicts || !serverRow) return;
+        await this.conflicts.openFor(entry.table, entry.rowId, serverVersion);
+        await this.conflicts.applyRemote(entry.table, serverRow);
+        await this.conflicts.settle(entry.table, entry.rowId, serverRow, serverVersion);
+        return;
     }
-    // Insert refused but no row at this id. Dropping it here lost whole
-    // projects' papers, notes and annotations whenever the refusal was really
-    // a parent not sent yet; kept, it is retried and stays visible if it never lands.
-    if (serverRow === null && entry.op === "insert") {
-      await this.outbox.fail(entry.opId, "The server refused this new row; it is kept and retried.");
-      return;
-    }
-    if (!this.conflicts || !serverRow) {
-      await this.outbox.fail(
-        entry.opId,
-        serverVersion == null
-          ? "A newer version on the server."
-          : `Newer version ${serverVersion} on the server.`,
-      );
-      return;
-    }
-    await this.conflicts.openFor(entry.table, entry.rowId, serverVersion);
-    await this.conflicts.applyRemote(entry.table, serverRow);
-    await this.conflicts.settle(entry.table, entry.rowId, serverRow, serverVersion);
   }
 
   /**

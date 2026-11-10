@@ -5,42 +5,12 @@ import type {
   WikiGraph,
 } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
-/**
- * Which search kinds a write to a repository can change.
- *
- * Deliberately narrow. A note edit cannot change a milestone, and treating every
- * write as "rebuild everything" is what made adding one note cost the whole
- * corpus. Resource types absent here fall back to a full rebuild rather than a
- * guess — see {@link SearchIndexState.markStale}.
- *
- * `pdf` is in no entry: page documents are projected from extracted text, not
- * from a repository row, and are refreshed by `indexPdf` when a document is
- * read. Renaming a paper leaves its page documents showing the old title until
- * the next full build — a property of where that title is stored, not of this
- * map.
- */
-export const KINDS_FOR_RESOURCE: Record<string, readonly SearchKind[] | undefined> = {
-  paper: ["paper", "annotation"],
-  vault_page: ["note"],
-  reading_list: ["list"],
-  reading_list_item: [],
-  report_section: ["section"],
-  experiment: ["experiment"],
-  milestone: ["milestone"],
-  log_entry: ["log"],
-  // Relations and tags change how documents rank, not what they say.
-  paper_relation: ["paper", "note"],
-  tag: ["paper"],
-  paper_tag: ["paper"],
-  // Writes that cannot affect any indexed field.
-  comment: [],
-  share: [],
-  library_pin: [],
-  citation_alert_track: [],
-  dashboard_layout: [],
-  graph_settings: [],
-};
+// Which kinds a write can change is the Rust table `search_index_state`
+// (`kindsForResource`). Narrow on purpose: a note edit cannot change a milestone,
+// and an unmapped resource type falls back to a full rebuild rather than a guess.
+// `pdf` is in no entry: page documents come from extracted text, refreshed by `indexPdf`.
 
 /**
  * The state of a built index: the index itself, and what it was built from.
@@ -97,7 +67,7 @@ export class SearchIndexState {
    */
   markStale(resourceType: string | undefined): boolean {
     if (!this.ready) return false;
-    const kinds = KINDS_FOR_RESOURCE[resourceType ?? ""];
+    const kinds = readyCore().kindsForResource(resourceType ?? "");
     if (!kinds) {
       this.forget();
       return true;

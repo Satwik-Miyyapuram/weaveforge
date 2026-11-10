@@ -16,7 +16,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { OpenAccessIds, PdfLocus, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { OpenAccessIds, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
@@ -40,9 +41,9 @@ import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
 import { readyCore } from "@/lib/rust-core";
-import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
+import type { ZoteroAnnotation } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
-import type { PaperHtmlPage } from "../application/paper-html";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
 import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";

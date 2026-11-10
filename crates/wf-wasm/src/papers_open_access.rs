@@ -157,6 +157,20 @@ pub fn parse_biorxiv_js(body: JsValue, server: String) -> Result<JsValue, JsErro
 ///
 /// # Errors
 ///
+/// [`wf_core::papers::open_access::preprint_server_for`]: the preprint server for a DOI, or `None`.
+#[must_use]
+#[wasm_bindgen(js_name = preprintServerFor)]
+pub fn preprint_server_for_js(doi: &str) -> Option<String> {
+    open_access::preprint_server_for(doi).map(str::to_owned)
+}
+
+/// [`wf_core::papers::open_access::zenodo_record_id`]: the Zenodo record id in a DOI, or `None`.
+#[must_use]
+#[wasm_bindgen(js_name = zenodoRecordId)]
+pub fn zenodo_record_id_js(doi: &str) -> Option<String> {
+    open_access::zenodo_record_id(doi)
+}
+
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
 #[wasm_bindgen(js_name = parseDoaj)]
 pub fn parse_doaj_js(body: JsValue) -> Result<JsValue, JsError> {

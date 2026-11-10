@@ -35,18 +35,14 @@
  * so this does not let a foreign page borrow the deployment's identity.
  */
 import type { Session } from "electron";
+import { rust } from "@weaveforge/core";
 
 /** The origin every API call is presented as: the deployment's own. */
 export const PRESENTED_ORIGIN = "https://app.weaveforge.org";
 
 /** Hosts whose responses are settled here rather than by the renderer. */
 export function isApiHost(url: string): boolean {
-  try {
-    const host = new URL(url).hostname;
-    return host === "weaveforge.org" || host.endsWith(".weaveforge.org");
-  } catch {
-    return false;
-  }
+  return rust().isApiHost(url);
 }
 
 type Headers = Record<string, string>;

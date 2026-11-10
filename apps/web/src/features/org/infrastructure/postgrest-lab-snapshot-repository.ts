@@ -4,10 +4,7 @@ import type {
   PublishLabSnapshotInput,
 } from "@weaveforge/core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import {
-  type LabSnapshotRow,
-  toDomain,
-} from "./lab-snapshot-rows";
+import type { LabSnapshotRow } from "./lab-snapshot-rows";
 import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
 import { readyCore } from "@/lib/rust-core";
 
@@ -20,6 +17,46 @@ import { readyCore } from "@/lib/rust-core";
 const LAB_SNAPSHOT_COLUMNS = "id,project_id,title,note,content,published_at,created_at";
 
 const TABLE = "lab_snapshots";
+
+/** Bindings type f64 as number | null (NaN/Infinity serialise as null); values are always finite. */
+const toFinite = (n: number | null): number => n as number;
+
+/** Rust's nullable fields arrive as null; the domain leaves them absent. */
+const toDomain = (row: LabSnapshotRow): LabSnapshot => {
+  const s = readyCore().labSnapshotRowToDomain(row);
+  const c = s.content;
+  return {
+    id: s.id,
+    projectId: s.projectId,
+    title: s.title,
+    note: s.note ?? undefined,
+    content: {
+      milestones: c.milestones.map((m) => ({
+        id: m.id,
+        title: m.title,
+        description: m.description ?? undefined,
+        status: m.status,
+        targetDate: m.targetDate ?? undefined,
+      })),
+      logs: c.logs,
+      experiments: c.experiments?.map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        resultNote: e.resultNote ?? undefined,
+      })),
+      report: c.report?.map((r) => ({
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        wordCount: toFinite(r.wordCount),
+      })),
+      aiAssisted: c.aiAssisted ?? undefined,
+    },
+    publishedAt: s.publishedAt,
+    createdAt: s.createdAt,
+  };
+};
 
 /**
  * The snapshot title rule is Rust (wf-core `lab_snapshot`). Its rejection

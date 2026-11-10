@@ -217,6 +217,59 @@ pub fn merge_paper_into(keep: &MergePaper, dup: &MergePaper) -> MergePaper {
     }
 }
 
+/// The Zotero item key a paper's metadata holds, when it is a non-empty string (TS
+/// `zoteroKeyOf`).
+#[must_use]
+pub fn zotero_key_of(metadata: &Map<String, Value>) -> Option<String> {
+    metadata
+        .get("zoteroKey")
+        .and_then(Value::as_str)
+        .filter(|key| !key.is_empty())
+        .map(str::to_owned)
+}
+
+/// The identity of a reader annotation: everything but its id and paper, with object keys
+/// sorted so a stored round trip compares equal (TS `sameAnnotation`).
+#[must_use]
+pub fn annotation_identity(annotation: &Value) -> String {
+    let text = |key: &str| {
+        Value::String(
+            annotation
+                .get(key)
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned(),
+        )
+    };
+    stable_json(&Value::Array(vec![
+        annotation.get("type").cloned().unwrap_or(Value::Null),
+        text("color"),
+        text("text"),
+        text("comment"),
+        annotation.get("anchor").cloned().unwrap_or(Value::Null),
+    ]))
+}
+
+/// JSON text with object keys sorted (TS `stableJson`).
+fn stable_json(value: &Value) -> String {
+    match value {
+        Value::Array(items) => format!(
+            "[{}]",
+            items.iter().map(stable_json).collect::<Vec<_>>().join(",")
+        ),
+        Value::Object(object) => {
+            let mut entries: Vec<(&String, &Value)> = object.iter().collect();
+            entries.sort_by(|a, b| a.0.cmp(b.0));
+            let parts: Vec<String> = entries
+                .into_iter()
+                .map(|(key, item)| format!("{}:{}", Value::String(key.clone()), stable_json(item)))
+                .collect();
+            format!("{{{}}}", parts.join(","))
+        }
+        other => other.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,5 +376,26 @@ mod tests {
             json!([{ "key": "A", "text": "1" }, { "key": "B" }])
         );
         assert_eq!(merged.metadata["images"], json!(["a.png", "b.png"]));
+    }
+
+    #[test]
+    fn zotero_key_is_a_non_empty_string_only() {
+        assert_eq!(
+            zotero_key_of(&meta(json!({ "zoteroKey": "ABC" }))),
+            Some("ABC".to_owned())
+        );
+        assert_eq!(zotero_key_of(&meta(json!({ "zoteroKey": "" }))), None);
+        assert_eq!(zotero_key_of(&meta(json!({ "zoteroKey": 3 }))), None);
+        assert_eq!(zotero_key_of(&Map::new()), None);
+    }
+
+    #[test]
+    fn annotation_identity_ignores_id_and_key_order() {
+        let a =
+            json!({ "id": "1", "type": "highlight", "text": "t", "anchor": { "b": 1, "a": 2 } });
+        let b = json!({ "id": "2", "type": "highlight", "text": "t", "color": null, "anchor": { "a": 2, "b": 1 } });
+        assert_eq!(annotation_identity(&a), annotation_identity(&b));
+        let other = json!({ "type": "highlight", "text": "u", "anchor": { "a": 2, "b": 1 } });
+        assert_ne!(annotation_identity(&a), annotation_identity(&other));
     }
 }

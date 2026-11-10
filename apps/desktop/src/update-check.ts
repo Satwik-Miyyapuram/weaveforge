@@ -20,6 +20,12 @@
  * because an Electron app cannot be started inside `node --test`.
  */
 import { errorMessage } from "@weaveforge/core";
+import {
+  isNewerVersion,
+  newestDesktopRelease,
+  parseAppVersion,
+  parseReleaseTag,
+} from "@weaveforge/wasm";
 import type { IpcResult } from "../../shell/sidecar/src/channels";
 
 /** A release, as much of one as this needs. */
@@ -44,22 +50,17 @@ export interface Update {
  * thing on offer — sending a desktop reader to download an APK, or a wheel.
  */
 export function parseTag(tag: string): [number, number, number] | null {
-  const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag.trim());
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+  return parseReleaseTag(tag);
 }
 
 /** `0.5.2` → `[0, 5, 2]`, for the version this build was stamped with. */
 export function parseVersion(version: string): [number, number, number] | null {
-  return parseTag(`v${version.trim()}`);
+  return parseAppVersion(version);
 }
 
 /** Whether `candidate` is a later version than `current`. */
 export function isNewer(candidate: [number, number, number], current: [number, number, number]): boolean {
-  for (let i = 0; i < 3; i += 1) {
-    if (candidate[i]! !== current[i]!) return candidate[i]! > current[i]!;
-  }
-  return false;
+  return isNewerVersion(candidate, current);
 }
 
 /**
@@ -71,14 +72,7 @@ export function isNewer(candidate: [number, number, number], current: [number, n
  * not be sent to a build that was not announced.
  */
 export function newestRelease(releases: Release[]): { version: [number, number, number]; url: string } | null {
-  let best: { version: [number, number, number]; url: string } | null = null;
-  for (const release of releases) {
-    if (release.draft || release.prerelease) continue;
-    const version = parseTag(release.tag_name);
-    if (!version) continue;
-    if (!best || isNewer(version, best.version)) best = { version, url: release.html_url };
-  }
-  return best;
+  return newestDesktopRelease(releases);
 }
 
 /**

@@ -3,7 +3,7 @@
  * a fresh function every render, and the actuator starts on the tool in
  * force when it arrives (21-02).
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
@@ -11,6 +11,9 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import type { PenHaptics, PenHapticsTool } from "../application/pen-haptics";
 import { useInkPen, type InkPenDeps } from "../ui/use-ink-pen";
 import { INK_RENDER_COLOURS } from "../render/ink-palette";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= { requestAnimationFrame: () => 0, cancelAnimationFrame() {} };

@@ -7,10 +7,10 @@ import { ConnectionState } from "@/components/connection-state";
 import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
-import { emptyIntegration, type Integration } from "../domain/integration";
+import { type Integration } from "../domain/integration";
+import { readyCore } from "@/lib/rust-core";
 import { projectSyncDescriptorsForConfig, sharedProviderHint } from "@/integrations/descriptors-resolve";
 import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
-import { readyCore } from "@/lib/rust-core";
 import type { MattermostOptions } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
@@ -26,6 +26,13 @@ export function SyncSettings() {
     [],
   );
   const [items, setItems] = useState<Record<string, Integration>>({});
+  const empties = useMemo(
+    () =>
+      Object.fromEntries(
+        descriptors.map((d) => [d.provider, readyCore().emptyIntegration(d.provider)]),
+      ) as Record<string, Integration>,
+    [descriptors],
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -59,7 +66,7 @@ export function SyncSettings() {
               key={d.id}
               descriptor={d}
               allDescriptors={descriptors}
-              value={items[d.provider] ?? emptyIntegration(d.provider)}
+              value={items[d.provider] ?? empties[d.provider]!}
               projectId={current.id}
               onChange={(v) => setItems((s) => ({ ...s, [d.provider]: v }))}
             />
@@ -75,7 +82,7 @@ export function SyncSettings() {
  * so in that mode only the server URL and channel are asked for.
  */
 export function fieldsShown<F extends { key: string }>(fields: readonly F[], mattermostSignIn: boolean): F[] {
-  return fields.filter((field) => !mattermostSignIn || field.key !== "token");
+  return fields.filter((field) => readyCore().syncFieldShown(field.key, mattermostSignIn));
 }
 
 function IntegrationRow({

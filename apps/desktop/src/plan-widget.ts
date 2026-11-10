@@ -1,5 +1,12 @@
 import { errorMessage } from "@weaveforge/core";
-import type { FeedMilestone, PlanWidgetData } from "@weaveforge/wasm";
+import {
+  cleanWidgetPalette as cleanWidgetPaletteRust,
+  parsePlanWidgetBounds,
+  parseTaskbarCreatedId,
+  placePlanWidget,
+  type FeedMilestone,
+  type PlanWidgetData,
+} from "@weaveforge/wasm";
 import type { MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
 import { typedCore } from "@/lib/rust-core";
 import type { IpcResult } from "../../shell/sidecar/src/channels";
@@ -88,51 +95,14 @@ export const WIDGET_PALETTE_KEYS = [
   "soon-ink",
 ] as const;
 
-/** A length in px, as getComputedStyle prints it, between `min` and `max`. */
-const px = (min: number, max: number) => (v: string) =>
-  /^\d{1,3}(\.\d+)?px$/.test(v) && parseFloat(v) >= min && parseFloat(v) <= max;
-/** A computed box-shadow: `none`, or rgb()/rgba() colours and px offsets only. */
-const shadow = (v: string) =>
-  v.length <= 300 && (v === "none" || /^(rgba?\([\d.,\s]+\)|-?\d+(\.\d+)?px|inset|,|\s)+$/.test(v));
-
-/**
- * The theme's shape, by the CSS variable each one sets (design D-27): card and
- * control corners, border width, card and control shadows, font and text sizes.
- * Optional, so a palette saved before these crossed over still paints.
- */
-const WIDGET_SHAPE: Record<string, (v: string) => boolean> = {
-  radius: px(0, 999),
-  "radius-sm": px(0, 999),
-  bw: px(0, 8),
-  sh: shadow,
-  "sh-sm": shadow,
-  font: (v) => v.length <= 300 && /^[\w\s,"'-]+$/.test(v),
-  fs: px(8, 32),
-  "fs-sm": px(8, 32),
-};
-
 export type WidgetPalette = Record<(typeof WIDGET_PALETTE_KEYS)[number], string> & Record<string, string>;
 
 /**
  * A palette from the app with every colour key a `#rrggbb` colour and every
- * shape key it carries plain CSS of its kind, or null.
+ * shape key it carries plain CSS of its kind, or null. Rules live in Rust.
  */
 export function cleanWidgetPalette(value: unknown): WidgetPalette | null {
-  if (!value || typeof value !== "object") return null;
-  const input = value as Record<string, unknown>;
-  const out: Record<string, string> = {};
-  for (const key of WIDGET_PALETTE_KEYS) {
-    const colour = input[key];
-    if (typeof colour !== "string" || !/^#[0-9a-f]{6}$/i.test(colour)) return null;
-    out[key] = colour.toLowerCase();
-  }
-  for (const [key, ok] of Object.entries(WIDGET_SHAPE)) {
-    if (!(key in input)) continue;
-    const v = input[key];
-    if (typeof v !== "string" || !ok(v)) return null;
-    out[key] = v;
-  }
-  return out as WidgetPalette;
+  return cleanWidgetPaletteRust(value) as WidgetPalette | null;
 }
 
 /**
@@ -144,15 +114,8 @@ export function cleanWidgetPalette(value: unknown): WidgetPalette | null {
  */
 export function parseBounds(value: unknown): WidgetBounds | null {
   if (typeof value !== "string") return null;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object") return null;
-    const { x, y } = parsed as Record<string, unknown>;
-    if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return { x: Math.round(x), y: Math.round(y) };
-  } catch {
-    return null;
-  }
+  const spot = parsePlanWidgetBounds(value);
+  return spot && spot.x !== null && spot.y !== null ? { x: spot.x, y: spot.y } : null;
 }
 
 export interface WorkArea {
@@ -170,12 +133,8 @@ export interface WorkArea {
  * goes to the top-right corner of the first one.
  */
 export function placeWidget(saved: WidgetBounds | null, areas: readonly WorkArea[]): WidgetBounds {
-  const { width, height } = PLAN_WIDGET_SIZE;
-  const fits = (a: WorkArea, b: WidgetBounds) =>
-    b.x >= a.x && b.y >= a.y && b.x + width <= a.x + a.width && b.y + height <= a.y + a.height;
-  if (saved && areas.some((a) => fits(a, saved))) return saved;
-  const first = areas[0] ?? { x: 0, y: 0, width: 1280, height: 800 };
-  return { x: first.x + first.width - width - 32, y: first.y + 32 };
+  const spot = placePlanWidget(saved, areas);
+  return { x: spot.x ?? 0, y: spot.y ?? 0 };
 }
 
 /**
@@ -277,8 +236,7 @@ if ($desktop -eq [IntPtr]::Zero) { exit 2 }
  * message ids are 0xC000 to 0xFFFF.
  */
 export function parseTaskbarCreated(stdout: string): number | null {
-  const id = Number(stdout.trim().split(/\s+/)[0]);
-  return Number.isInteger(id) && id >= 0xc000 && id <= 0xffff ? id : null;
+  return parseTaskbarCreatedId(stdout);
 }
 
 /**

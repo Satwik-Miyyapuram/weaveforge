@@ -18,6 +18,8 @@
  * reach and nothing else. The guard below is the point of the file.
  */
 
+import { rust } from "@weaveforge/core";
+
 const LOCAL_ORIGIN = "http://127.0.0.1:23119";
 
 /** The library root to hand `zoteroLibraryUrl`. Local Zotero is always user 0. */
@@ -38,18 +40,7 @@ export interface ZoteroLocalReply {
 
 /** True only for a GET against the local Zotero API's own path. */
 export function isLocalZoteroUrl(url: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return false;
-  }
-  return (
-    parsed.origin === LOCAL_ORIGIN &&
-    (parsed.pathname === "/api" || parsed.pathname.startsWith("/api/")) &&
-    !parsed.username &&
-    !parsed.password
-  );
+  return rust().isLocalZoteroUrl(url);
 }
 
 export async function fetchZoteroLocal(

@@ -4,6 +4,7 @@
 //! `createReadingList` takes its id and timestamp as arguments, so it stays pure.
 
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 use crate::js_collate::locale_compare;
 use crate::reader_analysis::lines::js_trim;
@@ -112,6 +113,25 @@ pub fn build_list_tree(lists: &[ReadingList]) -> Vec<ReadingListTreeNode> {
     .collect()
 }
 
+/// The list and every list below it, deepest first: children (each subtree first) before their
+/// parent (TS `removeList`'s `deepestFirst`). Children keep the order of `lists`.
+#[must_use]
+pub fn deepest_first_list_ids(list_id: &str, lists: &[ReadingList]) -> Vec<String> {
+    let mut ids = Vec::new();
+    push_deepest_first(list_id, lists, &mut ids);
+    ids
+}
+
+fn push_deepest_first(id: &str, lists: &[ReadingList], ids: &mut Vec<String>) {
+    for child in lists
+        .iter()
+        .filter(|list| list.parent_id.as_deref() == Some(id))
+    {
+        push_deepest_first(&child.id, lists, ids);
+    }
+    ids.push(id.to_owned());
+}
+
 /// Input to [`create_reading_list`] (TS `NewReadingListInput`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -162,9 +182,144 @@ pub fn create_reading_list(
     })
 }
 
+/// Swatch for a list: its own colour when set, else a stable hue hashed from the name.
+///
+/// The hash walks UTF-16 code units, as the TS `charCodeAt` loop did.
+#[must_use]
+pub fn list_display_colour(list: &ReadingList) -> String {
+    display_colour(&list.name, list.color.as_deref())
+}
+
+/// [`list_display_colour`] from a name and an optional colour, for callers that
+/// hold only those two fields.
+#[must_use]
+pub fn display_colour(name: &str, color: Option<&str>) -> String {
+    if let Some(color) = color.filter(|c| !c.is_empty()) {
+        return color.to_owned();
+    }
+    let hue = name
+        .encode_utf16()
+        .fold(0_u32, |h, unit| (h * 31 + u32::from(unit)) % 360);
+    format!("hsl({hue}, 48%, 58%)")
+}
+
+/// Which id on a join row names the resource a membership map is keyed by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "ListMembershipKey"))]
+#[serde(rename_all = "camelCase")]
+pub enum MembershipKey {
+    /// `paper_id` only (the papers and lists screens).
+    Paper,
+    /// `vault_page_id` only (the vault screen).
+    VaultPage,
+    /// The paper if set, else the vault page (the graph screen).
+    Either,
+}
+
+/// A list item as membership sees it: the list it joins and the resource it names.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MembershipItem {
+    /// List id.
+    pub list_id: String,
+    /// Paper id.
+    #[serde(default)]
+    pub paper_id: Option<String>,
+    /// Vault page id.
+    #[serde(default)]
+    pub vault_page_id: Option<String>,
+}
+
+/// Just the id of a list; nothing else about a list decides membership.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct MembershipList {
+    /// Id.
+    pub id: String,
+}
+
+impl MembershipKey {
+    fn resource_of(self, item: &MembershipItem) -> Option<&str> {
+        match self {
+            Self::Paper => item.paper_id.as_deref(),
+            Self::VaultPage => item.vault_page_id.as_deref(),
+            Self::Either => item.paper_id.as_deref().or(item.vault_page_id.as_deref()),
+        }
+    }
+}
+
+/// Which list holds which resource (TS `buildListMembership`): each list in `lists` order
+/// with the resource ids in it, first-seen order, no duplicates. Every list keeps an entry,
+/// empty or not. An item naming no resource, or a list that is not there, is skipped.
+#[must_use]
+pub fn list_membership(
+    lists: &[MembershipList],
+    items: &[MembershipItem],
+    key: MembershipKey,
+) -> Vec<(String, Vec<String>)> {
+    let mut slot: HashMap<&str, usize> = HashMap::new();
+    let mut out: Vec<(String, Vec<String>)> = Vec::with_capacity(lists.len());
+    for list in lists {
+        let _ = slot.entry(list.id.as_str()).or_insert(out.len());
+        out.push((list.id.clone(), Vec::new()));
+    }
+    let mut seen: Vec<HashSet<&str>> = vec![HashSet::new(); out.len()];
+    for item in items {
+        let Some(resource) = key.resource_of(item) else {
+            continue;
+        };
+        let Some(&at) = slot.get(item.list_id.as_str()) else {
+            continue;
+        };
+        if seen[at].insert(resource) {
+            out[at].1.push(resource.to_owned());
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deepest_first_puts_children_before_their_parent() {
+        let lists = [
+            list("root", None, 0.0, "Root"),
+            list("a", Some("root"), 0.0, "A"),
+            list("a1", Some("a"), 0.0, "A1"),
+            list("b", Some("root"), 1.0, "B"),
+            list("other", None, 1.0, "Other"),
+        ];
+        assert_eq!(
+            deepest_first_list_ids("root", &lists),
+            vec!["a1", "a", "b", "root"]
+        );
+        assert_eq!(deepest_first_list_ids("other", &lists), vec!["other"]);
+    }
+
+    #[test]
+    fn display_colour_prefers_the_list_colour() {
+        let mut coloured = list("a", None, 0.0, "Thesis");
+        coloured.color = Some("#abcdef".to_owned());
+        assert_eq!(list_display_colour(&coloured), "#abcdef");
+    }
+
+    #[test]
+    fn display_colour_hashes_the_name_to_a_stable_hue() {
+        assert_eq!(
+            list_display_colour(&list("a", None, 0.0, "Thesis")),
+            "hsl(204, 48%, 58%)"
+        );
+        assert_eq!(
+            list_display_colour(&list("b", None, 0.0, "Thesis")),
+            "hsl(204, 48%, 58%)"
+        );
+        assert_eq!(
+            list_display_colour(&list("c", None, 0.0, "")),
+            "hsl(0, 48%, 58%)"
+        );
+    }
 
     fn list(id: &str, parent: Option<&str>, sort_order: f64, name: &str) -> ReadingList {
         ReadingList {

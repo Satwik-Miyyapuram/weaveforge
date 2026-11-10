@@ -1,10 +1,7 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import { type GraphViewSettings, type RelationType } from "@weaveforge/core";
-import { RELATION_COLORS, WIKILINK_COLOR, EXPERIMENT_LINK_COLOR } from "../domain/graph-palette";
-import { CLUSTER_PALETTE, RAMP_GRADIENT, UNCOLOURED } from "../application/node-colouring";
 import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
 import { FoldButton } from "@/components/controls";
 import { readyCore } from "@/lib/rust-core";
@@ -62,13 +59,13 @@ export function GraphLegend({
               {RAMP_ENDS[settings.colorBy] && (
                 <span className="legend-item legend-ramp-row">
                   {RAMP_ENDS[settings.colorBy]![0]}
-                  <span className="legend-ramp" style={{ background: RAMP_GRADIENT }} />
+                  <span className="legend-ramp" style={{ background: readyCore().graphPalette().rampGradient }} />
                   {RAMP_ENDS[settings.colorBy]![1]}
                 </span>
               )}
               {settings.colorBy === "cluster" && (
                 <span className="legend-item">
-                  {CLUSTER_PALETTE.slice(0, 5).map((c) => <span key={c} className="legend-swatch legend-dot" style={{ background: c }} />)}
+                  {readyCore().graphPalette().cluster.slice(0, 5).map((c) => <span key={c} className="legend-swatch legend-dot" style={{ background: c }} />)}
                   one colour per linked cluster
                 </span>
               )}
@@ -76,7 +73,7 @@ export function GraphLegend({
                 <span key={i} className="legend-item"><span className="legend-swatch legend-dot" style={{ background: g.color }} /> {g.query || "(empty rule)"}</span>
               ))}
               <span className="legend-item">
-                <span className="legend-swatch legend-dot" style={{ background: UNCOLOURED }} />
+                <span className="legend-swatch legend-dot" style={{ background: readyCore().graphPalette().uncoloured }} />
                 {settings.colorBy === "year" ? "no year" : settings.colorBy === "groups" ? "no match" : settings.colorBy === "cluster" ? "unlinked" : "no links"}
               </span>
             </div>
@@ -85,8 +82,8 @@ export function GraphLegend({
             <span className="muted graph-legend-heading">Relations</span>
             {readyCore().RELATION_TYPES.map((t) => (
               <span key={t} className="legend-item">
-                <span className="legend-swatch" style={{ background: RELATION_COLORS[t as RelationType] }} />
-                {enumLabel("relation", t)}
+                <span className="legend-swatch" style={{ background: readyCore().graphPalette().relation[t as RelationType] }} />
+                {readyCore().enumLabel("relation", t)}
               </span>
             ))}
           </div>
@@ -99,8 +96,8 @@ export function GraphLegend({
           )}
           <div className="graph-legend-group">
             <span className="muted graph-legend-heading">Links</span>
-            <span className="legend-item"><span className="legend-swatch" style={{ background: WIKILINK_COLOR }} /> [[wikilink]]</span>
-            <span className="legend-item"><span className="legend-swatch" style={{ background: EXPERIMENT_LINK_COLOR }} /> experiment → paper</span>
+            <span className="legend-item"><span className="legend-swatch" style={{ background: readyCore().graphPalette().wikilink }} /> [[wikilink]]</span>
+            <span className="legend-item"><span className="legend-swatch" style={{ background: readyCore().graphPalette().experimentLink }} /> experiment → paper</span>
           </div>
         </div>
       )}

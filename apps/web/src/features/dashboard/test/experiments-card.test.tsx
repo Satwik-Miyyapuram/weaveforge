@@ -5,12 +5,17 @@
  * It now says "3 of 8 done · 1 running" with the same bar as the others.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { renderDashboardCard, type CardRenderProps } from "../ui/cards/card-renderers";
 import { buildDashboardStats } from "../application/build-dashboard-stats";
 import type { DashboardStats } from "../application/build-dashboard-stats";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const stats = { experiments: { done: 3, total: 8, pct: 38, running: 1 } } as DashboardStats;
 const markup = (h: number) =>

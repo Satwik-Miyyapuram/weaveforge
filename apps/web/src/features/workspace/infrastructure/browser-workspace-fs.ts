@@ -1,5 +1,4 @@
-import { walkByList, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
-import { safeWorkspacePath } from "./safe-workspace-path";
+import { safeWorkspacePath, walkByList, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
 
 /**
  * `IWorkspaceFs` over the File System Access API.
@@ -53,7 +52,7 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
   }
 
   private async dirFor(path: string, create: boolean): Promise<DirHandle | null> {
-    const parts = path ? (await safeWorkspacePath(path)).split("/") : [];
+    const parts = path ? safeWorkspacePath(path).split("/") : [];
     let dir = this.root;
     for (const part of parts) {
       try {
@@ -66,7 +65,7 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
   }
 
   private async fileFor(path: string, create: boolean): Promise<FileSystemFileHandle | null> {
-    const safe = await safeWorkspacePath(path);
+    const safe = safeWorkspacePath(path);
     const parts = safe.split("/");
     const name = parts.pop()!;
     const dir = await this.dirFor(parts.join("/"), create);
@@ -104,7 +103,7 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
   }
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
-    const safe = await safeWorkspacePath(path);
+    const safe = safeWorkspacePath(path);
     const parts = safe.split("/");
     const name = parts.pop()!;
     const dir = await this.dirFor(parts.join("/"), false);
@@ -124,7 +123,7 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
   async list(dir: string): Promise<readonly WorkspaceStat[]> {
     const handle = await this.dirFor(dir, false);
     if (!handle) return [];
-    const prefix = dir ? `${await safeWorkspacePath(dir)}/` : "";
+    const prefix = dir ? `${safeWorkspacePath(dir)}/` : "";
     const out: WorkspaceStat[] = [];
     for await (const [name, entry] of handle.entries()) {
       if (entry.kind === "file") {
@@ -151,14 +150,14 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     if (handle) {
       const file = await handle.getFile();
       return {
-        path: await safeWorkspacePath(path),
+        path: safeWorkspacePath(path),
         size: file.size,
         modifiedAt: new Date(file.lastModified).toISOString(),
         kind: "file",
       };
     }
     const dir = await this.dirFor(path, false);
-    return dir ? { path: await safeWorkspacePath(path), size: 0, modifiedAt: "", kind: "dir" } : null;
+    return dir ? { path: safeWorkspacePath(path), size: 0, modifiedAt: "", kind: "dir" } : null;
   }
 
   async rename(from: string, to: string): Promise<void> {

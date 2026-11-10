@@ -10,7 +10,6 @@ import type {
 import {
   buildListMembership,
   loadPinnedScreenData,
-  paperIdOfItem,
 } from "@weaveforge/core";
 
 export interface PapersScreenData {
@@ -49,7 +48,7 @@ export class LoadPapersScreenUseCase {
       this.deps.lists.list(),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = buildListMembership(lists, items, paperIdOfItem);
+    const membership = buildListMembership(lists, items, "paper");
 
     const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "paper",

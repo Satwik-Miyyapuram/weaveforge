@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   emitLive,
   fetchLiveFile,
@@ -11,6 +12,8 @@ import {
   takeLiveEvents,
 } from "../infrastructure/workshop-live-client";
 import type { WorkshopClientDeps } from "../infrastructure/workshop-session-client";
+
+before(loadTestCore);
 
 function makeDeps(respond: (url: string, body: unknown) => { status: number; body: unknown }) {
   const calls: { url: string; body: unknown }[] = [];

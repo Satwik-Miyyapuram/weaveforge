@@ -1,5 +1,4 @@
-import type { GNode } from "../application/build-graph-data";
-import type { LabelSize, NodeSize } from "./graph-sizing";
+import type { GNode, LabelSize, NodeSize } from "@weaveforge/wasm";
 
 /**
  * The poster look for graph nodes: the chip colours, an ink outline and an

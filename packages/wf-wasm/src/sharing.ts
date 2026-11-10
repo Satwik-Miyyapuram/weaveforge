@@ -14,11 +14,18 @@ import {
   shareCoversResource as rawShareCoversResource,
   shareFromRow as rawShareFromRow,
   shareSupportsEditAccess as rawShareSupportsEditAccess,
+  memberNameMap as rawMemberNameMap,
   sharedItem as rawSharedItem,
+  sharedItemHref as rawSharedItemHref,
+  sharedItemTypeLabel as rawSharedItemTypeLabel,
+  sharedPaperAnnotationSummary as rawSharedPaperAnnotationSummary,
+  sharedResourceHref as rawSharedResourceHref,
 } from "../pkg/wf_wasm.js";
 import type {
   Comment as CommentRecord,
   CommentRow as CommentRowInput,
+  MemberName,
+  MemberNameSource,
   NewCommentInput,
   NewShareInput,
   Share as ShareRecord,
@@ -26,6 +33,7 @@ import type {
   ShareRow as ShareRowInput,
   ShareableType,
   SharedItem as SharedItemRecord,
+  SharedPaperAnnotationSummary,
   SharedSource as SharedSourceInput,
 } from "./bindings.js";
 
@@ -160,4 +168,30 @@ export function sharedItem(
   source: SharedSourceInput,
 ): SharedItemRecord {
   return rawSharedItem(kind, row, source) as SharedItemRecord;
+}
+
+/** Display name per member id: full name, else email, else `"Member"` (Rust `member_name_map`). */
+export function memberNameMap(members: readonly MemberNameSource[]): Map<string, string> {
+  const names = rawMemberNameMap([...members]) as MemberName[];
+  return new Map(names.map((m) => [m.id, m.name]));
+}
+
+/** Route to a resource of a shareable type (Rust `shared_resource_href`). */
+export function sharedResourceHref(resourceType: ShareableType, resourceId: string): string {
+  return rawSharedResourceHref(resourceType, resourceId);
+}
+
+/** Route for a shared item (Rust `shared_item_href`). */
+export function sharedItemHref(item: SharedItemRecord): string {
+  return rawSharedItemHref(item);
+}
+
+/** Lowercase type label for a shared item; a note for a vault page (Rust `shared_item_type_label`). */
+export function sharedItemTypeLabel(kind: ShareableType): string {
+  return rawSharedItemTypeLabel(kind);
+}
+
+/** Count and up to three sample texts of a paper's Zotero annotations, notes excluded (Rust `shared_paper_annotation_summary`). */
+export function sharedPaperAnnotationSummary(metadata: Record<string, unknown> | undefined): SharedPaperAnnotationSummary {
+  return rawSharedPaperAnnotationSummary(metadata ?? null) as SharedPaperAnnotationSummary;
 }

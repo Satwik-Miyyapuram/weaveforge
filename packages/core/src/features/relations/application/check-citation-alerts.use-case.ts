@@ -6,7 +6,6 @@ import type { Paper } from "../../papers/domain/paper.js";
 import type { ICitationAlertTrackRepository } from "../domain/citation-alert-track-repository.js";
 import type { CitationCandidate, ICitationSource } from "./citation-source.js";
 import { rust } from "../../../shared/rust.js";
-import { paperRef } from "./paper-ref.js";
 import { NotFoundError } from "../../../shared/errors.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,27 +18,6 @@ export interface CitationAlertCheckResult {
   failed: number;
 }
 
-function mergeSeenIds(prior: readonly string[], current: readonly CitationCandidate[]): string[] {
-  // Always union — a truncated/partial S2 page must not forget older ids
-  // (that would make them look "new" on a later complete fetch).
-  const out = new Set(prior);
-  for (const item of current) out.add(item.id);
-  return [...out];
-}
-
-function intentLabel(item: CitationCandidate): string | null {
-  if (item.isInfluential === true) {
-    const intent = item.intents?.find((i) => i === "result" || i === "method") ?? item.intents?.[0];
-    return intent ? `influential · ${intent}` : "influential";
-  }
-  if (!item.intents?.length) return null;
-  // Prefer the strongest intent for the label (result > method > background).
-  for (const intent of ["result", "method", "background"] as const) {
-    if (item.intents.includes(intent)) return intent;
-  }
-  return item.intents[0] ?? null;
-}
-
 /** `ranked` is already best first (rankCitationAlerts). */
 function logBody(paper: Paper, ranked: CitationCandidate[]): string {
   const lines = [
@@ -50,7 +28,7 @@ function logBody(paper: Paper, ranked: CitationCandidate[]): string {
   ];
   for (const item of ranked.slice(0, 20)) {
     const author = item.authors[0];
-    const intent = intentLabel(item);
+    const intent = rust().citationIntentLabel(item);
     const meta = [
       // Emphasis, not a code span: the intent is a word, not an identifier (DA-40).
       intent ? `*${intent}*` : null,
@@ -109,7 +87,7 @@ export class CheckCitationAlertsUseCase {
       return paper;
     }
 
-    const ref = paperRef(paper);
+    const ref = rust().primaryPaperRef(paper.arxivId, paper.doi);
     if (!ref) throw new Error("Citation alerts require a DOI or arXiv ID.");
     const source = this.deps.sources.find((item) => item.supports(ref) && item.citations);
     if (!source?.citations) throw new Error("No citation-alert provider is configured.");
@@ -121,7 +99,7 @@ export class CheckCitationAlertsUseCase {
     await this.deps.tracks.track({
       paperId,
       lastCheckedAt: now,
-      seenCitingIds: mergeSeenIds(existing?.seenCitingIds ?? [], current),
+      seenCitingIds: rust().mergeSeenIds(existing?.seenCitingIds ?? [], current.map((item) => item.id)),
     });
     return paper;
   }
@@ -161,7 +139,7 @@ export class CheckCitationAlertsUseCase {
           const elapsed = Date.parse(now) - Date.parse(track.lastCheckedAt);
           if (Number.isFinite(elapsed) && elapsed < DAY_MS) continue;
         }
-        const ref = paperRef(paper);
+        const ref = rust().primaryPaperRef(paper.arxivId, paper.doi);
         if (!ref) continue;
         const source = this.deps.sources.find((item) => item.supports(ref) && item.citations);
         if (!source?.citations) continue;
@@ -175,7 +153,10 @@ export class CheckCitationAlertsUseCase {
 
         const seen = new Set(latest.seenCitingIds);
         const fresh = rust().rankCitationAlerts(current.filter((item) => !seen.has(item.id)));
-        const seenCitingIds = mergeSeenIds(latest.seenCitingIds, current);
+        const seenCitingIds = rust().mergeSeenIds(
+          latest.seenCitingIds,
+          current.map((item) => item.id),
+        );
 
         if (fresh.length > 0) {
           // Persist seen only after the in-app log succeeds so a failed write can retry.

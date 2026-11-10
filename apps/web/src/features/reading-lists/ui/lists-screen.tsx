@@ -17,7 +17,7 @@ import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddListForm } from "./add-list-form";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
-import { collectListIds } from "./list-ui";
+import { readyCore } from "@/lib/rust-core";
 import { ListNode, type ListTreeContext } from "./list-node";
 import { runListAction } from "./run-list-action";
 import { ListsRail, findListNode } from "./lists-rail";
@@ -75,7 +75,7 @@ export function ListsScreen() {
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
 
   const ownedIds = useMemo(
-    () => new Set(collectListIds(tree)),
+    () => new Set(readyCore().collectListIds(tree)),
     [tree],
   );
 
@@ -263,7 +263,7 @@ export function ListsScreen() {
             {selectedNode.children.length > 0 && (
               <div className="list-tree-toolbar">
                 <Button variant="link"
-                  onClick={() => setCollapsed(new Set(collectListIds(selectedNode.children)))}
+                  onClick={() => setCollapsed(new Set(readyCore().collectListIds(selectedNode.children)))}
                 >
                   Collapse all
                 </Button>

@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IScreeningRepository, ScreeningDecision } from "@weaveforge/core";
+import type { ScreeningDecisionRow } from "@weaveforge/wasm";
 
 import { rows, run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Screening decisions, in the table both providers share.
@@ -22,27 +24,11 @@ const SCREENING_DECISION_COLUMNS = "id,item_id,reviewer_id,stage,state,reason,de
 
 const TABLE = "screening_decisions";
 
-interface ScreeningDecisionRow {
-  id: string;
-  item_id: string;
-  reviewer_id: string;
-  stage: string;
-  state: string;
-  reason: string | null;
-  decided_at: string;
-}
-
-function toDomain(row: ScreeningDecisionRow): ScreeningDecision {
-  return {
-    id: row.id,
-    itemId: row.item_id,
-    reviewerId: row.reviewer_id,
-    stage: row.stage as ScreeningDecision["stage"],
-    state: row.state as ScreeningDecision["state"],
-    reason: row.reason ?? undefined,
-    decidedAt: row.decided_at,
-  };
-}
+// Row mapping runs in the Rust core (wf-core `reading_lists::screening::decision_from_row`).
+const toDomain = (row: ScreeningDecisionRow): ScreeningDecision =>
+  readyCore().screeningDecisionFromRow(row) as ScreeningDecision;
+const toRow = (decision: ScreeningDecision): ScreeningDecisionRow =>
+  readyCore().screeningDecisionToRow(decision);
 
 export class PostgrestScreeningRepository implements IScreeningRepository {
   constructor(private readonly db: SupabaseClient) {}
@@ -59,20 +45,7 @@ export class PostgrestScreeningRepository implements IScreeningRepository {
     // Conflict on the natural key rather than the id: the same reviewer
     // answering the same item again is a change of mind, and the row it should
     // replace is the one they already wrote, whatever id the caller minted.
-    await run(
-      this.db.from(TABLE).upsert(
-        {
-          id: decision.id,
-          item_id: decision.itemId,
-          reviewer_id: decision.reviewerId,
-          stage: decision.stage,
-          state: decision.state,
-          reason: decision.reason ?? null,
-          decided_at: decision.decidedAt,
-        },
-        { onConflict: "item_id,reviewer_id,stage" },
-      ),
-    );
+    await run(this.db.from(TABLE).upsert(toRow(decision), { onConflict: "item_id,reviewer_id,stage" }));
   }
 
   async remove(id: string): Promise<void> {

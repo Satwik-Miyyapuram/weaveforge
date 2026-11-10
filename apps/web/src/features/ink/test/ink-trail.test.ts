@@ -4,7 +4,7 @@
  * which follows pressure; a refusing presenter is dropped, not fatal; and the
  * session hands the presenter only the dispatched event, never a coalesced one.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_A4_WIDTH } from "@weaveforge/core";
@@ -31,6 +31,9 @@ import {
   InkSampleWriter,
 } from "../application/capture-protocol";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const area = {} as Element;
 

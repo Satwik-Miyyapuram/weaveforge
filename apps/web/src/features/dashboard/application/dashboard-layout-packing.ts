@@ -13,7 +13,8 @@ import { CARD_REGISTRY } from "./card-registry";
 
 type CardSizeDef = (typeof CARD_REGISTRY)[number];
 
-const CARD_LIMITS = CARD_REGISTRY.map((def) => ({
+/** Every card's size limits, as the Rust packing and layout functions take them. */
+export const CARD_LIMITS = CARD_REGISTRY.map((def) => ({
   type: def.type,
   minSize: def.minSize,
   maxSize: def.maxSize,

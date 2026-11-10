@@ -9,7 +9,8 @@ import test, { before } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
 
-import { latestGate, loadProfileBundle, type ProfileSources } from "../application/profile-refresh";
+import { latestGate } from "@/lib/latest-gate";
+import { loadProfileBundle, type ProfileSources } from "../application/profile-refresh";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 
@@ -80,12 +81,12 @@ test("a slow earlier refresh is ignored (32-28)", async () => {
   const shown: string[] = [];
   let releaseFirst!: () => void;
   const first = (async () => {
-    const isLatest = gate.begin();
+    const isLatest = gate();
     await new Promise<void>((r) => (releaseFirst = r));
     if (isLatest()) shown.push("first");
   })();
   const second = (async () => {
-    const isLatest = gate.begin();
+    const isLatest = gate();
     await Promise.resolve();
     if (isLatest()) shown.push("second");
   })();
@@ -97,8 +98,8 @@ test("a slow earlier refresh is ignored (32-28)", async () => {
 
 test("a lone refresh is the latest", () => {
   const gate = latestGate();
-  const isLatest = gate.begin();
+  const isLatest = gate();
   assert.equal(isLatest(), true);
-  gate.begin();
+  gate();
   assert.equal(isLatest(), false);
 });

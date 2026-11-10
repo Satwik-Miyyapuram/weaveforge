@@ -55,6 +55,48 @@ pub fn citation_alert_score(signals: &CitationSignals) -> f64 {
     score
 }
 
+/// The intent label shown on a citation alert line, or `None` when the citing paper has no
+/// intents. An influential citation reads `influential · <intent>`, using its result or method
+/// intent, else its first; without an intent it reads `influential`. Otherwise the strongest
+/// intent wins: result, then method, then background, then the first one listed.
+#[must_use]
+pub fn intent_label(signals: &CitationSignals) -> Option<String> {
+    let intents = signals.intents.as_deref().unwrap_or(&[]);
+    if signals.is_influential == Some(true) {
+        let intent = intents
+            .iter()
+            .find(|i| i.as_str() == "result" || i.as_str() == "method")
+            .or_else(|| intents.first())
+            .filter(|i| !i.is_empty());
+        return Some(match intent {
+            Some(intent) => format!("influential · {intent}"),
+            None => "influential".to_owned(),
+        });
+    }
+    if intents.is_empty() {
+        return None;
+    }
+    for label in ["result", "method", "background"] {
+        if intents.iter().any(|i| i.as_str() == label) {
+            return Some(label.to_owned());
+        }
+    }
+    intents.first().cloned()
+}
+
+/// Every id in `prior` then each id in `current`, once each, in first-seen order. Prior ids
+/// always survive: a truncated provider page must not make older citations look new later.
+#[must_use]
+pub fn merge_seen_ids(prior: &[String], current: &[String]) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    prior
+        .iter()
+        .chain(current)
+        .filter(|id| seen.insert(id.as_str()))
+        .cloned()
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,5 +140,42 @@ mod tests {
         )
         .unwrap();
         assert!((citation_alert_score(&v) - 194.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn intent_label_prefers_the_strongest_intent() {
+        assert_eq!(intent_label(&s(None, None, &[])), None);
+        assert_eq!(
+            intent_label(&s(None, None, &["background", "method"])),
+            Some("method".to_owned())
+        );
+        assert_eq!(
+            intent_label(&s(None, None, &["mystery"])),
+            Some("mystery".to_owned())
+        );
+    }
+
+    #[test]
+    fn intent_label_marks_influential_citations() {
+        assert_eq!(
+            intent_label(&s(None, Some(true), &["background", "result"])),
+            Some("influential · result".to_owned())
+        );
+        assert_eq!(
+            intent_label(&s(None, Some(true), &["background"])),
+            Some("influential · background".to_owned())
+        );
+        assert_eq!(
+            intent_label(&s(None, Some(true), &[])),
+            Some("influential".to_owned())
+        );
+    }
+
+    #[test]
+    fn merge_seen_ids_keeps_prior_and_adds_new_in_order() {
+        let prior = vec!["a".to_owned(), "b".to_owned(), "a".to_owned()];
+        let current = vec!["c".to_owned(), "b".to_owned()];
+        assert_eq!(merge_seen_ids(&prior, &current), ["a", "b", "c"]);
+        assert_eq!(merge_seen_ids(&prior, &[]), ["a", "b"]);
     }
 }

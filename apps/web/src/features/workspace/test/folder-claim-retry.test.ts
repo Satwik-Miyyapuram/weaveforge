@@ -14,7 +14,7 @@ import type { IWorkspaceFs } from "@weaveforge/core";
 import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { applyEntries, keepWorkspaceCopy, storedDigest, titleFromFileName } from "../application/folder-import-apply";
-import { renameSources } from "../application/folder-diff";
+import { readyCore } from "@/lib/rust-core";
 import { refreshMirrorBase } from "../application/folder-json-import";
 import { baseDigest, readMirrorBase } from "../application/mirror-manifest";
 
@@ -213,7 +213,7 @@ test("renameSources: the only file with an id whose old file is gone is a rename
     { id: "b", path: "n/b copy.note.md" },
     { id: null, path: "n/new.note.md" },
   ];
-  assert.deepEqual(renameSources(parsed, folder, current), { "n/a2.note.md": "n/a.note.md" });
+  assert.deepEqual(readyCore().renameSources(parsed, folder, current), { "n/a2.note.md": "n/a.note.md" });
 });
 
 test("keeping the workspace copy writes it over the folder's file and makes it the base", async () => {

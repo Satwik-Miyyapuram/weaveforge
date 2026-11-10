@@ -5,13 +5,13 @@ import {
 } from "@weaveforge/core";
 import type { ImportDiff } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
-import { loadCore, type RustCore } from "@/lib/rust-core";
+import { loadCore } from "@/lib/rust-core";
 import { ownedAssetFolderPaths, workspaceBodies } from "./asset-reanchor";
 import { jsonDiff } from "./folder-json-import";
 import { setPendingAssets, storedDigest } from "./folder-import-apply";
 import { countActions, mergeBothChanged } from "./folder-merge";
 import { baseDigest } from "./mirror-manifest";
-import type { FolderDiff, SeenFile } from "./outside-edits";
+import type { FolderDiff } from "./outside-edits";
 
 /** What importing a folder or a ZIP would change in the workspace. */
 
@@ -105,57 +105,12 @@ export async function diffAgainstWorkspace(
   // and they are shown in the same preview: one list of what would change, one
   // set of numbers.
   const json = await jsonDiff(jsonFiles, current, base, project);
-  const seen = seenFiles(core, { ...files, ...jsonFiles }, current, base, renameSources(parsed, files, current));
+  const seen = core.seenFiles(
+    { ...files, ...jsonFiles },
+    current,
+    base,
+    core.renameSources(parsed, files, current),
+  );
   const stored = Object.fromEntries(snapshot.vaultPages.map((page) => [page.id, storedDigest(page)]));
   return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen, stored };
-}
-
-/**
- * Who moved each folder file since the two sides last agreed, and the digest read now.
- *
- * A file neither the manifest nor the workspace knows is new in the folder: the folder alone made it.
- */
-function seenFiles(
-  core: RustCore,
-  folder: Readonly<Record<string, string>>,
-  current: Readonly<Record<string, string>>,
-  base: Readonly<Record<string, string>>,
-  renamed: Readonly<Record<string, string>> = {},
-): Record<string, SeenFile> {
-  const seen: Record<string, SeenFile> = {};
-  for (const [path, text] of Object.entries(folder)) {
-    const digest = baseDigest(text);
-    const known = base[path] || undefined;
-    const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
-    const newPath = known === undefined && workspace === undefined;
-    const side = newPath ? "folder" : core.changedSide({ base: known, folder: digest, workspace });
-    const from = renamed[path];
-    seen[path] = newPath ? { side, digest, newPath, ...(from ? { renamedFrom: from } : {}) } : { side, digest };
-  }
-  return seen;
-}
-
-/**
- * New folder paths that are renames: the only folder file carrying a note's id,
- * while the file the mirror wrote for that note is gone. With the old file still
- * there, the new one is a copy. Maps new path to old.
- */
-export function renameSources(
-  parsed: readonly { id?: string | null; path: string }[],
-  folder: Readonly<Record<string, string>>,
-  current: Readonly<Record<string, string>>,
-): Record<string, string> {
-  const pathsById = new Map<string, string[]>();
-  for (const entity of parsed) {
-    if (entity.id) pathsById.set(entity.id, [...(pathsById.get(entity.id) ?? []), entity.path]);
-  }
-  const renamed: Record<string, string> = {};
-  for (const [id, paths] of pathsById) {
-    const [path] = paths;
-    if (paths.length !== 1 || !path || current[path] !== undefined) continue;
-    const stamp = `\nweaveforge-id: ${id}\n`;
-    const old = Object.keys(current).find((key) => key.endsWith(".md") && (current[key] ?? "").includes(stamp));
-    if (old && folder[old] === undefined) renamed[path] = old;
-  }
-  return renamed;
 }

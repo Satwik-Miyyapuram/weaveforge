@@ -1,4 +1,5 @@
 import type { AiModelRequest, AiModelResponse, IModelConversation, AiModelProviderId } from "./ai-types.js";
+import { rust } from "../../../shared/rust.js";
 
 
 export interface AiModelAdapter extends IModelConversation {
@@ -18,20 +19,18 @@ export class AiModelRouter implements IModelConversation {
   private readonly adapter: AiModelAdapter;
 
   constructor(adapters: readonly AiModelAdapter[], selected: AiModelProviderId) {
-    if (!selected) {
-      throw new Error("No AI provider is configured. Choose one in Settings → AI.");
-    }
-    const match = adapters.find(
-      (adapter) => adapter.provider === selected && adapter.available,
-    );
-    if (!match) {
-      const available = adapters.filter((a) => a.available).map((a) => a.provider);
-      throw new Error(
-        available.length
-          ? `AI provider "${selected}" is not available. Configured: ${available.join(", ")}.`
-          : `AI provider "${selected}" is not available and none are configured.`,
+    // The choice and its refusal messages live in Rust (wf-core `ai::model_router`).
+    let chosen: string;
+    try {
+      chosen = rust().selectModelProvider(
+        adapters.map(({ provider, available }) => ({ provider, available })),
+        selected,
       );
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
     }
+    const match = adapters.find((adapter) => adapter.provider === chosen && adapter.available);
+    if (!match) throw new Error(`AI provider "${chosen}" is not available.`);
     this.adapter = match;
     this.provider = match.provider;
   }

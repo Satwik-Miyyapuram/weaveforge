@@ -1,5 +1,5 @@
 /** Types for citation-text. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { PageTextItem } from "../../../reader/selection-to-anchor.js";
+import type { PageTextItem } from "../page-text-item.js";
 
 export type PdfItem = PageTextItem & { fontAscent?: number; fontDescent?: number };
 

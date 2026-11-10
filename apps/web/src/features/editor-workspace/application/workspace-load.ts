@@ -14,7 +14,7 @@ import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links"
 import { isHydratedPage, noteBodyText } from "@/lib/page-text";
 
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
-import { KINDS, memberRank } from "../ui/kind";
+import { kindNames, memberRank } from "@weaveforge/wasm";
 import type { ListItemEntry, WorkspaceTreeNode } from "@weaveforge/wasm";
 import { sectionOr } from "./section-fallback";
 import { readyCore } from "@/lib/rust-core";
@@ -244,7 +244,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     }
     // Papers before notes, from `kind.ts`'s own ordering column, so the
     // rule is not a comparison against `"paper"` in two places.
-    const memberRankByKind = Object.fromEntries(KINDS.map((kind) => [kind, memberRank(kind)]));
+    const memberRankByKind = Object.fromEntries(kindNames().map((kind) => [kind, memberRank(kind)]));
     listsTree = readyCore().buildListsTree({
       lists: listRows.map((list) => ({
         id: list.id,

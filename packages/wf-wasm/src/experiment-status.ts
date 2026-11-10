@@ -4,6 +4,8 @@
  */
 import {
   experimentActivityAt as rawExperimentActivityAt,
+  experimentHref as rawExperimentHref,
+  experimentsListHref as rawExperimentsListHref,
   formatMetricCell as rawFormatMetricCell,
   formatMetricValue as rawFormatMetricValue,
   isStaleRunningExperiment as rawIsStaleRunningExperiment,
@@ -87,4 +89,14 @@ export function metricKeysOf(experiments: readonly Experiment[]): string[] {
 
 export function resultsTable(experiments: readonly Experiment[]): ResultsTable {
   return rawResultsTable(experiments) as ResultsTable;
+}
+
+/** Where an experiment opens. `offlineBuild` is the desktop flag (`isOfflineBuild()`), passed in. */
+export function experimentHref(id: string, offlineBuild: boolean): string {
+  return rawExperimentHref(id, offlineBuild);
+}
+
+/** The experiments list: the target of "close the detail". */
+export function experimentsListHref(): string {
+  return rawExperimentsListHref();
 }

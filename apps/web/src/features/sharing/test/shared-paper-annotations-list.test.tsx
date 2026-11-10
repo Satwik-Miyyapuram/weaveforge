@@ -1,8 +1,13 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { act, create, type ReactTestInstance } from "react-test-renderer";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { SharedPaperAnnotations } from "../ui/shared-item-renderer";
+
+before(async () => {
+  await loadTestCore();
+});
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

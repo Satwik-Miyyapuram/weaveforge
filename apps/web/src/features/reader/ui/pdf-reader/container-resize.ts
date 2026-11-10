@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
-import type { ReaderContainerSize } from "@weaveforge/core";
+import type { ReaderContainerSize } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 export interface BoxSize {
   width: number;
@@ -8,7 +9,8 @@ export interface BoxSize {
 }
 
 /**
- * What the reader does when its scroll container changes size.
+ * What the reader does when its scroll container changes size. The rule is in
+ * the Rust core (`reader::container_resize`).
  *
  * A background editor tab is display:none, so it reads 0 wide; fitting to that
  * shrinks the page to the smallest zoom. Keep the last fit instead, and refit
@@ -16,9 +18,7 @@ export interface BoxSize {
  * animation, so it waits for the size to settle.
  */
 export function containerResize(last: BoxSize, next: BoxSize): "ignore" | "now" | "settle" {
-  if (next.width === last.width && next.height === last.height) return "ignore";
-  if (next.width === 0) return "ignore";
-  return last.width === 0 ? "now" : "settle";
+  return readyCore().containerResize(last, next) as "ignore" | "now" | "settle";
 }
 
 /** The reader's container size, for the fit. `pdf` is the loaded document. */

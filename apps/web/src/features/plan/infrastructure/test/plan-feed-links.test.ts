@@ -1,8 +1,11 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { PlanFeedLinks, planFeedOrigin, planFeedUrls } from "../plan-feed-links";
+
+before(loadTestCore);
 
 test("planFeedUrls builds calendar, https and widget links with options in the query", () => {
   const urls = planFeedUrls("https://app.weaveforge.org", "tt_abc", { includeDone: true, reminderDays: 3 });

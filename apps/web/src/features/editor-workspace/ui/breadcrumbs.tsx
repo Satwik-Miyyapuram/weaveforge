@@ -8,8 +8,8 @@
  * carries the kind suffix, because the crumb *is* the path.
  */
 
-import type { Crumb } from "../application/breadcrumbs";
-import { kindSuffix } from "./kind";
+import type { Crumb } from "@weaveforge/wasm";
+import { kindSuffix } from "@weaveforge/wasm";
 import { Button } from "@/components/button";
 
 export function Breadcrumbs({

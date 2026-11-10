@@ -8,7 +8,6 @@ import { Modal } from "@/components/modal";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
-import { collapseAlert } from "./collapse-alert";
 import { Select } from "@/components/select";
 import { LogMarkdown } from "./log-markdown";
 import { logImageUpload } from "./log-image-upload";
@@ -199,7 +198,7 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   const [editing, setEditing] = useState(false);
   const hidden = useHiddenKeys().has(logKey(entry.id));
   const { headline, rest } = splitHeadline(entry.body);
-  const collapsed = collapseAlert(headline, rest);
+  const collapsed = useMemo(() => readyCore().collapseAlert(headline, rest), [headline, rest]);
   const [expanded, setExpanded] = useState(false);
 
   // Rule D-07: the entry goes at once; the delete runs when the Undo toast closes.
@@ -376,13 +375,9 @@ function EditLogForm({
 
 /** Entries grouped by day, newest day first, in the order they arrived. */
 function groupByDay(entries: readonly LogEntry[]): [string, LogEntry[]][] {
-  const byDay = new Map<string, LogEntry[]>();
-  for (const e of entries) {
-    const list = byDay.get(e.entryDate);
-    if (list) list.push(e);
-    else byDay.set(e.entryDate, [e]);
-  }
-  return [...byDay.entries()].sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0));
+  return readyCore()
+    .groupByDay(entries.map((e) => e.entryDate))
+    .map((group): [string, LogEntry[]] => [group.day, group.indexes.map((i) => entries[i] as LogEntry)]);
 }
 
 /** A yyyy-mm-dd read as a local calendar date, not UTC midnight. */
@@ -408,33 +403,16 @@ function timeOf(iso: string): string {
  * one-line entry is all headline. Heading and emphasis marks are dropped.
  */
 function splitHeadline(body: string): { headline: string; rest: string } {
-  const trimmed = body.trim();
-  const cut = trimmed.indexOf("\n");
-  const first = cut < 0 ? trimmed : trimmed.slice(0, cut);
-  const rest = cut < 0 ? "" : trimmed.slice(cut + 1).trim();
-  const headline = first.replace(/^#+\s*/, "").replace(/(\*\*|__|\*|`)(.+?)\1/g, "$2");
-  return { headline: headline || "Untitled entry", rest };
-}
-
-/** Consecutive days with an entry, counting back from today (or yesterday). */
-function streakDays(entries: readonly LogEntry[]): number {
-  const logged = new Set(entries.map((e) => e.entryDate));
-  const day = new Date();
-  if (!logged.has(ymdOf(day))) day.setDate(day.getDate() - 1);
-  let streak = 0;
-  while (logged.has(ymdOf(day))) {
-    streak++;
-    day.setDate(day.getDate() - 1);
-  }
-  return streak;
+  return readyCore().splitHeadline(body);
 }
 
 /** "62 entries · 9-day streak" above the title. */
 function logEyebrow(entries: readonly LogEntry[]): string | undefined {
-  if (!entries.length) return undefined;
-  const count = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
-  const streak = streakDays(entries);
-  return streak > 1 ? `${count} · ${streak}-day streak` : count;
+  // Rust returns Option::None as null; the screen has always taken undefined.
+  return readyCore().logEyebrow(
+    entries.map((e) => e.entryDate),
+    ymdOf(new Date()),
+  ) ?? undefined;
 }
 
 /** The timeline's gutter: the day of the month, big, and its weekday. */

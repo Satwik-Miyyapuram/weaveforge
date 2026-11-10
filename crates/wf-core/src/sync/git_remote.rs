@@ -157,6 +157,45 @@ pub fn describe_push(result: &GitPushResult) -> String {
     }
 }
 
+/// How the sync remote stands against the local branch, as the Settings panel reads it.
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "RemoteStatusInput"))]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteStatus {
+    /// The remote's URL; absent or empty when no remote is connected.
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    /// Branch.
+    pub branch: String,
+    #[serde(default)]
+    /// Ahead.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
+    pub ahead: u64,
+    #[serde(default)]
+    /// Behind.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
+    pub behind: u64,
+}
+
+/// One line for the Settings panel: connection, sync position, or the commits to push and pull.
+#[must_use]
+pub fn describe_status(status: &RemoteStatus) -> String {
+    let connected = status.url.as_deref().is_some_and(|url| !url.is_empty());
+    if !connected {
+        return "Not connected yet.".to_owned();
+    }
+    if status.ahead == 0 && status.behind == 0 {
+        return format!("In step with the remote on {}.", status.branch);
+    }
+    let plural = if status.ahead == 1 { "" } else { "s" };
+    format!(
+        "{} commit{plural} to push, {} to pull on {}.",
+        status.ahead, status.behind, status.branch
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

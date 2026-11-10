@@ -9,7 +9,6 @@
 import type { Experiment } from "@weaveforge/core";
 import type { ResultsTable } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { safeArtifactCaption } from "./resolve-artifact-markdown";
 
 const PREFIX = "exptable:";
 const REF_RE = new RegExp(`!\\[([^\\]]*)\\]\\(${PREFIX}([^)\\s]*)\\)`, "g");
@@ -53,7 +52,7 @@ export function resultsTableMarkdown(table: ResultsTable, caption: string): stri
   const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
   const row = (cells: readonly string[]) => `| ${cells.map(cell).join(" | ")} |`;
   return [
-    `**${safeArtifactCaption(caption)}**`,
+    `**${readyCore().safeArtifactCaption(caption)}**`,
     "",
     row(table.header),
     row(table.header.map(() => "---")),
@@ -84,7 +83,7 @@ export function resultsTableLatex(table: ResultsTable, caption: string): string 
 }
 
 function notFound(caption: string, count: number): string {
-  return `> ⚠️ Results table “${safeArtifactCaption(caption)}”: ${count} run${count === 1 ? "" : "s"} not found.`;
+  return `> ⚠️ Results table “${readyCore().safeArtifactCaption(caption)}”: ${count} run${count === 1 ? "" : "s"} not found.`;
 }
 
 /** Replace every results-table ref with its table, on lines of its own. */

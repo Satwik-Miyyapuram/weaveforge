@@ -6,7 +6,7 @@
  * session grows with every tab opened. The heap check runs after forced GCs
  * with wide headroom so it only trips on a per-page leak, not on noise.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { setFlagsFromString } from "node:v8";
 import { runInNewContext } from "node:vm";
@@ -15,6 +15,9 @@ import { act, create } from "react-test-renderer";
 
 import { usePenCapture, type InkWorkerLike } from "../application/use-pen-capture";
 import type { InkWorkerMessage } from "../application/capture-protocol";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= {

@@ -125,7 +125,7 @@ function simState(node: object): Record<string, number> {
 }
 
 /** Reuse simulation node objects so x/y/vx/vy survive graph updates. */
-export function mergeSimNodes<T extends { id: string; label: string; val: number; color: string; kind: string; paperId?: string; noteId?: string; tagName?: string; x?: number; y?: number; fx?: number; fy?: number }>(
+export function mergeSimNodes<T extends { id: string; label: string; val: number | null; color: string; kind: string; paperId?: string | null; noteId?: string | null; tagName?: string | null; x?: number; y?: number; fx?: number; fy?: number }>(
   incoming: T[],
   cache: Map<string, T>,
   pinned: Map<string, { x: number; y: number }>,

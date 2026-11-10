@@ -6,7 +6,7 @@
  * unnecessary — jitter is damped, a step still arrives, a slow staircase is
  * smoothed, and a fast sweep is not dragged behind the pen.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -16,6 +16,9 @@ import {
   OneEuroFilter,
   oneEuroAlpha,
 } from "../application/one-euro-filter";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** Feed a channel a series of values 8 ms apart, as a 120 Hz pen would. */
 function run(

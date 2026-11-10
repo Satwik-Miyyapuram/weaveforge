@@ -23,6 +23,7 @@ pub const INK_BACKGROUND_ALT: &str = "page background";
 
 /// Tool a stroke was drawn with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum InkTool {
     /// Freehand pen.
@@ -35,6 +36,7 @@ pub enum InkTool {
 
 /// Palette colour a stroke indexes into.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum InkColour {
     /// Theme text.
@@ -86,6 +88,7 @@ pub enum InkShape {
 
 /// One stroke: absolute points and names, no deltas.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct InkStroke {
     /// Absolute positions in 0.1 mm as `[x0, y0, x1, y1, ...]`.
@@ -166,6 +169,7 @@ pub struct InkPage {
 
 /// A page's width and height, clamped to what an `Int16` coordinate can hold.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct InkPageSize {
     /// Width in 0.1 mm.

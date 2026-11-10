@@ -1,6 +1,7 @@
 import type { DesktopOverleafSource } from "@/lib/desktop/desktop-bridge";
 import { readOverleafProject } from "@/features/overleaf/infrastructure/overleaf-git-reader";
-import { safeOverleafError } from "@/features/overleaf/infrastructure/overleaf-error";
+import { formatError } from "@/lib/format-error";
+import { readyCore } from "@/lib/rust-core";
 import type { IpcResult } from "../../shell/sidecar/src/channels";
 
 /**
@@ -49,6 +50,6 @@ export async function handleOverleafRead(
   } catch (error) {
     // The token can appear inside git's own error text, so it is redacted by
     // the same function the API route redacts with before anything is shown.
-    return { ok: false, message: safeOverleafError(error, token) };
+    return { ok: false, message: readyCore().redactOverleafErrorText(formatError(error), token) };
   }
 }

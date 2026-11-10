@@ -101,6 +101,49 @@ fn is_blank(text: &str) -> bool {
     text.trim_matches(is_js_whitespace).is_empty()
 }
 
+/// Default branch for git providers (TS `DEFAULT_GIT_BRANCH`).
+pub const DEFAULT_GIT_BRANCH: &str = "main";
+
+/// The sync providers (TS `SyncProvider`), named as the web names them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "lowercase")]
+pub enum SyncProvider {
+    /// GitHub.
+    Github,
+    /// GitLab.
+    Gitlab,
+    /// Mattermost.
+    Mattermost,
+}
+
+/// An integration with nothing stored yet (TS `emptyIntegration`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct EmptyIntegration {
+    /// The provider this integration is for.
+    pub provider: SyncProvider,
+    /// Always false: a new integration starts switched off.
+    pub enabled: bool,
+    /// The git default branch, or empty for Mattermost (no channel yet).
+    pub branch: String,
+}
+
+/// The integration a provider starts from before anything is stored.
+#[must_use]
+pub fn empty_integration(provider: SyncProvider) -> EmptyIntegration {
+    let branch = match provider {
+        SyncProvider::Mattermost => String::new(),
+        SyncProvider::Github | SyncProvider::Gitlab => DEFAULT_GIT_BRANCH.to_owned(),
+    };
+    EmptyIntegration {
+        provider,
+        enabled: false,
+        branch,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -226,5 +269,22 @@ mod tests {
             Some("https://x"),
             "ch"
         )));
+    }
+}
+
+#[cfg(test)]
+mod provider_tests {
+    use super::*;
+
+    #[test]
+    fn git_providers_start_on_the_default_branch() {
+        assert_eq!(empty_integration(SyncProvider::Github).branch, "main");
+        assert_eq!(empty_integration(SyncProvider::Gitlab).branch, "main");
+    }
+
+    #[test]
+    fn mattermost_starts_with_no_channel_and_off() {
+        let e = empty_integration(SyncProvider::Mattermost);
+        assert_eq!((e.branch.as_str(), e.enabled), ("", false));
     }
 }

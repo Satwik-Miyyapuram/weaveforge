@@ -2,20 +2,26 @@
  * One default git branch (xhelp-24): the domain, the store and both git
  * clients each spelled `"main"` themselves.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { LogEntry } from "@weaveforge/core";
-import { DEFAULT_GIT_BRANCH, emptyIntegration } from "../domain/integration";
+import { DEFAULT_GIT_BRANCH } from "../domain/integration";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { GitLabLogExporter } from "../infrastructure/gitlab-log-exporter";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("the default branch is main", () => {
   assert.equal(DEFAULT_GIT_BRANCH, "main");
 });
 
 test("a new git integration starts on the default branch; Mattermost has no branch", () => {
-  assert.equal(emptyIntegration("github").branch, DEFAULT_GIT_BRANCH);
-  assert.equal(emptyIntegration("gitlab").branch, DEFAULT_GIT_BRANCH);
-  assert.equal(emptyIntegration("mattermost").branch, "");
+  assert.equal(readyCore().emptyIntegration("github").branch, DEFAULT_GIT_BRANCH);
+  assert.equal(readyCore().emptyIntegration("gitlab").branch, DEFAULT_GIT_BRANCH);
+  assert.equal(readyCore().emptyIntegration("mattermost").branch, "");
 });
 
 const entry = { id: "e1", entryDate: "2026-01-02", title: "t", body: "b" } as unknown as LogEntry;

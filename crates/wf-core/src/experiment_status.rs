@@ -556,6 +556,26 @@ fn to_exponential_2(x: f64) -> String {
     )
 }
 
+/// Path of the experiments list. Also where "close the detail" goes (TS `EXPERIMENTS_HREF`).
+pub const EXPERIMENTS_HREF: &str = "/experiments/";
+
+/// Where an experiment opens (TS `experimentHref`).
+///
+/// The served app has a page per experiment. The desktop bundle cannot: a static export needs
+/// every path at build time, so there the experiment opens *on* the list as `?experiment=<id>`.
+/// `is_offline_build` is the caller's `isOfflineBuild()`, passed in so this stays pure.
+#[must_use]
+pub fn experiment_href(id: &str, is_offline_build: bool) -> String {
+    if is_offline_build {
+        format!(
+            "{EXPERIMENTS_HREF}?experiment={}",
+            crate::overleaf_workshop::encode_uri_component(id)
+        )
+    } else {
+        format!("{EXPERIMENTS_HREF}{id}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -735,5 +755,23 @@ mod tests {
         let t = results_table(&[]);
         assert_eq!(t.header, ["Run"]);
         assert!(t.rows.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod href_tests {
+    use super::*;
+
+    #[test]
+    fn served_build_opens_the_experiment_page() {
+        assert_eq!(experiment_href("exp-1", false), "/experiments/exp-1");
+    }
+
+    #[test]
+    fn offline_build_opens_the_list_with_an_encoded_query() {
+        assert_eq!(
+            experiment_href("a b/c", true),
+            "/experiments/?experiment=a%20b%2Fc"
+        );
     }
 }

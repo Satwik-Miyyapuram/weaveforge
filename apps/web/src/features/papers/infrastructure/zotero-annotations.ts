@@ -1,11 +1,8 @@
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
-import type {
-  ZoteroAnnotation,
-  ZoteroAnnotationPosition,
-  ZoteroAnnotationPull,
-  ZoteroAnnotationType,
-} from "../domain/zotero";
+import type { ZoteroAnnotation, ZoteroItemRow } from "@weaveforge/wasm";
+import type { ZoteroAnnotationPull } from "../domain/zotero";
 import {
   fetchAllZoteroItems,
   fetchZoteroItemKeys,
@@ -14,75 +11,15 @@ import {
   zoteroTopLevelPath,
 } from "./zotero-web-api";
 
-export type { ZoteroAnnotation } from "../domain/zotero";
+export type { ZoteroAnnotation } from "@weaveforge/wasm";
 
 /**
- * Every type Zotero defines. Unknown values degrade to `undefined`, so a
- * missing entry here silently strips the type off a real annotation — which is
- * what happened to `text` (ANNOTATION_TYPE_TEXT, added after the others).
+ * Rust leaves absent fields out; the old TS always set comment, color and page,
+ * undefined when Zotero had none. Keep those keys so the shape stays the same.
  */
-const ANNOTATION_TYPES = new Set<ZoteroAnnotationType>([
-  "highlight",
-  "underline",
-  "note",
-  "image",
-  "ink",
-  "text",
-]);
-
-interface ZoteroTag { tag?: string }
-interface ZoteroItem {
-  key?: string;
-  data?: {
-    /** The local Zotero API can give the key here instead of at the top. */
-    key?: string;
-    parentItem?: string;
-    contentType?: string;
-    title?: string;
-    filename?: string;
-    /** A linked file's path, which may be the only sign it is a PDF. */
-    path?: string;
-    annotationText?: string;
-    annotationComment?: string;
-    annotationColor?: string;
-    annotationPageLabel?: string;
-    annotationType?: string;
-    /** JSON string, e.g. `{"pageIndex":24,"rects":[[x1,y1,x2,y2]]}`. */
-    annotationPosition?: string;
-    annotationSortIndex?: string;
-    note?: string;
-    tags?: ZoteroTag[];
-  };
-}
-
-function itemKey(it: ZoteroItem): string | undefined {
-  return it.key || it.data?.key || undefined;
-}
-
-function isPdfAttachment(it: ZoteroItem): boolean {
-  const d = it.data;
-  if (d?.contentType?.toLowerCase().includes("pdf")) return true;
-  return /\.pdf$/i.test(d?.filename ?? d?.path ?? "");
-}
-
-/**
- * How likely an attachment is the paper itself rather than a supplement.
- * Zotero lists children in no fixed order, so without a ranking the cloud and
- * local APIs could pick different PDFs for the same paper.
- */
-function mainPdfScore(it: ZoteroItem): number {
-  const name = `${it.data?.title ?? ""} ${it.data?.filename ?? it.data?.path ?? ""}`;
-  if (/supplement|appendix|supporting|rebuttal|response/i.test(name)) return 0;
-  if (/full\s*text|preprint|accepted|submitted|manuscript/i.test(name)) return 2;
-  return 1;
-}
-
-/** The paper's main PDF: best score first, then key, so every run agrees. */
-function pickMainPdf(pdfs: ZoteroItem[]): string | undefined {
-  const ranked = [...pdfs].sort(
-    (a, b) => mainPdfScore(b) - mainPdfScore(a) || (itemKey(a) ?? "").localeCompare(itemKey(b) ?? ""),
-  );
-  return ranked[0] && itemKey(ranked[0]);
+function annotationWithKeys(ann: ZoteroAnnotation): ZoteroAnnotation {
+  const mapped = Object.fromEntries(Object.entries(ann).map(([k, v]) => [k, v ?? undefined]));
+  return { comment: undefined, color: undefined, page: undefined, ...mapped } as ZoteroAnnotation;
 }
 
 export class ZoteroAnnotations {
@@ -107,7 +44,7 @@ export class ZoteroAnnotations {
     // go out together. Run one after another, each waiting on the last page of
     // the one before, they were the whole cost of a sync.
     const items = (itemType: string | undefined, collection?: string) =>
-      fetchAllZoteroItems<ZoteroItem>({
+      fetchAllZoteroItems<ZoteroItemRow>({
         baseUrl,
         headers,
         params: { itemType, collection },
@@ -129,21 +66,26 @@ export class ZoteroAnnotations {
     // Pass 1: attachment → parent paper key (library-wide; children are not in collections).
     // A paper's main PDF is where a write-back would put a new annotation.
     const attachToPaper = new Map<string, string>();
-    const pdfsByPaper = new Map<string, ZoteroItem[]>();
+    const pdfsByPaper = new Map<string, ZoteroItemRow[]>();
     for (const it of attachments) {
-      const key = itemKey(it);
+      const key = readyCore().zoteroItemKey(it);
       const paperKey = it.data?.parentItem;
       if (!key || !paperKey) continue;
       if (allowedPaperKeys && !allowedPaperKeys.has(paperKey)) continue;
       attachToPaper.set(key, paperKey);
-      if (isPdfAttachment(it)) pdfsByPaper.set(paperKey, [...(pdfsByPaper.get(paperKey) ?? []), it]);
+      if (readyCore().zoteroIsPdfAttachment(it)) {
+        pdfsByPaper.set(paperKey, [...(pdfsByPaper.get(paperKey) ?? []), it]);
+      }
     }
     const paperPdf = new Map<string, string>();
     const choices: string[] = [];
     for (const [paperKey, pdfs] of pdfsByPaper) {
-      const main = pickMainPdf(pdfs);
+      const main = readyCore().zoteroPickMainPdf(pdfs);
       if (main) paperPdf.set(paperKey, main);
-      if (pdfs.length > 1) choices.push(`${paperKey}: ${main} of ${pdfs.map(itemKey).join(", ")}`);
+      if (pdfs.length > 1) {
+        const keys = pdfs.map((p) => readyCore().zoteroItemKey(p));
+        choices.push(`${paperKey}: ${main} of ${keys.join(", ")}`);
+      }
     }
     if (choices.length) {
       logToApp({
@@ -164,21 +106,7 @@ export class ZoteroAnnotations {
       const paperKey = attKey ? attachToPaper.get(attKey) : undefined;
       if (!paperKey) continue;
       if (!annotatedPdf.has(paperKey)) annotatedPdf.set(paperKey, attKey!);
-      const annotationType = parseAnnotationType(it.data?.annotationType);
-      const annotationPosition = parseAnnotationPosition(it.data?.annotationPosition);
-      const annotationSortIndex = it.data?.annotationSortIndex || undefined;
-      const ann: ZoteroAnnotation = {
-        key: itemKey(it),
-        kind: "annotation",
-        text: it.data?.annotationText || undefined,
-        comment: it.data?.annotationComment || undefined,
-        color: it.data?.annotationColor || undefined,
-        page: it.data?.annotationPageLabel || undefined,
-        tags: (it.data?.tags ?? []).map((t) => t.tag ?? "").filter(Boolean),
-        ...(annotationType ? { annotationType } : {}),
-        ...(annotationPosition ? { annotationPosition } : {}),
-        ...(annotationSortIndex ? { annotationSortIndex } : {}),
-      };
+      const ann = annotationWithKeys(readyCore().zoteroAnnotationFromItem(it));
       const list = byPaper.get(paperKey);
       if (list) list.push(ann);
       else byPaper.set(paperKey, [ann]);
@@ -189,85 +117,12 @@ export class ZoteroAnnotations {
     for (const it of notes) {
       const paperKey = it.data?.parentItem;
       if (!paperKey || (allowedPaperKeys && !allowedPaperKeys.has(paperKey))) continue;
-      const text = toPlainText(it.data?.note);
-      if (!text) continue;
-      const note: ZoteroAnnotation = { key: itemKey(it), kind: "note", text, tags: [] };
+      const note = readyCore().zoteroNoteFromItem(it);
+      if (!note) continue;
       const list = byPaper.get(paperKey);
       if (list) list.push(note);
       else byPaper.set(paperKey, [note]);
     }
     return { byPaper, attachments: new Map([...paperPdf, ...annotatedPdf]) };
   }
-
-}
-
-/**
- * Coordinate arrays from Zotero: `rects` and `nextPageRects` are 4-tuples,
- * `paths` are flat point lists of arbitrary length. Anything malformed is
- * dropped rather than propagated.
- */
-function parseNumberArrays(raw: unknown, minLength: number): number[][] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const rows = raw.filter(
-    (r): r is number[] =>
-      Array.isArray(r) &&
-      r.length >= minLength &&
-      r.every((n) => typeof n === "number" && Number.isFinite(n)),
-  );
-  return rows.length > 0 ? rows : undefined;
-}
-
-/**
- * Parse Zotero's `annotationPosition` JSON string.
- * Absent, empty, or malformed input degrades to undefined — never throws.
- *
- * Shape per `zotero/reader` `src/common/types.ts` (`PDFPosition`). `paths` and
- * `nextPageRects` are kept because dropping them loses real geometry: `paths`
- * is the whole of an ink annotation, and `nextPageRects` is the tail of a
- * highlight that crosses a page break.
- */
-function parseAnnotationPosition(raw: string | undefined): ZoteroAnnotationPosition | undefined {
-  if (raw == null || raw.trim() === "") return undefined;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
-    const source = parsed as Record<string, unknown>;
-    const pageIndex = source.pageIndex;
-    if (typeof pageIndex !== "number" || !Number.isFinite(pageIndex)) return undefined;
-    const rects = parseNumberArrays(source.rects, 4);
-    const nextPageRects = parseNumberArrays(source.nextPageRects, 4);
-    // Ink paths are flat [x1,y1,x2,y2,…] runs; two numbers is one point.
-    const paths = parseNumberArrays(source.paths, 2);
-    return {
-      pageIndex,
-      ...(rects ? { rects } : {}),
-      ...(nextPageRects ? { nextPageRects } : {}),
-      ...(paths ? { paths } : {}),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function parseAnnotationType(raw: string | undefined): ZoteroAnnotationType | undefined {
-  if (!raw || !ANNOTATION_TYPES.has(raw as ZoteroAnnotationType)) return undefined;
-  return raw as ZoteroAnnotationType;
-}
-
-/** Zotero stores notes as HTML fragments. Retrieval always receives plain text. */
-function toPlainText(note: string | undefined): string | undefined {
-  if (!note) return undefined;
-  const text = note
-    .replace(/<br\s*\/?\s*>/gi, "\n")
-    .replace(/<\/p\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return text || undefined;
 }

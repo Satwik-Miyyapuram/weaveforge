@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IMetricRepository, MetricBudget, MetricPoint } from "@weaveforge/core";
 import { run } from "@/backend/providers/postgrest/row-access";
-import {
-  type MetricRow,
-  toDomain,
-} from "./metric-rows";
+import type { MetricRow } from "./metric-rows";
+import { typedCore } from "@/lib/rust-core";
+
+/** Bindings type f64 as number | null (NaN/Infinity serialise as null); values are always finite. */
+const toFinite = (n: number | null): number => n as number;
 
 /**
  * The relation a write goes to: the **view**, not the row table.
@@ -106,7 +107,18 @@ export class PostgrestMetricRepository implements IMetricRepository {
       p_max_points: budget.maxPoints,
     });
     if (error) throw error;
-    return ((data ?? []) as MetricRow[]).map(toDomain);
+    // `metric_history` returns no `experiment_id` column; the Rust mapper requires
+    // one, so the requested id is supplied (the domain type always carries it).
+    return ((data ?? []) as Omit<MetricRow, "experiment_id">[]).map((row) => {
+      const p = typedCore().metricRowToDomain({ ...row, experiment_id: experimentId } as MetricRow);
+      return {
+        experimentId: p.experimentId,
+        metric: p.metric,
+        step: toFinite(p.step),
+        value: toFinite(p.value),
+        wallTime: p.wallTime ?? undefined,
+      };
+    });
   }
 
   /**

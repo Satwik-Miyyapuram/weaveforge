@@ -37,6 +37,8 @@ import {
   extractDoi,
   extractPageMetadata,
   redactSecret,
+  folderKey,
+  folderKeys,
   fuseRankings,
   GIT_SYNC_MAX_FILE_BYTES,
   guessBlobContentType,
@@ -58,6 +60,8 @@ import {
   mergeVaultPage,
   normalizeArxivId,
   normalizePasteSettings,
+  noteBacklinks,
+  noteTags,
   pageImportRefusal,
   parseLinkRemovalText,
   parsePaperRef,
@@ -68,6 +72,7 @@ import {
   readableText,
   safeWorkspacePath,
   sameValue,
+  scopeNoteIndices,
   stampWorkspaceId,
   tabSeparatedToMarkdownTable,
   tokenize,
@@ -80,7 +85,12 @@ import {
   type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
-import { buildExcerpt as rawBuildExcerpt, fuseRankings as rawFuseRankings } from "../pkg/wf_wasm.js";
+import {
+  buildExcerpt as rawBuildExcerpt,
+  folderKey as rawFolderKey,
+  folderKeys as rawFolderKeys,
+  fuseRankings as rawFuseRankings,
+} from "../pkg/wf_wasm.js";
 import { parsePaperFieldValue } from "../src/papers-field-value.js";
 import { computeRollupsForPapers } from "../src/papers-compute-rollup.js";
 import {
@@ -134,6 +144,20 @@ test("countWords counts runs of non-whitespace", () => {
   assert.equal(countWords(""), 0);
 });
 
+test("folderKey and folderKeys delegate to the Rust folder layout", () => {
+  const paths = ["notes/a/one.md", "notes/b.md", "top.md"];
+  assert.equal(folderKey(paths[0]!), rawFolderKey(paths[0]!));
+  assert.deepEqual(folderKeys(paths), rawFolderKeys(paths));
+  assert.deepEqual(folderKeys([]), []);
+});
+
+test("noteBacklinks, noteTags and scopeNoteIndices return nothing for no notes", () => {
+  assert.deepEqual(noteBacklinks([], "missing"), []);
+  assert.deepEqual(noteBacklinks([], undefined), []);
+  assert.deepEqual(noteTags([]), []);
+  assert.deepEqual(scopeNoteIndices([], [], [], {}), []);
+});
+
 test("the wrapper modules declare no types of their own", () => {
   // Every type comes from bindings.ts, which wf-bindings generates from Rust,
   // so a type cannot drift from its Rust struct. The exceptions only narrow a
@@ -141,6 +165,20 @@ test("the wrapper modules declare no types of their own", () => {
   const NARROWINGS = ["AiPolicyDecision", "GroupColor", "PdfIndexSource", "PdfPageText", "ReadonlyInput", "RelatedHit"];
   // PageNode is recursive and generic over the caller's page type, so it cannot be inlined.
   NARROWINGS.push("PageNode");
+  // Ported wrappers that keep the caller's looser TS shape (readonly arrays,
+  // Date unions, string-literal unions, generic callers) over the generated type.
+  NARROWINGS.push(
+    ...["AppLogLineInput", "EnumKind", "Draft", "SectionState", "GNode", "GraphBuildOutput", "GraphPalette", "InkRecognitionRequest"],
+    ...["ContainerResizeAction", "CreateColourTool", "CiteSpan", "TextSegment", "CitationPageTextItem", "PlanWidgetPalette"],
+    ...["BibPaperInputRow", "PdfTextPartition", "OverleafLinkRow", "OverleafLinkFolderCheck", "OverleafExportFile"],
+    ...["OverleafExportImage", "OverleafWalkStats", "OverleafSectionWalk", "OverleafWalkOptions", "BibPaperInput"],
+    ...["TextQuoteSelector", "TextPositionSelector", "PdfLocus", "PageTextItem", "PageTextGeometry", "TextSelectionRange"],
+    ...["ReaderRotation", "ReaderPageSize", "ReaderContainerSize", "ReaderViewportState", "DocumentPageText"],
+    ...["DocumentSearchMatch", "ResolvedAnchor", "ZoteroRectPosition", "CombinedPdfAnchor", "AnchorStrategy", "MarkActions"],
+    ...["MentionHit", "ReaderReferenceIndex", "ParsedReferenceEntry", "ReferencePage", "FlatReferenceIndex", "PdfRect"],
+    ...["LocatePageTextItem", "PaperPdfSource", "SessionAction", "PanelChoice", "AppVersion", "FolderSeenFile"],
+    ...["OutsideSeenFile", "WikiLintPageRef", "RecolourableNode", "RecolourLookups", "MetricRowInput"],
+  );
   const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);
 });
@@ -152,7 +190,7 @@ test("every raw wasm export has a typed wrapper", () => {
   assert.ok(names.length > 0, "found no raw exports in wf_wasm.d.ts");
   const src = wrapperSources();
   for (const name of names) {
-    assert.match(src, new RegExp(`^export function ${name}(<[^>]*>)?\\(`, "m"), `no typed wrapper for ${name}`);
+    assert.match(src, new RegExp(`^export function ${name}(<.*?>)?\\(`, "m"), `no typed wrapper for ${name}`);
   }
 });
 

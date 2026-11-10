@@ -9,10 +9,10 @@ import { DocumentModeSwitch, canSplit, type DocumentModeName } from "@/component
 import { FocusGlyph } from "@/components/focus-glyph";
 import { PreviewIcon } from "@/components/view-icons";
 import { BarMenuList, Caret, InkIdleBar, useBarMenu, useFoldOf, useToolbarFold } from "@/features/ink";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { readyCore } from "@/lib/rust-core";
 import type { DocumentMode, PaneLayout, PaneSplit, TabRef } from "@weaveforge/wasm";
-import { modesFor } from "./kind";
+import { modesFor } from "@weaveforge/wasm";
 import { SplitGlyph } from "./split-glyph";
 
 /**
@@ -69,7 +69,7 @@ export function WorkspaceToolbar({
         <IconButton
           size="sm"
           label="Preview"
-          tip={previewOff ? "Preview needs a text note focused in Text mode" : `Preview beside the text (${shortcutLabel("⌘E")})`}
+          tip={previewOff ? "Preview needs a text note focused in Text mode" : `Preview beside the text (${readyCore().shortcutLabel("⌘E", isMacPlatform())})`}
           aria-pressed={preview && canSplit(mode)}
           disabled={previewOff}
           onClick={onTogglePreview}
@@ -83,7 +83,7 @@ export function WorkspaceToolbar({
           <SplitGlyph direction="column" />
         </IconButton>
         {onToggleFocus ? (
-          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("F11")})`} onClick={onToggleFocus}>
+          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${readyCore().shortcutLabel("F11", isMacPlatform())})`} onClick={onToggleFocus}>
             <FocusGlyph on={false} />
           </IconButton>
         ) : null}
@@ -123,14 +123,14 @@ function LayoutMenu({
             onClick={choose(onTogglePreview)}
           >
             <span>Preview</span>
-            <kbd>{shortcutLabel("⌘E")}</kbd>
+            <kbd>{readyCore().shortcutLabel("⌘E", isMacPlatform())}</kbd>
           </MenuItemButton>
           <MenuItemButton onClick={choose(() => onSplit("row"))}>Split right</MenuItemButton>
           <MenuItemButton onClick={choose(() => onSplit("column"))}>Split down</MenuItemButton>
           {focusIn ? (
             <MenuItemButton onClick={choose(focusIn)}>
               <span>Focus</span>
-              <kbd>{shortcutLabel("F11")}</kbd>
+              <kbd>{readyCore().shortcutLabel("F11", isMacPlatform())}</kbd>
             </MenuItemButton>
           ) : null}
         </BarMenuList>

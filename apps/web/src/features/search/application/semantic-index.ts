@@ -83,43 +83,17 @@ function passageId(docId: string, index: number): string {
   return `${docId}#${index}`;
 }
 
-export function documentIdOf(passage: string): string {
-  const hash = passage.lastIndexOf("#");
-  return hash < 0 ? passage : passage.slice(0, hash);
-}
+/** Passage ids carry their document: `note:n1#2` belongs to `note:n1` (Rust `document_id_of`). */
+const documentIdOf = (passage: string): string => readyCore().documentIdOf(passage);
+
+/** Text worth embedding for a document (Rust `embeddable_text`: title repeated into the first passage). */
+const embeddableText = (doc: SearchDoc): string => readyCore().embeddableText(doc.title, doc.aliases, doc.body);
 
 /**
- * Text worth embedding for a document.
- *
- * The title is repeated into the first passage because a short note is often
- * only its title, and a body-only vector for "Attention" carries almost
- * nothing.
+ * Fingerprint of what a document was embedded from (Rust `text_hash`). Stored beside the vectors so a
+ * reload re-embeds only the documents that changed while the app was closed.
  */
-function embeddableText(doc: SearchDoc): string {
-  const head = [doc.title, ...doc.aliases].filter(Boolean).join(". ");
-  const body = doc.body.trim();
-  return body ? `${head}. ${body}` : head;
-}
-
-/**
- * A short fingerprint of what a document was embedded from.
- *
- * Stored beside the vectors so a reload can tell which documents changed while
- * the app was closed and re-embed only those. Without it the only check was a
- * fingerprint of the whole corpus, and one edited note meant embedding
- * thousands of passages again. FNV-1a plus the length: a collision costs one
- * stale vector until the next edit, never a wrong result elsewhere.
- */
-export function textHash(text: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `${(hash >>> 0).toString(36)}.${text.length.toString(36)}`;
-}
-
-const hashOf = (doc: SearchDoc) => textHash(embeddableText(doc));
+const hashOf = (doc: SearchDoc): string => readyCore().textHash(embeddableText(doc));
 
 export class SemanticIndex {
   private index: VectorIndexHandle | null = null;

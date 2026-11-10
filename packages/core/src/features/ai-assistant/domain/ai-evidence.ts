@@ -1,5 +1,4 @@
-import type { PdfLocus } from "../../../reader/pdf-locus.js";
-import { type AnchorConfidence } from "../../../reader/anchor-resolution.js";
+import type { AnchorConfidence, PdfLocus } from "../../../reader/anchor-shapes.js";
 import { rust } from "../../../shared/rust.js";
 
 /**

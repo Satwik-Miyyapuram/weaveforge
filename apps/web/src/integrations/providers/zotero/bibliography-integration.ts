@@ -7,6 +7,7 @@ import type {
   IBibliographyIntegration,
 } from "@weaveforge/core";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
+import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";
 import type { ISettingsRepository } from "@weaveforge/core";
 import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
 import { getDataClient } from "@/lib/data-client";
@@ -32,7 +33,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
   }
 
   async pullAnnotations(): Promise<BibliographyAnnotationPull> {
-    return this.deps.annotations.pull();
+    return toBibliographyAnnotationPull(await this.deps.annotations.pull());
   }
 
   async pushPaper(paper: Paper) {

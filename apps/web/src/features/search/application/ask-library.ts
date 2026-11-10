@@ -4,8 +4,7 @@
  * documents, so they go to the model fenced as untrusted data.
  */
 import { type AiModelRequest, type IModelConversation, type SearchHit } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export interface CitedSource {
   n: number;
@@ -54,18 +53,9 @@ export function buildAskRequest(question: string, hits: readonly SearchHit[], no
 
 /** The hits named by [n] or [n, m] markers, first citation order, each once. */
 export function citedSources(answer: string, hits: readonly SearchHit[]): CitedSource[] {
-  const seen = new Set<number>();
-  const out: CitedSource[] = [];
-  for (const match of answer.matchAll(/\[(\d+(?:\s*,\s*\d+)*)\]/g)) {
-    for (const part of match[1]!.split(",")) {
-      const n = Number(part.trim());
-      const hit = hits[n - 1];
-      if (n < 1 || !hit || seen.has(n)) continue;
-      seen.add(n);
-      out.push({ n, hit });
-    }
-  }
-  return out;
+  return readyCore()
+    .citedSourceNumbers(answer, hits.length)
+    .map((n) => ({ n, hit: hits[n - 1]! }));
 }
 
 export async function askLibrary(input: {

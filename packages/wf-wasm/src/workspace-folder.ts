@@ -10,6 +10,8 @@ import {
   diffJsonData as rawDiffJsonData,
   diffWorkspace as rawDiffWorkspace,
   entityDir as rawEntityDir,
+  folderKey as rawFolderKey,
+  folderKeys as rawFolderKeys,
   idSuffix as rawIdSuffix,
   isAppOwnedPath as rawIsAppOwnedPath,
   jsonDataPath as rawJsonDataPath,
@@ -61,6 +63,16 @@ export function projectMetaDir(projectRoot = ""): string {
 }
 
 /** The short suffix that makes a folder name unique to its id (Rust `id_suffix`). */
+/** The folder a picked file's relative path leads to; the key of one file's parent folder. */
+export function folderKey(relativePath: string): string {
+  return rawFolderKey(relativePath);
+}
+
+/** Every folder the picked files lead to, shallowest first. */
+export function folderKeys(relativePaths: readonly string[]): string[] {
+  return rawFolderKeys([...relativePaths]);
+}
+
 export function idSuffix(id: string): string {
   checkIndexText(id);
   return rawIdSuffix(id);

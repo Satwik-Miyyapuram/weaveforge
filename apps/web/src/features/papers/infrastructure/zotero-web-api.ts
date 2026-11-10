@@ -1,3 +1,5 @@
+import { typedCore } from "@/lib/rust-core";
+
 /** Browser-only Zotero Web API helpers. Keep decrypted credentials out of app routes. */
 const ZOTERO_API_ORIGIN = "https://api.zotero.org";
 
@@ -24,12 +26,9 @@ export interface ZoteroItemData {
   tags?: { tag?: string }[];
 }
 
-/** Item types that describe a file or a comment about a paper, not a paper. */
-const CHILD_ITEM_TYPES = new Set(["attachment", "note", "annotation"]);
-
 /** True when the item hangs off a paper — an attachment, note or annotation. */
 export function isChildItem(d: ZoteroItemData): boolean {
-  return CHILD_ITEM_TYPES.has(d.itemType ?? "") || !!d.parentItem;
+  return typedCore().isZoteroChildItem(d);
 }
 
 /**
@@ -38,14 +37,11 @@ export function isChildItem(d: ZoteroItemData): boolean {
  * Anything else is `undefined`.
  */
 export function normalizeZoteroLibrary(library: string | undefined): string | undefined {
-  const value = library?.trim();
-  if (!value) return undefined;
-  if (/^\d+$/.test(value)) return `users/${value}`;
-  return /^(users|groups)\/\d+$/.test(value) ? value : undefined;
+  return typedCore().normalizeZoteroLibrary(library);
 }
 
 export function zoteroLibraryUrl(library: string, apiOrigin = ZOTERO_API_ORIGIN): string {
-  return `${apiOrigin.replace(/\/$/, "")}/${library.replace(/^\//, "")}`;
+  return typedCore().zoteroLibraryUrl(library, apiOrigin);
 }
 
 export function zoteroHeaders(apiKey: string): Record<string, string> {

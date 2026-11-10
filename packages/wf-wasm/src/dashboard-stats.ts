@@ -4,11 +4,16 @@
  * packages/core/src/features/dashboard/domain/dashboard-stats.ts.
  */
 import {
+  dashboardBuildStats as rawBuildStats,
   dashboardNeedsAttention as rawNeedsAttention,
   dashboardSuperviseeCounts as rawSuperviseeCounts,
   dashboardTeamAttention as rawTeamAttention,
   dashboardTopTags as rawTopTags,
 } from "../pkg/wf_wasm.js";
+
+export function dashboardBuildStats<Stats>(input: unknown, today: string): Stats {
+  return rawBuildStats(input, today) as Stats;
+}
 
 export function dashboardNeedsAttention<Item>(
   papers: unknown,

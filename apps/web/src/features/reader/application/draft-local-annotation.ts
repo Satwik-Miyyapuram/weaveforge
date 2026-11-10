@@ -1,14 +1,7 @@
-import {
-  INK_DEFAULT_WIDTH,
-  INK_MAX_PATHS_PER_ANNOTATION,
-  type CombinedPdfAnchor,
-  type NewReaderAnnotation,
-  type PageTextGeometry,
-  type ReaderAnnotationType,
-  type TextSelectionRange,
-} from "@weaveforge/core";
+import { INK_DEFAULT_WIDTH, INK_MAX_PATHS_PER_ANNOTATION, type NewReaderAnnotation, type ReaderAnnotationType } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { PDF_INK_SAVE_TOLERANCE } from "./pdf-ink-sampler";
+import type { PageTextGeometry, TextSelectionRange, CombinedPdfAnchor } from "@weaveforge/wasm";
 
 export function draftFromTextSelection(input: {
   type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">;

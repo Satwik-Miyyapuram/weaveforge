@@ -198,19 +198,3 @@ export function recognisedPageFromModel(
     engine: engine ?? "",
   };
 }
-
-/**
- * A page's text layer after a run: the typed text stays, the earlier run's
- * text (`prior`) gives way to `recognised`, and the background line and the
- * figures are re-applied. A typed note opened in Ink keeps its body (E34);
- * text that no longer ends with `prior` was edited by hand and is kept whole.
- */
-export function pageTextAfterRecognition(was: string, prior: string, recognised: string): string {
-  const body = typedCore().withInkPageFigures(typedCore().withInkPageBackground(was, null), []).trim();
-  const old = prior.trim();
-  let typed = body;
-  if (old && body === old) typed = "";
-  else if (old && body.endsWith(`\n${old}`)) typed = body.slice(0, -old.length).trim();
-  const text = [typed, recognised.trim()].filter(Boolean).join("\n\n");
-  return typedCore().withInkPageFigures(typedCore().withInkPageBackground(text, typedCore().inkPageBackground(was)), typedCore().inkPageFigures(was));
-}

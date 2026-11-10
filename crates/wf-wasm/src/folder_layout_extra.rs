@@ -75,6 +75,26 @@ pub fn asset_path_js(scope: &str, storage_path: &str) -> JsResult<String> {
     Ok(folder_layout::asset_path(scope, storage_path))
 }
 
+/// [`folder_key`](folder_layout::folder_key) (TS `folderSegments` joined with `/`): the folder
+/// of one picked file's relative path.
+#[wasm_bindgen(js_name = folderKey)]
+#[must_use]
+pub fn folder_key_js(relative_path: &str) -> String {
+    folder_layout::folder_key(relative_path)
+}
+
+/// [`folder_keys`](folder_layout::folder_keys) (TS `folderKeys`): every folder the picked files
+/// lead to, shallowest first.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes arrays by value"
+)]
+#[wasm_bindgen(js_name = folderKeys)]
+#[must_use]
+pub fn folder_keys_js(relative_paths: Vec<String>) -> Vec<String> {
+    folder_layout::folder_keys(&relative_paths)
+}
+
 /// [`is_ink_note_frontmatter`](ink_note::is_ink_note_frontmatter).
 ///
 /// # Errors

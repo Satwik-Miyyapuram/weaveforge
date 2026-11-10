@@ -4,7 +4,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::dashboard::stats::{
-    self, StatExperiment, StatLog, StatMilestone, StatPaper, StatSupervisee, StatTag,
+    self, StatExperiment, StatLog, StatMilestone, StatPaper, StatSupervisee, StatTag, StatsInput,
 };
 
 use super::to_js;
@@ -58,6 +58,20 @@ pub fn dashboard_supervisee_counts(
     let milestones: Vec<StatMilestone> = serde_wasm_bindgen::from_value(milestones)?;
     let logs: Vec<StatLog> = serde_wasm_bindgen::from_value(logs)?;
     to_js(&stats::supervisee_counts(&milestones, &logs, today))
+}
+
+/// [`build_dashboard_stats`](stats::build_dashboard_stats) for the whole dashboard.
+///
+/// # Errors
+///
+/// Fails if `input` cannot be read as the expected shape.
+#[wasm_bindgen(js_name = dashboardBuildStats)]
+pub fn dashboard_build_stats(
+    input: JsValue,
+    today: &str,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let input: StatsInput = serde_wasm_bindgen::from_value(input)?;
+    to_js(&stats::build_dashboard_stats(&input, today))
 }
 
 /// [`team_attention`](stats::team_attention) across all supervisees.

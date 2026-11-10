@@ -7,7 +7,8 @@ import { FormError } from "@/components/form-error";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { workshopHttpForward } from "@/features/overleaf/infrastructure/workshop-http-forward";
 import { workshopLiveTransport } from "@/features/overleaf/infrastructure/workshop-live-transport";
-import { rootFolderIdOf, uploadOverleafText } from "@/features/overleaf/infrastructure/overleaf-upload";
+import { uploadOverleafText } from "@/features/overleaf/infrastructure/overleaf-upload";
+import { readyCore } from "@/lib/rust-core";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import { LibraryBibButton } from "./library-bib-button";
 
@@ -99,7 +100,7 @@ export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHo
       ...live,
       open: async () => {
         const result = await live.open();
-        if (result.ok && !cancelled) setRootFolder(rootFolderIdOf(result.join));
+        if (result.ok && !cancelled) setRootFolder(readyCore().rootFolderIdOf(result.join));
         return result;
       },
     };

@@ -1,6 +1,11 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { sharedPaperAnnotationSummary } from "../application/shared-paper-annotations.js";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("sharedPaperAnnotationSummary counts projected annotations", () => {
   const summary = sharedPaperAnnotationSummary({

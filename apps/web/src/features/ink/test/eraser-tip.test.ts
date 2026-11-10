@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 
 import {
   PEN_ERASER_BIT,
@@ -7,6 +7,9 @@ import {
   EraserSweep,
   isPenEraserPointer,
 } from "../application/eraser-tip";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("the pen's fifth button is the eraser end, on down and while held", () => {
   // The down that begins the contact reports `button: 5`; every later event

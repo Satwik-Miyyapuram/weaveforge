@@ -1,40 +1,44 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { idle, pagesToEvict } from "../ui/pdf-reader/pdf-page-window";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { idle } from "../ui/pdf-reader/pdf-page-window";
+
+before(loadTestCore);
 
 describe("pdf-page-window", () => {
   describe("pagesToEvict", () => {
     it("keeps pages within radius of ANY visible page", () => {
       const rendered = [1, 2, 5, 8, 10, 17, 20, 23, 25];
       const visible = [5, 20];
-      const evicted = pagesToEvict(rendered, visible, 3);
+      const evicted = readyCore().pagesToEvict(rendered, visible, 3);
       assert.deepEqual(evicted, [1, 10, 25]);
     });
 
     it("evicts far ones on both sides", () => {
       const rendered = [1, 6, 7, 10, 13, 14, 20];
       const visible = [10];
-      const evicted = pagesToEvict(rendered, visible);
+      const evicted = readyCore().pagesToEvict(rendered, visible);
       assert.deepEqual(evicted, [1, 6, 14, 20]);
     });
 
     it("returns [] when visible is empty", () => {
       const rendered = [1, 2, 3, 4, 5];
-      assert.deepEqual(pagesToEvict(rendered, []), []);
+      assert.deepEqual(readyCore().pagesToEvict(rendered, []), []);
     });
 
     it("returns sorted output regardless of rendered input order", () => {
-      const rendered = new Set([40, 2, 99, 1, 25, 10]);
+      const rendered = [40, 2, 99, 1, 25, 10];
       const visible = [25];
-      const evicted = pagesToEvict(rendered, visible, 3);
+      const evicted = readyCore().pagesToEvict(rendered, visible, 3);
       assert.deepEqual(evicted, [1, 2, 10, 40, 99]);
     });
 
     it("respects custom radius", () => {
       const rendered = [8, 9, 10, 11, 12];
       const visible = [10];
-      assert.deepEqual(pagesToEvict(rendered, visible, 1), [8, 12]);
-      assert.deepEqual(pagesToEvict(rendered, visible, 2), []);
+      assert.deepEqual(readyCore().pagesToEvict(rendered, visible, 1), [8, 12]);
+      assert.deepEqual(readyCore().pagesToEvict(rendered, visible, 2), []);
     });
   });
 

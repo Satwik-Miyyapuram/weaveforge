@@ -3,9 +3,14 @@ import {
   type LogEntry,
   type LogEntryFilter,
 } from "@weaveforge/core";
-import { logEntryToDomain, logEntryToRow, type LogEntryRow } from "./log-entry-rows";
+import type { LogEntryRow } from "@weaveforge/wasm";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { typedCore } from "@/lib/rust-core";
+
+// Row mapping runs in the Rust core (wf-core `logbook::log_entry_row`).
+const logEntryToDomain = (row: LogEntryRow) => typedCore().logEntryToDomain(row);
+const logEntryToRow = (entry: LogEntry) => typedCore().logEntryToRow(entry);
 
 /**
  * PostgREST implementation of ILogEntryRepository.
@@ -49,8 +54,7 @@ export class PostgrestLogEntryRepository extends ProjectRepository implements IL
   }
 
   async save(entity: LogEntry): Promise<void> {
-    const row = logEntryToRow(entity);
-    if (this.pid) row.project_id = this.pid;
+    const row = { ...logEntryToRow(entity), ...(this.pid ? { project_id: this.pid } : {}) };
     await run(this.db.from(TABLE).upsert(row));
   }
 

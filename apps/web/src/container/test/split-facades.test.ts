@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 
 import type { ReaderAnnotation } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { stubFetch } from "@/lib/test/stub-fetch";
 import { PaperFieldsFacade } from "../facades/paper-fields";
 import { ZoteroFacade } from "../facades/zotero";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * The two facades split out of `PapersFacade`.
@@ -98,7 +103,9 @@ test("syncBibliography applies what it pulled onto papers and tags", async () =>
     bibliography: {
       syncLibrary: async () => ({ items: 2 }),
       pullAnnotations: async () => ({
-        byPaper: new Map([["PAPER1", [{ key: "A1" }]]]),
+        // `tags` is required on BibliographyAnnotation; without it Rust's Vec read
+      // of the undefined field fails ("Reflect.get called on non-object").
+      byPaper: new Map([["PAPER1", [{ key: "A1", tags: [] }]]]),
         attachments: new Map(),
       }),
     } as never,

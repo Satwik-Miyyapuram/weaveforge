@@ -1,7 +1,31 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { projectSyncDescriptorsForConfig } from "../descriptors-resolve";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { projectSyncDescriptorsForConfig, sharedProviderHint } from "../descriptors-resolve";
 import { readIntegrationConfig } from "../config";
+import type { ProjectSyncDescriptor } from "../descriptors-types";
+
+before(async () => {
+  await loadTestCore();
+});
+
+describe("sharedProviderHint", () => {
+  const row = (id: string, provider: string, title: string) =>
+    ({ id, provider, title }) as ProjectSyncDescriptor;
+
+  it("is undefined when no other descriptor shares the provider", () => {
+    const all = [row("a", "gitlab", "A"), row("b", "zotero", "B")];
+    assert.equal(sharedProviderHint(all[0] as ProjectSyncDescriptor, all as ProjectSyncDescriptor[]), undefined);
+  });
+
+  it("names the first sibling's title on the same provider", () => {
+    const all = [row("git", "gitlab", "GitLab — Git tab"), row("log", "gitlab", "GitLab — Logbook")];
+    assert.equal(
+      sharedProviderHint(all[1] as ProjectSyncDescriptor, all as ProjectSyncDescriptor[]),
+      "Uses the same stored credentials as “GitLab — Git tab”.",
+    );
+  });
+});
 
 describe("projectSyncDescriptorsForConfig", () => {
   it("merges GitLab git-read and log-sync into one row when both enabled", () => {

@@ -10,3 +10,10 @@ use wf_core::text;
 pub fn count_words_js(text: &str) -> usize {
     text::count_words(text)
 }
+
+/// [`escape_html`](text::escape_html): `&`, `<`, `>` and `"` made safe for markup.
+#[wasm_bindgen(js_name = escapeHtml)]
+#[must_use]
+pub fn escape_html_js(value: &str) -> String {
+    text::escape_html(value)
+}

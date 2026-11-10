@@ -31,7 +31,7 @@ export const ALL_DASHBOARD_DATA_SOURCES: readonly DashboardDataSource[] = [
   "supervision",
 ];
 
-interface GridSize {
+export interface GridSize {
   w: number;
   h: number;
 }
@@ -206,3 +206,8 @@ export function dataSourcesForCardTypes(
   }
   return out;
 }
+
+/** Largest height of each list card that fits its content; the Rust fit takes this map as data. */
+export const FIT_MAX_HEIGHTS: Readonly<Record<string, number>> = Object.fromEntries(
+  CARD_REGISTRY.filter((c) => c.fitContent).map((c) => [c.type, c.maxSize.h]),
+);

@@ -28,7 +28,7 @@ pub struct FeedMilestone {
 }
 
 /// `yyyy-mm-dd` to days since 1970-01-01, or `None` unless it is a real calendar date.
-fn parse_date(value: Option<&str>) -> Option<i64> {
+pub(super) fn parse_date(value: Option<&str>) -> Option<i64> {
     let b = value?.as_bytes();
     if b.len() != 10 || b.get(4) != Some(&b'-') || b.get(7) != Some(&b'-') {
         return None;
@@ -48,7 +48,7 @@ fn digits(bytes: &[u8]) -> Option<i64> {
 }
 
 /// Howard Hinnant's `days_from_civil`.
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+pub(super) fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
     let y = if month <= 2 { year - 1 } else { year };
     let era = y.div_euclid(400);
     let yoe = y - era * 400;
@@ -59,7 +59,7 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 }
 
 /// Howard Hinnant's `civil_from_days`: (year, month, day).
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
+pub(super) fn civil_from_days(days: i64) -> (i64, i64, i64) {
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;

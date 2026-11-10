@@ -1,6 +1,7 @@
 import type {
   Project,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How project rows are stored, and how they map to the domain type.
@@ -18,5 +19,6 @@ export interface ProjectRow {
 }
 
 export function toDomain(r: ProjectRow): Project {
-  return { id: r.id, name: r.name, color: r.color ?? undefined, createdAt: r.created_at };
+  const p = readyCore().projectFromRow(r);
+  return { id: p.id, name: p.name, color: p.color ?? undefined, createdAt: p.createdAt };
 }

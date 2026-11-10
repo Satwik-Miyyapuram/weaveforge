@@ -95,15 +95,6 @@ export interface OpenAccessOptions {
 // ---------------------------------------------------------------------------
 // The chain.
 
-/** The DOI's registrant decides which preprint server owns it. */
-function preprintServerFor(doi: string): "biorxiv" | "medrxiv" | null {
-  return /^10\.1101\/[\w.-]+$/.test(doi) ? "biorxiv" : null;
-}
-
-function zenodoRecordId(doi: string): string | undefined {
-  return doi.match(/^10\.5281\/zenodo\.(\d+)$/i)?.[1];
-}
-
 type Step = (ctx: {
   doi?: string;
   arxivId?: string;
@@ -142,7 +133,7 @@ const STEPS: Record<Exclude<OpenAccessSource, "paper">, Step> = {
     return parsed.candidates;
   },
   biorxiv: async ({ doi, http }) => {
-    const server = doi ? preprintServerFor(doi) : null;
+    const server = doi ? rust().preprintServerFor(doi) : undefined;
     if (!doi || !server) return [];
     // bioRxiv and medRxiv share the 10.1101 prefix; the API answers an empty
     // collection from the wrong server, so ask bioRxiv and then medRxiv.
@@ -153,7 +144,7 @@ const STEPS: Record<Exclude<OpenAccessSource, "paper">, Step> = {
   doaj: async ({ doi, http }) =>
     doi ? rust().parseDoaj(await http(`https://doaj.org/api/search/articles/${encodeURIComponent(`doi:"${doi}"`)}`)) : [],
   zenodo: async ({ doi, http }) => {
-    const id = doi ? zenodoRecordId(doi) : undefined;
+    const id = doi ? rust().zenodoRecordId(doi) : undefined;
     return id ? rust().parseZenodo(await http(`https://zenodo.org/api/records/${id}`)) : [];
   },
   hal: async ({ doi, http }) =>

@@ -1,5 +1,7 @@
 //! Paper figure variant names: the thumbnail a figure is stored under beside its full image.
 
+use serde_json::{Map, Value};
+
 /// Deterministic private-object name of a figure's thumbnail variant.
 ///
 /// The extension and a `.full` marker before it are replaced by `.thumb.webp`,
@@ -28,9 +30,36 @@ fn base_before_extension(path: &str) -> Option<&str> {
     Some(base.strip_suffix(".full").unwrap_or(base))
 }
 
+/// The storage paths of a paper's attached images (TS `imagesOf`): the string entries of
+/// `metadata.images`, and none when it is absent or not a list.
+#[must_use]
+pub fn images_of(metadata: &Map<String, Value>) -> Vec<String> {
+    metadata
+        .get("images")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::paper_image_thumbnail_path;
+    use super::{images_of, paper_image_thumbnail_path};
+    use serde_json::{Map, Value, json};
+
+    #[test]
+    fn images_of_keeps_only_string_entries() {
+        let mut metadata = Map::new();
+        assert!(images_of(&metadata).is_empty());
+        let _ = metadata.insert("images".into(), json!(["a.png", 3, "b.webp"]));
+        assert_eq!(images_of(&metadata), vec!["a.png", "b.webp"]);
+        let _ = metadata.insert("images".into(), Value::String("x".into()));
+        assert!(images_of(&metadata).is_empty());
+    }
 
     #[test]
     fn thumbnail_replaces_the_extension() {

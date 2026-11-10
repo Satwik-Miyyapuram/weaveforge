@@ -1,4 +1,4 @@
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import {
   ValidationError,
   type IAnnotationPinRepository,
@@ -210,24 +210,11 @@ function sameAnnotation(a: {
   color?: string | null;
   text?: string | null;
   comment?: string | null;
-  anchor: unknown;
+  anchor?: unknown;
 }): string {
-  return stableJson([a.type, a.color ?? "", a.text ?? "", a.comment ?? "", a.anchor ?? null]);
-}
-
-/** JSON with object keys sorted, so a stored round trip compares equal. */
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
-  }
-  return JSON.stringify(value) ?? "null";
+  return typedCore().annotationIdentity(a);
 }
 
 function zoteroKeyOf(paper: Paper): string | undefined {
-  const key = paper.metadata?.["zoteroKey"];
-  return typeof key === "string" && key ? key : undefined;
+  return typedCore().zoteroKeyOf(paper.metadata);
 }

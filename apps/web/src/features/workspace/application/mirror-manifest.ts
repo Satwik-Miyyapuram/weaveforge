@@ -1,6 +1,6 @@
 import { WORKSPACE_META_DIR, digestText, type IWorkspaceFs, type VaultPageBase, type WorkspaceProject } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * What the last sync wrote, and how the next one is paced.
@@ -252,8 +252,7 @@ export function nextManifest(
   previous: readonly string[],
   run: { written: readonly string[]; removed: readonly string[] },
 ): string[] {
-  const removed = new Set(run.removed);
-  return [...new Set([...previous.filter((path) => !removed.has(path)), ...run.written])];
+  return readyCore().nextManifest(previous, run);
 }
 
 export interface Coalescer {

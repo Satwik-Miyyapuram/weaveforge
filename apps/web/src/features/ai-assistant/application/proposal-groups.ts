@@ -1,4 +1,5 @@
 import type { AiWriteProposal } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** How the review queue groups pending proposals. */
 export type ProposalGrouping = "document" | "kind";
@@ -14,26 +15,19 @@ export const KIND_GROUP_PREFIX = "kind:";
 
 /**
  * Groups in the order their first proposal appears; items keep queue order.
+ * The grouping rule lives in wf-core (`proposal_groups`).
  *
- * By document, a resource id that `known` cannot resolve (a "create"
- * suggestion's fresh id, or a target not in the catalog) is grouped under
- * `kind:<kind>` instead, so new items are not one group each.
+ * By document, a resource id not in `knownIds` (a "create" suggestion's fresh
+ * id, or a target not in the catalog) is grouped under `kind:<kind>` instead.
  */
 export function groupProposals(
   items: readonly AiWriteProposal[],
   by: ProposalGrouping,
-  known?: (resourceId: string) => boolean,
+  knownIds?: readonly string[],
 ): ProposalGroup[] {
-  const groups = new Map<string, AiWriteProposal[]>();
-  for (const item of items) {
-    const key = by === "kind" ? item.kind
-      : !known || known(item.resourceId) ? item.resourceId
-      : `${KIND_GROUP_PREFIX}${item.kind}`;
-    const group = groups.get(key);
-    if (group) group.push(item);
-    else groups.set(key, [item]);
-  }
-  return [...groups].map(([key, members]) => ({ key, items: members }));
+  return readyCore()
+    .groupProposals(items, by, knownIds ? [...knownIds] : undefined)
+    .map(({ key, indices }) => ({ key, items: indices.map((index) => items[index] as AiWriteProposal) }));
 }
 
 export interface BulkResult {

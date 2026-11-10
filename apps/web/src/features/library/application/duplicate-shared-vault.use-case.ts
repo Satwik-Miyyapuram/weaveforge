@@ -72,11 +72,10 @@ export class DuplicateSharedVaultPageUseCase {
     );
     const failedAssets = copied.filter((c) => c.newPath === null).map((c) => c.oldPath);
 
-    let body = source.body;
-    for (const entry of copied) {
-      if (entry.newPath === null) continue;
-      body = body.replaceAll(`vault:${entry.oldPath}`, `vault:${entry.newPath}`);
-    }
+    const rewrites = copied.flatMap((c) =>
+      c.newPath === null ? [] : [{ oldPath: c.oldPath, newPath: c.newPath }],
+    );
+    const body = typedCore().replaceVaultAssetPaths(source.body, rewrites);
 
     if (body !== source.body) {
       return { page: await this.deps.manageVaultPage.update(page.id, { body }), failedAssets };

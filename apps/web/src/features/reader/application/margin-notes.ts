@@ -13,7 +13,6 @@ export interface MarginNote {
 
 /** Height a card is assumed to take before it is measured; stacking uses it. */
 export const MARGIN_NOTE_HEIGHT = 64;
-const GAP = 8;
 
 /** The top of an annotation's first mark on screen, or null when it has none. */
 function markTop(annotation: ReaderAnnotation, projection: PageProjection): number | null {
@@ -48,19 +47,23 @@ export function layoutMarginNotes(
   projection: PageProjection,
   cardHeight = MARGIN_NOTE_HEIGHT,
 ): MarginNote[] {
-  const placed: MarginNote[] = [];
+  const candidates: { annotation: ReaderAnnotation; anchorTop: number }[] = [];
   for (const annotation of annotations) {
     // A placed picture keeps its file in the comment; it is drawn on the page, not in the margin.
     if (!annotation.comment.trim() || picturePath(annotation)) continue;
     const top = markTop(annotation, projection);
     if (top === null) continue;
-    placed.push({ annotation, top, anchorTop: top });
+    candidates.push({ annotation, anchorTop: top });
   }
-  placed.sort((a, b) => a.anchorTop - b.anchorTop);
-  let floor = 0;
-  for (const note of placed) {
-    note.top = Math.max(note.anchorTop, floor);
-    floor = note.top + cardHeight + GAP;
-  }
-  return placed;
+  const slots = readyCore().stackMarginNotes(candidates.map((c) => c.anchorTop), cardHeight);
+  return slots.map((slot) => {
+    const candidate = candidates[slot.index]!;
+    // Rust sends null only for a non-finite number; every anchor here is finite, so the
+    // candidate's own anchor is what the slot holds, and a card is never above its mark.
+    return {
+      annotation: candidate.annotation,
+      top: slot.top ?? candidate.anchorTop,
+      anchorTop: candidate.anchorTop,
+    };
+  });
 }

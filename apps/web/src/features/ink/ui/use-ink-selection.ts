@@ -4,7 +4,7 @@ import { useCallback, useEffect } from "react";
 import type { InkPage as InkPageModel } from "@weaveforge/core";
 import { isEditableTarget } from "@/lib/editable-target";
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import { parseStrokeClip, pastedStrokesPlace, strokeClipText } from "../application/stroke-clipboard";
+import { fromWasmInkStrokes, readyCore, toWasmInkStrokes } from "@/lib/rust-core";
 import { selectedText } from "./ink-page-math";
 import type { InkSheetInk } from "./use-ink-worker-rpc";
 
@@ -89,7 +89,7 @@ export function useInkSelection({
   const onCopyStrokes = useCallback(async () => {
     const strokes = selectedStrokes();
     if (strokes.length > 0 && typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(strokeClipText(strokes));
+      await navigator.clipboard.writeText(readyCore().strokeClipText(toWasmInkStrokes(strokes)));
     }
   }, [selectedStrokes]);
 
@@ -99,15 +99,21 @@ export function useInkSelection({
       if (!forInk(event, wrapRef.current)) return;
       const strokes = selectedStrokes();
       if (strokes.length === 0 || !event.clipboardData) return;
-      event.clipboardData.setData("text/plain", strokeClipText(strokes));
+      event.clipboardData.setData("text/plain", readyCore().strokeClipText(toWasmInkStrokes(strokes)));
       event.preventDefault();
     };
     const onPaste = (event: ClipboardEvent) => {
       if (!forInk(event, wrapRef.current)) return;
-      const strokes = parseStrokeClip(event.clipboardData?.getData("text/plain"));
-      if (!strokes) return;
+      const clip = readyCore().parseStrokeClip(event.clipboardData?.getData("text/plain"));
+      if (!clip) return;
+      const strokes = fromWasmInkStrokes(clip);
       event.preventDefault();
-      send({ type: "add-strokes", strokes: pastedStrokesPlace(strokes, sheetInk?.strokes ?? [], pageSize) });
+      const placed = readyCore().pastedStrokesPlace(
+        toWasmInkStrokes(strokes),
+        toWasmInkStrokes(sheetInk?.strokes ?? []),
+        pageSize,
+      );
+      send({ type: "add-strokes", strokes: fromWasmInkStrokes(placed) });
       scheduleSave();
     };
     window.addEventListener("copy", onCopy);

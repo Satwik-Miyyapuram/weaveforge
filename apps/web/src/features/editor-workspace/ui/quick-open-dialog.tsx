@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 
 import { Modal } from "@/components/modal";
 import { NavIcon } from "@/app/nav-icon";
-import { groupResults, isPickEnter, paintedOrder, quickOpenResults, stepCursor, titleOf } from "../application/quick-open";
+import { isCommitEnter as isPickEnter } from "@/lib/commit-enter";
+import { groupResults, paintedOrder, quickOpenResults, stepCursor, titleOf } from "@weaveforge/wasm";
 import type { WorkspaceTreeNode } from "@weaveforge/wasm";
-import { kindIcon } from "./kind";
+import { kindIcon } from "@weaveforge/wasm";
 import { OptionButton } from "@/components/controls";
 
 /**
@@ -76,7 +77,9 @@ export function QuickOpenDialog({
               </p>
               <ul className="quick-open-group-rows" role="presentation">
                 {group.results.map((result) => {
-                  const index = painted.indexOf(result);
+                  // Matched by key: the wasm grouping hands back copies, so
+                  // object identity would never find the row.
+                  const index = painted.findIndex((hit) => hit.node.key === result.node.key);
                   return (
                     <li key={result.node.key} role="presentation">
                       <OptionButton selected={index === active}

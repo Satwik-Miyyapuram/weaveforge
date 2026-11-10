@@ -3,7 +3,7 @@
  * pane headers used to carry their own Edit / Read / Ink buttons plus the
  * split and focus icons, crammed into each tab strip.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { PaneLayout } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { WorkspaceToolbar } from "../ui/workspace-toolbar";
+
+before(loadTestCore);
 
 const render = (layout: PaneLayout) =>
   renderToStaticMarkup(

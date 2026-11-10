@@ -23,6 +23,8 @@
  * is created once, on the main thread, and the worker is handed its output.
  */
 
+import { readyCore } from "@/lib/rust-core";
+
 /** Cutoffs and speed coefficient for one channel. */
 export interface OneEuroOptions {
   /**
@@ -93,23 +95,18 @@ export const INK_PRESSURE_FILTER: OneEuroOptions = {
   derivativeCutoff: 3,
 };
 
-/** Milliseconds in a second: the filter's cutoffs are per second, its input per ms. */
-const MS_PER_SECOND = 1_000;
-
 /**
  * The smoothing factor for a cutoff and a timestep: `1/(1 + τ/dt)`.
  *
  * `cutoff` is in **hertz** and `dt` in **milliseconds**, because a pen reports
- * milliseconds and a cutoff is a frequency. The conversion is explicit here
- * rather than left to the caller: mixing the two is a factor of a thousand, and
- * the symptom is a filter that looks like it is working while doing almost
- * nothing — at 120 Hz with `fc = 1` the right answer is α ≈ 0.05, and the unit
- * slip gives 0.98.
+ * milliseconds and a cutoff is a frequency. The conversion is explicit in the
+ * Rust port (`ink::one_euro`) rather than left to the caller: mixing the two is
+ * a factor of a thousand, and the symptom is a filter that looks like it is
+ * working while doing almost nothing — at 120 Hz with `fc = 1` the right answer
+ * is α ≈ 0.05, and the unit slip gives 0.98.
  */
 export function oneEuroAlpha(cutoff: number, dtMs: number): number {
-  const dt = Math.max(dtMs, 1e-6) / MS_PER_SECOND;
-  const tau = 1 / (2 * Math.PI * Math.max(cutoff, 1e-6));
-  return 1 / (1 + tau / dt);
+  return readyCore().oneEuroAlpha(cutoff, dtMs);
 }
 
 /** One scalar channel, filtered. */

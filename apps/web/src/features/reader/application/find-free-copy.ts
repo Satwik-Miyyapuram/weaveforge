@@ -18,7 +18,9 @@ import type {
   OpenAccessLookup,
   OpenAccessSource,
 } from "@weaveforge/core";
-import { isSubstantialPaperText, MIN_ARTICLE_TEXT_CHARS, MIN_PAPER_TEXT_CHARS, type PaperHtmlPage } from "./paper-html";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
+import { MIN_ARTICLE_TEXT_CHARS, MIN_PAPER_TEXT_CHARS } from "./paper-html";
 
 export type PdfAttempt = { ok: true } | { ok: false; reason: "no-cache" | "not-pdf" | "blocked" | "failed" };
 
@@ -98,7 +100,7 @@ export async function findFreeCopy(
     }
     const clean = deps.sanitize(fetched.raw, fetched.finalUrl);
     const minChars = webArticle && candidate.source === "paper" ? MIN_ARTICLE_TEXT_CHARS : MIN_PAPER_TEXT_CHARS;
-    if (!isSubstantialPaperText(clean.text, minChars)) {
+    if (!readyCore().isSubstantialPaperText(clean.text, minChars)) {
       attempts.push({ url: candidate.url, format: "html", reason: "abstract-only" });
       continue;
     }

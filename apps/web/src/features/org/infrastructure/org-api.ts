@@ -4,10 +4,25 @@ import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { readJsonBody, responseError } from "@/lib/format-error";
-import type { OrgMembershipView } from "@weaveforge/core";
-import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
+import type { OrgInviteRole, OrgJoinSource, OrgMembershipView } from "@weaveforge/core";
+import { MEMBERSHIP_ROW_COLUMNS } from "./membership-row";
+import { typedCore } from "@/lib/rust-core";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
+
+/** Rust keeps role as String; this narrows it to OrgInviteRole. */
+function toInviteRole(role: string): OrgInviteRole {
+  return role as OrgInviteRole;
+}
+
+/** Rust keeps joinSource as String; it only emits invite, create or legacy. */
+function toJoinSource(source: string): OrgJoinSource {
+  return source as OrgJoinSource;
+}
+
+function toMembershipView(view: { orgId: string; orgName: string; role: string; joinSource: string }): OrgMembershipView {
+  return { orgId: view.orgId, orgName: view.orgName, role: toInviteRole(view.role), joinSource: toJoinSource(view.joinSource) };
+}
 
 function orgApiError(res: Response, message: string | undefined, fallback: string): Error {
   if (message?.includes("Missing Supabase service role")) {
@@ -166,7 +181,7 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
     .select(MEMBERSHIP_ROW_COLUMNS)
     .eq("user_id", userId)
     .order("joined_at", { ascending: true });
-  if (!error && data) return data.map(membershipViewFromRow);
+  if (!error && data) return data.map((row) => toMembershipView(typedCore().membershipViewFromRow(row)));
 
   const res = await fetch(relayUrl("/api/org/memberships"), { headers: await authHeaders() });
   const body = await orgResponse<{

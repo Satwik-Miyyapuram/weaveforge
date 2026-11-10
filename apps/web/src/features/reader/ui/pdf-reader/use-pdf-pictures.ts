@@ -1,13 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  type FigureGeometry,
-  type FigureOrderStep,
-  type PageTextGeometry,
-  type ReaderAnnotation,
-  type ReaderPageSize,
-} from "@weaveforge/core";
+import { type FigureGeometry, type FigureOrderStep, type ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
 import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   pagePictures,

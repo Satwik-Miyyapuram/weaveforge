@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
-  assetExtension,
-  assetMimeType,
   ownedAssetFolderPaths,
   planAssetReanchor,
 } from "@/features/workspace/application/asset-reanchor";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const OWN = "user-1/page-1/a1b2.png";
 const OTHER = "user-2/page-9/secret.png";
@@ -78,15 +81,3 @@ test("a reference repeated in one body is planned once", () => {
   assert.equal(plan.keep.length, 1);
 });
 
-test("svg and unknown extensions are stored as bytes, not as a scripting context", () => {
-  assert.equal(assetMimeType("svg"), "application/octet-stream");
-  assert.equal(assetMimeType("html"), "application/octet-stream");
-  assert.equal(assetMimeType("png"), "image/png");
-  assert.equal(assetMimeType("jpeg"), "image/jpeg");
-});
-
-test("extensions come from the filename, not from a dot elsewhere in the path", () => {
-  assert.equal(assetExtension("user-1/page-1/a.PNG"), "png");
-  assert.equal(assetExtension("user.1/page-1/noext"), "png");
-  assert.equal(assetExtension("a/b/.hidden"), "png");
-});

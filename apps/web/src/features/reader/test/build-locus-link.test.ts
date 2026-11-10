@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/wasm";
 import { typedCore } from "@/lib/rust-core";
 import { buildLocusLink } from "../application/build-locus-link.js";
 

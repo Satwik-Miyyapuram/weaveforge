@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readyCore } from "@/lib/rust-core";
 import {
   DEFAULT_GIT_BRANCH,
-  emptyIntegration,
   type Integration,
   type SyncProvider,
 } from "../domain/integration";
@@ -32,7 +32,7 @@ export class PostgrestIntegrationsStore {
       .eq("provider", provider)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return emptyIntegration(provider);
+    if (!data) return readyCore().emptyIntegration(provider);
     const r = data as IntegrationRow;
     return {
       provider,

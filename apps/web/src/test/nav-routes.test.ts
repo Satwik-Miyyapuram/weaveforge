@@ -43,10 +43,10 @@ test("the desktop Go menu lists the sidebar's pages, in its order and with its n
 const INBOX_AND_ACCOUNT = ["AI suggestions /ai-review", "Shared with you /shared", "Supervision /supervision", "Settings /settings"];
 
 test("every Inbox route has a window title that matches its nav name", async () => {
-  const { titleForPath } = await import("../lib/route-title");
-  assert.equal(titleForPath("/ai-review", []), "AI suggestions · WeaveForge");
-  assert.equal(titleForPath("/shared", []), "Shared with you · WeaveForge");
-  assert.equal(titleForPath("/supervision", []), "Supervision · WeaveForge");
+  const { readyCore } = await import("../lib/rust-core");
+  assert.equal(readyCore().titleForPath("/ai-review", []), "AI suggestions · WeaveForge");
+  assert.equal(readyCore().titleForPath("/shared", []), "Shared with you · WeaveForge");
+  assert.equal(readyCore().titleForPath("/supervision", []), "Supervision · WeaveForge");
 });
 
 test("the phone bar shows each item's name, not icons alone (DA-84)", () => {

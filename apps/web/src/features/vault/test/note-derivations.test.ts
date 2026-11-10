@@ -1,8 +1,13 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { VaultPageSummary } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { noteBacklinks, noteTags, scopeNotes } from "../application/note-derivations";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function note(id: string, title: string, bodyPreview = ""): VaultPageSummary {
   return { id, title, bodyPreview, sortOrder: 0, createdAt: "", updatedAt: "" } as VaultPageSummary;

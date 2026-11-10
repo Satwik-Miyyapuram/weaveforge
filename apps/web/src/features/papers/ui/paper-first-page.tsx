@@ -6,7 +6,8 @@ import { getReaderPdfByteCache } from "@/features/reader/application/resolve-pap
 import { folderRestored } from "@/features/workspace/application/workspace-folder";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { PreviewCache, siteOf, type PaperPreview } from "../application/paper-preview";
+import { readyCore } from "@/lib/rust-core";
+import { PreviewCache, type PaperPreview } from "../application/paper-preview";
 
 /** Previews already made, by paper id — a page drawn once is not drawn again. */
 const made = new PreviewCache(48, (url) => URL.revokeObjectURL(url));
@@ -43,7 +44,7 @@ async function loadPreview(paperId: string): Promise<PaperPreview> {
   const pdf = await firstPageImage(paperId);
   if (pdf) return { kind: "pdf", imageUrl: pdf };
   const page = await savedWebPage(paperId);
-  if (page) return { kind: "page", title: page.title, site: siteOf(page.url) };
+  if (page) return { kind: "page", title: page.title, site: readyCore().siteOf(page.url) };
   return { kind: "none" };
 }
 

@@ -16,8 +16,6 @@ export const SCREENING_STAGES: readonly ScreeningStage[] = ["title_abstract", "f
  */
 export type ScreeningState = "included" | "excluded" | "unsure";
 
-export const SCREENING_STATES: readonly ScreeningState[] = ["included", "excluded", "unsure"];
-
 export interface ScreeningDecision extends Identifiable {
   id: string;
   /** The `reading_list_items` row -- this paper, in this review. */

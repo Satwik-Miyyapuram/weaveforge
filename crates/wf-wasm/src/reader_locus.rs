@@ -1,4 +1,4 @@
-//! Deep-link locus (de)serialisation for JavaScript (`packages/core/src/reader/locus-link.ts`).
+//! Deep-link locus (de)serialisation for JavaScript (formerly `packages/core/src/reader/locus-link.ts`, now Rust).
 //! Each export wraps a `wf_core::reader::locus` function; the locus crosses as a serde object.
 
 use wasm_bindgen::JsValue;

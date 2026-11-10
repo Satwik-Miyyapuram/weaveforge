@@ -1,5 +1,5 @@
 /** Loading pdf.js, and reading text and outline out of a document. */
-import type { PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/wasm";
 import type { ReaderOutlineItem } from "../reader-outline";
 import type { PdfDocument, PageText, TextItemGeometry } from "./types";
 

@@ -11,11 +11,7 @@ import { type IWorkspaceFs } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
-import {
-  buildPaperHtmlDocument,
-  parsePaperHtmlDocument,
-  type PaperHtmlPage,
-} from "../application/paper-html";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { PAPER_HTML_DB_NAME } from "./local-cache-names";
 import { sanitizePaperHtml } from "./sanitize-paper-html";
 import { typedCore } from "@/lib/rust-core";
@@ -36,7 +32,7 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   async get(paperId: string): Promise<PaperHtmlPage | null> {
     const path = typedCore().paperHtmlPath(paperId, await this.projectRoot());
     if (!(await this.fs.stat(path))) return null;
-    const page = parsePaperHtmlDocument(paperId, await this.fs.readText(path));
+    const page = typedCore().parsePaperHtmlDocument(paperId, await this.fs.readText(path));
     if (!page) return null;
     return { ...page, html: sanitizePaperHtml(page.html, page.url).html };
   }
@@ -45,7 +41,7 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
     const core = await loadCore();
     const root = await this.projectRoot();
     await this.fs.mkdirp(core.entityDir("paper", root) + "/html");
-    await this.fs.writeFile(typedCore().paperHtmlPath(page.paperId, root), buildPaperHtmlDocument(page));
+    await this.fs.writeFile(typedCore().paperHtmlPath(page.paperId, root), typedCore().buildPaperHtmlDocument(page));
   }
 
   async remove(paperId: string): Promise<void> {

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { cloneLinks, filterGraphByNodes, linkNodeId } from "../application/local-graph";
 
 before(async () => {
   await loadTestCore();
@@ -11,11 +10,11 @@ before(async () => {
 
 describe("linkNodeId", () => {
   it("returns string sources unchanged", () => {
-    assert.equal(linkNodeId("a"), "a");
+    assert.equal(readyCore().linkNodeId("a"), "a");
   });
 
   it("reads id from object sources", () => {
-    assert.equal(linkNodeId({ id: "b" }), "b");
+    assert.equal(readyCore().linkNodeId({ id: "b" }), "b");
   });
 });
 
@@ -53,26 +52,26 @@ describe("filterGraphByNodes", () => {
   ];
 
   it("passes through when allowed is null", () => {
-    const out = filterGraphByNodes(nodes, links, null);
+    const out = readyCore().filterGraphByNodes(nodes, links, null);
     assert.equal(out.nodes.length, 3);
     assert.equal(out.links.length, 3);
   });
 
   it("keeps only links whose endpoints are allowed", () => {
-    const out = filterGraphByNodes(nodes, links, new Set(["a", "b"]));
+    const out = readyCore().filterGraphByNodes(nodes, links, new Set(["a", "b"]));
     assert.deepEqual(
       out.nodes.map((n) => n.id),
       ["a", "b"],
     );
     assert.equal(out.links.length, 1);
-    assert.equal(linkNodeId(out.links[0]!.source), "a");
-    assert.equal(linkNodeId(out.links[0]!.target), "b");
+    assert.equal(readyCore().linkNodeId(out.links[0]!.source), "a");
+    assert.equal(readyCore().linkNodeId(out.links[0]!.target), "b");
   });
 });
 
 describe("cloneLinks", () => {
   it("normalizes object endpoints to strings", () => {
-    const cloned = cloneLinks([
+    const cloned = readyCore().cloneLinks([
       { source: { id: "x" }, target: "y", color: "#000" },
     ]);
     assert.equal(cloned[0]!.source, "x");

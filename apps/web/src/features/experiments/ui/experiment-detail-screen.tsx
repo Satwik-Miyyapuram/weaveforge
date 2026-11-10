@@ -25,7 +25,6 @@ import {
 
 import { formatError } from "@/lib/format-error";
 import { AttachArtifactsButton } from "./attach-artifacts-button";
-import { EXPERIMENTS_HREF } from "../application/experiment-href";
 import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
@@ -147,7 +146,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // directly (a link, a reload) and there is nowhere to go back to.
   const goBackToList = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
-    else router.push(EXPERIMENTS_HREF);
+    else router.push(readyCore().experimentsListHref());
   }, [router]);
 
   if (loading) {

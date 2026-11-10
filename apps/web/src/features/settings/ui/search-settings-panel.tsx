@@ -9,7 +9,6 @@ import {
   type SearchSettings,
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
-import { semanticStatusText } from "./semantic-status-text";
 import { formatError } from "@/lib/format-error";
 import {
   disableSemanticSearch,
@@ -25,7 +24,7 @@ import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
 import { LibraryPdfIndexing, IndexSize } from "./library-pdf-indexing";
 import { ModelDownloadLine } from "./model-download-line";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -260,7 +259,7 @@ function SemanticSteps({ status }: { status: SemanticStatus }) {
 
 /** One line saying what the arm is doing, and when it is done, that it works. */
 function SemanticStatusLine({ status }: { status: SemanticStatus }) {
-  const text = semanticStatusText(status);
+  const text = readyCore().semanticStatusText(status);
   return (
     <div className="semantic-status" data-phase={status.phase} aria-live="polite">
       <p className={status.phase === "error" ? "form-error" : "muted"}>{text}</p>

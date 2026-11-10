@@ -4,7 +4,7 @@ import { Children, useEffect, useRef, useState, type ReactNode, type WheelEvent 
 
 import { readStored, writeStored } from "@/lib/safe-storage";
 
-import { fitCols } from "./plot-size";
+import { readyCore } from "@/lib/rust-core";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
 import { IconButton } from "@/components/button";
 
@@ -31,7 +31,7 @@ export function MetricGrid({
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setFit(fitCols(el.clientWidth, parseFloat(getComputedStyle(el).columnGap) || 0)));
+    const ro = new ResizeObserver(() => setFit(readyCore().fitCols(el.clientWidth, parseFloat(getComputedStyle(el).columnGap) || 0)));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

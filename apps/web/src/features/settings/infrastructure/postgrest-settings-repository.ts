@@ -172,6 +172,9 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
   }
 
   private fromRow(row: SettingsRow, secrets: Secrets): UserSettings {
+    // The wasm mapper returns the bindings AiAccessSettings (nullable optionals);
+    // the domain type wants `?: T`, so each nullable field maps `?? undefined`.
+    const ai = row.ai_access ? typedCore().normalizeAiAccessSettings(row.ai_access as never) : undefined;
     return typedCore().hydrateUserSettings({
       zoteroApiKey: secrets.zoteroApiKey ?? undefined,
       zoteroLibrary: row.zotero_library ?? undefined,
@@ -180,7 +183,15 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
       disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
       disclaimerVersion: row.disclaimer_version ?? undefined,
       appearance: typedCore().normalizeAppearance(row.appearance),
-      aiAccess: row.ai_access ? typedCore().normalizeAiAccessSettings(row.ai_access as never) : undefined,
+      aiAccess: ai
+        ? {
+            enabled: ai.enabled,
+            disclosureAcceptedAt: ai.disclosureAcceptedAt ?? undefined,
+            readCategories: ai.readCategories,
+            proposalKinds: ai.proposalKinds,
+            autoIncludeNewSourceCategories: ai.autoIncludeNewSourceCategories ?? undefined,
+          }
+        : undefined,
     });
   }
 

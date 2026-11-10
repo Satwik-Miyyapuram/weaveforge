@@ -114,6 +114,24 @@ export class VectorIndex {
 }
 
 /**
+ * [`account_menu::account_attention`]: the menu rows and the icon total as `{ rows, total }`.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not an `AccountAttentionInput`-shaped object, or the result cannot be converted to JS.
+ */
+export function accountAttention(input: any): any;
+
+/**
+ * [`account_links::account_links`]: the account block's rows as `{ id, label, href?, external? }`.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not an `AccountLinksInput`-shaped object, or the result cannot be converted to JS.
+ */
+export function accountLinks(input: any): any;
+
+/**
  * [`acronyms_for_title`](acronyms::acronyms_for_title) as a JS array of strings.
  *
  * # Errors
@@ -177,6 +195,11 @@ export function addCounts(a: any, b: any): any;
 export function addDays(iso: string, days: number): string;
 
 /**
+ * [`added_notice`]: what an add says.
+ */
+export function addedNotice(created: boolean): string;
+
+/**
  * [`agreement_between`](screening::agreement_between) (TS `agreementBetween`).
  *
  * # Errors
@@ -193,6 +216,11 @@ export function agreementBetween(decisions: any, reviewers: any, stage: any): an
  * Fails if `resourceType` is not a known resource type.
  */
 export function aiReadCategoryForResource(resource_type: any): any;
+
+/**
+ * [`align_series`]: overlaid runs on one union step axis, gaps as `null`.
+ */
+export function alignSeries(series: any): any;
 
 /**
  * [`analyze_pdf_document`](document_analysis::analyze_pdf_document) (TS `analyzePdfDocument`).
@@ -216,6 +244,45 @@ export function anchorAt(text: string, start: number, end: number): any;
  * [`annotation_doc_id`](search_document::annotation_doc_id).
  */
 export function annotationDocId(annotation_id: string): string;
+
+/**
+ * [`annotation_identity`] (TS `sameAnnotation`): the key two annotations share when they are
+ * the same mark.
+ *
+ * # Errors
+ *
+ * Fails if `annotation` is not a JSON-like object.
+ */
+export function annotationIdentity(annotation: any): string;
+
+/**
+ * [`to_domain`](annotation_pin::to_domain) (TS `annotationPinToDomain`).
+ *
+ * # Errors
+ *
+ * Fails if `row` is not an annotation pin row, or the result cannot be converted.
+ */
+export function annotationPinToDomain(row: any): any;
+
+/**
+ * [`to_domain`]: an `annotation_quotation_types` row as a domain value. Throws on an unknown type.
+ */
+export function annotationQuotationTypeRowToDomain(row: any): any;
+
+/**
+ * [`append_paper_note`]: the note with `addition` appended, or `undefined` when the addition is
+ * blank.
+ */
+export function appendPaperNote(existing: string | null | undefined, addition: string): string | undefined;
+
+/**
+ * [`append_tag_hashtags`](note_tags::append_tag_hashtags). `tag_names` is an array of tag names.
+ *
+ * # Errors
+ *
+ * Fails if `tag_names` is not an array of strings.
+ */
+export function appendTagHashtags(body: string, tag_names: any): string;
 
 /**
  * [`apply_comma_placement`] for JS, as `{ text, changed }`.
@@ -273,6 +340,11 @@ export function applyTextOp(text: string, op: any): string;
 export function applyUserIntegrationFields(settings: any, provider_id: string, fields: any): any;
 
 /**
+ * [`artifact_basename`](artifact_refs::artifact_basename) (TS `artifactBasename`).
+ */
+export function artifactBasename(name: string): string;
+
+/**
  * [`wf_core::papers::open_access::arxiv_candidates`]: arXiv's PDF and HTML copies.
  *
  * # Errors
@@ -301,6 +373,22 @@ export function arxivEntryToMetadata(xml: string, arxiv_id: string): any;
 export function assemblePageCitations(page: any, native: any, patterns: any, excluded: any, candidates: any): any;
 
 /**
+ * [`unsafe_export_path_error`](export_path::unsafe_export_path_error): the refusal message, or
+ * `undefined` when the path is a safe relative ZIP entry name.
+ */
+export function assertSafeExportPath(path: string): string | undefined;
+
+/**
+ * [`asset_extension`](asset_mime::asset_extension): lowercased extension of a path, `png` when none.
+ */
+export function assetExtension(path: string): string;
+
+/**
+ * [`asset_mime_type`](asset_mime::asset_mime_type): content type for an imported asset's extension.
+ */
+export function assetMimeType(ext: string): string;
+
+/**
  * [`asset_path`](folder_layout::asset_path). `scope` is `"notes"`, `"papers"` or `"report"`.
  *
  * # Errors
@@ -308,6 +396,15 @@ export function assemblePageCitations(page: any, native: any, patterns: any, exc
  * Fails on any other scope.
  */
 export function assetPath(scope: string, storage_path: string): string;
+
+/**
+ * [`axis_spec`](plot_size::axis_spec) for a tier name (`PlotTier` in `bindings.ts`).
+ *
+ * # Errors
+ *
+ * Fails if `tier` is not one of the three tier names.
+ */
+export function axisSpec(tier: string): any;
 
 /**
  * [`backlinks_for_annotation`](backlinks::backlinks_for_annotation) as an array of targets.
@@ -322,6 +419,15 @@ export function backlinksForAnnotation(hits: any, annotation_id: string): any;
  * [`bib_import_message`](paper_drop::bib_import_message) (TS `bibImportMessage`).
  */
 export function bibImportMessage(added: number, skipped: number, problems: number): string;
+
+/**
+ * [`bib_paper_input`](bib_import::bib_paper_input) (TS `bibPaperInput`).
+ *
+ * # Errors
+ *
+ * Fails if `entry` cannot be read as a planned `.bib` entry.
+ */
+export function bibPaperInput(entry: any): any;
 
 /**
  * [`binomial_smooth`].
@@ -370,9 +476,27 @@ export function bodyLinksTo(body: string, target_key: string): boolean;
 export function bodyStats(body: string): any;
 
 /**
+ * [`local_first_route::both_ends_merge`]: `"serverError"`, `"preferLocalRows"` or `"concatRows"`.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ */
+export function bothEndsMerge(name: string, here_failed: boolean, there_failed: boolean): any;
+
+/**
  * [`bounded_body`](search_document::bounded_body).
  */
 export function boundedBody(body: string): string;
+
+/**
+ * [`breadcrumbs`](crumbs::breadcrumbs) as an array of crumbs.
+ *
+ * # Errors
+ *
+ * Fails if `tab`, `files` or `lists` does not have the shape of its type.
+ */
+export function breadcrumbs(tab: any, files: any, lists: any): any;
 
 /**
  * [`build_annotation_sort_index`] (TS `buildAnnotationSortIndex`).
@@ -391,6 +515,15 @@ export function buildAnnotationSortIndex(page_index: number, char_offset: number
  * do (each counting its length + 1), or if `terms` is not an array of strings.
  */
 export function buildExcerpt(body: string, terms: any, max_chars?: number | null, single_line?: boolean | null): any;
+
+/**
+ * [`build_graph_data`](graph_build::build_graph_data): nodes, links and lookups for one graph view.
+ *
+ * # Errors
+ *
+ * Fails if the input has the wrong shape, or the result cannot be serialised.
+ */
+export function buildGraphData(input: any): any;
 
 /**
  * [`build_lab_snapshot_content`](lab_snapshot::build_lab_snapshot_content).
@@ -429,6 +562,29 @@ export function buildListsTree(input: any): any;
 export function buildPageTree(pages: any): any;
 
 /**
+ * [`build_paper_html_document`]: the framed, self-contained document for one kept paper.
+ *
+ * # Errors
+ *
+ * Fails if `page` is not a paper page object, or `options` is not an options object.
+ */
+export function buildPaperHtmlDocument(page: any, options: any): string;
+
+/**
+ * [`build_propose_fill_prompt`]: the prompt that asks the AI to fill one column.
+ */
+export function buildProposeFillPrompt(input: any): string;
+
+/**
+ * [`build_reference_index`]: analyzes the pages and shapes the overlay's index.
+ *
+ * # Errors
+ *
+ * Fails if `pages` or `outline` do not have the expected shape.
+ */
+export function buildReferenceIndex(pages: any, outline: any): any;
+
+/**
  * [`build_section_tree`](report_section::build_section_tree) (TS `buildSectionTree`).
  *
  * # Errors
@@ -465,14 +621,43 @@ export function buildWikiIndex(pages: any, heading: string | null | undefined, g
 export function buildWorkspaceTree(input: any): any;
 
 /**
+ * [`try_cache_path_segments`](model_cache::try_cache_path_segments): the segments a cache URL
+ * names under the cache root, or `null` when it names none or would leave the root.
+ *
+ * # Errors
+ *
+ * Throws on a URL that does not parse, or a path escape `decodeURIComponent` rejects, as the
+ * TS did.
+ */
+export function cachePathSegments(url: string): string[] | undefined;
+
+/**
  * [`can_create_role`](member::can_create_role).
  */
 export function canCreateRole(creator: string, target: string): boolean;
 
 /**
+ * [`can_drop`](edit::can_drop).
+ *
+ * # Errors
+ *
+ * Fails if an argument does not have the expected shape, or the result cannot be serialised.
+ */
+export function canDrop(source: any, target: any): any;
+
+/**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
  */
 export function canJoinInkGroup(group: any, next: any, window_ms?: number | null): boolean;
+
+/**
+ * [`can_rename`](edit::can_rename).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ */
+export function canRename(node: any): any;
 
 /**
  * [`canonical_ai_tool_name`](ai_tool_name::canonical_ai_tool_name).
@@ -528,6 +713,15 @@ export function checkGitRemoteUrl(raw: any): any;
 export function checkInkChunkBody(body: Uint8Array): any;
 
 /**
+ * [`check_link_folder`]: whether a vault-relative folder may be linked, and its normalised form.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function checkOverleafLinkFolder(raw: string): any;
+
+/**
  * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
  *
  * # Errors
@@ -555,6 +749,15 @@ export function chooseAnchorStrategy(anchor: any, current_content_hash: string):
 export function chunkForEmbedding(text: string, options: any): any;
 
 /**
+ * [`citation_alert_message`] for JS (TS `citationAlertMessage`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a citation alert input with the expected fields.
+ */
+export function citationAlertMessage(input: any): string;
+
+/**
  * [`citation_alert_score`](citation_alerts::citation_alert_score) of each candidate, in order.
  *
  * # Errors
@@ -575,6 +778,45 @@ export function citationAlertScores(candidates: any): Float64Array;
 export function citationAlertTrackFromRow(row: any): any;
 
 /**
+ * [`citation_contexts`](semantic_scholar_citation::citation_contexts): trimmed snippets, or
+ * nothing when none remain.
+ *
+ * # Errors
+ *
+ * Fails if the value cannot be read as JSON.
+ */
+export function citationContexts(raw: any): any;
+
+/**
+ * [`external_id_ref`](semantic_scholar_citation::external_id_ref): the lookup reference for
+ * a paper's external ids, or nothing.
+ *
+ * # Errors
+ *
+ * Fails if `ids` has the wrong shape.
+ */
+export function citationExternalIdRef(ids: any): any;
+
+/**
+ * [`intent_label`](citation_alerts::intent_label) of one candidate, or `undefined` when it has no intents.
+ *
+ * # Errors
+ *
+ * Fails if `candidate` has the wrong shape.
+ */
+export function citationIntentLabel(candidate: any): string | undefined;
+
+/**
+ * [`citation_intents`](semantic_scholar_citation::citation_intents): the known intents, or
+ * nothing when none remain.
+ *
+ * # Errors
+ *
+ * Fails if the value cannot be read as JSON.
+ */
+export function citationIntents(raw: any): any;
+
+/**
  * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
  * exported as `citationItemToRect` because `itemToRect` belongs to another lane).
  *
@@ -583,6 +825,25 @@ export function citationAlertTrackFromRow(row: any): any;
  * Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
  */
 export function citationItemToRect(item: any, from: number, to: number): any;
+
+/**
+ * [`cite_key_of`](bib_import::cite_key_of) (TS `citeKeyOf`).
+ *
+ * # Errors
+ *
+ * Fails if `metadata` cannot be read as a JSON value.
+ */
+export function citeKeyOf(metadata: any): any;
+
+/**
+ * [`cited_sources`](retrieval::cited_sources): the 1-based source numbers an answer cites, in
+ * first-citation order, out of `count` sources.
+ *
+ * # Errors
+ *
+ * Fails if the numbers cannot be converted to a JS value.
+ */
+export function citedSourceNumbers(answer: string, count: number): any;
 
 /**
  * [`clamp_ink_note_width`]; `fallback` defaults to the default pen.
@@ -622,6 +883,11 @@ export function clampScale(scale: number): number;
  * [`clamp_zoom_factor`] (TS `clampZoomFactor`).
  */
 export function clampZoomFactor(factor: number, base_scale: number): number;
+
+/**
+ * [`claude_code_commands`](mcp_client_config::claude_code_commands).
+ */
+export function claudeCodeCommands(): string;
 
 /**
  * [`wf_core::papers::open_access::clean_arxiv_id`]: the cleaned arXiv id, or `None`.
@@ -671,6 +937,15 @@ export function cleanPmcid(id?: string | null): string | undefined;
 export function cleanUrlsWithRules(text: string, rules: any): any;
 
 /**
+ * [`clean_widget_palette`]: the palette if every key is valid, else `null`.
+ *
+ * # Errors
+ *
+ * Fails if `value` cannot be read as JSON, or the result cannot be converted to JS.
+ */
+export function cleanWidgetPalette(value: any): any;
+
+/**
  * [`clean_wrapped_text`] for JS, as `{ text, changed }`.
  *
  * # Errors
@@ -687,6 +962,15 @@ export function cleanWrappedText(input: string, options: any): any;
  * Fails only if the arguments cannot be read or the result cannot be serialised.
  */
 export function clipSegmentToArea(area: any, from: any, to: any): any;
+
+/**
+ * [`clone_links`] (TS `cloneLinks`): links with string endpoints, every other field kept.
+ *
+ * # Errors
+ *
+ * Fails if `links` is not an array of JSON values.
+ */
+export function cloneLinks(links: any): any;
 
 /**
  * [`close_tab`](pane::close_tab).
@@ -707,6 +991,15 @@ export function closeTab(layout: any, pane_id: string, index: number): any;
 export function closedTabs(before: any, after: any): any;
 
 /**
+ * [`cluster_marks`](timeline::cluster_marks): marks nearer than `min_gap` stacked into clusters.
+ *
+ * # Errors
+ *
+ * Fails if `marks` has the wrong shape.
+ */
+export function clusterMarks(marks: any, min_gap: number): any;
+
+/**
  * [`coalesce_mentions`] (TS `coalesceMentions`).
  *
  * # Errors
@@ -714,6 +1007,26 @@ export function closedTabs(before: any, after: any): any;
  * Fails if any argument does not have the expected shape.
  */
 export function coalesceMentions(mentions: any, text: string, items: any): any;
+
+/**
+ * [`codex_toml`](mcp_client_config::codex_toml) for a `McpLaunchLine`.
+ *
+ * # Errors
+ *
+ * Fails if `launch` has the wrong shape.
+ */
+export function codexToml(launch: any): string;
+
+/**
+ * [`coerce_paper_field_value`] (TS `coercePaperFieldValue`). `null` or blank clears the value
+ * (returns `null`); a refusal throws an `Error` with the wf-core message.
+ *
+ * # Errors
+ *
+ * Fails if `kind` is not a field kind, if `value` is not a string, number, or string list,
+ * or if the value is refused for `kind`.
+ */
+export function coercePaperFieldValue(kind: any, value: any): any;
 
 /**
  * [`cold_blob_client_config`]. `null` when any cold-tier field is unset or empty.
@@ -725,6 +1038,21 @@ export function coalesceMentions(mentions: any, text: string, items: any): any;
 export function coldBlobClientConfig(fields: any): any;
 
 /**
+ * [`collapse_alert`]: the short form of a citation alert as `{ shown, hidden }`, or
+ * `undefined` when the entry is not a long citation alert.
+ */
+export function collapseAlert(headline: string, rest: string): any;
+
+/**
+ * [`collapse_hits`](result_dedupe::collapse_hits) as `{id, score}` objects.
+ *
+ * # Errors
+ *
+ * Fails if `hits` is not an array of hit records.
+ */
+export function collapseToEntities(hits: any, seed_entity_id: string): any;
+
+/**
  * [`collect_annotation_image_regions`](ops::collect_annotation_image_regions).
  *
  * # Errors
@@ -733,6 +1061,21 @@ export function coldBlobClientConfig(fields: any): any;
  * or the result cannot be serialised.
  */
 export function collectAnnotationImageRegions(annotations: any): any;
+
+/**
+ * [`collect_cited_keys`](bibtex::collect_cited_keys): the keys a LaTeX body cites, as an array.
+ */
+export function collectCitedKeys(latex: string): any;
+
+/**
+ * [`collect_list_ids`]: every list id in the tree, parents before children.
+ */
+export function collectListIds(tree: any): any;
+
+/**
+ * [`colour_tool_for`]: returns `"pen"`, `"highlighter"`, `"text"` or `"highlight"`.
+ */
+export function colourToolFor(pen_open: boolean, pen_tool: string, picked_tool: string): string;
 
 /**
  * [`command_for_chord`](keys::command_for_chord). `tab_count` is omitted for an unbounded count.
@@ -816,6 +1159,24 @@ export function computeRollupsForPapers(paper_ids: any, rollup: any, defs: any, 
 export function conceptKey(name: string): string;
 
 /**
+ * [`conflict_route`] for JS (TS `conflictRoute`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a conflict input.
+ */
+export function conflictRoute(input: any): any;
+
+/**
+ * [`container_resize`]: `last` and `next` are `{ width, height }`. Returns `"ignore"`, `"now"` or `"settle"`.
+ *
+ * # Errors
+ *
+ * Fails if either argument is not a `{ width, height }` object of numbers.
+ */
+export function containerResize(last: any, next: any): string;
+
+/**
  * [`context_nonce_from`](ai_tool_name::context_nonce_from): the caller passes the
  * `Math.random()` values.
  */
@@ -829,6 +1190,24 @@ export function contextNonceFrom(randoms: Float64Array): string;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function coreInfo(): any;
+
+/**
+ * [`count_action_list`](folder_merge::count_action_list): the tally over bare actions.
+ *
+ * # Errors
+ *
+ * Fails when `actions` is not a list of import actions.
+ */
+export function countActionList(actions: any): any;
+
+/**
+ * [`count_actions`](folder_merge::count_actions).
+ *
+ * # Errors
+ *
+ * Fails when `entries` is not a list of import entries.
+ */
+export function countActions(entries: any): any;
 
 /**
  * [`wf_core::sync::json_entities::count_json_actions`] for JS.
@@ -866,6 +1245,15 @@ export function coveredTextSpans(page: any, links: any): any;
  * [`creatable_roles`](member::creatable_roles).
  */
 export function creatableRoles(creator: string): any;
+
+/**
+ * [`creatable_under`](edit::creatable_under).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ */
+export function creatableUnder(node: any): any;
 
 /**
  * [`create_experiment`](experiments::create_experiment) with the id and time supplied. Invalid
@@ -955,6 +1343,36 @@ export function createVaultPageWith(input: any, id: string, now: string): any;
 export function createVectorIndex(dimensions: number): VectorIndex;
 
 /**
+ * [`created_page_index`](proposal_created_page::created_page_index). `item` is a proposal with
+ * `kind` and `payload`; `pages` is a list of pages with `title` and `parentId`. Returns the
+ * index into `pages`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if an input cannot be read as the expected shape.
+ */
+export function createdPageIndex(item: any, pages: any): any;
+
+/**
+ * [`creation_kind_for`](edit::creation_kind_for). `activeKind` is `null` when no document is open.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ */
+export function creationKindFor(active_kind?: string | null): any;
+
+/**
+ * [`creation_target`](edit::creation_target). `active` is `null` when no document is open,
+ * `folders` the ids of the notes made as folders.
+ *
+ * # Errors
+ *
+ * Fails if an argument does not have the expected shape, or the result cannot be serialised.
+ */
+export function creationTarget(kind: any, active: any, folders: any): any;
+
+/**
  * [`crop_figure_to`](figure::crop_figure_to): a figure re-cropped to `kept` inside `full`.
  *
  * # Errors
@@ -978,6 +1396,24 @@ export function crossrefToMetadata(message: any, doi: string): any;
 export function damerauLevenshtein(a: string, b: string): number;
 
 /**
+ * [`append_card_pair`](layout::append_card_pair): append one card to both breakpoints.
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardAppendCardPair(layout_value: any, card_type: string, id: string, limits: any): any;
+
+/**
+ * [`build_dashboard_stats`](stats::build_dashboard_stats) for the whole dashboard.
+ *
+ * # Errors
+ *
+ * Fails if `input` cannot be read as the expected shape.
+ */
+export function dashboardBuildStats(input: any, today: string): any;
+
+/**
  * [`close_gaps`](packing::close_gaps).
  *
  * # Errors
@@ -996,6 +1432,24 @@ export function dashboardCloseGaps(items: any, limits: any, cols: number): any;
 export function dashboardCompactVertical(items: any, cols: number): any;
 
 /**
+ * [`default_layout`](layout::default_layout): the supervisor or the student default.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to a JS value.
+ */
+export function dashboardDefaultLayout(supervisor: boolean): any;
+
+/**
+ * [`finalize_dashboard_layout`](layout::finalize_dashboard_layout).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardFinalizeLayout(layout_value: any, limits: any): any;
+
+/**
  * [`floors`](packing::floors) for one card type on a grid `cols` wide.
  *
  * # Errors
@@ -1003,6 +1457,43 @@ export function dashboardCompactVertical(items: any, cols: number): any;
  * Fails if `limit` is not a card limit.
  */
 export function dashboardLayoutFloors(limit: any, cols: number): any;
+
+/**
+ * [`layout_signature`](layout::layout_signature).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape.
+ */
+export function dashboardLayoutSignature(items: any): string;
+
+/**
+ * [`lg_layout_needs_repair`](layout::lg_layout_needs_repair).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardLgNeedsRepair(items: any, limits: any): boolean;
+
+/**
+ * [`merge_rgl_positions`](layout::merge_rgl_positions): the grid's positions, normalized to `cols`.
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardMergeRglPositions(items: any, rgl: any, limits: any, cols: number): any;
+
+/**
+ * [`merge_supervisor_cards`](layout::merge_supervisor_cards). `ids` holds one new card id per
+ * supervisor-only card type, in order.
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardMergeSupervisorCards(layout_value: any, limits: any, ids: any): any;
 
 /**
  * [`needs_attention`](stats::needs_attention) for the given papers, milestones, experiments,
@@ -1033,6 +1524,15 @@ export function dashboardNormalizeItem(item: any, limits: any, cols: number): an
 export function dashboardPackSm(items: any, limits: any): any;
 
 /**
+ * [`sm_layout_needs_repack`](layout::sm_layout_needs_repack).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardSmNeedsRepack(items: any, limits: any): boolean;
+
+/**
  * [`supervisee_counts`](stats::supervisee_counts) for one supervisee.
  *
  * # Errors
@@ -1040,6 +1540,15 @@ export function dashboardPackSm(items: any, limits: any): any;
  * Fails if an input cannot be read as the expected shape.
  */
 export function dashboardSuperviseeCounts(milestones: any, logs: any, today: string): any;
+
+/**
+ * [`sync_dashboard_layouts`](layout::sync_dashboard_layouts).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ */
+export function dashboardSyncLayouts(layout_value: any, limits: any): any;
 
 /**
  * [`team_attention`](stats::team_attention) across all supervisees.
@@ -1058,6 +1567,12 @@ export function dashboardTeamAttention(supervisees: any, today: string): any;
  * Fails if `tags` cannot be read as the expected shape.
  */
 export function dashboardTopTags(tags: any, limit: number): any;
+
+/**
+ * [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `undefined`
+ * unless both are real dates.
+ */
+export function daysUntilDate(iso: string, today: string): any;
 
 /**
  * [`decide_annotation_sync`] for a row and a mode string (unknown modes act as `bidirectional`).
@@ -1086,6 +1601,11 @@ export function decideGitSyncPath(rel_path: string, size_bytes: number, max_file
  * Fails when `state` is not a valid repo state, or the verdict cannot be converted to a JS value.
  */
 export function decideVaultCommit(enabled: boolean, state: any): any;
+
+/**
+ * [`declared_charset`]: the charset a page declares, lowercased, else `utf-8`.
+ */
+export function declaredCharset(content_type: string | null | undefined, bytes: Uint8Array): string;
 
 /**
  * [`decode_html_entities`]: the named and numeric entities in `value`, decoded once.
@@ -1125,6 +1645,24 @@ export function decodeLocus(raw?: string | null): any;
 export function decodeShareLinkToken(encoded: string): Uint8Array;
 
 /**
+ * [`deepest_first_list_ids`](reading_list::deepest_first_list_ids) (TS `removeList` order).
+ *
+ * # Errors
+ *
+ * Fails if `lists` has the wrong shape.
+ */
+export function deepestFirstListIds(list_id: string, lists: any): string[];
+
+/**
+ * [`default_expanded`](state::default_expanded).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not an array of strings, or the result cannot be serialised.
+ */
+export function defaultExpanded(roots: any): any;
+
+/**
  * [`default_graph_settings`](graph_settings::default_graph_settings).
  *
  * # Errors
@@ -1143,6 +1681,25 @@ export function defaultGraphSettings(): any;
 export function defaultInkNoteMeta(): any;
 
 /**
+ * [`rules::default_mode_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function defaultModeFor(kind: string): any;
+
+/**
+ * [`default_open_sections`](state::default_open_sections). Takes `{ id, collapsedByDefault }`
+ * objects; extra fields are ignored.
+ *
+ * # Errors
+ *
+ * Fails if the argument is not an array of section declarations, or the result cannot be serialised.
+ */
+export function defaultOpenSections(sections: any): any;
+
+/**
  * The default paste settings (TS `DEFAULT_PASTE_SETTINGS`).
  *
  * # Errors
@@ -1152,6 +1709,12 @@ export function defaultInkNoteMeta(): any;
 export function defaultPasteSettings(): any;
 
 /**
+ * [`default_share_link_expires_at`](sharing::default_share_link_expires_at): the default expiry
+ * of a new view link. `now_ms` is the JS `Date.now()` value.
+ */
+export function defaultShareLinkExpiresAt(now_ms: number): string;
+
+/**
  * [`degree_colours`](node_colouring::degree_colours): `[id, colour]` pairs for `[id, degree]` pairs.
  *
  * # Errors
@@ -1159,6 +1722,35 @@ export function defaultPasteSettings(): any;
  * Fails if `degree` is not an array of `[id, number]` pairs.
  */
 export function degreeColours(degree: any): any;
+
+/**
+ * [`deleted_local_base`] for JS (TS `deletedLocalBase`). Empty when there are no ops.
+ *
+ * # Errors
+ *
+ * Fails when `ops` is not a list of outbox ops.
+ */
+export function deletedLocalBase(ops: any): any;
+
+/**
+ * [`deleted_remote_sides`] for JS (TS `deletedRemoteSides`). `stored` is the local row or
+ * `null`; `null` is returned when neither it nor an owed op is available.
+ *
+ * # Errors
+ *
+ * Fails when `ops` is not a list of outbox ops or `stored` is not a plain object.
+ */
+export function deletedRemoteSides(ops: any, stored: any): any;
+
+/**
+ * [`deletion_action`] for JS (TS `deletionAction`). `kind` is `"deleted_remote"` or
+ * `"deleted_local"`, `choice` is `"keep"` or `"delete"`, and `remote` is the server row or `null`.
+ *
+ * # Errors
+ *
+ * Fails when `kind` or `choice` is not one of its strings, or a row is not a plain object.
+ */
+export function deletionAction(kind: any, choice: any, local: any, row_id: string, remote: any): any;
 
 /**
  * [`deletion_for`] (TS `deletionFor`). `kind` is `"deleted_remote"` or `"deleted_local"`,
@@ -1198,6 +1790,15 @@ export function describePull(result: any): string;
 export function describePush(result: any): string;
 
 /**
+ * [`wf_core::sync::git_remote::describe_status`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `status` is not a valid `{ url, branch, ahead, behind }` object.
+ */
+export function describeRemoteStatus(status: any): string;
+
+/**
  * [`detect_citation_style`] (TS `detectCitationStyle`). `texts` is the page texts as an array of
  * strings; the result is `"numeric"`, `"author-year"`, `"both"`, or `undefined` for neither.
  *
@@ -1215,6 +1816,11 @@ export function detectCitationStyle(texts: any): any;
  * Fails if `lines` is not an array of `TextLine` objects.
  */
 export function detectColumns(lines: any): any;
+
+/**
+ * [`device_markers`](panel_labels::device_markers): conflict markers named for this device and the cloud.
+ */
+export function deviceMarkers(ours: string, theirs: string): string;
 
 /**
  * [`diff_annotation_fields`] for a row: the fields that differ, in TS order.
@@ -1245,6 +1851,16 @@ export function diffBody(ours: string, theirs: string): any;
 export function diffJsonData(parsed: any, existing_json: string, side: any): any;
 
 /**
+ * [`diff_refresh`](refresh_diff::diff_refresh) as `{remove, add, prints}`.
+ *
+ * # Errors
+ *
+ * Fails if `prints` or `fresh` is not an array of `{id, print}` records, or
+ * `held` is not an array of strings.
+ */
+export function diffRefreshPlan(prints: any, held: any, fresh: any): any;
+
+/**
  * [`wf_core::sync::deserialize::diff_workspace`] for JS. `sides` maps a parsed path to who
  * changed it; the TS wrapper fills it from `origin`. A path it lacks is `Unknown`. Without
  * `sides`, there is no origin.
@@ -1266,6 +1882,16 @@ export function digestText(text: string): string;
 export function distanceToSegmentSquared(px: number, py: number, ax: number, ay: number, bx: number, by: number): number;
 
 /**
+ * [`distinct_related`](result_dedupe::distinct_related) as kept indices and
+ * merge pairs.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not a distinct-input record.
+ */
+export function distinctRelated(input: any): any;
+
+/**
  * [`document_boost`](search_tuning::document_boost). `now` is epoch milliseconds.
  *
  * # Errors
@@ -1273,6 +1899,112 @@ export function distanceToSegmentSquared(px: number, py: number, ax: number, ay:
  * Fails if `doc` or `options` has the wrong shape.
  */
 export function documentBoost(doc: any, options: any, now: number): number;
+
+/**
+ * [`document_id_of`](semantic_fingerprint::document_id_of): the document a passage id belongs to.
+ */
+export function documentIdOf(passage: string): string;
+
+/**
+ * [`document_id_of_path`](semantic_fingerprint::document_id_of_path): the document id behind a workspace file name.
+ */
+export function documentIdOfPath(file: string): string;
+
+/**
+ * [`rules::document_kind`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function documentKind(kind: string): any;
+
+/**
+ * [`rules::document_suffix`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function documentSuffix(kind: string): any;
+
+/**
+ * [`double_click_figure`](page_math::double_click_figure): the figure every press lands in.
+ *
+ * # Errors
+ *
+ * Fails if `figures` is not an array of boxes or `points` is not an array of points.
+ */
+export function doubleClickFigure(figures: any, points: any, skip?: number | null): number | undefined;
+
+/**
+ * [`draft_icon`](edit::draft_icon).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not a create kind, or the result cannot be serialised.
+ */
+export function draftIcon(kind: any): any;
+
+/**
+ * [`draft_makes`](edit::draft_makes).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not a create kind, or the result cannot be serialised.
+ */
+export function draftMakes(kind: any): any;
+
+/**
+ * [`draft_placeholder`](edit::draft_placeholder).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not a create kind, or the result cannot be serialised.
+ */
+export function draftPlaceholder(kind: any): any;
+
+/**
+ * [`draft_reading_log`](reading_digest::draft_reading_log) (TS `draftReadingLog`).
+ *
+ * # Errors
+ *
+ * Fails if `papers` or `marks` are not lists of the right shape.
+ */
+export function draftReadingLog(papers: any, marks: any, day: string): string;
+
+/**
+ * [`drop_parent_id`](edit::drop_parent_id).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ */
+export function dropParentId(target: any): any;
+
+/**
+ * [`duplicate_plan`](duplicate::duplicate_plan) as `{ title, parentId, body }`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `doc` or `documents` does not have the shape of a duplicate source.
+ */
+export function duplicatePlan(doc: any, documents: any): any;
+
+/**
+ * [`edit_sides`] for JS (TS `editSides`). `null` when no non-delete op is owed.
+ *
+ * # Errors
+ *
+ * Fails when `ops` is not a list of outbox ops.
+ */
+export function editSides(ops: any): any;
+
+/**
+ * [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).
+ * `None` (a week or more, or NaN) becomes `undefined`; the caller then shows the date.
+ */
+export function editedRelativeLabel(seconds: number): string | undefined;
 
 /**
  * [`effective_field_boosts`](search_settings::effective_field_boosts).
@@ -1293,6 +2025,35 @@ export function effectiveFieldBoosts(settings: any): any;
 export function effectiveRelationTypes(settings: any): any;
 
 /**
+ * [`ema_smooth`]: debiased EMA over the values; `null` gaps stay gaps.
+ */
+export function emaSmooth(values: any, alpha: number): any;
+
+/**
+ * [`embed_titles`](page::embed_titles): the trimmed title of each `![[...]]` in `body`.
+ */
+export function embedTitles(body: string): string[];
+
+/**
+ * [`embeddable_text`](semantic_fingerprint::embeddable_text): the text a document is embedded from.
+ */
+export function embeddableText(title: string, aliases: string[], body: string): string;
+
+/**
+ * [`empty_cell_paper_ids`]: the papers whose cell for `field_id` is empty and not pending.
+ */
+export function emptyCellPaperIds(rows: any, field_id: string, pending_paper_ids: any): any;
+
+/**
+ * [`empty_integration`](fields::empty_integration): the integration a provider starts from.
+ *
+ * # Errors
+ *
+ * Fails if `provider` is not `"github"`, `"gitlab"` or `"mattermost"`.
+ */
+export function emptyIntegration(provider: any): any;
+
+/**
  * [`empty_layout`](pane::empty_layout).
  *
  * # Errors
@@ -1300,6 +2061,16 @@ export function effectiveRelationTypes(settings: any): any;
  * Never fails in practice; returns the serializer's result type.
  */
 export function emptyLayout(pane_id: string): any;
+
+/**
+ * [`empty_page_history`] as `{ undo: [], redo: [] }`.
+ */
+export function emptyPageHistory(): any;
+
+/**
+ * [`empty_to_null`]: the text as stored, with an absent or empty value as `null`.
+ */
+export function emptyToNull(value?: string | null): any;
 
 /**
  * [`encode_ink_chunk_body`](chunk::encode_ink_chunk_body): a page packed into an uncompressed body.
@@ -1318,6 +2089,15 @@ export function encodeInkChunkBody(page: any): Uint8Array;
  * Fails if `locus` is not a locus object.
  */
 export function encodeLocus(locus: any): string;
+
+/**
+ * [`nav_open_groups::encode_open_groups`]: the stored JSON for an open-groups list.
+ *
+ * # Errors
+ *
+ * Fails if `groups` is not an array of strings.
+ */
+export function encodeOpenGroups(groups: any): string;
 
 /**
  * [`encode_rollup_options`](paper_field::encode_rollup_options) (TS `encodeRollupOptions`).
@@ -1349,6 +2129,25 @@ export function entityDir(entity: string, project_root: string): string;
 export function entryFileError(entry_file: string): string | undefined;
 
 /**
+ * [`enum_label::enum_label`]: the label for `value` under `kind`, humanised when unknown.
+ */
+export function enumLabel(kind: string, value: string): string;
+
+/**
+ * [`enum_label::enum_options`] as `{ value, label }` objects, in the fixed order.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ */
+export function enumOptions(kind: string): any;
+
+/**
+ * [`escape_html`](text::escape_html): `&`, `<`, `>` and `"` made safe for markup.
+ */
+export function escapeHtml(value: string): string;
+
+/**
  * [`escape_latex_text`](markdown_to_latex::escape_latex_text) (TS `escapeLatexText`).
  */
 export function escapeLatexText(s: string): string;
@@ -1363,6 +2162,16 @@ export function escapeLatexText(s: string): string;
 export function evaluateAiAccess(input: any, now: string): any;
 
 /**
+ * [`excerpt_segments`](excerpt_segments::excerpt_segments) as `{text,
+ * highlighted}` runs.
+ *
+ * # Errors
+ *
+ * Fails if `excerpt` is not a `{text, highlights}` record.
+ */
+export function excerptSegments(excerpt: any): any;
+
+/**
  * [`exclusion_reasons`](screening::exclusion_reasons) (TS `exclusionReasons`).
  *
  * # Errors
@@ -1370,6 +2179,11 @@ export function evaluateAiAccess(input: any, now: string): any;
  * Fails if `decisions` or `stage` has the wrong shape.
  */
 export function exclusionReasons(decisions: any, stage: any): any;
+
+/**
+ * [`expand_embeds`](page::expand_embeds): `bodies[i]` is the body that `titles[i]` resolves to.
+ */
+export function expandEmbeds(body: string, titles: string[], bodies: string[]): string;
 
 /**
  * [`expand_ipv6`](url_safety::expand_ipv6); `undefined` when the text is not IPv6.
@@ -1390,6 +2204,26 @@ export function expandIpv6(value: string): any;
 export function experimentActivityAt(experiment: any): number;
 
 /**
+ * [`experiment_href`](experiment_status::experiment_href): where an experiment opens.
+ */
+export function experimentHref(id: string, is_offline_build: boolean): string;
+
+/**
+ * [`to_domain`]: an `experiments` row as an experiment.
+ */
+export function experimentRowToDomain(row: any): any;
+
+/**
+ * [`to_row`]: an experiment as the `experiments` row it is written as.
+ */
+export function experimentToRow(experiment: any): any;
+
+/**
+ * [`EXPERIMENTS_HREF`](experiment_status::EXPERIMENTS_HREF): the experiments list.
+ */
+export function experimentsListHref(): string;
+
+/**
  * [`explain_arm`](related::explain_arm).
  *
  * # Errors
@@ -1397,6 +2231,21 @@ export function experimentActivityAt(experiment: any): number;
  * Fails if `arm` is not a known arm name.
  */
 export function explainArm(arm: any): string;
+
+/**
+ * [`export_asset_path`]: the folder a stored asset is written to in the export.
+ */
+export function exportAssetPath(root: string, prefix: string, storage_path: string): string;
+
+/**
+ * [`export_manifest_json`]: the export's `manifest.json` text.
+ */
+export function exportManifestJson(exported_at: string, stats: any): string;
+
+/**
+ * [`export_readme`]: the export's `README.txt` text.
+ */
+export function exportReadme(exported_at: string): string;
 
 /**
  * [`wf_core::papers::paper_ref::extract_doi`]: the DOI found in `value`, or `None`.
@@ -1461,6 +2310,21 @@ export function extractVenue(after_title: string): string | undefined;
 export function extractWikilinks(body: string): any;
 
 /**
+ * [`extraction_csv`]: the table as CSV, with a header line.
+ */
+export function extractionCsv(rows: any, defs: any, columns: any): string;
+
+/**
+ * [`extraction_markdown`]: the table as a Markdown table.
+ */
+export function extractionMarkdown(rows: any, defs: any, columns: any): string;
+
+/**
+ * [`paper_value_rows`]: each listed paper's stored and rollup values, in list order.
+ */
+export function extractionValueRows(paper_ids: any, values: any, defs: any): any;
+
+/**
  * [`fence_untrusted`](untrusted_context::fence_untrusted).
  *
  * # Errors
@@ -1479,6 +2343,11 @@ export function fenceUntrusted(items: any, nonce: string): string;
 export function figureAltFor(body: string, path: string): string | undefined;
 
 /**
+ * [`figure_clip_text`]: the clipboard text for a copied figure.
+ */
+export function figureClipText(clip: any): string;
+
+/**
  * [`figure_corner_hit`](figure::figure_corner_hit): the corner grab distance at `scale`.
  */
 export function figureCornerHit(scale: number): number;
@@ -1491,6 +2360,31 @@ export function figureCornerHit(scale: number): number;
  * Fails if `value` has the wrong shape.
  */
 export function figureImageFrame(value: any): any;
+
+/**
+ * [`figure_label`](figure_label::figure_label): the label for an artifact URL. `index` is 0-based.
+ */
+export function figureLabel(url: string, index: number): string;
+
+/**
+ * [`figure_under`](page_math::figure_under): the topmost figure holding `at`, ignoring `skip`.
+ *
+ * # Errors
+ *
+ * Fails if `figures` is not an array of boxes or `at` is not a point.
+ */
+export function figureUnder(figures: any, at: any, skip?: number | null): number | undefined;
+
+/**
+ * [`filter_graph_by_nodes`] (TS `filterGraphByNodes`). `allowed` is an array of node ids, or
+ * `null` to keep everything. Returns `{ nodes, links }`.
+ *
+ * # Errors
+ *
+ * Fails if `nodes` or `links` is not an array of JSON values, or `allowed` is not an array of
+ * strings or `null`.
+ */
+export function filterGraphByNodes(nodes: any, links: any, allowed: any): any;
 
 /**
  * [`filter_lab_members`](member::filter_lab_members). Returns indices into `members`.
@@ -1585,6 +2479,15 @@ export function findHeadingLines(lines: any, body: number, furniture_indices: an
 export function findImageRefs(body: string, head: string, allow_space: boolean): any;
 
 /**
+ * [`find_marks`]: where each match falls in the document, as a fraction of its height.
+ *
+ * # Errors
+ *
+ * Fails if `matches` or `pages` do not have the expected shape.
+ */
+export function findMarks(matches: any, num_pages: number, pages: any): any;
+
+/**
  * [`find_pattern_citation_mentions`](analysis_citations::find_pattern_citation_mentions) (TS
  * `findPatternCitationMentions`). The TS wrapper always passes `excluded` and `candidates`.
  *
@@ -1623,6 +2526,31 @@ export function findReferenceSection(lines: any, body_font_size: number, page_co
 export function findRelated(graph: any, seed: string, limit: number, options: any, rng: () => number, lexical: (seedId: string, limit: number) => { id: string; score: number }[], tagged: (seedId: string, limit: number) => { id: string; score: number }[]): any;
 
 /**
+ * [`find_wiki_root`]: the note titled `Wiki`, or nothing.
+ */
+export function findWikiRoot(pages: any): any;
+
+/**
+ * [`fit_cols`](plot_size::fit_cols).
+ */
+export function fitCols(grid_width: number, gap: number): number;
+
+/**
+ * [`fit_layout_to_content`](fit::fit_layout_to_content). `measured` and `maxHeights` map a card id
+ * (or card type) to rows; only card types in `maxHeights` fit their content.
+ *
+ * # Errors
+ *
+ * Fails when an argument is not the expected shape.
+ */
+export function fitLayoutToContent(items: any, measured: any, max_heights: any): any;
+
+/**
+ * [`fit_scale`](page_math::fit_scale): CSS pixels per 0.1 mm unit, `1` with no width.
+ */
+export function fitScale(container_width: number, page_width: number): number;
+
+/**
  * [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
  */
 export function fitsInkNoteBudget(sizes: Float64Array): boolean;
@@ -1635,6 +2563,16 @@ export function fitsInkNoteBudget(sizes: Float64Array): boolean;
  * Fails if `entity` is not a known entity type.
  */
 export function flatPath(entity: any, id: string, title: string, project_root: string): string;
+
+/**
+ * [`flatten`] over `docs`: the project's text files as paths, in walk order.
+ */
+export function flattenOverleafDocs(root_folder: any): any;
+
+/**
+ * [`flatten`] over `fileRefs`: the project's binary files as paths, in walk order.
+ */
+export function flattenOverleafFiles(root_folder: any): any;
 
 /**
  * [`flatten_tree`](tree::flatten_tree).
@@ -1671,6 +2609,18 @@ export function focusedTabCount(layout: any): number;
  * Fails if `nodes` has the wrong shape.
  */
 export function folderIdsOf(nodes: any): any;
+
+/**
+ * [`folder_key`](folder_layout::folder_key) (TS `folderSegments` joined with `/`): the folder
+ * of one picked file's relative path.
+ */
+export function folderKey(relative_path: string): string;
+
+/**
+ * [`folder_keys`](folder_layout::folder_keys) (TS `folderKeys`): every folder the picked files
+ * lead to, shallowest first.
+ */
+export function folderKeys(relative_paths: string[]): string[];
 
 /**
  * [`font_size_of`](analysis_text::font_size_of) (TS `fontSizeOf`).
@@ -1716,6 +2666,11 @@ export function formatFigureTokens(geometry: any): string;
 export function formatInviteCode(raw: string): string;
 
 /**
+ * [`format_log_line`]: one log entry as the text the panel and the log file both show.
+ */
+export function formatLogLine(at: string, level: string, source: string, message: string, detail?: string | null): string;
+
+/**
  * [`format_metric_cell`](experiment_status::format_metric_cell).
  *
  * # Errors
@@ -1737,6 +2692,24 @@ export function formatMetricValue(metric: string, value: number): string;
  * Fails if `paper` is not an object with a string `id`.
  */
 export function formatPaperCitation(paper: any, format: string): string;
+
+/**
+ * [`format_quote_block`] for JS (TS `formatQuoteBlock`).
+ *
+ * # Errors
+ *
+ * Fails when `quote` is over the text cap.
+ */
+export function formatQuoteBlock(quote: string): string;
+
+/**
+ * [`format_quote_cite_clipboard`] for JS (TS `formatQuoteCiteClipboard`).
+ *
+ * # Errors
+ *
+ * Fails when `quote` is over the text cap.
+ */
+export function formatQuoteCiteClipboard(quote: string, paper_title: string): string;
 
 /**
  * [`format_reference`](reference_text::format_reference).
@@ -1762,6 +2735,26 @@ export function formatWords(words: number): string;
  * not an object of strings.
  */
 export function fromRelativeBlobLinks(body: string, resolved: any): string;
+
+/**
+ * [`frontmatter_list`](wf_core::sync::frontmatter::frontmatter_list) for JS: a list field
+ * as its entries as text, or a non-blank scalar string as one entry.
+ *
+ * # Errors
+ *
+ * Fails when `frontmatter` is not an object.
+ */
+export function frontmatterList(frontmatter: any, key: string): any;
+
+/**
+ * [`frontmatter_string`](wf_core::sync::frontmatter::frontmatter_string) for JS: the
+ * field as text, or `undefined` when it is absent, a list, or blank.
+ *
+ * # Errors
+ *
+ * Fails when `frontmatter` is not an object.
+ */
+export function frontmatterString(frontmatter: any, key: string): string | undefined;
 
 /**
  * [`furniture_key`].
@@ -1804,6 +2797,11 @@ export function fuzzinessForTerm(term: string): number;
 export function gateVectorMask(scores: any, floor: number, keep_top: number): any;
 
 /**
+ * [`gemini_install`](mcp_client_config::gemini_install).
+ */
+export function geminiInstall(): string;
+
+/**
  * [`get_user_integration_field`](integration_credentials::get_user_integration_field);
  * `undefined` when empty.
  *
@@ -1830,6 +2828,11 @@ export function gitConnection(integration: any): any;
  * Fails if `integration` has the wrong shape.
  */
 export function gitConnectionReady(integration: any): boolean;
+
+/**
+ * [`git_reason`](git_reason::git_reason): git's `fatal:`/`error:` lines from a failed command's text.
+ */
+export function gitReason(text: string): string;
 
 /**
  * [`github_repo_pdf_path`] (TS `githubRepoPdfPath`): the repo-relative PDF path, or none.
@@ -1873,6 +2876,15 @@ export function graphDensity(graph: any): any;
 export function graphFilterCountFor(selected_tags: number, selected_lists: number, settings: any): number;
 
 /**
+ * [`graph_palette`](graph_colour::graph_palette): every fixed colour the graph draws.
+ *
+ * # Errors
+ *
+ * Fails only if the palette cannot be serialised.
+ */
+export function graphPalette(): any;
+
+/**
  * [`graph_tag_names`](graph_tags::graph_tag_names): every filterable tag, sorted.
  *
  * # Errors
@@ -1891,6 +2903,24 @@ export function graphTagNames(papers: any, notes: any, lists: any, include_lists
 export function graphTopologyKey(shown: any, local_seed: string | null | undefined, local_depth: number): string;
 
 /**
+ * [`group_by_day`] for JS (TS `groupByDay`): `{ day, indexes }[]`, newest day first.
+ *
+ * # Errors
+ *
+ * Fails when `entryDates` is not an array of strings.
+ */
+export function groupByDay(entry_dates: any): any;
+
+/**
+ * [`group_hunks`](panel_labels::group_hunks): unchanged and changed runs of a body diff.
+ *
+ * # Errors
+ *
+ * Fails if `lines` has the wrong shape, or the result cannot be serialised.
+ */
+export function groupHunks(lines: any): any;
+
+/**
  * [`group_palette_rows`](palette_groups::group_palette_rows): the headings present, each with the
  * indices of its rows, from the group of each row.
  *
@@ -1899,6 +2929,17 @@ export function graphTopologyKey(shown: any, local_seed: string | null | undefin
  * Fails if `groups` has the wrong shape.
  */
 export function groupPaletteRows(groups: any): any;
+
+/**
+ * [`group_proposals`](proposal_groups::group_proposals). `items` is a list of objects with
+ * `kind` and `resourceId`; `by` is `"document"` or `"kind"`; `knownIds` is an optional string
+ * array. Returns `{ key, indices }[]`, with indices into `items`.
+ *
+ * # Errors
+ *
+ * Fails if an input cannot be read as the expected shape.
+ */
+export function groupProposals(items: any, by: any, known_ids: any): any;
 
 /**
  * [`group_recurring_lines`](analysis_outline::group_recurring_lines) (TS `groupRecurringLines`).
@@ -1911,6 +2952,15 @@ export function groupPaletteRows(groups: any): any;
 export function groupRecurringLines(texts: any, pages: any): any;
 
 /**
+ * [`group_results`](quick::group_results) as an array of `{ kind, label, results }`.
+ *
+ * # Errors
+ *
+ * Fails if `results` is not an array of quick-open results.
+ */
+export function groupResults(results: any): any;
+
+/**
  * [`group_runs`](groups::group_runs).
  *
  * # Errors
@@ -1918,6 +2968,11 @@ export function groupRecurringLines(texts: any, pages: any): any;
  * Fails if `leaf` has the wrong shape.
  */
 export function groupRuns(leaf: any): any;
+
+/**
+ * [`group_subtree_items`]: the subtree's items grouped by list, in subtree order.
+ */
+export function groupSubtreeItems(node: any, items: any): any;
 
 /**
  * [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
@@ -1953,6 +3008,26 @@ export function hasActiveLab(active_org_id: string | null | undefined, membershi
 export function hasConflictMarkers(text: string): boolean;
 
 /**
+ * [`rules::has_ink_view`].
+ */
+export function hasInkView(kind: string): boolean;
+
+/**
+ * [`rules::has_lazy_body`].
+ */
+export function hasLazyBody(kind: string): boolean;
+
+/**
+ * [`has_pdf_magic`]: whether the first bytes carry the `%PDF-` signature.
+ */
+export function hasPdfMagic(bytes: Uint8Array): boolean;
+
+/**
+ * [`rules::has_pdf_view`].
+ */
+export function hasPdfView(kind: string): boolean;
+
+/**
  * [`heading_outline`] (TS `headingOutline`).
  *
  * # Errors
@@ -1965,6 +3040,30 @@ export function headingOutline(headings: any): any;
  * [`heading_slug`](heading_slug::heading_slug): the anchor id for a heading.
  */
 export function headingSlug(text: string): string;
+
+/**
+ * [`highlights_digest`](reading_digest::highlights_digest) (TS `highlightsDigest`).
+ *
+ * # Errors
+ *
+ * Fails if `marks` is not a list of digest marks.
+ */
+export function highlightsDigest(marks: any, existing: string): string;
+
+/**
+ * [`host_of`]: the host and port of a PDF address for a failure line, or the address when it has none.
+ */
+export function hostOf(url: string): string;
+
+/**
+ * [`enum_label::humanise`]: `made_up_kind` reads `Made up kind`.
+ */
+export function humanise(value: string): string;
+
+/**
+ * [`humanize`](panel_labels::humanize): a field name as a label.
+ */
+export function humanize(field: string): string;
 
 /**
  * [`hydrate_tab_modes`](pane::hydrate_tab_modes). `modes` is an object of tab key to mode.
@@ -2032,6 +3131,15 @@ export function imageExtensionForMime(mime: string): string;
 export function imagePathsInBody(body: string, prefix: string): string[];
 
 /**
+ * [`images_of`](paper_image::images_of) (TS `imagesOf`). `null` metadata has no images.
+ *
+ * # Errors
+ *
+ * Fails if `metadata` is not an object of JSON values.
+ */
+export function imagesOf(metadata: any): string[];
+
+/**
  * [`in_reference_list`](analysis_citations::in_reference_list) (TS `inReferenceList`).
  *
  * # Errors
@@ -2039,6 +3147,29 @@ export function imagePathsInBody(body: string, prefix: string): string[];
  * Fails if `ranges` is not an array of page text ranges.
  */
 export function inReferenceList(page: number, start: number, end: number, ranges: any): boolean;
+
+/**
+ * [`account_menu::inbox_links`]: the Inbox rows as `{ key, label, path, icon, badge? }`.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not an `InboxInput`-shaped object, or the result cannot be converted to JS.
+ */
+export function inboxLinks(input: any): any;
+
+/**
+ * [`enum_label::incoming_relation_label`]: `cites` reads `Cited by`.
+ */
+export function incomingRelationLabel(relation: string): string;
+
+/**
+ * [`index_from_analysis`]: shapes an analysis the worker already ran into the overlay's index.
+ *
+ * # Errors
+ *
+ * Fails if `analysis` or `pages` do not have the expected shape.
+ */
+export function indexFromAnalysis(analysis: any, pages: any): any;
 
 /**
  * [`wf_core::search::tokenizer::index_terms`]: what MiniSearch indexes for `text`.
@@ -2186,6 +3317,11 @@ export function inkPageMarker(page: number): string;
 export function inkPageOverBudget(page: any): boolean;
 
 /**
+ * [`ink_page_svg`]: `page` is an `InkSvgPage`, `options` an `InkSvgOptions` (may be `{}`).
+ */
+export function inkPageSvg(page: any, options: any): string;
+
+/**
  * [`ink_path_json_size`].
  */
 export function inkPathJsonSize(path: Float64Array): number;
@@ -2219,6 +3355,11 @@ export function inkPointInPolygon(px: number, py: number, polygon: any): boolean
  * [`ink_pressure_factor`].
  */
 export function inkPressureFactor(pressure?: number | null): number;
+
+/**
+ * [`ink_print_document`]: the page as an HTML document for a print frame's `srcdoc`.
+ */
+export function inkPrintDocument(doc: any): string;
 
 /**
  * [`ink_sidecar_dir`](ink_paths::ink_sidecar_dir).
@@ -2315,14 +3456,33 @@ export function invalidationMap(): any;
 export function invalidationPlan(resource_type: string): any;
 
 /**
+ * [`inverted_abstract`](related_paper_hit::inverted_abstract): the abstract text, or nothing.
+ *
+ * # Errors
+ *
+ * Fails if `index` is neither an object nor missing.
+ */
+export function invertedAbstract(index: any): any;
+
+/**
  * [`is_all_pages`](pdf_pages::is_all_pages).
  */
 export function isAllPages(answer: string): boolean;
 
 /**
+ * [`is_allowed_pdf_proxy_url`]: https, no credentials, and an allowlisted host.
+ */
+export function isAllowedPdfProxyUrl(raw: string): boolean;
+
+/**
  * [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
  */
 export function isAnnotationSyncState(value: any): boolean;
+
+/**
+ * [`is_api_host`](api_host::is_api_host): the URL's host is `weaveforge.org` or a subdomain of it.
+ */
+export function isApiHost(url: string): boolean;
 
 /**
  * [`wf_core::sync::json_entities::is_app_owned_path`] for JS.
@@ -2358,6 +3518,11 @@ export function isBlanketShare(resource_id?: string | null): boolean;
 export function isBoldFont(font_name?: string | null): boolean;
 
 /**
+ * [`local_first_route::is_both_ends_rpc`].
+ */
+export function isBothEndsRpc(name: string): boolean;
+
+/**
  * [`is_citation_destination`] (TS `isCitationDestination`). `name` is optional.
  *
  * # Errors
@@ -2376,6 +3541,25 @@ export function isCitationDestination(name: any): boolean;
 export function isConferenceCopy(paper: any): boolean;
 
 /**
+ * [`rules::is_creatable_kind`].
+ */
+export function isCreatableKind(kind: string): boolean;
+
+/**
+ * [`is_dismiss_tap`]: `down` and `up` are `{ x, y, time }`; `down` may be `null`.
+ *
+ * # Errors
+ *
+ * Fails if `down` or `up` is not a press object of numbers.
+ */
+export function isDismissTap(down: any, up: any, bar_open: boolean): boolean;
+
+/**
+ * [`rules::is_document_kind`].
+ */
+export function isDocumentKind(kind: string): boolean;
+
+/**
  * [`is_document_node`](tree::is_document_node).
  *
  * # Errors
@@ -2389,6 +3573,11 @@ export function isDocumentNode(node: any): boolean;
  * `isContentEditable` owns its keystrokes.
  */
 export function isEditableReaderTarget(tag_name: string | null | undefined, content_editable: boolean): boolean;
+
+/**
+ * [`is_electron_entry`](mcp_config_rewrite::is_electron_entry): an entry the Electron app wrote.
+ */
+export function isElectronMcpEntry(entry: any): boolean;
 
 /**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
@@ -2408,6 +3597,11 @@ export function isExplicitLabMembership(membership: any): boolean;
  * [`is_highlighter_ink`]; `undefined` is `None`.
  */
 export function isHighlighterInk(width?: number | null): boolean;
+
+/**
+ * [`is_html_content_type`]: whether a response counts as a web page.
+ */
+export function isHtmlContentType(value?: string | null): boolean;
 
 /**
  * [`wf_core::sync::ink_note::is_ink_chunk_id`] for JS.
@@ -2447,6 +3641,11 @@ export function isInkNoteFrontmatter(frontmatter: any): boolean;
 export function isInkNoteId(id: string): boolean;
 
 /**
+ * [`is_ink_tool`]: `ink` and `highlighter` draw on the page.
+ */
+export function isInkTool(tool: string): boolean;
+
+/**
  * [`is_ip_address`](url_safety::is_ip_address).
  */
 export function isIpAddress(value: string): boolean;
@@ -2471,6 +3670,25 @@ export function isKnownResourceType(value: string): boolean;
 export function isLiteral(text: string): string;
 
 /**
+ * [`is_local_zotero_url`]: whether `url` is the local Zotero API's own path with no credentials.
+ */
+export function isLocalZoteroUrl(url: string): boolean;
+
+/**
+ * [`is_newer`]: whether `candidate` is later than `current`, both `[major, minor, patch]`.
+ *
+ * # Errors
+ *
+ * Fails if either argument is not three numbers.
+ */
+export function isNewerVersion(candidate: any, current: any): boolean;
+
+/**
+ * [`is_note_import_file`](import_links::is_note_import_file).
+ */
+export function isNoteImportFile(name: string): boolean;
+
+/**
  * [`is_on_sampling_grid`](experiments::is_on_sampling_grid).
  */
 export function isOnSamplingGrid(step: number): boolean;
@@ -2486,9 +3704,26 @@ export function isOverleafProjectId(id: string): boolean;
 export function isPaperFieldKind(value: string): boolean;
 
 /**
+ * [`is_pdf_content_type`]: whether a `Content-Type` value names a PDF. `null` or empty is not.
+ */
+export function isPdfContentType(value?: string | null): boolean;
+
+/**
  * [`is_pdf_file`](paper_drop::is_pdf_file) (TS `isPdfFile`).
  */
 export function isPdfFile(name: string, mime_type: string): boolean;
+
+/**
+ * [`is_pen_barrel_pointer`](pen_pointer::is_pen_barrel_pointer): whether a pen touched
+ * down with its barrel button held.
+ */
+export function isPenBarrelPointer(pointer_type: string, button?: number | null, buttons?: number | null): boolean;
+
+/**
+ * [`is_pen_eraser_pointer`](pen_pointer::is_pen_eraser_pointer): whether a pointer
+ * event is the pen's eraser end.
+ */
+export function isPenEraserPointer(pointer_type: string, button?: number | null, buttons?: number | null): boolean;
 
 /**
  * [`is_placeholder_title`](paper_title::is_placeholder_title) (TS `isPlaceholderTitle`).
@@ -2505,9 +3740,20 @@ export function isPlaceholderTitle(title?: string | null): boolean;
 export function isPreviewKey(event: any, in_text_box: boolean): boolean;
 
 /**
+ * [`is_private_host`](private_host::is_private_host): a host this machine or its network answers for.
+ */
+export function isPrivateHost(hostname: string): boolean;
+
+/**
  * [`is_public_address`](url_safety::is_public_address).
  */
 export function isPublicAddress(address: string): boolean;
+
+/**
+ * [`is_public_https_url`](private_host::is_public_https_url): https, no credentials, public host.
+ * `false` for text that does not parse, as the TS `catch` did.
+ */
+export function isPublicHttpsUrl(raw: string): boolean;
 
 /**
  * [`is_quotation_type`](annotation_quotation_type::is_quotation_type) (TS `isQuotationType`).
@@ -2534,6 +3780,24 @@ export function isRotatedText(transform: Float64Array): boolean;
 export function isSafeWorkspacePath(path: string): boolean;
 
 /**
+ * [`is_open`](state::is_open).
+ *
+ * # Errors
+ *
+ * Fails if the open argument is not an array of strings.
+ */
+export function isSectionOpen(open: any, id: string): boolean;
+
+/**
+ * [`is_settled`](panel_labels::is_settled): whether a field's choice is complete.
+ *
+ * # Errors
+ *
+ * Fails if `choice` has the wrong shape.
+ */
+export function isSettled(choice: any, ours: string, theirs: string): boolean;
+
+/**
  * [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last metric time means none.
  *
  * # Errors
@@ -2543,9 +3807,19 @@ export function isSafeWorkspacePath(path: string): boolean;
 export function isStaleRunningExperiment(experiment: any, now_ms: number, stale_ms: number, last_metric_at_ms?: number | null): boolean;
 
 /**
+ * [`is_substantial_paper_text`]: whether the text reaches `min_chars` once whitespace is collapsed.
+ */
+export function isSubstantialPaperText(text: string, min_chars: number): boolean;
+
+/**
  * [`is_supervisor_role`](member::is_supervisor_role).
  */
 export function isSupervisorRole(role?: string | null): boolean;
+
+/**
+ * [`local_first_route::is_synced_table`].
+ */
+export function isSyncedTable(table: string): boolean;
 
 /**
  * [`wf_core::sync::git_policy::is_under_ignored_folder`] for JS.
@@ -2571,6 +3845,16 @@ export function isUnsureConfidence(conf: number): boolean;
 export function isUserIntegrationConnected(settings: any, provider_id: string, field_ids: any): boolean;
 
 /**
+ * [`is_child_item`](zotero_library::is_child_item): true for an attachment, note, annotation or
+ * an item with a parent.
+ *
+ * # Errors
+ *
+ * Fails if `item` cannot be read as an object.
+ */
+export function isZoteroChildItem(item: any): boolean;
+
+/**
  * [`is_zotero_library_sync_mode`] for any JS value: false unless `value` is a string.
  */
 export function isZoteroLibrarySyncMode(value: any): boolean;
@@ -2583,6 +3867,15 @@ export function isZoteroLibrarySyncMode(value: any): boolean;
  * Fails if `item` is not a text item object, or the result cannot be converted.
  */
 export function itemToRect(item: any, char_from?: number | null, char_to?: number | null): any;
+
+/**
+ * [`join_bibtex`](bibtex::join_bibtex): entries joined with a blank line, or `% (empty)`.
+ *
+ * # Errors
+ *
+ * Fails if `entries` is not an array of strings.
+ */
+export function joinBibtex(entries: any): string;
 
 /**
  * [`join_ink_text_layer`](ink_page::join_ink_text_layer): one text layer per page, joined.
@@ -2622,6 +3915,29 @@ export function jsonKindOfPath(path: string): string | undefined;
 export function keepFigureOnPage(rect: any, width: number, height: number): Float64Array;
 
 /**
+ * [`shortcut_label::key_label`]: one keycap, `⌘` reads `Ctrl` off a Mac.
+ */
+export function keyLabel(key: string, mac: boolean): string;
+
+/**
+ * [`rules::kind_icon`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function kindIcon(kind: string): any;
+
+/**
+ * [`rules::kind_icon_class`]. `open` defaults to false.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function kindIconClass(kind: string, open?: boolean | null): any;
+
+/**
  * [`kind_multiplier`](search_settings::kind_multiplier); an unknown `kind` reads as `1`.
  *
  * # Errors
@@ -2629,6 +3945,56 @@ export function keepFigureOnPage(rect: any, width: number, height: number): Floa
  * Fails if `settings` cannot be read as JSON.
  */
 export function kindMultiplier(kind: string, settings: any): number;
+
+/**
+ * [`rules::KINDS`] as a string array.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function kindNames(): any;
+
+/**
+ * [`kind_of`](panel_labels::kind_of): the label for a synced table.
+ */
+export function kindOf(table: string): string;
+
+/**
+ * [`rules::kind_owner`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function kindOwner(kind: string): any;
+
+/**
+ * [`rules::kind_suffix`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function kindSuffix(kind: string): any;
+
+/**
+ * [`rules::kind_tint_class`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function kindTintClass(kind: string): any;
+
+/**
+ * [`kinds_for_resource`](search_index_state::kinds_for_resource): the kinds a write can change, or `null` when unmapped.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialized.
+ */
+export function kindsForResource(resource_type: string): any;
 
 /**
  * [`wf_core::papers::open_access::known_candidates`]: the paper's own PDF and page.
@@ -2640,6 +4006,20 @@ export function kindMultiplier(kind: string, settings: any): number;
 export function knownCandidates(known_pdf?: string | null, page?: string | null): any;
 
 /**
+ * [`to_domain`]: a `lab_snapshots` row as a published snapshot.
+ */
+export function labSnapshotRowToDomain(row: any): any;
+
+/**
+ * [`route_title::label_for_path`]: the screen's own name, or `undefined` for a route with none.
+ *
+ * # Errors
+ *
+ * Fails if `nav_items` is not an array of `{ path, label }` objects.
+ */
+export function labelForPath(pathname: string, nav_items: any): string | undefined;
+
+/**
  * [`labelNumber`](bibliography::label_number): entry number from the exec groups.
  *
  * # Errors
@@ -2647,6 +4027,15 @@ export function knownCandidates(known_pdf?: string | null, page?: string | null)
  * Returns an error when `groups` is not an array of strings or `undefined`.
  */
 export function labelNumber(groups: any): number;
+
+/**
+ * [`label_size`](graph_sizing::label_size) as `{ font, line, gap }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ */
+export function labelSize(is_tag: boolean, zoom: number, bounded: boolean): any;
 
 /**
  * [`ladder_order`] (TS `ladderOrder`): the indexes of the supporting resolvers, in order.
@@ -2686,6 +4075,16 @@ export function layoutForCommand(layout: any, command: any, new_pane_id: string)
 export function layoutForTabMenu(layout: any, pane_id: string, index: number, command: any, new_pane_id: string): any;
 
 /**
+ * [`layout_from_record`](layout_record::layout_from_record). A missing or
+ * unusable record is one empty pane, so this never fails on content.
+ *
+ * # Errors
+ *
+ * Never fails in practice; returns the serializer's result type.
+ */
+export function layoutFromRecord(raw?: string | null): any;
+
+/**
  * [`leaves`](pane::leaves). Returns owned copies of the leaves.
  *
  * # Errors
@@ -2700,6 +4099,24 @@ export function leaves(node: any): any;
 export function levenshtein(a: string, b: string, limit: number): number;
 
 /**
+ * [`library_bibtex`](bibtex::library_bibtex): the whole library as one `.bib`.
+ *
+ * # Errors
+ *
+ * Fails if `papers` is not an array of paper objects.
+ */
+export function libraryBibtex(papers_value: any): string;
+
+/**
+ * [`to_domain`]: a `library_pins` row as a library pin.
+ *
+ * # Errors
+ *
+ * Fails if the row cannot be read as a `library_pins` row.
+ */
+export function libraryPinRowToDomain(row: any): any;
+
+/**
  * [`link_citation_mentions`](link_citations::link_citation_mentions) (TS
  * `linkCitationMentions`).
  *
@@ -2708,6 +4125,25 @@ export function levenshtein(a: string, b: string, limit: number): number;
  * Fails if `page`, `links` or `refs` do not have the expected shape.
  */
 export function linkCitationMentions(page: any, links: any, refs: any): any;
+
+/**
+ * [`rules::link_group_of`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function linkGroupOf(kind: string): any;
+
+/**
+ * [`link_node_id`] (TS `linkNodeId`). `source` is a string endpoint or an endpoint object; the
+ * result is the id, or `null` when there is none.
+ *
+ * # Errors
+ *
+ * Fails if `source` cannot be read as a JSON value.
+ */
+export function linkNodeId(source: any): any;
 
 /**
  * [`lint_wiki`](wiki_lint::lint_wiki). A missing `otherTitles` means none, as in the TS default.
@@ -2720,6 +4156,15 @@ export function linkCitationMentions(page: any, links: any, refs: any): any;
 export function lintWiki(pages: any, other_titles: any): any;
 
 /**
+ * [`list_display_colour`](reading_list::list_display_colour).
+ *
+ * # Errors
+ *
+ * Fails if `list` has the wrong shape.
+ */
+export function listDisplayColor(list: any): string;
+
+/**
  * [`list_membership`](tree::list_membership). Returns a JS `Map` of `kind:id` to list titles.
  *
  * # Errors
@@ -2727,6 +4172,25 @@ export function lintWiki(pages: any, other_titles: any): any;
  * Fails if either argument has the wrong shape.
  */
 export function listMembership(items: any, titles: any): any;
+
+/**
+ * [`list_membership`](reading_list::list_membership) (TS `buildListMembership`). `key` is
+ * `"paper"`, `"vaultPage"` or `"either"`. Returns `[listId, resourceIds[]]` pairs in list order.
+ *
+ * # Errors
+ *
+ * Fails if `lists`, `items` or `key` has the wrong shape.
+ */
+export function listMembershipByKey(lists: any, items: any, key: any): any;
+
+/**
+ * [`nav_open_groups::load_open_groups`]: the open groups from stored JSON, with `active` forced open.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ */
+export function loadOpenGroups(raw?: string | null, active?: string | null): any;
 
 /**
  * [`local_subgraph`] (TS `localSubgraph`). `neighbors` is an array of `[id, neighbourIds]` pairs.
@@ -2747,6 +4211,15 @@ export function localSubgraph(seed: string | null | undefined, depth: number, ne
 export function locateAnchor(text: string, anchor: any): any;
 
 /**
+ * [`locate_mention`]: the rects and bounds a mention covers on its page.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of page text items.
+ */
+export function locateMention(items: any, start: number, end: number): any;
+
+/**
  * [`validate_new_log_entry`](log_entry::validate_new_log_entry): the error message, or `None`.
  *
  * # Errors
@@ -2754,6 +4227,34 @@ export function locateAnchor(text: string, anchor: any): any;
  * Fails if `input` has the wrong shape.
  */
 export function logEntryInputError(input: any): string | undefined;
+
+/**
+ * [`log_entry_message`] for JS (TS `logEntryMessage`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a log entry message input with the expected fields.
+ */
+export function logEntryMessage(input: any): string;
+
+/**
+ * [`to_domain`]: a `log_entries` row as a domain entry.
+ */
+export function logEntryToDomain(row: any): any;
+
+/**
+ * [`to_row`]: a domain entry as the `log_entries` row it is written as.
+ */
+export function logEntryToRow(entry: any): any;
+
+/**
+ * [`log_eyebrow`] for JS (TS `logEyebrow`): the line, or `undefined` with no entries.
+ *
+ * # Errors
+ *
+ * Fails when `entryDates` is not an array of strings.
+ */
+export function logEyebrow(entry_dates: any, today: string): any;
 
 /**
  * [`log_path`](folder_layout::log_path).
@@ -2765,6 +4266,11 @@ export function logPath(id: string, entry_date: string, project_root: string): s
  * path names a picture, so a pasted link is worth downloading.
  */
 export function looksLikeImageUrl(url: string): boolean;
+
+/**
+ * [`looks_like_pdf_url`]: `true` for a direct PDF path, `false` for an HTML landing page.
+ */
+export function looksLikePdfUrl(url: string): boolean;
 
 /**
  * [`make_ink_stroke`](ink_page::make_ink_stroke) with the defaults filled in.
@@ -2779,6 +4285,25 @@ export function makeInkStroke(input: any): any;
  * [`map_ink_confidence`]; `scale` defaults to 1.
  */
 export function mapInkConfidence(raw: number, scale?: number | null): number;
+
+/**
+ * [`mark_actions`]: what the popover on a tapped mark offers, or `null` when it offers nothing.
+ *
+ * # Errors
+ *
+ * Fails if `target` is not a mark's `{ type, origin, comment }` object.
+ */
+export function markActions(target: any): any;
+
+/**
+ * [`mark_colour_tool`]: returns `"pen"`, `"highlight"`, `"underline"` or `"text"`.
+ */
+export function markColourTool(mark_type: string): string;
+
+/**
+ * [`mark_popover_shown`]: whether a mark's popover shows under the current tool.
+ */
+export function markPopoverShown(annotation_type: string, tool: string): boolean;
 
 /**
  * [`wf_core::sync::markdown_image::markdown_image`] for JS.
@@ -2897,6 +4422,27 @@ export function maxIndexTextUtf16(): number;
 export function maxReportChars(): number;
 
 /**
+ * [`blob_access::MAX_SIGNED_URL_PATHS`]: most paths one signed-url request may ask for.
+ */
+export function maxSignedUrlPaths(): number;
+
+/**
+ * [`may_drive_device`] for JS (TS `mayDriveDevice`).
+ */
+export function mayDriveDevice(signed_in_user_id?: string | null, adopted_account_id?: string | null): boolean;
+
+/**
+ * [`may_open_externally`](open_external::may_open_externally): a plain web address, with no
+ * credentials, on an allowed port and not a private host. Scheme-less input is read as https.
+ */
+export function mayOpenExternally(url: string): boolean;
+
+/**
+ * [`mcp_file_of`](mcp_config_rewrite::mcp_file_of): the MCP file name an env points at.
+ */
+export function mcpFileOf(env: any): string;
+
+/**
  * [`mcp_read_result`](mcp_result::mcp_read_result), as a plain JS `McpResult` object.
  *
  * # Errors
@@ -2906,9 +4452,37 @@ export function maxReportChars(): number;
 export function mcpReadResult(items: any, max_item_chars: number | null | undefined, max_result_chars: number | null | undefined, nonce: string): any;
 
 /**
+ * [`mcp_servers_json`](mcp_client_config::mcp_servers_json) for a `McpLaunchLine`.
+ *
+ * # Errors
+ *
+ * Fails if `launch` has the wrong shape.
+ */
+export function mcpServersJson(launch: any): string;
+
+/**
  * [`mean_pressure`]; `undefined` when no sample reports pressure.
  */
 export function meanPressure(samples: Float64Array): number | undefined;
+
+/**
+ * [`media_type_essence`]: the media type without parameters, lowercased.
+ */
+export function mediaTypeEssence(value: string): string;
+
+/**
+ * [`member_name_map`](wf_core::member::member_name_map).
+ *
+ * # Errors
+ *
+ * Fails when `members` is not a list of member sources.
+ */
+export function memberNameMap(members: any): any;
+
+/**
+ * [`rules::member_rank`].
+ */
+export function memberRank(kind: string): number;
 
 /**
  * [`member_role_label`](member::member_role_label): the label, or `undefined` when the role has none.
@@ -2920,6 +4494,25 @@ export function meanPressure(samples: Float64Array): number | undefined;
 export function memberRoleLabelOf(member: any, in_lab: boolean, owns_org: boolean): string | undefined;
 
 /**
+ * [`to_domain`]: a `profiles` row as a lab member.
+ */
+export function memberRowToDomain(row: any): any;
+
+/**
+ * [`to_view`]: an `org_memberships` row with its embedded organisation as a membership view.
+ */
+export function membershipViewFromRow(row: any): any;
+
+/**
+ * [`mention_item_ranges`]: where a mention's offsets fall in each run it covers.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of page text items.
+ */
+export function mentionItemRanges(items: any, start: number, end: number): any;
+
+/**
  * [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
  *
  * # Errors
@@ -2927,6 +4520,16 @@ export function memberRoleLabelOf(member: any, in_lab: boolean, owns_org: boolea
  * Fails if `items` is not an array of text items.
  */
 export function mentionRects(items: any, start: number, end: number): any;
+
+/**
+ * [`merge_both_changed`](folder_merge::merge_both_changed). `base` and `workspace_content`
+ * may be absent, which keeps the entry as it was.
+ *
+ * # Errors
+ *
+ * Fails when `entry` or `base` is not the shape the folder import produces.
+ */
+export function mergeBothChanged(entry: any, base: any, workspace_content?: string | null): any;
 
 /**
  * [`merge_extractions`](extraction::merge_extractions).
@@ -2988,6 +4591,11 @@ export function mergeReaderAnnotations(zotero: any, local: any): any;
 export function mergeRows(base: any, local: any, remote: any): any;
 
 /**
+ * [`merge_seen_ids`](citation_alerts::merge_seen_ids): prior ids, then new ones, each once.
+ */
+export function mergeSeenIds(prior: string[], current: string[]): string[];
+
+/**
  * [`merge_template`](tpl::merge_template).
  */
 export function mergeTemplate(existing: string, rendered: string): string;
@@ -3026,6 +4634,31 @@ export function metadataTitle(raw?: string | null): string | undefined;
 export function metricKeys(experiments: any): any;
 
 /**
+ * [`to_domain`]: a metric row as a metric point.
+ */
+export function metricRowToDomain(row: any): any;
+
+/**
+ * [`migrated_expanded`](state::migrated_expanded).
+ *
+ * # Errors
+ *
+ * Fails if an argument is not an array of strings, or the result cannot be serialised.
+ */
+export function migratedExpanded(saved: any, roots: any): any;
+
+/**
+ * [`migrated_notice`](migrated_notice::migrated_notice): the warning for the marker's text, or
+ * `undefined` when there is no marker. The TS wrapper maps `undefined` to `null`.
+ */
+export function migratedNotice(raw?: string | null): string | undefined;
+
+/**
+ * [`to_milestone`]: a `milestones` row as the app's milestone.
+ */
+export function milestoneFromRow(row: any): any;
+
+/**
  * [`validate_new_milestone`](milestone::validate_new_milestone): the validation message, or
  * `undefined` when the input is valid.
  *
@@ -3034,6 +4667,20 @@ export function metricKeys(experiments: any): any;
  * Fails if `input` has the wrong shape.
  */
 export function milestoneInputError(input: any): string | undefined;
+
+/**
+ * [`milestone_message`] for JS (TS `milestoneMessage`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a milestone message input with the expected fields.
+ */
+export function milestoneMessage(input: any): string;
+
+/**
+ * [`to_row`]: a milestone as the `milestones` row it is written as.
+ */
+export function milestoneToRow(milestone: any): any;
 
 /**
  * [`milestones_to_ics`](feed::milestones_to_ics): the `.ics` text for `items`.
@@ -3045,6 +4692,27 @@ export function milestoneInputError(input: any): string | undefined;
 export function milestonesToIcs(items: any, include_done: boolean, reminder_days: number, now_ms: number): string;
 
 /**
+ * [`missing_config_message`]: names the absent required env vars, never values.
+ * `cfg` is the backend config object; `required` is an array of camelCase field names.
+ *
+ * # Errors
+ *
+ * Fails if `cfg` is not an object of optional strings, `required` is not an array of
+ * known field names, or the result cannot be converted to JS.
+ */
+export function missingConfigMessage(cfg: any, required: any): any;
+
+/**
+ * [`missing_figure_warning`](export_path::missing_figure_warning).
+ */
+export function missingFigureWarning(zip_path: string, storage_path: string): string;
+
+/**
+ * [`missing_page_plans`]: one placeholder plan per distinct, non-blank dead-link target.
+ */
+export function missingPagePlans(targets: any): any;
+
+/**
  * [`missing_r2_config_message`]: names the unset R2 env vars, never values.
  *
  * # Errors
@@ -3054,6 +4722,25 @@ export function milestonesToIcs(items: any, include_done: boolean, reminder_days
 export function missingR2ConfigMessage(fields: any): any;
 
 /**
+ * [`try_model_cache_url`](model_cache::try_model_cache_url): the cache URL a request names, or
+ * `null` when it is not a weights request.
+ *
+ * # Errors
+ *
+ * Throws on a URL that does not parse, as `new URL` did in the TS.
+ */
+export function modelCacheUrl(url: string, app_host: string): string | undefined;
+
+/**
+ * [`rules::modes_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function modesFor(kind: string): any;
+
+/**
  * [`move_tab`](pane::move_tab).
  *
  * # Errors
@@ -3061,6 +4748,20 @@ export function missingR2ConfigMessage(fields: any): any;
  * Fails if `layout` has the wrong shape.
  */
 export function moveTab(layout: any, from_pane_id: string, from_index: number, to_pane_id: string, to_index?: number | null): any;
+
+/**
+ * [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `undefined` at either end.
+ */
+export function movedIds(ids: any, id: string, step: number): any;
+
+/**
+ * [`name_of`](panel_labels::name_of): a conflict's title, or "Untitled".
+ *
+ * # Errors
+ *
+ * Fails if `local` or `remote` is not an object (or null for `remote`).
+ */
+export function nameOf(local: any, remote: any): string;
 
 /**
  * [`native_citation_mentions`] (TS `nativeCitationMentions`).
@@ -3124,6 +4825,25 @@ export function newInkChunkId(now_ms: number, random_bytes: Uint8Array): string;
 export function newIssueUrl(title: string, body: string, repo: string): string;
 
 /**
+ * [`newest_release`]: the newest stable desktop release in `releases`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `releases` does not match the release list shape, or the result cannot be converted
+ * to JS.
+ */
+export function newestDesktopRelease(releases: any): any;
+
+/**
+ * [`newest_first_order`] for JS (TS `newestFirstOrder`): indexes, latest stamp first.
+ *
+ * # Errors
+ *
+ * Fails when `publishedAt` is not an array of strings.
+ */
+export function newestFirstOrder(published_at: any): any;
+
+/**
  * [`next_auth_step`] (TS `nextAuthStep`): the step as `{ kind, ... }`.
  *
  * # Errors
@@ -3131,6 +4851,21 @@ export function newIssueUrl(title: string, body: string, repo: string): string;
  * Fails if the result cannot be converted to a JS value.
  */
 export function nextAuthStep(user_id: string | null | undefined, previous_id: string | null | undefined, signing_out: boolean, was_expired: boolean, desktop: boolean, local_account_id?: string | null): any;
+
+/**
+ * [`next_page_offset`](semantic_scholar_citation::next_page_offset): the next offset, or `-1`
+ * to stop. A non-number `next` is read as missing, as the TS did.
+ *
+ * # Errors
+ *
+ * Fails if `next` cannot be read as JSON.
+ */
+export function nextCitationPageOffset(current_offset: number, next: any, pages_fetched: number): number;
+
+/**
+ * [`next_manifest`](folder_mirror::next_manifest).
+ */
+export function nextManifest(previous: string[], written: string[], removed: string[]): string[];
 
 /**
  * [`next_match_index`]: wraparound step; -1 when `total` is 0.
@@ -3146,6 +4881,15 @@ export function nextRotation(current: number, delta: number): number;
  * [`nib_width`]; `velocity` defaults to 0.
  */
 export function nibWidth(base: number, pressure?: number | null, velocity?: number | null, full_taper?: number | null): number;
+
+/**
+ * [`node_size`](graph_sizing::node_size) as `{ r, line, drop, hit }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ */
+export function nodeSize(base_r: number, zoom: number, bounded: boolean): any;
 
 /**
  * [`normalise_page_rotation`] (TS `normalisePageRotation`): 0, 90, 180 or 270.
@@ -3211,6 +4955,11 @@ export function normalizeCommentInput(input: any): any;
 export function normalizeDoi(doi?: string | null): string | undefined;
 
 /**
+ * [`normalize_field_name`](paper_field::normalize_field_name) (TS `normalizeFieldName`).
+ */
+export function normalizeFieldName(raw: string): string;
+
+/**
  * [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
  * non-string or a rejected stack.
  */
@@ -3224,6 +4973,15 @@ export function normalizeFontStack(raw: any): string | undefined;
  * Fails if `raw` cannot be read as JSON.
  */
 export function normalizeGraphViewSettings(raw: any): any;
+
+/**
+ * [`normalize_highlight_rects`]: one clean band per line of a text highlight.
+ *
+ * # Errors
+ *
+ * Fails if `rects` is not an array of number arrays.
+ */
+export function normalizeHighlightRects(rects: any): any;
 
 /**
  * A length from a number (px) or a string, limited to `max_px` (default 64).
@@ -3279,6 +5037,11 @@ export function normalizeSearchHistory(raw: any, max: number): string[];
 export function normalizeSearchSettings(raw: any): any;
 
 /**
+ * [`normalize_select_options`](paper_field::normalize_select_options) (TS `normalizeSelectOptions`).
+ */
+export function normalizeSelectOptions(raw: string[]): string[];
+
+/**
  * [`normalize_share_input`](sharing::normalize_share_input); a validation message throws as text.
  *
  * # Errors
@@ -3322,6 +5085,34 @@ export function normalizeUserSettings(settings: any): any;
 export function normalizeVector(vector: Float32Array): Float32Array;
 
 /**
+ * [`normalize_zotero_library`](zotero_library::normalize_zotero_library): the library path, or
+ * nothing when the input is not a library.
+ *
+ * # Errors
+ *
+ * Fails if `library` is neither a string nor missing.
+ */
+export function normalizeZoteroLibrary(library: any): any;
+
+/**
+ * [`note_backlinks`](page::note_backlinks) (TS `noteBacklinks`), as `{ id, title }` objects.
+ *
+ * # Errors
+ *
+ * Fails if `notes` has the wrong shape.
+ */
+export function noteBacklinks(notes: any, selected_id?: string | null): any;
+
+/**
+ * [`note_tags`](page::note_tags) (TS `noteTags`): the distinct hashtags, sorted by UTF-16 order.
+ *
+ * # Errors
+ *
+ * Fails if `notes` has the wrong shape.
+ */
+export function noteTags(notes: any): string[];
+
+/**
  * [`notes_tagged`](graph_tags::notes_tagged): indices of the notes matching `tags`.
  *
  * # Errors
@@ -3331,6 +5122,31 @@ export function normalizeVector(vector: Float32Array): Float32Array;
 export function notesTagged(notes: any, tags: any): any;
 
 /**
+ * [`notice_for`]: the text under `entry_index`, or `null` when the notice is about another entry.
+ *
+ * # Errors
+ *
+ * Fails if `notice` is neither `null` nor a `{ index, text }` object.
+ */
+export function noticeFor(notice: any, entry_index: number): any;
+
+/**
+ * [`one_euro_alpha`](one_euro::one_euro_alpha): the smoothing factor for a cutoff in
+ * hertz and a timestep in milliseconds.
+ */
+export function oneEuroAlpha(cutoff: number, dt_ms: number): number;
+
+/**
+ * [`openalex_to_hit`](related_paper_hit::openalex_to_hit): the hit for an OpenAlex work, or
+ * nothing when it has no title.
+ *
+ * # Errors
+ *
+ * Fails if `work` cannot be read as an OpenAlex work object.
+ */
+export function openAlexToHit(work: any): any;
+
+/**
  * [`openalex_to_metadata`] (TS `openAlexToMetadata`). An OpenAlex work as a paper.
  *
  * # Errors
@@ -3338,6 +5154,15 @@ export function notesTagged(notes: any, tags: any): any;
  * Fails if `work` is not an OpenAlex work.
  */
 export function openAlexToMetadata(work: any): any;
+
+/**
+ * [`rules::open_mode_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function openModeFor(kind: string, body: string): any;
 
 /**
  * [`open_tab`](pane::open_tab).
@@ -3356,6 +5181,15 @@ export function openTab(layout: any, tab: any, pane_id: string): any;
  * Fails if `layout` has the wrong shape.
  */
 export function openTabKeys(layout: any): any;
+
+/**
+ * [`rules::opening_tab`]. `body` absent reads as an empty body.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function openingTab(kind: string, id: string, body?: string | null): any;
 
 /**
  * [`original_range`](analysis_text::original_range) as `[start, end]` (TS `originalRange`).
@@ -3392,6 +5226,24 @@ export function outlineIsPlausible(headings: any, page_count: number): boolean;
  * Fails if `item` is not a pdf.js text item with a `transform` array.
  */
 export function outlineItemOf(item: any, page: number): any;
+
+/**
+ * [`outline_items_for`]: each page's runs as outline items.
+ *
+ * # Errors
+ *
+ * Fails if `pages` does not have the expected shape.
+ */
+export function outlineItemsFor(pages: any): any;
+
+/**
+ * [`outline_of`](outline::outline_of) as an array of `{ level, text, slug }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function outlineOf(body: string, max_level: number): any;
 
 /**
  * [`outline_progress`](section_progress::outline_progress) (TS `outlineProgress`).
@@ -3469,6 +5321,11 @@ export function pageImportRefusal(meta: any): string | undefined;
 export function pageListProblem(answer: string, count: number): any;
 
 /**
+ * [`page_text_after_recognition`]: the page text once handwriting has been recognised.
+ */
+export function pageTextAfterRecognition(was: string, prior: string, recognised: string): string;
+
+/**
  * [`page_text_from_items`] over `{ str, hasEOL? }[]`.
  *
  * # Errors
@@ -3478,6 +5335,24 @@ export function pageListProblem(answer: string, count: number): any;
 export function pageTextFromItems(items: any): string;
 
 /**
+ * [`pages_to_evict`]: `rendered` and `visible` are number arrays; returns a sorted number array.
+ *
+ * # Errors
+ *
+ * Fails if `rendered` or `visible` is not an array of numbers.
+ */
+export function pagesToEvict(rendered: any, visible: any, radius: number): any;
+
+/**
+ * [`painted_order`](quick::painted_order): the results group by group.
+ *
+ * # Errors
+ *
+ * Fails if `results` is not an array of quick-open results.
+ */
+export function paintedOrder(results: any): any;
+
+/**
  * [`palette_mode_for`](palette_groups::palette_mode_for): the mode a key press opens, or `null`.
  *
  * # Errors
@@ -3485,6 +5360,35 @@ export function pageTextFromItems(items: any): string;
  * Fails if `event` has the wrong shape.
  */
 export function paletteModeFor(event: any): any;
+
+/**
+ * [`paper_cite_keys`](bibtex::paper_cite_keys) (TS `buildCiteByTitle`'s key list): one key per
+ * paper, in order, unique across the list.
+ *
+ * # Errors
+ *
+ * Fails if `papers` is not an array of paper objects.
+ */
+export function paperCiteKeys(papers_value: any): any;
+
+/**
+ * [`paper_counts_for_tags`](tag_counts::paper_counts_for_tags): one count per `tagIds` entry, in order.
+ *
+ * # Errors
+ *
+ * Fails if `tagIds` or `links` has the wrong shape.
+ */
+export function paperCountsForTags(tag_ids: any, links: any): any;
+
+/**
+ * [`to_def_domain`]: a `paper_fields` row as a domain field definition.
+ */
+export function paperFieldDefRowToDomain(row: any): any;
+
+/**
+ * [`to_value_domain`]: a `paper_field_values` row as a domain value. Throws on a bad payload.
+ */
+export function paperFieldValueRowToDomain(row: any): any;
 
 /**
  * [`paper_html_path`](folder_layout::paper_html_path).
@@ -3530,6 +5434,54 @@ export function paperRelationInputError(input: any): string | undefined;
  * Fails if `relation` has the wrong shape.
  */
 export function paperRelationToRow(relation: any): any;
+
+/**
+ * [`paper_to_domain`]: a `papers` row as a domain paper.
+ */
+export function paperRowToDomain(row: any): any;
+
+/**
+ * [`paper_to_summary`]: a `papers` row read with the card projection, as a summary.
+ */
+export function paperRowToSummary(row: any): any;
+
+/**
+ * [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
+ */
+export function paperTagFromRow(row: any): any;
+
+/**
+ * [`paper_to_bibtex`](bibtex::paper_to_bibtex): one `.bib` entry under `key`.
+ *
+ * # Errors
+ *
+ * Fails if `paper` is not a paper object.
+ */
+export function paperToBibtex(paper: any, key: string): string;
+
+/**
+ * [`paper_to_row`]: a domain paper as the `papers` row it is written as.
+ */
+export function paperToRow(paper: any): any;
+
+/**
+ * [`parse_version`]: `0.5.2` to `[0, 5, 2]`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function parseAppVersion(version: string): any;
+
+/**
+ * [`parse_artifact_refs`](artifact_refs::parse_artifact_refs) (TS `parseArtifactRefs`). Offsets
+ * are UTF-16 code units.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ */
+export function parseArtifactRefs(markdown: string): any;
 
 /**
  * [`parse_bib_entries`](bib_entries::parse_bib_entries) (TS `parseBibEntries`).
@@ -3578,10 +5530,6 @@ export function parseBiorxiv(body: any, server: string): any;
 export function parseDashboardLayout(raw: any): any;
 
 /**
- * [`wf_core::papers::open_access::parse_doaj`]: DOAJ's answer as candidates.
- *
- * # Errors
- *
  * Fails if `body` is not valid JSON, or the result cannot be converted.
  */
 export function parseDoaj(body: any): any;
@@ -3596,6 +5544,17 @@ export function parseDoaj(body: any): any;
 export function parseEuropePmc(body: any): any;
 
 /**
+ * [`parse_explorer_keys`](state::parse_explorer_keys). Takes the raw stored
+ * string (or `null` when absent) and returns the keys, or `null` when the
+ * record is unusable.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ */
+export function parseExplorerKeys(raw?: string | null): any;
+
+/**
  * [`parse_extraction_json`](model_concepts::parse_extraction_json): the reply's `concepts` list, or `[]`.
  *
  * # Errors
@@ -3603,6 +5562,11 @@ export function parseEuropePmc(body: any): any;
  * Fails only if the result cannot be converted to a JS value.
  */
 export function parseExtractionJson(text: string): any;
+
+/**
+ * [`parse_figure_clip`]: the figure a clipboard text names, or `null`.
+ */
+export function parseFigureClip(text?: string | null): any;
 
 /**
  * [`parse_figure_crop`](figure::parse_figure_crop): a `c=` value as four insets, or `undefined`.
@@ -3708,6 +5672,15 @@ export function parseMdImageAlt(raw: string): any;
 export function parseOpenalex(body: any): any;
 
 /**
+ * [`parse_links`]: the well-formed links in the stored JSON.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function parseOverleafLinks(stored: string): any;
+
+/**
  * [`parse_overleaf_project_id`](overleaf::parse_overleaf_project_id).
  */
 export function parseOverleafProjectId(raw: string): string | undefined;
@@ -3728,6 +5701,15 @@ export function parsePageList(answer: string, count: number): any;
 export function parsePaperFieldValue(value: any, name: string): any;
 
 /**
+ * [`parse_paper_html_document`]: the paper a kept file holds, or `null` for a file this app did not write.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function parsePaperHtmlDocument(paper_id: string, text: string): any;
+
+/**
  * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
  * (`PaperRef` in `bindings.ts`) of the given `kind`.
  *
@@ -3737,6 +5719,15 @@ export function parsePaperFieldValue(value: any, name: string): any;
  * is not a valid `PaperRefKind`.
  */
 export function parsePaperRef(kind: any, value: string): any;
+
+/**
+ * [`parse_bounds`]: the saved position from the preference JSON, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function parsePlanWidgetBounds(stored: string): any;
 
 /**
  * [`wf_core::search::query::parse_query`]: the query split into terms, phrases,
@@ -3768,6 +5759,15 @@ export function parseReaderSplitPane(raw?: string | null): any;
 export function parseRegions(document: string): any;
 
 /**
+ * [`parse_tag`]: `v0.5.2` to `[0, 5, 2]`, or `null` for any other tag.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function parseReleaseTag(tag: string): any;
+
+/**
  * [`parse_rollup_options`](paper_field::parse_rollup_options) (TS `parseRollupOptions`).
  *
  * # Errors
@@ -3784,6 +5784,20 @@ export function parseRollupOptions(options: string[]): any;
  * Fails if `body` is not valid JSON, or the result cannot be converted.
  */
 export function parseSemanticScholar(body: any): any;
+
+/**
+ * [`parse_stroke_clip`]: the strokes a clipboard text carries, or `null`.
+ */
+export function parseStrokeClip(text?: string | null): any;
+
+/**
+ * [`parse_taskbar_created`]: the `TaskbarCreated` message id the helper printed, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function parseTaskbarCreatedId(stdout: string): any;
 
 /**
  * [`parse_theme_config`](theme_config::parse_theme_config); a non-string reads as empty.
@@ -3831,6 +5845,15 @@ export function parseWorkspaceFolder(files: any): any;
 export function parseZenodo(body: any): any;
 
 /**
+ * [`partition_pdf_texts`](pdf_text_prune::partition_pdf_texts): which stored PDF texts survive and which to delete.
+ *
+ * # Errors
+ *
+ * Fails if `stored` is not an array of PDF sources or `paper_ids` is not an array of strings.
+ */
+export function partitionPdfTexts(stored: any, paper_ids: any): any;
+
+/**
  * [`paste_lands_in_verbatim_context`] for JS. `offset` is in UTF-16 code units.
  *
  * # Errors
@@ -3838,6 +5861,16 @@ export function parseZenodo(body: any): any;
  * Fails when `document` is over the text cap.
  */
 export function pasteLandsInVerbatimContext(document: string, offset: number): boolean;
+
+/**
+ * [`pasted_figure_place`]: `figure` is a `FigurePlacement`, `on_page` the page's figures, `page` an `InkPageSize`.
+ */
+export function pastedFigurePlace(figure: any, on_page: any, page: any): any;
+
+/**
+ * [`pasted_strokes_place`]: `strokes` are the pasted ones, `on_page` the page's, `page` an `InkPageSize`.
+ */
+export function pastedStrokesPlace(strokes: any, on_page: any, page: any): any;
 
 /**
  * [`pdf_doc_id`](search_document::pdf_doc_id).
@@ -3881,6 +5914,11 @@ export function pdfRectToScreenBox(rect: Float64Array, p: any): any;
  * Fails when `users` is not a list of pairs.
  */
 export function peersFromUsers(users: any, self_client_id: number, self_author_id: string): any;
+
+/**
+ * [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
+ */
+export function pendingFieldFills(proposals: any, field_id?: string | null): any;
 
 /**
  * [`personalized_page_rank`](personalized_pagerank::personalized_page_rank); `[{ node, score }]`
@@ -3930,6 +5968,31 @@ export function pickKeysToEvict(entries: any, max_entries: number): any;
 export function pickNearestMatch(matches: any, position: any): any;
 
 /**
+ * [`pick_project`](project_pick::pick_project): the index of the picked project. A miss or an
+ * ambiguous match throws the message as a string; the TS wrapper turns it into an `Error`.
+ */
+export function pickProject(projects: any, needle?: string | null): number;
+
+/**
+ * [`picture_path`]: the stored file behind a placed picture, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `target` is not a mark's `{ type, origin, comment }` object.
+ */
+export function picturePath(target: any): any;
+
+/**
+ * [`pinned_screen_index`]: the pure half of merging pinned shared rows into a screen.
+ *
+ * # Errors
+ *
+ * Fails if `input` does not match the pinned-screen input shape, or the result cannot be
+ * converted to JS.
+ */
+export function pinnedScreenIndex(input: any): any;
+
+/**
  * [`place_on_sheet`](page_background::place_on_sheet) as `{ x, y, width, height }`.
  *
  * # Errors
@@ -3937,6 +6000,16 @@ export function pickNearestMatch(matches: any, position: any): any;
  * Fails only if the result cannot be serialised.
  */
 export function placeOnSheet(source_width: number, source_height: number, sheet_width: number, sheet_height: number): any;
+
+/**
+ * [`place_widget`]: the saved spot if it is on a screen, else the top-right of the first one.
+ *
+ * # Errors
+ *
+ * Fails if `saved` is not a position or `areas` is not a list of work areas, or the result
+ * cannot be converted to JS.
+ */
+export function placePlanWidget(saved: any, areas: any): any;
 
 /**
  * [`plan_entries`](archive::plan_entries). `entries` is `{ name, size }[]` in archive order;
@@ -3959,6 +6032,34 @@ export function planArchiveEntries(entries: any, limits: any): any;
 export function planBibImport(file_name: string, text: string, existing_dois: string[], existing_keys: string[]): any;
 
 /**
+ * [`plan_bibliography_annotations`]. `papers` is an array of paper snapshots,
+ * `pull` the pulled annotations keyed by Zotero item key.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
+ */
+export function planBibliographyAnnotations(papers: any, pull: any): any;
+
+/**
+ * [`chip_target`](chip::chip_target): where a dependency chip goes when tapped.
+ *
+ * # Errors
+ *
+ * Fails if `dep` or `milestones` has the wrong shape, or the result cannot be serialised.
+ */
+export function planChipTarget(dep: any, known: any, milestones: any, is_offline_build: boolean): any;
+
+/**
+ * [`plan_citation_segments`]: each run split at the mention boundaries inside it.
+ *
+ * # Errors
+ *
+ * Fails if `items` or `mentions` do not have the expected shape.
+ */
+export function planCitationSegments(items: any, mentions: any): any;
+
+/**
  * [`wf_core::sync::snapshot_delta::plan_delta`] for JS. `remote` is `{ id, updatedAt }[]`
  * and `held` is `[id, stamp][]`, as the TS shell passes them.
  *
@@ -3969,6 +6070,38 @@ export function planBibImport(file_name: string, text: string, existing_dois: st
 export function planDelta(remote: any, held: any): any;
 
 /**
+ * [`plan_embedding_start`](embedding_models::plan_embedding_start) as `"reuse" | "swap" | "rebuild"`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialized.
+ */
+export function planEmbeddingStart(stored_model: string | null | undefined, target: string): any;
+
+/**
+ * [`plan_eyebrow`](screen::plan_eyebrow): the line above the plan title, or `undefined` for none.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ */
+export function planEyebrow(total: number, done: number): any;
+
+/**
+ * [`plan_feed_origin`](feed_urls::plan_feed_origin): where the calendar feed is served.
+ */
+export function planFeedOrigin(server_routes: boolean, here?: string | null, configured?: string | null): string;
+
+/**
+ * [`plan_feed_urls`](feed_urls::plan_feed_urls): the calendar, https and widget links for `token`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS object.
+ */
+export function planFeedUrls(origin: string, token: string, include_done: boolean, reminder_days: number): any;
+
+/**
  * [`plan_fix_order`](wiki_lint::plan_fix_order).
  *
  * # Errors
@@ -3976,6 +6109,11 @@ export function planDelta(remote: any, held: any): any;
  * Fails if `report` is not a `LintReport` object.
  */
 export function planFixOrder(report: any): any;
+
+/**
+ * [`plan_item_order`]: the writes for a new item order, or the message that refuses it.
+ */
+export function planItemOrder(list_id: string, items: any, ordered_ids: string[]): any;
 
 /**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
@@ -3990,6 +6128,11 @@ export function planFixOrder(report: any): any;
 export function planMirror(files: any, asset_paths: any, previous_paths: any, base: any, disk: any): any;
 
 /**
+ * [`plan_pace`](timeline::plan_pace): `"on track"` or the overdue and due-soon counts.
+ */
+export function planPace(milestones: any, today: string): string;
+
+/**
  * [`plan_series_ingest`](experiments::plan_series_ingest): `{ keep: indices, supersededTipStep }`.
  *
  * # Errors
@@ -3999,6 +6142,16 @@ export function planMirror(files: any, asset_paths: any, previous_paths: any, ba
 export function planSeriesIngestIndices(steps: Float64Array, previous_max_step?: number | null): any;
 
 /**
+ * [`plan_timeline`](timeline::plan_timeline): the laid-out plan, or `null` when no milestone is
+ * dated.
+ *
+ * # Errors
+ *
+ * Fails if `milestones` has the wrong shape.
+ */
+export function planTimeline(milestones: any, today: string): any;
+
+/**
  * [`plan_widget`](feed::plan_widget): the summary a widget draws.
  *
  * # Errors
@@ -4006,6 +6159,21 @@ export function planSeriesIngestIndices(steps: Float64Array, previous_max_step?:
  * Fails if `items` has the wrong shape.
  */
 export function planWidgetData(items: any, include_done: boolean, limit: number | null | undefined, now_ms: number): any;
+
+/**
+ * [`plot_height`](plot_size::plot_height).
+ */
+export function plotHeight(width: number, base: number): number;
+
+/**
+ * [`plot_tier`](plot_size::plot_tier): `"full"`, `"medium"` or `"compact"`.
+ */
+export function plotTier(width: number): string;
+
+/**
+ * [`plural`](panel_labels::plural): "n word" with the right plural.
+ */
+export function plural(n: number, word: string, many?: string | null): string;
 
 /**
  * [`wf_core::papers::open_access::pmc_candidates`]: PubMed Central's PDF and HTML copies.
@@ -4027,6 +6195,33 @@ export function pointInArea(area: any, x: number, y: number): boolean;
 export function pointInPolygon(polygon: Float64Array, x: number, y: number): boolean;
 
 /**
+ * [`error_info`] for JS (TS `postgrestErrorInfo`): `{ code, firstLine }` of an error body.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function postgrestErrorInfo(body: string): any;
+
+/**
+ * [`writable`] for JS (TS `postgrestWritable`): the payload minus the table's generated columns.
+ *
+ * # Errors
+ *
+ * Fails when `payload` is not an object.
+ */
+export function postgrestWritable(table: string, payload: any): any;
+
+/**
+ * [`wf_core::papers::open_access::parse_doaj`]: DOAJ's answer as candidates.
+ *
+ * # Errors
+ *
+ * [`wf_core::papers::open_access::preprint_server_for`]: the preprint server for a DOI, or `None`.
+ */
+export function preprintServerFor(doi: string): string | undefined;
+
+/**
  * [`wf_core::ink::pressure_byte`].
  */
 export function pressureByte(pressure?: number | null): number;
@@ -4039,6 +6234,15 @@ export function pressureByte(pressure?: number | null): number;
  * Fails if `layout` has the wrong shape.
  */
 export function previewOpen(layout: any): boolean;
+
+/**
+ * [`preview_reader_href`](paper_preview::preview_reader_href) (TS `previewReaderHref`).
+ *
+ * # Errors
+ *
+ * Fails if `preview` is not a preview object, or the result cannot be converted.
+ */
+export function previewReaderHref(remote_href: string | null | undefined, preview: any, local_href: string): any;
 
 /**
  * [`preview_source`](pane::preview_source). `previous` may be `undefined`.
@@ -4057,6 +6261,15 @@ export function previewSource(layout: any, previous: any): any;
  * Never fails in practice; returns the serializer's result type.
  */
 export function previewTab(): any;
+
+/**
+ * [`primary_paper_ref`]: the arXiv id, else the DOI, else `null`. Blank strings count as unset.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function primaryPaperRef(arxiv_id?: string | null, doi?: string | null): any;
 
 /**
  * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `undefined`.
@@ -4095,6 +6308,11 @@ export function prismaFigureTex(counts: any, options: any): string;
 export function projectDir(id: string, name: string): string;
 
 /**
+ * [`to_project`]: a `projects` row as the app's project.
+ */
+export function projectFromRow(row: any): any;
+
+/**
  * [`project_gate_open`].
  *
  * # Errors
@@ -4118,6 +6336,15 @@ export function projectMetaDir(project_root: string): string;
 export function projectName(name: string): string | undefined;
 
 /**
+ * [`project_zotero_annotations`](zotero_projection::project_zotero_annotations).
+ *
+ * # Errors
+ *
+ * Fails when `annotations` is not a list of cached Zotero annotations.
+ */
+export function projectZoteroAnnotations(annotations: any, content_hash?: string | null, now?: string | null): any;
+
+/**
  * [`projected_page_size`] as `{ width, height }` (TS `projectedPageSize`).
  *
  * # Errors
@@ -4136,6 +6363,12 @@ export function projectedPageSize(p: any): any;
 export function projection(columns: string): string;
 
 /**
+ * [`proposal_applies`](proposal_apply::proposal_applies). `null` or `undefined` for the stored
+ * revision means the row is missing.
+ */
+export function proposalApplies(stored_updated_at?: string | null, expected_revision?: string | null): boolean;
+
+/**
  * [`prune_layout`](pane::prune_layout). `open_keys` is an array of tab keys.
  *
  * # Errors
@@ -4143,6 +6376,12 @@ export function projection(columns: string): string;
  * Fails if an argument has the wrong shape.
  */
 export function pruneLayout(layout: any, open_keys: any): any;
+
+/**
+ * [`push_figure_step`]: `before` and `after` are the page's figure arrays;
+ * `key` is the press number, or `null` when the edit is not from a press.
+ */
+export function pushFigureStep(history: any, before: any, after: any, key: any): any;
 
 /**
  * [`push_ink_undo`](ink_undo::push_ink_undo).
@@ -4168,6 +6407,15 @@ export function quantizeInkPath(path: Float64Array, decimals?: number | null): F
 export function queryTermCount(terms: any): number;
 
 /**
+ * [`quick_open_results`](quick::quick_open_results) as an array of `{ node, score, matched }`.
+ *
+ * # Errors
+ *
+ * Fails if `documents` is not an array of tree rows.
+ */
+export function quickOpenResults(documents: any, query: string): any;
+
+/**
  * [`quote_awkward_labels`](markdown_mermaid_labels::quote_awkward_labels): quote labels Mermaid cannot parse.
  */
 export function quoteAwkwardMermaidLabels(code: string): string;
@@ -4187,9 +6435,30 @@ export function quoteIdent(name: string): string;
 export function r2BlobClientConfig(fields: any): any;
 
 /**
+ * [`rail_group_text`](rail_group_text::rail_group_text). `group` is a `RailGroupWords`,
+ * `visible` and `integrationTitles` are string arrays.
+ *
+ * # Errors
+ *
+ * Fails if an input cannot be read as the expected shape.
+ */
+export function railGroupText(group: any, visible: any, integration_titles: any): any;
+
+/**
  * [`ramp_colour`](node_colouring::ramp_colour): a colour `t` of the way along the ramp.
  */
 export function rampColour(t: number): string;
+
+/**
+ * [`rank_filter_order`](rank_filter::rank_filter_order) as an array of indices
+ * into `items`.
+ *
+ * # Errors
+ *
+ * Fails if `hit_entity_ids` is not an array of strings or `items` is not an
+ * array of `{id, fallbackText}` records.
+ */
+export function rankFilterOrder(query: string, hit_entity_ids: any, items: any): any;
 
 /**
  * [`wf_core::papers::open_access::rank_open_access_candidates`]: deduplicated, PDFs first.
@@ -4199,6 +6468,11 @@ export function rampColour(t: number): string;
  * Fails if `candidates` is not a candidate list, or the result cannot be converted.
  */
 export function rankOpenAccessCandidates(candidates: any): any;
+
+/**
+ * [`read_failure_reason`]: why a read failed. `status` is the HTTP status when there was a response.
+ */
+export function readFailureReason(message: string, status?: number | null): string;
 
 /**
  * [`wf_core::sync::frontmatter::read_frontmatter`] for JS, as `ParsedDocument`.
@@ -4238,6 +6512,16 @@ export function readInkNoteBody(body: string): any;
 export function readInkNoteMeta(frontmatter: any): any;
 
 /**
+ * [`read_ink_request`]: the page's request checked whole, or `null` when it is malformed.
+ * Never throws, as the TS did not: input that is not convertible to JSON is `null` too.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ */
+export function readInkRequest(request: any): any;
+
+/**
  * [`read_storage_config`]. `env` is a plain object of env name to string value.
  *
  * # Errors
@@ -4266,6 +6550,41 @@ export function readableText(body: string): string;
 export function readerKeyboardCommand(event: any): any;
 
 /**
+ * [`to_item_domain`]: a `reading_list_items` row as a domain item.
+ */
+export function readingListItemToDomain(row: any): any;
+
+/**
+ * [`to_item_row`]: a domain item as a `reading_list_items` row.
+ */
+export function readingListItemToRow(item: any): any;
+
+/**
+ * [`to_list_domain`]: a `reading_lists` row as a domain list.
+ */
+export function readingListToDomain(row: any): any;
+
+/**
+ * [`to_list_row`]: a domain list as a `reading_lists` row.
+ */
+export function readingListToRow(list: any): any;
+
+/**
+ * [`recently_approved_wiki_pages`]: the wiki's pages, newest first, capped at `limit`.
+ */
+export function recentlyApprovedWikiPages(pages: any, limit: number): any;
+
+/**
+ * [`recolour_nodes`](graph_colour::recolour_nodes): one colour per node in order, or
+ * `null` when the mode leaves node colours as built.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function recolourNodes(nodes: any, links: any, color_by: string, groups: any, ctx: any): any;
+
+/**
  * [`reconstruct_lines`] as an array of `TextLine`. `keep` is an array of
  * per-item flags (the TS predicate, already applied) or undefined to keep all.
  *
@@ -4279,6 +6598,12 @@ export function reconstructLines(page: number, items: any, keep: any): any;
  * [`rectangles_overlap`](analysis_text::rectangles_overlap) (TS `rectanglesOverlap`).
  */
 export function rectanglesOverlap(a: Float64Array, b: Float64Array): boolean;
+
+/**
+ * [`redact_error_text`](error_redact::redact_error_text): the token and URL credentials removed,
+ * capped at 500 UTF-16 units. An empty or missing token is ignored.
+ */
+export function redactOverleafErrorText(raw: string, token?: string | null): string;
 
 /**
  * [`wf_core::error_report::redact::redact`] for JS, as `{ text, redactions }`.
@@ -4360,6 +6685,11 @@ export function relativeAssetPaths(body: string): any;
 export function rememberSearchQuery(history: string[], query: string, max: number): string[];
 
 /**
+ * [`remove_hashtag_from_body`](note_tags::remove_hashtag_from_body).
+ */
+export function removeHashtagFromBody(body: string, tag: string): string;
+
+/**
  * [`rename_ink_undo_id`](ink_undo::rename_ink_undo_id).
  *
  * # Errors
@@ -4367,6 +6697,25 @@ export function rememberSearchQuery(history: string[], query: string, max: numbe
  * Fails if `state` has the wrong shape.
  */
 export function renameInkUndoId(state: any, from: string, to: string): any;
+
+/**
+ * [`rename_sources`](folder_diff::rename_sources) over the parsed entities and the
+ * folder and current texts by path. Returns new path to old path.
+ *
+ * # Errors
+ *
+ * Fails if the inputs do not match the shape, or the result cannot be serialized.
+ */
+export function renameSources(parsed: any, folder: any, current: any): any;
+
+/**
+ * [`renamed_paths`](outside_edits::renamed_paths) over `seen` and the diff's `paths`.
+ *
+ * # Errors
+ *
+ * Fails if the inputs do not match the shape, or the result cannot be serialized.
+ */
+export function renamedOutsidePaths(seen: any, paths: any): any;
 
 /**
  * [`render_template`](tpl::render_template).
@@ -4385,6 +6734,16 @@ export function renderTemplate(template: string, context_value: any): string;
  * Fails if `step` is not a known step.
  */
 export function reorderFigureIndices(len: number, index: number, step: any): Uint32Array;
+
+/**
+ * [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `undefined`.
+ */
+export function reorderedIds(ids: any, drag_id: string, target_id: string): any;
+
+/**
+ * [`replace_vault_asset_paths`](page::replace_vault_asset_paths): `old_paths[i]` becomes `new_paths[i]`.
+ */
+export function replaceVaultAssetPaths(body: string, old_paths: string[], new_paths: string[]): string;
 
 /**
  * [`replace_wiki_index`](wiki_index::replace_wiki_index).
@@ -4444,6 +6803,16 @@ export function resizeFigureBox(rect: any, handle: any, dx: number, dy: number, 
 export function resolveAnnotationConflict(row: any, choice: string): any;
 
 /**
+ * [`resolve_artifact_refs_markdown`](artifact_markdown::resolve_artifact_refs_markdown)
+ * (TS `resolveArtifactRefsMarkdown`). `now_ms` is `Date.now()`.
+ *
+ * # Errors
+ *
+ * Fails if `experiments` is not a list of experiment objects.
+ */
+export function resolveArtifactRefsMarkdown(body: string, experiments: any, now_ms: number): string;
+
+/**
  * [`wf_core::papers::open_access::resolve_arxiv_id`]: the arXiv id to ask about.
  */
 export function resolveArxivId(arxiv_id?: string | null, doi?: string | null): string | undefined;
@@ -4491,6 +6860,16 @@ export function resolveIntegrationConfig(env: any, ids: any): any;
 export function resolveOrgJoinAssignment(target_role: string, professor_ids: any, phd_ids: any, professor_supervisor_id?: string | null, phd_supervisor_id?: string | null): any;
 
 /**
+ * [`resolve_paper_pdf_url`]: `source` is `{ url, arxivId, openAccessPdf }`, each optional.
+ * Unknown fields such as `pdfPath` are ignored, as the TS version ignores them.
+ *
+ * # Errors
+ *
+ * Fails if `source` is not an object of strings or `null`.
+ */
+export function resolvePaperPdfUrl(source: any): string | undefined;
+
+/**
  * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
  *
  * # Errors
@@ -4498,6 +6877,12 @@ export function resolveOrgJoinAssignment(target_role: string, professor_ids: any
  * Fails if `position` is not a position selector object.
  */
 export function resolvePositionSelector(text: string, position: any): any;
+
+/**
+ * [`resolve_related_paper_url`](related_paper_url::resolve_related_paper_url) (TS
+ * `resolveRelatedPaperUrl`). `None` becomes `undefined`.
+ */
+export function resolveRelatedPaperUrl(url?: string | null, doi?: string | null, arxiv_id?: string | null): string | undefined;
 
 /**
  * [`resolve_supervisor_id`](member::resolve_supervisor_id).
@@ -4523,6 +6908,25 @@ export function resolveTextAnchor(text: string, locus: any): any;
 export function resolveViewportScale(state: any, page: any, container: any): number;
 
 /**
+ * [`resolve_with_row`] for JS (TS `resolveWithRow`). `picks` maps a field to `"local"` or
+ * `"remote"`; `overrides` is a row or `null`.
+ *
+ * # Errors
+ *
+ * Fails when a row or `picks` is not a plain object, or a pick is not `"local"`/`"remote"`.
+ */
+export function resolveWithRow(base: any, local: any, remote: any, picks: any, overrides: any): any;
+
+/**
+ * Every mapped resource type, in table order.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialized.
+ */
+export function resourceTypes(): any;
+
+/**
  * [`results_table`](experiment_status::results_table): the header and rows of the runs table.
  *
  * # Errors
@@ -4546,6 +6950,67 @@ export function retrieveAiExcerpts(documents: any, query: string, options: any):
 export function retryFuzzinessForTerm(term: string, retry: boolean): number;
 
 /**
+ * [`verdict_for`](screening::verdict_for) (TS `verdictFor`).
+ *
+ * # Errors
+ *
+ * Fails if `decisions` has the wrong shape.
+ */
+export function reviewers(decisions: any): string[];
+
+/**
+ * [`rewrite_mcp_config`](mcp_config_rewrite::rewrite_mcp_config) as `{ changed, config }`.
+ *
+ * # Errors
+ *
+ * Fails when `launch` is not an object with `command`, `args` and `env`.
+ */
+export function rewriteMcpConfig(config: any, key: string, launch: any): any;
+
+/**
+ * [`rewrite_wikilinks`](import_links::rewrite_wikilinks). `renames` is a plain JS object mapping a
+ * normalised old title to its new title.
+ *
+ * # Errors
+ *
+ * Fails if `renames` is not an object of string values.
+ */
+export function rewriteWikilinks(body: string, renames: any): string;
+
+/**
+ * [`root_folder_id_of`](upload::root_folder_id_of): the writable project's root folder id, or
+ * `undefined` when read-only or the answer has none.
+ */
+export function rootFolderIdOf(join: any): string | undefined;
+
+/**
+ * [`root_key`](edit::root_key).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not an editable root, or the result cannot be serialised.
+ */
+export function rootKey(root: any): any;
+
+/**
+ * [`root_of`](edit::root_of).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ */
+export function rootOf(node: any): any;
+
+/**
+ * [`root_of_kind`](edit::root_of_kind). `kind` is a snake_case tree kind name.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ */
+export function rootOfKind(kind: string): any;
+
+/**
  * [`row_slots`](window::row_slots). `viewport` is `null` before measuring,
  * `pinned` is an array of row indices, `metrics` the TS row constants.
  *
@@ -4556,6 +7021,42 @@ export function retryFuzzinessForTerm(term: string, retry: boolean): number;
 export function rowSlots(count: number, viewport: any, pinned: any, metrics: any): any;
 
 /**
+ * [`rows_for_height`](fit::rows_for_height): grid rows that show `px` of card.
+ */
+export function rowsForHeight(px: number, row_height: number, margin: number): number;
+
+/**
+ * [`s2_paper_id`](semantic_scholar_citation::s2_paper_id): the Semantic Scholar id for a reference.
+ *
+ * # Errors
+ *
+ * Fails if `reference` has the wrong shape.
+ */
+export function s2PaperId(reference: any): string;
+
+/**
+ * [`s2_to_hit`](related_paper_hit::s2_to_hit): the hit for a Semantic Scholar paper, or nothing
+ * when it has no title.
+ *
+ * # Errors
+ *
+ * Fails if `paper` cannot be read as a Semantic Scholar paper object.
+ */
+export function s2ToHit(paper: any): any;
+
+/**
+ * [`safe_artifact_caption`](artifact_markdown::safe_artifact_caption) (TS `safeArtifactCaption`).
+ * `undefined` or `null` counts as no caption.
+ */
+export function safeArtifactCaption(alt?: string | null): string;
+
+/**
+ * [`safe_image_destination`](artifact_markdown::safe_image_destination) (TS `safeImageDestination`).
+ * `undefined` when the URL is not allowed.
+ */
+export function safeImageDestination(url: string): string | undefined;
+
+/**
  * [`safe_label`](untrusted_context::safe_label).
  */
 export function safeLabel(label: string, nonce: string): string;
@@ -4564,6 +7065,16 @@ export function safeLabel(label: string, nonce: string): string;
  * [`safe_name`](experiment_artifacts::safe_name).
  */
 export function safeName(name: string): string;
+
+/**
+ * [`safe_relative`]: the normalised path inside the build directory.
+ *
+ * # Errors
+ *
+ * Throws an `Error` with the refusal message when the path leaves the build directory or names a
+ * latexmk rc file.
+ */
+export function safeRelative(candidate: string): string;
 
 /**
  * [`wf_core::workspace::safe_workspace_path`] for JS.
@@ -4585,6 +7096,15 @@ export function safeWorkspacePath(path: string): string;
 export function samePeers(a: any, b: any): boolean;
 
 /**
+ * [`same_row`] for JS (TS `sameRow`).
+ *
+ * # Errors
+ *
+ * Fails when a row is not a plain object.
+ */
+export function sameRow(a: any, b: any): boolean;
+
+/**
  * [`wf_core::sync::merge::same_value`] for JS.
  *
  * # Errors
@@ -4594,6 +7114,21 @@ export function samePeers(a: any, b: any): boolean;
 export function sameValue(a: any, b: any): boolean;
 
 /**
+ * [`sanitize_app_href`]: a same-origin app path on a known root, or `None`.
+ */
+export function sanitizeAppHref(raw?: string | null): string | undefined;
+
+/**
+ * [`sanitize_pdf_url`]: `None` (`undefined` in JS) when the URL is refused.
+ */
+export function sanitizePdfUrl(raw?: string | null): string | undefined;
+
+/**
+ * [`sanitize_reader_href`]: a same-origin `/reader` path, or `None`.
+ */
+export function sanitizeReaderHref(raw?: string | null): string | undefined;
+
+/**
  * [`sanitize_section_targets`](overleaf::sanitize_section_targets); `null` when malformed.
  *
  * # Errors
@@ -4601,6 +7136,21 @@ export function sameValue(a: any, b: any): boolean;
  * Fails if `input` cannot be read as JSON.
  */
 export function sanitizeSectionTargets(input: any): any;
+
+/**
+ * [`scope_notes`](page::scope_notes) (TS `scopeNotes`): the indices of the notes that pass the
+ * list and tag filters. `membership` is an object of list id to an array of note ids.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ */
+export function scopeNoteIndices(notes: any, list_filter: string[], tag_filter: string[], membership: any): any;
+
+/**
+ * [`screen_for_path::screen_for_path`]: the screen cache id for a pathname, or `undefined`.
+ */
+export function screenForPath(pathname: string): string | undefined;
 
 /**
  * [`screen_point_to_pdf`] as `{ x, y }` (TS `screenPointToPdf`).
@@ -4620,6 +7170,26 @@ export function screenPointToPdf(sx: number, sy: number, p: any): any;
  * Fails if `next` or `existing` has the wrong shape.
  */
 export function screeningDecisionError(next: any, existing: any): string | undefined;
+
+/**
+ * [`decision_from_row`](screening::decision_from_row) (TS `PostgrestScreeningRepository`
+ * `toDomain`): a stored `screening_decisions` row as a decision.
+ *
+ * # Errors
+ *
+ * Fails if `row` has the wrong shape, or its stage or state is not one the enums know.
+ */
+export function screeningDecisionFromRow(row: any): any;
+
+/**
+ * [`decision_to_row`](screening::decision_to_row) (TS `PostgrestScreeningRepository`
+ * `record`): a decision as the `screening_decisions` row the table takes.
+ *
+ * # Errors
+ *
+ * Fails if `decision` has the wrong shape.
+ */
+export function screeningDecisionToRow(decision: any): any;
 
 /**
  * [`search_revision`](search_document::search_revision).
@@ -4649,6 +7219,25 @@ export function searchTextFromItems(items: any): any;
 export function sectionProgress(node: any): any;
 
 /**
+ * [`seed_doi`](related_paper_hit::seed_doi): the seed's DOI, or the arXiv DOI, or nothing.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JavaScript value.
+ */
+export function seedDoi(doi?: string | null, arxiv_id?: string | null): any;
+
+/**
+ * [`seen_files`](folder_diff::seen_files) over the folder and current texts, the
+ * base digests by path, and the renames from [`renameSources`].
+ *
+ * # Errors
+ *
+ * Fails if the inputs do not match the shape, or the result cannot be serialized.
+ */
+export function seenFiles(folder: any, current: any, base: any, renamed: any): any;
+
+/**
  * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
  * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
  * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
@@ -4660,6 +7249,24 @@ export function sectionProgress(node: any): any;
 export function segmentInkLines(points: Float64Array, offsets: Uint32Array, pen: Uint8Array, t0s: Float64Array, window_ms?: number | null, band_ratio?: number | null): any;
 
 /**
+ * [`rules::segments_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ */
+export function segmentsFor(kind: string): any;
+
+/**
+ * [`select_model_provider`](model_router::select_model_provider); a refusal throws its message as text.
+ *
+ * # Errors
+ *
+ * Fails if `providers` is not a list of `{ provider, available }`, or the selection is refused.
+ */
+export function selectModelProvider(providers: any, selected: string): string;
+
+/**
  * [`selected_pdf_pages`](pdf_pages::selected_pdf_pages) as an array of page numbers.
  *
  * # Errors
@@ -4667,6 +7274,16 @@ export function segmentInkLines(points: Float64Array, offsets: Uint32Array, pen:
  * Fails only if the result cannot be serialised.
  */
 export function selectedPdfPages(answer: string, count: number): any;
+
+/**
+ * [`selected_text`](page_math::selected_text): the text of the lines the chosen strokes
+ * belong to, one per line.
+ *
+ * # Errors
+ *
+ * Fails if `lines` is not an array of lines or `indices` is not an array of numbers.
+ */
+export function selectedText(lines: any, indices: any): string;
 
 /**
  * [`selection_to_anchor`] as a `CombinedPdfAnchor`, or `null` when the selection is empty or out of range.
@@ -4688,6 +7305,25 @@ export function selectionToAnchor(selection: any, page: any): any;
 export function semanticScholarToMetadata(paper: any): any;
 
 /**
+ * [`semantic_status_text`](semantic_status_text::semantic_status_text). `status` is a
+ * `SemanticStatus` (tagged by `phase`).
+ *
+ * # Errors
+ *
+ * Fails if `status` cannot be read as the expected shape.
+ */
+export function semanticStatusText(status: any): string;
+
+/**
+ * [`serialise_artifact_ref`](artifact_refs::serialise_artifact_ref) (TS `serialiseArtifactRef`).
+ *
+ * # Errors
+ *
+ * Fails if `artifact_ref` has the wrong shape.
+ */
+export function serialiseArtifactRef(artifact_ref: any): string;
+
+/**
  * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
  *
  * # Errors
@@ -4696,6 +7332,11 @@ export function semanticScholarToMetadata(paper: any): any;
  * `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
 export function serializeWorkspace(snapshot_json: string, project_id: string, project_name: string): any;
+
+/**
+ * [`session_action`] for JS (TS `sessionAction`): `"idle"`, `"adopt"`, `"drive"` or `"foreign"`.
+ */
+export function sessionAction(signed_in_user_id?: string | null, adopted_account_id?: string | null): string;
 
 /**
  * [`set_image_placement`](markdown_image_width::set_image_placement): rewrite the `ordinal`-th
@@ -4724,6 +7365,16 @@ export function setRatio(layout: any, target: any, ratio: number): any;
  * Fails if an argument has the wrong shape.
  */
 export function setTabMode(layout: any, target: any, mode: any): any;
+
+/**
+ * [`settle_plan`] for JS (TS `settleConflictPlan`). `kind` is `"edit"`, `"deleted_remote"` or
+ * `"deleted_local"`. Returns `{ action, ... }`.
+ *
+ * # Errors
+ *
+ * Fails when `kind` is not one of those strings or a row is not a plain object.
+ */
+export function settleConflictPlan(kind: any, base: any, local: any, remote: any): any;
 
 /**
  * [`share_allows_comment`](sharing::share_allows_comment).
@@ -4780,9 +7431,60 @@ export function shareSupportsEditAccess(resource_type: any, resource_id?: string
 export function sharedItem(kind: any, row: any, source: any): any;
 
 /**
+ * [`shared_item_href`](sharing::shared_item_href).
+ *
+ * # Errors
+ *
+ * Fails when `item` is not a shared item.
+ */
+export function sharedItemHref(item: any): string;
+
+/**
+ * [`shared_item_type_label`](sharing::shared_item_type_label).
+ *
+ * # Errors
+ *
+ * Fails when `kind` is not a shareable type.
+ */
+export function sharedItemTypeLabel(kind: any): string;
+
+/**
+ * [`shared_paper_annotation_summary`](sharing::shared_paper_annotation_summary).
+ *
+ * # Errors
+ *
+ * Fails when `metadata` is not JSON, or the summary cannot be converted to a JS value.
+ */
+export function sharedPaperAnnotationSummary(metadata: any): any;
+
+/**
+ * [`shared_provider_hint`]. `descriptor` and `all` carry `id`, `provider` and `title`;
+ * other fields are ignored.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
+ */
+export function sharedProviderHint(descriptor: any, all: any): any;
+
+/**
+ * [`shared_resource_href`](sharing::shared_resource_href).
+ *
+ * # Errors
+ *
+ * Fails when `kind` is not a shareable type.
+ */
+export function sharedResourceHref(kind: any, resource_id: string): string;
+
+/**
  * [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
  */
 export function shortSha(sha?: string | null): string | undefined;
+
+/**
+ * [`shortcut_label::shortcut_label`]: a whole chord, `⌘⇧F` reads `Ctrl+Shift+F` off a Mac.
+ */
+export function shortcutLabel(chord: string, mac: boolean): string;
 
 /**
  * [`should_append_ink_point`]; `minDistance` defaults to 0.75.
@@ -4790,9 +7492,30 @@ export function shortSha(sha?: string | null): string | undefined;
 export function shouldAppendInkPoint(path: Float64Array, x: number, y: number, min_distance?: number | null): boolean;
 
 /**
+ * [`should_mount_shell_children`](gate::should_mount_shell_children).
+ */
+export function shouldMountShellChildren(loading: boolean, needs_privacy_accept: boolean, container_ready: boolean): boolean;
+
+/**
+ * [`should_persist_body`](collab::should_persist_body).
+ */
+export function shouldPersistBody(ready: boolean, next: string, last_saved: string): boolean;
+
+/**
+ * [`should_persist_index`](index_cache_policy::should_persist_index).
+ */
+export function shouldPersistIndex(installed_app: boolean, document_count: number): boolean;
+
+/**
  * [`should_retry`](search_retry::should_retry).
  */
 export function shouldRetrySearch(result_count: number, term_count: number): boolean;
+
+/**
+ * [`should_show_workspace_loader`](gate::should_show_workspace_loader). `error` is the startup
+ * error text, or nothing; an empty string counts as no error, as it does in JS.
+ */
+export function shouldShowWorkspaceLoader(loading: boolean, needs_privacy_accept: boolean, container_ready: boolean, error?: string | null): boolean;
 
 /**
  * [`should_sync_standalone`](org::should_sync_standalone). `labs` is `null` when the
@@ -4833,6 +7556,11 @@ export function simplifyInkPath(path: Float64Array, tolerance?: number | null): 
 export function simplifyPathIndices(path: Float64Array, tolerance?: number | null): any;
 
 /**
+ * [`site_of`](paper_preview::site_of) (TS `siteOf`).
+ */
+export function siteOf(url: string): string;
+
+/**
  * [`slug_for`](wf_core::sync::folder_layout::slug_for); `fallback` defaults to
  * `"untitled"` (TS `slugFor`).
  */
@@ -4860,6 +7588,25 @@ export function smoothInkStroke(points: Float64Array, pressures: Float64Array, o
 export function snapInkShape(points: Float64Array): any;
 
 /**
+ * [`snap_to_text`]: `runs` is `{ left, top, right, bottom }[]` (plain boxes, not DOMRects).
+ * Returns `{ index, x, y }` or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `runs` is not an array of `{ left, top, right, bottom }` objects.
+ */
+export function snapToText(runs: any, x: number, y: number): any;
+
+/**
+ * [`sort_by_due`](screen::sort_by_due): dated milestones soonest first, undated after.
+ *
+ * # Errors
+ *
+ * Fails if `milestones` has the wrong shape, or the result cannot be serialised.
+ */
+export function sortByDue(milestones: any): any;
+
+/**
  * [`sort_by_reading_order_indices`] as an array of input indices in reading order.
  *
  * # Errors
@@ -4878,6 +7625,11 @@ export function sortByReadingOrder(tagged: any): any;
 export function sortHitOrder(rows: any, order: any): any;
 
 /**
+ * [`source_note_template_context`]: the `{{...}}` values for a paper's source note.
+ */
+export function sourceNoteTemplateContext(input: any): any;
+
+/**
  * [`span_distance`](vocab_match::span_distance); `Infinity` when refused.
  *
  * # Errors
@@ -4885,6 +7637,15 @@ export function sortHitOrder(rows: any, order: any): any;
  * Fails if `words` or `entry_words` is not an array of strings.
  */
 export function spanDistance(words: any, entry_words: any): number;
+
+/**
+ * [`span_points`](text_anchor::span_points): `lengths` are the text node lengths, in order.
+ *
+ * # Errors
+ *
+ * Fails when `lengths` is not a list of counts or `span` is not a text span.
+ */
+export function spanPoints(lengths: any, span: any): any;
 
 /**
  * [`splitBibliographyEntries`](bibliography::split_bibliography_entries): first format with three or more entries.
@@ -4914,6 +7675,11 @@ export function splitByAuthorStart(lines: any): any;
 export function splitByMargins(lines: any): any;
 
 /**
+ * [`split_headline`] for JS (TS `splitHeadline`): `{ headline, rest }`.
+ */
+export function splitHeadline(body: string): any;
+
+/**
  * [`split_ink_text_layer`](wf_core::sync::ink_note::split_ink_text_layer): one string per
  * page (TS `splitInkTextLayer`).
  *
@@ -4931,6 +7697,16 @@ export function splitInkTextLayer(body: string): any;
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
  */
 export function splitNumberedEntries(lines: any): any;
+
+/**
+ * [`split_outside_edits`](outside_edits::split_outside_edits) on `{ notes, rows, seen }`,
+ * returning `{ noteHeld, rowHeld, reasons }`.
+ *
+ * # Errors
+ *
+ * Fails if the input does not match the shape, or the result cannot be serialized.
+ */
+export function splitOutsideEdits(input: any): any;
 
 /**
  * [`split_pane`](pane::split_pane). `direction` is `"row"` or `"column"`.
@@ -4960,6 +7736,16 @@ export function splitProposalContent(content: string): any;
 export function splitTopLevel(expression: string): any;
 
 /**
+ * [`stack_margin_notes`]: `anchorTops` is a number array; returns `{ index, top, anchorTop }[]`
+ * in ascending `anchorTop` order.
+ *
+ * # Errors
+ *
+ * Fails if `anchorTops` is not an array of numbers.
+ */
+export function stackMarginNotes(anchor_tops: any, card_height: number): any;
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -4978,9 +7764,23 @@ export function stampWorkspaceId(content: string, id: string): string | undefine
 export function statusPatchForExperiment(experiment: any, status: any, now: string): any;
 
 /**
+ * [`step_cursor`](quick::step_cursor): the row an arrow key lands on.
+ */
+export function stepCursor(cursor: number, delta: number, length: number): number;
+
+/**
  * [`steps_to_prune`](experiments::steps_to_prune).
  */
 export function stepsToPrune(stored_steps: Float64Array): Float64Array;
+
+/**
+ * [`streak_days`] for JS (TS `streakDays`).
+ *
+ * # Errors
+ *
+ * Fails when `entryDates` is not an array of strings.
+ */
+export function streakDays(entry_dates: any, today: string): number;
 
 /**
  * [`stride_for_step`](experiments::stride_for_step).
@@ -5041,6 +7841,16 @@ export function stripUnresolvedImageRefs(body: string, prefix: string, paths: an
 export function strokeBaseWidth(samples: Float64Array, base: number): number;
 
 /**
+ * [`stroke_clip_text`]: the clipboard text for a set of `InkStroke`s.
+ */
+export function strokeClipText(strokes: any): string;
+
+/**
+ * [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `undefined` for fewer than two numbers.
+ */
+export function strokePath(points: Float64Array): string | undefined;
+
+/**
  * [`students_of`](member::students_of). Returns indices into `team`.
  *
  * # Errors
@@ -5059,6 +7869,11 @@ export function studentsOf(viewer_id: string | null | undefined, team: any): any
 export function substituteVariables(template: string, context_value: any): string;
 
 /**
+ * [`subtree_ids`]: the id of `node` and of every list below it.
+ */
+export function subtreeIds(node: any): any;
+
+/**
  * [`summarize_pdf_drop`](paper_drop::summarize_pdf_drop) (TS `summarizePdfDrop`).
  *
  * # Errors
@@ -5071,6 +7886,34 @@ export function summarizePdfDrop(entries: any): any;
  * [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
  */
 export function surnameKey(name: string): string;
+
+/**
+ * [`sync_dot`] for JS (TS `syncDot`). `null` when the account does not sync and is online.
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a sync state with the expected fields.
+ */
+export function syncDot(input: any): any;
+
+/**
+ * [`field_shown`]: whether the connection field with `key` is asked for in this sign-in mode.
+ */
+export function syncFieldShown(key: string, mattermost_sign_in: boolean): boolean;
+
+/**
+ * [`sync_stroke_steps`]: `history` is the page log, `depth` the worker's stroke count.
+ */
+export function syncStrokeSteps(history: any, depth: number): any;
+
+/**
+ * [`local_first_route::synced_tables`] as an array of table names.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ */
+export function syncedTables(): any;
 
 /**
  * [`tab_at`](pane::tab_at).
@@ -5109,6 +7952,21 @@ export function tabMode(tab: any): any;
 export function tabSeparatedToMarkdownTable(input: string): any;
 
 /**
+ * [`tag_colour`](graph_colour::tag_colour): the hue for a tag.
+ */
+export function tagColor(tag: string): string;
+
+/**
+ * [`to_tag`]: a `tags` row as the app's tag.
+ */
+export function tagFromRow(row: any): any;
+
+/**
+ * [`tag_to_hashtag`](note_tags::tag_to_hashtag). Empty when the name has no usable characters.
+ */
+export function tagToHashtag(name: string): string;
+
+/**
  * [`tag_tone`](tag_tone::tag_tone): colour slot `1..=6` for a tag.
  */
 export function tagTone(tag: string): number;
@@ -5132,6 +7990,32 @@ export function takeInkRedo(state: any): any;
 export function takeInkUndo(state: any): any;
 
 /**
+ * [`take_page_step`]: `direction` is `"undo"` or `"redo"`; gives
+ * `{ history, step }`, or `null` when that stack is empty.
+ */
+export function takePageStep(history: any, direction: string): any;
+
+/**
+ * [`engine_args`]: the argument vector for `engine` (`"latexmk"`, `"tectonic"` or `"pdflatex"`)
+ * compiling `entry`.
+ *
+ * # Errors
+ *
+ * Fails if `engine` is not one of the known engine names, or the result cannot be converted to
+ * JS.
+ */
+export function texEngineArgs(engine: any, entry: string): any;
+
+/**
+ * [`parse_tex_log`]: the errors in a TeX log, one per place.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ */
+export function texLogErrors(log: string, entry: string): any;
+
+/**
  * [`text_fingerprint`](analysis_text::text_fingerprint) (TS `textFingerprint`).
  *
  * # Errors
@@ -5141,9 +8025,33 @@ export function takeInkUndo(state: any): any;
 export function textFingerprint(texts: any): string;
 
 /**
+ * [`text_hash`](semantic_fingerprint::text_hash): the stored fingerprint of a document's embedded text.
+ */
+export function textHash(text: string): string;
+
+/**
  * [`theme_config_template`](theme_config::theme_config_template): the starter file.
  */
 export function themeConfigTemplate(): string;
+
+/**
+ * [`tick_format`]: how the tick labels are rendered for these values.
+ */
+export function tickFormat(values: any): any;
+
+/**
+ * [`timeline_lane_offset`](timeline::timeline_lane_offset).
+ */
+export function timelineLaneOffset(mid: number, year?: number | null): number | undefined;
+
+/**
+ * [`timeline_mid_year`](timeline::timeline_mid_year). `years` is an array of years, `null` where unknown.
+ *
+ * # Errors
+ *
+ * Fails if `years` is not an array of optional numbers.
+ */
+export function timelineMidYear(layout: string, years: any): number | undefined;
 
 /**
  * [`title_fixes`] (TS `titleFixes`). Only papers whose title needs a fix are listed.
@@ -5155,6 +8063,15 @@ export function themeConfigTemplate(): string;
 export function titleFixes(papers: any): any;
 
 /**
+ * [`route_title::title_for_path`]. `navItems` is an array of `{ path, label }`.
+ *
+ * # Errors
+ *
+ * Fails if `nav_items` is not an array of `{ path, label }` objects.
+ */
+export function titleForPath(pathname: string, nav_items: any): string;
+
+/**
  * [`title_from_file_name`](paper_title::title_from_file_name) (TS `titleFromFileName`).
  */
 export function titleFromFileName(title: string): string;
@@ -5163,6 +8080,15 @@ export function titleFromFileName(title: string): string;
  * [`title_key`](paper_title::title_key) (TS `titleKey`). `None` becomes `undefined` in JS.
  */
 export function titleKey(title?: string | null): string | undefined;
+
+/**
+ * [`title_of`](quick::title_of): the title a row is shown under.
+ *
+ * # Errors
+ *
+ * Fails if `node` is not a tree row.
+ */
+export function titleOf(node: any): string;
 
 /**
  * [`title_similarity`](analysis_text::title_similarity) (TS `titleSimilarity`).
@@ -5236,6 +8162,24 @@ export function toZoteroItem(paper: any): any;
 export function toZoteroWritePayload(ann: any, parent_item_key: string): any;
 
 /**
+ * [`toggle_key`](state::toggle_key) for the expanded rows.
+ *
+ * # Errors
+ *
+ * Fails if the expanded argument is not an array of strings, or the result cannot be serialised.
+ */
+export function toggleExpanded(expanded: any, key: string): any;
+
+/**
+ * [`nav_open_groups::toggle_group`]: `groups` with `key` added when closed, removed when open.
+ *
+ * # Errors
+ *
+ * Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
+ */
+export function toggleGroup(groups: any, key: string): any;
+
+/**
  * [`toggle_preview`](pane::toggle_preview).
  *
  * # Errors
@@ -5243,6 +8187,15 @@ export function toZoteroWritePayload(ann: any, parent_item_key: string): any;
  * Fails if `layout` has the wrong shape.
  */
 export function togglePreview(layout: any, new_pane_id: string): any;
+
+/**
+ * [`toggle_key`](state::toggle_key) for the open sections.
+ *
+ * # Errors
+ *
+ * Fails if the open argument is not an array of strings, or the result cannot be serialised.
+ */
+export function toggleSection(open: any, id: string): any;
 
 /**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
@@ -5253,6 +8206,17 @@ export function togglePreview(layout: any, new_pane_id: string): any;
  * `options` is not a valid `TokenizerOptions` object.
  */
 export function tokenize(text: string, options: any): any;
+
+/**
+ * [`tool_owns_the_page`]: every tool but `select` takes the page from the text selection.
+ */
+export function toolOwnsThePage(tool: string): boolean;
+
+/**
+ * [`trail_diameter_px`](trail::trail_diameter_px): the trail's diameter in CSS px for a
+ * nib width in 0.1 mm on a page `page_width_px` wide.
+ */
+export function trailDiameterPx(width: number, page_width_px: number): number;
 
 /**
  * [`transform_x`](text_ot::transform_x): `[ours, theirs]` rewritten to apply after each other.
@@ -5288,6 +8252,15 @@ export function treePathPairs(nodes: any, entity: any, project_root: string): an
 export function uncroppedFigureBox(value: any): any;
 
 /**
+ * [`union_rect`]: the box around a set of rects, or `null` when there are none.
+ *
+ * # Errors
+ *
+ * Fails if `rects` is not an array of `[x1, y1, x2, y2]` arrays.
+ */
+export function unionRect(rects: any): any;
+
+/**
  * [`unique_cite_key`](cite_key::unique_cite_key) (TS `uniqueCiteKey`). `used` is a JS array of
  * strings; the caller records the returned key.
  *
@@ -5296,6 +8269,15 @@ export function uncroppedFigureBox(value: any): any;
  * Fails if `paper` is not an object with a string `id`, or `used` is not an array of strings.
  */
 export function uniqueCiteKey(paper: any, used: any): string;
+
+/**
+ * [`unique_device_name`](panel_labels::unique_device_name): an adoption label no taken name matches.
+ *
+ * # Errors
+ *
+ * Fails if `taken` is not an array of strings.
+ */
+export function uniqueDeviceName(name: string, device_label: string, taken: any): string;
 
 /**
  * [`unique_figure_name`](markdown_to_latex::unique_figure_name) over a list of the names
@@ -5339,6 +8321,11 @@ export function untrustedContextRule(): string;
  * Fails when the page has no title, or its title names the page rather than a paper.
  */
 export function urlMetaToMetadata(meta: any): any;
+
+/**
+ * [`usable_status`](zotero_local_status::usable_status) (TS `usableStatus`).
+ */
+export function usableStatus(status: number): number;
 
 /**
  * [`user_gate_open`]. `gate` is `null` or `undefined` for an ungated descriptor.
@@ -5427,6 +8414,27 @@ export function vaultPageBase(path: string, content: string): any;
 export function vaultPageSide(path: string, content: string): any;
 
 /**
+ * [`to_domain`]: a `vault_pages` row as a full page.
+ */
+export function vaultPageToDomain(row: any): any;
+
+/**
+ * [`to_row`]: a page as the `vault_pages` row it is written as.
+ */
+export function vaultPageToRow(page: any): any;
+
+/**
+ * [`to_summary_domain`]: a `vault_pages` row as a summary page (no body, a preview).
+ */
+export function vaultPageToSummaryDomain(row: any): any;
+
+/**
+ * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `undefined`
+ * when there is none. The TS wrapper maps `undefined` to `null`.
+ */
+export function vaultRootFromText(text: string): string | undefined;
+
+/**
  * Rebuild an index from `VectorIndex.toBytes()` output.
  *
  * # Errors
@@ -5436,10 +8444,6 @@ export function vaultPageSide(path: string, content: string): any;
 export function vectorIndexFromBytes(bytes: Uint8Array): VectorIndex;
 
 /**
- * [`verdict_for`](screening::verdict_for) (TS `verdictFor`).
- *
- * # Errors
- *
  * Fails if `decisions` or `stage` has the wrong shape.
  */
 export function verdictFor(decisions: any, item_id: string, stage: any): any;
@@ -5477,6 +8481,40 @@ export function visibleRows(nodes: any, expanded: any): any;
 export function visualPageSize(page: any, rotation: number): any;
 
 /**
+ * [`vscode_json`](mcp_client_config::vscode_json) for a `McpLaunchLine`.
+ *
+ * # Errors
+ *
+ * Fails if `launch` has the wrong shape.
+ */
+export function vscodeJson(launch: any): string;
+
+/**
+ * [`walk_sections`] over the report outline: body lines, warnings, figures and counts.
+ */
+export function walkOverleafSections(tree: any, opts: any): any;
+
+/**
+ * [`wiki_page_refs`]: the wiki's pages as `{ id, title, body }`.
+ */
+export function wikiPageRefs(pages: any): any;
+
+/**
+ * [`wiki_source_documents`]: notes and papers as extraction documents. `sourceIds` is
+ * optional; omitted means every note and paper.
+ */
+export function wikiSourceDocuments(pages: any, papers: any, source_ids: any): any;
+
+/**
+ * [`nav_open_groups::with_active`]: `groups` with `active` appended when it is not already listed.
+ *
+ * # Errors
+ *
+ * Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
+ */
+export function withActive(groups: any, active?: string | null): any;
+
+/**
  * [`with_image_width`](markdown_image_width::with_image_width): the alt for a width, keeping any
  * crop or side. `null` clears the width.
  *
@@ -5510,6 +8548,20 @@ export function withInkPageFigures(text: string, figures: any): string;
  * Fails if `alt` is too long or `placement` has the wrong shape.
  */
 export function withMdImageAlt(alt: string, placement: any): string;
+
+/**
+ * [`with_missing_figures`]: the package files with `manifest.json` rewritten for missing figures.
+ */
+export function withMissingFigures(files: any, missing: any): any;
+
+/**
+ * [`stored_heights`](fit::stored_heights): `heights[i]`, or the saved height of card `ids[i]`.
+ *
+ * # Errors
+ *
+ * Fails when an argument is not the expected shape.
+ */
+export function withStoredHeights(ids: any, heights: any, stored: any): any;
 
 /**
  * [`without_existing`](extraction::without_existing).
@@ -5596,6 +8648,16 @@ export function writeInkNoteMeta(meta: any): any;
 export function yearColours(years: any): any;
 
 /**
+ * [`YEAR_SPACING`](timeline::YEAR_SPACING): canvas units between one publication year and the next.
+ */
+export function yearSpacing(): number;
+
+/**
+ * [`wf_core::papers::open_access::zenodo_record_id`]: the Zenodo record id in a DOI, or `None`.
+ */
+export function zenodoRecordId(doi: string): string | undefined;
+
+/**
  * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
  */
 export function zoomIn(scale: number, step: number): number;
@@ -5604,6 +8666,15 @@ export function zoomIn(scale: number, step: number): number;
  * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25 in the TS wrapper.
  */
 export function zoomOut(scale: number, step: number): number;
+
+/**
+ * [`annotation_from_item`] (TS `zoteroAnnotationFromItem`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ */
+export function zoteroAnnotationFromItem(item: any): any;
 
 /**
  * [`zotero_arxiv_id`] (TS `zoteroArxivId`). The arXiv id of a Zotero item, or null.
@@ -5618,6 +8689,72 @@ export function zoteroArxivId(item: any): any;
  * [`zotero_content_keys`] (TS `zoteroContentKeys`). The keys a paper matches on.
  */
 export function zoteroContentKeys(doi?: string | null, arxiv_id?: string | null, title?: string | null): any;
+
+/**
+ * [`is_pdf_attachment`] (TS `zoteroIsPdfAttachment`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ */
+export function zoteroIsPdfAttachment(item: any): any;
+
+/**
+ * [`item_key`] (TS `zoteroItemKey`). The key, or null.
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ */
+export function zoteroItemKey(item: any): any;
+
+/**
+ * [`zotero_key_of`] (TS `zoteroKeyOf`): the paper's Zotero item key, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `metadata` is not an object of JSON values.
+ */
+export function zoteroKeyOf(metadata: any): any;
+
+/**
+ * [`zotero_library_url`](zotero_library::zotero_library_url): the API URL for a library path.
+ */
+export function zoteroLibraryUrl(library: string, api_origin: string): string;
+
+/**
+ * The message for the 403 the local API answers when its preference is off (TS
+ * `ZOTERO_LOCAL_API_OFF`).
+ */
+export function zoteroLocalApiOff(): string;
+
+/**
+ * [`zotero_local_status_message`](zotero_local_status::zotero_local_status_message)
+ * (TS `zoteroLocalStatusMessage`).
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted.
+ */
+export function zoteroLocalStatusMessage(status: number): any;
+
+/**
+ * [`note_from_item`] (TS `zoteroNoteFromItem`). The note, or null when it has no text.
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ */
+export function zoteroNoteFromItem(item: any): any;
+
+/**
+ * [`pick_main_pdf`] (TS `zoteroPickMainPdf`). The main PDF's key, or null.
+ *
+ * # Errors
+ *
+ * Fails if `pdfs` is not an array of Zotero items.
+ */
+export function zoteroPickMainPdf(pdfs: any): any;
 
 /**
  * [`zotero_remote_to_input`] (TS `zoteroRemoteToInput`). A paper read from a Zotero item,
@@ -5655,6 +8792,8 @@ export interface InitOutput {
     readonly __wbg_archivebudget_free: (a: number, b: number) => void;
     readonly __wbg_inkstrokepacker_free: (a: number, b: number) => void;
     readonly __wbg_vectorindex_free: (a: number, b: number) => void;
+    readonly accountAttention: (a: any) => [number, number, number];
+    readonly accountLinks: (a: any) => [number, number, number];
     readonly acronymsForTitle: (a: number, b: number) => [number, number, number];
     readonly activateTab: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly activeTab: (a: any) => [number, number, number];
@@ -5662,11 +8801,18 @@ export interface InitOutput {
     readonly activeTabRef: (a: any) => [number, number, number];
     readonly addCounts: (a: any, b: any) => [number, number, number];
     readonly addDays: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly addedNotice: (a: number) => [number, number];
     readonly agreementBetween: (a: any, b: any, c: any) => [number, number, number];
     readonly aiReadCategoryForResource: (a: any) => [number, number, number];
+    readonly alignSeries: (a: any) => [number, number, number];
     readonly analyzePdfDocument: (a: any, b: any) => [number, number, number];
     readonly anchorAt: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly annotationDocId: (a: number, b: number) => [number, number];
+    readonly annotationIdentity: (a: any) => [number, number, number, number];
+    readonly annotationPinToDomain: (a: any) => [number, number, number];
+    readonly annotationQuotationTypeRowToDomain: (a: any) => [number, number, number];
+    readonly appendPaperNote: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly appendTagHashtags: (a: number, b: number, c: any) => [number, number, number, number];
     readonly applyCommaPlacement: (a: number, b: number, c: any) => [number, number, number];
     readonly applyDelta: (a: any, b: any, c: any) => [number, number, number];
     readonly applyGroupCommand: (a: any, b: number, c: any) => [number, number, number];
@@ -5676,43 +8822,66 @@ export interface InitOutput {
     readonly archivebudget_admit: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly archivebudget_new: (a: any) => [number, number, number];
     readonly archivebudget_oversize: (a: number) => [number, number];
+    readonly artifactBasename: (a: number, b: number) => [number, number];
     readonly arxivCandidates: (a: number, b: number) => [number, number, number];
     readonly arxivEntryToMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly assemblePageCitations: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly assertSafeExportPath: (a: number, b: number) => [number, number];
+    readonly assetExtension: (a: number, b: number) => [number, number];
+    readonly assetMimeType: (a: number, b: number) => [number, number];
     readonly assetPath: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly axisSpec: (a: number, b: number) => [number, number, number];
     readonly backlinksForAnnotation: (a: any, b: number, c: number) => [number, number, number];
     readonly bibImportMessage: (a: number, b: number, c: number) => [number, number];
+    readonly bibPaperInput: (a: any) => [number, number, number];
     readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
     readonly blankInkPage: (a: any) => [number, number, number];
     readonly blobProviderForRuntime: (a: number, b: number, c: any) => [number, number, number];
     readonly bodyFontSize: (a: any) => [number, number, number];
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
     readonly bodyStats: (a: number, b: number) => [number, number, number];
+    readonly bothEndsMerge: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly boundedBody: (a: number, b: number) => [number, number];
+    readonly breadcrumbs: (a: any, b: any, c: any) => [number, number, number];
     readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
     readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
+    readonly buildGraphData: (a: any) => [number, number, number];
     readonly buildLabSnapshotContent: (a: any) => [number, number, number];
     readonly buildListTree: (a: any) => [number, number, number];
     readonly buildListsTree: (a: any) => [number, number, number];
     readonly buildPageTree: (a: any) => [number, number, number];
+    readonly buildPaperHtmlDocument: (a: any, b: any) => [number, number, number, number];
+    readonly buildProposeFillPrompt: (a: any) => [number, number, number, number];
+    readonly buildReferenceIndex: (a: any, b: any) => [number, number, number];
     readonly buildSectionTree: (a: any) => [number, number, number];
     readonly buildWikiGraph: (a: any) => [number, number, number];
     readonly buildWikiIndex: (a: any, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly buildWorkspaceTree: (a: any) => [number, number, number];
+    readonly cachePathSegments: (a: number, b: number) => [number, number, number, number];
     readonly canCreateRole: (a: number, b: number, c: number, d: number) => number;
+    readonly canDrop: (a: any, b: any) => [number, number, number];
     readonly canJoinInkGroup: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly canRename: (a: any) => [number, number, number];
     readonly canonicalAiToolName: (a: number, b: number) => [number, number];
     readonly cardSnippet: (a: number, b: number, c: number) => [number, number, number, number];
     readonly changedSide: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly checkBibliography: (a: any) => [number, number, number];
     readonly checkGitRemoteUrl: (a: any) => [number, number, number];
     readonly checkInkChunkBody: (a: number, b: number) => [number, number, number];
+    readonly checkOverleafLinkFolder: (a: number, b: number) => [number, number, number];
     readonly checkUrlShape: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly chooseAnchorStrategy: (a: any, b: number, c: number) => [number, number, number];
     readonly chunkForEmbedding: (a: number, b: number, c: any) => [number, number, number];
+    readonly citationAlertMessage: (a: any) => [number, number, number, number];
     readonly citationAlertScores: (a: any) => [number, number, number, number];
     readonly citationAlertTrackFromRow: (a: any) => [number, number, number];
+    readonly citationContexts: (a: any) => [number, number, number];
+    readonly citationExternalIdRef: (a: any) => [number, number, number];
+    readonly citationIntentLabel: (a: any) => [number, number, number, number];
+    readonly citationIntents: (a: any) => [number, number, number];
     readonly citationItemToRect: (a: any, b: number, c: number) => [number, number, number];
+    readonly citeKeyOf: (a: any) => [number, number, number];
+    readonly citedSourceNumbers: (a: number, b: number, c: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
     readonly clampInkPageSize: (a: number, b: number) => [number, number, number];
     readonly clampInkWidth: (a: number) => number;
@@ -5720,19 +8889,30 @@ export interface InitOutput {
     readonly clampPage: (a: number, b: number) => number;
     readonly clampScale: (a: number) => number;
     readonly clampZoomFactor: (a: number, b: number) => number;
+    readonly claudeCodeCommands: () => [number, number];
     readonly cleanArxivId: (a: number, b: number) => [number, number];
     readonly cleanGroups: (a: any) => [number, number, number];
     readonly cleanPastedText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanPdfText: (a: number, b: number, c: any) => [number, number, number];
     readonly cleanPmcid: (a: number, b: number) => [number, number];
     readonly cleanUrlsWithRules: (a: number, b: number, c: any) => [number, number, number];
+    readonly cleanWidgetPalette: (a: any) => [number, number, number];
     readonly cleanWrappedText: (a: number, b: number, c: any) => [number, number, number];
     readonly clipSegmentToArea: (a: any, b: any, c: any) => [number, number, number];
+    readonly cloneLinks: (a: any) => [number, number, number];
     readonly closeTab: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly closedTabs: (a: any, b: any) => [number, number, number];
+    readonly clusterMarks: (a: any, b: number) => [number, number, number];
     readonly coalesceMentions: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly codexToml: (a: any) => [number, number, number, number];
+    readonly coercePaperFieldValue: (a: any, b: any) => [number, number, number];
     readonly coldBlobClientConfig: (a: any) => [number, number, number];
+    readonly collapseAlert: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly collapseToEntities: (a: any, b: number, c: number) => [number, number, number];
     readonly collectAnnotationImageRegions: (a: any) => [number, number, number];
+    readonly collectCitedKeys: (a: number, b: number) => [number, number, number];
+    readonly collectListIds: (a: any) => [number, number, number];
+    readonly colourToolFor: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly commandForChord: (a: any, b: number) => [number, number, number];
     readonly commandMatchIndices: (a: any, b: number, c: number) => [number, number, number];
     readonly commentFromRow: (a: any) => [number, number, number];
@@ -5744,13 +8924,18 @@ export interface InitOutput {
     readonly computeFitWidthScale: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly computeRollupsForPapers: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly conceptKey: (a: number, b: number) => [number, number];
+    readonly conflictRoute: (a: any) => [number, number, number];
+    readonly containerResize: (a: any, b: any) => [number, number, number, number];
     readonly contextNonceFrom: (a: number, b: number) => [number, number];
     readonly coreInfo: () => [number, number, number];
+    readonly countActionList: (a: any) => [number, number, number];
+    readonly countActions: (a: any) => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
     readonly countWords: (a: number, b: number) => number;
     readonly coveredHitMask: (a: any, b: number, c: number) => [number, number, number];
     readonly coveredTextSpans: (a: any, b: any) => [number, number, number];
     readonly creatableRoles: (a: number, b: number) => [number, number, number];
+    readonly creatableUnder: (a: any) => [number, number, number];
     readonly createExperimentWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createInkStrokePacker: (a: any) => [number, number, number];
     readonly createLogEntry: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
@@ -5760,57 +8945,117 @@ export interface InitOutput {
     readonly createReportSectionWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createVaultPageWith: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly createVectorIndex: (a: number) => [number, number, number];
+    readonly createdPageIndex: (a: any, b: any) => [number, number, number];
+    readonly creationKindFor: (a: number, b: number) => [number, number, number];
+    readonly creationTarget: (a: any, b: any, c: any) => [number, number, number];
     readonly cropFigureTo: (a: any, b: any) => [number, number, number];
     readonly crossrefToMetadata: (a: any, b: number, c: number) => [number, number, number];
     readonly damerauLevenshtein: (a: number, b: number, c: number, d: number) => number;
+    readonly dashboardAppendCardPair: (a: any, b: number, c: number, d: number, e: number, f: any) => [number, number, number];
+    readonly dashboardBuildStats: (a: any, b: number, c: number) => [number, number, number];
     readonly dashboardCloseGaps: (a: any, b: any, c: number) => [number, number, number];
     readonly dashboardCompactVertical: (a: any, b: number) => [number, number, number];
+    readonly dashboardDefaultLayout: (a: number) => [number, number, number];
+    readonly dashboardFinalizeLayout: (a: any, b: any) => [number, number, number];
     readonly dashboardLayoutFloors: (a: any, b: number) => [number, number, number];
+    readonly dashboardLayoutSignature: (a: any) => [number, number, number, number];
+    readonly dashboardLgNeedsRepair: (a: any, b: any) => [number, number, number];
+    readonly dashboardMergeRglPositions: (a: any, b: any, c: any, d: number) => [number, number, number];
+    readonly dashboardMergeSupervisorCards: (a: any, b: any, c: any) => [number, number, number];
     readonly dashboardNeedsAttention: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
     readonly dashboardNormalizeItem: (a: any, b: any, c: number) => [number, number, number];
     readonly dashboardPackSm: (a: any, b: any) => [number, number, number];
+    readonly dashboardSmNeedsRepack: (a: any, b: any) => [number, number, number];
     readonly dashboardSuperviseeCounts: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly dashboardSyncLayouts: (a: any, b: any) => [number, number, number];
     readonly dashboardTeamAttention: (a: any, b: number, c: number) => [number, number, number];
     readonly dashboardTopTags: (a: any, b: number) => [number, number, number];
+    readonly daysUntilDate: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly decideAnnotationSync: (a: any, b: number, c: number) => [number, number, number];
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly decideVaultCommit: (a: number, b: any) => [number, number, number];
+    readonly declaredCharset: (a: number, b: number, c: number, d: number) => [number, number];
     readonly decodeHtmlEntities: (a: number, b: number) => [number, number, number, number];
     readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly decodeLocus: (a: number, b: number) => [number, number, number];
     readonly decodeShareLinkToken: (a: number, b: number) => [number, number, number, number];
+    readonly deepestFirstListIds: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly defaultExpanded: (a: any) => [number, number, number];
     readonly defaultGraphSettings: () => [number, number, number];
     readonly defaultInkNoteMeta: () => [number, number, number];
+    readonly defaultModeFor: (a: number, b: number) => [number, number, number];
+    readonly defaultOpenSections: (a: any) => [number, number, number];
     readonly defaultPasteSettings: () => [number, number, number];
+    readonly defaultShareLinkExpiresAt: (a: number) => [number, number];
     readonly degreeColours: (a: any) => [number, number, number];
+    readonly deletedLocalBase: (a: any) => [number, number, number];
+    readonly deletedRemoteSides: (a: any, b: any) => [number, number, number];
+    readonly deletionAction: (a: any, b: any, c: any, d: number, e: number, f: any) => [number, number, number];
     readonly deletionFor: (a: any, b: any) => [number, number, number];
     readonly describeChanges: (a: any) => [number, number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
+    readonly describeRemoteStatus: (a: any) => [number, number, number, number];
     readonly detectCitationStyle: (a: any) => [number, number, number];
     readonly detectColumns: (a: any) => [number, number, number];
+    readonly deviceMarkers: (a: number, b: number, c: number, d: number) => [number, number];
     readonly diffAnnotationFields: (a: any) => [number, number, number];
     readonly diffBody: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly diffJsonData: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly diffRefreshPlan: (a: any, b: any, c: any) => [number, number, number];
     readonly diffWorkspace: (a: any, b: any, c: any) => [number, number, number];
     readonly digestText: (a: number, b: number) => [number, number];
     readonly distanceToSegmentSquared: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly distinctRelated: (a: any) => [number, number, number];
     readonly documentBoost: (a: any, b: any, c: number) => [number, number, number];
+    readonly documentIdOf: (a: number, b: number) => [number, number];
+    readonly documentIdOfPath: (a: number, b: number) => [number, number];
+    readonly documentKind: (a: number, b: number) => [number, number, number];
+    readonly documentSuffix: (a: number, b: number) => [number, number, number];
+    readonly doubleClickFigure: (a: any, b: any, c: number) => [number, number, number];
+    readonly draftIcon: (a: any) => [number, number, number];
+    readonly draftMakes: (a: any) => [number, number, number];
+    readonly draftPlaceholder: (a: any) => [number, number, number];
+    readonly draftReadingLog: (a: any, b: any, c: number, d: number) => [number, number, number, number];
+    readonly dropParentId: (a: any) => [number, number, number];
+    readonly duplicatePlan: (a: any, b: any) => [number, number, number];
+    readonly editSides: (a: any) => [number, number, number];
+    readonly editedRelativeLabel: (a: number) => [number, number];
     readonly effectiveFieldBoosts: (a: any) => [number, number, number];
     readonly effectiveRelationTypes: (a: any) => [number, number, number];
+    readonly emaSmooth: (a: any, b: number) => [number, number, number];
+    readonly embedTitles: (a: number, b: number) => [number, number];
+    readonly embeddableText: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly emptyCellPaperIds: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly emptyIntegration: (a: any) => [number, number, number];
     readonly emptyLayout: (a: number, b: number) => [number, number, number];
+    readonly emptyPageHistory: () => [number, number, number];
+    readonly emptyToNull: (a: number, b: number) => [number, number, number];
     readonly encodeInkChunkBody: (a: any) => [number, number, number, number];
     readonly encodeLocus: (a: any) => [number, number, number, number];
+    readonly encodeOpenGroups: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly encodeShareLinkToken: (a: number, b: number) => [number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly entryFileError: (a: number, b: number) => [number, number];
+    readonly enumLabel: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly enumOptions: (a: number, b: number) => [number, number, number];
+    readonly escapeHtml: (a: number, b: number) => [number, number];
     readonly escapeLatexText: (a: number, b: number) => [number, number];
     readonly evaluateAiAccess: (a: any, b: number, c: number) => [number, number, number];
+    readonly excerptSegments: (a: any) => [number, number, number];
     readonly exclusionReasons: (a: any, b: any) => [number, number, number];
+    readonly expandEmbeds: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly expandIpv6: (a: number, b: number) => [number, number, number];
     readonly experimentActivityAt: (a: any) => [number, number, number];
+    readonly experimentHref: (a: number, b: number, c: number) => [number, number];
+    readonly experimentRowToDomain: (a: any) => [number, number, number];
+    readonly experimentToRow: (a: any) => [number, number, number];
+    readonly experimentsListHref: () => [number, number];
     readonly explainArm: (a: any) => [number, number, number, number];
+    readonly exportAssetPath: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly exportManifestJson: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly exportReadme: (a: number, b: number) => [number, number];
     readonly extractDoi: (a: number, b: number) => [number, number, number, number];
     readonly extractHashtagRefs: (a: number, b: number) => [number, number, number];
     readonly extractHashtags: (a: number, b: number) => [number, number];
@@ -5819,10 +9064,17 @@ export interface InitOutput {
     readonly extractPageTitle: (a: number, b: number) => [number, number, number];
     readonly extractVenue: (a: number, b: number) => [number, number];
     readonly extractWikilinks: (a: number, b: number) => [number, number, number];
+    readonly extractionCsv: (a: any, b: any, c: any) => [number, number, number, number];
+    readonly extractionMarkdown: (a: any, b: any, c: any) => [number, number, number, number];
+    readonly extractionValueRows: (a: any, b: any, c: any) => [number, number, number];
     readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
     readonly figureAltFor: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly figureClipText: (a: any) => [number, number, number, number];
     readonly figureCornerHit: (a: number) => number;
     readonly figureImageFrame: (a: any) => [number, number, number];
+    readonly figureLabel: (a: number, b: number, c: number) => [number, number];
+    readonly figureUnder: (a: any, b: any, c: number) => [number, number, number];
+    readonly filterGraphByNodes: (a: any, b: any, c: any) => [number, number, number];
     readonly filterLabMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly filterRows: (a: any, b: number, c: number) => [number, number, number];
     readonly filterTeamMembers: (a: number, b: number, c: any, d: any) => [number, number, number];
@@ -5833,16 +9085,25 @@ export interface InitOutput {
     readonly findFigureMentions: (a: any, b: any) => [number, number, number];
     readonly findHeadingLines: (a: any, b: number, c: any) => [number, number, number];
     readonly findImageRefs: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly findMarks: (a: any, b: number, c: any) => [number, number, number];
     readonly findPatternCitationMentions: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly findQuoteMatches: (a: number, b: number, c: any) => [number, number, number];
     readonly findReferenceSection: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly findRelated: (a: any, b: number, c: number, d: number, e: any, f: any, g: any, h: any) => [number, number, number];
+    readonly findWikiRoot: (a: any) => [number, number, number];
+    readonly fitCols: (a: number, b: number) => number;
+    readonly fitLayoutToContent: (a: any, b: any, c: any) => [number, number, number];
+    readonly fitScale: (a: number, b: number) => number;
     readonly fitsInkNoteBudget: (a: number, b: number) => number;
     readonly flatPath: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+    readonly flattenOverleafDocs: (a: any) => [number, number, number];
+    readonly flattenOverleafFiles: (a: any) => [number, number, number];
     readonly flattenTree: (a: any) => [number, number, number];
     readonly focusPane: (a: any, b: number, c: number) => [number, number, number];
     readonly focusedTabCount: (a: any) => [number, number, number];
     readonly folderIdsOf: (a: any) => [number, number, number];
+    readonly folderKey: (a: number, b: number) => [number, number];
+    readonly folderKeys: (a: number, b: number) => [number, number];
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly forgetSearchQuery: (a: number, b: number, c: number, d: number) => [number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
@@ -5850,36 +9111,57 @@ export interface InitOutput {
     readonly formatCursorLabel: (a: number, b: number) => [number, number];
     readonly formatFigureTokens: (a: any) => [number, number, number, number];
     readonly formatInviteCode: (a: number, b: number) => [number, number];
+    readonly formatLogLine: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
     readonly formatMetricCell: (a: number, b: number, c: any) => [number, number, number, number];
     readonly formatMetricValue: (a: number, b: number, c: number) => [number, number];
     readonly formatPaperCitation: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly formatQuoteBlock: (a: number, b: number) => [number, number, number, number];
+    readonly formatQuoteCiteClipboard: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly formatReference: (a: any) => [number, number, number, number];
     readonly formatWords: (a: number) => [number, number];
     readonly fromRelativeBlobLinks: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly frontmatterList: (a: any, b: number, c: number) => [number, number, number];
+    readonly frontmatterString: (a: any, b: number, c: number) => [number, number, number, number];
     readonly furnitureKey: (a: number, b: number) => [number, number];
     readonly furnitureLines: (a: any) => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly fuzzinessForTerm: (a: number, b: number) => number;
     readonly gateVectorMask: (a: any, b: number, c: number) => [number, number, number];
+    readonly geminiInstall: () => [number, number];
     readonly getUserIntegrationField: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly gitConnection: (a: any) => [number, number, number];
     readonly gitConnectionReady: (a: any) => [number, number, number];
+    readonly gitReason: (a: number, b: number) => [number, number];
     readonly githubRepoPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly gitlabCombinedActive: (a: any) => [number, number, number];
     readonly graphDegrees: (a: any) => [number, number, number];
     readonly graphDensity: (a: any) => [number, number, number];
     readonly graphFilterCountFor: (a: number, b: number, c: any) => [number, number, number];
+    readonly graphPalette: () => [number, number, number];
     readonly graphTagNames: (a: any, b: any, c: any, d: number) => [number, number, number];
     readonly graphTopologyKey: (a: any, b: number, c: number, d: number) => [number, number, number, number];
+    readonly groupByDay: (a: any) => [number, number, number];
+    readonly groupHunks: (a: any) => [number, number, number];
     readonly groupPaletteRows: (a: any) => [number, number, number];
+    readonly groupProposals: (a: any, b: any, c: any) => [number, number, number];
     readonly groupRecurringLines: (a: any, b: any) => [number, number, number];
+    readonly groupResults: (a: any) => [number, number, number];
     readonly groupRuns: (a: any) => [number, number, number];
+    readonly groupSubtreeItems: (a: any, b: any) => [number, number, number];
     readonly guessBlobContentType: (a: number, b: number) => [number, number, number, number];
     readonly guessTitle: (a: number, b: number) => [number, number];
     readonly hasActiveLab: (a: number, b: number, c: any, d: number) => [number, number, number];
     readonly hasConflictMarkers: (a: number, b: number) => [number, number, number];
+    readonly hasInkView: (a: number, b: number) => number;
+    readonly hasLazyBody: (a: number, b: number) => number;
+    readonly hasPdfMagic: (a: number, b: number) => number;
+    readonly hasPdfView: (a: number, b: number) => number;
     readonly headingOutline: (a: any) => [number, number, number];
     readonly headingSlug: (a: number, b: number) => [number, number];
+    readonly highlightsDigest: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly hostOf: (a: number, b: number) => [number, number];
+    readonly humanise: (a: number, b: number) => [number, number];
+    readonly humanize: (a: number, b: number) => [number, number];
     readonly hydrateTabModes: (a: any, b: any) => [number, number, number];
     readonly hydrateUserSettings: (a: any) => [number, number, number];
     readonly idSuffix: (a: number, b: number) => [number, number, number, number];
@@ -5887,7 +9169,11 @@ export interface InitOutput {
     readonly imageAltFromFilename: (a: number, b: number) => [number, number, number, number];
     readonly imageExtensionForMime: (a: number, b: number) => [number, number, number, number];
     readonly imagePathsInBody: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly imagesOf: (a: any) => [number, number, number, number];
     readonly inReferenceList: (a: number, b: number, c: number, d: any) => [number, number, number];
+    readonly inboxLinks: (a: any) => [number, number, number];
+    readonly incomingRelationLabel: (a: number, b: number) => [number, number];
+    readonly indexFromAnalysis: (a: any, b: any) => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
     readonly initialReaderViewport: (a: number) => [number, number, number];
     readonly inkAttachmentIndex: (a: number, b: number, c: number, d: number) => number;
@@ -5906,12 +9192,14 @@ export interface InitOutput {
     readonly inkPageFigures: (a: number, b: number) => [number, number, number];
     readonly inkPageMarker: (a: number) => [number, number];
     readonly inkPageOverBudget: (a: any) => [number, number, number];
+    readonly inkPageSvg: (a: any, b: any) => [number, number, number, number];
     readonly inkPathJsonSize: (a: number, b: number) => number;
     readonly inkPathsBounds: (a: any) => [number, number, number];
     readonly inkPathsHitTest: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly inkPathsInPolygon: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly inkPointInPolygon: (a: number, b: number, c: any) => [number, number, number];
     readonly inkPressureFactor: (a: number, b: number) => number;
+    readonly inkPrintDocument: (a: any) => [number, number, number, number];
     readonly inkSidecarDir: (a: number, b: number) => [number, number, number, number];
     readonly inkStrokeBandOf: (a: number, b: number) => [number, number];
     readonly inkTangentAt: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
@@ -5928,70 +9216,123 @@ export interface InitOutput {
     readonly integrationsBagFromLegacy: (a: any) => [number, number, number];
     readonly invalidationMap: () => [number, number, number];
     readonly invalidationPlan: (a: number, b: number) => [number, number, number];
+    readonly invertedAbstract: (a: any) => [number, number, number];
     readonly isAllPages: (a: number, b: number) => number;
+    readonly isAllowedPdfProxyUrl: (a: number, b: number) => number;
     readonly isAnnotationSyncState: (a: any) => number;
+    readonly isApiHost: (a: number, b: number) => number;
     readonly isAppOwnedPath: (a: number, b: number) => [number, number, number];
     readonly isBibFile: (a: number, b: number) => number;
     readonly isBibliographicMatch: (a: any, b: any) => [number, number, number];
     readonly isBlanketShare: (a: number, b: number) => number;
     readonly isBoldFont: (a: number, b: number) => number;
+    readonly isBothEndsRpc: (a: number, b: number) => number;
     readonly isCitationDestination: (a: any) => [number, number, number];
     readonly isConferenceCopy: (a: any) => [number, number, number];
+    readonly isCreatableKind: (a: number, b: number) => number;
+    readonly isDismissTap: (a: any, b: any, c: number) => [number, number, number];
+    readonly isDocumentKind: (a: number, b: number) => number;
     readonly isDocumentNode: (a: any) => [number, number, number];
     readonly isEditableReaderTarget: (a: number, b: number, c: number) => number;
+    readonly isElectronMcpEntry: (a: any) => [number, number, number];
     readonly isEmptyPaperSummary: (a: number, b: number) => number;
     readonly isExplicitLabMembership: (a: any) => [number, number, number];
     readonly isHighlighterInk: (a: number, b: number) => number;
+    readonly isHtmlContentType: (a: number, b: number) => number;
     readonly isInkChunkId: (a: number, b: number) => [number, number, number];
     readonly isInkEngineId: (a: number, b: number) => number;
     readonly isInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly isInkNoteFrontmatter: (a: any) => [number, number, number];
     readonly isInkNoteId: (a: number, b: number) => number;
+    readonly isInkTool: (a: number, b: number) => number;
     readonly isIpAddress: (a: number, b: number) => number;
     readonly isIsoDay: (a: number, b: number) => number;
     readonly isKnownResourceType: (a: number, b: number) => number;
     readonly isLiteral: (a: number, b: number) => [number, number, number, number];
+    readonly isLocalZoteroUrl: (a: number, b: number) => number;
+    readonly isNewerVersion: (a: any, b: any) => [number, number, number];
+    readonly isNoteImportFile: (a: number, b: number) => number;
     readonly isOnSamplingGrid: (a: number) => number;
     readonly isOverleafProjectId: (a: number, b: number) => number;
     readonly isPaperFieldKind: (a: number, b: number) => number;
+    readonly isPdfContentType: (a: number, b: number) => number;
     readonly isPdfFile: (a: number, b: number, c: number, d: number) => number;
+    readonly isPenBarrelPointer: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly isPenEraserPointer: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly isPlaceholderTitle: (a: number, b: number) => number;
     readonly isPreviewKey: (a: any, b: number) => [number, number, number];
+    readonly isPrivateHost: (a: number, b: number) => number;
     readonly isPublicAddress: (a: number, b: number) => number;
+    readonly isPublicHttpsUrl: (a: number, b: number) => number;
     readonly isQuotationType: (a: number, b: number) => number;
     readonly isReaderAnnotationType: (a: any) => number;
     readonly isRotatedText: (a: number, b: number) => number;
     readonly isSafeWorkspacePath: (a: number, b: number) => [number, number, number];
+    readonly isSectionOpen: (a: any, b: number, c: number) => [number, number, number];
+    readonly isSettled: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly isStaleRunningExperiment: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly isSubstantialPaperText: (a: number, b: number, c: number) => number;
     readonly isSupervisorRole: (a: number, b: number) => number;
+    readonly isSyncedTable: (a: number, b: number) => number;
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
     readonly isUserIntegrationConnected: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly isZoteroChildItem: (a: any) => [number, number, number];
     readonly isZoteroLibrarySyncMode: (a: any) => number;
     readonly itemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly joinBibtex: (a: any) => [number, number, number, number];
     readonly joinInkTextLayer: (a: any) => [number, number, number, number];
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
     readonly keepFigureOnPage: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly keyLabel: (a: number, b: number, c: number) => [number, number];
+    readonly kindIcon: (a: number, b: number) => [number, number, number];
+    readonly kindIconClass: (a: number, b: number, c: number) => [number, number, number];
     readonly kindMultiplier: (a: number, b: number, c: any) => [number, number, number];
+    readonly kindNames: () => [number, number, number];
+    readonly kindOf: (a: number, b: number) => [number, number];
+    readonly kindOwner: (a: number, b: number) => [number, number, number];
+    readonly kindSuffix: (a: number, b: number) => [number, number, number];
+    readonly kindTintClass: (a: number, b: number) => [number, number, number];
+    readonly kindsForResource: (a: number, b: number) => [number, number, number];
     readonly knownCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly labSnapshotRowToDomain: (a: any) => [number, number, number];
+    readonly labelForPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly labelNumber: (a: any) => [number, number, number];
+    readonly labelSize: (a: number, b: number, c: number) => [number, number, number];
     readonly ladderOrder: (a: any) => [number, number, number];
     readonly latestByReviewerList: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly layoutForCommand: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly layoutForTabMenu: (a: any, b: number, c: number, d: number, e: any, f: number, g: number) => [number, number, number];
+    readonly layoutFromRecord: (a: number, b: number) => [number, number, number];
     readonly leaves: (a: any) => [number, number, number];
     readonly levenshtein: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly libraryBibtex: (a: any) => [number, number, number, number];
+    readonly libraryPinRowToDomain: (a: any) => [number, number, number];
     readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
+    readonly linkGroupOf: (a: number, b: number) => [number, number, number];
+    readonly linkNodeId: (a: any) => [number, number, number];
     readonly lintWiki: (a: any, b: any) => [number, number, number];
+    readonly listDisplayColor: (a: any) => [number, number, number, number];
     readonly listMembership: (a: any, b: any) => [number, number, number];
+    readonly listMembershipByKey: (a: any, b: any, c: any) => [number, number, number];
+    readonly loadOpenGroups: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly localSubgraph: (a: number, b: number, c: number, d: any) => [number, number, number];
     readonly locateAnchor: (a: number, b: number, c: any) => [number, number, number];
+    readonly locateMention: (a: any, b: number, c: number) => [number, number, number];
     readonly logEntryInputError: (a: any) => [number, number, number, number];
+    readonly logEntryMessage: (a: any) => [number, number, number, number];
+    readonly logEntryToDomain: (a: any) => [number, number, number];
+    readonly logEntryToRow: (a: any) => [number, number, number];
+    readonly logEyebrow: (a: any, b: number, c: number) => [number, number, number];
     readonly logPath: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly looksLikeImageUrl: (a: number, b: number) => number;
+    readonly looksLikePdfUrl: (a: number, b: number) => number;
     readonly makeInkStroke: (a: any) => [number, number, number];
     readonly mapInkConfidence: (a: number, b: number, c: number) => number;
+    readonly markActions: (a: any) => [number, number, number];
+    readonly markColourTool: (a: number, b: number) => [number, number];
+    readonly markPopoverShown: (a: number, b: number, c: number, d: number) => number;
     readonly markdownImage: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly markdownToLatex: (a: number, b: number, c: any) => [number, number, number];
     readonly matchAuthorYearText: (a: number, b: number, c: any) => [number, number, number];
@@ -6006,25 +9347,51 @@ export interface InitOutput {
     readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
     readonly maxReportChars: () => number;
+    readonly maxSignedUrlPaths: () => number;
+    readonly mayDriveDevice: (a: number, b: number, c: number, d: number) => number;
+    readonly mayOpenExternally: (a: number, b: number) => number;
+    readonly mcpFileOf: (a: any) => [number, number, number, number];
     readonly mcpReadResult: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
+    readonly mcpServersJson: (a: any) => [number, number, number, number];
     readonly meanPressure: (a: number, b: number) => [number, number];
+    readonly mediaTypeEssence: (a: number, b: number) => [number, number];
+    readonly memberNameMap: (a: any) => [number, number, number];
+    readonly memberRank: (a: number, b: number) => number;
     readonly memberRoleLabelOf: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly memberRowToDomain: (a: any) => [number, number, number];
+    readonly membershipViewFromRow: (a: any) => [number, number, number];
+    readonly mentionItemRanges: (a: any, b: number, c: number) => [number, number, number];
     readonly mentionRects: (a: any, b: number, c: number) => [number, number, number];
+    readonly mergeBothChanged: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly mergeExtractions: (a: any) => [number, number, number];
     readonly mergeGraphPersistedState: (a: any) => [number, number, number];
     readonly mergeHunks: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly mergePaperInto: (a: any, b: any) => [number, number, number];
     readonly mergeReaderAnnotations: (a: any, b: any) => [number, number, number];
     readonly mergeRows: (a: any, b: any, c: any) => [number, number, number];
+    readonly mergeSeenIds: (a: number, b: number, c: number, d: number) => [number, number];
     readonly mergeTemplate: (a: number, b: number, c: number, d: number) => [number, number];
     readonly mergeVaultPage: (a: any, b: any, c: any) => [number, number, number];
     readonly mergeWikiPages: (a: any, b: any) => [number, number, number];
     readonly metadataTitle: (a: number, b: number) => [number, number];
     readonly metricKeys: (a: any) => [number, number, number];
+    readonly metricRowToDomain: (a: any) => [number, number, number];
+    readonly migratedExpanded: (a: any, b: any) => [number, number, number];
+    readonly migratedNotice: (a: number, b: number) => [number, number];
+    readonly milestoneFromRow: (a: any) => [number, number, number];
     readonly milestoneInputError: (a: any) => [number, number, number, number];
+    readonly milestoneMessage: (a: any) => [number, number, number, number];
+    readonly milestoneToRow: (a: any) => [number, number, number];
     readonly milestonesToIcs: (a: any, b: number, c: number, d: number) => [number, number, number, number];
+    readonly missingConfigMessage: (a: any, b: any) => [number, number, number];
+    readonly missingFigureWarning: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly missingPagePlans: (a: any) => [number, number, number];
     readonly missingR2ConfigMessage: (a: any) => [number, number, number];
+    readonly modelCacheUrl: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly modesFor: (a: number, b: number) => [number, number, number];
     readonly moveTab: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
+    readonly movedIds: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly nameOf: (a: any, b: any) => [number, number, number, number];
     readonly nativeCitationMentions: (a: any, b: any, c: any) => [number, number, number];
     readonly needsDisclaimerAcceptance: (a: any) => [number, number, number];
     readonly needsOrgSetup: (a: any) => [number, number, number];
@@ -6032,10 +9399,15 @@ export interface InitOutput {
     readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
     readonly newInkChunkId: (a: number, b: number, c: number) => [number, number, number, number];
     readonly newIssueUrl: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly newestDesktopRelease: (a: any) => [number, number, number];
+    readonly newestFirstOrder: (a: any) => [number, number, number];
     readonly nextAuthStep: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
+    readonly nextCitationPageOffset: (a: number, b: any, c: number) => [number, number, number];
+    readonly nextManifest: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
     readonly nextRotation: (a: number, b: number) => number;
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+    readonly nodeSize: (a: number, b: number, c: number) => [number, number, number];
     readonly normalisePageRotation: (a: number) => number;
     readonly normaliseWhitespace: (a: number, b: number, c: any) => [number, number, number];
     readonly normalizeAiAccessSettings: (a: any) => [number, number, number];
@@ -6044,8 +9416,10 @@ export interface InitOutput {
     readonly normalizeColorValue: (a: any) => [number, number];
     readonly normalizeCommentInput: (a: any) => [number, number, number];
     readonly normalizeDoi: (a: number, b: number) => [number, number];
+    readonly normalizeFieldName: (a: number, b: number) => [number, number];
     readonly normalizeFontStack: (a: any) => [number, number];
     readonly normalizeGraphViewSettings: (a: any) => [number, number, number];
+    readonly normalizeHighlightRects: (a: any) => [number, number, number];
     readonly normalizeLengthValue: (a: any, b: number, c: number) => [number, number];
     readonly normalizeMarkdownImageSyntax: (a: number, b: number) => [number, number, number, number];
     readonly normalizeOrgInviteCode: (a: number, b: number) => [number, number];
@@ -6053,20 +9427,31 @@ export interface InitOutput {
     readonly normalizeProjectPath: (a: number, b: number) => [number, number];
     readonly normalizeSearchHistory: (a: any, b: number) => [number, number, number, number];
     readonly normalizeSearchSettings: (a: any) => [number, number, number];
+    readonly normalizeSelectOptions: (a: number, b: number) => [number, number];
     readonly normalizeShareInput: (a: any) => [number, number, number];
     readonly normalizeTags: (a: number, b: number) => [number, number];
     readonly normalizeThemeConfig: (a: any) => [number, number, number];
     readonly normalizeTitleKey: (a: number, b: number) => [number, number];
     readonly normalizeUserSettings: (a: any) => [number, number, number];
     readonly normalizeVector: (a: number, b: number) => [number, number];
+    readonly normalizeZoteroLibrary: (a: any) => [number, number, number];
+    readonly noteBacklinks: (a: any, b: number, c: number) => [number, number, number];
+    readonly noteTags: (a: any) => [number, number, number, number];
     readonly notesTagged: (a: any, b: any) => [number, number, number];
+    readonly noticeFor: (a: any, b: number) => [number, number, number];
+    readonly oneEuroAlpha: (a: number, b: number) => number;
+    readonly openAlexToHit: (a: any) => [number, number, number];
     readonly openAlexToMetadata: (a: any) => [number, number, number];
+    readonly openModeFor: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly openTab: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly openTabKeys: (a: any) => [number, number, number];
+    readonly openingTab: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
     readonly outlineFromText: (a: any) => [number, number, number];
     readonly outlineIsPlausible: (a: any, b: number) => [number, number, number];
     readonly outlineItemOf: (a: any, b: number) => [number, number, number];
+    readonly outlineItemsFor: (a: any) => [number, number, number];
+    readonly outlineOf: (a: number, b: number, c: number) => [number, number, number];
     readonly outlineProgress: (a: any) => [number, number, number];
     readonly outlineTextLines: (a: any) => [number, number, number];
     readonly overleafExternalUrl: (a: number, b: number) => [number, number];
@@ -6076,14 +9461,28 @@ export interface InitOutput {
     readonly pageFromChunkBody: (a: number, b: number) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number, number];
     readonly pageListProblem: (a: number, b: number, c: number) => [number, number, number];
+    readonly pageTextAfterRecognition: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly pageTextFromItems: (a: any) => [number, number, number, number];
+    readonly pagesToEvict: (a: any, b: any, c: number) => [number, number, number];
+    readonly paintedOrder: (a: any) => [number, number, number];
     readonly paletteModeFor: (a: any) => [number, number, number];
+    readonly paperCiteKeys: (a: any) => [number, number, number];
+    readonly paperCountsForTags: (a: any, b: any) => [number, number, number];
+    readonly paperFieldDefRowToDomain: (a: any) => [number, number, number];
+    readonly paperFieldValueRowToDomain: (a: any) => [number, number, number];
     readonly paperHtmlPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperImageThumbnailPath: (a: number, b: number) => [number, number];
     readonly paperPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperRelationFromRow: (a: any) => [number, number, number];
     readonly paperRelationInputError: (a: any) => [number, number, number, number];
     readonly paperRelationToRow: (a: any) => [number, number, number];
+    readonly paperRowToDomain: (a: any) => [number, number, number];
+    readonly paperRowToSummary: (a: any) => [number, number, number];
+    readonly paperTagFromRow: (a: any) => [number, number, number];
+    readonly paperToBibtex: (a: any, b: number, c: number) => [number, number, number, number];
+    readonly paperToRow: (a: any) => [number, number, number];
+    readonly parseAppVersion: (a: number, b: number) => [number, number, number];
+    readonly parseArtifactRefs: (a: number, b: number) => [number, number, number];
     readonly parseBibEntries: (a: any) => [number, number, number];
     readonly parseBibliography: (a: any, b: number) => [number, number, number];
     readonly parseBibliographyEntry: (a: any, b: number, c: number) => [number, number, number];
@@ -6091,7 +9490,9 @@ export interface InitOutput {
     readonly parseDashboardLayout: (a: any) => [number, number, number];
     readonly parseDoaj: (a: any) => [number, number, number];
     readonly parseEuropePmc: (a: any) => [number, number, number];
+    readonly parseExplorerKeys: (a: number, b: number) => [number, number, number];
     readonly parseExtractionJson: (a: number, b: number) => [number, number, number];
+    readonly parseFigureClip: (a: number, b: number) => [number, number, number];
     readonly parseFigureCrop: (a: number, b: number) => [number, number, number];
     readonly parseFigureTokens: (a: number, b: number) => [number, number, number];
     readonly parseFolderDraft: (a: number, b: number) => [number, number, number];
@@ -6104,74 +9505,122 @@ export interface InitOutput {
     readonly parseLinkRemovalText: (a: number, b: number) => [number, number, number];
     readonly parseMdImageAlt: (a: number, b: number) => [number, number, number];
     readonly parseOpenalex: (a: any) => [number, number, number];
+    readonly parseOverleafLinks: (a: number, b: number) => [number, number, number];
     readonly parseOverleafProjectId: (a: number, b: number) => [number, number];
     readonly parsePageList: (a: number, b: number, c: number) => [number, number, number];
     readonly parsePaperFieldValue: (a: any, b: number, c: number) => [number, number, number];
+    readonly parsePaperHtmlDocument: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly parsePaperRef: (a: any, b: number, c: number) => [number, number, number];
+    readonly parsePlanWidgetBounds: (a: number, b: number) => [number, number, number];
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly parseReaderSplitPane: (a: number, b: number) => [number, number, number];
     readonly parseRegions: (a: number, b: number) => [number, number, number];
+    readonly parseReleaseTag: (a: number, b: number) => [number, number, number];
     readonly parseRollupOptions: (a: number, b: number) => [number, number, number];
     readonly parseSemanticScholar: (a: any) => [number, number, number];
+    readonly parseStrokeClip: (a: number, b: number) => [number, number, number];
+    readonly parseTaskbarCreatedId: (a: number, b: number) => [number, number, number];
     readonly parseThemeConfig: (a: any) => [number, number, number];
     readonly parseUnpaywall: (a: any) => [number, number, number];
     readonly parseWikilinkInner: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly parseWorkspaceFolder: (a: any) => [number, number, number];
     readonly parseZenodo: (a: any) => [number, number, number];
+    readonly partitionPdfTexts: (a: any, b: any) => [number, number, number];
     readonly pasteLandsInVerbatimContext: (a: number, b: number, c: number) => [number, number, number];
+    readonly pastedFigurePlace: (a: any, b: any, c: any) => [number, number, number];
+    readonly pastedStrokesPlace: (a: any, b: any, c: any) => [number, number, number];
     readonly pdfDocId: (a: number, b: number, c: number) => [number, number];
     readonly pdfDocIdsFor: (a: number, b: number, c: number) => [number, number];
     readonly pdfPageHref: (a: number, b: number, c: number) => [number, number];
     readonly pdfPointToScreen: (a: number, b: number, c: any) => [number, number, number];
     readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
     readonly peersFromUsers: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly pendingFieldFills: (a: any, b: number, c: number) => [number, number, number];
     readonly personalizedPageRank: (a: any, b: number, c: number, d: any, e: any) => [number, number, number];
     readonly pgArray: (a: any) => [number, number, number, number];
     readonly pickKeeper: (a: any) => [number, number, number, number];
     readonly pickKeysToEvict: (a: any, b: number) => [number, number, number];
     readonly pickNearestMatch: (a: any, b: any) => [number, number, number];
+    readonly pickProject: (a: any, b: number, c: number) => [number, number, number];
+    readonly picturePath: (a: any) => [number, number, number];
+    readonly pinnedScreenIndex: (a: any) => [number, number, number];
     readonly placeOnSheet: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly placePlanWidget: (a: any, b: any) => [number, number, number];
     readonly planArchiveEntries: (a: any, b: any) => [number, number, number];
     readonly planBibImport: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number];
+    readonly planBibliographyAnnotations: (a: any, b: any) => [number, number, number];
+    readonly planChipTarget: (a: any, b: any, c: any, d: number) => [number, number, number];
+    readonly planCitationSegments: (a: any, b: any) => [number, number, number];
     readonly planDelta: (a: any, b: any) => [number, number, number];
+    readonly planEmbeddingStart: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly planEyebrow: (a: number, b: number) => [number, number, number];
+    readonly planFeedOrigin: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly planFeedUrls: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly planFixOrder: (a: any) => [number, number, number];
+    readonly planItemOrder: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly planMirror: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly planPace: (a: any, b: number, c: number) => [number, number, number, number];
     readonly planSeriesIngestIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly planTimeline: (a: any, b: number, c: number) => [number, number, number];
     readonly planWidgetData: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly plotHeight: (a: number, b: number) => number;
+    readonly plotTier: (a: number) => [number, number];
+    readonly plural: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly pmcCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly pointInArea: (a: any, b: number, c: number) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
+    readonly postgrestErrorInfo: (a: number, b: number) => [number, number, number];
+    readonly postgrestWritable: (a: number, b: number, c: any) => [number, number, number];
+    readonly preprintServerFor: (a: number, b: number) => [number, number];
     readonly pressureByte: (a: number, b: number) => number;
     readonly previewOpen: (a: any) => [number, number, number];
+    readonly previewReaderHref: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly previewSource: (a: any, b: any) => [number, number, number];
     readonly previewTab: () => [number, number, number];
+    readonly primaryPaperRef: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly prismaCaveat: (a: any) => [number, number, number, number];
     readonly prismaCounts: (a: any, b: any) => [number, number, number];
     readonly prismaFigureTex: (a: any, b: any) => [number, number, number, number];
     readonly projectDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly projectFromRow: (a: any) => [number, number, number];
     readonly projectGateOpen: (a: any, b: any) => [number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly projectName: (a: number, b: number) => [number, number];
+    readonly projectZoteroAnnotations: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly projectedPageSize: (a: any) => [number, number, number];
     readonly projection: (a: number, b: number) => [number, number, number, number];
+    readonly proposalApplies: (a: number, b: number, c: number, d: number) => number;
     readonly pruneLayout: (a: any, b: any) => [number, number, number];
+    readonly pushFigureStep: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly pushInkUndo: (a: any, b: any) => [number, number, number];
     readonly quantizeInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly queryTermCount: (a: any) => [number, number, number];
+    readonly quickOpenResults: (a: any, b: number, c: number) => [number, number, number];
     readonly quoteAwkwardMermaidLabels: (a: number, b: number) => [number, number];
     readonly quoteIdent: (a: number, b: number) => [number, number];
     readonly r2BlobClientConfig: (a: any) => [number, number, number];
+    readonly railGroupText: (a: any, b: any, c: any) => [number, number, number];
     readonly rampColour: (a: number) => [number, number];
+    readonly rankFilterOrder: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly rankOpenAccessCandidates: (a: any) => [number, number, number];
+    readonly readFailureReason: (a: number, b: number, c: number) => [number, number];
     readonly readFrontmatter: (a: number, b: number) => [number, number, number];
     readonly readInkChunkHeader: (a: number, b: number) => [number, number, number];
     readonly readInkNoteBody: (a: number, b: number) => [number, number, number];
     readonly readInkNoteMeta: (a: any) => [number, number, number];
+    readonly readInkRequest: (a: any) => [number, number, number];
     readonly readStorageConfig: (a: any) => [number, number, number];
     readonly readableText: (a: number, b: number) => [number, number, number, number];
     readonly readerKeyboardCommand: (a: any) => [number, number, number];
+    readonly readingListItemToDomain: (a: any) => [number, number, number];
+    readonly readingListItemToRow: (a: any) => [number, number, number];
+    readonly readingListToDomain: (a: any) => [number, number, number];
+    readonly readingListToRow: (a: any) => [number, number, number];
+    readonly recentlyApprovedWikiPages: (a: any, b: number) => [number, number, number];
+    readonly recolourNodes: (a: any, b: any, c: number, d: number, e: any, f: any) => [number, number, number];
     readonly reconstructLines: (a: number, b: any, c: any) => [number, number, number];
     readonly rectanglesOverlap: (a: number, b: number, c: number, d: number) => number;
+    readonly redactOverleafErrorText: (a: number, b: number, c: number, d: number) => [number, number];
     readonly redactReport: (a: number, b: number) => [number, number, number];
     readonly redactReportAndCap: (a: number, b: number, c: number) => [number, number, number];
     readonly redactSecret: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -6181,9 +9630,14 @@ export interface InitOutput {
     readonly relatedConcepts: (a: number, b: number, c: any, d: any, e: number) => [number, number, number];
     readonly relativeAssetPaths: (a: number, b: number) => [number, number, number];
     readonly rememberSearchQuery: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly removeHashtagFromBody: (a: number, b: number, c: number, d: number) => [number, number];
     readonly renameInkUndoId: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly renameSources: (a: any, b: any, c: any) => [number, number, number];
+    readonly renamedOutsidePaths: (a: any, b: any) => [number, number, number];
     readonly renderTemplate: (a: number, b: number, c: any) => [number, number, number, number];
     readonly reorderFigureIndices: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly reorderedIds: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly replaceVaultAssetPaths: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
     readonly repoWebUrl: (a: number, b: number) => [number, number];
     readonly reportMarkdown: (a: any) => [number, number, number, number];
@@ -6191,71 +9645,126 @@ export interface InitOutput {
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resizeFigureBox: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resolveAnnotationConflict: (a: any, b: number, c: number) => [number, number, number];
+    readonly resolveArtifactRefsMarkdown: (a: number, b: number, c: any, d: number) => [number, number, number, number];
     readonly resolveArxivId: (a: number, b: number, c: number, d: number) => [number, number];
     readonly resolveCiteKey: (a: any) => [number, number, number, number];
     readonly resolveDisplayRole: (a: number, b: number, c: number, d: number) => [number, number];
     readonly resolveInkPageOrder: (a: any, b: any) => [number, number, number];
     readonly resolveIntegrationConfig: (a: any, b: any) => [number, number, number];
     readonly resolveOrgJoinAssignment: (a: number, b: number, c: any, d: any, e: number, f: number, g: number, h: number) => [number, number, number];
+    readonly resolvePaperPdfUrl: (a: any) => [number, number, number, number];
     readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
+    readonly resolveRelatedPaperUrl: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly resolveSupervisorId: (a: number, b: number) => [number, number];
     readonly resolveTextAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
+    readonly resolveWithRow: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly resourceTypes: () => [number, number, number];
     readonly resultsTable: (a: any) => [number, number, number];
     readonly retrieveAiExcerpts: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly retryFuzzinessForTerm: (a: number, b: number, c: number) => number;
+    readonly reviewers: (a: any) => [number, number, number, number];
+    readonly rewriteMcpConfig: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly rewriteWikilinks: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly rootFolderIdOf: (a: any) => [number, number, number, number];
+    readonly rootKey: (a: any) => [number, number, number];
+    readonly rootOf: (a: any) => [number, number, number];
+    readonly rootOfKind: (a: number, b: number) => [number, number, number];
     readonly rowSlots: (a: number, b: any, c: any, d: any) => [number, number, number];
+    readonly rowsForHeight: (a: number, b: number, c: number) => number;
+    readonly s2PaperId: (a: any) => [number, number, number, number];
+    readonly s2ToHit: (a: any) => [number, number, number];
+    readonly safeArtifactCaption: (a: number, b: number) => [number, number];
+    readonly safeImageDestination: (a: number, b: number) => [number, number];
     readonly safeLabel: (a: number, b: number, c: number, d: number) => [number, number];
     readonly safeName: (a: number, b: number) => [number, number];
+    readonly safeRelative: (a: number, b: number) => [number, number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
     readonly samePeers: (a: any, b: any) => [number, number, number];
+    readonly sameRow: (a: any, b: any) => [number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
+    readonly sanitizeAppHref: (a: number, b: number) => [number, number];
+    readonly sanitizePdfUrl: (a: number, b: number) => [number, number];
+    readonly sanitizeReaderHref: (a: number, b: number) => [number, number];
     readonly sanitizeSectionTargets: (a: any) => [number, number, number];
+    readonly scopeNoteIndices: (a: any, b: number, c: number, d: number, e: number, f: any) => [number, number, number];
+    readonly screenForPath: (a: number, b: number) => [number, number];
     readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
     readonly screeningDecisionError: (a: any, b: any) => [number, number, number, number];
+    readonly screeningDecisionFromRow: (a: any) => [number, number, number];
+    readonly screeningDecisionToRow: (a: any) => [number, number, number];
     readonly searchRevision: (a: any) => [number, number, number, number];
     readonly searchTextFromItems: (a: any) => [number, number, number];
     readonly sectionProgress: (a: any) => [number, number, number];
+    readonly seedDoi: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly seenFiles: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly segmentInkLines: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
+    readonly segmentsFor: (a: number, b: number) => [number, number, number];
+    readonly selectModelProvider: (a: any, b: number, c: number) => [number, number, number, number];
     readonly selectedPdfPages: (a: number, b: number, c: number) => [number, number, number];
+    readonly selectedText: (a: any, b: any) => [number, number, number, number];
     readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
     readonly semanticScholarToMetadata: (a: any) => [number, number, number];
+    readonly semanticStatusText: (a: any) => [number, number, number, number];
+    readonly serialiseArtifactRef: (a: any) => [number, number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly sessionAction: (a: number, b: number, c: number, d: number) => [number, number];
     readonly setImagePlacement: (a: number, b: number, c: number, d: number, e: number, f: any) => [number, number, number, number];
     readonly setRatio: (a: any, b: any, c: number) => [number, number, number];
     readonly setTabMode: (a: any, b: any, c: any) => [number, number, number];
+    readonly settleConflictPlan: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly shareAllowsComment: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareAllowsEdit: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareCoversResource: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareFromRow: (a: any) => [number, number, number];
     readonly shareSupportsEditAccess: (a: any, b: number, c: number) => [number, number, number];
     readonly sharedItem: (a: any, b: any, c: any) => [number, number, number];
+    readonly sharedItemHref: (a: any) => [number, number, number, number];
+    readonly sharedItemTypeLabel: (a: any) => [number, number, number, number];
+    readonly sharedPaperAnnotationSummary: (a: any) => [number, number, number];
+    readonly sharedProviderHint: (a: any, b: any) => [number, number, number];
+    readonly sharedResourceHref: (a: any, b: number, c: number) => [number, number, number, number];
     readonly shortSha: (a: number, b: number) => [number, number];
+    readonly shortcutLabel: (a: number, b: number, c: number) => [number, number];
     readonly shouldAppendInkPoint: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+    readonly shouldMountShellChildren: (a: number, b: number, c: number) => number;
+    readonly shouldPersistBody: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly shouldPersistIndex: (a: number, b: number) => number;
     readonly shouldRetrySearch: (a: number, b: number) => number;
+    readonly shouldShowWorkspaceLoader: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly shouldSyncStandalone: (a: any, b: any) => [number, number, number];
     readonly showConceptEdges: (a: any) => [number, number, number];
     readonly showRelationEdges: (a: any) => [number, number, number];
     readonly simplifyInkPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly simplifyPathIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly siteOf: (a: number, b: number) => [number, number];
     readonly slugFor: (a: number, b: number, c: number, d: number) => [number, number];
     readonly slugSegment: (a: number, b: number) => [number, number];
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly snapInkShape: (a: number, b: number) => [number, number, number];
+    readonly snapToText: (a: any, b: number, c: number) => [number, number, number];
+    readonly sortByDue: (a: any) => [number, number, number];
     readonly sortByReadingOrder: (a: any) => [number, number, number];
     readonly sortHitOrder: (a: any, b: any) => [number, number, number];
+    readonly sourceNoteTemplateContext: (a: any) => [number, number, number];
     readonly spanDistance: (a: any, b: any) => [number, number, number];
+    readonly spanPoints: (a: any, b: any) => [number, number, number];
     readonly splitBibliographyEntries: (a: any) => [number, number, number];
     readonly splitByAuthorStart: (a: any) => [number, number, number];
     readonly splitByMargins: (a: any) => [number, number, number];
+    readonly splitHeadline: (a: number, b: number) => [number, number, number];
     readonly splitInkTextLayer: (a: number, b: number) => [number, number, number];
     readonly splitNumberedEntries: (a: any) => [number, number, number];
+    readonly splitOutsideEdits: (a: any) => [number, number, number];
     readonly splitPane: (a: any, b: number, c: number, d: any, e: number, f: number) => [number, number, number];
     readonly splitProposalContent: (a: number, b: number) => [number, number, number];
     readonly splitTopLevel: (a: number, b: number) => [number, number, number];
+    readonly stackMarginNotes: (a: any, b: number) => [number, number, number];
     readonly stampWorkspaceId: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly statusPatchForExperiment: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly stepCursor: (a: number, b: number, c: number) => number;
     readonly stepsToPrune: (a: number, b: number) => [number, number];
+    readonly streakDays: (a: any, b: number, c: number) => [number, number, number];
     readonly strideForStep: (a: number) => number;
     readonly stripArchiveRoot: (a: any) => [number, number, number];
     readonly stripFrontmatter: (a: number, b: number) => [number, number, number];
@@ -6265,22 +9774,41 @@ export interface InitOutput {
     readonly stripStopwords: (a: number, b: number) => [number, number];
     readonly stripUnresolvedImageRefs: (a: number, b: number, c: number, d: number, e: any, f: any) => [number, number, number, number];
     readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
+    readonly strokeClipText: (a: any) => [number, number, number, number];
+    readonly strokePath: (a: number, b: number) => [number, number];
     readonly studentsOf: (a: number, b: number, c: any) => [number, number, number];
     readonly substituteVariables: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly subtreeIds: (a: any) => [number, number, number];
     readonly summarizePdfDrop: (a: any) => [number, number, number];
     readonly surnameKey: (a: number, b: number) => [number, number];
+    readonly syncDot: (a: any) => [number, number, number];
+    readonly syncFieldShown: (a: number, b: number, c: number) => number;
+    readonly syncStrokeSteps: (a: any, b: number) => [number, number, number];
+    readonly syncedTables: () => [number, number, number];
     readonly tabAt: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly tabKey: (a: any) => [number, number, number, number];
     readonly tabMode: (a: any) => [number, number, number];
     readonly tabSeparatedToMarkdownTable: (a: number, b: number) => [number, number, number];
+    readonly tagColor: (a: number, b: number) => [number, number];
+    readonly tagFromRow: (a: any) => [number, number, number];
+    readonly tagToHashtag: (a: number, b: number) => [number, number];
     readonly tagTone: (a: number, b: number) => number;
     readonly takeInkRedo: (a: any) => [number, number, number];
     readonly takeInkUndo: (a: any) => [number, number, number];
+    readonly takePageStep: (a: any, b: number, c: number) => [number, number, number];
+    readonly texEngineArgs: (a: any, b: number, c: number) => [number, number, number];
+    readonly texLogErrors: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly textFingerprint: (a: any) => [number, number, number, number];
+    readonly textHash: (a: number, b: number) => [number, number];
     readonly themeConfigTemplate: () => [number, number];
+    readonly tickFormat: (a: any) => [number, number, number];
+    readonly timelineLaneOffset: (a: number, b: number, c: number) => [number, number];
+    readonly timelineMidYear: (a: number, b: number, c: any) => [number, number, number, number];
     readonly titleFixes: (a: any) => [number, number, number];
+    readonly titleForPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly titleFromFileName: (a: number, b: number) => [number, number];
     readonly titleKey: (a: number, b: number) => [number, number];
+    readonly titleOf: (a: any) => [number, number, number, number];
     readonly titleSimilarity: (a: number, b: number, c: number, d: number) => number;
     readonly toAnnotationSearchDocs: (a: any, b: any, c: any) => [number, number, number];
     readonly toExtractionResult: (a: any, b: number, c: number) => [number, number, number];
@@ -6289,19 +9817,27 @@ export interface InitOutput {
     readonly toSearchDocs: (a: any, b: any) => [number, number, number];
     readonly toZoteroItem: (a: any) => [number, number, number];
     readonly toZoteroWritePayload: (a: any, b: number, c: number) => [number, number, number];
+    readonly toggleExpanded: (a: any, b: number, c: number) => [number, number, number];
+    readonly toggleGroup: (a: any, b: number, c: number) => [number, number, number];
     readonly togglePreview: (a: any, b: number, c: number) => [number, number, number];
+    readonly toggleSection: (a: any, b: number, c: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
+    readonly toolOwnsThePage: (a: number, b: number) => number;
+    readonly trailDiameterPx: (a: number, b: number) => number;
     readonly transformTextOps: (a: any, b: any) => [number, number, number];
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly treePathPairs: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly uncroppedFigureBox: (a: any) => [number, number, number];
+    readonly unionRect: (a: any) => [number, number, number];
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];
+    readonly uniqueDeviceName: (a: number, b: number, c: number, d: number, e: any) => [number, number, number, number];
     readonly uniqueFigureNameIn: (a: number, b: number, c: any) => [number, number, number, number];
     readonly uniqueTitle: (a: number, b: number, c: number, d: number) => [number, number];
     readonly unpackVectorBlob: (a: number, b: number) => [number, number];
     readonly unpackVectorHead: (a: number, b: number) => [number, number, number];
     readonly untrustedContextRule: () => [number, number];
     readonly urlMetaToMetadata: (a: any) => [number, number, number];
+    readonly usableStatus: (a: number) => number;
     readonly userGateOpen: (a: any, b: any) => [number, number, number];
     readonly validateComputeError: (a: any) => [number, number, number, number];
     readonly validateDependenciesError: (a: any) => [number, number, number, number];
@@ -6313,6 +9849,10 @@ export interface InitOutput {
     readonly vaultImageMarkdown: (a: number, b: number, c: number, d: number) => [number, number];
     readonly vaultPageBase: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly vaultPageSide: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly vaultPageToDomain: (a: any) => [number, number, number];
+    readonly vaultPageToRow: (a: any) => [number, number, number];
+    readonly vaultPageToSummaryDomain: (a: any) => [number, number, number];
+    readonly vaultRootFromText: (a: number, b: number) => [number, number];
     readonly vectorIndexFromBytes: (a: number, b: number) => [number, number, number];
     readonly vectorindex_add: (a: number, b: any, c: number, d: number) => [number, number];
     readonly vectorindex_allIds: (a: number) => [number, number, number];
@@ -6329,10 +9869,17 @@ export interface InitOutput {
     readonly viewableArtifactUrl: (a: number, b: number, c: number) => [number, number];
     readonly visibleRows: (a: any, b: any) => [number, number, number];
     readonly visualPageSize: (a: any, b: number) => [number, number, number];
+    readonly vscodeJson: (a: any) => [number, number, number, number];
+    readonly walkOverleafSections: (a: any, b: any) => [number, number, number];
+    readonly wikiPageRefs: (a: any) => [number, number, number];
+    readonly wikiSourceDocuments: (a: any, b: any, c: any) => [number, number, number];
+    readonly withActive: (a: any, b: number, c: number) => [number, number, number];
     readonly withImageWidth: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly withInkPageBackground: (a: number, b: number, c: number, d: number) => [number, number];
     readonly withInkPageFigures: (a: number, b: number, c: any) => [number, number, number, number];
     readonly withMdImageAlt: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly withMissingFigures: (a: any, b: any) => [number, number, number];
+    readonly withStoredHeights: (a: any, b: any, c: any) => [number, number, number];
     readonly withoutExisting: (a: any, b: number, c: number) => [number, number, number];
     readonly withoutGroup: (a: any) => [number, number, number];
     readonly workspaceSnapshotCounts: (a: number, b: number) => [number, number, number];
@@ -6342,10 +9889,21 @@ export interface InitOutput {
     readonly writeInkNoteBody: (a: any, b: number, c: number) => [number, number, number, number];
     readonly writeInkNoteMeta: (a: any) => [number, number, number];
     readonly yearColours: (a: any) => [number, number, number];
+    readonly yearSpacing: () => number;
+    readonly zenodoRecordId: (a: number, b: number) => [number, number];
     readonly zoomIn: (a: number, b: number) => number;
     readonly zoomOut: (a: number, b: number) => number;
+    readonly zoteroAnnotationFromItem: (a: any) => [number, number, number];
     readonly zoteroArxivId: (a: any) => [number, number, number];
     readonly zoteroContentKeys: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly zoteroIsPdfAttachment: (a: any) => [number, number, number];
+    readonly zoteroItemKey: (a: any) => [number, number, number];
+    readonly zoteroKeyOf: (a: any) => [number, number, number];
+    readonly zoteroLibraryUrl: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly zoteroLocalApiOff: () => [number, number];
+    readonly zoteroLocalStatusMessage: (a: number) => [number, number, number];
+    readonly zoteroNoteFromItem: (a: any) => [number, number, number];
+    readonly zoteroPickMainPdf: (a: any) => [number, number, number];
     readonly zoteroRemoteToInput: (a: any) => [number, number, number];
     readonly zoteroRemoteToMetadata: (a: any) => [number, number, number];
     readonly zoteroWriteBackAnnotations: (a: any) => [number, number, number];

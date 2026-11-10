@@ -44,11 +44,11 @@ pub struct MilestoneDependency {
     pub kind: DependencyKind,
     /// Referenced entity id (internal kinds).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub ref_id: Option<String>,
     /// Human label; required for `external`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub label: Option<String>,
 }
 
@@ -61,15 +61,15 @@ pub struct ComputeNeed {
     pub resource: String,
     /// Number of units (GPUs, nodes).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = f64))]
     pub count: Option<f64>,
     /// Estimated hours of use.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = f64))]
     pub hours: Option<f64>,
     /// Free-form note.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub notes: Option<String>,
 }
 
@@ -84,13 +84,13 @@ pub struct Milestone {
     pub title: String,
     /// Optional description.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub description: Option<String>,
     /// Current status.
     pub status: MilestoneStatus,
     /// Target date (yyyy-mm-dd).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub target_date: Option<String>,
     /// Structured dependencies.
     pub dependencies: Vec<MilestoneDependency>,
@@ -109,15 +109,15 @@ pub struct NewMilestoneInput {
     pub title: String,
     /// Optional description.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub description: Option<String>,
     /// Status; defaults to `planned`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = MilestoneStatus))]
     pub status: Option<MilestoneStatus>,
     /// Target date (yyyy-mm-dd).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional))]
+    #[cfg_attr(feature = "specta", specta(optional, type = String))]
     pub target_date: Option<String>,
     /// Structured dependencies.
     #[serde(default, deserialize_with = "crate::serde_util::null_default")]

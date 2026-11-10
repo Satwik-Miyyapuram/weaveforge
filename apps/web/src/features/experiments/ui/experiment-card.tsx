@@ -19,7 +19,7 @@ import {
   ExpGitChips,
   ExpMetricChips,
 } from "./experiment-panels";
-import { experimentHref } from "../application/experiment-href";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { removeExperiment } from "../application/remove-experiment";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { StatusSelect } from "@/components/status-select";
@@ -47,7 +47,7 @@ export function ExperimentCard({
   /** The last status change that failed, shown on the card. */
   const [actionError, setActionError] = useState<string | null>(null);
   const openDetail = useCallback(() => {
-    const dest = experimentHref(exp.id);
+    const dest = readyCore().experimentHref(exp.id, isOfflineBuild());
     beginNavigation(dest);
     router.push(dest);
   }, [beginNavigation, router, exp.id]);

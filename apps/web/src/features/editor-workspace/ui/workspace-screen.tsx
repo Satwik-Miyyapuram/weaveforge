@@ -13,15 +13,13 @@ import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import { loadWorkspace, type Document } from "../application/workspace-load";
-import { breadcrumbs } from "../application/breadcrumbs";
-import { outlineOf } from "../application/outline";
+import { breadcrumbs, duplicatePlan, outlineOf } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
-import { duplicatePlan } from "../application/duplicate-note";
-import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
+import { creationKindFor, creationTarget, draftMakes, type Draft } from "@weaveforge/wasm";
 import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/open-notes";
@@ -29,10 +27,10 @@ import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { requestShortcuts } from "@/lib/palette-actions";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "./kind";
+import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "@weaveforge/wasm";
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 
@@ -380,9 +378,9 @@ export function WorkspaceScreen() {
   // `⌘D`: a copy of the note on screen, beside it, opened.
   const duplicateActive = useCallback(async () => {
     const doc = activeDocRef.current;
-    const plan = duplicatePlan(doc, documents ?? [], readyCore().normalizeTitleKey);
+    const plan = duplicatePlan(doc, documents ?? []);
     if (!doc || !plan) return;
-    const { id } = await getContainer().vault.manageVaultPage.add(plan);
+    const { id } = await getContainer().vault.manageVaultPage.add({ ...plan, parentId: plan.parentId ?? undefined });
     await reload();
     apply(readyCore().openTab(layoutRef.current, { kind: doc.kind === "ink_page" ? "ink_page" : "vault_page", id }));
   }, [apply, documents, reload]);
@@ -674,14 +672,14 @@ export function WorkspaceScreen() {
     >
       {focus ? (
         <span className="focus-exit">
-          <IconButton size="sm" label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} onClick={toggleFocus}>
+          <IconButton size="sm" label="Exit focus" tip={`Exit focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
       ) : null}
       {explorerHidden ? (
         <span className="explorer-show">
-          <IconButton size="sm" label="Show explorer" tip={`Show explorer (${shortcutLabel("⌘B")})`} onClick={toggleExplorer}>
+          <IconButton size="sm" label="Show explorer" tip={`Show explorer (${readyCore().shortcutLabel("⌘B", isMacPlatform())})`} onClick={toggleExplorer}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <path d="M9 4v16" />

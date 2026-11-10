@@ -1,7 +1,6 @@
 /** Public API for the model-agnostic AI assistant feature. */
 export * from "./domain/ai-types.js";
 export * from "./domain/ai-access-policy.js";
-export * from "./domain/ai-settings.js";
 export * from "./domain/ai-retrieval.js";
 export * from "./application/create-ai-session-grant.use-case.js";
 export * from "./domain/ai-write-proposal.js";
@@ -16,7 +15,6 @@ export * from "./domain/model-concept-extractor.js";
 export * from "./domain/ai-mcp-result.js";
 export * from "./domain/mcp-folder-draft.js";
 export * from "./domain/untrusted-context.js";
-export * from "./domain/wiki-index.js";
 export * from "./application/plan-wiki-pages.use-case.js";
 export * from "./domain/wiki-lint.js";
 export * from "./domain/wiki-merge.js";

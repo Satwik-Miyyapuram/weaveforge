@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import type { Paper, ReaderAnnotation } from "@weaveforge/core";
 import { InMemoryReaderAnnotationRepository } from "@weaveforge/core/testing";
 import {
@@ -8,6 +10,10 @@ import {
   zoteroWriteBackMessage,
   type ZoteroAnnotationPusher,
 } from "../application/write-back-zotero-annotations";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function ann(over: Partial<ReaderAnnotation> = {}): ReaderAnnotation {
   return {

@@ -1,6 +1,7 @@
 import type { Clock } from "../../../shared/clock.js";
 import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
 import { appendPaperNote, type IAiPaperNoteAppender } from "../domain/ai-write-proposal.js";
+import { rust } from "../../../shared/rust.js";
 
 /**
  * Append a note to a paper's summary, refusing to clobber a paper that moved on.
@@ -82,6 +83,5 @@ export function proposalApplies<T extends { updatedAt: string }>(
   stored: T | null,
   expectedRevision?: string,
 ): stored is T {
-  if (!stored) return false;
-  return expectedRevision ? stored.updatedAt === expectedRevision : true;
+  return rust().proposalApplies(stored?.updatedAt, expectedRevision);
 }

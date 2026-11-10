@@ -2,7 +2,7 @@
  * The hook's own state: `penSeen` is what lets a finger scroll the sheet once a
  * pen has written, so the first pen-down must set it.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
@@ -13,6 +13,9 @@ import {
   type PenCaptureHandle,
   type PenOnlyStorage,
 } from "../application/use-pen-capture";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 // The frame pump needs a window; no frame ever has to run here.

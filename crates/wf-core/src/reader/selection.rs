@@ -20,14 +20,14 @@ use super::anchor::{
 };
 use crate::ink::js_math;
 use crate::search::js_text::{is_js_whitespace, utf16_len};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Context kept on each side of the quote (TS `maxChars` default in `contextBefore`/`contextAfter`).
 const CONTEXT_CHARS: usize = 32;
 const NEWLINE: u16 = 0x000A;
 
 /// One pdf.js text item in PDF user space (TS `PageTextItem`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct SelectionPageTextItem {
