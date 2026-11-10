@@ -651,10 +651,11 @@ fn drop_skipped_none(ty: &mut specta::datatype::DataType) {
             .attributes
             .get_named_as::<String>(SKIP_IF)
             .is_some_and(|p| p == "Option::is_none");
-        if is_none_skip && matches!(field.ty, Some(DataType::Nullable(_))) {
-            if let Some(DataType::Nullable(inner)) = field.ty.take() {
-                field.ty = Some(*inner);
-            }
+        if is_none_skip
+            && matches!(field.ty, Some(DataType::Nullable(_)))
+            && let Some(DataType::Nullable(inner)) = field.ty.take()
+        {
+            field.ty = Some(*inner);
         }
         if let Some(other) = field.ty.as_mut() {
             drop_skipped_none(other);
