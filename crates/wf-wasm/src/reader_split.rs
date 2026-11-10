@@ -12,7 +12,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = parseReaderSplitPane)]
+#[wasm_bindgen(js_name = parseReaderSplitPane, unchecked_return_type = "B.ReaderSplitPane | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn parse_reader_split_pane_js(
     raw: Option<String>,

@@ -20,13 +20,13 @@ pub fn one_euro_alpha_js(cutoff: f64, dt_ms: f64) -> f64 {
 
 /// [`position_options`](one_euro::position_options) as `{ minCutoff, beta, derivativeCutoff }`.
 /// Read at call time, so no app module holds a copy of the tuning.
-#[wasm_bindgen(js_name = inkPositionOptions)]
+#[wasm_bindgen(js_name = inkPositionOptions, unchecked_return_type = "B.OneEuroOptions")]
 pub fn ink_position_options_js() -> JsResult<JsValue> {
     serde_wasm_bindgen::to_value(&one_euro::position_options())
 }
 
 /// [`pressure_options`](one_euro::pressure_options) as `{ minCutoff, beta, derivativeCutoff }`.
-#[wasm_bindgen(js_name = inkPressureOptions)]
+#[wasm_bindgen(js_name = inkPressureOptions, unchecked_return_type = "B.OneEuroOptions")]
 pub fn ink_pressure_options_js() -> JsResult<JsValue> {
     serde_wasm_bindgen::to_value(&one_euro::pressure_options())
 }

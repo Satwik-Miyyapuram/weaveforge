@@ -80,7 +80,7 @@ pub fn is_known_resource_type_js(value: &str) -> bool {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = invalidationMap)]
+#[wasm_bindgen(js_name = invalidationMap, unchecked_return_type = "B.InvalidationEntry[]")]
 pub fn invalidation_map_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&cache_invalidation::invalidation_map())
 }

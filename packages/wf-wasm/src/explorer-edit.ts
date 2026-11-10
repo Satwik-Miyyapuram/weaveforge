@@ -3,16 +3,10 @@
  * re-exported from index.ts. The drag MIME type is a UI constant and lives with the panel.
  */
 import {
-  canDrop as rawCanDrop,
-  canRename as rawCanRename,
   creatableUnder as rawCreatableUnder,
   creationKindFor as rawCreationKindFor,
   creationTarget as rawCreationTarget,
   dropParentId as rawDropParentId,
-  draftIcon as rawDraftIcon,
-  draftMakes as rawDraftMakes,
-  draftPlaceholder as rawDraftPlaceholder,
-  rootKey as rawRootKey,
   rootOf as rawRootOf,
   rootOfKind as rawRootOfKind,
 } from "../pkg/wf_wasm.js";
@@ -25,6 +19,15 @@ import type {
   WorkspaceTreeNode,
 } from "./bindings.js";
 
+export {
+  canDrop,
+  canRename,
+  draftIcon,
+  draftMakes,
+  draftPlaceholder,
+  rootKey,
+} from "../pkg/wf_wasm.js";
+
 export type { CreateKind, DraftMakes, EditableRoot };
 
 /** A draft row: what it will make and where it sits. */
@@ -33,11 +36,6 @@ export interface Draft {
   root: EditableRoot;
   /** The parent note or section; `null` puts it at the root. */
   parentId: string | null;
-}
-
-/** The key of a root's row in the tree. */
-export function rootKey(root: EditableRoot): string {
-  return rawRootKey(root);
 }
 
 /** The root a *kind* belongs to. */
@@ -60,11 +58,6 @@ export function creationKindFor(active: { kind: string } | undefined): CreateKin
   return rawCreationKindFor(active?.kind);
 }
 
-/** Whether a row can be renamed in place. */
-export function canRename(node: WorkspaceTreeNode): boolean {
-  return rawCanRename(node);
-}
-
 /** Where a "new file" lands: the folder of the document on screen, or the root. */
 export function creationTarget(
   kind: CreateKind,
@@ -75,27 +68,8 @@ export function creationTarget(
   return rawCreationTarget(kind, doc, [...folders]);
 }
 
-/** Whether `source` may be dropped on `target`. */
-export function canDrop(source: WorkspaceTreeNode, target: WorkspaceTreeNode): boolean {
-  return rawCanDrop(source, target);
-}
-
 /** The parent id a drop on `target` gives: `null` for the root row. */
 export function dropParentId(target: WorkspaceTreeNode): string | null {
   return rawDropParentId(target) ?? null;
 }
 
-/** The label a draft row's box shows as a hint. */
-export function draftPlaceholder(kind: CreateKind): string {
-  return rawDraftPlaceholder(kind);
-}
-
-/** The icon handle a draft row shows while it is being named. */
-export function draftIcon(kind: CreateKind): string {
-  return rawDraftIcon(kind);
-}
-
-/** What a draft of each kind turns into. */
-export function draftMakes(kind: CreateKind): DraftMakes {
-  return rawDraftMakes(kind);
-}

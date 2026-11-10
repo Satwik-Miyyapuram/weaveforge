@@ -186,6 +186,11 @@ use wf_core::search::tokenizer::{
     TokenizerOptions, index_terms as core_index_terms, tokenize as core_tokenize,
 };
 
+/// Lets `unchecked_param_type` / `unchecked_return_type` name the generated
+/// types as `B.<Name>`, so the package's d.ts is typed without TS wrappers.
+#[wasm_bindgen(typescript_custom_section)]
+const BINDINGS_IMPORT: &str = r#"import type * as B from "../src/bindings.js";"#;
+
 /// Converts a value to the JS shape `bindings.ts` declares for it. Every
 /// export returns through here.
 ///

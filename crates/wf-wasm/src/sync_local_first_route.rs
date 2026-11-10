@@ -33,7 +33,7 @@ pub fn is_both_ends_rpc_js(name: &str) -> bool {
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = bothEndsMerge)]
+#[wasm_bindgen(js_name = bothEndsMerge, unchecked_return_type = "B.BothEndsMerge")]
 pub fn both_ends_merge_js(
     name: &str,
     here_failed: bool,

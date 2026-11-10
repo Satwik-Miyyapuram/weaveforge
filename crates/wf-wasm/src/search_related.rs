@@ -67,7 +67,9 @@ pub fn find_related_js(
 ///
 /// Fails if `arm` is not a known arm name.
 #[wasm_bindgen(js_name = explainArm)]
-pub fn explain_arm_js(arm: JsValue) -> Result<String, serde_wasm_bindgen::Error> {
+pub fn explain_arm_js(
+    #[wasm_bindgen(unchecked_param_type = "B.RelatedArm")] arm: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
     let arm: RelatedArm = serde_wasm_bindgen::from_value(arm)?;
     Ok(related::explain_arm(arm).to_owned())
 }

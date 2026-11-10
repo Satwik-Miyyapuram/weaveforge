@@ -18,8 +18,10 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_project`]: a `projects` row as the app's project.
-#[wasm_bindgen(js_name = projectFromRow)]
-pub fn project_from_row_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = projectFromRow, unchecked_return_type = "B.Project")]
+pub fn project_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ProjectRow")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: ProjectRow = parse(row)?;
     to_js(&to_project(&row)).map_err(js_error)
 }

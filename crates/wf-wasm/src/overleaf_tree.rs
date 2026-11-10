@@ -19,15 +19,19 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`flatten`] over `docs`: the project's text files as paths, in walk order.
-#[wasm_bindgen(js_name = flattenOverleafDocs)]
-pub fn flatten_overleaf_docs(root_folder: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = flattenOverleafDocs, unchecked_return_type = "B.LiveDocEntry[]")]
+pub fn flatten_overleaf_docs(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] root_folder: JsValue,
+) -> Result<JsValue, JsError> {
     let root: Value = parse(root_folder)?;
     to_js(&flatten(&root, TreeKind::Docs)).map_err(js_error)
 }
 
 /// [`flatten`] over `fileRefs`: the project's binary files as paths, in walk order.
-#[wasm_bindgen(js_name = flattenOverleafFiles)]
-pub fn flatten_overleaf_files(root_folder: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = flattenOverleafFiles, unchecked_return_type = "B.LiveDocEntry[]")]
+pub fn flatten_overleaf_files(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] root_folder: JsValue,
+) -> Result<JsValue, JsError> {
     let root: Value = parse(root_folder)?;
     to_js(&flatten(&root, TreeKind::FileRefs)).map_err(js_error)
 }

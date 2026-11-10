@@ -2,7 +2,6 @@
  * Workspace folder mirror: paths, serializing, parsing and diffs (Rust `workspace_folder`), re-exported from index.ts.
  */
 import {
-  addCounts as rawAddCounts,
   checkGitRemoteUrl as rawCheckGitRemoteUrl,
   slugFor as rawSlugFor,
   treePathPairs as rawTreePathPairs,
@@ -10,7 +9,6 @@ import {
   diffJsonData as rawDiffJsonData,
   diffWorkspace as rawDiffWorkspace,
   entityDir as rawEntityDir,
-  folderKey as rawFolderKey,
   folderKeys as rawFolderKeys,
   idSuffix as rawIdSuffix,
   isAppOwnedPath as rawIsAppOwnedPath,
@@ -43,6 +41,11 @@ import type {
 } from "./bindings.js";
 import { checkIndexText } from "./text-check.js";
 
+export {
+  addCounts,
+  folderKey,
+} from "../pkg/wf_wasm.js";
+
 /** The folder of a project, named from its id and name (Rust `project_dir`). */
 export function projectDir(project: { id: string; name: string }): string {
   checkIndexText(project.id);
@@ -63,10 +66,6 @@ export function projectMetaDir(projectRoot = ""): string {
 }
 
 /** The short suffix that makes a folder name unique to its id (Rust `id_suffix`). */
-/** The folder a picked file's relative path leads to; the key of one file's parent folder. */
-export function folderKey(relativePath: string): string {
-  return rawFolderKey(relativePath);
-}
 
 /** Every folder the picked files lead to, shallowest first. */
 export function folderKeys(relativePaths: readonly string[]): string[] {
@@ -154,11 +153,6 @@ export function diffJsonData(
 /** How many entries there are of each action (Rust `count_json_actions`). */
 export function countJsonActions(entries: readonly JsonDiffEntry[]): ActionCounts {
   return rawCountJsonActions(entries) as ActionCounts;
-}
-
-/** Two sets of counts summed (Rust `add_counts`). */
-export function addCounts(a: Readonly<ActionCounts>, b: Readonly<ActionCounts>): ActionCounts {
-  return rawAddCounts(a, b) as ActionCounts;
 }
 
 /**

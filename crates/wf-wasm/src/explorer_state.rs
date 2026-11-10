@@ -88,7 +88,7 @@ pub fn default_open_sections_js(sections: JsValue) -> Result<JsValue, serde_wasm
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = parseExplorerKeys)]
+#[wasm_bindgen(js_name = parseExplorerKeys, unchecked_return_type = "string[] | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn parse_explorer_keys_js(raw: Option<String>) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&state::parse_explorer_keys(raw.as_deref()))

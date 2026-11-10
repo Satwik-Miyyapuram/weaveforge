@@ -4,7 +4,6 @@
  * finds nothing usable returns `null`.
  */
 import {
-  figureClipText as rawFigureClipText,
   parseFigureClip as rawParseFigureClip,
   pastedFigurePlace as rawPastedFigurePlace,
   strokeClipText as rawStrokeClipText,
@@ -19,12 +18,11 @@ import type {
   InkStroke,
 } from "./bindings.js";
 
-export type { FigureClip } from "./bindings.js";
+export {
+  figureClipText,
+} from "../pkg/wf_wasm.js";
 
-/** The clipboard text for a copied figure (Rust `figure_clip_text`). */
-export function figureClipText(clip: FigureClip): string {
-  return rawFigureClipText(clip);
-}
+export type { FigureClip } from "./bindings.js";
 
 /** The figure a clipboard text names, or `null` (Rust `parse_figure_clip`). */
 export function parseFigureClip(text: string | null | undefined): FigureClip | null {

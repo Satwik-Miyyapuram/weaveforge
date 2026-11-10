@@ -24,14 +24,11 @@ import init, {
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
   changedSide as rawChangedSide,
-  digestText as rawDigestText,
   isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
   decideGitSyncPath as rawDecideGitSyncPath,
   decideVaultCommit as rawDecideVaultCommit,
   redactSecret as rawRedactSecret,
   describeChanges as rawDescribeChanges,
-  describePull as rawDescribePull,
-  describePush as rawDescribePush,
   stampWorkspaceId as rawStampWorkspaceId,
   planDelta as rawPlanDelta,
   applyDelta as rawApplyDelta,
@@ -45,7 +42,6 @@ import init, {
   extractPageMetadata as rawExtractPageMetadata,
   pageImportRefusal as rawPageImportRefusal,
   guessBlobContentType as rawGuessBlobContentType,
-  canStoreUnchanged as rawCanStoreUnchanged,
   mergeVaultPage as rawMergeVaultPage,
   vaultPageBase as rawVaultPageBase,
   vaultPageSide as rawVaultPageSide,
@@ -57,12 +53,9 @@ import init, {
   sameValue as rawSameValue,
   diffBody as rawDiffBody,
   hasConflictMarkers as rawHasConflictMarkers,
-  countWords as rawCountWords,
   tagTone as rawTagTone,
   headingSlug as rawHeadingSlug,
   invalidationPlan as rawInvalidationPlan,
-  isKnownResourceType as rawIsKnownResourceType,
-  invalidationMap as rawInvalidationMap,
   writeScope as rawWriteScope,
   lwwClearTarget as rawLwwClearTarget,
   lwwNotifyResource as rawLwwNotifyResource,
@@ -301,11 +294,6 @@ export function coreInfo(): CoreInfo {
   return rawCoreInfo() as CoreInfo;
 }
 
-/** Largest text, in UTF-16 units, that `tokenize`, `indexTerms` and `parseQuery` accept (Rust `MAX_INDEX_TEXT_UTF16`). */
-export function maxIndexTextUtf16(): number {
-  return rawMaxIndexTextUtf16();
-}
-
 /** Search terms of `text`, deduplicated, first occurrence wins. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function tokenize(text: string, options: TokenizerOptions): string[] {
   checkIndexText(text);
@@ -351,11 +339,6 @@ export function buildExcerpt(
     text += String.fromCharCode(...raw.text.slice(i, i + 8192));
   }
   return { text, highlights: raw.highlights };
-}
-
-/** Most ids all lists together may pass to `fuseRankings` (Rust `MAX_FUSION_IDS`). */
-export function maxFusionIds(): number {
-  return rawMaxFusionIds();
 }
 
 /** Throws unless `value` is undefined or an integer in 0..=2^32-1. */
@@ -405,11 +388,6 @@ export function changedSide(origin: { base?: string; folder?: string; workspace?
   return rawChangedSide(origin.base, origin.folder, origin.workspace) as ChangeSide;
 }
 
-/** Short FNV-1a digest of a file's text, for change detection only. */
-export function digestText(text: string): string {
-  return rawDigestText(text);
-}
-
 /** True when the path sits inside a folder git sync never touches. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function isUnderIgnoredFolder(relPath: string): boolean {
   checkIndexText(relPath);
@@ -451,16 +429,6 @@ export function redactSecret(text: string, secret: string | undefined): string {
 /** A commit message for the changes: "N added, N changed, N removed", or "No changes". */
 export function describeChanges(status: readonly { state: "added" | "modified" | "deleted" }[]): string {
   return rawDescribeChanges(status);
-}
-
-/** One line for the Settings panel. */
-export function describePull(result: GitPullResult): string {
-  return rawDescribePull(result);
-}
-
-/** One line for the Settings panel. */
-export function describePush(result: GitPushResult): string {
-  return rawDescribePush(result);
 }
 
 /** The file with a `weaveforge-id` frontmatter line added, or null if it already has one. Throws over MAX_INDEX_TEXT_UTF16 units. */
@@ -519,6 +487,18 @@ import type {
   PlannedEntry as PlannedArchiveEntry,
 } from "./bindings.js";
 
+export {
+  canStoreUnchanged,
+  countWords,
+  describePull,
+  describePush,
+  digestText,
+  invalidationMap,
+  isKnownResourceType,
+  maxFusionIds,
+  maxIndexTextUtf16,
+} from "../pkg/wf_wasm.js";
+
 /** Decide each archive entry, in order (Rust `plan_entries`). Throws past the entry or total cap. */
 export function planArchiveEntries(
   entries: readonly ArchiveEntryFacts[],
@@ -568,11 +548,6 @@ export function pageImportRefusal(meta: PageMetadata): string | null {
 export function guessBlobContentType(path: string): string {
   checkIndexText(path);
   return rawGuessBlobContentType(path);
-}
-
-/** Whether an image of this MIME type and byte size is stored unchanged (Rust `can_store_unchanged`). */
-export function canStoreUnchanged(mime: string, sizeBytes: number): boolean {
-  return rawCanStoreUnchanged(mime, sizeBytes);
 }
 
 /** Three-way merge of a note's frontmatter fields and body (Rust `merge_vault_page`). */
@@ -664,11 +639,6 @@ export function hasConflictMarkers(text: string): boolean {
   return rawHasConflictMarkers(text);
 }
 
-/** Words in plain text: runs of non-whitespace (Rust `count_words`). */
-export function countWords(text: string): number {
-  return rawCountWords(text);
-}
-
 /** Colour slot 1..6 for a tag (Rust `tag_tone`); a tag keeps its slot everywhere. */
 export function tagTone(tag: string): number {
   checkIndexText(tag);
@@ -685,16 +655,6 @@ export function headingSlug(text: string): string {
 export function invalidationPlan(resourceType: string): InvalidationPlan | null {
   checkIndexText(resourceType);
   return (rawInvalidationPlan(resourceType) as InvalidationPlan | undefined) ?? null;
-}
-
-/** Whether the name is a resource type the cache map knows (Rust `is_known_resource_type`). */
-export function isKnownResourceType(value: string): value is ResourceType {
-  return rawIsKnownResourceType(value) as boolean;
-}
-
-/** Every resource type with the caches its writes clear (Rust `invalidation_map`). */
-export function invalidationMap(): InvalidationEntry[] {
-  return rawInvalidationMap() as InvalidationEntry[];
 }
 
 /** The repo and screen caches one write of this resource type clears, or `null` for an unknown name (Rust `write_scope`). */

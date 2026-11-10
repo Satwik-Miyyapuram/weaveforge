@@ -111,8 +111,10 @@ pub fn prisma_counts_js(items: JsValue, decisions: JsValue) -> JsResult<JsValue>
 /// # Errors
 ///
 /// Fails if `row` has the wrong shape, or its stage or state is not one the enums know.
-#[wasm_bindgen(js_name = screeningDecisionFromRow)]
-pub fn screening_decision_from_row_js(row: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = screeningDecisionFromRow, unchecked_return_type = "B.ScreeningDecision")]
+pub fn screening_decision_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ScreeningDecisionRow")] row: JsValue,
+) -> JsResult<JsValue> {
     let row: screening::ScreeningDecisionRow = serde_wasm_bindgen::from_value(row)?;
     let decision = screening::decision_from_row(&row).map_err(serde_wasm_bindgen::Error::new)?;
     to_js(&decision)
@@ -124,8 +126,10 @@ pub fn screening_decision_from_row_js(row: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `decision` has the wrong shape.
-#[wasm_bindgen(js_name = screeningDecisionToRow)]
-pub fn screening_decision_to_row_js(decision: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = screeningDecisionToRow, unchecked_return_type = "B.ScreeningDecisionRow")]
+pub fn screening_decision_to_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ScreeningDecision")] decision: JsValue,
+) -> JsResult<JsValue> {
     let decision: ScreeningDecision = serde_wasm_bindgen::from_value(decision)?;
     to_js(&screening::decision_to_row(&decision))
 }

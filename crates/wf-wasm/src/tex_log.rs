@@ -14,9 +14,9 @@ use super::to_js;
 ///
 /// Fails if `engine` is not one of the known engine names, or the result cannot be converted to
 /// JS.
-#[wasm_bindgen(js_name = texEngineArgs)]
+#[wasm_bindgen(js_name = texEngineArgs, unchecked_return_type = "string[]")]
 pub fn tex_engine_args_js(
-    engine: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TexEngineKind")] engine: JsValue,
     entry: &str,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let engine: TexEngine = serde_wasm_bindgen::from_value(engine)?;
@@ -28,7 +28,7 @@ pub fn tex_engine_args_js(
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = texLogErrors)]
+#[wasm_bindgen(js_name = texLogErrors, unchecked_return_type = "B.TexErrorRow[]")]
 pub fn tex_log_errors_js(log: &str, entry: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&parse_tex_log(log, entry))
 }

@@ -8,7 +8,10 @@ import {
   shouldFetchNextPage as rawShouldFetchNextPage,
   shouldPullAfterPush as rawShouldPullAfterPush,
   shouldRecoverUnsent as rawShouldRecoverUnsent,
-  tableGroups as rawTableGroups,
+} from "../pkg/wf_wasm.js";
+
+export {
+  tableGroups,
 } from "../pkg/wf_wasm.js";
 
 /** Whether the push loop runs another round. */
@@ -36,7 +39,3 @@ export function shouldFetchNextPage(input: { more: boolean; page: number; maxPag
   return rawShouldFetchNextPage(input.more, input.page, input.maxPages);
 }
 
-/** Groups the indices of rows that share a table, in first-seen order, dropping singletons. */
-export function tableGroups(tables: string[]): number[][] {
-  return rawTableGroups(tables) as number[][];
-}

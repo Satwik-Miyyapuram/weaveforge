@@ -3,8 +3,11 @@
  */
 import {
   classifySend as rawClassifySend,
-  isLinkInsert as rawIsLinkInsert,
   missingIds as rawMissingIds,
+} from "../pkg/wf_wasm.js";
+
+export {
+  isLinkInsert,
 } from "../pkg/wf_wasm.js";
 
 /** What one PostgREST write means for the outbox entry. */
@@ -23,11 +26,6 @@ export type SendVerdict =
  */
 export function classifySend(status: number, errorCode: string | null, rows: number | null): SendVerdict {
   return rawClassifySend(status, errorCode, rows) as SendVerdict;
-}
-
-/** Whether a write is a paper_tags insert, where a duplicate means the link already exists. */
-export function isLinkInsert(op: string, table: string): boolean {
-  return rawIsLinkInsert(op, table);
 }
 
 /** The ids in `chunk` the server did not return and has no tombstone for. */

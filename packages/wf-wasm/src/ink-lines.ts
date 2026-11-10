@@ -13,12 +13,17 @@ import {
   inkVocabularyHints as rawInkVocabularyHints,
   decodeInkWords as rawDecodeInkWords,
   bandsCoincide as rawBandsCoincide,
-  inkUnsureConfidence as rawInkUnsureConfidence,
   inkPageSummary as rawInkPageSummary,
   inkBandUnion as rawInkBandUnion,
-  cappedEngineConfidence as rawCappedEngineConfidence,
 } from "../pkg/wf_wasm.js";
-import type { InkSegmentationIndices } from "./bindings.js";
+import type {
+  InkSegmentationIndices,
+} from "./bindings.js";
+
+export {
+  cappedEngineConfidence,
+  inkUnsureConfidence,
+} from "../pkg/wf_wasm.js";
 
 /**
  * A page's pen strokes grouped into lines, top to bottom, and the line each
@@ -92,11 +97,6 @@ export function isUnsureConfidence(conf: number): boolean {
   return rawIsUnsureConfidence(conf);
 }
 
-/** The confidence below which a line is marked unsure (Rust `INK_UNSURE_CONFIDENCE`). */
-export function inkUnsureConfidence(): number {
-  return rawInkUnsureConfidence();
-}
-
 /** Whether two y-bands overlap by at least half of the smaller one (Rust `bands_coincide`). */
 export function bandsCoincide(a: readonly [number, number], b: readonly [number, number]): boolean {
   return rawBandsCoincide(a[0], a[1], b[0], b[1]);
@@ -109,11 +109,6 @@ export function bandsCoincide(a: readonly [number, number], b: readonly [number,
 export function inkBandUnion(bands: Float64Array): [number, number] | null {
   const united = rawInkBandUnion(bands);
   return united.length === 2 ? [united[0]!, united[1]!] : null;
-}
-
-/** An engine's line confidence capped at the engine maximum (Rust `capped_engine_confidence`). */
-export function cappedEngineConfidence(conf: number): number {
-  return rawCappedEngineConfidence(conf);
 }
 
 /**

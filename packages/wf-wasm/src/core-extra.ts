@@ -13,9 +13,6 @@ import {
   logPath as rawLogPath,
   paperPdfPath as rawPaperPdfPath,
   paperHtmlPath as rawPaperHtmlPath,
-  assetPath as rawAssetPath,
-  isInkNoteFrontmatter as rawIsInkNoteFrontmatter,
-  writeInkNoteMeta as rawWriteInkNoteMeta,
   createExperimentWith as rawCreateExperimentWith,
   memberRoleLabelOf as rawMemberRoleLabelOf,
   lintWiki as rawLintWiki,
@@ -24,30 +21,36 @@ import {
   contextNonceFrom as rawContextNonceFrom,
   createReadingListWith as rawCreateReadingListWith,
   verdictsFor as rawVerdictsFor,
-  isInkNoteId as rawIsInkNoteId,
   inkSidecarDir as rawInkSidecarDir,
   inkChunkPath as rawInkChunkPath,
   parseInkChunkPath as rawParseInkChunkPath,
   newInkChunkId as rawNewInkChunkId,
-  isInkEngineId as rawIsInkEngineId,
   inkEngineInfo as rawInkEngineInfo,
-  inkEngineRank as rawInkEngineRank,
   inkLineStrokes as rawInkLineStrokes,
   extractPageTitle as rawExtractPageTitle,
-  decodeHtmlEntities as rawDecodeHtmlEntities,
-  pageTitleScanChars as rawPageTitleScanChars,
   inkEnumIndex as rawInkEnumIndex,
   inkEnumValue as rawInkEnumValue,
   makeInkStroke as rawMakeInkStroke,
   blankInkPage as rawBlankInkPage,
   clampInkPageSize as rawClampInkPageSize,
-  inkPageMarker as rawInkPageMarker,
   joinInkTextLayer as rawJoinInkTextLayer,
   inkPageBackground as rawInkPageBackground,
   withInkPageBackground as rawWithInkPageBackground,
   inkAttachmentIndex as rawInkAttachmentIndex,
   resolveInkPageOrder as rawResolveInkPageOrder,
   inkPageOverBudget as rawInkPageOverBudget,
+} from "../pkg/wf_wasm.js";
+
+export {
+  assetPath,
+  decodeHtmlEntities,
+  inkEngineRank,
+  inkPageMarker,
+  isInkEngineId,
+  isInkNoteFrontmatter,
+  isInkNoteId,
+  pageTitleScanChars,
+  writeInkNoteMeta,
 } from "../pkg/wf_wasm.js";
 
 /** A Rust error string as an `Error` named `name`; anything else unchanged. */
@@ -181,11 +184,6 @@ export function clampInkPageSize(width: number, height: number): { width: number
   return rawClampInkPageSize(width, height) as { width: number; height: number };
 }
 
-/** The marker comment that opens a page's text in the note body. */
-export function inkPageMarker(page: number): string {
-  return rawInkPageMarker(page);
-}
-
 /** The recognised text of every page joined with page markers. */
 export function joinInkTextLayer(pages: readonly string[]): string {
   return rawJoinInkTextLayer([...pages]);
@@ -223,11 +221,6 @@ export function inkLineStrokes<S>(strokes: readonly S[], line: { strokeStart: nu
 
 /* Ink paths ---------------------------------------------------------------- */
 
-/** True for an id safe to use as an ink sidecar folder name. */
-export function isInkNoteId(id: string): boolean {
-  return rawIsInkNoteId(id);
-}
-
 /** The sidecar folder of an ink note. Throws for an unusable id. */
 export function inkSidecarDir(noteId: string): string {
   return named("Error", () => rawInkSidecarDir(noteId));
@@ -262,44 +255,14 @@ export function newInkChunkId(
   return named("Error", () => rawNewInkChunkId(now, bytes));
 }
 
-/** True when the frontmatter marks an ink note. */
-export function isInkNoteFrontmatter(frontmatter: Record<string, unknown>): boolean {
-  return rawIsInkNoteFrontmatter(frontmatter);
-}
-
-/** The frontmatter fields that store an ink note's metadata. */
-export function writeInkNoteMeta(meta: unknown): Record<string, unknown> {
-  return rawWriteInkNoteMeta(meta) as Record<string, unknown>;
-}
-
 /* Ink engines -------------------------------------------------------------- */
-
-/** True for a known handwriting engine id. */
-export function isInkEngineId(id: string): boolean {
-  return rawIsInkEngineId(id);
-}
 
 /** The declared facts about an engine, or null for an unknown id. */
 export function inkEngineInfo<I>(id: string): I | null {
   return (rawInkEngineInfo(id) as I | null | undefined) ?? null;
 }
 
-/** The engine's preference rank, or the engine count for an unknown id (Rust `ink_engine_rank`). */
-export function inkEngineRank(id: string): number {
-  return rawInkEngineRank(id);
-}
-
 /* Page titles -------------------------------------------------------------- */
-
-/** HTML entities in a title decoded in one pass. */
-export function decodeHtmlEntities(value: string): string {
-  return rawDecodeHtmlEntities(value);
-}
-
-/** How much of a page body the title scan reads (Rust `PAGE_TITLE_SCAN_CHARS`), read at call time. */
-export function pageTitleScanChars(): number {
-  return rawPageTitleScanChars();
-}
 
 /** The best title a page's HTML offers, or null. */
 export function extractPageTitle(html: string): { title: string; suspect: boolean } | null {
@@ -331,11 +294,6 @@ export function paperPdfPath(paperId: string, projectRoot = ""): string {
 /** Where a paper's full-text web page is kept. */
 export function paperHtmlPath(paperId: string, projectRoot = ""): string {
   return rawPaperHtmlPath(paperId, projectRoot);
-}
-
-/** Where an uploaded asset is kept. */
-export function assetPath(scope: "notes" | "papers" | "report", storagePath: string): string {
-  return rawAssetPath(scope, storagePath);
 }
 
 /** A new experiment with the given id and time (Rust `create_experiment`); throws a Rust error string. */

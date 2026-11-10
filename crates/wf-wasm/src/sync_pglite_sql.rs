@@ -55,7 +55,7 @@ pub fn projection_js(columns: &str) -> Result<String, JsError> {
 /// # Errors
 ///
 /// Returns an error if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = splitTopLevel)]
+#[wasm_bindgen(js_name = splitTopLevel, unchecked_return_type = "string[]")]
 pub fn split_top_level_js(expression: &str) -> Result<JsValue, JsError> {
     to_js(&pglite_sql::split_top_level(expression))
         .map_err(|error| JsError::new(&error.to_string()))

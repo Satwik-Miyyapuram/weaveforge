@@ -4,11 +4,14 @@
  * handler table stay in `apps/shell/sidecar/src/wire.ts`.
  */
 import {
-  wireErrorReply as rawWireErrorReply,
   wireOkReplyHead as rawWireOkReplyHead,
   wireParseRequest as rawWireParseRequest,
   wireRoute as rawWireRoute,
   wireTag as rawWireTag,
+} from "../pkg/wf_wasm.js";
+
+export {
+  wireErrorReply,
 } from "../pkg/wf_wasm.js";
 
 /** What to do with one line read from the shell. */
@@ -44,11 +47,6 @@ export function wireParseRequest(line: string): WireParsed {
 /** Recognise a one-key tagged object; `null` for anything else. */
 export function wireTag(value: unknown): WireTagValue {
   return rawWireTag(value) as WireTagValue;
-}
-
-/** The error reply for a call that failed, or a line that could not be read (`id` null). */
-export function wireErrorReply(id: number | null, error: string): Record<string, unknown> {
-  return rawWireErrorReply(id, error) as Record<string, unknown>;
 }
 
 /** The start of a successful reply: `{id, ok: true}`. The shim adds `value`. */

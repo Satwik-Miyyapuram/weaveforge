@@ -8,7 +8,6 @@ import {
   extractionMarkdown as rawExtractionMarkdown,
   extractionCsv as rawExtractionCsv,
   emptyCellPaperIds as rawEmptyCellPaperIds,
-  buildProposeFillPrompt as rawBuildProposeFillPrompt,
   pendingFieldFills as rawPendingFieldFills,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -20,6 +19,10 @@ import type {
   ProposeFillInput,
   RollupValue,
 } from "./bindings.js";
+
+export {
+  buildProposeFillPrompt,
+} from "../pkg/wf_wasm.js";
 
 export type {
   ExtractionFieldDef,
@@ -76,11 +79,6 @@ export function emptyCellPaperIds(
   pendingPaperIds: readonly string[],
 ): string[] {
   return rawEmptyCellPaperIds(rows, fieldId, pendingPaperIds) as string[];
-}
-
-/** The prompt that asks the AI to fill one extraction column. */
-export function buildProposeFillPrompt(input: ProposeFillInput): string {
-  return rawBuildProposeFillPrompt(input);
 }
 
 /** Pending `paper_field_value` proposals as cell fills, optionally for one field. */

@@ -14,8 +14,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `resourceType` is not a known resource type.
-#[wasm_bindgen(js_name = aiReadCategoryForResource)]
-pub fn ai_read_category_for_resource_js(resource_type: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = aiReadCategoryForResource, unchecked_return_type = "B.AiReadCategory")]
+pub fn ai_read_category_for_resource_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AiResourceType")] resource_type: JsValue,
+) -> JsResult<JsValue> {
     let resource_type: AiResourceType = serde_wasm_bindgen::from_value(resource_type)?;
     to_js(&access_policy::ai_read_category_for_resource(resource_type))
 }

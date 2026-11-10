@@ -28,8 +28,10 @@ fn out<T: serde::Serialize>(value: &T) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroArxivId)]
-pub fn zotero_arxiv_id_js(item: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = zoteroArxivId, unchecked_return_type = "string | null")]
+pub fn zotero_arxiv_id_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItem")] item: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ZoteroItem = from_js(item)?;
     out(&zotero_arxiv_id(&item))
 }
@@ -54,8 +56,10 @@ pub fn zotero_content_keys_js(
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroRemoteToInput)]
-pub fn zotero_remote_to_input_js(item: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = zoteroRemoteToInput, unchecked_return_type = "B.ZoteroPaperInput")]
+pub fn zotero_remote_to_input_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItem")] item: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ZoteroItem = from_js(item)?;
     out(&zotero_remote_to_input(&item))
 }
@@ -66,8 +70,10 @@ pub fn zotero_remote_to_input_js(item: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroRemoteToMetadata)]
-pub fn zotero_remote_to_metadata_js(item: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = zoteroRemoteToMetadata, unchecked_return_type = "B.ZoteroPaperInput")]
+pub fn zotero_remote_to_metadata_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItem")] item: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ZoteroItem = from_js(item)?;
     out(&zotero_remote_to_metadata(&item))
 }
@@ -77,8 +83,10 @@ pub fn zotero_remote_to_metadata_js(item: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `paper` is not a paper.
-#[wasm_bindgen(js_name = toZoteroItem)]
-pub fn to_zotero_item_js(paper: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = toZoteroItem, unchecked_return_type = "B.ZoteroExportItem")]
+pub fn to_zotero_item_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MergePaper")] paper: JsValue,
+) -> Result<JsValue, JsError> {
     let paper: MergePaper = from_js(paper)?;
     out(&to_zotero_item(&paper))
 }

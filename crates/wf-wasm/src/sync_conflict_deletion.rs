@@ -15,8 +15,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `kind` or `side` is not one of those strings.
-#[wasm_bindgen(js_name = deletionFor)]
-pub fn deletion_for_js(kind: JsValue, side: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = deletionFor, unchecked_return_type = "\"keep\" | \"delete\"")]
+pub fn deletion_for_js(
+    #[wasm_bindgen(unchecked_param_type = "\"deleted_remote\" | \"deleted_local\"")] kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "\"local\" | \"remote\"")] side: JsValue,
+) -> JsResult<JsValue> {
     let kind: DeleteConflictKind = serde_wasm_bindgen::from_value(kind)?;
     let side: PickSide = serde_wasm_bindgen::from_value(side)?;
     to_js(&deletion_for(kind, side))

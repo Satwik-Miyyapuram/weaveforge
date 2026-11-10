@@ -13,8 +13,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `item` cannot be read as an object.
-#[wasm_bindgen(js_name = isZoteroChildItem)]
-pub fn is_zotero_child_item_js(item: JsValue) -> Result<bool, JsValue> {
+#[wasm_bindgen(js_name = isZoteroChildItem, unchecked_return_type = "boolean")]
+pub fn is_zotero_child_item_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] item: JsValue,
+) -> Result<bool, JsValue> {
     let item: ZoteroChildProbe = serde_wasm_bindgen::from_value(item)?;
     Ok(zotero_library::is_child_item(&item))
 }
@@ -46,7 +48,7 @@ pub fn zotero_library_url_js(library: &str, api_origin: &str) -> String {
 /// # Errors
 ///
 /// Fails only if the headers cannot be converted to a JS value.
-#[wasm_bindgen(js_name = zoteroHeaders)]
+#[wasm_bindgen(js_name = zoteroHeaders, unchecked_return_type = "Record<string, string>")]
 pub fn zotero_headers_js(api_key: &str) -> Result<JsValue, JsValue> {
     Ok(to_js(&zotero_library::zotero_headers(api_key))?)
 }

@@ -3,18 +3,12 @@
  * index.ts. Both functions are pure: no I/O.
  */
 import {
-  shouldMountShellChildren as rawShouldMountShellChildren,
   shouldShowWorkspaceLoader as rawShouldShowWorkspaceLoader,
 } from "../pkg/wf_wasm.js";
 
-/** Whether the shell's children may mount. */
-export function shouldMountShellChildren(
-  loading: boolean,
-  needsPrivacyAccept: boolean,
-  containerReady: boolean,
-): boolean {
-  return rawShouldMountShellChildren(loading, needsPrivacyAccept, containerReady);
-}
+export {
+  shouldMountShellChildren,
+} from "../pkg/wf_wasm.js";
 
 /**
  * Whether the workspace loader shows. `error` is the startup error text, or nothing; an

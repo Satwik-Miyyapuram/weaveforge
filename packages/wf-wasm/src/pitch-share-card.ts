@@ -4,9 +4,12 @@
  * the paths and the origin rule.
  */
 import {
-  appOriginFrom as rawAppOriginFrom,
   pitchShareCard as rawPitchShareCard,
   pitchShareConstants as rawPitchShareConstants,
+} from "../pkg/wf_wasm.js";
+
+export {
+  appOriginFrom,
 } from "../pkg/wf_wasm.js";
 
 export interface PitchShareImage {
@@ -31,11 +34,6 @@ export interface PitchShareConstants {
   title: string;
   description: string;
   defaultAppOrigin: string;
-}
-
-/** The origin an app deployment answers on; unset or non-http(s) gives the default. */
-export function appOriginFrom(configured: string | undefined): string {
-  return rawAppOriginFrom(configured);
 }
 
 /** The shared pitch title, description and default origin. */

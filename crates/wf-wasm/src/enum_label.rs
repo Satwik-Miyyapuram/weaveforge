@@ -32,7 +32,7 @@ pub fn incoming_relation_label_js(relation: &str) -> String {
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = enumOptions)]
+#[wasm_bindgen(js_name = enumOptions, unchecked_return_type = "B.EnumOption[]")]
 pub fn enum_options_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&enum_label::enum_options(kind))
 }

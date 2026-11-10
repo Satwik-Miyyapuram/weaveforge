@@ -71,8 +71,11 @@ pub fn compute_fit_page_scale_js(
 /// # Errors
 ///
 /// Fails if `page` is not an object with `width` and `height`.
-#[wasm_bindgen(js_name = visualPageSize)]
-pub fn visual_page_size_js(page: JsValue, rotation: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = visualPageSize, unchecked_return_type = "B.ReaderPageSize")]
+pub fn visual_page_size_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageSize")] page: JsValue,
+    rotation: f64,
+) -> JsResult<JsValue> {
     let page = serde_wasm_bindgen::from_value::<ReaderPageSize>(page)?;
     to_js(&visual_page_size(page, rotation))
 }
@@ -152,8 +155,10 @@ pub fn normalise_page_rotation_js(rotation: f64) -> f64 {
 /// # Errors
 ///
 /// Fails if `p` is not a page projection object.
-#[wasm_bindgen(js_name = projectedPageSize)]
-pub fn projected_page_size_js(p: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = projectedPageSize, unchecked_return_type = "B.ReaderPageSize")]
+pub fn projected_page_size_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageProjection")] p: JsValue,
+) -> JsResult<JsValue> {
     let p = serde_wasm_bindgen::from_value::<ReaderPageProjection>(p)?;
     to_js(&projected_page_size(p))
 }

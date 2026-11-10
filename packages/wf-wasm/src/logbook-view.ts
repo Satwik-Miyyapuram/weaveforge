@@ -6,10 +6,16 @@ import {
   groupByDay as rawGroupByDay,
   logEyebrow as rawLogEyebrow,
   newestFirstOrder as rawNewestFirstOrder,
-  splitHeadline as rawSplitHeadline,
   streakDays as rawStreakDays,
 } from "../pkg/wf_wasm.js";
-import type { LogDayGroup, LogHeadlineSplit } from "./bindings.js";
+import type {
+  LogDayGroup,
+  LogHeadlineSplit,
+} from "./bindings.js";
+
+export {
+  splitHeadline,
+} from "../pkg/wf_wasm.js";
 
 export type { LogDayGroup, LogHeadlineSplit } from "./bindings.js";
 
@@ -26,11 +32,6 @@ export function streakDays(entryDates: readonly string[], today: string): number
 /** "62 entries · 9-day streak", or `undefined` with no entries. */
 export function logEyebrow(entryDates: readonly string[], today: string): string | undefined {
   return rawLogEyebrow(entryDates, today) as string | undefined;
-}
-
-/** The headline and rest of an entry body. */
-export function splitHeadline(body: string): LogHeadlineSplit {
-  return rawSplitHeadline(body) as LogHeadlineSplit;
 }
 
 /** Indexes of `publishedAt` stamps, latest first. */

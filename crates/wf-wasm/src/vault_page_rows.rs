@@ -19,22 +19,28 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_domain`]: a `vault_pages` row as a full page.
-#[wasm_bindgen(js_name = vaultPageToDomain)]
-pub fn vault_page_to_domain_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = vaultPageToDomain, unchecked_return_type = "B.VaultPage")]
+pub fn vault_page_to_domain_js(
+    #[wasm_bindgen(unchecked_param_type = "B.VaultPageRow")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: VaultPageRow = parse(row)?;
     to_js(&to_domain(&row)).map_err(js_error)
 }
 
 /// [`to_summary_domain`]: a `vault_pages` row as a summary page (no body, a preview).
-#[wasm_bindgen(js_name = vaultPageToSummaryDomain)]
-pub fn vault_page_to_summary_domain_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = vaultPageToSummaryDomain, unchecked_return_type = "B.VaultPage")]
+pub fn vault_page_to_summary_domain_js(
+    #[wasm_bindgen(unchecked_param_type = "B.VaultPageRow")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: VaultPageRow = parse(row)?;
     to_js(&to_summary_domain(&row)).map_err(js_error)
 }
 
 /// [`to_row`]: a page as the `vault_pages` row it is written as.
-#[wasm_bindgen(js_name = vaultPageToRow)]
-pub fn vault_page_to_row_js(page: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = vaultPageToRow, unchecked_return_type = "B.VaultPageWriteRow")]
+pub fn vault_page_to_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.VaultPage")] page: JsValue,
+) -> Result<JsValue, JsError> {
     let page: VaultPage = parse(page)?;
     to_js(&to_row(&page)).map_err(js_error)
 }

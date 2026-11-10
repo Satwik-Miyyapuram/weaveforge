@@ -3,18 +3,18 @@
  * Each function keeps the signature of packages/core/src/search/related.ts.
  */
 import {
-  explainArm as rawExplainArm,
   findRelated as rawFindRelated,
 } from "../pkg/wf_wasm.js";
-import type { RelatedArm, RelatedResult } from "./bindings.js";
+import type {
+  RelatedResult,
+} from "./bindings.js";
+
+export {
+  explainArm,
+} from "../pkg/wf_wasm.js";
 
 /** Below this the seed has too little neighbourhood for a walk to say anything. */
 export const MIN_SEED_DEGREE_FOR_PPR = 3;
-
-/** Human-readable reason, so a thin result set is explained rather than puzzling. */
-export function explainArm(arm: RelatedArm): string {
-  return rawExplainArm(arm);
-}
 
 /** Same graph shape as the PPR wrappers: edges become `{ node, neighbours }` in insertion order. */
 function toWasmGraph(graph: { nodes: string[]; edges: Map<string, string[]> }) {

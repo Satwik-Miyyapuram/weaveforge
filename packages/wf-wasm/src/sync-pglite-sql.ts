@@ -3,10 +3,13 @@
  */
 import {
   ident as rawIdent,
-  isLiteral as rawIsLiteral,
   pgArray as rawPgArray,
-  projection as rawProjection,
-  splitTopLevel as rawSplitTopLevel,
+} from "../pkg/wf_wasm.js";
+
+export {
+  isLiteral,
+  projection,
+  splitTopLevel,
 } from "../pkg/wf_wasm.js";
 
 /** A Postgres array literal; each value is spelled as `String(value)` first. */
@@ -19,17 +22,3 @@ export function ident(name: string): string {
   return rawIdent(name);
 }
 
-/** The operand of `is`: only `null`, `true` or `false` pass. Throws otherwise. */
-export function isLiteral(text: string): "null" | "true" | "false" {
-  return rawIsLiteral(text) as "null" | "true" | "false";
-}
-
-/** A `select` column list, each name quoted. Throws for a name `ident` refuses. */
-export function projection(columns: string): string {
-  return rawProjection(columns);
-}
-
-/** Top-level comma-separated pieces of a PostgREST expression, trimmed and non-empty. */
-export function splitTopLevel(expression: string): string[] {
-  return rawSplitTopLevel(expression) as string[];
-}

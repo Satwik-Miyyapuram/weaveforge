@@ -80,7 +80,7 @@ pub fn known_candidates_js(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-#[wasm_bindgen(js_name = arxivCandidates)]
+#[wasm_bindgen(js_name = arxivCandidates, unchecked_return_type = "B.OpenAccessCandidate[]")]
 pub fn arxiv_candidates_js(arxiv_id: String) -> Result<JsValue, JsError> {
     out(&open_access::arxiv_candidates(&arxiv_id))
 }
@@ -104,8 +104,10 @@ pub fn pmc_candidates_js(pmcid: String, license: Option<String>) -> Result<JsVal
 /// # Errors
 ///
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseOpenalex)]
-pub fn parse_openalex_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseOpenalex, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_openalex_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_openalex(&read(body)?))
 }
 
@@ -114,8 +116,10 @@ pub fn parse_openalex_js(body: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseUnpaywall)]
-pub fn parse_unpaywall_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseUnpaywall, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_unpaywall_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_unpaywall(&read(body)?))
 }
 
@@ -124,8 +128,10 @@ pub fn parse_unpaywall_js(body: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseSemanticScholar)]
-pub fn parse_semantic_scholar_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseSemanticScholar, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_semantic_scholar_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_semantic_scholar(&read(body)?))
 }
 
@@ -134,8 +140,10 @@ pub fn parse_semantic_scholar_js(body: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseEuropePmc)]
-pub fn parse_europe_pmc_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseEuropePmc, unchecked_return_type = "B.EuropePmcAnswer")]
+pub fn parse_europe_pmc_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_europe_pmc(&read(body)?))
 }
 
@@ -148,8 +156,11 @@ pub fn parse_europe_pmc_js(body: JsValue) -> Result<JsValue, JsError> {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-#[wasm_bindgen(js_name = parseBiorxiv)]
-pub fn parse_biorxiv_js(body: JsValue, server: String) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseBiorxiv, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_biorxiv_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+    server: String,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_biorxiv(&read(body)?, &server))
 }
 
@@ -172,8 +183,10 @@ pub fn zenodo_record_id_js(doi: &str) -> Option<String> {
 }
 
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseDoaj)]
-pub fn parse_doaj_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseDoaj, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_doaj_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_doaj(&read(body)?))
 }
 
@@ -182,8 +195,10 @@ pub fn parse_doaj_js(body: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseZenodo)]
-pub fn parse_zenodo_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseZenodo, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_zenodo_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_zenodo(&read(body)?))
 }
 
@@ -192,8 +207,10 @@ pub fn parse_zenodo_js(body: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `body` is not valid JSON, or the result cannot be converted.
-#[wasm_bindgen(js_name = parseHal)]
-pub fn parse_hal_js(body: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parseHal, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn parse_hal_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::parse_hal(&read(body)?))
 }
 

@@ -1,12 +1,13 @@
 /**
  * Jump-list recents (Rust `recent_targets`), re-exported from index.ts.
  */
-import { isRecentTarget as rawIsRecentTarget, pinRecentTargets as rawPinRecentTargets } from "../pkg/wf_wasm.js";
+import {
+  pinRecentTargets as rawPinRecentTargets,
+} from "../pkg/wf_wasm.js";
 
-/** True when a stored value has string `kind` and `id` (Rust `is_recent_target`). */
-export function isRecentTarget(value: unknown): boolean {
-  return rawIsRecentTarget(value);
-}
+export {
+  isRecentTarget,
+} from "../pkg/wf_wasm.js";
 
 /**
  * `items` with the recently opened ones moved to the front, in visit order and

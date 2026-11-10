@@ -3,11 +3,14 @@
  * stateful filter handles the pen path holds across samples.
  */
 import {
-  inkPositionOptions as rawInkPositionOptions,
-  inkPressureOptions as rawInkPressureOptions,
-  oneEuroAlpha as rawOneEuroAlpha,
   NibFilter as RawNibFilter,
   OneEuroFilter as RawOneEuroFilter,
+} from "../pkg/wf_wasm.js";
+
+export {
+  inkPositionOptions,
+  inkPressureOptions,
+  oneEuroAlpha,
 } from "../pkg/wf_wasm.js";
 // Narrowed by hand: Specta exports every f64 as `number | null`, but the filter
 // only ever sees and returns finite numbers.
@@ -34,24 +37,6 @@ export interface FilteredNibSample {
   pressure: number;
   velocity: number;
   t: number;
-}
-
-/**
- * The smoothing factor `1/(1 + tau/dt)` for a cutoff in **hertz** and a timestep
- * in **milliseconds**.
- */
-export function oneEuroAlpha(cutoff: number, dtMs: number): number {
-  return rawOneEuroAlpha(cutoff, dtMs);
-}
-
-/** The tuned position channel (Rust `one_euro::position_options`), read at call time. */
-export function inkPositionOptions(): OneEuroOptions {
-  return rawInkPositionOptions() as OneEuroOptions;
-}
-
-/** The tuned pressure channel (Rust `one_euro::pressure_options`), read at call time. */
-export function inkPressureOptions(): OneEuroOptions {
-  return rawInkPressureOptions() as OneEuroOptions;
 }
 
 /** One scalar channel (Rust `OneEuroFilter`), held across calls. */

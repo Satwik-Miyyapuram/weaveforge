@@ -12,7 +12,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = mattermostEvents)]
+#[wasm_bindgen(js_name = mattermostEvents, unchecked_return_type = "B.MattermostEventInfo[]")]
 pub fn mattermost_events_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&options::mattermost_events())
 }
@@ -22,8 +22,10 @@ pub fn mattermost_events_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
 /// # Errors
 ///
 /// Fails if `integration` has the wrong shape.
-#[wasm_bindgen(js_name = mattermostOptions)]
-pub fn mattermost_options_js(integration: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = mattermostOptions, unchecked_return_type = "B.MattermostOptions")]
+pub fn mattermost_options_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     to_js(&options::mattermost_options(&integration))
 }

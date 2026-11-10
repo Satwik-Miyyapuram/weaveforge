@@ -13,7 +13,10 @@ use super::to_js;
 ///
 /// Fails if the head argument is not an object with `model`, `dimensions` and `revision`.
 #[wasm_bindgen(js_name = packVectors)]
-pub fn pack_vectors_js(head: JsValue, bytes: &[u8]) -> Result<Vec<u8>, serde_wasm_bindgen::Error> {
+pub fn pack_vectors_js(
+    #[wasm_bindgen(unchecked_param_type = "B.VectorFileHead")] head: JsValue,
+    bytes: &[u8],
+) -> Result<Vec<u8>, serde_wasm_bindgen::Error> {
     let head: VectorFileHead = serde_wasm_bindgen::from_value(head)?;
     Ok(codec::pack_vectors(&head, bytes))
 }

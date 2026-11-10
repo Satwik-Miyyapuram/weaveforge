@@ -54,7 +54,9 @@ pub fn pick_keeper_js(group: JsValue) -> Result<String, JsError> {
 ///
 /// Fails if `paper` is not a paper summary.
 #[wasm_bindgen(js_name = isConferenceCopy)]
-pub fn is_conference_copy_js(paper: JsValue) -> Result<bool, JsError> {
+pub fn is_conference_copy_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TidyPaper")] paper: JsValue,
+) -> Result<bool, JsError> {
     let paper: TidyPaper =
         serde_wasm_bindgen::from_value(paper).map_err(|error| JsError::new(&error.to_string()))?;
     Ok(is_conference_copy(&paper))

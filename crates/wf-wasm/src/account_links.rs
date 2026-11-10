@@ -11,8 +11,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `input` is not an `AccountLinksInput`-shaped object, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = accountLinks)]
-pub fn account_links_js(input: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = accountLinks, unchecked_return_type = "B.AccountLink[]")]
+pub fn account_links_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AccountLinksInput")] input: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let input: AccountLinksInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&account_links::account_links(&input))
 }

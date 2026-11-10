@@ -4,27 +4,24 @@
  * results are built here.
  */
 import {
-  buildWorkspaceTree as rawBuildWorkspaceTree,
   flattenTree as rawFlattenTree,
   isDocumentNode as rawIsDocumentNode,
   folderIdsOf as rawFolderIdsOf,
   visibleRows as rawVisibleRows,
-  slugSegment as rawSlugSegment,
-  buildListsTree as rawBuildListsTree,
   listMembership as rawListMembership,
   filterRows as rawFilterRows,
 } from "../pkg/wf_wasm.js";
 import type {
   ListItemEntry,
-  ListsTreeInput,
   VisibleRow,
-  WorkspaceTreeInput,
   WorkspaceTreeNode,
 } from "./bindings.js";
 
-export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode[] {
-  return rawBuildWorkspaceTree(input) as WorkspaceTreeNode[];
-}
+export {
+  buildListsTree,
+  buildWorkspaceTree,
+  slugSegment,
+} from "../pkg/wf_wasm.js";
 
 export function flattenTree(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeNode[] {
   return rawFlattenTree(nodes) as WorkspaceTreeNode[];
@@ -43,14 +40,6 @@ export function visibleRows(
   expanded: ReadonlySet<string>,
 ): VisibleRow[] {
   return rawVisibleRows(nodes, [...expanded]) as VisibleRow[];
-}
-
-export function slugSegment(title: string): string {
-  return rawSlugSegment(title);
-}
-
-export function buildListsTree(input: ListsTreeInput): WorkspaceTreeNode[] {
-  return rawBuildListsTree(input) as WorkspaceTreeNode[];
 }
 
 export function listMembership(

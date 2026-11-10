@@ -57,7 +57,9 @@ pub fn figure_corner_hit_js(scale: f64) -> f64 {
 ///
 /// Fails if `geometry` has the wrong shape.
 #[wasm_bindgen(js_name = formatFigureTokens)]
-pub fn format_figure_tokens_js(geometry: JsValue) -> JsResult<String> {
+pub fn format_figure_tokens_js(
+    #[wasm_bindgen(unchecked_param_type = "B.FigureBox")] geometry: JsValue,
+) -> JsResult<String> {
     let geometry: FigureBox = serde_wasm_bindgen::from_value(geometry)?;
     Ok(figure::format_figure_tokens(&geometry))
 }
@@ -136,8 +138,10 @@ pub fn resize_figure_box_js(
 /// # Errors
 ///
 /// Fails if `value` has the wrong shape.
-#[wasm_bindgen(js_name = uncroppedFigureBox)]
-pub fn uncropped_figure_box_js(value: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = uncroppedFigureBox, unchecked_return_type = "B.FigureRect")]
+pub fn uncropped_figure_box_js(
+    #[wasm_bindgen(unchecked_param_type = "B.FigureBox")] value: JsValue,
+) -> JsResult<JsValue> {
     let one: FigureBox = serde_wasm_bindgen::from_value(value)?;
     to_js(&figure::uncropped_figure_box(&one))
 }
@@ -147,8 +151,10 @@ pub fn uncropped_figure_box_js(value: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `value` has the wrong shape.
-#[wasm_bindgen(js_name = figureImageFrame)]
-pub fn figure_image_frame_js(value: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = figureImageFrame, unchecked_return_type = "B.FigureImageFrame")]
+pub fn figure_image_frame_js(
+    #[wasm_bindgen(unchecked_param_type = "B.FigureBox")] value: JsValue,
+) -> JsResult<JsValue> {
     let one: FigureBox = serde_wasm_bindgen::from_value(value)?;
     to_js(&figure::figure_image_frame(&one))
 }

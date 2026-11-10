@@ -15,7 +15,7 @@ fn parse<T: DeserializeOwned>(value: JsValue) -> Result<T, wasm_bindgen::JsError
 #[wasm_bindgen(js_name = exportManifestJson)]
 pub fn export_manifest_json_js(
     exported_at: &str,
-    stats: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ExportStats")] stats: JsValue,
 ) -> Result<String, wasm_bindgen::JsError> {
     let stats: ExportStats = parse(stats)?;
     Ok(export_manifest_json(exported_at, &stats))

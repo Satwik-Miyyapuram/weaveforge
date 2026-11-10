@@ -20,8 +20,10 @@ type JsResult<T> = Result<T, Error>;
 /// # Errors
 ///
 /// Fails when `input` is not a Mattermost post input with the expected fields.
-#[wasm_bindgen(js_name = mattermostPostPlan)]
-pub fn post_plan_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = mattermostPostPlan, unchecked_return_type = "B.MattermostPostPlan")]
+pub fn post_plan_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MattermostPostInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: MattermostPostInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&post_plan(&input))
 }
@@ -31,8 +33,10 @@ pub fn post_plan_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `input` is not a status and body with the expected fields.
-#[wasm_bindgen(js_name = mattermostPostResponsePlan)]
-pub fn post_response_plan_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = mattermostPostResponsePlan, unchecked_return_type = "B.MattermostPostResponsePlan")]
+pub fn post_response_plan_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MattermostPostResponse")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: MattermostPostResponse = serde_wasm_bindgen::from_value(input)?;
     to_js(&post_response_plan(&input))
 }
@@ -42,8 +46,10 @@ pub fn post_response_plan_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `integration` is not a sync integration with the expected fields.
-#[wasm_bindgen(js_name = mattermostTestPosts)]
-pub fn test_posts_js(integration: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = mattermostTestPosts, unchecked_return_type = "B.MattermostTestPost[]")]
+pub fn test_posts_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
+) -> JsResult<JsValue> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     to_js(&test_posts(&integration))
 }

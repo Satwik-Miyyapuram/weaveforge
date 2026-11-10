@@ -125,7 +125,7 @@ pub fn write_ink_note_body_js(meta: JsValue, text: &str) -> JsResult<String> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = defaultInkNoteMeta)]
+#[wasm_bindgen(js_name = defaultInkNoteMeta, unchecked_return_type = "B.InkNoteMeta")]
 pub fn default_ink_note_meta_js() -> JsResult<JsValue> {
     to_js(&default_ink_note_meta())
 }

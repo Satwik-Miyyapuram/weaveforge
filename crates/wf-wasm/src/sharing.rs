@@ -203,7 +203,10 @@ pub fn member_name_map_js(members: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails when `kind` is not a shareable type.
 #[wasm_bindgen(js_name = sharedResourceHref)]
-pub fn shared_resource_href_js(kind: JsValue, resource_id: &str) -> JsResult<String> {
+pub fn shared_resource_href_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
+    resource_id: &str,
+) -> JsResult<String> {
     let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
     Ok(sharing::shared_resource_href(kind, resource_id))
 }
@@ -225,7 +228,9 @@ pub fn shared_item_href_js(item: JsValue) -> JsResult<String> {
 ///
 /// Fails when `kind` is not a shareable type.
 #[wasm_bindgen(js_name = sharedItemTypeLabel)]
-pub fn shared_item_type_label_js(kind: JsValue) -> JsResult<String> {
+pub fn shared_item_type_label_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
+) -> JsResult<String> {
     let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
     Ok(sharing::shared_item_type_label(kind))
 }

@@ -4,18 +4,20 @@
  * `toExponential` define them.
  */
 import {
-  alignSeries as rawAlignSeries,
   emaSmooth as rawEmaSmooth,
   tickFormat as rawTickFormat,
 } from "../pkg/wf_wasm.js";
-import type { AlignedChart, ChartSeries, TickFormat } from "./bindings.js";
+import type {
+  AlignedChart,
+  ChartSeries,
+  TickFormat,
+} from "./bindings.js";
+
+export {
+  alignSeries,
+} from "../pkg/wf_wasm.js";
 
 export type { AlignedChart, AlignedSeries, ChartPoint, ChartSeries, TickFormat } from "./bindings.js";
-
-/** Overlaid runs on one union step axis, gaps as `null`. */
-export function alignSeries(series: ChartSeries[]): AlignedChart {
-  return rawAlignSeries(series) as AlignedChart;
-}
 
 /** Debiased EMA over the non-gap values; gaps stay gaps. An `alpha` at or below zero is a no-op. */
 export function emaSmooth(values: (number | null)[], alpha: number): (number | null)[] {

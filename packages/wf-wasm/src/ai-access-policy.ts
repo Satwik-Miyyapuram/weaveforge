@@ -4,7 +4,6 @@
  * and ai-settings.ts.
  */
 import {
-  aiReadCategoryForResource as rawAiReadCategoryForResource,
   evaluateAiAccess as rawEvaluateAiAccess,
   normalizeAiAccessSettings as rawNormalizeAiAccessSettings,
 } from "../pkg/wf_wasm.js";
@@ -14,9 +13,12 @@ import type {
   AiPolicyInput,
   AiProposalKind,
   AiReadCategory,
-  AiResourceType,
 } from "./bindings.js";
 import type { ReadonlyInput } from "./readonly-input.js";
+
+export {
+  aiReadCategoryForResource,
+} from "../pkg/wf_wasm.js";
 
 /** Allowed, or denied with the reason (Rust sets `reason` exactly when `allowed` is false). */
 export type AiPolicyDecision = { allowed: true } | { allowed: false; reason: AiPolicyDenyReason };
@@ -54,10 +56,6 @@ export const AI_PROPOSAL_KINDS: readonly AiProposalKind[] = [
 
 /** Drafts do not access Zotero. A future approved write still needs encrypted credentials. */
 export const AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS: readonly AiProposalKind[] = [];
-
-export function aiReadCategoryForResource(resourceType: AiResourceType): AiReadCategory {
-  return rawAiReadCategoryForResource(resourceType) as AiReadCategory;
-}
 
 /** Evaluate one policy input at an ISO time. */
 export function evaluateAiAccess(input: ReadonlyInput<AiPolicyInput>, now: string): AiPolicyDecision {

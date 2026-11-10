@@ -23,7 +23,7 @@ fn json_from(raw: JsValue) -> JsResult<serde_json::Value> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = defaultGraphSettings)]
+#[wasm_bindgen(js_name = defaultGraphSettings, unchecked_return_type = "B.GraphViewSettings")]
 pub fn default_graph_settings_js() -> JsResult<JsValue> {
     to_js(&graph_settings::default_graph_settings())
 }
@@ -33,8 +33,10 @@ pub fn default_graph_settings_js() -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `raw` cannot be read as JSON.
-#[wasm_bindgen(js_name = normalizeGraphViewSettings)]
-pub fn normalize_graph_view_settings_js(raw: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = normalizeGraphViewSettings, unchecked_return_type = "B.GraphViewSettings")]
+pub fn normalize_graph_view_settings_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
+) -> JsResult<JsValue> {
     to_js(&graph_settings::normalize_graph_view_settings(&json_from(
         raw,
     )?))
@@ -45,8 +47,10 @@ pub fn normalize_graph_view_settings_js(raw: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `settings` has the wrong shape.
-#[wasm_bindgen(js_name = effectiveRelationTypes)]
-pub fn effective_relation_types_js(settings: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = effectiveRelationTypes, unchecked_return_type = "B.RelationType[]")]
+pub fn effective_relation_types_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GraphViewSettings")] settings: JsValue,
+) -> JsResult<JsValue> {
     let settings: GraphViewSettings = serde_wasm_bindgen::from_value(settings)?;
     to_js(&graph_settings::effective_relation_types(&settings))
 }
@@ -60,7 +64,7 @@ pub fn effective_relation_types_js(settings: JsValue) -> JsResult<JsValue> {
 pub fn graph_filter_count_js(
     selected_tags: usize,
     selected_lists: usize,
-    settings: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.GraphViewSettings")] settings: JsValue,
 ) -> JsResult<u32> {
     let settings: GraphViewSettings = serde_wasm_bindgen::from_value(settings)?;
     Ok(graph_settings::graph_filter_count(
@@ -75,8 +79,10 @@ pub fn graph_filter_count_js(
 /// # Errors
 ///
 /// Fails if `raw` cannot be read as JSON.
-#[wasm_bindgen(js_name = parseGraphPersistedState)]
-pub fn parse_graph_persisted_state_js(raw: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = parseGraphPersistedState, unchecked_return_type = "B.GraphPersistedState | null")]
+pub fn parse_graph_persisted_state_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
+) -> JsResult<JsValue> {
     to_js(&graph_settings::parse_graph_persisted_state(&json_from(
         raw,
     )?))
@@ -88,7 +94,9 @@ pub fn parse_graph_persisted_state_js(raw: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `settings` has the wrong shape.
 #[wasm_bindgen(js_name = showRelationEdges)]
-pub fn show_relation_edges_js(settings: JsValue) -> JsResult<bool> {
+pub fn show_relation_edges_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GraphViewSettings")] settings: JsValue,
+) -> JsResult<bool> {
     let settings: GraphViewSettings = serde_wasm_bindgen::from_value(settings)?;
     Ok(graph_settings::show_relation_edges(&settings))
 }
@@ -99,7 +107,9 @@ pub fn show_relation_edges_js(settings: JsValue) -> JsResult<bool> {
 ///
 /// Fails if `settings` has the wrong shape.
 #[wasm_bindgen(js_name = showConceptEdges)]
-pub fn show_concept_edges_js(settings: JsValue) -> JsResult<bool> {
+pub fn show_concept_edges_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GraphViewSettings")] settings: JsValue,
+) -> JsResult<bool> {
     let settings: GraphViewSettings = serde_wasm_bindgen::from_value(settings)?;
     Ok(graph_settings::show_concept_edges(&settings))
 }

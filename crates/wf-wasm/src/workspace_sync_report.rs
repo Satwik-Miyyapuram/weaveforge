@@ -13,7 +13,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `report` is not `{ written, removed, commitMessage?, commitError? }`.
 #[wasm_bindgen(js_name = describeSync)]
-pub fn describe_sync_js(report: JsValue) -> JsResult<String> {
+pub fn describe_sync_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SyncReport")] report: JsValue,
+) -> JsResult<String> {
     let report: SyncReport = serde_wasm_bindgen::from_value(report)?;
     Ok(describe_sync(&report))
 }

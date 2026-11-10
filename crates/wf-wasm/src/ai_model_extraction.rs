@@ -17,7 +17,7 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = modelExtractionLimits)]
+#[wasm_bindgen(js_name = modelExtractionLimits, unchecked_return_type = "B.ModelExtractionLimits")]
 pub fn model_extraction_limits_js() -> JsResult<JsValue> {
     to_js(&model_extraction::limits())
 }

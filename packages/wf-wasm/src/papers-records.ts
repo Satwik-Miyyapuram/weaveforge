@@ -6,18 +6,13 @@
 import {
   checkNewPaper as rawCheckNewPaper,
   coercePaperFieldValue as rawCoercePaperFieldValue,
-  encodeRollupOptions as rawEncodeRollupOptions,
   extractHashtagRefs as rawExtractHashtagRefs,
   extractHashtags as rawExtractHashtags,
   imagesOf as rawImagesOf,
   isEmptyPaperSummary as rawIsEmptyPaperSummary,
-  isPaperFieldKind as rawIsPaperFieldKind,
-  isQuotationType as rawIsQuotationType,
   normalizeDoi as rawNormalizeDoi,
   resolveRelatedPaperUrl as rawResolveRelatedPaperUrl,
-  normalizeFieldName as rawNormalizeFieldName,
   normalizeSelectOptions as rawNormalizeSelectOptions,
-  normalizeTags as rawNormalizeTags,
   parseRollupOptions as rawParseRollupOptions,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -25,8 +20,15 @@ import type {
   PaperFieldKind,
   PaperFieldRollupConfig,
   PaperFieldValueData,
-  QuotationType,
 } from "./bindings.js";
+
+export {
+  encodeRollupOptions,
+  isPaperFieldKind,
+  isQuotationType,
+  normalizeFieldName,
+  normalizeTags,
+} from "../pkg/wf_wasm.js";
 
 /**
  * The trimmed title of a new paper. Throws an Error with the refusal message when the title is
@@ -55,11 +57,6 @@ export function imagesOf(metadata: Record<string, unknown> | null | undefined): 
   return rawImagesOf(metadata ?? null);
 }
 
-/** Tags trimmed, lower-cased and de-duplicated, blanks dropped. */
-export function normalizeTags(tags: string[]): string[] {
-  return rawNormalizeTags(tags);
-}
-
 /** Every `#tag` in `text`, with its position. */
 export function extractHashtagRefs(text?: string): HashtagRef[] {
   return rawExtractHashtagRefs(text ?? undefined) as HashtagRef[];
@@ -75,24 +72,9 @@ export function isEmptyPaperSummary(summary: string | null | undefined): boolean
   return rawIsEmptyPaperSummary(summary ?? undefined);
 }
 
-/** A field name trimmed, with inner whitespace runs collapsed to one space. */
-export function normalizeFieldName(raw: string): string {
-  return rawNormalizeFieldName(raw);
-}
-
 /** Select options trimmed, blanks dropped, and case-insensitive repeats removed (first spelling wins). */
 export function normalizeSelectOptions(raw: readonly string[]): string[] {
   return rawNormalizeSelectOptions([...raw]);
-}
-
-/** Whether `value` names a paper field kind. */
-export function isPaperFieldKind(value: string): value is PaperFieldKind {
-  return rawIsPaperFieldKind(value);
-}
-
-/** A rollup config as the field's stored option strings. */
-export function encodeRollupOptions(config: PaperFieldRollupConfig): string[] {
-  return rawEncodeRollupOptions(config);
 }
 
 /** The rollup config stored in a field's options, or null when they hold none. */
@@ -111,7 +93,3 @@ export function coercePaperFieldValue(
   return (rawCoercePaperFieldValue(kind, raw ?? null) as PaperFieldValueData | null) ?? null;
 }
 
-/** Whether `value` names a quotation type. */
-export function isQuotationType(value: string): value is QuotationType {
-  return rawIsQuotationType(value);
-}

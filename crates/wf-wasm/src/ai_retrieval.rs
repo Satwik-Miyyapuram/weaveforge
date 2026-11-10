@@ -31,7 +31,7 @@ pub fn retrieve_ai_excerpts_js(
 /// # Errors
 ///
 /// Fails if the numbers cannot be converted to a JS value.
-#[wasm_bindgen(js_name = citedSourceNumbers)]
+#[wasm_bindgen(js_name = citedSourceNumbers, unchecked_return_type = "number[]")]
 pub fn cited_source_numbers_js(answer: &str, count: usize) -> JsResult<JsValue> {
     to_js(&retrieval::cited_sources(answer, count))
 }

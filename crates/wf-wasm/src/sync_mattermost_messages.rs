@@ -18,7 +18,9 @@ type JsResult<T> = Result<T, Error>;
 ///
 /// Fails when `input` is not a milestone message input with the expected fields.
 #[wasm_bindgen(js_name = milestoneMessage)]
-pub fn milestone_message_js(input: JsValue) -> JsResult<String> {
+pub fn milestone_message_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MilestoneMessageInput")] input: JsValue,
+) -> JsResult<String> {
     let input: MilestoneMessageInput = serde_wasm_bindgen::from_value(input)?;
     Ok(milestone_message(&input))
 }
@@ -29,7 +31,9 @@ pub fn milestone_message_js(input: JsValue) -> JsResult<String> {
 ///
 /// Fails when `input` is not a citation alert input with the expected fields.
 #[wasm_bindgen(js_name = citationAlertMessage)]
-pub fn citation_alert_message_js(input: JsValue) -> JsResult<String> {
+pub fn citation_alert_message_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CitationAlertInput")] input: JsValue,
+) -> JsResult<String> {
     let input: CitationAlertInput = serde_wasm_bindgen::from_value(input)?;
     Ok(citation_alert_message(&input))
 }
@@ -40,7 +44,9 @@ pub fn citation_alert_message_js(input: JsValue) -> JsResult<String> {
 ///
 /// Fails when `input` is not a log entry message input with the expected fields.
 #[wasm_bindgen(js_name = logEntryMessage)]
-pub fn log_entry_message_js(input: JsValue) -> JsResult<String> {
+pub fn log_entry_message_js(
+    #[wasm_bindgen(unchecked_param_type = "B.LogEntryMessageInput")] input: JsValue,
+) -> JsResult<String> {
     let input: LogEntryMessageInput = serde_wasm_bindgen::from_value(input)?;
     Ok(log_entry_message(&input))
 }

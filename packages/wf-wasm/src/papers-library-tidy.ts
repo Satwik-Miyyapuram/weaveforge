@@ -6,9 +6,16 @@ import {
   titleFixes as rawTitleFixes,
   findDuplicateGroups as rawFindDuplicateGroups,
   pickKeeper as rawPickKeeper,
-  isConferenceCopy as rawIsConferenceCopy,
 } from "../pkg/wf_wasm.js";
-import type { DuplicateGroup, TidyPaper, TitleFix } from "./bindings.js";
+import type {
+  DuplicateGroup,
+  TidyPaper,
+  TitleFix,
+} from "./bindings.js";
+
+export {
+  isConferenceCopy,
+} from "../pkg/wf_wasm.js";
 
 export type {
   DuplicateGroup,
@@ -33,7 +40,3 @@ export function pickKeeper(group: readonly TidyPaper[]): string {
   return rawPickKeeper(group);
 }
 
-/** Whether the paper is the published version rather than a preprint. */
-export function isConferenceCopy(paper: TidyPaper): boolean {
-  return rawIsConferenceCopy(paper);
-}

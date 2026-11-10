@@ -152,7 +152,9 @@ pub fn is_paper_field_kind_js(value: &str) -> bool {
 ///
 /// Fails if `config` is not a rollup config object.
 #[wasm_bindgen(js_name = encodeRollupOptions)]
-pub fn encode_rollup_options_js(config: JsValue) -> JsResult<Vec<String>> {
+pub fn encode_rollup_options_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperFieldRollupConfig")] config: JsValue,
+) -> JsResult<Vec<String>> {
     let config: PaperFieldRollupConfig = serde_wasm_bindgen::from_value(config)?;
     Ok(paper_field::encode_rollup_options(&config))
 }
@@ -180,8 +182,11 @@ pub fn is_quotation_type_js(value: &str) -> bool {
 
 /// [`parse_paper_field_value`] (TS `parsePaperFieldValue`). A refusal throws an `Error`
 /// with the caller's `name` in the message.
-#[wasm_bindgen(js_name = parsePaperFieldValue)]
-pub fn parse_paper_field_value_js(value: JsValue, name: &str) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = parsePaperFieldValue, unchecked_return_type = "B.PaperFieldValueData")]
+pub fn parse_paper_field_value_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] value: JsValue,
+    name: &str,
+) -> Result<JsValue, JsError> {
     let input = serde_wasm_bindgen::from_value::<PaperFieldValueInput>(value)
         .map_err(|_| JsError::new(&paper_field_value_refusal(name)))?;
     let parsed = parse_paper_field_value(input, name).map_err(|message| JsError::new(&message))?;

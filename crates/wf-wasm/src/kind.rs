@@ -23,7 +23,7 @@ pub fn kind_names_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = kindIcon)]
+#[wasm_bindgen(js_name = kindIcon, unchecked_return_type = "string")]
 pub fn kind_icon_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::kind_icon(kind))
 }
@@ -63,7 +63,7 @@ pub fn is_creatable_kind_js(kind: &str) -> bool {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = kindOwner)]
+#[wasm_bindgen(js_name = kindOwner, unchecked_return_type = "B.KindOwner")]
 pub fn kind_owner_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::kind_owner(kind))
 }
@@ -79,7 +79,7 @@ pub fn member_rank_js(kind: &str) -> i32 {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = linkGroupOf)]
+#[wasm_bindgen(js_name = linkGroupOf, unchecked_return_type = "B.LinkGroup | null")]
 pub fn link_group_of_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::link_group_of(kind))
 }
@@ -89,7 +89,7 @@ pub fn link_group_of_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = kindTintClass)]
+#[wasm_bindgen(js_name = kindTintClass, unchecked_return_type = "string | null")]
 pub fn kind_tint_class_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::kind_tint_class(kind))
 }
@@ -112,7 +112,7 @@ pub fn kind_icon_class_js(
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = kindSuffix)]
+#[wasm_bindgen(js_name = kindSuffix, unchecked_return_type = "string | null")]
 pub fn kind_suffix_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::kind_suffix(kind))
 }
@@ -122,7 +122,7 @@ pub fn kind_suffix_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> 
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = documentSuffix)]
+#[wasm_bindgen(js_name = documentSuffix, unchecked_return_type = "string")]
 pub fn document_suffix_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::document_suffix(kind))
 }
@@ -142,7 +142,7 @@ pub fn modes_for_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = defaultModeFor)]
+#[wasm_bindgen(js_name = defaultModeFor, unchecked_return_type = "B.DocumentMode")]
 pub fn default_mode_for_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::default_mode_for(kind))
 }
@@ -152,7 +152,7 @@ pub fn default_mode_for_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Er
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = openModeFor)]
+#[wasm_bindgen(js_name = openModeFor, unchecked_return_type = "B.DocumentMode")]
 pub fn open_mode_for_js(kind: &str, body: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::open_mode_for(kind, body))
 }
@@ -162,7 +162,7 @@ pub fn open_mode_for_js(kind: &str, body: &str) -> Result<JsValue, serde_wasm_bi
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = openingTab)]
+#[wasm_bindgen(js_name = openingTab, unchecked_return_type = "B.TabRef")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn opening_tab_js(
     kind: &str,
@@ -177,7 +177,7 @@ pub fn opening_tab_js(
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = documentKind)]
+#[wasm_bindgen(js_name = documentKind, unchecked_return_type = "B.KindDocument")]
 pub fn document_kind_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::document_kind(kind))
 }

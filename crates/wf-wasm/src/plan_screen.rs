@@ -23,7 +23,7 @@ pub fn sort_by_due_js(milestones: JsValue) -> Result<JsValue, serde_wasm_bindgen
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = planEyebrow)]
+#[wasm_bindgen(js_name = planEyebrow, unchecked_return_type = "string | undefined")]
 pub fn plan_eyebrow_js(total: u32, done: u32) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&screen::plan_eyebrow(total, done))
 }

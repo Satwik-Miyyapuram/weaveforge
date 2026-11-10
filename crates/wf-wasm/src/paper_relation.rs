@@ -51,8 +51,10 @@ pub fn create_paper_relation_js(
 /// # Errors
 ///
 /// Fails if `row` has the wrong shape.
-#[wasm_bindgen(js_name = paperRelationFromRow)]
-pub fn paper_relation_from_row_js(row: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = paperRelationFromRow, unchecked_return_type = "B.PaperRelation")]
+pub fn paper_relation_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperRelationRow")] row: JsValue,
+) -> Result<JsValue, JsValue> {
     let row: PaperRelationRow = serde_wasm_bindgen::from_value(row)?;
     Ok(to_js(&paper_relation::paper_relation_from_row(row))?)
 }
@@ -63,8 +65,10 @@ pub fn paper_relation_from_row_js(row: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Fails if `relation` has the wrong shape.
-#[wasm_bindgen(js_name = paperRelationToRow)]
-pub fn paper_relation_to_row_js(relation: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = paperRelationToRow, unchecked_return_type = "B.PaperRelationRow")]
+pub fn paper_relation_to_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperRelation")] relation: JsValue,
+) -> Result<JsValue, JsValue> {
     let relation: PaperRelation = serde_wasm_bindgen::from_value(relation)?;
     Ok(to_js(&paper_relation::paper_relation_to_row(relation))?)
 }

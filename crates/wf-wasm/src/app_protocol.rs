@@ -17,7 +17,7 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails only if the result cannot be turned into a JS value.
-#[wasm_bindgen(js_name = appFileCandidates)]
+#[wasm_bindgen(js_name = appFileCandidates, unchecked_return_type = "string[] | null")]
 pub fn app_file_candidates_js(root: &str, request_url: &str, sep: &str) -> JsResult<JsValue> {
     let sep = sep.chars().next().unwrap_or('/');
     to_js(&app_protocol::app_file_candidates(root, request_url, sep))
@@ -29,7 +29,7 @@ pub fn app_file_candidates_js(root: &str, request_url: &str, sep: &str) -> JsRes
 /// # Errors
 ///
 /// Fails only if the result cannot be turned into a JS value.
-#[wasm_bindgen(js_name = appCanonicalUrl)]
+#[wasm_bindgen(js_name = appCanonicalUrl, unchecked_return_type = "string | null")]
 pub fn app_canonical_url_js(request_url: &str) -> JsResult<JsValue> {
     to_js(&app_protocol::canonical_app_url(request_url))
 }
@@ -46,7 +46,7 @@ pub fn app_is_page_request_js(request_url: &str) -> bool {
 /// # Errors
 ///
 /// Fails only if the headers cannot be turned into a JS value.
-#[wasm_bindgen(js_name = appHeaders)]
+#[wasm_bindgen(js_name = appHeaders, unchecked_return_type = "Record<string, string>")]
 pub fn app_headers_js(content_type: &str) -> JsResult<JsValue> {
     to_js(&Value::Object(app_protocol::app_headers(content_type)))
 }

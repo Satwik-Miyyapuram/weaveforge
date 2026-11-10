@@ -12,8 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = parseThemeConfig)]
-pub fn parse_theme_config_js(text: &JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = parseThemeConfig, unchecked_return_type = "B.ThemeConfigParseResult")]
+pub fn parse_theme_config_js(
+    #[wasm_bindgen(unchecked_param_type = "string")] text: &JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let text = text.as_string().unwrap_or_default();
     to_js(&theme_config::parse_theme_config(&text))
 }

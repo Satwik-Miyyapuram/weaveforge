@@ -33,8 +33,10 @@ fn settings_from(raw: JsValue) -> JsResult<Option<SearchSettings>> {
 /// # Errors
 ///
 /// Fails if `raw` cannot be read as JSON.
-#[wasm_bindgen(js_name = normalizeSearchSettings)]
-pub fn normalize_search_settings_js(raw: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = normalizeSearchSettings, unchecked_return_type = "B.SearchSettings | undefined")]
+pub fn normalize_search_settings_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
+) -> JsResult<JsValue> {
     match settings_from(raw)? {
         Some(settings) => to_js(&settings),
         None => Ok(JsValue::UNDEFINED),

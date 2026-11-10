@@ -66,8 +66,10 @@ pub fn seed_doi_js(doi: Option<String>, arxiv_id: Option<String>) -> Result<JsVa
 /// # Errors
 ///
 /// Fails if `papers` cannot be read as a list of library papers.
-#[wasm_bindgen(js_name = localKeys)]
-pub fn local_keys_js(papers: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = localKeys, unchecked_return_type = "B.RelatedPaperKeys")]
+pub fn local_keys_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] papers: JsValue,
+) -> Result<JsValue, JsValue> {
     let papers: Vec<LibraryPaper> = serde_wasm_bindgen::from_value(papers)?;
     Ok(to_js(&related_paper_hit::local_keys(&papers))?)
 }
@@ -77,8 +79,10 @@ pub fn local_keys_js(papers: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Fails if `input` cannot be read as a collect input.
-#[wasm_bindgen(js_name = collectNewHits)]
-pub fn collect_new_hits_js(input: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = collectNewHits, unchecked_return_type = "B.RelatedPaperCollectOutput")]
+pub fn collect_new_hits_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] input: JsValue,
+) -> Result<JsValue, JsValue> {
     let input: RelatedPaperCollectInput = serde_wasm_bindgen::from_value(input)?;
     Ok(to_js(&related_paper_hit::collect_new_hits(input))?)
 }
@@ -88,8 +92,10 @@ pub fn collect_new_hits_js(input: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Fails if `hits` cannot be read as a list of hits.
-#[wasm_bindgen(js_name = sortByCitations)]
-pub fn sort_by_citations_js(hits: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = sortByCitations, unchecked_return_type = "(B.RelatedPaperHitRow | null)[]")]
+pub fn sort_by_citations_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] hits: JsValue,
+) -> Result<JsValue, JsValue> {
     let hits: Vec<Option<RelatedPaperHit>> = serde_wasm_bindgen::from_value(hits)?;
     Ok(to_js(&related_paper_hit::sort_by_citations(hits))?)
 }

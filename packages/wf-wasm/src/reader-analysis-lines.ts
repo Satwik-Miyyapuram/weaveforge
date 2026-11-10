@@ -7,27 +7,22 @@
  */
 import {
   pageTextFromItems as rawPageTextFromItems,
-  isBoldFont as rawIsBoldFont,
-  furnitureKey as rawFurnitureKey,
   reconstructLines as rawReconstructLines,
   detectColumns as rawDetectColumns,
   sortByReadingOrder as rawSortByReadingOrderIndices,
 } from "../pkg/wf_wasm.js";
-import type { AnalysisTextLine as TextLine } from "./bindings.js";
+import type {
+  AnalysisTextLine as TextLine,
+} from "./bindings.js";
+
+export {
+  furnitureKey,
+  isBoldFont,
+} from "../pkg/wf_wasm.js";
 
 /** Items concatenated, `\n` after each `hasEOL` item (Rust `page_text_from_items`). */
 export function pageTextFromItems(items: readonly { str: string; hasEOL?: boolean }[]): string {
   return rawPageTextFromItems(items) as string;
-}
-
-/** A bold, Black or Heavy face, by font name (Rust `is_bold_font`). */
-export function isBoldFont(fontName: string | undefined): boolean {
-  return rawIsBoldFont(fontName) as boolean;
-}
-
-/** Lower case, spaces collapsed, digits masked (Rust `furniture_key`). */
-export function furnitureKey(str: string): string {
-  return rawFurnitureKey(str) as string;
 }
 
 /**

@@ -5,30 +5,39 @@
  * members return them from the input array (the Rust side returns indices).
  */
 import {
-  canCreateRole as rawCanCreateRole,
-  creatableRoles as rawCreatableRoles,
-  formatInviteCode as rawFormatInviteCode,
-  normalizeOrgInviteCode as rawNormalizeOrgInviteCode,
   resolveOrgJoinAssignment as rawResolveOrgJoinAssignment,
-  resolveSupervisorId as rawResolveSupervisorId,
   validateNewMember as rawValidateNewMember,
-  validateOrgName as rawValidateOrgName,
   filterLabMembers as rawFilterLabMembers,
   filterTeamMembers as rawFilterTeamMembers,
   hasActiveLab as rawHasActiveLab,
-  isExplicitLabMembership as rawIsExplicitLabMembership,
-  isMissingServiceRole as rawIsMissingServiceRole,
-  needsMigrationHint as rawNeedsMigrationHint,
   isSupervisorRole as rawIsSupervisorRole,
   roleRank as rawRoleRank,
-  needsOrgSetup as rawNeedsOrgSetup,
   needsStandaloneRoleSync as rawNeedsStandaloneRoleSync,
   resolveDisplayRole as rawResolveDisplayRole,
   shouldSyncStandalone as rawShouldSyncStandalone,
   studentsOf as rawStudentsOf,
 } from "../pkg/wf_wasm.js";
 
-import type { JoinAssignment, MemberLink, Membership, NewMember, OrgSetupState, ProfileState } from "./bindings.js";
+import type {
+  JoinAssignment,
+  MemberLink,
+  Membership,
+  NewMember,
+  ProfileState,
+} from "./bindings.js";
+
+export {
+  canCreateRole,
+  creatableRoles,
+  formatInviteCode,
+  isExplicitLabMembership,
+  isMissingServiceRole,
+  needsMigrationHint,
+  needsOrgSetup,
+  normalizeOrgInviteCode,
+  resolveSupervisorId,
+  validateOrgName,
+} from "../pkg/wf_wasm.js";
 
 /** What a viewer may see of a lab. `orgMemberIds` is the active lab's roster, if known. */
 function wireVisibility(options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null }) {
@@ -40,11 +49,6 @@ function wireVisibility(options: { inLab: boolean; orgMemberIds?: ReadonlySet<st
 
 function pick<T>(items: readonly T[], indices: readonly number[]): T[] {
   return indices.map((i) => items[i] as T);
-}
-
-/** Roles `creator` may create accounts for, in invite-code order. */
-export function creatableRoles(creator: string): string[] {
-  return rawCreatableRoles(creator) as string[];
 }
 
 /** The supervision team: the viewer plus all supervisees, at any depth. */
@@ -97,21 +101,6 @@ export function needsStandaloneRoleSync(
   return rawNeedsStandaloneRoleSync(profile, memberships, inLab);
 }
 
-/** Whether the user created or joined the lab (not a migration backfill). */
-export function isExplicitLabMembership(membership: Membership): boolean {
-  return rawIsExplicitLabMembership(membership);
-}
-
-/** Whether an org RPC error message means the schema migrations must run (Rust `needs_migration_hint`). */
-export function needsMigrationHint(message: string): boolean {
-  return rawNeedsMigrationHint(message);
-}
-
-/** Whether an org API error message says the server lacks its Supabase service-role key (Rust `is_missing_service_role`). */
-export function isMissingServiceRole(message: string): boolean {
-  return rawIsMissingServiceRole(message);
-}
-
 /** Whether the active lab is set and the user is explicitly in it, or owns it. */
 export function hasActiveLab(
   activeOrgId: string | null | undefined,
@@ -127,21 +116,6 @@ export function shouldSyncStandalone(
   labs: readonly Membership[] | null,
 ): boolean {
   return rawShouldSyncStandalone(profile, labs);
-}
-
-/** Whether the first-run setup screen applies. */
-export function needsOrgSetup(state: OrgSetupState): boolean {
-  return rawNeedsOrgSetup(state);
-}
-
-/** Whether `creator` may create an account with role `target`. */
-export function canCreateRole(creator: string, target: string): boolean {
-  return rawCanCreateRole(creator, target);
-}
-
-/** Supervisor recorded for an account `creatorId` creates: the creator. */
-export function resolveSupervisorId(creatorId: string): string {
-  return rawResolveSupervisorId(creatorId);
 }
 
 /**
@@ -165,21 +139,6 @@ export function validateNewMember(
     throw error;
   }
   return { ...member, fullName: member.fullName ?? undefined, supervisorId: member.supervisorId ?? undefined };
-}
-
-/** Group an invite code as `XXX-XXX-XXX`. */
-export function formatInviteCode(raw: string): string {
-  return rawFormatInviteCode(raw);
-}
-
-/** Normalize typed invite input to its canonical code characters. */
-export function normalizeOrgInviteCode(input: string): string {
-  return rawNormalizeOrgInviteCode(input);
-}
-
-/** Trim and check a lab name. Throws the validation message as a string. */
-export function validateOrgName(name: string): string {
-  return rawValidateOrgName(name);
 }
 
 /**

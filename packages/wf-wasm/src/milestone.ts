@@ -5,7 +5,6 @@
 import {
   createMilestoneWith as rawCreateMilestoneWith,
   isIsoDay as rawIsIsoDay,
-  isoDayFromParts as rawIsoDayFromParts,
   milestoneInputError as rawMilestoneInputError,
   validateComputeError as rawValidateComputeError,
   validateDependenciesError as rawValidateDependenciesError,
@@ -18,6 +17,10 @@ import type {
   MilestoneStatus,
   NewMilestoneInput,
 } from "./bindings.js";
+
+export {
+  isoDayFromParts,
+} from "../pkg/wf_wasm.js";
 
 /** Every milestone status. */
 export const MILESTONE_STATUSES: readonly MilestoneStatus[] = ["planned", "in_progress", "done", "blocked"];
@@ -36,11 +39,6 @@ function throwIfInvalid(message: string | undefined): void {
 /** True for a `yyyy-mm-dd` day that is on the calendar. */
 export function isIsoDay(value: string): boolean {
   return rawIsIsoDay(value);
-}
-
-/** The `yyyy-mm-dd` day for calendar parts; `month` is 1-based. */
-export function isoDayFromParts(year: number, month: number, day: number): string {
-  return rawIsoDayFromParts(year, month, day);
 }
 
 /** The validation message for a dependency list, if it is invalid. */

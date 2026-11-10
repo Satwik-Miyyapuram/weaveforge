@@ -5,10 +5,16 @@
 import {
   cleanWidgetPalette as rawCleanWidgetPalette,
   parsePlanWidgetBounds as rawParsePlanWidgetBounds,
-  parseTaskbarCreatedId as rawParseTaskbarCreatedId,
   placePlanWidget as rawPlacePlanWidget,
 } from "../pkg/wf_wasm.js";
-import type { PlanWidgetBounds, PlanWidgetWorkArea } from "./bindings.js";
+import type {
+  PlanWidgetBounds,
+  PlanWidgetWorkArea,
+} from "./bindings.js";
+
+export {
+  parseTaskbarCreatedId,
+} from "../pkg/wf_wasm.js";
 
 export type { PlanWidgetBounds, PlanWidgetWorkArea } from "./bindings.js";
 
@@ -34,7 +40,3 @@ export function placePlanWidget(
   return rawPlacePlanWidget(saved, areas) as PlanWidgetBounds;
 }
 
-/** The `TaskbarCreated` message id the helper printed, or null. */
-export function parseTaskbarCreatedId(stdout: string): number | null {
-  return rawParseTaskbarCreatedId(stdout) as number | null;
-}

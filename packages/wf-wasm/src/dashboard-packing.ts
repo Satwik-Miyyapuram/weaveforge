@@ -10,10 +10,16 @@ import {
   dashboardNormalizeItem as rawNormalizeItem,
   dashboardPackSm as rawPackSm,
   fitLayoutToContent as rawFitLayoutToContent,
-  rowsForHeight as rawRowsForHeight,
   withStoredHeights as rawStoredHeights,
 } from "../pkg/wf_wasm.js";
-import type { CardLimit, LayoutItem } from "./bindings.js";
+import type {
+  CardLimit,
+  LayoutItem,
+} from "./bindings.js";
+
+export {
+  rowsForHeight,
+} from "../pkg/wf_wasm.js";
 
 /** One card type's size limits (Rust `CardLimit`). */
 export type { CardLimit as DashboardPackingLimit } from "./bindings.js";
@@ -61,11 +67,6 @@ export function dashboardCloseGaps(
   cols: number,
 ): LayoutItem[] {
   return rawCloseGaps(items, limits, cols) as LayoutItem[];
-}
-
-/** Grid rows needed to show `px` of card, given the row height and the gap between rows. */
-export function rowsForHeight(px: number, rowHeight: number, margin: number): number {
-  return rawRowsForHeight(px, rowHeight, margin);
 }
 
 /** The layout as viewed: fitting cards take their measured rows (Rust `fit_layout_to_content`). */

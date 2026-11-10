@@ -13,8 +13,10 @@ use super::to_js;
 ///
 /// Fails if `input` does not match the pinned-screen input shape, or the result cannot be
 /// converted to JS.
-#[wasm_bindgen(js_name = pinnedScreenIndex)]
-pub fn pinned_screen_index_js(input: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = pinnedScreenIndex, unchecked_return_type = "B.PinnedScreenIndex")]
+pub fn pinned_screen_index_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PinnedScreenIndexInput")] input: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let input: PinnedScreenInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&pinned_screen_index(&input))
 }

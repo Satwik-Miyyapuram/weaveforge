@@ -12,7 +12,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = screenCachePolicy)]
+#[wasm_bindgen(js_name = screenCachePolicy, unchecked_return_type = "B.ScreenCachePolicy")]
 pub fn screen_cache_policy_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&screen_cache_policy())
 }

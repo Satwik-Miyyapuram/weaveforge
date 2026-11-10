@@ -24,7 +24,7 @@ fn notes_from(value: JsValue) -> JsResult<Vec<DerivedNote>> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = parseWikilinkInner)]
+#[wasm_bindgen(js_name = parseWikilinkInner, unchecked_return_type = "B.WikilinkRef | null")]
 pub fn parse_wikilink_inner_js(inner: &str, raw: &str) -> JsResult<JsValue> {
     to_js(&page::parse_wikilink_inner(inner, raw))
 }
@@ -58,7 +58,7 @@ pub fn body_links_to_js(body: &str, target_key: &str) -> bool {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = stripFrontmatter)]
+#[wasm_bindgen(js_name = stripFrontmatter, unchecked_return_type = "B.ParsedFrontmatter")]
 pub fn strip_frontmatter_js(md: &str) -> JsResult<JsValue> {
     to_js(&page::strip_frontmatter(md))
 }

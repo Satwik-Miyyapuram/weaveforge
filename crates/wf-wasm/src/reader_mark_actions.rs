@@ -31,8 +31,10 @@ pub fn mark_popover_shown_js(annotation_type: &str, tool: &str) -> bool {
 /// # Errors
 ///
 /// Fails if `target` is not a mark's `{ type, origin, comment }` object.
-#[wasm_bindgen(js_name = picturePath)]
-pub fn picture_path_js(target: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = picturePath, unchecked_return_type = "string | null")]
+pub fn picture_path_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MarkTarget")] target: JsValue,
+) -> JsResult<JsValue> {
     let target: MarkTarget = serde_wasm_bindgen::from_value(target)?;
     to_js(&picture_path(&target))
 }

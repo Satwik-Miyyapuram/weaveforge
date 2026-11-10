@@ -19,15 +19,19 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_domain`]: an `experiments` row as an experiment.
-#[wasm_bindgen(js_name = experimentRowToDomain)]
-pub fn experiment_row_to_domain_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = experimentRowToDomain, unchecked_return_type = "B.Experiment")]
+pub fn experiment_row_to_domain_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ExperimentRow")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: ExperimentRow = parse(row)?;
     to_js(&to_domain(&row)).map_err(js_error)
 }
 
 /// [`to_row`]: an experiment as the `experiments` row it is written as.
-#[wasm_bindgen(js_name = experimentToRow)]
-pub fn experiment_to_row_js(experiment: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = experimentToRow, unchecked_return_type = "B.ExperimentWriteRow")]
+pub fn experiment_to_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Experiment")] experiment: JsValue,
+) -> Result<JsValue, JsError> {
     let experiment: Experiment = parse(experiment)?;
     to_js(&to_row(&experiment)).map_err(js_error)
 }

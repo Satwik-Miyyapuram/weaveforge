@@ -61,8 +61,10 @@ pub fn citation_external_id_ref_js(ids: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Fails if `reference` has the wrong shape.
-#[wasm_bindgen(js_name = s2PaperId)]
-pub fn s2_paper_id_js(reference: JsValue) -> Result<String, JsValue> {
+#[wasm_bindgen(js_name = s2PaperId, unchecked_return_type = "string")]
+pub fn s2_paper_id_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperRef")] reference: JsValue,
+) -> Result<String, JsValue> {
     let reference: RefArg = serde_wasm_bindgen::from_value(reference)?;
     Ok(semantic_scholar_citation::s2_paper_id(
         reference.kind,
@@ -76,10 +78,10 @@ pub fn s2_paper_id_js(reference: JsValue) -> Result<String, JsValue> {
 /// # Errors
 ///
 /// Fails if `next` cannot be read as JSON.
-#[wasm_bindgen(js_name = nextCitationPageOffset)]
+#[wasm_bindgen(js_name = nextCitationPageOffset, unchecked_return_type = "number")]
 pub fn next_citation_page_offset_js(
     current_offset: f64,
-    next: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] next: JsValue,
     pages_fetched: f64,
 ) -> Result<f64, JsValue> {
     let next: Value = serde_wasm_bindgen::from_value(next)?;
@@ -109,8 +111,11 @@ pub fn citation_candidates_js(data: JsValue) -> Result<JsValue, JsValue> {
 ///
 /// Fails with an `Error` carrying the TS message when `data` is not `chunk_len` items long, and
 /// when `data` cannot be read as JSON.
-#[wasm_bindgen(js_name = batchReferenceLists)]
-pub fn batch_reference_lists_js(data: JsValue, chunk_len: u32) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = batchReferenceLists, unchecked_return_type = "(B.PaperRef[] | null)[]")]
+pub fn batch_reference_lists_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] data: JsValue,
+    chunk_len: u32,
+) -> Result<JsValue, JsError> {
     let data: Value =
         serde_wasm_bindgen::from_value(data).map_err(|error| JsError::new(&error.to_string()))?;
     let lists = citation_candidate::batch_reference_lists(&data, chunk_len as usize)

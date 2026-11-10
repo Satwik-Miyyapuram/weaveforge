@@ -49,8 +49,10 @@ pub fn should_fetch_next_page_js(more: bool, page: usize, max_pages: usize) -> b
 /// # Errors
 ///
 /// Fails when `tables` is not an array of strings.
-#[wasm_bindgen(js_name = tableGroups)]
-pub fn table_groups_js(tables: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = tableGroups, unchecked_return_type = "number[][]")]
+pub fn table_groups_js(
+    #[wasm_bindgen(unchecked_param_type = "string[]")] tables: JsValue,
+) -> JsResult<JsValue> {
     let tables: Vec<String> = serde_wasm_bindgen::from_value(tables)?;
     to_js(&table_groups(&tables))
 }

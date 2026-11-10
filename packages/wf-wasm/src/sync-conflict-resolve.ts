@@ -3,10 +3,15 @@
  * `sync_*` SQL stay in TypeScript; these decide the row or the action to run.
  */
 import {
-  deletionAction as rawDeletionAction,
   resolveWithRow as rawResolveWithRow,
 } from "../pkg/wf_wasm.js";
-import type { ConflictDeletionAction } from "./bindings.js";
+import type {
+  ConflictDeletionAction,
+} from "./bindings.js";
+
+export {
+  deletionAction,
+} from "../pkg/wf_wasm.js";
 
 export type { ConflictDeletionAction } from "./bindings.js";
 
@@ -21,13 +26,3 @@ export function resolveWithRow(
   return rawResolveWithRow(base, local, remote, picks, overrides ?? null) as Record<string, unknown>;
 }
 
-/** The action for a delete conflict settled with `choice`. `remote` is the server row or `null`. */
-export function deletionAction(
-  kind: "deleted_remote" | "deleted_local",
-  choice: "keep" | "delete",
-  local: Record<string, unknown>,
-  rowId: string,
-  remote: Record<string, unknown> | null,
-): ConflictDeletionAction {
-  return rawDeletionAction(kind, choice, local, rowId, remote) as ConflictDeletionAction;
-}

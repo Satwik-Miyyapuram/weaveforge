@@ -6,17 +6,19 @@
 import {
   doubleClickFigure as rawDoubleClickFigure,
   figureUnder as rawFigureUnder,
-  fitScale as rawFitScale,
   selectedText as rawSelectedText,
 } from "../pkg/wf_wasm.js";
-import type { HitBox as InkHitBox, Point as InkHitPoint, TextLine as InkTextLine } from "./bindings.js";
+import type {
+  HitBox as InkHitBox,
+  Point as InkHitPoint,
+  TextLine as InkTextLine,
+} from "./bindings.js";
+
+export {
+  fitScale,
+} from "../pkg/wf_wasm.js";
 
 export type { HitBox as InkHitBox, Point as InkHitPoint, TextLine as InkTextLine } from "./bindings.js";
-
-/** The fit: how many CSS pixels one 0.1 mm unit is worth. */
-export function fitScale(containerWidth: number, pageWidth: number): number {
-  return rawFitScale(containerWidth, pageWidth);
-}
 
 /** The lines the chosen strokes belong to, as text, one per line. */
 export function selectedText(

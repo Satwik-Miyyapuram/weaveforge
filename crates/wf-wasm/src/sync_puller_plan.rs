@@ -18,8 +18,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails when `input` is not a pull summary input.
-#[wasm_bindgen(js_name = pullSummary)]
-pub fn pull_summary_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pullSummary, unchecked_return_type = "B.PullSummary")]
+pub fn pull_summary_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PullSummaryInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: PullSummaryInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&summarize_pull(&input))
 }
@@ -29,8 +31,10 @@ pub fn pull_summary_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `facts` is not a pull fact set.
-#[wasm_bindgen(js_name = pullApplyStep)]
-pub fn pull_apply_step_js(facts: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pullApplyStep, unchecked_return_type = "B.ApplyStep")]
+pub fn pull_apply_step_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PullFacts")] facts: JsValue,
+) -> JsResult<JsValue> {
     let facts: PullFacts = serde_wasm_bindgen::from_value(facts)?;
     to_js(&apply_step(&facts))
 }
@@ -40,8 +44,10 @@ pub fn pull_apply_step_js(facts: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `facts` is not a pull fact set.
-#[wasm_bindgen(js_name = pullTombstoneStep)]
-pub fn pull_tombstone_step_js(facts: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pullTombstoneStep, unchecked_return_type = "B.TombstoneStep")]
+pub fn pull_tombstone_step_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PullFacts")] facts: JsValue,
+) -> JsResult<JsValue> {
     let facts: PullFacts = serde_wasm_bindgen::from_value(facts)?;
     to_js(&tombstone_step(&facts))
 }

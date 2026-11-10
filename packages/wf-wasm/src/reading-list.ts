@@ -5,13 +5,20 @@
 import {
   buildListTree as rawBuildListTree,
   deepestFirstListIds as rawDeepestFirstListIds,
-  listDisplayColor as rawListDisplayColor,
   listMembershipByKey as rawListMembershipByKey,
-  pendingKey as rawPendingKey,
-  readingListNameMatches as rawReadingListNameMatches,
   relationTitles as rawRelationTitles,
 } from "../pkg/wf_wasm.js";
-import type { ListMembershipKey, ReadingList, ReadingListTreeNode } from "./bindings.js";
+import type {
+  ListMembershipKey,
+  ReadingList,
+  ReadingListTreeNode,
+} from "./bindings.js";
+
+export {
+  listDisplayColor,
+  pendingKey,
+  readingListNameMatches,
+} from "../pkg/wf_wasm.js";
 /** The reading list shapes callers type their state with. */
 export type { ListMembershipKey, ReadingList, ReadingListItem, ReadingListTreeNode } from "./bindings.js";
 
@@ -22,11 +29,6 @@ export function buildListTree(lists: readonly ReadingList[]): ReadingListTreeNod
 /** The list and every list below it, deepest first (children before their parent). */
 export function deepestFirstListIds(listId: string, lists: readonly ReadingList[]): string[] {
   return rawDeepestFirstListIds(listId, lists) as string[];
-}
-
-/** A list's own colour, or a stable hue hashed from its name. */
-export function listDisplayColor(list: ReadingList): string {
-  return rawListDisplayColor(list) as string;
 }
 
 /**
@@ -40,19 +42,6 @@ export function listMembershipByKey(
 ): Map<string, Set<string>> {
   const pairs = rawListMembershipByKey(lists, items, key) as [string, string[]][];
   return new Map(pairs.map(([id, ids]): [string, Set<string>] => [id, new Set(ids)]));
-}
-
-/**
- * Whether a list name contains `needle`, ignoring case. An empty needle matches every name.
- * Rust `reading_lists::name_filter`.
- */
-export function readingListNameMatches(name: string, needle: string): boolean {
-  return rawReadingListNameMatches(name, needle);
-}
-
-/** The extraction-table lookup key for one cell, `paperId::fieldId`. Rust `reading_lists::extraction_keys`. */
-export function pendingKey(paperId: string, fieldId: string): string {
-  return rawPendingKey(paperId, fieldId);
 }
 
 /**

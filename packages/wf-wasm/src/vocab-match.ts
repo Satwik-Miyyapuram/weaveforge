@@ -3,19 +3,20 @@
  * `ink::vocab_match`), re-exported from index.ts.
  */
 import {
-  damerauLevenshtein as rawDamerauLevenshtein,
   matchVocabulary as rawMatchVocabulary,
   spanDistance as rawSpanDistance,
 } from "../pkg/wf_wasm.js";
 
-import type { VocabMatch, VocabMatchResult } from "./bindings.js";
+import type {
+  VocabMatch,
+  VocabMatchResult,
+} from "./bindings.js";
+
+export {
+  damerauLevenshtein,
+} from "../pkg/wf_wasm.js";
 
 export type { VocabMatch, VocabMatchResult };
-
-/** Damerau–Levenshtein distance with adjacent transpositions, in UTF-16 units. */
-export function damerauLevenshtein(a: string, b: string): number {
-  return rawDamerauLevenshtein(a, b);
-}
 
 /** The distance between a run of words and an entry, `Infinity` when refused. */
 export function spanDistance(

@@ -29,7 +29,9 @@ pub fn picture_meta_js(kind: &str, comment: Option<String>) -> JsResult<JsValue>
 ///
 /// Fails if `meta` is not a picture-metadata object.
 #[wasm_bindgen(js_name = pictureComment)]
-pub fn picture_comment_js(meta: JsValue) -> JsResult<String> {
+pub fn picture_comment_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PictureMeta")] meta: JsValue,
+) -> JsResult<String> {
     let meta: PictureMeta = serde_wasm_bindgen::from_value(meta)?;
     Ok(picture_comment(&meta))
 }
@@ -50,8 +52,11 @@ pub fn page_pictures_js(annotations: JsValue, page_height: f64) -> JsResult<JsVa
 /// # Errors
 ///
 /// Fails if `figure` is not a figure-geometry object.
-#[wasm_bindgen(js_name = pictureRect)]
-pub fn picture_rect_js(figure: JsValue, page_height: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pictureRect, unchecked_return_type = "[number, number, number, number]")]
+pub fn picture_rect_js(
+    #[wasm_bindgen(unchecked_param_type = "B.FigureGeometry")] figure: JsValue,
+    page_height: f64,
+) -> JsResult<JsValue> {
     let figure: FigureGeometry = serde_wasm_bindgen::from_value(figure)?;
     to_js(&picture_rect(&figure, page_height))
 }
@@ -61,8 +66,10 @@ pub fn picture_rect_js(figure: JsValue, page_height: f64) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `input` is not a picture-draft object.
-#[wasm_bindgen(js_name = draftPicture)]
-pub fn draft_picture_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = draftPicture, unchecked_return_type = "B.NewReaderAnnotation")]
+pub fn draft_picture_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PictureDraftInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: PictureDraftInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&draft_picture(&input))
 }

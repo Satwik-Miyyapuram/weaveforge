@@ -20,8 +20,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `item` is not a pdf.js text item with a `transform` array.
-#[wasm_bindgen(js_name = outlineItemOf)]
-pub fn outline_item_of_js(item: JsValue, page: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = outlineItemOf, unchecked_return_type = "B.OutlineTextItem")]
+pub fn outline_item_of_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AnalysisPdfItem")] item: JsValue,
+    page: f64,
+) -> JsResult<JsValue> {
     let item: AnalysisPdfItem = serde_wasm_bindgen::from_value(item)?;
     to_js(&document_analysis::outline_item_of(&item, page))
 }

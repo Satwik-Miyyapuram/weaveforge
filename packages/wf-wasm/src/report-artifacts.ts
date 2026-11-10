@@ -4,29 +4,19 @@
  * the TS function it replaces in apps/web/src/features/report/application.
  */
 import {
-  artifactBasename as rawArtifactBasename,
-  parseArtifactRefs as rawParseArtifactRefs,
   resolveArtifactRefsMarkdown as rawResolveArtifactRefsMarkdown,
   safeArtifactCaption as rawSafeArtifactCaption,
   safeImageDestination as rawSafeImageDestination,
-  serialiseArtifactRef as rawSerialiseArtifactRef,
 } from "../pkg/wf_wasm.js";
-import type { ArtifactRef, ParsedArtifactRef, ReportExperiment } from "./bindings.js";
+import type {
+  ReportExperiment,
+} from "./bindings.js";
 
-/** Every `expartifact:` reference in the markdown, with UTF-16 start and end offsets. */
-export function parseArtifactRefs(markdown: string): ParsedArtifactRef[] {
-  return rawParseArtifactRefs(markdown) as ParsedArtifactRef[];
-}
-
-/** The canonical markdown for a reference. */
-export function serialiseArtifactRef(artifactRef: ArtifactRef): string {
-  return rawSerialiseArtifactRef(artifactRef);
-}
-
-/** The last path segment of an artifact URL or name, so a signed URL matches its plain name. */
-export function artifactBasename(name: string): string {
-  return rawArtifactBasename(name);
-}
+export {
+  artifactBasename,
+  parseArtifactRefs,
+  serialiseArtifactRef,
+} from "../pkg/wf_wasm.js";
 
 /** Replaces each reference with its figure, or a warning line. `nowMs` drives the stale check. */
 export function resolveArtifactRefsMarkdown(

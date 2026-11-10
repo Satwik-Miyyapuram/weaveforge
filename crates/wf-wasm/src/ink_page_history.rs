@@ -31,14 +31,17 @@ fn parse_direction(direction: &str) -> PageDirection {
 }
 
 /// [`empty_page_history`] as `{ undo: [], redo: [] }`.
-#[wasm_bindgen(js_name = emptyPageHistory)]
+#[wasm_bindgen(js_name = emptyPageHistory, unchecked_return_type = "B.PageHistory")]
 pub fn empty_page_history_js() -> JsResult<JsValue> {
     to_js(&empty_page_history())
 }
 
 /// [`sync_stroke_steps`]: `history` is the page log, `depth` the worker's stroke count.
-#[wasm_bindgen(js_name = syncStrokeSteps)]
-pub fn sync_stroke_steps_js(history: JsValue, depth: u32) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = syncStrokeSteps, unchecked_return_type = "B.PageHistory")]
+pub fn sync_stroke_steps_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PageHistory")] history: JsValue,
+    depth: u32,
+) -> JsResult<JsValue> {
     let history = parse_history(history)?;
     to_js(&sync_stroke_steps(&history, depth as usize))
 }
@@ -61,8 +64,11 @@ pub fn push_figure_step_js(
 
 /// [`take_page_step`]: `direction` is `"undo"` or `"redo"`; gives
 /// `{ history, step }`, or `null` when that stack is empty.
-#[wasm_bindgen(js_name = takePageStep)]
-pub fn take_page_step_js(history: JsValue, direction: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = takePageStep, unchecked_return_type = "B.TakenPageStep | null")]
+pub fn take_page_step_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PageHistory")] history: JsValue,
+    direction: &str,
+) -> JsResult<JsValue> {
     let history = parse_history(history)?;
     to_js(&take_page_step(&history, parse_direction(direction)))
 }

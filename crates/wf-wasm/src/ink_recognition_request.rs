@@ -15,8 +15,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = readInkRequest)]
-pub fn read_ink_request_js(request: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = readInkRequest, unchecked_return_type = "B.InkRecognitionRequest | null")]
+pub fn read_ink_request_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] request: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let value: Option<serde_json::Value> = serde_wasm_bindgen::from_value(request).ok();
     let read = value.as_ref().and_then(read_ink_request);
     to_js(&read)
@@ -27,8 +29,10 @@ pub fn read_ink_request_js(request: JsValue) -> Result<JsValue, serde_wasm_bindg
 /// # Errors
 ///
 /// Fails when the input is not the page's shape, or the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = buildInkRequest)]
-pub fn build_ink_request_js(input: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = buildInkRequest, unchecked_return_type = "B.InkRecognitionRequest")]
+pub fn build_ink_request_js(
+    #[wasm_bindgen(unchecked_param_type = "B.InkRequestBuildInput")] input: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let input: InkRequestBuildInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&build_ink_request(&input))
 }

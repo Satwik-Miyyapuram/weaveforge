@@ -8,7 +8,10 @@ import {
   pointInPolygon as rawPointInPolygon,
   inkPathsInPolygon as rawInkPathsInPolygon,
   findDocumentMatches as rawFindDocumentMatches,
-  nextMatchIndex as rawNextMatchIndex,
+} from "../pkg/wf_wasm.js";
+
+export {
+  nextMatchIndex,
 } from "../pkg/wf_wasm.js";
 
 /** Rust `LASSO_CAUGHT_SHARE`; kept in step with it. */
@@ -43,7 +46,3 @@ export function findDocumentMatches(
   return rawFindDocumentMatches(pages, query) as { pageIndex: number; start: number; end: number }[];
 }
 
-/** Wraparound next/prev index into a match list. Returns -1 when empty (Rust `next_match_index`). */
-export function nextMatchIndex(current: number, total: number, direction: 1 | -1): number {
-  return rawNextMatchIndex(current, total, direction);
-}

@@ -13,8 +13,10 @@ fn parse<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
 }
 
 /// [`source_note_template_context`]: the `{{...}}` values for a paper's source note.
-#[wasm_bindgen(js_name = sourceNoteTemplateContext)]
-pub fn source_note_template_context_js(input: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = sourceNoteTemplateContext, unchecked_return_type = "B.SourceNoteTemplateContext")]
+pub fn source_note_template_context_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SourceNoteInput")] input: JsValue,
+) -> Result<JsValue, JsError> {
     let input: SourceNoteInput = parse(input)?;
     to_js(&source_note_template_context(&input)).map_err(|error| JsError::new(&error.to_string()))
 }

@@ -52,7 +52,7 @@ pub fn place_plan_widget_js(
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = parseTaskbarCreatedId)]
+#[wasm_bindgen(js_name = parseTaskbarCreatedId, unchecked_return_type = "number | null")]
 pub fn parse_taskbar_created_id_js(stdout: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&parse_taskbar_created(stdout))
 }

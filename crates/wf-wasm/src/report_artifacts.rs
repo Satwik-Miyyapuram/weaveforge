@@ -20,7 +20,7 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = parseArtifactRefs)]
+#[wasm_bindgen(js_name = parseArtifactRefs, unchecked_return_type = "B.ParsedArtifactRef[]")]
 pub fn parse_artifact_refs_js(markdown: &str) -> JsResult<JsValue> {
     to_js(&artifact_refs::parse_artifact_refs(markdown))
 }
@@ -31,7 +31,9 @@ pub fn parse_artifact_refs_js(markdown: &str) -> JsResult<JsValue> {
 ///
 /// Fails if `artifact_ref` has the wrong shape.
 #[wasm_bindgen(js_name = serialiseArtifactRef)]
-pub fn serialise_artifact_ref_js(artifact_ref: JsValue) -> JsResult<String> {
+pub fn serialise_artifact_ref_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ArtifactRef")] artifact_ref: JsValue,
+) -> JsResult<String> {
     let artifact_ref: ArtifactRef = serde_wasm_bindgen::from_value(artifact_ref)?;
     Ok(artifact_refs::serialise_artifact_ref(&artifact_ref))
 }

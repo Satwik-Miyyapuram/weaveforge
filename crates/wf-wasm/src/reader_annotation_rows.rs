@@ -13,8 +13,10 @@ use super::to_js;
 ///
 /// Throws an `Error` (`Invalid annotation type in store: <type>`) when the row's type is not a
 /// reader annotation type, and fails if `row` is not a `ReaderAnnotationRow` object.
-#[wasm_bindgen(js_name = annotationRowToDomain)]
-pub fn annotation_row_to_domain(row: JsValue) -> Result<JsValue, wasm_bindgen::JsError> {
+#[wasm_bindgen(js_name = annotationRowToDomain, unchecked_return_type = "B.ReaderAnnotation")]
+pub fn annotation_row_to_domain(
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderAnnotationRow")] row: JsValue,
+) -> Result<JsValue, wasm_bindgen::JsError> {
     let row: ReaderAnnotationRow = serde_wasm_bindgen::from_value(row)
         .map_err(|error| wasm_bindgen::JsError::new(&error.to_string()))?;
     let annotation = to_domain(row).map_err(|message| wasm_bindgen::JsError::new(&message))?;

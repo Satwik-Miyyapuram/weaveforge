@@ -3,19 +3,19 @@
  * JSON head, then the vector blob.
  */
 import {
-  packVectors as rawPackVectors,
   unpackVectorBlob as rawUnpackVectorBlob,
   unpackVectorHead as rawUnpackVectorHead,
 } from "../pkg/wf_wasm.js";
 
-import type { VectorFileHead } from "./bindings.js";
+import type {
+  VectorFileHead,
+} from "./bindings.js";
+
+export {
+  packVectors,
+} from "../pkg/wf_wasm.js";
 
 export type { VectorFileHead };
-
-/** Frame a head and its blob as one stored vector file. */
-export function packVectors(head: VectorFileHead, bytes: Uint8Array): Uint8Array {
-  return rawPackVectors(head, bytes);
-}
 
 /** A file's JSON head, or `null` if it is torn or its head is not valid. */
 export function unpackVectorHead(file: Uint8Array): VectorFileHead | null {

@@ -4,12 +4,14 @@
  * bindings.ts, generated from the Rust types. The op verb is the Rust `OutboxOp`
  * (serialized as "insert" | "update" | "delete").
  */
-import { conflictRoute as rawConflictRoute } from "../pkg/wf_wasm.js";
-import type { ConflictInput, ConflictRoute } from "./bindings.js";
+import type {
+  ConflictInput,
+  ConflictRoute,
+} from "./bindings.js";
+
+export {
+  conflictRoute,
+} from "../pkg/wf_wasm.js";
 
 export type { ConflictInput, ConflictRoute } from "./bindings.js";
 
-/** The route for an op the server refused as stale. */
-export function conflictRoute(input: ConflictInput): ConflictRoute {
-  return rawConflictRoute(input) as ConflictRoute;
-}

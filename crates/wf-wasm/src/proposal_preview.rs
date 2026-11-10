@@ -11,7 +11,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = splitProposalContent)]
+#[wasm_bindgen(js_name = splitProposalContent, unchecked_return_type = "B.ProposalPreview")]
 pub fn split_proposal_content_js(content: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&preview::split_proposal_content(content))
 }

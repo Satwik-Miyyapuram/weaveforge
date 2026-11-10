@@ -4,7 +4,6 @@
  */
 import {
   buildLabSnapshotContent as rawBuildLabSnapshotContent,
-  validateSnapshotTitle as rawValidateSnapshotTitle,
 } from "../pkg/wf_wasm.js";
 import type {
   ExperimentInput,
@@ -13,6 +12,10 @@ import type {
   MilestoneInput,
   ReportSectionInput,
 } from "./bindings.js";
+
+export {
+  validateSnapshotTitle,
+} from "../pkg/wf_wasm.js";
 
 /** Freeze live records into snapshot content, keeping only what a supervisor reads. */
 export function buildLabSnapshotContent(input: {
@@ -25,7 +28,3 @@ export function buildLabSnapshotContent(input: {
   return rawBuildLabSnapshotContent(input) as LabSnapshotContent;
 }
 
-/** Trim a snapshot title. Throws `Snapshot title is required.` for a blank title. */
-export function validateSnapshotTitle(title: string): string {
-  return rawValidateSnapshotTitle(title);
-}

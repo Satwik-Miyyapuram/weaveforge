@@ -5,24 +5,19 @@
  */
 import {
   checkUrlShape as rawCheckUrlShape,
-  describeUrlRejection as rawDescribeUrlRejection,
   expandIpv6 as rawExpandIpv6,
-  fetchLimits as rawFetchLimits,
-  isIpAddress as rawIsIpAddress,
-  isPublicAddress as rawIsPublicAddress,
-  looksLikeImageUrl as rawLooksLikeImageUrl,
 } from "../pkg/wf_wasm.js";
-import type { OutboundFetchLimits, UrlCheck, UrlRejection } from "./bindings.js";
+import type {
+  UrlCheck,
+} from "./bindings.js";
 
-/** The caps on an outbound fetch (Rust `DEFAULT_FETCH_LIMITS`), read at call time. */
-export function fetchLimits(): OutboundFetchLimits {
-  return rawFetchLimits() as OutboundFetchLimits;
-}
-
-/** The person-facing sentence for a refused URL (Rust `rejection_copy`). */
-export function describeUrlRejection(reason: UrlRejection): string {
-  return rawDescribeUrlRejection(reason);
-}
+export {
+  describeUrlRejection,
+  fetchLimits,
+  isIpAddress,
+  isPublicAddress,
+  looksLikeImageUrl,
+} from "../pkg/wf_wasm.js";
 
 /**
  * Parses a URL, accepting a scheme-less host the way a person would type it.
@@ -47,20 +42,6 @@ export function checkUrlShape(input: string | URL): UrlCheck {
     url.port,
     url.hostname,
   ) as UrlCheck;
-}
-
-export function isIpAddress(value: string): boolean {
-  return rawIsIpAddress(value);
-}
-
-/** True when an address is one the internet can route to somebody else. */
-export function isPublicAddress(address: string): boolean {
-  return rawIsPublicAddress(address);
-}
-
-/** True when the URL's own path names a picture (Rust `looks_like_image_url`). */
-export function looksLikeImageUrl(url: string): boolean {
-  return rawLooksLikeImageUrl(url);
 }
 
 /** Expands an IPv6 address to its eight groups, or null when it is not one. */

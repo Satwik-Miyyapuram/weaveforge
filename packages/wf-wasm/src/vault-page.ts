@@ -4,43 +4,41 @@
  * markdown image helpers live in `workspace.ts`.
  */
 import {
-  vaultAssetPathsInBody as rawAssetPathsInBody,
   bodyLinksTo as rawBodyLinksTo,
-  embedTitles as rawEmbedTitles,
   expandEmbeds as rawExpandEmbeds,
   replaceVaultAssetPaths as rawReplaceVaultAssetPaths,
   vaultBodyPreview as rawBodyPreview,
   vaultBodyPreviewChars as rawBodyPreviewChars,
-  vaultImagePrefix as rawImagePrefix,
   extractWikilinks as rawExtractWikilinks,
   vaultImageMarkdown as rawImageMarkdown,
   normalizeTitleKey as rawNormalizeTitleKey,
   noteBacklinks as rawNoteBacklinks,
   noteTags as rawNoteTags,
-  parseWikilinkInner as rawParseWikilinkInner,
   scopeNoteIndices as rawScopeNoteIndices,
-  stripFrontmatter as rawStripFrontmatter,
   uniqueTitle as rawUniqueTitle,
   vaultTitleOrBodyFilter as rawTitleOrBodyFilter,
-  vaultTitleLikePattern as rawTitleLikePattern,
-  isMissingBodyPreviewColumn as rawIsMissingBodyPreviewColumn,
 } from "../pkg/wf_wasm.js";
-import type { ParsedFrontmatter, WikilinkRef } from "./bindings.js";
+import type {
+  ParsedFrontmatter,
+  WikilinkRef,
+} from "./bindings.js";
+
+export {
+  embedTitles,
+  isMissingBodyPreviewColumn,
+  normalizeTitleKey,
+  parseWikilinkInner,
+  stripFrontmatter,
+  vaultAssetPathsInBody,
+  vaultImagePrefix,
+  vaultTitleLikePattern,
+} from "../pkg/wf_wasm.js";
 
 export type { ParsedFrontmatter, WikilinkRef };
-
-/** Prefix embedded vault images use in markdown: `![](vault:userId/pageId/file.png)`. */
-export function vaultImagePrefix(): string {
-  return rawImagePrefix();
-}
 
 /** Max chars kept for note-card previews from `listSummaries`. */
 export function vaultBodyPreviewChars(): number {
   return rawBodyPreviewChars();
-}
-
-export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
-  return rawParseWikilinkInner(inner, raw) as WikilinkRef;
 }
 
 export function extractWikilinks(body?: string): WikilinkRef[] {
@@ -48,17 +46,9 @@ export function extractWikilinks(body?: string): WikilinkRef[] {
   return rawExtractWikilinks(body) as WikilinkRef[];
 }
 
-export function normalizeTitleKey(title: string): string {
-  return rawNormalizeTitleKey(title);
-}
-
 export function bodyLinksTo(body: string | undefined, targetKey: string): boolean {
   if (!body) return false;
   return rawBodyLinksTo(body, targetKey);
-}
-
-export function stripFrontmatter(md: string): ParsedFrontmatter {
-  return rawStripFrontmatter(md) as ParsedFrontmatter;
 }
 
 /** A title unique against `used` (normalized keys). Records the chosen key in `used`, as TS does. */
@@ -72,18 +62,9 @@ export function vaultImageMarkdown(path: string, alt = "image"): string {
   return rawImageMarkdown(path, alt);
 }
 
-export function vaultAssetPathsInBody(body: string): string[] {
-  return rawAssetPathsInBody(body);
-}
-
 export function vaultBodyPreview(body: string, max = vaultBodyPreviewChars()): string {
   if (!body) return "";
   return rawBodyPreview(body, max);
-}
-
-/** The trimmed title of each `![[...]]` embed in `body`, in order (repeats kept). */
-export function embedTitles(body: string): string[] {
-  return rawEmbedTitles(body);
 }
 
 /** `body` with each embed whose title is in `resolved` replaced by that note's body as a callout. */
@@ -134,12 +115,3 @@ export function vaultTitleOrBodyFilter(query: string): string | undefined {
   return rawTitleOrBodyFilter(query) ?? undefined;
 }
 
-/** The ILIKE pattern that narrows candidates for a normalised title key. */
-export function vaultTitleLikePattern(key: string): string {
-  return rawTitleLikePattern(key);
-}
-
-/** True when a PostgREST error means the `body_preview` column is not migrated yet. */
-export function isMissingBodyPreviewColumn(message: string | undefined, code: string | undefined): boolean {
-  return rawIsMissingBodyPreviewColumn(message, code);
-}
