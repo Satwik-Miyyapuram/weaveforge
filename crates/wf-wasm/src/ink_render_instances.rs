@@ -11,6 +11,8 @@ use wf_core::ink::render_instances::{
 /// [`stroke_instance_count`]: the instances a stroke of `points` samples packs to.
 #[wasm_bindgen(js_name = inkStrokeInstanceCount)]
 #[must_use]
+// The count is at most a small multiple of a u32 point count, well inside u32 in practice.
+#[allow(clippy::cast_possible_truncation)]
 pub fn ink_stroke_instance_count_js(points: u32) -> u32 {
     stroke_instance_count(points as usize) as u32
 }

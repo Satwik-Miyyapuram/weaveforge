@@ -158,6 +158,10 @@ mod tests {
 
     use super::*;
 
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "test helper takes json! literals"
+    )]
     fn edge(paper: Value) -> Value {
         json!({ "citingPaper": paper })
     }

@@ -104,8 +104,7 @@ pub fn is_page_request(request_url: &str) -> bool {
     };
     let last = path
         .split('/')
-        .filter(|segment| !segment.is_empty())
-        .next_back()
+        .rfind(|segment| !segment.is_empty())
         .unwrap_or("");
     !last.contains('.') || last.ends_with(".html")
 }

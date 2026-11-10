@@ -5,6 +5,7 @@
 
 /// Whether a `Host` header names this machine on `port`: the three spellings a loopback page can use.
 /// The header is trimmed and lowercased first, as TS `isLoopbackHost` does; a missing header is never loopback.
+#[must_use]
 pub fn is_loopback_host(host: Option<&str>, port: u16) -> bool {
     let Some(host) = host else {
         return false;
@@ -18,6 +19,7 @@ pub fn is_loopback_host(host: Option<&str>, port: u16) -> bool {
 /// The token a `Bearer` authorization header offers (TS `tokenMatches`: `/^Bearer (.+)$/`).
 /// `None` when the header is missing, is not a bearer credential, or the token is empty. Like the JS `.`,
 /// the token may not contain a line terminator.
+#[must_use]
 pub fn bearer_token(header: Option<&str>) -> Option<&str> {
     let rest = header?.strip_prefix("Bearer ")?;
     if rest.is_empty()
@@ -32,6 +34,7 @@ pub fn bearer_token(header: Option<&str>) -> Option<&str> {
 
 /// Whether a stored local-API token string is a legacy plaintext token: 64 lowercase hex characters
 /// (TS `parseLocalApiTokens`' `/^[0-9a-f]{64}$/`). Such a value is hashed and the store rewritten.
+#[must_use]
 pub fn is_legacy_token_hex(stored: &str) -> bool {
     stored.len() == 64
         && stored

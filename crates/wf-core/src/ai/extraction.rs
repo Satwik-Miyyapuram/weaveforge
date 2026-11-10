@@ -154,6 +154,9 @@ pub fn without_existing(result: &ExtractionResult, existing: &[String]) -> Extra
 /// (absent, zero or NaN), so nothing is capped. Otherwise the kept count for
 /// `len` items: fractions truncate, a negative `n` counts from the end, and
 /// `Infinity` keeps everything.
+#[must_use]
+// The final cast takes a whole number in `[0, len]`, so it is exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn js_slice_keep(len: usize, max: Option<f64>) -> Option<usize> {
     let max = max.filter(|value| *value != 0.0 && !value.is_nan())?;
     let n = max.trunc();

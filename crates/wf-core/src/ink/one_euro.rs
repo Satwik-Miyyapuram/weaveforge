@@ -32,6 +32,16 @@ pub struct OneEuroOptions {
 /// The tuned position channel. Its cutoff rises with speed (`beta` 30), so a fast
 /// stroke is nearly unfiltered and a still pen is damped. The derivative cutoff is
 /// 3 Hz, not the paper's 1 Hz, so the speed estimate responds in time.
+///
+/// | Speed | Cutoff | Lag behind a moving stroke |
+/// | --- | --- | --- |
+/// | 0.05 units/ms (slow line) | 2.5 Hz | a fraction of a pixel |
+/// | 0.5 units/ms (writing) | 16 Hz | ~0.5 mm |
+/// | 5 units/ms (fast sweep) | 151 Hz | ~0.5 mm |
+///
+/// A fixed 1 Hz low-pass would lag a writing-speed stroke by ~4 mm. The first
+/// tuning was `beta` 80, which phased out at writing speed (41 Hz) and let the
+/// digitiser's jitter through as a wobble; 30 caps the lag near half a millimetre.
 #[must_use]
 pub fn position_options() -> OneEuroOptions {
     OneEuroOptions {

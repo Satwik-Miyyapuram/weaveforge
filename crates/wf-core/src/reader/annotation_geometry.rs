@@ -142,6 +142,7 @@ pub fn bucket_annotations_by_page(annotations: &[ReaderAnnotation]) -> Vec<PageB
             continue;
         };
         // Input lists are far below 2^32 entries, so the cast is exact.
+        #[allow(clippy::cast_possible_truncation)]
         let index = index as u32;
         add_to_bucket(&mut buckets, &mut slot, page_index + 1.0, index);
         if position
@@ -166,6 +167,7 @@ fn is_rect(value: &[f64]) -> bool {
 /// (`choose_anchor_strategy` returns `Rects`). A highlight whose tail spills from the
 /// previous page is drawn from `next_page_rects` on the following page.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn project_page_annotation_geometry(input: &ProjectGeometryInput) -> PageAnnotationGeometry {
     let page_index = input.page_number - 1.0;
     let projection = ReaderPageProjection {
@@ -203,7 +205,7 @@ pub fn project_page_annotation_geometry(input: &ProjectGeometryInput) -> PageAnn
                 }
                 let mut points: Vec<f64> = Vec::new();
                 // Pairs only: a trailing odd value is ignored, as in the TS loop.
-                for pair in path.chunks_exact(2) {
+                for pair in path.as_chunks::<2>().0 {
                     let (x, y) = (pair[0], pair[1]);
                     if !x.is_finite() || !y.is_finite() {
                         continue;
@@ -226,23 +228,21 @@ pub fn project_page_annotation_geometry(input: &ProjectGeometryInput) -> PageAnn
         }
 
         let mut rect_sets: Vec<&Vec<Vec<f64>>> = Vec::new();
-        if position.page_index == Some(page_index) {
-            if let Some(rects) = position.rects.as_ref().filter(|rects| !rects.is_empty()) {
-                rect_sets.push(rects);
-            }
+        if position.page_index == Some(page_index)
+            && let Some(rects) = position.rects.as_ref().filter(|rects| !rects.is_empty())
+        {
+            rect_sets.push(rects);
         }
         // A highlight that began on the previous page spills its tail onto this one.
         if position
             .page_index
             .is_some_and(|index| index + 1.0 == page_index)
-        {
-            if let Some(rects) = position
+            && let Some(rects) = position
                 .next_page_rects
                 .as_ref()
                 .filter(|rects| !rects.is_empty())
-            {
-                rect_sets.push(rects);
-            }
+        {
+            rect_sets.push(rects);
         }
 
         // Text marks are stored as the selection's raw, overlapping span boxes; painted as-is
@@ -591,7 +591,6 @@ mod tests {
                 },
                 position: None,
             }),
-            ..Default::default()
         }
     }
 

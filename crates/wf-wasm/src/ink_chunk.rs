@@ -112,6 +112,8 @@ pub fn ink_chunk_raw_threshold_js() -> f64 {
 /// [`should_try_compress`](chunk::should_try_compress): whether the codec runs on a body this size.
 #[must_use]
 #[wasm_bindgen(js_name = inkChunkShouldTryCompress)]
+// JS passes a byte length, a whole non-negative number, so the cast is exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn ink_chunk_should_try_compress_js(body_len: f64) -> bool {
     chunk::should_try_compress(body_len as usize)
 }
@@ -119,6 +121,8 @@ pub fn ink_chunk_should_try_compress_js(body_len: f64) -> bool {
 /// [`stores_compressed`](chunk::stores_compressed): whether the packed payload is stored.
 #[must_use]
 #[wasm_bindgen(js_name = inkChunkStoresCompressed)]
+// JS passes byte lengths, whole non-negative numbers, so the casts are exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn ink_chunk_stores_compressed_js(body_len: f64, packed_len: f64) -> bool {
     chunk::stores_compressed(body_len as usize, packed_len as usize)
 }

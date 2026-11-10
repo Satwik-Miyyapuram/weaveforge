@@ -135,7 +135,9 @@ fn build_line(line: &InkPageLineInput) -> InkRecognitionLineInput {
 fn flatten_stroke(stroke: &InkPageStrokeInput) -> Vec<f64> {
     stroke
         .points
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .enumerate()
         .flat_map(|(index, pair)| {
             [

@@ -5,6 +5,7 @@
 /// The project name a folder stands for: the folder minus a trailing `--xxxxxx` id suffix, where the
 /// suffix is 1 to 6 ASCII letters or digits (either case). `None` when the folder carries no suffix.
 /// Matches TS `/--[a-z0-9]{1,6}$/i` and the `replace` that strips it.
+#[must_use]
 pub fn project_folder_name(dir: &str) -> Option<&str> {
     let at = dir.rfind("--")?;
     let suffix = &dir[at + 2..];

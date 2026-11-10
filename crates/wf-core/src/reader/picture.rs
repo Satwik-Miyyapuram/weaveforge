@@ -141,15 +141,15 @@ pub fn picture_meta(kind: &str, comment: Option<&str>) -> Option<PictureMeta> {
 #[must_use]
 pub fn picture_comment(meta: &PictureMeta) -> String {
     let mut tokens: Vec<String> = Vec::new();
-    if let Some(crop) = meta.crop {
-        if crop.iter().any(|n| *n > 0.0) {
-            let joined = crop
-                .iter()
-                .map(|n| js_number(*n))
-                .collect::<Vec<_>>()
-                .join(",");
-            tokens.push(format!("c={joined}"));
-        }
+    if let Some(crop) = meta.crop
+        && crop.iter().any(|n| *n > 0.0)
+    {
+        let joined = crop
+            .iter()
+            .map(|n| js_number(*n))
+            .collect::<Vec<_>>()
+            .join(",");
+        tokens.push(format!("c={joined}"));
     }
     if meta.z != 0.0 {
         tokens.push(format!("z={}", js_number(meta.z)));
