@@ -231,7 +231,8 @@ mod tests {
         assert!(!plan.signed_out);
         assert_eq!(
             plan.error.as_deref(),
-            Some("Mattermost post failed (500). boom")
+            // Only the whole message is trimmed, as in TS, so the body's leading space stays.
+            Some("Mattermost post failed (500).  boom")
         );
         let empty = post_response_plan(&MattermostPostResponse {
             status: 404,

@@ -292,7 +292,8 @@ mod tests {
     fn failure_message_is_trimmed() {
         assert_eq!(
             git_read_failure_message(404, " not found \n"),
-            "Git read failed (404). not found"
+            // Only the whole message is trimmed, as in TS, so the body's leading space stays.
+            "Git read failed (404).  not found"
         );
         assert_eq!(git_read_failure_message(500, ""), "Git read failed (500).");
     }

@@ -739,7 +739,7 @@ mod unstamp_tests {
         let before = unstamp_for_compare(path, old);
         let after = unstamp_for_compare(path, new);
         assert_eq!(before, after);
-        assert_eq!(before, "{\n  \"generatedAt\": ,\n}\n");
+        assert_eq!(before, "{\n  \"generatedAt\": \n}\n");
     }
 
     #[test]
