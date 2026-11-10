@@ -6,7 +6,6 @@
 import {
   dashboardAppendCardPair as rawAppendCardPair,
   dashboardDefaultLayout as rawDefaultLayout,
-  dashboardLayoutCacheKey as rawLayoutCacheKey,
   dashboardFinalizeLayout as rawFinalizeLayout,
   dashboardLayoutSignature as rawLayoutSignature,
   dashboardLgNeedsRepair as rawLgNeedsRepair,
@@ -34,6 +33,10 @@ import type {
   LayoutItem as WasmLayoutItem,
   RglPosition as WasmRglPosition,
 } from "./bindings.js";
+
+export {
+  dashboardLayoutCacheKey,
+} from "../pkg/wf_wasm.js";
 
 /** The student default layout, or the supervisor default. */
 export function dashboardDefaultLayout(supervisor: boolean): WasmLayout {
@@ -78,11 +81,6 @@ export function dashboardLgNeedsRepair(items: readonly WasmLayoutItem[], limits:
 /** A string that changes whenever any card's id or box changes. */
 export function dashboardLayoutSignature(items: readonly WasmLayoutItem[]): string {
   return rawLayoutSignature(items);
-}
-
-/** The cache slot for one project's student or supervisor layout. */
-export function dashboardLayoutCacheKey(projectId: string, supervisorLayout: boolean): string {
-  return rawLayoutCacheKey(projectId, supervisorLayout);
 }
 
 /** True when the mobile cards are not already in the packed order. */

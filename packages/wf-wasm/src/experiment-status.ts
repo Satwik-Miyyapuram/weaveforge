@@ -3,18 +3,26 @@
  * Each function keeps the signature of packages/core/src/features/experiments/domain/experiment.ts.
  */
 import {
-  experimentActivityAt as rawExperimentActivityAt,
-  experimentHref as rawExperimentHref,
-  experimentsListHref as rawExperimentsListHref,
   formatMetricCell as rawFormatMetricCell,
-  formatMetricValue as rawFormatMetricValue,
   isStaleRunningExperiment as rawIsStaleRunningExperiment,
   metricKeys as rawMetricKeys,
   resultsTable as rawResultsTable,
   shortSha as rawShortSha,
   statusPatchForExperiment as rawStatusPatchForExperiment,
 } from "../pkg/wf_wasm.js";
-import type { Experiment, ExperimentStatus, ExperimentStatusPatch, ResultsTable } from "./bindings.js";
+import type {
+  Experiment,
+  ExperimentStatus,
+  ExperimentStatusPatch,
+  ResultsTable,
+} from "./bindings.js";
+
+export {
+  experimentActivityAt,
+  experimentHref,
+  experimentsListHref,
+  formatMetricValue,
+} from "../pkg/wf_wasm.js";
 export type { ResultsTable } from "./bindings.js";
 
 /** The statuses that end a run (TS `TERMINAL_EXPERIMENT_STATUSES`). */
@@ -38,10 +46,6 @@ export function shortSha(sha?: string): string | undefined {
   return rawShortSha(sha);
 }
 
-export function experimentActivityAt(experiment: Experiment): number {
-  return rawExperimentActivityAt(experiment);
-}
-
 export function isStaleRunningExperiment(
   experiment: Experiment,
   nowMs: number = Date.now(),
@@ -49,11 +53,6 @@ export function isStaleRunningExperiment(
   lastMetricAtMs?: number,
 ): boolean {
   return rawIsStaleRunningExperiment(experiment, nowMs, staleMs, lastMetricAtMs);
-}
-
-/** Format a numeric metric value for tables and chart axes (name-agnostic). */
-export function formatMetricValue(_metric: string, value: number): string {
-  return rawFormatMetricValue(_metric, value);
 }
 
 /** One metric's value as text, for a chip or a table cell. */
@@ -91,12 +90,3 @@ export function resultsTable(experiments: readonly Experiment[]): ResultsTable {
   return rawResultsTable(experiments) as ResultsTable;
 }
 
-/** Where an experiment opens. `offlineBuild` is the desktop flag (`isOfflineBuild()`), passed in. */
-export function experimentHref(id: string, offlineBuild: boolean): string {
-  return rawExperimentHref(id, offlineBuild);
-}
-
-/** The experiments list: the target of "close the detail". */
-export function experimentsListHref(): string {
-  return rawExperimentsListHref();
-}

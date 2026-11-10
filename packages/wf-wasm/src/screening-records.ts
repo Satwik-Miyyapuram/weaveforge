@@ -10,8 +10,6 @@ import {
   prismaCounts as rawPrismaCounts,
   reviewers as rawReviewers,
   screeningDecisionError as rawScreeningDecisionError,
-  screeningDecisionFromRow as rawScreeningDecisionFromRow,
-  screeningDecisionToRow as rawScreeningDecisionToRow,
   verdictFor as rawVerdictFor,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -25,6 +23,11 @@ import type {
   ScreeningItem,
   ScreeningStage,
 } from "./bindings.js";
+
+export {
+  screeningDecisionFromRow,
+  screeningDecisionToRow,
+} from "../pkg/wf_wasm.js";
 
 /** Throws `ScreeningError` when `next` may not be recorded after `existing`. */
 export function checkDecision(
@@ -105,12 +108,3 @@ export function exclusionReasons(
 
 export type { ScreeningDecisionRow } from "./bindings.js";
 
-/** Map a `screening_decisions` row to a decision; throws on an unknown stage or state. */
-export function screeningDecisionFromRow(row: ScreeningDecisionRow): ScreeningDecision {
-  return rawScreeningDecisionFromRow(row) as ScreeningDecision;
-}
-
-/** Map a decision to its `screening_decisions` row. */
-export function screeningDecisionToRow(decision: ScreeningDecision): ScreeningDecisionRow {
-  return rawScreeningDecisionToRow(decision) as ScreeningDecisionRow;
-}

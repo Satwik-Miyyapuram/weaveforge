@@ -19,15 +19,19 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_milestone`]: a `milestones` row as the app's milestone.
-#[wasm_bindgen(js_name = milestoneFromRow)]
-pub fn milestone_from_row_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = milestoneFromRow, unchecked_return_type = "B.Milestone")]
+pub fn milestone_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MilestoneRowInput")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: MilestoneRow = parse(row)?;
     to_js(&to_milestone(&row)).map_err(js_error)
 }
 
 /// [`to_row`]: a milestone as the `milestones` row it is written as.
-#[wasm_bindgen(js_name = milestoneToRow)]
-pub fn milestone_to_row_js(milestone: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = milestoneToRow, unchecked_return_type = "B.MilestoneWriteRow")]
+pub fn milestone_to_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Milestone")] milestone: JsValue,
+) -> Result<JsValue, JsError> {
     let milestone: Milestone = parse(milestone)?;
     to_js(&to_row(&milestone)).map_err(js_error)
 }

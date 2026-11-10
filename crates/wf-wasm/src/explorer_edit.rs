@@ -14,8 +14,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if the argument is not an editable root, or the result cannot be serialised.
-#[wasm_bindgen(js_name = rootKey)]
-pub fn root_key_js(root: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = rootKey, unchecked_return_type = "string")]
+pub fn root_key_js(
+    #[wasm_bindgen(unchecked_param_type = "B.EditableRoot")] root: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let root: edit::EditableRoot = serde_wasm_bindgen::from_value(root)?;
     to_js(&edit::root_key(root))
 }
@@ -70,8 +72,10 @@ pub fn creation_kind_for_js(
 /// # Errors
 ///
 /// Fails if the node does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = canRename)]
-pub fn can_rename_js(node: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = canRename, unchecked_return_type = "boolean")]
+pub fn can_rename_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] node: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let node: WorkspaceTreeNode = serde_wasm_bindgen::from_value(node)?;
     to_js(&edit::can_rename(&node))
 }
@@ -100,8 +104,11 @@ pub fn creation_target_js(
 /// # Errors
 ///
 /// Fails if an argument does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = canDrop)]
-pub fn can_drop_js(source: JsValue, target: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = canDrop, unchecked_return_type = "boolean")]
+pub fn can_drop_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] source: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] target: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let source: WorkspaceTreeNode = serde_wasm_bindgen::from_value(source)?;
     let target: WorkspaceTreeNode = serde_wasm_bindgen::from_value(target)?;
     to_js(&edit::can_drop(&source, &target))
@@ -123,8 +130,10 @@ pub fn drop_parent_id_js(target: JsValue) -> Result<JsValue, serde_wasm_bindgen:
 /// # Errors
 ///
 /// Fails if the argument is not a create kind, or the result cannot be serialised.
-#[wasm_bindgen(js_name = draftPlaceholder)]
-pub fn draft_placeholder_js(kind: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = draftPlaceholder, unchecked_return_type = "string")]
+pub fn draft_placeholder_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CreateKind")] kind: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let kind: edit::CreateKind = serde_wasm_bindgen::from_value(kind)?;
     to_js(&edit::draft_placeholder(kind))
 }
@@ -134,8 +143,10 @@ pub fn draft_placeholder_js(kind: JsValue) -> Result<JsValue, serde_wasm_bindgen
 /// # Errors
 ///
 /// Fails if the argument is not a create kind, or the result cannot be serialised.
-#[wasm_bindgen(js_name = draftIcon)]
-pub fn draft_icon_js(kind: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = draftIcon, unchecked_return_type = "string")]
+pub fn draft_icon_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CreateKind")] kind: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let kind: edit::CreateKind = serde_wasm_bindgen::from_value(kind)?;
     to_js(&edit::draft_icon(kind))
 }
@@ -145,8 +156,10 @@ pub fn draft_icon_js(kind: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error
 /// # Errors
 ///
 /// Fails if the argument is not a create kind, or the result cannot be serialised.
-#[wasm_bindgen(js_name = draftMakes)]
-pub fn draft_makes_js(kind: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = draftMakes, unchecked_return_type = "B.DraftMakes")]
+pub fn draft_makes_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CreateKind")] kind: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let kind: edit::CreateKind = serde_wasm_bindgen::from_value(kind)?;
     to_js(&edit::draft_makes(kind))
 }

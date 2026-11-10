@@ -9,7 +9,11 @@ use super::to_js;
 
 /// [`point_in_area`](clip::point_in_area).
 #[wasm_bindgen(js_name = pointInArea)]
-pub fn point_in_area_js(area: JsValue, x: f64, y: f64) -> Result<bool, serde_wasm_bindgen::Error> {
+pub fn point_in_area_js(
+    #[wasm_bindgen(unchecked_param_type = "B.DrawArea")] area: JsValue,
+    x: f64,
+    y: f64,
+) -> Result<bool, serde_wasm_bindgen::Error> {
     let area: DrawArea = serde_wasm_bindgen::from_value(area)?;
     Ok(clip::point_in_area(&area, x, y))
 }
@@ -19,11 +23,11 @@ pub fn point_in_area_js(area: JsValue, x: f64, y: f64) -> Result<bool, serde_was
 /// # Errors
 ///
 /// Fails only if the arguments cannot be read or the result cannot be serialised.
-#[wasm_bindgen(js_name = clipSegmentToArea)]
+#[wasm_bindgen(js_name = clipSegmentToArea, unchecked_return_type = "B.ClippedSegment | null")]
 pub fn clip_segment_to_area_js(
-    area: JsValue,
-    from: JsValue,
-    to: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DrawArea")] area: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.Point")] from: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.Point")] to: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let area: DrawArea = serde_wasm_bindgen::from_value(area)?;
     let from: Point = serde_wasm_bindgen::from_value(from)?;

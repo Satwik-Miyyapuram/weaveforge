@@ -8,9 +8,9 @@ use wf_core::search::library_index;
 /// [`recent_failure_ids`](library_index::recent_failure_ids): the paper ids still inside the
 /// retry window, from a record of `{ paperId: failedAtMs }`. A value that is not a number is not
 /// returned, the same as a `NaN` time.
-#[wasm_bindgen(js_name = recentFailureIds)]
+#[wasm_bindgen(js_name = recentFailureIds, unchecked_return_type = "string[]")]
 pub fn recent_failure_ids_js(
-    failures: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, number>")] failures: JsValue,
     now: f64,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let record: BTreeMap<String, serde_json::Value> = serde_wasm_bindgen::from_value(failures)?;

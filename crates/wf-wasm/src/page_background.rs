@@ -11,7 +11,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = placeOnSheet)]
+#[wasm_bindgen(js_name = placeOnSheet, unchecked_return_type = "B.Placement")]
 pub fn place_on_sheet_js(
     source_width: f64,
     source_height: f64,

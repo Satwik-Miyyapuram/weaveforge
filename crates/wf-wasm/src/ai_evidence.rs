@@ -16,8 +16,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `locus` is not a PDF locus object, or the result cannot be converted.
-#[wasm_bindgen(js_name = highlightWithinExcerpt)]
-pub fn highlight_within_excerpt_js(excerpt: &str, locus: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = highlightWithinExcerpt, unchecked_return_type = "B.ExcerptHighlight | null")]
+pub fn highlight_within_excerpt_js(
+    excerpt: &str,
+    #[wasm_bindgen(unchecked_param_type = "B.AnchorPdfLocus | undefined")] locus: JsValue,
+) -> JsResult<JsValue> {
     let locus: Option<AnchorPdfLocus> = serde_wasm_bindgen::from_value(locus)?;
     to_js(&evidence::highlight_within_excerpt(excerpt, locus.as_ref()))
 }

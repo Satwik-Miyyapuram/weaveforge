@@ -5,16 +5,11 @@
 import {
   timelineLaneOffset as rawTimelineLaneOffset,
   timelineMidYear as rawTimelineMidYear,
-  yearSpacing as rawTimelineYearSpacing,
 } from "../pkg/wf_wasm.js";
 
-/**
- * Canvas units between one publication year and the next in the timeline layout.
- * A function, not a constant: the wasm module is not loaded when this file is imported.
- */
-export function yearSpacing(): number {
-  return rawTimelineYearSpacing();
-}
+export {
+  yearSpacing,
+} from "../pkg/wf_wasm.js";
 
 /**
  * The timeline layout: each node's x is fixed to its publication year, centred on the

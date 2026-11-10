@@ -48,14 +48,14 @@ pub fn resolve_with_row_js(
 /// # Errors
 ///
 /// Fails when `kind` or `choice` is not one of its strings, or a row is not a plain object.
-#[wasm_bindgen(js_name = deletionAction)]
+#[wasm_bindgen(js_name = deletionAction, unchecked_return_type = "B.ConflictDeletionAction")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn deletion_action_js(
-    kind: JsValue,
-    choice: JsValue,
-    local: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "\"deleted_remote\" | \"deleted_local\"")] kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "\"keep\" | \"delete\"")] choice: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] local: JsValue,
     row_id: String,
-    remote: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown> | null")] remote: JsValue,
 ) -> JsResult<JsValue> {
     let kind: DeleteConflictKind = serde_wasm_bindgen::from_value(kind)?;
     let choice: DeletionChoice = serde_wasm_bindgen::from_value(choice)?;

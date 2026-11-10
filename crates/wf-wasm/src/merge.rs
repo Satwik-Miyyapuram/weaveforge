@@ -130,7 +130,11 @@ pub fn write_frontmatter_js(fields: JsValue, body: &str) -> JsResult<String> {
 ///
 /// Fails when `frontmatter` is not an object.
 #[wasm_bindgen(js_name = frontmatterString)]
-pub fn frontmatter_string_js(frontmatter: JsValue, key: &str) -> JsResult<Option<String>> {
+pub fn frontmatter_string_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, unknown>>")]
+    frontmatter: JsValue,
+    key: &str,
+) -> JsResult<Option<String>> {
     let fields: Map<String, Value> = serde_wasm_bindgen::from_value(frontmatter)?;
     Ok(frontmatter_string(&fields, key))
 }
@@ -141,8 +145,12 @@ pub fn frontmatter_string_js(frontmatter: JsValue, key: &str) -> JsResult<Option
 /// # Errors
 ///
 /// Fails when `frontmatter` is not an object.
-#[wasm_bindgen(js_name = frontmatterList)]
-pub fn frontmatter_list_js(frontmatter: JsValue, key: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = frontmatterList, unchecked_return_type = "string[]")]
+pub fn frontmatter_list_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, unknown>>")]
+    frontmatter: JsValue,
+    key: &str,
+) -> JsResult<JsValue> {
     let fields: Map<String, Value> = serde_wasm_bindgen::from_value(frontmatter)?;
     to_js(&frontmatter_list(&fields, key))
 }

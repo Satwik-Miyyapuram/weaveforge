@@ -4,8 +4,11 @@
  * The raw export takes the options object whole; `{}` means the defaults.
  */
 import {
-  citedSourceNumbers as rawCitedSourceNumbers,
   retrieveAiExcerpts as rawRetrieveAiExcerpts,
+} from "../pkg/wf_wasm.js";
+
+export {
+  citedSourceNumbers,
 } from "../pkg/wf_wasm.js";
 
 /** Passages ranked by lexical score. Generic until the Rust types carry specta bindings. */
@@ -17,7 +20,3 @@ export function retrieveAiExcerpts<Document, Excerpt>(
   return rawRetrieveAiExcerpts(documents, query, options) as Excerpt[];
 }
 
-/** The 1-based source numbers an answer cites with `[n]` or `[n, m]`, first citation order, each once. */
-export function citedSourceNumbers(answer: string, count: number): number[] {
-  return rawCitedSourceNumbers(answer, count) as number[];
-}

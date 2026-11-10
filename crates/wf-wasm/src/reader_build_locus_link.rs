@@ -10,7 +10,9 @@ use wf_core::reader::build_locus_link::{LocusLinkInput, build_locus_link};
 ///
 /// Fails if `input` is not a `LocusLinkInput` object.
 #[wasm_bindgen(js_name = buildLocusLink)]
-pub fn build_locus_link_js(input: JsValue) -> Result<String, serde_wasm_bindgen::Error> {
+pub fn build_locus_link_js(
+    #[wasm_bindgen(unchecked_param_type = "Partial<B.LocusLinkInput>")] input: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
     let input: LocusLinkInput = serde_wasm_bindgen::from_value(input)?;
     Ok(build_locus_link(&input))
 }

@@ -28,7 +28,9 @@ pub fn build_list_tree_js(lists: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `list` has the wrong shape.
 #[wasm_bindgen(js_name = listDisplayColor)]
-pub fn list_display_colour_js(list: JsValue) -> JsResult<String> {
+pub fn list_display_colour_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ReadingList")] list: JsValue,
+) -> JsResult<String> {
     let list: ReadingList = serde_wasm_bindgen::from_value(list)?;
     Ok(reading_list::list_display_colour(&list))
 }

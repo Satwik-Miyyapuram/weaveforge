@@ -28,8 +28,10 @@ pub fn bucket_annotations_by_page_js(annotations: JsValue) -> JsResult<JsValue> 
 /// # Errors
 ///
 /// Fails if `input` does not match `ProjectGeometryInput`.
-#[wasm_bindgen(js_name = projectPageAnnotationGeometry)]
-pub fn project_page_annotation_geometry_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = projectPageAnnotationGeometry, unchecked_return_type = "B.PageAnnotationGeometry")]
+pub fn project_page_annotation_geometry_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ProjectGeometryInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: ProjectGeometryInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&project_page_annotation_geometry(&input))
 }

@@ -4,8 +4,6 @@
  */
 import {
   mattermostChannelFor as rawMattermostChannelFor,
-  mattermostEvents as rawMattermostEvents,
-  mattermostOptions as rawMattermostOptions,
 } from "../pkg/wf_wasm.js";
 import type {
   Integration,
@@ -14,16 +12,12 @@ import type {
   MattermostOptions,
 } from "./bindings.js";
 
+export {
+  mattermostEvents,
+  mattermostOptions,
+} from "../pkg/wf_wasm.js";
+
 export type { MattermostEvent, MattermostEventInfo, MattermostOptions };
-
-/** The settings rows, in panel order (was the `MATTERMOST_EVENTS` constant). */
-export function mattermostEvents(): MattermostEventInfo[] {
-  return rawMattermostEvents() as MattermostEventInfo[];
-}
-
-export function mattermostOptions(i: Integration): MattermostOptions {
-  return rawMattermostOptions(i) as MattermostOptions;
-}
 
 /** Channel this event posts to, or null when the event is switched off. */
 export function mattermostChannelFor(i: Integration, event: MattermostEvent): string | null {

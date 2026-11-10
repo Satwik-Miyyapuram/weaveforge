@@ -27,7 +27,11 @@ pub fn tool_owns_the_page_js(tool: &str) -> bool {
 ///
 /// Fails if `down` or `up` is not a press object of numbers.
 #[wasm_bindgen(js_name = isDismissTap)]
-pub fn is_dismiss_tap_js(down: JsValue, up: JsValue, bar_open: bool) -> JsResult<bool> {
+pub fn is_dismiss_tap_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PagePress | null")] down: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PagePress")] up: JsValue,
+    bar_open: bool,
+) -> JsResult<bool> {
     let down: Option<PagePress> = serde_wasm_bindgen::from_value(down)?;
     let up: PagePress = serde_wasm_bindgen::from_value(up)?;
     Ok(is_dismiss_tap(down, up, bar_open))

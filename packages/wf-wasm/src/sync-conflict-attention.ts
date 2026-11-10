@@ -4,7 +4,10 @@
 import {
   countOpen as rawCountOpen,
   keepAllPicks as rawKeepAllPicks,
-  needsPerson as rawNeedsPerson,
+} from "../pkg/wf_wasm.js";
+
+export {
+  needsPerson,
 } from "../pkg/wf_wasm.js";
 
 /** An open conflict as the panel counts it. */
@@ -17,11 +20,6 @@ export interface OpenConflictRef {
 export interface FieldPick {
   field: string;
   side: "local" | "remote";
-}
-
-/** Whether an open conflict still needs a person. */
-export function needsPerson(kind: string, fieldCount: number): boolean {
-  return rawNeedsPerson(kind, fieldCount);
 }
 
 /** How many open conflicts still need a person. */

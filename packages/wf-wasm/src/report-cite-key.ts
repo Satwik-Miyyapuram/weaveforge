@@ -6,10 +6,15 @@
 import {
   resolveCiteKey as rawResolveCiteKey,
   uniqueCiteKey as rawUniqueCiteKey,
-  formatCitation as rawFormatCitation,
   formatPaperCitation as rawFormatPaperCitation,
 } from "../pkg/wf_wasm.js";
-import type { CiteKeyPaper } from "./bindings.js";
+import type {
+  CiteKeyPaper,
+} from "./bindings.js";
+
+export {
+  formatCitation,
+} from "../pkg/wf_wasm.js";
 
 function stringField(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
@@ -53,11 +58,6 @@ export function uniqueCiteKey(
   const key = rawUniqueCiteKey(toCiteKeyPaper(paper), [...used]);
   used.add(key);
   return key;
-}
-
-/** Format a cite key for insertion. Empty/whitespace keys yield "". */
-export function formatCitation(key: string, format: "latex" | "pandoc" | "footnote" | "raw"): string {
-  return rawFormatCitation(key, format);
 }
 
 /** Resolve then format in one step for a paper. */

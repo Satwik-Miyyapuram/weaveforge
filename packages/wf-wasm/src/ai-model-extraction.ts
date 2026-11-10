@@ -5,20 +5,17 @@
  */
 import {
   modelBuildBatchRequest as rawBuildBatchRequest,
-  modelExtractionLimits as rawExtractionLimits,
   modelFinalizeExtraction as rawFinalizeExtraction,
 } from "../pkg/wf_wasm.js";
 import type {
   ExtractionResult,
   ModelDocument,
-  ModelExtractionLimits,
   ModelRequest,
 } from "./bindings.js";
 
-/** Default batch size, document character cap and known-concept cap. */
-export function modelExtractionLimits(): ModelExtractionLimits {
-  return rawExtractionLimits() as ModelExtractionLimits;
-}
+export {
+  modelExtractionLimits,
+} from "../pkg/wf_wasm.js";
 
 /** The chat request for one batch of documents. */
 export function modelBuildBatchRequest(

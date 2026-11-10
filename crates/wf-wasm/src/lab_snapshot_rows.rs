@@ -18,8 +18,10 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_domain`]: a `lab_snapshots` row as a published snapshot.
-#[wasm_bindgen(js_name = labSnapshotRowToDomain)]
-pub fn lab_snapshot_row_to_domain_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = labSnapshotRowToDomain, unchecked_return_type = "B.LabSnapshot")]
+pub fn lab_snapshot_row_to_domain_js(
+    #[wasm_bindgen(unchecked_param_type = "B.LabSnapshotRow")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: LabSnapshotRow = parse(row)?;
     to_js(&to_domain(&row)).map_err(js_error)
 }

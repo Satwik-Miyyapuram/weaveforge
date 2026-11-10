@@ -3,14 +3,20 @@
  * address and body. Re-exported from index.ts.
  */
 import {
-  isNetworkFailure as rawIsNetworkFailure,
   maxReportChars as rawMaxReportChars,
-  newIssueUrl as rawNewIssueUrl,
   redactReport as rawRedactReport,
   redactReportAndCap as rawRedactReportAndCap,
-  reportMarkdown as rawReportMarkdown,
 } from "../pkg/wf_wasm.js";
-import type { Redacted, ReportMarkdown } from "./bindings.js";
+import type {
+  Redacted,
+  ReportMarkdown,
+} from "./bindings.js";
+
+export {
+  isNetworkFailure,
+  newIssueUrl,
+  reportMarkdown,
+} from "../pkg/wf_wasm.js";
 
 /** Redacted text and how many spans were replaced (generated `Redacted`). */
 export type { Redacted as RedactionOutcome } from "./bindings.js";
@@ -45,17 +51,3 @@ export function redactAndCap(input: string, limit: number = maxReportChars()): R
   return redactReportAndCap(input, Math.max(0, Math.floor(limit)));
 }
 
-/** The prefilled "new issue" address for `body` on `repo`, cut to fit (Rust `new_issue_url`). */
-export function newIssueUrl(title: string, body: string, repo: string): string {
-  return rawNewIssueUrl(title, body, repo);
-}
-
-/** The issue body for a report (Rust `report_markdown`). */
-export function reportMarkdown(input: ReportMarkdown): string {
-  return rawReportMarkdown(input);
-}
-
-/** Whether `message` names a browser network failure (Rust `is_network_failure`). */
-export function isNetworkFailure(message: string): boolean {
-  return rawIsNetworkFailure(message);
-}

@@ -5,7 +5,6 @@
 import {
   commentFromRow as rawCommentFromRow,
   decodeShareLinkToken as rawDecodeShareLinkToken,
-  encodeShareLinkToken as rawEncodeShareLinkToken,
   isBlanketShare as rawIsBlanketShare,
   normalizeCommentInput as rawNormalizeCommentInput,
   normalizeShareInput as rawNormalizeShareInput,
@@ -17,15 +16,12 @@ import {
   memberNameMap as rawMemberNameMap,
   sharedItem as rawSharedItem,
   sharedItemHref as rawSharedItemHref,
-  sharedItemTypeLabel as rawSharedItemTypeLabel,
   sharedPaperAnnotationSummary as rawSharedPaperAnnotationSummary,
-  sharedResourceHref as rawSharedResourceHref,
   shareLinkFromRow as rawShareLinkFromRow,
   sharedReadPlan as rawSharedReadPlan,
   shareTargets as rawShareTargets,
   shareableTypes as rawShareableTypes,
   crdtEditableShareTypes as rawCrdtEditableShareTypes,
-  shareLinkDefaultTtlDays as rawShareLinkDefaultTtlDays,
 } from "../pkg/wf_wasm.js";
 import type {
   Comment as CommentRecord,
@@ -47,6 +43,13 @@ import type {
   ShareTargets,
 } from "./bindings.js";
 
+export {
+  encodeShareLinkToken,
+  shareLinkDefaultTtlDays,
+  sharedItemTypeLabel,
+  sharedResourceHref,
+} from "../pkg/wf_wasm.js";
+
 export type {
   CommentRecord,
   CommentRowInput,
@@ -64,11 +67,6 @@ export function shareableTypes(): readonly ShareableType[] {
 /** Share types that support collaborative editing (Rust `CRDT_EDITABLE_SHARE_TYPES`). */
 export function crdtEditableShareTypes(): readonly ShareableType[] {
   return rawCrdtEditableShareTypes() as readonly ShareableType[];
-}
-
-/** Days a new view link lives by default (Rust `SHARE_LINK_DEFAULT_TTL_DAYS`). */
-export function shareLinkDefaultTtlDays(): number {
-  return rawShareLinkDefaultTtlDays();
 }
 
 /** A thrown validation message becomes an `Error` named like the TS validation class. */
@@ -149,11 +147,6 @@ export function normalizeCommentInput(input: NewCommentInput): NewCommentInput {
   }
 }
 
-/** Base64url (unpadded) form of a share-link token, for the URL's `?t=`. */
-export function encodeShareLinkToken(token: Uint8Array): string {
-  return rawEncodeShareLinkToken(token);
-}
-
 /** Bytes of a share-link token; accepts either base64 alphabet, padded or not. Throws on a mangled token. */
 export function decodeShareLinkToken(encoded: string): Uint8Array {
   try {
@@ -209,19 +202,9 @@ export function memberNameMap(members: readonly MemberNameSource[]): Map<string,
   return new Map(names.map((m) => [m.id, m.name]));
 }
 
-/** Route to a resource of a shareable type (Rust `shared_resource_href`). */
-export function sharedResourceHref(resourceType: ShareableType, resourceId: string): string {
-  return rawSharedResourceHref(resourceType, resourceId);
-}
-
 /** Route for a shared item (Rust `shared_item_href`). */
 export function sharedItemHref(item: SharedItemRecord): string {
   return rawSharedItemHref(item);
-}
-
-/** Lowercase type label for a shared item; a note for a vault page (Rust `shared_item_type_label`). */
-export function sharedItemTypeLabel(kind: ShareableType): string {
-  return rawSharedItemTypeLabel(kind);
 }
 
 /** Count and up to three sample texts of a paper's Zotero annotations, notes excluded (Rust `shared_paper_annotation_summary`). */

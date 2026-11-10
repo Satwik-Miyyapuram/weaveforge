@@ -19,8 +19,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `input` is not a text-selection draft.
-#[wasm_bindgen(js_name = draftFromTextSelection)]
-pub fn draft_from_text_selection_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = draftFromTextSelection, unchecked_return_type = "B.NewReaderAnnotation | null")]
+pub fn draft_from_text_selection_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TextSelectionDraft")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: TextSelectionDraft = serde_wasm_bindgen::from_value(input)?;
     to_js(&draft_from_text_selection(&input))
 }
@@ -30,8 +32,10 @@ pub fn draft_from_text_selection_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `input` is not an ink draft.
-#[wasm_bindgen(js_name = draftInkAnnotation)]
-pub fn draft_ink_annotation_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = draftInkAnnotation, unchecked_return_type = "B.NewReaderAnnotation | null")]
+pub fn draft_ink_annotation_js(
+    #[wasm_bindgen(unchecked_param_type = "B.InkDraft")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: InkDraft = serde_wasm_bindgen::from_value(input)?;
     to_js(&draft_ink_annotation(&input))
 }
@@ -64,8 +68,10 @@ pub fn erase_ink_paths_js(anchor: JsValue, x: f64, y: f64, radius: f64) -> JsRes
 /// # Errors
 ///
 /// Fails if `input` is not an image-region draft.
-#[wasm_bindgen(js_name = draftImageRegion)]
-pub fn draft_image_region_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = draftImageRegion, unchecked_return_type = "B.NewReaderAnnotation | null")]
+pub fn draft_image_region_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ImageRegionDraft")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: ImageRegionDraft = serde_wasm_bindgen::from_value(input)?;
     to_js(&draft_image_region(&input))
 }
@@ -97,8 +103,10 @@ pub fn text_box_from_rect_js(rect: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `input` is not a text-box draft.
-#[wasm_bindgen(js_name = draftTextBox)]
-pub fn draft_text_box_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = draftTextBox, unchecked_return_type = "B.NewReaderAnnotation")]
+pub fn draft_text_box_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TextBoxDraft")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: TextBoxDraft = serde_wasm_bindgen::from_value(input)?;
     to_js(&draft_text_box(&input))
 }

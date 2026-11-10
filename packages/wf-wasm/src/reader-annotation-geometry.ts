@@ -4,10 +4,15 @@
  */
 import {
   bucketAnnotationsByPage as rawBucketAnnotationsByPage,
-  projectPageAnnotationGeometry as rawProjectPageAnnotationGeometry,
 } from "../pkg/wf_wasm.js";
 import type { ReaderAnnotation } from "@weaveforge/core";
-import type { PageAnnotationGeometry, PageBucket, ProjectGeometryInput } from "./bindings.js";
+import type {
+  PageBucket,
+} from "./bindings.js";
+
+export {
+  projectPageAnnotationGeometry,
+} from "../pkg/wf_wasm.js";
 
 /**
  * Annotations grouped by 1-based page number, in first-insertion order. The raw
@@ -27,7 +32,3 @@ export function bucketAnnotationsByPage(
   return byPage;
 }
 
-/** Boxes and strokes for one page, in CSS pixels. */
-export function projectPageAnnotationGeometry(input: ProjectGeometryInput): PageAnnotationGeometry {
-  return rawProjectPageAnnotationGeometry(input) as PageAnnotationGeometry;
-}

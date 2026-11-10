@@ -57,7 +57,9 @@ pub fn looks_like_image_url_js(url: &str) -> bool {
 ///
 /// Fails if the value is not a known reason code.
 #[wasm_bindgen(js_name = describeUrlRejection)]
-pub fn describe_url_rejection_js(reason: JsValue) -> JsResult<String> {
+pub fn describe_url_rejection_js(
+    #[wasm_bindgen(unchecked_param_type = "B.UrlRejection")] reason: JsValue,
+) -> JsResult<String> {
     let reason: url_safety::UrlRejection = serde_wasm_bindgen::from_value(reason)?;
     Ok(url_safety::rejection_copy(reason).to_owned())
 }
@@ -77,7 +79,7 @@ pub fn expand_ipv6_js(value: &str) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if the limits cannot be converted to a JS value.
-#[wasm_bindgen(js_name = fetchLimits)]
+#[wasm_bindgen(js_name = fetchLimits, unchecked_return_type = "B.OutboundFetchLimits")]
 pub fn fetch_limits_js() -> JsResult<JsValue> {
     to_js(&url_safety::DEFAULT_FETCH_LIMITS)
 }

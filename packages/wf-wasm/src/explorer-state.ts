@@ -7,9 +7,12 @@ import {
   defaultOpenSections as rawDefaultOpenSections,
   isSectionOpen as rawIsSectionOpen,
   migratedExpanded as rawMigratedExpanded,
-  parseExplorerKeys as rawParseExplorerKeys,
   toggleExpanded as rawToggleExpanded,
   toggleSection as rawToggleSection,
+} from "../pkg/wf_wasm.js";
+
+export {
+  parseExplorerKeys,
 } from "../pkg/wf_wasm.js";
 
 /** Which sections are open. Anything not in the set is closed. */
@@ -48,10 +51,3 @@ export function isSectionOpen(state: SectionState, id: string): boolean {
   return rawIsSectionOpen([...state.open], id);
 }
 
-/**
- * The string keys of a stored record, or `null` when the record is absent or
- * unusable. An empty list is a real answer and comes back as `[]`, not `null`.
- */
-export function parseExplorerKeys(raw: string | null): string[] | null {
-  return rawParseExplorerKeys(raw) as string[] | null;
-}

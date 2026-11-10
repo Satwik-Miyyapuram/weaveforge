@@ -4,24 +4,17 @@
  * guards take any string and narrow it to the TS annotation unions inline.
  */
 import {
-  isReaderAnnotationType as rawIsReaderAnnotationType,
-  isAnnotationSyncState as rawIsAnnotationSyncState,
   isEditableReaderTarget as rawIsEditableReaderTarget,
   readerKeyboardCommand as rawReaderKeyboardCommand,
 } from "../pkg/wf_wasm.js";
-import type { ReaderKeyboardCommand } from "./bindings.js";
+import type {
+  ReaderKeyboardCommand,
+} from "./bindings.js";
 
-/** Whether `value` is Zotero's six annotation types, no strikeout (Rust `is_reader_annotation_type`). */
-export function isReaderAnnotationType(
-  value: string,
-): value is "highlight" | "underline" | "note" | "image" | "ink" | "text" {
-  return rawIsReaderAnnotationType(value);
-}
-
-/** Whether `value` is an R5 write-back sync state (Rust `is_annotation_sync_state`). */
-export function isAnnotationSyncState(value: string): value is "local" | "synced" | "pending" | "conflict" {
-  return rawIsAnnotationSyncState(value);
-}
+export {
+  isAnnotationSyncState,
+  isReaderAnnotationType,
+} from "../pkg/wf_wasm.js";
 
 /**
  * Whether an event target owns its keystrokes: a text field, a select or its

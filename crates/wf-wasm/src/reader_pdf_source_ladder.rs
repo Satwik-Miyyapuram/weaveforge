@@ -27,7 +27,7 @@ pub fn ladder_order_js(supports: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = pdfSourceResolverOrder)]
+#[wasm_bindgen(js_name = pdfSourceResolverOrder, unchecked_return_type = "B.PdfSourceKind[]")]
 pub fn pdf_source_resolver_order_js(has_cache: bool, has_github: bool) -> JsResult<JsValue> {
     to_js(&default_resolver_order(has_cache, has_github))
 }

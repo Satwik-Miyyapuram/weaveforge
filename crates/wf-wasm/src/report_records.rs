@@ -99,9 +99,9 @@ pub fn report_section_input_error_js(input: JsValue) -> JsResult<Option<String>>
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape or does not validate.
-#[wasm_bindgen(js_name = createReportSectionWith)]
+#[wasm_bindgen(js_name = createReportSectionWith, unchecked_return_type = "B.ReportSection")]
 pub fn create_report_section_js(
-    input: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.NewReportSectionInput")] input: JsValue,
     id: &str,
     now_iso: &str,
 ) -> Result<JsValue, JsValue> {

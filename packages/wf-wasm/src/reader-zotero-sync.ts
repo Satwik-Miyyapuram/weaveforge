@@ -4,28 +4,22 @@
  * Types come from ./bindings.ts; the sync mode and conflict choice unions are inline.
  */
 import {
-  isZoteroLibrarySyncMode as rawIsZoteroLibrarySyncMode,
   decideAnnotationSync as rawDecideAnnotationSync,
-  diffAnnotationFields as rawDiffAnnotationFields,
-  resolveAnnotationConflict as rawResolveAnnotationConflict,
-  toZoteroWritePayload as rawToZoteroWritePayload,
   zoteroWriteBackAnnotations as rawZoteroWriteBackAnnotations,
   zoteroWriteBackMessage as rawZoteroWriteBackMessage,
 } from "../pkg/wf_wasm.js";
 import type {
   ZoteroAnnotationDecision,
-  ZoteroAnnotationFieldConflict,
   ZoteroAnnotationLocal,
   ZoteroAnnotationSyncRow,
-  ZoteroAnnotationWritePayload,
 } from "./bindings.js";
 
-/** Whether `value` is a library sync mode (Rust `is_zotero_library_sync_mode`). */
-export function isZoteroLibrarySyncMode(
-  value: string,
-): value is "bidirectional" | "read_only" | "ignored" {
-  return rawIsZoteroLibrarySyncMode(value);
-}
+export {
+  diffAnnotationFields,
+  isZoteroLibrarySyncMode,
+  resolveAnnotationConflict,
+  toZoteroWritePayload,
+} from "../pkg/wf_wasm.js";
 
 /**
  * What a sync should do with one annotation (Rust `decide_annotation_sync`).
@@ -37,30 +31,6 @@ export function decideAnnotationSync(
 ): ZoteroAnnotationDecision {
   // A missing mode acts as `bidirectional` in TS; "" does the same in Rust.
   return rawDecideAnnotationSync(row, mode ?? "") as ZoteroAnnotationDecision;
-}
-
-/** The fields that differ between local and remote, in TS order (Rust `diff_annotation_fields`). */
-export function diffAnnotationFields(row: ZoteroAnnotationSyncRow): ZoteroAnnotationFieldConflict[] {
-  return rawDiffAnnotationFields(row) as ZoteroAnnotationFieldConflict[];
-}
-
-/**
- * Apply a conflict choice (Rust `resolve_annotation_conflict`). Any choice other
- * than `keep_local` or `accept_remote` merges.
- */
-export function resolveAnnotationConflict(
-  row: ZoteroAnnotationSyncRow,
-  choice: "keep_local" | "accept_remote" | "merge",
-): ZoteroAnnotationLocal | null {
-  return rawResolveAnnotationConflict(row, choice) as ZoteroAnnotationLocal | null;
-}
-
-/** Zotero Web API payload for one annotation (Rust `to_zotero_write_payload`). */
-export function toZoteroWritePayload(
-  ann: ZoteroAnnotationLocal,
-  parentItemKey: string,
-): ZoteroAnnotationWritePayload {
-  return rawToZoteroWritePayload(ann, parentItemKey) as ZoteroAnnotationWritePayload;
 }
 
 /**

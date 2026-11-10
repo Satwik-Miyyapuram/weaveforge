@@ -4,30 +4,19 @@
  * pane ids are generated in this glue, since the raw exports take them as input.
  */
 import {
-  previewTab as rawPreviewTab,
   tabKey as rawTabKey,
   emptyLayout as rawEmptyLayout,
-  layoutFromRecord as rawLayoutFromRecord,
   leaves as rawLeaves,
   openTab as rawOpenTab,
-  activateTab as rawActivateTab,
-  closeTab as rawCloseTab,
   splitPane as rawSplitPane,
   moveTab as rawMoveTab,
-  setRatio as rawSetRatio,
-  focusPane as rawFocusPane,
   activeTab as rawActiveTab,
   activeTabRef as rawActiveTabRef,
   activeTabKey as rawActiveTabKey,
-  tabMode as rawTabMode,
   tabAt as rawTabAt,
-  setTabMode as rawSetTabMode,
-  previewOpen as rawPreviewOpen,
   togglePreview as rawTogglePreview,
   previewSource as rawPreviewSource,
   openTabKeys as rawOpenTabKeys,
-  closedTabs as rawClosedTabs,
-  focusedTabCount as rawFocusedTabCount,
   commandForChord as rawCommandForChord,
   layoutForCommand as rawLayoutForCommand,
   layoutForTabMenu as rawLayoutForTabMenu,
@@ -40,12 +29,25 @@ import type {
   PaneCommand,
   PaneLayout,
   PaneLeaf,
-  PaneNode,
-  PaneSplit,
   SplitDirection,
   TabMenuCommand,
   TabRef,
 } from "./bindings.js";
+
+export {
+  activateTab,
+  closeTab,
+  closedTabs,
+  focusPane,
+  focusedTabCount,
+  layoutFromRecord,
+  leaves,
+  previewOpen,
+  previewTab,
+  setRatio,
+  setTabMode,
+  tabMode,
+} from "../pkg/wf_wasm.js";
 
 /** Kind of the preview tab (Rust `PREVIEW_KIND`). */
 const PREVIEW_KIND = "preview";
@@ -55,10 +57,6 @@ let paneCounter = 0;
 function nextPaneId(): string {
   paneCounter += 1;
   return `pane-${Date.now().toString(36)}-${paneCounter}`;
-}
-
-export function previewTab(): TabRef {
-  return rawPreviewTab() as TabRef;
 }
 
 /** True for the preview tab, which is one tab not tied to a document. */
@@ -74,25 +72,8 @@ export function emptyLayout(paneId = "pane-1"): PaneLayout {
   return rawEmptyLayout(paneId) as PaneLayout;
 }
 
-/** A stored layout record parsed back into a layout; `null` or an unusable record is one empty pane. */
-export function layoutFromRecord(raw: string | null): PaneLayout {
-  return rawLayoutFromRecord(raw) as PaneLayout;
-}
-
-export function leaves(node: PaneNode): PaneLeaf[] {
-  return rawLeaves(node) as PaneLeaf[];
-}
-
 export function openTab(layout: PaneLayout, tab: TabRef, paneId = layout.focusedPaneId): PaneLayout {
   return rawOpenTab(layout, tab, paneId) as PaneLayout;
-}
-
-export function activateTab(layout: PaneLayout, paneId: string, index: number): PaneLayout {
-  return rawActivateTab(layout, paneId, index) as PaneLayout;
-}
-
-export function closeTab(layout: PaneLayout, paneId: string, index: number): PaneLayout {
-  return rawCloseTab(layout, paneId, index) as PaneLayout;
 }
 
 export function splitPane(
@@ -114,14 +95,6 @@ export function moveTab(
   return rawMoveTab(layout, from.paneId, from.index, toPaneId, toIndex) as PaneLayout;
 }
 
-export function setRatio(layout: PaneLayout, target: PaneSplit, ratio: number): PaneLayout {
-  return rawSetRatio(layout, target, ratio) as PaneLayout;
-}
-
-export function focusPane(layout: PaneLayout, paneId: string): PaneLayout {
-  return rawFocusPane(layout, paneId) as PaneLayout;
-}
-
 export function activeTab(leaf: PaneLeaf): TabRef | undefined {
   return (rawActiveTab(leaf) ?? undefined) as TabRef | undefined;
 }
@@ -134,20 +107,8 @@ export function activeTabKey(layout: PaneLayout): string | undefined {
   return rawActiveTabKey(layout) ?? undefined;
 }
 
-export function tabMode(tab: TabRef): DocumentMode {
-  return rawTabMode(tab) as DocumentMode;
-}
-
 export function tabAt(layout: PaneLayout, paneId: string, index: number): TabRef | undefined {
   return (rawTabAt(layout, paneId, index) ?? undefined) as TabRef | undefined;
-}
-
-export function setTabMode(layout: PaneLayout, target: TabRef, mode: DocumentMode): PaneLayout {
-  return rawSetTabMode(layout, target, mode) as PaneLayout;
-}
-
-export function previewOpen(layout: PaneLayout): boolean {
-  return rawPreviewOpen(layout);
 }
 
 export function togglePreview(layout: PaneLayout, newPaneId = nextPaneId()): PaneLayout {
@@ -162,14 +123,6 @@ export function previewSource(layout: PaneLayout, previous?: TabRef): TabRef | u
 /** The key of every tab open in any pane. */
 export function openTabKeys(layout: PaneLayout): Set<string> {
   return new Set(rawOpenTabKeys(layout) as string[]);
-}
-
-export function closedTabs(before: PaneLayout, after: PaneLayout): TabRef[] {
-  return rawClosedTabs(before, after) as TabRef[];
-}
-
-export function focusedTabCount(layout: PaneLayout): number {
-  return rawFocusedTabCount(layout);
 }
 
 /** The fields of a key press that a chord reads (a DOM `KeyboardEvent` also fits). */

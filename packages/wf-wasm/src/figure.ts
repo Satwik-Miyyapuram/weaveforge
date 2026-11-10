@@ -7,26 +7,28 @@
 import {
   cropFigureTo as rawCropFigureTo,
   figureAltFor as rawFigureAltFor,
-  figureCornerHit as rawFigureCornerHit,
-  figureImageFrame as rawFigureImageFrame,
-  formatFigureTokens as rawFormatFigureTokens,
   inkPageFigures as rawInkPageFigures,
   keepFigureOnPage as rawKeepFigureOnPage,
   parseFigureCrop as rawParseFigureCrop,
   parseFigureTokens as rawParseFigureTokens,
   reorderFigureIndices as rawReorderFigureIndices,
   resizeFigureBox as rawResizeFigureBox,
-  uncroppedFigureBox as rawUncroppedFigureBox,
   withInkPageFigures as rawWithInkPageFigures,
 } from "../pkg/wf_wasm.js";
 import type {
   FigureBox,
   FigureHandle,
-  FigureImageFrame,
   FigureOrderStep,
   FigurePlacement,
   FigureRect,
 } from "./bindings.js";
+
+export {
+  figureCornerHit,
+  figureImageFrame,
+  formatFigureTokens,
+  uncroppedFigureBox,
+} from "../pkg/wf_wasm.js";
 
 /** Drops a `crop` the Rust side left out, so the object compares like the old one. */
 function withCrop<T extends { crop?: unknown }>(one: T): T {
@@ -57,16 +59,6 @@ export function keepFigureOnPage<T extends FigureRect>(
 ): T {
   const [x, y] = rawKeepFigureOnPage(rectOf(one), pageSize.width, pageSize.height);
   return x === one.x && y === one.y ? one : { ...one, x, y };
-}
-
-/** How near a corner, in page units at `scale` CSS pixels per unit, a press takes that corner. */
-export function figureCornerHit(scale: number): number {
-  return rawFigureCornerHit(scale);
-}
-
-/** The geometry tokens as they are written in an alt, for a complete box. */
-export function formatFigureTokens(geometry: FigureBox): string {
-  return rawFormatFigureTokens(geometry);
 }
 
 /** The figures a page's text places, in line order. */
@@ -113,16 +105,6 @@ export function resizeFigureBox(
     options.free ?? false,
     options.min ?? 30,
   ) as FigureRect;
-}
-
-/** The rectangle the whole image would occupy with the crop lifted. */
-export function uncroppedFigureBox(figure: FigureBox): FigureRect {
-  return rawUncroppedFigureBox(figure) as FigureRect;
-}
-
-/** Where the whole picture sits inside a figure's frame, in percent of the frame. */
-export function figureImageFrame(figure: FigureBox): FigureImageFrame {
-  return rawFigureImageFrame(figure) as FigureImageFrame;
 }
 
 /** A figure re-cropped to `kept` inside the uncropped image `full`; keeping everything clears the crop. */

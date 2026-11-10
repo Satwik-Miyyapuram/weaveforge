@@ -18,7 +18,7 @@ pub fn plot_tier_js(width: f64) -> String {
 /// # Errors
 ///
 /// Fails if `tier` is not one of the three tier names.
-#[wasm_bindgen(js_name = axisSpec)]
+#[wasm_bindgen(js_name = axisSpec, unchecked_return_type = "B.AxisSpec")]
 pub fn axis_spec_js(tier: &str) -> Result<JsValue, JsError> {
     let tier = parse_tier(tier)?;
     to_js(&plot_size::axis_spec(tier)).map_err(|e| JsError::new(&e.to_string()))

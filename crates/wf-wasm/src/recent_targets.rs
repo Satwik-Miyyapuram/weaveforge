@@ -12,7 +12,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// Anything that does not deserialize as JSON is not a target.
 #[wasm_bindgen(js_name = isRecentTarget)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn is_recent_target_js(value: JsValue) -> bool {
+pub fn is_recent_target_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] value: JsValue,
+) -> bool {
     serde_wasm_bindgen::from_value::<serde_json::Value>(value)
         .is_ok_and(|json| is_recent_target(&json))
 }

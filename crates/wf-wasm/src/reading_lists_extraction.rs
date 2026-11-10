@@ -76,7 +76,9 @@ pub fn empty_cell_paper_ids_js(
 
 /// [`build_propose_fill_prompt`]: the prompt that asks the AI to fill one column.
 #[wasm_bindgen(js_name = buildProposeFillPrompt)]
-pub fn build_propose_fill_prompt_js(input: JsValue) -> Result<String, JsError> {
+pub fn build_propose_fill_prompt_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ProposeFillInput")] input: JsValue,
+) -> Result<String, JsError> {
     let input: ProposeFillInput = parse(input)?;
     Ok(build_propose_fill_prompt(&input))
 }

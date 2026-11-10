@@ -21,7 +21,7 @@ fn context(value: JsValue) -> Result<TemplateContext, wasm_bindgen::JsError> {
 #[wasm_bindgen(js_name = substituteVariables)]
 pub fn substitute_variables_js(
     template: &str,
-    context_value: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] context_value: JsValue,
 ) -> Result<String, wasm_bindgen::JsError> {
     Ok(tpl::substitute_variables(
         template,
@@ -78,7 +78,7 @@ pub fn strip_region_markers_js(document: &str) -> String {
 #[wasm_bindgen(js_name = renderTemplate)]
 pub fn render_template_js(
     template: &str,
-    context_value: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] context_value: JsValue,
 ) -> Result<String, wasm_bindgen::JsError> {
     Ok(tpl::render_template(template, &context(context_value)?))
 }

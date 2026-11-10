@@ -30,6 +30,10 @@ import type {
   SectionProgress,
 } from "./bindings.js";
 
+export {
+  createReportSectionWith,
+} from "../pkg/wf_wasm.js";
+
 /** The PRISMA flow diagram as a LaTeX figure. */
 export function prismaFigureTex(
   counts: PrismaCounts,
@@ -97,11 +101,6 @@ export function createReportSection(
 /** Why `input` is not a valid new section, or null when it is. */
 export function reportSectionInputError(input: NewReportSectionInput): string | null {
   return rawReportSectionInputError(input) ?? null;
-}
-
-/** A new section with the given id and timestamp; the caller has validated `input`. */
-export function createReportSectionWith(input: NewReportSectionInput, id: string, now: string): ReportSection {
-  return rawCreateReportSectionWith(input, id, now) as ReportSection;
 }
 
 /** The outline tree of a flat section list; siblings by sortOrder, sectionNo, then title. */

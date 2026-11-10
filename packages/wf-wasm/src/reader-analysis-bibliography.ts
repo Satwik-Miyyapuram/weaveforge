@@ -9,7 +9,6 @@ import {
   splitByMargins as rawSplitByMargins,
   splitByAuthorStart as rawSplitByAuthorStart,
   splitBibliographyEntries as rawSplitBibliographyEntries,
-  extractVenue as rawExtractVenue,
   parseBibliographyEntry as rawParseBibliographyEntry,
   parseBibliography as rawParseBibliography,
 } from "../pkg/wf_wasm.js";
@@ -17,6 +16,10 @@ import type {
   AnalysisParsedReference,
   AnalysisTextLine,
 } from "./bindings.js";
+
+export {
+  extractVenue,
+} from "../pkg/wf_wasm.js";
 
 /** Entry number from the regex exec groups `[whole, g1..g5]`: the first set of `g2..g5`. */
 export function labelNumber(groups: readonly (string | undefined)[]): number {
@@ -41,11 +44,6 @@ export function splitByAuthorStart(lines: readonly AnalysisTextLine[]): Analysis
 /** Splits by the first format that yields at least three entries. */
 export function splitBibliographyEntries(lines: readonly AnalysisTextLine[]): AnalysisTextLine[][] {
   return rawSplitBibliographyEntries(lines) as AnalysisTextLine[][];
-}
-
-/** The venue named after a title, if one is printed; `undefined` otherwise. */
-export function extractVenue(afterTitle: string): string | undefined {
-  return rawExtractVenue(afterTitle);
 }
 
 /** Fields of one entry. Throws when `lines` is empty. */

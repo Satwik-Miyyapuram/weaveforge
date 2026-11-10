@@ -7,7 +7,6 @@ import {
   cleanPdfText as rawCleanPdfText,
   cleanUrlsWithRules as rawCleanUrlsWithRules,
   cleanWrappedText as rawCleanWrappedText,
-  defaultPasteSettings as rawDefaultPasteSettings,
   escapeLinkLabel as rawEscapeLinkLabel,
   isBareUrl as rawIsBareUrl,
   linkLabel as rawLinkLabel,
@@ -27,6 +26,10 @@ import type {
   WrappedTextOptions,
 } from "./bindings.js";
 import { checkIndexText } from "./text-check.js";
+
+export {
+  defaultPasteSettings,
+} from "../pkg/wf_wasm.js";
 
 /** The automatic paste rules over `input` (Rust `clean_pasted_text`). */
 export function cleanPastedText(input: string, settings: PasteSettings): CleanPasteResult {
@@ -68,11 +71,6 @@ export function tabSeparatedToMarkdownTable(input: string): TextResult {
 export function cleanUrlsWithRules(text: string, rules: readonly string[]): UrlCleanupResult {
   checkIndexText(text);
   return rawCleanUrlsWithRules(text, rules) as UrlCleanupResult;
-}
-
-/** The default paste settings (Rust `PasteSettings::default`). */
-export function defaultPasteSettings(): PasteSettings {
-  return rawDefaultPasteSettings() as PasteSettings;
 }
 
 /** Settings the pipeline can trust from whatever was stored (Rust `normalize_paste_settings`). */

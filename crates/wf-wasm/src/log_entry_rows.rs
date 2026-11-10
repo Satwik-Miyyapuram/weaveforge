@@ -19,15 +19,19 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_domain`]: a `log_entries` row as a domain entry.
-#[wasm_bindgen(js_name = logEntryToDomain)]
-pub fn log_entry_to_domain_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = logEntryToDomain, unchecked_return_type = "B.LogEntry")]
+pub fn log_entry_to_domain_js(
+    #[wasm_bindgen(unchecked_param_type = "B.LogEntryRow")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: LogEntryRow = parse(row)?;
     to_js(&to_domain(&row)).map_err(js_error)
 }
 
 /// [`to_row`]: a domain entry as the `log_entries` row it is written as.
-#[wasm_bindgen(js_name = logEntryToRow)]
-pub fn log_entry_to_row_js(entry: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = logEntryToRow, unchecked_return_type = "B.LogEntryWriteRow")]
+pub fn log_entry_to_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.LogEntry")] entry: JsValue,
+) -> Result<JsValue, JsError> {
     let entry: LogEntry = parse(entry)?;
     to_js(&to_row(&entry)).map_err(js_error)
 }

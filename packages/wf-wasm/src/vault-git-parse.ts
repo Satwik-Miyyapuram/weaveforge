@@ -3,11 +3,14 @@
  * Keeps running git and reading its stdout in apps/shell/sidecar/src/vault-git.ts.
  */
 import {
-  gitNulList as rawGitNulList,
-  gitOverwrittenFiles as rawGitOverwrittenFiles,
   gitParseLog as rawGitParseLog,
   gitParseStatus as rawGitParseStatus,
   gitPathChunks as rawGitPathChunks,
+} from "../pkg/wf_wasm.js";
+
+export {
+  gitNulList,
+  gitOverwrittenFiles,
 } from "../pkg/wf_wasm.js";
 
 export interface ParsedGitFileStatus {
@@ -35,16 +38,6 @@ export function gitParseStatus(stdout: string): ParsedGitFileStatus[] {
 /** `git log` lines written with the unit-separator field format. */
 export function gitParseLog(stdout: string): ParsedGitLogCommit[] {
   return rawGitParseLog(stdout) as ParsedGitLogCommit[];
-}
-
-/** Paths listed under a "would be overwritten" git message. */
-export function gitOverwrittenFiles(output: string): string[] {
-  return rawGitOverwrittenFiles(output) as string[];
-}
-
-/** The non-empty entries of a NUL-separated git listing. */
-export function gitNulList(stdout: string): string[] {
-  return rawGitNulList(stdout) as string[];
 }
 
 /** Batches of paths, each within `maxUnits` UTF-16 units (default 8000) for one command line. */

@@ -22,7 +22,9 @@ fn js(value: &impl serde::Serialize) -> Result<JsValue, JsError> {
 ///
 /// Fails on a page the format cannot hold, or one that is not an `InkPage`.
 #[wasm_bindgen(js_name = encodeInkChunkBody)]
-pub fn encode_ink_chunk_body_js(page: JsValue) -> Result<Vec<u8>, JsError> {
+pub fn encode_ink_chunk_body_js(
+    #[wasm_bindgen(unchecked_param_type = "object")] page: JsValue,
+) -> Result<Vec<u8>, JsError> {
     chunk::encode_ink_chunk_body(&page_from(page)?).map_err(|error| JsError::new(&error))
 }
 
@@ -32,7 +34,9 @@ pub fn encode_ink_chunk_body_js(page: JsValue) -> Result<Vec<u8>, JsError> {
 ///
 /// Fails on a body over `u32`, or a value that is not an `InkPage`.
 #[wasm_bindgen(js_name = inkChunkBodySize)]
-pub fn ink_chunk_body_size_js(page: JsValue) -> Result<u32, JsError> {
+pub fn ink_chunk_body_size_js(
+    #[wasm_bindgen(unchecked_param_type = "object")] page: JsValue,
+) -> Result<u32, JsError> {
     chunk::ink_chunk_body_size(&page_from(page)?).map_err(|error| JsError::new(&error))
 }
 
@@ -41,7 +45,7 @@ pub fn ink_chunk_body_size_js(page: JsValue) -> Result<u32, JsError> {
 /// # Errors
 ///
 /// Fails on a header the format refuses.
-#[wasm_bindgen(js_name = readInkChunkHeader)]
+#[wasm_bindgen(js_name = readInkChunkHeader, unchecked_return_type = "B.InkChunkHeader")]
 pub fn read_ink_chunk_header_js(bytes: &[u8]) -> Result<JsValue, JsError> {
     js(&chunk::read_ink_chunk_header(bytes).map_err(|error| JsError::new(&error))?)
 }
@@ -59,7 +63,7 @@ pub fn ink_chunk_header_bytes_js(body_size: u32, payload_size: u32, compressed: 
 /// # Errors
 ///
 /// Fails on a body whose tables do not add up.
-#[wasm_bindgen(js_name = checkInkChunkBody)]
+#[wasm_bindgen(js_name = checkInkChunkBody, unchecked_return_type = "B.InkChunkBodyInfo")]
 pub fn check_ink_chunk_body_js(body: &[u8]) -> Result<JsValue, JsError> {
     js(&chunk::check_ink_chunk_body(body).map_err(|error| JsError::new(&error))?)
 }
@@ -69,7 +73,7 @@ pub fn check_ink_chunk_body_js(body: &[u8]) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails on a body whose tables do not add up.
-#[wasm_bindgen(js_name = pageFromChunkBody)]
+#[wasm_bindgen(js_name = pageFromChunkBody, unchecked_return_type = "object")]
 pub fn page_from_chunk_body_js(body: &[u8]) -> Result<JsValue, JsError> {
     js(&chunk_read::page_from_chunk_body(body).map_err(|error| JsError::new(&error))?)
 }

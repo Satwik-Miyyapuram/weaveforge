@@ -56,7 +56,9 @@ pub fn step_cursor_js(cursor: i32, delta: i32, length: i32) -> i32 {
 ///
 /// Fails if `node` is not a tree row.
 #[wasm_bindgen(js_name = titleOf)]
-pub fn title_of_js(node: JsValue) -> Result<String, serde_wasm_bindgen::Error> {
+pub fn title_of_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] node: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
     let node: WorkspaceTreeNode = serde_wasm_bindgen::from_value(node)?;
     Ok(quick::title_of(&node).to_owned())
 }

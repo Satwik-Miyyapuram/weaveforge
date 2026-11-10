@@ -14,8 +14,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if the request is malformed or the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = extractLexical)]
-pub fn extract_lexical_js(request: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = extractLexical, unchecked_return_type = "B.ExtractionResult")]
+pub fn extract_lexical_js(
+    #[wasm_bindgen(unchecked_param_type = "B.LexicalRequest")] request: JsValue,
+) -> JsResult<JsValue> {
     let request: LexicalRequest = serde_wasm_bindgen::from_value(request)?;
     to_js(&lexical_concepts::extract_lexical(&request))
 }

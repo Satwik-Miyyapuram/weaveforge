@@ -35,7 +35,7 @@ pub fn git_parse_log_js(stdout: &str) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails when the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = gitOverwrittenFiles)]
+#[wasm_bindgen(js_name = gitOverwrittenFiles, unchecked_return_type = "string[]")]
 pub fn git_overwritten_files_js(output: &str) -> Result<JsValue, JsError> {
     to_js(&overwritten_files(output)).map_err(|error| JsError::new(&error.to_string()))
 }
@@ -45,7 +45,7 @@ pub fn git_overwritten_files_js(output: &str) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails when the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = gitNulList)]
+#[wasm_bindgen(js_name = gitNulList, unchecked_return_type = "string[]")]
 pub fn git_nul_list_js(stdout: &str) -> Result<JsValue, JsError> {
     to_js(&nul_list(stdout)).map_err(|error| JsError::new(&error.to_string()))
 }

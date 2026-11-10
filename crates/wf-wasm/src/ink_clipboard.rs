@@ -17,7 +17,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
 /// [`figure_clip_text`]: the clipboard text for a copied figure.
 #[wasm_bindgen(js_name = figureClipText)]
-pub fn figure_clip_text_js(clip: JsValue) -> JsResult<String> {
+pub fn figure_clip_text_js(
+    #[wasm_bindgen(unchecked_param_type = "B.FigureClip")] clip: JsValue,
+) -> JsResult<String> {
     let clip: FigureClip = serde_wasm_bindgen::from_value(clip)?;
     Ok(figure_clip_text(&clip))
 }

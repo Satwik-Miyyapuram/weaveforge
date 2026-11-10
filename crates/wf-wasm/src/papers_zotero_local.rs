@@ -24,7 +24,7 @@ pub fn zotero_local_api_off_js() -> String {
 /// # Errors
 ///
 /// Fails if the result cannot be converted.
-#[wasm_bindgen(js_name = zoteroLocalStatusMessage)]
+#[wasm_bindgen(js_name = zoteroLocalStatusMessage, unchecked_return_type = "string | null")]
 pub fn zotero_local_status_message_js(status: f64) -> JsResult<JsValue> {
     to_js(&zotero_local_status::zotero_local_status_message(status))
 }

@@ -14,8 +14,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `primary` or `secondary` is not a `{ id, title, body, aliases?, sources? }` object.
-#[wasm_bindgen(js_name = mergeWikiPages)]
-pub fn merge_wiki_pages_js(primary: JsValue, secondary: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = mergeWikiPages, unchecked_return_type = "B.WikiMergeResult")]
+pub fn merge_wiki_pages_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MergeInput")] primary: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.MergeInput")] secondary: JsValue,
+) -> JsResult<JsValue> {
     let primary: MergeInput = serde_wasm_bindgen::from_value(primary)?;
     let secondary: MergeInput = serde_wasm_bindgen::from_value(secondary)?;
     to_js(&wiki_merge::merge_wiki_pages(&primary, &secondary))

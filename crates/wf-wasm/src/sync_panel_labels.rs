@@ -52,7 +52,10 @@ pub fn kind_of_js(table: &str) -> String {
 ///
 /// Fails if `local` or `remote` is not an object (or null for `remote`).
 #[wasm_bindgen(js_name = nameOf)]
-pub fn name_of_js(local: JsValue, remote: JsValue) -> Result<String, serde_wasm_bindgen::Error> {
+pub fn name_of_js(
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] local: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown> | null")] remote: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
     let local: Map<String, Value> = serde_wasm_bindgen::from_value(local)?;
     let remote: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(remote)?;
     Ok(panel_labels::name_of(&local, remote.as_ref()))

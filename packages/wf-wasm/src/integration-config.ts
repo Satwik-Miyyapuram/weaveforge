@@ -5,22 +5,22 @@
 import {
   gitlabCombinedActive as rawGitlabCombinedActive,
   projectGateOpen as rawProjectGateOpen,
-  resolveIntegrationConfig as rawResolveIntegrationConfig,
   userGateOpen as rawUserGateOpen,
 } from "../pkg/wf_wasm.js";
-import type { IntegrationConfig, IntegrationEnv, ProviderIds, RuntimeGate } from "./bindings.js";
+import type {
+  IntegrationConfig,
+  IntegrationEnv,
+  ProviderIds,
+  RuntimeGate,
+} from "./bindings.js";
+
+export {
+  resolveIntegrationConfig,
+} from "../pkg/wf_wasm.js";
 
 /** Generated types; `ResolvedIntegrationConfig` is the Rust `IntegrationConfig`. */
 export type { IntegrationEnv, ProviderIds, RuntimeGate } from "./bindings.js";
 export type { IntegrationConfig as ResolvedIntegrationConfig } from "./bindings.js";
-
-/** Resolve the integration config from env and the registered ids. */
-export function resolveIntegrationConfig(
-  env: IntegrationEnv,
-  ids: ProviderIds,
-): IntegrationConfig {
-  return rawResolveIntegrationConfig(env, ids) as IntegrationConfig;
-}
 
 /** Whether a user-scope descriptor shows. No gate means open. */
 export function userGateOpen(

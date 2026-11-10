@@ -13,7 +13,7 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails only if the result cannot be serialized.
-#[wasm_bindgen(js_name = kindsForResource)]
+#[wasm_bindgen(js_name = kindsForResource, unchecked_return_type = "B.SearchKind[] | null")]
 pub fn kinds_for_resource_js(resource_type: &str) -> JsResult<wasm_bindgen::JsValue> {
     to_js(&search_index_state::kinds_for_resource(resource_type))
 }
@@ -23,7 +23,7 @@ pub fn kinds_for_resource_js(resource_type: &str) -> JsResult<wasm_bindgen::JsVa
 /// # Errors
 ///
 /// Fails only if the result cannot be serialized.
-#[wasm_bindgen(js_name = resourceTypes)]
+#[wasm_bindgen(js_name = resourceTypes, unchecked_return_type = "string[]")]
 pub fn resource_types_js() -> JsResult<wasm_bindgen::JsValue> {
     to_js(&search_index_state::resource_types())
 }

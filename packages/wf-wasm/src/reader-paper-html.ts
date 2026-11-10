@@ -6,35 +6,20 @@
  */
 import {
   buildPaperHtmlDocument as rawBuildPaperHtmlDocument,
-  isSubstantialPaperText as rawIsSubstantialPaperText,
-  minArticleTextChars as rawMinArticleTextChars,
-  minPaperTextChars as rawMinPaperTextChars,
-  paperHtmlCsp as rawPaperHtmlCsp,
-  parsePaperHtmlDocument as rawParsePaperHtmlDocument,
 } from "../pkg/wf_wasm.js";
-import type { PaperHtmlPage } from "./bindings.js";
+import type {
+  PaperHtmlPage,
+} from "./bindings.js";
+
+export {
+  isSubstantialPaperText,
+  minArticleTextChars,
+  minPaperTextChars,
+  paperHtmlCsp,
+  parsePaperHtmlDocument,
+} from "../pkg/wf_wasm.js";
 
 export type { PaperHtmlPage } from "./bindings.js";
-
-/** How much text a page must carry to count as the paper. */
-export function minPaperTextChars(): number {
-  return rawMinPaperTextChars();
-}
-
-/** The text a paper's own web page must carry to be kept. */
-export function minArticleTextChars(): number {
-  return rawMinArticleTextChars();
-}
-
-/** The frame's own content security policy. */
-export function paperHtmlCsp(): string {
-  return rawPaperHtmlCsp();
-}
-
-/** Whether the text reaches `minChars` once whitespace is collapsed. */
-export function isSubstantialPaperText(text: string, minChars: number): boolean {
-  return rawIsSubstantialPaperText(text, minChars);
-}
 
 /** The framed, self-contained document for one kept paper. */
 export function buildPaperHtmlDocument(
@@ -44,7 +29,3 @@ export function buildPaperHtmlDocument(
   return rawBuildPaperHtmlDocument(page, options);
 }
 
-/** The paper a kept file holds, or null for a file this app did not write. */
-export function parsePaperHtmlDocument(paperId: string, text: string): PaperHtmlPage | null {
-  return rawParsePaperHtmlDocument(paperId, text) as PaperHtmlPage | null;
-}

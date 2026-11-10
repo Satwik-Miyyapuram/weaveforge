@@ -9,14 +9,18 @@ use crate::to_js;
 
 /// [`is_electron_entry`](mcp_config_rewrite::is_electron_entry): an entry the Electron app wrote.
 #[wasm_bindgen(js_name = isElectronMcpEntry)]
-pub fn is_electron_mcp_entry_js(entry: JsValue) -> Result<bool, serde_wasm_bindgen::Error> {
+pub fn is_electron_mcp_entry_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] entry: JsValue,
+) -> Result<bool, serde_wasm_bindgen::Error> {
     let entry: Value = serde_wasm_bindgen::from_value(entry)?;
     Ok(mcp_config_rewrite::is_electron_entry(&entry))
 }
 
 /// [`mcp_file_of`](mcp_config_rewrite::mcp_file_of): the MCP file name an env points at.
 #[wasm_bindgen(js_name = mcpFileOf)]
-pub fn mcp_file_of_js(env: JsValue) -> Result<String, serde_wasm_bindgen::Error> {
+pub fn mcp_file_of_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] env: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
     let env: Value = serde_wasm_bindgen::from_value(env)?;
     Ok(mcp_config_rewrite::mcp_file_of(&env))
 }

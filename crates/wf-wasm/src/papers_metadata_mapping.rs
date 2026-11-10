@@ -27,8 +27,11 @@ fn out<T: serde::Serialize>(value: &T) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `message` is not a Crossref message.
-#[wasm_bindgen(js_name = crossrefToMetadata)]
-pub fn crossref_to_metadata_js(message: JsValue, doi: String) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = crossrefToMetadata, unchecked_return_type = "B.ZoteroPaperInput")]
+pub fn crossref_to_metadata_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CrossrefMessage")] message: JsValue,
+    doi: String,
+) -> Result<JsValue, JsError> {
     let message: CrossrefMessage = from_js(message)?;
     out(&crossref_to_metadata(&message, &doi))
 }
@@ -39,8 +42,10 @@ pub fn crossref_to_metadata_js(message: JsValue, doi: String) -> Result<JsValue,
 /// # Errors
 ///
 /// Fails if `paper` is not a Semantic Scholar paper.
-#[wasm_bindgen(js_name = semanticScholarToMetadata)]
-pub fn semantic_scholar_to_metadata_js(paper: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = semanticScholarToMetadata, unchecked_return_type = "B.ZoteroPaperInput")]
+pub fn semantic_scholar_to_metadata_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SemanticScholarPaper")] paper: JsValue,
+) -> Result<JsValue, JsError> {
     let paper: SemanticScholarPaper = from_js(paper)?;
     out(&semantic_scholar_to_metadata(&paper))
 }
@@ -50,8 +55,10 @@ pub fn semantic_scholar_to_metadata_js(paper: JsValue) -> Result<JsValue, JsErro
 /// # Errors
 ///
 /// Fails if `work` is not an OpenAlex work.
-#[wasm_bindgen(js_name = openAlexToMetadata)]
-pub fn open_alex_to_metadata_js(work: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = openAlexToMetadata, unchecked_return_type = "B.ZoteroPaperInput")]
+pub fn open_alex_to_metadata_js(
+    #[wasm_bindgen(unchecked_param_type = "B.OpenAlexWork")] work: JsValue,
+) -> Result<JsValue, JsError> {
     let work: OpenAlexWork = from_js(work)?;
     out(&openalex_to_metadata(&work))
 }
@@ -62,7 +69,7 @@ pub fn open_alex_to_metadata_js(work: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails when the feed has no usable entry for `arxiv_id`.
-#[wasm_bindgen(js_name = arxivEntryToMetadata)]
+#[wasm_bindgen(js_name = arxivEntryToMetadata, unchecked_return_type = "B.ZoteroPaperInput")]
 pub fn arxiv_entry_to_metadata_js(xml: String, arxiv_id: String) -> Result<JsValue, JsError> {
     let paper = arxiv_entry_to_metadata(&xml, &arxiv_id).map_err(|e| JsError::new(&e))?;
     out(&paper)
@@ -73,8 +80,10 @@ pub fn arxiv_entry_to_metadata_js(xml: String, arxiv_id: String) -> Result<JsVal
 /// # Errors
 ///
 /// Fails when the page has no title, or its title names the page rather than a paper.
-#[wasm_bindgen(js_name = urlMetaToMetadata)]
-pub fn url_meta_to_metadata_js(meta: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = urlMetaToMetadata, unchecked_return_type = "B.ZoteroPaperInput")]
+pub fn url_meta_to_metadata_js(
+    #[wasm_bindgen(unchecked_param_type = "B.UrlMetaResponse")] meta: JsValue,
+) -> Result<JsValue, JsError> {
     let meta: UrlMetaResponse = from_js(meta)?;
     let paper = url_meta_to_metadata(&meta).map_err(|e| JsError::new(&e))?;
     out(&paper)

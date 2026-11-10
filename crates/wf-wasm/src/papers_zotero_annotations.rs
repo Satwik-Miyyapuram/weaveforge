@@ -37,8 +37,10 @@ pub fn zotero_item_key_js(item: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroIsPdfAttachment)]
-pub fn zotero_is_pdf_attachment_js(item: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = zoteroIsPdfAttachment, unchecked_return_type = "boolean")]
+pub fn zotero_is_pdf_attachment_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItemRow")] item: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ZoteroItemRow = from_js(item)?;
     out(&is_pdf_attachment(&item))
 }
@@ -59,8 +61,10 @@ pub fn zotero_pick_main_pdf_js(pdfs: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroAnnotationFromItem)]
-pub fn zotero_annotation_from_item_js(item: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = zoteroAnnotationFromItem, unchecked_return_type = "B.ZoteroAnnotation")]
+pub fn zotero_annotation_from_item_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItemRow")] item: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ZoteroItemRow = from_js(item)?;
     out(&annotation_from_item(&item))
 }

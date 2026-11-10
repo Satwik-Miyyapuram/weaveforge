@@ -94,8 +94,11 @@ pub fn wire_tag_js(value: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `id` is neither a non-negative integer nor `null`.
-#[wasm_bindgen(js_name = wireErrorReply)]
-pub fn wire_error_reply_js(id: JsValue, error: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = wireErrorReply, unchecked_return_type = "Record<string, unknown>")]
+pub fn wire_error_reply_js(
+    #[wasm_bindgen(unchecked_param_type = "number | null")] id: JsValue,
+    error: &str,
+) -> JsResult<JsValue> {
     let id: Option<u64> = serde_wasm_bindgen::from_value(id)?;
     to_js(&wire::error_reply(id, error))
 }

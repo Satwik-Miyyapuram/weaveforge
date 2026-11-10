@@ -45,8 +45,10 @@ pub fn moved_ids_js(ids: JsValue, id: &str, step: i32) -> Result<JsValue, JsErro
 }
 
 /// [`subtree_ids`]: the id of `node` and of every list below it.
-#[wasm_bindgen(js_name = subtreeIds)]
-pub fn subtree_ids_js(node: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = subtreeIds, unchecked_return_type = "string[]")]
+pub fn subtree_ids_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ReadingListTreeNode")] node: JsValue,
+) -> Result<JsValue, JsError> {
     let node: ReadingListTreeNode = parse(node)?;
     to_js(&subtree_ids(&node)).map_err(js_error)
 }

@@ -50,7 +50,9 @@ pub fn short_sha_js(sha: Option<String>) -> Option<String> {
 ///
 /// Fails if `experiment` has the wrong shape.
 #[wasm_bindgen(js_name = experimentActivityAt)]
-pub fn experiment_activity_at_js(experiment: JsValue) -> JsResult<f64> {
+pub fn experiment_activity_at_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Experiment")] experiment: JsValue,
+) -> JsResult<f64> {
     let experiment: Experiment = serde_wasm_bindgen::from_value(experiment)?;
     Ok(experiment_status::experiment_activity_at(&experiment))
 }

@@ -11,8 +11,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `integration` has the wrong shape.
-#[wasm_bindgen(js_name = gitConnection)]
-pub fn git_connection_js(integration: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = gitConnection, unchecked_return_type = "B.GitConnection")]
+pub fn git_connection_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     to_js(&fields::git_connection(&integration))
 }
@@ -22,9 +24,9 @@ pub fn git_connection_js(integration: JsValue) -> Result<JsValue, serde_wasm_bin
 /// # Errors
 ///
 /// Fails if `integration` has the wrong shape.
-#[wasm_bindgen(js_name = mattermostConnection)]
+#[wasm_bindgen(js_name = mattermostConnection, unchecked_return_type = "B.MattermostConnection")]
 pub fn mattermost_connection_js(
-    integration: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     to_js(&fields::mattermost_connection(&integration))
@@ -36,7 +38,9 @@ pub fn mattermost_connection_js(
 ///
 /// Fails if `integration` has the wrong shape.
 #[wasm_bindgen(js_name = gitConnectionReady)]
-pub fn git_connection_ready_js(integration: JsValue) -> Result<bool, serde_wasm_bindgen::Error> {
+pub fn git_connection_ready_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
+) -> Result<bool, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     Ok(fields::git_connection_ready(&integration))
 }
@@ -48,7 +52,7 @@ pub fn git_connection_ready_js(integration: JsValue) -> Result<bool, serde_wasm_
 /// Fails if `integration` has the wrong shape.
 #[wasm_bindgen(js_name = mattermostConnectionReady)]
 pub fn mattermost_connection_ready_js(
-    integration: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
 ) -> Result<bool, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     Ok(fields::mattermost_connection_ready(&integration))
@@ -59,8 +63,10 @@ pub fn mattermost_connection_ready_js(
 /// # Errors
 ///
 /// Fails if `provider` is not `"github"`, `"gitlab"` or `"mattermost"`.
-#[wasm_bindgen(js_name = emptyIntegration)]
-pub fn empty_integration_js(provider: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = emptyIntegration, unchecked_return_type = "B.EmptyIntegration")]
+pub fn empty_integration_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SyncProvider")] provider: JsValue,
+) -> Result<JsValue, JsError> {
     let provider: fields::SyncProvider =
         serde_wasm_bindgen::from_value(provider).map_err(|e| JsError::new(&e.to_string()))?;
     to_js(&fields::empty_integration(provider)).map_err(|e| JsError::new(&e.to_string()))

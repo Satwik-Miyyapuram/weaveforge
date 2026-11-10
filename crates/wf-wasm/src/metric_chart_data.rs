@@ -18,8 +18,10 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`align_series`]: overlaid runs on one union step axis, gaps as `null`.
-#[wasm_bindgen(js_name = alignSeries)]
-pub fn align_series_js(series: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = alignSeries, unchecked_return_type = "B.AlignedChart")]
+pub fn align_series_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ChartSeries[]")] series: JsValue,
+) -> Result<JsValue, JsError> {
     let series: Vec<ChartSeries> = parse(series)?;
     to_js(&align_series(&series)).map_err(js_error)
 }

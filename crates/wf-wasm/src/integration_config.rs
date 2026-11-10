@@ -17,10 +17,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = resolveIntegrationConfig)]
+#[wasm_bindgen(js_name = resolveIntegrationConfig, unchecked_return_type = "B.IntegrationConfig")]
 pub fn resolve_integration_config_js(
-    env: JsValue,
-    ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.IntegrationEnv")] env: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ProviderIds")] ids: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let env: IntegrationEnv = serde_wasm_bindgen::from_value(env)?;
     let ids: ProviderIds = serde_wasm_bindgen::from_value(ids)?;

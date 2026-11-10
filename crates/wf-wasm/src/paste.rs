@@ -130,7 +130,7 @@ pub fn clean_urls_with_rules_js(text: &str, rules: JsValue) -> JsResult<JsValue>
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = defaultPasteSettings)]
+#[wasm_bindgen(js_name = defaultPasteSettings, unchecked_return_type = "B.PasteSettings")]
 pub fn default_paste_settings_js() -> JsResult<JsValue> {
     to_js(&PasteSettings::default())
 }

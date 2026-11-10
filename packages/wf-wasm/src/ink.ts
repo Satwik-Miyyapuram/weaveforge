@@ -12,20 +12,28 @@ import {
   binomialSmooth as rawBinomialSmooth,
   smoothInkStroke as rawSmoothInkStroke,
   clampInkNoteWidth as rawClampInkNoteWidth,
-  inkPressureFactor as rawInkPressureFactor,
   inkVelocityFactor as rawInkVelocityFactor,
   nibWidth as rawNibWidth,
-  inkVelocityBetween as rawInkVelocityBetween,
   strokeBaseWidth as rawStrokeBaseWidth,
-  clampInkZoom as rawClampInkZoom,
-  inkZoomIn as rawInkZoomIn,
-  inkZoomOut as rawInkZoomOut,
   packInkStroke as rawPackInkStroke,
   createInkStrokePacker as rawCreateInkStrokePacker,
-  pressureByte as rawPressureByte,
   snapInkShape as rawSnapInkShape,
 } from "../pkg/wf_wasm.js";
-import type { InkShape, InkStrokePackerOptions, PackedInkStroke } from "./bindings.js";
+import type {
+  InkShape,
+  InkStrokePackerOptions,
+  PackedInkStroke,
+} from "./bindings.js";
+
+export {
+  clampInkZoom,
+  inkPressureFactor,
+  inkStrokeBandOf,
+  inkVelocityBetween,
+  inkZoomIn,
+  inkZoomOut,
+  pressureByte,
+} from "../pkg/wf_wasm.js";
 
 /** The stroke's tangent at sample `i` for the span on `side` (Rust `ink_tangent_at`). */
 export function inkTangentAt(
@@ -77,11 +85,6 @@ export function clampInkNoteWidth(width: number, fallback?: number): number {
   return rawClampInkNoteWidth(width, fallback);
 }
 
-/** The width factor for a 0-255 pressure (Rust `ink_pressure_factor`). */
-export function inkPressureFactor(pressure: number | undefined): number {
-  return rawInkPressureFactor(pressure);
-}
-
 /** The width factor for a pen speed (Rust `ink_velocity_factor`). */
 export function inkVelocityFactor(velocity: number, fullTaper?: number): number {
   return rawInkVelocityFactor(velocity, fullTaper);
@@ -97,36 +100,9 @@ export function nibWidth(
   return rawNibWidth(base, pressure, velocity, options.fullTaper);
 }
 
-/** Pen speed between two timed samples (Rust `ink_velocity_between`). */
-export function inkVelocityBetween(
-  x0: number,
-  y0: number,
-  t0: number,
-  x1: number,
-  y1: number,
-  t1: number,
-): number {
-  return rawInkVelocityBetween(x0, y0, t0, x1, y1, t1);
-}
-
 /** The base width a stroke is stored with, from its pressures (Rust `stroke_base_width`). */
 export function strokeBaseWidth(samples: readonly number[], base: number): number {
   return rawStrokeBaseWidth(Float64Array.from(samples), base);
-}
-
-/** `zoom` within the ink zoom limits (Rust `clamp_ink_zoom`). */
-export function clampInkZoom(zoom: number): number {
-  return rawClampInkZoom(zoom);
-}
-
-/** One zoom step in (Rust `ink_zoom_in`). */
-export function inkZoomIn(zoom: number): number {
-  return rawInkZoomIn(zoom);
-}
-
-/** One zoom step out (Rust `ink_zoom_out`). */
-export function inkZoomOut(zoom: number): number {
-  return rawInkZoomOut(zoom);
 }
 
 /**
@@ -158,19 +134,10 @@ export function inkStrokeBand(stroke: { points: ArrayLike<number> }): [number, n
   const band = rawInkStrokeBandOf(Float64Array.from(stroke.points));
   return band ? [band[0] as number, band[1] as number] : null;
 }
-/** A pressure as the 0-255 byte the container stores; missing or non-finite is 0. */
-export function pressureByte(pressure: number | undefined): number {
-  return rawPressureByte(pressure);
-}
 
 /** Fit a line, rect, ellipse or arrow to a mark, or null when it abstains (Rust `snap_ink_shape`). */
 export function snapInkShape(points: readonly number[]): { points: number[]; shape: Exclude<InkShape, "none"> } | null {
   return rawSnapInkShape(Float64Array.from(points)) as { points: number[]; shape: Exclude<InkShape, "none"> } | null;
-}
-
-/** The y band [min, max] of flat points, or undefined when there are none. */
-export function inkStrokeBandOf(points: Float64Array): Float64Array | undefined {
-  return rawInkStrokeBandOf(points);
 }
 
 /** The words a recogniser vocabulary allows, in order. */

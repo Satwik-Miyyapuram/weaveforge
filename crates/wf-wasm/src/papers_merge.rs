@@ -15,8 +15,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if either argument is not a paper, or the result cannot be converted.
-#[wasm_bindgen(js_name = mergePaperInto)]
-pub fn merge_paper_into_js(keep: JsValue, dup: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = mergePaperInto, unchecked_return_type = "B.MergePaper")]
+pub fn merge_paper_into_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MergePaper")] keep: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.MergePaper")] dup: JsValue,
+) -> Result<JsValue, JsError> {
     let keep: MergePaper =
         serde_wasm_bindgen::from_value(keep).map_err(|error| JsError::new(&error.to_string()))?;
     let dup: MergePaper =

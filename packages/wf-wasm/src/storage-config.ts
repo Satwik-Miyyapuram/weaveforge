@@ -3,14 +3,7 @@
  * `storage::blob_client`), re-exported from index.ts.
  */
 import {
-  blobProviderForRuntime as rawBlobProviderForRuntime,
-  coldBlobClientConfig as rawColdBlobClientConfig,
-  missingR2ConfigMessage as rawMissingR2ConfigMessage,
-  objectKey as rawObjectKey,
-  r2BlobClientConfig as rawR2BlobClientConfig,
-  readContentType as rawReadContentType,
   readStorageConfig as rawReadStorageConfig,
-  uploadContentType as rawUploadContentType,
 } from "../pkg/wf_wasm.js";
 
 import type {
@@ -21,6 +14,16 @@ import type {
   R2Fields,
   StorageConfig,
 } from "./bindings.js";
+
+export {
+  blobProviderForRuntime,
+  coldBlobClientConfig,
+  missingR2ConfigMessage,
+  objectKey,
+  r2BlobClientConfig,
+  readContentType,
+  uploadContentType,
+} from "../pkg/wf_wasm.js";
 
 export type {
   BlobClientConfig,
@@ -43,40 +46,3 @@ export function readStorageConfig(env: Readonly<Record<string, string | undefine
   return rawReadStorageConfig(definedEnv(env)) as StorageConfig;
 }
 
-/** The provider to use: the browser follows the inlined public `tiered` setting. */
-export function blobProviderForRuntime(
-  configured: BlobProviderId,
-  runtime: BlobRuntime,
-): BlobProviderId {
-  return rawBlobProviderForRuntime(configured, runtime) as BlobProviderId;
-}
-
-/** R2 hot-tier client settings, or null when any R2 field is unset or empty. */
-export function r2BlobClientConfig(fields: R2Fields): BlobClientConfig | null {
-  return rawR2BlobClientConfig(fields) as BlobClientConfig | null;
-}
-
-/** Cold-tier client settings, or null when any cold field is unset or empty. */
-export function coldBlobClientConfig(fields: ColdFields): BlobClientConfig | null {
-  return rawColdBlobClientConfig(fields) as BlobClientConfig | null;
-}
-
-/** The error text for unset R2 env vars (names only, never values). */
-export function missingR2ConfigMessage(fields: R2Fields): string {
-  return rawMissingR2ConfigMessage(fields) as string;
-}
-
-/** The S3 object key: the logical bucket, then the path. */
-export function objectKey(logicalBucket: string, path: string): string {
-  return rawObjectKey(logicalBucket, path);
-}
-
-/** Upload content type: the explicit type, else the blob's type, else octet-stream. */
-export function uploadContentType(explicit: string | undefined, blobType: string): string {
-  return rawUploadContentType(explicit, blobType);
-}
-
-/** Read content type: the stored type, else octet-stream. */
-export function readContentType(stored: string | undefined): string {
-  return rawReadContentType(stored);
-}

@@ -3,13 +3,11 @@
  */
 import {
   folderDraftForProject as rawFolderDraftForProject,
-  isFolderDraftPath as rawIsFolderDraftPath,
 } from "../pkg/wf_wasm.js";
 
-/** Whether a file name is a folder draft (`.json`). */
-export function isFolderDraftPath(path: string): boolean {
-  return rawIsFolderDraftPath(path);
-}
+export {
+  isFolderDraftPath,
+} from "../pkg/wf_wasm.js";
 
 /** The parsed draft when it belongs to the project (or has no project), otherwise `null`. */
 export function folderDraftForProject<T = unknown>(raw: string, projectId: string | undefined): T | null {

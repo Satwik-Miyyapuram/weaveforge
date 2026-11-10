@@ -53,7 +53,7 @@ pub fn build_paper_html_document_js(page: JsValue, options: JsValue) -> JsResult
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = parsePaperHtmlDocument)]
+#[wasm_bindgen(js_name = parsePaperHtmlDocument, unchecked_return_type = "B.PaperHtmlPage | null")]
 pub fn parse_paper_html_document_js(paper_id: &str, text: &str) -> JsResult<JsValue> {
     to_js(&parse_paper_html_document(paper_id, text))
 }

@@ -6,7 +6,10 @@ import {
   coveredHitMask as rawCoveredHitMask,
   gateVectorMask as rawGateVectorMask,
   queryTermCount as rawQueryTermCount,
-  stripStopwords as rawStripStopwords,
+} from "../pkg/wf_wasm.js";
+
+export {
+  stripStopwords,
 } from "../pkg/wf_wasm.js";
 
 /** Weight of the vector list in fusion; the keyword list is 1. */
@@ -15,11 +18,6 @@ export const HYBRID_VECTOR_WEIGHT = 1.5;
 export const HYBRID_MIN_TERM_COVERAGE = 0.5;
 /** Top vector hits kept even under the encoder's floor once the best hit clears it. */
 export const HYBRID_VECTOR_KEEP_TOP = 5;
-
-/** The query with bare function words removed, for the keyword arm. */
-export function stripStopwords(query: string): string {
-  return rawStripStopwords(query);
-}
 
 /** Distinct non-empty terms; callers pass the query's index terms. */
 export function queryTermCount(terms: readonly string[]): number {

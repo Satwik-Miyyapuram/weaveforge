@@ -19,8 +19,10 @@ type JsResult<T> = Result<T, Error>;
 /// # Errors
 ///
 /// Fails when `input` is not a branch read input with the expected fields.
-#[wasm_bindgen(js_name = branchRead)]
-pub fn branch_read_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = branchRead, unchecked_return_type = "string")]
+pub fn branch_read_js(
+    #[wasm_bindgen(unchecked_param_type = "B.BranchReadInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: BranchReadInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&branch_read(&input))
 }
@@ -30,8 +32,10 @@ pub fn branch_read_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `input` is not a branch save input with the expected fields.
-#[wasm_bindgen(js_name = branchSave)]
-pub fn branch_save_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = branchSave, unchecked_return_type = "string")]
+pub fn branch_save_js(
+    #[wasm_bindgen(unchecked_param_type = "B.BranchSaveInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: BranchSaveInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&branch_save(&input))
 }

@@ -21,7 +21,7 @@ pub fn build_lab_snapshot_content_js(input: JsValue) -> JsResult<JsValue> {
 }
 
 /// [`validate_snapshot_title`](lab_snapshot::validate_snapshot_title). Throws on a blank title.
-#[wasm_bindgen(js_name = validateSnapshotTitle)]
+#[wasm_bindgen(js_name = validateSnapshotTitle, unchecked_return_type = "string")]
 pub fn validate_snapshot_title_js(title: &str) -> Result<String, JsValue> {
     lab_snapshot::validate_snapshot_title(title).map_err(JsValue::from_str)
 }

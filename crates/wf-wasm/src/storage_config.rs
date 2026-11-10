@@ -28,11 +28,11 @@ pub fn read_storage_config_js(env: JsValue) -> Result<JsValue, serde_wasm_bindge
 /// # Errors
 ///
 /// Fails if `runtime` is not `{ inBrowser, publicProvider? }`, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = blobProviderForRuntime)]
+#[wasm_bindgen(js_name = blobProviderForRuntime, unchecked_return_type = "B.BlobProviderId")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn blob_provider_for_runtime_js(
     configured: String,
-    runtime: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.BlobRuntime")] runtime: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let runtime: BlobRuntime = serde_wasm_bindgen::from_value(runtime)?;
     let configured = parse_blob_provider(Some(configured.as_str()));
@@ -44,8 +44,10 @@ pub fn blob_provider_for_runtime_js(
 /// # Errors
 ///
 /// Fails if `fields` is not an object of optional strings, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = r2BlobClientConfig)]
-pub fn r2_blob_client_config_js(fields: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = r2BlobClientConfig, unchecked_return_type = "B.BlobClientConfig | null")]
+pub fn r2_blob_client_config_js(
+    #[wasm_bindgen(unchecked_param_type = "B.R2Fields")] fields: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let fields: R2Fields = serde_wasm_bindgen::from_value(fields)?;
     to_js(&r2_blob_client_config(&fields))
 }
@@ -55,8 +57,10 @@ pub fn r2_blob_client_config_js(fields: JsValue) -> Result<JsValue, serde_wasm_b
 /// # Errors
 ///
 /// Fails if `fields` is not an object of optional strings, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = coldBlobClientConfig)]
-pub fn cold_blob_client_config_js(fields: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = coldBlobClientConfig, unchecked_return_type = "B.BlobClientConfig | null")]
+pub fn cold_blob_client_config_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ColdFields")] fields: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let fields: ColdFields = serde_wasm_bindgen::from_value(fields)?;
     to_js(&cold_blob_client_config(&fields))
 }
@@ -66,8 +70,10 @@ pub fn cold_blob_client_config_js(fields: JsValue) -> Result<JsValue, serde_wasm
 /// # Errors
 ///
 /// Fails if `fields` is not an object of optional strings, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = missingR2ConfigMessage)]
-pub fn missing_r2_config_message_js(fields: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = missingR2ConfigMessage, unchecked_return_type = "string")]
+pub fn missing_r2_config_message_js(
+    #[wasm_bindgen(unchecked_param_type = "B.R2Fields")] fields: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let fields: R2Fields = serde_wasm_bindgen::from_value(fields)?;
     to_js(&missing_r2_config_message(&fields))
 }

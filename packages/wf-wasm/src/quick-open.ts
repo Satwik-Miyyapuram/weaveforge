@@ -7,11 +7,18 @@ import {
   groupResults as rawGroupResults,
   paintedOrder as rawPaintedOrder,
   quickOpenResults as rawQuickOpenResults,
-  stepCursor as rawStepCursor,
-  titleOf as rawTitleOf,
 } from "../pkg/wf_wasm.js";
 
-import type { QuickOpenGroup, QuickOpenResult, WorkspaceTreeNode } from "./bindings.js";
+import type {
+  QuickOpenGroup,
+  QuickOpenResult,
+  WorkspaceTreeNode,
+} from "./bindings.js";
+
+export {
+  stepCursor,
+  titleOf,
+} from "../pkg/wf_wasm.js";
 
 export type { QuickOpenGroup, QuickOpenResult };
 
@@ -33,12 +40,3 @@ export function paintedOrder(results: readonly QuickOpenResult[]): QuickOpenResu
   return rawPaintedOrder(results);
 }
 
-/** The row an arrow lands on; it wraps, and a stale cursor steps from the last row. */
-export function stepCursor(cursor: number, delta: 1 | -1, length: number): number {
-  return rawStepCursor(cursor, delta, length);
-}
-
-/** What a row is called in the palette: its title, which its label may not be. */
-export function titleOf(node: WorkspaceTreeNode): string {
-  return rawTitleOf(node);
-}

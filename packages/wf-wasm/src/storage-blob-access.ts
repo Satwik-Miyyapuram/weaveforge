@@ -3,13 +3,11 @@
  */
 import {
   blobStorageBuckets as rawBlobStorageBuckets,
-  maxSignedUrlPaths as rawMaxSignedUrlPaths,
 } from "../pkg/wf_wasm.js";
 
-/** Most paths one signed-url request may ask for. The relay enforces the same cap. */
-export function maxSignedUrlPaths(): number {
-  return rawMaxSignedUrlPaths();
-}
+export {
+  maxSignedUrlPaths,
+} from "../pkg/wf_wasm.js";
 
 /** A bucket a user's blobs live in. The list is Rust `blob_access::BLOB_STORAGE_BUCKETS`. */
 export type BlobStorageBucket =

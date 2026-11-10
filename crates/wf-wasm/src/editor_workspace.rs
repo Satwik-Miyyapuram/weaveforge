@@ -25,8 +25,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape.
-#[wasm_bindgen(js_name = buildWorkspaceTree)]
-pub fn build_workspace_tree_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = buildWorkspaceTree, unchecked_return_type = "B.WorkspaceTreeNode[]")]
+pub fn build_workspace_tree_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: WorkspaceTreeInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&tree::build_workspace_tree(&input))
 }
@@ -98,8 +100,10 @@ pub fn slug_segment_js(title: &str) -> String {
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape.
-#[wasm_bindgen(js_name = buildListsTree)]
-pub fn build_lists_tree_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = buildListsTree, unchecked_return_type = "B.WorkspaceTreeNode[]")]
+pub fn build_lists_tree_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ListsTreeInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: ListsTreeInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&tree::build_lists_tree(&input))
 }
@@ -133,7 +137,7 @@ pub fn filter_rows_js(rows: JsValue, query: &str) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Never fails in practice; returns the serializer's result type.
-#[wasm_bindgen(js_name = previewTab)]
+#[wasm_bindgen(js_name = previewTab, unchecked_return_type = "B.TabRef")]
 pub fn preview_tab_js() -> JsResult<JsValue> {
     to_js(&pane::preview_tab())
 }
@@ -165,7 +169,7 @@ pub fn empty_layout_js(pane_id: &str) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Never fails in practice; returns the serializer's result type.
-#[wasm_bindgen(js_name = layoutFromRecord)]
+#[wasm_bindgen(js_name = layoutFromRecord, unchecked_return_type = "B.PaneLayout")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn layout_from_record_js(raw: Option<String>) -> JsResult<JsValue> {
     to_js(&layout_record::layout_from_record(raw.as_deref()))
@@ -176,8 +180,10 @@ pub fn layout_from_record_js(raw: Option<String>) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `node` has the wrong shape.
-#[wasm_bindgen(js_name = leaves)]
-pub fn leaves_js(node: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = leaves, unchecked_return_type = "B.PaneLeaf[]")]
+pub fn leaves_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneNode")] node: JsValue,
+) -> JsResult<JsValue> {
     let node: PaneNode = serde_wasm_bindgen::from_value(node)?;
     let owned: Vec<PaneLeaf> = pane::leaves(&node).into_iter().cloned().collect();
     to_js(&owned)
@@ -200,8 +206,12 @@ pub fn open_tab_js(layout: JsValue, tab: JsValue, pane_id: &str) -> JsResult<JsV
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = activateTab)]
-pub fn activate_tab_js(layout: JsValue, pane_id: &str, index: i32) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = activateTab, unchecked_return_type = "B.PaneLayout")]
+pub fn activate_tab_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    pane_id: &str,
+    index: i32,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     to_js(&pane::activate_tab(&layout, pane_id, index))
 }
@@ -211,8 +221,12 @@ pub fn activate_tab_js(layout: JsValue, pane_id: &str, index: i32) -> JsResult<J
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = closeTab)]
-pub fn close_tab_js(layout: JsValue, pane_id: &str, index: i32) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = closeTab, unchecked_return_type = "B.PaneLayout")]
+pub fn close_tab_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    pane_id: &str,
+    index: i32,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     to_js(&pane::close_tab(&layout, pane_id, index))
 }
@@ -262,8 +276,12 @@ pub fn move_tab_js(
 /// # Errors
 ///
 /// Fails if `layout` or `target` has the wrong shape.
-#[wasm_bindgen(js_name = setRatio)]
-pub fn set_ratio_js(layout: JsValue, target: JsValue, ratio: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = setRatio, unchecked_return_type = "B.PaneLayout")]
+pub fn set_ratio_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneSplit")] target: JsValue,
+    ratio: f64,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     let target: PaneSplit = serde_wasm_bindgen::from_value(target)?;
     to_js(&pane::set_ratio(&layout, &target, ratio))
@@ -274,8 +292,11 @@ pub fn set_ratio_js(layout: JsValue, target: JsValue, ratio: f64) -> JsResult<Js
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = focusPane)]
-pub fn focus_pane_js(layout: JsValue, pane_id: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = focusPane, unchecked_return_type = "B.PaneLayout")]
+pub fn focus_pane_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    pane_id: &str,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     to_js(&pane::focus_pane(&layout, pane_id))
 }
@@ -318,8 +339,10 @@ pub fn active_tab_key_js(layout: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `tab` has the wrong shape.
-#[wasm_bindgen(js_name = tabMode)]
-pub fn tab_mode_js(tab: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = tabMode, unchecked_return_type = "B.DocumentMode")]
+pub fn tab_mode_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef")] tab: JsValue,
+) -> JsResult<JsValue> {
     let tab: TabRef = serde_wasm_bindgen::from_value(tab)?;
     to_js(&pane::tab_mode(&tab))
 }
@@ -340,8 +363,12 @@ pub fn tab_at_js(layout: JsValue, pane_id: &str, index: i32) -> JsResult<JsValue
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = setTabMode)]
-pub fn set_tab_mode_js(layout: JsValue, target: JsValue, mode: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = setTabMode, unchecked_return_type = "B.PaneLayout")]
+pub fn set_tab_mode_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef")] target: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DocumentMode")] mode: JsValue,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     let target: TabRef = serde_wasm_bindgen::from_value(target)?;
     let mode: DocumentMode = serde_wasm_bindgen::from_value(mode)?;
@@ -354,7 +381,9 @@ pub fn set_tab_mode_js(layout: JsValue, target: JsValue, mode: JsValue) -> JsRes
 ///
 /// Fails if `layout` has the wrong shape.
 #[wasm_bindgen(js_name = previewOpen)]
-pub fn preview_open_js(layout: JsValue) -> JsResult<bool> {
+pub fn preview_open_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+) -> JsResult<bool> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     Ok(pane::preview_open(&layout))
 }
@@ -398,8 +427,11 @@ pub fn open_tab_keys_js(layout: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if a layout has the wrong shape.
-#[wasm_bindgen(js_name = closedTabs)]
-pub fn closed_tabs_js(before: JsValue, after: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = closedTabs, unchecked_return_type = "B.TabRef[]")]
+pub fn closed_tabs_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] before: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] after: JsValue,
+) -> JsResult<JsValue> {
     let before: PaneLayout = serde_wasm_bindgen::from_value(before)?;
     let after: PaneLayout = serde_wasm_bindgen::from_value(after)?;
     to_js(&pane::closed_tabs(&before, &after))
@@ -411,7 +443,9 @@ pub fn closed_tabs_js(before: JsValue, after: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `layout` has the wrong shape.
 #[wasm_bindgen(js_name = focusedTabCount)]
-pub fn focused_tab_count_js(layout: JsValue) -> JsResult<i32> {
+pub fn focused_tab_count_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+) -> JsResult<i32> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     Ok(pane::focused_tab_count(&layout))
 }
@@ -498,8 +532,10 @@ pub fn hydrate_tab_modes_js(layout: JsValue, modes: JsValue) -> JsResult<JsValue
 /// # Errors
 ///
 /// Fails if `tab` has the wrong shape.
-#[wasm_bindgen(js_name = withoutGroup)]
-pub fn without_group_js(tab: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = withoutGroup, unchecked_return_type = "B.TabRef")]
+pub fn without_group_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef")] tab: JsValue,
+) -> JsResult<JsValue> {
     let tab: TabRef = serde_wasm_bindgen::from_value(tab)?;
     to_js(&groups::without_group(&tab))
 }
@@ -509,8 +545,10 @@ pub fn without_group_js(tab: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `leaf` has the wrong shape.
-#[wasm_bindgen(js_name = cleanGroups)]
-pub fn clean_groups_js(leaf: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = cleanGroups, unchecked_return_type = "B.PaneLeaf")]
+pub fn clean_groups_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLeaf")] leaf: JsValue,
+) -> JsResult<JsValue> {
     let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
     to_js(&groups::clean_groups(&leaf))
 }
@@ -520,8 +558,12 @@ pub fn clean_groups_js(leaf: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = applyGroupCommand)]
-pub fn apply_group_command_js(leaf: JsValue, index: i32, command: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = applyGroupCommand, unchecked_return_type = "B.PaneLeaf")]
+pub fn apply_group_command_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLeaf")] leaf: JsValue,
+    index: i32,
+    #[wasm_bindgen(unchecked_param_type = "B.TabGroupCommand")] command: JsValue,
+) -> JsResult<JsValue> {
     let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
     let command: TabGroupCommand = serde_wasm_bindgen::from_value(command)?;
     to_js(&groups::apply_group_command(&leaf, index, &command))
@@ -532,8 +574,10 @@ pub fn apply_group_command_js(leaf: JsValue, index: i32, command: JsValue) -> Js
 /// # Errors
 ///
 /// Fails if `leaf` has the wrong shape.
-#[wasm_bindgen(js_name = groupRuns)]
-pub fn group_runs_js(leaf: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = groupRuns, unchecked_return_type = "B.TabRun[]")]
+pub fn group_runs_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLeaf")] leaf: JsValue,
+) -> JsResult<JsValue> {
     let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
     let runs: Vec<TabRun> = groups::group_runs(&leaf);
     to_js(&runs)

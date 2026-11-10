@@ -16,11 +16,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `preview` is not a preview object, or the result cannot be converted.
-#[wasm_bindgen(js_name = previewReaderHref)]
+#[wasm_bindgen(js_name = previewReaderHref, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn preview_reader_href_js(
     remote_href: Option<String>,
-    preview: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaperPreview")] preview: JsValue,
     local_href: &str,
 ) -> JsResult<JsValue> {
     let preview: PaperPreview = serde_wasm_bindgen::from_value(preview)?;

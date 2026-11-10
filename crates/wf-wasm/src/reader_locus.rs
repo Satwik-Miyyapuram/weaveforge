@@ -16,7 +16,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `locus` is not a locus object.
 #[wasm_bindgen(js_name = encodeLocus)]
-pub fn encode_locus_js(locus: JsValue) -> JsResult<String> {
+pub fn encode_locus_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AnchorPdfLocus")] locus: JsValue,
+) -> JsResult<String> {
     let locus: AnchorPdfLocus = serde_wasm_bindgen::from_value(locus)?;
     Ok(encode_locus(&locus))
 }

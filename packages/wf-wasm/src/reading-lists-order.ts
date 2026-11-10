@@ -10,10 +10,20 @@ import {
   itemIdsForPapers as rawItemIdsForPapers,
   nextSortOrder as rawNextSortOrder,
   isInheritedLinkCode as rawIsInheritedLinkCode,
-  subtreeIds as rawSubtreeIds,
   groupSubtreeItems as rawGroupSubtreeItems,
 } from "../pkg/wf_wasm.js";
-import type { ItemIdsPlan, ItemOrderPlan, ItemOrderWrite, ReadingListItem, ReadingListTreeNode, SubtreeListItems } from "./bindings.js";
+import type {
+  ItemIdsPlan,
+  ItemOrderPlan,
+  ItemOrderWrite,
+  ReadingListItem,
+  ReadingListTreeNode,
+  SubtreeListItems,
+} from "./bindings.js";
+
+export {
+  subtreeIds,
+} from "../pkg/wf_wasm.js";
 
 export type { ItemIdsPlan, ItemOrderPlan, ItemOrderWrite, SubtreeListItems } from "./bindings.js";
 
@@ -58,11 +68,6 @@ export function nextSortOrder(siblings: readonly ReadingListItem[]): number {
 /** Whether a database error code means only the inherited link failed. */
 export function isInheritedLinkCode(code: string | null | undefined): boolean {
   return rawIsInheritedLinkCode(code ?? undefined) as boolean;
-}
-
-/** The id of `node` and of every list below it, parents before children. */
-export function subtreeIds(node: ReadingListTreeNode): string[] {
-  return rawSubtreeIds(node) as string[];
 }
 
 /** The subtree's items grouped by list: every list in the subtree, in subtree order. */

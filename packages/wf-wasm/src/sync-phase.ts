@@ -5,7 +5,10 @@ import {
   afterCycle as rawAfterCycle,
   afterFailure as rawAfterFailure,
   initialPhase as rawInitialPhase,
-  isCaughtUp as rawIsCaughtUp,
+} from "../pkg/wf_wasm.js";
+
+export {
+  isCaughtUp,
 } from "../pkg/wf_wasm.js";
 
 /** The status the sync panel shows. */
@@ -25,11 +28,6 @@ export function afterCycle(stoppedBecause: string | null): CyclePhase {
 /** After a cycle that threw: an error while online, offline otherwise. */
 export function afterFailure(online: boolean): CyclePhase {
   return rawAfterFailure(online) as CyclePhase;
-}
-
-/** Whether a pass ran to the end with no more pages to pull. */
-export function isCaughtUp(stoppedBecause: string | null, pulledMore: boolean): boolean {
-  return rawIsCaughtUp(stoppedBecause, pulledMore);
 }
 
 /** The phase before the first cycle. */

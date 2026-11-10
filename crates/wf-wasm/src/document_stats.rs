@@ -11,7 +11,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = bodyStats)]
+#[wasm_bindgen(js_name = bodyStats, unchecked_return_type = "B.BodyStats")]
 pub fn body_stats_js(body: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&stats::body_stats(body))
 }

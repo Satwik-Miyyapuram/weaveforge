@@ -4,9 +4,14 @@
  */
 import {
   buildWikiIndex as rawBuildWikiIndex,
-  replaceWikiIndex as rawReplaceWikiIndex,
 } from "../pkg/wf_wasm.js";
-import type { WikiPageRef } from "./bindings.js";
+import type {
+  WikiPageRef,
+} from "./bindings.js";
+
+export {
+  replaceWikiIndex,
+} from "../pkg/wf_wasm.js";
 
 /** Marks the generated region so a rebuild never eats hand-written text. */
 export const INDEX_MARKER_START = "<!-- weaveforge:wiki-index -->";
@@ -21,7 +26,3 @@ export function buildWikiIndex(
   return rawBuildWikiIndex(pages, options.heading, generatedAt);
 }
 
-/** Splice a freshly built index into a body, replacing any previous one. */
-export function replaceWikiIndex(body: string, index: string): string {
-  return rawReplaceWikiIndex(body, index);
-}

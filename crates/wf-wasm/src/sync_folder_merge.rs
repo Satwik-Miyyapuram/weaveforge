@@ -78,7 +78,11 @@ pub fn next_manifest_js(
 ///
 /// Fails when `base` is not an object of string digests.
 #[wasm_bindgen(js_name = jsonEditSince)]
-pub fn json_edit_since_js(base: JsValue, path: &str, text: &str) -> JsResult<bool> {
+pub fn json_edit_since_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] base: JsValue,
+    path: &str,
+    text: &str,
+) -> JsResult<bool> {
     let base: HashMap<String, String> = serde_wasm_bindgen::from_value(base)?;
     Ok(folder_mirror::json_edit_since(&base, path, text))
 }
@@ -104,9 +108,13 @@ pub fn pick_project_folder_js(dirs: Vec<String>, exact: &str, tail: &str) -> Opt
 /// # Errors
 ///
 /// Fails when `entry` or `resolutions` is not the shape the folder import produces.
-#[wasm_bindgen(js_name = settleConflict)]
+#[wasm_bindgen(js_name = settleConflict, unchecked_return_type = "B.ImportDiffEntry | undefined")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn settle_conflict_js(entry: JsValue, resolutions: JsValue) -> JsResult<JsValue> {
+pub fn settle_conflict_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ImportDiffEntry")] entry: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, B.ConflictResolution>>")]
+    resolutions: JsValue,
+) -> JsResult<JsValue> {
     let entry: ImportDiffEntry = serde_wasm_bindgen::from_value(entry)?;
     let resolutions: BTreeMap<String, folder_merge::ConflictResolution> =
         serde_wasm_bindgen::from_value(resolutions)?;
@@ -126,7 +134,7 @@ pub fn keep_both_title_js(title: &str) -> String {
 /// # Errors
 ///
 /// Fails only when the result cannot be turned into a JS object.
-#[wasm_bindgen(js_name = readMirrorBase)]
+#[wasm_bindgen(js_name = readMirrorBase, unchecked_return_type = "Record<string, string>")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn read_mirror_base_js(text: Option<String>) -> JsResult<JsValue> {
     to_js(&folder_mirror::read_mirror_base(text.as_deref()))
@@ -137,7 +145,7 @@ pub fn read_mirror_base_js(text: Option<String>) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails only when the result cannot be turned into a JS object.
-#[wasm_bindgen(js_name = readMirrorBases)]
+#[wasm_bindgen(js_name = readMirrorBases, unchecked_return_type = "Record<string, B.VaultPageBase>")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn read_mirror_bases_js(text: Option<String>) -> JsResult<JsValue> {
     to_js(&folder_mirror::read_mirror_bases(text.as_deref()))
@@ -148,8 +156,12 @@ pub fn read_mirror_bases_js(text: Option<String>) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `base` is not an object of string digests.
-#[wasm_bindgen(js_name = claimDigest)]
-pub fn claim_digest_js(base: JsValue, path: &str, stamped: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = claimDigest, unchecked_return_type = "Record<string, string>")]
+pub fn claim_digest_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] base: JsValue,
+    path: &str,
+    stamped: &str,
+) -> JsResult<JsValue> {
     let base: indexmap::IndexMap<String, String> = serde_wasm_bindgen::from_value(base)?;
     to_js(&folder_mirror::claim_digest(&base, path, stamped))
 }

@@ -195,7 +195,9 @@ pub fn redact_secret_js(text: &str, secret: Option<String>) -> JsResult<String> 
 ///
 /// Fails when `result` is not a valid `GitPullResult` object.
 #[wasm_bindgen(js_name = describePull)]
-pub fn describe_pull_js(result: JsValue) -> JsResult<String> {
+pub fn describe_pull_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GitPullResult")] result: JsValue,
+) -> JsResult<String> {
     let result: GitPullResult = serde_wasm_bindgen::from_value(result)?;
     Ok(describe_pull(&result))
 }
@@ -206,7 +208,9 @@ pub fn describe_pull_js(result: JsValue) -> JsResult<String> {
 ///
 /// Fails when `result` is not a valid `GitPushResult` object.
 #[wasm_bindgen(js_name = describePush)]
-pub fn describe_push_js(result: JsValue) -> JsResult<String> {
+pub fn describe_push_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GitPushResult")] result: JsValue,
+) -> JsResult<String> {
     let result: GitPushResult = serde_wasm_bindgen::from_value(result)?;
     Ok(describe_push(&result))
 }
@@ -217,7 +221,9 @@ pub fn describe_push_js(result: JsValue) -> JsResult<String> {
 ///
 /// Fails when `status` is not a valid `{ url, branch, ahead, behind }` object.
 #[wasm_bindgen(js_name = describeRemoteStatus)]
-pub fn describe_remote_status_js(status: JsValue) -> JsResult<String> {
+pub fn describe_remote_status_js(
+    #[wasm_bindgen(unchecked_param_type = "B.RemoteStatusInput")] status: JsValue,
+) -> JsResult<String> {
     let status: RemoteStatus = serde_wasm_bindgen::from_value(status)?;
     Ok(describe_status(&status))
 }
@@ -413,8 +419,11 @@ pub fn check_git_remote_url_js(raw: &JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `frontmatter` is not a plain object.
-#[wasm_bindgen(js_name = readInkNoteMeta)]
-pub fn read_ink_note_meta_js(frontmatter: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = readInkNoteMeta, unchecked_return_type = "B.InkNoteMeta")]
+pub fn read_ink_note_meta_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, unknown>>")]
+    frontmatter: JsValue,
+) -> JsResult<JsValue> {
     let fm: serde_json::Map<String, serde_json::Value> =
         serde_wasm_bindgen::from_value(frontmatter)?;
     to_js(&wf_core::sync::ink_note::read_ink_note_meta(&fm))
@@ -426,7 +435,7 @@ pub fn read_ink_note_meta_js(frontmatter: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = splitInkTextLayer)]
+#[wasm_bindgen(js_name = splitInkTextLayer, unchecked_return_type = "string[]")]
 pub fn split_ink_text_layer_js(body: &str) -> JsResult<JsValue> {
     check_text(body)?;
     to_js(&wf_core::sync::ink_note::split_ink_text_layer(body))

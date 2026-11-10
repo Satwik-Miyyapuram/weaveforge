@@ -38,7 +38,9 @@ pub fn compose_spacing_accents_js(text: &str) -> String {
 ///
 /// Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
 #[wasm_bindgen(js_name = fontSizeOf)]
-pub fn font_size_of_js(item: JsValue) -> JsResult<f64> {
+pub fn font_size_of_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AnalysisPdfItem")] item: JsValue,
+) -> JsResult<f64> {
     let item: AnalysisPdfItem = serde_wasm_bindgen::from_value(item)?;
     Ok(analysis_text::font_size_of(&item))
 }
@@ -59,8 +61,12 @@ pub fn search_text_from_items_js(items: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `view` is not a search text with `text`, `starts` and `ends`.
-#[wasm_bindgen(js_name = originalRange)]
-pub fn original_range_js(view: JsValue, start: f64, end: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = originalRange, unchecked_return_type = "[number, number]")]
+pub fn original_range_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AnalysisSearchText")] view: JsValue,
+    start: f64,
+    end: f64,
+) -> JsResult<JsValue> {
     let view: AnalysisSearchText = serde_wasm_bindgen::from_value(view)?;
     to_js(&analysis_text::original_range(&view, start, end))
 }

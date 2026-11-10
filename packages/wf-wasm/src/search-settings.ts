@@ -5,9 +5,16 @@
 import {
   effectiveFieldBoosts as rawEffectiveFieldBoosts,
   kindMultiplier as rawKindMultiplier,
-  normalizeSearchSettings as rawNormalizeSearchSettings,
 } from "../pkg/wf_wasm.js";
-import type { FieldBoosts, SearchKind, SearchSettings } from "./bindings.js";
+import type {
+  FieldBoosts,
+  SearchKind,
+  SearchSettings,
+} from "./bindings.js";
+
+export {
+  normalizeSearchSettings,
+} from "../pkg/wf_wasm.js";
 
 /** Weights outside this range stop being a preference and become a bug. */
 export const MIN_FIELD_WEIGHT = 0;
@@ -15,10 +22,6 @@ export const MAX_FIELD_WEIGHT = 20;
 
 /** Multiplier applied to a downranked kind. Enough to sink, not to hide. */
 export const DOWNRANK_FACTOR = 0.25;
-
-export function normalizeSearchSettings(raw: unknown): SearchSettings | undefined {
-  return rawNormalizeSearchSettings(raw) as SearchSettings | undefined;
-}
 
 /** Effective per-field boosts: defaults with any valid override applied. */
 export function effectiveFieldBoosts(settings?: SearchSettings): FieldBoosts {

@@ -24,7 +24,9 @@ pub fn gemini_install_js() -> String {
 ///
 /// Fails if `launch` has the wrong shape.
 #[wasm_bindgen(js_name = codexToml)]
-pub fn codex_toml_js(launch: JsValue) -> Result<String, JsError> {
+pub fn codex_toml_js(
+    #[wasm_bindgen(unchecked_param_type = "B.McpLaunchLine")] launch: JsValue,
+) -> Result<String, JsError> {
     Ok(mcp_client_config::codex_toml(&read_launch(launch)?))
 }
 
@@ -34,7 +36,9 @@ pub fn codex_toml_js(launch: JsValue) -> Result<String, JsError> {
 ///
 /// Fails if `launch` has the wrong shape.
 #[wasm_bindgen(js_name = mcpServersJson)]
-pub fn mcp_servers_json_js(launch: JsValue) -> Result<String, JsError> {
+pub fn mcp_servers_json_js(
+    #[wasm_bindgen(unchecked_param_type = "B.McpLaunchLine")] launch: JsValue,
+) -> Result<String, JsError> {
     Ok(mcp_client_config::mcp_servers_json(&read_launch(launch)?))
 }
 
@@ -44,7 +48,9 @@ pub fn mcp_servers_json_js(launch: JsValue) -> Result<String, JsError> {
 ///
 /// Fails if `launch` has the wrong shape.
 #[wasm_bindgen(js_name = vscodeJson)]
-pub fn vscode_json_js(launch: JsValue) -> Result<String, JsError> {
+pub fn vscode_json_js(
+    #[wasm_bindgen(unchecked_param_type = "B.McpLaunchLine")] launch: JsValue,
+) -> Result<String, JsError> {
     Ok(mcp_client_config::vscode_json(&read_launch(launch)?))
 }
 

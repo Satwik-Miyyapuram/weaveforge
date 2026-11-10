@@ -45,7 +45,7 @@ pub fn log_eyebrow_js(entry_dates: JsValue, today: &str) -> JsResult<JsValue> {
 }
 
 /// [`split_headline`] for JS (TS `splitHeadline`): `{ headline, rest }`.
-#[wasm_bindgen(js_name = splitHeadline)]
+#[wasm_bindgen(js_name = splitHeadline, unchecked_return_type = "B.LogHeadlineSplit")]
 pub fn split_headline_js(body: &str) -> JsResult<JsValue> {
     to_js(&split_headline(body))
 }

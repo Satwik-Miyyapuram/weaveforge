@@ -7,14 +7,12 @@
 import {
   anchorAt as rawAnchorAt,
   compactSkipReason as rawCompactSkipReason,
-  conceptKey as rawConceptKey,
   formatReference as rawFormatReference,
   locateAnchor as rawLocateAnchor,
   mergeExtractions as rawMergeExtractions,
   parseFolderDraft as rawParseFolderDraft,
   peersFromUsers as rawPeersFromUsers,
   samePeers as rawSamePeers,
-  shouldPersistBody as rawShouldPersistBody,
   spanPoints as rawSpanPoints,
   withoutExisting as rawWithoutExisting,
 } from "../pkg/wf_wasm.js";
@@ -27,10 +25,10 @@ import type {
   TextSpan,
 } from "./bindings.js";
 
-/** Normalized key for comparing concept names: trimmed, lowercased, whitespace runs as one space. */
-export function conceptKey(name: string): string {
-  return rawConceptKey(name);
-}
+export {
+  conceptKey,
+  shouldPersistBody,
+} from "../pkg/wf_wasm.js";
 
 /** Merge results: counts summed, aliases unioned, mentions deduped; most-mentioned first. */
 export function mergeExtractions<R extends ExtractionResult>(results: readonly R[]): R {
@@ -91,11 +89,6 @@ export function locateAnchor(text: string, anchor: CommentAnchor): { start: numb
 /** `[clientId, user]` pairs → one entry per other person (Rust `peers_from_users`). */
 export function peersFromUsers(users: readonly (readonly [number, unknown])[], selfClientId: number, selfAuthorId: string): Peer[] {
   return rawPeersFromUsers(users, selfClientId, selfAuthorId) as Peer[];
-}
-
-/** Whether an editor may write `next` back over `lastSaved`: only once `ready`, and only when the text changed (Rust `should_persist_body`). */
-export function shouldPersistBody(ready: boolean, next: string, lastSaved: string): boolean {
-  return rawShouldPersistBody(ready, next, lastSaved);
 }
 
 /** Why a CRDT compaction is a no-op (`nothing-to-do` or `stale`), or undefined to send it (Rust `compact_skip_reason`). */

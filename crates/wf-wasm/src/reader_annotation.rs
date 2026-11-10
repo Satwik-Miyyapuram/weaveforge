@@ -16,7 +16,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// [`is_reader_annotation_type`] for any JS value: false unless `value` is a string.
 #[must_use]
 #[wasm_bindgen(js_name = isReaderAnnotationType)]
-pub fn is_reader_annotation_type_js(value: &JsValue) -> bool {
+pub fn is_reader_annotation_type_js(
+    #[wasm_bindgen(unchecked_param_type = "string")] value: &JsValue,
+) -> bool {
     value
         .as_string()
         .is_some_and(|s| is_reader_annotation_type(&s))
@@ -25,7 +27,9 @@ pub fn is_reader_annotation_type_js(value: &JsValue) -> bool {
 /// [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
 #[must_use]
 #[wasm_bindgen(js_name = isAnnotationSyncState)]
-pub fn is_annotation_sync_state_js(value: &JsValue) -> bool {
+pub fn is_annotation_sync_state_js(
+    #[wasm_bindgen(unchecked_param_type = "string")] value: &JsValue,
+) -> bool {
     value
         .as_string()
         .is_some_and(|s| is_annotation_sync_state(&s))

@@ -65,7 +65,9 @@ pub fn new_issue_url(title: &str, body: &str, repo: &str) -> JsResult<String> {
 ///
 /// Fails when `input` is not a valid `ReportMarkdown` object, or its text is over the cap.
 #[wasm_bindgen(js_name = reportMarkdown)]
-pub fn report_markdown(input: JsValue) -> JsResult<String> {
+pub fn report_markdown(
+    #[wasm_bindgen(unchecked_param_type = "B.ReportMarkdown")] input: JsValue,
+) -> JsResult<String> {
     let input: ReportMarkdown = serde_wasm_bindgen::from_value(input)?;
     check_text(&input.detail)?;
     if let Some(logs) = &input.logs {

@@ -160,8 +160,11 @@ pub fn count_json_actions_js(entries: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when either argument is not action counts.
-#[wasm_bindgen(js_name = addCounts)]
-pub fn add_counts_js(a: JsValue, b: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = addCounts, unchecked_return_type = "B.ActionCounts")]
+pub fn add_counts_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<B.ActionCounts>")] a: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<B.ActionCounts>")] b: JsValue,
+) -> JsResult<JsValue> {
     let a: ActionCounts = serde_wasm_bindgen::from_value(a)?;
     let b: ActionCounts = serde_wasm_bindgen::from_value(b)?;
     to_js(&add_counts(a, b))

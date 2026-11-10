@@ -4,7 +4,6 @@
 import {
   commandMatchIndices as rawCommandMatchIndices,
   groupPaletteRows as rawGroupPaletteRows,
-  isPreviewKey as rawIsPreviewKey,
   matchingPageIndices as rawMatchingPageIndices,
   paletteModeFor as rawPaletteModeFor,
   sortHitOrder as rawSortHitOrder,
@@ -19,14 +18,13 @@ import type {
 } from "./bindings.js";
 import { checkIndexText } from "./text-check.js";
 
+export {
+  isPreviewKey,
+} from "../pkg/wf_wasm.js";
+
 /** The indices of `rows` in the chosen hit order (Rust `sort_hit_order`). */
 export function sortHitOrder(rows: readonly HitKey[], order: HitSort): number[] {
   return rawSortHitOrder(rows, order) as number[];
-}
-
-/** Whether a key press opens the preview (Rust `is_preview_key`). */
-export function isPreviewKey(event: PaletteKey, inTextBox: boolean): boolean {
-  return rawIsPreviewKey(event, inTextBox) as boolean;
 }
 
 /** The headings present, in display order, each with the indices of its rows (Rust `group_palette_rows`). */

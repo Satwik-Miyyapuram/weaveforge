@@ -29,7 +29,7 @@ pub fn sort_hit_order_js(
 /// Fails if `event` has the wrong shape.
 #[wasm_bindgen(js_name = isPreviewKey)]
 pub fn is_preview_key_js(
-    event: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaletteKey")] event: JsValue,
     in_text_box: bool,
 ) -> Result<bool, serde_wasm_bindgen::Error> {
     let event: PaletteKey = serde_wasm_bindgen::from_value(event)?;

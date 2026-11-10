@@ -16,7 +16,7 @@ use super::to_js;
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
 /// [`creatable_roles`](member::creatable_roles).
-#[wasm_bindgen(js_name = creatableRoles)]
+#[wasm_bindgen(js_name = creatableRoles, unchecked_return_type = "string[]")]
 pub fn creatable_roles_js(creator: &str) -> JsResult<JsValue> {
     to_js(&member::creatable_roles(creator))
 }
@@ -111,7 +111,9 @@ pub fn needs_standalone_role_sync_js(
 ///
 /// Fails if `membership` has the wrong shape.
 #[wasm_bindgen(js_name = isExplicitLabMembership)]
-pub fn is_explicit_lab_membership_js(membership: JsValue) -> JsResult<bool> {
+pub fn is_explicit_lab_membership_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Membership")] membership: JsValue,
+) -> JsResult<bool> {
     let membership: Membership = serde_wasm_bindgen::from_value(membership)?;
     Ok(org::is_explicit_lab_membership(&membership))
 }
@@ -169,7 +171,9 @@ pub fn should_sync_standalone_js(profile: JsValue, labs: JsValue) -> JsResult<bo
 ///
 /// Fails if `state` has the wrong shape.
 #[wasm_bindgen(js_name = needsOrgSetup)]
-pub fn needs_org_setup_js(state: JsValue) -> JsResult<bool> {
+pub fn needs_org_setup_js(
+    #[wasm_bindgen(unchecked_param_type = "B.OrgSetupState")] state: JsValue,
+) -> JsResult<bool> {
     let state: OrgSetupState = serde_wasm_bindgen::from_value(state)?;
     Ok(org::needs_org_setup(&state))
 }
@@ -231,7 +235,7 @@ pub fn normalize_org_invite_code_js(input: &str) -> String {
 /// # Errors
 ///
 /// Fails with the message if the name is blank or too long.
-#[wasm_bindgen(js_name = validateOrgName)]
+#[wasm_bindgen(js_name = validateOrgName, unchecked_return_type = "string")]
 pub fn validate_org_name_js(name: &str) -> Result<String, JsValue> {
     org::validate_org_name(name).map_err(JsValue::from_str)
 }

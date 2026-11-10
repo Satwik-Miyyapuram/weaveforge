@@ -4,19 +4,19 @@
  * Types come from ./bindings.ts.
  */
 import {
-  parseThemeConfig as rawParseThemeConfig,
   normalizeColorValue as rawNormalizeColorValue,
   normalizeFontStack as rawNormalizeFontStack,
   normalizeLengthValue as rawNormalizeLengthValue,
   normalizeThemeConfig as rawNormalizeThemeConfig,
-  themeConfigTemplate as rawThemeConfigTemplate,
 } from "../pkg/wf_wasm.js";
-import type { ThemeConfig, ThemeConfigParseResult } from "./bindings.js";
+import type {
+  ThemeConfig,
+} from "./bindings.js";
 
-/** Parse and validate an uploaded theme file; any problem rejects the whole file. */
-export function parseThemeConfig(text: string): ThemeConfigParseResult {
-  return rawParseThemeConfig(text) as ThemeConfigParseResult;
-}
+export {
+  parseThemeConfig,
+  themeConfigTemplate,
+} from "../pkg/wf_wasm.js";
 
 /** Colors: hex, numeric-argument rgb/hsl, or one of four keywords; null otherwise. */
 export function normalizeColorValue(raw: unknown): string | null {
@@ -40,7 +40,3 @@ export function normalizeThemeConfig(raw: unknown): ThemeConfig | null {
   return rawNormalizeThemeConfig(plain) as ThemeConfig | null;
 }
 
-/** A documented starter file, offered as a download from settings. */
-export function themeConfigTemplate(): string {
-  return rawThemeConfigTemplate();
-}

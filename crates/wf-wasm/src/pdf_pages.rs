@@ -18,7 +18,7 @@ pub fn is_all_pages_js(answer: &str) -> bool {
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = parsePageList)]
+#[wasm_bindgen(js_name = parsePageList, unchecked_return_type = "B.PageSelection")]
 pub fn parse_page_list_js(
     answer: &str,
     count: f64,
@@ -31,7 +31,7 @@ pub fn parse_page_list_js(
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = selectedPdfPages)]
+#[wasm_bindgen(js_name = selectedPdfPages, unchecked_return_type = "number[]")]
 pub fn selected_pdf_pages_js(
     answer: &str,
     count: f64,
@@ -44,7 +44,7 @@ pub fn selected_pdf_pages_js(
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = pageListProblem)]
+#[wasm_bindgen(js_name = pageListProblem, unchecked_return_type = "string | null")]
 pub fn page_list_problem_js(
     answer: &str,
     count: f64,

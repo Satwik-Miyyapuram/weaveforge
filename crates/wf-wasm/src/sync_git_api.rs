@@ -20,8 +20,10 @@ type JsResult<T> = Result<T, Error>;
 /// # Errors
 ///
 /// Fails when `input` is not a git read input with the expected fields.
-#[wasm_bindgen(js_name = gitReadPlan)]
-pub fn git_read_plan_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = gitReadPlan, unchecked_return_type = "B.GitReadPlan")]
+pub fn git_read_plan_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GitReadInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: GitReadInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&git_read_plan(&input))
 }
@@ -31,8 +33,10 @@ pub fn git_read_plan_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `items` is not a list of GitHub commits with the expected fields.
-#[wasm_bindgen(js_name = githubCommits)]
-pub fn github_commits_js(items: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = githubCommits, unchecked_return_type = "B.GitCommit[]")]
+pub fn github_commits_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GhCommit[]")] items: JsValue,
+) -> JsResult<JsValue> {
     let items: Vec<GhCommit> = serde_wasm_bindgen::from_value(items)?;
     to_js(&github_commits(&items))
 }
@@ -42,8 +46,10 @@ pub fn github_commits_js(items: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `items` is not a list of GitLab commits with the expected fields.
-#[wasm_bindgen(js_name = gitlabCommits)]
-pub fn gitlab_commits_js(items: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = gitlabCommits, unchecked_return_type = "B.GitCommit[]")]
+pub fn gitlab_commits_js(
+    #[wasm_bindgen(unchecked_param_type = "B.GlCommit[]")] items: JsValue,
+) -> JsResult<JsValue> {
     let items: Vec<GlCommit> = serde_wasm_bindgen::from_value(items)?;
     to_js(&gitlab_commits(&items))
 }

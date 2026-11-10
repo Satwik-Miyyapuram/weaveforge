@@ -4,16 +4,16 @@
  * Object shapes come from ./bindings.ts.
  */
 import {
-  escapeLatexText as rawEscapeLatexText,
   uniqueFigureNameIn as rawUniqueFigureNameIn,
   markdownToLatex as rawMarkdownToLatex,
 } from "../pkg/wf_wasm.js";
-import type { MarkdownToLatexResult } from "./bindings.js";
+import type {
+  MarkdownToLatexResult,
+} from "./bindings.js";
 
-/** Escapes LaTeX special characters in plain text. */
-export function escapeLatexText(s: string): string {
-  return rawEscapeLatexText(s);
-}
+export {
+  escapeLatexText,
+} from "../pkg/wf_wasm.js";
 
 /**
  * The report Markdown as a LaTeX body, with warnings, figures and cited keys. `citeByTitle`

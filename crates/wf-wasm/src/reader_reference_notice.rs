@@ -12,8 +12,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `notice` is neither `null` nor a `{ index, text }` object.
-#[wasm_bindgen(js_name = noticeFor)]
-pub fn notice_for_js(notice: JsValue, entry_index: u32) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = noticeFor, unchecked_return_type = "string | null")]
+pub fn notice_for_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ReferenceNotice | null")] notice: JsValue,
+    entry_index: u32,
+) -> JsResult<JsValue> {
     let notice: Option<ReferenceNotice> = serde_wasm_bindgen::from_value(notice)?;
     Ok(match notice_for(notice.as_ref(), entry_index) {
         Some(text) => JsValue::from_str(text),

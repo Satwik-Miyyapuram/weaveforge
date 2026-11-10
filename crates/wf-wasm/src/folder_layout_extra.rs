@@ -101,7 +101,9 @@ pub fn folder_keys_js(relative_paths: Vec<String>) -> Vec<String> {
 ///
 /// Fails if `frontmatter` is not an object.
 #[wasm_bindgen(js_name = isInkNoteFrontmatter)]
-pub fn is_ink_note_frontmatter_js(frontmatter: JsValue) -> JsResult<bool> {
+pub fn is_ink_note_frontmatter_js(
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] frontmatter: JsValue,
+) -> JsResult<bool> {
     let fm: Map<String, Value> = serde_wasm_bindgen::from_value(frontmatter)?;
     Ok(ink_note::is_ink_note_frontmatter(&fm))
 }
@@ -111,8 +113,10 @@ pub fn is_ink_note_frontmatter_js(frontmatter: JsValue) -> JsResult<bool> {
 /// # Errors
 ///
 /// Fails if `meta` has the wrong shape.
-#[wasm_bindgen(js_name = writeInkNoteMeta)]
-pub fn write_ink_note_meta_js(meta: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = writeInkNoteMeta, unchecked_return_type = "Record<string, unknown>")]
+pub fn write_ink_note_meta_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] meta: JsValue,
+) -> JsResult<JsValue> {
     let meta: InkNoteMeta = serde_wasm_bindgen::from_value(meta)?;
     let fields: Map<String, Value> = ink_note::write_ink_note_meta(&meta).into_iter().collect();
     to_js(&fields)

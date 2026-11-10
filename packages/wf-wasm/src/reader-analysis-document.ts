@@ -5,20 +5,16 @@
  */
 import {
   analyzePdfDocument as rawAnalyzePdfDocument,
-  outlineItemOf as rawOutlineItemOf,
 } from "../pkg/wf_wasm.js";
 import type {
-  AnalysisPdfItem,
   AnalysisPdfPage,
   DocumentAnalysis,
   OutlineReaderItem,
-  OutlineTextItem,
 } from "./bindings.js";
 
-/** One PDF text item as an outline item on `page` (the page's 1-based number). */
-export function outlineItemOf(item: AnalysisPdfItem, page: number): OutlineTextItem {
-  return rawOutlineItemOf(item, page) as OutlineTextItem;
-}
+export {
+  outlineItemOf,
+} from "../pkg/wf_wasm.js";
 
 /**
  * Lines, columns, sections, bibliography, citations, figure mentions and a fingerprint for the
