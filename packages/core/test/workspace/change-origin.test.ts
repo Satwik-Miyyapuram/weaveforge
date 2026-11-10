@@ -2,12 +2,12 @@ import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { digestText, type ParsedEntity } from "../../src/workspace/index.js";
+import type { ParsedEntity } from "../../src/workspace/index.js";
 
 test("a digest is stable and text-sensitive", () => {
-  assert.equal(digestText("hello"), digestText("hello"));
-  assert.notEqual(digestText("hello"), digestText("hello "));
-  assert.notEqual(digestText("ab"), digestText("ba"));
+  assert.equal(rust().digestText("hello"), rust().digestText("hello"));
+  assert.notEqual(rust().digestText("hello"), rust().digestText("hello "));
+  assert.notEqual(rust().digestText("ab"), rust().digestText("ba"));
 });
 
 const note: ParsedEntity = {

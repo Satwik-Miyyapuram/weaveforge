@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import { digestText } from "@weaveforge/core";
 import type { ImportDiffEntry } from "@weaveforge/wasm";
-import type { RustCore } from "@/lib/rust-core";
+import { readyCore, type RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
@@ -88,7 +87,7 @@ const bothChanged: ImportDiffEntry = {
   },
 };
 
-const base = { fields: { title: "Shared note", tags: ["a"] }, bodyDigest: digestText("the original body") };
+const base = { fields: { title: "Shared note", tags: ["a"] }, bodyDigest: readyCore().digestText("the original body") };
 
 test("edits that do not collide are merged instead of asked about", () => {
   const merged = mergeBothChanged(
@@ -108,7 +107,7 @@ test("a body both sides rewrote stays a conflict, and says so", () => {
   const merged = mergeBothChanged(
     rs,
     bothChanged,
-    { ...base, bodyDigest: digestText("something else entirely") },
+    { ...base, bodyDigest: readyCore().digestText("something else entirely") },
     noteContent("tags:\n  - a\n  - b\n", "a body rewritten in the app"),
   );
 
@@ -121,7 +120,7 @@ test("several colliding fields are all named", () => {
   const merged = mergeBothChanged(
     rs,
     { ...bothChanged, entity: { ...bothChanged.entity, title: "Their title" } },
-    { ...base, bodyDigest: digestText("something else entirely") },
+    { ...base, bodyDigest: readyCore().digestText("something else entirely") },
     noteContent("tags:\n  - a\n", "our rewrite", "Our title"),
   );
 

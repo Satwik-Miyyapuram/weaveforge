@@ -32,7 +32,6 @@ import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 
 import { PaperExternalLink } from "./paper-external-link";
-import { buildLocusLink } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { PaperAnnotations } from "./paper-annotations";
 import { highlightsDigest } from "../application/reading-digest";
@@ -148,11 +147,11 @@ export function PaperNote({
       openAccessPdf:
         typeof paper.metadata?.["openAccessPdf"] === "string" ? paper.metadata["openAccessPdf"] : null,
     });
-    return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
+    return pdfUrl ? readyCore().buildLocusLink({ paperId: paper.id }) : null;
   }, [paper.id, paper.url, paper.arxivId, paper.metadata]);
   // A PDF added from disk or a saved web page has no web link, but the reader opens it.
   const readerHref = useMemo(
-    () => readyCore().previewReaderHref(remoteReaderHref, preview, buildLocusLink({ paperId: paper.id })),
+    () => readyCore().previewReaderHref(remoteReaderHref, preview, readyCore().buildLocusLink({ paperId: paper.id })),
     [remoteReaderHref, preview, paper.id],
   );
   const displayTitle = useMemo(() => readyCore().titleFromFileName(paper.title), [paper.title]);

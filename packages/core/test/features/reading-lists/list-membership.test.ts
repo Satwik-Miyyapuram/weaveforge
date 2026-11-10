@@ -1,5 +1,5 @@
 /**
- * buildListMembership: the map four screens built by hand, now computed in Rust.
+ * listMembershipByKey: the map four screens built by hand, now computed in Rust.
  *
  * The cases below are the behaviours those copies had, or in one case quietly did
  * not have and needed.
@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildListMembership } from "../../../src/features/reading-lists/application/list-membership.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const list = (id: string) => ({ id });
 
@@ -20,14 +20,14 @@ test("every list gets an entry, including the empty ones", () => {
   // The list filter asks `membership.get(listId)`; a missing key reads as "no
   // list selected" rather than "nothing in this list", which filters the screen
   // down to nothing.
-  const membership = buildListMembership([list("a"), list("b")], [], "paper");
+  const membership = rust().listMembershipByKey([list("a"), list("b")], [], "paper");
 
   assert.deepEqual([...membership.keys()], ["a", "b"]);
   assert.deepEqual([...membership.get("a")!], []);
 });
 
 test("items land under their own list, by the id the caller selects", () => {
-  const membership = buildListMembership(
+  const membership = rust().listMembershipByKey(
     [list("a"), list("b")],
     [item("a", { paperId: "p1" }), item("a", { paperId: "p2" }), item("b", { paperId: "p3" })],
     "paper",
@@ -38,7 +38,7 @@ test("items land under their own list, by the id the caller selects", () => {
 });
 
 test("the vault screen reads the page id, not the paper id", () => {
-  const membership = buildListMembership(
+  const membership = rust().listMembershipByKey(
     [list("a")],
     [item("a", { vaultPageId: "v1" })],
     "vaultPage",
@@ -48,7 +48,7 @@ test("the vault screen reads the page id, not the paper id", () => {
 });
 
 test("the graph screen links either kind through one membership", () => {
-  const membership = buildListMembership(
+  const membership = rust().listMembershipByKey(
     [list("a")],
     [item("a", { paperId: "p1" }), item("a", { vaultPageId: "v1" })],
     "either",
@@ -60,7 +60,7 @@ test("the graph screen links either kind through one membership", () => {
 test("a row naming no resource, or a list that is not there, is skipped", () => {
   // A reading_list_items row is one or the other by check constraint, but a row
   // whose list was deleted still arrives in the item list.
-  const membership = buildListMembership(
+  const membership = rust().listMembershipByKey(
     [list("a")],
     [item("a"), item("gone", { paperId: "p9" })],
     "paper",
@@ -71,7 +71,7 @@ test("a row naming no resource, or a list that is not there, is skipped", () => 
 });
 
 test("a duplicate is a set, not a second entry", () => {
-  const membership = buildListMembership(
+  const membership = rust().listMembershipByKey(
     [list("a")],
     [item("a", { paperId: "p1" }), item("a", { paperId: "p1" })],
     "paper",

@@ -7,10 +7,8 @@ import type {
   PaperSummary,
   ReadingList,
 } from "@weaveforge/core";
-import {
-  buildListMembership,
-  loadPinnedScreenData,
-} from "@weaveforge/core";
+import { loadPinnedScreenData } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface PapersScreenData {
   /**
@@ -48,7 +46,7 @@ export class LoadPapersScreenUseCase {
       this.deps.lists.list(),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = buildListMembership(lists, items, "paper");
+    const membership = readyCore().listMembershipByKey(lists, items, "paper");
 
     const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "paper",

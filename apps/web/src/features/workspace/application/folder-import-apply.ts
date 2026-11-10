@@ -1,5 +1,4 @@
 import {
-  digestText,
   type IWorkspaceFs,
   type JsonDiff,
 } from "@weaveforge/core";
@@ -55,7 +54,7 @@ export interface ApplyOptions {
 
 /** A note's title and body as one digest: what an update would overwrite. */
 export function storedDigest(page: { title: string; body: string }): string {
-  return digestText(`${page.title}
+  return readyCore().digestText(`${page.title}
 ${page.body}`);
 }
 

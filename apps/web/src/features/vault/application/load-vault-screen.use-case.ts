@@ -7,10 +7,8 @@ import type {
   ReadingList,
   VaultPageSummary,
 } from "@weaveforge/core";
-import {
-  buildListMembership,
-  loadPinnedScreenData,
-} from "@weaveforge/core";
+import { loadPinnedScreenData } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface VaultScreenData {
   /**
@@ -61,7 +59,7 @@ export class LoadVaultScreenUseCase {
       this.deps.lists.list(),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = buildListMembership(lists, items, "vaultPage");
+    const membership = readyCore().listMembershipByKey(lists, items, "vaultPage");
 
     const merged = await loadPinnedScreenData(this.deps, {
       resourceType: "vault_page",

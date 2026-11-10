@@ -17,8 +17,8 @@ import type { ExcerptHighlight } from "../features/ai-assistant/domain/ai-types.
 import type { ExtractionResult } from "../features/ai-assistant/domain/ai-extraction.js";
 import type { WikiPagePlan } from "../features/ai-assistant/application/plan-wiki-pages.use-case.js";
 import type { FrontmatterValue, ParsedDocument } from "../workspace/frontmatter.js";
-import type { ChangeSide } from "../workspace/change-origin.js";
 import type {
+  ChangeSide,
   ConflictKind,
   ExistingEntity,
   ImportAction,

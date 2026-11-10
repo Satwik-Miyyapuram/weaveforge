@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PdfLocus } from "@weaveforge/wasm";
-import { typedCore } from "@/lib/rust-core";
-import { buildLocusLink } from "../application/build-locus-link.js";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 const locus: PdfLocus = {
   quote: { type: "TextQuoteSelector", exact: "the used sentence" },
 };
 
 test("buildLocusLink encodes paper, pdf, page, and a round-trippable locus", () => {
-  const link = buildLocusLink({
+  const link = readyCore().buildLocusLink({
     paperId: "p1",
     pdfUrl: "https://arxiv.org/pdf/1706.03762",
     locus,
@@ -24,15 +23,15 @@ test("buildLocusLink encodes paper, pdf, page, and a round-trippable locus", () 
 });
 
 test("buildLocusLink omits absent and invalid parts", () => {
-  assert.equal(buildLocusLink({}), "/reader");
-  const link = buildLocusLink({ paperId: "p1", page: -1 });
+  assert.equal(readyCore().buildLocusLink({}), "/reader");
+  const link = readyCore().buildLocusLink({ paperId: "p1", page: -1 });
   const url = new URL(link, "https://app.test");
   assert.equal(url.searchParams.get("page"), null);
   assert.equal(url.searchParams.get("locus"), null);
 });
 
 test("buildLocusLink drops javascript and other unsafe pdf URLs", () => {
-  const link = buildLocusLink({
+  const link = readyCore().buildLocusLink({
     paperId: "p1",
     pdfUrl: "javascript:alert(1)",
   });
