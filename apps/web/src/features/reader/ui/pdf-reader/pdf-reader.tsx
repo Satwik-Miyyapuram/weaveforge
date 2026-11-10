@@ -71,7 +71,6 @@ import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
 import { TargetHighlightOverlay } from "./target-highlight-overlay";
 import { ReferencesPanel } from "../references-panel";
-import { buildLocusLink } from "../../application/build-locus-link";
 
 import type {
   JumpState,
@@ -2010,7 +2009,7 @@ export function PdfReader({
       </div>
       <ReferencePopoverHost
         refs={refs}
-        onOpenInReader={(id) => { window.location.assign(buildLocusLink({ paperId: id })); }}
+        onOpenInReader={(id) => { window.location.assign(readyCore().buildLocusLink({ paperId: id })); }}
       />
     </div>
   );

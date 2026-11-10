@@ -12,7 +12,6 @@ import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { buildLocusLink } from "@/features/reader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
@@ -149,7 +148,7 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
   const link = useMemo(() => {
     // Jump-to-passage only when we have a locus.
     if (evidence.paperId && evidence.locus) {
-      return buildLocusLink({
+      return readyCore().buildLocusLink({
         paperId: evidence.paperId,
         locus: evidence.locus,
         page: evidence.page,

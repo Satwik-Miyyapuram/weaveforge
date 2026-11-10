@@ -1,5 +1,4 @@
 import {
-  digestText,
   type JsonDiff,
   type VaultPageBase,
   type WorkspaceProject,
@@ -81,8 +80,8 @@ export async function diffAgainstWorkspace(
         // as an empty string here and must not be mistaken for a file whose
         // contents hashed to nothing.
         base: base[path] || undefined,
-        folder: files[path] === undefined ? undefined : digestText(files[path]),
-        workspace: current[path] === undefined ? undefined : digestText(current[path]),
+        folder: files[path] === undefined ? undefined : readyCore().digestText(files[path]),
+        workspace: current[path] === undefined ? undefined : readyCore().digestText(current[path]),
       }),
     // The generated `fields` type is a plain record; the entities are the parsed ones above.
   }) as ImportDiff;

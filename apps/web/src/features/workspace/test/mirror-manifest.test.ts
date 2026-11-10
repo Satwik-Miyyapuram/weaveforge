@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-import { digestText } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -227,7 +226,7 @@ test("a hand-written file is stamped with the id it was imported as", async () =
   // under its own name — instead of leaving the folder holding both copies.
   const base = await readMirrorBase(fs, ROOT);
   assert.deepEqual(Object.keys(base).sort(), ["notes/My idea.md", "notes/old.note.md"]);
-  assert.equal(base["notes/My idea.md"], digestText(stamped));
+  assert.equal(base["notes/My idea.md"], readyCore().digestText(stamped));
   assert.equal(base["notes/old.note.md"], "d0");
 });
 
@@ -298,11 +297,11 @@ test("a JSON data file is somebody's edit unless it still holds what the app wro
 
   // The manifest's digest is what the app wrote: the file matching it is the
   // app's own write, and is not news.
-  assert.equal(jsonEditSince({ [path]: digestText(written) }, path, written), false);
+  assert.equal(jsonEditSince({ [path]: readyCore().digestText(written) }, path, written), false);
 
   // A file that has moved on since is an edit, and so is a file with no record
   // at all — a hand-made one, or one an older layout wrote.
-  assert.equal(jsonEditSince({ [path]: digestText(written) }, path, '[{"id":"r1"}]'), true);
+  assert.equal(jsonEditSince({ [path]: readyCore().digestText(written) }, path, '[{"id":"r1"}]'), true);
   assert.equal(jsonEditSince({}, path, written), true);
 });
 
@@ -310,7 +309,7 @@ test("a renamed project carries its folder and manifest to the new name", async 
   const fs = new MemoryWorkspaceFs();
   const note = `${ROOT}/notes/a.md`;
   await fs.writeFile(note, "hello");
-  await writeMirrorManifest(fs, ROOT, [note], { [note]: digestText("hello") });
+  await writeMirrorManifest(fs, ROOT, [note], { [note]: readyCore().digestText("hello") });
   await fs.writeFile(`${OTHER_ROOT}/notes/b.md`, "other");
 
   const renamed = { ...PROJECT, name: "Thesis Final" };
@@ -320,7 +319,7 @@ test("a renamed project carries its folder and manifest to the new name", async 
   const moved = `${newRoot}/notes/a.md`;
   assert.equal(await fs.readText(moved), "hello");
   assert.equal(await fs.stat(ROOT), null);
-  assert.deepEqual(await readMirrorBase(fs, newRoot), { [moved]: digestText("hello") });
+  assert.deepEqual(await readMirrorBase(fs, newRoot), { [moved]: readyCore().digestText("hello") });
   assert.equal(await fs.readText(`${OTHER_ROOT}/notes/b.md`), "other");
 });
 

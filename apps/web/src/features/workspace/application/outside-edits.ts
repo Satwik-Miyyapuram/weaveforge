@@ -9,7 +9,8 @@
  * The decision is in Rust (`workspace::outside_edits`); this module gathers the
  * changed entries and the app's open notes, and applies the result.
  */
-import type { ChangeSide, JsonDiff } from "@weaveforge/core";
+import type { JsonDiff } from "@weaveforge/core";
+import type { ChangeSide } from "@weaveforge/wasm";
 import type { HeldReason, ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 

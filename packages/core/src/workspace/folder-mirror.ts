@@ -8,7 +8,6 @@
  * failing the save would cost the user their edit.
  */
 
-import { digestText } from "./change-origin.js";
 import type { IWorkspaceFs } from "./fs-port.js";
 import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
 import type { WorkspaceProject } from "./folder-layout.js";
@@ -104,7 +103,7 @@ export async function mirrorWorkspace(
     if (recorded === undefined) return false;
     const onDisk = known ?? (await fs.readText(path).catch(() => null));
     if (onDisk === null || onDisk === content) return false;
-    return digestText(onDisk) !== recorded;
+    return rust().digestText(onDisk) !== recorded;
   };
 
   const hold = (path: string) => {
@@ -114,14 +113,14 @@ export async function mirrorWorkspace(
   };
 
   for (const [path, content] of Object.entries(files)) {
-    mirrored[path] = digestText(content);
+    mirrored[path] = rust().digestText(content);
     const noteBase = rust().vaultPageBase(path, content);
     if (noteBase) bases[path] = noteBase;
     // One read answers "is it there" and "what does it say"; null is missing.
     const current = await fs.readText(path).catch(() => null);
     if (current !== null) {
       if (current === content || rust().unstampForCompare(path, current) === rust().unstampForCompare(path, content)) {
-        mirrored[path] = digestText(current);
+        mirrored[path] = rust().digestText(current);
         unchanged += 1;
         continue;
       }

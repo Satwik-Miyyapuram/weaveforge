@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
 import { rust } from "../../src/shared/rust.js";
-import { NoOpWorkspaceGit, digestText, mirrorWorkspace, type WorkspaceProject, type WorkspaceSnapshot } from "../../src/index.js";
+import { NoOpWorkspaceGit, mirrorWorkspace, type WorkspaceProject, type WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -340,7 +340,7 @@ test("an edit the import has applied no longer holds the mirror back", async () 
   // Applying an edit through the import records the folder's text as the base
   // (see `applyEntries`), which is what "the two sides agree" means here: the
   // digest is the one the file now has, not the one the app would have written.
-  const agreedBase = { ...first.mirrored, [path]: digestText(await fs.readText(path)) };
+  const agreedBase = { ...first.mirrored, [path]: rust().digestText(await fs.readText(path)) };
   const agreed = await mirrorWorkspace(
     snapshot({ vaultPages: [note("n1", "Method", "the reader's version")] }),
     fs,

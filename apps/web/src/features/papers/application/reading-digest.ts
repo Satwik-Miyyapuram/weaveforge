@@ -1,6 +1,5 @@
 import type { Paper, ReaderAnnotation, WorkspaceAnnotation } from "@weaveforge/core";
 import type { DigestMark, ReadingMark, ReadingPaper } from "@weaveforge/wasm";
-import { buildLocusLink } from "@/features/reader/application/build-locus-link";
 import { readyCore } from "@/lib/rust-core";
 
 /**
@@ -25,7 +24,7 @@ export function highlightsDigest(
       text,
       comment,
       quote: text ? readyCore().formatQuoteBlock(text) : "",
-      href: buildLocusLink({ paperId: opts.paperId, locus: a.anchor.locus, page }),
+      href: readyCore().buildLocusLink({ paperId: opts.paperId, locus: a.anchor.locus, page }),
       pageIndex: page ?? null,
       sortIndex: a.sortIndex,
     });
