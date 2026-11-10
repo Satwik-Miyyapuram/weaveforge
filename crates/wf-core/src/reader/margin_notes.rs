@@ -220,7 +220,8 @@ mod tests {
             }),
             ..rect_mark(rect)
         };
-        let nan_rect = rect_mark([f64::NAN, 1.0, 2.0, 3.0]);
+        // The top comes from the y values, so they are the ones that must be NaN.
+        let nan_rect = rect_mark([1.0, f64::NAN, 2.0, f64::NAN]);
         let slots = layout_margin_notes(
             &[no_comment, picture, no_geometry, short_rect, nan_rect],
             PAGE,

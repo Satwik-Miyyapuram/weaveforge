@@ -841,7 +841,8 @@ mod tests {
 
     #[test]
     fn max_concepts_caps_the_result_and_prunes_orphaned_mentions() {
-        let text = "AlphaOne BetaTwo GammaThree DeltaFour";
+        // Lowercase words keep the names apart; side by side they join into one phrase.
+        let text = "see AlphaOne and BetaTwo and GammaThree and DeltaFour here";
         let result = extract_lexical(&LexicalRequest {
             documents: vec![doc("n1", text), doc("n2", text)],
             max_concepts: Some(2.0),
@@ -858,7 +859,8 @@ mod tests {
 
     #[test]
     fn max_concepts_follows_js_slice_for_odd_values() {
-        let text = "AlphaOne BetaTwo GammaThree DeltaFour";
+        // Lowercase words keep the names apart; side by side they join into one phrase.
+        let text = "see AlphaOne and BetaTwo and GammaThree and DeltaFour here";
         let run_with = |max: Option<f64>| {
             extract_lexical(&LexicalRequest {
                 documents: vec![doc("n1", text), doc("n2", text)],

@@ -262,12 +262,13 @@ mod tests {
             .iter()
             .map(|s| (*s).to_owned())
             .collect();
-        // "aaaa" costs 5, "bbbb" would bring the batch to 10 > 9, so it starts a new batch.
+        // As in TS, a path's own length is checked, not its separator: "aaaa" costs 5,
+        // 5 + 4 = 9 fits, then "cc" (10 + 2 > 9) starts a new batch.
         assert_eq!(
             path_chunks(&paths, 9),
             vec![
-                vec!["aaaa".to_owned()],
-                vec!["bbbb".to_owned(), "cc".to_owned()]
+                vec!["aaaa".to_owned(), "bbbb".to_owned()],
+                vec!["cc".to_owned()]
             ]
         );
     }

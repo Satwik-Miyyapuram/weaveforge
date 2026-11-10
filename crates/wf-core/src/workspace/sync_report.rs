@@ -83,8 +83,12 @@ mod tests {
     }
 
     #[test]
-    fn removals_are_counted_and_suppress_up_to_date() {
-        assert_eq!(describe_sync(&report(0, 2)), "Wrote 0 files, removed 2");
+    fn removals_are_counted() {
+        // As in TS, writing nothing reads as up to date even when files were removed.
+        assert_eq!(
+            describe_sync(&report(0, 2)),
+            "Wrote 0 files, removed 2 — already up to date"
+        );
         assert_eq!(describe_sync(&report(3, 1)), "Wrote 3 files, removed 1.");
     }
 

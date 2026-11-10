@@ -5,14 +5,16 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::app_lib::{commit_enter, edit_menu, menu_palette, page_text, prefs, shortcuts};
 
-use super::{check_text, to_js};
+use super::to_js;
 
 /// [`textWithinCap`]: whether `text` is within the index cap (16Mi UTF-16 units). Callers use it to
 /// pick the old TS fallback for longer text rather than sending it to the page-text rules.
 #[must_use]
 #[wasm_bindgen(js_name = textWithinCap)]
 pub fn text_within_cap_js(text: &str) -> bool {
-    check_text(text).is_ok()
+    // Same rule as `check_text`, without building a JS error (which panics off wasm).
+    text.len() <= crate::MAX_INDEX_TEXT_UTF16
+        || crate::utf16_len(text) <= crate::MAX_INDEX_TEXT_UTF16
 }
 
 /// [`is_hydrated_page`](page_text::is_hydrated_page): the page has a body and no preview stands in.
