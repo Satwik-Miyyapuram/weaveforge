@@ -44,7 +44,6 @@ export class InMemoryReaderAnnotationRepository
       createdAt: now,
       updatedAt: now,
       syncState: "local",
-      zoteroVersion: null,
       paperId,
     };
     this.items.set(row.id, row);
@@ -75,7 +74,7 @@ export class InMemoryReaderAnnotationRepository
   async recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void> {
     const existing = this.items.get(id);
     if (!existing) throw new NotFoundError("Annotation not found");
-    this.items.set(id, { ...existing, ...record });
+    this.items.set(id, { ...existing, ...record, zoteroVersion: record.zoteroVersion ?? undefined });
   }
 
   async remove(id: string): Promise<void> {

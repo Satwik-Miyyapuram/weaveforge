@@ -19,8 +19,8 @@ import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
  */
 function documentStyleSheets(
   root: Document,
-): { href?: string | null; text?: string | null }[] {
-  const sheets: { href?: string | null; text?: string | null }[] = [];
+): { href?: string; text?: string }[] {
+  const sheets: { href?: string; text?: string }[] = [];
   for (const sheet of Array.from(root.styleSheets)) {
     if (sheet.href) {
       sheets.push({ href: sheet.href });
@@ -267,7 +267,7 @@ export function usePageExport(deps: PageExportDeps) {
         },
         rule: inkSheetRuleStyle(scale),
         figures,
-        inkUrl: ink ? await blobToDataUrl(ink) : null,
+        inkUrl: ink ? await blobToDataUrl(ink) : undefined,
         styleSheets: documentStyleSheets(document),
       }),
     });

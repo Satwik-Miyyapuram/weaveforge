@@ -617,9 +617,57 @@ pub fn render() -> Result<String, BindingsError> {
     // Floats cross by wasm-bindgen, which keeps NaN and Infinity as numbers, so f64 is
     // `number`, not the `number | null` a JSON round trip would need.
     let floats = specta_typescript::semantic::Configuration::empty().enable_lossless_floats();
+    let types = types().map(|mut ndt| {
+        if let Some(ty) = ndt.ty.as_mut() {
+            drop_skipped_none(ty);
+        }
+        ndt
+    });
     Ok(Typescript::default()
         .header(HEADER)
-        .export(&floats.apply_types(&types()), specta_serde::Format)?)
+        .export(&floats.apply_types(&types), specta_serde::Format)?)
+}
+
+/// serde attribute key specta records for `skip_serializing_if`.
+const SKIP_IF: &str = "serde:field:skip_serializing_if";
+
+/// A field with `skip_serializing_if = "Option::is_none"` is never `null` on the way
+/// out, and a missing key reads as `None` on the way in, so `x?: T` is exact where
+/// specta's unified shape says `x?: T | null`. Fields that only have `default` keep
+/// `| null`, because `null` means something there (for example "clear").
+fn drop_skipped_none(ty: &mut specta::datatype::DataType) {
+    use specta::datatype::{DataType, Fields};
+    let fields: Vec<&mut specta::datatype::Field> = match ty {
+        DataType::Struct(s) => fields_mut(&mut s.fields),
+        DataType::Enum(e) => e
+            .variants
+            .iter_mut()
+            .flat_map(|(_, v)| fields_mut(&mut v.fields))
+            .collect(),
+        _ => return,
+    };
+    for field in fields {
+        let is_none_skip = field
+            .attributes
+            .get_named_as::<String>(SKIP_IF)
+            .is_some_and(|p| p == "Option::is_none");
+        if is_none_skip && matches!(field.ty, Some(DataType::Nullable(_))) {
+            if let Some(DataType::Nullable(inner)) = field.ty.take() {
+                field.ty = Some(*inner);
+            }
+        }
+        if let Some(other) = field.ty.as_mut() {
+            drop_skipped_none(other);
+        }
+    }
+
+    fn fields_mut(fields: &mut Fields) -> Vec<&mut specta::datatype::Field> {
+        match fields {
+            Fields::Unit => Vec::new(),
+            Fields::Unnamed(u) => u.fields.iter_mut().collect(),
+            Fields::Named(n) => n.fields.iter_mut().map(|(_, f)| f).collect(),
+        }
+    }
 }
 
 /// What the binary was asked to do.
@@ -941,6 +989,24 @@ mod tests {
         assert!(out.contains("version: string"));
         assert!(out.contains("export type TokenizerOptions"));
         assert!(out.contains("splitCamelCase: boolean"));
+    }
+
+    #[test]
+    fn skipped_none_fields_are_not_nullable() {
+        let out = render().unwrap();
+        let start = out.find("export type OpenAccessCandidate").unwrap();
+        let body = &out[start..start + out[start..].find("\n}").unwrap()];
+        assert!(body.contains("license?: string,"), "{body}");
+        assert!(!body.contains("| null"), "{body}");
+    }
+
+    #[test]
+    fn default_only_fields_keep_null() {
+        // ImagePlacementPatch.crop: absent keeps, null clears.
+        let out = render().unwrap();
+        let start = out.find("export type ImagePlacementPatch").unwrap();
+        let body = &out[start..start + out[start..].find("\n}").unwrap()];
+        assert!(body.contains("crop?: [number, number, number, number] | null"), "{body}");
     }
 
     #[test]

@@ -14,8 +14,8 @@ export interface OutlineTextItem {
 export interface ReaderOutlineItem {
   title: string;
   pageNumber: number | null;
-  /** Baseline y of the heading; the Rust core reports `null` when it has none. */
-  y?: number | null;
-  /** Child sections; the Rust core reports `null` when there are none. */
-  items?: ReaderOutlineItem[] | null;
+  /** Baseline y of the heading, absent when it has none. */
+  y?: number;
+  /** Child sections, absent when there are none. */
+  items?: ReaderOutlineItem[];
 }

@@ -35,7 +35,7 @@ export interface FigureGeometry {
    * How much of the image is cropped off, as percentages of its own box:
    * `[left, top, right, bottom]`, each 0–99. Absent or null means the whole image.
    */
-  crop?: [number, number, number, number] | null;
+  crop?: [number, number, number, number];
 }
 
 /** A box in page units. */

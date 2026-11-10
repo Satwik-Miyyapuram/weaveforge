@@ -30,7 +30,6 @@ function ann(over: Partial<ReaderAnnotation> = {}): ReaderAnnotation {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     syncState: "local",
-    zoteroVersion: null,
     ...over,
   };
 }

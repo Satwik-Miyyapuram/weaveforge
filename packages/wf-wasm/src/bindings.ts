@@ -98,9 +98,9 @@ export type AiAccessSettings = {
 	/**  Proposal kinds that are on. */
 	proposalKinds: AiProposalKind[],
 	/**  Categories that new sources are added to automatically. */
-	autoIncludeNewSourceCategories?: AiReadCategory[] | null,
+	autoIncludeNewSourceCategories?: AiReadCategory[],
 	/**  When the disclosure was accepted, ISO 8601. */
-	disclosureAcceptedAt?: string | null,
+	disclosureAcceptedAt?: string,
 };
 
 /**  Untrusted, partial settings as stored (TS `Partial<AiAccessSettings>`). Unknown list values are dropped. */
@@ -122,7 +122,7 @@ export type AiPolicyDecision = {
 	/**  Whether the request is allowed. */
 	allowed: boolean,
 	/**  Set only when `allowed` is false. */
-	reason?: AiPolicyDenyReason | null,
+	reason?: AiPolicyDenyReason,
 };
 
 /**  Why a request is denied (TS `AiPolicyDenyReason`). */
@@ -153,15 +153,15 @@ export type AiPolicyInput = {
 	/**  Current session grant. */
 	grant: AiSessionGrant,
 	/**  Resource being read, if any. */
-	resourceType?: AiResourceType | null,
+	resourceType?: AiResourceType,
 	/**  Id of the resource being read. */
-	resourceId?: string | null,
+	resourceId?: string,
 	/**  Tool being called. */
 	tool: AiToolName,
 	/**  Whether the encryption key is unlocked. */
 	encryptionUnlocked: boolean,
 	/**  Proposal being made, if any. */
-	proposalKind?: AiProposalKind | null,
+	proposalKind?: AiProposalKind,
 };
 
 /**  Kinds of change the assistant may propose (TS `AiProposalKind`). */
@@ -293,9 +293,9 @@ export type AiWorkspaceSource = {
 	/**  Id of the resource. */
 	resourceId: string,
 	/**  Display label. */
-	label?: string | null,
+	label?: string,
 	/**  Same-origin deep link. */
-	href?: string | null,
+	href?: string,
 };
 
 /**  The union step axis and every run aligned to it (TS `alignSeries` result). */
@@ -313,7 +313,7 @@ export type AlignedSeries = {
 	/**  The legend label. */
 	label: string,
 	/**  The series colour, when set; left out of the serialized object otherwise. */
-	color?: string | null,
+	color?: string,
 	/**  One value per step on the axis; `None` where the run has no point. */
 	values: (number | null)[],
 };
@@ -450,11 +450,11 @@ export type AnalysisPdfItem = {
 	/**  Whether a line break follows the run. */
 	hasEOL?: boolean,
 	/**  Font ascent as a fraction of the size, when known. */
-	fontAscent?: number | null,
+	fontAscent?: number,
 	/**  Font descent as a fraction of the size, when known. */
-	fontDescent?: number | null,
+	fontDescent?: number,
 	/**  pdf.js font name, when the caller carries it; used for weight checks. */
-	fontName?: string | null,
+	fontName?: string,
 };
 
 /**  A `/Link` annotation (`PdfLink`). */
@@ -582,29 +582,29 @@ export type AnchorPdfLocus = {
 	/**  Quote selector. */
 	quote?: AnchorQuoteSelector,
 	/**  Optional position fallback. */
-	position?: AnchorPositionSelector | null,
+	position?: AnchorPositionSelector,
 };
 
 /**  W3C TextPositionSelector (TS `TextPositionSelector`). Missing bounds are NaN. */
 export type AnchorPositionSelector = {
 	/**  Selector type tag, kept so round-trips keep it. */
-	type?: string | null,
+	type?: string,
 	/**  UTF-16 start offset. */
-	start?: number | null,
+	start?: number,
 	/**  UTF-16 exclusive end offset. */
-	end?: number | null,
+	end?: number,
 };
 
 /**  W3C TextQuoteSelector (TS `TextQuoteSelector`). A missing `exact` acts as `""`. */
 export type AnchorQuoteSelector = {
 	/**  Selector type tag, kept so round-trips keep it. */
-	type?: string | null,
+	type?: string,
 	/**  Text to find. */
 	exact?: string | null,
 	/**  Text required immediately before `exact`. */
-	prefix?: string | null,
+	prefix?: string,
 	/**  Text required immediately after `exact`. */
-	suffix?: string | null,
+	suffix?: string,
 };
 
 /**  A resolved span with provenance (TS `ResolvedAnchor`). */
@@ -656,15 +656,15 @@ export type AnchorVia =
 /**  Zotero `annotationPosition` (TS `ZoteroRectPosition`). */
 export type AnchorZoteroPosition = {
 	/**  Zero-based page index; must be a non-negative integer to be usable. */
-	pageIndex?: number | null,
+	pageIndex?: number,
 	/**  PDF user-space rects `[x1, y1, x2, y2]`. */
-	rects?: number[][] | null,
+	rects?: number[][],
 	/**  Ink strokes as flat point lists. */
-	paths?: number[][] | null,
+	paths?: number[][],
 	/**  Nib width for `paths`. */
-	width?: number | null,
+	width?: number,
 	/**  Tail of a highlight that crosses onto the next page. */
-	nextPageRects?: number[][] | null,
+	nextPageRects?: number[][],
 };
 
 /**  The backlinks for one annotation (TS `AnnotationBacklinkHit`). Only annotations with targets appear. */
@@ -734,13 +734,13 @@ export type AnnotationInput = {
 /**  Fields an edit may change. An absent field is left as it was (TS `applyAnnotationPatch`). */
 export type AnnotationPatch = {
 	/**  New comment, when changed. */
-	comment?: string | null,
+	comment?: string,
 	/**  New tags, when changed. */
-	tags?: string[] | null,
+	tags?: string[],
 	/**  New colour, when changed. */
-	color?: string | null,
+	color?: string,
 	/**  New text, when changed. */
-	text?: string | null,
+	text?: string,
 };
 
 /**  An annotation pin as the domain sees it. */
@@ -873,7 +873,7 @@ export type ArtifactRef = {
 	/**  Artifact name or URL; matched by basename when the stored URL is signed. */
 	artifactName: string,
 	/**  Alt text. Omitted means the default caption `artifact`; `""` keeps an empty alt. */
-	alt?: string | null,
+	alt?: string,
 };
 
 /**  The two turns of an ask request, before the app wraps them as a model request. */
@@ -1021,7 +1021,7 @@ export type BibFinding = {
 	/**  Human-readable message. */
 	message: string,
 	/**  The cite key the finding is about, when it is about one. */
-	key?: string | null,
+	key?: string,
 };
 
 /**  Kinds of bibliography finding. The strings match the TS `BibFindingKind`. */
@@ -1424,11 +1424,11 @@ milestoneId: string } |
 /**  Options for [`chunk_for_embedding`]; unset fields take the TS defaults. */
 export type ChunkOptions = {
 	/**  Characters per passage. Roughly four per token, so 1 000 sits under the 256-token window. */
-	maxChars?: number | null,
+	maxChars?: number,
 	/**  Characters repeated between neighbours, so a sentence spanning a boundary lands whole. */
-	overlapChars?: number | null,
+	overlapChars?: number,
 	/**  Below this a trailing fragment is merged back rather than embedded alone. */
-	minChars?: number | null,
+	minChars?: number,
 };
 
 /**  Input for [`citation_alert_message`]. */
@@ -1448,7 +1448,7 @@ export type CitationAlertTrack = {
 	/**  When tracking started, ISO 8601 UTC. */
 	trackedAt: string,
 	/**  Absent until the first successful poll after tracking starts. */
-	lastCheckedAt?: string | null,
+	lastCheckedAt?: string,
 	/**  Citing-paper ids already seen by the provider. */
 	seenCitingIds: string[],
 };
@@ -1576,13 +1576,13 @@ export type ClippedSegment = {
 /**  Cold-tier fields, as read from env. */
 export type ColdFields = {
 	/**  MinIO / OCI endpoint. */
-	coldEndpoint?: string | null,
+	coldEndpoint?: string,
 	/**  Cold-tier access key id. */
-	coldAccessKeyId?: string | null,
+	coldAccessKeyId?: string,
 	/**  Cold-tier secret access key. */
-	coldSecretAccessKey?: string | null,
+	coldSecretAccessKey?: string,
 	/**  Cold-tier bucket name. */
-	coldBucket?: string | null,
+	coldBucket?: string,
 };
 
 /**
@@ -1675,15 +1675,15 @@ export type CommentRow = {
 	/**  When the comment was made. */
 	created_at: string,
 	/**  The quoted passage; absent for a page-level comment. */
-	anchor_quote?: string | null,
+	anchor_quote?: string,
 	/**  Text just before the quote. */
-	anchor_prefix?: string | null,
+	anchor_prefix?: string,
 	/**  Text just after the quote. */
-	anchor_suffix?: string | null,
+	anchor_suffix?: string,
 	/**  The thread root this answers. */
-	parent_id?: string | null,
+	parent_id?: string,
 	/**  When the thread was resolved. */
-	resolved_at?: string | null,
+	resolved_at?: string,
 };
 
 /**  One compute requirement, shown as `count resource ~hours h`. */
@@ -1771,9 +1771,9 @@ export type ConflictPicks = {
 	/**  Always `picks`; tells these apart from a [`NamedResolution`]. */
 	kind: PicksKind,
 	/**  The side each disputed key takes, by key. */
-	fields?: { [key in string]: FieldPick } | null,
+	fields?: { [key in string]: FieldPick },
 	/**  The pick for each body hunk, by its decimal index. */
-	hunks?: { [key in string]: HunkPick } | null,
+	hunks?: { [key in string]: HunkPick },
 };
 
 /**  What to do about a file both sides changed: a named choice, or picks per key and hunk. */
@@ -1885,13 +1885,13 @@ export type CreationTarget = {
 /**  The settings fields the credential helpers read (TS `UserSettings`, credential part). */
 export type CredentialSettings = {
 	/**  Provider-keyed credential bags. */
-	integrations?: { [key in string]: { [key in string]: string } } | null,
+	integrations?: { [key in string]: { [key in string]: string } },
 	/**  Zotero Web API key. */
-	zoteroApiKey?: string | null,
+	zoteroApiKey?: string,
 	/**  Zotero library path. */
-	zoteroLibrary?: string | null,
+	zoteroLibrary?: string,
 	/**  Semantic Scholar API key. */
-	semanticScholarKey?: string | null,
+	semanticScholarKey?: string,
 };
 
 /**  One Crossref author: a split name, or a whole `name` for an organisation. */
@@ -1933,7 +1933,7 @@ export type Crumb = {
 	/**  The text the crumb shows. */
 	label: string,
 	/**  `kind:id` when the crumb names a document that can be opened. */
-	key?: string | null,
+	key?: string,
 	/**  Set on the final crumb, which is where the kind suffix is shown. */
 	current?: boolean,
 };
@@ -2022,11 +2022,11 @@ export type DocumentAnalysis = {
 /**  Tuning for `document_boost` (TS `DocumentBoostOptions`, without the reference time). */
 export type DocumentBoostOptions = {
 	/**  Half-life for the recency tiebreak, in days. */
-	recencyHalfLifeDays?: number | null,
+	recencyHalfLifeDays?: number,
 	/**  Multiplier from user settings (kind downranking). Defaults to 1. */
-	kindMultiplier?: number | null,
+	kindMultiplier?: number,
 	/**  `Some(false)` drops the recency tiebreak entirely. */
-	recency?: boolean | null,
+	recency?: boolean,
 };
 
 /**  Which view a tab is in. The shipped editor is Edit and stays the default. */
@@ -2107,7 +2107,7 @@ export type DuplicatePlan = {
 	/**  The first free "X (copy)" title. */
 	title: string,
 	/**  The source's folder, so the copy lands beside it. */
-	parentId?: string | null,
+	parentId?: string,
 	/**  The source's body, unchanged. */
 	body: string,
 };
@@ -2132,7 +2132,7 @@ export type DuplicateSource = {
 	/**  False while the body is still the 320-character preview. */
 	hydrated: boolean,
 	/**  The folder the document sits in, when it has one. */
-	parentId?: string | null,
+	parentId?: string,
 };
 
 /**  Which links the graph draws. */
@@ -2211,7 +2211,7 @@ export type EuropePmcAnswer = {
 	/**  The free full texts found. */
 	candidates: OpenAccessCandidate[],
 	/**  The PMCID, when there is one. */
-	pmcid?: string | null,
+	pmcid?: string,
 };
 
 /**  An excerpt split around its matched span (TS `ExcerptHighlight`). The offsets are UTF-16, so the three parts join back to the excerpt. */
@@ -2259,7 +2259,7 @@ export type Experiment = {
 	/**  Current status. */
 	status: ExperimentStatus,
 	/**  First start, ISO 8601 UTC. */
-	startedAt?: string | null,
+	startedAt?: string,
 	/**  Creation time, ISO 8601 UTC. */
 	createdAt: string,
 };
@@ -2269,11 +2269,11 @@ export type ExperimentFollowUpInput = {
 	/**  Experiment name. */
 	name: string,
 	/**  The experiment's hypothesis. */
-	hypothesis?: string | null,
+	hypothesis?: string,
 	/**  Experiment status. */
-	status?: string | null,
+	status?: string,
 	/**  Id of the related paper. */
-	relatedPaper?: string | null,
+	relatedPaper?: string,
 };
 
 /**  A live experiment, as the snapshot reads it (TS `Experiment`, subset). */
@@ -2345,9 +2345,9 @@ export type ExperimentStatusPatch = {
 	/**  The new status. */
 	status: ExperimentStatus,
 	/**  First start, kept across restarts. */
-	startedAt?: string | null,
+	startedAt?: string,
 	/**  Set only while the status is terminal. */
-	finishedAt?: string | null,
+	finishedAt?: string,
 };
 
 /**  An `experiments` row as written. Every column is present; an unset value is `null`. */
@@ -2502,7 +2502,7 @@ export type ExtractionResult = {
 	/**  The mentions. */
 	mentions?: ExtractedMention[],
 	/**  Set when the work was handed to something that answers later. */
-	pending?: boolean | null,
+	pending?: boolean,
 };
 
 /**  One row of the table: a paper and every cell value on it, keyed by field id. */
@@ -2571,7 +2571,7 @@ export type FigureBox = {
 	/**  Height, in page units. */
 	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
-	crop?: [number, number, number, number] | null,
+	crop?: [number, number, number, number],
 };
 
 /**  What a copied figure carries: the note that owns its attachment, and the figure. */
@@ -2595,7 +2595,7 @@ export type FigureGeometry = {
 	/**  Height on the page. */
 	h: number,
 	/**  Visible part of the picture, when cropped. */
-	crop?: [number, number, number, number] | null,
+	crop?: [number, number, number, number],
 };
 
 /**  A handle on a figure's box: a corner or an edge. */
@@ -2690,7 +2690,7 @@ export type FigurePlacement = {
 	/**  Height, in page units. */
 	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
-	crop?: [number, number, number, number] | null,
+	crop?: [number, number, number, number],
 };
 
 /**  A plain rectangle in page units. */
@@ -2722,13 +2722,13 @@ export type FigureTarget = {
 	/**  Baseline y of the target line. */
 	y: number,
 	/**  Left edge of the target line, when it is a caption or equation. */
-	x?: number | null,
+	x?: number,
 	/**  Font size of the target line, when it is a caption or equation. */
-	height?: number | null,
+	height?: number,
 	/**  Display label, such as `Figure 2` or `Equation (3)`. */
-	label?: string | null,
+	label?: string,
 	/**  Kind of the target, as the mention kind names it. */
-	kind?: string | null,
+	kind?: string,
 };
 
 /**  A paper listed in the fill prompt. */
@@ -2784,7 +2784,7 @@ export type FindMarkPage = {
 	/**  Zero-based page the entry describes. */
 	pageIndex: number,
 	/**  The page's text runs, when loaded. */
-	items?: SelectionPageTextItem[] | null,
+	items?: SelectionPageTextItem[],
 	/**  The page's height in PDF user space. */
 	height: number,
 };
@@ -3079,13 +3079,13 @@ export type GraphLink = {
 	/**  What the edge stands for. */
 	kind: LinkKind,
 	/**  The relation type, for a relation edge. */
-	relation?: RelationType | null,
+	relation?: RelationType,
 	/**  The relation's id, for a relation edge. */
-	relationId?: string | null,
+	relationId?: string,
 	/**  Whether a person or the system made the relation. */
-	sourceKind?: RelationSource | null,
+	sourceKind?: RelationSource,
 	/**  Drawn dashed, for an automatic relation with auto styling on. */
-	dashed?: boolean | null,
+	dashed?: boolean,
 };
 
 /**  One node of the graph. */
@@ -3101,19 +3101,19 @@ export type GraphNode = {
 	/**  Fill colour. */
 	color: string,
 	/**  The paper, for a paper node. */
-	paperId?: string | null,
+	paperId?: string,
 	/**  Publication year, for a paper node. */
-	year?: number | null,
+	year?: number,
 	/**  The note, for a note node. */
-	noteId?: string | null,
+	noteId?: string,
 	/**  The section, for a report node. */
-	sectionId?: string | null,
+	sectionId?: string,
 	/**  The tag or list name, for a tag node. */
-	tagName?: string | null,
+	tagName?: string,
 	/**  The run, for an experiment node. */
-	experimentId?: string | null,
+	experimentId?: string,
 	/**  The run's status, for an experiment node. */
-	experimentStatus?: string | null,
+	experimentStatus?: string,
 };
 
 /**  Per-project graph UI state synced across devices (TS `GraphPersistedState`). */
@@ -3628,7 +3628,7 @@ export type InkPrintDocument = {
 	/**  Figures, each with its picture. */
 	figures: InkPrintFigure[],
 	/**  The ink raster's address; `None` when the page has no raster. */
-	inkUrl?: string | null,
+	inkUrl?: string,
 	/**  The app's stylesheets. */
 	styleSheets: InkPrintStyleSheet[],
 };
@@ -3644,7 +3644,7 @@ export type InkPrintFigure = {
 	/**  Height, in page units. */
 	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
-	crop?: [number, number, number, number] | null,
+	crop?: [number, number, number, number],
 	/**  The picture's data URL. */
 	url: string,
 };
@@ -3660,9 +3660,9 @@ export type InkPrintPageSize = {
 /**  One stylesheet: a link by address, or the text of an inline sheet. */
 export type InkPrintStyleSheet = {
 	/**  The sheet's address, when it has one. */
-	href?: string | null,
+	href?: string,
 	/**  The sheet's text, when it is inline. */
-	text?: string | null,
+	text?: string,
 };
 
 /**  The underlay's box, in CSS pixels at the sheet's scale. */
@@ -3688,9 +3688,9 @@ export type InkRecognitionRequest = {
 	/**  Lines. */
 	lines: InkRecognitionLineInput[],
 	/**  Vocabulary. */
-	vocabulary?: string[] | null,
+	vocabulary?: string[],
 	/**  Lang. */
-	lang?: string | null,
+	lang?: string,
 };
 
 /**  The render inputs of one stored stroke: its colour name, tool and nib width. */
@@ -3872,13 +3872,13 @@ after: InkUndoPatch };
 /**  The fields an edit can change (TS `InkUndoPatch`). `None` means the field is not part of the edit. */
 export type InkUndoPatch = {
 	/**  New colour. */
-	color?: string | null,
+	color?: string,
 	/**  New researcher comment. */
-	comment?: string | null,
+	comment?: string,
 	/**  New tags. */
-	tags?: string[] | null,
+	tags?: string[],
 	/**  New selected text. */
-	text?: string | null,
+	text?: string,
 };
 
 /**  The undo and redo stacks (TS `InkUndoState`). The last element is the next step. */
@@ -3942,9 +3942,9 @@ export type IntegrationEnv = {
 /**  The integrations bag built from legacy columns (TS `integrationsBagFromLegacy` output). */
 export type IntegrationsBag = {
 	/**  Zotero fields (`apiKey`, `library`), present when any is non-empty. */
-	zotero?: { [key in string]: string } | null,
+	zotero?: { [key in string]: string },
 	/**  Semantic Scholar fields (`apiKey`), present when non-empty. */
-	"semantic-scholar"?: { [key in string]: string } | null,
+	"semantic-scholar"?: { [key in string]: string },
 };
 
 /**  One row of the map. */
@@ -4089,7 +4089,7 @@ export type LabSnapshot = {
 	/**  The snapshot's title. */
 	title: string,
 	/**  The publisher's note, when any. */
-	note?: string | null,
+	note?: string,
 	/**  The frozen content. */
 	content: LabSnapshotContent,
 	/**  When the snapshot was published (ISO 8601). */
@@ -4108,11 +4108,11 @@ export type LabSnapshotContent = {
 	/**  Frozen log entries. */
 	logs: LabSnapshotLog[],
 	/**  Frozen experiments; absent in older snapshots. */
-	experiments?: LabSnapshotExperiment[] | null,
+	experiments?: LabSnapshotExperiment[],
 	/**  Frozen report sections; absent in older snapshots. */
-	report?: LabSnapshotReportSection[] | null,
+	report?: LabSnapshotReportSection[],
 	/**  AI suggestions accepted; absent in older snapshots. */
-	aiAssisted?: number | null,
+	aiAssisted?: number,
 };
 
 /**  Frozen experiment fields in a lab snapshot (TS `LabSnapshotExperiment`). */
@@ -4124,7 +4124,7 @@ export type LabSnapshotExperiment = {
 	/**  Status at freeze time. */
 	status: ExperimentStatus,
 	/**  Result note, when set. */
-	resultNote?: string | null,
+	resultNote?: string,
 };
 
 /**  Frozen log entry fields in a lab snapshot (TS `LabSnapshotLog`). */
@@ -4146,11 +4146,11 @@ export type LabSnapshotMilestone = {
 	/**  Display title. */
 	title: string,
 	/**  Description, when the milestone has one. */
-	description?: string | null,
+	description?: string,
 	/**  Status at freeze time. */
 	status: MilestoneStatus,
 	/**  Target date, when set. */
-	targetDate?: string | null,
+	targetDate?: string,
 };
 
 /**  Frozen report section progress in a lab snapshot (TS `LabSnapshotReportSection`). */
@@ -4687,11 +4687,11 @@ export type MdImageAlt = {
 	/**  The alt's own text, everything that is neither a token nor a width. */
 	alt: string,
 	/**  Crop insets `[left, top, right, bottom]`, each 0..=99; absent for none. */
-	crop?: [number, number, number, number] | null,
+	crop?: [number, number, number, number],
 	/**  Column placement; absent for the document's own default. */
-	align?: MdAlign | null,
+	align?: MdAlign,
 	/**  `"50%"` or `"400px"`; absent when the alt carries no width. */
-	width?: string | null,
+	width?: string,
 };
 
 /**  The placement to write into an alt. An absent or `null` field means none. */
@@ -4712,17 +4712,17 @@ export type Member = {
 	/**  The member's user id. */
 	id: string,
 	/**  The member's email, when stored. */
-	email?: string | null,
+	email?: string,
 	/**  The member's full name, when stored. */
-	fullName?: string | null,
+	fullName?: string,
 	/**  The member's role. */
 	role: string,
 	/**  The member's supervisor id, when set. */
-	supervisorId?: string | null,
+	supervisorId?: string,
 	/**  Whether first-run org setup finished; a missing value counts as not finished. */
 	orgSetupComplete: boolean,
 	/**  The lab the member has active, when set. */
-	activeOrgId?: string | null,
+	activeOrgId?: string,
 };
 
 /**  A lab member as the visibility rules see them: an id and the supervisor's id. */
@@ -4746,9 +4746,9 @@ export type MemberNameSource = {
 	/**  The member's user id. */
 	id: string,
 	/**  The member's full name, when set. */
-	fullName?: string | null,
+	fullName?: string,
 	/**  The member's email, when set. */
-	email?: string | null,
+	email?: string,
 };
 
 /**
@@ -4812,9 +4812,9 @@ export type MergeInput = {
 	/**  The page body as markdown. */
 	body: string,
 	/**  Other names the page answers to. */
-	aliases?: string[] | null,
+	aliases?: string[],
 	/**  Source references for the page. */
-	sources?: string[] | null,
+	sources?: string[],
 };
 
 /**  One paper as the merge reads and writes it (the TS `Paper`). */
@@ -4826,29 +4826,29 @@ export type MergePaper = {
 	/**  Authors, in order. */
 	authors?: string[],
 	/**  Publication year. */
-	year?: number | null,
+	year?: number,
 	/**  Venue. */
-	venue?: string | null,
+	venue?: string,
 	/**  DOI. */
-	doi?: string | null,
+	doi?: string,
 	/**  arXiv id. */
-	arxivId?: string | null,
+	arxivId?: string,
 	/**  Link. */
-	url?: string | null,
+	url?: string,
 	/**  Attached PDF path. */
-	pdfPath?: string | null,
+	pdfPath?: string,
 	/**  Abstract. */
-	abstract?: string | null,
+	abstract?: string,
 	/**  The reader's summary. */
-	summary?: string | null,
+	summary?: string,
 	/**  Reading status. */
 	status: PaperStatus,
 	/**  Rating, 1 to 5. */
-	rating?: number | null,
+	rating?: number,
 	/**  When the paper was read. */
-	readAt?: string | null,
+	readAt?: string,
 	/**  BibTeX entry. */
-	bibtex?: string | null,
+	bibtex?: string,
 	/**  Keyword tags. */
 	tags?: string[],
 	/**  Extensible bag for anything not modeled explicitly. */
@@ -4881,7 +4881,7 @@ export type MetricPoint = {
 	/**  The logged value. */
 	value: number,
 	/**  When the point was logged (ISO 8601), when recorded. */
-	wallTime?: string | null,
+	wallTime?: string,
 };
 
 /**  A forward-looking unit of the thesis plan (TS `Milestone`). */
@@ -5062,7 +5062,7 @@ export type ModelRequest = {
 	/**  The conversation, in order. */
 	messages: ModelMessage[],
 	/**  Passed through to the adapter; absent when not configured. */
-	model?: string | null,
+	model?: string,
 	/**  Extraction is a reading task, so sampling stays at zero. */
 	temperature: number,
 };
@@ -5108,9 +5108,9 @@ export type NewCommentInput = {
 	/**  The comment text. */
 	body: string,
 	/**  The passage commented on, if any. */
-	anchor?: CommentAnchor | null,
+	anchor?: CommentAnchor,
 	/**  The thread root this answers, if a reply. */
-	parentId?: string | null,
+	parentId?: string,
 };
 
 /**  Fields accepted when creating a log entry; the rest are defaulted (TS `NewLogEntryInput`). */
@@ -5118,11 +5118,11 @@ export type NewLogEntryInput = {
 	/**  Markdown body; blank after trimming is rejected. Missing reads as blank. */
 	body?: string,
 	/**  Calendar date; defaults to the date of `now`. */
-	entryDate?: string | null,
+	entryDate?: string,
 	/**  Defaults to `daily`. */
-	kind?: LogKind | null,
+	kind?: LogKind,
 	/**  Defaults to no links. */
-	links?: LogLink[] | null,
+	links?: LogLink[],
 };
 
 /**  A validated account request for a new lab member. */
@@ -5164,9 +5164,9 @@ export type NewPaperRelationInput = {
 	/**  The kind of relation. */
 	relation: RelationType,
 	/**  Optional free-text note. */
-	note?: string | null,
+	note?: string,
 	/**  How the edge was created; defaults to manual. */
-	source?: RelationSource | null,
+	source?: RelationSource,
 };
 
 /**  A local annotation before it is stored (TS `NewReaderAnnotation`, the fields the drafts set). */
@@ -5178,7 +5178,7 @@ export type NewReaderAnnotation = {
 	/**  Quoted or typed text; empty for ink and images, and when absent. */
 	text?: string,
 	/**  Comment; absent for drafts that take none. */
-	comment?: string | null,
+	comment?: string,
 	/**  Tags; absent means none. */
 	tags?: string[],
 	/**  Zero-based page index. */
@@ -5194,23 +5194,23 @@ export type NewReportSectionInput = {
 	/**  Title; required after trimming. */
 	title?: string | null,
 	/**  Outline number. */
-	sectionNo?: string | null,
+	sectionNo?: string,
 	/**  Parent section id. */
-	parentId?: string | null,
+	parentId?: string,
 	/**  Status; defaults to not started. */
-	status?: ReportStatus | null,
+	status?: ReportStatus,
 	/**  Words written; defaults to 0. */
-	wordCount?: number | null,
+	wordCount?: number,
 	/**  Words aimed for. */
-	targetWords?: number | null,
+	targetWords?: number,
 	/**  ISO date. */
-	deadline?: string | null,
+	deadline?: string,
 	/**  Draft link. */
-	draftUrl?: string | null,
+	draftUrl?: string,
 	/**  Free notes. */
-	notes?: string | null,
+	notes?: string,
 	/**  Order among siblings; defaults to 0. */
-	sortOrder?: number | null,
+	sortOrder?: number,
 };
 
 /**  A grant request (TS `NewShareInput`). `access` defaults to comment when absent. */
@@ -5222,7 +5222,7 @@ export type NewShareInput = {
 	/**  The item shared; `None` shares every item of the type. */
 	resourceId: string | null,
 	/**  The access level; absent means comment. */
-	access?: ShareAccess | null,
+	access?: ShareAccess,
 };
 
 /**  The newest stable desktop release: its version and page. */
@@ -5247,14 +5247,14 @@ export type NibSample = {
 
 /**  Per-kind colour overrides, as lower-case `#rrggbb`. Missing keys follow the palette. */
 export type NodeColors = {
-	paper?: string | null,
-	to_read?: string | null,
-	reading?: string | null,
-	read?: string | null,
-	skimmed?: string | null,
-	note?: string | null,
-	report?: string | null,
-	experiment?: string | null,
+	paper?: string,
+	to_read?: string,
+	reading?: string,
+	read?: string,
+	skimmed?: string,
+	note?: string,
+	report?: string,
+	experiment?: string,
 };
 
 /**  What a node stands for. */
@@ -5369,9 +5369,9 @@ export type OpenAccessCandidate = {
 	/**  The index that named it. */
 	source: OpenAccessSource,
 	/**  The licence, when the index gives one. */
-	license?: string | null,
+	license?: string,
 	/**  The version, such as published or accepted, when known. */
-	version?: string | null,
+	version?: string,
 };
 
 /**  How a copy is read: a PDF file, or a web page. */
@@ -5541,9 +5541,9 @@ export type OutlineReaderItem = {
 	/**  1-based page number, or null. */
 	pageNumber: number | null,
 	/**  Baseline y of the heading. */
-	y?: number | null,
+	y?: number,
 	/**  Child sections, present only when there are some. */
-	items?: OutlineReaderItem[] | null,
+	items?: OutlineReaderItem[],
 };
 
 /**  A recurring group with members as indices into the caller's array (wasm boundary form). */
@@ -5563,7 +5563,7 @@ export type OutlineTextItem = {
 	/**  Font size in user-space units. */
 	fontSize: number,
 	/**  pdf.js font name, used for bold detection. */
-	fontName?: string | null,
+	fontName?: string,
 	/**  Left edge. */
 	x: number,
 	/**  Baseline y. */
@@ -5571,7 +5571,7 @@ export type OutlineTextItem = {
 	/**  1-based page number. */
 	page: number,
 	/**  Set on text not laid out left to right, such as arXiv's vertical side stamp. */
-	rotated?: boolean | null,
+	rotated?: boolean,
 };
 
 /**  Held flags aligned with the input `notes` and `rows`, and the first reason per path. */
@@ -5758,7 +5758,7 @@ export type PageSelection = {
 	/**  Every page named that the document has, sorted and deduplicated. */
 	pages: number[],
 	/**  The lowest page named past the page count, if any. */
-	outOfRange?: number | null,
+	outOfRange?: number,
 };
 
 /**  One undoable step: a stroke, or a figure edit. */
@@ -5854,7 +5854,7 @@ export type PaneLeaf = {
 	/**  Index into `tabs`; clamped by every operation, never trusted on read. */
 	activeIndex: number,
 	/**  Tab groups in this pane, when any exist. */
-	groups?: TabGroup[] | null,
+	groups?: TabGroup[],
 };
 
 /**  A node in the pane tree: a leaf pane or a split of two nodes. */
@@ -5887,29 +5887,29 @@ export type Paper = {
 	/**  Author names. */
 	authors?: string[],
 	/**  Publication year. */
-	year?: number | null,
+	year?: number,
 	/**  Venue (journal or conference). */
-	venue?: string | null,
+	venue?: string,
 	/**  DOI. */
-	doi?: string | null,
+	doi?: string,
 	/**  arXiv id. */
-	arxivId?: string | null,
+	arxivId?: string,
 	/**  Web address. */
-	url?: string | null,
+	url?: string,
 	/**  Path of the stored PDF. */
-	pdfPath?: string | null,
+	pdfPath?: string,
 	/**  Abstract text. */
-	abstract?: string | null,
+	abstract?: string,
 	/**  The reader's own summary. */
-	summary?: string | null,
+	summary?: string,
 	/**  Reading status. */
 	status: PaperStatus,
 	/**  Rating, 1 to 5. */
-	rating?: number | null,
+	rating?: number,
 	/**  ISO date the paper was read. */
-	readAt?: string | null,
+	readAt?: string,
 	/**  BibTeX entry. */
-	bibtex?: string | null,
+	bibtex?: string,
 	/**  Keyword tags (normalized, no leading '#'). */
 	tags?: string[],
 	/**  The extensible metadata bag. */
@@ -5929,7 +5929,7 @@ export type PaperAnnotationInput = {
 	/**  Quoted text. */
 	text: string,
 	/**  The reader's note on the mark. */
-	comment?: string | null,
+	comment?: string,
 	/**  Where the mark sits in the document. */
 	anchor: QuoteAnchor,
 	/**  Page the mark sits on. */
@@ -6031,7 +6031,7 @@ export type PaperFieldRollupConfig = {
 	/**  How the related values are combined. */
 	agg: PaperFieldRollupAgg,
 	/**  Required for values/sum/avg: the related paper's field to aggregate. */
-	sourceFieldId?: string | null,
+	sourceFieldId?: string,
 };
 
 /**  One paper's value for one field, as the domain holds it. */
@@ -6128,7 +6128,7 @@ export type PaperRelation = {
 	/**  The kind of relation. */
 	relation: RelationType,
 	/**  Optional free-text note. */
-	note?: string | null,
+	note?: string,
 	/**  How the edge was created. */
 	source: RelationSource,
 	/**  Creation time, ISO 8601 UTC. */
@@ -6224,19 +6224,19 @@ export type PaperSummary = {
 	/**  Reading status. */
 	status: PaperStatus,
 	/**  Publication year. */
-	year?: number | null,
+	year?: number,
 	/**  ISO date the paper was read. */
-	readAt?: string | null,
+	readAt?: string,
 	/**  Path of the stored PDF. */
-	pdfPath?: string | null,
+	pdfPath?: string,
 	/**  DOI. */
-	doi?: string | null,
+	doi?: string,
 	/**  arXiv id. */
-	arxivId?: string | null,
+	arxivId?: string,
 	/**  Web address. */
-	url?: string | null,
+	url?: string,
 	/**  The reader's own summary. */
-	summary?: string | null,
+	summary?: string,
 	/**  Keyword tags. */
 	tags?: string[],
 	/**  Creation timestamp. */
@@ -6260,11 +6260,11 @@ export type PaperTagRowInput = {
 /**  `paper_update`: at least one of the three fields is present. */
 export type PaperUpdateInput = {
 	/**  New status. */
-	status?: string | null,
+	status?: string,
 	/**  New rating. */
-	rating?: number | null,
+	rating?: number,
 	/**  New tags. */
-	tags?: string[] | null,
+	tags?: string[],
 };
 
 /**  A reference found in markdown, with its source span (TS `ParsedArtifactRef`). */
@@ -6468,7 +6468,7 @@ export type PictureMeta = {
 	/**  The stored file. */
 	path: string,
 	/**  Crop insets, `[left, top, right, bottom]` in percent; absent is the whole image. */
-	crop?: [number, number, number, number] | null,
+	crop?: [number, number, number, number],
 	/**  Paint order among the page's pictures: higher is on top. */
 	z: number,
 };
@@ -6645,9 +6645,9 @@ export type PlanWikiPagesInput = {
 	/**  Titles already in the wiki; these are never proposed again. */
 	existingTitles?: string[],
 	/**  Concepts below this many mentions are not worth a page of their own. Defaults to 2. */
-	minMentions?: number | null,
+	minMentions?: number,
 	/**  Cap on the number of pages, with JS `slice` semantics (a negative value counts back from the end). Defaults to 25. */
-	maxPages?: number | null,
+	maxPages?: number,
 	/**  Document id to title, for the page's mention list. */
 	titles?: { [key in string]: string },
 };
@@ -6688,11 +6688,11 @@ export type PositionInput = {
 /**  Walk settings (TS `PprOptions` without the injected `rng`). Unset fields take the defaults. */
 export type PprOptions = {
 	/**  Walks per seed. */
-	numWalks?: number | null,
+	numWalks?: number,
 	/**  Steps per walk. */
-	maxSteps?: number | null,
+	maxSteps?: number,
 	/**  Teleport probability back to the seed. */
-	damping?: number | null,
+	damping?: number,
 };
 
 /**  PRISMA box counts, derived from the screening decisions every time they are asked for. */
@@ -6720,13 +6720,13 @@ export type PrismaCounts = {
 /**  Optional inputs to the figure. `Default` gives the TS defaults. */
 export type PrismaFigureOptions = {
 	/**  `\label{...}`, so the prose can `\ref` it. */
-	label?: string | null,
+	label?: string,
 	/**  Caption text, escaped on output. */
-	caption?: string | null,
+	caption?: string,
 	/**  Exclusion reasons, as `exclusionReasons` returns them. */
-	reasons?: ExclusionReasonCount[] | null,
+	reasons?: ExclusionReasonCount[],
 	/**  The database or register the records came from, if it is worth naming. */
-	source?: string | null,
+	source?: string,
 };
 
 /**
@@ -6767,7 +6767,7 @@ export type Project = {
 	/**  The project's display name. */
 	name: string,
 	/**  The project's colour, when set. */
-	color?: string | null,
+	color?: string,
 	/**  When the project was created. */
 	createdAt: string,
 };
@@ -6821,9 +6821,9 @@ export type ProposalDraft = {
 	/**  Source links; empty when none given. */
 	sourceLinks: string[],
 	/**  Expected revision, when given. */
-	expectedRevision?: string | null,
+	expectedRevision?: string,
 	/**  Evidence; present only when non-empty. */
-	evidence?: unknown[] | null,
+	evidence?: unknown[],
 };
 
 /**  The fields the caller supplies (TS `CreateAiProposalDraftUseCase.execute` input, after policy). */
@@ -6866,9 +6866,9 @@ export type ProposalLogEntryInput = {
 	/**  Entry text. */
 	body: string,
 	/**  Date of the entry. */
-	entryDate?: string | null,
+	entryDate?: string,
 	/**  Entry kind. */
-	kind?: string | null,
+	kind?: string,
 };
 
 /**  `milestone_follow_up`. */
@@ -6876,11 +6876,11 @@ export type ProposalMilestoneInput = {
 	/**  Milestone title. */
 	title: string,
 	/**  Milestone description. */
-	description?: string | null,
+	description?: string,
 	/**  Milestone status. */
-	status?: string | null,
+	status?: string,
 	/**  Target date. */
-	targetDate?: string | null,
+	targetDate?: string,
 };
 
 /**  A draft's preview split for a card: bold first line → title, "Why:" → reason. */
@@ -6914,15 +6914,15 @@ export type ProposalZoteroPaperInput = {
 	/**  Paper title. */
 	title: string,
 	/**  Author names. */
-	authors?: string[] | null,
+	authors?: string[],
 	/**  Publication year. */
-	year?: number | null,
+	year?: number,
 	/**  DOI. */
-	doi?: string | null,
+	doi?: string,
 	/**  Paper URL. */
-	url?: string | null,
+	url?: string,
 	/**  Abstract text. */
-	abstract?: string | null,
+	abstract?: string,
 };
 
 /**  Inputs to the fill prompt for one extraction column. */
@@ -7044,13 +7044,13 @@ export type QuoteSelector = {
 /**  R2 hot-tier fields, as read from env. */
 export type R2Fields = {
 	/**  Cloudflare account id. */
-	r2AccountId?: string | null,
+	r2AccountId?: string,
 	/**  R2 access key id. */
-	r2AccessKeyId?: string | null,
+	r2AccessKeyId?: string,
 	/**  R2 secret access key. */
-	r2SecretAccessKey?: string | null,
+	r2SecretAccessKey?: string,
 	/**  R2 bucket name. */
-	r2Bucket?: string | null,
+	r2Bucket?: string,
 };
 
 /**  The label and hint a rail group shows. */
@@ -7105,7 +7105,7 @@ export type ReaderAnnotation = {
 	/**  Quoted text, or the words of a text box. */
 	text: string,
 	/**  The reader's note on the mark. */
-	comment?: string | null,
+	comment?: string,
 	/**  Tags on the mark. */
 	tags: string[],
 	/**  Where the mark sits in the PDF. */
@@ -7117,7 +7117,7 @@ export type ReaderAnnotation = {
 	/**  Last-change time, as stored. */
 	updatedAt: string,
 	/**  Sync state of the mark, when tracked. */
-	syncState?: string | null,
+	syncState?: string,
 	/**  Zotero's version of the row; `null` until one exists. */
 	zoteroVersion?: number | null,
 };
@@ -7367,13 +7367,13 @@ export type ReadingList = {
 	/**  Display name, trimmed. */
 	name: string,
 	/**  Free text. */
-	description?: string | null,
+	description?: string,
 	/**  Parent list id for nesting; absent = top level. */
-	parentId?: string | null,
+	parentId?: string,
 	/**  Position among siblings. */
 	sortOrder: number,
 	/**  Display colour. */
-	color?: string | null,
+	color?: string,
 	/**  Creation time, ISO 8601 UTC. */
 	createdAt: string,
 };
@@ -7383,7 +7383,7 @@ export type ReadingListChangeInput = {
 	/**  Id of the reading list. */
 	listId: string,
 	/**  Note on the change. */
-	note?: string | null,
+	note?: string,
 	/**  What the change applies to. */
 	target: ReadingListTarget,
 };
@@ -7395,17 +7395,17 @@ export type ReadingListItem = {
 	/**  The list this row belongs to. */
 	listId: string,
 	/**  Paper id; exactly one of this and `vault_page_id` is set. */
-	paperId?: string | null,
+	paperId?: string,
 	/**  Vault page id; exactly one of this and `paper_id` is set. */
-	vaultPageId?: string | null,
+	vaultPageId?: string,
 	/**  Position among the list's items. */
 	sortOrder: number,
 	/**  Why this item is in this list. */
-	note?: string | null,
+	note?: string,
 	/**  Set when membership was propagated from a descendant list. */
-	inheritedFromListId?: string | null,
+	inheritedFromListId?: string,
 	/**  Set during screening when this item duplicates another in the same list. */
-	duplicateOfItemId?: string | null,
+	duplicateOfItemId?: string,
 };
 
 /**
@@ -7419,8 +7419,8 @@ export type ReadingListItemRow = {
 	vault_page_id: string | null,
 	sort_order: number,
 	note: string | null,
-	inherited_from_list_id?: string | null,
-	duplicate_of_item_id?: string | null,
+	inherited_from_list_id?: string,
+	duplicate_of_item_id?: string,
 };
 
 /**  A `reading_lists` row as stored. */
@@ -7623,9 +7623,9 @@ export type RelatedResult = {
 	/**  The method that ranked it first. */
 	arm: RelatedArm,
 	/**  Every method that found it, strongest first, when more than one ran. */
-	arms?: RelatedArm[] | null,
+	arms?: RelatedArm[],
 	/**  Cosine similarity to the seed, 0–1, when the meaning arm found it. */
-	similarity?: number | null,
+	similarity?: number,
 };
 
 /**  `relation`. */
@@ -7707,11 +7707,11 @@ export type ReportExperiment = {
 	/**  Display name, shown when an artifact is missing. */
 	name: string,
 	/**  Live artifact URLs or names. Absent counts as none. */
-	artifacts?: string[] | null,
+	artifacts?: string[],
 	/**  Current status, for the stale-running check. */
 	status: ExperimentStatus,
 	/**  First start, ISO 8601 UTC. */
-	startedAt?: string | null,
+	startedAt?: string,
 	/**  Creation time, ISO 8601 UTC. */
 	createdAt: string,
 };
@@ -7741,27 +7741,27 @@ export type ReportSection = {
 	/**  Title, trimmed. */
 	title: string,
 	/**  Outline number, e.g. "3.2". */
-	sectionNo?: string | null,
+	sectionNo?: string,
 	/**  Parent section id; absent = top level. */
-	parentId?: string | null,
+	parentId?: string,
 	/**  Writing status. */
 	status: ReportStatus,
 	/**  Words written. */
 	wordCount: number,
 	/**  Words aimed for. */
-	targetWords?: number | null,
+	targetWords?: number,
 	/**  ISO date (yyyy-mm-dd). */
-	deadline?: string | null,
+	deadline?: string,
 	/**  Overleaf / Google Doc / repo path. */
-	draftUrl?: string | null,
+	draftUrl?: string,
 	/**  Free notes. */
-	notes?: string | null,
+	notes?: string,
 	/**  Order among siblings. */
 	sortOrder: number,
 	/**  ISO creation time. */
 	createdAt: string,
 	/**  When the section last changed; absent until first read back. */
-	updatedAt?: string | null,
+	updatedAt?: string,
 };
 
 /**  A live report section, as the snapshot reads it (TS `ReportSection`, subset). */
@@ -7943,7 +7943,7 @@ export type ScreeningDecision = {
 	/**  What they decided. */
 	state: ScreeningState,
 	/**  Why. Expected for an exclusion at full text. */
-	reason?: string | null,
+	reason?: string,
 	/**  ISO time of the decision. */
 	decidedAt: string,
 };
@@ -7989,7 +7989,7 @@ export type ScreeningItem = {
 	/**  The `reading_list_items` row id. */
 	id: string,
 	/**  Marked as a duplicate of another record in the same list. */
-	duplicateOfItemId?: string | null,
+	duplicateOfItemId?: string,
 };
 
 /**  The two passes of a screen. Full text is only reached by surviving the first. */
@@ -8033,7 +8033,7 @@ export type SearchDoc = {
 	/**  In-app link. */
 	href: string,
 	/**  Zero-based PDF page, for `pdf` and `annotation` documents. */
-	page?: number | null,
+	page?: number,
 	/**  Wiki-graph link degree; zero when unknown. */
 	degree: number,
 };
@@ -8056,17 +8056,17 @@ export type SearchField =
 /**  Per-field overrides (TS `SearchFieldWeights`); an absent field keeps its default. */
 export type SearchFieldWeights = {
 	/**  Title override. */
-	title?: number | null,
+	title?: number,
 	/**  Aliases override. */
-	aliases?: number | null,
+	aliases?: number,
 	/**  Headings override. */
-	headings?: number | null,
+	headings?: number,
 	/**  Tags override. */
-	tags?: number | null,
+	tags?: number,
 	/**  Path override. */
-	path?: number | null,
+	path?: number,
 	/**  Body override. */
-	body?: number | null,
+	body?: number,
 };
 
 /**  Every entity kind the workspace index covers (TS `SEARCH_KINDS`). */
@@ -8096,15 +8096,15 @@ export type SearchKind =
  */
 export type SearchSettings = {
 	/**  Overrides for the field boosts; absent fields keep their default. */
-	weights?: SearchFieldWeights | null,
+	weights?: SearchFieldWeights,
 	/**  Kinds pushed down the results without being excluded. */
-	downrankedKinds?: SearchKind[] | null,
+	downrankedKinds?: SearchKind[],
 	/**  Recency tiebreak; on by default. */
-	recencyBoost?: boolean | null,
+	recencyBoost?: boolean,
 	/**  Fold diacritics when tokenizing; on by default. */
-	ignoreDiacritics?: boolean | null,
+	ignoreDiacritics?: boolean,
 	/**  Additionally fold Arabic harakat. */
-	ignoreArabicDiacritics?: boolean | null,
+	ignoreArabicDiacritics?: boolean,
 };
 
 /**  A report section in the report tree. */
@@ -8573,11 +8573,11 @@ export type SnappedShape = {
 /**  The paper metadata a source note is rendered from. */
 export type SourceNoteInput = {
 	title: string,
-	authors?: string[] | null,
-	year?: number | null,
-	venue?: string | null,
-	doi?: string | null,
-	citeKey?: string | null,
+	authors?: string[],
+	year?: number,
+	venue?: string,
+	doi?: string,
+	citeKey?: string,
 };
 
 /**
@@ -8652,21 +8652,21 @@ export type StorageConfig = {
 	/**  Promote a cold object to hot when it is read. */
 	promoteOnAccess: boolean,
 	/**  R2 account id. */
-	r2AccountId?: string | null,
+	r2AccountId?: string,
 	/**  R2 access key id. */
-	r2AccessKeyId?: string | null,
+	r2AccessKeyId?: string,
 	/**  R2 secret access key. */
-	r2SecretAccessKey?: string | null,
+	r2SecretAccessKey?: string,
 	/**  R2 bucket name. */
-	r2Bucket?: string | null,
+	r2Bucket?: string,
 	/**  MinIO / OCI cold-tier endpoint. */
-	coldEndpoint?: string | null,
+	coldEndpoint?: string,
 	/**  Cold-tier access key id. */
-	coldAccessKeyId?: string | null,
+	coldAccessKeyId?: string,
 	/**  Cold-tier secret access key. */
-	coldSecretAccessKey?: string | null,
+	coldSecretAccessKey?: string,
 	/**  Cold-tier bucket name. */
-	coldBucket?: string | null,
+	coldBucket?: string,
 };
 
 /**  The worker's build: documents plus per-paper page counts. */
@@ -8762,7 +8762,7 @@ export type TabGroup = {
 	/**  One of `GROUP_COLORS`. */
 	color: number,
 	/**  Only stored when true. */
-	collapsed?: boolean | null,
+	collapsed?: boolean,
 };
 
 /**  A change to a tab group: create, join, leave, collapse, rename, recolor or dissolve. */
@@ -8815,9 +8815,9 @@ export type TabRef = {
 	/**  Id of the document within its kind. */
 	id: string,
 	/**  Remembered per tab. Absent means the tab was never switched. */
-	mode?: DocumentMode | null,
+	mode?: DocumentMode,
 	/**  Id of a group in the same pane. */
-	group?: string | null,
+	group?: string,
 };
 
 /**  One tab's place in a strip: where a chip goes and which tabs fold away. */
@@ -8952,7 +8952,7 @@ p: number;
 /**  Comment body. */
 c: string; 
 /**  Optional thread id. */
-t?: string | null }) & { d?: never; i?: never };
+t?: string }) & { d?: never; i?: never };
 
 /**  One line of recognised text on a page, with the strokes it is written in. */
 export type TextLine = {
@@ -9043,7 +9043,7 @@ export type ThemeConfig = {
 	/**  Global animation duration multiplier, 0.5 to 2. */
 	motionScale: number,
 	/**  Whether paper and note cards lean a little; unset leaves it to the theme. */
-	cardTilt?: boolean | null,
+	cardTilt?: boolean,
 	/**
 	 *  CSS custom properties to set, keys with the leading `--`; every value is
 	 *  a string.
@@ -9124,17 +9124,17 @@ export type TitleFix = {
 	/**  The stored title. */
 	current: string,
 	/**  A title read back out of the stored one (a reference-manager filename). */
-	proposed?: string | null,
+	proposed?: string,
 	/**  The stored title names nothing and the paper has an identifier to look up. */
-	lookup?: TitleLookup | null,
+	lookup?: TitleLookup,
 };
 
 /**  Lookup identifiers for a title fix: what a metadata source can answer for. */
 export type TitleLookup = {
 	/**  Normalised DOI. */
-	doi?: string | null,
+	doi?: string,
 	/**  Trimmed arXiv id. */
-	arxivId?: string | null,
+	arxivId?: string,
 };
 
 /**  Where a dropped paper's title came from. */
@@ -9221,7 +9221,7 @@ export type UrlCheck = {
 	/**  True when the URL may be fetched. */
 	ok: boolean,
 	/**  Why it was refused, absent when `ok`. */
-	reason?: UrlRejection | null,
+	reason?: UrlRejection,
 };
 
 /**  The result of cleaning the URLs in a text. */
@@ -9273,57 +9273,57 @@ export type UrlRejection =
 /**  The appearance preferences that survived checking; absent fields are unset. */
 export type UserAppearance = {
 	/**  Light or dark mode. */
-	mode?: ThemeMode | null,
+	mode?: ThemeMode,
 	/**  Theme variant used in light mode. */
-	lightTheme?: string | null,
+	lightTheme?: string,
 	/**  Theme variant used in dark mode. */
-	darkTheme?: string | null,
+	darkTheme?: string,
 	/**  Icon and toggle button scale. */
-	controlSize?: ControlSize | null,
+	controlSize?: ControlSize,
 	/**  Surface separation. */
-	surfaces?: SurfaceStyle | null,
+	surfaces?: SurfaceStyle,
 	/**  Pointer-reactive animation layer. */
-	reactiveMotion?: boolean | null,
+	reactiveMotion?: boolean,
 	/**  Every animation's speed, one of [`ANIMATION_SPEEDS`]; absent means 1x. */
-	animationSpeed?: number | null,
+	animationSpeed?: number,
 	/**  Paper card status colour on the brutal and CRT themes. */
-	cardTint?: CardTint | null,
+	cardTint?: CardTint,
 	/**  CRT's leaning cards. */
-	cardTilt?: boolean | null,
+	cardTilt?: boolean,
 	/**  CRT's scanline overlay. */
-	scanlines?: boolean | null,
+	scanlines?: boolean,
 	/**  Uploaded theme: absent means unchanged, `null` means remove it. */
-	customTheme?: ThemeConfig | null,
+	customTheme?: ThemeConfig,
 };
 
 /**  The settings row (TS `UserSettings`), for the generated bindings. */
 export type UserSettings = {
 	/**  Provider-keyed credential bags; legacy flat columns stay in sync. */
-	integrations?: { [key in string]: { [key in string]: string } } | null,
+	integrations?: { [key in string]: { [key in string]: string } },
 	/**  Zotero Web API key. */
-	zoteroApiKey?: string | null,
+	zoteroApiKey?: string,
 	/**  Zotero library path, e.g. `users/123456`. */
-	zoteroLibrary?: string | null,
+	zoteroLibrary?: string,
 	/**  Semantic Scholar API key. */
-	semanticScholarKey?: string | null,
+	semanticScholarKey?: string,
 	/**  When the user accepted the disclaimer, ISO 8601. */
-	disclaimerAcceptedAt?: string | null,
+	disclaimerAcceptedAt?: string,
 	/**  Version of the accepted disclaimer. */
-	disclaimerVersion?: number | null,
+	disclaimerVersion?: number,
 	/**  Theme and control preferences. */
-	appearance?: UserAppearance | null,
+	appearance?: UserAppearance,
 	/**  Fail-closed AI assistant access. */
-	aiAccess?: AiAccessSettings | null,
+	aiAccess?: AiAccessSettings,
 	/**  Workspace search ranking. */
-	search?: SearchSettings | null,
+	search?: SearchSettings,
 };
 
 /**  `edit_vault_note`: the title and/or body to set. The body is kept as sent (untrimmed). */
 export type VaultNoteEditInput = {
 	/**  New title, when changed. */
-	title?: string | null,
+	title?: string,
 	/**  New body, when changed. */
-	body?: string | null,
+	body?: string,
 };
 
 /**  `create_vault_note`. */
@@ -9333,7 +9333,7 @@ export type VaultNoteInput = {
 	/**  Note body. */
 	body: string,
 	/**  Parent note id. */
-	parentId?: string | null,
+	parentId?: string,
 };
 
 /**  A full page: the summary plus its markdown body (TS `VaultPage`). */
@@ -9394,10 +9394,10 @@ export type VaultPageSide = {
 export type VaultPageSummary = {
 	id: string,
 	title: string,
-	bodyPreview?: string | null,
-	parentId?: string | null,
-	pinned?: boolean | null,
-	folder?: boolean | null,
+	bodyPreview?: string,
+	parentId?: string,
+	pinned?: boolean,
+	folder?: boolean,
 	sortOrder: number,
 	createdAt: string,
 	updatedAt: string,
@@ -9509,7 +9509,7 @@ export type WikiNote = {
 	/**  Note body as markdown. */
 	body: string,
 	/**  The note this one sits under, when it has a parent. */
-	parentId?: string | null,
+	parentId?: string,
 	/**  When the note was created, as an ISO timestamp. */
 	createdAt: string,
 };
@@ -9543,7 +9543,7 @@ export type WikiPageRef = {
 	/**  The page title; the index groups and sorts by it. */
 	title: string,
 	/**  Other names the page answers to. Absent or empty adds no `also` suffix. */
-	aliases?: string[] | null,
+	aliases?: string[],
 };
 
 /**  The paper fields a source document reads: the abstract and the reader's summary. */
@@ -9553,9 +9553,9 @@ export type WikiPaper = {
 	/**  Paper title. */
 	title: string,
 	/**  The paper's abstract, when known. */
-	abstract?: string | null,
+	abstract?: string,
 	/**  The reader's own summary, when written. */
-	summary?: string | null,
+	summary?: string,
 };
 
 /**  One note or paper the concept extractor reads (TS `ExtractionDocument`). */
@@ -9667,11 +9667,11 @@ export type WorkspaceTreeNode = {
 	/**  What the row is. */
 	kind: TreeNodeKind,
 	/**  The entity's id. Absent on a grouping row. */
-	id?: string | null,
+	id?: string,
 	/**  The text the user sees. */
 	label: string,
 	/**  The entity's title, where the label is not it (a paper's two files). */
-	title?: string | null,
+	title?: string,
 	/**  The mirrored path: a tooltip, and what quick open matches. */
 	path: string,
 	/**  Child rows, in display order. */
@@ -9683,9 +9683,9 @@ export type WorkspaceTreeNode = {
 	/**  Inherited from a parent list. */
 	inherited?: boolean,
 	/**  The label of the list an inherited row came from. */
-	inheritedFrom?: string | null,
+	inheritedFrom?: string,
 	/**  An Outline heading level. Not produced here; kept so the row shape matches the TypeScript type. */
-	headingLevel?: number | null,
+	headingLevel?: number,
 	/**  A note made as a folder: it holds notes and folders and opens nothing. */
 	folder?: boolean,
 };
@@ -9720,25 +9720,25 @@ export type WriteScope = {
 /**  A Zotero annotation or note as the app caches it (TS `ZoteroAnnotation`). */
 export type ZoteroAnnotation = {
 	/**  Key. */
-	key?: string | null,
+	key?: string,
 	/**  Kind. */
 	kind: ZoteroAnnotationKind,
 	/**  Text. */
-	text?: string | null,
+	text?: string,
 	/**  Comment. */
-	comment?: string | null,
+	comment?: string,
 	/**  Color. */
-	color?: string | null,
+	color?: string,
 	/**  Page. */
-	page?: string | null,
+	page?: string,
 	/**  Tags. */
 	tags: string[],
 	/**  Annotation type. */
-	annotationType?: ZoteroAnnotationType | null,
+	annotationType?: ZoteroAnnotationType,
 	/**  Annotation position. */
-	annotationPosition?: ZoteroAnnotationPosition | null,
+	annotationPosition?: ZoteroAnnotationPosition,
 	/**  Annotation sort index. */
-	annotationSortIndex?: string | null,
+	annotationSortIndex?: string,
 };
 
 /**  What a sync should do with one annotation (TS `AnnotationSyncDecision`). */
@@ -9867,9 +9867,9 @@ export type ZoteroAnnotationLocal = {
 	/**  ISO update time. */
 	updatedAt: string,
 	/**  Absent until sync touches the row. */
-	syncState?: ZoteroAnnotationSyncState | null,
+	syncState?: ZoteroAnnotationSyncState,
 	/**  Absent, `null`, or Zotero's version for the item. */
-	zoteroVersion?: number | null,
+	zoteroVersion?: number,
 };
 
 /**  Zotero's annotation provenance (TS `AnnotationOrigin`). */
@@ -9884,11 +9884,11 @@ export type ZoteroAnnotationPosition = {
 	/**  Page index. */
 	pageIndex: number,
 	/**  `[x1, y1, x2, y2]` per line box, on `page_index`. */
-	rects?: number[][] | null,
+	rects?: number[][],
 	/**  Tail of a highlight that crosses a page break, on `page_index + 1`. */
-	nextPageRects?: number[][] | null,
+	nextPageRects?: number[][],
 	/**  Ink strokes as flat point lists. */
-	paths?: number[][] | null,
+	paths?: number[][],
 };
 
 /**  The Zotero-side copy of an annotation (TS `ZoteroAnnotationRemote`). */
@@ -9964,7 +9964,7 @@ export type ZoteroAnnotationWritePayload = {
 	/**  Annotation type. */
 	annotationType: ZoteroAnnotationType,
 	/**  Only on highlights and underlines. */
-	annotationText?: string | null,
+	annotationText?: string,
 	/**  Comment. */
 	annotationComment: string,
 	/**  Colour. */
@@ -9980,11 +9980,11 @@ export type ZoteroAnnotationWritePayload = {
 /**  One creator as Zotero stores it: a single `name`, or first and last name. */
 export type ZoteroCreator = {
 	/**  Given name. */
-	firstName?: string | null,
+	firstName?: string,
 	/**  Family name. */
-	lastName?: string | null,
+	lastName?: string,
 	/**  Whole name, for institutions and single-field creators. */
-	name?: string | null,
+	name?: string,
 };
 
 /**  A creator as written to Zotero: always an author. */
@@ -9992,11 +9992,11 @@ export type ZoteroExportCreator = {
 	/**  Creator role; always `author` here. */
 	creatorType: string,
 	/**  Given name. */
-	firstName?: string | null,
+	firstName?: string,
 	/**  Family name. */
-	lastName?: string | null,
+	lastName?: string,
 	/**  Whole name, when it could not be split. */
-	name?: string | null,
+	name?: string,
 };
 
 /**  The `journalArticle` item written to Zotero for a paper. */
@@ -10024,27 +10024,27 @@ export type ZoteroExportItem = {
 /**  The item fields WeaveForge reads from a Zotero item. Zotero returns more; these are ours. */
 export type ZoteroItem = {
 	/**  Zotero item key. */
-	key?: string | null,
+	key?: string,
 	/**  Zotero item type (`journalArticle`, `attachment`, ...). */
-	itemType?: string | null,
+	itemType?: string,
 	/**  Key of the bibliography entry a child item (attachment, note) hangs off. */
-	parentItem?: string | null,
+	parentItem?: string,
 	/**  Title. */
-	title?: string | null,
+	title?: string,
 	/**  Creators, in order. */
 	creators?: ZoteroCreator[],
 	/**  Journal or venue name. */
-	publicationTitle?: string | null,
+	publicationTitle?: string,
 	/**  Date as Zotero stores it (free text, usually containing a year). */
-	date?: string | null,
+	date?: string,
 	/**  DOI. */
-	DOI?: string | null,
+	DOI?: string,
 	/**  Link. */
-	url?: string | null,
+	url?: string,
 	/**  Abstract. */
-	abstractNote?: string | null,
+	abstractNote?: string,
 	/**  Free-text `extra` field (carries `arXiv:<id>` lines). */
-	extra?: string | null,
+	extra?: string,
 };
 
 /**  The `data` object of a Zotero item. */
@@ -10096,19 +10096,19 @@ export type ZoteroPaperInput = {
 	/**  Authors, in order. */
 	authors?: string[],
 	/**  Venue. */
-	venue?: string | null,
+	venue?: string,
 	/**  Publication year. */
-	year?: number | null,
+	year?: number,
 	/**  DOI. */
-	doi?: string | null,
+	doi?: string,
 	/**  arXiv id. */
-	arxivId?: string | null,
+	arxivId?: string,
 	/**  Link. */
-	url?: string | null,
+	url?: string,
 	/**  Abstract. */
-	abstract?: string | null,
+	abstract?: string,
 	/**  Metadata bag (the Zotero key, for a row created from an item). */
-	metadata?: { [key in string]: unknown } | null,
+	metadata?: { [key in string]: unknown },
 };
 
 /**  A Zotero annotation as a reader annotation (TS `ReaderAnnotation` with `origin: "zotero"`). */

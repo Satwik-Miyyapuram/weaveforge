@@ -56,7 +56,7 @@ test("every layer of the sheet is in the document, in the sheet's order", () => 
 });
 
 test("a page with no ink and no text prints its paper and figures alone", () => {
-  const html = readyCore().inkPrintDocument({ ...base, inkUrl: null, underlayHtml: "" });
+  const html = readyCore().inkPrintDocument({ ...base, inkUrl: undefined, underlayHtml: "" });
   assert.ok(!html.includes("ink-print-ink"));
   assert.ok(!html.includes("ink-sheet-text-underlay"));
   assert.ok(html.includes('class="ink-figure"'));
