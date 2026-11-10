@@ -10,7 +10,7 @@ ports, and use-case orchestration.
 | Share grant, comment, share-link rules (pure) | Rust | `crates/wf-core/src/sharing.rs` |
 | Wasm exports (`shareableTypes`, `crdtEditableShareTypes`, `shareLinkDefaultTtlDays`, plus the row/rule functions) | Rust | `crates/wf-wasm/src/sharing.rs` |
 | Typed wasm wrappers | TS | `packages/wf-wasm/src/sharing.ts` |
-| Shared types and `*Fns` contracts | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts` |
+| Shared types and `*Fns` contracts | TS (hand-declared mirror) | `packages/core/src/shared/contract/sharing.ts` (re-exported by `core-contract.ts`) |
 | Validation error classes | TS | `packages/core/src/shared/errors.ts` |
 | Repository ports | TS | `packages/core/src/features/sharing/domain/*-repository.ts` |
 | Use cases | TS (thin) | `packages/core/src/features/sharing/application/*.use-case.ts` |
@@ -65,10 +65,8 @@ It no longer exports the old domain classes or the removed constants.
 
 ## Deleted
 
-- `packages/core/src/features/sharing/domain/share.ts`
-- `packages/core/src/features/sharing/domain/comment.ts`
-- `packages/core/src/features/sharing/domain/share-link.ts`
-- `packages/core/src/features/sharing/domain/share-link-token.ts`
+The whole `domain/` folder (the share, comment, share-link and share-link-token
+classes). Their rules live in `crates/wf-core` now.
 
 ## Still TS (thin)
 

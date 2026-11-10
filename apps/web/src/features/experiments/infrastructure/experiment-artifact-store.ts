@@ -40,7 +40,7 @@ export class ExperimentArtifactStore {
    */
   async upload(experimentId: string, file: File): Promise<string> {
     const userId = await this.session.requireUserId();
-    const path = `${userId}/${experimentId}/${crypto.randomUUID()}/${safeName(file.name)}`;
+    const path = `${userId}/${experimentId}/${crypto.randomUUID()}/${readyCore().safeName(file.name)}`;
     await this.blobs.upload(BUCKET, path, file, file.type || "application/octet-stream");
     return path;
   }
@@ -58,7 +58,7 @@ export class ExperimentArtifactStore {
 
     const byPath = new Map(paths.map((path, index) => [path, signed[index] ?? null]));
     return entries.map((entry) =>
-      readyCore().isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : (byPath.get(entry) ?? null),
+      readyCore().isAbsoluteUrl(entry) ? readyCore().viewableArtifactUrl(entry, isTauriShell()) : (byPath.get(entry) ?? null),
     );
   }
 }
@@ -66,32 +66,4 @@ export class ExperimentArtifactStore {
 /** True inside the Tauri shell, which defines `__TAURI_INTERNALS__` on the page. */
 export function isTauriShell(scope: object = globalThis): boolean {
   return "__TAURI_INTERNALS__" in scope;
-}
-
-/**
- * The URL to render for a stored entry. The Tauri shell serves desktop-local
- * uploads on the page's own origin under `/artifacts/`, because its webview
- * cannot load the separate `app://artifacts` origin that Electron records.
- * The path must be exactly `{experiment}/{folder}/{name}` of safe segments,
- * or null: the browser resolves `..` and `%2e%2e` before the request leaves,
- * so an unchecked entry could reach any route on the app origin. The prefix
- * matches `SAME_ORIGIN_PREFIX` in `apps/shell/src/local_artifacts.rs`.
- */
-export function viewableArtifactUrl(
-  entry: string,
-  inShell: boolean = isTauriShell(),
-): string | null {
-  return readyCore().viewableArtifactUrl(entry, inShell);
-}
-
-/**
- * A filename that is safe as one storage key segment.
- *
- * Anything outside the allowlist becomes a dash, which is enough: the name is
- * a label, not an identifier, and the uuid above it is what makes the key
- * unique. A name that reduces to nothing gets one, because a key must not end
- * in an empty segment.
- */
-export function safeName(name: string): string {
-  return readyCore().safeName(name);
 }
