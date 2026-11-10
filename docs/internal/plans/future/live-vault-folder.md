@@ -142,7 +142,7 @@ and it keeps itself up to date from then on.
       import can only see that two copies differ, and cannot tell an edit made
       out there from one made in here. Version 1 manifests still read, and yield
       no base, so those folders behave exactly as they did before
-- [x] `changedSide` in `packages/core/src/workspace/change-origin.ts` reads the
+- [x] `changedSide` in `crates/wf-core/src/sync/change_origin.rs` reads the
       three digests and answers `folder`, `workspace`, `both`, `neither`, or
       `unknown`. `diffWorkspace` takes it as an optional `origin` and uses it:
       a folder edit is an update, a workspace edit is *not* something to import
