@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { engineStartParams, LOCAL_DB_SHARED_BUFFERS } from "../src/local-db-engine-params";
+import { rust } from "@weaveforge/core";
+import { localDbSharedBuffers } from "@weaveforge/wasm";
 
 describe("local-db-engine-params", () => {
   it("keeps every default in order, ends with -c shared_buffers=32MB, and does not mutate input", () => {
     const defaults = Object.freeze(["-X", "custom", "--debug"]);
-    const result = engineStartParams(defaults);
+    const result = rust().engineStartParams(defaults);
 
     assert.deepEqual(result.slice(0, defaults.length), ["-X", "custom", "--debug"]);
-    assert.deepEqual(result.slice(-2), ["-c", `shared_buffers=${LOCAL_DB_SHARED_BUFFERS}`]);
+    assert.deepEqual(result.slice(-2), ["-c", `shared_buffers=${localDbSharedBuffers()}`]);
     assert.equal(result.slice(-1)[0], "shared_buffers=32MB");
     assert.equal(result.length, defaults.length + 2);
     assert.notEqual(result, defaults);
@@ -18,7 +19,7 @@ describe("local-db-engine-params", () => {
 
   it("applies shared_buffers=32MB to an in-memory engine and round trips a row", async () => {
     const client = await PGlite.create({
-      startParams: engineStartParams(PGlite.defaultStartParams),
+      startParams: rust().engineStartParams(PGlite.defaultStartParams),
     });
     try {
       const buffers = await client.query<{ shared_buffers: string }>("show shared_buffers");

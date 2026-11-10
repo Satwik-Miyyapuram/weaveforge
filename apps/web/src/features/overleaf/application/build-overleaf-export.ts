@@ -1,5 +1,4 @@
 import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
-import { resolveResultsTables } from "@/features/report/application/results-table-refs";
 import { PRISMA_FIGURE_PACKAGES } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 import { paperCiteKeys } from "@weaveforge/wasm";
@@ -34,7 +33,7 @@ function withResultsTables(
   return nodes.map((node) => ({
     ...node,
     section: node.section.notes
-      ? { ...node.section, notes: resolveResultsTables(node.section.notes, experiments, "latex") }
+      ? { ...node.section, notes: readyCore().resolveResultsTables(node.section.notes, experiments, "latex") }
       : node.section,
     children: withResultsTables(node.children, experiments),
   }));

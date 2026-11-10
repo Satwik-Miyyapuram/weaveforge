@@ -26,7 +26,6 @@ export {
   type VaultPageBase,
   type WorkspaceJsonKind,
 } from "./shared/rust.js";
-export * from "./shared/text.js";
 export * from "./shared/three-way-merge.js";
 export type { CoreContract } from "./shared/core-contract.js";
 export * from "./config/index.js";

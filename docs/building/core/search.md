@@ -52,6 +52,9 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `semantic-search.ts` calls `readyCore().searchRevision` and
 `readyCore().planEmbeddingStart`, and `vector-store.ts` calls
 `readyCore().packVectors`.
+- `chunkForEmbedding` (text-chunks): `apps/web/src/features/search/application/semantic-index.ts` calls `readyCore().chunkForEmbedding` at lines 137 and 254. The TS types now live in `packages/core/src/shared/core-contract.ts`.
+- `personalizedPageRank` / `relatedByPpr` (personalized-pagerank): no app caller yet. Types now live in `packages/core/src/shared/core-contract.ts`.
+- `acronymsForTitle` (search-acronyms) and `HYBRID_VECTOR_WEIGHT` / `stripStopwords` / `coveredHits` / `gateVectorHits` (hybrid-fusion): no app TS caller; the types moved inline into `packages/core/src/shared/core-contract.ts`, and the two TS files are marked DELETE.
 
 ## What stays in TypeScript, and why
 

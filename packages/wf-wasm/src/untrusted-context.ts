@@ -1,7 +1,7 @@
 /**
  * Untrusted-context fencing (Rust `ai::untrusted_context`), re-exported from index.ts. Each
- * function keeps the signature of packages/core/src/features/ai-assistant/domain/
- * untrusted-context.ts, except `contextNonce`, which is not ported.
+ * function keeps the signature of the removed TS untrusted-context module. `contextNonce`
+ * lives in core-extra.ts.
  */
 import {
   fenceUntrusted as rawFenceUntrusted,

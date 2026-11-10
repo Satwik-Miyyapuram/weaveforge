@@ -3,7 +3,6 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
 import { DEFAULT_FETCH_LIMITS, type OutboundFetchLimits } from "@weaveforge/core";
-import { describeRejection } from "./rejection-copy";
 import { formatError } from "@/lib/format-error";
 import { readCapped as readBody } from "@/lib/read-capped";
 import { typedCore } from "@/lib/rust-core";
@@ -217,7 +216,7 @@ export async function checkUrlReachable(
 ): Promise<{ ok: true; address: string; family: 4 | 6 } | SafeFetchFailure> {
   const shape = typedCore().checkUrlShape(url);
   if (!shape.ok) {
-    return { ok: false, kind: "refused", status: 400, message: describeRejection(shape.reason!) };
+    return { ok: false, kind: "refused", status: 400, message: typedCore().describeUrlRejection(shape.reason!) };
   }
 
   let addresses: string[];
@@ -240,7 +239,7 @@ export async function checkUrlReachable(
       ok: false,
       kind: "refused",
       status: 400,
-      message: describeRejection("private-address"),
+      message: typedCore().describeUrlRejection("private-address"),
     };
   }
   const address = addresses[0]!;
@@ -284,7 +283,7 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
     // port, so a colon followed by a digit does not count.
     url = new URL(/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(input.trim()) ? input.trim() : `https://${input.trim()}`);
   } catch {
-    return { ok: false, kind: "refused", status: 400, message: describeRejection("not-a-url") };
+    return { ok: false, kind: "refused", status: 400, message: typedCore().describeUrlRejection("not-a-url") };
   }
 
   for (let hop = 0; hop <= limits.maxRedirects; hop++) {

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
-import { encodeBase64, encodeBytea } from "@/lib/bytea";
+
 import { formatError } from "@/lib/format-error";
 import { randomBytes } from "@/lib/system";
 import { readyCore } from "@/lib/rust-core";
@@ -86,7 +86,7 @@ export class PlanFeedLinks {
    */
   async create(): Promise<{ link: PlanFeedLink; token: string }> {
     const userId = await this.session.requireUserId();
-    const body = encodeBase64(await randomBytes(32)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const body = readyCore().encodeBase64(await randomBytes(32)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const token = `${TOKEN_PREFIX}${body}`;
     const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
     const { data, error } = await this.db
@@ -94,7 +94,7 @@ export class PlanFeedLinks {
       .insert({
         user_id: userId,
         name: "Calendar and widget link",
-        token_hash: encodeBytea(hash),
+        token_hash: readyCore().encodeBytea(hash),
         token_prefix: `${token.slice(0, TOKEN_PREFIX.length + 8)}…`,
         scopes: [PLAN_FEED_SCOPE],
         expires_at: null,

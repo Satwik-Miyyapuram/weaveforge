@@ -7,7 +7,6 @@ import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { Select } from "@/components/select";
 import { readyCore } from "@/lib/rust-core";
-import { serialiseResultsTableRef } from "../application/results-table-refs";
 import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
 
@@ -120,7 +119,7 @@ export function ExperimentArtifactPicker({
   function insertTable() {
     if (tableIds.length === 0) return;
     // Keep the experiments list order, not the tick order.
-    onInsert(serialiseResultsTableRef(experiments.map((e) => e.id).filter((id) => tableIds.includes(id))));
+    onInsert(readyCore().serialiseResultsTableRef(experiments.map((e) => e.id).filter((id) => tableIds.includes(id))));
     onClose();
   }
 

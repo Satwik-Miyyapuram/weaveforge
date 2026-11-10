@@ -3,6 +3,7 @@
 
 pub mod ai;
 pub mod auth_transition;
+pub mod bytea;
 pub mod cache_invalidation;
 pub mod card_snippet;
 pub mod collab;
@@ -18,6 +19,7 @@ pub mod integrations;
 pub mod js_collate;
 pub mod lab_snapshot;
 pub mod latex_section_tree;
+pub mod local_db_engine_params;
 pub mod logbook;
 pub mod markdown_figure_alt;
 pub mod markdown_image_refs;

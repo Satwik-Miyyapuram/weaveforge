@@ -14,7 +14,6 @@ import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { LOG_IMAGE_PREFIX } from "../lib/log-image-ref";
 import { LogbookFacade } from "@/container/facades/logbook";
-import { BLOB_STORAGE_BUCKETS } from "@/storage/server/blob-access";
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../../../${rel}`, import.meta.url)), "utf8");
 
@@ -30,7 +29,7 @@ test("a log image is written and read back as a logimg: reference", () => {
 });
 
 test("the blob routes accept the log-images bucket", () => {
-  assert.ok(BLOB_STORAGE_BUCKETS.includes("log-images"));
+  assert.ok(readyCore().blobStorageBuckets().includes("log-images"));
 });
 
 test("the logbook facade stores an image under the entry", async () => {

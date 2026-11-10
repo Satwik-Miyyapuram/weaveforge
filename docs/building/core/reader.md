@@ -1,3 +1,4 @@
+- Zotero projection: the app calls `readyCore().projectZoteroAnnotations` directly from `paper-pdf-pane.tsx`. The TS wrapper `project-zotero-annotations.ts` was removed (batch 7).
 # Reader core (`reader`)
 
 The `reader` module holds the pure rules behind the PDF reader: where an

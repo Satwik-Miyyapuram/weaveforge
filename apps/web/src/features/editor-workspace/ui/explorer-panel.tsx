@@ -26,7 +26,7 @@ import {
   writeSections,
   type ExplorerSection,
 } from "../application/explorer-state";
-import { EXPLORER_ROW_PX, rowSlots } from "../application/explorer-window";
+import { EXPLORER_ROW_METRICS, EXPLORER_ROW_PX } from "./explorer-window-constants";
 import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import type { TreeNodeKind, VisibleRow, WorkspaceTreeNode } from "@weaveforge/wasm";
@@ -493,10 +493,11 @@ export function ExplorerPanel({
                   hidden={!open}
                   data-section-rows={section.id}
                 >
-                  {rowSlots(
+                  {readyCore().rowSlots(
                     rows.length,
                     views?.[section.id] ?? null,
                     rows.flatMap((row, i) => (pinnedKeys.has(row.node.key) ? [i] : [])),
+                    EXPLORER_ROW_METRICS,
                   ).map((slot, s) => {
                     if (slot.kind === "gap") {
                       return (

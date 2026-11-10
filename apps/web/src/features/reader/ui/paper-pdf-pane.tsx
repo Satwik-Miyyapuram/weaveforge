@@ -39,7 +39,6 @@ import {
 } from "../application/pdf-download-consent";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
-import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
 import { readyCore } from "@/lib/rust-core";
 import type { ZoteroAnnotation } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
@@ -188,7 +187,7 @@ export function PaperPdfPane({
         setContentHash(hash);
 
         const rawAnns = (paper.metadata?.["annotations"] as ZoteroAnnotation[] | undefined) ?? [];
-        const projected = projectZoteroAnnotations(rawAnns, { contentHash: hash });
+        const projected = readyCore().projectZoteroAnnotations(rawAnns, { contentHash: hash }) as ReaderAnnotation[];
         let local: ReaderAnnotation[] = [];
         try {
           local = await getContainer().papers.listReaderAnnotations(paper.id);

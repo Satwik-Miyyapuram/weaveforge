@@ -1,45 +1,28 @@
-/**
- * Live results tables in report notes: `![caption](exptable:id1,id2)` becomes a
- * runs × metrics table, as Markdown in the preview and as a LaTeX figure block
- * in the Overleaf export, rebuilt from the experiments each time.
- */
-import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import type { Experiment } from "@weaveforge/core";
-import { loadTestCore } from "@/lib/test/load-test-core";
-import { readyCore } from "@/lib/rust-core";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { initSync } from "../src/index.js";
 import {
   parseResultsTableRefs,
   resolveResultsTables,
-  resultsTableLatex,
-  resultsTableMarkdown,
   serialiseResultsTableRef,
-} from "../application/results-table-refs";
+} from "../src/report-results-tables.js";
+import type { ResultsTableExperiment } from "../src/report-results-tables.js";
 
-before(async () => {
-  await loadTestCore();
+const pkgDir = new URL("../pkg/", import.meta.url);
+
+before(() => {
+  initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
 });
 
-function exp(id: string, name: string, metrics: Record<string, unknown>): Experiment {
-  return { id, name, status: "done", config: {}, metrics, artifacts: [], createdAt: "2026-01-01T00:00:00.000Z" };
+function exp(id: string, name: string, metrics: Record<string, unknown>) {
+  const run = { id, name, status: "done", config: {}, metrics, artifacts: [], createdAt: "2026-01-01T00:00:00.000Z" };
+  const typed: ResultsTableExperiment = run;
+  return typed;
 }
 
 const A = exp("a", "baseline", { acc: 0.9, loss: 0.25 });
 const B = exp("b", "big|lr", { acc: 0.95, f1: 0.8 });
-
-test("metricKeysOf is the sorted union of every run's metric names", () => {
-  assert.deepEqual(readyCore().metricKeysOf([A, B]), ["acc", "f1", "loss"]);
-  assert.deepEqual(readyCore().metricKeysOf([]), []);
-});
-
-test("resultsTable has a Run column, one row per run, and — for a missing metric", () => {
-  const t = readyCore().resultsTable([A, B]);
-  assert.deepEqual(t.header, ["Run", "acc", "f1", "loss"]);
-  assert.equal(t.rows.length, 2);
-  assert.equal(t.rows[0]![0], "baseline");
-  assert.equal(t.rows[0]![2], "—");
-  assert.equal(t.rows[1]![3], "—");
-});
 
 test("serialise and parse round-trip ids and caption", () => {
   const md = `Intro ${serialiseResultsTableRef(["a", "b,c"], "Main [results]")} end`;
@@ -50,13 +33,17 @@ test("serialise and parse round-trip ids and caption", () => {
   assert.equal(md.slice(refs[0]!.start, refs[0]!.end), refs[0]!.raw);
 });
 
+test("serialise uses Results as the default caption", () => {
+  assert.equal(serialiseResultsTableRef(["a"]), "![Results](exptable:a)");
+});
+
 test("parse ignores expartifact refs, empty id lists and plain images", () => {
   const md = "![x](expartifact:a/loss.png) ![y](exptable:) ![z](https://e.org/t.png)";
   assert.deepEqual(parseResultsTableRefs(md), []);
 });
 
 test("markdown table escapes pipes and is a GFM table", () => {
-  const md = resultsTableMarkdown(readyCore().resultsTable([A, B]), "Results");
+  const md = resolveResultsTables(serialiseResultsTableRef(["a", "b"], "Results"), [A, B], "markdown");
   const lines = md.split("\n");
   assert.ok(lines.includes("| Run | acc | f1 | loss |"), md);
   assert.ok(lines.includes("| --- | --- | --- | --- |"), md);
@@ -64,14 +51,14 @@ test("markdown table escapes pipes and is a GFM table", () => {
   assert.ok(md.startsWith("**Results**"), md);
 });
 
-test("latex table is a figure block (so the converter passes it through) with escaped cells", () => {
-  const tex = resultsTableLatex(readyCore().resultsTable([A, B]), "Results & more");
+test("latex table is a figure block with escaped cells and caption", () => {
+  const tex = resolveResultsTables(serialiseResultsTableRef(["a", "b"], "Results & more"), [A, B], "latex");
   const lines = tex.split("\n");
   assert.equal(lines[0], "\\begin{figure}[ht]");
   assert.equal(lines.at(-1), "\\end{figure}");
   assert.ok(tex.includes("\\begin{tabular}{lrrr}"), tex);
   assert.ok(tex.includes("Run & acc & f1 & loss \\\\"), tex);
-  assert.ok(tex.includes("big\\textbar{}lr") || tex.includes("big\\textbar lr"), tex);
+  assert.ok(tex.includes("big\\textbar{}lr"), tex);
   assert.ok(tex.includes("\\caption{Results \\& more}"), tex);
 });
 
@@ -93,5 +80,6 @@ test("resolve: unknown ids are skipped; none found is a warning, not a table", (
 });
 
 test("resolve leaves a body without table refs untouched", () => {
-  assert.equal(resolveResultsTables("plain ![x](expartifact:a/b.png)", [A], "latex"), "plain ![x](expartifact:a/b.png)");
+  const body = "plain ![x](expartifact:a/b.png)";
+  assert.equal(resolveResultsTables(body, [A], "latex"), body);
 });

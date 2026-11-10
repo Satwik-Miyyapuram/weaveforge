@@ -3,8 +3,7 @@
 import { formatDateTime } from "@/lib/format-date";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
+import type { AiEvidence, AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
 import { Markdown } from "@/components/markdown/markdown";
@@ -144,7 +143,7 @@ function approveLabel(item: AiWriteProposal): string {
 /** One piece of claim-level provenance: excerpt with the used sentence lit up. */
 function EvidencePane({ evidence }: { evidence: AiEvidence }) {
   const highlight = useMemo(
-    () => highlightWithinExcerpt(evidence.excerpt, evidence.locus),
+    () => readyCore().highlightWithinExcerpt(evidence.excerpt, evidence.locus),
     [evidence.excerpt, evidence.locus],
   );
   const link = useMemo(() => {

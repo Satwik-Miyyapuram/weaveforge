@@ -10,14 +10,13 @@
 import { app, dialog } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { WORKSPACE_META_DIR } from "@weaveforge/core";
+import { rust, WORKSPACE_META_DIR } from "@weaveforge/core";
 import { CHANNELS } from "../../shell/sidecar/src/channels";
 import { collectGarbage } from "./collect-garbage";
 import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 import type { LocalClient } from "../../shell/sidecar/src/local-db";
 import { LocalDbBackups, readBackup } from "../../shell/sidecar/src/local-db-backup";
 import { dumpOnDisk } from "../../shell/sidecar/src/local-db-tar";
-import { engineStartParams } from "../../shell/sidecar/src/local-db-engine-params";
 import { LocalDbHost } from "../../shell/sidecar/src/local-db-host";
 import { openWithRetry } from "../../shell/sidecar/src/local-db-retry";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
@@ -103,7 +102,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
     return (await PGlite.create({
       dataDir: dir,
       ...(loadDataDir ? { loadDataDir } : {}),
-      startParams: engineStartParams(PGlite.defaultStartParams),
+      startParams: rust().engineStartParams(PGlite.defaultStartParams),
     })) as unknown as LocalClient;
   }
 
@@ -190,7 +189,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         [types.TIMESTAMPTZ]: (x) => new Date(x).toISOString(),
       },
       ...(loadDataDir ? { loadDataDir } : {}),
-      startParams: engineStartParams(PGlite.defaultStartParams),
+      startParams: rust().engineStartParams(PGlite.defaultStartParams),
     });
     // Backups are written from the files on disk, not from PGlite's in-memory
     // dump, which cost main several times the database's size (M02).

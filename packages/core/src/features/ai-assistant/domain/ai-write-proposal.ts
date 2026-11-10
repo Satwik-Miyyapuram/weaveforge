@@ -1,5 +1,4 @@
-import type { AiProposalKind } from "./ai-types.js";
-import type { AiEvidence } from "./ai-evidence.js";
+import type { AiEvidence, AiProposalKind } from "./ai-types.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface AiWriteProposal {

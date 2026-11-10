@@ -18,7 +18,6 @@ import {
   AI_TOOL_NAMES,
   CreateAiSessionGrantUseCase,
   CreateAiProposalDraftUseCase,
-  retrieveAiExcerpts,
   type AiAccessSettings,
   type AiActiveSession,
   type AiRetrievedExcerpt,
@@ -283,7 +282,7 @@ export class AiAssistantFacade {
   }): Promise<readonly AiRetrievedExcerpt[]> {
     const session = this.requireActiveSession(input.sessionId);
     const docs = await this.readGrantedDocuments(session, input.settings, "search_workspace");
-    return retrieveAiExcerpts(docs, input.query, { limit: input.limit });
+    return readyCore().retrieveAiExcerpts(docs, input.query, { limit: input.limit });
   }
 
   async getSourceExcerpt(input: {

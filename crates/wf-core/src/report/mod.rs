@@ -10,5 +10,6 @@ pub mod markdown_to_latex;
 pub mod prisma_figure;
 pub mod project_path;
 pub mod report_section;
+pub mod results_table_refs;
 pub mod section_progress;
 pub mod section_sources;

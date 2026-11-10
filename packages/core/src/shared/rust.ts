@@ -14,7 +14,7 @@ import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outl
 import type { Row } from "./three-way-merge.js";
 import type { CoreContract } from "./core-contract.js";
 import type { PdfLocus, ResolvedAnchor } from "../reader/anchor-shapes.js";
-import type { ExcerptHighlight } from "../features/ai-assistant/domain/ai-evidence.js";
+import type { ExcerptHighlight } from "../features/ai-assistant/domain/ai-types.js";
 import type { ExtractionResult } from "../features/ai-assistant/domain/ai-extraction.js";
 import type { WikiPagePlan } from "../features/ai-assistant/application/plan-wiki-pages.use-case.js";
 import type { FrontmatterValue, ParsedDocument } from "../workspace/frontmatter.js";
@@ -316,6 +316,8 @@ export interface RustCoreFns {
   migratedNotice(raw: string | null): string | null;
   /** Index of the matching project; throws when none or several match. */
   pickProject(projects: readonly { id?: string; name: string; dir: string }[], needle: string | null): number;
+  /** `defaults` with the local database's `-c shared_buffers=...` flags appended. */
+  engineStartParams(defaults: readonly string[]): string[];
 }
 
 let core: RustCoreFns | null = null;

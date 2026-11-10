@@ -12,7 +12,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { ExplorerPanel } from "../ui/explorer-panel";
-import { EXPLORER_FIRST_PAINT_ROWS, EXPLORER_ROW_PX } from "../application/explorer-window";
+import { EXPLORER_FIRST_PAINT_ROWS, EXPLORER_ROW_PX } from "../ui/explorer-window-constants";
 import type { WorkspaceTreeNode } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

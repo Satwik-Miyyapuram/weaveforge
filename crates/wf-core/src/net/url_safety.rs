@@ -310,9 +310,43 @@ fn is_public_ipv6(address: &str) -> bool {
     true
 }
 
+/// What to say to the person who pasted a refused URL (TS `REJECTION_COPY`).
+///
+/// The reason codes are the domain contract; the sentences are product copy, kept
+/// beside the codes so every surface shows the same words.
+#[must_use]
+pub const fn rejection_copy(reason: UrlRejection) -> &'static str {
+    match reason {
+        UrlRejection::NotAUrl => "That is not a web address.",
+        UrlRejection::Scheme => "Only http and https addresses can be fetched.",
+        UrlRejection::Credentials => "Addresses carrying a username or password are not fetched.",
+        UrlRejection::Port => "That port is not one WeaveForge will fetch from.",
+        UrlRejection::PrivateAddress => {
+            "That address is on a private network, so it is not fetched."
+        }
+        UrlRejection::Hostname => "That host is not reachable from the public internet.",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_rejection_has_copy() {
+        assert_eq!(
+            rejection_copy(UrlRejection::Scheme),
+            "Only http and https addresses can be fetched."
+        );
+        assert_eq!(
+            rejection_copy(UrlRejection::NotAUrl),
+            "That is not a web address."
+        );
+        assert_eq!(
+            rejection_copy(UrlRejection::Hostname),
+            "That host is not reachable from the public internet."
+        );
+    }
 
     #[test]
     fn refuses_private_and_metadata_literals() {

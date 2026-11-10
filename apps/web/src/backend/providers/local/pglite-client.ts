@@ -1,6 +1,6 @@
 import { errorMessage, LOCAL_USER_ID } from "@weaveforge/core";
 
-import { decodeBytea } from "@/lib/bytea";
+
 import { readyCore } from "@/lib/rust-core";
 
 /**
@@ -170,7 +170,7 @@ function encode(
   // spelling is turned back into bytes here. A text column holding a string
   // that is `\x` and hex digits and nothing else would be misread, and no
   // column holds one.
-  if (typeof value === "string" && BYTEA_HEX.test(value)) return decodeBytea(value);
+  if (typeof value === "string" && BYTEA_HEX.test(value)) return readyCore().decodeBytea(value);
   if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "bigint") return Number(value);
   return value as string | number | boolean;

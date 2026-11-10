@@ -14,8 +14,9 @@ environment, the clock and the object store.
 - `blob.rs`: blob content types and the cold-tier eviction order. Times are epoch
   milliseconds, and `now` is passed in.
 - `blob_access.rs`: the blob access rules that the relay's `/api/blobs/*` routes
-  enforce, and the limits on signed URL paths. It checks only. It has no clock,
-  so callers pass `now`.
+  enforce, the limits on signed URL paths, and `BLOB_STORAGE_BUCKETS`, the list of
+  buckets a user's blobs live in. It checks only. It has no clock, so callers
+  pass `now`.
 - `blob_client.rs`: the S3-compatible client config for the R2 hot tier and the
   MinIO cold tier. It builds the config only.
 - `mod.rs`: the module head and the re-exports.
@@ -26,7 +27,10 @@ The wasm exports live in `crates/wf-wasm/src` (`storage_config.rs`,
 `storage_blob_access.rs`). The TypeScript wrappers in `packages/wf-wasm/src`
 import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 are `readStorageConfig`, `blobProviderForRuntime`, `r2BlobClientConfig`,
-`coldBlobClientConfig`, `missingR2ConfigMessage` and `maxSignedUrlPaths`.
+`coldBlobClientConfig`, `missingR2ConfigMessage`, `maxSignedUrlPaths` and
+`blobStorageBuckets`. The TypeScript `BlobStorageBucket` union in
+`packages/wf-wasm/src/storage-blob-access.ts` repeats the Rust bucket list, so
+add a bucket in both places.
 
 Code in `apps/web` reads these through `readyCore()` from
 `apps/web/src/lib/rust-core.ts`. Examples:
@@ -35,6 +39,9 @@ Code in `apps/web` reads these through `readyCore()` from
 - `apps/web/src/storage/wire-storage.ts` calls `readyCore().blobProviderForRuntime`.
 - `apps/web/src/storage/providers/s3/s3-blob-store.ts` calls
   `readyCore().r2BlobClientConfig`, and the cold-tier config is read the same way.
+- `apps/web/src/backend/account/purge-user-blobs.ts` calls
+  `readyCore().blobStorageBuckets()` and sweeps each bucket's prefix on account
+  deletion. It calls `loadCore()` first.
 
 Call `readyCore()` only after `loadCore()` has resolved.
 

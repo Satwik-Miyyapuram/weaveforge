@@ -182,6 +182,8 @@ test("the wrapper modules declare no types of their own", () => {
     ...["OneEuroOptions", "NibSample", "FilteredNibSample"],
     // Reader wrappers that keep the caller's optional, nullable and readonly shapes.
     ...["FreeCopyIds", "FreeCopyFailure", "FreeCopyPaperLinks", "MarginMark", "ReaderPrintOrientation"],
+    // Report tables take the app's experiments as loose JSON; storage keeps the bucket-name union.
+    ...["ResultsTableRef", "ResultsTableExperiment", "BlobStorageBucket"],
   );
   const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);

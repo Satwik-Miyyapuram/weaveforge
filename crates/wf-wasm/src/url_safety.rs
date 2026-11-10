@@ -51,6 +51,17 @@ pub fn looks_like_image_url_js(url: &str) -> bool {
     wf_core::net::image_url::looks_like_image_url(url)
 }
 
+/// [`rejection_copy`](url_safety::rejection_copy) for a reason code such as `"scheme"`.
+///
+/// # Errors
+///
+/// Fails if the value is not a known reason code.
+#[wasm_bindgen(js_name = describeUrlRejection)]
+pub fn describe_url_rejection_js(reason: JsValue) -> JsResult<String> {
+    let reason: url_safety::UrlRejection = serde_wasm_bindgen::from_value(reason)?;
+    Ok(url_safety::rejection_copy(reason).to_owned())
+}
+
 /// [`expand_ipv6`](url_safety::expand_ipv6); `undefined` when the text is not IPv6.
 ///
 /// # Errors

@@ -6,7 +6,7 @@ import type {
   ShareLinkSaveInput,
 } from "@weaveforge/core";
 import type { ShareableType } from "@weaveforge/core";
-import { decodeBytea, decodeBase64, encodeBytea } from "@/lib/bytea.js";
+
 import { readyCore } from "@/lib/rust-core";
 
 function throwDataError(error: { message?: string }, fallback: string): never {
@@ -57,7 +57,7 @@ function mapResolved(row: {
     resourceType: row.resource_type,
     resourceId: row.resource_id,
     access: row.access,
-    dekWrap: row.dek_wrap ? decodeBytea(row.dek_wrap) : null,
+    dekWrap: row.dek_wrap ? readyCore().decodeBytea(row.dek_wrap) : null,
     dekEpoch: row.dek_epoch,
   };
 }
@@ -95,9 +95,9 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
         resource_type: input.resourceType,
         resource_id: input.resourceId,
         access: input.access,
-        token_hash: encodeBytea(input.tokenHash),
+        token_hash: readyCore().encodeBytea(input.tokenHash),
         expires_at: input.expiresAt,
-        dek_wrap: input.dekWrap ? encodeBytea(input.dekWrap) : null,
+        dek_wrap: input.dekWrap ? readyCore().encodeBytea(input.dekWrap) : null,
         dek_epoch: input.dekEpoch ?? null,
       })
       .select(SHARE_LINK_COLUMNS)
@@ -113,7 +113,7 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
 
   async redeem(tokenHash: Uint8Array): Promise<ResolvedShareLink | null> {
     const { data, error } = await this.db.rpc("redeem_share_link", {
-      p_token_hash: encodeBytea(tokenHash),
+      p_token_hash: readyCore().encodeBytea(tokenHash),
     });
     if (error) throwDataError(error, "Share link redeem failed.");
     if (!data) return null;
@@ -124,7 +124,7 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
       resourceType: row.resourceType as ShareableType,
       resourceId: row.resourceId as string,
       access: row.access as "view",
-      dekWrap: row.dekWrap ? decodeBase64(row.dekWrap as string) : null,
+      dekWrap: row.dekWrap ? readyCore().decodeBase64(row.dekWrap as string) : null,
       dekEpoch: (row.dekEpoch as number | null) ?? null,
     };
   }

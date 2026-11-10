@@ -527,6 +527,11 @@ export function blankInkPage(paper: any): any;
 export function blobProviderForRuntime(configured: string, runtime: any): any;
 
 /**
+ * [`blob_access::BLOB_STORAGE_BUCKETS`]: every bucket a user's blobs live in, as a string array.
+ */
+export function blobStorageBuckets(): any;
+
+/**
  * [`body_font_size`](analysis_outline::body_font_size) (TS `bodyFontSize`).
  *
  * # Errors
@@ -1251,6 +1256,11 @@ export function conceptKey(name: string): string;
 export function conflictRoute(input: any): any;
 
 /**
+ * [`contact_area_mm2`]: a touch's contact area in mm², from its CSS-pixel box.
+ */
+export function contactAreaMm2(width: number, height: number): number;
+
+/**
  * [`container_resize`]: `last` and `next` are `{ width, height }`. Returns `"ignore"`, `"now"` or `"settle"`.
  *
  * # Errors
@@ -1697,6 +1707,19 @@ export function decideVaultCommit(enabled: boolean, state: any): any;
 export function declaredCharset(content_type: string | null | undefined, bytes: Uint8Array): string;
 
 /**
+ * [`decode_base64`](bytea::decode_base64): bytes from base64 text, as `atob` reads it.
+ *
+ * # Errors
+ * Throws when the text is not base64.
+ */
+export function decodeBase64(text: string): Uint8Array;
+
+/**
+ * [`decode_bytea`](bytea::decode_bytea): bytes from a PostgREST `\x…` string.
+ */
+export function decodeBytea(text: string): Uint8Array;
+
+/**
  * [`decode_html_entities`]: the named and numeric entities in `value`, decoded once.
  *
  * # Errors
@@ -1901,6 +1924,15 @@ export function describePush(result: any): string;
  * Fails when `status` is not a valid `{ url, branch, ahead, behind }` object.
  */
 export function describeRemoteStatus(status: any): string;
+
+/**
+ * [`rejection_copy`](url_safety::rejection_copy) for a reason code such as `"scheme"`.
+ *
+ * # Errors
+ *
+ * Fails if the value is not a known reason code.
+ */
+export function describeUrlRejection(reason: any): string;
 
 /**
  * [`detect_citation_style`] (TS `detectCitationStyle`). `texts` is the page texts as an array of
@@ -2177,6 +2209,16 @@ export function emptyPageHistory(): any;
 export function emptyToNull(value?: string | null): any;
 
 /**
+ * [`encode_base64`](bytea::encode_base64): padded base64 for bytes.
+ */
+export function encodeBase64(bytes: Uint8Array): string;
+
+/**
+ * [`encode_bytea`](bytea::encode_bytea): PostgREST `\x…` string for bytes.
+ */
+export function encodeBytea(bytes: Uint8Array): string;
+
+/**
  * [`encode_ink_chunk_body`](chunk::encode_ink_chunk_body): a page packed into an uncompressed body.
  *
  * # Errors
@@ -2216,6 +2258,11 @@ export function encodeRollupOptions(config: any): string[];
  * [`encode_share_link_token`](sharing::encode_share_link_token): unpadded base64url.
  */
 export function encodeShareLinkToken(token: Uint8Array): string;
+
+/**
+ * [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
+ */
+export function engineStartParams(defaults: any): any;
 
 /**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
@@ -4362,6 +4409,11 @@ export function listMembershipByKey(lists: any, items: any, key: any): any;
 export function loadOpenGroups(raw?: string | null, active?: string | null): any;
 
 /**
+ * [`local_db_engine_params::LOCAL_DB_SHARED_BUFFERS`]: the `shared_buffers` value the local engine runs with.
+ */
+export function localDbSharedBuffers(): string;
+
+/**
  * [`local_keys`](related_paper_hit::local_keys): the dedupe keys of a library.
  *
  * # Errors
@@ -5566,6 +5618,16 @@ export function pagesToEvict(rendered: any, visible: any, radius: number): any;
 export function paintedOrder(results: any): any;
 
 /**
+ * [`palette_css`]: one palette entry as a CSS colour, `rgba` below an alpha of 1.
+ */
+export function paletteCss(palette: any, colour: string, alpha: number): string;
+
+/**
+ * [`palette_hex`]: one palette entry as `#rrggbb`.
+ */
+export function paletteHex(palette: any, colour: string): string;
+
+/**
  * [`palette_mode_for`](palette_groups::palette_mode_for): the mode a key press opens, or `null`.
  *
  * # Errors
@@ -5573,6 +5635,11 @@ export function paintedOrder(results: any): any;
  * Fails if `event` has the wrong shape.
  */
 export function paletteModeFor(event: any): any;
+
+/**
+ * [`palette_name`]: the palette name a hex colour came from, or `undefined`.
+ */
+export function paletteName(palette: any, hex: string): string | undefined;
 
 /**
  * [`paper_cite_keys`](bibtex::paper_cite_keys) (TS `buildCiteByTitle`'s key list): one key per
@@ -5736,6 +5803,11 @@ export function parseBibliographyEntry(lines: any, index: number, with_offsets: 
  * Fails if `body` is not valid JSON, or the result cannot be converted.
  */
 export function parseBiorxiv(body: any, server: string): any;
+
+/**
+ * [`parse_css_colour`] as `[r, g, b]` in 0..1, or `undefined` for a colour it does not read.
+ */
+export function parseCssColour(value: string): Float64Array | undefined;
 
 /**
  * [`parse_dashboard_layout`](layout::parse_dashboard_layout); `null` when `lg` or `sm`
@@ -5984,6 +6056,16 @@ export function parseRegions(document: string): any;
  * Fails only if the value cannot be converted to a JS value.
  */
 export function parseReleaseTag(tag: string): any;
+
+/**
+ * [`parse_results_table_refs`](results_table_refs::parse_results_table_refs) (TS
+ * `parseResultsTableRefs`). Offsets are UTF-16 code units.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ */
+export function parseResultsTableRefs(markdown: string): any;
 
 /**
  * [`parse_rollup_options`](paper_field::parse_rollup_options) (TS `parseRollupOptions`).
@@ -7167,6 +7249,17 @@ export function resolvePositionSelector(text: string, position: any): any;
 export function resolveRelatedPaperUrl(url?: string | null, doi?: string | null, arxiv_id?: string | null): string | undefined;
 
 /**
+ * [`resolve_results_tables`](results_table_refs::resolve_results_tables) (TS
+ * `resolveResultsTables`). `format` is `"latex"` for the figure block, anything else for the
+ * Markdown table.
+ *
+ * # Errors
+ *
+ * Fails if `experiments` is not a list of experiment objects.
+ */
+export function resolveResultsTables(body: string, experiments: any, format: string): string;
+
+/**
  * [`resolve_supervisor_id`](member::resolve_supervisor_id).
  */
 export function resolveSupervisorId(creator_id: string): string;
@@ -7377,6 +7470,11 @@ export function safeRelative(candidate: string): string;
  * path could leave the workspace root (`Unsafe workspace path: <path>`).
  */
 export function safeWorkspacePath(path: string): string;
+
+/**
+ * [`same_palette`]: whether two palettes draw the same.
+ */
+export function samePalette(a: any, b: any): boolean;
 
 /**
  * [`same_peers`](collab::same_peers).
@@ -7620,6 +7718,16 @@ export function semanticStatusText(status: any): string;
  * Fails if `artifact_ref` has the wrong shape.
  */
 export function serialiseArtifactRef(artifact_ref: any): string;
+
+/**
+ * [`serialise_results_table_ref`](results_table_refs::serialise_results_table_ref) (TS
+ * `serialiseResultsTableRef`).
+ *
+ * # Errors
+ *
+ * Fails if `experiment_ids` is not a list of strings.
+ */
+export function serialiseResultsTableRef(experiment_ids: any, caption: string): string;
 
 /**
  * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
@@ -9213,6 +9321,7 @@ export interface InitOutput {
     readonly binomialSmooth: (a: number, b: number, c: number, d: number) => [number, number];
     readonly blankInkPage: (a: any) => [number, number, number];
     readonly blobProviderForRuntime: (a: number, b: number, c: any) => [number, number, number];
+    readonly blobStorageBuckets: () => [number, number, number];
     readonly bodyFontSize: (a: any) => [number, number, number];
     readonly bodyLinksTo: (a: number, b: number, c: number, d: number) => number;
     readonly bodyStats: (a: number, b: number) => [number, number, number];
@@ -9302,6 +9411,7 @@ export interface InitOutput {
     readonly computeRollupsForPapers: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly conceptKey: (a: number, b: number) => [number, number];
     readonly conflictRoute: (a: any) => [number, number, number];
+    readonly contactAreaMm2: (a: number, b: number) => number;
     readonly containerResize: (a: any, b: any) => [number, number, number, number];
     readonly contextNonceFrom: (a: number, b: number) => [number, number];
     readonly coreInfo: () => [number, number, number];
@@ -9353,6 +9463,8 @@ export interface InitOutput {
     readonly decideGitSyncPath: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly decideVaultCommit: (a: number, b: any) => [number, number, number];
     readonly declaredCharset: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly decodeBase64: (a: number, b: number) => [number, number, number, number];
+    readonly decodeBytea: (a: number, b: number) => [number, number];
     readonly decodeHtmlEntities: (a: number, b: number) => [number, number, number, number];
     readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly decodeLocus: (a: number, b: number) => [number, number, number];
@@ -9376,6 +9488,7 @@ export interface InitOutput {
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
     readonly describeRemoteStatus: (a: any) => [number, number, number, number];
+    readonly describeUrlRejection: (a: any) => [number, number, number, number];
     readonly detectCitationStyle: (a: any) => [number, number, number];
     readonly detectColumns: (a: any) => [number, number, number];
     readonly deviceMarkers: (a: number, b: number, c: number, d: number) => [number, number];
@@ -9411,11 +9524,14 @@ export interface InitOutput {
     readonly emptyLayout: (a: number, b: number) => [number, number, number];
     readonly emptyPageHistory: () => [number, number, number];
     readonly emptyToNull: (a: number, b: number) => [number, number, number];
+    readonly encodeBase64: (a: number, b: number) => [number, number];
+    readonly encodeBytea: (a: number, b: number) => [number, number];
     readonly encodeInkChunkBody: (a: any) => [number, number, number, number];
     readonly encodeLocus: (a: any) => [number, number, number, number];
     readonly encodeOpenGroups: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly encodeShareLinkToken: (a: number, b: number) => [number, number];
+    readonly engineStartParams: (a: any) => [number, number, number];
     readonly entityDir: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly entryFileError: (a: number, b: number) => [number, number];
     readonly enumLabel: (a: number, b: number, c: number, d: number) => [number, number];
@@ -9705,6 +9821,7 @@ export interface InitOutput {
     readonly listMembership: (a: any, b: any) => [number, number, number];
     readonly listMembershipByKey: (a: any, b: any, c: any) => [number, number, number];
     readonly loadOpenGroups: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly localDbSharedBuffers: () => [number, number];
     readonly localKeys: (a: any) => [number, number, number];
     readonly localSubgraph: (a: number, b: number, c: number, d: any) => [number, number, number];
     readonly locateAnchor: (a: number, b: number, c: any) => [number, number, number];
@@ -9870,7 +9987,10 @@ export interface InitOutput {
     readonly pageTextFromItems: (a: any) => [number, number, number, number];
     readonly pagesToEvict: (a: any, b: any, c: number) => [number, number, number];
     readonly paintedOrder: (a: any) => [number, number, number];
+    readonly paletteCss: (a: any, b: number, c: number, d: number) => [number, number, number, number];
+    readonly paletteHex: (a: any, b: number, c: number) => [number, number, number, number];
     readonly paletteModeFor: (a: any) => [number, number, number];
+    readonly paletteName: (a: any, b: number, c: number) => [number, number, number, number];
     readonly paperCiteKeys: (a: any) => [number, number, number];
     readonly paperCountsForTags: (a: any, b: any) => [number, number, number];
     readonly paperFieldDefRowToDomain: (a: any) => [number, number, number];
@@ -9893,6 +10013,7 @@ export interface InitOutput {
     readonly parseBibliography: (a: any, b: number) => [number, number, number];
     readonly parseBibliographyEntry: (a: any, b: number, c: number) => [number, number, number];
     readonly parseBiorxiv: (a: any, b: number, c: number) => [number, number, number];
+    readonly parseCssColour: (a: number, b: number) => [number, number];
     readonly parseDashboardLayout: (a: any) => [number, number, number];
     readonly parseDoaj: (a: any) => [number, number, number];
     readonly parseEuropePmc: (a: any) => [number, number, number];
@@ -9922,6 +10043,7 @@ export interface InitOutput {
     readonly parseReaderSplitPane: (a: number, b: number) => [number, number, number];
     readonly parseRegions: (a: number, b: number) => [number, number, number];
     readonly parseReleaseTag: (a: number, b: number) => [number, number, number];
+    readonly parseResultsTableRefs: (a: number, b: number) => [number, number, number];
     readonly parseRollupOptions: (a: number, b: number) => [number, number, number];
     readonly parseSemanticScholar: (a: any) => [number, number, number];
     readonly parseStrokeClip: (a: number, b: number) => [number, number, number];
@@ -10070,6 +10192,7 @@ export interface InitOutput {
     readonly resolvePaperPdfUrl: (a: any) => [number, number, number, number];
     readonly resolvePositionSelector: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveRelatedPaperUrl: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly resolveResultsTables: (a: number, b: number, c: any, d: number, e: number) => [number, number, number, number];
     readonly resolveSupervisorId: (a: number, b: number) => [number, number];
     readonly resolveTextAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
@@ -10097,6 +10220,7 @@ export interface InitOutput {
     readonly safeName: (a: number, b: number) => [number, number];
     readonly safeRelative: (a: number, b: number) => [number, number, number, number];
     readonly safeWorkspacePath: (a: number, b: number) => [number, number, number, number];
+    readonly samePalette: (a: any, b: any) => [number, number, number];
     readonly samePeers: (a: any, b: any) => [number, number, number];
     readonly sameRow: (a: any, b: any) => [number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
@@ -10125,6 +10249,7 @@ export interface InitOutput {
     readonly semanticScholarToMetadata: (a: any) => [number, number, number];
     readonly semanticStatusText: (a: any) => [number, number, number, number];
     readonly serialiseArtifactRef: (a: any) => [number, number, number, number];
+    readonly serialiseResultsTableRef: (a: any, b: number, c: number) => [number, number, number, number];
     readonly serializeWorkspace: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly sessionAction: (a: number, b: number, c: number, d: number) => [number, number];
     readonly setImagePlacement: (a: number, b: number, c: number, d: number, e: number, f: any) => [number, number, number, number];

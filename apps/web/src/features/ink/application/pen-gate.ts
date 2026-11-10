@@ -12,6 +12,7 @@
  */
 
 import type { InkHand } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 /* -------------------------------------------------------------------------
  * The palm rules
  * ------------------------------------------------------------------------- */
@@ -292,12 +293,9 @@ export class InkPenGate {
   }
 }
 
-/** A contact's area in mm², from the CSS pixels a `PointerEvent` reports. */
+/** A contact's area in mm², from the CSS pixels a `PointerEvent` reports (Rust `contact_area`). */
 export function contactAreaMm2(
   event: Pick<PenGateEvent, "width" | "height">,
 ): number {
-  const width = event.width ?? 0;
-  const height = event.height ?? 0;
-  if (!(width > 0) || !(height > 0)) return 0;
-  return (width / CSS_PX_PER_MM) * (height / CSS_PX_PER_MM);
+  return readyCore().contactAreaMm2(event);
 }

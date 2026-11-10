@@ -19,7 +19,10 @@ results in.
 - `folder_mirror.rs`: the mirror manifest. `jsonEditSince` tells whether a JSON
   file was edited since the manifest recorded it.
 - `folder_layout.rs`: folder names and paths. `folderTitleFromPath` gives a note
-  title from a file path, and `pickProjectFolder` chooses a project folder.
+  title from a file path, and `pickProjectFolder` chooses a project folder. The
+  TypeScript folder names in `packages/core/src/workspace/folder-layout.ts` stay
+  in `packages/core`: that package has no wasm dependency, and the names are read
+  when the workspace is loaded.
 - `snapshot_delta.rs`: `planDelta` compares a remote snapshot with the held
   state, and `applyDelta` applies the plan.
 - `change_origin.rs`: `digestText`, the hash used to detect changes.

@@ -1,6 +1,6 @@
 /**
  * Monte Carlo personalized PageRank (Rust `personalized_pagerank`), re-exported from index.ts.
- * Each function keeps the signature of packages/core/src/search/personalized-pagerank.ts.
+ * Each function keeps the signature of the old TS module (removed; its types now live in packages/core/src/shared/core-contract.ts).
  */
 import {
   personalizedPageRank as rawPersonalizedPageRank,

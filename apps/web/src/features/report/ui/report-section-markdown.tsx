@@ -6,7 +6,6 @@ import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { parseResultsTableRefs, resolveResultsTables } from "../application/results-table-refs";
 import { readyCore } from "@/lib/rust-core";
 
 /** Prefix for report section images: `![](reportimg:userId/sectionId/file.webp)`. */
@@ -33,7 +32,7 @@ export function ReportSectionMarkdown({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const hasArtifactRefs = useMemo(
-    () => readyCore().parseArtifactRefs(body).length > 0 || parseResultsTableRefs(body).length > 0,
+    () => readyCore().parseArtifactRefs(body).length > 0 || readyCore().parseResultsTableRefs(body).length > 0,
     [body],
   );
   useEffect(() => {
@@ -72,7 +71,7 @@ export function ReportSectionMarkdown({
     }
     // Wait until load finishes — never flash false "missing experiment" warnings.
     if (experiments == null) return body;
-    return resolveResultsTables(readyCore().resolveArtifactRefsMarkdown(body, experiments), experiments, "markdown");
+    return readyCore().resolveResultsTables(readyCore().resolveArtifactRefsMarkdown(body, experiments), experiments, "markdown");
   }, [body, experiments, hasArtifactRefs, skipArtifactResolve]);
 
   const paths = useMemo(() => readyCore().imagePathsInBody(withArtifacts, REPORT_IMAGE_PREFIX), [withArtifacts]);

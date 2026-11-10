@@ -31,7 +31,7 @@ import { CollabBodyHost } from "@/features/collab";
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
 // are theirs, not because this screen learned the prefixes.
-import { InkHost } from "@/features/ink/ui/ink-host";
+import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
 import {
@@ -40,8 +40,8 @@ import {
   ReportOverleafScreen,
   ReportSectionMarkdown,
 } from "@/features/report";
-import { NoteReadView } from "@/features/vault/ui/note-read-view";
-import { VaultMarkdown, type WikilinkEntry } from "@/features/vault/ui/vault-markdown";
+import { NoteReadView } from "@/features/vault";
+import { VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { readyCore } from "@/lib/rust-core";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";

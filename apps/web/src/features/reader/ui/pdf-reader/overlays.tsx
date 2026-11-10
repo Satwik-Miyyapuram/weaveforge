@@ -4,7 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import {   type PageProjection } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
-import { InkStrokes } from "@/features/ink/ui/ink-strokes";
+import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
 import type { MarginNote } from "../../application/margin-notes";
 import { RowButton } from "@/components/controls";

@@ -1,9 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStorageConfig } from "@/storage/config";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { buildTieredBlobStoreFromRegistry } from "@/storage/build-tiered-blob-store";
 import { PostgrestBlobRegistry } from "@/storage/providers/postgrest/blob-registry";
-import { BLOB_STORAGE_BUCKETS } from "@/storage/server/blob-access";
 
 interface BlobRow {
   bucket: string;
@@ -50,7 +49,7 @@ export async function purgeUserBlobs(
     }
   }
 
-  for (const bucket of BLOB_STORAGE_BUCKETS) {
+  for (const bucket of readyCore().blobStorageBuckets()) {
     await removeStoragePrefix(admin, bucket, userId);
   }
 

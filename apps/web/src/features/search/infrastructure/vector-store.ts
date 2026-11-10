@@ -2,7 +2,7 @@ import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { localFiles, type LocalFiles } from "@/backend/providers/local/local-blob-store";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { decodeBase64, encodeBase64 } from "@/lib/bytea";
+
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
@@ -116,18 +116,18 @@ function headJson(value: StoredVectors): string {
 
 function pack(value: StoredVectors): string {
   const head = headJson(value);
-  return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(value.bytes)}`;
+  return `${readyCore().encodeBase64(new TextEncoder().encode(head))}.${readyCore().encodeBase64(value.bytes)}`;
 }
 
 function unpack(packed: string): StoredVectors | null {
   const split = packed.indexOf(".");
   if (split < 0) return null;
   try {
-    const head = JSON.parse(new TextDecoder().decode(decodeBase64(packed.slice(0, split)))) as Omit<
+    const head = JSON.parse(new TextDecoder().decode(readyCore().decodeBase64(packed.slice(0, split)))) as Omit<
       StoredVectors,
       "bytes"
     >;
-    return { ...head, bytes: decodeBase64(packed.slice(split + 1)) };
+    return { ...head, bytes: readyCore().decodeBase64(packed.slice(split + 1)) };
   } catch {
     return null;
   }

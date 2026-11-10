@@ -5,6 +5,8 @@
 import { rowSlots as rawRowSlots } from "../pkg/wf_wasm.js";
 import type { ExplorerViewport, RowMetrics, RowSlot } from "./bindings.js";
 
+export type { ExplorerViewport, RowMetrics, RowSlot } from "./bindings.js";
+
 /** The painted rows and gaps for one section, in order. */
 export function rowSlots(
   count: number,
