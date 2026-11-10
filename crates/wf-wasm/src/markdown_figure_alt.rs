@@ -4,8 +4,6 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::markdown_figure_alt::{self, MdPlacement};
 
-use super::check_text;
-
 /// [`parse_md_image_alt`](markdown_figure_alt::parse_md_image_alt): an alt split into text, crop,
 /// side and width.
 ///
@@ -13,8 +11,8 @@ use super::check_text;
 ///
 /// Fails if `raw` is longer than the index text limit.
 #[wasm_bindgen(js_name = parseMdImageAlt)]
-pub fn parse_md_image_alt_js(raw: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(raw)?;
+pub fn parse_md_image_alt_js(raw: js_sys::JsString) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let raw = &crate::guarded_text(&raw)?;
     super::to_js(&markdown_figure_alt::parse_md_image_alt(raw))
 }
 
@@ -26,10 +24,10 @@ pub fn parse_md_image_alt_js(raw: &str) -> Result<JsValue, serde_wasm_bindgen::E
 /// Fails if `alt` is too long or `placement` has the wrong shape.
 #[wasm_bindgen(js_name = withMdImageAlt)]
 pub fn with_md_image_alt_js(
-    alt: &str,
+    alt: js_sys::JsString,
     placement: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
-    check_text(alt)?;
+    let alt = &crate::guarded_text(&alt)?;
     let placement: MdPlacement = serde_wasm_bindgen::from_value(placement)?;
     Ok(markdown_figure_alt::with_md_image_alt(alt, &placement))
 }

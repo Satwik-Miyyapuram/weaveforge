@@ -16,7 +16,6 @@ import type {
   PaletteKey,
   PaletteMode,
 } from "./bindings.js";
-import { checkIndexText } from "./text-check.js";
 
 export {
   isPreviewKey,
@@ -34,13 +33,11 @@ export function groupPaletteRows(groups: readonly PaletteGroup[]): GroupedRows[]
 
 /** The indices of the labels that hold the query, names that start with it first (Rust `matching_page_indices`). */
 export function matchingPageIndices(labels: readonly string[], query: string): number[] {
-  checkIndexText(query);
   return rawMatchingPageIndices(labels, query) as number[];
 }
 
 /** Every index for an empty query, else the page rule (Rust `command_match_indices`). */
 export function commandMatchIndices(labels: readonly string[], query: string): number[] {
-  checkIndexText(query);
   return rawCommandMatchIndices(labels, query) as number[];
 }
 

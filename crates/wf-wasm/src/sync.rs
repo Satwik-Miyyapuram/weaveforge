@@ -72,8 +72,8 @@ pub fn digest_text_js(text: &str) -> String {
 ///
 /// Fails when `rel_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = isUnderIgnoredFolder)]
-pub fn is_under_ignored_folder_js(rel_path: &str) -> JsResult<bool> {
-    check_text(rel_path)?;
+pub fn is_under_ignored_folder_js(rel_path: js_sys::JsString) -> JsResult<bool> {
+    let rel_path = &crate::guarded_text(&rel_path)?;
     Ok(is_under_ignored_folder(rel_path))
 }
 
@@ -85,11 +85,11 @@ pub fn is_under_ignored_folder_js(rel_path: &str) -> JsResult<bool> {
 /// decision cannot be converted to a JS value.
 #[wasm_bindgen(js_name = decideGitSyncPath)]
 pub fn decide_git_sync_path_js(
-    rel_path: &str,
+    rel_path: js_sys::JsString,
     size_bytes: f64,
     max_file_bytes: f64,
 ) -> JsResult<JsValue> {
-    check_text(rel_path)?;
+    let rel_path = &crate::guarded_text(&rel_path)?;
     let decision = match decide_git_sync_path(rel_path, size_bytes, max_file_bytes) {
         GitSyncDecision::Include => Decision {
             include: true,
@@ -302,9 +302,12 @@ pub fn apply_delta_js(held: JsValue, fetched: JsValue, order: JsValue) -> JsResu
 ///
 /// Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = stampWorkspaceId)]
-pub fn stamp_workspace_id_js(content: &str, id: &str) -> JsResult<Option<String>> {
-    check_text(content)?;
-    check_text(id)?;
+pub fn stamp_workspace_id_js(
+    content: js_sys::JsString,
+    id: js_sys::JsString,
+) -> JsResult<Option<String>> {
+    let content = &crate::guarded_text(&content)?;
+    let id = &crate::guarded_text(&id)?;
     Ok(stamp_workspace_id(content, id))
 }
 
@@ -315,8 +318,8 @@ pub fn stamp_workspace_id_js(content: &str, id: &str) -> JsResult<Option<String>
 /// Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when the
 /// path could leave the workspace root (`Unsafe workspace path: <path>`).
 #[wasm_bindgen(js_name = safeWorkspacePath)]
-pub fn safe_workspace_path_js(path: &str) -> JsResult<String> {
-    check_text(path)?;
+pub fn safe_workspace_path_js(path: js_sys::JsString) -> JsResult<String> {
+    let path = &crate::guarded_text(&path)?;
     safe_workspace_path(path).map_err(|e| serde_wasm_bindgen::Error::new(e.to_string()))
 }
 
@@ -326,8 +329,8 @@ pub fn safe_workspace_path_js(path: &str) -> JsResult<String> {
 ///
 /// Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = isSafeWorkspacePath)]
-pub fn is_safe_workspace_path_js(path: &str) -> JsResult<bool> {
-    check_text(path)?;
+pub fn is_safe_workspace_path_js(path: js_sys::JsString) -> JsResult<bool> {
+    let path = &crate::guarded_text(&path)?;
     Ok(is_safe_workspace_path(path))
 }
 

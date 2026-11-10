@@ -264,11 +264,10 @@ test("maxIndexTextUtf16 is the Rust cap", () => {
   assert.equal(maxIndexTextUtf16(), 2 ** 24);
 });
 
-test("tokenize and indexTerms reject text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
-  // A RangeError comes from the wrapper; the Rust check throws a plain Error.
-  // So the text was never copied into linear memory.
+test("tokenize and indexTerms reject text over MAX_INDEX_TEXT_UTF16", () => {
+  // Rust takes the text as a JsString and checks its length before copying it in.
   const huge = "a".repeat(2 ** 24 + 1);
-  const beforeWasm = (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message);
+  const beforeWasm = (e: unknown) => e instanceof Error && /MAX_INDEX_TEXT_UTF16/.test(e.message);
   assert.throws(() => tokenize(huge, ALL_ON), beforeWasm);
   assert.throws(() => indexTerms(huge, ALL_ON), beforeWasm);
 });
@@ -308,9 +307,9 @@ test("parseQuery gives null, not a missing key, when there is no modified filter
   assert.deepEqual(q, { terms: [], phrases: [], exclude: [], kinds: [], paths: [], tags: [], modifiedWithinDays: null, text: "" });
 });
 
-test("parseQuery rejects a query over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+test("parseQuery rejects a query over MAX_INDEX_TEXT_UTF16", () => {
   const huge = "a".repeat(2 ** 24 + 1);
-  assert.throws(() => parseQuery(huge), (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message));
+  assert.throws(() => parseQuery(huge), (e: unknown) => e instanceof Error && /MAX_INDEX_TEXT_UTF16/.test(e.message));
 });
 
 const self = (id: string) => id;
@@ -434,9 +433,9 @@ test("buildExcerpt decodes a text longer than one 8192-unit chunk", () => {
   for (const h of highlights) assert.equal(text.slice(h.start, h.end), "word");
 });
 
-test("buildExcerpt rejects a body over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+test("buildExcerpt rejects a body over MAX_INDEX_TEXT_UTF16", () => {
   const huge = "a".repeat(2 ** 24 + 1);
-  assert.throws(() => buildExcerpt(huge, ["a"]), (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message));
+  assert.throws(() => buildExcerpt(huge, ["a"]), (e: unknown) => e instanceof Error && /MAX_INDEX_TEXT_UTF16/.test(e.message));
 });
 
 test("buildExcerpt rejects terms over MAX_INDEX_TEXT_UTF16 in total before WASM", () => {
@@ -573,8 +572,8 @@ test("guessBlobContentType maps known extensions and falls back", () => {
   assert.ok(typeof fallback === "string" && fallback.length > 0);
 });
 
-test("extractDoi rejects text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
-  assert.throws(() => extractDoi("x".repeat(maxIndexTextUtf16() + 1)), RangeError);
+test("extractDoi rejects text over MAX_INDEX_TEXT_UTF16", () => {
+  assert.throws(() => extractDoi("x".repeat(maxIndexTextUtf16() + 1)), /MAX_INDEX_TEXT_UTF16/);
 });
 
 const NOTE_PATH = "notes/t--111111.note.md";
@@ -636,9 +635,9 @@ test("readFrontmatter and writeFrontmatter round-trip", () => {
   assert.equal(parsed.body, "body\n");
 });
 
-test("the merge wrappers reject text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+test("the merge wrappers reject text over MAX_INDEX_TEXT_UTF16", () => {
   const huge = "a".repeat(2 ** 24 + 1);
-  const beforeWasm = (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message);
+  const beforeWasm = (e: unknown) => e instanceof Error && /MAX_INDEX_TEXT_UTF16/.test(e.message);
   assert.throws(() => writeConflictMarkers(huge, ""), beforeWasm);
   assert.throws(() => readFrontmatter(huge), beforeWasm);
   assert.throws(() => vaultPageSide("a.md", huge), beforeWasm);
@@ -755,9 +754,9 @@ test("cleanUrlsWithRules strips tracking parameters and counts URLs", () => {
   assert.equal(result.count, 1);
 });
 
-test("the paste wrappers reject text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+test("the paste wrappers reject text over MAX_INDEX_TEXT_UTF16", () => {
   const big = "a".repeat(maxIndexTextUtf16() + 1);
-  const beforeWasm = (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message);
+  const beforeWasm = (e: unknown) => e instanceof Error && /MAX_INDEX_TEXT_UTF16/.test(e.message);
   assert.throws(() => cleanPastedText(big, defaultPasteSettings()), beforeWasm);
   assert.throws(() => tabSeparatedToMarkdownTable(big), beforeWasm);
   assert.throws(() => cleanUrlsWithRules(big, []), beforeWasm);

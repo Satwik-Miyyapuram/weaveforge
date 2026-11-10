@@ -296,19 +296,16 @@ export function coreInfo(): CoreInfo {
 
 /** Search terms of `text`, deduplicated, first occurrence wins. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function tokenize(text: string, options: TokenizerOptions): string[] {
-  checkIndexText(text);
   return rawTokenize(text, options) as string[];
 }
 
 /** `tokenize` then `processTerm` on each token: what MiniSearch indexes. Not deduplicated. */
 export function indexTerms(text: string, options: TokenizerOptions): string[] {
-  checkIndexText(text);
   return rawIndexTerms(text, options) as string[];
 }
 
 /** The query split into terms, phrases, exclusions and filters. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function parseQuery(query: string): ParsedQuery {
-  checkIndexText(query);
   return rawParseQuery(query) as ParsedQuery;
 }
 
@@ -321,7 +318,6 @@ export function buildExcerpt(
   terms: readonly string[],
   options: { maxChars?: number; singleLine?: boolean } = {},
 ): { text: string; highlights: ExcerptRange[] } {
-  checkIndexText(body);
   const max = rawMaxIndexTextUtf16();
   // Each term counts its length + 1, so many empty terms are capped too.
   const total = terms.reduce((sum, term) => sum + term.length + 1, 0);
@@ -390,7 +386,6 @@ export function changedSide(origin: { base?: string; folder?: string; workspace?
 
 /** True when the path sits inside a folder git sync never touches. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function isUnderIgnoredFolder(relPath: string): boolean {
-  checkIndexText(relPath);
   return rawIsUnderIgnoredFolder(relPath);
 }
 
@@ -400,7 +395,6 @@ export function decideGitSyncPath(
   sizeBytes: number,
   maxFileBytes: number = GIT_SYNC_MAX_FILE_BYTES,
 ): { include: true } | { include: false; reason: GitSyncSkipReason } {
-  checkIndexText(relPath);
   return rawDecideGitSyncPath(relPath, sizeBytes, maxFileBytes) as
     | { include: true }
     | { include: false; reason: GitSyncSkipReason };
@@ -433,8 +427,6 @@ export function describeChanges(status: readonly { state: "added" | "modified" |
 
 /** The file with a `weaveforge-id` frontmatter line added, or null if it already has one. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function stampWorkspaceId(content: string, id: string): string | null {
-  checkIndexText(content);
-  checkIndexText(id);
   return rawStampWorkspaceId(content, id) ?? null;
 }
 
@@ -460,13 +452,11 @@ export function applyDelta<T extends { id: string }>(
 
 /** The normalized relative path; throws `Unsafe workspace path: <path>` for one that could leave the root. */
 export function safeWorkspacePath(path: string): string {
-  checkIndexText(path);
   return rawSafeWorkspacePath(path);
 }
 
 /** True when `safeWorkspacePath` accepts the path. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function isSafeWorkspacePath(path: string): boolean {
-  checkIndexText(path);
   return rawIsSafeWorkspacePath(path);
 }
 
@@ -514,28 +504,23 @@ export function stripArchiveRoot(paths: readonly string[]): string[] {
 
 /** The paper id a `kind` reference points to, normalized (Rust `parse_paper_ref`). Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function parsePaperRef(kind: PaperRefKind, value: string): PaperRef {
-  checkIndexText(value);
   return rawParsePaperRef(kind, value) as PaperRef;
 }
 
 /** The bare arXiv id in `value` (a URL or `arXiv:` prefix), or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function normalizeArxivId(value?: string): string | undefined {
   if (!value) return undefined;
-  checkIndexText(value);
   return rawNormalizeArxivId(value) ?? undefined;
 }
 
 /** The DOI in `value`, or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function extractDoi(value?: string): string | undefined {
   if (!value) return undefined;
-  checkIndexText(value);
   return rawExtractDoi(value) ?? undefined;
 }
 
 /** Citation metadata read from a page's HTML. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function extractPageMetadata(html: string, url: string): PageMetadata {
-  checkIndexText(html);
-  checkIndexText(url);
   return rawExtractPageMetadata(html, url) as PageMetadata;
 }
 
@@ -546,7 +531,6 @@ export function pageImportRefusal(meta: PageMetadata): string | null {
 
 /** MIME type for a blob's file `path`, by extension. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function guessBlobContentType(path: string): string {
-  checkIndexText(path);
   return rawGuessBlobContentType(path);
 }
 
@@ -564,15 +548,11 @@ export function mergeVaultPage(
 
 /** The base a mirrored note leaves behind, or null if the file is not a note. */
 export function vaultPageBase(path: string, content: string): VaultPageBase | null {
-  checkIndexText(path);
-  checkIndexText(content);
   return (rawVaultPageBase(path, content) ?? null) as VaultPageBase | null;
 }
 
 /** One side of the merge, or null if the file is not a note. */
 export function vaultPageSide(path: string, content: string): VaultPageSide | null {
-  checkIndexText(path);
-  checkIndexText(content);
   return (rawVaultPageSide(path, content) ?? null) as VaultPageSide | null;
 }
 
@@ -582,27 +562,21 @@ export function mergeHunks(
   theirsText: string,
   picks: Readonly<Record<number, HunkPick>> = {},
 ): string {
-  checkIndexText(oursText);
-  checkIndexText(theirsText);
   return rawMergeHunks(oursText, theirsText, picks);
 }
 
 /** Both copies in one text, differing lines fenced with git-style markers. */
 export function writeConflictMarkers(oursText: string, theirsText: string): string {
-  checkIndexText(oursText);
-  checkIndexText(theirsText);
   return rawWriteConflictMarkers(oursText, theirsText);
 }
 
 /** A note's frontmatter map and body. */
 export function readFrontmatter(content: string): ParsedDocument {
-  checkIndexText(content);
   return rawReadFrontmatter(content) as ParsedDocument;
 }
 
 /** Fields as a `---` block followed by body; null, undefined and empty lists are skipped. */
 export function writeFrontmatter(fields: Readonly<Record<string, unknown>>, body: string): string {
-  checkIndexText(body);
   return rawWriteFrontmatter(fields, body);
 }
 
@@ -628,38 +602,31 @@ export function sameValue(a: unknown, b: unknown): boolean {
 
 /** Line and hunk diff of two bodies (Rust `diff_body`). */
 export function diffBody(ours: string, theirs: string): BodyDiff {
-  checkIndexText(ours);
-  checkIndexText(theirs);
   return rawDiffBody(ours, theirs) as BodyDiff;
 }
 
 /** Whether `text` holds git-style conflict markers (Rust `has_conflict_markers`). */
 export function hasConflictMarkers(text: string): boolean {
-  checkIndexText(text);
   return rawHasConflictMarkers(text);
 }
 
 /** Colour slot 1..6 for a tag (Rust `tag_tone`); a tag keeps its slot everywhere. */
 export function tagTone(tag: string): number {
-  checkIndexText(tag);
   return rawTagTone(tag);
 }
 
 /** Heading anchor id: trimmed, lowercased, non-alphanumeric runs as one hyphen (Rust `heading_slug`). */
 export function headingSlug(text: string): string {
-  checkIndexText(text);
   return rawHeadingSlug(text);
 }
 
 /** The caches a write of this resource type clears, or `null` for an unknown name (Rust `invalidation_plan`). */
 export function invalidationPlan(resourceType: string): InvalidationPlan | null {
-  checkIndexText(resourceType);
   return (rawInvalidationPlan(resourceType) as InvalidationPlan | undefined) ?? null;
 }
 
 /** The repo and screen caches one write of this resource type clears, or `null` for an unknown name (Rust `write_scope`). */
 export function writeScope(resourceType: string): WriteScope | null {
-  checkIndexText(resourceType);
   return (rawWriteScope(resourceType) as WriteScope | undefined) ?? null;
 }
 
@@ -677,6 +644,5 @@ export function lwwNotifyResource(resourceType: string | null | undefined): stri
 
 /** Plain-text card preview of a markdown body, cut to `max` UTF-16 units (Rust `card_snippet`). */
 export function cardSnippet(body: string, max = 180): string {
-  checkIndexText(body);
   return rawCardSnippet(body, max);
 }

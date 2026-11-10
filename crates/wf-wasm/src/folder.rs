@@ -105,8 +105,8 @@ pub fn diff_workspace_js(parsed: JsValue, existing: JsValue, sides: JsValue) -> 
 /// Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units or `kind` is not a
 /// known kind.
 #[wasm_bindgen(js_name = jsonDataPath)]
-pub fn json_data_path_js(project_root: &str, kind: JsValue) -> JsResult<String> {
-    check_text(project_root)?;
+pub fn json_data_path_js(project_root: js_sys::JsString, kind: JsValue) -> JsResult<String> {
+    let project_root = &crate::guarded_text(&project_root)?;
     let kind: WorkspaceJsonKind = serde_wasm_bindgen::from_value(kind)?;
     Ok(json_data_path(project_root, kind))
 }
@@ -118,9 +118,13 @@ pub fn json_data_path_js(project_root: &str, kind: JsValue) -> JsResult<String> 
 /// Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `kind` is
 /// not a known kind.
 #[wasm_bindgen(js_name = parseJsonData)]
-pub fn parse_json_data_js(path: &str, content: &str, kind: JsValue) -> JsResult<JsValue> {
-    check_text(path)?;
-    check_text(content)?;
+pub fn parse_json_data_js(
+    path: js_sys::JsString,
+    content: js_sys::JsString,
+    kind: JsValue,
+) -> JsResult<JsValue> {
+    let path = &crate::guarded_text(&path)?;
+    let content = &crate::guarded_text(&content)?;
     let kind: WorkspaceJsonKind = serde_wasm_bindgen::from_value(kind)?;
     to_js(&parse_json_data(path, content, kind))
 }

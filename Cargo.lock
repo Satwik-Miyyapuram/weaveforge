@@ -1706,6 +1706,7 @@ name = "wf-wasm"
 version = "0.1.0"
 dependencies = [
  "indexmap",
+ "js-sys",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
