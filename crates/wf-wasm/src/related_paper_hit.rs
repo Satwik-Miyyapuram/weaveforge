@@ -4,7 +4,9 @@
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::papers::related_paper_hit::{self, OpenAlexWork, S2Paper};
+use wf_core::papers::related_paper_hit::{
+    self, LibraryPaper, OpenAlexWork, RelatedPaperCollectInput, RelatedPaperHit, S2Paper,
+};
 
 use super::to_js;
 
@@ -57,4 +59,44 @@ pub fn seed_doi_js(doi: Option<String>, arxiv_id: Option<String>) -> Result<JsVa
         doi.as_deref(),
         arxiv_id.as_deref(),
     ))?)
+}
+
+/// [`local_keys`](related_paper_hit::local_keys): the dedupe keys of a library.
+///
+/// # Errors
+///
+/// Fails if `papers` cannot be read as a list of library papers.
+#[wasm_bindgen(js_name = localKeys)]
+pub fn local_keys_js(papers: JsValue) -> Result<JsValue, JsValue> {
+    let papers: Vec<LibraryPaper> = serde_wasm_bindgen::from_value(papers)?;
+    Ok(to_js(&related_paper_hit::local_keys(&papers))?)
+}
+
+/// [`collect_new_hits`](related_paper_hit::collect_new_hits): adds the new candidates up to the limit.
+///
+/// # Errors
+///
+/// Fails if `input` cannot be read as a collect input.
+#[wasm_bindgen(js_name = collectNewHits)]
+pub fn collect_new_hits_js(input: JsValue) -> Result<JsValue, JsValue> {
+    let input: RelatedPaperCollectInput = serde_wasm_bindgen::from_value(input)?;
+    Ok(to_js(&related_paper_hit::collect_new_hits(input))?)
+}
+
+/// [`sort_by_citations`](related_paper_hit::sort_by_citations): most cited first, stable.
+///
+/// # Errors
+///
+/// Fails if `hits` cannot be read as a list of hits.
+#[wasm_bindgen(js_name = sortByCitations)]
+pub fn sort_by_citations_js(hits: JsValue) -> Result<JsValue, JsValue> {
+    let hits: Vec<Option<RelatedPaperHit>> = serde_wasm_bindgen::from_value(hits)?;
+    Ok(to_js(&related_paper_hit::sort_by_citations(hits))?)
+}
+
+/// [`s2_nested_fields`](related_paper_hit::s2_nested_fields): the S2 field list for a nested paper.
+#[wasm_bindgen(js_name = s2NestedFields)]
+#[must_use]
+pub fn s2_nested_fields_js(key: &str) -> String {
+    related_paper_hit::s2_nested_fields(key)
 }

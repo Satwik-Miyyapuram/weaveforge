@@ -5,10 +5,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { graphTagNames, noteTags, notesTagged, relatedConcepts } from "../application/graph-tags";
 import { readyCore } from "@/lib/rust-core";
 
 const note = (id: string, title: string, body: string) => ({ id, title, body });
+const noteTags = (n: { title: string; body: string }) => readyCore().extractHashtags(`${n.title}\n${n.body}`);
+const relatedConcepts = (name: string, papers: { tags: string[] }[], notes: { title: string; body: string }[]) =>
+  readyCore().relatedConcepts(name, papers, notes, 12);
+const notesTagged = <N extends { title: string; body: string }>(notes: N[], tags: string[]) =>
+  readyCore().notesTagged(notes, tags).map((i) => notes[i]!);
 
 test("a note's tags come from its title and body, through core", () => {
   const n = note("n1", "On #VAEs", "body #beta-VAE and #vaes again, `#code`");
@@ -20,9 +24,9 @@ test("graphTagNames: papers, notes and lists, sorted and unique", () => {
   const papers = [{ tags: ["ml", "vision"] }];
   const notes = [note("n1", "#Ünïcode", "#ml #ML #new")];
   const lists = [{ name: "Reading" }];
-  assert.deepEqual(graphTagNames(papers, notes, lists, true), ["ml", "new", "reading", "vision", "ünïcode"]);
-  assert.deepEqual(graphTagNames(papers, notes, lists, false), ["ml", "new", "vision", "ünïcode"]);
-  assert.deepEqual(graphTagNames([], [], [], true), []);
+  assert.deepEqual(readyCore().graphTagNames(papers, notes, lists, true), ["ml", "new", "reading", "vision", "ünïcode"]);
+  assert.deepEqual(readyCore().graphTagNames(papers, notes, lists, false), ["ml", "new", "vision", "ünïcode"]);
+  assert.deepEqual(readyCore().graphTagNames([], [], [], true), []);
 });
 
 test("relatedConcepts counts a tag once per note, title included", () => {

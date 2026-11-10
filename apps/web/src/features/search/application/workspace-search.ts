@@ -1,14 +1,12 @@
 import { type IWorkspaceSearchIndex, type GraphDensity, type RelatedArm, type RelatedResult, type SearchDoc, type SearchHit, type SearchQueryOptions, type SearchSettings, type WikiGraph, type WorkspaceSnapshot } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
 import { loadCore, readyCore } from "@/lib/rust-core";
-import { indexTermsOf } from "../infrastructure/search-core";
 import { applySearchSettings, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
 import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
 import { persistSearchIndex } from "../infrastructure/index-cache-policy";
 import { SearchIndexState } from "./search-index-state";
-import { projectSearchDocuments } from "./search-projection";
 import { pruneMissingPaperTexts } from "./pdf-text-pruning";
 import { typedCore } from "@/lib/rust-core";
 
@@ -21,7 +19,7 @@ import { typedCore } from "@/lib/rust-core";
  *
  * What is left here is the lifecycle and the queries. The four things this class
  * also used to hold live beside it now: the projection
- * (`search-projection.ts`), the extracted-text pruning (`pdf-text-pruning.ts`),
+ * (Rust `project_search_documents`, via `readyCore()`), the extracted-text pruning (`pdf-text-pruning.ts`),
  * the fields and their transitions (`search-index-state.ts`), and the
  * related-document helper (`search-result-dedupe.ts`, in wf-wasm).
  */
@@ -178,11 +176,7 @@ export class WorkspaceSearch {
 
   /** Project the snapshot the same way the worker does. See `projectSearchDocuments`. */
   private projectDocuments(snapshot: WorkspaceSnapshot): SearchDoc[] {
-    return projectSearchDocuments({
-      snapshot,
-      graph: this.state.graph,
-      pdfTexts: this.state.pdfTexts,
-    });
+    return readyCore().projectSearchDocuments(snapshot, this.state.graph, this.state.pdfTexts);
   }
 
   /**
@@ -219,7 +213,7 @@ export class WorkspaceSearch {
     }
     const wanted = new Set(kinds);
     // No PDF text: `pdf` is never a stale kind (see search-index-state.ts).
-    const fresh = projectSearchDocuments({ snapshot, graph: this.state.graph, pdfTexts: [] }).filter((doc) =>
+    const fresh = readyCore().projectSearchDocuments(snapshot, this.state.graph, []).filter((doc) =>
       wanted.has(doc.kind),
     );
 
@@ -368,7 +362,7 @@ export class WorkspaceSearch {
     const content = typedCore().stripStopwords(query);
     const fusedKeyword = typedCore().coveredHits(
       content === query ? keyword : this.search(content, options),
-      typedCore().queryTermCount(indexTermsOf(core, content)),
+      typedCore().queryTermCount(core.indexTermsOf(content)),
     ).map((hit) => known.get(hit.id) ?? hit);
 
     // Keyword first, so its excerpt is the one that survives fusion.

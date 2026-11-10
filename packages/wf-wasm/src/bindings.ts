@@ -2551,6 +2551,20 @@ export type FillPaper = {
 	title: string,
 };
 
+/**  A filtered sample: where to draw, how wide, and how fast the pen is moving. */
+export type FilteredNibSample = {
+	/**  Filtered horizontal position, in 0.1 mm. */
+	x: number | null,
+	/**  Filtered vertical position, in 0.1 mm. */
+	y: number | null,
+	/**  Filtered pressure, 0-1. */
+	pressure: number | null,
+	/**  Speed in 0.1 mm per ms, for the nib's velocity taper. */
+	velocity: number | null,
+	/**  Milliseconds, passed through unchanged. */
+	t: number | null,
+};
+
 /**  The rows a filter leaves, and the keys that must be open to show them. */
 export type FilteredRows = {
 	/**  The rows to paint, in order. */
@@ -4619,6 +4633,18 @@ export type NewestRelease = {
 	url: string,
 };
 
+/**  One sample as it arrives from the digitiser, in 0.1 mm. */
+export type NibSample = {
+	/**  Horizontal position, in 0.1 mm. */
+	x: number | null,
+	/**  Vertical position, in 0.1 mm. */
+	y: number | null,
+	/**  0–1, or `0`/`0.5` for a device that does not report pressure. */
+	pressure: number | null,
+	/**  Milliseconds. */
+	t: number | null,
+};
+
 /**  Per-kind colour overrides, as lower-case `#rrggbb`. Missing keys follow the palette. */
 export type NodeColors = {
 	paper?: string | null,
@@ -4714,6 +4740,16 @@ export type NoteNode = {
 	kind?: WorkspaceEntityType | null,
 	/**  Whether the note is a folder. */
 	folder?: boolean,
+};
+
+/**  Cutoffs and speed coefficient for one channel. */
+export type OneEuroOptions = {
+	/**  Cutoff at zero speed, in hertz. */
+	minCutoff: number | null,
+	/**  How fast the cutoff rises with speed, in hertz per (0.1 mm/ms). */
+	beta: number | null,
+	/**  Cutoff for the internal derivative estimate, in hertz. */
+	derivativeCutoff: number | null,
 };
 
 /**  One place a paper may be read for free. `url` is https, with no credentials. */
@@ -6451,6 +6487,14 @@ export type RelatedNode = {
 	score: number | null,
 };
 
+/**  The output of [`collect_new_hits`]: the kept hits and the keys after them. */
+export type RelatedPaperCollectOutput = {
+	/**  Keys after the kept hits were added. */
+	keys: RelatedPaperKeys,
+	/**  Hits kept so far, in order. */
+	hits: RelatedPaperHitRow[],
+};
+
 /**  One neighbour of the seed paper. Absent fields serialize as `undefined`, the TS shape. */
 export type RelatedPaperHitRow = {
 	/**  Title. */
@@ -6469,6 +6513,16 @@ export type RelatedPaperHitRow = {
 	abstract: string | null,
 	/**  Citation count. */
 	citationCount: number | null,
+};
+
+/**  The keys the dedupe checks a hit against: normalized DOIs, lower-cased arXiv ids and title keys. */
+export type RelatedPaperKeys = {
+	/**  Normalized DOIs. */
+	dois: string[],
+	/**  Lower-cased arXiv ids. */
+	arxivs: string[],
+	/**  Normalized title keys. */
+	titles: string[],
 };
 
 /**  One related document (TS `RelatedResult`). */
@@ -7161,6 +7215,46 @@ export type ShareIndexRow = {
 	access: string,
 };
 
+/**  A share link as the app reads it (TS `ShareLink`). */
+export type ShareLink = {
+	/**  Row id. */
+	id: string,
+	/**  The sharer. */
+	ownerId: string,
+	/**  The type of item shared. */
+	resourceType: ShareableType,
+	/**  The item shared. */
+	resourceId: string,
+	/**  The access level (links are view only). */
+	access: ShareAccess,
+	/**  When the link stops working; `None` when it never expires. */
+	expiresAt: string | null,
+	/**  When the link was made. */
+	createdAt: string,
+};
+
+/**
+ *  A `share_links` row as PostgREST returns the columns the app reads (TS `ShareLinkRow`).
+ * 
+ *  The key columns (`token_hash`, `dek_wrap`, `dek_epoch`) are never read back, so they are absent.
+ */
+export type ShareLinkRow = {
+	/**  Row id. */
+	id: string,
+	/**  The sharer. */
+	owner_id: string,
+	/**  The type of item shared. */
+	resource_type: ShareableType,
+	/**  The item shared. */
+	resource_id: string,
+	/**  The access level (links are view only). */
+	access: ShareAccess,
+	/**  When the link stops working; `None` when it never expires. */
+	expires_at: string | null,
+	/**  When the link was made. */
+	created_at: string,
+};
+
 /**  A `shares` row as the database returns it (snake_case columns; TS `ShareRow`). */
 export type ShareRow = {
 	/**  Row id. */
@@ -7187,6 +7281,14 @@ export type ShareScope = {
 	resourceId: string | null,
 	/**  The sharer. */
 	ownerId: string,
+};
+
+/**  The ids and owners of one type that a shared-with-me list reads (TS `ShareTargets` split). */
+export type ShareTargets = {
+	/**  Resource ids of per-item grants, in list order. */
+	ids: string[],
+	/**  Owner ids of blanket grants, in list order. */
+	owners: string[],
 };
 
 /**  A type a share can cover (TS `ShareableType`). */
@@ -7226,6 +7328,16 @@ export type SharedPaperAnnotationSummary = {
 	count: number,
 	/**  Up to three trimmed texts, falling back to the comment. */
 	samples: string[],
+};
+
+/**  The PostgREST read behind one shared-reader call (TS `PostgrestSharedReader.read`). */
+export type SharedReadPlan = {
+	/**  The table to read. */
+	table: string,
+	/**  The comma-separated select list. */
+	columns: string,
+	/**  The PostgREST `or` filter: `id.in.(..)` and/or `user_id.in.(..)`. */
+	filter: string,
 };
 
 /**
@@ -7370,6 +7482,14 @@ export type StorageConfig = {
 	coldSecretAccessKey?: string | null,
 	/**  Cold-tier bucket name. */
 	coldBucket?: string | null,
+};
+
+/**  The worker's build: documents plus per-paper page counts. */
+export type StoredPdfProjection = {
+	/**  Search documents, in revision order. */
+	docs: SearchDoc[],
+	/**  `(paperId, pageCount)` for each kept paper, in input order. */
+	pdfPageCounts: ([string, number])[],
 };
 
 /**  The stroke marker: serialises as the string `"stroke"`. */

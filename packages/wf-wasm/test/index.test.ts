@@ -178,6 +178,8 @@ test("the wrapper modules declare no types of their own", () => {
     ...["MentionHit", "ReaderReferenceIndex", "ParsedReferenceEntry", "ReferencePage", "FlatReferenceIndex", "PdfRect"],
     ...["LocatePageTextItem", "PaperPdfSource", "SessionAction", "PanelChoice", "AppVersion", "FolderSeenFile"],
     ...["OutsideSeenFile", "WikiLintPageRef", "RecolourableNode", "RecolourLookups", "MetricRowInput"],
+    // Specta widens every f64 to `number | null`; the pen filter only sees finite numbers.
+    ...["OneEuroOptions", "NibSample", "FilteredNibSample"],
   );
   const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);
@@ -199,10 +201,11 @@ test("wf-wasm exports no classes or enums", () => {
   // Agree how to type them before adding one.
   // The agreed classes: a factory wrapper builds each; wasm-bindgen types its methods.
   // VectorIndex (vector-index.ts), the live InkStrokePacker (ink.ts) and the
-  // import ArchiveBudget (createArchiveBudget in index.ts).
+  // import ArchiveBudget (createArchiveBudget in index.ts), and the stateful pen
+  // filters OneEuroFilter, NibFilter and NibFilterSnapshot (one-euro.ts).
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   const declared = [...dts.matchAll(/^export (?:declare )?(?:class|enum) (\w+)/gm)].map((m) => m[1]);
-  assert.deepEqual(declared.sort(), ["ArchiveBudget", "InkStrokePacker", "VectorIndex"]);
+  assert.deepEqual(declared.sort(), ["ArchiveBudget", "InkStrokePacker", "NibFilter", "NibFilterSnapshot", "OneEuroFilter", "VectorIndex"]);
 });
 
 const ALL_ON: TokenizerOptions = {

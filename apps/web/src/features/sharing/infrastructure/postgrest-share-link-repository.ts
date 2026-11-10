@@ -7,6 +7,7 @@ import type {
 } from "@weaveforge/core";
 import type { ShareableType } from "@weaveforge/core";
 import { decodeBytea, decodeBase64, encodeBytea } from "@/lib/bytea.js";
+import { readyCore } from "@/lib/rust-core";
 
 function throwDataError(error: { message?: string }, fallback: string): never {
   const msg = typeof error.message === "string" ? error.message : fallback;
@@ -36,16 +37,9 @@ interface ShareLinkRow {
   created_at: string;
 }
 
+/** Mapped by `readyCore().shareLinkFromRow` (Rust `share_link_from_row`). */
 function mapRow(row: ShareLinkRow): ShareLink {
-  return {
-    id: row.id,
-    ownerId: row.owner_id,
-    resourceType: row.resource_type,
-    resourceId: row.resource_id,
-    access: row.access,
-    expiresAt: row.expires_at,
-    createdAt: row.created_at,
-  };
+  return readyCore().shareLinkFromRow(row);
 }
 
 function mapResolved(row: {

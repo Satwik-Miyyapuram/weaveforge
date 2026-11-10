@@ -1,6 +1,6 @@
 /**
  * Internal `/Link` citation mentions (Rust `reader::link_citations`), re-exported from index.ts. Each
- * function keeps the signature of packages/core/src/features/reader/link-citations.ts.
+ * function's signature is LinkCitationsFns in packages/core/src/shared/core-contract.ts.
  * Object shapes come from ./bindings.ts.
  */
 import {

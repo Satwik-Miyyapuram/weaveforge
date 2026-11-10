@@ -13,6 +13,7 @@ pub mod index_cache_policy;
 pub mod js_text;
 pub mod pdf_text_prune;
 pub mod personalized_pagerank;
+pub mod projection;
 pub mod query;
 pub mod rank_filter;
 pub mod refresh_diff;

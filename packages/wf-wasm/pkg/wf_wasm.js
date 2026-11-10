@@ -118,6 +118,166 @@ export class InkStrokePacker {
 if (Symbol.dispose) InkStrokePacker.prototype[Symbol.dispose] = InkStrokePacker.prototype.free;
 
 /**
+ * [`NibFilter`](CoreNibFilter): the pen-level filter (position and pressure, one state).
+ */
+export class NibFilter {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        NibFilterFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_nibfilter_free(ptr, 0);
+    }
+    /**
+     * Filter one raw sample. Returns `[x, y, pressure, velocity, t]`.
+     * @param {number} x
+     * @param {number} y
+     * @param {number} pressure
+     * @param {number} t
+     * @returns {Float64Array}
+     */
+    filter(x, y, pressure, t) {
+        const ret = wasm.nibfilter_filter(this.__wbg_ptr, x, y, pressure, t);
+        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+        return v1;
+    }
+    /**
+     * `position` and `pressure` are each `{ minCutoff, beta, derivativeCutoff }`.
+     * @param {any} position
+     * @param {any} pressure
+     */
+    constructor(position, pressure) {
+        const ret = wasm.nibfilter_new(position, pressure);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0];
+        NibFilterFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Start a new stroke: no state carries over from the last one.
+     */
+    reset() {
+        wasm.nibfilter_reset(this.__wbg_ptr);
+    }
+    /**
+     * Put back a state from [`Self::save`].
+     * @param {NibFilterSnapshot} snapshot
+     */
+    restore(snapshot) {
+        _assertClass(snapshot, NibFilterSnapshot);
+        wasm.nibfilter_restore(this.__wbg_ptr, snapshot.__wbg_ptr);
+    }
+    /**
+     * Snapshot the state, to pass to [`Self::restore`] later.
+     * @returns {NibFilterSnapshot}
+     */
+    save() {
+        const ret = wasm.nibfilter_save(this.__wbg_ptr);
+        return NibFilterSnapshot.__wrap(ret);
+    }
+    /**
+     * The filter's own speed estimate for the newest sample, for diagnostics.
+     * @returns {number}
+     */
+    get speed() {
+        const ret = wasm.nibfilter_speed(this.__wbg_ptr);
+        return ret;
+    }
+}
+if (Symbol.dispose) NibFilter.prototype[Symbol.dispose] = NibFilter.prototype.free;
+
+/**
+ * An opaque snapshot of a [`NibFilter`], for [`NibFilter::restore`].
+ */
+export class NibFilterSnapshot {
+    static __wrap(ptr) {
+        const obj = Object.create(NibFilterSnapshot.prototype);
+        obj.__wbg_ptr = ptr;
+        NibFilterSnapshotFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        NibFilterSnapshotFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_nibfiltersnapshot_free(ptr, 0);
+    }
+}
+if (Symbol.dispose) NibFilterSnapshot.prototype[Symbol.dispose] = NibFilterSnapshot.prototype.free;
+
+/**
+ * [`OneEuroFilter`](CoreOneEuroFilter): one scalar channel, held across calls.
+ */
+export class OneEuroFilter {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        OneEuroFilterFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_oneeurofilter_free(ptr, 0);
+    }
+    /**
+     * Filter one sample taken at `time` milliseconds; returns the filtered value.
+     * @param {number} value
+     * @param {number} time
+     * @returns {number}
+     */
+    filter(value, time) {
+        const ret = wasm.oneeurofilter_filter(this.__wbg_ptr, value, time);
+        return ret;
+    }
+    /**
+     * The last filtered value, or `undefined` before the first sample.
+     * @returns {number | undefined}
+     */
+    get last() {
+        const ret = wasm.oneeurofilter_last(this.__wbg_ptr);
+        return ret[0] === 0 ? undefined : ret[1];
+    }
+    /**
+     * `options` is `{ minCutoff, beta, derivativeCutoff }`.
+     * @param {any} options
+     */
+    constructor(options) {
+        const ret = wasm.oneeurofilter_new(options);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0];
+        OneEuroFilterFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Forget everything, as at pen-down.
+     */
+    reset() {
+        wasm.oneeurofilter_reset(this.__wbg_ptr);
+    }
+    /**
+     * The last estimated speed, in value units per millisecond.
+     * @returns {number}
+     */
+    get speed() {
+        const ret = wasm.oneeurofilter_speed(this.__wbg_ptr);
+        return ret;
+    }
+}
+if (Symbol.dispose) OneEuroFilter.prototype[Symbol.dispose] = OneEuroFilter.prototype.free;
+
+/**
  * Brute-force cosine index over normalized vectors.
  */
 export class VectorIndex {
@@ -2528,6 +2688,23 @@ export function collectCitedKeys(latex) {
  */
 export function collectListIds(tree) {
     const ret = wasm.collectListIds(tree);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`collect_new_hits`](related_paper_hit::collect_new_hits): adds the new candidates up to the limit.
+ *
+ * # Errors
+ *
+ * Fails if `input` cannot be read as a collect input.
+ * @param {any} input
+ * @returns {any}
+ */
+export function collectNewHits(input) {
+    const ret = wasm.collectNewHits(input);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -5124,6 +5301,27 @@ export function evaluateAiAccess(input, now) {
     const ptr0 = passStringToWasm0(now, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.evaluateAiAccess(input, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`excerptOf`]: a 200-character excerpt of `body` around `terms`, cut like [`index_terms_of_js`].
+ *
+ * # Errors
+ *
+ * Fails if `terms` is not an array of strings, or if the terms together need more than
+ * `MAX_INDEX_TEXT_UTF16` units (each counts its length + 1), as the TS `buildExcerpt` does.
+ * @param {string} body
+ * @param {any} terms
+ * @returns {any}
+ */
+export function excerptOf(body, terms) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.excerptOf(ptr0, len0, terms);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7808,6 +8006,21 @@ export function indexTerms(text, options) {
 }
 
 /**
+ * [`indexTermsOf`]: the index terms of `text`, cut to the longest text the index accepts rather
+ * than throwing. Rust `index_terms` with the search tokenizer defaults.
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function indexTermsOf(text) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.indexTermsOf(ptr0, len0);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
  * [`initial_reader_viewport`] as `{ scale, fit, rotation, page }` (TS `initialReaderViewport`).
  *
  * # Errors
@@ -8968,6 +9181,18 @@ export function isLocalZoteroUrl(url) {
     const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.isLocalZoteroUrl(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`is_missing_service_role`](org::is_missing_service_role).
+ * @param {string} message
+ * @returns {boolean}
+ */
+export function isMissingServiceRole(message) {
+    const ptr0 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isMissingServiceRole(ptr0, len0);
     return ret !== 0;
 }
 
@@ -10171,6 +10396,23 @@ export function loadOpenGroups(raw, active) {
     var ptr1 = isLikeNone(active) ? 0 : passStringToWasm0(active, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len1 = WASM_VECTOR_LEN;
     const ret = wasm.loadOpenGroups(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`local_keys`](related_paper_hit::local_keys): the dedupe keys of a library.
+ *
+ * # Errors
+ *
+ * Fails if `papers` cannot be read as a list of library papers.
+ * @param {any} papers
+ * @returns {any}
+ */
+export function localKeys(papers) {
+    const ret = wasm.localKeys(papers);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11619,6 +11861,18 @@ export function needsDisclaimerAcceptance(settings) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`needs_migration_hint`](org::needs_migration_hint).
+ * @param {string} message
+ * @returns {boolean}
+ */
+export function needsMigrationHint(message) {
+    const ptr0 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.needsMigrationHint(ptr0, len0);
+    return ret !== 0;
 }
 
 /**
@@ -15297,6 +15551,44 @@ export function projectName(name) {
 }
 
 /**
+ * [`project_search_documents`](projection::project_search_documents). `graph` is a wiki graph or
+ * `null`; `pdfTexts` is the extracted PDF text array.
+ *
+ * # Errors
+ *
+ * Fails if an argument or a reader annotation does not match the expected shape.
+ * @param {any} snapshot
+ * @param {any} graph
+ * @param {any} pdf_texts
+ * @returns {any}
+ */
+export function projectSearchDocuments(snapshot, graph, pdf_texts) {
+    const ret = wasm.projectSearchDocuments(snapshot, graph, pdf_texts);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`project_stored_pdf_texts`](projection::project_stored_pdf_texts): the worker's build.
+ *
+ * # Errors
+ *
+ * Fails if an argument or a reader annotation does not match the expected shape.
+ * @param {any} snapshot
+ * @param {any} stored
+ * @returns {any}
+ */
+export function projectStoredPdfTexts(snapshot, stored) {
+    const ret = wasm.projectStoredPdfTexts(snapshot, stored);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`project_zotero_annotations`](zotero_projection::project_zotero_annotations).
  *
  * # Errors
@@ -17040,6 +17332,26 @@ export function rowsForHeight(px, row_height, margin) {
 }
 
 /**
+ * [`s2_nested_fields`](related_paper_hit::s2_nested_fields): the S2 field list for a nested paper.
+ * @param {string} key
+ * @returns {string}
+ */
+export function s2NestedFields(key) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.s2NestedFields(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`s2_paper_id`](semantic_scholar_citation::s2_paper_id): the Semantic Scholar id for a reference.
  *
  * # Errors
@@ -18036,6 +18348,23 @@ export function shareFromRow(row) {
 }
 
 /**
+ * [`share_link_from_row`](sharing::share_link_from_row): a `share_links` row as the app's `ShareLink`.
+ *
+ * # Errors
+ *
+ * Fails if `row` does not have the `share_links` columns.
+ * @param {any} row
+ * @returns {any}
+ */
+export function shareLinkFromRow(row) {
+    const ret = wasm.shareLinkFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`share_supports_edit_access`](sharing::share_supports_edit_access).
  *
  * # Errors
@@ -18053,6 +18382,24 @@ export function shareSupportsEditAccess(resource_type, resource_id) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`share_targets`](sharing::share_targets): the ids and blanket owners of one type in a grant list.
+ *
+ * # Errors
+ *
+ * Fails if `kind` is not a shareable type or `shares` is not a list of shares.
+ * @param {any} shares
+ * @param {any} kind
+ * @returns {any}
+ */
+export function shareTargets(shares, kind) {
+    const ret = wasm.shareTargets(shares, kind);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -18160,6 +18507,26 @@ export function sharedPaperAnnotationSummary(metadata) {
  */
 export function sharedProviderHint(descriptor, all) {
     const ret = wasm.sharedProviderHint(descriptor, all);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`shared_read_plan`](sharing::shared_read_plan): the PostgREST table, columns and filter for
+ * one shared read, or `null` when there is no id and no owner.
+ *
+ * # Errors
+ *
+ * Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
+ * @param {any} kind
+ * @param {any} ids
+ * @param {any} owners
+ * @returns {any}
+ */
+export function sharedReadPlan(kind, ids, owners) {
+    const ret = wasm.sharedReadPlan(kind, ids, owners);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -18518,6 +18885,23 @@ export function snapInkShape(points) {
  */
 export function snapToText(runs, x, y) {
     const ret = wasm.snapToText(runs, x, y);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`sort_by_citations`](related_paper_hit::sort_by_citations): most cited first, stable.
+ *
+ * # Errors
+ *
+ * Fails if `hits` cannot be read as a list of hits.
+ * @param {any} hits
+ * @returns {any}
+ */
+export function sortByCitations(hits) {
+    const ret = wasm.sortByCitations(hits);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -21783,6 +22167,15 @@ const ArchiveBudgetFinalization = (typeof FinalizationRegistry === 'undefined')
 const InkStrokePackerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_inkstrokepacker_free(ptr, 1));
+const NibFilterFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_nibfilter_free(ptr, 1));
+const NibFilterSnapshotFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_nibfiltersnapshot_free(ptr, 1));
+const OneEuroFilterFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_oneeurofilter_free(ptr, 1));
 const VectorIndexFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_vectorindex_free(ptr, 1));
@@ -21791,6 +22184,12 @@ function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
     wasm.__wbindgen_externrefs.set(idx, obj);
     return idx;
+}
+
+function _assertClass(instance, klass) {
+    if (!(instance instanceof klass)) {
+        throw new Error(`expected instance of ${klass.name}`);
+    }
 }
 
 function debugString(val) {

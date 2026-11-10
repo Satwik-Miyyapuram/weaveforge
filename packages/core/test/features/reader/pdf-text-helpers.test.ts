@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FURNITURE_MARGIN } from "../../../src/features/reader/analysis/line-reconstruction.js";
-import * as citationText from "../../../src/features/reader/analysis/citation-text.js";
 import * as reader from "../../../src/features/reader/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
@@ -22,7 +21,6 @@ test("pageTextFromItems: runs joined, a newline after each hasEOL run", () => {
 
 test("pageTextFromItems: one copy, in Rust", () => {
   assert.equal("pageTextFromItems" in reader, false, "the reader barrel keeps no copy");
-  assert.equal("pageTextFromItems" in citationText, false, "citation-text keeps no copy");
 });
 
 test("isBoldFont: bold, black and heavy faces, any case; nothing else", () => {

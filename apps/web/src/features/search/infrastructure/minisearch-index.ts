@@ -1,8 +1,10 @@
 import MiniSearch, { type Options, type SearchResult } from "minisearch";
 import { type IWorkspaceSearchIndex, type IWorkspaceSearchIndexFactory, type SearchDoc, type SearchHit, type SearchSettings, type SearchKind, type SearchQueryOptions } from "@weaveforge/core";
 import type { ParsedQuery } from "@weaveforge/wasm";
-import { excerptOf, indexTermsOf, type SearchCore } from "./search-core";
-import { typedCore } from "@/lib/rust-core";
+import { type RustCore, readyCore, typedCore } from "@/lib/rust-core";
+
+/** The Rust core calls this index makes that depend on the injected core. */
+type SearchCore = Pick<RustCore, "parseQuery" | "planFuzzyRetry">;
 
 /**
  * BM25 index over the workspace snapshot. The only module that imports
@@ -55,7 +57,7 @@ function isEmptyQuery(parsed: ParsedQuery): boolean {
     parsed.tags.length === 0 && parsed.exclude.length === 0 && parsed.modifiedWithinDays === null;
 }
 
-function miniSearchOptions(core: SearchCore): Options<SearchDoc> {
+function miniSearchOptions(): Options<SearchDoc> {
   return {
     idField: "id",
     fields: [...typedCore().SEARCH_FIELDS],
@@ -69,7 +71,7 @@ function miniSearchOptions(core: SearchCore): Options<SearchDoc> {
     },
     // indexTermsOf already processes terms; MiniSearch also tokenizes queries with
     // this, so index and query share one tokenizer or terms never match.
-    tokenize: (text) => indexTermsOf(core, text),
+    tokenize: (text) => readyCore().indexTermsOf(text),
     processTerm: (term) => term,
   };
 }
@@ -206,7 +208,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         terms: result.terms,
         queryTerms: result.queryTerms,
         excerpt: options.excerpts
-          ? excerptOf(this.core, fields.body ?? "", result.terms)
+          ? readyCore().excerptOf(fields.body ?? "", result.terms)
           : undefined,
       };
     });
@@ -297,7 +299,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
 export function createMiniSearchIndexFactory(core: SearchCore): IWorkspaceSearchIndexFactory {
   return {
     create(docs: readonly SearchDoc[]): IWorkspaceSearchIndex {
-      const engine = new MiniSearch<SearchDoc>(miniSearchOptions(core));
+      const engine = new MiniSearch<SearchDoc>(miniSearchOptions());
       const index = new MiniSearchWorkspaceIndex(core, engine, "", new Map());
       index.replaceAll(docs);
       return index;
@@ -315,7 +317,7 @@ export function createMiniSearchIndexFactory(core: SearchCore): IWorkspaceSearch
         if (payload.schemaVersion !== SEARCH_SCHEMA_VERSION) return null;
         if (payload.revision !== revision) return null;
 
-        const engine = MiniSearch.loadJSON<SearchDoc>(payload.index, miniSearchOptions(core));
+        const engine = MiniSearch.loadJSON<SearchDoc>(payload.index, miniSearchOptions());
         const stored = new Map<string, StoredFields>(Object.entries(payload.docs ?? {}));
         return new MiniSearchWorkspaceIndex(core, engine, payload.revision, stored);
       } catch {

@@ -7,7 +7,7 @@ import {
   byName,
 } from "./member-rows";
 import { one } from "@/backend/providers/postgrest/row-access";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import type { CoreContract } from "@weaveforge/core";
 
 /**
@@ -124,8 +124,11 @@ export class PostgrestMemberRepository implements IMemberRepository {
     if (memErr) throw memErr;
     if (!membership) return null;
 
+    // Explicit join/create vs. migration backfill is decided in Rust (`is_explicit_lab_membership`).
     const joinedVia = (membership as { joined_via?: string }).joined_via;
-    return joinedVia === "invite" || joinedVia === "create" ? activeOrgId : null;
+    return readyCore().isExplicitLabMembership({ orgId: activeOrgId, joinSource: joinedVia ?? null })
+      ? activeOrgId
+      : null;
   }
 
   private async orgMemberIds(orgId: string): Promise<Set<string>> {

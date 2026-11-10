@@ -35,13 +35,7 @@ export class LoadSharedWithMeScreenUseCase {
 
     const groups = await Promise.all(
       readyCore().SHAREABLE_TYPES.map((type) => {
-        const ids: string[] = [];
-        const owners: string[] = [];
-        for (const s of shares) {
-          if (s.resourceType !== type) continue;
-          if (s.resourceId) ids.push(s.resourceId);
-          else owners.push(s.ownerId);
-        }
+        const { ids, owners } = readyCore().shareTargets(shares, type);
         return this.deps.sharedReader.read(type, ids, owners);
       }),
     );
