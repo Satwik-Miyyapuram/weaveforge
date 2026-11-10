@@ -78,17 +78,6 @@ function diagramId(code: string): string {
   return `wf-mermaid-${(hash >>> 0).toString(36)}`;
 }
 
-/**
- * Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`,
- * and a note about a VAE writes `Q[q(z|x)]` without thinking twice. Such a
- * label is quoted before it goes to the parser, which is what the author
- * meant; a label already quoted, or a shape whose brackets carry meaning
- * (`[(cylinder)]`, `[[subroutine]]`, `[/parallelogram/]`), is left alone.
- */
-export function quoteAwkwardLabels(code: string): string {
-  return readyCore().quoteAwkwardMermaidLabels(code);
-}
-
 function getMermaid(): Promise<MermaidModule> {
   if (!mermaidPromise) {
     mermaidPromise = customLoader ? customLoader() : import("pele/lazy");
@@ -114,7 +103,8 @@ export async function renderMermaidBlock(code: string): Promise<string> {
   if (typeof document === "undefined") {
     return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${readyCore().escapeHtml(code)}</code></pre>`;
   }
-  const source = quoteAwkwardLabels(code.trim());
+  // Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`; the Rust core quotes them.
+  const source = readyCore().quoteAwkwardMermaidLabels(code.trim());
   const hit = renderCache.get(source);
   if (hit !== undefined) {
     renderCache.delete(source);

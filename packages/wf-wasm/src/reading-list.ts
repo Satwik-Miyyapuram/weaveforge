@@ -7,6 +7,9 @@ import {
   deepestFirstListIds as rawDeepestFirstListIds,
   listDisplayColor as rawListDisplayColor,
   listMembershipByKey as rawListMembershipByKey,
+  pendingKey as rawPendingKey,
+  readingListNameMatches as rawReadingListNameMatches,
+  relationTitles as rawRelationTitles,
 } from "../pkg/wf_wasm.js";
 import type { ListMembershipKey, ReadingList, ReadingListTreeNode } from "./bindings.js";
 /** The reading list shapes callers type their state with. */
@@ -37,4 +40,25 @@ export function listMembershipByKey(
 ): Map<string, Set<string>> {
   const pairs = rawListMembershipByKey(lists, items, key) as [string, string[]][];
   return new Map(pairs.map(([id, ids]): [string, Set<string>] => [id, new Set(ids)]));
+}
+
+/**
+ * Whether a list name contains `needle`, ignoring case. An empty needle matches every name.
+ * Rust `reading_lists::name_filter`.
+ */
+export function readingListNameMatches(name: string, needle: string): boolean {
+  return rawReadingListNameMatches(name, needle);
+}
+
+/** The extraction-table lookup key for one cell, `paperId::fieldId`. Rust `reading_lists::extraction_keys`. */
+export function pendingKey(paperId: string, fieldId: string): string {
+  return rawPendingKey(paperId, fieldId);
+}
+
+/**
+ * The titles of related papers joined by `, ` in the order given; an id with no title shows as
+ * the id. Rust `reading_lists::extraction_keys::relation_titles`.
+ */
+export function relationTitles(ids: readonly string[], titleById: ReadonlyMap<string, string>): string {
+  return rawRelationTitles(ids, Object.fromEntries(titleById));
 }

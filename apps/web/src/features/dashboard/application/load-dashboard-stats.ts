@@ -16,6 +16,7 @@ import {
   type DashboardDataSource,
   dataSourcesForCardTypes,
 } from "./card-registry";
+import { readyCore } from "@/lib/rust-core";
 import { buildDashboardStats, type DashboardStats } from "./build-dashboard-stats";
 import {
   buildSupervisionStats,
@@ -49,15 +50,6 @@ export interface LoadDashboardStatsResult {
   supervision: SupervisionStats | null;
   criticalError: unknown | null;
   supervisionError: unknown | null;
-}
-
-function countLists(nodes: readonly ReadingListTreeNode[]): number {
-  let n = 0;
-  for (const node of nodes) {
-    n += 1;
-    n += countLists(node.children);
-  }
-  return n;
 }
 
 function resolveDeps(cardTypes: readonly DashboardCardType[]): Set<DashboardDataSource> {
@@ -122,7 +114,7 @@ export async function loadDashboardStats(
     experiments,
     logEntries,
     relations,
-    listCount: countLists(listTree),
+    listCount: readyCore().collectListIds(listTree).length,
     tags,
   });
 

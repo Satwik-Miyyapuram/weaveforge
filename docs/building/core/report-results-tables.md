@@ -19,6 +19,16 @@ All in `crates/wf-core/src/report/results_table_refs.rs`.
 
 The Markdown and LaTeX table renderers are private and are not exported to wasm.
 
+- `results_tables_presence::has_results_tables(nodes)`: whether any section in
+  the report tree, or a descendant, has an `exptable:` reference in its notes.
+  Missing or null notes count as empty. Own notes are checked before children.
+  Lives in `crates/wf-core/src/report/results_tables_presence.rs`; wasm export
+  `hasResultsTables` in `crates/wf-wasm/src/report_results_presence.rs`; wrapper
+  `packages/wf-wasm/src/report-results-presence.ts`. It replaces the TS walk in
+  `download-overleaf-export.ts`, which decides whether experiments are loaded
+  before the Overleaf export. It does not check the 16Mi cap, same as
+  `parseResultsTableRefs`.
+
 ## How the app calls it
 
 `crates/wf-wasm/src/report_results_tables.rs` exports `serialiseResultsTableRef`,

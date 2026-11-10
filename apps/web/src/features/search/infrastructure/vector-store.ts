@@ -64,7 +64,7 @@ export function localVectorStore(run: (sql: string, params: unknown[]) => Promis
         const row = rows[0];
         if (row?.on_disk) {
           const bytes = files ? await files.read(BUCKET, key(projectId)) : null;
-          return bytes ? unpackBinary(bytes) : null;
+          return bytes ? readyCore().unpackVectors(bytes) : null;
         }
         return row?.bytes ? unpack(row.bytes) : null;
       } catch {
@@ -157,7 +157,7 @@ const folderStore = {
     if (!fs) return null;
     try {
       if (!(await fs.stat(folderPath(projectId)))) return null;
-      return unpackBinary(await fs.readFile(folderPath(projectId)));
+      return readyCore().unpackVectors(await fs.readFile(folderPath(projectId)));
     } catch {
       return null;
     }
@@ -196,11 +196,6 @@ export function packBinary(value: StoredVectors): Uint8Array {
     { model: value.model, dimensions: value.dimensions, revision: value.revision, hashes: value.hashes },
     value.bytes,
   );
-}
-
-export function unpackBinary(bytes: Uint8Array): StoredVectors | null {
-  // The blob is validated where it is loaded (`vectorIndexFromBytes`), which rejects a short or torn one.
-  return readyCore().unpackVectors(bytes);
 }
 
 let chosen: VectorStore | null = null;

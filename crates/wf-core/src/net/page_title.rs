@@ -1,4 +1,4 @@
-//! Reading a page's title out of its HTML (`packages/core/src/net/page-title.ts`
+//! Reading a page's title out of its HTML (`PageTitleFns` in `packages/core/src/shared/core-contract.ts`
 //! `extractPageTitle` and `decodeHtmlEntities`). Pure string work.
 
 use std::sync::LazyLock;

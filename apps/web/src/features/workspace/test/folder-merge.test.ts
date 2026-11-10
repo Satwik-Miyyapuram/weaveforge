@@ -99,7 +99,8 @@ test("a key one side deleted is absent, not null, when that side is picked", () 
     note({ status: "published" }, "Base body."),
   );
   assert.deepEqual(conflicted.merge?.disputed, [
-    { field: "status", base: "draft", ours: "published", theirs: undefined },
+    // Rust reports a deleted side as null; picking it still leaves the key absent (below).
+    { field: "status", base: "draft", ours: "published", theirs: null },
   ]);
 
   const settled = settleConflict(rs, conflicted, { [PATH]: { kind: "picks", fields: { status: "theirs" } } });

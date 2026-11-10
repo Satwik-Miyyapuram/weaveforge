@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 
 import { loadPinnedScreenData } from "../../../src/features/library/application/load-pinned-screen-data.js";
 import type { LibraryPin } from "../../../src/features/library/domain/library-pin.js";
-import type { Share } from "../../../src/features/sharing/domain/share.js";
+import type { Share } from "../../../src/shared/core-contract.js";
 
 interface Item {
   id: string;

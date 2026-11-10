@@ -3,7 +3,7 @@
  * sits inside it rather than being stretched to it.
  */
 
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -12,6 +12,9 @@ import {
   isPageSource,
 } from "../application/page-background";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const placeOnSheet = (sourceWidth: number, sourceHeight: number) =>
   readyCore().placeOnSheet(sourceWidth, sourceHeight, A4_RASTER_WIDTH, A4_RASTER_HEIGHT);

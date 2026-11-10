@@ -12,11 +12,6 @@ export function noteBacklinks(
   return readyCore().noteBacklinks(notes, selectedId ?? undefined) as { id: string; title: string }[];
 }
 
-/** Every hashtag used across the notes, distinct and sorted (wf-core `note_tags`). */
-export function noteTags(notes: readonly Note[]): string[] {
-  return readyCore().noteTags(notes);
-}
-
 /**
  * The notes in any chosen list and carrying any chosen tag. An empty filter keeps everything.
  * Cheap set membership, run before the ranked search (wf-core `scope_notes`, which returns the

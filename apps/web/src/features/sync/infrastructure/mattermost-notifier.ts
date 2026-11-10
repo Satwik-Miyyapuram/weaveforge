@@ -16,22 +16,15 @@ export class MattermostNotifier {
   async post(integration: Integration, message: string, channel?: string): Promise<void> {
     if (!readyCore().mattermostConnectionReady(integration)) return;
     const { botToken, serverUrl, channelId: mainChannel } = readyCore().mattermostConnection(integration);
-    const channelId = channel?.trim() || mainChannel;
-    let origin: string;
-    try {
-      const url = new URL(serverUrl);
-      if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
-      origin = url.origin;
-    } catch {
-      throw new Error("Mattermost server URL must be a valid http(s) URL.");
-    }
-    const res = await this.send(origin, botToken, channelId, message);
-    if (res.status < 200 || res.status >= 300) {
-      // An expired or revoked session token reads as 401/403: tell the UI so it
-      // can offer re-sign-in, then still throw for the caller's own handling.
-      if (res.status === 401 || res.status === 403) emitMattermostSignedOut({ serverUrl: origin });
-      throw new Error(`Mattermost post failed (${res.status}). ${res.body}`.trim());
-    }
+    const plan = readyCore().mattermostPostPlan({ serverUrl, channel: channel ?? null, mainChannel });
+    if (plan.origin === null) throw new Error(plan.error ?? "");
+    const origin = plan.origin;
+    const res = await this.send(origin, botToken, plan.channelId, message);
+    const outcome = readyCore().mattermostPostResponsePlan({ status: res.status, body: res.body });
+    // An expired or revoked session token reads as 401/403: tell the UI so it
+    // can offer re-sign-in, then still throw for the caller's own handling.
+    if (outcome.signedOut) emitMattermostSignedOut({ serverUrl: origin });
+    if (outcome.error !== null) throw new Error(outcome.error);
   }
 
   private async send(origin: string, token: string, channelId: string, message: string) {

@@ -12,34 +12,21 @@
  * workspace is a hundred billable calls the other way, on a key the user pays
  * for, and per-document extraction also loses the cross-document view that
  * makes a mention count meaningful.
+ *
+ * The prompt, the batching limits, the request shape and the merge/cap are in
+ * the Rust core (wf-core `ai::model_extraction`). This class keeps the batch loop
+ * and the model call, which are host work.
  */
 
 import {
-  CONCEPT_KINDS,
   EMPTY_EXTRACTION,
   type ExtractionDocument,
   type ExtractionRequest,
   type ExtractionResult,
   type IConceptExtractor,
 } from "./ai-extraction.js";
-import type { AiModelRequest, IModelConversation } from "./ai-types.js";
-import { UNTRUSTED_CONTEXT_RULE } from "./ai-types.js";
+import type { IModelConversation } from "./ai-types.js";
 import { rust } from "../../../shared/rust.js";
-
-/** Characters of a document sent per batch. Past this, prose stops being cheap. */
-const MAX_DOC_CHARS = 6_000;
-/** Documents per call. Small enough to survive a modest context window. */
-const DEFAULT_BATCH_SIZE = 12;
-
-const SYSTEM_PROMPT = [
-  "You extract the named concepts a research corpus is about.",
-  "Return only JSON matching this shape, with no prose and no code fence:",
-  '{"concepts":[{"name":"","aliases":[],"kind":"","documentIds":[],"evidence":""}]}',
-  `"kind" must be one of: ${CONCEPT_KINDS.join(", ")}.`,
-  '"documentIds" must contain only ids from the input.',
-  '"evidence" must be a short verbatim quote from one of those documents.',
-  "Prefer the name the corpus itself uses. Do not invent concepts that are not present.",
-].join("\n");
 
 export interface ModelExtractorOptions {
   /** Documents per model call. */
@@ -62,19 +49,6 @@ export interface RawConcept {
 export interface ModelConceptFns {
   parseExtractionJson(text: string): RawConcept[];
   toExtractionResult(raw: readonly RawConcept[], batchIds: readonly string[]): ExtractionResult;
-}
-
-/**
- * Pull a JSON object out of a model reply.
- *
- * Models wrap JSON in fences and preambles no matter how firmly the prompt says
- * not to, so the reply is scanned for balanced objects and the first one with a
- * `concepts` list is taken. A reply with nothing parseable yields no concepts
- * instead of throwing: one bad batch should cost its own results, not the run.
- * The scan runs in the Rust core.
- */
-export function parseExtractionJson(text: string): RawConcept[] {
-  return rust().parseExtractionJson(text);
 }
 
 /**
@@ -103,10 +77,11 @@ export class ModelConceptExtractor implements IConceptExtractor {
   ) {}
 
   async extract(request: ExtractionRequest): Promise<ExtractionResult> {
-    const documents = request.documents.filter((doc) => (doc.text ?? "").trim() !== "");
+    const documents = request.documents.filter((doc) => rust().hasText(doc.text));
     if (documents.length === 0) return EMPTY_EXTRACTION;
 
-    const batchSize = this.options.batchSize ?? DEFAULT_BATCH_SIZE;
+    const limits = rust().modelExtractionLimits();
+    const batchSize = this.options.batchSize ?? limits.batchSize;
     const results: ExtractionResult[] = [];
     let lastError: unknown = null;
 
@@ -115,7 +90,7 @@ export class ModelConceptExtractor implements IConceptExtractor {
     for (let i = 0; i < documents.length; i += batchSize) {
       const batch = documents.slice(i, i + batchSize);
       try {
-        results.push(await this.extractBatch(batch, request));
+        results.push(await this.extractBatch(batch, request, limits.maxDocumentChars));
       } catch (error) {
         // One failed batch costs its own documents, not the run. The user sees
         // fewer concepts, which beats losing the batches that did succeed.
@@ -125,61 +100,36 @@ export class ModelConceptExtractor implements IConceptExtractor {
     // Every batch failed: that is a broken key or provider, not an empty corpus.
     if (results.length === 0) throw lastError;
 
-    const merged = rust().mergeExtractions(results);
-    const filtered = rust().withoutExisting(merged, request.existingConcepts ?? []);
-    if (!request.maxConcepts) return filtered;
-
-    const concepts = filtered.concepts.slice(0, request.maxConcepts);
-    const kept = new Set(concepts.map((concept) => rust().conceptKey(concept.name)));
-    return {
-      ...filtered,
-      concepts,
-      mentions: filtered.mentions.filter((mention) => kept.has(rust().conceptKey(mention.conceptName))),
-    };
+    return rust().modelFinalizeExtraction(
+      results,
+      request.existingConcepts ?? [],
+      request.maxConcepts,
+    );
   }
 
   private async extractBatch(
     batch: readonly ExtractionDocument[],
     request: ExtractionRequest,
+    defaultMaxChars: number,
   ): Promise<ExtractionResult> {
-    const maxChars = this.options.maxDocumentChars ?? MAX_DOC_CHARS;
     // A document is somebody's writing, and a plain `--- id:` header is one a
     // document can write for itself — to claim a sibling's id, or to close the
     // corpus and address the model directly. The nonce fence cannot be forged
     // by text that existed before this request.
     const nonce = rust().contextNonce();
-    const corpus = rust().fenceUntrusted(
+    const modelRequest = rust().modelBuildBatchRequest(
       batch.map((doc) => ({
-        label: `id: ${doc.id} — ${doc.title}`,
-        text: (doc.text ?? "").slice(0, maxChars),
+        id: doc.id,
+        title: doc.title,
+        ...(doc.text === undefined ? {} : { text: doc.text }),
       })),
+      request.existingConcepts ?? [],
+      this.options.model,
+      this.options.maxDocumentChars ?? defaultMaxChars,
       nonce,
     );
 
-    const known = (request.existingConcepts ?? []).slice(0, 200);
-    const knownLine = known.length
-      ? `\nConcepts already in the wiki — reuse these names exactly rather than coining variants:\n${known.join(", ")}\n`
-      : "";
-
-    const modelRequest: AiModelRequest = {
-      messages: [
-        {
-          role: "system",
-          content: [
-            SYSTEM_PROMPT,
-            `Documents are delimited by <<context-${nonce}>> and <</context-${nonce}>>, each headed by its id.`,
-            UNTRUSTED_CONTEXT_RULE,
-          ].join("\n"),
-        },
-        { role: "user", content: `${knownLine}\nDocuments:\n\n${corpus}` },
-      ],
-      ...(this.options.model ? { model: this.options.model } : {}),
-      // Extraction is a reading task, not a writing one; sampling variance here
-      // only produces different spellings of the same concept between runs.
-      temperature: 0,
-    };
-
     const { text } = await this.model.complete(modelRequest);
-    return toExtractionResult(parseExtractionJson(text), batch);
+    return toExtractionResult(rust().parseExtractionJson(text), batch);
   }
 }

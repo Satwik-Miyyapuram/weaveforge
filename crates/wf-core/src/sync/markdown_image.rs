@@ -1,6 +1,6 @@
 //! Port of `packages/core/src/shared/markdown-image.ts` (minus the async
 //! `materializeBlobImages`), plus `normalizeMarkdownImageSyntax` and
-//! `VAULT_IMAGE_PREFIX` from `packages/core/src/features/vault/domain/vault-page.ts`.
+//! `VAULT_IMAGE_PREFIX` from the TS vault page module (since removed; see `packages/core/src/shared/core-contract.ts`).
 //!
 //! No regex crate: every TS regex is hand-scanned. Each scanner lists the regex it mirrors.
 

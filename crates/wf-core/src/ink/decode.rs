@@ -16,6 +16,13 @@ use crate::search::js_text::is_js_whitespace;
 /// The most an engine's line may score; `1` marks a line a person corrected.
 pub const INK_ENGINE_MAX_CONFIDENCE: f64 = 0.95;
 
+/// An engine's line confidence, capped at `INK_ENGINE_MAX_CONFIDENCE` so a machine
+/// reading never claims certainty a person's correction would.
+#[must_use]
+pub fn capped_engine_confidence(conf: f64) -> f64 {
+    js_math::min(conf, INK_ENGINE_MAX_CONFIDENCE)
+}
+
 /// How much each unsure word costs a line, as a share of its words.
 const UNSURE_PENALTY: f64 = 0.5;
 
@@ -397,6 +404,12 @@ fn line_alternatives(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn engine_confidence_is_capped_below_certainty() {
+        assert_eq!(capped_engine_confidence(0.99), INK_ENGINE_MAX_CONFIDENCE);
+        assert_eq!(capped_engine_confidence(0.4), 0.4);
+    }
 
     fn word(candidates: &[&str], known: Option<&[bool]>, join: Option<&str>) -> InkWordReadings {
         InkWordReadings {

@@ -72,8 +72,9 @@ export class PostgrestReadingListRepository extends ProjectRepository implements
     query = query.order("sort_order", { ascending: true }).order("name");
     const all = (await rows<ReadingListRow>(query)).map(toListDomain);
     // Names are encrypted at rest, so the server cannot match them: filter here.
-    const needle = filter?.nameContains?.toLowerCase();
-    return needle ? all.filter((l) => l.name.toLowerCase().includes(needle)) : all;
+    // The per-name match runs in the Rust core (wf-core `reading_lists::name_filter`).
+    const needle = filter?.nameContains;
+    return needle ? all.filter((l) => typedCore().readingListNameMatches(l.name, needle)) : all;
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {

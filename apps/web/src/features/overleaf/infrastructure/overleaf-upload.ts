@@ -4,6 +4,7 @@
  * same name is replaced.
  */
 import type { Forward } from "@overleaf-ide";
+import { readyCore } from "@/lib/rust-core";
 
 export type UploadResult = { ok: true } | { ok: false; message: string };
 
@@ -31,8 +32,7 @@ export async function uploadOverleafText(
 
 function reason(body: Uint8Array): string {
   try {
-    const parsed = JSON.parse(new TextDecoder().decode(body)) as { error?: unknown };
-    return typeof parsed.error === "string" ? `: ${parsed.error}` : "";
+    return readyCore().uploadErrorSuffix(new TextDecoder().decode(body));
   } catch {
     return "";
   }

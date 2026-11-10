@@ -45,10 +45,6 @@ export function planFeedOrigin(serverRoutes: boolean, here?: string): string {
   return readyCore().planFeedOrigin(serverRoutes, here, process.env.NEXT_PUBLIC_APP_URL);
 }
 
-export function planFeedUrls(origin: string, token: string, options: PlanFeedOptionsInput = {}): PlanFeedUrls {
-  return readyCore().planFeedUrls(origin, token, options);
-}
-
 interface Row {
   id: string;
   token_prefix: string;

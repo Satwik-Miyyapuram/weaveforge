@@ -4,11 +4,13 @@
 //! file said since the two sides last agreed. Digests are computed here from the
 //! text, with the same hash the mirror manifest records.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
 use crate::sync::change_origin::{ChangeOrigin, ChangeSide, changed_side, digest_text};
+use crate::sync::deserialize::ParsedEntity as FileEntity;
+use crate::sync::folder_layout::WorkspaceEntityType;
 
 /// A parsed folder entity: its note id (when it has one) and its folder path.
 #[derive(Debug, Clone, Deserialize)]
@@ -132,6 +134,24 @@ pub fn seen_files(
         .collect()
 }
 
+/// The folder files a folder import may bring in: vault pages, and any file whose note id is
+/// one the workspace already has (a note of another type that was renamed or copied).
+/// Keeps the input order.
+#[must_use]
+pub fn importable_entities(entities: &[FileEntity], note_ids: &HashSet<String>) -> Vec<FileEntity> {
+    entities
+        .iter()
+        .filter(|entity| {
+            matches!(entity.entity_type, WorkspaceEntityType::VaultPage)
+                || entity
+                    .id
+                    .as_deref()
+                    .is_some_and(|id| !id.is_empty() && note_ids.contains(id))
+        })
+        .cloned()
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,6 +161,42 @@ mod tests {
             .iter()
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect()
+    }
+
+    fn file(id: Option<&str>, entity_type: WorkspaceEntityType, path: &str) -> FileEntity {
+        FileEntity {
+            id: id.map(str::to_owned),
+            entity_type,
+            title: "t".to_owned(),
+            body: String::new(),
+            path: path.to_owned(),
+            fields: serde_json::Map::new(),
+        }
+    }
+
+    #[test]
+    fn importable_keeps_vault_pages_and_known_ids_in_order() {
+        let entities = vec![
+            file(Some("p1"), WorkspaceEntityType::Paper, "papers/a.md"),
+            file(None, WorkspaceEntityType::VaultPage, "notes/b.md"),
+            file(Some("known"), WorkspaceEntityType::Milestone, "m/c.md"),
+            file(Some("unknown"), WorkspaceEntityType::Milestone, "m/d.md"),
+            file(Some("known"), WorkspaceEntityType::VaultPage, "notes/e.md"),
+        ];
+        let note_ids: HashSet<String> = ["known".to_owned()].into_iter().collect();
+        let paths: Vec<String> = importable_entities(&entities, &note_ids)
+            .into_iter()
+            .map(|entity| entity.path)
+            .collect();
+        assert_eq!(paths, vec!["notes/b.md", "m/c.md", "notes/e.md"]);
+    }
+
+    #[test]
+    fn importable_ignores_empty_id_even_when_listed() {
+        // TS `e.id && noteIds.has(e.id)`: an empty id is falsy, so it never matches.
+        let entities = vec![file(Some(""), WorkspaceEntityType::Paper, "p/x.md")];
+        let note_ids: HashSet<String> = [String::new()].into_iter().collect();
+        assert!(importable_entities(&entities, &note_ids).is_empty());
     }
 
     #[test]

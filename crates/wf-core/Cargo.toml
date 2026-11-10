@@ -15,6 +15,8 @@ workspace = true
 serde.workspace = true
 # Row values for the three-way merge (phase 3): rows are JSON maps.
 serde_json.workspace = true
+# Ordered path maps in the folder mirror's manifest reads.
+indexmap.workspace = true
 # Only wf-bindings needs the TypeScript types; the shell pins another specta rc.
 specta = { workspace = true, optional = true }
 # `Unknown` types the JSON values in the merge types: specta rejects serde_json's i64.

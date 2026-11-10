@@ -20,59 +20,24 @@ import { rust } from "../shared/rust.js";
 const decoder = new TextDecoder();
 
 /**
- * Walk one stroke's points as absolute coordinates, in 0.1 mm.
- *
- * The deltas are cumulative within a stroke and the chain restarts at each
- * stroke, so this is a single sequential pass over that stroke's own slice.
- */
-function walkStroke(
-  view: InkChunkView,
-  strokeIndex: number,
-  visit: (i: number, x: number, y: number, pressure: number) => void,
-): void {
-  const start = view.strokePointOffset[strokeIndex] ?? 0;
-  const count = view.strokePointCount[strokeIndex] ?? 0;
-  let x = 0;
-  let y = 0;
-  for (let i = 0; i < count; i += 1) {
-    const at = (start + i) * 3;
-    x = i === 0 ? view.points[at]! : x + view.points[at]!;
-    y = i === 0 ? view.points[at + 1]! : y + view.points[at + 1]!;
-    visit(i, x, y, view.points[at + 2]!);
-  }
-}
-
-/**
  * One stroke's points as absolute coordinates, in 0.1 mm — the shape the page
- * buffer wants before it uploads.
+ * buffer wants before it uploads. The walk is Rust `stroke_point_triples`; this
+ * only splits its `x, y, pressure` triples into the two typed arrays.
  */
 export function chunkStrokePoints(
   view: InkChunkView,
   strokeIndex: number,
 ): { points: Float64Array; pressures: Uint8Array } {
-  const count = view.strokePointCount[strokeIndex] ?? 0;
+  const triples = rust().strokePointTriples(view.body, strokeIndex);
+  const count = triples.length / 3;
   const points = new Float64Array(count * 2);
   const pressures = new Uint8Array(count);
-  walkStroke(view, strokeIndex, (i, x, y, pressure) => {
-    points[i * 2] = x;
-    points[i * 2 + 1] = y;
-    pressures[i] = pressure;
-  });
+  for (let i = 0; i < count; i += 1) {
+    points[i * 2] = triples[i * 3]!;
+    points[i * 2 + 1] = triples[i * 3 + 1]!;
+    pressures[i] = triples[i * 3 + 2]!;
+  }
   return { points, pressures };
-}
-
-/** Every point of a page, absolute, in one pass over all of its strokes. */
-export function chunkAbsolutePoints(view: InkChunkView): Int16Array {
-  const out = new Int16Array(view.pointCount * 3);
-  let cursor = 0;
-  const write = (_i: number, x: number, y: number, pressure: number) => {
-    out[cursor] = x;
-    out[cursor + 1] = y;
-    out[cursor + 2] = pressure;
-    cursor += 3;
-  };
-  for (let stroke = 0; stroke < view.strokeCount; stroke += 1) walkStroke(view, stroke, write);
-  return out;
 }
 
 /** One line's text, decoded on demand — nothing walks the blob up front. */

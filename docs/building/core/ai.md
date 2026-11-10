@@ -8,7 +8,9 @@ no network or database code. The app passes data in and gets data out.
 ## What lives in Rust
 
 - `access_policy.rs`: decides whether AI access is allowed and normalises the AI access settings.
+- `chat_split.rs`: joins a chat's system messages and keeps the rest in order for a BYOK request.
 - `ai_tool_name.rs`: canonicalises tool names and derives the context nonce.
+- `document_text.rs`: says whether a document has any text beyond whitespace, so blank documents skip extraction.
 - `evidence.rs`: splits an excerpt around the span a PDF locus points at.
 - `extraction.rs`: parses extraction JSON into a result.
 - `folder_draft.rs`: builds the draft for a folder.
@@ -38,6 +40,8 @@ names are:
 - `mcpReadResult` (MCP results).
 - `parseExtractionJson`, `toExtractionResult` (model concepts).
 - `highlightWithinExcerpt` (evidence, `ai_evidence.rs`).
+- `hasText` (blank-document check, `ai_document_text.rs`).
+- `splitAiSystemMessages` (system-prompt split for BYOK requests, `ai_chat_split.rs`).
 - `planWikiPages`, `wikiProposalContent` (wiki plan).
 - `mergeWikiPages` (wiki merge).
 - `lintWiki`, `planFixOrder` (wiki lint).

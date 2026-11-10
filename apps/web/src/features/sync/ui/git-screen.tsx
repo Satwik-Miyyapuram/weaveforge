@@ -185,7 +185,7 @@ export function GitScreen() {
                     <div className="commit-main">
                       <span className="commit-msg">{c.message}</span>
                       <span className="commit-meta">
-                        <a className="commit-sha" href={c.url} target="_blank" rel="noreferrer">{c.shortSha}</a>
+                        <a className="commit-sha" href={c.url ?? undefined} target="_blank" rel="noreferrer">{c.shortSha}</a>
                         {c.author ? ` ${c.author}` : ""}
                         {c.date ? ` · ${shortDate(c.date)}` : ""}
                       </span>

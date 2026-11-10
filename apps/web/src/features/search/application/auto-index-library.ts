@@ -2,6 +2,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { getContainer } from "@/bootstrap";
 import { readStored, readStoredJson, writeStored, writeStoredJson } from "@/lib/safe-storage";
 import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { readyCore } from "@/lib/rust-core";
 import {
   indexLibraryPdfs,
   papersNeedingIndex,
@@ -30,7 +31,6 @@ import {
 
 const AUTO_KEY = "thesis.search.pdf-auto";
 const FAILED_KEY = "thesis.search.pdf-auto-failed";
-const RETRY_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 /** Let the app settle before downloading anything. */
 const START_DELAY_MS = 20_000;
 
@@ -105,10 +105,9 @@ export function setAutoIndexEnabled(on: boolean): void {
 function recentFailures(): Record<string, number> {
   const parsed = readStoredJson<unknown>(FAILED_KEY, {});
   if (!parsed || typeof parsed !== "object") return {};
-  const now = Date.now();
-  return Object.fromEntries(
-    Object.entries(parsed as Record<string, number>).filter(([, at]) => now - at < RETRY_AFTER_MS),
-  );
+  const failures = parsed as Record<string, number>;
+  const inWindow = new Set(readyCore().recentFailureIds(failures, Date.now()));
+  return Object.fromEntries(Object.entries(failures).filter(([id]) => inWindow.has(id)));
 }
 
 /** Forgetting means one extra retry, nothing worse. */

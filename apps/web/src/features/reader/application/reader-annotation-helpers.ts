@@ -1,65 +1,5 @@
-import { type NewReaderAnnotation, type ReaderAnnotation } from "@weaveforge/core";
-import { readyCore, typedCore } from "@/lib/rust-core";
-
-/** Pin / quotation-type key: Zotero key when present, else local id. */
-export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">): string {
-  return ann.zoteroKey?.trim() || ann.id;
-}
-
-/**
- * Apply an edit locally exactly as the repository will store it.
- *
- * The trimming and the blank-colour default mirror
- * `PostgrestReaderAnnotationRepository.update`. If they drifted apart the
- * optimistic value would visibly change when the persisted row arrived, which
- * looks like the edit was rejected and silently redone.
- */
-export function applyAnnotationPatch(
-  ann: ReaderAnnotation,
-  patch: { comment?: string; tags?: string[]; color?: string; text?: string },
-): ReaderAnnotation {
-  return {
-    ...ann,
-    ...(patch.color !== undefined ? { color: patch.color.trim() || DEFAULT_ANNOTATION_COLOR } : {}),
-    ...(patch.text !== undefined ? { text: patch.text.trim() } : {}),
-    ...(patch.comment !== undefined ? { comment: patch.comment.trim() } : {}),
-    ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
-  };
-}
-
 /** Marks an annotation that exists only on screen, awaiting its server row. */
 export const PENDING_ANNOTATION_PREFIX = "pending:";
-
-/**
- * Build the annotation to paint immediately, before the write returns.
- *
- * Waiting for the round-trip meant a highlight appeared only after the server
- * answered — hundreds of milliseconds of nothing happening after the user
- * clicked, which reads as a broken control rather than a slow one. The caller
- * swaps this for the persisted row on success and removes it on failure.
- */
-export function optimisticAnnotationFromDraft(
-  draft: NewReaderAnnotation,
-  id: string,
-  now = new Date().toISOString(),
-): ReaderAnnotation {
-  return {
-    id,
-    origin: "local",
-    zoteroKey: null,
-    type: draft.type,
-    color: draft.color.trim() || DEFAULT_ANNOTATION_COLOR,
-    text: draft.text?.trim() ?? "",
-    comment: draft.comment?.trim() ?? "",
-    tags: draft.tags ? [...draft.tags] : [],
-    anchor: draft.anchor,
-    sortIndex: draft.sortIndex?.trim() || typedCore().buildAnnotationSortIndex(draft.pageIndex, 0, 0),
-    createdAt: now,
-    updatedAt: now,
-    syncState: "local",
-    zoteroVersion: null,
-  };
-}
 
 /** Zotero's yellow: the colour a mark gets when none is given. */
 export const DEFAULT_ANNOTATION_COLOR = "#ffd400";
@@ -75,24 +15,10 @@ export const READER_ANNOTATION_COLORS = [
   "#aaaaaa",
 ] as const;
 
-/** The marks the Annotations list shows and counts: ink is drawing, not a note on the text. */
-export function listedAnnotations<T extends Pick<ReaderAnnotation, "type">>(annotations: readonly T[]): T[] {
-  return annotations.filter((a) => a.type !== "ink");
-}
-
 export interface PagePress {
   x: number;
   y: number;
   time: number;
-}
-
-/**
- * A short press that barely moved, off an open create bar: it dismisses the bar
- * and the words under it. A touch tap leaves the selection in place, so without
- * this the release reads the old words and raises the bar again.
- */
-export function isDismissTap(down: PagePress | null, up: PagePress, barOpen: boolean): boolean {
-  return readyCore().isDismissTap(down, up, barOpen);
 }
 
 /**
@@ -119,17 +45,3 @@ export type ReaderCreateTool =
   | "image"
   | "text";
 
-export function isInkTool(tool: ReaderCreateTool): boolean {
-  return readyCore().isInkTool(tool);
-}
-
-/**
- * Whether the tool takes the page's text away from the browser.
- *
- * The two region tools drag a box where the words would otherwise be selected,
- * the three ink tools draw on them, and the lasso loops round them — all five
- * mean "the page is the tool's surface, not the text's".
- */
-export function toolOwnsThePage(tool: ReaderCreateTool): boolean {
-  return readyCore().toolOwnsThePage(tool);
-}

@@ -5,7 +5,7 @@ import type {
   NewShareInput,
   Share,
   ShareableType,
-} from "../features/sharing/domain/share.js";
+} from "../shared/core-contract.js";
 
 /**
  * In-memory {@link IShareRepository}. A fixed `currentId` stands in for the

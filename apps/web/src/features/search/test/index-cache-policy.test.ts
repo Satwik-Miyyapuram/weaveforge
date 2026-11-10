@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import {
-  webCacheDocumentLimit,
   isInstalledApp,
   persistSearchIndex,
   shouldPersistIndex,
 } from "@/features/search/infrastructure/index-cache-policy";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+
+const webCacheDocumentLimit = () => readyCore().webCacheDocumentLimit();
 
 before(async () => {
   await loadTestCore();

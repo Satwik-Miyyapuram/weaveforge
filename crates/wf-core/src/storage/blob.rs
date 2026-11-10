@@ -72,6 +72,16 @@ pub fn guess_blob_content_type(path: &str) -> &'static str {
     }
 }
 
+/// Largest image, in bytes, kept as it came when its type is already optimal.
+const KEEP_ORIGINAL_BELOW_BYTES: f64 = 64.0 * 1024.0;
+
+/// Whether an image of `mime` and `size_bytes` is stored unchanged: WebP or
+/// JPEG at or under 64 KiB. Mirrors `canStoreUnchanged` in `image-compress.ts`.
+#[must_use]
+pub fn can_store_unchanged(mime: &str, size_bytes: f64) -> bool {
+    matches!(mime, "image/webp" | "image/jpeg") && size_bytes <= KEEP_ORIGINAL_BELOW_BYTES
+}
+
 /// Days from `last_ms` to `now_ms`, clamped at 0, as one division like the TS.
 /// The ms count is rebuilt from two `u32` halves, exact below 2^53, so no
 /// `as` cast is needed.

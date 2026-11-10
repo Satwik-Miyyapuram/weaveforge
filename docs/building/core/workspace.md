@@ -23,6 +23,11 @@ and passes in names, sizes and digests.
   the bytes stay with the caller.
 - `workspace/asset_mime.rs`: the content type and file extension of an imported
   asset.
+- `workspace/sync_report.rs`: `describeSync`, the one line the panel shows after
+  a folder sync. Counts and the commit outcome come in; a refused commit is said,
+  not read as "up to date". The write and the commit stay in TypeScript.
+- `sync/blob_links.rs` (`workspace_bodies`): which bodies can carry an image
+  reference, vault page bodies first, then paper summaries.
 
 ## How the app calls it
 
@@ -33,7 +38,9 @@ re-export them. The main names are:
 
 - Outside edits: `splitOutsideEdits`, `renamedOutsidePaths`.
 - Folder diff: `renameSources`, `seenFiles`.
-- Assets: `assetMimeType`, `assetExtension`.
+- Assets: `assetMimeType`, `assetExtension`, `workspaceBodies`.
+- Sync report: `describeSync` (`workspace-sync-report.ts`). The app calls
+  `readyCore().describeSync` from `workspace-folder.ts`.
 - Explorer rows: `rowSlots` (`crates/wf-core` `editor_workspace::explorer_window`).
   The app calls `readyCore().rowSlots(count, viewport, pinned, EXPLORER_ROW_METRICS)`
   from `editor-workspace/ui/explorer-panel.tsx`. The row metrics live in

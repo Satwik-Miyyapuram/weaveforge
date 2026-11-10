@@ -18,7 +18,7 @@ import type { InkColour } from "@weaveforge/core";
 import { InkBar } from "@/features/ink";
 import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
 import { InkSelectionChip } from "@/features/ink";
-import { paletteHex, readThemePalette, type InkPalette } from "@/features/ink/render/ink-palette";
+import { readThemePalette, type InkPalette } from "@/features/ink/render/ink-palette";
 import { setToolColour, setToolQuickSlot, useToolColours, type ToolColourId } from "@/features/ink";
 import { InkPrintPreview } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
@@ -30,22 +30,20 @@ import {
   textSelectionFromOffsets,
 } from "../../application/dom-selection-range";
 import {
+  bucketAnnotationsByPage,
   draftFromTextSelection,
+  draftPicture,
   draftTextBox,
-  textBoxFromRect,
-} from "../../application/draft-local-annotation";
-import {
-  isDismissTap,
   listedAnnotations,
-  toolOwnsThePage,
+  textBoxFromRect,
+} from "@weaveforge/wasm";
+import {
   type PagePress,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
-import { draftPicture } from "../../application/reader-picture";
 import { ReaderSearchBar } from "../reader-search-bar";
 import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
-import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
 import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import { MarkPopover } from "../mark-popover";
@@ -186,7 +184,7 @@ export function PdfReader({
    */
   const [inkPalette, setInkPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   useEffect(() => setInkPalette(readThemePalette(document)), []);
-  const hexOf = (colour: InkColour) => paletteHex(inkPalette, colour);
+  const hexOf = (colour: InkColour) => readyCore().paletteHex(inkPalette, colour);
   /** The tool whose colour the create actions draw with right now. */
   const colourTool = colourToolFor({ penOpen, penTool: pen.prefs.tool, pickedTool });
   const drawColour = toolColours[colourTool].colour;
@@ -1238,7 +1236,7 @@ export function PdfReader({
     if ((event.target as Element).closest?.(".pdf-reader-create-bar")) return;
     const down = pressRef.current;
     pressRef.current = null;
-    if (isDismissTap(down, { x: event.clientX, y: event.clientY, time: event.timeStamp }, pendingCreate !== null)) {
+    if (readyCore().isDismissTap(down, { x: event.clientX, y: event.clientY, time: event.timeStamp }, pendingCreate !== null)) {
       window.getSelection()?.removeAllRanges();
       setPendingCreate(null);
       return;
@@ -1337,7 +1335,7 @@ export function PdfReader({
       type: "highlight",
       color: highlightHex,
       selection: range,
-      page: geometry,
+      page: { ...geometry, items: [...geometry.items] },
       exactRects: exactRects.length > 0 ? exactRects : undefined,
       nextPageRects: nextPageRects.length > 0 ? nextPageRects : undefined,
       fullText: fullText || undefined,
@@ -1393,7 +1391,7 @@ export function PdfReader({
       type,
       color,
       selection: pendingCreate.selection,
-      page: geometry,
+      page: { ...geometry, items: [...geometry.items] },
       exactRects: pendingCreate.exactRects,
       nextPageRects: pendingCreate.nextPageRects,
       fullText: pendingCreate.quote,
@@ -1803,7 +1801,7 @@ export function PdfReader({
             >
               <div
                 className={`pdf-reader-page${
-                  toolOwnsThePage(createTool) && canCreate ? " pdf-reader-page--draw" : ""
+                  readyCore().toolOwnsThePage(createTool) && canCreate ? " pdf-reader-page--draw" : ""
                 }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
                   penSeen ? " pdf-reader-page--pen" : ""
                 }${flashPage === n ? " pdf-reader-flash" : ""}`}

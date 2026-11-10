@@ -18,7 +18,6 @@
  */
 
 import {
-  INK_ENGINE_MAX_CONFIDENCE,
   type InkLine,
   type InkRecogniser,
   type InkRecognitionHints,
@@ -31,6 +30,8 @@ import type {
   DesktopInkRequest,
 } from "@/lib/desktop/desktop-bridge";
 
+type InkRequestInput = Parameters<ReturnType<typeof readyCore>["buildInkRequest"]>[0];
+
 export const WINDOWS_INK_ENGINE_ID = "windows-ink@1";
 
 /** A page's lines as the desktop helper wants them: flat `[x, y, p, …]` per stroke. */
@@ -38,23 +39,12 @@ export function desktopInkRequest(
   lines: readonly InkLine[],
   hints: InkRecognitionHints,
 ): DesktopInkRequest {
-  return {
-    lines: lines.map((line) => ({
-      strokes: line.strokes.map((stroke) => {
-        const flat: number[] = [];
-        for (let i = 0; i + 1 < stroke.points.length; i += 2) {
-          flat.push(
-            stroke.points[i]!,
-            stroke.points[i + 1]!,
-            stroke.pressures[i / 2] ?? 128,
-          );
-        }
-        return flat;
-      }),
-    })),
-    vocabulary: [...hints.vocabulary],
+  return readyCore().buildInkRequest({
+    // Rust reads the lines only; the readonly arrays are safe to hand over.
+    lines: lines as unknown as InkRequestInput["lines"],
+    vocabulary: hints.vocabulary,
     lang: hints.lang,
-  };
+  }) as DesktopInkRequest;
 }
 
 /** How long a "not available" answer stands before the shell is asked again. */
@@ -113,9 +103,8 @@ export function createDesktopInkRecogniser(
         }
         return {
           text: line.text,
-          conf: Math.min(
+          conf: readyCore().cappedEngineConfidence(
             readyCore().mapInkConfidence(line.confidence),
-            INK_ENGINE_MAX_CONFIDENCE,
           ),
           ...(line.alternatives?.length
             ? { alternatives: [...line.alternatives] }

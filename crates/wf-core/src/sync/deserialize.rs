@@ -116,7 +116,9 @@ pub struct MergeFieldDispute {
     /// The workspace's value.
     #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub ours: Value,
-    /// The folder's value.
+    /// The folder's value. Absent (`null`) crosses to JS as `undefined`, which is what the
+    /// TypeScript side reads for a folder that has no such key.
+    #[serde(default, serialize_with = "theirs_js")]
     #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
     pub theirs: Value,
 }
@@ -129,6 +131,14 @@ pub struct BodySides {
     pub ours: String,
     /// The folder's copy.
     pub theirs: String,
+}
+
+/// Writes a `null` as `undefined` (serde `None`), and any other value as itself.
+fn theirs_js<S: Serializer>(value: &Value, serializer: S) -> Result<S::Ok, S::Error> {
+    match value {
+        Value::Null => serializer.serialize_none(),
+        other => other.serialize(serializer),
+    }
 }
 
 /// Writes `body_sides` as `{ ours, theirs }`.

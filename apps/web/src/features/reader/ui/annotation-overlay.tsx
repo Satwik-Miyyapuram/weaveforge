@@ -12,9 +12,11 @@ import { InkFigureEditor, InkFigures } from "@/features/ink";
 import { InkStrokes } from "@/features/ink";
 import { isCommitEnter } from "@/lib/commit-enter";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
-import { grownTextRect } from "../application/draft-local-annotation";
-import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
-import { pagePictures } from "../application/reader-picture";
+import {
+  grownTextRect,
+  pagePictures,
+  projectPageAnnotationGeometry,
+} from "@weaveforge/wasm";
 import type { PictureEdit } from "./pdf-reader/use-pdf-pictures";
 
 interface AnnotationOverlayProps {

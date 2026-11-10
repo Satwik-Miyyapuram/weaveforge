@@ -242,13 +242,9 @@ export async function regenerateWikiIndex(): Promise<{ pages: number }> {
  * appearing, because "a link mentioned it" is thin evidence that a page is
  * worth having. Blank targets are dropped, and a target named twice is one page.
  */
-export function missingPagePlans(targets: readonly string[]): WikiPagePlan[] {
-  return readyCore().missingPagePlans(targets);
-}
-
 /** Queue every page the dead links point at, in one pass over the wiki. */
 export async function proposeMissingPages(targets: readonly string[]): Promise<number> {
-  const plans = missingPagePlans(targets);
+  const plans = readyCore().missingPagePlans(targets);
   return plans.length ? proposeWikiPages(plans) : 0;
 }
 

@@ -1,3 +1,5 @@
+import { readyCore } from "@/lib/rust-core";
+
 /**
  * Whether this window's account sign-in was lost while the app stayed open.
  *
@@ -25,6 +27,12 @@ export const SESSION_LOST_MESSAGE = "You're signed out. Sign in to load this.";
 
 /** A server refusal that, with no sign-in, means "sign in" rather than "not allowed". */
 export function isSignedOutRefusal(message: string, code: string | null): boolean {
-  if (code === "42501" || code === "PGRST301" || code === "PGRST303") return true;
-  return /permission denied for (table|function|sequence|schema)|JWT expired|session_not_found/i.test(message);
+  // formatError calls this too, and it can run before the wasm core loads (or
+  // in a test with no preload). When the core is not ready, report no refusal
+  // rather than throw back into the formatter.
+  try {
+    return readyCore().isSignedOutRefusal(message, code);
+  } catch {
+    return false;
+  }
 }

@@ -23,6 +23,9 @@ import {
   shareLinkFromRow as rawShareLinkFromRow,
   sharedReadPlan as rawSharedReadPlan,
   shareTargets as rawShareTargets,
+  shareableTypes as rawShareableTypes,
+  crdtEditableShareTypes as rawCrdtEditableShareTypes,
+  shareLinkDefaultTtlDays as rawShareLinkDefaultTtlDays,
 } from "../pkg/wf_wasm.js";
 import type {
   Comment as CommentRecord,
@@ -53,18 +56,20 @@ export type {
   SharedSourceInput,
 };
 
-/** Every type a share can cover (TS `SHAREABLE_TYPES`). */
-export const SHAREABLE_TYPES: readonly ShareableType[] = [
-  "milestone",
-  "experiment",
-  "report_section",
-  "reading_list",
-  "paper",
-  "vault_page",
-];
+/** Every type a share can cover (Rust `SHAREABLE_TYPES`). Read at call time; the wasm module must be loaded. */
+export function shareableTypes(): readonly ShareableType[] {
+  return rawShareableTypes() as readonly ShareableType[];
+}
 
-/** Share types that support collaborative editing (TS `CRDT_EDITABLE_SHARE_TYPES`). */
-export const CRDT_EDITABLE_SHARE_TYPES: readonly ShareableType[] = ["vault_page", "report_section"];
+/** Share types that support collaborative editing (Rust `CRDT_EDITABLE_SHARE_TYPES`). */
+export function crdtEditableShareTypes(): readonly ShareableType[] {
+  return rawCrdtEditableShareTypes() as readonly ShareableType[];
+}
+
+/** Days a new view link lives by default (Rust `SHARE_LINK_DEFAULT_TTL_DAYS`). */
+export function shareLinkDefaultTtlDays(): number {
+  return rawShareLinkDefaultTtlDays();
+}
 
 /** A thrown validation message becomes an `Error` named like the TS validation class. */
 function asError(thrown: unknown, name: string): unknown {
@@ -125,7 +130,7 @@ export function shareAllowsEdit(
 /** Normalize + validate a grant request (pure). Throws an `Error` with the validation message. */
 export function normalizeShareInput(input: NewShareInput): Required<NewShareInput> {
   // An unknown type would fail to deserialize in Rust; report it as the TS rule did.
-  if (input.recipientId && !SHAREABLE_TYPES.includes(input.resourceType)) {
+  if (input.recipientId && !shareableTypes().includes(input.resourceType)) {
     throw asError(`Unknown resource type "${input.resourceType}".`, "ShareValidationError");
   }
   try {

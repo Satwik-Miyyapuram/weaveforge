@@ -28,7 +28,7 @@ fn side(value: Value, body: &str) -> VaultPageSide {
 
 fn base() -> VaultPageBase {
     VaultPageBase {
-        fields: fields(json!({"title": "Draft", "tags": ["a"], "status": "open"})),
+        fields: json!({"title": "Draft", "tags": ["a"], "status": "open"}),
         body_digest: digest_text("the original body"),
     }
 }
@@ -108,6 +108,21 @@ fn both_sides_writing_the_same_new_body_is_agreement_not_a_conflict() {
 
     assert!(merged.conflicts.is_empty());
     assert_eq!(merged.body, "same new text");
+}
+
+#[test]
+fn an_array_base_fields_merges_as_having_no_named_fields() {
+    // Parity point (b): a manifest base whose `fields` is an array is kept as an array (TS reads
+    // it as an object with no named keys), so both sides' fields count as new, and agree.
+    let base = VaultPageBase {
+        fields: json!(["x"]),
+        body_digest: digest_text("the original body"),
+    };
+    let merged = merge_vault_page(&base, &unchanged(), &unchanged());
+
+    assert!(merged.conflicts.is_empty());
+    assert_eq!(merged.fields["tags"], json!(["a"]));
+    assert_eq!(merged.fields["status"], json!("open"));
 }
 
 #[test]

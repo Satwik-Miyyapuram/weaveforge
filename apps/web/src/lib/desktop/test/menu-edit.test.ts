@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { isEditCommand, runEditCommand, type EditClipboard, type EditDocument } from "../menu-edit";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { runEditCommand, type EditClipboard, type EditDocument } from "../menu-edit";
+
+before(loadTestCore);
 
 function fakeDoc(result = true): EditDocument & { calls: unknown[][] } {
   const calls: unknown[][] = [];
@@ -79,9 +83,9 @@ test("execCommand's own answer is passed back", async () => {
 test("other commands are not edit commands and run nothing", async () => {
   for (const command of ["search", "edit-", "undo", "edit-delete", ""]) {
     const doc = fakeDoc();
-    assert.equal(isEditCommand(command), false, command);
+    assert.equal(readyCore().isEditCommand(command), false, command);
     assert.equal(await runEditCommand(command, doc, noClipboard), false, command);
     assert.deepEqual(doc.calls, [], command);
   }
-  assert.equal(isEditCommand("edit-paste"), true);
+  assert.equal(readyCore().isEditCommand("edit-paste"), true);
 });

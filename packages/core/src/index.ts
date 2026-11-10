@@ -27,7 +27,13 @@ export {
   type WorkspaceJsonKind,
 } from "./shared/rust.js";
 export * from "./shared/three-way-merge.js";
-export type { CoreContract } from "./shared/core-contract.js";
+export type {
+  CoreContract,
+  OutboundFetchLimits,
+  PageTitle,
+  UrlCheck,
+  UrlRejection,
+} from "./shared/core-contract.js";
 export * from "./config/index.js";
 export * from "./features/papers/index.js";
 export * from "./features/logbook/index.js";
@@ -55,4 +61,3 @@ export * from "./workspace/index.js";
 export * from "./search/index.js";
 export * from "./backend/index.js";
 export * from "./database/index.js";
-export * from "./net/index.js";

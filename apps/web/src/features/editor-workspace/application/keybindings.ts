@@ -109,7 +109,5 @@ export function shortcutTable(): Record<WorkspaceCommand, string> {
  */
 export function isTypingTarget(target: { tagName?: string; isContentEditable?: boolean } | null): boolean {
   if (!target) return false;
-  if (target.isContentEditable) return false;
-  const tag = (target.tagName ?? "").toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select";
+  return readyCore().isTypingTarget(target.tagName ?? null, !!target.isContentEditable);
 }

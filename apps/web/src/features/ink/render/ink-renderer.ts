@@ -27,7 +27,7 @@ import { type InkColour, type InkTool } from "@weaveforge/core";
 
 import type { InkStrokeGeometry } from "../application/page-buffer";
 import type { InkPalette } from "./ink-palette";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Which renderer is actually drawing. Reported in the status bar. */
 export type InkBackend = "webgl2" | "canvas2d" | "none";
@@ -185,7 +185,7 @@ export const INK_SEGMENT_SUBDIVISIONS = 8;
 
 /** How many instances a stroke of `points` samples packs to. */
 export function strokeInstanceCount(points: number): number {
-  return Math.max(0, points - 1) * INK_SEGMENT_SUBDIVISIONS;
+  return readyCore().inkStrokeInstanceCount(points);
 }
 
 /**
@@ -255,11 +255,7 @@ export function backingRatio(
   cssHeight: number,
   devicePixelRatio: number,
 ): number {
-  const w = Math.max(1, cssWidth);
-  const h = Math.max(1, cssHeight);
-  const byArea = Math.sqrt(INK_MAX_BACKING_PIXELS / (w * h));
-  const byEdge = INK_MAX_BACKING_DIMENSION / Math.max(w, h);
-  return Math.max(0.1, Math.min(devicePixelRatio, byArea, byEdge));
+  return readyCore().inkBackingRatio(cssWidth, cssHeight, devicePixelRatio);
 }
 
 /** One stroke's rendering inputs, as the packer needs them. */
@@ -289,47 +285,15 @@ export function packStrokeInstances(
   out: Float32Array,
   options: { from?: number } = {},
 ): number {
-  const from = options.from ?? 0;
-  const count = Math.min(stroke.x.length, stroke.y.length);
-  const segments = Math.max(0, count - 1);
-  const last = INK_SEGMENT_SUBDIVISIONS;
-  const at = (i: number, k: number) =>
-    strokeCurveAt(stroke, i, k / last);
-  let cursor = 0;
-  // Every instance carries its neighbours, so the sub-segment before the first
-  // packed one is evaluated too even though it is not written: when a live
-  // stroke re-packs its tail the first instance still needs to know what it
-  // joins onto.
-  let prev = from > 0 ? at(from - 1, last - 1) : null;
-  // Each instance's `next` is the following instance's `b`, so it is carried
-  // over rather than evaluated twice.
-  let carried = from < segments ? at(from, 1) : null;
-  for (let i = from; i < segments; i += 1) {
-    let a = at(i, 0);
-    for (let k = 1; k <= last; k += 1) {
-      const b = carried!;
-      const next =
-        k < last ? at(i, k + 1) : i + 1 < segments ? at(i + 1, 1) : null;
-      carried = next;
-      const base = cursor * INK_INSTANCE_FLOATS;
-      out[base] = a.x;
-      out[base + 1] = a.y;
-      out[base + 2] = b.x;
-      out[base + 3] = b.y;
-      out[base + 4] = a.r;
-      out[base + 5] = b.r;
-      out[base + 6] = prev ? prev.x : 0;
-      out[base + 7] = prev ? prev.y : 0;
-      out[base + 8] = next ? next.x : 0;
-      out[base + 9] = next ? next.y : 0;
-      out[base + 10] = prev ? prev.r : -1;
-      out[base + 11] = next ? next.r : -1;
-      cursor += 1;
-      prev = a;
-      a = b;
-    }
-  }
-  return cursor * INK_INSTANCE_FLOATS;
+  const floats = readyCore().packInkStrokeInstances(
+    stroke.x,
+    stroke.y,
+    stroke.width,
+    options.from ?? 0,
+  );
+  // Writes past the end of `out` are dropped, as a typed-array write always was.
+  out.set(floats.subarray(0, out.length));
+  return floats.length;
 }
 
 /**
@@ -344,5 +308,5 @@ export function radiusAt(stroke: StrokeInstanceInput, _index?: number): number {
 
 /** Whether a stroke is drawn translucent and deduped through the stencil. */
 export function usesHighlighterPass(tool: InkTool): boolean {
-  return tool === "highlighter";
+  return readyCore().usesInkHighlighterPass(tool);
 }

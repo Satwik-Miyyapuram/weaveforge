@@ -10,6 +10,7 @@ Each file below owns one part:
 
 - `clean_pasted_text`: the paste pipeline that runs the rules in order.
 - `control_characters`: escape sequences and control characters that survive a copy.
+- `markdown_link`: the bare-URL check, label escaping and `[label](url)` for pasted links. See [markdown_link](markdown_link.md).
 - `markdown_ranges`: the parts of a Markdown document that are syntax, data or verbatim.
 - `paste_settings`: what the pipeline may do, per user.
 - `pdf_text`: repairs text copied out of a PDF.

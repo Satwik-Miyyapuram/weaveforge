@@ -11,14 +11,6 @@ export interface WireStorageDeps {
   config?: StorageConfig;
 }
 
-/** The browser follows the inlined public setting; the server follows its config. */
-export function blobProviderForRuntime(
-  configured: BlobProviderId,
-  runtime: { inBrowser: boolean; publicProvider: string | undefined },
-): BlobProviderId {
-  return readyCore().blobProviderForRuntime(configured, runtime) as BlobProviderId;
-}
-
 /**
  * Composition-root helper: pick blob adapter from env.
  * Tiered mode uses {@link HttpBlobStore} in the browser (R2/MinIO secrets stay server-side).
@@ -29,11 +21,12 @@ export function blobProviderForRuntime(
  */
 export function wireStorage(deps: WireStorageDeps): IBlobStore {
   const config = deps.config ?? readStorageConfig();
-  const provider = blobProviderForRuntime(config.provider, {
+  // The browser follows the inlined public setting; the server follows its config.
+  const provider = readyCore().blobProviderForRuntime(config.provider, {
     inBrowser: typeof window !== "undefined",
     // Literal read: Next.js inlines it into the browser bundle.
     publicProvider: process.env.NEXT_PUBLIC_BLOB_PROVIDER,
-  });
+  }) as BlobProviderId;
   switch (provider) {
     case "tiered":
       if (typeof window !== "undefined") {

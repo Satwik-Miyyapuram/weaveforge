@@ -67,9 +67,8 @@ export class PostgrestPaperRelationRepository extends ProjectRepository
       return rows<PaperRelationRow>(q);
     };
     const [from, to] = await Promise.all([side("from_paper"), side("to_paper")]);
-    const byId = new Map<string, PaperRelationRow>();
-    for (const row of [...from, ...to]) byId.set(row.id, row);
-    return [...byId.values()].map(toDomain);
+    // Dedupe by id runs in the Rust core (wf-core `relations::relation_rows`).
+    return readyCore().dedupePaperRelationRows([...from, ...to]).map(toDomain);
   }
 
   async findEdge(

@@ -82,14 +82,15 @@ test("every proposal kind is handled by the browser-only executor registry", asy
     ["append_paper_note", {}], ["create_vault_note", { title: "Note", body: "Body" }],
     ["create_log_entry", { body: "Body", kind: "daily" }], ["paper_update", { status: "read", rating: 4, tags: ["method"] }],
     ["paper_field_value", { fieldId: "f1", value: "VAE" }],
-    ["reading_list_change", { listId: "list-1", paperId: "paper-1" }], ["relation", { fromPaper: "paper-1", toPaper: "paper-2", relation: "extends" }],
+    ["reading_list_change", { listId: "list-1", paperId: "paper-1" }],
+    ["reading_list_change", { listId: "list-1", vaultPageId: "note-1" }], ["relation", { fromPaper: "paper-1", toPaper: "paper-2", relation: "extends" }],
     ["zotero_import", { title: "Imported paper", authors: ["Ada"] }], ["milestone_follow_up", { title: "Follow up" }], ["experiment_follow_up", { name: "Run follow up" }],
     ["edit_vault_note", { body: "New" }], ["append_vault_note", { addition: "More" }], ["report_edit", { notes: "Draft" }],
     ["milestone_status", { status: "done" }], ["experiment_update", { status: "done", metrics: { acc: 0.9 }, artifacts: ["model.pt"] }],
     ["paper_annotation", { quote: "a key sentence" }],
   ];
   for (const [kind, payload] of inputs) assert.equal(await registry.execute(draft(kind, payload)), "accepted");
-  assert.deepEqual(calls, ["append", "vault", "log", "paper-status", "paper-rating", "paper-tags", "field:f1:VAE", "list", "relation", "paper", "zotero", "milestone", "experiment",
+  assert.deepEqual(calls, ["append", "vault", "log", "paper-status", "paper-rating", "paper-tags", "field:f1:VAE", "list", "list-note", "relation", "paper", "zotero", "milestone", "experiment",
     "note-update:New", "note-update:Old\n\nMore", "report", "milestone-status", "exp-status", "exp-metrics", "exp-artifacts", "annotation"]);
 });
 

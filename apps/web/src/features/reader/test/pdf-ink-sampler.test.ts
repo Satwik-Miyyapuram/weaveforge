@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appendInkStroke, draftInkAnnotation } from "../application/draft-local-annotation";
+import { appendInkStroke, draftInkAnnotation } from "@weaveforge/wasm";
 import {
   PDF_INK_MIN_POINT_DISTANCE,
   PdfInkSampler,

@@ -11,7 +11,6 @@
  */
 import type { TextLine } from "../features/reader/analysis/line-reconstruction.js";
 import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outline-types.js";
-import type { Row } from "./three-way-merge.js";
 import type { CoreContract } from "./core-contract.js";
 import type { PdfLocus, ResolvedAnchor } from "../reader/anchor-shapes.js";
 import type { ExcerptHighlight } from "../features/ai-assistant/domain/ai-types.js";
@@ -35,7 +34,8 @@ import type { WorkspaceSnapshot, WorkspaceSnapshotCounts } from "../workspace/wo
 
 /** The note as it stood when the two sides last agreed (Rust `VaultPageBase`). */
 export interface VaultPageBase {
-  fields: Row;
+  /** A manifest's fields as read: usually an object; an array is kept as read (Rust `Value`). */
+  fields: unknown;
   /** Digest, not text: enough to tell a rewrite from an untouched body. */
   bodyDigest: string;
 }
@@ -93,10 +93,43 @@ import type {
   OpenAccessCandidate,
 } from "../features/papers/application/open-access.js";
 
+/** The ink tuning constants the wf-wasm `inkConstants()` returns. */
+export interface InkTuningConstants {
+  inkWidthUnitsPerMm: number;
+  inkPenWidths: readonly number[];
+  inkPenWidth: number;
+  inkHighlighterWidth: number;
+  inkHighlighterWidths: readonly number[];
+  inkHighlighterMinWidth: number;
+  inkMinWidth: number;
+  inkMaxWidth: number;
+  inkVelocityFullTaper: number;
+  inkVelocityTaper: number;
+  inkPressureMinFactor: number;
+  inkPressureMaxFactor: number;
+  inkZoomMin: number;
+  inkZoomMax: number;
+  inkZoomStep: number;
+  inkSmoothSpacing: number;
+  inkSmoothPasses: number;
+  inkGroupWindowMs: number;
+  inkLineBandRatio: number;
+  inkEngineMaxConfidence: number;
+  figureAlt: string;
+  figureHandles: readonly string[];
+}
+
 export interface RustCoreFns {
+  /** The `request.jwt.claims` JSON RLS reads; `null` or `""` is `anon` (Rust `db_claims::session_claims`). */
+  sessionClaims(userId: string | null): string;
+  /** Whether a PDF is over the 200 MiB drop cap (Rust `paper_drop::is_pdf_too_large`). */
+  isPdfTooLarge(sizeBytes: number): boolean;
+  /** The `arXiv:` stamp in a PDF's first-page text, if any (Rust `paper_drop::arxiv_stamp`). */
+  arxivStamp(pageText: string): string | undefined;
   /** Sort key for an annotation: page, then character offset, then distance from the page top. */
   buildAnnotationSortIndex(pageIndex: number, charOffset: number, topPdfUnits: number): string;
   normalizeDoi(doi?: string): string | undefined;
+  checkNewPaper(title: string, rating?: number): string;
   projectName(name: string): string | undefined;
   resolveTextAnchor(text: string, locus: PdfLocus): ResolvedAnchor | null;
   highlightWithinExcerpt(excerpt: string, locus: PdfLocus | undefined): ExcerptHighlight | null;
@@ -168,11 +201,15 @@ export interface RustCoreFns {
   ): { start: number; end: number; headingIndex: number; score: number } | null;
   ladderOrder(supports: readonly boolean[]): number[];
   githubRepoPdfPath(givenPdfPath: string | undefined, paperId: string): string | null;
+  openAccessSupports(arxivId: string | null | undefined, url: string | null | undefined, doi: string | null | undefined): boolean;
+  webdavSupports(webdavPath: string | undefined): boolean;
+  trimmedOrNone(value: string | null | undefined): string | null;
   digestText(text: string): string;
   // json data
   jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string;
   jsonKindOfPath(path: string): WorkspaceJsonKind | null;
   isAppOwnedPath(path: string): boolean;
+  unstampForCompare(path: string, text: string): string;
   parseJsonData(path: string, content: string, kind: WorkspaceJsonKind): ParsedJsonData | null;
   diffJsonData(
     parsed: ParsedJsonData,
@@ -265,8 +302,18 @@ export interface RustCoreFns {
   primaryPaperRef(arxivId: string | null | undefined, doi: string | null | undefined): PaperRef | null;
   appendPaperNote(existing: string | undefined, addition: string): string | undefined;
   defaultShareLinkExpiresAt(nowMs: number): string;
+  // sharing constants (wf-core SHAREABLE_TYPES, CRDT_EDITABLE_SHARE_TYPES, SHARE_LINK_DEFAULT_TTL_DAYS)
+  shareableTypes(): readonly string[];
+  crdtEditableShareTypes(): readonly string[];
+  shareLinkDefaultTtlDays(): number;
+  // vault page constants (wf-core vault::page VAULT_IMAGE_PREFIX, VAULT_BODY_PREVIEW_CHARS)
+  vaultImagePrefix(): string;
+  vaultBodyPreviewChars(): number;
+  // CRDT compaction guard (wf-core collab::compact_skip_reason)
+  compactSkipReason(snapshotUptoId: number, currentSnapshotUpto?: number): "nothing-to-do" | "stale" | undefined;
   imagesOf(metadata: Record<string, unknown> | null | undefined): string[];
   proposalApplies(storedUpdatedAt: string | null | undefined, expectedRevision?: string | null): boolean;
+  hasText(text: string | null | undefined): boolean;
   selectModelProvider(providers: readonly { provider: string; available: boolean }[], selected: string): string;
   pinnedScreenIndex(input: {
     resourceType: string;
@@ -301,6 +348,8 @@ export interface RustCoreFns {
   vaultRootFromText(text: string): string | null;
   /** The checked ink recognition request, or null; the desktop narrows it to its own type. */
   readInkRequest(request: unknown): unknown;
+  /** The helper's request for a page: strokes flattened to x, y, pressure triples. */
+  buildInkRequest(input: unknown): unknown;
   listMembershipByKey(lists: readonly { id: string }[], items: readonly { listId: string; paperId?: string | null; vaultPageId?: string | null }[], key: "paper" | "vaultPage" | "either"): Map<string, Set<string>>;
   /** The vault-relative path, or throws the refusal message. */
   safeRelative(candidate: string): string;
@@ -308,16 +357,135 @@ export interface RustCoreFns {
   formatLogLine(entry: { at: string; level: string; source: string; message: string; detail?: string }): string;
   /** The writes for a new item order, or the message that refuses it. */
   planItemOrder(listId: string, items: readonly ReadingListItem[], orderedIds: readonly string[]): { error?: string | null; writes: { itemId: string; sortOrder: number }[] };
+  /** The item id of each paper in order, or the message that refuses it. */
+  itemIdsForPapers(listId: string, items: readonly ReadingListItem[], paperIds: readonly string[]): { error?: string | null; itemIds: string[] };
+  /** The sort order a new row gets after `siblings`: 0 when empty, else one past the highest. */
+  nextSortOrder(siblings: readonly ReadingListItem[]): number;
+  /** Whether a database error code means only the inherited link failed. */
+  isInheritedLinkCode(code: string | null | undefined): boolean;
+  /** Whether an image of this MIME type and byte size is stored as it came. */
+  canStoreUnchanged(mime: string, sizeBytes: number): boolean;
+  /** Whether `message` names a browser network failure ("Failed to fetch" and kin). */
+  isNetworkFailure(message: string): boolean;
+  /** The sync line's Zotero write-back part for a summary, or "" when nothing was owed. */
+  zoteroWriteBackMessage(
+    summary: { created: number; updated: number; conflicts: number; failed: number; firstError?: string } | null,
+  ): string;
   /** `listId` and every list below it, deepest first. */
   deepestFirstListIds(listId: string, lists: readonly ReadingList[]): string[];
   /** Distinct reviewers of the decisions. */
   reviewers(decisions: readonly ScreeningDecision[]): string[];
   gitReason(text: string): string;
+  /** Base64 of `username:token`; an absent username is `x-access-token`. */
+  gitBasicAuth(token: string, username?: string): string;
+  /** Git flags and env overrides for one remote command; `env` is merged over `process.env`. */
+  gitRemoteAuth(input: { url: string; token?: string; username?: string }): {
+    flags: string[];
+    env: Record<string, string>;
+  };
+  /** `git status --porcelain -z` entries reduced to deleted, added or modified. */
+  gitParseStatus(stdout: string): { path: string; state: "deleted" | "added" | "modified" }[];
+  /** `git log` commits from the unit-separator field format. */
+  gitParseLog(stdout: string): { oid: string; authoredAt: string; author: string; message: string }[];
+  /** Paths under a "would be overwritten" git message. */
+  gitOverwrittenFiles(output: string): string[];
+  /** Non-empty entries of a NUL-separated git listing. */
+  gitNulList(stdout: string): string[];
+  /** Path batches for one command line each; `maxUnits` defaults to 8000 UTF-16 units. */
+  gitPathChunks(paths: readonly string[], maxUnits?: number): string[][];
+  /** The "too large to open here" text for a byte cap. */
+  vaultTooLargeMessage(capBytes: number): string;
+  /** Sidecar argv (without the program name): the parsed plan with raw paths, or the message to print. */
+  parseSidecarArgs(argv: readonly string[]): (
+    | {
+        kind: "ok";
+        dataDir: string;
+        migrations: string[];
+        backupsDir: string;
+        migrateFrom: string | null;
+        artifacts: string | null;
+        bridge: string | null;
+        appVersion: string | null;
+        homeVariant: string | null;
+        noLocalApi: boolean;
+      }
+    | { kind: "error"; message: string }
+  );
   migratedNotice(raw: string | null): string | null;
   /** Index of the matching project; throws when none or several match. */
   pickProject(projects: readonly { id?: string; name: string; dir: string }[], needle: string | null): number;
   /** `defaults` with the local database's `-c shared_buffers=...` flags appended. */
   engineStartParams(defaults: readonly string[]): string[];
+  // ink binary (wf-core ink::chunk)
+  inkChunkRawThreshold(): number;
+  inkChunkShouldTryCompress(bodyLen: number): boolean;
+  inkChunkStoresCompressed(bodyLen: number, packedLen: number): boolean;
+  /** One stroke's `x, y, pressure` triples, absolute and unwrapped (wf-core `chunk_read`). */
+  strokePointTriples(body: Uint8Array, strokeIndex: number): Float64Array;
+  /** Every point as `Int16` `x, y, pressure` triples, wrapped as an `Int16Array` write wraps (wf-core `chunk_read`). */
+  absolutePointTriples(body: Uint8Array): Int16Array;
+  // ink hit test and page buffer (wf-core ink::hit_test, ink::page_buffer)
+  inkStrokeNearSegment(xs: Float32Array, ys: Float32Array, fx: number, fy: number, tx: number, ty: number, radius: number): boolean;
+  inkLassoKeeps(xs: Float32Array, ys: Float32Array, polygon: Float64Array): boolean;
+  inkBoundsOf(xs: Float32Array, ys: Float32Array): Float64Array;
+  inkBoundsIntersect(a: Float64Array, b: Float64Array, slack: number): boolean;
+  inkBoundsUnion(a: Float64Array, b: Float64Array): Float64Array;
+  inkBoundsContain(bounds: Float64Array, x: number, y: number, slack: number): boolean;
+  inkPageBounds(boxes: Float64Array, live: Uint8Array): Float64Array;
+  inkKeptIndices(alive: Uint8Array): Uint32Array;
+  inkClampBackgroundIndex(index: number): number;
+  // ink recognition (wf-core ink::ink_engine, ink::recognise); the engine choice stays in TS
+  isInkEngineId(id: string): boolean;
+  inkEngineInfo<I>(id: string): I | null;
+  inkEngineRank(id: string): number;
+  inkUnsureConfidence(): number;
+  isUnsureLine(line: { conf: number }): boolean;
+  mapInkConfidence(raw: number, scale?: number): number;
+  inkPageConfidence(lines: readonly { conf: number }[]): number;
+  inkVocabularyHints(sources: readonly (readonly string[])[], limit?: number): string[];
+  bandsCoincide(a: readonly [number, number], b: readonly [number, number]): boolean;
+  inkPageSummary(lines: readonly { text: string; conf: number }[]): { text: string; confidence: number; unsure: number };
+  /** The ink tuning constants (wf-core width, zoom, smooth, segment, decode, figure); read at call time, never at module load. */
+  inkConstants(): InkTuningConstants;
+  // Lexical and model extraction: typed by LexicalConceptFns and ModelExtractionFns in core-contract.ts.
+  extractLexical: unknown;
+  modelExtractionLimits: unknown;
+  modelBuildBatchRequest: unknown;
+  modelFinalizeExtraction: unknown;
+  // sidecar wire and app:// protocol (wf-core wire, app_protocol); sockets, timers and handlers stay in TS
+  wireRoute(line: string, acceptAnswers: boolean): { kind: "skip" | "reply" | "call" | "settle" | "badAnswer"; [key: string]: unknown };
+  wireParseRequest(line: string): { ok: boolean; [key: string]: unknown };
+  wireTag(value: unknown): { kind: "bigint" | "bytes"; [key: string]: unknown } | null;
+  wireErrorReply(id: number | null, error: string): Record<string, unknown>;
+  wireOkReplyHead(id: number): { id: number; ok: true };
+  appFileCandidates(root: string, requestUrl: string, sep: string): string[] | null;
+  appCanonicalUrl(requestUrl: string): string | null;
+  appIsPageRequest(requestUrl: string): boolean;
+  appHeaders(contentType: string): Record<string, string>;
+  appContentTypeFor(file: string): string;
+  // AI session start, proposal shaping, folder drafts and Overleaf status (wf-core ai, overleaf); typed in core-contract.ts or the use-case shells.
+  startAiSession: unknown;
+  shapeAiProposalDraft: unknown;
+  isFolderDraftPath: unknown;
+  folderDraftForProject: unknown;
+  describeOverleafStatus: unknown;
+  parseStoredAiProvider: unknown;
+  homeConfigPath: unknown;
+  mcpClientConfigs: unknown;
+  sameOrigin: unknown;
+  originOf: unknown;
+  searchMatches: unknown;
+  isSearchFile: unknown;
+  isSkippedDir: unknown;
+  rootVerdict: unknown;
+  chooseRoot: unknown;
+  temporaryName: unknown;
+  isTemporaryName: unknown;
+  isLoopbackHost(host: string | undefined, port: number): boolean;
+  bearerToken(header: string | undefined): string | undefined;
+  isLegacyTokenHex(stored: string): boolean;
+  isSecretName(name: string): boolean;
+  projectFolderName(dir: string): string | undefined;
 }
 
 let core: RustCoreFns | null = null;

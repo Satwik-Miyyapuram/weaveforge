@@ -82,11 +82,39 @@ pub fn should_persist_body(ready: bool, next: &str, last_saved: &str) -> bool {
     ready && next != last_saved
 }
 
+/// Why a CRDT compaction request does nothing, or `None` when it should be sent (TS
+/// `CompactCrdtLogUseCase`). `nothing-to-do` when the snapshot covers no update (`<= 0`); `stale`
+/// when the caller's snapshot is behind the watermark it last read. `current_upto` of `None`
+/// means "not known", which is not zero.
+#[must_use]
+pub fn compact_skip_reason(
+    snapshot_upto_id: f64,
+    current_upto: Option<f64>,
+) -> Option<&'static str> {
+    if snapshot_upto_id <= 0.0 {
+        return Some("nothing-to-do");
+    }
+    match current_upto {
+        Some(current) if snapshot_upto_id <= current => Some("stale"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn compact_skip_reason_guards_nothing_and_stale() {
+        assert_eq!(compact_skip_reason(0.0, None), Some("nothing-to-do"));
+        assert_eq!(compact_skip_reason(-1.0, Some(0.0)), Some("nothing-to-do"));
+        assert_eq!(compact_skip_reason(5.0, Some(5.0)), Some("stale"));
+        assert_eq!(compact_skip_reason(4.0, Some(5.0)), Some("stale"));
+        assert_eq!(compact_skip_reason(6.0, Some(5.0)), None);
+        assert_eq!(compact_skip_reason(6.0, None), None);
+    }
 
     #[test]
     fn skips_self_own_sessions_and_duplicates() {

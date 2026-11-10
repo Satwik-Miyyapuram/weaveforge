@@ -289,3 +289,35 @@ pub fn share_targets_js(shares: JsValue, kind: JsValue) -> JsResult<JsValue> {
     let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
     to_js(&sharing::share_targets(&shares, kind))
 }
+
+/// [`SHAREABLE_TYPES`](sharing::SHAREABLE_TYPES): every type a share can cover.
+///
+/// # Errors
+///
+/// Fails if the list cannot be converted to a JS value.
+#[wasm_bindgen(js_name = shareableTypes)]
+pub fn shareable_types_js() -> JsResult<JsValue> {
+    to_js(&sharing::SHAREABLE_TYPES)
+}
+
+/// [`CRDT_EDITABLE_SHARE_TYPES`](sharing::CRDT_EDITABLE_SHARE_TYPES): share types that support
+/// collaborative editing.
+///
+/// # Errors
+///
+/// Fails if the list cannot be converted to a JS value.
+#[wasm_bindgen(js_name = crdtEditableShareTypes)]
+pub fn crdt_editable_share_types_js() -> JsResult<JsValue> {
+    to_js(&sharing::CRDT_EDITABLE_SHARE_TYPES)
+}
+
+/// [`SHARE_LINK_DEFAULT_TTL_DAYS`](sharing::SHARE_LINK_DEFAULT_TTL_DAYS) as a JS number.
+#[must_use]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "a day count is a small whole number, exact in f64"
+)]
+#[wasm_bindgen(js_name = shareLinkDefaultTtlDays)]
+pub fn share_link_default_ttl_days_js() -> f64 {
+    sharing::SHARE_LINK_DEFAULT_TTL_DAYS as f64
+}

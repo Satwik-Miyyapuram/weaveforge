@@ -1,6 +1,9 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { describeRejection, formatError, formatErrorForResponse, jsonBodyError, readJsonBody, responseError } from "../format-error";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("formatError: null/undefined -> generic message", () => {
   assert.equal(formatError(null), "Something went wrong.");

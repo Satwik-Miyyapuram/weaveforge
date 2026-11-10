@@ -2,27 +2,30 @@
  * An experiment's repo URL is user data rendered as `<a href>`: only http(s)
  * may become a link, so `javascript:` and friends never run on click.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { commitUrl, repoWebUrl } from "../infrastructure/git-client";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("http and https repo URLs pass through", () => {
-  assert.equal(repoWebUrl("https://github.com/a/b"), "https://github.com/a/b");
-  assert.equal(repoWebUrl("http://gitlab.example.org/a/b.git"), "http://gitlab.example.org/a/b.git");
+  assert.equal(readyCore().repoWebUrl("https://github.com/a/b"), "https://github.com/a/b");
+  assert.equal(readyCore().repoWebUrl("http://gitlab.example.org/a/b.git"), "http://gitlab.example.org/a/b.git");
 });
 
 test("script and other schemes are refused", () => {
   for (const bad of ["javascript:alert(1)", " JavaScript:alert(1)", "data:text/html,x", "vbscript:x", "file:///etc/passwd", "git@github.com:a/b.git", "", "not a url"]) {
-    assert.equal(repoWebUrl(bad), undefined, bad);
+    assert.equal(readyCore().repoWebUrl(bad), undefined, bad);
   }
-  assert.equal(repoWebUrl(undefined), undefined);
+  assert.equal(readyCore().repoWebUrl(undefined), undefined);
 });
 
 test("commitUrl builds nothing from an unsafe repo URL", () => {
-  assert.equal(commitUrl("javascript:alert(1)//", "abc123"), undefined);
-  assert.equal(commitUrl("https://github.com/a/b.git", "abc123"), "https://github.com/a/b/commit/abc123");
-  assert.equal(commitUrl("https://gitlab.com/a/b/", "abc123"), "https://gitlab.com/a/b/-/commit/abc123");
+  assert.equal(readyCore().commitUrl("javascript:alert(1)//", "abc123"), undefined);
+  assert.equal(readyCore().commitUrl("https://github.com/a/b.git", "abc123"), "https://github.com/a/b/commit/abc123");
+  assert.equal(readyCore().commitUrl("https://gitlab.com/a/b/", "abc123"), "https://gitlab.com/a/b/-/commit/abc123");
 });
 
 test("experiment screens never put the raw repoUrl in an href", () => {

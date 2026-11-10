@@ -6,6 +6,7 @@ import {
   createPaperRelationWith as rawCreatePaperRelationWith,
   paperRelationFromRow as rawPaperRelationFromRow,
   paperRelationInputError as rawPaperRelationInputError,
+  dedupePaperRelationRows as rawDedupePaperRelationRows,
   paperRelationToRow as rawPaperRelationToRow,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -66,4 +67,12 @@ export function paperRelationFromRow(row: PaperRelationRow): PaperRelation {
 /** The stored row for a relation. An absent note is stored as null. */
 export function paperRelationToRow(relation: PaperRelation): PaperRelationRow {
   return rawPaperRelationToRow(relation) as PaperRelationRow;
+}
+
+/**
+ * One row per id, in first-seen order; a later row with the same id replaces the data but keeps
+ * its place. A relation on both sides of a paper appears once. Rust `relation_rows`.
+ */
+export function dedupePaperRelationRows(rows: readonly PaperRelationRow[]): PaperRelationRow[] {
+  return rawDedupePaperRelationRows(rows) as PaperRelationRow[];
 }

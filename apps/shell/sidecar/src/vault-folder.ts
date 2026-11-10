@@ -4,10 +4,14 @@ import * as path from "node:path";
 
 import {
   WORKSPACE_META_DIR,
+  rust,
   safeWorkspacePath,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
+
+/** The verdict tag Rust's `root_verdict` returns for a folder. */
+type RootTag = "notADirectory" | "existing" | "empty" | "notEmpty";
 
 /**
  * The workspace folder, on a real disk.
@@ -59,11 +63,17 @@ export type RootChoice =
  * while choosing one should place the workspace somewhere sensible and say where.
  */
 export async function workspaceRootFor(chosen: string): Promise<RootChoice> {
-  const verdict = await verifyRoot(chosen);
-  if (verdict.ok) return { ...verdict, root: chosen };
-  // A file, or a path that does not exist, is a refusal worth repeating: there
-  // is no folder here to put a workspace inside.
-  if (verdict.reason !== NOT_EMPTY) return verdict;
+  const tag = await rootTag(chosen);
+  // Rust decides use / nest / refuse; a file, or a path that does not exist, is a
+  // refusal worth repeating: there is no folder here to put a workspace inside.
+  switch (rust().chooseRoot(tag) as "use" | "nest" | "refuse") {
+    case "use":
+      return { ok: true, root: chosen, state: tag === "existing" ? "existing" : "empty" };
+    case "refuse":
+      return { ok: false, reason: NOT_A_DIRECTORY };
+    case "nest":
+      break;
+  }
 
   const nested = path.join(chosen, WORKSPACE_SUBDIR);
   try {
@@ -86,20 +96,22 @@ export async function workspaceRootFor(chosen: string): Promise<RootChoice> {
  * and it is the one directory a user has no reason to create by hand.
  */
 export async function verifyRoot(root: string): Promise<RootVerdict> {
+  const tag = await rootTag(root);
+  if (tag === "existing" || tag === "empty") return { ok: true, state: tag };
+  return { ok: false, reason: tag === "notEmpty" ? NOT_EMPTY : NOT_A_DIRECTORY };
+}
+
+/** Reads the folder (the IO) and hands its names to the Rust verdict rule. */
+async function rootTag(root: string): Promise<RootTag> {
   let entries: string[];
   try {
     const stat = await fs.stat(root);
-    if (!stat.isDirectory()) return { ok: false, reason: NOT_A_DIRECTORY };
+    if (!stat.isDirectory()) return "notADirectory";
     entries = await fs.readdir(root);
   } catch {
-    return { ok: false, reason: NOT_A_DIRECTORY };
+    return "notADirectory";
   }
-
-  if (entries.includes(WORKSPACE_META_DIR)) return { ok: true, state: "existing" };
-  // `.DS_Store` and friends are not files anyone chose to put there.
-  const meaningful = entries.filter((entry) => !entry.startsWith("."));
-  if (meaningful.length === 0) return { ok: true, state: "empty" };
-  return { ok: false, reason: NOT_EMPTY };
+  return rust().rootVerdict(true, entries, WORKSPACE_META_DIR) as RootTag;
 }
 
 /** A stable, non-reversible name for a root, for keying per-folder state. */
@@ -162,7 +174,6 @@ async function* walkReadable(
   }
 }
 
-export const TEMP_SUFFIX = ".wftmp";
 let tempSeq = 0;
 
 export class NodeWorkspaceFs implements IWorkspaceFs {
@@ -191,7 +202,7 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
     // note empty or cut off -- the folder is the reader's own copy of their
     // work, and a torn file there is lost work. A rename within one directory
     // is atomic: the old file or the new one, never half of either.
-    const temporary = `${target}.${process.pid}.${(tempSeq += 1)}${TEMP_SUFFIX}`;
+    const temporary = rust().temporaryName(target, process.pid, (tempSeq += 1)) as string;
     try {
       await fs.writeFile(temporary, typeof data === "string" ? encoder.encode(data) : data);
       await fs.rename(temporary, target);
@@ -224,7 +235,7 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
     const out: WorkspaceStat[] = [];
     for (const entry of entries) {
       // A write the app was killed in the middle of; the real file is intact.
-      if (entry.name.endsWith(TEMP_SUFFIX)) continue;
+      if (rust().isTemporaryName(entry.name)) continue;
       const relative = statOf(entry, at);
       const stat = await this.stat(relative);
       if (stat) out.push(stat);

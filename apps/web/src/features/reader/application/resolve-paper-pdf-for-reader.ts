@@ -7,6 +7,7 @@ import type { IPdfByteCache, PdfSourceResolution } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
+import { readyCore } from "@/lib/rust-core";
 import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
 import {
   RoutedPdfByteCache,
@@ -251,11 +252,9 @@ export async function fetchTypedPdfToCache(
   return { ok: true };
 }
 
-/** `%PDF` somewhere in the first kilobyte, the reader's own magic check. */
+/** `%PDF` somewhere in the first kilobyte (Rust `has_pdf_magic`). */
 export function looksLikePdfBytes(bytes: ArrayBuffer): boolean {
-  const head = new Uint8Array(bytes, 0, Math.min(1024, bytes.byteLength));
-  const text = String.fromCharCode(...head);
-  return text.includes("%PDF");
+  return readyCore().hasPdfMagic(new Uint8Array(bytes));
 }
 
 async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string): Promise<void> {

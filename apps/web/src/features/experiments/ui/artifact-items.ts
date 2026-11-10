@@ -11,31 +11,7 @@ export interface MissingArtifact {
   reason: "desktop" | "missing";
 }
 
-const IMAGE = /\.(png|jpe?g|webp|gif|svg|avif)$/;
-const PDF = /\.pdf$/;
 const LOCAL_PREFIX = "app://artifacts/";
-
-function pathOf(entry: string): string {
-  try {
-    return new URL(entry).pathname.toLowerCase();
-  } catch {
-    return (entry.split("?")[0] ?? "").toLowerCase();
-  }
-}
-
-function isImage(entry: string): boolean {
-  if (entry.startsWith("data:")) return entry.startsWith("data:image/");
-  return IMAGE.test(pathOf(entry));
-}
-
-function isPdf(entry: string): boolean {
-  if (entry.startsWith("data:")) return entry.startsWith("data:application/pdf");
-  return PDF.test(pathOf(entry));
-}
-
-function isAbsolute(entry: string): boolean {
-  return entry.startsWith(LOCAL_PREFIX) || /^https?:\/\//i.test(entry) || entry.startsWith("data:");
-}
 
 /**
  * Pair each stored entry with the URL it resolved to, split into figures,
@@ -63,10 +39,11 @@ export function artifactItems(
     }
     const url = urls[i];
     if (!url) {
-      if (settled || isAbsolute(entry)) missing.push({ label: readyCore().figureLabel(entry, missing.length), reason: "missing" });
+      if (settled || readyCore().isAbsoluteEntry(entry)) missing.push({ label: readyCore().figureLabel(entry, missing.length), reason: "missing" });
       return;
     }
-    const group = isImage(entry) ? images : isPdf(entry) ? pdfs : links;
+    const kind = readyCore().artifactKind(entry);
+    const group = kind === "image" ? images : kind === "pdf" ? pdfs : links;
     group.push({ url, label: readyCore().figureLabel(entry, group.length) });
   });
   return { images, pdfs, links, missing };

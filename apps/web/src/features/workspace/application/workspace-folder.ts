@@ -30,7 +30,7 @@ import { watchForLoss } from "./folder-watch-lost";
 import { readPreviewFolder } from "./folder-preview-read";
 import { applyFolderImport, keepWorkspaceCopy } from "./folder-import-apply";
 import { isNoteOpen, onNoteClosed } from "./open-notes";
-import { diffAgainstWorkspace, importableEntities } from "./folder-diff";
+import { diffAgainstWorkspace } from "./folder-diff";
 import {
   applyOutsideEdits,
   renamedPaths,
@@ -255,13 +255,14 @@ export interface SyncOutcome {
   commitError?: string;
 }
 
-/** One line for the panel; a failed commit is said, not read as "up to date". */
+/** One line for the panel; a failed commit is said, not read as "up to date" (wf-core `workspace::sync_report`). */
 export function describeSync({ mirror, commit, commitError }: SyncOutcome): string {
-  const wrote = `Wrote ${mirror.written.length} file${mirror.written.length === 1 ? "" : "s"}`;
-  const removed = mirror.removed.length ? `, removed ${mirror.removed.length}` : "";
-  if (commit) return `${wrote}${removed} · committed "${commit.message}".`;
-  if (commitError) return `${wrote}${removed} · not committed: ${commitError}`;
-  return `${wrote}${removed}${mirror.written.length === 0 ? " — already up to date" : "."}`;
+  return readyCore().describeSync({
+    written: mirror.written.length,
+    removed: mirror.removed.length,
+    commitMessage: commit?.message ?? null,
+    commitError: commitError ?? null,
+  });
 }
 
 /** The sync writing right now; folder events wait for it so its own writes are not reported. */
@@ -751,7 +752,6 @@ export async function previewArchiveImport(
 
 
 import {
-  keepBothTitle,
   mergeBothChanged,
   settleConflict,
   type ConflictPicks,
@@ -760,7 +760,6 @@ import {
 import { typedCore } from "@/lib/rust-core";
 
 export {
-  keepBothTitle,
   mergeBothChanged,
   settleConflict,
   type ConflictPicks,
@@ -768,6 +767,5 @@ export {
 };
 
 export { applyFolderImport, writeMarkersFor } from "./folder-import-apply";
-export { importableEntities };
 
 

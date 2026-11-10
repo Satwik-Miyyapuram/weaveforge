@@ -1,17 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { shouldUseDarkPdfRendering } from "../application/reader-pdf-theme.js";
 import { readyCore } from "@/lib/rust-core";
 
 const { parseReaderSplitPane } = readyCore();
 
 test("shouldUseDarkPdfRendering recognises dark theme ids", () => {
-  assert.equal(shouldUseDarkPdfRendering("mocha"), true);
-  assert.equal(shouldUseDarkPdfRendering("latte"), false);
-  assert.equal(shouldUseDarkPdfRendering(null), false);
-  assert.equal(shouldUseDarkPdfRendering(null, "dark"), true);
-  assert.equal(shouldUseDarkPdfRendering("latte", "dark"), true);
+  assert.equal(readyCore().shouldUseDarkPdfRendering("mocha"), true);
+  assert.equal(readyCore().shouldUseDarkPdfRendering("latte"), false);
+  assert.equal(readyCore().shouldUseDarkPdfRendering(null), false);
+  assert.equal(readyCore().shouldUseDarkPdfRendering(null, "dark"), true);
+  assert.equal(readyCore().shouldUseDarkPdfRendering("latte", "dark"), true);
 });
 
 // A PDF is someone else's printed page: it always renders light, whatever the

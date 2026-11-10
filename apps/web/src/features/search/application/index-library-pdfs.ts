@@ -156,16 +156,6 @@ const pause = (ms: number, signal?: AbortSignal) =>
   });
 
 /**
- * The host of a PDF address, for a failure line.
- *
- * The whole URL was shown, and a publisher's signed link is a screenful of
- * tokens — which also expire, so the line was unreadable and useless to copy.
- */
-export function hostOf(url: string): string {
-  return readyCore().hostOf(url);
-}
-
-/**
  * Why a paper could not be read, in words that say whether to act.
  *
  * Extracted and exported so it can be tested without a container, a network,
@@ -248,7 +238,7 @@ export async function indexLibraryPdfs(
       // A cache hit is served from this device; anything else is somebody
       // else's server, and gets the courtesy delay before it is asked again.
       const fromCache = resolution.resolverId === "browser-cache";
-      if (!fromCache && indexed + failed > 0) await pause(FETCH_DELAY_MS, options.signal);
+      if (readyCore().courtesyPauseDue(fromCache, indexed, failed)) await pause(FETCH_DELAY_MS, options.signal);
       if (options.signal?.aborted) break;
 
       const bytes = await pdfBytesForSource(resolution.hit.url);
@@ -270,7 +260,7 @@ export async function indexLibraryPdfs(
        * allowlist" or "the proxy answered non-ok", and those two have different
        * answers for the reader.
        */
-      if (!bytes) throw new Error(`${hostOf(resolution.hit.url)} did not send the file`);
+      if (!bytes) throw new Error(`${readyCore().hostOf(resolution.hit.url)} did not send the file`);
       const pages = await extractPages(bytes);
       if (pages.length === 0) throw new Error("the PDF had no pages");
       const source = {

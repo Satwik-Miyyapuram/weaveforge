@@ -216,6 +216,24 @@ pub fn owned_asset_folder_paths(bodies: &[String]) -> BTreeSet<String> {
         .collect()
 }
 
+/// Every body the workspace holds that can carry an image reference: each vault page's
+/// body, then each paper's summary. A paper with no summary contributes an empty body.
+#[must_use]
+pub fn workspace_bodies(
+    vault_bodies: &[String],
+    paper_summaries: &[Option<String>],
+) -> Vec<String> {
+    vault_bodies
+        .iter()
+        .cloned()
+        .chain(
+            paper_summaries
+                .iter()
+                .map(|summary| summary.clone().unwrap_or_default()),
+        )
+        .collect()
+}
+
 /// Classifies every asset ref in an imported body. Only `notes` assets are ever
 /// uploaded: a paper or report image from outside has no equivalent home, so it is
 /// `unresolved` unless the workspace already owns it. Each folder path is decided

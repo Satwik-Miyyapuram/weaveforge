@@ -5,7 +5,6 @@ import { type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { InlineError } from "@/components/form-error";
 import { TagChips } from "@/components/tag-chips";
-import { removeHashtagFromBody } from "@/features/papers/lib/note-tags";
 import { runNoteAction } from "./run-note-action";
 import { readyCore } from "@/lib/rust-core";
 
@@ -16,7 +15,7 @@ export function NoteTagEditor({ page, onChanged }: { page: VaultPage; onChanged:
 
   async function removeTag(tag: string) {
     await runNoteAction(setBusy, setError, async () => {
-      const body = removeHashtagFromBody(page.body, tag);
+      const body = readyCore().removeHashtagFromBody(page.body, tag);
       await getContainer().vault.manageVaultPage.update(page.id, { body });
       await onChanged();
     });

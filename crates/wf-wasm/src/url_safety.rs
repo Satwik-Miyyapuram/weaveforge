@@ -1,5 +1,5 @@
 //! Outbound URL and address checks for JavaScript (wf-core `url_safety`). The JS names match
-//! `packages/core/src/net/url-safety.ts`.
+//! `UrlSafetyFns` in `packages/core/src/shared/core-contract.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -70,4 +70,14 @@ pub fn describe_url_rejection_js(reason: JsValue) -> JsResult<String> {
 #[wasm_bindgen(js_name = expandIpv6)]
 pub fn expand_ipv6_js(value: &str) -> JsResult<JsValue> {
     to_js(&url_safety::expand_ipv6(value))
+}
+
+/// [`DEFAULT_FETCH_LIMITS`](url_safety::DEFAULT_FETCH_LIMITS): the caps read at call time.
+///
+/// # Errors
+///
+/// Fails if the limits cannot be converted to a JS value.
+#[wasm_bindgen(js_name = fetchLimits)]
+pub fn fetch_limits_js() -> JsResult<JsValue> {
+    to_js(&url_safety::DEFAULT_FETCH_LIMITS)
 }

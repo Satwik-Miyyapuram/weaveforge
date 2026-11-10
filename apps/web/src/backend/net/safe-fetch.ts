@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
-import { DEFAULT_FETCH_LIMITS, type OutboundFetchLimits } from "@weaveforge/core";
+import type { OutboundFetchLimits } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
 import { readCapped as readBody } from "@/lib/read-capped";
 import { typedCore } from "@/lib/rust-core";
@@ -274,7 +274,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<Uint8Ar
  * the guard on the first URL then guards nothing.
  */
 export async function safeFetch(input: string, options: SafeFetchOptions = {}): Promise<SafeFetchResult> {
-  const limits = { ...DEFAULT_FETCH_LIMITS, ...options };
+  const limits = { ...typedCore().fetchLimits(), ...options };
   const started = Date.now();
 
   let url: URL;

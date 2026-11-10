@@ -4,6 +4,7 @@
 
 use super::ink_page::INK_A4_WIDTH;
 use super::js_math::max;
+use super::render_instances::uses_highlighter_pass;
 
 /// The trail's diameter in CSS px for a nib width in 0.1 mm on a page drawn
 /// `page_width_px` wide. Never thinner than a pixel; a page with no width still
@@ -16,10 +17,26 @@ pub fn trail_diameter_px(width: f64, page_width_px: f64) -> f64 {
     max(1.0, (width / INK_A4_WIDTH) * page_width_px)
 }
 
+/// The trail's opacity for a tool: a highlighter is translucent, everything else opaque.
+#[must_use]
+pub fn trail_alpha(tool: &str) -> f64 {
+    if uses_highlighter_pass(tool) {
+        0.35
+    } else {
+        1.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::trail_diameter_px;
+    use super::{trail_alpha, trail_diameter_px};
     use crate::ink::ink_page::INK_A4_WIDTH;
+
+    #[test]
+    fn only_a_highlighter_trail_is_translucent() {
+        assert_eq!(trail_alpha("highlighter"), 0.35);
+        assert_eq!(trail_alpha("pen"), 1.0);
+    }
 
     #[test]
     fn a_full_page_width_nib_is_the_page_width() {

@@ -62,12 +62,9 @@ export class ManageReadingListUseCase {
   /** Persist a new paper order for one list. */
   async reorderPapers(listId: string, orderedPaperIds: readonly string[]): Promise<void> {
     const items = await this.deps.items.listItems(listId);
-    const orderedItemIds = orderedPaperIds.map((paperId) => {
-      const item = items.find((i) => i.paperId === paperId);
-      if (!item) throw new ReadingListValidationError(`Paper ${paperId} is not in list ${listId}.`);
-      return item.id;
-    });
-    await this.reorderItems(listId, orderedItemIds);
+    const lookup = rust().itemIdsForPapers(listId, items, orderedPaperIds);
+    if (lookup.error) throw new ReadingListValidationError(lookup.error);
+    await this.reorderItems(listId, lookup.itemIds);
   }
 
   /** Persist a new mixed item order for one list. */
@@ -189,10 +186,7 @@ export class ManageReadingListUseCase {
     if (existing) return existing;
 
     const siblings = await this.deps.items.listItems(listId);
-    const sortOrder =
-      siblings.length === 0
-        ? 0
-        : Math.max(...siblings.map((i) => i.sortOrder)) + 1;
+    const sortOrder = rust().nextSortOrder(siblings);
 
     const item: ReadingListItem = {
       id: this.deps.ids.newId(),
@@ -219,10 +213,10 @@ type ItemRef = { paperId: string } | { vaultPageId: string };
 /**
  * The inherited link alone can fail: the source list was deleted meanwhile
  * (FK 23503) or an old schema lacks the column (42703 / PGRST204). Only then
- * is a plain row worth retrying; anything else is a real failure.
+ * is a plain row worth retrying; anything else is a real failure. The code
+ * set lives in Rust (`is_inherited_link_code`).
  */
-const INHERITED_LINK_CODES = new Set(["23503", "42703", "PGRST204"]);
 function isInheritedLinkError(err: unknown): boolean {
   const code = (err as { code?: unknown } | null)?.code;
-  return typeof code === "string" && INHERITED_LINK_CODES.has(code);
+  return rust().isInheritedLinkCode(typeof code === "string" ? code : undefined);
 }

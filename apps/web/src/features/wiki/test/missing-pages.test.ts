@@ -3,7 +3,8 @@ import test, { before } from "node:test";
 
 import { LexicalConceptExtractor, planWikiPages } from "@weaveforge/core";
 
-import { missingPagePlans, takenTitles } from "../application/wiki-build";
+import { takenTitles } from "../application/wiki-build";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {
@@ -11,7 +12,7 @@ before(async () => {
 });
 
 test("each dead-link target becomes one placeholder page", () => {
-  const plans = missingPagePlans(["Diffusion Model", "VAE"]);
+  const plans = readyCore().missingPagePlans(["Diffusion Model", "VAE"]);
   assert.deepEqual(
     plans.map((plan) => plan.title),
     ["Diffusion Model", "VAE"],
@@ -22,7 +23,7 @@ test("each dead-link target becomes one placeholder page", () => {
 });
 
 test("blank targets are dropped and repeats are one page", () => {
-  const plans = missingPagePlans(["  GAN ", "GAN", "", "   "]);
+  const plans = readyCore().missingPagePlans(["  GAN ", "GAN", "", "   "]);
   assert.deepEqual(
     plans.map((plan) => plan.title),
     ["GAN"],
@@ -30,7 +31,7 @@ test("blank targets are dropped and repeats are one page", () => {
 });
 
 test("no targets, no plans", () => {
-  assert.deepEqual(missingPagePlans([]), []);
+  assert.deepEqual(readyCore().missingPagePlans([]), []);
 });
 
 test("a scan never proposes a page whose title an ordinary note already has (E37)", async () => {

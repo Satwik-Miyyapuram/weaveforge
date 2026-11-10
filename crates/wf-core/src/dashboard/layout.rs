@@ -394,10 +394,29 @@ pub fn sm_layout_needs_repack(
     Ok(layout_signature(items) != layout_signature(&packed))
 }
 
+/// The cache slot for one project's layout: one per project and per supervisor or student
+/// layout (TS `layoutCacheKey`).
+#[must_use]
+pub fn cache_key(project_id: &str, supervisor_layout: bool) -> String {
+    let role = if supervisor_layout {
+        "supervisor"
+    } else {
+        "student"
+    };
+    format!("{project_id}:{role}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn cache_key_separates_projects_and_roles() {
+        assert_eq!(cache_key("p1", true), "p1:supervisor");
+        assert_eq!(cache_key("p1", false), "p1:student");
+        assert_ne!(cache_key("p1", true), cache_key("p2", true));
+    }
 
     #[test]
     fn keeps_valid_cards_whole() {

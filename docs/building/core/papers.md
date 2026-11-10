@@ -18,12 +18,13 @@ Each file under `crates/wf-core/src/papers/` covers one job:
 - `paper_ref.rs`: decides what a pasted paper reference really is.
 - `paper_image.rs`: names the thumbnail variant stored beside a figure's full image.
 - `paper_preview.rs`: the preview frame on a paper page and where it leads.
-- `paper_drop.rs`: which dropped files count as PDFs or BibTeX, and the title read from a PDF.
+- `paper_drop.rs`: which dropped files count as PDFs or BibTeX, the title read from a PDF, the 200 MiB size cap (`is_pdf_too_large`), and the `arXiv:` stamp in a PDF's first page (`arxiv_stamp`). `split_paper_drop` routes each dropped name to its PDF or BibTeX list, as indices into the drop (`splitPaperDrop`).
 - `paper_merge.rs`: merges a duplicate paper into the copy that is kept.
 - `library_tidy.rs`: tidies a library imported before the import rules were stricter.
 - `bib_import.rs`: imports papers from `.bib` exports of Zotero, Mendeley, Google Scholar and Paperpile.
 - `metadata_mapping.rs`: maps Crossref, Semantic Scholar, OpenAlex and arXiv responses to metadata.
 - `page_metadata.rs`: reads citation tags, Dublin Core, JSON-LD and OpenGraph from a web page.
+- `url_meta.rs`: the relay target for a pasted web address and the messages for a failed read in the desktop shell (`urlMetaShellTarget`, `urlMetaReadFailureMessage`). See [url-meta.md](url-meta.md).
 - `open_access.rs`: parses each index's open-access answer and ranks the copies.
 - `related_paper_hit.rs`: maps Semantic Scholar and OpenAlex related-paper results.
 - `related_paper_url.rs`: picks the page a related-paper hit links to.
@@ -48,6 +49,7 @@ The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 re-export them. The main names are:
 
 - Paper rows and identifiers: `normalizeDoi`, `normalizeTags`, `extractHashtags`, `paperToRow`, `paperRowToDomain`.
+- New paper rules: `checkNewPaper` (trimmed title required; rating 1 to 5). Used by `createPaper` in `features/papers/domain/paper.ts`.
 - Metadata: `openAlexToMetadata`, `crossrefToMetadata`, `semanticScholarToMetadata`, `arxivEntryToMetadata`, `urlMetaToMetadata`.
 - Open access: `parseOpenalex`, `parseUnpaywall`, `parseSemanticScholar`, `rankOpenAccessCandidates`, `resolveArxivId`.
 - Bibliography import: `planBibImport`, `bibPaperInput`, `citeKeyOf`.

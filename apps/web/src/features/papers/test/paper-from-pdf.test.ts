@@ -13,10 +13,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MetadataResolutionError, type Paper, type PaperRef } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 import {
   MAX_PDF_BYTES,
   addPaperFromPdf,
-  guessTitle,
   isPdfFile,
   summarizePdfDrop,
   type PdfDropDeps,
@@ -273,9 +273,9 @@ test("several PDFs give one toast with the count", () => {
 });
 
 test("the title guess skips header noise", () => {
-  assert.equal(guessTitle("Preprint. Under review.\nDeep Residual Learning for Image Recognition\nKaiming He"),
+  assert.equal(readyCore().guessTitle("Preprint. Under review.\nDeep Residual Learning for Image Recognition\nKaiming He"),
     "Deep Residual Learning for Image Recognition");
-  assert.equal(guessTitle("short\n12 34\n"), undefined);
+  assert.equal(readyCore().guessTitle("short\n12 34\n"), undefined);
 });
 
 test("Papers shows a drop zone only while a file is dragged over it", () => {

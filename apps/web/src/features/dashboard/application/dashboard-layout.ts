@@ -25,10 +25,6 @@ export {
 
 export type { DashboardCardType, DashboardLayout, DashboardLayoutItem };
 
-export function layoutCacheKey(projectId: string, supervisorLayout: boolean): string {
-  return `${projectId}:${supervisorLayout ? "supervisor" : "student"}`;
-}
-
 function layoutStorageKey(projectId: string): string {
   return `thesis.dashboard.layout.${projectId}`;
 }
@@ -42,19 +38,14 @@ function newCardId(): string {
   return `card-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-/** The layout a new dashboard starts from: the supervisor or the student default. */
-export function defaultLayout(supervisor: boolean): DashboardLayout {
-  return readyCore().dashboardDefaultLayout(supervisor) as DashboardLayout;
-}
-
 /** Student default, desktop (12 cols). Kept for the tests that read the preset directly. */
 export function studentDefaultLg(): DashboardLayoutItem[] {
-  return defaultLayout(false).lg;
+  return (readyCore().dashboardDefaultLayout(false) as DashboardLayout).lg;
 }
 
 /** Student default, mobile (4 cols). Kept for the tests that read the preset directly. */
 export function studentDefaultSm(): DashboardLayoutItem[] {
-  return defaultLayout(false).sm;
+  return (readyCore().dashboardDefaultLayout(false) as DashboardLayout).sm;
 }
 
 /** Add missing supervisor cards without removing user customizations. */
@@ -73,9 +64,12 @@ export function initialDashboardLayout(
   stored: DashboardLayout | null,
   supervisor: boolean,
 ): DashboardLayout {
-  if (stored) return finalizeDashboardLayout(stored);
-  const base = defaultLayout(supervisor);
-  return finalizeDashboardLayout(supervisor ? mergeSupervisorCardsIfMissing(base) : base);
+  if (stored) return readyCore().dashboardFinalizeLayout(stored, CARD_LIMITS) as DashboardLayout;
+  const base = readyCore().dashboardDefaultLayout(supervisor) as DashboardLayout;
+  return readyCore().dashboardFinalizeLayout(
+    supervisor ? mergeSupervisorCardsIfMissing(base) : base,
+    CARD_LIMITS,
+  ) as DashboardLayout;
 }
 
 /** Append a card to both breakpoints with a shared id, then finalize. */
@@ -83,38 +77,9 @@ export function appendCardPair(layout: DashboardLayout, type: DashboardCardType)
   return readyCore().dashboardAppendCardPair(layout, type, newCardId(), CARD_LIMITS) as DashboardLayout;
 }
 
-/** Repair LG/SM id drift; LG is canonical. */
-export function syncDashboardLayouts(layout: DashboardLayout): DashboardLayout {
-  return readyCore().dashboardSyncLayouts(layout, CARD_LIMITS) as DashboardLayout;
-}
-
-export function mergeRglPositions(
-  items: DashboardLayoutItem[],
-  rgl: readonly { i: string; x: number; y: number; w: number; h: number }[],
-  cols = 12,
-): DashboardLayoutItem[] {
-  return readyCore().dashboardMergeRglPositions(items, rgl, CARD_LIMITS, cols) as DashboardLayoutItem[];
-}
-
-export function lgLayoutNeedsRepair(items: readonly DashboardLayoutItem[]): boolean {
-  return readyCore().dashboardLgNeedsRepair(items, CARD_LIMITS);
-}
-
-export function layoutSignature(items: readonly DashboardLayoutItem[]): string {
-  return readyCore().dashboardLayoutSignature(items);
-}
-
-export function smLayoutNeedsRepack(items: readonly DashboardLayoutItem[]): boolean {
-  return readyCore().dashboardSmNeedsRepack(items, CARD_LIMITS);
-}
-
-export function finalizeDashboardLayout(layout: DashboardLayout): DashboardLayout {
-  return readyCore().dashboardFinalizeLayout(layout, CARD_LIMITS) as DashboardLayout;
-}
-
 /** Parse layout JSON and apply compaction defaults for the active breakpoints. */
 export function parseDashboardLayout(raw: unknown): DashboardLayout | null {
   // Rust keeps only cards with a known card type.
   const parsed = readyCore().parseDashboardLayout(raw) as DashboardLayout | null;
-  return parsed ? finalizeDashboardLayout(parsed) : null;
+  return parsed ? (readyCore().dashboardFinalizeLayout(parsed, CARD_LIMITS) as DashboardLayout) : null;
 }

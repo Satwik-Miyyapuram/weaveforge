@@ -7,7 +7,13 @@
  */
 
 import { readyCore } from "@/lib/rust-core";
-import type { DrawArea, Point } from "@weaveforge/wasm";
+import type {
+  DrawArea,
+  EdgeStepResult,
+  InkRouteQuestion,
+  Point,
+  StrokeEdgeSplit as WasmStrokeEdgeSplit,
+} from "@weaveforge/wasm";
 import { EraserSweep, isPenBarrelPointer, type EraserHoverEvent, type EraserSweepEvent } from "./eraser-tip";
 
 /** The armed tool, as the gesture sees it. */
@@ -45,15 +51,36 @@ export class InkGesture {
     return route;
   }
 
+  /** Drives the Rust route picker, answering each question from the context. */
   private pick(event: EraserSweepEvent, ctx: InkDownContext): InkRoute | null {
-    if (this.sweep.begin(event, false, ctx.tipErases)) return "erase";
-    if (ctx.tool === "lasso") return ctx.hitSelection?.() ? "drag" : "lasso";
-    if (ctx.tool === "none") return null;
-    if (ctx.admit && !ctx.admit()) return null;
-    if (ctx.tool !== "region" && isPenBarrelPointer(event)) return ctx.hitSelection?.() ? "drag" : "lasso";
-    if (this.sweep.begin(event, ctx.tool === "eraser", false)) return "erase";
-    if (ctx.intercept?.()) return "intercept";
-    return ctx.tool === "region" ? "region" : "draw";
+    const Picker = readyCore().InkRoutePicker;
+    const picker = new Picker({
+      tool: ctx.tool,
+      tipErases: ctx.tipErases,
+      penBarrel: isPenBarrelPointer(event),
+      hasAdmit: ctx.admit !== undefined,
+      hasHitSelection: ctx.hitSelection !== undefined,
+      hasIntercept: ctx.intercept !== undefined,
+    });
+    let step = picker.start();
+    while (step.kind === "ask") step = picker.answer(this.answer(step.question, event, ctx));
+    return step.route;
+  }
+
+  /** The caller's answer to one picker question; the sweep questions also start the sweep. */
+  private answer(question: InkRouteQuestion, event: EraserSweepEvent, ctx: InkDownContext): boolean {
+    switch (question) {
+      case "sweepTip":
+        return this.sweep.begin(event, false, ctx.tipErases);
+      case "admit":
+        return ctx.admit?.() ?? true;
+      case "hitSelection":
+        return ctx.hitSelection?.() ?? false;
+      case "sweepTool":
+        return this.sweep.begin(event, ctx.tool === "eraser", false);
+      case "intercept":
+        return ctx.intercept?.() ?? false;
+    }
   }
 
   /** The route `pointerId` is on, or null when it has none. */
@@ -81,51 +108,39 @@ export class InkGesture {
 }
 
 /** One move of a stroke against the paper's edge. */
-export type EdgeStep =
-  | { kind: "inside" }
-  | { kind: "exit"; at: Point }
-  | { kind: "outside" }
-  | { kind: "enter"; at: Point };
+export type EdgeStep = EdgeStepResult;
 
 /**
  * Tracks one stroke against the drawable area: the move that leaves it ends
  * the stroke at the crossing, and the move that returns starts a new one there.
+ * The split itself is Rust (`ink::gesture::StrokeEdgeSplit`); this holds it lazily.
  */
 export class StrokeEdgeSplit {
-  private last: Point | null = null;
-  private out = false;
+  private core: WasmStrokeEdgeSplit | null = null;
+
+  private get split(): WasmStrokeEdgeSplit {
+    if (!this.core) {
+      const Split = readyCore().StrokeEdgeSplit;
+      this.core = new Split();
+    }
+    return this.core;
+  }
 
   get outside(): boolean {
-    return this.out;
+    return this.split.outside;
   }
 
   begin(at: Point): void {
-    this.last = at;
-    this.out = false;
+    this.split.begin(at);
   }
 
   /** A null area means everywhere is paper. */
   move(at: Point, area: DrawArea | null): EdgeStep {
-    const previous = this.last ?? at;
-    this.last = at;
-    const onPaper = !area || readyCore().pointInArea(area, at.x, at.y);
-    if (this.out) {
-      if (!onPaper) return { kind: "outside" };
-      this.out = false;
-      const clipped = area ? readyCore().clipSegmentToArea(area, previous, at) : null;
-      return { kind: "enter", at: clipped?.from ?? at };
-    }
-    if (onPaper) return { kind: "inside" };
-    this.out = true;
-    const clipped = area ? readyCore().clipSegmentToArea(area, previous, at) : null;
-    return { kind: "exit", at: clipped?.to ?? at };
+    return this.split.move(at, area);
   }
 
   /** Forgets the stroke; true when it ended off the paper. */
   end(): boolean {
-    const was = this.out;
-    this.out = false;
-    this.last = null;
-    return was;
+    return this.split.end();
   }
 }

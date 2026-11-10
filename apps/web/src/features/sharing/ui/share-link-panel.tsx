@@ -2,8 +2,8 @@
 
 import { formatDate } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
-import {
-  SHARE_LINK_DEFAULT_TTL_DAYS, type ShareLink, type ShareableType } from "@weaveforge/core";
+import { type ShareLink, type ShareableType } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
@@ -85,7 +85,7 @@ export function ShareLinkPanel({
       </summary>
       <div className="share-links">
         <p className="share-link-expiry-hint">
-          New links expire after {SHARE_LINK_DEFAULT_TTL_DAYS} days by default.
+          New links expire after {readyCore().shareLinkDefaultTtlDays()} days by default.
         </p>
         {error && <FormError>{error}</FormError>}
         {createdUrl && (

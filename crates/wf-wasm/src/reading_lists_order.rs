@@ -6,7 +6,8 @@ use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 use wf_core::reading_lists::list_order::{
-    collect_list_ids, moved_ids, plan_item_order, reordered_ids,
+    collect_list_ids, is_inherited_link_code, item_ids_for_papers, moved_ids, next_sort_order,
+    plan_item_order, reordered_ids,
 };
 use wf_core::reading_lists::reading_list::{ReadingListItem, ReadingListTreeNode};
 use wf_core::reading_lists::subtree_items::{group_subtree_items, subtree_ids};
@@ -71,4 +72,32 @@ pub fn plan_item_order_js(
 ) -> Result<JsValue, JsError> {
     let items: Vec<ReadingListItem> = parse(items)?;
     to_js(&plan_item_order(list_id, &items, &ordered_ids)).map_err(js_error)
+}
+
+/// [`item_ids_for_papers`]: the item id of each paper in order, or the message that refuses it.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes arrays by value"
+)]
+#[wasm_bindgen(js_name = itemIdsForPapers)]
+pub fn item_ids_for_papers_js(
+    list_id: &str,
+    items: JsValue,
+    paper_ids: Vec<String>,
+) -> Result<JsValue, JsError> {
+    let items: Vec<ReadingListItem> = parse(items)?;
+    to_js(&item_ids_for_papers(list_id, &items, &paper_ids)).map_err(js_error)
+}
+
+/// [`next_sort_order`]: the sort order a new row gets after `siblings`.
+#[wasm_bindgen(js_name = nextSortOrder)]
+pub fn next_sort_order_js(siblings: JsValue) -> Result<f64, JsError> {
+    let siblings: Vec<ReadingListItem> = parse(siblings)?;
+    Ok(next_sort_order(&siblings))
+}
+
+/// [`is_inherited_link_code`]: whether a database error code means only the inherited link failed.
+#[wasm_bindgen(js_name = isInheritedLinkCode)]
+pub fn is_inherited_link_code_js(code: Option<String>) -> bool {
+    is_inherited_link_code(code.as_deref())
 }

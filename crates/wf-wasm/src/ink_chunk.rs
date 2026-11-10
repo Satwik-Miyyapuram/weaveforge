@@ -74,9 +74,51 @@ pub fn page_from_chunk_body_js(body: &[u8]) -> Result<JsValue, JsError> {
     js(&chunk_read::page_from_chunk_body(body).map_err(|error| JsError::new(&error))?)
 }
 
+/// [`stroke_point_triples`](chunk_read::stroke_point_triples): one stroke's `x, y, pressure` triples.
+///
+/// # Errors
+///
+/// Fails on a body whose tables do not add up.
+#[wasm_bindgen(js_name = strokePointTriples)]
+pub fn stroke_point_triples_js(body: &[u8], stroke_index: u32) -> Result<Vec<f64>, JsError> {
+    chunk_read::stroke_point_triples(body, stroke_index as usize)
+        .map_err(|error| JsError::new(&error))
+}
+
+/// [`absolute_point_triples`](chunk_read::absolute_point_triples): every point as `Int16` triples.
+///
+/// # Errors
+///
+/// Fails on a body whose tables do not add up.
+#[wasm_bindgen(js_name = absolutePointTriples)]
+pub fn absolute_point_triples_js(body: &[u8]) -> Result<Vec<i16>, JsError> {
+    chunk_read::absolute_point_triples(body).map_err(|error| JsError::new(&error))
+}
+
 /// [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
 #[must_use]
 #[wasm_bindgen(js_name = fitsInkNoteBudget)]
 pub fn fits_ink_note_budget_js(sizes: &[f64]) -> bool {
     chunk::fits_ink_note_budget(sizes)
+}
+
+/// [`INK_CHUNK_RAW_THRESHOLD`](chunk::INK_CHUNK_RAW_THRESHOLD): the body size below which a chunk is stored raw.
+#[must_use]
+#[wasm_bindgen(js_name = inkChunkRawThreshold)]
+pub fn ink_chunk_raw_threshold_js() -> f64 {
+    chunk::INK_CHUNK_RAW_THRESHOLD as f64
+}
+
+/// [`should_try_compress`](chunk::should_try_compress): whether the codec runs on a body this size.
+#[must_use]
+#[wasm_bindgen(js_name = inkChunkShouldTryCompress)]
+pub fn ink_chunk_should_try_compress_js(body_len: f64) -> bool {
+    chunk::should_try_compress(body_len as usize)
+}
+
+/// [`stores_compressed`](chunk::stores_compressed): whether the packed payload is stored.
+#[must_use]
+#[wasm_bindgen(js_name = inkChunkStoresCompressed)]
+pub fn ink_chunk_stores_compressed_js(body_len: f64, packed_len: f64) -> bool {
+    chunk::stores_compressed(body_len as usize, packed_len as usize)
 }

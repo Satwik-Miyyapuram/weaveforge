@@ -45,6 +45,7 @@ import init, {
   extractPageMetadata as rawExtractPageMetadata,
   pageImportRefusal as rawPageImportRefusal,
   guessBlobContentType as rawGuessBlobContentType,
+  canStoreUnchanged as rawCanStoreUnchanged,
   mergeVaultPage as rawMergeVaultPage,
   vaultPageBase as rawVaultPageBase,
   vaultPageSide as rawVaultPageSide,
@@ -62,6 +63,9 @@ import init, {
   invalidationPlan as rawInvalidationPlan,
   isKnownResourceType as rawIsKnownResourceType,
   invalidationMap as rawInvalidationMap,
+  writeScope as rawWriteScope,
+  lwwClearTarget as rawLwwClearTarget,
+  lwwNotifyResource as rawLwwNotifyResource,
   cardSnippet as rawCardSnippet,
   ArchiveBudget,
 } from "../pkg/wf_wasm.js";
@@ -142,6 +146,7 @@ import type {
   ResourceType,
   InvalidationPlan,
   InvalidationEntry,
+  WriteScope,
 } from "./bindings.js";
 import { checkIndexText } from "./text-check.js";
 
@@ -264,7 +269,14 @@ export type {
 } from "./bindings.js";
 export { init, initSync };
 export * from "./feature-wrappers.js";
-export type { AnnotationSource } from "./bindings.js";
+// Plain Rust exports: no TS wrapper, callers get the wasm-bindgen function itself.
+export { sessionClaims } from "../pkg/wf_wasm.js";
+export type {
+  AnnotationSource,
+  ConflictPicks,
+  ConflictResolution,
+  PdfSourceKind,
+} from "./bindings.js";
 export type {
   AnnotationQuotationTypeRow,
   PaperFieldDefRow,
@@ -272,6 +284,16 @@ export type {
   PaperRow,
   PlanFeedUrls,
   PlanTimeline,
+} from "./bindings.js";
+export type {
+  AnnotationBox,
+  AnnotationStroke,
+  FigureGeometry,
+  PageAnnotationGeometry,
+  PagePicture,
+  PictureDraftInput,
+  PictureMeta,
+  ProjectGeometryInput,
 } from "./bindings.js";
 
 /** Facts about this core build, such as its version. */
@@ -548,6 +570,11 @@ export function guessBlobContentType(path: string): string {
   return rawGuessBlobContentType(path);
 }
 
+/** Whether an image of this MIME type and byte size is stored unchanged (Rust `can_store_unchanged`). */
+export function canStoreUnchanged(mime: string, sizeBytes: number): boolean {
+  return rawCanStoreUnchanged(mime, sizeBytes);
+}
+
 /** Three-way merge of a note's frontmatter fields and body (Rust `merge_vault_page`). */
 export function mergeVaultPage(
   base: { fields: Readonly<Record<string, unknown>>; bodyDigest: string },
@@ -668,6 +695,24 @@ export function isKnownResourceType(value: string): value is ResourceType {
 /** Every resource type with the caches its writes clear (Rust `invalidation_map`). */
 export function invalidationMap(): InvalidationEntry[] {
   return rawInvalidationMap() as InvalidationEntry[];
+}
+
+/** The repo and screen caches one write of this resource type clears, or `null` for an unknown name (Rust `write_scope`). */
+export function writeScope(resourceType: string): WriteScope | null {
+  checkIndexText(resourceType);
+  return (rawWriteScope(resourceType) as WriteScope | undefined) ?? null;
+}
+
+/** The resource type a realtime `lww` broadcast clears, or `null` to clear everything (Rust `lww_clear_target`). */
+export function lwwClearTarget(resourceType: string | null | undefined): string | null {
+  if (resourceType) checkIndexText(resourceType);
+  return rawLwwClearTarget(resourceType ?? undefined) ?? null;
+}
+
+/** The `resourceType` of a write's `lww` payload, or `null` for an empty or missing one (Rust `lww_notify_resource`). */
+export function lwwNotifyResource(resourceType: string | null | undefined): string | null {
+  if (resourceType) checkIndexText(resourceType);
+  return rawLwwNotifyResource(resourceType ?? undefined) ?? null;
 }
 
 /** Plain-text card preview of a markdown body, cut to `max` UTF-16 units (Rust `card_snippet`). */

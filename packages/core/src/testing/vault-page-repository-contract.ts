@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { VaultPage } from "../features/vault/domain/vault-page.js";
+import type { VaultPage } from "../shared/core-contract.js";
 import type { IVaultPageRepository } from "../features/vault/domain/vault-page-repository.js";
 
 function samplePage(overrides: Partial<VaultPage> = {}): VaultPage {

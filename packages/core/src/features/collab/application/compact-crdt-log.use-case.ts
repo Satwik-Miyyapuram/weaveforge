@@ -7,7 +7,8 @@
  * sweeps the covered rows in one transaction, and refuses outright unless the
  * caller may edit the resource.
  *
- * What this class still does is decide *whether* to ask:
+ * The rules for *whether* to ask live in Rust (`rust().compactSkipReason`, wf-core
+ * `collab::compact_skip_reason`); this class is the thin shell that calls them and the store:
  *
  *   * a caller with no snapshot is not compacting anything (`snapshotUptoId <= 0`);
  *   * a caller whose snapshot is behind the stored watermark is a no-op, because
@@ -24,6 +25,7 @@
  * — for the refusals — why nothing did.
  */
 import type { CompactOutcome, ICrdtUpdateStore } from "../domain/crdt-update-store.js";
+import { rust } from "../../../shared/rust.js";
 
 export class CompactCrdtLogUseCase {
   constructor(private readonly deps: { crdtStore: Pick<ICrdtUpdateStore, "compact"> }) {}
@@ -39,10 +41,8 @@ export class CompactCrdtLogUseCase {
      */
     currentSnapshotUpto?: number;
   }): Promise<CompactOutcome> {
-    if (input.snapshotUptoId <= 0) return { status: "no-op", reason: "nothing-to-do" };
-    if (input.currentSnapshotUpto != null && input.snapshotUptoId <= input.currentSnapshotUpto) {
-      return { status: "no-op", reason: "stale" };
-    }
+    const skip = rust().compactSkipReason(input.snapshotUptoId, input.currentSnapshotUpto);
+    if (skip) return { status: "no-op", reason: skip };
 
     return this.deps.crdtStore.compact({
       resourceType: input.resourceType,

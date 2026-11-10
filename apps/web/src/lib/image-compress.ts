@@ -1,3 +1,5 @@
+import { readyCore } from "@/lib/rust-core";
+
 /**
  * Client-side image compression: decode → downscale to a max dimension →
  * re-encode as WebP via canvas. Cuts multi-MB screenshots to tens of KB before
@@ -28,21 +30,6 @@ const QUALITY = 0.82;
  * avoiding. Storage is the only cost — the file is already small, and the note
  * renders it scaled — so it is the cheap side of the trade.
  */
-const KEEP_ORIGINAL_BELOW_BYTES = 64 * 1024;
-
-/** Formats we already prefer: nothing to gain from re-encoding a small one. */
-const ALREADY_OPTIMAL = new Set(["image/webp", "image/jpeg"]);
-
-/**
- * Whether the file can be stored as it came.
- *
- * Pure, and separate from the decode, so the decision can be tested without a
- * canvas — which is the only way anything in this module is testable.
- */
-export function canStoreUnchanged(file: { type: string; size: number }): boolean {
-  return ALREADY_OPTIMAL.has(file.type) && file.size <= KEEP_ORIGINAL_BELOW_BYTES;
-}
-
 export async function compressImage(
   file: File,
   { maxDim = MAX_DIM, quality = QUALITY }: { maxDim?: number; quality?: number } = {},
@@ -50,7 +37,8 @@ export async function compressImage(
   if (!file.type.startsWith("image/")) {
     throw new Error("Only image files can be attached.");
   }
-  if (canStoreUnchanged(file)) {
+  // Pure rule in Rust (`can_store_unchanged`): a WebP or JPEG at or under the threshold above.
+  if (readyCore().canStoreUnchanged(file.type, file.size)) {
     return { blob: file, ext: file.type === "image/webp" ? "webp" : "jpeg" };
   }
   // `imageOrientation: "from-image"` is what applies a phone photo's EXIF

@@ -3,6 +3,7 @@ import type {
   AiModelRequest,
   AiModelResponse,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Bring-your-own-key model access, called straight from the browser.
@@ -43,12 +44,6 @@ export const BYOK_TIMEOUT_MS = 180_000;
 interface ChatMessage {
   role: string;
   content: string;
-}
-
-function splitSystem(messages: readonly ChatMessage[]) {
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  const rest = messages.filter((m) => m.role !== "system");
-  return { system, rest };
 }
 
 /**
@@ -121,7 +116,7 @@ export class ByokModelConversation implements AiModelAdapter {
     body: Record<string, unknown>;
   } {
     const base = this.descriptor.baseUrl.replace(/\/+$/, "");
-    const { system, rest } = splitSystem(messages);
+    const { system, rest } = readyCore().splitAiSystemMessages(messages);
 
     if (this.descriptor.api === "anthropic-messages") {
       return {

@@ -36,6 +36,17 @@ pub fn metadata_title_js(raw: Option<String>) -> Option<String> {
     paper_drop::metadata_title(raw.as_deref())
 }
 
+/// [`split_paper_drop`](paper_drop::split_paper_drop) (TS `splitPaperDrop`).
+///
+/// # Errors
+///
+/// Fails if `names` is not an array of strings, or the result cannot be converted.
+#[wasm_bindgen(js_name = splitPaperDrop)]
+pub fn split_paper_drop_js(names: JsValue) -> JsResult<JsValue> {
+    let names: Vec<String> = serde_wasm_bindgen::from_value(names)?;
+    to_js(&paper_drop::split_paper_drop(&names))
+}
+
 /// [`bib_import_message`](paper_drop::bib_import_message) (TS `bibImportMessage`).
 #[wasm_bindgen(js_name = bibImportMessage)]
 pub fn bib_import_message_js(added: u32, skipped: u32, problems: u32) -> String {
@@ -57,4 +68,16 @@ pub fn summarize_pdf_drop_js(entries: JsValue) -> JsResult<JsValue> {
 #[wasm_bindgen(js_name = paperImageThumbnailPath)]
 pub fn paper_image_thumbnail_path_js(path: &str) -> String {
     paper_image::paper_image_thumbnail_path(path)
+}
+
+/// [`is_pdf_too_large`](paper_drop::is_pdf_too_large) (TS `isPdfTooLarge`).
+#[wasm_bindgen(js_name = isPdfTooLarge)]
+pub fn is_pdf_too_large_js(size_bytes: f64) -> bool {
+    paper_drop::is_pdf_too_large(size_bytes)
+}
+
+/// [`arxiv_stamp`](paper_drop::arxiv_stamp) (TS `arxivStamp`).
+#[wasm_bindgen(js_name = arxivStamp)]
+pub fn arxiv_stamp_js(page_text: &str) -> Option<String> {
+    paper_drop::arxiv_stamp(page_text)
 }

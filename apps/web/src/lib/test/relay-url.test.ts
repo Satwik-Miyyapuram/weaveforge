@@ -1,8 +1,11 @@
-import test, { afterEach } from "node:test";
+import test, { afterEach, before } from "node:test";
 import assert from "node:assert/strict";
 import { relayPath, relayUrl } from "../relay-url";
 import { originalUrlFromProxy, proxiedPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import { semanticScholarUrl } from "../semantic-scholar-fetch";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /**
  * The hosted page reaches the relay routes on the axum relay when

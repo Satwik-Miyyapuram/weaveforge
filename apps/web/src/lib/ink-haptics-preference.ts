@@ -1,3 +1,4 @@
+import { readyCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 
 /**
@@ -9,7 +10,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 const STORAGE_KEY = "thesis.inkHaptics";
 
 export function parseInkHapticsOn(raw: unknown): boolean {
-  return raw !== "off";
+  return readyCore().inkHapticsOn(typeof raw === "string" ? raw : undefined);
 }
 
 export function readInkHapticsOn(): boolean {

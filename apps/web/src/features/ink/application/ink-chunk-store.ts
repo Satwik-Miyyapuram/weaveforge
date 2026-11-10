@@ -13,7 +13,7 @@
  * the point — an ink note is an ink note whether it sits on disk or in the database.
  */
 
-import { INK_CHUNK_EXT, type InkNoteMeta, type InkPaper } from "@weaveforge/core";
+import { type InkNoteMeta, type InkPaper } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
@@ -83,12 +83,6 @@ export async function loadInkPages(
   return pages;
 }
 
-/** The chunk id a file name carries, or `null` for anything else in the directory. */
-export function chunkIdOfFileName(name: string): string | null {
-  if (!name.endsWith(INK_CHUNK_EXT)) return null;
-  const id = name.slice(0, -INK_CHUNK_EXT.length);
-  return readyCore().isInkChunkId(id) ? id : null;
-}
 
 /** A store that forgets on reload. Tests, and the fallback where nothing else is wired. */
 export class MemoryInkChunkStore implements InkChunkStore {
@@ -115,7 +109,7 @@ export class MemoryInkChunkStore implements InkChunkStore {
     const ids: string[] = [];
     for (const path of this.chunks.keys()) {
       if (!path.startsWith(prefix)) continue;
-      const id = chunkIdOfFileName(path.slice(prefix.length));
+      const id = readyCore().inkChunkIdOfFileName(path.slice(prefix.length));
       if (id) ids.push(id);
     }
     return ids.sort();

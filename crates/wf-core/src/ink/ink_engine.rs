@@ -38,6 +38,16 @@ pub fn ink_engine_info(id: &str) -> Option<InkEngineInfo> {
     INK_ENGINES.iter().copied().find(|engine| engine.id == id)
 }
 
+/// The engine's preference rank: its index in [`INK_ENGINES`], or the engine count for an
+/// id we do not know, so unknown engines sort after every known one.
+#[must_use]
+pub fn ink_engine_rank(id: &str) -> usize {
+    INK_ENGINES
+        .iter()
+        .position(|engine| engine.id == id)
+        .unwrap_or(INK_ENGINES.len())
+}
+
 /// The strokes of one line, by the container's `[stroke_start, stroke_start + stroke_count)`
 /// range, clamped to the input like JS `slice`.
 #[must_use]
@@ -101,5 +111,12 @@ mod tests {
         assert!(ink_line_strokes(&strokes, 9, 2).is_empty());
         assert!(ink_line_strokes(&strokes, 0, 0).is_empty());
         assert!(ink_line_strokes::<u8>(&[], 0, 3).is_empty());
+    }
+
+    #[test]
+    fn rank_is_the_declaration_order_and_unknown_ids_sort_last() {
+        assert_eq!(ink_engine_rank("windows-ink@1"), 0);
+        assert_eq!(ink_engine_rank("myscript@1"), INK_ENGINES.len());
+        assert_eq!(ink_engine_rank(""), INK_ENGINES.len());
     }
 }

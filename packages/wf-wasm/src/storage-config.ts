@@ -6,8 +6,11 @@ import {
   blobProviderForRuntime as rawBlobProviderForRuntime,
   coldBlobClientConfig as rawColdBlobClientConfig,
   missingR2ConfigMessage as rawMissingR2ConfigMessage,
+  objectKey as rawObjectKey,
   r2BlobClientConfig as rawR2BlobClientConfig,
+  readContentType as rawReadContentType,
   readStorageConfig as rawReadStorageConfig,
+  uploadContentType as rawUploadContentType,
 } from "../pkg/wf_wasm.js";
 
 import type {
@@ -61,4 +64,19 @@ export function coldBlobClientConfig(fields: ColdFields): BlobClientConfig | nul
 /** The error text for unset R2 env vars (names only, never values). */
 export function missingR2ConfigMessage(fields: R2Fields): string {
   return rawMissingR2ConfigMessage(fields) as string;
+}
+
+/** The S3 object key: the logical bucket, then the path. */
+export function objectKey(logicalBucket: string, path: string): string {
+  return rawObjectKey(logicalBucket, path);
+}
+
+/** Upload content type: the explicit type, else the blob's type, else octet-stream. */
+export function uploadContentType(explicit: string | undefined, blobType: string): string {
+  return rawUploadContentType(explicit, blobType);
+}
+
+/** Read content type: the stored type, else octet-stream. */
+export function readContentType(stored: string | undefined): string {
+  return rawReadContentType(stored);
 }

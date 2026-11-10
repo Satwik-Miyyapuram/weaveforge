@@ -20,8 +20,11 @@ export async function createNoteFromLink(
 ): Promise<string | null> {
   const key = readyCore().normalizeTitleKey(title);
   if (!key) return null;
-  const found = deps.existing.find((p) => readyCore().normalizeTitleKey(p.title) === key);
-  let id = found?.id;
+  const index = readyCore().findTitleMatch(
+    deps.existing.map((p) => p.title),
+    title,
+  );
+  let id = index === undefined ? undefined : deps.existing[index]?.id;
   if (!id) {
     id = (await deps.add(title)).id;
     await deps.reload();

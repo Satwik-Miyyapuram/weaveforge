@@ -13,7 +13,8 @@ use wf_core::ink::PackedInkStroke;
 use wf_core::ink::curve::{Side, ink_curve_at, ink_tangent_at};
 use wf_core::ink::decode::{InkWordReadings, decode_ink_words};
 use wf_core::ink::recognise::{
-    INK_VOCABULARY_LIMIT, ink_page_confidence, ink_vocabulary_hints, is_unsure_confidence,
+    INK_UNSURE_CONFIDENCE, INK_VOCABULARY_LIMIT, RecognisedLine, bands_coincide,
+    ink_page_confidence, ink_page_summary, ink_vocabulary_hints, is_unsure_confidence,
     map_ink_confidence,
 };
 use wf_core::ink::segment::{
@@ -342,6 +343,49 @@ pub fn map_ink_confidence_js(raw: f64, scale: Option<f64>) -> f64 {
 #[must_use]
 pub fn ink_page_confidence_js(confs: &[f64]) -> f64 {
     ink_page_confidence(confs)
+}
+
+/// [`INK_UNSURE_CONFIDENCE`], read at call time.
+#[wasm_bindgen(js_name = inkUnsureConfidence)]
+#[must_use]
+pub fn ink_unsure_confidence_js() -> f64 {
+    INK_UNSURE_CONFIDENCE
+}
+
+/// [`bands_coincide`] for two y-bands given as `(start, end)` pairs, flattened.
+#[wasm_bindgen(js_name = bandsCoincide)]
+#[must_use]
+pub fn bands_coincide_js(a_start: f64, a_end: f64, b_start: f64, b_end: f64) -> bool {
+    bands_coincide((a_start, a_end), (b_start, b_end))
+}
+
+/// [`band_union`](wf_core::ink::recognise::band_union) over flat `start, end` pairs: the
+/// spanning `[start, end]`, or `[]` when there are none.
+#[wasm_bindgen(js_name = inkBandUnion)]
+#[must_use]
+pub fn ink_band_union_js(bands: &[f64]) -> Vec<f64> {
+    wf_core::ink::recognise::band_union(bands)
+        .map(|(start, end)| vec![start, end])
+        .unwrap_or_default()
+}
+
+/// [`capped_engine_confidence`](wf_core::ink::decode::capped_engine_confidence): an engine's
+/// line confidence capped at the engine maximum.
+#[wasm_bindgen(js_name = cappedEngineConfidence)]
+#[must_use]
+pub fn capped_engine_confidence_js(conf: f64) -> f64 {
+    wf_core::ink::decode::capped_engine_confidence(conf)
+}
+
+/// [`ink_page_summary`] over `{ text, conf }` lines: `{ text, confidence, unsure }`.
+///
+/// # Errors
+///
+/// Fails if `lines` is not an array of `{ text: string, conf: number }`.
+#[wasm_bindgen(js_name = inkPageSummary)]
+pub fn ink_page_summary_js(lines: JsValue) -> JsResult<JsValue> {
+    let lines: Vec<RecognisedLine> = serde_wasm_bindgen::from_value(lines)?;
+    to_js(&ink_page_summary(&lines))
 }
 
 /// [`ink_vocabulary_hints`]; `limit` defaults to 500.

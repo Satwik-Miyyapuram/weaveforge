@@ -1,4 +1,4 @@
-//! Port of the pure address and URL-shape checks in packages/core/src/net/url-safety.ts. Pure.
+//! Pure address and URL-shape checks, and the default outbound fetch limits. Pure.
 //!
 //! URL parsing (WHATWG `URL`) stays in the TS wrapper, which passes the parsed protocol, credential
 //! flag, port and hostname to [`check_url_shape`].
@@ -327,6 +327,26 @@ pub const fn rejection_copy(reason: UrlRejection) -> &'static str {
         UrlRejection::Hostname => "That host is not reachable from the public internet.",
     }
 }
+
+/// Caps on an outbound fetch (TS `OutboundFetchLimits`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct OutboundFetchLimits {
+    /// Redirects followed before the fetch gives up.
+    pub max_redirects: u32,
+    /// Response body bytes read before the fetch stops.
+    pub max_bytes: u32,
+    /// Milliseconds before the fetch is abandoned.
+    pub timeout_ms: u32,
+}
+
+/// Default caps for outbound fetches made on a user's behalf.
+pub const DEFAULT_FETCH_LIMITS: OutboundFetchLimits = OutboundFetchLimits {
+    max_redirects: 4,
+    max_bytes: 8 * 1024 * 1024,
+    timeout_ms: 10_000,
+};
 
 #[cfg(test)]
 mod tests {

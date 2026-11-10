@@ -54,7 +54,8 @@ export class UrlMetadataSource implements IMetadataSource {
 
   /** The desktop path: the relay fetches the page, the parser runs here. */
   private async readInShell(value: string): Promise<UrlMetaResponse> {
-    const target = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
+    const core = await loadCore();
+    const target = core.urlMetaShellTarget(value);
     let res: Response;
     try {
       res = await this.fetchFn(`${relayUrl(HTML_PROXY_PATH)}?url=${encodeURIComponent(target)}`);
@@ -67,15 +68,9 @@ export class UrlMetadataSource implements IMetadataSource {
         .json()
         .then((body: { error?: string }) => body?.error?.trim().slice(0, 200) ?? "")
         .catch(() => "");
-      if (res.status === 415) {
-        throw new Error(`That link is not a web page. If it is a PDF, add the paper by DOI or arXiv id and use Load PDF….${detail ? ` (${detail})` : ""}`);
-      }
-      if (res.status === 400) throw new Error(detail || "That address cannot be fetched. Use an https link.");
-      if (res.status === 403) throw new Error(`That site refused the request. Try the DOI or arXiv id instead.${detail ? ` (${detail})` : ""}`);
-      throw new Error(`Could not read that page${detail ? `: ${detail}` : ` (${res.status})`}.`);
+      throw new Error(core.urlMetaReadFailureMessage(res.status, detail));
     }
     const html = await res.text();
-    const core = await loadCore();
     // The meta tags are in the head, so a page over the Rust input limit is cut, not refused.
     const meta = core.extractPageMetadata(html.slice(0, core.maxIndexTextUtf16()), res.headers.get(HTML_FINAL_URL_HEADER) || target);
     const refusal = core.pageImportRefusal(meta);

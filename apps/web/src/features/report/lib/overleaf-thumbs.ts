@@ -6,6 +6,8 @@
  * (see `WorkshopPdfViewer`). Signed out, a kept picture still shows.
  */
 
+import { readyCore } from "@/lib/rust-core";
+
 export interface ThumbStore {
   get: (key: string) => string | null;
   set: (key: string, value: string) => void;
@@ -19,11 +21,7 @@ export interface OverleafThumbDeps {
   render: (pdf: Blob) => Promise<string>;
 }
 
-const KEY_PREFIX = "weaveforge.overleaf-thumb.";
-/** About 300 KB: a page drawn at card size is far smaller; anything bigger is not kept. */
-const MAX_SAVED_CHARS = 300_000;
-
-const keyOf = (projectId: string) => `${KEY_PREFIX}${projectId}`;
+const keyOf = (projectId: string) => readyCore().thumbKey(projectId);
 
 export function readOverleafThumb(store: ThumbStore, projectId: string): string | null {
   try {
@@ -34,7 +32,7 @@ export function readOverleafThumb(store: ThumbStore, projectId: string): string 
 }
 
 export function saveOverleafThumb(store: ThumbStore, projectId: string, dataUrl: string): void {
-  if (dataUrl.length > MAX_SAVED_CHARS) return;
+  if (!readyCore().thumbFits(dataUrl.length)) return;
   try {
     store.set(keyOf(projectId), dataUrl);
   } catch {

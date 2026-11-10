@@ -6,6 +6,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::shell_paths::join_path;
+
 /// The bridge script's file name, as the Electron app copied it.
 pub const MCP_BRIDGE_FILE: &str = "weaveforge-mcp.mjs";
 
@@ -135,6 +137,53 @@ fn basename(path: &str) -> &str {
 /// The text after the last `/` or `\`, as the TS `split(/[\\/]/)` took it.
 fn last_segment(text: &str) -> &str {
     text.rsplit(['/', '\\']).next().unwrap_or(text)
+}
+
+/// One client config file and the key its servers live under (TS `McpClientConfig`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct McpClientConfig {
+    /// The config file's full path.
+    pub file: String,
+    /// The key the servers sit under: `mcpServers` for Cursor, `servers` for VS Code.
+    pub key: String,
+}
+
+/// Cursor's and VS Code's user MCP configs for this platform (TS `mcpClientConfigs`).
+///
+/// `platform` is the Node `process.platform` value (`win32`, `darwin`, or anything else for Linux
+/// paths). `app_data` is `%APPDATA%` on Windows; when it is absent the path falls back to
+/// `<home>/AppData/Roaming`. `sep` is the platform path separator.
+#[must_use]
+pub fn mcp_client_configs(
+    home: &str,
+    platform: &str,
+    app_data: Option<&str>,
+    sep: &str,
+) -> Vec<McpClientConfig> {
+    let vscode_dir = match platform {
+        "win32" => {
+            let roaming = app_data.map_or_else(
+                || join_path(sep, &[home, "AppData", "Roaming"]),
+                str::to_string,
+            );
+            join_path(sep, &[&roaming, "Code", "User"])
+        }
+        "darwin" => join_path(
+            sep,
+            &[home, "Library", "Application Support", "Code", "User"],
+        ),
+        _ => join_path(sep, &[home, ".config", "Code", "User"]),
+    };
+    vec![
+        McpClientConfig {
+            file: join_path(sep, &[home, ".cursor", "mcp.json"]),
+            key: "mcpServers".to_string(),
+        },
+        McpClientConfig {
+            file: join_path(sep, &[&vscode_dir, "mcp.json"]),
+            key: "servers".to_string(),
+        },
+    ]
 }
 
 #[cfg(test)]

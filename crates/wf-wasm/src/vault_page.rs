@@ -178,3 +178,17 @@ pub fn replace_vault_asset_paths_js(
     let pairs: Vec<(String, String)> = old_paths.into_iter().zip(new_paths).collect();
     page::replace_vault_asset_paths(body, &pairs)
 }
+
+/// [`VAULT_IMAGE_PREFIX`](page::VAULT_IMAGE_PREFIX) (TS `vaultImagePrefix()`).
+#[wasm_bindgen(js_name = vaultImagePrefix)]
+#[must_use]
+pub fn vault_image_prefix_js() -> String {
+    page::VAULT_IMAGE_PREFIX.to_string()
+}
+
+/// [`VAULT_BODY_PREVIEW_CHARS`](page::VAULT_BODY_PREVIEW_CHARS) (TS `vaultBodyPreviewChars()`).
+#[wasm_bindgen(js_name = vaultBodyPreviewChars)]
+#[must_use]
+pub fn vault_body_preview_chars_js() -> usize {
+    page::VAULT_BODY_PREVIEW_CHARS
+}

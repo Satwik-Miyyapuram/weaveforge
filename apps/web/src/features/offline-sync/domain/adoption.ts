@@ -74,21 +74,17 @@ export class Adoption {
     remoteNames: readonly string[],
     deviceLabel: string,
   ): Promise<AdoptionResult["renamed"]> {
-    const taken = new Set(remoteNames);
-    if (taken.size === 0) return [];
+    if (remoteNames.length === 0) return [];
     const local = await this.sql.query<ProjectRow>(
       "select id, name from projects where user_id = $1 and deleted_at is null order by name",
       [this.localUserId],
     );
-    const renamed: { id: string; from: string; to: string }[] = [];
-    for (const project of local) {
-      if (!taken.has(project.name)) continue;
-      const to = readyCore().uniqueDeviceName(project.name, deviceLabel, [...taken]);
-      taken.add(to);
-      await this.sql.exec("update projects set name = $1 where id = $2", [to, project.id]);
-      renamed.push({ id: project.id, from: project.name, to });
+    // The plan (which project collides, and its new name) is wf-core's; the write is ours.
+    const plan = readyCore().planRenames(local, remoteNames, deviceLabel);
+    for (const rename of plan) {
+      await this.sql.exec("update projects set name = $1 where id = $2", [rename.to, rename.id]);
     }
-    return renamed;
+    return plan;
   }
 
   private async claim(accountId: string): Promise<number> {

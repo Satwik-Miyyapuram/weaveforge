@@ -125,6 +125,67 @@ fn refused(message: String) -> ItemOrderPlan {
     }
 }
 
+/// The item ids for a paper order, or the message that refuses it (TS `reorderPapers`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ItemIdsPlan {
+    /// Why the order is refused; `None` when it is accepted.
+    pub error: Option<String>,
+    /// The item ids in the requested order, empty when refused.
+    pub item_ids: Vec<String>,
+}
+
+/// TS `reorderPapers` lookup: the item id of each paper, in `paper_ids` order. Refuses the
+/// first paper that is not in the list.
+#[must_use]
+pub fn item_ids_for_papers(
+    list_id: &str,
+    items: &[ReadingListItem],
+    paper_ids: &[String],
+) -> ItemIdsPlan {
+    let mut item_ids = Vec::with_capacity(paper_ids.len());
+    for paper_id in paper_ids {
+        let found = items
+            .iter()
+            .find(|item| item.paper_id.as_deref() == Some(paper_id.as_str()));
+        match found {
+            Some(item) => item_ids.push(item.id.clone()),
+            None => {
+                return ItemIdsPlan {
+                    error: Some(format!("Paper {paper_id} is not in list {list_id}.")),
+                    item_ids: Vec::new(),
+                };
+            }
+        }
+    }
+    ItemIdsPlan {
+        error: None,
+        item_ids,
+    }
+}
+
+/// TS `addToListOne`: the sort order a new row gets after `siblings`. An empty list gives 0,
+/// otherwise one past the highest existing order.
+#[must_use]
+pub fn next_sort_order(siblings: &[ReadingListItem]) -> f64 {
+    if siblings.is_empty() {
+        return 0.0;
+    }
+    siblings
+        .iter()
+        .map(|item| item.sort_order)
+        .fold(f64::NEG_INFINITY, f64::max)
+        + 1.0
+}
+
+/// TS `INHERITED_LINK_CODES`: the database error codes that mean only the inherited link
+/// failed (source list gone, or an old schema). A plain row is worth retrying for these alone.
+#[must_use]
+pub fn is_inherited_link_code(code: Option<&str>) -> bool {
+    matches!(code, Some("23503" | "42703" | "PGRST204"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,5 +267,42 @@ mod tests {
         assert_eq!(moved_ids(&ids, "b", 1), Some(s(&["a", "c", "b"])));
         assert_eq!(moved_ids(&ids, "b", 2), None);
         assert_eq!(moved_ids(&ids, "z", 1), None);
+    }
+
+    #[test]
+    fn paper_order_maps_each_paper_to_its_item() {
+        let mut first = row("i1", 0.0);
+        first.paper_id = Some("p1".to_owned());
+        let mut second = row("i2", 1.0);
+        second.paper_id = Some("p2".to_owned());
+        let items = [first, second];
+        let plan = item_ids_for_papers("L", &items, &s(&["p2", "p1"]));
+        assert_eq!(plan.error, None);
+        assert_eq!(plan.item_ids, s(&["i2", "i1"]));
+    }
+
+    #[test]
+    fn paper_order_refuses_the_first_paper_not_in_the_list() {
+        let mut only = row("i1", 0.0);
+        only.paper_id = Some("p1".to_owned());
+        let plan = item_ids_for_papers("L", &[only], &s(&["p1", "p9", "p8"]));
+        assert_eq!(plan.error.as_deref(), Some("Paper p9 is not in list L."));
+        assert!(plan.item_ids.is_empty());
+    }
+
+    #[test]
+    fn next_sort_order_is_zero_then_one_past_the_highest() {
+        assert_eq!(next_sort_order(&[]), 0.0);
+        let rows = [row("a", 0.0), row("b", 4.0), row("c", 2.0)];
+        assert_eq!(next_sort_order(&rows), 5.0);
+    }
+
+    #[test]
+    fn only_the_three_inherited_link_codes_count() {
+        assert!(is_inherited_link_code(Some("23503")));
+        assert!(is_inherited_link_code(Some("42703")));
+        assert!(is_inherited_link_code(Some("PGRST204")));
+        assert!(!is_inherited_link_code(Some("23505")));
+        assert!(!is_inherited_link_code(None));
     }
 }

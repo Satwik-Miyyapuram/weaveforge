@@ -88,19 +88,7 @@ end $$;
 const SET_CONFIG_SQL: &str =
     "select set_config('request.jwt.claims', $1, true), set_config('role', 'authenticated', true)";
 
-/// The `request.jwt.claims` JSON for a user; `None` is a request with no identity, which policies refuse.
-///
-/// Key order is `sub` then `role`, as `JSON.stringify` produced it.
-#[must_use]
-pub fn session_claims(user: Option<&str>) -> String {
-    match user {
-        Some(id) if !id.is_empty() => format!(
-            r#"{{"sub":{},"role":"authenticated"}}"#,
-            serde_json::to_string(id).unwrap_or_default()
-        ),
-        _ => r#"{"role":"anon"}"#.to_string(),
-    }
-}
+pub use wf_core::db_claims::session_claims;
 
 /// Claims for a request: `None` means no user was given, so the local-only user is used.
 #[must_use]

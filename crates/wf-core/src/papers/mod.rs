@@ -26,6 +26,7 @@ pub mod reading_digest;
 pub mod reference_text;
 pub mod related_paper_hit;
 pub mod related_paper_url;
+pub mod url_meta;
 pub mod zotero_annotations;
 pub mod zotero_library;
 pub mod zotero_local_status;

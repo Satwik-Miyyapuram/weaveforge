@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { PlanFeedLinks, planFeedOrigin, planFeedUrls } from "../plan-feed-links";
+import { readyCore } from "@/lib/rust-core";
+import { PlanFeedLinks, planFeedOrigin } from "../plan-feed-links";
+
+const planFeedUrls = (...a: Parameters<ReturnType<typeof readyCore>["planFeedUrls"]>) => readyCore().planFeedUrls(...a);
 
 before(loadTestCore);
 

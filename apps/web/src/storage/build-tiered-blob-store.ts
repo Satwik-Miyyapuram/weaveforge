@@ -1,10 +1,11 @@
 import type { IBlobRegistry, IBlobStore } from "@weaveforge/core";
 import type { StorageConfig } from "./config";
-import { coldBlobConfig, missingR2ConfigError, r2BlobConfig, S3BlobStore } from "./providers/s3/s3-blob-store";
+import { readyCore } from "@/lib/rust-core";
+import { missingR2ConfigError, S3BlobStore, type S3BlobStoreConfig } from "./providers/s3/s3-blob-store";
 import { TieredBlobStore } from "./providers/tiered/tiered-blob-store";
 
 function requireHotConfig(config: StorageConfig): void {
-  if (!r2BlobConfig(config)) {
+  if (!(readyCore().r2BlobClientConfig(config) as S3BlobStoreConfig | null)) {
     throw missingR2ConfigError(config);
   }
 }
@@ -15,8 +16,8 @@ export function buildTieredBlobStoreFromRegistry(
   registry: IBlobRegistry,
 ): IBlobStore {
   requireHotConfig(config);
-  const hot = S3BlobStore.fromConfig(r2BlobConfig(config)!);
-  const coldCfg = coldBlobConfig(config);
+  const hot = S3BlobStore.fromConfig((readyCore().r2BlobClientConfig(config) as S3BlobStoreConfig | null)!);
+  const coldCfg = readyCore().coldBlobClientConfig(config) as S3BlobStoreConfig | null;
   const cold = coldCfg ? S3BlobStore.fromConfig(coldCfg) : hot;
   return new TieredBlobStore({ hot, cold, registry });
 }

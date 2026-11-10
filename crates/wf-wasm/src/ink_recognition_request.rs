@@ -3,7 +3,9 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::ink::recognition_request::read_ink_request;
+use wf_core::ink::recognition_request::{
+    InkRequestBuildInput, build_ink_request, read_ink_request,
+};
 
 use super::to_js;
 
@@ -18,4 +20,15 @@ pub fn read_ink_request_js(request: JsValue) -> Result<JsValue, serde_wasm_bindg
     let value: Option<serde_json::Value> = serde_wasm_bindgen::from_value(request).ok();
     let read = value.as_ref().and_then(read_ink_request);
     to_js(&read)
+}
+
+/// [`build_ink_request`]: the page's lines and hints turned into the helper's request.
+///
+/// # Errors
+///
+/// Fails when the input is not the page's shape, or the result cannot be converted to a JS value.
+#[wasm_bindgen(js_name = buildInkRequest)]
+pub fn build_ink_request_js(input: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let input: InkRequestBuildInput = serde_wasm_bindgen::from_value(input)?;
+    to_js(&build_ink_request(&input))
 }

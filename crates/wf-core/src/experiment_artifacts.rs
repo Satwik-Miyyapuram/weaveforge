@@ -67,6 +67,92 @@ pub fn viewable_artifact_url(entry: &str, in_shell: bool) -> Option<String> {
     safe.then(|| format!("/artifacts/{}", segments.join("/")))
 }
 
+/// Whether a stored entry is an absolute link: a desktop-local `app://artifacts/` entry, or a
+/// URL that parses with an `http` or `https` scheme. Anything else (storage paths, junk) is not.
+#[must_use]
+pub fn is_absolute_url(value: &str) -> bool {
+    if value.starts_with(LOCAL_ARTIFACT_PREFIX) {
+        return true;
+    }
+    url::Url::parse(value).is_ok_and(|u| matches!(u.scheme(), "http" | "https"))
+}
+
+/// Whether text begins with `http://` or `https://`, ignoring ASCII case. Nothing is parsed.
+fn has_http_scheme(entry: &str) -> bool {
+    entry
+        .get(..8)
+        .is_some_and(|p| p.eq_ignore_ascii_case("https://"))
+        || entry
+            .get(..7)
+            .is_some_and(|p| p.eq_ignore_ascii_case("http://"))
+}
+
+/// Whether an entry counts as absolute when listing artifacts: a desktop-local `app://artifacts/`
+/// entry, a `data:` URI, or text starting with `http://` or `https://` in any case. Unlike
+/// [`is_absolute_url`], nothing is parsed, so a bare `https://` prefix also counts.
+#[must_use]
+pub fn is_absolute_entry(entry: &str) -> bool {
+    entry.starts_with(LOCAL_ARTIFACT_PREFIX) || entry.starts_with("data:") || has_http_scheme(entry)
+}
+
+/// How a stored artifact entry is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtifactKind {
+    /// An image, shown inline.
+    Image,
+    /// A PDF, shown as a document.
+    Pdf,
+    /// Anything else, listed as a link.
+    Link,
+}
+
+impl ArtifactKind {
+    /// The lowercase name JavaScript receives: `image`, `pdf` or `link`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Image => "image",
+            Self::Pdf => "pdf",
+            Self::Link => "link",
+        }
+    }
+}
+
+/// Image extensions, matched against the lowercased path.
+const IMAGE_SUFFIXES: [&str; 7] = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif"];
+
+/// The lowercased path of an entry: a URL's path without query or fragment or, when the entry
+/// does not parse as a URL, everything before the first `?`.
+fn entry_path(entry: &str) -> String {
+    match url::Url::parse(entry) {
+        Ok(u) => u.path().to_lowercase(),
+        Err(_) => entry.split('?').next().unwrap_or_default().to_lowercase(),
+    }
+}
+
+/// How a stored entry is shown. A `data:` URI is classified by its MIME type alone; any other
+/// entry by the extension of its path, ignoring case and query.
+#[must_use]
+pub fn artifact_kind(entry: &str) -> ArtifactKind {
+    if entry.starts_with("data:") {
+        return if entry.starts_with("data:image/") {
+            ArtifactKind::Image
+        } else if entry.starts_with("data:application/pdf") {
+            ArtifactKind::Pdf
+        } else {
+            ArtifactKind::Link
+        };
+    }
+    let path = entry_path(entry);
+    if IMAGE_SUFFIXES.iter().any(|suffix| path.ends_with(*suffix)) {
+        ArtifactKind::Image
+    } else if path.ends_with(".pdf") {
+        ArtifactKind::Pdf
+    } else {
+        ArtifactKind::Link
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,6 +212,17 @@ mod tests {
     }
 
     #[test]
+    fn absolute_links_are_local_artifacts_or_web_urls() {
+        assert!(is_absolute_url("app://artifacts/exp1/0a1b-uuid/loss.png"));
+        assert!(is_absolute_url("https://wandb.ai/run/1"));
+        assert!(is_absolute_url("http://localhost:6006/"));
+        assert!(!is_absolute_url("user/exp/uuid/name.png"));
+        assert!(!is_absolute_url("ftp://example.org/x"));
+        assert!(!is_absolute_url("not a url"));
+        assert!(!is_absolute_url(""));
+    }
+
+    #[test]
     fn inside_the_shell_crafted_entries_render_nothing() {
         for crafted in [
             "app://artifacts/../api/x",
@@ -140,5 +237,66 @@ mod tests {
         ] {
             assert_eq!(viewable_artifact_url(crafted, true), None, "{crafted}");
         }
+    }
+
+    #[test]
+    fn artifact_list_absolute_entries_match_the_web_rule() {
+        for entry in [
+            "app://artifacts/exp1/0a1b-uuid/loss.png",
+            "data:image/png;base64,AAAA",
+            "https://wandb.ai/run/1",
+            "HTTPS://Example.org/x",
+            "http://",
+            "https://",
+        ] {
+            assert!(is_absolute_entry(entry), "{entry}");
+        }
+        for entry in [
+            "user/exp/uuid/name.png",
+            "ftp://example.org/x",
+            "https:/x",
+            "https:x",
+            "xhttps://a",
+            "app://artifactsX/a",
+            "",
+        ] {
+            assert!(!is_absolute_entry(entry), "{entry}");
+        }
+    }
+
+    #[test]
+    fn an_entry_is_shown_as_an_image_a_pdf_or_a_link() {
+        assert_eq!(
+            artifact_kind("app://artifacts/exp1/0a1b-uuid/loss.PNG"),
+            ArtifactKind::Image
+        );
+        assert_eq!(
+            artifact_kind("https://cdn.example.org/fig.jpeg?v=2"),
+            ArtifactKind::Image
+        );
+        assert_eq!(artifact_kind("user/exp/uuid/fig.webp"), ArtifactKind::Image);
+        assert_eq!(
+            artifact_kind("https://example.org/paper.pdf#page=2"),
+            ArtifactKind::Pdf
+        );
+        assert_eq!(artifact_kind("user/exp/uuid/notes.pdf"), ArtifactKind::Pdf);
+        assert_eq!(artifact_kind("https://wandb.ai/run/1"), ArtifactKind::Link);
+        assert_eq!(
+            artifact_kind("https://example.org/img.png/view"),
+            ArtifactKind::Link
+        );
+    }
+
+    #[test]
+    fn a_data_uri_is_classified_by_its_mime_type_only() {
+        assert_eq!(
+            artifact_kind("data:image/png;base64,AAAA"),
+            ArtifactKind::Image
+        );
+        assert_eq!(
+            artifact_kind("data:application/pdf;base64,AAAA"),
+            ArtifactKind::Pdf
+        );
+        assert_eq!(artifact_kind("data:text/plain,x.png"), ArtifactKind::Link);
     }
 }

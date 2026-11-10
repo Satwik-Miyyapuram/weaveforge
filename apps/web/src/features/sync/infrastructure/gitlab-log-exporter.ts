@@ -1,31 +1,31 @@
 import type { LogEntry } from "@weaveforge/core";
-import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
+import type { Integration } from "../domain/integration";
 import { readyCore } from "@/lib/rust-core";
 
 /**
  * Pushes a log entry to GitLab as markdown `logbook/<date>-<id>.md` directly
  * from the unlocked browser. One file per entry (id-suffixed to avoid clashes).
+ * The file URL, path, markdown and commit messages come from the Rust core.
  */
 export class GitLabLogExporter {
   constructor(private readonly fetchFn: typeof fetch = (...a) => fetch(...a)) {}
 
   async push(integration: Integration, entry: LogEntry): Promise<void> {
     if (!readyCore().gitConnectionReady(integration)) return;
-    const { token, repo, branch } = readyCore().gitConnection(integration);
-    const url = gitLabFileUrl(repo, logPath(entry));
-    const headers = { "Content-Type": "application/json", "PRIVATE-TOKEN": token };
+    const plan = planFor(integration, entry);
+    const headers = { "Content-Type": "application/json", "PRIVATE-TOKEN": plan.token };
     const body = JSON.stringify({
-      branch: branch || DEFAULT_GIT_BRANCH,
-      content: toMarkdown(entry),
-      commit_message: `log: ${entry.entryDate}`,
+      branch: plan.branch,
+      content: plan.content,
+      commit_message: plan.commitMessage,
     });
-    let res = await this.fetchFn(url, {
+    let res = await this.fetchFn(plan.fileUrl, {
       method: "PUT",
       headers,
       body,
     });
     if (res.status === 400 || res.status === 404) {
-      res = await this.fetchFn(url, {
+      res = await this.fetchFn(plan.fileUrl, {
         method: "POST",
         headers,
         body,
@@ -40,13 +40,13 @@ export class GitLabLogExporter {
   /** Remove a log entry's file from GitLab. A missing file is not an error. */
   async remove(integration: Integration, entry: LogEntry): Promise<void> {
     if (!readyCore().gitConnectionReady(integration)) return;
-    const { token, repo, branch } = readyCore().gitConnection(integration);
-    const res = await this.fetchFn(gitLabFileUrl(repo, logPath(entry)), {
+    const plan = planFor(integration, entry);
+    const res = await this.fetchFn(plan.fileUrl, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json", "PRIVATE-TOKEN": token },
+      headers: { "Content-Type": "application/json", "PRIVATE-TOKEN": plan.token },
       body: JSON.stringify({
-        branch: branch || DEFAULT_GIT_BRANCH,
-        commit_message: `log: delete ${entry.entryDate}`,
+        branch: plan.branch,
+        commit_message: plan.deleteCommitMessage,
       }),
     });
     if (!res.ok) {
@@ -56,19 +56,23 @@ export class GitLabLogExporter {
   }
 }
 
-function gitLabFileUrl(repo: string, path: string): string {
-  return `https://gitlab.com/api/v4/projects/${encodeURIComponent(repo)}/repository/files/${encodeURIComponent(path)}`;
-}
-
-/** One file per entry, id-suffixed to avoid same-day clashes. */
-function logPath(e: LogEntry): string {
-  return `logbook/${e.entryDate}-${e.id.slice(0, 8)}.md`;
-}
-
-function toMarkdown(e: LogEntry): string {
-  const meta = [
-    `date: ${e.entryDate}`,
-    `kind: ${e.kind}`,
-  ].filter(Boolean).join("\n");
-  return `---\n${meta}\n---\n\n${e.body}\n`;
+/** The connection of the integration, with the Rust-planned file writes for one entry. */
+function planFor(integration: Integration, entry: LogEntry) {
+  const { token, repo, branch } = readyCore().gitConnection(integration);
+  const plan = readyCore().gitlabLogFilePlan({
+    repo,
+    branch,
+    entryDate: entry.entryDate,
+    id: entry.id,
+    kind: entry.kind,
+    body: entry.body,
+  });
+  return {
+    token,
+    fileUrl: plan.fileUrl,
+    branch: plan.branch,
+    content: plan.content,
+    commitMessage: plan.commitMessage,
+    deleteCommitMessage: plan.deleteCommitMessage,
+  };
 }

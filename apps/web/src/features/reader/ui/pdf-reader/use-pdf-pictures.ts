@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type FigureGeometry, type FigureOrderStep, type ReaderAnnotation } from "@weaveforge/core";
 import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   pagePictures,
   pictureComment,
   pictureMeta,
   pictureRect,
   type PagePicture,
-} from "../../application/reader-picture";
+} from "@weaveforge/wasm";
+import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import type { AnnotationActions } from "./use-annotation-actions";
 import { pageBoxOf } from "./page-box";
 import { typedCore } from "@/lib/rust-core";
@@ -97,10 +97,11 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
   const write = useCallback(
     (id: string, pageNumber: number, box: Box) => {
       const ann = annotationsRef.current.find((a) => a.id === id);
-      const meta = ann ? pictureMeta(ann) : null;
+      const meta = ann ? pictureMeta(ann.type, ann.comment) : null;
       const position = ann?.anchor.zoteroPosition;
       if (!ann || !meta || !position) return;
-      const rect = pictureRect(box, pageHeight(pageNumber));
+      // Rust reads a whole figure, so the box carries the picture's path.
+      const rect = pictureRect({ ...box, path: meta.path }, pageHeight(pageNumber));
       const was = position.rects?.[0];
       const moved = !was || rect.some((n, i) => Math.abs(n - (was[i] ?? 0)) > 0.01);
       const comment =
@@ -172,7 +173,7 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
       next.forEach((one, z) => {
         if (one.z === z) return;
         const ann = annotationsRef.current.find((a) => a.id === one.id);
-        const meta = ann ? pictureMeta(ann) : null;
+        const meta = ann ? pictureMeta(ann.type, ann.comment) : null;
         if (meta) void updateLocal(one.id, { comment: pictureComment({ ...meta, z }) });
       });
     },

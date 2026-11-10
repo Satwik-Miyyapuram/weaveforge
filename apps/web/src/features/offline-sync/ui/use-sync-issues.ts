@@ -86,8 +86,14 @@ export function useSyncIssues(): SyncIssuesHandle {
           continue;
         }
         if (conflict.fields.length === 0) continue;
-        const picks: Record<string, "local" | "remote"> = {};
-        for (const f of conflict.fields) picks[f.field] = side;
+        const picks = Object.fromEntries(
+          readyCore()
+            .keepAllPicks(
+              conflict.fields.map((f) => f.field),
+              side,
+            )
+            .map((p) => [p.field, p.side]),
+        ) as Record<string, "local" | "remote">;
         await keep(conflict.id, picks);
       }
     },

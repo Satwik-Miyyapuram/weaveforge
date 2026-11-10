@@ -54,3 +54,11 @@ pub fn parse_ink_chunk_path_js(path: &str) -> JsResult<JsValue> {
 pub fn new_ink_chunk_id_js(now_ms: f64, random_bytes: &[u8]) -> JsResult<String> {
     ink_paths::new_ink_chunk_id(now_ms, random_bytes).map_err(serde_wasm_bindgen::Error::new)
 }
+
+/// [`chunk_id_of_file_name`](ink_paths::chunk_id_of_file_name): the chunk id a filename
+/// names, or `undefined` when it is not `<chunk id>.inkb`.
+#[must_use]
+#[wasm_bindgen(js_name = inkChunkIdOfFileName)]
+pub fn ink_chunk_id_of_file_name_js(name: &str) -> Option<String> {
+    ink_paths::chunk_id_of_file_name(name).map(str::to_owned)
+}

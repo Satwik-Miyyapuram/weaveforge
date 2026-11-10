@@ -16,7 +16,7 @@
  *   this build.
  */
 
-import { INK_ENGINE_MAX_CONFIDENCE, type InkLine, type InkLineRecord, type InkPage, type InkRecogniser, type InkRecognitionHints, type InkSegmentation, type RecognisedLine } from "@weaveforge/core";
+import { type InkLine, type InkLineRecord, type InkPage, type InkRecogniser, type InkRecognitionHints, type InkSegmentation, type RecognisedLine } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
@@ -45,16 +45,6 @@ export interface RecognisedPage {
   engine: string;
 }
 
-/** Whether two y-bands overlap by at least half of the smaller one. */
-export function bandsCoincide(
-  a: readonly [number, number],
-  b: readonly [number, number],
-): boolean {
-  const overlap = Math.min(a[1], b[1]) - Math.max(a[0], b[0]);
-  const smaller = Math.min(a[1] - a[0], b[1] - b[0]);
-  return smaller <= 0 ? overlap >= 0 : overlap >= smaller / 2;
-}
-
 /** The accepted (`confidence === 1`) lines of a page, by their band. */
 export function acceptedLines(
   page: InkPage,
@@ -63,12 +53,12 @@ export function acceptedLines(
   for (const line of page.lines) {
     if (line.confidence < 1 || !line.text) continue;
     const strokes = typedCore().inkLineStrokes(page.strokes, line);
-    let band: [number, number] | null = null;
+    const bands: number[] = [];
     for (const stroke of strokes) {
       const b = typedCore().inkStrokeBand(stroke);
-      if (!b) continue;
-      band = band ? [Math.min(band[0], b[0]), Math.max(band[1], b[1])] : b;
+      if (b) bands.push(b[0], b[1]);
     }
+    const band = readyCore().inkBandUnion(Float64Array.from(bands));
     out.push({ band: band ?? [line.yMin, line.yMax], text: line.text });
   }
   return out;
@@ -88,13 +78,13 @@ export function assembleRecognisedPage(
   );
   const lines: InkLineRecord[] = applied.lines;
   const next: InkPage = { ...page, strokes: applied.strokes, lines };
-  const shown = results.filter((line) => line.text.trim().length > 0);
+  const summary = readyCore().inkPageSummary(results);
   return {
     page: next,
-    text: shown.map((line) => line.text.trim()).join("\n"),
+    text: summary.text,
     lines: [...results],
-    confidence: readyCore().inkPageConfidence(results),
-    unsure: results.filter((line) => line.text && readyCore().isUnsureLine(line)).length,
+    confidence: summary.confidence,
+    unsure: summary.unsure,
     engine,
   };
 }
@@ -112,7 +102,7 @@ export async function recognisePage(
     if (input.signal?.aborted)
       throw new DOMException("Recognition was cancelled.", "AbortError");
     const kept = accepted.find((entry) =>
-      bandsCoincide(entry.band, line.yBand),
+      readyCore().bandsCoincide(entry.band, line.yBand),
     );
     if (kept) {
       results.push({ text: kept.text, conf: 1 });
@@ -143,7 +133,7 @@ async function recogniseLine(
     text: matched.text,
     // Never `1` from an engine: that is the mark of a correction, which the
     // next run keeps instead of recognising again.
-    conf: Math.min(raw.conf, INK_ENGINE_MAX_CONFIDENCE),
+    conf: readyCore().cappedEngineConfidence(raw.conf),
     ...(raw.alternatives?.length ? { alternatives: raw.alternatives } : {}),
   };
 }
@@ -164,14 +154,14 @@ export function acceptLine(
     i === index ? { ...record, text, confidence: 1 } : record,
   );
   const page: InkPage = { ...recognised.page, lines: records };
-  const shown = lines.filter((line) => line.text.trim().length > 0);
+  const summary = readyCore().inkPageSummary(lines);
   return {
     ...recognised,
     page,
     lines,
-    text: shown.map((line) => line.text.trim()).join("\n"),
-    confidence: readyCore().inkPageConfidence(lines),
-    unsure: lines.filter((line) => line.text && readyCore().isUnsureLine(line)).length,
+    text: summary.text,
+    confidence: summary.confidence,
+    unsure: summary.unsure,
   };
 }
 
@@ -188,13 +178,13 @@ export function recognisedPageFromModel(
     text: record.text,
     conf: record.confidence,
   }));
-  const shown = lines.filter((line) => line.text.trim().length > 0);
+  const summary = readyCore().inkPageSummary(lines);
   return {
     page,
-    text: shown.map((line) => line.text.trim()).join("\n"),
+    text: summary.text,
     lines,
-    confidence: readyCore().inkPageConfidence(lines),
-    unsure: lines.filter((line) => line.text && readyCore().isUnsureLine(line)).length,
+    confidence: summary.confidence,
+    unsure: summary.unsure,
     engine: engine ?? "",
   };
 }

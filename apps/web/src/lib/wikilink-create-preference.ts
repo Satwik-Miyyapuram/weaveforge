@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { readyCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 
 /**
@@ -28,7 +29,7 @@ const STORAGE_KEY = "thesis.wikilinkCreate";
 const CHANGE_EVENT = "weaveforge:wikilink-create";
 
 export function parseWikilinkCreateMode(raw: unknown): WikilinkCreateMode {
-  return raw === "never" ? "never" : "create";
+  return readyCore().parseWikilinkCreateMode(typeof raw === "string" ? raw : undefined) as WikilinkCreateMode;
 }
 
 export function readWikilinkCreateMode(): WikilinkCreateMode {

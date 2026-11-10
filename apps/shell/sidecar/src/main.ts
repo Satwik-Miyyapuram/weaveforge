@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { errorMessage, setRustCore } from "@weaveforge/core";
+import { errorMessage, rust, setRustCore } from "@weaveforge/core";
 import * as rustWasm from "@weaveforge/wasm";
 import type { LocalDbHost } from "./local-db-host";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
@@ -28,48 +28,20 @@ export interface SidecarArgs {
 
 /** `--data-dir <dir>` and `--backups <dir>` once (required), `--migrations <dir>` one or more times (at least one). */
 export function parseArgs(argv: readonly string[]): SidecarArgs | string {
-  let dataDir: string | undefined;
-  let backupsDir: string | undefined;
-  let migrateFrom: string | undefined;
-  let artifacts: string | undefined;
-  let bridge: string | undefined;
-  let appVersion: string | undefined;
-  let homeVariant: string | undefined;
-  let noLocalApi = false;
-  const migrations: string[] = [];
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    if (arg === "--no-local-api") {
-      noLocalApi = true;
-    } else if (
-      arg === "--data-dir" || arg === "--migrations" || arg === "--backups" || arg === "--migrate-from" ||
-      arg === "--artifacts" || arg === "--bridge" || arg === "--app-version" || arg === "--home-variant"
-    ) {
-      const value = argv[i + 1];
-      if (value === undefined) return `${arg} needs a value`;
-      i++;
-      if (arg === "--data-dir") dataDir = path.resolve(value);
-      else if (arg === "--backups") backupsDir = path.resolve(value);
-      else if (arg === "--migrate-from") migrateFrom = path.resolve(value);
-      else if (arg === "--artifacts") artifacts = path.resolve(value);
-      else if (arg === "--bridge") bridge = path.resolve(value);
-      else if (arg === "--app-version") appVersion = value;
-      else if (arg === "--home-variant") homeVariant = value;
-      else migrations.push(path.resolve(value));
-    } else {
-      return `unknown argument: ${arg}`;
-    }
-  }
-  if (dataDir === undefined) return "missing --data-dir";
-  if (migrations.length === 0) return "missing --migrations";
-  if (backupsDir === undefined) return "missing --backups";
-  const parsed: SidecarArgs = { dataDir, migrations, backupsDir };
-  if (migrateFrom !== undefined) parsed.migrateFrom = migrateFrom;
-  if (artifacts !== undefined) parsed.artifacts = artifacts;
-  if (bridge !== undefined) parsed.bridge = bridge;
-  if (appVersion !== undefined) parsed.appVersion = appVersion;
-  if (homeVariant !== undefined) parsed.homeVariant = homeVariant;
-  if (noLocalApi) parsed.noLocalApi = true;
+  // The flag rules live in Rust (wf_core::sidecar_args); this only resolves the paths against the working directory.
+  const reply = rust().parseSidecarArgs(argv);
+  if (reply.kind === "error") return reply.message;
+  const parsed: SidecarArgs = {
+    dataDir: path.resolve(reply.dataDir),
+    migrations: reply.migrations.map((dir) => path.resolve(dir)),
+    backupsDir: path.resolve(reply.backupsDir),
+  };
+  if (reply.migrateFrom !== null) parsed.migrateFrom = path.resolve(reply.migrateFrom);
+  if (reply.artifacts !== null) parsed.artifacts = path.resolve(reply.artifacts);
+  if (reply.bridge !== null) parsed.bridge = path.resolve(reply.bridge);
+  if (reply.appVersion !== null) parsed.appVersion = reply.appVersion;
+  if (reply.homeVariant !== null) parsed.homeVariant = reply.homeVariant;
+  if (reply.noLocalApi) parsed.noLocalApi = true;
   return parsed;
 }
 
@@ -146,6 +118,14 @@ async function main(): Promise<void> {
   console.dir = toStderr.dir;
   console.dirxml = toStderr.dirxml;
   console.table = toStderr.table;
+  // The Rust core, registered before argv is parsed (parseArgs calls it) and before any handler runs.
+  // The .wasm sits beside main.mjs in the staged layout (stage.mjs); run from source (tests, `tsx src/main.ts`)
+  // it is the repo build in packages/wf-wasm/pkg. The path does not depend on argv, so it loads first.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const staged = path.join(here, "wf_wasm_bg.wasm");
+  const wasmPath = fs.existsSync(staged) ? staged : path.join(here, "../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm");
+  rustWasm.initSync({ module: fs.readFileSync(wasmPath) });
+  setRustCore(rustWasm as never);
   const parsed = parseArgs(process.argv.slice(2));
   if (typeof parsed === "string") {
     process.stderr.write(`weaveforge-sidecar: ${parsed}\n`);
@@ -153,13 +133,6 @@ async function main(): Promise<void> {
     return;
   }
   const { dataDir, migrations, backupsDir, migrateFrom } = parsed;
-  // The Rust core, registered before any handler runs. The .wasm sits beside main.mjs in the staged layout (stage.mjs);
-  // run from source (tests, `tsx src/main.ts`) it is the repo build in packages/wf-wasm/pkg.
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const staged = path.join(here, "wf_wasm_bg.wasm");
-  const wasmPath = fs.existsSync(staged) ? staged : path.join(here, "../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm");
-  rustWasm.initSync({ module: fs.readFileSync(wasmPath) });
-  setRustCore(rustWasm as never);
 
   if (migrateFrom !== undefined && !migrateOldData(migrateFrom, path.dirname(dataDir))) return;
   fs.mkdirSync(path.dirname(dataDir), { recursive: true });

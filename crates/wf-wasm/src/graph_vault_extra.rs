@@ -1,6 +1,6 @@
 //! Graph persisted-state merge and vault page create/tree for JavaScript. The JS names match
 //! `packages/core/src/features/relations/domain/graph-persisted-state.ts` and
-//! `packages/core/src/features/vault/domain/vault-page.ts`.
+//! `packages/core/src/shared/core-contract.ts` (vault page types).
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

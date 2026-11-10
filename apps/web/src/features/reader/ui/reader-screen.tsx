@@ -12,7 +12,6 @@ import { PaperPdfPane } from "./paper-pdf-pane";
 import { sanitizePdfUrl, looksLikePdfUrl } from "../application/sanitize-reader-url";
 import {
   appendActivityLog,
-  collectAnnotationImageRegions,
   type ActivityLogEntry,
 } from "../application/batch-annotation-ops";
 import { ActivityCenter, ReaderSplitPanel } from "./reader-loop-panels";
@@ -124,7 +123,7 @@ export function ReaderScreen() {
   }
 
   function runBatchExtractImages() {
-    const regions = collectAnnotationImageRegions(annotations);
+    const regions = readyCore().collectAnnotationImageRegions(annotations);
     logActivity("batch", `Listed ${regions.length} image region(s) for extract`);
     setShowActivity(true);
   }

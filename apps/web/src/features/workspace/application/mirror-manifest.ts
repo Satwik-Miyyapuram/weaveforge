@@ -1,4 +1,4 @@
-import { WORKSPACE_META_DIR, digestText, type IWorkspaceFs, type VaultPageBase, type WorkspaceProject } from "@weaveforge/core";
+import { WORKSPACE_META_DIR, type IWorkspaceFs, type VaultPageBase, type WorkspaceProject } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
@@ -74,28 +74,9 @@ export async function readMirrorBase(
   fs: IWorkspaceFs,
   projectRoot: string,
 ): Promise<Record<string, string>> {
-  try {
-    const text = await readManifestText(fs, projectRoot);
-    if (text === null) return {};
-    const parsed = JSON.parse(text) as {
-      paths?: unknown;
-      digests?: unknown;
-    };
-    const digests =
-      typeof parsed.digests === "object" && parsed.digests !== null
-        ? (parsed.digests as Record<string, unknown>)
-        : {};
-    const base: Record<string, string> = {};
-    for (const path of Array.isArray(parsed.paths) ? parsed.paths : []) {
-      if (typeof path !== "string") continue;
-      const digest = digests[path];
-      base[path] = typeof digest === "string" ? digest : "";
-    }
-    return base;
-  } catch {
-    // Absent, truncated, or written by something else. Remove nothing.
-    return {};
-  }
+  // Absent, truncated, or written by something else gives {}: remove nothing.
+  const text = await readManifestText(fs, projectRoot);
+  return readyCore().readMirrorBase(text ?? undefined);
 }
 
 /**
@@ -127,22 +108,8 @@ export async function readMirrorBases(
   fs: IWorkspaceFs,
   projectRoot: string,
 ): Promise<Record<string, VaultPageBase>> {
-  try {
-    const text = await readManifestText(fs, projectRoot);
-    if (text === null) return {};
-    const parsed = JSON.parse(text) as { bases?: unknown };
-    if (typeof parsed.bases !== "object" || parsed.bases === null) return {};
-    const bases: Record<string, VaultPageBase> = {};
-    for (const [path, value] of Object.entries(parsed.bases as Record<string, unknown>)) {
-      const entry = value as { fields?: unknown; bodyDigest?: unknown };
-      if (typeof entry?.bodyDigest !== "string") continue;
-      if (typeof entry.fields !== "object" || entry.fields === null) continue;
-      bases[path] = { fields: entry.fields as VaultPageBase["fields"], bodyDigest: entry.bodyDigest };
-    }
-    return bases;
-  } catch {
-    return {};
-  }
+  const text = await readManifestText(fs, projectRoot);
+  return readyCore().readMirrorBases(text ?? undefined);
 }
 
 /**
@@ -164,7 +131,7 @@ export async function followProjectRename(
   // Two folders sharing the id suffix: no safe pick.
   if (found.length !== 1) return null;
   const old = found[0]!.path;
-  const moved = (path: string) => (path.startsWith(`${old}/`) ? root + path.slice(old.length) : path);
+  const moved = (path: string) => core.movedPath(old, root, path);
 
   const files: string[] = [];
   for await (const entry of fs.walk(old)) files.push(entry.path);
@@ -176,22 +143,10 @@ export async function followProjectRename(
 
   const manifest = mirrorManifestPath(root);
   const text = await fs.readText(manifest).catch(() => null);
-  if (text !== null) {
-    try {
-      const parsed = JSON.parse(text) as Record<string, unknown>;
-      const rekey = (value: unknown) =>
-        typeof value === "object" && value !== null
-          ? Object.fromEntries(Object.entries(value).map(([k, v]) => [moved(k), v]))
-          : value;
-      if (Array.isArray(parsed.paths)) {
-        parsed.paths = parsed.paths.map((p: unknown) => (typeof p === "string" ? moved(p) : p));
-      }
-      parsed.digests = rekey(parsed.digests);
-      parsed.bases = rekey(parsed.bases);
-      await fs.writeFile(manifest, `${JSON.stringify(parsed, null, 2)}\n`);
-    } catch {
-      // Unreadable manifest: files still moved; the next run re-learns them.
-    }
+  // An unreadable manifest is left as it is: the files still moved, and the next run re-learns them.
+  const rekeyed = text === null ? undefined : core.rekeyManifestText(text, old, root);
+  if (rekeyed !== undefined) {
+    await fs.writeFile(manifest, rekeyed).catch(() => undefined);
   }
   await fs.remove(old, { recursive: true }).catch(() => undefined);
   return old;
@@ -355,7 +310,7 @@ export async function claimImportedFile(
   await fs.writeFile(path, stamped);
   const base = await readMirrorBase(fs, projectRoot);
   const bases = await readMirrorBases(fs, projectRoot);
-  base[path] = digestText(stamped);
-  await writeMirrorManifest(fs, projectRoot, Object.keys(base), base, bases);
+  const next = core.claimDigest(base, path, stamped);
+  await writeMirrorManifest(fs, projectRoot, Object.keys(next), next, bases);
   return true;
 }

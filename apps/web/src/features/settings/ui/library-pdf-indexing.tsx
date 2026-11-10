@@ -13,10 +13,10 @@ import {
 import { formatError } from "@/lib/format-error";
 import { getContainer } from "@/bootstrap";
 import {
-  webCacheDocumentLimit,
   isInstalledApp,
   shouldPersistIndex,
 } from "@/features/search/infrastructure/index-cache-policy";
+import { readyCore } from "@/lib/rust-core";
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
 import { Button } from "@/components/button";
@@ -237,7 +237,7 @@ export function IndexSize() {
       {!cached && (
         <p className="muted jump-to-meta">
           Too large to keep between visits in a browser tab, so it is rebuilt each session — in
-          the background, not while you wait. Above {webCacheDocumentLimit().toLocaleString()}{" "}
+          the background, not while you wait. Above {readyCore().webCacheDocumentLimit().toLocaleString()}{" "}
           items the cache costs more to write than the rebuild it saves.{" "}
           {!isInstalledApp() && "Installing the app keeps it on this device instead."}
         </p>

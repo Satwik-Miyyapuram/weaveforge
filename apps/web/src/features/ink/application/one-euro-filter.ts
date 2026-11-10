@@ -46,7 +46,7 @@ export interface OneEuroOptions {
    * 0.05–5 units/ms. Carrying 0.007 across would put the cutoff at 1.02 Hz at
    * 5 units/ms — the filter would damp a fast stroke exactly as hard as a still
    * pen, which is the lag revision 2 was right to fear. β is therefore tuned to
-   * the *unit the samples are in*: see {@link INK_POSITION_FILTER}.
+   * the *unit the samples are in*: see {@link inkPositionOptions}.
    */
   beta: number;
   /** Cutoff for the internal derivative estimate, in hertz. */
@@ -80,11 +80,9 @@ export interface OneEuroOptions {
  * estimate takes ~150 ms to respond, so a stroke that reaches writing speed
  * quickly spends its first fifteen samples filtered as though it were still.
  */
-export const INK_POSITION_FILTER: OneEuroOptions = {
-  minCutoff: 1,
-  beta: 30,
-  derivativeCutoff: 3,
-};
+export function inkPositionOptions(): OneEuroOptions {
+  return readyCore().inkPositionOptions();
+}
 
 /**
  * Pressure: a higher floor and a much smaller β.
@@ -94,11 +92,9 @@ export const INK_POSITION_FILTER: OneEuroOptions = {
  * not. `fcMin = 5 Hz` puts a deliberate press at 63 % in one time constant (32 ms)
  * and 95 % in 96 ms, while attenuating 120 Hz sensor noise about fivefold.
  */
-export const INK_PRESSURE_FILTER: OneEuroOptions = {
-  minCutoff: 5,
-  beta: 2,
-  derivativeCutoff: 3,
-};
+export function inkPressureOptions(): OneEuroOptions {
+  return readyCore().inkPressureOptions();
+}
 
 /**
  * The smoothing factor for a cutoff and a timestep: `1/(1 + τ/dt)`.
@@ -166,20 +162,26 @@ export type FilteredNibSample = WasmFilteredNibSample;
  */
 export class NibFilter {
   private core: WasmNibFilter | undefined;
-  private readonly options: { position: OneEuroOptions; pressure: OneEuroOptions };
+  private readonly options: { position?: OneEuroOptions; pressure?: OneEuroOptions };
 
-  /** The wasm handle is created on first use, so construction may precede `loadCore()`. */
+  /**
+   * The wasm handle is created on first use, so construction may precede `loadCore()`.
+   * Defaults are read on first use too, from the Rust core, never copied here.
+   */
   constructor(
     options: { position?: OneEuroOptions; pressure?: OneEuroOptions } = {},
   ) {
-    this.options = {
-      position: options.position ?? INK_POSITION_FILTER,
-      pressure: options.pressure ?? INK_PRESSURE_FILTER,
-    };
+    this.options = options;
   }
 
   private get handle(): WasmNibFilter {
-    if (!this.core) this.core = new (readyCore().NibFilter)(this.options);
+    if (!this.core) {
+      const core = readyCore();
+      this.core = new core.NibFilter({
+        position: this.options.position ?? core.inkPositionOptions(),
+        pressure: this.options.pressure ?? core.inkPressureOptions(),
+      });
+    }
     return this.core;
   }
 

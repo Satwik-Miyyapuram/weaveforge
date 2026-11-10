@@ -5,6 +5,8 @@
 
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use super::js_math;
 use crate::search::js_text::is_js_whitespace;
 
@@ -79,12 +81,99 @@ pub fn ink_vocabulary_hints(sources: &[Vec<String>], limit: f64) -> Vec<String> 
     out
 }
 
+/// A recognised line as a page carries it: its text and its confidence.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct RecognisedLine {
+    /// The line's text.
+    pub text: String,
+    /// The line's confidence.
+    pub conf: f64,
+}
+
+/// What a page's text layer shows: the trimmed, non-empty lines joined by newlines,
+/// the page's confidence, and how many non-empty lines are unsure.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InkPageSummary {
+    /// The page's recognised text.
+    pub text: String,
+    /// The page's confidence.
+    pub confidence: f64,
+    /// How many non-empty lines are unsure.
+    pub unsure: usize,
+}
+
+/// Whether two y-bands, given as `(start, end)`, overlap by at least half of the smaller
+/// one. A band of no height coincides with any band it overlaps.
+#[must_use]
+pub fn bands_coincide(a: (f64, f64), b: (f64, f64)) -> bool {
+    let overlap = js_math::min(a.1, b.1) - js_math::max(a.0, b.0);
+    let smaller = js_math::min(a.1 - a.0, b.1 - b.0);
+    if smaller <= 0.0 {
+        overlap >= 0.0
+    } else {
+        overlap >= smaller / 2.0
+    }
+}
+
+/// The band spanning every `(start, end)` pair in `bands`, given flat as
+/// `start, end, start, end, ...`. `None` when there are no pairs; a trailing unpaired
+/// number is ignored.
+#[must_use]
+pub fn band_union(bands: &[f64]) -> Option<(f64, f64)> {
+    let mut pairs = bands.chunks_exact(2).map(|p| (p[0], p[1]));
+    let first = pairs.next()?;
+    Some(pairs.fold(first, |(lo, hi), (start, end)| {
+        (js_math::min(lo, start), js_math::max(hi, end))
+    }))
+}
+
+/// The page summary for the text layer and the page record. Blank lines are left out
+/// of the text, but an empty-text line never counts as unsure, while a whitespace-only
+/// line does, as the TS copy's `line.text && ...` check did.
+#[must_use]
+pub fn ink_page_summary(lines: &[RecognisedLine]) -> InkPageSummary {
+    let text = lines
+        .iter()
+        .map(|line| js_trim(&line.text))
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<&str>>()
+        .join("\n");
+    let confs: Vec<f64> = lines.iter().map(|line| line.conf).collect();
+    let unsure = lines
+        .iter()
+        .filter(|line| !line.text.is_empty() && is_unsure_confidence(line.conf))
+        .count();
+    InkPageSummary {
+        text,
+        confidence: ink_page_confidence(&confs),
+        unsure,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn band_union_spans_every_band_and_is_none_when_empty() {
+        assert_eq!(band_union(&[]), None);
+        assert_eq!(
+            band_union(&[10.0, 20.0, 12.0, 25.0, 5.0, 11.0]),
+            Some((5.0, 25.0))
+        );
+        assert_eq!(band_union(&[10.0, 20.0, 99.0]), Some((10.0, 20.0)));
+    }
+
     fn words(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn line(text: &str, conf: f64) -> RecognisedLine {
+        RecognisedLine {
+            text: text.to_owned(),
+            conf,
+        }
     }
 
     #[test]
@@ -127,5 +216,59 @@ mod tests {
         );
         assert_eq!(ink_vocabulary_hints(&sources, 0.0), words(&["Alpha"]));
         assert_eq!(ink_vocabulary_hints(&sources, f64::NAN).len(), 4);
+    }
+
+    #[test]
+    fn bands_coincide_at_half_the_smaller_band() {
+        // Overlap 6 against a smaller band of 10: at least half.
+        assert!(bands_coincide((0.0, 10.0), (4.0, 14.0)));
+        // Overlap 4 is short of half of 10.
+        assert!(!bands_coincide((0.0, 10.0), (6.0, 16.0)));
+        assert!(bands_coincide((0.0, 10.0), (0.0, 10.0)));
+        assert!(!bands_coincide((0.0, 10.0), (20.0, 30.0)));
+    }
+
+    #[test]
+    fn bands_of_no_height_coincide_only_when_they_touch() {
+        assert!(bands_coincide((5.0, 5.0), (5.0, 5.0)));
+        assert!(bands_coincide((5.0, 5.0), (0.0, 9.0)));
+        assert!(!bands_coincide((5.0, 5.0), (0.0, 4.0)));
+    }
+
+    #[test]
+    fn bands_with_nan_do_not_coincide() {
+        assert!(!bands_coincide((f64::NAN, 10.0), (0.0, 10.0)));
+    }
+
+    #[test]
+    fn page_summary_joins_trimmed_lines_and_counts_unsure() {
+        let lines = [
+            line("  Hello ", 0.9),
+            line("", 0.1),
+            line("   ", 0.2),
+            line("world\u{feff}", 0.5),
+        ];
+        let summary = ink_page_summary(&lines);
+        // Blank lines are left out of the text; the whitespace-only line is not.
+        assert_eq!(summary.text, "Hello\nworld");
+        // "   " is non-empty and unsure, "world" is unsure, "" is not counted.
+        assert_eq!(summary.unsure, 2);
+        // Mean of 0.9, 0.1, 0.2, 0.5 over all four lines.
+        assert!((summary.confidence - 0.425).abs() < 1e-9);
+    }
+
+    #[test]
+    fn page_summary_of_no_lines_is_empty() {
+        let summary = ink_page_summary(&[]);
+        assert_eq!(summary.text, "");
+        assert_eq!(summary.unsure, 0);
+        assert_eq!(summary.confidence, 0.0);
+    }
+
+    #[test]
+    fn page_summary_counts_a_correction_as_certain() {
+        let summary = ink_page_summary(&[line("Fixed", 1.0), line("Other", 0.3)]);
+        assert_eq!(summary.unsure, 1);
+        assert!((summary.confidence - 0.65).abs() < 1e-9);
     }
 }

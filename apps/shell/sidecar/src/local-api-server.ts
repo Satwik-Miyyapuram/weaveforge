@@ -2,6 +2,8 @@ import type { SaveArtifact } from "./local-artifacts";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
+import { rust } from "@weaveforge/core";
+
 import {
   LOCAL_API_PERMISSIONS,
   routeLocalRequest,
@@ -57,8 +59,7 @@ const MAX_REFUSAL_DRAIN_MS = 30_000;
  * request that arrived under any other name is not one meant for us.
  */
 export function isLoopbackHost(host: string | undefined, port: number): boolean {
-  const name = host?.trim().toLowerCase();
-  return name === `127.0.0.1:${port}` || name === `localhost:${port}` || name === `[::1]:${port}`;
+  return rust().isLoopbackHost(host, port) as boolean;
 }
 
 export interface LocalApi {
@@ -261,7 +262,7 @@ export function parseLocalApiTokens(stored: string): { records: LocalApiTokenRec
   } catch {
     // Not JSON: the legacy single token.
   }
-  if (!/^[0-9a-f]{64}$/.test(stored)) return { records: [], legacy: false };
+  if (!rust().isLegacyTokenHex(stored)) return { records: [], legacy: false };
   return {
     legacy: true,
     records: [

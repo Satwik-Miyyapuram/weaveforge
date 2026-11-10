@@ -1,10 +1,7 @@
 import { ModelConceptExtractor, type IConceptExtractor } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import {
-  ByokModelConversation,
-  type ProviderApi,
-  type ProviderDescriptor,
-} from "../infrastructure/byok-model-conversation";
+import { readyCore } from "@/lib/rust-core";
+import { ByokModelConversation, type ProviderDescriptor } from "../infrastructure/byok-model-conversation";
 
 /**
  * The model the user has pointed at, for as long as the tab is open.
@@ -110,23 +107,8 @@ export async function restoreActiveProvider(): Promise<boolean> {
   return true;
 }
 
-const APIS: readonly ProviderApi[] = ["openai-chat", "anthropic-messages", "ollama"];
-
 function parseStored(raw: string): ActiveProvider | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!value || typeof value !== "object") return null;
-  const { descriptor, apiKey } = value as { descriptor?: unknown; apiKey?: unknown };
-  if (typeof apiKey !== "string" || !descriptor || typeof descriptor !== "object") return null;
-  const { id, label, baseUrl, api, model } = descriptor as Record<string, unknown>;
-  if (typeof id !== "string" || typeof label !== "string") return null;
-  if (typeof baseUrl !== "string" || typeof model !== "string") return null;
-  if (!APIS.includes(api as ProviderApi)) return null;
-  return { descriptor: { id, label, baseUrl, api: api as ProviderApi, model }, apiKey };
+  return readyCore().parseStoredAiProvider(raw) as ActiveProvider | null;
 }
 
 /**

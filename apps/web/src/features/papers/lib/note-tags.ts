@@ -11,11 +11,6 @@ import { readyCore } from "@/lib/rust-core";
  * hashtags, appending them to a body, and removing one.
  */
 
-/** Append any tag names not already present in the body as `#hashtag` lines. */
-export function appendTagHashtags(body: string, tagNames: readonly string[]): string {
-  return readyCore().appendTagHashtags(body, tagNames);
-}
-
 /**
  * Make the note body the single source of truth for a paper's tags: reconcile
  * its tag index (across every source, incl. legacy synced tags) to exactly the
@@ -131,9 +126,4 @@ export function retryDeferredTagReconciles(papers: TagReconcileDeps): Promise<vo
     retrying = null;
   });
   return retrying;
-}
-
-/** Remove every `#hashtag` in the body whose normalized name equals `tag`. */
-export function removeHashtagFromBody(body: string, tag: string): string {
-  return readyCore().removeHashtagFromBody(body, tag);
 }

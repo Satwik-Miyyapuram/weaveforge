@@ -1,15 +1,15 @@
+import { rust } from "@weaveforge/core";
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles, readVaultFile } from "./vault-handlers";
 
 /**
  * Searching the vault folder, shared by the local REST API and the MCP surface.
  * It lives here rather than in either so neither imports the other (37-16).
+ * The match, cut and skip rules are Rust (`vault_search`); the walk and reads stay here.
  */
 
 /** How many files a search will read before it stops. */
 const SEARCH_LIMIT = 2_000;
-/** How much of a matching line comes back with each hit. */
-const CONTEXT = 120;
 
 /** Every file under `dir`, depth-first, up to a cap. */
 export async function walkVault(session: VaultSession, dir: string, out: string[]): Promise<void> {
@@ -19,7 +19,7 @@ export async function walkVault(session: VaultSession, dir: string, out: string[
   for (const entry of listed.value) {
     if (out.length >= SEARCH_LIMIT) return;
     // `.git` alone can hold thousands of objects and spend the cap before any project.
-    if (entry.kind === "dir" && entry.path.split("/").pop()?.startsWith(".")) continue;
+    if (entry.kind === "dir" && rust().isSkippedDir(entry.path)) continue;
     if (entry.kind === "dir") await walkVault(session, entry.path, out);
     else out.push(entry.path);
   }
@@ -45,21 +45,15 @@ export async function searchVault(
   const files: string[] = [];
   await walkVault(session, dir, files);
 
-  const needle = query.toLowerCase();
   const results: VaultSearchHit[] = [];
   for (const filename of files) {
-    if (!filename.endsWith(".md")) continue;
+    if (!rust().isSearchFile(filename)) continue;
     const read = await readVaultFile(session, filename);
     if (!read.ok || read.value === null) continue;
-    const matches: { context: string }[] = [];
-    for (const line of read.value.split(/\r?\n/)) {
-      if (!line.toLowerCase().includes(needle)) continue;
-      matches.push({ context: line.slice(0, CONTEXT) });
-      // One file that mentions the word forty times is one result worth
-      // showing, not forty; the client asked what matched, not how often.
-      if (matches.length >= 5) break;
-    }
-    if (matches.length) results.push({ filename, matches });
+    // One file that mentions the word forty times is one result worth showing,
+    // not forty; the cap of five per file lives in the Rust rule.
+    const contexts = rust().searchMatches(read.value, query) as string[];
+    if (contexts.length) results.push({ filename, matches: contexts.map((context) => ({ context })) });
   }
   return results;
 }

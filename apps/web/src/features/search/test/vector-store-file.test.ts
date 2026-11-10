@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { packBinary, unpackBinary } from "@/features/search/infrastructure/vector-store";
+import { packBinary } from "@/features/search/infrastructure/vector-store";
+import { readyCore } from "@/lib/rust-core";
+
+const unpackBinary = (bytes: Uint8Array) => readyCore().unpackVectors(bytes);
 
 before(async () => { await loadTestCore(); });
 

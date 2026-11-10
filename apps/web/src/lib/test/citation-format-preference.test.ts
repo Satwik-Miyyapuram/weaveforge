@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   EDITOR_CITATION_FORMATS,
   citationFormatStorageKey,
   parseEditorCitationFormat,
 } from "../citation-format-preference";
+
+before(loadTestCore);
 
 test("parseEditorCitationFormat falls back to wikilink for unknown values", () => {
   assert.equal(parseEditorCitationFormat("pandoc"), "pandoc");

@@ -79,11 +79,13 @@ export function bibImportMessage(outcome: BibImportOutcome): string {
   return readyCore().bibImportMessage(outcome.added.length, outcome.skipped.length, outcome.problems.length);
 }
 
-export function isBibFile(name: string): boolean {
-  return readyCore().isBibFile(name);
-}
-
 /** A drop on Papers: `.bib` files are imported, everything else goes the PDF way (which skips non-PDFs). */
 export function splitPaperDrop<F extends { readonly name: string }>(files: readonly F[]): { pdfs: F[]; bibs: F[] } {
-  return { pdfs: files.filter((f) => !isBibFile(f.name)), bibs: files.filter((f) => isBibFile(f.name)) };
+  const split = readyCore().splitPaperDrop(files.map((f) => f.name));
+  const pick = (indices: readonly number[]): F[] =>
+    indices.flatMap((i) => {
+      const file = files[i];
+      return file ? [file] : [];
+    });
+  return { pdfs: pick(split.pdfIndices), bibs: pick(split.bibIndices) };
 }

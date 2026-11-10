@@ -1,7 +1,10 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { createNoteFromLink } from "../application/create-note-from-link";
+
+before(loadTestCore);
 
 function deps(titles: string[] = [], add?: (title: string) => Promise<{ id: string }>) {
   const calls = { added: [] as string[], opened: [] as string[], reloads: 0 };

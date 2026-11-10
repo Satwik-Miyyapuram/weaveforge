@@ -24,9 +24,6 @@ import { typedCore } from "@/lib/rust-core";
  * with a link where they expected a picture.
  */
 
-/** One http(s) address and nothing else. */
-export const BARE_URL = /^https?:\/\/\S+$/;
-
 /** A name for a picture that arrived with no filename of its own. */
 function nameFromUrl(url: string): string {
   try {
@@ -35,16 +32,6 @@ function nameFromUrl(url: string): string {
   } catch {
     return "image";
   }
-}
-
-/** Escapes the characters that would end a Markdown link label early. */
-export function escapeLinkLabel(label: string): string {
-  return label.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
-}
-
-/** `[label](url)`, with the label folded onto one line and escaped. */
-function markdownLink(label: string, url: string): string {
-  return `[${escapeLinkLabel(label.replace(/[\r\n]+/g, " ")).trim()}](${url})`;
 }
 
 /** The dimmed stand-in shown while a picture downloads. */
@@ -75,7 +62,7 @@ export function afterUrlPaste(
   to: number,
   options: RemotePasteOptions,
 ): void {
-  if (!BARE_URL.test(text)) return;
+  if (!readyCore().isBareUrl(text)) return;
   const settings = options.settings();
 
   if (settings.downloadPastedImages && options.images && typedCore().looksLikeImageUrl(text)) {
@@ -143,7 +130,7 @@ function fetchTitle(view: EditorView, url: string, from: number, to: number): vo
   void outboundFetch()
     .title(url)
     .then(({ title }) => {
-      if (title) resolvePending(view, id, markdownLink(title, url));
+      if (title) resolvePending(view, id, readyCore().markdownLink(title, url));
     })
     .catch(() => {
       // Quietly: the note has a working link, which is what was pasted.

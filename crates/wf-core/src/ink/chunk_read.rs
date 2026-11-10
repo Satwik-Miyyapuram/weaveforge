@@ -66,14 +66,18 @@ fn shape_at(index: u8) -> InkShape {
     }
 }
 
-/// One stroke as the model holds it: absolute points, names, real numbers.
-/// The deltas add up as JS numbers do, without an `Int16` wrap.
-fn stroke_at(body: &[u8], layout: &InkChunkLayout, index: usize) -> InkStroke {
+/// Walk one stroke's points as absolute coordinates and raw `Int16` pressures, in
+/// stroke order. The deltas add up in `f64` as JS numbers do, so nothing wraps here;
+/// a caller that stores into `Int16` takes the wrap itself.
+fn walk_stroke(
+    body: &[u8],
+    layout: &InkChunkLayout,
+    index: usize,
+    mut visit: impl FnMut(f64, f64, i16),
+) {
     let at = |section: u32, size: usize| section as usize + index * size;
     let start = u32_at(body, at(layout.stroke_point_offset, 4)) as usize;
     let count = usize::from(u16_at(body, at(layout.stroke_point_count, 2)));
-    let mut points = Vec::with_capacity(count * 2);
-    let mut pressures = Vec::with_capacity(count);
     let (mut x, mut y) = (0.0, 0.0);
     for i in 0..count {
         let cell = layout.points as usize + (start + i) * 6;
@@ -82,11 +86,21 @@ fn stroke_at(body: &[u8], layout: &InkChunkLayout, index: usize) -> InkStroke {
             f64::from(i16_at(body, cell + 2)),
         );
         (x, y) = if i == 0 { (dx, dy) } else { (x + dx, y + dy) };
+        visit(x, y, i16_at(body, cell + 4));
+    }
+}
+
+/// One stroke as the model holds it: absolute points, names, real numbers.
+fn stroke_at(body: &[u8], layout: &InkChunkLayout, index: usize) -> InkStroke {
+    let mut points = Vec::new();
+    let mut pressures = Vec::new();
+    walk_stroke(body, layout, index, |x, y, pressure| {
         points.push(x);
         points.push(y);
         // The pressure cell is an Int16 read into a byte, as `Uint8Array` stores it.
-        pressures.push(f64::from(body[cell + 4]));
-    }
+        pressures.push(f64::from(pressure as u8));
+    });
+    let at = |section: u32, size: usize| section as usize + index * size;
     let width = body[at(layout.stroke_width, 1)];
     make_ink_stroke(InkStrokeInput {
         points,
@@ -119,6 +133,46 @@ fn line_at(body: &[u8], layout: &InkChunkLayout, index: usize) -> InkLineRecord 
         // 0-255 on disk, 0-1 in the model, so a correction's `1` survives exactly.
         confidence: f64::from(body[at(layout.line_confidence, 1)]) / 255.0,
     }
+}
+
+/// One stroke's points as `x, y, pressure` triples: absolute, in 0.1 mm, unwrapped. This is
+/// the walk `chunkStrokePoints` makes on the views. An index past the last stroke is empty.
+///
+/// # Errors
+///
+/// Fails on a body whose tables do not add up, as [`check_ink_chunk_body`].
+pub fn stroke_point_triples(body: &[u8], stroke_index: usize) -> Result<Vec<f64>, String> {
+    let layout = check_ink_chunk_body(body)?.layout;
+    let mut triples = Vec::new();
+    if stroke_index < layout.stroke_count as usize {
+        walk_stroke(body, &layout, stroke_index, |x, y, pressure| {
+            triples.extend([x, y, f64::from(pressure)]);
+        });
+    }
+    Ok(triples)
+}
+
+/// Every point of the page as `x, y, pressure` `Int16` triples, stroke after stroke. Each
+/// coordinate wraps to `i16` as an `Int16Array` write does, which is what `chunkAbsolutePoints`
+/// stores; the pressure is the cell as read, signed.
+///
+/// # Errors
+///
+/// Fails on a body whose tables do not add up, as [`check_ink_chunk_body`].
+pub fn absolute_point_triples(body: &[u8]) -> Result<Vec<i16>, String> {
+    let layout = check_ink_chunk_body(body)?.layout;
+    let mut triples = Vec::new();
+    for index in 0..layout.stroke_count as usize {
+        walk_stroke(body, &layout, index, |x, y, pressure| {
+            triples.extend([wrap_i16(x), wrap_i16(y), pressure]);
+        });
+    }
+    Ok(triples)
+}
+
+/// `ToInt16` for a whole-number coordinate: the low 16 bits, read as two's complement.
+fn wrap_i16(value: f64) -> i16 {
+    (value as i64) as i16
 }
 
 /// Round-trip an uncompressed body back to the model it was packed from.
@@ -174,6 +228,31 @@ mod tests {
         });
         let body = encode_ink_chunk_body(&page).expect("encodes");
         assert_eq!(page_from_chunk_body(&body).expect("decodes"), page);
+    }
+
+    #[test]
+    fn the_point_walks_agree_with_the_page() {
+        let mut page = blank_ink_page(InkPaper::Ruled);
+        page.strokes.push(make_ink_stroke(InkStrokeInput {
+            points: vec![10.0, 20.0, 15.0, 18.0, 40.0, 60.0],
+            pressures: Some(vec![10.0, 90.0, 250.0]),
+            width: Some(7.0),
+            tool: Some(InkTool::Pen),
+            colour: Some(InkColour::Text),
+            t0: Some(0.0),
+            shape: Some(InkShape::None),
+            line_index: Some(0.0),
+        }));
+        let body = encode_ink_chunk_body(&page).expect("encodes");
+        assert_eq!(
+            stroke_point_triples(&body, 0).expect("walks"),
+            vec![10.0, 20.0, 10.0, 15.0, 18.0, 90.0, 40.0, 60.0, 250.0],
+        );
+        assert!(stroke_point_triples(&body, 1).expect("walks").is_empty());
+        assert_eq!(
+            absolute_point_triples(&body).expect("walks"),
+            vec![10_i16, 20, 10, 15, 18, 90, 40, 60, 250],
+        );
     }
 
     #[test]

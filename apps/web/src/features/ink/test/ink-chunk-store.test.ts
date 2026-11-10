@@ -3,7 +3,7 @@
  * routed one; and `loadInkPages`, which turns declared order plus what is on
  * disk into the pages the host shows.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { BlobNotFoundError, type IBlobFetcher } from "@weaveforge/core";
@@ -11,21 +11,23 @@ import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import {
   MemoryInkChunkStore,
-  chunkIdOfFileName,
   loadInkPages,
 } from "../application/ink-chunk-store";
 import { BlobInkChunkStore } from "../infrastructure/blob-ink-chunk-store";
 import { FsInkChunkStore } from "../infrastructure/fs-ink-chunk-store";
 import { RoutedInkChunkStore } from "../infrastructure/routed-ink-chunk-store";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-const NOTE = "01HZZZZZZZZZZZZZZZZZZZZZZZ";
+before(loadTestCore);
+
+const NOTE ="01HZZZZZZZZZZZZZZZZZZZZZZZ";
 
 test("chunkIdOfFileName accepts only <ulid>.inkb", () => {
   const id = typedCore().newInkChunkId();
-  assert.equal(chunkIdOfFileName(`${id}.inkb`), id);
-  assert.equal(chunkIdOfFileName(`${id}.png`), null);
-  assert.equal(chunkIdOfFileName("notes.inkb"), null);
+  assert.equal(readyCore().inkChunkIdOfFileName(`${id}.inkb`), id);
+  assert.equal(readyCore().inkChunkIdOfFileName(`${id}.png`), null);
+  assert.equal(readyCore().inkChunkIdOfFileName("notes.inkb"), null);
 });
 
 test("the memory store round-trips, lists, and removes", async () => {

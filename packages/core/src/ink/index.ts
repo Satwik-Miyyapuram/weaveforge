@@ -38,7 +38,6 @@ export {
   INK_CHUNK_VERSION,
   INK_CHUNK_FLAG_COMPRESSED,
   INK_CHUNK_HEADER_BYTES,
-  INK_CHUNK_RAW_THRESHOLD,
   INK_NOTE_MAX_BYTES,
   INK_CHUNK_MAX_POINTS,
   INK_CHUNK_MAX_STROKES,
@@ -51,7 +50,6 @@ export {
   decodeInkChunkBody,
   decodeInkChunk,
   inkChunkBodySize,
-  fitsInkNoteBudget,
   type InkChunkCodec,
   type InkChunkView,
   type InkChunkHeader,
@@ -59,7 +57,6 @@ export {
 
 export {
   chunkStrokePoints,
-  chunkAbsolutePoints,
   chunkLineText,
   chunkStroke,
   chunkLine,
@@ -71,10 +68,7 @@ export { INK_GROUP_WINDOW_MS, INK_LINE_BAND_RATIO, type InkSegmentation, type Re
 
 export {
   INK_ENGINES,
-  INK_ENGINE_ORDER,
-  INK_UNSURE_CONFIDENCE,
-  isInkEngineId,
-  inkEngineInfo,
+  inkUnsureConfidence,
   selectInkRecogniser,
   isUnsureLine,
   mapInkConfidence,

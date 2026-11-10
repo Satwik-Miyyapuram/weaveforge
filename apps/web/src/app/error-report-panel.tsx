@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { relayUrl } from "@/lib/relay-url";
 
 import { getContainer } from "@/bootstrap";
-import { newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
+import { newIssueUrl } from "@/lib/error-report/issue-url";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore } from "@/lib/rust-core";
@@ -100,7 +100,7 @@ export function ErrorReportPanel({
   ];
   const cleanSteps = readyCore().redactAndCap(steps).text;
   const markdown = (withHeading = true) =>
-    reportMarkdown({
+    readyCore().reportMarkdown({
       withHeading,
       detail: shown,
       steps: cleanSteps,

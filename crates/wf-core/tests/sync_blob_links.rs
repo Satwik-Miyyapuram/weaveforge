@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use wf_core::sync::blob_links::{
     AssetRef, BlobScheme, ImportedAssetResolver, RelativeAsset, from_relative_blob_links,
     from_relative_blob_links_mapped, owned_asset_folder_paths, plan_asset_reanchor,
-    relative_asset_paths, to_relative_blob_links,
+    relative_asset_paths, to_relative_blob_links, workspace_bodies,
 };
 use wf_core::sync::folder_layout::AssetScope;
 use wf_core::sync::markdown_image::image_paths_in_body;
@@ -277,6 +277,16 @@ fn owned_paths_are_the_folder_forms_of_every_blob_ref() {
     assert_eq!(
         owned_asset_folder_paths(&bodies),
         set(&["assets/notes/u/n1/a.png", "assets/papers/u/p1/b.png"])
+    );
+}
+
+#[test]
+fn workspace_bodies_are_vault_bodies_then_paper_summaries() {
+    let vault = vec!["page one".to_owned()];
+    let papers = vec![Some("summary".to_owned()), None];
+    assert_eq!(
+        workspace_bodies(&vault, &papers),
+        vec!["page one".to_owned(), "summary".to_owned(), String::new()]
     );
 }
 

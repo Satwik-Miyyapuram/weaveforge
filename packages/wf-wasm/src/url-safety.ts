@@ -1,17 +1,23 @@
 /**
  * Outbound URL and address checks (Rust `url_safety`), re-exported from index.ts.
- * Each function keeps the signature of packages/core/src/net/url-safety.ts.
+ * Each function keeps the signature of UrlSafetyFns in packages/core/src/shared/core-contract.ts.
  * URL parsing stays here (WHATWG `URL`); only the pure checks run in Rust.
  */
 import {
   checkUrlShape as rawCheckUrlShape,
   describeUrlRejection as rawDescribeUrlRejection,
   expandIpv6 as rawExpandIpv6,
+  fetchLimits as rawFetchLimits,
   isIpAddress as rawIsIpAddress,
   isPublicAddress as rawIsPublicAddress,
   looksLikeImageUrl as rawLooksLikeImageUrl,
 } from "../pkg/wf_wasm.js";
-import type { UrlCheck, UrlRejection } from "./bindings.js";
+import type { OutboundFetchLimits, UrlCheck, UrlRejection } from "./bindings.js";
+
+/** The caps on an outbound fetch (Rust `DEFAULT_FETCH_LIMITS`), read at call time. */
+export function fetchLimits(): OutboundFetchLimits {
+  return rawFetchLimits() as OutboundFetchLimits;
+}
 
 /** The person-facing sentence for a refused URL (Rust `rejection_copy`). */
 export function describeUrlRejection(reason: UrlRejection): string {

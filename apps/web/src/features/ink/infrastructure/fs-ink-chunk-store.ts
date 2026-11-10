@@ -15,11 +15,8 @@
 
 import { type IWorkspaceFs } from "@weaveforge/core";
 
-import {
-  chunkIdOfFileName,
-  type InkChunkStore,
-} from "../application/ink-chunk-store";
-import { typedCore } from "@/lib/rust-core";
+import { type InkChunkStore } from "../application/ink-chunk-store";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export class FsInkChunkStore implements InkChunkStore {
   constructor(private readonly fs: () => IWorkspaceFs | null) {}
@@ -62,7 +59,7 @@ export class FsInkChunkStore implements InkChunkStore {
     const ids: string[] = [];
     for (const entry of await fs.list(dir)) {
       if (entry.kind !== "file") continue;
-      const id = chunkIdOfFileName(entry.path.split("/").pop() ?? "");
+      const id = readyCore().inkChunkIdOfFileName(entry.path.split("/").pop() ?? "");
       if (id) ids.push(id);
     }
     return ids.sort();

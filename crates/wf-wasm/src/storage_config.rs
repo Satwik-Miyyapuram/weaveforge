@@ -3,7 +3,8 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::storage::blob_client::{
-    ColdFields, R2Fields, cold_blob_client_config, missing_r2_config_message, r2_blob_client_config,
+    ColdFields, R2Fields, cold_blob_client_config, missing_r2_config_message, object_key,
+    r2_blob_client_config, read_content_type, upload_content_type,
 };
 use wf_core::storage::config::{
     BlobRuntime, EnvMap, blob_provider_for_runtime, parse_blob_provider, read_storage_config,
@@ -69,4 +70,28 @@ pub fn cold_blob_client_config_js(fields: JsValue) -> Result<JsValue, serde_wasm
 pub fn missing_r2_config_message_js(fields: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let fields: R2Fields = serde_wasm_bindgen::from_value(fields)?;
     to_js(&missing_r2_config_message(&fields))
+}
+
+/// [`object_key`]: the logical bucket and path joined as the S3 object key.
+#[wasm_bindgen(js_name = objectKey)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn object_key_js(logical_bucket: String, path: String) -> String {
+    object_key(&logical_bucket, &path)
+}
+
+/// [`upload_content_type`]: the explicit type, else the blob type, else the fallback.
+#[wasm_bindgen(js_name = uploadContentType)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn upload_content_type_js(explicit: Option<String>, blob_type: String) -> String {
+    upload_content_type(explicit.as_deref(), &blob_type)
+}
+
+/// [`read_content_type`]: the stored type, or the fallback when none is stored.
+#[wasm_bindgen(js_name = readContentType)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn read_content_type_js(stored: Option<String>) -> String {
+    read_content_type(stored.as_deref())
 }

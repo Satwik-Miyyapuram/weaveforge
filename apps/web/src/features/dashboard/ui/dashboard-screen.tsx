@@ -18,12 +18,9 @@ import {
   appendCardPair,
   clearLegacyLayoutStorage,
   closeLayoutGaps,
-  defaultLayout,
-  finalizeDashboardLayout,
-  layoutCacheKey,
   initialDashboardLayout,
-  syncDashboardLayouts,
 } from "../application/dashboard-layout";
+import { CARD_LIMITS } from "../application/dashboard-layout-packing";
 import { DashboardGrid } from "./dashboard-grid";
 import { DashboardEditBar } from "./dashboard-edit-bar";
 import { CardPickerSheet } from "./card-picker-sheet";
@@ -76,7 +73,7 @@ export function DashboardScreen() {
   const [layoutFromSnapshot, setLayoutFromSnapshot] = useState(false);
 
   const syncLayouts = useMemo(
-    () => (layout ? syncDashboardLayouts(layout) : null),
+    () => (layout ? (readyCore().dashboardSyncLayouts(layout, CARD_LIMITS) as DashboardLayout) : null),
     [layout],
   );
 
@@ -121,11 +118,11 @@ export function DashboardScreen() {
     setLayoutError(null);
 
     const supervisorLayout = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
-    const cacheKey = layoutCacheKey(projectId, supervisorLayout);
+    const cacheKey = readyCore().dashboardLayoutCacheKey(projectId, supervisorLayout);
 
     const cached = layoutCache.get(cacheKey);
     if (cached) {
-      const next = finalizeDashboardLayout(cached);
+      const next = readyCore().dashboardFinalizeLayout(cached, CARD_LIMITS) as DashboardLayout;
       layoutCache.set(cacheKey, next);
       setLayout(next);
       setLayoutLoading(false);
@@ -155,7 +152,10 @@ export function DashboardScreen() {
         if (!active) return;
         layoutLoadFailed.current = true;
         setLayoutError(formatError(err));
-        const next = finalizeDashboardLayout(defaultLayout(supervisorLayout));
+        const next = readyCore().dashboardFinalizeLayout(
+          readyCore().dashboardDefaultLayout(supervisorLayout) as DashboardLayout,
+          CARD_LIMITS,
+        ) as DashboardLayout;
         layoutCache.set(cacheKey, next);
         setLayout(next);
       } finally {
@@ -182,8 +182,11 @@ export function DashboardScreen() {
     const save = () => {
       pendingSave.current = null;
       const supervisorLayout = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
-      const cacheKey = layoutCacheKey(projectId, supervisorLayout);
-      const toSave = finalizeDashboardLayout(syncDashboardLayouts(layout));
+      const cacheKey = readyCore().dashboardLayoutCacheKey(projectId, supervisorLayout);
+      const toSave = readyCore().dashboardFinalizeLayout(
+        readyCore().dashboardSyncLayouts(layout, CARD_LIMITS) as DashboardLayout,
+        CARD_LIMITS,
+      ) as DashboardLayout;
       void getContainer()
         .dashboard.saveLayout(projectId, toSave)
         .then(() => {
@@ -241,14 +244,21 @@ export function DashboardScreen() {
   const handleReset = useCallback(() => {
     const before = layout;
     markDirty();
-    setLayout(finalizeDashboardLayout(defaultLayout(isSupervisor)));
+    setLayout(
+      readyCore().dashboardFinalizeLayout(
+        readyCore().dashboardDefaultLayout(isSupervisor) as DashboardLayout,
+        CARD_LIMITS,
+      ) as DashboardLayout,
+    );
     if (before) showToast("Layout reset", { label: "Undo", run: () => { markDirty(); setLayout(before); } });
   }, [isSupervisor, layout, markDirty]);
 
   const handleDone = useCallback(() => {
     setEditing(false);
     markDirty();
-    setLayout((prev) => (prev ? finalizeDashboardLayout(prev) : prev));
+    setLayout((prev) =>
+      prev ? (readyCore().dashboardFinalizeLayout(prev, CARD_LIMITS) as DashboardLayout) : prev,
+    );
   }, [markDirty]);
 
   const handleSuperviseeConfig = useCallback(

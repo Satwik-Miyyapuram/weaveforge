@@ -1,4 +1,4 @@
-import type { Share, ShareableType } from "../../sharing/domain/share.js";
+import type { Share, ShareableType } from "../../../shared/core-contract.js";
 import type { LibraryPin } from "../domain/library-pin.js";
 import { rust } from "../../../shared/rust.js";
 

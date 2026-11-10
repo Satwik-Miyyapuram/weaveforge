@@ -1,4 +1,4 @@
-//! Vault page text rules (`packages/core/src/features/vault/domain/vault-page.ts`). The
+//! Vault page text rules (TS contract: `packages/core/src/shared/core-contract.ts`). The
 //! markdown image helpers come from [`crate::sync::markdown_image`].
 //!
 //! Offsets and lengths are UTF-16 code units, as JS counts them. Code masking keeps the

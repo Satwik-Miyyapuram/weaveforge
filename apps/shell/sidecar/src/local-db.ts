@@ -1,4 +1,4 @@
-import { LOCAL_USER_ID, applyMigrations, sessionClaims, type Migration } from "@weaveforge/core";
+import { LOCAL_USER_ID, applyMigrations, rust, type Migration } from "@weaveforge/core";
 
 /**
  * The database that exists whether or not anybody has an account.
@@ -100,7 +100,7 @@ export class LocalDatabase {
    * request policies are entitled to refuse. Pass `null` explicitly for that.
    */
   async query<T>(sql: string, params: unknown[] = [], userId?: string | null): Promise<LocalQueryResult<T>> {
-    const claims = sessionClaims(userId === undefined ? LOCAL_USER_ID : userId);
+    const claims = rust().sessionClaims(userId === undefined ? LOCAL_USER_ID : userId);
     return this.recovering(() =>
       this.client.transaction(async (tx) => {
         // Transaction-local, so the claim, the role and the query travel

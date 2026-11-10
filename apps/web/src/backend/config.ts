@@ -1,6 +1,5 @@
 import type { BackendConfigField } from "@weaveforge/wasm";
 
-import { readyCore } from "@/lib/rust-core";
 
 /** Active persistence + auth backend — swap by env without touching features. */
 type BackendProviderId = "postgrest" | "postgres";
@@ -73,15 +72,6 @@ function fromEnv(env: EnvReader): BackendConfig {
 
 /** Config fields that can be required (names as in the Rust `ConfigField`). */
 export type ConfigField = BackendConfigField;
-
-/**
- * Names which env vars are absent — never their values. One of these is the
- * service-role key, and these messages reach the browser. Ported to Rust
- * (`backend_config`); this wrapper only supplies the loaded core.
- */
-export function missingConfigMessage(cfg: BackendConfig, required: readonly ConfigField[]): string | null {
-  return readyCore().missingConfigMessage(cfg, required);
-}
 
 /** Read backend selection from env (composition root only). */
 export function readBackendConfig(env?: EnvReader): BackendConfig {

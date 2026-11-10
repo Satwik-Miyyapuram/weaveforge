@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { IBlobStore } from "@weaveforge/core";
-import type { ColdFields, R2Fields } from "@weaveforge/wasm";
+import type { R2Fields } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 
 export interface S3BlobStoreConfig {
@@ -50,9 +50,9 @@ export class S3BlobStore implements IBlobStore {
     return new S3BlobStore(createS3Client(rest), physicalBucket);
   }
 
-  /** Object key: logical bucket + path (e.g. paper-images/userId/...). */
+  /** Object key: logical bucket + path (e.g. paper-images/userId/...). Rust core `storage::blob_client`. */
   private objectKey(logicalBucket: string, path: string): string {
-    return `${logicalBucket}/${path}`;
+    return readyCore().objectKey(logicalBucket, path);
   }
 
   async upload(bucket: string, path: string, blob: Blob, contentType?: string): Promise<void> {
@@ -62,7 +62,7 @@ export class S3BlobStore implements IBlobStore {
         Bucket: this.physicalBucket,
         Key: this.objectKey(bucket, path),
         Body: body,
-        ContentType: contentType ?? (blob.type || "application/octet-stream"),
+        ContentType: readyCore().uploadContentType(contentType, blob.type),
       }),
     );
   }
@@ -116,22 +116,12 @@ export class S3BlobStore implements IBlobStore {
       if (!res.Body) return null;
       return {
         stream: res.Body.transformToWebStream(),
-        contentType: res.ContentType ?? "application/octet-stream",
+        contentType: readyCore().readContentType(res.ContentType),
       };
     } catch {
       return null;
     }
   }
-}
-
-/** R2 hot-tier client config (mapping lives in the Rust core, `storage::blob_client`). */
-export function r2BlobConfig(fields: R2Fields): S3BlobStoreConfig | null {
-  return readyCore().r2BlobClientConfig(fields) as S3BlobStoreConfig | null;
-}
-
-/** MinIO / OCI cold-tier client config (Rust core `storage::blob_client`). */
-export function coldBlobConfig(fields: ColdFields): S3BlobStoreConfig | null {
-  return readyCore().coldBlobClientConfig(fields) as S3BlobStoreConfig | null;
 }
 
 /** Error naming the unset R2 env vars (names only, never values). */

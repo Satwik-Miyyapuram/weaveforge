@@ -14,6 +14,7 @@
  */
 
 import { readyCore } from "@/lib/rust-core";
+import type { EraserSweepState as WasmEraserSweepState } from "@weaveforge/wasm";
 
 /** The `button` a down reports when the eraser end made the contact. */
 export const PEN_ERASER_BUTTON = 5;
@@ -77,59 +78,61 @@ const styled = (target: unknown): target is Styled =>
  * gives each entry into range a fresh pointerId, so the stickiness ends there.
  */
 export class EraserSweep {
-  private pointer: number | null = null;
-  private byTip = false;
-  /** The pointer whose hover still shows the eraser after a back-tip lift. */
-  private sticky: number | null = null;
+  private wasm: WasmEraserSweepState | undefined;
   private target: Styled | null = null;
   private cursorBefore = "";
 
   constructor(private readonly cursor: string) {}
+
+  /** The sweep state lives in Rust; built on first use, once the core is loaded. */
+  private get state(): WasmEraserSweepState {
+    if (!this.wasm) this.wasm = new (readyCore().EraserSweepState)();
+    return this.wasm;
+  }
 
   /**
    * Starts a sweep when the armed tool erases, or when `tipErases` and the
    * pen's back tip made the contact. False leaves the down to the caller.
    */
   begin(event: EraserSweepEvent, toolErases: boolean, tipErases: boolean): boolean {
-    const byTip = tipErases && isPenEraserPointer(event);
-    if (!toolErases && !byTip) return false;
-    this.sticky = null;
-    this.pointer = event.pointerId;
-    this.byTip = byTip;
+    const action = this.state.begin(
+      event.pointerId,
+      toolErases,
+      tipErases,
+      tipErases && isPenEraserPointer(event),
+    );
+    if (action === "none") return false;
     this.show(event.currentTarget);
     return true;
   }
 
   /** Whether `pointerId` is the one sweeping. */
   owns(pointerId: number): boolean {
-    return this.pointer === pointerId;
+    return this.state.owns(pointerId);
   }
 
   /** Ends the sweep `pointerId` owns; false when it owned none. */
   end(pointerId: number): boolean {
-    if (this.pointer !== pointerId) return false;
-    this.pointer = null;
-    if (this.byTip) this.sticky = pointerId;
-    else this.restoreCursor();
+    const action = this.state.end(pointerId);
+    if (action === "none") return false;
+    if (action === "restore") this.restoreCursor();
     return true;
   }
 
   /** A hover over `currentTarget`: the sticky pointer brings the eraser cursor along. */
   hover(event: EraserHoverEvent): void {
-    if (this.sticky !== event.pointerId || this.target === event.currentTarget) return;
+    if (this.state.hover(event.pointerId) !== "show" || this.target === event.currentTarget) return;
     this.show(event.currentTarget);
   }
 
   /** The pointer left the surface: its eraser cursor comes off, and returns on the next hover. */
   leave(pointerId: number): void {
-    if (this.sticky === pointerId && this.pointer === null) this.restoreCursor();
+    if (this.state.leave(pointerId) === "restore") this.restoreCursor();
   }
 
   /** A down that did not erase: the back tip is no longer the end in use. */
   release(pointerId: number): void {
-    if (this.sticky !== pointerId) return;
-    this.sticky = null;
-    this.restoreCursor();
+    if (this.state.release(pointerId) === "restore") this.restoreCursor();
   }
 
   private show(target: unknown): void {

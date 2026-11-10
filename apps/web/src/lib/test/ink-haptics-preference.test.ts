@@ -1,7 +1,10 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { parseInkHapticsOn } from "../ink-haptics-preference";
+
+before(loadTestCore);
 
 test("ink haptics preference: on unless stored off", () => {
   assert.equal(parseInkHapticsOn(null), true);

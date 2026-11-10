@@ -1,4 +1,3 @@
-import { PAGE_TITLE_SCAN_CHARS } from "@weaveforge/core";
 import { safeFetch, type SafeFetchOptions } from "./safe-fetch";
 import { typedCore } from "@/lib/rust-core";
 
@@ -45,14 +44,14 @@ export async function fetchPageTitle(target: string, options: SafeFetchOptions =
   }
 
   // Decode only the region a title can be in. `extractPageTitle` stops scanning
-  // at `PAGE_TITLE_SCAN_CHARS` characters, so decoding the tail is work thrown
+  // at `pageTitleScanChars()` characters, so decoding the tail is work thrown
   // away — and the body is already capped at `TITLE_BYTES` (512 KB) precisely so
   // one fetch cannot cost more than that. UTF-8 needs at least one byte per
   // character, so this can decode fewer characters than the limit but never
   // more: on an ASCII page it is exactly the same region, and on a multi-byte
   // one it can only miss a title more than 200 KB into the head.
   const decoded = new TextDecoder("utf-8", { fatal: false }).decode(
-    result.body.subarray(0, PAGE_TITLE_SCAN_CHARS),
+    result.body.subarray(0, typedCore().pageTitleScanChars()),
   );
   const found = typedCore().extractPageTitle(decoded);
   if (!found) return { ok: false, status: 404, message: "That page has no title." };

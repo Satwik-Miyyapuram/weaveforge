@@ -27,6 +27,7 @@ import {
   type InkStroke,
   type InkTool,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /** Bounding box as `[minX, minY, maxX, maxY]`, in 0.1 mm. */
 export type InkBounds = [number, number, number, number];
@@ -52,58 +53,36 @@ export interface InkStrokeGeometry {
 /** The empty bounding box, which is what a stroke with no points has. */
 export const EMPTY_BOUNDS: InkBounds = [0, 0, 0, 0];
 
-/** The bounding box of two parallel coordinate arrays. */
+/** The bounding box of two parallel coordinate arrays. Rust: `page_buffer::bounds_of`. */
 export function boundsOf(x: Float32Array, y: Float32Array): InkBounds {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (let i = 0; i < x.length; i += 1) {
-    const px = x[i]!;
-    const py = y[i]!;
-    if (px < minX) minX = px;
-    if (px > maxX) maxX = px;
-    if (py < minY) minY = py;
-    if (py > maxY) maxY = py;
-  }
-  if (!Number.isFinite(minX)) return [...EMPTY_BOUNDS];
-  return [minX, minY, maxX, maxY];
+  const box = readyCore().inkBoundsOf(x, y);
+  return [box[0]!, box[1]!, box[2]!, box[3]!];
 }
 
-/** Whether two bounding boxes overlap at all, `slack` growing one of them. */
+/** Whether two bounding boxes overlap at all, `slack` growing one of them. Rust: `bounds_intersect`. */
 export function boundsIntersect(
   a: InkBounds,
   b: InkBounds,
   slack = 0,
 ): boolean {
-  return (
-    a[0] - slack <= b[2] + slack &&
-    a[2] + slack >= b[0] - slack &&
-    a[1] - slack <= b[3] + slack &&
-    a[3] + slack >= b[1] - slack
-  );
+  return readyCore().inkBoundsIntersect(Float64Array.from(a), Float64Array.from(b), slack);
 }
 
-/** The smallest box covering `a` and `b`; `a` null starts from a copy of `b`. */
+/** The smallest box covering `a` and `b`; `a` null starts from a copy of `b`. Rust: `bounds_union`. */
 export function boundsUnion(a: InkBounds | null, b: InkBounds): InkBounds {
-  return a
-    ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]
-    : [b[0], b[1], b[2], b[3]];
+  if (!a) return [b[0], b[1], b[2], b[3]];
+  const box = readyCore().inkBoundsUnion(Float64Array.from(a), Float64Array.from(b));
+  return [box[0]!, box[1]!, box[2]!, box[3]!];
 }
 
-/** Whether `point` is inside a box, `slack` growing the box. */
+/** Whether `point` is inside a box, `slack` growing the box. Rust: `bounds_contain`. */
 export function boundsContain(
   box: InkBounds,
   x: number,
   y: number,
   slack = 0,
 ): boolean {
-  return (
-    x >= box[0] - slack &&
-    x <= box[2] + slack &&
-    y >= box[1] - slack &&
-    y <= box[3] + slack
-  );
+  return readyCore().inkBoundsContain(Float64Array.from(box), x, y, slack);
 }
 
 /** A stroke as it arrives from the pen: absolute points, before simplification. */

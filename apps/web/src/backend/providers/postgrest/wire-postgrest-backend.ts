@@ -55,7 +55,7 @@ import { PostgrestMemberRepository } from "@/features/org/infrastructure/postgre
 import { PostgrestSupervisionRepository } from "@/features/org/infrastructure/postgrest-supervision-repository";
 import { PostgrestPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
 import { cachePaperRepository } from "@/features/papers/infrastructure/cached-paper-repository";
-import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
+import { milestoneToDomain, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
 import { PostgrestProjectRepository } from "@/features/projects/infrastructure/postgrest-project-repository";
 import { ProjectZoteroStore } from "@/features/projects/infrastructure/project-zotero-store";
 import {
@@ -307,7 +307,7 @@ export function wirePostgrestBackend(
   const milestoneRepository = cacheRepo(
     new SpecRepository<Milestone, MilestoneRow, MilestoneFilter>(db, projectContext, "milestones", {
       toDomain: milestoneToDomain,
-      toRow: milestoneToRow,
+      toRow: (m) => readyCore().milestoneToRow(m),
     }),
     ["getById", "list"],
     ["save", "delete"],

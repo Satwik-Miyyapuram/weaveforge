@@ -20,6 +20,9 @@ stay in TypeScript.
 - `export_path`: the export path guard and the missing-figure warning.
 - `text_ot`: ShareJS "text" operations, the format Overleaf's editor uses.
 - `upload`: the root folder id from Overleaf's join answer.
+- `upload_reason`: the `: <message>` suffix an upload failure shows, read from Overleaf's answer body.
+- `thumb`: the storage key for a project's card picture and the 300 KB size gate.
+- `project_list`: the merge of account projects with linked reports, and the search and picked-row rules. The sort stays in TS.
 
 ## How the app calls it
 
@@ -34,6 +37,9 @@ Examples of the JavaScript names:
 - `overleaf_text_ot`: `applyTextOp`, `transformTextOps`.
 - `overleaf_tree`: `flattenOverleafDocs`, `flattenOverleafFiles`.
 - `overleaf_upload`: `rootFolderIdOf`.
+- `overleaf_upload_reason`: `uploadErrorSuffix`.
+- `overleaf_thumb`: `thumbKey`, `thumbFits`.
+- `overleaf_project_list`: `mergeOverleafProjects`, `overleafProjectMatches`, `overleafProjectShown`.
 
 TypeScript reaches these through the wrappers in `packages/wf-wasm/src`, which
 call `readyCore()` for the loaded core and `typedCore()` for typed results. The

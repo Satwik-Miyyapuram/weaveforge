@@ -1,6 +1,6 @@
 import type { ILibraryPinRepository } from "../domain/library-pin-repository.js";
 import type { IShareRepository } from "../../sharing/domain/share-repository.js";
-import type { ShareableType } from "../../sharing/domain/share.js";
+import type { ShareableType } from "../../../shared/core-contract.js";
 import { mergePinnedScreenData, type PinnedScreenMerge } from "./merge-pinned-screen-data.js";
 
 /**

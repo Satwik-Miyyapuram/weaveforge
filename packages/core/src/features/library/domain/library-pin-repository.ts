@@ -1,4 +1,4 @@
-import type { ShareableType } from "../../sharing/domain/share.js";
+import type { ShareableType } from "../../../shared/core-contract.js";
 import type { LibraryPin, NewLibraryPinInput } from "./library-pin.js";
 
 export interface ILibraryPinRepository {

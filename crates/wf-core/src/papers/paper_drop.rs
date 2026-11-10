@@ -1,9 +1,27 @@
 //! Paper drops: which files count as PDFs or BibTeX, the title read from a PDF
 //! (its metadata or first page), and the toast text for a drop.
 
+use std::sync::LazyLock;
+
+use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
 
+use super::js_regex::{compile, space_class};
 use crate::search::js_text::utf16_len;
+
+/// Past this many bytes a PDF is more likely a scanned book than a paper (200 MiB).
+/// Matches the TS `MAX_PDF_BYTES` it replaces.
+pub const MAX_PDF_BYTES: f64 = 200.0 * 1024.0 * 1024.0;
+
+/// `arXiv:` stamp in running text, new style (`2301.12345`) or old (`hep-th/9711200`),
+/// with an optional version. ASCII `\b`, case-insensitive, JS `\s` spacing, as TS `ARXIV_STAMP`.
+static ARXIV_STAMP_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    compile(&format!(
+        r"(?i)\barxiv:[{}]*(?:[a-z-]+(?:\.[a-z]{{2}})?/[0-9]{{7}}|[0-9]{{4}}\.[0-9]{{4,5}})(?:v[0-9]+)?",
+        space_class()
+    ))
+    .ok()
+});
 
 /// Where a dropped paper's title came from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,6 +96,22 @@ pub fn is_pdf_file(name: &str, mime_type: &str) -> bool {
 pub fn is_bib_file(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     lower.ends_with(".bib") || lower.ends_with(".bibtex")
+}
+
+/// Whether a PDF is over [`MAX_PDF_BYTES`] and so is skipped, as TS `file.size > MAX_PDF_BYTES`.
+#[must_use]
+pub fn is_pdf_too_large(size_bytes: f64) -> bool {
+    size_bytes > MAX_PDF_BYTES
+}
+
+/// The `arXiv:` stamp matched in a PDF's first-page text (`arXiv:2301.12345v2`), if any.
+/// The caller normalizes it with `normalize_arxiv_id`, as the TS flow did.
+#[must_use]
+pub fn arxiv_stamp(page_text: &str) -> Option<String> {
+    ARXIV_STAMP_RE
+        .as_ref()?
+        .find(page_text)
+        .map(|m| m.as_str().to_owned())
 }
 
 /// The first of the PDF's opening lines (at most eight) that reads like a
@@ -244,6 +278,34 @@ fn plural_suffix(n: usize) -> &'static str {
     if n == 1 { "" } else { "s" }
 }
 
+/// Where each dropped file goes: `.bib` files are imported, the rest take the PDF path.
+/// Both lists hold indices into the drop, in drop order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperDropSplit {
+    /// Indices of the files that take the PDF path.
+    pub pdf_indices: Vec<usize>,
+    /// Indices of the `.bib` and `.bibtex` files.
+    pub bib_indices: Vec<usize>,
+}
+
+/// Splits a drop by file name. Every name lands in exactly one of the two lists.
+#[must_use]
+pub fn split_paper_drop(names: &[String]) -> PaperDropSplit {
+    let mut split = PaperDropSplit {
+        pdf_indices: Vec::new(),
+        bib_indices: Vec::new(),
+    };
+    for (index, name) in names.iter().enumerate() {
+        if is_bib_file(name) {
+            split.bib_indices.push(index);
+        } else {
+            split.pdf_indices.push(index);
+        }
+    }
+    split
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,6 +372,61 @@ mod tests {
     fn title_guess_looks_at_eight_lines_only() {
         let text = "1\n2\n3\n4\n5\n6\n7\n8\nA Long Enough Paper Title Here";
         assert_eq!(guess_title(text), None);
+    }
+
+    #[test]
+    fn too_large_is_strictly_over_the_cap() {
+        assert!(!is_pdf_too_large(MAX_PDF_BYTES));
+        assert!(is_pdf_too_large(MAX_PDF_BYTES + 1.0));
+        assert!(!is_pdf_too_large(0.0));
+    }
+
+    #[test]
+    fn arxiv_stamp_new_and_old_style() {
+        assert_eq!(
+            arxiv_stamp("arXiv:2301.12345v2 [cs.LG] 3 Jan 2023"),
+            Some("arXiv:2301.12345v2".to_owned())
+        );
+        assert_eq!(
+            arxiv_stamp("arXiv:hep-th/9711200v1 [hep-th]"),
+            Some("arXiv:hep-th/9711200v1".to_owned())
+        );
+        assert_eq!(
+            arxiv_stamp("arXiv:cs.LG/0501001"),
+            Some("arXiv:cs.LG/0501001".to_owned())
+        );
+    }
+
+    #[test]
+    fn arxiv_stamp_is_case_insensitive_and_word_bounded() {
+        assert_eq!(
+            arxiv_stamp("ARXIV:2301.12345"),
+            Some("ARXIV:2301.12345".to_owned())
+        );
+        assert_eq!(
+            arxiv_stamp("arXiv:  2301.1234"),
+            Some("arXiv:  2301.1234".to_owned())
+        );
+        assert_eq!(arxiv_stamp("myarxiv:2301.12345"), None);
+        assert_eq!(arxiv_stamp("no stamp here 2301.12345"), None);
+    }
+
+    #[test]
+    fn split_paper_drop_routes_bib_files_and_keeps_drop_order() {
+        let names: Vec<String> = ["a.pdf", "refs.BIB", "b.bibtex", "notes.txt"]
+            .iter()
+            .map(|n| (*n).to_owned())
+            .collect();
+        let split = split_paper_drop(&names);
+        assert_eq!(split.pdf_indices, vec![0, 3]);
+        assert_eq!(split.bib_indices, vec![1, 2]);
+    }
+
+    #[test]
+    fn split_paper_drop_of_nothing_is_empty() {
+        let split = split_paper_drop(&[]);
+        assert!(split.pdf_indices.is_empty());
+        assert!(split.bib_indices.is_empty());
     }
 
     #[test]

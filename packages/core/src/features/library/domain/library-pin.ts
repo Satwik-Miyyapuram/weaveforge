@@ -1,5 +1,5 @@
 import type { Identifiable } from "../../../shared/repository.js";
-import type { ShareableType } from "../../sharing/domain/share.js";
+import type { ShareableType } from "../../../shared/core-contract.js";
 import { PermissionError } from "../../../shared/errors.js";
 
 export interface LibraryPin extends Identifiable {

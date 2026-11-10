@@ -3,12 +3,7 @@
 import { EditorSelection, type ChangeSpec, type StateCommand } from "@codemirror/state";
 import { EditorView, type Command, type KeyBinding } from "@codemirror/view";
 import type { CommaPlacement, PasteSettings, PdfTextOptions } from "@weaveforge/wasm";
-import {
-  afterUrlPaste,
-  BARE_URL,
-  escapeLinkLabel,
-  type RemotePasteOptions,
-} from "@/components/markdown/markdown-remote-paste";
+import { afterUrlPaste, type RemotePasteOptions } from "@/components/markdown/markdown-remote-paste";
 import { readyCore } from "@/lib/rust-core";
 
 /**
@@ -48,15 +43,6 @@ function insertAsOneStep(view: EditorView, text: string): void {
 }
 
 /**
- * Makes a string safe to sit inside a link label. Single-line only; a label
- * spanning lines is not a label, and such a selection is pasted over normally.
- */
-function linkLabel(selected: string): string | null {
-  if (!selected || /[\r\n]/.test(selected)) return null;
-  return escapeLinkLabel(selected);
-}
-
-/**
  * Pasting a URL over selected text makes a link of it.
  *
  * CodeMirror's markdown package offers this, and it is why this handler is
@@ -74,7 +60,7 @@ function insertAsLink(view: EditorView, url: string): boolean {
   const labels = new Map<number, string>();
   for (const range of view.state.selection.ranges) {
     if (range.empty) continue;
-    const label = linkLabel(view.state.sliceDoc(range.from, range.to));
+    const label = readyCore().linkLabel(view.state.sliceDoc(range.from, range.to));
     if (label !== null) labels.set(range.from, label);
   }
   if (labels.size === 0) return false;
@@ -125,7 +111,7 @@ function handlePaste(
   // A cleaned URL dropped onto selected text becomes a link around it. Done
   // here rather than left to the markdown package, which would wrap the
   // clipboard's own spelling and put the tracker back.
-  if (BARE_URL.test(result.text)) {
+  if (readyCore().isBareUrl(result.text)) {
     if (insertAsLink(view, result.text)) {
       event.preventDefault();
       return true;
@@ -134,7 +120,7 @@ function handlePaste(
 
   // A URL that needed no cleaning still gets its title read, so the decision to
   // handle the paste here cannot be "did anything change".
-  const wantsRemote = options !== undefined && BARE_URL.test(result.text);
+  const wantsRemote = options !== undefined && readyCore().isBareUrl(result.text);
   if (!result.changed && !wantsRemote) return false;
 
   event.preventDefault();

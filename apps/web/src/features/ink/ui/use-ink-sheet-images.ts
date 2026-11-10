@@ -39,7 +39,8 @@ function vaultImagePaths(text: string): string[] {
 
 /** `vault:<path>` from a src the renderer captured, or null for another prefix. */
 function vaultPathOf(src: string): string | null {
-  return src.startsWith(readyCore().VAULT_IMAGE_PREFIX) ? src.slice(readyCore().VAULT_IMAGE_PREFIX.length) : null;
+  const prefix = readyCore().vaultImagePrefix();
+  return src.startsWith(prefix) ? src.slice(prefix.length) : null;
 }
 
 /**

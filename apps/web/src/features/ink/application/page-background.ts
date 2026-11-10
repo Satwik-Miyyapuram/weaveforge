@@ -40,11 +40,11 @@ export interface Placement {
 
 /** Whether `file` is something this can make a page of. */
 export function isPageSource(file: { type: string; name: string }): boolean {
-  return isPdf(file) || file.type.startsWith("image/");
+  return readyCore().inkIsPageSource(file.type, file.name);
 }
 
 export function isPdf(file: { type: string; name: string }): boolean {
-  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  return readyCore().inkIsPdf(file.type, file.name);
 }
 
 /**

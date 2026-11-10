@@ -3,7 +3,7 @@
  * the repository (which enforces idempotency + RLS). Kept thin because the DB
  * owns identity, ownership (auth.uid()), and the uniqueness rule.
  */
-import { type NewShareInput, type Share, type ShareableType } from "../domain/share.js";
+import { type NewShareInput, type Share, type ShareableType } from "../../../shared/core-contract.js";
 import type { IShareRepository } from "../domain/share-repository.js";
 import { rust } from "../../../shared/rust.js";
 

@@ -36,8 +36,8 @@ export function planAssetReanchor(
 
 /** Every body the workspace holds that can carry an image reference. */
 export function workspaceBodies(snapshot: WorkspaceSnapshot): string[] {
-  return [
-    ...snapshot.vaultPages.map((page) => page.body),
-    ...snapshot.papers.map((paper) => paper.summary ?? ""),
-  ];
+  return readyCore().workspaceBodies(
+    snapshot.vaultPages.map((page) => page.body),
+    snapshot.papers.map((paper) => paper.summary),
+  );
 }

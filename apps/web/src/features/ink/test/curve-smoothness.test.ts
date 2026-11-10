@@ -2,17 +2,20 @@
 // so its samples sit up to a couple of millimetres apart. Each span is drawn as
 // INK_SEGMENT_SUBDIVISIONS straight capsules; too few and a small letter loop
 // shows visible facets. This pins how sharp the join between two capsules may be.
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_PACK_TOLERANCE } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   INK_INSTANCE_FLOATS,
   packStrokeInstances,
   strokeCurveAt,
   strokeInstanceCount,
 } from "../render/ink-renderer";
+
+before(loadTestCore);
 
 /**
  * How deep the deepest facet is, in 0.1 mm: at each join between two drawn

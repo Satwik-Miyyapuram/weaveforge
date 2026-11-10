@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::blob_links::{
     from_relative_blob_links_mapped, owned_asset_folder_paths, plan_asset_reanchor,
-    relative_asset_paths, to_relative_blob_links,
+    relative_asset_paths, to_relative_blob_links, workspace_bodies,
 };
 use wf_core::sync::folder_layout::{
     ENTITY_DIRS, WorkspaceEntityType, WorkspaceProject, entity_dir, id_suffix, project_dir,
@@ -272,6 +272,20 @@ pub fn owned_asset_folder_paths_js(bodies: JsValue) -> JsResult<JsValue> {
         check_text(body)?;
     }
     to_js(&owned_asset_folder_paths(&bodies))
+}
+
+/// [`wf_core::sync::blob_links::workspace_bodies`] for JS. `vaultBodies` is an array of
+/// strings and `paperSummaries` an array of strings or `null`; the result is the bodies,
+/// vault pages first, a missing summary as an empty body.
+///
+/// # Errors
+///
+/// Fails when either argument is not an array of the expected element type.
+#[wasm_bindgen(js_name = workspaceBodies)]
+pub fn workspace_bodies_js(vault_bodies: JsValue, paper_summaries: JsValue) -> JsResult<JsValue> {
+    let vault_bodies: Vec<String> = serde_wasm_bindgen::from_value(vault_bodies)?;
+    let paper_summaries: Vec<Option<String>> = serde_wasm_bindgen::from_value(paper_summaries)?;
+    to_js(&workspace_bodies(&vault_bodies, &paper_summaries))
 }
 
 /// [`wf_core::sync::blob_links::plan_asset_reanchor`] for JS. `owned` and `available` are

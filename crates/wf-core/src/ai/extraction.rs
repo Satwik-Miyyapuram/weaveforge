@@ -150,6 +150,21 @@ pub fn without_existing(result: &ExtractionResult, existing: &[String]) -> Extra
 }
 
 /// First occurrence of each value, in order (JS `[...new Set(values)]`).
+/// JS `items.slice(0, n)` cap for `maxConcepts`. `None` when the value is falsy
+/// (absent, zero or NaN), so nothing is capped. Otherwise the kept count for
+/// `len` items: fractions truncate, a negative `n` counts from the end, and
+/// `Infinity` keeps everything.
+pub fn js_slice_keep(len: usize, max: Option<f64>) -> Option<usize> {
+    let max = max.filter(|value| *value != 0.0 && !value.is_nan())?;
+    let n = max.trunc();
+    let keep = if n >= 0.0 {
+        n.min(len as f64)
+    } else {
+        (len as f64 + n).max(0.0)
+    };
+    Some(keep as usize)
+}
+
 fn unique<'a>(values: impl Iterator<Item = &'a String>) -> Vec<String> {
     let mut seen = HashSet::new();
     values
@@ -161,6 +176,29 @@ fn unique<'a>(values: impl Iterator<Item = &'a String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn js_slice_keep_matches_slice_zero_n() {
+        // Falsy caps (absent, 0, -0, NaN) mean no cap.
+        assert_eq!(js_slice_keep(5, None), None);
+        assert_eq!(js_slice_keep(5, Some(0.0)), None);
+        assert_eq!(js_slice_keep(5, Some(-0.0)), None);
+        assert_eq!(js_slice_keep(5, Some(f64::NAN)), None);
+        // Plain positive cap, clamped to the length.
+        assert_eq!(js_slice_keep(5, Some(2.0)), Some(2));
+        assert_eq!(js_slice_keep(5, Some(9.0)), Some(5));
+        // Fractions truncate toward zero.
+        assert_eq!(js_slice_keep(5, Some(2.9)), Some(2));
+        assert_eq!(js_slice_keep(5, Some(0.5)), Some(0));
+        // Negative counts from the end, floored at zero.
+        assert_eq!(js_slice_keep(5, Some(-1.0)), Some(4));
+        assert_eq!(js_slice_keep(5, Some(-2.5)), Some(3));
+        assert_eq!(js_slice_keep(5, Some(-9.0)), Some(0));
+        assert_eq!(js_slice_keep(5, Some(-0.5)), Some(0));
+        // Infinities keep everything or nothing.
+        assert_eq!(js_slice_keep(5, Some(f64::INFINITY)), Some(5));
+        assert_eq!(js_slice_keep(5, Some(f64::NEG_INFINITY)), Some(0));
+    }
 
     fn concept(name: &str, aliases: &[&str], mentions: f64) -> ExtractedConcept {
         ExtractedConcept {

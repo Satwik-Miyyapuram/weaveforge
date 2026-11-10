@@ -1,4 +1,5 @@
 import type { VaultPage, VaultPageSummary } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The body text a card, a backlink scan or a hashtag scan can see.
@@ -21,9 +22,21 @@ import type { VaultPage, VaultPageSummary } from "@weaveforge/core";
  * distinguishable from an unhydrated summary.
  */
 export function noteBodyText(page: VaultPageSummary | VaultPage): string {
-  const full = "body" in page ? page.body : undefined;
-  const preview = "bodyPreview" in page ? page.bodyPreview : undefined;
+  const full = "body" in page && typeof page.body === "string" ? page.body : undefined;
+  const preview = "bodyPreview" in page && typeof page.bodyPreview === "string" ? page.bodyPreview : undefined;
+  if (fitsIndexCap(full) && fitsIndexCap(preview)) {
+    return readyCore().noteBodyText(full, preview);
+  }
+  // Above the 16Mi UTF-16 cap the Rust rule is not used: keep the original TS rule.
   return full || preview || "";
+}
+
+/**
+ * Whether a body or preview is within the index cap, the limit the wasm rules enforce. A text
+ * above it keeps the original TS rule rather than failing the call.
+ */
+function fitsIndexCap(text: string | undefined): boolean {
+  return text === undefined || readyCore().textWithinCap(text);
 }
 
 /**
@@ -40,5 +53,14 @@ export function isHydratedPage(page: VaultPageSummary | VaultPage): page is Vaul
   // fetched its full text. A preview is the mark of a summary — `VaultPage`
   // keeps it empty on a full page precisely so this can tell them apart.
   if (!("body" in page) || typeof page.body !== "string") return false;
-  return !("bodyPreview" in page && page.bodyPreview);
+  const rawPreview: unknown = "bodyPreview" in page ? page.bodyPreview : undefined;
+  // A truthy preview that is not a string is not a usable stand-in: the page is a summary (TS rule).
+  if (rawPreview && typeof rawPreview !== "string") return false;
+  const body = page.body;
+  const preview = typeof rawPreview === "string" ? rawPreview : undefined;
+  if (!fitsIndexCap(body) || !fitsIndexCap(preview)) {
+    // Above the cap the Rust rule is not used: keep the original TS rule.
+    return !preview;
+  }
+  return readyCore().isHydratedPage(body, preview);
 }

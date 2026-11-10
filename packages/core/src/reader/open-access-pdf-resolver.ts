@@ -3,6 +3,7 @@
  * Pure: no I/O beyond what the caller already put on the paper shape.
  */
 
+import { rust } from "../shared/rust.js";
 import type { IPdfSourceResolver, PdfSourceHit, PdfSourcePaper } from "./pdf-source-ladder.js";
 
 export interface OpenAccessPdfResolverOptions {
@@ -20,11 +21,11 @@ export class OpenAccessPdfResolver implements IPdfSourceResolver {
   constructor(private readonly options: OpenAccessPdfResolverOptions) {}
 
   supports(paper: PdfSourcePaper): boolean {
-    return Boolean(paper.arxivId?.trim() || paper.url?.trim() || paper.doi?.trim());
+    return rust().openAccessSupports(paper.arxivId, paper.url, paper.doi);
   }
 
   async resolve(paper: PdfSourcePaper): Promise<PdfSourceHit | null> {
-    const url = this.options.resolveUrl(paper)?.trim();
+    const url = rust().trimmedOrNone(this.options.resolveUrl(paper));
     if (!url) return null;
     return { url };
   }
