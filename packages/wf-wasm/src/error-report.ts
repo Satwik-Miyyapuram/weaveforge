@@ -3,6 +3,7 @@
  * address and body. Re-exported from index.ts.
  */
 import {
+  isNetworkFailure as rawIsNetworkFailure,
   maxReportChars as rawMaxReportChars,
   newIssueUrl as rawNewIssueUrl,
   redactReport as rawRedactReport,
@@ -52,4 +53,9 @@ export function newIssueUrl(title: string, body: string, repo: string): string {
 /** The issue body for a report (Rust `report_markdown`). */
 export function reportMarkdown(input: ReportMarkdown): string {
   return rawReportMarkdown(input);
+}
+
+/** Whether `message` names a browser network failure (Rust `is_network_failure`). */
+export function isNetworkFailure(message: string): boolean {
+  return rawIsNetworkFailure(message);
 }

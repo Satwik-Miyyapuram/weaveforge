@@ -10,5 +10,5 @@ export function materializeBlobImagesInBody(
   pageId: string,
   upload: (pageId: string, blob: Blob, ext: string) => Promise<string>,
 ): Promise<MaterializedBody> {
-  return materializeBlobImages(body, pageId, upload, readyCore().VAULT_IMAGE_PREFIX, (text: string) => readyCore().normalizeMarkdownImageSyntax(text));
+  return materializeBlobImages(body, pageId, upload, readyCore().vaultImagePrefix(), (text: string) => readyCore().normalizeMarkdownImageSyntax(text));
 }

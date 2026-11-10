@@ -24,11 +24,6 @@ const EXEC: Record<string, string> = {
   "edit-select-all": "selectAll",
 };
 
-/** Whether `command` is one of the shell's Edit menu commands. */
-export function isEditCommand(command: string): boolean {
-  return command === "edit-paste" || Object.hasOwn(EXEC, command);
-}
-
 /**
  * Runs one Edit menu command on the focused element. Paste reads the
  * clipboard and inserts its text, since `execCommand("paste")` is refused in

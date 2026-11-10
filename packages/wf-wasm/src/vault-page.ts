@@ -1,7 +1,7 @@
 /**
  * Typed wrappers over the wasm vault page helpers (wf-core `vault::page`). The names and
- * defaults match `packages/core/src/features/vault/domain/vault-page.ts`; the markdown
- * image helpers live in `workspace.ts`.
+ * defaults match the `VaultPage` contract in `packages/core/src/shared/core-contract.ts`; the
+ * markdown image helpers live in `workspace.ts`.
  */
 import {
   vaultAssetPathsInBody as rawAssetPathsInBody,
@@ -10,6 +10,8 @@ import {
   expandEmbeds as rawExpandEmbeds,
   replaceVaultAssetPaths as rawReplaceVaultAssetPaths,
   vaultBodyPreview as rawBodyPreview,
+  vaultBodyPreviewChars as rawBodyPreviewChars,
+  vaultImagePrefix as rawImagePrefix,
   extractWikilinks as rawExtractWikilinks,
   vaultImageMarkdown as rawImageMarkdown,
   normalizeTitleKey as rawNormalizeTitleKey,
@@ -19,13 +21,23 @@ import {
   scopeNoteIndices as rawScopeNoteIndices,
   stripFrontmatter as rawStripFrontmatter,
   uniqueTitle as rawUniqueTitle,
+  vaultTitleOrBodyFilter as rawTitleOrBodyFilter,
+  vaultTitleLikePattern as rawTitleLikePattern,
+  isMissingBodyPreviewColumn as rawIsMissingBodyPreviewColumn,
 } from "../pkg/wf_wasm.js";
 import type { ParsedFrontmatter, WikilinkRef } from "./bindings.js";
 
 export type { ParsedFrontmatter, WikilinkRef };
 
-export const VAULT_IMAGE_PREFIX = "vault:";
-export const VAULT_BODY_PREVIEW_CHARS = 320;
+/** Prefix embedded vault images use in markdown: `![](vault:userId/pageId/file.png)`. */
+export function vaultImagePrefix(): string {
+  return rawImagePrefix();
+}
+
+/** Max chars kept for note-card previews from `listSummaries`. */
+export function vaultBodyPreviewChars(): number {
+  return rawBodyPreviewChars();
+}
 
 export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
   return rawParseWikilinkInner(inner, raw) as WikilinkRef;
@@ -64,7 +76,7 @@ export function vaultAssetPathsInBody(body: string): string[] {
   return rawAssetPathsInBody(body);
 }
 
-export function vaultBodyPreview(body: string, max = VAULT_BODY_PREVIEW_CHARS): string {
+export function vaultBodyPreview(body: string, max = vaultBodyPreviewChars()): string {
   if (!body) return "";
   return rawBodyPreview(body, max);
 }
@@ -112,4 +124,22 @@ export function scopeNoteIndices(
   membership: Readonly<Record<string, readonly string[]>>,
 ): number[] {
   return rawScopeNoteIndices(notes, [...listFilter], [...tagFilter], membership);
+}
+
+/**
+ * The PostgREST `or` filter for a case-insensitive title or body search, or `undefined`
+ * for an empty query (no filter).
+ */
+export function vaultTitleOrBodyFilter(query: string): string | undefined {
+  return rawTitleOrBodyFilter(query) ?? undefined;
+}
+
+/** The ILIKE pattern that narrows candidates for a normalised title key. */
+export function vaultTitleLikePattern(key: string): string {
+  return rawTitleLikePattern(key);
+}
+
+/** True when a PostgREST error means the `body_preview` column is not migrated yet. */
+export function isMissingBodyPreviewColumn(message: string | undefined, code: string | undefined): boolean {
+  return rawIsMissingBodyPreviewColumn(message, code);
 }

@@ -1,3 +1,5 @@
+import { readyCore } from "@/lib/rust-core";
+
 /**
  * An Enter that commits a field: not the one that confirms an IME composition
  * (`isComposing`, or keyCode 229 on older engines). Without this, a Japanese or
@@ -8,5 +10,5 @@ export function isCommitEnter(event: {
   keyCode?: number;
   nativeEvent?: { isComposing?: boolean };
 }): boolean {
-  return event.key === "Enter" && !event.nativeEvent?.isComposing && event.keyCode !== 229;
+  return readyCore().isCommitEnter(event.key, event.keyCode, !!event.nativeEvent?.isComposing);
 }

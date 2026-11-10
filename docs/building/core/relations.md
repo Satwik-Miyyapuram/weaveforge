@@ -12,6 +12,8 @@ Each file under `crates/wf-core/src/relations/` covers one job:
 
 - `mod.rs`: registers the submodules and states that the rules come from the TypeScript domain.
 - `paper_relation.rs`: the id, input check and row mapping for a paper-to-paper relation.
+- `relation_rows.rs`: dedupes relation rows by id, keeping first-seen order, for a paper's relations read from both sides.
+- `citation_candidate.rs`: Semantic Scholar citation candidate assembly (one `/citations` page) and the `/paper/batch` reference alignment rule, with the HTTP calls and paging loop left in TS.
 - `graph_build.rs`: builds the citation graph for one view from papers, notes, report sections and runs.
 - `graph_topology.rs`: the key that tells the simulation when its layout inputs changed.
 - `graph_settings.rs`: graph view settings, their defaults, and the per-project graph state.
@@ -45,6 +47,21 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
 `readyCore()` throws until `loadCore()` has resolved, so call it only after the
 core has loaded.
+
+## Constants and defaults
+
+Rust is the only copy of the graph defaults (`default_graph_settings`,
+`MAX_COLOR_GROUPS`, the persisted-state defaults). The TS files still declare
+these as module-load values, so they are a second copy until the importers move:
+
+- `RELATION_TYPES` (`domain/paper-relation.ts`), `NODE_COLOR_KEYS` and
+  `DEFAULT_GRAPH_SETTINGS`, `MAX_COLOR_GROUPS` (`domain/graph-view-settings.ts`),
+  `DEFAULT_GRAPH_PERSISTED_STATE` (`domain/graph-persisted-defaults.ts`).
+
+They are still TS because they are public `@weaveforge/core` names read by
+`apps/web` (`.tsx` under `ui/` and `.ts` tests) and `apps/shell/sidecar`. Rust has
+no exported relation-type list or node-colour key list yet. Moving them needs
+new wasm exports, then a call-time function, then the importers repointed.
 
 ## What stays in TypeScript, and why
 

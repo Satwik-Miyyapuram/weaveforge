@@ -3,7 +3,7 @@ import type {
   LibraryPin,
   NewLibraryPinInput,
 } from "../features/library/domain/library-pin.js";
-import type { ShareableType } from "../features/sharing/domain/share.js";
+import type { ShareableType } from "../shared/core-contract.js";
 
 /**
  * In-memory {@link ILibraryPinRepository}. Scoped to one user + project, mirroring

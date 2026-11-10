@@ -16,13 +16,6 @@ export type ReaderAnnotationType = (typeof READER_ANNOTATION_TYPES)[number];
 /** R5 write-back bookkeeping for a reader annotation row. */
 export type AnnotationSyncState = "local" | "synced" | "pending" | "conflict";
 
-const ANNOTATION_SYNC_STATES: readonly AnnotationSyncState[] = [
-  "local",
-  "synced",
-  "pending",
-  "conflict",
-] as const;
-
 export interface ReaderAnnotation {
   id: string;
   origin: AnnotationOrigin;

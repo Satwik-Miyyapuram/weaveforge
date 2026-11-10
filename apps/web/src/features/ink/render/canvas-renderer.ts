@@ -41,9 +41,9 @@ import {
 } from "./ink-renderer";
 import {
   INK_RENDER_COLOURS,
-  paletteCss,
   type InkPalette,
 } from "./ink-palette";
+import { readyCore } from "@/lib/rust-core";
 
 /** The 2D context, whichever canvas it came from. */
 export type Context2dLike =
@@ -75,7 +75,7 @@ export function cssInkColour(
   alpha = 1,
   palette: InkPalette = INK_RENDER_COLOURS,
 ): string {
-  return paletteCss(palette, colour, alpha);
+  return readyCore().paletteCss(palette, colour, alpha);
 }
 
 export class CanvasInkRenderer implements InkRenderer {

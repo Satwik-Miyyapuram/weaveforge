@@ -6,6 +6,7 @@
  */
 import {
   anchorAt as rawAnchorAt,
+  compactSkipReason as rawCompactSkipReason,
   conceptKey as rawConceptKey,
   formatReference as rawFormatReference,
   locateAnchor as rawLocateAnchor,
@@ -95,6 +96,17 @@ export function peersFromUsers(users: readonly (readonly [number, unknown])[], s
 /** Whether an editor may write `next` back over `lastSaved`: only once `ready`, and only when the text changed (Rust `should_persist_body`). */
 export function shouldPersistBody(ready: boolean, next: string, lastSaved: string): boolean {
   return rawShouldPersistBody(ready, next, lastSaved);
+}
+
+/** Why a CRDT compaction is a no-op (`nothing-to-do` or `stale`), or undefined to send it (Rust `compact_skip_reason`). */
+export function compactSkipReason(
+  snapshotUptoId: number,
+  currentSnapshotUpto?: number,
+): "nothing-to-do" | "stale" | undefined {
+  return (rawCompactSkipReason(snapshotUptoId, currentSnapshotUpto) ?? undefined) as
+    | "nothing-to-do"
+    | "stale"
+    | undefined;
 }
 
 /** Start and end `[line, column]` points of a text span over text nodes of `lengths` (Rust `span_points`), or null when the span is out of range. */

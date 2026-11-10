@@ -1,16 +1,21 @@
+import { readyCore } from "@/lib/rust-core";
 import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./session-lost";
 
 /**
- * Browser network failures, which arrive as a bare TypeError.
- *
- * "Failed to fetch" (Chrome), "NetworkError when attempting to fetch
- * resource." (Firefox) and "Load failed" (Safari) all mean the same thing:
- * the request never reached a server, so there is no status and no body to
- * report. Shown raw it reads like a bug in the app rather than something the
- * reader can act on.
+ * Browser network failures, which arrive as a bare TypeError. The phrase match
+ * lives in Rust (`error_report::network_failure`); see the wf-core module for
+ * why "Failed to fetch", "NetworkError when attempting to fetch" and "Load
+ * failed" all count and "Upload failed" does not.
  */
-// Word-bounded so "Upload failed" is not mistaken for Safari's "Load failed".
-const NETWORK_FAILURE = /\b(failed to fetch|networkerror|load failed)\b/i;
+function isNetworkMessage(message: string): boolean {
+  // formatError also reports a failed wasm load, so this must not throw back
+  // into it. When the core is not ready, treat the message as plain text.
+  try {
+    return readyCore().isNetworkFailure(message);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Whether `err` is a request that never reached a server — as a thrown
@@ -24,7 +29,7 @@ export function isNetworkFailure(err: unknown): boolean {
       : typeof err === "object" && err !== null && typeof (err as { message?: unknown }).message === "string"
         ? (err as { message: string }).message
         : "";
-  return NETWORK_FAILURE.test(message);
+  return isNetworkMessage(message);
 }
 
 function networkFailureMessage(message: string): string | null {
@@ -32,7 +37,7 @@ function networkFailureMessage(message: string): string | null {
   if (lower.includes("dynamically imported module")) {
     return "Could not load part of the app. This usually means a new version was deployed while this tab was open — reload the page.";
   }
-  if (!NETWORK_FAILURE.test(message)) return null;
+  if (!isNetworkMessage(message)) return null;
   // The client names the host it was going to (see providers/postgrest/client),
   // and this app talks to two of them — keep it, because "which one" is the
   // whole of what a reader can pass on to whoever can fix it.

@@ -11,7 +11,7 @@ import type {
   VaultPageFilter,
   VaultPageSummary,
   VaultPageTreeNode,
-} from "./vault-page.js";
+} from "../../../shared/core-contract.js";
 
 export interface IVaultPageRepository
   extends IReadableRepository<VaultPage, VaultPageFilter>,

@@ -3,13 +3,16 @@
  * order, the post-match runs, progress is per line, and a correction survives
  * the next run.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { type InkPage, type InkRecogniser, type RecognisedLine } from "@weaveforge/core";
 
 import { acceptLine, recognisePage } from "../application/recognise-page";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** A short stroke at (x, y) starting at time t. */
 const at = (x: number, y: number, t: number) =>

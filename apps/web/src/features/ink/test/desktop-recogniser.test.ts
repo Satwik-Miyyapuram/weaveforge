@@ -2,12 +2,15 @@
  * The Windows Ink adapter: the helper's per-word evidence becomes a scored
  * line, and no engine line ever comes back as `1`, the mark of a correction.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { DesktopBridge, DesktopInkResult } from "@/lib/desktop/desktop-bridge";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { createDesktopInkRecogniser, INK_REPROBE_MS } from "../application/recognisers";
+
+before(loadTestCore);
 
 const bridge = (result: DesktopInkResult) =>
   ({ inkRecognise: async () => result }) as unknown as DesktopBridge;

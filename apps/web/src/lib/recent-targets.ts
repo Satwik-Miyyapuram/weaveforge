@@ -1,3 +1,5 @@
+import { readyCore } from "@/lib/rust-core";
+
 export type RecentTargetKind = "paper" | "note" | "section";
 
 export interface RecentTarget {
@@ -17,9 +19,7 @@ function key(projectId: string) {
 
 /** Storage is user-editable: keep only entries the jump list can use. */
 function isRecentTarget(value: unknown): value is RecentTarget {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<Record<keyof RecentTarget, unknown>>;
-  return typeof item.kind === "string" && typeof item.id === "string";
+  return readyCore().isRecentTarget(value);
 }
 
 export function readRecentTargets(projectId: string | null): RecentTarget[] {
@@ -63,12 +63,10 @@ export function pinRecentTargets<T extends { kind: string; id: string }>(
   items: readonly T[],
   recents: readonly { kind: string; id: string }[],
 ): (T & { recent?: true })[] {
-  const keyOf = (item: { kind: string; id: string }) => `${item.kind}:${item.id}`;
-  const byKey = new Map(items.map((item) => [keyOf(item), item]));
-  const pinned = recents.flatMap((target) => {
-    const match = byKey.get(keyOf(target));
-    return match ? [{ ...match, recent: true as const }] : [];
-  });
-  const pinnedKeys = new Set(pinned.map(keyOf));
-  return [...pinned, ...items.filter((item) => !pinnedKeys.has(keyOf(item)))];
+  // Malformed entries are skipped here, as the TS version did, so the wasm call
+  // only ever sees well-formed keys.
+  return readyCore().pinRecentTargets(
+    items.filter((item) => isRecentTarget(item)),
+    recents.filter((item) => isRecentTarget(item)),
+  );
 }

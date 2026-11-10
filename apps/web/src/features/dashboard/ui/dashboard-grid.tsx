@@ -11,15 +11,12 @@ import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { getRglBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import type { DashboardLayout, DashboardLayoutItem } from "@weaveforge/core";
 import {
-  mergeRglPositions,
   normalizeSmLayout,
   compactLayoutVertical,
   normalizeLayoutItem,
-  lgLayoutNeedsRepair,
-  smLayoutNeedsRepack,
   layoutFloors,
-  layoutSignature,
 } from "../application/dashboard-layout";
+import { CARD_LIMITS } from "../application/dashboard-layout-packing";
 import { readyCore } from "@/lib/rust-core";
 import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
@@ -280,7 +277,7 @@ export function DashboardGrid({
           bpTransitionRef.current = setTimeout(() => {
             bpTransitionRef.current = null;
             const current = layoutRef.current;
-            if (next === "lg" && lgLayoutNeedsRepair(current.lg)) {
+            if (next === "lg" && readyCore().dashboardLgNeedsRepair(current.lg, CARD_LIMITS)) {
               onLayoutChange(
                 "lg",
                 compactLayoutVertical(
@@ -288,7 +285,7 @@ export function DashboardGrid({
                   12,
                 ),
               );
-            } else if (next === "sm" && smLayoutNeedsRepack(current.sm)) {
+            } else if (next === "sm" && readyCore().dashboardSmNeedsRepack(current.sm, CARD_LIMITS)) {
               onLayoutChange("sm", normalizeSmLayout(current.sm));
             }
           }, LAYOUT_TRANSITION_MS);
@@ -306,10 +303,10 @@ export function DashboardGrid({
 
           if (bp === "sm") {
             const stored = editing ? rgl : withStoredHeights(rgl, itemsByBp.sm);
-            const merged = mergeRglPositions(itemsByBp.sm, stored, bpCols);
+            const merged = readyCore().dashboardMergeRglPositions(itemsByBp.sm, stored, CARD_LIMITS, bpCols) as DashboardLayoutItem[];
             const packed = normalizeSmLayout(merged);
-            const prevSig = layoutSignature(layout.sm);
-            const nextSig = layoutSignature(packed);
+            const prevSig = readyCore().dashboardLayoutSignature(layout.sm);
+            const nextSig = readyCore().dashboardLayoutSignature(packed);
             if (prevSig !== nextSig) {
               onLayoutChange("sm", packed);
             }
@@ -317,7 +314,7 @@ export function DashboardGrid({
           }
 
           if (!editing) return;
-          const merged = mergeRglPositions(itemsByBp.lg, rgl, bpCols);
+          const merged = readyCore().dashboardMergeRglPositions(itemsByBp.lg, rgl, CARD_LIMITS, bpCols) as DashboardLayoutItem[];
           onLayoutChange("lg", compactLayoutVertical(merged, 12));
         }}
       >

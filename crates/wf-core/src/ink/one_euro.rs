@@ -29,6 +29,29 @@ pub struct OneEuroOptions {
     pub derivative_cutoff: f64,
 }
 
+/// The tuned position channel. Its cutoff rises with speed (`beta` 30), so a fast
+/// stroke is nearly unfiltered and a still pen is damped. The derivative cutoff is
+/// 3 Hz, not the paper's 1 Hz, so the speed estimate responds in time.
+#[must_use]
+pub fn position_options() -> OneEuroOptions {
+    OneEuroOptions {
+        min_cutoff: 1.0,
+        beta: 30.0,
+        derivative_cutoff: 3.0,
+    }
+}
+
+/// The tuned pressure channel: a higher floor (5 Hz) and a small `beta` (2), because
+/// a press does not phase out with pen speed.
+#[must_use]
+pub fn pressure_options() -> OneEuroOptions {
+    OneEuroOptions {
+        min_cutoff: 5.0,
+        beta: 2.0,
+        derivative_cutoff: 3.0,
+    }
+}
+
 /// The saved state of one channel: value, derivative, previous value and previous time.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct OneEuroState {
@@ -310,6 +333,7 @@ impl NibFilter {
 mod tests {
     use super::{
         FilteredNibSample, NibFilter, NibSample, OneEuroFilter, OneEuroOptions, one_euro_alpha,
+        position_options, pressure_options,
     };
 
     const POSITION: OneEuroOptions = OneEuroOptions {
@@ -322,6 +346,12 @@ mod tests {
         beta: 2.0,
         derivative_cutoff: 3.0,
     };
+
+    #[test]
+    fn tuned_channels_are_read_from_one_source() {
+        assert_eq!(position_options(), POSITION);
+        assert_eq!(pressure_options(), PRESSURE);
+    }
 
     /// Feed a channel values `step` ms apart, as a 120 Hz pen would at 8.
     fn run(filter: &mut OneEuroFilter, values: &[f64], step: f64) -> Vec<f64> {

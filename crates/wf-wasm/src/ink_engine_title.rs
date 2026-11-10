@@ -27,6 +27,14 @@ pub fn is_ink_engine_id_js(id: &str) -> bool {
     ink_engine::is_ink_engine_id(id)
 }
 
+/// [`ink_engine_rank`](ink_engine::ink_engine_rank): the engine's preference rank, or the
+/// engine count for an unknown id.
+#[wasm_bindgen(js_name = inkEngineRank)]
+#[must_use]
+pub fn ink_engine_rank_js(id: &str) -> usize {
+    ink_engine::ink_engine_rank(id)
+}
+
 /// [`ink_engine_info`](ink_engine::ink_engine_info): the engine's declared facts, or
 /// `null` for an unknown id.
 ///
@@ -79,4 +87,12 @@ pub fn extract_page_title_js(html: &str) -> Result<JsValue, serde_wasm_bindgen::
 pub fn decode_html_entities_js(value: &str) -> Result<String, serde_wasm_bindgen::Error> {
     check_text(value)?;
     Ok(decode_html_entities(value))
+}
+
+/// [`PAGE_TITLE_SCAN_CHARS`](page_title::PAGE_TITLE_SCAN_CHARS): how much of a page body the
+/// title scan reads, read at call time.
+#[wasm_bindgen(js_name = pageTitleScanChars)]
+#[must_use]
+pub fn page_title_scan_chars_js() -> u32 {
+    u32::try_from(page_title::PAGE_TITLE_SCAN_CHARS).unwrap_or(u32::MAX)
 }

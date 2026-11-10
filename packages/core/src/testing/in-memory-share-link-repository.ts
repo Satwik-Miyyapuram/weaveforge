@@ -3,8 +3,8 @@ import type {
   ResolvedShareLink,
   ShareLink,
   ShareLinkSaveInput,
-} from "../features/sharing/domain/share-link.js";
-import type { ShareableType } from "../features/sharing/domain/share.js";
+} from "../shared/core-contract.js";
+import type { ShareableType } from "../shared/core-contract.js";
 
 export class InMemoryShareLinkRepository implements IShareLinkRepository {
   private readonly rows = new Map<string, ShareLinkSaveInput & { createdAt: string }>();

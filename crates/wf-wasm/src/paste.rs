@@ -7,6 +7,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::paste::clean_pasted_text::{clean_pasted_text, paste_lands_in_verbatim_context};
+use wf_core::paste::markdown_link::{escape_link_label, is_bare_url, link_label, markdown_link};
 use wf_core::paste::paste_settings::{
     PasteSettings, normalize_paste_settings, parse_link_removal_text,
 };
@@ -156,6 +157,30 @@ pub fn normalize_paste_settings_js(json: &str) -> JsResult<JsValue> {
 pub fn parse_link_removal_text_js(text: &str) -> JsResult<JsValue> {
     check_text(text)?;
     to_js(&parse_link_removal_text(text))
+}
+
+/// [`is_bare_url`] for JS: whether `text` is one http(s) address (TS `BARE_URL.test`).
+#[wasm_bindgen(js_name = isBareUrl)]
+pub fn is_bare_url_js(text: &str) -> bool {
+    is_bare_url(text)
+}
+
+/// [`escape_link_label`] for JS.
+#[wasm_bindgen(js_name = escapeLinkLabel)]
+pub fn escape_link_label_js(label: &str) -> String {
+    escape_link_label(label)
+}
+
+/// [`markdown_link`] for JS: `[label](url)`.
+#[wasm_bindgen(js_name = markdownLink)]
+pub fn markdown_link_js(label: &str, url: &str) -> String {
+    markdown_link(label, url)
+}
+
+/// [`link_label`] for JS: the label, or `undefined` for an empty or multi-line selection.
+#[wasm_bindgen(js_name = linkLabel)]
+pub fn link_label_js(selected: &str) -> Option<String> {
+    link_label(selected)
 }
 
 #[cfg(test)]

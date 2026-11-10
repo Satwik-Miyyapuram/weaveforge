@@ -1,4 +1,5 @@
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
+import { rust } from "@weaveforge/core";
 
 /**
  * Who is allowed to call the shell.
@@ -61,9 +62,7 @@ export interface IpcSurface {
  * guard fail open on exactly the input it exists to reject.
  */
 export function sameOrigin(url: string, origin: string): boolean {
-  const there = parts(url);
-  const here = parts(origin);
-  return there !== null && here !== null && sameOriginParts(there, here);
+  return rust().sameOrigin(url, origin) as boolean;
 }
 
 /**
@@ -74,59 +73,10 @@ export function sameOrigin(url: string, origin: string): boolean {
  * first call. This is the one way to turn the window's URL into an origin.
  */
 export function originOf(url: string): string {
-  const p = parts(url);
-  if (!p) throw new Error(`Not a URL: ${url}`);
-  return `${p.protocol}//${p.hostname}${p.port ? `:${p.port}` : ""}`;
+  const origin = rust().originOf(url) as string | null;
+  if (origin === null) throw new Error(`Not a URL: ${url}`);
+  return origin;
 }
-
-interface OriginParts {
-  protocol: string;
-  hostname: string;
-  port: string;
-}
-
-function parts(url: string): OriginParts | null {
-  try {
-    const parsed = new URL(url);
-    return { protocol: parsed.protocol, hostname: parsed.hostname, port: parsed.port };
-  } catch {
-    return null;
-  }
-}
-
-function sameOriginParts(a: OriginParts, b: OriginParts): boolean {
-  // The hostname is folded because it is case-insensitive, and Node only folds
-  // it for the schemes the URL standard calls special: `http://App.Example/`
-  // arrives lowercased, `app://WeaveForge/` does not. Without this, a build
-  // whose `__DEFAULT_APP_URL__` had a capital letter would refuse its own
-  // window. The scheme is compared as parsed, where both sides agree.
-  return (
-    a.protocol === b.protocol &&
-    a.hostname.toLowerCase() === b.hostname.toLowerCase() &&
-    effectivePort(a) === effectivePort(b)
-  );
-}
-
-/**
- * The port that would be named if the URL had spelled it out.
- *
- * `https://x/` and `https://x:443/` are the same origin, and the same goes for
- * http and the loopback development server. Comparing the raw `port` would call
- * those different, which for a check like this is the wrong way to be wrong:
- * a legitimate build would be refused.
- */
-function effectivePort(where: OriginParts): string {
-  if (where.port) return where.port;
-  return DEFAULT_PORTS[where.protocol] ?? where.protocol;
-}
-
-const DEFAULT_PORTS: Record<string, string> = {
-  "http:": "80",
-  "https:": "443",
-  "ws:": "80",
-  "wss:": "443",
-  "ftp:": "21",
-};
 
 /**
  * The door every channel is registered through.
@@ -153,8 +103,8 @@ export function registerGuardedIpc(allowedOrigin: string, ipc: IpcSurface) {
     const url = event.senderFrame?.url;
     if (!url) return "it did not come from a frame";
     if (sameOrigin(url, allowedOrigin)) return null;
-    const seen = parts(url);
-    return `it came from ${seen ? `${seen.protocol}//${seen.hostname}` : "an address that could not be read"}`;
+    const seen = rust().originOf(url) as string | null;
+    return `it came from ${seen ?? "an address that could not be read"}`;
   }
 
   return {

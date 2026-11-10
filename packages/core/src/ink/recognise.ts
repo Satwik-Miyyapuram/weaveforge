@@ -98,19 +98,6 @@ export type InkEngineId = (typeof INK_ENGINES)[number]["id"];
 /** Where an engine can run, so a selector does not offer a desktop-only one. */
 export type InkEnginePlatform = (typeof INK_ENGINES)[number]["platform"];
 
-/** The order engines are preferred in, which is the declaration order. */
-export const INK_ENGINE_ORDER: readonly InkEngineId[] = ["windows-ink@1"];
-
-/** Whether an engine id is one this build was written against (Rust `is_ink_engine_id`). */
-export function isInkEngineId(id: string): id is InkEngineId {
-  return rust().isInkEngineId(id);
-}
-
-/** The declared facts about an engine, or `null` for an id we do not know (Rust `ink_engine_info`). */
-export function inkEngineInfo(id: string): (typeof INK_ENGINES)[number] | null {
-  return rust().inkEngineInfo<(typeof INK_ENGINES)[number]>(id);
-}
-
 /**
  * The first engine that says it is available, or `null`.
  *
@@ -123,11 +110,7 @@ export function inkEngineInfo(id: string): (typeof INK_ENGINES)[number] | null {
 export async function selectInkRecogniser(
   candidates: readonly InkRecogniser[],
 ): Promise<InkRecogniser | null> {
-  const rank = (recogniser: InkRecogniser): number => {
-    const index = INK_ENGINE_ORDER.indexOf(recogniser.id as InkEngineId);
-    return index < 0 ? INK_ENGINE_ORDER.length : index;
-  };
-  const ordered = [...candidates].sort((a, b) => rank(a) - rank(b));
+  const ordered = [...candidates].sort((a, b) => rust().inkEngineRank(a.id) - rust().inkEngineRank(b.id));
   for (const recogniser of ordered) {
     try {
       if (await recogniser.available()) return recogniser;
@@ -139,8 +122,13 @@ export async function selectInkRecogniser(
   return null;
 }
 
-/** Below this a line is shown dotted in the text layer and can be corrected. */
-export const INK_UNSURE_CONFIDENCE = 0.75;
+/**
+ * Below this a line is shown dotted in the text layer and can be corrected. Read at
+ * call time from the Rust core (`INK_UNSURE_CONFIDENCE`), so there is one number.
+ */
+export function inkUnsureConfidence(): number {
+  return rust().inkUnsureConfidence();
+}
 
 /** Whether a recognised line should be marked unsure (Rust `is_unsure_confidence`). */
 export function isUnsureLine(line: RecognisedLine): boolean {
@@ -175,14 +163,4 @@ export function inkVocabularyHints(
   limit = 500,
 ): string[] {
   return rust().inkVocabularyHints(sources, limit);
-}
-
-/** Signatures of the recognition helpers that moved to the Rust core (wf-wasm). */
-export interface RecogniseFns {
-  isInkEngineId(id: string): boolean;
-  inkEngineInfo<I>(id: string): I | null;
-  isUnsureLine(line: { conf: number }): boolean;
-  mapInkConfidence(raw: number, scale?: number): number;
-  inkPageConfidence(lines: readonly { conf: number }[]): number;
-  inkVocabularyHints(sources: readonly (readonly string[])[], limit?: number): string[];
 }

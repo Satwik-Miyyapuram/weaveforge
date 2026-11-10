@@ -18,7 +18,9 @@ environment, the clock and the object store.
   buckets a user's blobs live in. It checks only. It has no clock, so callers
   pass `now`.
 - `blob_client.rs`: the S3-compatible client config for the R2 hot tier and the
-  MinIO cold tier. It builds the config only.
+  MinIO cold tier, plus the pure parts of the object store client: the object key
+  (`objectKey`), the upload content type (`uploadContentType`) and the read content
+  type (`readContentType`). It builds config and strings only. No I/O.
 - `mod.rs`: the module head and the re-exports.
 
 ## How the app calls it
@@ -39,6 +41,8 @@ Code in `apps/web` reads these through `readyCore()` from
 - `apps/web/src/storage/wire-storage.ts` calls `readyCore().blobProviderForRuntime`.
 - `apps/web/src/storage/providers/s3/s3-blob-store.ts` calls
   `readyCore().r2BlobClientConfig`, and the cold-tier config is read the same way.
+  It also calls `readyCore().objectKey`, `uploadContentType` and `readContentType`
+  for each object key and content type.
 - `apps/web/src/backend/account/purge-user-blobs.ts` calls
   `readyCore().blobStorageBuckets()` and sweeps each bucket's prefix on account
   deletion. It calls `loadCore()` first.

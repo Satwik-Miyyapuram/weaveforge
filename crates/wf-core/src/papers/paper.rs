@@ -150,6 +150,26 @@ pub fn is_empty_paper_summary(summary: Option<&str>) -> bool {
     text.is_empty() || text == NO_SUMMARY
 }
 
+/// Checks the rules a new paper must meet (TS `createPaper`): the title is required once
+/// trimmed, and a rating, when given, is 1 to 5.
+///
+/// Returns the trimmed title, or the refusal message the TS `PaperValidationError` carries.
+///
+/// # Errors
+///
+/// Fails with `"Paper title is required."` for a blank title, or
+/// `"Rating must be between 1 and 5."` for a rating out of range.
+pub fn check_new_paper(title: &str, rating: Option<f64>) -> Result<String, String> {
+    let trimmed = title.trim_matches(is_js_whitespace);
+    if trimmed.is_empty() {
+        return Err("Paper title is required.".to_owned());
+    }
+    if rating.is_some_and(|value| value < 1.0 || value > 5.0) {
+        return Err("Rating must be between 1 and 5.".to_owned());
+    }
+    Ok(trimmed.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,5 +263,31 @@ mod tests {
         assert!(is_empty_paper_summary(Some("  \n\t ")));
         assert!(is_empty_paper_summary(Some(" No summary yet. ")));
         assert!(!is_empty_paper_summary(Some("Real notes")));
+    }
+
+    #[test]
+    fn new_paper_title_is_trimmed_and_required() {
+        assert_eq!(
+            check_new_paper("  Attention  ", None),
+            Ok("Attention".to_owned())
+        );
+        assert_eq!(
+            check_new_paper(" \t ", None),
+            Err("Paper title is required.".to_owned())
+        );
+    }
+
+    #[test]
+    fn new_paper_rating_must_be_one_to_five_when_given() {
+        assert_eq!(check_new_paper("T", Some(1.0)), Ok("T".to_owned()));
+        assert_eq!(check_new_paper("T", Some(5.0)), Ok("T".to_owned()));
+        assert_eq!(
+            check_new_paper("T", Some(0.0)),
+            Err("Rating must be between 1 and 5.".to_owned())
+        );
+        assert_eq!(
+            check_new_paper("T", Some(6.0)),
+            Err("Rating must be between 1 and 5.".to_owned())
+        );
     }
 }

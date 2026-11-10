@@ -72,43 +72,50 @@ export class PostgrestTransport implements SyncTransport {
       if (!(err instanceof NetworkFailure)) (this.config.onSendError ?? logSendError)(err);
       return { status: "offline" };
     }
-    // A missing parent is not a conflict over this row: nothing sits at its id,
-    // and read as one the insert was dropped. Refused, it is kept and retried
-    // once the parent has gone up.
-    if (attempt.status === 409 && readError(attempt.body).code === FK_VIOLATION) {
-      return { status: "refused", reason: readError(attempt.body).firstLine, awaitingParent: true };
-    }
-    if (attempt.status === 409) {
-      const outcome = await this.conflict(entry);
-      // paper_tags ids hash the key, so a duplicate insert is the same link another device already made.
-      if (entry.op === "insert" && entry.table === "paper_tags" && outcome.status === "conflict" && outcome.serverRow) {
-        return outcome.serverVersion == null
-          ? { status: "accepted" }
-          : { status: "accepted", newVersion: outcome.serverVersion };
+    // The status decision lives in wf-core (`sync::send_verdict::classify_send`).
+    // Only the follow-up reads (conflict, gone) and the body's error fields stay here.
+    const error = attempt.status >= 400 ? readError(attempt.body) : { code: null, firstLine: "" };
+    const verdict = readyCore().classifySend(
+      attempt.status,
+      error.code,
+      attempt.rows === null ? null : attempt.rows.length,
+    );
+    switch (verdict) {
+      // A missing parent is not a conflict over this row: nothing sits at its id,
+      // and read as one the insert was dropped. Refused, it is kept and retried
+      // once the parent has gone up.
+      case "awaiting_parent":
+        return { status: "refused", reason: error.firstLine, awaitingParent: true };
+      case "conflict": {
+        const outcome = await this.conflict(entry);
+        // paper_tags ids hash the key, so a duplicate insert is the same link another device already made.
+        if (readyCore().isLinkInsert(entry.op, entry.table) && outcome.status === "conflict" && outcome.serverRow) {
+          return outcome.serverVersion == null
+            ? { status: "accepted" }
+            : { status: "accepted", newVersion: outcome.serverVersion };
+        }
+        return outcome;
       }
-      return outcome;
+      // 5xx is the server having a bad moment, and 401/403 is about the session.
+      // Retrying is right; dead-lettering an op because a deploy was in flight is not.
+      case "offline":
+        return { status: "offline" };
+      // A row-level-security refusal arrives as 403 but is a verdict on this row,
+      // not on the session: refused, it burns an attempt and the ops behind it still go.
+      case "rls_refused":
+      case "refused":
+        return { status: "refused", reason: error.firstLine };
+      // A guarded write that matched nothing means the base version moved on —
+      // unless it was a delete and the row is already gone, which is the outcome
+      // the delete wanted.
+      case "guard_missed":
+        if (entry.op === "delete" && (await this.gone(entry))) return { status: "accepted" };
+        return this.conflict(entry);
+      case "accepted": {
+        const version = (attempt.rows?.[0] as { row_version?: unknown } | undefined)?.row_version;
+        return typeof version === "number" ? { status: "accepted", newVersion: version } : { status: "accepted" };
+      }
     }
-    // 5xx is the server having a bad moment. Retrying is right; dead-lettering
-    // an op because a deploy was in flight is not.
-    if (attempt.status >= 500) return { status: "offline" };
-    // A row-level-security refusal also arrives as 403, but it is a verdict on
-    // this row, not on the session. Read as offline it halted the whole queue
-    // behind one op, forever and without a word; refused, it burns an attempt
-    // and the ops behind it (often the parent it was waiting for) still go.
-    if (attempt.status === 403 && readError(attempt.body).code === RLS_VIOLATION) {
-      return { status: "refused", reason: readError(attempt.body).firstLine };
-    }
-    if (attempt.status === 401 || attempt.status === 403) return { status: "offline" };
-    if (attempt.status >= 400) return { status: "refused", reason: readError(attempt.body).firstLine };
-    // A guarded write that matched nothing means the base version moved on —
-    // unless it was a delete and the row is already gone, which is the outcome
-    // the delete wanted.
-    if (attempt.rows !== null && attempt.rows.length === 0) {
-      if (entry.op === "delete" && (await this.gone(entry))) return { status: "accepted" };
-      return this.conflict(entry);
-    }
-    const version = (attempt.rows?.[0] as { row_version?: unknown } | undefined)?.row_version;
-    return typeof version === "number" ? { status: "accepted", newVersion: version } : { status: "accepted" };
   }
 
   async changesSince(since: number, limit: number): Promise<RemoteChange[]> {
@@ -165,16 +172,16 @@ export class PostgrestTransport implements SyncTransport {
           `/${encodeURIComponent(table)}?id=in.(${chunk.map(encodeURIComponent).join(",")})&select=id`,
         );
         if (found.status >= 400 || !Array.isArray(found.rows)) return null;
-        const held = new Set(found.rows.map((r) => String((r as { id?: unknown }).id)));
-        const absent = chunk.filter((id) => !held.has(id));
+        const held = found.rows.map((r) => String((r as { id?: unknown }).id));
+        const absent = chunk.filter((id) => !held.includes(id));
         if (absent.length === 0) continue;
         const buried = await this.request(
           "GET",
           `/sync_tombstones?table_name=eq.${encodeURIComponent(table)}&row_id=in.(${absent.map(encodeURIComponent).join(",")})&select=row_id`,
         );
         if (buried.status >= 400 || !Array.isArray(buried.rows)) return null;
-        const deleted = new Set(buried.rows.map((r) => String((r as { row_id?: unknown }).row_id)));
-        missing.push(...absent.filter((id) => !deleted.has(id)));
+        const deleted = buried.rows.map((r) => String((r as { row_id?: unknown }).row_id));
+        missing.push(...readyCore().missingIds(chunk, held, deleted));
       } catch {
         return null;
       }
@@ -289,14 +296,8 @@ function parseRows(text: string): unknown[] | null {
   }
 }
 
-/** Postgres `foreign_key_violation`: the row's parent is not on the server yet. */
-const FK_VIOLATION = "23503";
-
 /** Ids per `in.(...)` read; a hundred uuids keep the URL well under any limit. */
 const MISSING_IDS_CHUNK = 100;
-
-/** Postgres `insufficient_privilege`, which is what a failed RLS check raises. */
-const RLS_VIOLATION = "42501";
 
 function toChange(row: Record<string, unknown>): RemoteChange {
   return {

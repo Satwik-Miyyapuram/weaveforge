@@ -58,6 +58,30 @@ export class WeaveForgeError extends Error {
 /** The request is malformed or breaks an invariant of the entity. */
 export class ValidationError extends WeaveForgeError {}
 
+/** A share grant or share-link request is malformed (message from the Rust core). */
+export class ShareValidationError extends ValidationError {
+  constructor(message: string) {
+    super(message);
+    this.name = "ShareValidationError";
+  }
+}
+
+/** A comment request is malformed (message from the Rust core). */
+export class CommentValidationError extends ValidationError {
+  constructor(message: string) {
+    super(message);
+    this.name = "CommentValidationError";
+  }
+}
+
+/** A vault page request is malformed (message from the Rust core). */
+export class VaultPageValidationError extends ValidationError {
+  constructor(message: string) {
+    super(message);
+    this.name = "VaultPageValidationError";
+  }
+}
+
 /** The caller is known but not allowed to do this. */
 export class PermissionError extends WeaveForgeError {}
 

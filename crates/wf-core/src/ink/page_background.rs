@@ -15,6 +15,21 @@ pub fn a4_raster_height() -> f64 {
     js_math::round(A4_RASTER_WIDTH * INK_A4_HEIGHT / INK_A4_WIDTH)
 }
 
+/// Whether a dropped file is a PDF: by its MIME type, or by a `.pdf` name in any case.
+#[must_use]
+pub fn is_pdf(mime: &str, name: &str) -> bool {
+    let ends_with_pdf = name
+        .get(name.len().saturating_sub(4)..)
+        .is_some_and(|tail| tail.eq_ignore_ascii_case(".pdf"));
+    mime == "application/pdf" || ends_with_pdf
+}
+
+/// Whether a dropped file can be a page background: a PDF, or any `image/` type.
+#[must_use]
+pub fn is_page_source(mime: &str, name: &str) -> bool {
+    is_pdf(mime, name) || mime.starts_with("image/")
+}
+
 /// Where a background is drawn on the sheet.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,6 +114,22 @@ mod tests {
         assert_eq!(b.height, sheet_h);
         assert_eq!(b.width, 234.0);
         assert_eq!(b.x, js_math::round((A4_RASTER_WIDTH - 234.0) / 2.0));
+    }
+
+    #[test]
+    fn a_pdf_is_known_by_mime_or_by_name_in_any_case() {
+        assert!(is_pdf("application/pdf", ""));
+        assert!(is_pdf("", "Thesis.PDF"));
+        assert!(!is_pdf("image/png", "scan.png"));
+        assert!(!is_pdf("", "pdf"));
+        assert!(!is_pdf("", "héé.pdfx"));
+    }
+
+    #[test]
+    fn a_page_source_is_a_pdf_or_any_image() {
+        assert!(is_page_source("image/webp", "photo"));
+        assert!(is_page_source("", "paper.pdf"));
+        assert!(!is_page_source("text/plain", "notes.txt"));
     }
 
     #[test]

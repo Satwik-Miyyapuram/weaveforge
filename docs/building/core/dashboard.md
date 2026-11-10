@@ -27,7 +27,9 @@ re-export them. The main names are:
 - Layout (`dashboard-layout.ts`): `parseDashboardLayout`, `dashboardDefaultLayout`,
   `dashboardMergeSupervisorCards`, `dashboardAppendCardPair`, `dashboardSyncLayouts`,
   `dashboardFinalizeLayout`, `dashboardMergeRglPositions`, `dashboardLgNeedsRepair`,
-  `dashboardLayoutSignature`, `dashboardSmNeedsRepack`.
+  `dashboardLayoutSignature`, `dashboardSmNeedsRepack`, `dashboardLayoutCacheKey`
+  (`dashboard-screen.tsx` calls it directly; `layout::cache_key` in Rust).
+  The UI calls these through `readyCore()`; no TS wrappers remain.
 - Packing (`dashboard-packing.ts`): `dashboardLayoutFloors`, `dashboardNormalizeItem`,
   `dashboardCompactVertical`, `dashboardPackSm`, `dashboardCloseGaps`, `rowsForHeight`,
   `fitLayoutToContent`, `withStoredHeights`.

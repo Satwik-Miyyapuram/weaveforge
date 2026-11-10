@@ -20,7 +20,7 @@ fn fields(value: Value) -> Map<String, Value> {
 #[test]
 fn vault_page_base_serializes_body_digest_in_camel_case() {
     let base = VaultPageBase {
-        fields: fields(json!({"title": "T"})),
+        fields: json!({"title": "T"}),
         body_digest: "abc".into(),
     };
     let wire = json!({"fields": {"title": "T"}, "bodyDigest": "abc"});

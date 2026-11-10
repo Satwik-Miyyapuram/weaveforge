@@ -33,6 +33,7 @@ Each line is one file under `crates/wf-core/src/reader/`.
 - `paper_html`: how a paper kept as a web page is framed and read back.
 - `paper_html_rules`: which responses count as a web page, and which charset to use.
 - `pdf_cache_eviction`: which cached PDFs to drop once the cache is over its entry cap.
+- `pdf_resolver_rules`: the open-access and WebDAV "does this step apply" and trim rules.
 - `pdf_response`: which proxy responses count as a PDF.
 - `pdf_source_ladder`: the order in which PDF resolvers are tried.
 - `print`: a paper on paper, with every page's marks and, when asked, the comments beside each page.
@@ -85,8 +86,18 @@ KEEP decision, not a gap.
 - `apps/web/src/features/reader/application/reader-annotation-helpers.ts`: blocked.
   It needs a `ReaderAnnotation` type in Rust before it can move. Until that type
   exists, the helpers stay in TS.
+- `crates/wf-core/src/reader/reference_actions.rs` (wasm `reader_reference_actions.rs`):
+  the reference-action rules that `apps/web/src/features/reader/application/reference-actions.ts`
+  calls. The TS file keeps the clipboard and navigation calls.
+- `crates/wf-core/src/reader/zotero_write_back_message.rs` (wasm `reader_zotero_sync.rs`):
+  the Zotero annotation write-back message rules. `write-back-zotero-annotations.ts` keeps
+  the network call.
 - Anything that touches pdf.js, the DOM, IndexedDB, the network or Zotero's API
   stays in TS. Rust only receives plain numbers and values.
+- `OpenAccessPdfResolver` and `WebDavPdfResolver` (`packages/core/src/reader/`):
+  `supports` and the trim in `resolve` call `rust().openAccessSupports`,
+  `rust().webdavSupports` and `rust().trimmedOrNone`. The fetch and the
+  URL builders (`resolveUrl`, `buildProxiedUrl`) stay in TS and are injected.
 
 ## Related
 

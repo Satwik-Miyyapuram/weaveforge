@@ -11,11 +11,12 @@
  * (`max(dot(ba, ba), 0.0001)`), and that guard is quoted in the test so the two
  * halves of the fix are visible together.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_PACK_TOLERANCE } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   INK_MAX_BACKING_DIMENSION,
   INK_MAX_BACKING_PIXELS,
@@ -29,6 +30,8 @@ import {
   strokeTangentAt,
   strokeInstanceCount,
 } from "../render/ink-renderer";
+
+before(loadTestCore);
 
 test("the AA margin is one device pixel, which is the overdraw lever", () => {
   assert.equal(INK_AA_MARGIN_PX, 1);

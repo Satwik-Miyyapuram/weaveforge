@@ -1,10 +1,17 @@
-import { Outbox, type OutboxEntry, type SqlRunner } from "./outbox";
+import { Outbox, type SqlRunner } from "./outbox";
 import type { SyncStateStore } from "./sync-state";
 import type { RemoteChange, SyncTransport } from "./sync-ports";
 import type { ConflictStore } from "./conflicts";
 import { readyCore } from "@/lib/rust-core";
+import type { PullFacts, SeqRow } from "@weaveforge/wasm";
 
 type Row = Record<string, unknown>;
+type Found = Awaited<ReturnType<ConflictStore["find"]>>;
+
+/** The pull decisions read by the Rust core use these shapes. */
+function seqRow(change: RemoteChange): SeqRow {
+  return { table: change.table, rowId: change.rowId, serverSeq: change.serverSeq };
+}
 
 /**
  * Reads the server's change feed and writes what it says into the local
@@ -52,27 +59,29 @@ export class Puller {
     const { watermark } = await this.state.read();
     let applied = await this.retryHeld();
     const changes = await this.transport.changesSince(watermark, pageSize);
-    let highest = watermark;
     let failed: Held[] = [];
     for (const change of changes) {
-      highest = Math.max(highest, change.serverSeq);
       if (await this.tryApply(change, failed)) applied += 1;
     }
+    const summary = readyCore().pullSummary({
+      watermark,
+      pageSize,
+      fetched: changes.map(seqRow),
+      failed: failed.map((f) => seqRow(f.change)),
+    });
     // A second pass catches rows that clashed with something later in the page.
-    const newest = new Map<string, number>();
-    for (const c of changes) newest.set(`${c.table}/${c.rowId}`, Math.max(newest.get(`${c.table}/${c.rowId}`) ?? 0, c.serverSeq));
     const again: Held[] = [];
-    for (const { change } of failed) {
+    for (const [i, { change }] of failed.entries()) {
       // A later change to the same row already won; this one is stale.
-      if (newest.get(`${change.table}/${change.rowId}`)! > change.serverSeq) continue;
+      if (summary.stale[i]) continue;
       if (await this.tryApply(change, again)) applied += 1;
     }
     failed = await this.applyGroups(again, (n) => (applied += n));
     for (const held of failed) await this.hold(held);
-    if (highest > watermark) await this.state.advance(highest);
+    if (summary.highest > watermark) await this.state.advance(summary.highest);
     const count = await this.heldCount();
     if (count > 0) console.warn(`sync: ${count} pulled change(s) held`, failed.map((f) => `${f.change.table}/${f.change.rowId}: ${f.error}`));
-    return { applied, watermark: highest, more: changes.length >= pageSize, held: count };
+    return { applied, watermark: summary.highest, more: summary.more, held: count };
   }
 
   private async tryApply(change: RemoteChange, failed: Held[]): Promise<boolean> {
@@ -92,15 +101,25 @@ export class Puller {
 
   /** Rows of one table that only clash with each other land together. */
   private async applyGroups(failed: Held[], count: (n: number) => void): Promise<Held[]> {
-    const byTable = new Map<string, Held[]>();
+    const candidates: Held[] = [];
     for (const f of failed) {
-      if (f.change.deletedAt || !/unique constraint/.test(f.error)) continue;
-      if ((await this.outbox.forRow(f.change.table, f.change.rowId)).length > 0) continue;
-      byTable.set(f.change.table, [...(byTable.get(f.change.table) ?? []), f]);
+      const uniqueClash = readyCore().isUniqueClash(f.error);
+      // Only a candidate needs its pending ops read.
+      const pendingOps =
+        f.change.deletedAt || !uniqueClash
+          ? 0
+          : (await this.outbox.forRow(f.change.table, f.change.rowId)).length;
+      if (!readyCore().groupEligible({ deleted: !!f.change.deletedAt, uniqueClash, pendingOps })) continue;
+      candidates.push(f);
     }
     const landed = new Set<Held>();
-    for (const [table, group] of byTable) {
-      if (group.length < 2) continue;
+    for (const indexes of readyCore().tableGroups(candidates.map((f) => f.change.table))) {
+      const group = indexes.flatMap((i) => {
+        const held = candidates[i];
+        return held ? [held] : [];
+      });
+      const table = group[0]?.change.table;
+      if (table === undefined) continue;
       try {
         await this.sql.exec("select sync_apply_group($1, $2::jsonb)", [table, JSON.stringify(group.map((g) => g.change.row))]);
       } catch {
@@ -170,69 +189,76 @@ export class Puller {
     );
     if (!this.synced.has(change.table)) throw new Error(`${change.table} is not a synced table`);
     const ops = await this.outbox.forRow(change.table, change.rowId);
-    if (change.deletedAt) {
-      await this.tombstone(change, ops);
-      return;
-    }
-    const last = ops[ops.length - 1];
-    if (last?.op === "delete") {
-      // Our own delete's base: nothing changed there since.
-      if (last.baseVersion != null && last.baseVersion >= change.rowVersion) return;
-      // Deleted here, edited elsewhere since: the reader decides.
-      if (this.conflicts && last.baseVersion != null) {
-        await this.conflicts.openDeletedLocal(change.table, change.rowId, change.row, change.rowVersion);
+    // The conflict lookup runs only where the decision can read it: a last op of
+    // delete settles the row without it, as before the port.
+    const lastIsDelete = ops[ops.length - 1]?.op === "delete";
+    const found: Found = lastIsDelete ? null : ((await this.conflicts?.find(change.table, change.rowId)) ?? null);
+    const facts: PullFacts = {
+      deleted: !!change.deletedAt,
+      rowVersion: change.rowVersion,
+      ops: ops.map((o) => ({ op: o.op, baseVersion: o.baseVersion ?? null })),
+      hasStore: !!this.conflicts,
+      open: found?.kind ?? null,
+      referenced: change.deletedAt != null && ops.length === 0 && !found && (await this.referenced(change.table, change.rowId)),
+    };
+    switch (readyCore().pullApplyStep(facts)) {
+      case "tombstone":
+        return this.tombstone(change, facts, found);
+      case "skip":
         return;
-      }
-      await this.outbox.rebase(change.table, change.rowId, change.rowVersion);
-      return;
+      case "openDeletedLocal":
+        await this.conflicts!.openDeletedLocal(change.table, change.rowId, change.row, change.rowVersion);
+        return;
+      case "rebase":
+        await this.outbox.rebase(change.table, change.rowId, change.rowVersion);
+        return;
+      case "settleOnly":
+        await this.conflicts!.settle(change.table, change.rowId, change.row, change.rowVersion);
+        return;
+      case "openAndWrite":
+        await this.conflicts!.openFor(change.table, change.rowId, change.rowVersion);
+        await this.write(change);
+        await this.conflicts!.settle(change.table, change.rowId, change.row, change.rowVersion);
+        return;
+      case "writeAndSettle":
+        await this.write(change);
+        // A conflict still open for this row is re-tried against the newer side.
+        await this.conflicts?.settle(change.table, change.rowId, change.row, change.rowVersion);
+        return;
+      case "writeOnly":
+        await this.write(change);
+        return;
     }
-    // Deleted here and waiting on the reader: the row stays gone, the newest cloud copy is kept.
-    const open = await this.conflicts?.find(change.table, change.rowId);
-    if (open?.kind === "deleted_local") {
-      await this.conflicts!.settle(change.table, change.rowId, change.row, change.rowVersion);
-      return;
-    }
-    // Our own accepted write coming back: local already holds it and more.
-    if (ops.length > 0 && ops.every((op) => op.baseVersion != null && op.baseVersion >= change.rowVersion)) {
-      return;
-    }
-    if (ops.length > 0 && this.conflicts) {
-      await this.conflicts.openFor(change.table, change.rowId, change.rowVersion);
-      await this.write(change);
-      await this.conflicts.settle(change.table, change.rowId, change.row, change.rowVersion);
-      return;
-    }
-    await this.write(change);
-    // A conflict still open for this row is re-tried against the newer side.
-    await this.conflicts?.settle(change.table, change.rowId, change.row, change.rowVersion);
   }
 
   /**
    * Deleted elsewhere. Local edits to it, or to rows that point at it, are never
    * thrown away: the row stays and the reader chooses whether it goes.
    */
-  private async tombstone(change: RemoteChange, ops: OutboxEntry[]): Promise<void> {
+  private async tombstone(change: RemoteChange, facts: PullFacts, found: Found): Promise<void> {
     const { table, rowId } = change;
-    // Deleted here too: nothing to decide.
-    if (ops[ops.length - 1]?.op === "delete") {
-      await this.outbox.dropRow(table, rowId);
-      await this.write(change);
-      return;
+    switch (readyCore().pullTombstoneStep(facts)) {
+      case "dropAndWrite":
+        // Deleted here too: nothing to decide.
+        await this.outbox.dropRow(table, rowId);
+        await this.write(change);
+        return;
+      case "keep":
+        return;
+      case "resolveAndWrite":
+        // Both sides deleted it.
+        await this.conflicts!.resolve(found!.id);
+        await this.write(change);
+        return;
+      case "openDeletedRemote":
+        await this.conflicts!.openDeletedRemote(table, rowId);
+        return;
+      case "refuse":
+        throw new Error("Deleted elsewhere while edited here; kept until decided.");
+      case "write":
+        await this.write(change);
+        return;
     }
-    const open = await this.conflicts?.find(table, rowId);
-    if (open?.kind === "deleted_remote") return;
-    if (open?.kind === "deleted_local") {
-      // Both sides deleted it.
-      await this.conflicts!.resolve(open.id);
-      await this.write(change);
-      return;
-    }
-    if (ops.length > 0 || open || (await this.referenced(table, rowId))) {
-      if (!this.conflicts) throw new Error("Deleted elsewhere while edited here; kept until decided.");
-      await this.conflicts.openDeletedRemote(table, rowId);
-      return;
-    }
-    await this.write(change);
   }
 
   /** Whether an edit still owed to the server points at this row. */
@@ -266,7 +292,7 @@ export class Puller {
    * for children that clashed the same way.
    */
   private async mergeLocalTwin(change: RemoteChange, error: unknown): Promise<boolean> {
-    const constraint = /unique constraint "([^"]+)"/.exec(String((error as Error)?.message))?.[1];
+    const constraint = readyCore().uniqueConstraintName(String((error as Error)?.message));
     if (!constraint) return false;
     const twin = await this.sql.queryOne<{ id: string | null }>(
       "select sync_twin_of($1, $2, $3::jsonb)::text as id",

@@ -22,6 +22,7 @@ Each line is one file under `crates/wf-core/src/editor_workspace/`.
 - `pane_tree`: a binary tree of splits, with tab bars at the leaves.
 - `quick_open`: type a few letters, get the document.
 - `tab_groups`: named, coloured runs of tabs that can fold.
+- `typing_target`: whether a key press belongs to a text field, so a shortcut leaves it alone.
 - `workspace_tree`: the explorer tree, derived from entities that are already loaded.
 
 ## How the app calls it
@@ -37,6 +38,7 @@ name (`breadcrumbs.rs`, `document_stats.rs`, `quick_open.rs`,
   `focusPane`, `activeTab`, `pruneLayout`, `groupRuns`, `applyGroupCommand`,
   `commandForChord`, `layoutForCommand`.
 - `breadcrumbs`: `breadcrumbs`.
+- `typing_target`: `isTypingTarget`.
 - `document_stats`: `bodyStats`, `formatCount`, `formatWords`, `formatCursorLabel`.
 - `quick_open`: `quickOpenResults`, `groupResults`, `stepCursor`.
 - `explorer_window`: `rowSlots`.

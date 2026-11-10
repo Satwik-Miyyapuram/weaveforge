@@ -290,30 +290,19 @@ export function lasso(
     post({ type: "selected", indices: [], bounds: null });
     return;
   }
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (let i = 0; i < polygon.length; i += 2) {
-    minX = Math.min(minX, polygon[i]!);
-    maxX = Math.max(maxX, polygon[i]!);
-    minY = Math.min(minY, polygon[i + 1]!);
-    maxY = Math.max(maxY, polygon[i + 1]!);
-  }
+  const core = readyCore();
+  const loop = Float64Array.from(polygon);
+  const box = Array.from(core.inkPolygonBounds(loop)) as InkBounds;
   const index = state.index ?? new InkStrokeIndex(state.buffer);
   state.index = index;
   index.ensure();
-  const box: InkBounds = [minX, minY, maxX, maxY];
   const chosen: number[] = [];
   let bounds: InkBounds | null = null;
   for (const candidate of index.nearBox(box)) {
     const geometry = state.buffer.stroke(candidate);
     if (!geometry || geometry.x.length === 0) continue;
-    let inside = 0;
-    for (let i = 0; i < geometry.x.length; i += 1) {
-      if (readyCore().inkPointInPolygon(geometry.x[i]!, geometry.y[i]!, polygon)) inside += 1;
-    }
-    if (inside * 2 < geometry.x.length) continue;
+    // Rust: `hit_test::lasso_keeps` (at least half the points inside the loop).
+    if (!core.inkLassoKeeps(geometry.x, geometry.y, loop)) continue;
     chosen.push(candidate);
     bounds = boundsUnion(bounds, geometry.bounds);
   }
@@ -361,39 +350,16 @@ export function strokeNearPoint(
   to: { x: number; y: number },
   radius = ERASER_RADIUS,
 ): boolean {
-  const steps = Math.max(
-    1,
-    Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / radius),
+  // Rust: `hit_test::stroke_near_segment`. Distance to each *segment*, not each vertex.
+  return readyCore().inkStrokeNearSegment(
+    stroke.x,
+    stroke.y,
+    from.x,
+    from.y,
+    to.x,
+    to.y,
+    radius,
   );
-  const r2 = radius * radius;
-  for (let step = 0; step <= steps; step += 1) {
-    const t = step / steps;
-    const px = from.x + (to.x - from.x) * t;
-    const py = from.y + (to.y - from.y) * t;
-    // Distance to each *segment*, not each vertex: a packed stroke keeps only the
-    // points that bend, so a straight line is two vertices a page apart.
-    if (stroke.x.length === 1) {
-      const dx = stroke.x[0]! - px;
-      const dy = stroke.y[0]! - py;
-      if (dx * dx + dy * dy <= r2) return true;
-      continue;
-    }
-    for (let i = 0; i + 1 < stroke.x.length; i += 1) {
-      if (
-        readyCore().distanceToSegmentSquared(
-          px,
-          py,
-          stroke.x[i]!,
-          stroke.y[i]!,
-          stroke.x[i + 1]!,
-          stroke.y[i + 1]!,
-        ) <= r2
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 /** Undo the last action (erase, draw, or move). */

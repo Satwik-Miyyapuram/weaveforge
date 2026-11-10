@@ -28,7 +28,7 @@ export interface HomeConfig {
 
 /** `variant` gives a side-by-side build (WeaveForge Dev) its own pointer, so it never opens the main app's folder. */
 export function homeConfigPath(home: string, variant?: string): string {
-  return path.join(home, HOME_CONFIG_DIR, variant ? `desktop-${variant}.json` : HOME_CONFIG_FILE);
+  return rust().homeConfigPath(home, variant || null, path.sep);
 }
 
 /** What the file says, or an empty config for a file that is not there or not JSON. */

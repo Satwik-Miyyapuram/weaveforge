@@ -9,3 +9,10 @@ use wf_core::ink::trail;
 pub fn trail_diameter_px_js(width: f64, page_width_px: f64) -> f64 {
     trail::trail_diameter_px(width, page_width_px)
 }
+
+/// [`trail_alpha`](trail::trail_alpha): the trail's opacity for a tool (translucent for a highlighter).
+#[must_use]
+#[wasm_bindgen(js_name = inkTrailAlpha)]
+pub fn ink_trail_alpha_js(tool: &str) -> f64 {
+    trail::trail_alpha(tool)
+}

@@ -224,4 +224,8 @@ mod tests {
 pub mod bibtex;
 pub mod error_redact;
 pub mod export_path;
+pub mod project_list;
+pub mod sync_status;
+pub mod thumb;
 pub mod upload;
+pub mod upload_reason;

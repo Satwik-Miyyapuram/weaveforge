@@ -3,12 +3,15 @@
  * `papers::paper_image`), re-exported from index.ts.
  */
 import {
+  arxivStamp as rawArxivStamp,
   bibImportMessage as rawBibImportMessage,
   guessTitle as rawGuessTitle,
   isBibFile as rawIsBibFile,
   isPdfFile as rawIsPdfFile,
+  isPdfTooLarge as rawIsPdfTooLarge,
   metadataTitle as rawMetadataTitle,
   paperImageThumbnailPath as rawPaperImageThumbnailPath,
+  splitPaperDrop as rawSplitPaperDrop,
   summarizePdfDrop as rawSummarizePdfDrop,
 } from "../pkg/wf_wasm.js";
 
@@ -40,6 +43,17 @@ export function metadataTitle(raw: string | undefined): string | undefined {
   return rawMetadataTitle(raw);
 }
 
+/** Where each dropped file goes, as indices into the drop: `.bib` files are imported, the rest take the PDF path. */
+export interface PaperDropSplit {
+  pdfIndices: number[];
+  bibIndices: number[];
+}
+
+/** Splits a drop by file name; every name lands in exactly one list. */
+export function splitPaperDrop(names: readonly string[]): PaperDropSplit {
+  return rawSplitPaperDrop([...names]) as PaperDropSplit;
+}
+
 /** One toast line for a BibTeX import: what was added, skipped, and unreadable. */
 export function bibImportMessage(added: number, skipped: number, problems: number): string {
   return rawBibImportMessage(added, skipped, problems);
@@ -53,4 +67,14 @@ export function summarizePdfDrop(entries: readonly PdfDropEntry[]): PdfDropSumma
 /** The thumbnail variant name of a figure: `x.full.png` and `x.png` both give `x.thumb.webp`. */
 export function paperImageThumbnailPath(path: string): string {
   return rawPaperImageThumbnailPath(path);
+}
+
+/** Whether a PDF is over the 200 MiB cap a drop skips. */
+export function isPdfTooLarge(sizeBytes: number): boolean {
+  return rawIsPdfTooLarge(sizeBytes);
+}
+
+/** The `arXiv:` stamp in a PDF's first-page text, if any (normalize it with `normalizeArxivId`). */
+export function arxivStamp(pageText: string): string | undefined {
+  return rawArxivStamp(pageText);
 }

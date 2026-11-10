@@ -21,10 +21,10 @@ export async function importFolderDrafts(
   let imported = 0;
   let firstError: unknown = null;
   for (const entry of entries) {
-    if (entry.kind !== "file" || !entry.path.endsWith(".json")) continue;
+    if (entry.kind !== "file" || !typedCore().isFolderDraftPath(entry.path)) continue;
     const raw = await fs.readText(entry.path).catch(() => null);
-    const draft = raw === null ? null : (typedCore().parseFolderDraft(raw) as FolderDraft | null);
-    if (!draft || (draft.projectId && projectId && draft.projectId !== projectId)) continue;
+    const draft = raw === null ? null : (typedCore().folderDraftForProject(raw, projectId) as FolderDraft | null);
+    if (!draft) continue;
     try {
       await fs.remove(entry.path);
     } catch {

@@ -1,12 +1,10 @@
 import type { PdfLocus } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { sanitizePdfUrl } from "./sanitize-reader-url";
 
 /**
  * Build a same-origin deep link into the read-only reader at a specific locus.
- * The locus is encoded inline (see core `encodeLocus`) so the link is
- * self-contained and needs no stored anchor row to resolve.
- * PDF URLs are allowlisted (https only) before being put in the query string.
+ * Thin shim: the rule (PDF allowlist, inline locus, page hint) lives in Rust
+ * (`reader::build_locus_link`), reached through wasm.
  */
 export function buildLocusLink(input: {
   paperId?: string;
@@ -16,14 +14,5 @@ export function buildLocusLink(input: {
   /** 0-based page hint. */
   page?: number;
 }): string {
-  const params = new URLSearchParams();
-  if (input.paperId) params.set("paper", input.paperId);
-  const safePdf = sanitizePdfUrl(input.pdfUrl);
-  if (safePdf) params.set("pdf", safePdf);
-  if (input.locus) params.set("locus", readyCore().encodeLocus(input.locus));
-  if (typeof input.page === "number" && Number.isInteger(input.page) && input.page >= 0) {
-    params.set("page", String(input.page));
-  }
-  const query = params.toString();
-  return query ? `/reader?${query}` : "/reader";
+  return readyCore().buildLocusLink(input);
 }

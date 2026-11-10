@@ -12,7 +12,8 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { MenuItemButton } from "./controls";
 import { IconButton } from "./button";
-import { isEditCommand, runEditCommand } from "@/lib/desktop/menu-edit";
+import { runEditCommand } from "@/lib/desktop/menu-edit";
+import { readyCore } from "@/lib/rust-core";
 import { showToast } from "@/lib/toast";
 
 /**
@@ -56,7 +57,7 @@ function runCommand(command: string): void {
           logCommandFailure(command, error);
         },
       );
-  } else if (isEditCommand(command)) {
+  } else if (readyCore().isEditCommand(command)) {
     runEditCommand(command, document, navigator.clipboard).catch((error: unknown) =>
       logCommandFailure(command, error),
     );

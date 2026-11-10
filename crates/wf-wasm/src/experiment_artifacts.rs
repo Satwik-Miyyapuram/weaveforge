@@ -16,3 +16,26 @@ pub fn safe_name_js(name: &str) -> String {
 pub fn viewable_artifact_url_js(entry: &str, in_shell: bool) -> Option<String> {
     experiment_artifacts::viewable_artifact_url(entry, in_shell)
 }
+
+/// [`is_absolute_url`](experiment_artifacts::is_absolute_url).
+#[wasm_bindgen(js_name = isAbsoluteUrl)]
+#[must_use]
+pub fn is_absolute_url_js(value: &str) -> bool {
+    experiment_artifacts::is_absolute_url(value)
+}
+
+/// [`is_absolute_entry`](experiment_artifacts::is_absolute_entry).
+#[wasm_bindgen(js_name = isAbsoluteEntry)]
+#[must_use]
+pub fn is_absolute_entry_js(entry: &str) -> bool {
+    experiment_artifacts::is_absolute_entry(entry)
+}
+
+/// [`artifact_kind`](experiment_artifacts::artifact_kind): `image`, `pdf` or `link`.
+#[wasm_bindgen(js_name = artifactKind)]
+#[must_use]
+pub fn artifact_kind_js(entry: &str) -> String {
+    experiment_artifacts::artifact_kind(entry)
+        .as_str()
+        .to_owned()
+}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PAPER_STATUSES, type Paper, type PaperSummary, type ReadingList } from "@weaveforge/core";
-import { zoteroWriteBackMessage } from "@/features/reader/application/write-back-zotero-annotations";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -127,7 +127,7 @@ export function PapersScreen() {
       const { pushed, pulled, deletedLocal } = library;
       setSyncMsg(
         `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations` +
-          `${zoteroWriteBackMessage(writeBack)}.`,
+          `${readyCore().zoteroWriteBackMessage(writeBack)}.`,
       );
       await load();
     } catch (err) {

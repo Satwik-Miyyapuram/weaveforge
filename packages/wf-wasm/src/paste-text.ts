@@ -8,6 +8,10 @@ import {
   cleanUrlsWithRules as rawCleanUrlsWithRules,
   cleanWrappedText as rawCleanWrappedText,
   defaultPasteSettings as rawDefaultPasteSettings,
+  escapeLinkLabel as rawEscapeLinkLabel,
+  isBareUrl as rawIsBareUrl,
+  linkLabel as rawLinkLabel,
+  markdownLink as rawMarkdownLink,
   normalizePasteSettings as rawNormalizePasteSettings,
   parseLinkRemovalText as rawParseLinkRemovalText,
   pasteLandsInVerbatimContext as rawPasteLandsInVerbatimContext,
@@ -82,4 +86,29 @@ export function normalizePasteSettings(raw: unknown): PasteSettings {
 export function parseLinkRemovalText(text: string): string[] {
   checkIndexText(text);
   return rawParseLinkRemovalText(text) as string[];
+}
+
+/** Whether `text` is one http(s) address and nothing else (Rust `is_bare_url`). */
+export function isBareUrl(text: string): boolean {
+  checkIndexText(text);
+  return rawIsBareUrl(text);
+}
+
+/** Escapes `\`, `[` and `]` for a Markdown link label (Rust `escape_link_label`). */
+export function escapeLinkLabel(label: string): string {
+  checkIndexText(label);
+  return rawEscapeLinkLabel(label);
+}
+
+/** `[label](url)` with the label folded to one line, escaped and trimmed (Rust `markdown_link`). */
+export function markdownLink(label: string, url: string): string {
+  checkIndexText(label);
+  checkIndexText(url);
+  return rawMarkdownLink(label, url);
+}
+
+/** The escaped label for a single-line selection, or `null` when it cannot be a label (Rust `link_label`). */
+export function linkLabel(selected: string): string | null {
+  checkIndexText(selected);
+  return rawLinkLabel(selected) ?? null;
 }

@@ -2,7 +2,7 @@
  * Revoke an external share link. Content is plaintext (RLS); no DEK rotation.
  */
 
-import type { IShareLinkRepository } from "../domain/share-link.js";
+import type { IShareLinkRepository } from "../../../shared/core-contract.js";
 import { NotFoundError, PermissionError } from "../../../shared/errors.js";
 
 export class RevokeShareLinkUseCase {

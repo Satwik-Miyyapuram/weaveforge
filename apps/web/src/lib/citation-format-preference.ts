@@ -1,4 +1,5 @@
 import type { CitationFormat } from "@/features/overleaf/application/build-overleaf-export";
+import { readyCore } from "@/lib/rust-core";
 
 /** Editor cite insert modes — `wikilink` is the historical default. */
 export type EditorCitationFormat = CitationFormat | "wikilink";
@@ -20,12 +21,9 @@ export const EDITOR_CITATION_FORMAT_LABELS: Record<EditorCitationFormat, string>
 };
 
 export function citationFormatStorageKey(projectId: string | null | undefined): string {
-  return `thesis.citeFormat.${projectId ?? "global"}`;
+  return readyCore().citationFormatStorageKey(projectId ?? undefined);
 }
 
 export function parseEditorCitationFormat(raw: unknown): EditorCitationFormat {
-  if (typeof raw === "string" && (EDITOR_CITATION_FORMATS as readonly string[]).includes(raw)) {
-    return raw as EditorCitationFormat;
-  }
-  return "wikilink";
+  return readyCore().parseEditorCitationFormat(typeof raw === "string" ? raw : undefined) as EditorCitationFormat;
 }

@@ -17,6 +17,7 @@ import {
   type PaperStatus,
   type ParsedReference,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface ReferenceActionDeps {
   /** Resolves metadata for a DOI/arXiv/title reference and adds it. */
@@ -26,41 +27,6 @@ export interface ReferenceActionDeps {
   relations: { add(input: NewPaperRelationInput): Promise<unknown> };
 }
 
-/**
- * The strongest identifier the entry carries.
- *
- * Resolution order matters: an identifier is a certain match, a title is a
- * search. Only the last resort goes through the bibliographic providers, and it
- * carries the year and first author as hints so a wrong-year paper of the same
- * name is less likely to be picked.
- */
-export function referenceRef(entry: ParsedReference): PaperRef {
-  if (entry.doi) return { kind: "doi", value: entry.doi };
-  if (entry.arxivId) return { kind: "arxiv", value: entry.arxivId };
-  return {
-    kind: "bibliographic",
-    value: entry.title?.trim() || entry.raw.trim(),
-    hints: {
-      ...(entry.title ? { title: entry.title } : {}),
-      ...(entry.year != null ? { year: entry.year } : {}),
-      ...(entry.authors[0] ? { firstAuthor: entry.authors[0] } : {}),
-    },
-  };
-}
-
-/** Fields a manual add can fill from a parsed entry, without inventing any. */
-export function manualInputFromReference(entry: ParsedReference): NewPaperInput {
-  return {
-    title: entry.title?.trim() || entry.raw.trim().slice(0, 200),
-    status: "to_read",
-    ...(entry.authors.length ? { authors: entry.authors } : {}),
-    ...(entry.year != null ? { year: entry.year } : {}),
-    ...(entry.doi ? { doi: entry.doi } : {}),
-    ...(entry.arxivId ? { arxivId: entry.arxivId } : {}),
-    ...(entry.url ? { url: entry.url } : {}),
-  };
-}
-
 export function createReferenceActions(deps: ReferenceActionDeps) {
   /**
    * Add the record the popover resolved, when there is one. Searching the
@@ -68,7 +34,7 @@ export function createReferenceActions(deps: ReferenceActionDeps) {
    * neighbouring entry would then read "in library" for a paper it never cited.
    */
   const add = (entry: ParsedReference, metadata: PaperMetadata | undefined) =>
-    metadata ? deps.addPaper.add(metadata) : deps.importPaper.importRef(referenceRef(entry));
+    metadata ? deps.addPaper.add(metadata) : deps.importPaper.importRef(readyCore().referenceRef(entry));
 
   return {
     /**
@@ -81,7 +47,7 @@ export function createReferenceActions(deps: ReferenceActionDeps) {
 
     /** Unresolved entry: no metadata anywhere, so add what the text gives us. */
     addManually: (entry: ParsedReference): Promise<AddPaperResult> =>
-      deps.addPaper.add(manualInputFromReference(entry)),
+      deps.addPaper.add(readyCore().manualInputFromReference(entry)),
 
     /**
      * State B's link action: `citingPaper` cites `citedPaper`. The use-case is

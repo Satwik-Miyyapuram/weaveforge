@@ -68,13 +68,9 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
           ? query.is("parent_id", null)
           : query.eq("parent_id", filter.parentId);
     }
-    if (filter?.query) {
-      // Two escapes, in order: LIKE's (`\ % _` are text), then PostgREST's
-      // double-quoted value (`\ "`), which it reads once before LIKE sees it.
-      const like = `%${filter.query.replace(/[\\%_]/g, "\\$&")}%`;
-      const quoted = like.replace(/[\\"]/g, "\\$&");
-      query = query.or(`title.ilike."${quoted}",body.ilike."${quoted}"`);
-    }
+    // The Rust core escapes LIKE and PostgREST text and returns no filter for an empty query.
+    const search = typedCore().vaultTitleOrBodyFilter(filter?.query ?? "");
+    if (search) query = query.or(search);
     query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
     return (await rows<VaultPageRow>(query)).map(toDomain);
   }
@@ -128,7 +124,7 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     if (!key) return false;
     // ILIKE narrows to candidates (each whitespace run may differ, hence %);
     // the exact rule is applied here so both backends agree.
-    const pattern = key.split(" ").map(escapeLike).join("%");
+    const pattern = typedCore().vaultTitleLikePattern(key);
     const found = await rows<{ id: string; title: string }>(
       this.scoped(this.db.from(TABLE).select("id,title")).ilike("title", pattern),
     );
@@ -147,13 +143,7 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
   }
 }
 
-/** Make `%`, `_` and `\` match themselves in a LIKE pattern. */
-function escapeLike(text: string): string {
-  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
 function isMissingBodyPreviewColumn(error: { message?: string; code?: string }): boolean {
-  const msg = (error.message ?? "").toLowerCase();
-  return msg.includes("body_preview") && (msg.includes("column") || error.code === "42703");
+  return typedCore().isMissingBodyPreviewColumn(error.message, error.code);
 }
 

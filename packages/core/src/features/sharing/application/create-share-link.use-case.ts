@@ -1,11 +1,13 @@
 import type { IdGenerator } from "../../../shared/clock.js";
-import type { ShareableType } from "../domain/share.js";
-import { defaultShareLinkExpiresAt, type IShareLinkRepository } from "../domain/share-link.js";
+import type {
+  IShareLinkRepository,
+  IShareLinkTokenHasher,
+  ShareableType,
+} from "../../../shared/core-contract.js";
 import { rust } from "../../../shared/rust.js";
-import {
-  generateShareLinkToken,
-  type IShareLinkTokenHasher,
-} from "../domain/share-link-token.js";
+
+/** Random bytes in a share-link token; the Rust core encodes it for the URL. */
+const SHARE_LINK_TOKEN_BYTES = 32;
 
 export class CreateShareLinkUseCase {
   constructor(
@@ -28,7 +30,7 @@ export class CreateShareLinkUseCase {
       throw new Error("Share links require a specific resource.");
     }
 
-    const token = await generateShareLinkToken((n) => this.deps.randomBytes(n));
+    const token = await this.deps.randomBytes(SHARE_LINK_TOKEN_BYTES);
     const tokenHash = await this.deps.tokenHasher.hash(token);
     const id = this.deps.ids.newId();
     await this.deps.shareLinks.save({
@@ -41,7 +43,7 @@ export class CreateShareLinkUseCase {
       expiresAt:
         input.expiresAt !== undefined
           ? input.expiresAt
-          : defaultShareLinkExpiresAt(Date.parse(this.deps.clock.nowIso())),
+          : rust().defaultShareLinkExpiresAt(Date.parse(this.deps.clock.nowIso())),
       dekWrap: null,
       dekEpoch: null,
     });

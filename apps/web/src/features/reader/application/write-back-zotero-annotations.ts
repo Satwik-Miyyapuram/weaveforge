@@ -113,19 +113,3 @@ export async function writeBackZoteroAnnotations(deps: {
   }
   return summary;
 }
-
-/**
- * The write-back's part of the sync line, led by its separator, or "" when
- * nothing was owed. Failures carry the first reason: "1 failed" alone leaves
- * the reader nowhere to go, while a 403 says the key cannot write.
- */
-export function zoteroWriteBackMessage(summary: ZoteroAnnotationWriteBackSummary | null): string {
-  if (!summary) return "";
-  const { created, updated, conflicts, failed, firstError } = summary;
-  const sent = created + updated;
-  const parts: string[] = [];
-  if (sent) parts.push(`sent ${sent} annotation${sent === 1 ? "" : "s"} to Zotero`);
-  if (conflicts) parts.push(`${conflicts} changed in Zotero meanwhile, left as is`);
-  if (failed) parts.push(`${failed} could not be sent${firstError ? ` (${firstError})` : ""}`);
-  return parts.length ? ` · ${parts.join(", ")}` : "";
-}

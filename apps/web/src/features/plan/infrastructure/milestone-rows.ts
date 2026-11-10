@@ -61,7 +61,3 @@ export function milestoneToDomain(r: MilestoneRow): Milestone {
 function withoutNulls<T extends object>(o: T): { [K in keyof T]: Exclude<T[K], null> } {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as { [K in keyof T]: Exclude<T[K], null> };
 }
-
-export function milestoneToRow(m: Milestone): Record<string, unknown> {
-  return readyCore().milestoneToRow(m);
-}

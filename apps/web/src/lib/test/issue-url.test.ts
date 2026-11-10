@@ -1,6 +1,7 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_REPORT_REPO, newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
+import { DEFAULT_REPORT_REPO, newIssueUrl } from "@/lib/error-report/issue-url";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {
@@ -26,14 +27,14 @@ test("newIssueUrl: a long body is cut from the end to fit the address", () => {
 });
 
 test("reportMarkdown: sections appear only when there is something in them", () => {
-  assert.equal(reportMarkdown({ detail: "x" }), "### What happened\n\nx");
-  const full = reportMarkdown({ detail: "x", route: "/papers", version: "0.6.0", logs: "err" });
+  assert.equal(readyCore().reportMarkdown({ detail: "x" }), "### What happened\n\nx");
+  const full = readyCore().reportMarkdown({ detail: "x", route: "/papers", version: "0.6.0", logs: "err" });
   assert.match(full, /Route: `\/papers` · Version: `0\.6\.0`/);
   assert.match(full, /```text\nerr\n```/);
 });
 
 test("reportMarkdown: the reader's steps and the page context are their own sections", () => {
-  const body = reportMarkdown({
+  const body = readyCore().reportMarkdown({
     detail: "boom",
     steps: "1. Opened it",
     route: "/experiments/",
@@ -45,10 +46,10 @@ test("reportMarkdown: the reader's steps and the page context are their own sect
 });
 
 test("reportMarkdown: without its heading, for the server that adds its own (14-16)", () => {
-  assert.equal(reportMarkdown({ detail: "x", withHeading: false }), "x");
+  assert.equal(readyCore().reportMarkdown({ detail: "x", withHeading: false }), "x");
   const input = { detail: "boom", steps: "1. Opened it", route: "/papers", logs: "err" };
   assert.equal(
-    reportMarkdown({ ...input, withHeading: false }),
-    reportMarkdown(input).slice("### What happened\n\n".length),
+    readyCore().reportMarkdown({ ...input, withHeading: false }),
+    readyCore().reportMarkdown(input).slice("### What happened\n\n".length),
   );
 });

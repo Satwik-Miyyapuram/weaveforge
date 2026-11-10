@@ -22,7 +22,7 @@ import { rememberRecentTarget } from "@/lib/recent-targets";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { noteBodyText, isHydratedPage } from "./note-card";
 import { NoteCardGrid } from "./note-card-grid";
-import { noteBacklinks, noteTags, scopeNotes } from "../../application/note-derivations";
+import { noteBacklinks, scopeNotes } from "../../application/note-derivations";
 import { openNoteBody } from "./open-note-body";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
@@ -296,7 +296,7 @@ export function VaultScreen() {
     [flat, ownedIds, pinnedSharedBy],
   );
 
-  const allTags = useMemo(() => noteTags(flat), [flat]);
+  const allTags = useMemo(() => readyCore().noteTags(flat), [flat]);
 
   const hasNotes = ownedNotes.length > 0 || pinnedPages.length > 0;
 

@@ -12,7 +12,7 @@ import { act, create, type ReactTestRenderer, type ReactTestInstance } from "rea
 import { PaletteDockButton } from "@/components/palette-dock";
 import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
 import { InkBar } from "@/features/ink/ui/ink-bar";
-import { paletteHex, paletteName } from "@/features/ink/render/ink-palette";
+import { readyCore } from "@/lib/rust-core";
 import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
 import { NibRow } from "../ui/ink-bar";
 import { WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
@@ -271,12 +271,12 @@ test("two bars share one dock key", () => {
 test("paletteName reverses paletteHex, and knows no stranger", () => {
   const palette = INK_RENDER_COLOURS;
   for (const name of Object.keys(palette) as (keyof typeof palette)[]) {
-    const back = paletteName(palette, paletteHex(palette, name));
+    const back = readyCore().paletteName(palette, readyCore().paletteHex(palette, name));
     assert.ok(back !== null);
-    assert.equal(paletteHex(palette, back), paletteHex(palette, name));
+    assert.equal(readyCore().paletteHex(palette, back), readyCore().paletteHex(palette, name));
   }
-  assert.equal(paletteName(palette, paletteHex(palette, "red").toUpperCase()), paletteName(palette, paletteHex(palette, "red")));
-  assert.equal(paletteName(palette, "#010203"), null);
+  assert.equal(readyCore().paletteName(palette, readyCore().paletteHex(palette, "red").toUpperCase()), readyCore().paletteName(palette, readyCore().paletteHex(palette, "red")));
+  assert.equal(readyCore().paletteName(palette, "#010203"), null);
 });
 
 const src = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");

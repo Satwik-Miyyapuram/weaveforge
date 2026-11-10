@@ -1,5 +1,5 @@
 /** Use-case for comments. Validates then delegates (RLS gates who may add). */
-import { type Comment, type NewCommentInput } from "../domain/comment.js";
+import { type Comment, type NewCommentInput } from "../../../shared/core-contract.js";
 import type { ICommentRepository } from "../domain/comment-repository.js";
 import { rust } from "../../../shared/rust.js";
 

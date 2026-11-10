@@ -1,5 +1,5 @@
-import type { IShareLinkRepository, ResolvedShareLink } from "../domain/share-link.js";
-import type { IShareLinkTokenHasher } from "../domain/share-link-token.js";
+import type { IShareLinkRepository, ResolvedShareLink } from "../../../shared/core-contract.js";
+import type { IShareLinkTokenHasher } from "../../../shared/core-contract.js";
 import { rust } from "../../../shared/rust.js";
 
 const INVALID_LINK = "Link is invalid or expired.";

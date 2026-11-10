@@ -1,5 +1,5 @@
-import type { ShareableType } from "../domain/share.js";
-import type { IShareLinkRepository, ShareLink } from "../domain/share-link.js";
+import type { ShareableType } from "../../../shared/core-contract.js";
+import type { IShareLinkRepository, ShareLink } from "../../../shared/core-contract.js";
 
 export class ManageShareLinksUseCase {
   constructor(private readonly deps: { shareLinks: IShareLinkRepository }) {}

@@ -2,6 +2,7 @@
  * Sync issues panel labels and hunk grouping (Rust `sync::panel_labels`), re-exported from index.ts.
  */
 import {
+  deviceLabel as rawDeviceLabel,
   deviceMarkers as rawDeviceMarkers,
   groupHunks as rawGroupHunks,
   humanize as rawHumanize,
@@ -53,6 +54,11 @@ export function humanize(field: string): string {
 /** "n word" with the right plural; `many` overrides the plural word. */
 export function plural(n: number, word: string, many?: string): string {
   return rawPlural(n, word, many);
+}
+
+/** The adoption suffix name for a `navigator.platform` string: "Mac", "Windows", "Linux" or "this device". */
+export function deviceLabel(platform: string): string {
+  return rawDeviceLabel(platform);
 }
 
 /** An adoption label, `name (deviceLabel)`, counted up past any name already in `taken`. */

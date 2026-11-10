@@ -1,10 +1,9 @@
 import {
   ASSET_DIR,
-  WORKSPACE_META_DIR,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, type RustCore } from "@/lib/rust-core";
 import { IMPORT_LIMITS, ImportLimitError, SKIP_TOO_BIG, type SkippedFile } from "./import-limits";
 
 /** What a folder preview reads: notes, the project's data files and the shared assets. */
@@ -16,22 +15,9 @@ export interface PreviewFolderRead {
   skipped: SkippedFile[];
 }
 
-/** A top-level `<slug>--<id6>` folder: some project's, maybe not this one. */
-const PROJECT_FOLDER = /^[^/]+--[a-zA-Z0-9]{1,8}$/;
-
-/**
- * Whether a top-level folder can hold anything the preview reads. Git's own
- * folder never can; a project folder only reads its own and the shared assets.
- */
-function readsFolder(name: string, projectRoot: string, hasProjectDir: boolean): boolean {
-  if (name === ".git") return false;
-  if (name === projectRoot || name === ASSET_DIR) return true;
-  if (hasProjectDir) return false;
-  return name !== WORKSPACE_META_DIR && !PROJECT_FOLDER.test(name);
-}
-
 /** The files a preview looks at, without descending into folders it would ignore. */
 async function* previewEntries(
+  core: RustCore,
   fs: IWorkspaceFs,
   projectRoot: string,
   hasProjectDir: boolean,
@@ -39,7 +25,7 @@ async function* previewEntries(
   for (const top of await fs.list("")) {
     if (top.kind === "file") {
       if (!hasProjectDir) yield top;
-    } else if (readsFolder(top.path, projectRoot, hasProjectDir)) {
+    } else if (core.readsFolder(top.path, projectRoot, hasProjectDir)) {
       yield* fs.walk(top.path);
     }
   }
@@ -71,7 +57,7 @@ export async function readPreviewFolder(
   const skipped: SkippedFile[] = [];
   const wanted = (path: string) => !only || only.has(path);
 
-  for await (const entry of previewEntries(fs, projectRoot, hasProjectDir)) {
+  for await (const entry of previewEntries(core, fs, projectRoot, hasProjectDir)) {
     // Everything listed in a legacy flat folder is this project's.
     const ours = !hasProjectDir || entry.path.startsWith(`${projectRoot}/`);
     if (entry.path.endsWith(".md")) {

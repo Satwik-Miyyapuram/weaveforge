@@ -10,7 +10,6 @@
  * The address and body are built in Rust (`wf_core::error_report::issue_url`);
  * this module only picks the repo from the build environment.
  */
-import type { ReportMarkdownInput } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 
 /** Where reports go when nothing overrides it; the route uses the same repo. */
@@ -23,9 +22,4 @@ export function reportRepo(): string {
 
 export function newIssueUrl(input: { title: string; body: string; repo?: string }): string {
   return readyCore().newIssueUrl(input.title, input.body, input.repo ?? reportRepo());
-}
-
-/** The issue body, in the same layout the server route files. */
-export function reportMarkdown(input: ReportMarkdownInput): string {
-  return readyCore().reportMarkdown(input);
 }

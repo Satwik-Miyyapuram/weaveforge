@@ -15,9 +15,10 @@ use crate::sync::merge::{Conflict, merge_rows};
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct VaultPageBase {
-    /// Frontmatter fields, with `title` included.
-    #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
-    pub fields: Map<String, Value>,
+    /// Frontmatter fields, with `title` included. Usually an object; an array survives
+    /// a manifest round trip as-is and merges as having no named fields.
+    #[cfg_attr(feature = "specta", specta(type = specta_typescript::Unknown))]
+    pub fields: Value,
     /// Digest, not text: enough to tell a rewrite from an untouched body.
     pub body_digest: String,
 }
@@ -59,7 +60,10 @@ pub fn merge_vault_page(
     folder: &VaultPageSide,
     workspace: &VaultPageSide,
 ) -> VaultPageMerge {
-    let result = merge_rows(&base.fields, &folder.fields, &workspace.fields);
+    let no_fields = Map::new();
+    // An array base (kept as read from a manifest) has no named fields.
+    let base_fields = base.fields.as_object().unwrap_or(&no_fields);
+    let result = merge_rows(base_fields, &folder.fields, &workspace.fields);
     let mut conflicts = result.conflicts;
 
     let folder_digest = digest_text(&folder.body);
@@ -92,7 +96,7 @@ pub fn vault_page_base(path: &str, content: &str) -> Option<VaultPageBase> {
     let parsed = vault_page(path, content)?;
     let body_digest = digest_text(&parsed.body);
     Some(VaultPageBase {
-        fields: with_title(parsed.fields, &parsed.title),
+        fields: Value::Object(with_title(parsed.fields, &parsed.title)),
         body_digest,
     })
 }

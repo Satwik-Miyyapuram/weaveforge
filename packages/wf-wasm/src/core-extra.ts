@@ -31,9 +31,11 @@ import {
   newInkChunkId as rawNewInkChunkId,
   isInkEngineId as rawIsInkEngineId,
   inkEngineInfo as rawInkEngineInfo,
+  inkEngineRank as rawInkEngineRank,
   inkLineStrokes as rawInkLineStrokes,
   extractPageTitle as rawExtractPageTitle,
   decodeHtmlEntities as rawDecodeHtmlEntities,
+  pageTitleScanChars as rawPageTitleScanChars,
   inkEnumIndex as rawInkEnumIndex,
   inkEnumValue as rawInkEnumValue,
   makeInkStroke as rawMakeInkStroke,
@@ -282,11 +284,21 @@ export function inkEngineInfo<I>(id: string): I | null {
   return (rawInkEngineInfo(id) as I | null | undefined) ?? null;
 }
 
+/** The engine's preference rank, or the engine count for an unknown id (Rust `ink_engine_rank`). */
+export function inkEngineRank(id: string): number {
+  return rawInkEngineRank(id);
+}
+
 /* Page titles -------------------------------------------------------------- */
 
 /** HTML entities in a title decoded in one pass. */
 export function decodeHtmlEntities(value: string): string {
   return rawDecodeHtmlEntities(value);
+}
+
+/** How much of a page body the title scan reads (Rust `PAGE_TITLE_SCAN_CHARS`), read at call time. */
+export function pageTitleScanChars(): number {
+  return rawPageTitleScanChars();
 }
 
 /** The best title a page's HTML offers, or null. */

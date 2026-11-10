@@ -1,6 +1,5 @@
 import { type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
-import { layoutMarginNotes as layoutMarks, type MarginMark, type MarginSlot } from "@weaveforge/wasm";
-import { picturePath } from "./reader-picture";
+import { layoutMarginNotes as layoutMarks, picturePath, type MarginMark, type MarginSlot } from "@weaveforge/wasm";
 
 /** One comment card in the writing margin beside a page, and where it sits. */
 export interface MarginNote {

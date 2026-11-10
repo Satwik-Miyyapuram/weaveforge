@@ -38,7 +38,6 @@ import { readyCore } from "@/lib/rust-core";
 
 import {
   INK_RENDER_COLOURS,
-  paletteHex,
   type InkPalette,
 } from "../render/ink-palette";
 import type {
@@ -685,7 +684,7 @@ export function InkHost({
           paper={page.paper}
           tool={tool}
           cursorMode={cursorMode}
-          ink={{ hex: paletteHex(palette, colour), diameterPx: nib * scale }}
+          ink={{ hex: readyCore().paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}
           canvasRef={canvasRef}

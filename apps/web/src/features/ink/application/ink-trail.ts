@@ -19,7 +19,6 @@ import { type InkColour } from "@weaveforge/core";
 
 import {
   INK_RENDER_COLOURS,
-  paletteCss,
   type InkPalette,
 } from "../render/ink-palette";
 
@@ -76,23 +75,13 @@ export async function requestInkPresenter(
   }
 }
 
-/**
- * A nib width in page units (0.1 mm) as CSS pixels on a page drawn `pageWidthPx`
- * wide. The diameter follows the same filtered width the worker bakes into
- * geometry, so the trail is the stroke's own thickness and there is no step
- * where the tail meets the dry ink.
- */
-export function trailDiameterPx(width: number, pageWidthPx: number): number {
-  return readyCore().trailDiameterPx(width, pageWidthPx);
-}
-
 /** The trail's colour for a palette name: the renderer's own sRGB, as CSS. */
 export function trailColour(
   colour: InkColour,
   alpha = 1,
   palette: InkPalette = INK_RENDER_COLOURS,
 ): string {
-  return paletteCss(palette, colour, alpha);
+  return readyCore().paletteCss(palette, colour, alpha);
 }
 
 /**
@@ -110,10 +99,10 @@ export function trailStyle(input: {
   return {
     color: trailColour(
       input.colour,
-      input.tool === "highlighter" ? 0.35 : 1,
+      readyCore().inkTrailAlpha(input.tool),
       input.palette,
     ),
-    diameter: trailDiameterPx(input.width, input.pageWidthPx),
+    diameter: readyCore().trailDiameterPx(input.width, input.pageWidthPx),
   };
 }
 

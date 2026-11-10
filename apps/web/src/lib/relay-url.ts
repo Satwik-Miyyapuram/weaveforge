@@ -1,4 +1,5 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Where the hosted page reaches a relay route (`/api/arxiv`, `/api/pdf-proxy`, …).
@@ -8,14 +9,12 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  * shells always keep their in-process relay, so the bare path is theirs.
  */
 export function relayUrl(path: string): string {
-  const base = relayBase();
-  return base ? `${base}${path}` : path;
+  return readyCore().relayUrl(relayBase(), path);
 }
 
 /** The relay route path inside `url`, so same-origin checks also accept a relay URL. */
 export function relayPath(url: string): string {
-  const base = relayBase();
-  return base && url.startsWith(`${base}/`) ? url.slice(base.length) : url;
+  return readyCore().relayPath(relayBase(), url);
 }
 
 function relayBase(): string | null {

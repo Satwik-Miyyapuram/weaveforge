@@ -2,7 +2,8 @@
  * Use-cases for vault pages — orchestration only.
  */
 
-import { VaultPageValidationError, type NewVaultPageInput, type VaultPage } from "../domain/vault-page.js";
+import type { NewVaultPageInput, VaultPage } from "../../../shared/core-contract.js";
+import { VaultPageValidationError } from "../../../shared/errors.js";
 import type { IVaultPageRepository } from "../domain/vault-page-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";

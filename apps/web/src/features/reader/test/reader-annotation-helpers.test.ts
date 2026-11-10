@@ -1,21 +1,17 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  annotationPinKey,
-  applyAnnotationPatch,
-  isDismissTap,
-  listedAnnotations,
-  optimisticAnnotationFromDraft,
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers.js";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 
 before(loadTestCore);
 
 test("annotationPinKey prefers zoteroKey", () => {
-  assert.equal(annotationPinKey({ id: "local-1", zoteroKey: "ABCD1234" }), "ABCD1234");
-  assert.equal(annotationPinKey({ id: "local-1", zoteroKey: null }), "local-1");
-  assert.equal(annotationPinKey({ id: "local-1", zoteroKey: "  " }), "local-1");
+  assert.equal(readyCore().annotationPinKey("local-1", "ABCD1234"), "ABCD1234");
+  assert.equal(readyCore().annotationPinKey("local-1", null), "local-1");
+  assert.equal(readyCore().annotationPinKey("local-1", "  "), "local-1");
 });
 
 test("READER_ANNOTATION_COLORS has stable Zotero-like palette", () => {
@@ -28,7 +24,7 @@ test("optimisticAnnotationFromDraft mirrors what the repository will store", () 
   // persisted row — a highlight that changes colour or shifts on save reads
   // as a glitch.
   const anchor = { zoteroPosition: { pageIndex: 4, rects: [[1, 2, 3, 4]] } };
-  const ann = optimisticAnnotationFromDraft(
+  const ann = readyCore().optimisticAnnotationFromDraft(
     {
       type: "highlight",
       color: "  #ff6666  ",
@@ -54,9 +50,10 @@ test("optimisticAnnotationFromDraft mirrors what the repository will store", () 
 });
 
 test("optimisticAnnotationFromDraft fills the defaults the column would", () => {
-  const ann = optimisticAnnotationFromDraft(
+  const ann = readyCore().optimisticAnnotationFromDraft(
     { type: "ink", color: "   ", pageIndex: 2, anchor: {} },
     "pending:x",
+    "2026-07-29T00:00:00.000Z",
   );
   assert.equal(ann.color, "#ffd400");
   assert.equal(ann.text, "");
@@ -72,11 +69,12 @@ test("pending ids are recognisable so they are never treated as server rows", ()
 test("applyAnnotationPatch normalises exactly as the repository does", () => {
   // If these drift, the optimistic value visibly changes when the server row
   // arrives, which reads as the edit being rejected and silently redone.
-  const base = optimisticAnnotationFromDraft(
+  const base = readyCore().optimisticAnnotationFromDraft(
     { type: "highlight", color: "#ffd400", pageIndex: 0, anchor: {}, tags: ["keep"] },
     "a1",
+    "2026-07-29T00:00:00.000Z",
   );
-  const patched = applyAnnotationPatch(base, {
+  const patched = readyCore().applyAnnotationPatch(base, {
     comment: "  trimmed  ",
     color: "   ",
     tags: ["x", "y"],
@@ -88,42 +86,50 @@ test("applyAnnotationPatch normalises exactly as the repository does", () => {
 });
 
 test("applyAnnotationPatch leaves untouched fields alone", () => {
-  const base = optimisticAnnotationFromDraft(
+  const base = readyCore().optimisticAnnotationFromDraft(
     { type: "note", color: "#2ea8e5", comment: "original", pageIndex: 1, anchor: {}, tags: ["t"] },
     "a2",
+    "2026-07-29T00:00:00.000Z",
   );
-  const patched = applyAnnotationPatch(base, { color: "#ff6666" });
+  const patched = readyCore().applyAnnotationPatch(base, { color: "#ff6666" });
   assert.equal(patched.color, "#ff6666");
   assert.equal(patched.comment, "original");
   assert.deepEqual(patched.tags, ["t"]);
 });
 
 test("applyAnnotationPatch does not alias the caller's tag array", () => {
-  const base = optimisticAnnotationFromDraft(
+  const base = readyCore().optimisticAnnotationFromDraft(
     { type: "highlight", color: "#ffd400", pageIndex: 0, anchor: {} },
     "a3",
+    "2026-07-29T00:00:00.000Z",
   );
   const tags = ["one"];
-  const patched = applyAnnotationPatch(base, { tags });
+  const patched = readyCore().applyAnnotationPatch(base, { tags });
   tags.push("two");
   assert.deepEqual(patched.tags, ["one"], "later mutation must not reach the annotation");
 });
 
 test("listedAnnotations leaves ink out of the list and its count", () => {
-  const marks = [{ type: "highlight" }, { type: "ink" }, { type: "note" }, { type: "ink" }, { type: "underline" }] as const;
+  const marks = (["highlight", "ink", "note", "ink", "underline"] as const).map((type, i) =>
+    readyCore().optimisticAnnotationFromDraft(
+      { type, color: "#ffd400", pageIndex: 0, anchor: {} },
+      `m${i}`,
+      "2026-07-29T00:00:00.000Z",
+    ),
+  );
   assert.deepEqual(
-    listedAnnotations(marks).map((a) => a.type),
+    readyCore().listedAnnotations(marks).map((a: { type: string }) => a.type),
     ["highlight", "note", "underline"],
   );
 });
 
 test("isDismissTap: one short tap off an open bar dismisses it", () => {
   const down = { x: 100, y: 100, time: 0 };
-  assert.equal(isDismissTap(down, { x: 102, y: 101, time: 120 }, true), true);
-  assert.equal(isDismissTap(down, { x: 102, y: 101, time: 120 }, false), false, "no bar, nothing to dismiss");
-  assert.equal(isDismissTap(down, { x: 160, y: 100, time: 120 }, true), false, "a drag is a new selection");
-  assert.equal(isDismissTap(down, { x: 100, y: 100, time: 900 }, true), false, "a long press selects words");
-  assert.equal(isDismissTap(null, { x: 100, y: 100, time: 10 }, true), false);
+  assert.equal(readyCore().isDismissTap(down, { x: 102, y: 101, time: 120 }, true), true);
+  assert.equal(readyCore().isDismissTap(down, { x: 102, y: 101, time: 120 }, false), false, "no bar, nothing to dismiss");
+  assert.equal(readyCore().isDismissTap(down, { x: 160, y: 100, time: 120 }, true), false, "a drag is a new selection");
+  assert.equal(readyCore().isDismissTap(down, { x: 100, y: 100, time: 900 }, true), false, "a long press selects words");
+  assert.equal(readyCore().isDismissTap(null, { x: 100, y: 100, time: 10 }, true), false);
 });
 
 test("one default colour: the palette's first, used for a blank colour (22-07)", async () => {

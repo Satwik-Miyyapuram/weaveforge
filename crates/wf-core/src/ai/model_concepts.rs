@@ -9,7 +9,8 @@ use crate::ai::extraction::{ExtractedConcept, ExtractedMention, ExtractionResult
 use crate::search::js_text::is_js_whitespace;
 
 /// Concept kinds the model may name (TS `CONCEPT_KINDS`). Anything else becomes `concept`.
-const CONCEPT_KINDS: [&str; 6] = ["concept", "method", "dataset", "metric", "person", "venue"];
+pub(crate) const CONCEPT_KINDS: [&str; 6] =
+    ["concept", "method", "dataset", "metric", "person", "venue"];
 
 /// Pull the `concepts` array out of a model reply.
 ///

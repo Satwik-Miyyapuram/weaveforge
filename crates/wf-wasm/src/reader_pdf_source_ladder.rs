@@ -4,7 +4,7 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::pdf_source_ladder::ladder_order;
+use wf_core::reader::pdf_source_ladder::{default_resolver_order, ladder_order};
 
 use super::to_js;
 
@@ -19,4 +19,15 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 pub fn ladder_order_js(supports: JsValue) -> JsResult<JsValue> {
     let supports: Vec<bool> = serde_wasm_bindgen::from_value(supports)?;
     to_js(&ladder_order(&supports))
+}
+
+/// [`default_resolver_order`] (TS `defaultPdfSourceResolvers` order): the source kinds, in the
+/// order they are tried. `hasCache` and `hasGithub` say which optional rungs exist.
+///
+/// # Errors
+///
+/// Fails only if the value cannot be converted to a JS value.
+#[wasm_bindgen(js_name = pdfSourceResolverOrder)]
+pub fn pdf_source_resolver_order_js(has_cache: bool, has_github: bool) -> JsResult<JsValue> {
+    to_js(&default_resolver_order(has_cache, has_github))
 }

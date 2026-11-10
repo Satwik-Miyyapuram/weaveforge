@@ -4,16 +4,25 @@
  * of apps/web workspace/application/{folder-merge,mirror-manifest,folder-import-apply,remove-project-folder}.ts.
  */
 import {
+  claimDigest as rawClaimDigest,
   countActionList as rawCountActionList,
   countActions as rawCountActions,
   folderTitleFromPath as rawFolderTitleFromPath,
   jsonEditSince as rawJsonEditSince,
+  keepBothTitle as rawKeepBothTitle,
   mergeBothChanged as rawMergeBothChanged,
+  movedPath as rawMovedPath,
   nextManifest as rawNextManifest,
   pickProjectFolder as rawPickProjectFolder,
+  readMirrorBase as rawReadMirrorBase,
+  readMirrorBases as rawReadMirrorBases,
+  rekeyManifestText as rawRekeyManifestText,
+  settleConflict as rawSettleConflict,
+  unstampForCompare as rawUnstampForCompare,
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
+  ConflictResolution,
   ImportAction,
   ImportDiffEntry,
   VaultPageBase,
@@ -67,4 +76,51 @@ export function pickProjectFolder(
   tail: string,
 ): string | undefined {
   return rawPickProjectFolder([...dirs], exact, tail);
+}
+
+/** A both-changed file settled by its resolution; `undefined` when it settles to nothing (markers, or kept as it is). */
+export function settleConflict(
+  entry: ImportDiffEntry,
+  resolutions: Readonly<Record<string, ConflictResolution>>,
+): ImportDiffEntry | undefined {
+  return rawSettleConflict(entry, resolutions) as ImportDiffEntry | undefined;
+}
+
+/** The title of the copy kept beside a conflict. */
+export function keepBothTitle(title: string): string {
+  return rawKeepBothTitle(title);
+}
+
+/** The digest each manifest path recorded (`""` when none); empty for an absent or unreadable manifest. */
+export function readMirrorBase(text: string | undefined): Record<string, string> {
+  return rawReadMirrorBase(text) as Record<string, string>;
+}
+
+/** The note bases the manifest recorded, by path; empty for an absent, older or unreadable manifest. */
+export function readMirrorBases(text: string | undefined): Record<string, VaultPageBase> {
+  return rawReadMirrorBases(text) as Record<string, VaultPageBase>;
+}
+
+/** The digest map with `path` recorded for `stamped` text. */
+export function claimDigest(
+  base: Readonly<Record<string, string>>,
+  path: string,
+  stamped: string,
+): Record<string, string> {
+  return rawClaimDigest(base, path, stamped) as Record<string, string>;
+}
+
+/** `path` after the project folder `old` moved to `root`. */
+export function movedPath(old: string, root: string, path: string): string {
+  return rawMovedPath(old, root, path);
+}
+
+/** The manifest text re-keyed from `old` to `root`; `undefined` when `text` is not a JSON object. */
+export function rekeyManifestText(text: string, old: string, root: string): string | undefined {
+  return rawRekeyManifestText(text, old, root);
+}
+
+/** `text` with a README or manifest's export time blanked, so two copies that differ only in it compare equal. */
+export function unstampForCompare(path: string, text: string): string {
+  return rawUnstampForCompare(path, text);
 }

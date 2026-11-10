@@ -5,6 +5,7 @@ import { OutboxPump, type PumpResult } from "./pump";
 import { Puller, type PullResult } from "./puller";
 import { SyncStateStore } from "./sync-state";
 import type { SyncTransport } from "./sync-ports";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The whole of sync, in the order it has to happen.
@@ -101,7 +102,7 @@ export class SyncEngine {
     const pushed = await this.push();
     // Nothing to pull if the network just refused the push — the pull would
     // only fail the same way, and a thrown pull loses the push's report.
-    if (pushed.stoppedBecause === "offline") {
+    if (!readyCore().shouldPullAfterPush({ stoppedOffline: pushed.stoppedBecause === "offline" })) {
       return { pushed, pulled: { applied: 0, watermark: (await this.state.read()).watermark, more: false } };
     }
     // Page until caught up, so a device's first download (everything the
@@ -109,9 +110,11 @@ export class SyncEngine {
     // so a feed that keeps growing cannot hold the cycle forever.
     let pulled = await this.puller.pull();
     let applied = pulled.applied;
-    for (let page = 1; pulled.more && page < MAX_PAGES_PER_CYCLE; page += 1) {
+    let pages = 1;
+    while (readyCore().shouldFetchNextPage({ more: pulled.more, page: pages, maxPages: MAX_PAGES_PER_CYCLE })) {
       pulled = await this.puller.pull();
       applied += pulled.applied;
+      pages += 1;
     }
     return { pushed, pulled: { ...pulled, applied } };
   }
@@ -130,7 +133,14 @@ export class SyncEngine {
     const state = await this.sql.queryOne<{ account_id: string | null; resend_checked_at: string | null }>(
       "select account_id, resend_checked_at from sync_state",
     );
-    if (!state?.account_id || state.resend_checked_at) return;
+    if (
+      !state ||
+      !readyCore().shouldRecoverUnsent({
+        hasAccount: !!state.account_id,
+        resendChecked: !!state.resend_checked_at,
+      })
+    )
+      return;
     const tables = await this.sql.query<{ t: string }>("select sync_tables_parent_first() as t");
     for (const { t } of tables) {
       const rows = await this.sql.query<{ id: string }>("select sync_unsent_candidates($1, $2) as id", [
@@ -156,7 +166,7 @@ export class SyncEngine {
       total.sent += step.sent;
       total.conflicts.push(...step.conflicts);
       total.stoppedBecause = step.stoppedBecause;
-      if (step.sent === 0 || step.stoppedBecause) break;
+      if (!readyCore().continuePushRound({ sent: step.sent, stoppedEarly: step.stoppedBecause !== null })) break;
     }
     return total;
   }

@@ -29,18 +29,7 @@ export function mcpClientConfigs(
   platform: NodeJS.Platform,
   appData: string | undefined,
 ): McpClientConfig[] {
-  let vscodeDir: string;
-  if (platform === "win32") {
-    vscodeDir = path.join(appData ?? path.join(home, "AppData", "Roaming"), "Code", "User");
-  } else if (platform === "darwin") {
-    vscodeDir = path.join(home, "Library", "Application Support", "Code", "User");
-  } else {
-    vscodeDir = path.join(home, ".config", "Code", "User");
-  }
-  return [
-    { file: path.join(home, ".cursor", "mcp.json"), key: "mcpServers" },
-    { file: path.join(vscodeDir, "mcp.json"), key: "servers" },
-  ];
+  return rust().mcpClientConfigs(home, platform, appData ?? null, path.sep);
 }
 
 /** True for an entry the Electron app wrote: run as Node, first arg the bridge script. */

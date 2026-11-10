@@ -6,10 +6,13 @@
  * nothing said why.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import type { AppLogInput } from "@/lib/error-report/app-log";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { loadLinkTargets } from "@/features/vault/application/load-link-targets";
+
+before(loadTestCore);
 
 const papers = async () => ({ papers: [{ id: "p1", title: "Paper", extra: 1 }] });
 const sections = async () => ({ flat: [{ id: "s1", title: "Intro", depth: 0 }] });

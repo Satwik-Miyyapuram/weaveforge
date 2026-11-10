@@ -1,4 +1,5 @@
 import type { AppLogInput } from "@/lib/error-report/app-log";
+import { readyCore } from "@/lib/rust-core";
 
 type Entry = { id: string; title: string };
 
@@ -41,8 +42,6 @@ export async function loadLinkTargets(
   return {
     paperEntries: entries(papersData?.papers),
     sectionEntries: entries(reportData?.flat),
-    error: failed.length
-      ? `Links to ${failed.sort().join(" and ")} could not be loaded, so they may show as missing.`
-      : null,
+    error: readyCore().linkTargetsError(failed) ?? null,
   };
 }

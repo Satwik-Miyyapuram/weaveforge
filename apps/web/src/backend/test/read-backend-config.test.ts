@@ -1,7 +1,8 @@
 import { before, describe, it, test } from "node:test";
 import assert from "node:assert/strict";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { missingConfigMessage, readBackendConfig } from "../config";
+import { readBackendConfig } from "../config";
 
 before(async () => {
   await loadTestCore();
@@ -96,7 +97,7 @@ test("missingConfigMessage names the absent env vars", () => {
     NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
   });
-  const message = missingConfigMessage(cfg, ["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"]);
+  const message = readyCore().missingConfigMessage(cfg,["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"]);
   assert.ok(message?.includes("SUPABASE_SERVICE_ROLE_KEY"));
   assert.ok(!message?.includes("NEXT_PUBLIC_SUPABASE_URL"), "present vars are not named");
 });
@@ -107,7 +108,7 @@ test("missingConfigMessage is null when everything required is set", () => {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
     SUPABASE_SERVICE_ROLE_KEY: "service-key",
   });
-  assert.equal(missingConfigMessage(cfg, ["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"]), null);
+  assert.equal(readyCore().missingConfigMessage(cfg,["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"]), null);
 });
 
 test("missingConfigMessage never echoes a secret value", () => {
@@ -117,7 +118,7 @@ test("missingConfigMessage never echoes a secret value", () => {
     SUPABASE_SERVICE_ROLE_KEY: secret,
   });
   // These messages reach the browser, so only names may appear in them.
-  const message = missingConfigMessage(cfg, ["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"]);
+  const message = readyCore().missingConfigMessage(cfg,["supabaseUrl", "supabaseAnonKey", "supabaseServiceRoleKey"]);
   assert.ok(message?.includes("NEXT_PUBLIC_SUPABASE_ANON_KEY"));
   assert.ok(!message?.includes(secret), "secret value must never appear in the message");
 });

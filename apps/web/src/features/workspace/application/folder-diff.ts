@@ -6,22 +6,14 @@ import {
 } from "@weaveforge/core";
 import type { ImportDiff } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { ownedAssetFolderPaths, workspaceBodies } from "./asset-reanchor";
 import { jsonDiff } from "./folder-json-import";
 import { setPendingAssets, storedDigest } from "./folder-import-apply";
-import { countActions, mergeBothChanged } from "./folder-merge";
+import { mergeBothChanged } from "./folder-merge";
 import type { FolderDiff } from "./outside-edits";
 
 /** What importing a folder or a ZIP would change in the workspace. */
-
-/** Only notes import; an experiment or paper file would otherwise read as a new note. */
-export function importableEntities<T extends { type: string; id?: string | null }>(
-  parsed: readonly T[],
-  noteIds: ReadonlySet<string>,
-): T[] {
-  return parsed.filter((entity) => entity.type === "vault_page" || (!!entity.id && noteIds.has(entity.id)));
-}
 
 export async function diffAgainstWorkspace(
   files: Record<string, string>,
@@ -67,7 +59,8 @@ export async function diffAgainstWorkspace(
     [...owned].map((folderPath) => [folderPath, folderPath.split("/").slice(2).join("/")]),
   );
   const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
-  const parsed = importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
+  // Only notes import; an experiment or paper file would otherwise read as a new note.
+  const parsed = readyCore().importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
     ...entity,
     // Restore links to assets this account already owns before comparing.
     // Without it every note holding an image reads as changed on every import,
@@ -112,5 +105,5 @@ export async function diffAgainstWorkspace(
     core.renameSources(parsed, files, current),
   );
   const stored = Object.fromEntries(snapshot.vaultPages.map((page) => [page.id, storedDigest(page)]));
-  return { entries, counts: core.addCounts(countActions(entries), json.counts), json, seen, stored };
+  return { entries, counts: core.addCounts(readyCore().countActions(entries), json.counts), json, seen, stored };
 }

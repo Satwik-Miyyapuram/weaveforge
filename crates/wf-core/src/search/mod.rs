@@ -12,6 +12,7 @@ pub mod fusion;
 pub mod hybrid_fusion;
 pub mod index_cache_policy;
 pub mod js_text;
+pub mod library_index;
 pub mod pdf_text_prune;
 pub mod personalized_pagerank;
 pub mod projection;

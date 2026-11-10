@@ -30,7 +30,7 @@ const VAULT_ASSETS_BUCKET = "vault-assets";
 
 function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls: Map<string, string>): string {
   const next = readyCore().stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
-  return readyCore().stripUnresolvedImageRefs(next, readyCore().VAULT_IMAGE_PREFIX, paths, [...urls.keys()]);
+  return readyCore().stripUnresolvedImageRefs(next, readyCore().vaultImagePrefix(), paths, [...urls.keys()]);
 }
 
 /**
@@ -84,7 +84,7 @@ export function VaultMarkdown({
     for (const path of paths) {
       const url = urls.get(path);
       if (!url) continue;
-      next = next.replaceAll(`${readyCore().VAULT_IMAGE_PREFIX}${path}`, url);
+      next = next.replaceAll(`${readyCore().vaultImagePrefix()}${path}`, url);
     }
     return next;
   }, [source, paths, urls]);

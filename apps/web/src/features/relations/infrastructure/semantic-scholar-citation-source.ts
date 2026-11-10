@@ -25,44 +25,6 @@ interface S2ReferencesResponse {
   data?: S2ReferenceItem[];
 }
 
-/** `/paper/batch` item: a paper with its nested `references[].externalIds`. */
-interface S2BatchItem {
-  references?: { externalIds?: S2ExternalIds | null }[] | null;
-}
-
-interface S2Paper {
-  paperId?: string | null;
-  title?: string | null;
-  authors?: { name?: string | null }[] | null;
-  year?: number | null;
-  url?: string | null;
-  citationCount?: number | null;
-}
-
-interface S2CitationEdge {
-  citingPaper?: S2Paper | null;
-  contexts?: unknown;
-  intents?: unknown;
-  isInfluential?: unknown;
-}
-
-interface S2CitationsResponse {
-  data?: S2CitationEdge[];
-  next?: number;
-}
-
-function mapContexts(raw: unknown): string[] | undefined {
-  return typedCore().citationContexts(raw);
-}
-
-function mapIntents(raw: unknown): CitationCandidate["intents"] | undefined {
-  return typedCore().citationIntents(raw) as CitationCandidate["intents"] | undefined;
-}
-
-function mapIsInfluential(raw: unknown): boolean | undefined {
-  return typeof raw === "boolean" ? raw : undefined;
-}
-
 function extId(ids: S2ExternalIds | null | undefined): PaperRef | null {
   return typedCore().citationExternalIdRef(ids ?? null) as PaperRef | null;
 }
@@ -150,33 +112,10 @@ export class SemanticScholarCitationSource implements ICitationSource {
       if (!res.ok) {
         throw new Error(`Semantic Scholar citations failed: ${res.status} ${res.statusText}`);
       }
-      const body = (await res.json()) as S2CitationsResponse;
-      for (const item of body.data ?? []) {
-        const paper = item.citingPaper;
-        if (!paper) continue;
-        const title = paper.title?.trim();
-        const paperId = paper.paperId?.trim();
-        if (!paperId || !title) continue;
-        const contexts = mapContexts(item.contexts);
-        const intents = mapIntents(item.intents);
-        const isInfluential = mapIsInfluential(item.isInfluential);
-        out.push({
-          id: paperId,
-          title,
-          authors: (paper.authors ?? [])
-            .map((author) => author.name?.trim())
-            .filter((name): name is string => Boolean(name)),
-          year: paper.year ?? undefined,
-          url: paper.url ?? `https://www.semanticscholar.org/paper/${paperId}`,
-          citationCount:
-            typeof paper.citationCount === "number" && Number.isFinite(paper.citationCount)
-              ? Math.max(0, Math.trunc(paper.citationCount))
-              : undefined,
-          ...(contexts ? { contexts } : {}),
-          ...(intents ? { intents } : {}),
-          ...(isInfluential !== undefined ? { isInfluential } : {}),
-        });
-      }
+      const body = (await res.json()) as { data?: unknown; next?: unknown };
+      // Candidate assembly (trim, skip, field mapping) lives in wf-core `citation_candidate`.
+      // Rust keeps only known intents, so the wire's string[] is CitationIntent[].
+      out.push(...(typedCore().citationCandidates(body.data ?? []) as CitationCandidate[]));
       pages += 1;
       // Soft-stop on stuck/zero next, page cap, or S2's offset≥10000 ceiling.
       offset = nextPageOffset(offset, body.next, pages);
@@ -211,26 +150,10 @@ export class SemanticScholarCitationSource implements ICitationSource {
       if (!res.ok) {
         throw new Error(`Semantic Scholar batch failed: ${res.status} ${res.statusText}`);
       }
-      const data = (await res.json()) as (S2BatchItem | null)[];
-      // S2 returns one entry per input id, in order. If that contract breaks,
-      // fail loudly rather than silently misalign refs to the wrong papers.
-      if (!Array.isArray(data) || data.length !== chunk.length) {
-        throw new Error(
-          `Semantic Scholar batch returned ${Array.isArray(data) ? data.length : "?"} items for ${chunk.length} ids.`,
-        );
-      }
-      for (const item of data) {
-        if (!item || !item.references) {
-          out.push(null);
-          continue;
-        }
-        const list: PaperRef[] = [];
-        for (const r of item.references) {
-          const ref = extId(r.externalIds);
-          if (ref) list.push(ref);
-        }
-        out.push(list);
-      }
+      // Alignment check (one entry per id, in order) and per-paper reference lists live in
+      // wf-core `citation_candidate`; it throws the same message when the count differs.
+      const data: unknown = await res.json();
+      out.push(...typedCore().batchReferenceLists(data, chunk.length));
     }
     return out;
   }

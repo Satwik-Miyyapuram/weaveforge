@@ -17,14 +17,14 @@ export interface PendingFieldFill {
   preview: string;
 }
 
-/** Plain key for a cell, so a pending fill can be looked up while rendering. Pure TS. */
+/** Plain key for a cell, so a pending fill can be looked up while rendering (wf-core `extraction_keys`). */
 export function pendingKey(paperId: string, fieldId: string): string {
-  return `${paperId}::${fieldId}`;
+  return readyCore().pendingKey(paperId, fieldId);
 }
 
-/** A relation or rollup cell's papers, by title (the id when the paper is gone). Pure TS. */
+/** A relation or rollup cell's papers, by title (the id when the paper is gone; wf-core `extraction_keys`). */
 export function relationTitles(ids: readonly unknown[], titleById: ReadonlyMap<string, string>): string {
-  return ids.map((id) => titleById.get(String(id)) ?? String(id)).join(", ");
+  return readyCore().relationTitles(ids.map(String), titleById);
 }
 
 type CoreRows = Parameters<ReturnType<typeof readyCore>["extractionMarkdown"]>[0];
@@ -41,30 +41,33 @@ function toCoreRows(rows: readonly ExtractionRow[]): CoreRows {
   })) as CoreRows;
 }
 
-type WasmFieldValues = ReturnType<ReturnType<typeof readyCore>["extractionValueRows"]>[number]["values"];
+type WasmFieldValues = ReturnType<ReturnType<typeof readyCore>["flattenPaperRows"]>[number]["values"];
 
 /** Bindings type f64 as number | null (NaN/Infinity serialise as null); field values are always finite. */
 function toDomainValues(values: WasmFieldValues): Map<string, PaperFieldValueData> {
   return new Map(Object.entries(values)) as Map<string, PaperFieldValueData>;
 }
 
-/** Unique papers in list order; ignores vault notes. Rollups are computed in one wasm call. */
+/**
+ * Unique papers in list order; ignores vault notes. Wf-core decides which listed papers exist and
+ * their order; this maps each returned index back to the paper object. Rollups: one wasm call.
+ */
 export function flattenPaperRows(
   papers: readonly Paper[],
   paperIds: readonly string[],
   allValues: readonly PaperFieldValue[],
   defs: readonly PaperFieldDef[] = [],
 ): ExtractionRow[] {
-  const byId = new Map(papers.map((p) => [p.id, p]));
-  const present = paperIds.filter((id) => byId.has(id));
-  const computed = readyCore().extractionValueRows(present, allValues, defs);
-  const rows: ExtractionRow[] = [];
-  for (const { paperId, values } of computed) {
-    const paper = byId.get(paperId);
-    if (!paper) continue;
-    rows.push({ paper, values: toDomainValues(values) });
-  }
-  return rows;
+  const computed = readyCore().flattenPaperRows(
+    papers.map((p) => p.id),
+    paperIds,
+    allValues,
+    defs,
+  );
+  return computed.flatMap(({ paperIndex, values }) => {
+    const paper = papers[paperIndex];
+    return paper ? [{ paper, values: toDomainValues(values) }] : [];
+  });
 }
 
 export function extractionMarkdown(

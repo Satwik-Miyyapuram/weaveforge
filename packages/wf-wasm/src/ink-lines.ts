@@ -12,6 +12,11 @@ import {
   inkPageConfidence as rawInkPageConfidence,
   inkVocabularyHints as rawInkVocabularyHints,
   decodeInkWords as rawDecodeInkWords,
+  bandsCoincide as rawBandsCoincide,
+  inkUnsureConfidence as rawInkUnsureConfidence,
+  inkPageSummary as rawInkPageSummary,
+  inkBandUnion as rawInkBandUnion,
+  cappedEngineConfidence as rawCappedEngineConfidence,
 } from "../pkg/wf_wasm.js";
 import type { InkSegmentationIndices } from "./bindings.js";
 
@@ -85,6 +90,40 @@ export function isUnsureLine(line: { conf: number }): boolean {
 /** Whether a confidence is too low, or missing (NaN), to trust (Rust `is_unsure_confidence`). */
 export function isUnsureConfidence(conf: number): boolean {
   return rawIsUnsureConfidence(conf);
+}
+
+/** The confidence below which a line is marked unsure (Rust `INK_UNSURE_CONFIDENCE`). */
+export function inkUnsureConfidence(): number {
+  return rawInkUnsureConfidence();
+}
+
+/** Whether two y-bands overlap by at least half of the smaller one (Rust `bands_coincide`). */
+export function bandsCoincide(a: readonly [number, number], b: readonly [number, number]): boolean {
+  return rawBandsCoincide(a[0], a[1], b[0], b[1]);
+}
+
+/**
+ * The `[start, end]` band spanning the flat `start, end` pairs given, or `null` when
+ * there are none (Rust `band_union`).
+ */
+export function inkBandUnion(bands: Float64Array): [number, number] | null {
+  const united = rawInkBandUnion(bands);
+  return united.length === 2 ? [united[0]!, united[1]!] : null;
+}
+
+/** An engine's line confidence capped at the engine maximum (Rust `capped_engine_confidence`). */
+export function cappedEngineConfidence(conf: number): number {
+  return rawCappedEngineConfidence(conf);
+}
+
+/**
+ * The page summary: the trimmed non-empty line texts joined by newlines, the page's
+ * confidence, and the count of unsure lines (Rust `ink_page_summary`).
+ */
+export function inkPageSummary(
+  lines: readonly { text: string; conf: number }[],
+): { text: string; confidence: number; unsure: number } {
+  return rawInkPageSummary(lines) as ReturnType<typeof inkPageSummary>;
 }
 
 /** An engine's raw score mapped to [0, 1] (Rust `map_ink_confidence`). */

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { type Share } from "../../../src/features/sharing/domain/share.js";
+import { type Share } from "../../../src/shared/core-contract.js";
 import { rust } from "../../../src/shared/rust.js";
 
 const base = (over: Partial<Share>): Share => ({

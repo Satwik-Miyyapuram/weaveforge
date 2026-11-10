@@ -1,7 +1,7 @@
 /** Repository contract for shares (DIP). Grant is idempotent per
  * (owner, recipient, type, resource) — re-granting updates the access level. */
 
-import type { NewShareInput, Share, ShareableType } from "./share.js";
+import type { NewShareInput, Share, ShareableType } from "../../../shared/core-contract.js";
 
 export interface IShareRepository {
   /** Create or update a grant; returns the resulting share. */

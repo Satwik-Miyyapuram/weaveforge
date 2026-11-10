@@ -17,13 +17,11 @@ import {
   INK_CHUNK_FLAG_COMPRESSED,
   INK_CHUNK_HEADER_BYTES,
   INK_CHUNK_MAGIC,
-  INK_CHUNK_RAW_THRESHOLD,
   InkChunkError,
   decodeInkChunk,
   decodeInkChunkBody,
   encodeInkChunk,
   encodeInkChunkBody,
-  fitsInkNoteBudget,
   identityInkChunkCodec,
   inflateInkChunk,
   inkChunkBodySize,
@@ -31,7 +29,6 @@ import {
   type InkChunkCodec,
 } from "../../src/ink/ink-binary.js";
 import {
-  chunkAbsolutePoints,
   chunkLine,
   chunkLineText,
   chunkStroke,
@@ -39,7 +36,6 @@ import {
   pageFromChunk,
 } from "../../src/ink/ink-chunk-read.js";
 import { INK_PAPERS, type InkPage } from "../../src/ink/ink-note.js";
-import { rust } from "../../src/shared/rust.js";
 import { rust } from "../../src/shared/rust.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */
@@ -304,7 +300,7 @@ test("points are stored as deltas and read back as absolute positions", () => {
   assert.equal(view.points[4], 5, "25 − 20");
   assert.equal(view.points[5], 128);
 
-  assert.deepEqual(Array.from(chunkAbsolutePoints(view)), [
+  assert.deepEqual(Array.from(rust().absolutePointTriples(view.body)), [
     10, 20, 0, 40, 25, 128, 90, 60, 255,
     // every stroke restarts its delta chain from its own first point
     100, 120, 200, 160, 122, 180,
@@ -318,7 +314,7 @@ test("points are stored as deltas and read back as absolute positions", () => {
 
 test("one stroke's points are the same slice of the whole page's walk (06-04)", () => {
   const view = decodeInkChunkBody(encodeInkChunkBody(smallPage()));
-  const all = Array.from(chunkAbsolutePoints(view));
+  const all = Array.from(rust().absolutePointTriples(view.body));
   const joined: number[] = [];
   for (let stroke = 0; stroke < view.strokeCount; stroke += 1) {
     const { points, pressures } = chunkStrokePoints(view, stroke);
@@ -384,9 +380,9 @@ test("a small page is stored raw, and a large one only when compressing helped",
   const smallHeader = readInkChunkHeader(small);
   assert.equal(smallHeader.compressed, false, "below the threshold, inflating costs more than it saves");
   assert.equal(smallHeader.flags & INK_CHUNK_FLAG_COMPRESSED, 0);
-  assert.ok(inkChunkBodySize(smallPage()) < INK_CHUNK_RAW_THRESHOLD);
+  assert.ok(inkChunkBodySize(smallPage()) < rust().inkChunkRawThreshold());
 
-  const dense = await encodeInkChunk(densePage(true), brotliQ5);
+  const dense = await encodeInkChunk(densePage("smooth"), brotliQ5);
   const denseHeader = readInkChunkHeader(dense);
   assert.equal(denseHeader.compressed, true);
   assert.ok(dense.length < denseHeader.bodySize, "a compressed chunk is smaller than its body");
@@ -469,9 +465,9 @@ test("the plan's unsimplified harness page is measured and recorded, not asserte
 });
 
 test("a note's chunks are budgeted against the 8 MB a sidecar may take", () => {
-  assert.equal(fitsInkNoteBudget([52_000, 40_000, 39_000]), true);
-  assert.equal(fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024]), true);
-  assert.equal(fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024 + 1]), false);
+  assert.equal(rust().fitsInkNoteBudget([52_000, 40_000, 39_000]), true);
+  assert.equal(rust().fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024]), true);
+  assert.equal(rust().fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024 + 1]), false);
 });
 
 test("an empty page is a valid chunk: a note with no strokes still opens", () => {

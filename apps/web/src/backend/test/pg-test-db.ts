@@ -24,7 +24,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { LOCAL_BOOTSTRAP_SQL, applyMigrations, sessionClaims } from "@weaveforge/core";
+import { LOCAL_BOOTSTRAP_SQL, applyMigrations } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = path.resolve(HERE, "../../../../../db/migrations");
@@ -97,7 +98,7 @@ async function build(): Promise<TestDb> {
       const [row] = await sql<{ id: string }>("insert into auth.users (email) values ($1) returning id", [email]);
       return row!.id;
     },
-    as: (userId: string) => asRole("authenticated", sessionClaims(userId)),
+    as: (userId: string) => asRole("authenticated", readyCore().sessionClaims(userId)),
     anon: asRole("anon", "{}"),
     async exec(script: string) { await db.exec(script); },
     async close() { await db.close(); },

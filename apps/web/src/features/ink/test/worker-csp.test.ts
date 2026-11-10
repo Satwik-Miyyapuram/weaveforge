@@ -40,7 +40,8 @@ test("the web CSP allows a blob worker, which is what the ink worker is emitted 
 });
 
 test("the desktop shell already allowed it, which is why omitting it fails on web only", () => {
-  const protocol = read("apps/shell/sidecar/src/app-protocol.ts");
+  // The shell's CSP is written by the Rust core now.
+  const protocol = read("crates/wf-core/src/app_protocol.rs");
   assert.match(protocol, /worker-src 'self' blob:/);
 });
 

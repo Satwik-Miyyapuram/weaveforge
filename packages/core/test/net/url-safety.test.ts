@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_FETCH_LIMITS } from "../../src/net/url-safety.js";
 import { rust } from "../../src/shared/rust.js";
 
 const ok = (url: string) => assert.equal(rust().checkUrlShape(url).ok, true, url);
@@ -126,9 +125,10 @@ test("a trailing dot does not smuggle a name past the checks", () => {
 });
 
 test("the default limits are bounded", () => {
-  assert.ok(DEFAULT_FETCH_LIMITS.maxRedirects <= 5);
-  assert.ok(DEFAULT_FETCH_LIMITS.maxBytes <= 16 * 1024 * 1024);
-  assert.ok(DEFAULT_FETCH_LIMITS.timeoutMs <= 30_000);
+  const limits = rust().fetchLimits();
+  assert.ok(limits.maxRedirects <= 5);
+  assert.ok(limits.maxBytes <= 16 * 1024 * 1024);
+  assert.ok(limits.timeoutMs <= 30_000);
 });
 
 test("2001::/23 is special-purpose across all 23 bits (01-07)", () => {

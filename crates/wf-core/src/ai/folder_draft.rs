@@ -109,6 +109,26 @@ fn optional_string(value: Option<&Value>) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Whether a directory entry is a folder draft file: any `.json` path (TS `import-folder-drafts`).
+#[must_use]
+pub fn is_folder_draft_path(path: &str) -> bool {
+    path.ends_with(".json")
+}
+
+/// Parse a draft and keep it only when it belongs to `project_id` (TS `importFolderDrafts` check).
+///
+/// A missing or empty id on either side matches any project. Unparseable input gives `None`.
+#[must_use]
+pub fn folder_draft_for_project(raw: &str, project_id: Option<&str>) -> Option<FolderDraft> {
+    let draft = parse_folder_draft(raw)?;
+    let wanted = project_id.filter(|id| !id.is_empty());
+    let have = draft.project_id.as_deref().filter(|id| !id.is_empty());
+    match (have, wanted) {
+        (Some(have), Some(wanted)) if have != wanted => None,
+        _ => Some(draft),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -127,6 +147,30 @@ mod tests {
         assert_eq!(draft.content, "body");
         assert_eq!(draft.tool, "t");
         assert_eq!(draft.project_id, None);
+    }
+
+    #[test]
+    fn project_filter_keeps_matching_or_unscoped_drafts() {
+        let mut scoped = valid();
+        let _ = scoped
+            .as_object_mut()
+            .unwrap()
+            .insert("projectId".to_owned(), json!("p1"));
+        let raw = scoped.to_string();
+        assert!(folder_draft_for_project(&raw, Some("p1")).is_some());
+        assert!(folder_draft_for_project(&raw, Some("p2")).is_none());
+        assert!(folder_draft_for_project(&raw, None).is_some());
+        assert!(folder_draft_for_project(&raw, Some("")).is_some());
+        let unscoped = valid().to_string();
+        assert!(folder_draft_for_project(&unscoped, Some("p2")).is_some());
+        assert!(folder_draft_for_project("not json", Some("p1")).is_none());
+    }
+
+    #[test]
+    fn only_json_paths_are_drafts() {
+        assert!(is_folder_draft_path("a/b.json"));
+        assert!(!is_folder_draft_path("a/b.md"));
+        assert!(!is_folder_draft_path("a/json"));
     }
 
     #[test]

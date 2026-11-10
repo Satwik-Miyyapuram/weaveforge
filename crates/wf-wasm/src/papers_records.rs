@@ -110,6 +110,17 @@ pub fn is_empty_paper_summary_js(summary: Option<String>) -> bool {
     paper::is_empty_paper_summary(summary.as_deref())
 }
 
+/// [`check_new_paper`](paper::check_new_paper) (TS `checkNewPaper`). Returns the trimmed title;
+/// a refusal throws an `Error` with the wf-core message.
+///
+/// # Errors
+///
+/// Fails with the refusal message when the title is blank or the rating is outside 1 to 5.
+#[wasm_bindgen(js_name = checkNewPaper)]
+pub fn check_new_paper_js(title: &str, rating: Option<f64>) -> Result<String, JsError> {
+    paper::check_new_paper(title, rating).map_err(|message| JsError::new(&message))
+}
+
 /// [`normalize_field_name`](paper_field::normalize_field_name) (TS `normalizeFieldName`).
 #[must_use]
 #[wasm_bindgen(js_name = normalizeFieldName)]

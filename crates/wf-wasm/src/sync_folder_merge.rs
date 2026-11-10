@@ -1,7 +1,7 @@
 //! Folder merge and mirror manifest for JavaScript (wf-core `sync::folder_merge`,
 //! `sync::folder_mirror::next_manifest`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -96,4 +96,83 @@ pub fn folder_title_from_path_js(path: &str) -> String {
 #[must_use]
 pub fn pick_project_folder_js(dirs: Vec<String>, exact: &str, tail: &str) -> Option<String> {
     folder_layout::pick_project_folder(&dirs, exact, tail)
+}
+
+/// [`settle_conflict`](folder_merge::settle_conflict). `resolutions` maps each conflicted path to
+/// its resolution. `undefined` when the entry settles to nothing (markers, or kept as it is).
+///
+/// # Errors
+///
+/// Fails when `entry` or `resolutions` is not the shape the folder import produces.
+#[wasm_bindgen(js_name = settleConflict)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn settle_conflict_js(entry: JsValue, resolutions: JsValue) -> JsResult<JsValue> {
+    let entry: ImportDiffEntry = serde_wasm_bindgen::from_value(entry)?;
+    let resolutions: BTreeMap<String, folder_merge::ConflictResolution> =
+        serde_wasm_bindgen::from_value(resolutions)?;
+    to_js(&folder_merge::settle_conflict(entry, &resolutions))
+}
+
+/// [`keep_both_title`](folder_merge::keep_both_title): the title of the copy kept beside a conflict.
+#[wasm_bindgen(js_name = keepBothTitle)]
+#[must_use]
+pub fn keep_both_title_js(title: &str) -> String {
+    folder_merge::keep_both_title(title)
+}
+
+/// [`read_mirror_base`](folder_mirror::read_mirror_base): the manifest's path-to-digest map.
+/// `text` is the manifest text, or `undefined` when there is none.
+///
+/// # Errors
+///
+/// Fails only when the result cannot be turned into a JS object.
+#[wasm_bindgen(js_name = readMirrorBase)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn read_mirror_base_js(text: Option<String>) -> JsResult<JsValue> {
+    to_js(&folder_mirror::read_mirror_base(text.as_deref()))
+}
+
+/// [`read_mirror_bases`](folder_mirror::read_mirror_bases): the manifest's note bases, by path.
+///
+/// # Errors
+///
+/// Fails only when the result cannot be turned into a JS object.
+#[wasm_bindgen(js_name = readMirrorBases)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn read_mirror_bases_js(text: Option<String>) -> JsResult<JsValue> {
+    to_js(&folder_mirror::read_mirror_bases(text.as_deref()))
+}
+
+/// [`claim_digest`](folder_mirror::claim_digest): `base` with `path` recorded for `stamped`.
+///
+/// # Errors
+///
+/// Fails when `base` is not an object of string digests.
+#[wasm_bindgen(js_name = claimDigest)]
+pub fn claim_digest_js(base: JsValue, path: &str, stamped: &str) -> JsResult<JsValue> {
+    let base: indexmap::IndexMap<String, String> = serde_wasm_bindgen::from_value(base)?;
+    to_js(&folder_mirror::claim_digest(&base, path, stamped))
+}
+
+/// [`moved_path`](folder_mirror::moved_path): `path` after the project folder `old` moved to `root`.
+#[wasm_bindgen(js_name = movedPath)]
+#[must_use]
+pub fn moved_path_js(old: &str, root: &str, path: &str) -> String {
+    folder_mirror::moved_path(old, root, path)
+}
+
+/// [`rekey_manifest_text`](folder_mirror::rekey_manifest_text). `undefined` when `text` is not a
+/// JSON object.
+#[wasm_bindgen(js_name = rekeyManifestText)]
+#[must_use]
+pub fn rekey_manifest_text_js(text: &str, old: &str, root: &str) -> Option<String> {
+    folder_mirror::rekey_manifest_text(text, old, root)
+}
+
+/// [`unstamp_for_compare`](folder_mirror::unstamp_for_compare): `text` with a README or manifest's
+/// export time blanked, for comparing two copies of a mirrored file.
+#[wasm_bindgen(js_name = unstampForCompare)]
+#[must_use]
+pub fn unstamp_for_compare_js(path: &str, text: &str) -> String {
+    folder_mirror::unstamp_for_compare(path, text)
 }

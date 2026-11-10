@@ -1,5 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
+import { rust } from "@weaveforge/core";
+
 import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker, type TrackingSetup } from "./local-mcp";
 import type { ProjectSource } from "./local-mcp-projects";
 import type { SaveArtifact } from "./local-artifacts";
@@ -61,7 +63,7 @@ function fail(status: number, message: string): LocalApiResponse {
  */
 export function tokenMatches(header: string | undefined, expected: string): boolean {
   if (!expected) return false;
-  const offered = /^Bearer (.+)$/.exec(header ?? "")?.[1];
+  const offered = rust().bearerToken(header) as string | undefined;
   if (!offered) return false;
   const a = Buffer.from(offered);
   const b = Buffer.from(expected);
@@ -96,7 +98,7 @@ export function grantPermissions(
 ): ReadonlySet<LocalApiPermission> | null {
   if (typeof expected === "string")
     return tokenMatches(header, expected) ? new Set(LOCAL_API_PERMISSIONS) : null;
-  const offered = /^Bearer (.+)$/.exec(header ?? "")?.[1];
+  const offered = rust().bearerToken(header) as string | undefined;
   if (!offered) return null;
   const a = createHash("sha256").update(offered).digest();
   let found: ReadonlySet<LocalApiPermission> | null = null;

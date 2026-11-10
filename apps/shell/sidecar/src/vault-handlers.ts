@@ -1,4 +1,4 @@
-import type { WorkspaceCommit } from "@weaveforge/core";
+import { rust, type WorkspaceCommit } from "@weaveforge/core";
 
 import type { IpcResult, VaultEntryPayload, VaultRootPayload } from "./channels";
 import { NodeWorkspaceFs, verifyRoot, workspaceRootFor } from "./vault-folder";
@@ -40,11 +40,6 @@ export const MAX_VAULT_BYTES = 8 * 1024 * 1024;
  * hand over, so nothing the proxy accepts is then refused a place on disk.
  */
 export const MAX_VAULT_BLOB_BYTES = 80 * 1024 * 1024;
-
-/** Said when a file is too big to cross, on both sides of the bridge; names the cap that applied. */
-function tooLarge(cap: number): string {
-  return `That file is too large to open here (over ${cap / (1024 * 1024)} MB).`;
-}
 
 export interface VaultSession {
   root: VaultRootPayload | null;
@@ -153,7 +148,7 @@ async function readCapped<T>(
   if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
   try {
     const stat = await session.fs.stat(relative);
-    if (stat && stat.size > cap) return { ok: false, message: tooLarge(cap) };
+    if (stat && stat.size > cap) return { ok: false, message: rust().vaultTooLargeMessage(cap) };
     return { ok: true, value: await read(session.fs, relative) };
   } catch (error) {
     // A missing file is a `null`, not a failure — callers ask about files that
@@ -199,7 +194,7 @@ async function writeCapped(
 ): Promise<IpcResult<null>> {
   if (!session.fs) return { ok: false, message: NO_ROOT };
   if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
-  if (size > cap) return { ok: false, message: tooLarge(cap) };
+  if (size > cap) return { ok: false, message: rust().vaultTooLargeMessage(cap) };
   try {
     await session.fs.writeFile(relative, contents);
     return { ok: true, value: null };

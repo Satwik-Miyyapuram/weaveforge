@@ -10,7 +10,7 @@
 
 import type { Paper } from "../features/papers/domain/paper.js";
 import type { PaperRelation } from "../features/relations/domain/paper-relation.js";
-import type { VaultPage } from "../features/vault/domain/vault-page.js";
+import type { VaultPage } from "../shared/core-contract.js";
 import type { ReadingList, ReadingListItem } from "../features/reading-lists/domain/reading-list.js";
 import type { ReportSection } from "../features/report/domain/report-section.js";
 import type { Experiment } from "../features/experiments/domain/experiment.js";

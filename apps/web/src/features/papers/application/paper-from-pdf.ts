@@ -64,19 +64,6 @@ export function isPdfFile(file: Pick<PdfFileLike, "name" | "type">): boolean {
   return readyCore().isPdfFile(file.name, file.type);
 }
 
-/** An `arXiv:` id in running text, new style (`2301.12345`) or old (`hep-th/9711200`). */
-const ARXIV_STAMP = /\barxiv:\s*(?:[a-z-]+(?:\.[a-z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?/i;
-
-/** The first of the opening lines that reads like a title, if any. */
-export function guessTitle(text: string): string | undefined {
-  return readyCore().guessTitle(text);
-}
-
-/** The metadata title, unless it is a tool's placeholder or a file name. */
-export function metadataTitle(raw: string | undefined): string | undefined {
-  return readyCore().metadataTitle(raw);
-}
-
 /** Try one lookup; "no source knows it" is a miss, anything else is a fault. */
 async function tryRef(ref: PaperRef, deps: PdfDropDeps): Promise<AddPaperResult | null> {
   try {
@@ -98,7 +85,7 @@ async function readPdf(bytes: ArrayBuffer, deps: PdfDropDeps): Promise<PdfText> 
 
 export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Promise<PdfDropOutcome> {
   if (!isPdfFile(file)) return { kind: "skipped", file: file.name, reason: "not a PDF" };
-  if (file.size > MAX_PDF_BYTES) return { kind: "skipped", file: file.name, reason: "too large" };
+  if (readyCore().isPdfTooLarge(file.size)) return { kind: "skipped", file: file.name, reason: "too large" };
 
   const bytes = await file.arrayBuffer();
   const offline = !deps.online();
@@ -107,12 +94,12 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   const core = await loadCore();
   // The Rust parser takes at most maxIndexTextUtf16() units; a DOI sits near the start.
   const doi = core.extractDoi(pdf.text.slice(0, core.maxIndexTextUtf16()));
-  const title = metadataTitle(pdf.title) ?? guessTitle(pdf.text);
+  const title = readyCore().metadataTitle(pdf.title) ?? readyCore().guessTitle(pdf.text);
   let found: AddPaperResult | null = null;
   if (!offline) {
     if (doi) found = await tryRef({ kind: "doi", value: doi }, deps);
     // arXiv stamps its id down the first page's margin: `arXiv:2301.12345v2 [cs.LG]`.
-    const arxiv = core.normalizeArxivId(ARXIV_STAMP.exec(pdf.text)?.[0]);
+    const arxiv = core.normalizeArxivId(core.arxivStamp(pdf.text));
     if (!found && arxiv) found = await tryRef({ kind: "arxiv", value: arxiv }, deps);
     if (!found && title) found = await tryRef({ kind: "bibliographic", value: title, hints: { title } }, deps);
   }

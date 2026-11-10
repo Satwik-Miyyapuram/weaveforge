@@ -1,4 +1,4 @@
-//! Port of `looksLikeImageUrl` in packages/core/src/net/page-title.ts. Pure.
+//! Port of `looksLikeImageUrl` in `PageTitleFns` (packages/core/src/shared/core-contract.ts). Pure.
 //!
 //! A pasted link is downloaded as a picture only when its own path ends in a
 //! picture extension. No extension means no request: a note is not a reason to

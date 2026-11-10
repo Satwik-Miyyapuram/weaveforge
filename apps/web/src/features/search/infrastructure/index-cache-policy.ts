@@ -19,14 +19,6 @@ import { idbSetSearchIndex } from "./search-index-idb";
  */
 
 /**
- * Documents past which the website stops persisting. Single source is the Rust
- * `WEB_CACHE_DOCUMENT_LIMIT`; this only reads it.
- */
-export function webCacheDocumentLimit(): number {
-  return readyCore().webCacheDocumentLimit();
-}
-
-/**
  * Is this the installed app rather than a browser tab?
  *
  * Three signals because no single one covers every platform: the standard

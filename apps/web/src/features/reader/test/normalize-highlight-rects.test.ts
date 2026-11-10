@@ -3,8 +3,7 @@ import test, { before } from "node:test";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
-import type { CombinedPdfAnchor } from "@weaveforge/wasm";
+import { projectPageAnnotationGeometry, type CombinedPdfAnchor } from "@weaveforge/wasm";
 
 before(async () => {
   await loadTestCore();

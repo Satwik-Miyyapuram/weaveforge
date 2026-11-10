@@ -13,9 +13,9 @@ import { PlanWidgetToggle } from "./plan-widget-toggle";
 import { copyText } from "@/lib/clipboard";
 import {
   planFeedOrigin,
-  planFeedUrls,
   type PlanFeedLink,
 } from "@/features/plan/infrastructure/plan-feed-links";
+import { readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 
 const REMINDER_OPTIONS = [
@@ -95,7 +95,7 @@ export function CalendarFeedPanel() {
     });
 
   const urls = token
-    ? planFeedUrls(planFeedOrigin(hasServerRoutes(), window.location.origin), token, {
+    ? readyCore().planFeedUrls(planFeedOrigin(hasServerRoutes(), window.location.origin), token, {
         includeDone,
         reminderDays: Number(reminder),
       })

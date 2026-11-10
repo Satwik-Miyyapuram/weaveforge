@@ -101,13 +101,11 @@ export const INK_CHUNK_FLAG_COMPRESSED = 0x1;
 /** The 16-byte chunk header. */
 export const INK_CHUNK_HEADER_BYTES = 16;
 
-/**
- * Below this, a body is stored raw.
- *
- * Inflating a 4 kB page costs more than it saves, and a raw chunk is readable by
- * tooling — `strings`, a hex dump, `wf ink dump` — without a codec.
+/*
+ * The raw-threshold rule (`inkChunkRawThreshold`, `inkChunkShouldTryCompress`,
+ * `inkChunkStoresCompressed`) lives in Rust: below the threshold a body is stored
+ * raw, so tooling can read it without a codec. Read through `rust()` at call time.
  */
-export const INK_CHUNK_RAW_THRESHOLD = 64 * 1024;
 
 /** Sidecar budget per note, hard (§4.7). At ~50 kB/page, ~150 dense pages. */
 export const INK_NOTE_MAX_BYTES = 8 * 1024 * 1024;
@@ -195,19 +193,20 @@ export async function encodeInkChunk(
   page: InkPage,
   codec: InkChunkCodec = identityInkChunkCodec,
 ): Promise<Uint8Array> {
+  const core = rust();
   const body = encodeInkChunkBody(page);
   let payload = body;
   let compressed = false;
-  if (body.length >= INK_CHUNK_RAW_THRESHOLD) {
+  if (core.inkChunkShouldTryCompress(body.length)) {
     const packed = await codec.compress(body);
-    if (packed.length < body.length) {
+    if (core.inkChunkStoresCompressed(body.length, packed.length)) {
       payload = packed;
       compressed = true;
     }
   }
 
   const chunk = new Uint8Array(INK_CHUNK_HEADER_BYTES + payload.length);
-  chunk.set(rust().inkChunkHeaderBytes(body.length, payload.length, compressed), 0);
+  chunk.set(core.inkChunkHeaderBytes(body.length, payload.length, compressed), 0);
   chunk.set(payload, INK_CHUNK_HEADER_BYTES);
   return chunk;
 }
@@ -410,10 +409,3 @@ export function inkChunkBodySize(page: InkPage): number {
   return chunkCall(() => rust().inkChunkBodySize(page));
 }
 
-/**
- * Whether a set of chunks still fits a note's budget. `sizes` are the bytes on
- * disk, one per page.
- */
-export function fitsInkNoteBudget(sizes: readonly number[]): boolean {
-  return rust().fitsInkNoteBudget(sizes);
-}

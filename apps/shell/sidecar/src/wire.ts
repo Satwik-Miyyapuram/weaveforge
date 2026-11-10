@@ -1,5 +1,12 @@
 import { createInterface } from "node:readline";
-import { errorMessage } from "@weaveforge/core";
+import { errorMessage, rust } from "@weaveforge/core";
+
+/**
+ * Sidecar wire shim. The rules (line routing, request and answer parsing, the
+ * one-key tags, reply shapes) live in Rust `wire`, reached through `rust()`.
+ * This file keeps what only JS can do: the readline socket, the handler table,
+ * the ask timers, and turning tags into BigInt and Uint8Array.
+ */
 
 /** One call from the shell. */
 export interface WireRequest {
@@ -16,11 +23,26 @@ export type WireReply =
 /** What the sidecar can be asked to do. */
 export type Handlers = Readonly<Record<string, (params: unknown) => Promise<unknown>>>;
 
-/** Longest request line accepted, in UTF-16 code units. */
+/** Longest request line accepted, in UTF-16 code units. Rust enforces the same limit. */
 export const MAX_LINE = 32 * 1024 * 1024;
 
+/** What Rust decided about one line (`wireRoute`). */
+type Route =
+  | { kind: "skip" }
+  | { kind: "reply"; reply: Record<string, unknown> }
+  | { kind: "call"; id: number; method: string; params?: unknown }
+  | { kind: "settle"; answer: number; ok: true; value: unknown }
+  | { kind: "settle"; answer: number; ok: false; error: string }
+  | { kind: "badAnswer" };
+
+/** A request line read on its own (`wireParseRequest`). */
+type Parsed = { ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string };
+
+/** A one-key tag Rust recognised (`wireTag`). */
+type Tag = { kind: "bigint"; digits: string } | { kind: "bytes"; encoded: string } | null;
+
 /** JSON.stringify replacer: bigint → {"$bigint":"<decimal>"}, Uint8Array → {"$bytes":"<base64>"}. */
-export function encodeValue(this: unknown, key: string, value: unknown): unknown {
+export function encodeValue(this: unknown, _key: string, value: unknown): unknown {
   if (typeof value === "bigint") return { $bigint: value.toString() };
   if (value instanceof Uint8Array) {
     return { $bytes: Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString("base64") };
@@ -28,64 +50,68 @@ export function encodeValue(this: unknown, key: string, value: unknown): unknown
   return value;
 }
 
-/** JSON.parse reviver: the inverse of encodeValue, for objects with exactly that one key and a string value. */
-export function decodeValue(this: unknown, key: string, value: unknown): unknown {
+/**
+ * Turns one one-key object into its JS value when Rust says it is a tag. Only
+ * one-key objects are sent to Rust, so the wasm call is skipped for the rest.
+ */
+function reviveTag(value: unknown): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  if (Object.keys(value).length !== 1) return value;
+  const tag = rust().wireTag(value) as Tag;
+  if (tag === null) return value;
+  return tag.kind === "bigint" ? BigInt(tag.digits) : new Uint8Array(Buffer.from(tag.encoded, "base64"));
+}
+
+/**
+ * Turns every tag inside a value Rust handed back. Rust keeps tags as plain
+ * objects, because a JS bigint or Uint8Array cannot cross into it.
+ */
+function reviveTags(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reviveTags);
+  if (typeof value !== "object" || value === null) return value;
   const obj = value as Record<string, unknown>;
-  const keys = Object.keys(obj);
-  if (keys.length !== 1) return value;
-  if (keys[0] === "$bigint" && typeof obj.$bigint === "string" && /^-?\d+$/.test(obj.$bigint)) {
-    return BigInt(obj.$bigint);
-  }
-  if (keys[0] === "$bytes" && typeof obj.$bytes === "string") {
-    return new Uint8Array(Buffer.from(obj.$bytes, "base64"));
-  }
-  return value;
+  for (const key of Object.keys(obj)) obj[key] = reviveTags(obj[key]);
+  return reviveTag(obj);
+}
+
+/** JSON.parse reviver: the inverse of encodeValue. Children are revived before their parent. */
+export function decodeValue(this: unknown, _key: string, value: unknown): unknown {
+  return reviveTag(value);
 }
 
 /** Parse one line into a request, or return the error text to send back. */
 export function parseRequest(line: string): WireRequest | string {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(line, decodeValue);
-  } catch {
-    return "bad request: not JSON";
-  }
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return "bad request: needs an integer id and a method";
-  }
-  const obj = raw as Record<string, unknown>;
-  const { id, method } = obj;
-  if (
-    typeof id !== "number" ||
-    !Number.isSafeInteger(id) ||
-    id < 0 ||
-    typeof method !== "string" ||
-    method === ""
-  ) {
-    return "bad request: needs an integer id and a method";
-  }
-  const request: WireRequest = { id, method };
-  if ("params" in obj) request.params = obj.params;
+  const parsed = rust().wireParseRequest(line) as Parsed;
+  if (!parsed.ok) return parsed.error;
+  const request: WireRequest = { id: parsed.id, method: parsed.method };
+  if ("params" in parsed) request.params = reviveTags(parsed.params);
   return request;
 }
 
-/** Run one line through the handlers. Never throws; returns null for blank lines. */
-export async function handleLine(line: string, handlers: Handlers): Promise<WireReply | null> {
-  if (line.trim() === "") return null;
-  if (line.length > MAX_LINE) return { id: null, ok: false, error: "bad request: line too long" };
-  const parsed = parseRequest(line);
-  if (typeof parsed === "string") return { id: null, ok: false, error: parsed };
-  const { id, method, params } = parsed;
+/** Run a routed call through its handler. Never throws. */
+async function callHandler(call: Extract<Route, { kind: "call" }>, handlers: Handlers): Promise<WireReply> {
+  const { id, method } = call;
   if (!Object.hasOwn(handlers, method)) {
-    return { id, ok: false, error: "unknown method: " + method };
+    return rust().wireErrorReply(id, "unknown method: " + method) as WireReply;
   }
   try {
-    const value = await handlers[method]!(params);
-    return { id, ok: true, value };
+    const value = await handlers[method]!(reviveTags(call.params));
+    return { ...rust().wireOkReplyHead(id), value };
   } catch (e) {
-    return { id, ok: false, error: errorMessage(e) };
+    return rust().wireErrorReply(id, errorMessage(e)) as WireReply;
   }
+}
+
+/** Act on a routed line that is a reply or a call. Null for everything else. */
+async function respond(route: Route, handlers: Handlers): Promise<WireReply | null> {
+  if (route.kind === "reply") return route.reply as WireReply;
+  if (route.kind !== "call") return null;
+  return callHandler(route, handlers);
+}
+
+/** Run one line through the handlers. Never throws; returns null for blank lines and answers (no peer listens). */
+export async function handleLine(line: string, handlers: Handlers): Promise<WireReply | null> {
+  return respond(rust().wireRoute(line, false) as Route, handlers);
 }
 
 /** Asks and events the sidecar sends to the shell. */
@@ -140,24 +166,14 @@ export function createPeer(output: { write(chunk: string): unknown }, options: P
     },
     settleLine(line) {
       if (line.length > MAX_LINE) return false;
-      let raw: unknown;
-      try {
-        raw = JSON.parse(line, decodeValue);
-      } catch {
-        return false;
-      }
-      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return false;
-      const obj = raw as Record<string, unknown>;
-      const { answer, ok } = obj;
-      if (typeof answer !== "number" || !Number.isSafeInteger(answer) || answer < 1) return false;
-      if (typeof ok !== "boolean") return false;
-      if (!ok && typeof obj.error !== "string") return false;
-      const w = waiting.get(answer);
+      const route = rust().wireRoute(line, true) as Route;
+      if (route.kind !== "settle") return false;
+      const w = waiting.get(route.answer);
       if (w === undefined) return true;
-      waiting.delete(answer);
+      waiting.delete(route.answer);
       clearTimeout(w.timer);
-      if (ok) w.resolve(obj.value);
-      else w.reject(new Error(obj.error as string));
+      if (route.ok) w.resolve(reviveTags(route.value));
+      else w.reject(new Error(route.error));
       return true;
     },
     closeAll(reason) {
@@ -181,19 +197,21 @@ export async function serve(
   const pending = new Set<Promise<void>>();
   const rl = createInterface({ input, crlfDelay: Infinity });
   rl.on("line", (line) => {
-    if (peer && line.startsWith('{"answer":')) {
-      if (!peer.settleLine(line)) console.error("sidecar: bad answer line");
+    const route = rust().wireRoute(line, peer !== undefined) as Route;
+    if (route.kind === "skip") return;
+    if (route.kind === "settle" || route.kind === "badAnswer") {
+      if (!peer?.settleLine(line)) console.error("sidecar: bad answer line");
       return;
     }
-    const job = handleLine(line, handlers).then((reply) => {
+    const job = respond(route, handlers).then((reply) => {
       if (reply === null) return;
-      if (reply.ok && reply.value === undefined) reply.value = null;
+      const sent = reply.ok && reply.value === undefined ? { ...reply, value: null } : reply;
       let text: string;
       try {
-        text = JSON.stringify(reply, encodeValue);
+        text = JSON.stringify(sent, encodeValue);
       } catch (e) {
         // A reply must always be written, so the shell never waits forever.
-        text = JSON.stringify({ id: reply.id, ok: false, error: "reply not serialisable: " + errorMessage(e) });
+        text = JSON.stringify(rust().wireErrorReply(reply.id, "reply not serialisable: " + errorMessage(e)));
       }
       output.write(text + "\n");
     });

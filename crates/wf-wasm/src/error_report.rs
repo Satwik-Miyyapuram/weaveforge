@@ -8,6 +8,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::error_report::issue_url::{
     ReportMarkdown, new_issue_url as core_new_issue_url, report_markdown as core_report_markdown,
 };
+use wf_core::error_report::network_failure::is_network_failure as core_is_network_failure;
 use wf_core::error_report::redact::{MAX_REPORT_CHARS, redact as core_redact, redact_and_cap};
 
 use super::{check_text, to_js};
@@ -71,4 +72,15 @@ pub fn report_markdown(input: JsValue) -> JsResult<String> {
         check_text(logs)?;
     }
     Ok(core_report_markdown(&input))
+}
+
+/// [`wf_core::error_report::network_failure::is_network_failure`] for JS.
+///
+/// # Errors
+///
+/// Fails when `message` is over the text cap.
+#[wasm_bindgen(js_name = isNetworkFailure)]
+pub fn is_network_failure(message: &str) -> JsResult<bool> {
+    check_text(message)?;
+    Ok(core_is_network_failure(message))
 }

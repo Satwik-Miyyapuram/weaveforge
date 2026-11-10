@@ -7,11 +7,10 @@ import { type Experiment, type MetricPoint } from "@weaveforge/core";
 import { artifactItems } from "./artifact-items";
 import { ArtifactPlaceholder } from "./artifact-placeholder";
 import { getContainer } from "@/bootstrap";
-import { commitUrl, repoWebUrl } from "@/features/sync/infrastructure/git-client";
 import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
-import { isAbsoluteUrl, isTauriShell, viewableArtifactUrl } from "../infrastructure/experiment-artifact-store";
+import { isTauriShell, viewableArtifactUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
 import { Chip } from "@/components/controls";
 import { Modal } from "@/components/modal";
@@ -26,16 +25,16 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
   const chips = [
     exp.branch ? <Chip key="branch"><em>branch</em> {exp.branch}</Chip> : null,
     exp.commitSha ? (
-      commitUrl(exp.repoUrl, exp.commitSha) ? (
-        <Chip key="commit" href={commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
+      readyCore().commitUrl(exp.repoUrl, exp.commitSha) ? (
+        <Chip key="commit" href={readyCore().commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
           <em>commit</em> {readyCore().shortSha(exp.commitSha)}
         </Chip>
       ) : (
         <Chip key="commit"><em>commit</em> {readyCore().shortSha(exp.commitSha)}</Chip>
       )
     ) : null,
-    repoWebUrl(exp.repoUrl) ? (
-      <Chip key="repo" href={repoWebUrl(exp.repoUrl) ?? ""} target="_blank" rel="noreferrer">repo</Chip>
+    readyCore().repoWebUrl(exp.repoUrl) ? (
+      <Chip key="repo" href={readyCore().repoWebUrl(exp.repoUrl) ?? ""} target="_blank" rel="noreferrer">repo</Chip>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);
@@ -110,10 +109,10 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
 function useArtifactUrls(entries: string[]): { urls: (string | null)[]; settled: boolean; retry: () => void } {
   // One slot per entry, in order: absolute links are ready now, paths once signed.
   const [resolved, setResolved] = useState<(string | null)[]>(() =>
-    entries.map((entry) => (isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : null)),
+    entries.map((entry) => (readyCore().isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : null)),
   );
   // True once signing finished or failed: a path still without a URL is then missing.
-  const [settled, setSettled] = useState(() => entries.every(isAbsoluteUrl));
+  const [settled, setSettled] = useState(() => entries.every((entry) => readyCore().isAbsoluteUrl(entry)));
   const [attempt, setAttempt] = useState(0);
 
   // NUL separator, written as an escape: a literal NUL byte in the source makes

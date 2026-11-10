@@ -1,18 +1,8 @@
-import type { ReaderAnnotation } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
-
 export interface BatchImageRegion {
   annotationId: string;
   pageIndex: number;
   rect: number[];
   color: string;
-}
-
-/** Collect image-region annotations for bulk extract (rect only; rasterise later). */
-export function collectAnnotationImageRegions(
-  annotations: readonly ReaderAnnotation[],
-): BatchImageRegion[] {
-  return readyCore().collectAnnotationImageRegions(annotations);
 }
 
 export interface ActivityLogEntry {

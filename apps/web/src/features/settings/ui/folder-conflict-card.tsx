@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { type ImportDiffEntry } from "@weaveforge/wasm";
 import { readyCore, type HunkPick } from "@/lib/rust-core";
-import {
-  keepBothTitle,
-  type ConflictPicks,
-  type ConflictResolution,
-} from "@/features/workspace/application/workspace-folder";
+import type { ConflictPicks, ConflictResolution } from "@weaveforge/wasm";
 import { Button } from "@/components/button";
 
 /**
@@ -190,7 +186,7 @@ export function FolderConflictCard({
       )}
       {chosen === "both" && (
         <p className="muted jump-to-meta">
-          Imported as “{keepBothTitle(entry.entity.title)}”, leaving this app&apos;s copy as it is.
+          Imported as “{readyCore().keepBothTitle(entry.entity.title)}”, leaving this app&apos;s copy as it is.
         </p>
       )}
     </li>

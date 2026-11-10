@@ -1,4 +1,5 @@
-//! Port of `readInkRequest` in apps/desktop/src/ink-recogniser.ts. Pure.
+//! Port of `readInkRequest` in apps/desktop/src/ink-recogniser.ts and of the request builder
+//! `desktopInkRequest` in apps/web/src/features/ink/application/recognisers.ts. Pure.
 //!
 //! The page's request, checked whole before it goes to the Windows Ink helper: lines of strokes of
 //! finite numbers, an optional word list and an optional language. Anything else is `None`. Only
@@ -10,6 +11,7 @@ use serde_json::Value;
 
 /// One line of writing: flat `[x, y, pressure, x, y, pressure, ...]` per stroke.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct InkRecognitionLineInput {
     /// Strokes.
@@ -18,6 +20,8 @@ pub struct InkRecognitionLineInput {
 
 /// The checked request. `vocabulary` and `lang` are absent when the page did not send them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct InkRecognitionRequest {
     /// Lines.
     pub lines: Vec<InkRecognitionLineInput>,
@@ -70,6 +74,80 @@ fn read_stroke(stroke: &Value) -> Option<Vec<f64>> {
         .as_array()?
         .iter()
         .map(|number| number.as_f64().filter(|value| value.is_finite()))
+        .collect()
+}
+
+/// One stroke as the page holds it: flat `x, y` pairs and one pressure per point.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct InkPageStrokeInput {
+    /// Flat `x, y` pairs.
+    pub points: Vec<f64>,
+    /// One pressure per point; a missing one counts as 128.
+    #[serde(default)]
+    pub pressures: Vec<f64>,
+}
+
+/// One line of the page, as the page holds it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct InkPageLineInput {
+    /// Strokes.
+    pub strokes: Vec<InkPageStrokeInput>,
+}
+
+/// What the page sends to build a request: its lines and the recognition hints.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct InkRequestBuildInput {
+    /// Lines.
+    pub lines: Vec<InkPageLineInput>,
+    /// Expected words.
+    #[serde(default)]
+    pub vocabulary: Vec<String>,
+    /// Language tag; absent when not given.
+    pub lang: Option<String>,
+}
+
+/// The pressure a point gets when the page has none.
+const DEFAULT_PRESSURE: f64 = 128.0;
+
+/// The helper's request for a page: each stroke flattened to `[x, y, pressure, ...]`. A trailing
+/// odd coordinate is dropped. Vocabulary is always sent; `lang` only when given.
+#[must_use]
+pub fn build_ink_request(input: &InkRequestBuildInput) -> InkRecognitionRequest {
+    InkRecognitionRequest {
+        lines: input.lines.iter().map(build_line).collect(),
+        vocabulary: Some(input.vocabulary.clone()),
+        lang: input.lang.clone(),
+    }
+}
+
+fn build_line(line: &InkPageLineInput) -> InkRecognitionLineInput {
+    InkRecognitionLineInput {
+        strokes: line.strokes.iter().map(flatten_stroke).collect(),
+    }
+}
+
+fn flatten_stroke(stroke: &InkPageStrokeInput) -> Vec<f64> {
+    stroke
+        .points
+        .chunks_exact(2)
+        .enumerate()
+        .flat_map(|(index, pair)| {
+            [
+                pair[0],
+                pair[1],
+                stroke
+                    .pressures
+                    .get(index)
+                    .copied()
+                    .unwrap_or(DEFAULT_PRESSURE),
+            ]
+        })
         .collect()
 }
 
@@ -161,5 +239,60 @@ mod tests {
         for request in &bad {
             assert_eq!(read_ink_request(request), None, "accepted {request}");
         }
+    }
+
+    fn page_stroke(points: Vec<f64>, pressures: Vec<f64>) -> InkPageStrokeInput {
+        InkPageStrokeInput { points, pressures }
+    }
+
+    #[test]
+    fn strokes_flatten_to_x_y_pressure_triples() {
+        let input = InkRequestBuildInput {
+            lines: vec![InkPageLineInput {
+                strokes: vec![page_stroke(vec![1.0, 2.0, 3.0, 4.0], vec![10.0, 20.0])],
+            }],
+            vocabulary: vec!["entropy".to_owned()],
+            lang: Some("en-GB".to_owned()),
+        };
+        assert_eq!(
+            build_ink_request(&input),
+            InkRecognitionRequest {
+                lines: vec![line(vec![vec![1.0, 2.0, 10.0, 3.0, 4.0, 20.0]])],
+                vocabulary: Some(vec!["entropy".to_owned()]),
+                lang: Some("en-GB".to_owned()),
+            },
+        );
+    }
+
+    #[test]
+    fn a_missing_pressure_is_128_and_a_trailing_coordinate_is_dropped() {
+        let input = InkRequestBuildInput {
+            lines: vec![InkPageLineInput {
+                strokes: vec![page_stroke(vec![1.0, 2.0, 3.0, 4.0, 5.0], vec![10.0])],
+            }],
+            vocabulary: vec![],
+            lang: None,
+        };
+        assert_eq!(
+            build_ink_request(&input).lines,
+            vec![line(vec![vec![1.0, 2.0, 10.0, 3.0, 4.0, 128.0]])],
+        );
+    }
+
+    #[test]
+    fn vocabulary_is_always_sent_and_lang_only_when_given() {
+        let input = InkRequestBuildInput {
+            lines: vec![],
+            vocabulary: vec![],
+            lang: None,
+        };
+        assert_eq!(
+            build_ink_request(&input),
+            InkRecognitionRequest {
+                lines: vec![],
+                vocabulary: Some(vec![]),
+                lang: None,
+            },
+        );
     }
 }

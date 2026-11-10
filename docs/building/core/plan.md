@@ -27,8 +27,10 @@ The wasm exports live in `crates/wf-wasm/src` (`milestone.rs`,
 `plan_screen.rs`). The TypeScript wrappers in `packages/wf-wasm/src` import
 the raw names from `../pkg/wf_wasm.js` and re-export them. The main names are:
 
-- Milestone (`milestone.ts`): `isIsoDay`, `validateDependenciesError`,
-  `validateComputeError`, `milestoneInputError`, `createMilestoneWith`.
+- Milestone (`milestone.ts`): `isIsoDay`, `isoDayFromParts` (the local-day
+  string, `localIsoDay` in `apps/web/.../plan/application/local-day.ts`),
+  `validateDependenciesError`, `validateComputeError`, `milestoneInputError`,
+  `createMilestoneWith`.
 - Rows (`milestone-rows.ts`): `milestoneFromRow`, `milestoneToRow`.
 - Timeline (`plan-timeline.ts`): `planTimeline`, `clusterMarks`, `daysUntilDate`, `planPace`.
 - Feed (`plan-feed.ts`): `planFeedOrigin`, `planFeedUrls`, `milestonesToIcs`,

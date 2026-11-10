@@ -45,9 +45,5 @@ export async function describeOverleafSync(reply: DesktopOverleafSync): Promise<
   const core = await loadCore();
   if (reply.pull) return core.describePull(reply.pull);
   if (reply.push) return core.describePush(reply.push);
-  const status = reply.status;
-  if (!status) return "";
-  if (!status.url) return "Not pulled yet.";
-  if (status.ahead === 0 && status.behind === 0) return "In step with Overleaf.";
-  return `${status.ahead} commit${status.ahead === 1 ? "" : "s"} to push, ${status.behind} to pull.`;
+  return core.describeOverleafStatus(reply.status ?? null);
 }

@@ -4,7 +4,7 @@
  * adapter in `apps/web/.../application/extraction-rows.ts` does the paper lookups.
  */
 import {
-  extractionValueRows as rawExtractionValueRows,
+  flattenPaperRows as rawFlattenPaperRows,
   extractionMarkdown as rawExtractionMarkdown,
   extractionCsv as rawExtractionCsv,
   emptyCellPaperIds as rawEmptyCellPaperIds,
@@ -32,13 +32,23 @@ export type {
   ProposeFillInput,
 } from "./bindings.js";
 
-/** Each listed paper's stored and rollup values, keyed by field id, in list order. */
-export function extractionValueRows(
+/** A listed paper that exists: its index in `knownIds`, and its values keyed by field id. */
+export interface FlatPaperRow {
+  paperIndex: number;
+  values: ExtractionValues["values"];
+}
+
+/**
+ * The listed papers that exist, in list order, each once (first place). `knownIds` is the id of
+ * every paper the caller holds, by position; a repeated id resolves to its last position.
+ */
+export function flattenPaperRows(
+  knownIds: readonly string[],
   paperIds: readonly string[],
   values: readonly RollupValue[],
   defs: readonly ExtractionFieldDef[],
-): ExtractionValues[] {
-  return rawExtractionValueRows(paperIds, values, defs) as ExtractionValues[];
+): FlatPaperRow[] {
+  return rawFlattenPaperRows(knownIds, paperIds, values, defs) as FlatPaperRow[];
 }
 
 /** The table as a Markdown table over `columns` (`title`, `year`, `status`, `field:<id>`). */

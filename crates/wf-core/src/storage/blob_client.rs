@@ -147,6 +147,32 @@ pub fn cold_blob_client_config(fields: &ColdFields) -> Option<BlobClientConfig> 
     })
 }
 
+/// Content type when neither the caller nor the stored object names one.
+const FALLBACK_CONTENT_TYPE: &str = "application/octet-stream";
+
+/// Object key: the logical bucket, then the path (`paper-images/<uid>/...`).
+#[must_use]
+pub fn object_key(logical_bucket: &str, path: &str) -> String {
+    format!("{logical_bucket}/{path}")
+}
+
+/// Content type for an upload. An explicit type wins, even when empty; otherwise the
+/// blob's own type; otherwise `application/octet-stream`.
+#[must_use]
+pub fn upload_content_type(explicit: Option<&str>, blob_type: &str) -> String {
+    match explicit {
+        Some(value) => value.to_owned(),
+        None if blob_type.is_empty() => FALLBACK_CONTENT_TYPE.to_owned(),
+        None => blob_type.to_owned(),
+    }
+}
+
+/// Content type for a read: the stored type, or `application/octet-stream` when none is stored.
+#[must_use]
+pub fn read_content_type(stored: Option<&str>) -> String {
+    stored.unwrap_or(FALLBACK_CONTENT_TYPE).to_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,5 +230,31 @@ mod tests {
         assert_eq!(c.endpoint, "http://minio:9000");
         assert_eq!(c.physical_bucket, "cold");
         assert!(cold_blob_client_config(&ColdFields::default()).is_none());
+    }
+
+    #[test]
+    fn object_key_joins_bucket_and_path() {
+        assert_eq!(
+            object_key("paper-images", "u1/a.webp"),
+            "paper-images/u1/a.webp"
+        );
+    }
+
+    #[test]
+    fn upload_content_type_prefers_explicit_then_blob_type() {
+        assert_eq!(
+            upload_content_type(Some("image/png"), "image/jpeg"),
+            "image/png"
+        );
+        assert_eq!(upload_content_type(None, "image/jpeg"), "image/jpeg");
+        assert_eq!(upload_content_type(None, ""), "application/octet-stream");
+        // An explicit empty type is kept, as `??` keeps it in the TypeScript.
+        assert_eq!(upload_content_type(Some(""), "image/jpeg"), "");
+    }
+
+    #[test]
+    fn read_content_type_falls_back_when_unstored() {
+        assert_eq!(read_content_type(None), "application/octet-stream");
+        assert_eq!(read_content_type(Some("text/plain")), "text/plain");
     }
 }

@@ -9,6 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::relations::paper_relation::{
     self, NewPaperRelationInput, PaperRelation, PaperRelationRow,
 };
+use wf_core::relations::relation_rows;
 
 use super::to_js;
 
@@ -66,4 +67,16 @@ pub fn paper_relation_from_row_js(row: JsValue) -> Result<JsValue, JsValue> {
 pub fn paper_relation_to_row_js(relation: JsValue) -> Result<JsValue, JsValue> {
     let relation: PaperRelation = serde_wasm_bindgen::from_value(relation)?;
     Ok(to_js(&paper_relation::paper_relation_to_row(relation))?)
+}
+
+/// [`dedupe_relation_rows_by_id`](relation_rows::dedupe_relation_rows_by_id): one row per id,
+/// in first-seen order, so a relation on both sides of a paper appears once.
+///
+/// # Errors
+///
+/// Fails if `rows` has the wrong shape.
+#[wasm_bindgen(js_name = dedupePaperRelationRows)]
+pub fn dedupe_paper_relation_rows_js(rows: JsValue) -> Result<JsValue, JsValue> {
+    let rows: Vec<PaperRelationRow> = serde_wasm_bindgen::from_value(rows)?;
+    Ok(to_js(&relation_rows::dedupe_relation_rows_by_id(rows))?)
 }

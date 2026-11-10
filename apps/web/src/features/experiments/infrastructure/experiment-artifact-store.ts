@@ -53,26 +53,13 @@ export class ExperimentArtifactStore {
    * gap rather than render a broken image.
    */
   async viewUrls(entries: readonly string[]): Promise<(string | null)[]> {
-    const paths = entries.filter((entry) => !isAbsoluteUrl(entry));
+    const paths = entries.filter((entry) => !readyCore().isAbsoluteUrl(entry));
     const signed = paths.length ? await this.blobs.signedUrls(BUCKET, paths, SIGNED_TTL_S) : [];
 
     const byPath = new Map(paths.map((path, index) => [path, signed[index] ?? null]));
     return entries.map((entry) =>
-      isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : (byPath.get(entry) ?? null),
+      readyCore().isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : (byPath.get(entry) ?? null),
     );
-  }
-}
-
-const LOCAL_ARTIFACT_PREFIX = "app://artifacts/";
-
-/** `http(s)`, or a desktop-local `app://artifacts/` upload; a bare path must not pass as a link. */
-export function isAbsoluteUrl(value: string): boolean {
-  if (value.startsWith(LOCAL_ARTIFACT_PREFIX)) return true;
-  try {
-    const { protocol } = new URL(value);
-    return protocol === "http:" || protocol === "https:";
-  } catch {
-    return false;
   }
 }
 

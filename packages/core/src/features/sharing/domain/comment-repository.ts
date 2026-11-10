@@ -1,6 +1,6 @@
 /** Repository contract for comments (DIP). */
 
-import type { Comment, NewCommentInput } from "./comment.js";
+import type { Comment, NewCommentInput } from "../../../shared/core-contract.js";
 
 export interface ICommentRepository {
   /** Comments on a resource, oldest first. */

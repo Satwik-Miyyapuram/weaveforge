@@ -148,3 +148,4 @@ mod tests {
 pub mod asset_mime;
 pub mod folder_diff;
 pub mod outside_edits;
+pub mod sync_report;

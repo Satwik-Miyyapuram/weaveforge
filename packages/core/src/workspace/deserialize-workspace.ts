@@ -5,7 +5,6 @@
  * there, and paths are validated by the caller before reaching here.
  */
 
-import { frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
 import { ENTITY_DIRS, WORKSPACE_META_DIR } from "./folder-layout.js";
 import { INK_NOTE_TYPE } from "../ink/ink-note.js";
@@ -51,7 +50,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   if (segments[segments.length - 1] === "README.md") return null;
 
   const { frontmatter, body } = rust().readFrontmatter(content);
-  const declared = frontmatterString(frontmatter, "weaveforge-type");
+  const declared = rust().frontmatterString(frontmatter, "weaveforge-type");
   const fromDir = DIR_TYPES[segments[0] ?? ""] ?? DIR_TYPES[segments[1] ?? ""];
   // Frontmatter, then the directory, then the filename suffix. The suffix is
   // last because a file dragged into another directory is what its directory
@@ -65,7 +64,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
 
   const fileName = path.split("/").pop() ?? path;
   const title =
-    frontmatterString(frontmatter, "title") ??
+    rust().frontmatterString(frontmatter, "title") ??
     // Fall back to the filename minus any id suffix, so a hand-created
     // `notes/My idea.md` imports with a sensible title.
     rust().stripKindSuffix(fileName).replace(/--[a-zA-Z0-9]{1,8}$/, "");
@@ -82,7 +81,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   // as the note it is, and the strokes stay in `.ink/<id>/` where they were.
   if (type === INK_NOTE_TYPE) {
     return {
-      id: frontmatterString(frontmatter, "weaveforge-id"),
+      id: rust().frontmatterString(frontmatter, "weaveforge-id"),
       type: "vault_page",
       title: title.trim() || "Untitled",
       body: rust().writeInkNoteBody(rust().readInkNoteMeta(frontmatter), body.trimStart()),
@@ -92,7 +91,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   }
 
   return {
-    id: frontmatterString(frontmatter, "weaveforge-id"),
+    id: rust().frontmatterString(frontmatter, "weaveforge-id"),
     type,
     title: title.trim() || "Untitled",
     body: body.trimStart(),

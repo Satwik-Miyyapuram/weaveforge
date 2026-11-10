@@ -132,12 +132,11 @@ export function createPaper(
   input: NewPaperInput,
   deps: { clock: Clock; ids: IdGenerator },
 ): Paper {
-  const title = input.title?.trim();
-  if (!title) {
-    throw new PaperValidationError("Paper title is required.");
-  }
-  if (input.rating != null && (input.rating < 1 || input.rating > 5)) {
-    throw new PaperValidationError("Rating must be between 1 and 5.");
+  let title: string;
+  try {
+    title = rust().checkNewPaper(input.title ?? "", input.rating ?? undefined);
+  } catch (error) {
+    throw new PaperValidationError((error as Error).message);
   }
   const now = deps.clock.nowIso();
   return {

@@ -123,16 +123,14 @@ export async function syncOnce(deps: {
   try {
     const result = await deps.cycle();
     deps.settle(result);
-    if (result.pushed.stoppedBecause === "offline") {
-      deps.setState({ phase: "offline", isOnline: false });
-    } else {
-      deps.setState({ phase: "idle", lastSyncAt: Date.now(), isOnline: true });
-    }
+    const next = readyCore().afterCycle(result.pushed.stoppedBecause);
+    // Only a cycle that reached the server is a sync worth stamping.
+    deps.setState(next.phase === "idle" ? { ...next, lastSyncAt: Date.now() } : next);
   } catch (err) {
     // The puller leaves the watermark alone on failure; the next tick retries.
     const online = deps.online();
     deps.log({ level: "warn", source: "sync", message: "Sync cycle failed", detail: failureDetail(err) });
-    deps.setState({ phase: online ? "error" : "offline", isOnline: online });
+    deps.setState(readyCore().afterFailure(online));
   }
 }
 
@@ -148,7 +146,7 @@ export async function countOpenConflicts(
   try {
     const open = await store.openConflicts();
     // Only rows the puller has compared need a person; the rest settle themselves.
-    return open.filter((c) => c.kind !== "edit" || c.fields.length > 0).length;
+    return readyCore().countOpen(open.map((c) => ({ kind: c.kind, fieldCount: c.fields.length })));
   } catch (err) {
     log({ level: "warn", source: "sync", message: "Could not read sync conflicts", detail: failureDetail(err) });
     return null;
@@ -250,11 +248,12 @@ export function SyncLoop() {
     };
 
     const drive = (owner: { id: string; email?: string | null }) => {
+      const online = typeof navigator !== "undefined" ? navigator.onLine : true;
       setLiveSyncState({
         enabled: true,
         accountId: owner.id,
-        phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle",
-        isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+        phase: readyCore().initialPhase(online),
+        isOnline: online,
       });
 
       const conflictStore = new ConflictStore(runner);
@@ -266,7 +265,7 @@ export function SyncLoop() {
       const engine = syncEngine(liveAccessToken(client));
 
       const settle = (result: CycleResult) => {
-        const caughtUp = result.pushed.stoppedBecause === null && !result.pulled.more;
+        const caughtUp = readyCore().isCaughtUp(result.pushed.stoppedBecause, result.pulled.more);
         if (caughtUp && localFirstAccount()?.id !== owner.id) {
           setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
           window.location.reload();

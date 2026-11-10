@@ -13,7 +13,6 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
-import { commitUrl, repoWebUrl } from "@/features/sync/infrastructure/git-client";
 import { CommentsIcon } from "@/components/view-icons";
 import {
   RecordActivity,
@@ -314,8 +313,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                   exp.commitSha
                     ? [
                         "Commit",
-                        commitUrl(exp.repoUrl, exp.commitSha) ? (
-                          <a href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
+                        readyCore().commitUrl(exp.repoUrl, exp.commitSha) ? (
+                          <a href={readyCore().commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
                             {readyCore().shortSha(exp.commitSha)}
                           </a>
                         ) : (
@@ -323,8 +322,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                         ),
                       ]
                     : null,
-                  repoWebUrl(exp.repoUrl)
-                    ? ["Repo", <a key="repo" href={repoWebUrl(exp.repoUrl)} target="_blank" rel="noreferrer">Open ↗</a>]
+                  readyCore().repoWebUrl(exp.repoUrl)
+                    ? ["Repo", <a key="repo" href={readyCore().repoWebUrl(exp.repoUrl)} target="_blank" rel="noreferrer">Open ↗</a>]
                     : null,
                   paperTitle && exp.relatedPaper
                     ? ["Paper", <Link key="paper" href={`/papers/?paper=${exp.relatedPaper}`}>{paperTitle}</Link>]

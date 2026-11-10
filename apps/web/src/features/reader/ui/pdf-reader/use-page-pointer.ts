@@ -15,9 +15,9 @@ import {
   draftImageRegion,
   eraseInkPaths,
   draftInkAnnotation,
-} from "../../application/draft-local-annotation";
+} from "@weaveforge/wasm";
 import { PdfInkSampler, coalescedSamples } from "../../application/pdf-ink-sampler";
-import { isInkTool, type ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   EMPTY_ANNOTATIONS,
   INK_MOVE_THRESHOLD,
@@ -414,7 +414,7 @@ export function usePagePointer({
     if (createTool === "select") return "none";
     if (createTool === "lasso") return inkEditable ? "lasso" : "none";
     if (createTool === "erase") return "eraser";
-    if (isInkTool(createTool)) return "draw";
+    if (readyCore().isInkTool(createTool)) return "draw";
     return "region";
   }
 
@@ -469,7 +469,7 @@ export function usePagePointer({
       return;
     }
 
-    if (isInkTool(createTool)) {
+    if (readyCore().isInkTool(createTool)) {
       // One contact owns the stroke. Without this a palm landing mid-stroke on
       // a pen-less tablet would splice its own path into the same line.
       if (inkPointerId.current != null) return;
@@ -533,7 +533,7 @@ export function usePagePointer({
     }
 
     if (
-      isInkTool(createTool) &&
+      readyCore().isInkTool(createTool) &&
       inkPointerId.current === event.pointerId &&
       // A stroke in hand, *or* a pen that is off the paper: cutting the stroke at
       // the edge empties the path, and the return that starts the next one has
@@ -654,7 +654,7 @@ export function usePagePointer({
     // The persisted annotation takes over from here; drop the live preview so
     // the two cannot both be painted for a frame.
     clearDraft();
-    if (isInkTool(createTool) && inkPointerId.current === event.pointerId) {
+    if (readyCore().isInkTool(createTool) && inkPointerId.current === event.pointerId) {
       const path = [...ink.current.path];
       ink.current.clear();
       inkPointerId.current = null;

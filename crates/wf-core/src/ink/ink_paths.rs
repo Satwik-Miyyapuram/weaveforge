@@ -83,6 +83,13 @@ pub fn parse_ink_chunk_path(path: &str) -> Option<InkChunkPath> {
     })
 }
 
+/// The chunk id a filename names, or `None` when it is not `<chunk id>.inkb`.
+#[must_use]
+pub fn chunk_id_of_file_name(name: &str) -> Option<&str> {
+    let id = name.strip_suffix(INK_CHUNK_EXT)?;
+    is_ink_chunk_id(id).then_some(id)
+}
+
 /// The character for a 0..32 digit value; `0` for anything out of range.
 fn digit(value: usize) -> u8 {
     CROCKFORD.get(value).copied().unwrap_or(b'0')
@@ -200,6 +207,20 @@ mod tests {
             new_ink_chunk_id(0.0, &[0; 10]),
             Ok("00000000000000000000000000".to_owned())
         );
+    }
+
+    #[test]
+    fn a_file_name_names_a_chunk_only_when_its_id_is_valid() {
+        assert_eq!(
+            super::chunk_id_of_file_name(&format!("{CHUNK_A}.inkb")),
+            Some(CHUNK_A)
+        );
+        assert_eq!(
+            super::chunk_id_of_file_name(&format!("{CHUNK_A}.txt")),
+            None
+        );
+        assert_eq!(super::chunk_id_of_file_name(".inkb"), None);
+        assert_eq!(super::chunk_id_of_file_name("not-a-chunk.inkb"), None);
     }
 
     #[test]

@@ -16,6 +16,8 @@ import {
   type PdfSourceResolution,
 } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
+import type { PdfSourceKind } from "@weaveforge/wasm";
 import { resolvePaperPdfUrl } from "./sanitize-reader-url";
 
 export function paperToPdfSourcePaper(input: {
@@ -90,19 +92,27 @@ export async function githubRemotePdfSources(
 }
 
 /**
- * Resolvers in priority order: cache, open access, GitHub repo, WebDAV.
+ * Resolvers in priority order: cache, open access, GitHub repo, WebDAV. The order
+ * is Rust's (`reader::pdf_source_ladder`); this only binds each kind to its resolver.
  * PDFs are never stored on our server, so there is no our-storage step.
  */
 function defaultPdfSourceResolvers(
   cache?: IPdfByteCache,
   remote: RemotePdfSources = {},
 ): readonly IPdfSourceResolver[] {
-  const resolvers: IPdfSourceResolver[] = [];
-  if (cache) resolvers.push(new PdfByteCacheResolver(cache));
-  resolvers.push(openAccessResolver);
-  if (remote.githubFileUrl) resolvers.push(new GitHubRepoPdfResolver({ buildFileUrl: remote.githubFileUrl }));
-  resolvers.push(webDavResolver);
-  return resolvers;
+  const byKind: Partial<Record<PdfSourceKind, IPdfSourceResolver>> = {
+    openAccess: openAccessResolver,
+    webDav: webDavResolver,
+  };
+  if (cache) byKind.cache = new PdfByteCacheResolver(cache);
+  if (remote.githubFileUrl) {
+    byKind.githubRepo = new GitHubRepoPdfResolver({ buildFileUrl: remote.githubFileUrl });
+  }
+  const order = readyCore().pdfSourceResolverOrder(!!cache, !!remote.githubFileUrl);
+  return order.flatMap((kind) => {
+    const resolver = byKind[kind];
+    return resolver ? [resolver] : [];
+  });
 }
 
 export function resolvePaperPdfSource(

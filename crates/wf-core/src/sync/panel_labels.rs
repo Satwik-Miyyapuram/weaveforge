@@ -175,6 +175,24 @@ pub fn unique_device_name(name: &str, device_label: &str, taken: &[String]) -> S
     }
 }
 
+/// The name a device gets in an adoption suffix, from its `navigator.platform`
+/// string: "Mac", "Windows" or "Linux", matched case-insensitively, else "this device".
+/// Ports `deviceLabel` in `apps/web/src/features/offline-sync/ui/enable-sync.ts`.
+#[must_use]
+pub fn device_label(platform: &str) -> String {
+    let platform = platform.to_ascii_lowercase();
+    let label = if platform.contains("mac") {
+        "Mac"
+    } else if platform.contains("win") {
+        "Windows"
+    } else if platform.contains("linux") {
+        "Linux"
+    } else {
+        "this device"
+    };
+    label.to_owned()
+}
+
 fn capitalize(text: &str) -> String {
     let mut chars = text.chars();
     match chars.next() {
@@ -197,6 +215,14 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn device_label_names_the_platform_or_falls_back() {
+        assert_eq!(device_label("MacIntel"), "Mac");
+        assert_eq!(device_label("Win32"), "Windows");
+        assert_eq!(device_label("Linux x86_64"), "Linux");
+        assert_eq!(device_label(""), "this device");
+    }
 
     fn line(op: DiffOp, text: &str) -> DiffLine {
         DiffLine {

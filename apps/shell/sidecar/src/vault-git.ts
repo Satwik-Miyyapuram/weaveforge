@@ -128,14 +128,11 @@ function gitOutput(error: unknown): string {
   return typeof stderr === "string" && stderr ? stderr : errorMessage(error, "");
 }
 
-function basicAuth(token: string, username = "x-access-token"): string {
-  // GitHub, GitLab and Gitea all take a token as the password, with any user name; Overleaf wants `git`.
-  return Buffer.from(`${username}:${token}`).toString("base64");
-}
-
 /** Removes the token, and the header form it is sent in, from git's text. */
 export function redactAuth(text: string, token: string | undefined, username?: string): string {
-  return token ? rust().redactSecret(rust().redactSecret(text, token), basicAuth(token, username)) : text;
+  return token
+    ? rust().redactSecret(rust().redactSecret(text, token), rust().gitBasicAuth(token, username))
+    : text;
 }
 
 /**
@@ -148,27 +145,8 @@ export function redactAuth(text: string, token: string | undefined, username?: s
  * not http(s) gets no header.
  */
 export function remoteAuth(remote: GitRemoteConfig): { flags: string[]; env: NodeJS.ProcessEnv } {
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
-  const origin = httpOrigin(remote.url);
-  if (!remote.token || !origin) return { flags: [], env };
-  return {
-    flags: ["-c", "credential.helper="],
-    env: {
-      ...env,
-      GIT_CONFIG_COUNT: "1",
-      GIT_CONFIG_KEY_0: `http.${origin}/.extraHeader`,
-      GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicAuth(remote.token, remote.username)}`,
-    },
-  };
-}
-
-function httpOrigin(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.origin : null;
-  } catch {
-    return null;
-  }
+  const plan = rust().gitRemoteAuth({ url: remote.url, token: remote.token, username: remote.username });
+  return { flags: plan.flags, env: { ...process.env, ...plan.env } };
 }
 
 async function gitRemote(where: GitPlace, remote: GitRemoteConfig, args: readonly string[]): Promise<string> {
@@ -179,40 +157,6 @@ async function gitRemote(where: GitPlace, remote: GitRemoteConfig, args: readonl
     const hide = (text: string) => redactAuth(text, remote.token, remote.username);
     throw new GitRemoteError(hide(gitReason(error)), hide(gitOutput(error)));
   }
-}
-
-/** Paths git lists under a "would be overwritten" line, each indented by a tab. */
-function overwrittenFiles(output: string): string[] {
-  const files: string[] = [];
-  let listing = false;
-  for (const line of output.split(/\r?\n/)) {
-    if (/would be overwritten/.test(line)) listing = true;
-    else if (listing && line.startsWith("\t")) files.push(line.trim());
-    else listing = false;
-  }
-  return files;
-}
-
-function nulList(stdout: string): string[] {
-  return stdout.split("\0").filter(Boolean);
-}
-
-/** Batches of paths for one command line each; Windows caps a command line near 32k characters. */
-function chunks(paths: readonly string[], maxChars = 8000): string[][] {
-  const out: string[][] = [];
-  let current: string[] = [];
-  let size = 0;
-  for (const p of paths) {
-    if (current.length > 0 && size + p.length > maxChars) {
-      out.push(current);
-      current = [];
-      size = 0;
-    }
-    current.push(p);
-    size += p.length + 1;
-  }
-  if (current.length > 0) out.push(current);
-  return out;
 }
 
 /**
@@ -233,34 +177,6 @@ export async function probeRepo(root: string): Promise<VaultRepoState> {
   }
   if (!top) return { kind: "none" };
   return path.resolve(top) === path.resolve(root) ? { kind: "own" } : { kind: "enclosing", root: top };
-}
-
-/** Porcelain v1 status letters, reduced to the three states we report. */
-function parseStatus(stdout: string): GitFileStatus[] {
-  const out: GitFileStatus[] = [];
-  const records = stdout.split("\0");
-  for (let i = 0; i < records.length; i++) {
-    const line = records[i]!;
-    if (line.length < 4) continue;
-    const code = line.slice(0, 2);
-    const file = line.slice(3);
-    // A rename or copy is followed by a second record: the original path.
-    if (code.includes("R") || code.includes("C")) i++;
-    const state = code.includes("D") ? "deleted" : code.includes("?") || code.includes("A") ? "added" : "modified";
-    out.push({ path: file, state });
-  }
-  return out;
-}
-
-function parseLog(stdout: string): WorkspaceCommit[] {
-  const out: WorkspaceCommit[] = [];
-  for (const line of stdout.split("\n")) {
-    if (!line.trim()) continue;
-    const [oid, authoredAt, author, ...rest] = line.split("\x1f");
-    if (!oid || !authoredAt || author === undefined) continue;
-    out.push({ oid, authoredAt, author, message: rest.join("\x1f") });
-  }
-  return out;
 }
 
 export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
@@ -300,7 +216,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    * and files the sync policy refuses (over the size cap, ignored) are left out; a deletion always counts.
    */
   async status(): Promise<readonly GitFileStatus[]> {
-    const all = parseStatus(await git(this.place, ["status", "--porcelain", "-z", "--untracked-files=all"]));
+    const all = rust().gitParseStatus(await git(this.place, ["status", "--porcelain", "-z", "--untracked-files=all"]));
     const kept = await Promise.all(
       all.map(async (entry) => {
         if (`/${entry.path}`.startsWith(LOCAL_ONLY)) return false;
@@ -403,7 +319,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    * so any number of them fits.
    */
   private async addInPolicy(): Promise<void> {
-    const candidates = nulList(
+    const candidates = rust().gitNulList(
       await git(this.place, ["ls-files", "-z", "--others", "--modified", "--exclude-standard"]),
     );
     const refused: string[] = [];
@@ -443,7 +359,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    * future commits.
    */
   private async unstageOutOfPolicy(): Promise<void> {
-    const records = nulList(await git(this.place, ["diff", "--cached", "--name-status", "--no-renames", "-z"]));
+    const records = rust().gitNulList(await git(this.place, ["diff", "--cached", "--name-status", "--no-renames", "-z"]));
     const added: string[] = [];
     const modified: string[] = [];
     for (let i = 0; i + 1 < records.length; i += 2) {
@@ -457,8 +373,8 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
       if (rust().decideGitSyncPath(file, size, this.maxFileBytes).include) continue;
       (code === "A" ? added : modified).push(file);
     }
-    for (const batch of chunks(added)) await git(this.place, ["rm", "--cached", "-q", "--", ...batch]);
-    for (const batch of chunks(modified)) await git(this.place, ["reset", "-q", "--", ...batch]);
+    for (const batch of rust().gitPathChunks(added)) await git(this.place, ["rm", "--cached", "-q", "--", ...batch]);
+    for (const batch of rust().gitPathChunks(modified)) await git(this.place, ["reset", "-q", "--", ...batch]);
   }
 
   // ---- Remote sync ---------------------------------------------------------
@@ -495,7 +411,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     }
 
     // Git overwrites an ignored file without asking; a file kept out of history is still the user's.
-    const incoming = nulList(
+    const incoming = rust().gitNulList(
       head
         ? await git(this.place, ["diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "HEAD", theirs])
         : await git(this.place, ["ls-tree", "-r", "--name-only", "-z", theirs]),
@@ -523,12 +439,12 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
         theirs,
       ]);
     } catch (error) {
-      const unmerged = nulList(await git(this.place, ["diff", "--name-only", "--diff-filter=U", "-z"]).catch(() => ""));
+      const unmerged = rust().gitNulList(await git(this.place, ["diff", "--name-only", "--diff-filter=U", "-z"]).catch(() => ""));
       if (unmerged.length > 0) {
         await git(this.place, ["merge", "--abort"]);
         return { kind: "conflict", files: unmerged };
       }
-      const blocked = overwrittenFiles(gitOutput(error));
+      const blocked = rust().gitOverwrittenFiles(gitOutput(error));
       if (blocked.length > 0) return { kind: "conflict", files: blocked };
       throw new Error(gitReason(error));
     }
@@ -608,7 +524,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     if (options.limit) args.push(`-n${options.limit}`);
     if (options.path) args.push("--", options.path);
     try {
-      return parseLog(await git(this.place, args));
+      return rust().gitParseLog(await git(this.place, args)) as WorkspaceCommit[];
     } catch (error) {
       // A repository with no commits yet has no log, which is not a failure.
       // Anything else still reads as an empty history, but goes in the log.

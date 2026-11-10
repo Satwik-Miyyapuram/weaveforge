@@ -65,6 +65,16 @@ export type ActionCounts = {
 	removed: number,
 };
 
+/**  A started session (TS `AiActiveSession`). */
+export type ActiveSession = {
+	/**  The workspace. */
+	workspace: SessionWorkspace,
+	/**  The grant. */
+	grant: SessionGrant,
+	/**  Start time, ISO 8601. */
+	startedAt: string,
+};
+
 /**  How much two reviewers agree, and how much of that is not luck. */
 export type Agreement = {
 	/**  The two reviewers compared, in the order given. */
@@ -291,7 +301,7 @@ export type AiWorkspaceSource = {
 /**  The union step axis and every run aligned to it (TS `alignSeries` result). */
 export type AlignedChart = {
 	/**  The union of every run's steps, ascending. */
-	steps: (number | null)[],
+	steps: number[],
 	/**  Each run, in input order. */
 	aligned: AlignedSeries[],
 };
@@ -329,27 +339,27 @@ export type AnalysisCitationMention = {
 	/**  Unique within the document. */
 	id: string,
 	/**  1-based page. */
-	page: number | null,
+	page: number,
 	/**  Start offset in the page text. */
-	start: number | null,
+	start: number,
 	/**  End offset in the page text. */
-	end: number | null,
+	end: number,
 	/**  The mention text. */
 	text: string,
 	/**  PDF user-space rects. */
-	rects: ((number | null)[])[],
+	rects: number[][],
 	/**  Cited entries by `ParsedReference.index`. */
-	referenceIndexes: (number | null)[],
+	referenceIndexes: number[],
 	/**  `internal-pdf-link`, `numeric`, `superscript` or `author-year`. */
 	source: string,
 	/**  1 for a link-named entry, lower for pattern matches. */
-	confidence: number | null,
+	confidence: number,
 	/**  Link destination. */
 	target?: AnalysisLinkDest,
 	/**  Named destination. */
 	destinationName?: string,
 	/**  Rects of the native link box. */
-	nativeRects?: ((number | null)[])[],
+	nativeRects?: number[][],
 	/**  `text` or `annotation`. */
 	spanSource?: string,
 };
@@ -357,11 +367,11 @@ export type AnalysisCitationMention = {
 /**  Where an internal `/Link` goes: a 1-based page and, when named, a point. */
 export type AnalysisLinkDest = {
 	/**  1-based page. */
-	page: number | null,
+	page: number,
 	/**  Destination x, when named. */
-	x?: number | null,
+	x?: number,
 	/**  Destination y, when named. */
-	y?: number | null,
+	y?: number,
 };
 
 /**
@@ -372,9 +382,9 @@ export type AnalysisPageTextItem = {
 	/**  Item text. */
 	str: string,
 	/**  PDF text matrix `[a, b, c, d, e, f]`. */
-	transform: (number | null)[],
+	transform: number[],
 	/**  Advance width in user space. */
-	width: number | null,
+	width: number,
 	/**  pdf.js `hasEOL`: a line break follows the item. */
 	hasEOL?: boolean | null,
 	/**  pdf.js font name, used for bold detection. */
@@ -384,35 +394,35 @@ export type AnalysisPageTextItem = {
 /**  A page range (`PageTextRange`). */
 export type AnalysisPageTextRange = {
 	/**  1-based page. */
-	page: number | null,
+	page: number,
 	/**  Start offset. */
-	start: number | null,
+	start: number,
 	/**  End offset. */
-	end: number | null,
+	end: number,
 };
 
 /**  One bibliography entry (`ParsedReference`). Field order is the TS key order. */
 export type AnalysisParsedReference = {
 	/**  Entry number. */
-	index: number | null,
+	index: number,
 	/**  Printed label (`[12]`). */
 	label?: string,
 	/**  Entry text. */
 	raw: string,
 	/**  1-based page. */
-	page: number | null,
+	page: number,
 	/**  Left edge of the first line. */
-	x: number | null,
+	x: number,
 	/**  Baseline of the first line. */
-	y: number | null,
+	y: number,
 	/**  Start offset in the page text. */
-	start?: number | null,
+	start?: number,
 	/**  End offset in the page text. */
-	end?: number | null,
+	end?: number,
 	/**  Author names. */
 	authors: string[],
 	/**  Publication year. */
-	year?: number | null,
+	year?: number,
 	/**  `a` in `2020a`. */
 	yearSuffix?: string,
 	/**  Title. */
@@ -432,11 +442,11 @@ export type AnalysisPdfItem = {
 	/**  The glyph run's text. */
 	str: string,
 	/**  pdf.js transform `[a, b, c, d, e, f]`. A missing entry reads as the TS default. */
-	transform: (number | null)[],
+	transform: number[],
 	/**  Advance width of the run. */
-	width: number | null,
+	width: number,
 	/**  Font height, used when the transform gives no size. */
-	height: number | null,
+	height: number,
 	/**  Whether a line break follows the run. */
 	hasEOL?: boolean,
 	/**  Font ascent as a fraction of the size, when known. */
@@ -450,7 +460,7 @@ export type AnalysisPdfItem = {
 /**  A `/Link` annotation (`PdfLink`). */
 export type AnalysisPdfLink = {
 	/**  `[x1, y1, x2, y2]` in PDF user space. */
-	rect: [(number | null), (number | null), (number | null), (number | null)],
+	rect: [number, number, number, number],
 	/**  External target. */
 	url?: string,
 	/**  Internal target. */
@@ -464,7 +474,7 @@ export type AnalysisPdfLink = {
 /**  One page handed to analysis (`AnalyzePdfPage`). */
 export type AnalysisPdfPage = {
 	/**  1-based. */
-	pageNumber: number | null,
+	pageNumber: number,
 	/**  pdf.js text items. */
 	items: AnalysisPdfItem[],
 	/**  The page's own `/Link` annotations. */
@@ -476,9 +486,9 @@ export type AnalysisSearchText = {
 	/**  The normalised text. */
 	text: string,
 	/**  Raw UTF-16 offset where each unit of `text` starts. */
-	starts: (number | null)[],
+	starts: number[],
 	/**  Raw UTF-16 offset where each unit of `text` ends. */
-	ends: (number | null)[],
+	ends: number[],
 };
 
 /**  A line with its column (`{ line, column }`) for `sortByReadingOrder`. */
@@ -486,29 +496,29 @@ export type AnalysisTaggedLine = {
 	/**  The line. */
 	line: AnalysisTextLine,
 	/**  Column index from `detectColumns`. */
-	column: number | null,
+	column: number,
 };
 
 /**  One reconstructed line (`TextLine`). Field order is the TS object's key order. */
 export type AnalysisTextLine = {
 	/**  1-based page number. */
-	page: number | null,
+	page: number,
 	/**  Line text. */
 	text: string,
 	/**  Left edge. */
-	x: number | null,
+	x: number,
 	/**  Baseline y. */
-	y: number | null,
+	y: number,
 	/**  Right edge. */
-	right: number | null,
+	right: number,
 	/**  Largest font size on the line. */
-	fontSize: number | null,
+	fontSize: number,
 	/**  True when the line's font is bold. */
 	bold: boolean,
 	/**  Start offset in the page text. */
-	start: number | null,
+	start: number,
 	/**  End offset in the page text. */
-	end: number | null,
+	end: number,
 };
 
 /**  The `{ str, hasEOL? }` shape `pageTextFromItems` takes. */
@@ -522,9 +532,9 @@ export type AnalysisTextRun = {
 /**  A page-text range a link box covers. */
 export type AnalysisTextSpan = {
 	/**  Start offset. */
-	start: number | null,
+	start: number,
 	/**  End offset. */
-	end: number | null,
+	end: number,
 };
 
 /**  Dual anchor (TS `CombinedPdfAnchor`). */
@@ -564,7 +574,7 @@ export type AnchorNormalised = {
 	 *  `map[i]` is the UTF-16 offset in the original of normalised unit `i`;
 	 *  `map[normalised.length]` is the exclusive end.
 	 */
-	map: (number | null)[],
+	map: number[],
 };
 
 /**  Stored locus (TS `PdfLocus`). */
@@ -600,9 +610,9 @@ export type AnchorQuoteSelector = {
 /**  A resolved span with provenance (TS `ResolvedAnchor`). */
 export type AnchorResolved = {
 	/**  UTF-16 start offset. */
-	start: number | null,
+	start: number,
 	/**  UTF-16 exclusive end offset. */
-	end: number | null,
+	end: number,
 	/**  How the span was obtained. */
 	via: AnchorVia,
 	/**  Trust level of the span. */
@@ -631,9 +641,9 @@ confidence: AnchorConfidence };
 /**  Character span in extracted text, as UTF-16 offsets (TS `TextSpan`). */
 export type AnchorTextSpan = {
 	/**  UTF-16 start offset. */
-	start: number | null,
+	start: number,
 	/**  UTF-16 exclusive end offset. */
-	end: number | null,
+	end: number,
 };
 
 /**  How a span was obtained (TS `ResolvedAnchor.via`). */
@@ -648,13 +658,13 @@ export type AnchorZoteroPosition = {
 	/**  Zero-based page index; must be a non-negative integer to be usable. */
 	pageIndex?: number | null,
 	/**  PDF user-space rects `[x1, y1, x2, y2]`. */
-	rects?: ((number | null)[])[] | null,
+	rects?: number[][] | null,
 	/**  Ink strokes as flat point lists. */
-	paths?: ((number | null)[])[] | null,
+	paths?: number[][] | null,
 	/**  Nib width for `paths`. */
 	width?: number | null,
 	/**  Tail of a highlight that crosses onto the next page. */
-	nextPageRects?: ((number | null)[])[] | null,
+	nextPageRects?: number[][] | null,
 };
 
 /**  The backlinks for one annotation (TS `AnnotationBacklinkHit`). Only annotations with targets appear. */
@@ -684,6 +694,28 @@ export type AnnotationBacklinkTarget = {
 	title: string,
 };
 
+/**  A rectangle drawn on the page, in CSS pixels (TS `AnnotationBox`). */
+export type AnnotationBox = {
+	/**  Stable annotation id. */
+	id: string,
+	/**  Distance from the page's left edge, in CSS pixels. */
+	left: number,
+	/**  Distance from the page's top edge, in CSS pixels. */
+	top: number,
+	/**  Box width in CSS pixels. */
+	width: number,
+	/**  Box height in CSS pixels. */
+	height: number,
+	/**  Border or fill colour as a CSS colour string. */
+	color: string,
+	/**  Whether the box is drawn underlined. */
+	underline: boolean,
+	/**  The stored file of a placed picture, drawn in the box. */
+	picture: string | null,
+	/**  A text box's words, drawn in the box; `None` for every other mark. */
+	text: string | null,
+};
+
 /**
  *  The fields of a TS `ReaderAnnotation` that the image-region rule reads.
  *  Every other field is ignored on deserialisation.
@@ -697,6 +729,18 @@ export type AnnotationInput = {
 	color: string,
 	/**  The anchor; a missing anchor has no Zotero position. */
 	anchor?: AnchorInput,
+};
+
+/**  Fields an edit may change. An absent field is left as it was (TS `applyAnnotationPatch`). */
+export type AnnotationPatch = {
+	/**  New comment, when changed. */
+	comment?: string | null,
+	/**  New tags, when changed. */
+	tags?: string[] | null,
+	/**  New colour, when changed. */
+	color?: string | null,
+	/**  New text, when changed. */
+	text?: string | null,
 };
 
 /**  An annotation pin as the domain sees it. */
@@ -778,6 +822,39 @@ export type AnnotationSource = {
 	/**  Last edit timestamp; empty when unknown. */
 	updatedAt?: string,
 };
+
+/**  A polyline of ink, as flat `x, y` pairs in CSS pixels (TS `AnnotationStroke`). */
+export type AnnotationStroke = {
+	/**  Stable annotation id. */
+	id: string,
+	/**  Stroke colour as a CSS colour string. */
+	color: string,
+	/**  Flat `x, y` pairs in CSS pixels. */
+	points: number[],
+	/**  Nib width in CSS pixels. */
+	width: number,
+	/**  Wide strokes are highlighter marks: translucent, laid over the text. */
+	highlighter: boolean,
+};
+
+/**  What `Puller.apply` does with one change. */
+export type ApplyStep = 
+/**  The row was deleted on the server: the tombstone step decides. */
+"tombstone" | 
+/**  Nothing to write: this device's own accepted write is back, or the change is already in. */
+"skip" | 
+/**  This device deleted the row and the server has since changed it: open a deleted-here conflict. */
+"openDeletedLocal" | 
+/**  This device deleted the row and nothing newer is on the server: rebase the delete. */
+"rebase" | 
+/**  A deleted-here conflict is open: settle it against the server copy, no write. */
+"settleOnly" | 
+/**  Open a conflict for the owed edits, write the server row, then settle. */
+"openAndWrite" | 
+/**  Write the row, then settle any open conflict. */
+"writeAndSettle" | 
+/**  Write the row. */
+"writeOnly";
 
 /**  The caps an import is held to. */
 export type ArchiveLimits = {
@@ -940,7 +1017,7 @@ export type BibFinding = {
 	/**  Path of the file the finding is in. */
 	file: string,
 	/**  1-based. */
-	line: number | null,
+	line: number,
 	/**  Human-readable message. */
 	message: string,
 	/**  The cite key the finding is about, when it is about one. */
@@ -1100,7 +1177,7 @@ export type BibliographyReport = {
 	/**  Distinct keys cited anywhere in the document, sorted. */
 	citedKeys: string[],
 	/**  Number of entries read. */
-	entryCount: number | null,
+	entryCount: number,
 	/**  True when `\nocite{*}` makes every entry cited by definition. */
 	citesEverything: boolean,
 };
@@ -1203,9 +1280,25 @@ export type BothEndsMerge =
 /**  A measured box, in CSS pixels. */
 export type BoxSize = {
 	/**  Width. */
-	width: number | null,
+	width: number,
 	/**  Height. */
-	height: number | null,
+	height: number,
+};
+
+/**  Input for [`branch_read`]: the provider and the stored `branch` column. */
+export type BranchReadInput = {
+	/**  Provider of the stored row. */
+	provider: SyncProvider,
+	/**  The stored `branch` column, `None` when the row has no value. */
+	branch: string | null,
+};
+
+/**  Input for [`branch_save`]: the provider and the branch the caller wants stored. */
+export type BranchSaveInput = {
+	/**  Provider of the integration being saved. */
+	provider: SyncProvider,
+	/**  The integration's branch (Mattermost: channel id). */
+	branch: string,
 };
 
 /**  The document on screen: its entity kind and id. */
@@ -1242,7 +1335,7 @@ export type CachedPdfAge = {
 	/**  The cache key. */
 	key: string,
 	/**  Last write time in milliseconds, as JS `updatedAt`. */
-	updatedAt: number | null,
+	updatedAt: number,
 };
 
 /**  One card type's size limits (the size fields of the TS `CardDef`). */
@@ -1286,9 +1379,9 @@ export type ChangeSide =
 /**  One point of a run: only its step and value are read. */
 export type ChartPoint = {
 	/**  The training step the point was logged at. */
-	step: number | null,
+	step: number,
 	/**  The logged value. */
-	value: number | null,
+	value: number,
 };
 
 /**  A run to overlay on the chart (TS `MetricSeries`). Fields the alignment does not read are ignored. */
@@ -1377,9 +1470,9 @@ export type CitationAlertTrackRow = {
 /**  A candidate citation span in the page text (`CitationCandidate`). */
 export type CitationCandidate = {
 	/**  Start offset in the raw page text, in UTF-16 units. */
-	start: number | null,
+	start: number,
 	/**  End offset in the raw page text, in UTF-16 units. */
-	end: number | null,
+	end: number,
 	/**  The raw text of the span. */
 	text: string,
 	/**  `numeric` or `author-year`. */
@@ -1393,17 +1486,17 @@ export type CitationCandidate = {
 /**  Where a mention's text falls inside one item (TS `ItemRange`). */
 export type CitationItemRange = {
 	/**  Index of the item in the page's list. */
-	itemIndex: number | null,
+	itemIndex: number,
 	/**  Item-local start offset. */
-	from: number | null,
+	from: number,
 	/**  Item-local exclusive end offset. */
-	to: number | null,
+	to: number,
 };
 
 /**  The `page` argument of `findPatternCitationMentions`: its number, text and text items. */
 export type CitationPage = {
 	/**  1-based page number. */
-	number: number | null,
+	number: number,
 	/**  The page text, items concatenated with `\n` after each `hasEOL` item. */
 	text: string,
 	/**  The page's text items. */
@@ -1608,9 +1701,9 @@ export type ComputeNeed = {
 	/**  Resource name: GPU model, cluster partition, "CPU", "storage", ... */
 	resource: string,
 	/**  Number of units (GPUs, nodes). */
-	count?: number | null,
+	count?: number,
 	/**  Estimated hours of use. */
-	hours?: number | null,
+	hours?: number,
 	/**  Free-form note. */
 	notes?: string,
 };
@@ -1669,6 +1762,26 @@ export type ConflictKind =
 "type-mismatch" | 
 /**  The file still holds this app's conflict markers. */
 "markers";
+
+/**
+ *  A choice per disputed key, and per hunk of the body. Anything left out keeps ours,
+ *  the direction an unsettled difference always takes here.
+ */
+export type ConflictPicks = {
+	/**  Always `picks`; tells these apart from a [`NamedResolution`]. */
+	kind: PicksKind,
+	/**  The side each disputed key takes, by key. */
+	fields?: { [key in string]: FieldPick } | null,
+	/**  The pick for each body hunk, by its decimal index. */
+	hunks?: { [key in string]: HunkPick } | null,
+};
+
+/**  What to do about a file both sides changed: a named choice, or picks per key and hunk. */
+export type ConflictResolution = 
+/**  One of the named choices. */
+NamedResolution | 
+/**  A choice per key and hunk. */
+ConflictPicks;
 
 /**  The step the pump takes for a refused op. */
 export type ConflictRoute = 
@@ -1739,9 +1852,9 @@ export type CoveredTextSpan = {
 	/**  The link the span was measured from. */
 	link: AnalysisPdfLink,
 	/**  Start offset into the page text, trimmed of separators. */
-	start: number | null,
+	start: number,
 	/**  End offset into the page text, trimmed of separators. */
-	end: number | null,
+	end: number,
 };
 
 /**  The spans a set of links cover, with the page text they index (TS `coveredTextSpans` result). */
@@ -1794,7 +1907,7 @@ export type CrossrefAuthor = {
 /**  Crossref's issue date: `date-parts` is `[[year, month, day]]`. */
 export type CrossrefIssued = {
 	/**  The date parts. */
-	"date-parts"?: ((number | null)[])[] | null,
+	"date-parts"?: number[][] | null,
 };
 
 /**  Crossref's `message` for one DOI. Keys keep Crossref's own spelling. */
@@ -1928,7 +2041,7 @@ export type DocumentMode =
 /**  One page's extracted text (TS `DocumentPageText`). */
 export type DocumentPageText = {
 	/**  Zero-based page index, passed through unchanged. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  The page's text. */
 	text: string,
 };
@@ -1936,11 +2049,11 @@ export type DocumentPageText = {
 /**  A hit in a page's text (TS `DocumentSearchMatch`). Offsets are UTF-16 code units. */
 export type DocumentSearchMatch = {
 	/**  The page the hit is on. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  Inclusive start offset into that page's text. */
-	start: number | null,
+	start: number,
 	/**  Exclusive end offset. */
-	end: number | null,
+	end: number,
 };
 
 /**  What a draft of each kind turns into. */
@@ -2126,7 +2239,7 @@ export type ExclusionReasonCount = {
 	/**  The reason, as a reviewer typed it. */
 	reason: string,
 	/**  Full texts excluded for this reason. */
-	count: number | null,
+	count: number,
 };
 
 /**  An entity as the workspace stores it. */
@@ -2149,6 +2262,18 @@ export type Experiment = {
 	startedAt?: string | null,
 	/**  Creation time, ISO 8601 UTC. */
 	createdAt: string,
+};
+
+/**  `experiment_follow_up`. */
+export type ExperimentFollowUpInput = {
+	/**  Experiment name. */
+	name: string,
+	/**  The experiment's hypothesis. */
+	hypothesis?: string | null,
+	/**  Experiment status. */
+	status?: string | null,
+	/**  Id of the related paper. */
+	relatedPaper?: string | null,
 };
 
 /**  A live experiment, as the snapshot reads it (TS `Experiment`, subset). */
@@ -2264,11 +2389,11 @@ export type ExperimentWriteRow = {
 /**  Where one section's rows sit in the scroller, all in CSS px. */
 export type ExplorerViewport = {
 	/**  The scroller's scroll offset. */
-	scrollTop: number | null,
+	scrollTop: number,
 	/**  The scroller's visible height. */
-	height: number | null,
+	height: number,
 	/**  The top of the section's first row inside the scrolled content. */
-	rowsTop: number | null,
+	rowsTop: number,
 };
 
 /**  The per-collection counts the manifest reports (TS `workspaceSnapshotCounts`). */
@@ -2302,7 +2427,7 @@ export type ExtractedConcept = {
 	/**  `concept`, `method`, `dataset`, `metric`, `person` or `venue`. */
 	kind: string,
 	/**  How many documents mention it. */
-	mentions: number | null,
+	mentions: number,
 };
 
 /**  Where a concept was found (TS `ExtractedMention`). */
@@ -2415,31 +2540,38 @@ export type FeedMilestone = {
 /**  Effective per-field boosts (TS `Record<SearchField, number>`). */
 export type FieldBoosts = {
 	/**  Title boost. */
-	title: number | null,
+	title: number,
 	/**  Aliases boost. */
-	aliases: number | null,
+	aliases: number,
 	/**  Headings boost. */
-	headings: number | null,
+	headings: number,
 	/**  Tags boost. */
-	tags: number | null,
+	tags: number,
 	/**  Path boost. */
-	path: number | null,
+	path: number,
 	/**  Body boost. */
-	body: number | null,
+	body: number,
 };
+
+/**  Which side a disputed key takes (TS `"ours" | "theirs"`). */
+export type FieldPick = 
+/**  The workspace's value. */
+"ours" | 
+/**  The folder's value. */
+"theirs";
 
 /**  A figure's box and crop, without the image it shows. */
 export type FigureBox = {
 	/**  Top-left corner from the page's top-left, in page units. */
-	x: number | null,
+	x: number,
 	/**  Top edge, in page units. */
-	y: number | null,
+	y: number,
 	/**  Width, in page units. */
-	w: number | null,
+	w: number,
 	/**  Height, in page units. */
-	h: number | null,
+	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
-	crop?: [(number | null), (number | null), (number | null), (number | null)] | null,
+	crop?: [number, number, number, number] | null,
 };
 
 /**  What a copied figure carries: the note that owns its attachment, and the figure. */
@@ -2448,6 +2580,22 @@ export type FigureClip = {
 	noteId: string,
 	/**  The figure, with its attachment path and geometry. */
 	figure: FigurePlacement,
+};
+
+/**  A placed picture as a figure: the PDF rectangle turned y-down from the page's head. */
+export type FigureGeometry = {
+	/**  Stored picture file. */
+	path: string,
+	/**  Left edge on the page. */
+	x: number,
+	/**  Top edge on the page. */
+	y: number,
+	/**  Width on the page. */
+	w: number,
+	/**  Height on the page. */
+	h: number,
+	/**  Visible part of the picture, when cropped. */
+	crop?: [number, number, number, number] | null,
 };
 
 /**  A handle on a figure's box: a corner or an edge. */
@@ -2472,23 +2620,23 @@ export type FigureHandle =
 /**  Where the whole picture sits inside a figure's frame, as percentages of the frame. */
 export type FigureImageFrame = {
 	/**  Left offset. */
-	left: number | null,
+	left: number,
 	/**  Top offset. */
-	top: number | null,
+	top: number,
 	/**  Width. */
-	width: number | null,
+	width: number,
 	/**  Height. */
-	height: number | null,
+	height: number,
 };
 
 /**  One mention of a figure, table, equation, section or algorithm (`FigureMention`). */
 export type FigureMention = {
 	/**  1-based page number the mention is on. */
-	page: number | null,
+	page: number,
 	/**  UTF-16 offset where the mention starts in the page text. */
-	start: number | null,
+	start: number,
 	/**  UTF-16 offset just past the end of the mention in the page text. */
-	end: number | null,
+	end: number,
 	/**  What the mention refers to. */
 	kind: FigureMentionKind,
 	/**  The caption, equation or heading the mention resolves to. */
@@ -2522,7 +2670,7 @@ export type FigureOrderStep =
 /**  A page as `findFigureMentions` reads it: its number, its text and its text runs. */
 export type FigurePage = {
 	/**  1-based page number. */
-	number: number | null,
+	number: number,
 	/**  The page text that mentions are searched in. */
 	text: string,
 	/**  The page's pdf.js text runs, used for caption and equation lines. */
@@ -2534,27 +2682,27 @@ export type FigurePlacement = {
 	/**  The attachment path, without the `vault:` scheme. */
 	path: string,
 	/**  Top-left corner from the page's top-left, in page units. */
-	x: number | null,
+	x: number,
 	/**  Top edge, in page units. */
-	y: number | null,
+	y: number,
 	/**  Width, in page units. */
-	w: number | null,
+	w: number,
 	/**  Height, in page units. */
-	h: number | null,
+	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
-	crop?: [(number | null), (number | null), (number | null), (number | null)] | null,
+	crop?: [number, number, number, number] | null,
 };
 
 /**  A plain rectangle in page units. */
 export type FigureRect = {
 	/**  Left edge. */
-	x: number | null,
+	x: number,
 	/**  Top edge. */
-	y: number | null,
+	y: number,
 	/**  Width. */
-	w: number | null,
+	w: number,
 	/**  Height. */
-	h: number | null,
+	h: number,
 };
 
 /**  A figure edit: the figures before and after, and the press that made it. */
@@ -2570,9 +2718,9 @@ export type FigureStep = {
 /**  Where a mention points: the caption, equation or heading it names (`FigureTarget`). */
 export type FigureTarget = {
 	/**  1-based page number of the target. */
-	page: number | null,
+	page: number,
 	/**  Baseline y of the target line. */
-	y: number | null,
+	y: number,
 	/**  Left edge of the target line, when it is a caption or equation. */
 	x?: number | null,
 	/**  Font size of the target line, when it is a caption or equation. */
@@ -2594,15 +2742,15 @@ export type FillPaper = {
 /**  A filtered sample: where to draw, how wide, and how fast the pen is moving. */
 export type FilteredNibSample = {
 	/**  Filtered horizontal position, in 0.1 mm. */
-	x: number | null,
+	x: number,
 	/**  Filtered vertical position, in 0.1 mm. */
-	y: number | null,
+	y: number,
 	/**  Filtered pressure, 0-1. */
-	pressure: number | null,
+	pressure: number,
 	/**  Speed in 0.1 mm per ms, for the nib's velocity taper. */
-	velocity: number | null,
+	velocity: number,
 	/**  Milliseconds, passed through unchanged. */
-	t: number | null,
+	t: number,
 };
 
 /**  The rows a filter leaves, and the keys that must be open to show them. */
@@ -2616,29 +2764,29 @@ export type FilteredRows = {
 /**  One tick on the scrollbar strip (TS `FindMark`). */
 export type FindMark = {
 	/**  Index into the match list, so the current match can be drawn differently. */
-	index: number | null,
+	index: number,
 	/**  Fraction of the whole document, top to bottom. */
-	fraction: number | null,
+	fraction: number,
 };
 
 /**  One find match, as `findMarks` reads it (TS `DocumentSearchMatch`). */
 export type FindMarkMatch = {
 	/**  Zero-based page the match sits on. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  Start offset into that page's text. */
-	start: number | null,
+	start: number,
 	/**  Exclusive end offset into that page's text. */
-	end: number | null,
+	end: number,
 };
 
 /**  A loaded page's text and height. A page with no entry has no text and no height. */
 export type FindMarkPage = {
 	/**  Zero-based page the entry describes. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  The page's text runs, when loaded. */
 	items?: SelectionPageTextItem[] | null,
 	/**  The page's height in PDF user space. */
-	height: number | null,
+	height: number,
 };
 
 /**  A parsed folder entity: its note id (when it has one) and its folder path. */
@@ -2661,6 +2809,48 @@ export type FoundImageRef = {
 	text: string,
 };
 
+/**  The author block of a GitHub commit. */
+export type GhAuthor = {
+	/**  Author name. */
+	name: string | null,
+	/**  Author date, as the API formats it. */
+	date: string | null,
+};
+
+/**  A GitHub commit as the commits API returns it. Only the fields the UI reads. */
+export type GhCommit = {
+	/**  Full commit sha. */
+	sha: string,
+	/**  Commit object: message and author. */
+	commit: GhCommitBody,
+	/**  Web URL of the commit. */
+	html_url: string | null,
+};
+
+/**  The `commit` object of a GitHub commit. */
+export type GhCommitBody = {
+	/**  Full commit message. */
+	message: string,
+	/**  Author name and date, when present. */
+	author: GhAuthor | null,
+};
+
+/**  A commit the UI shows, the same for both hosts. */
+export type GitCommit = {
+	/**  Full sha. */
+	sha: string,
+	/**  First seven characters of the sha. */
+	shortSha: string,
+	/**  First line of the commit message. */
+	message: string,
+	/**  Author name, when known. */
+	author: string | null,
+	/**  Author date, when known. */
+	date: string | null,
+	/**  Web URL of the commit, when known. */
+	url: string | null,
+};
+
 /**  GitHub / GitLab: token, repo path and branch. */
 export type GitConnection = {
 	/**  API token, empty when unset. */
@@ -2670,6 +2860,13 @@ export type GitConnection = {
 	/**  Branch the integration uses. */
 	branch: string,
 };
+
+/**  Which git host an integration reads from. */
+export type GitHost = 
+/**  GitHub (`api.github.com`). */
+"github" | 
+/**  GitLab (`gitlab.com` REST API). */
+"gitlab";
 
 /**  Result of a pull. `conflict` leaves the folder as it was. */
 export type GitPullResult = 
@@ -2699,6 +2896,37 @@ export type GitPushResult =
 /**  Why the remote refused. */
 reason: string };
 
+/**  Input for [`git_read_plan`]: one read of an integration. */
+export type GitReadInput = {
+	/**  The host the integration points at. */
+	host: GitHost,
+	/**  Commits or branches. */
+	kind: GitReadKind,
+	/**  API token, empty when unset. */
+	token: string,
+	/**  Repo path (GitHub `owner/name`, GitLab path or id), empty when unset. */
+	repo: string,
+	/**  Branch the caller asked for. `None` uses the integration's branch. */
+	branch: string | null,
+	/**  The integration's own branch, used when `branch` is `None`. */
+	defaultBranch: string,
+};
+
+/**  What a read asks the host for. */
+export type GitReadKind = 
+/**  The commit list for a branch. */
+"commits" | 
+/**  The branch list of the repository. */
+"branches";
+
+/**  The request URL for a git read, or why there is none. */
+export type GitReadPlan = {
+	/**  Request URL. `None` when the read cannot be made. */
+	url: string | null,
+	/**  Why `url` is `None`. Set exactly when `url` is. */
+	error: string | null,
+};
+
 /**  Why a path is kept out of git. The string form matches the TypeScript. */
 export type GitSyncSkipReason = 
 /**  Inside an ignored folder, or a `.git` entry. */
@@ -2709,6 +2937,52 @@ export type GitSyncSkipReason =
 "too-large" | 
 /**  The path has no segments (empty or `.`). */
 "invalid-path";
+
+/**  Input for [`gitlab_log_file_plan`]: one log entry and the repository it goes to. */
+export type GitlabLogFileInput = {
+	/**  Project path or numeric id, as the integration stores it. */
+	repo: string,
+	/**  Integration branch. Empty or absent means the default branch. */
+	branch: string | null,
+	/**  Calendar date (`yyyy-mm-dd`) the entry is about. */
+	entryDate: string,
+	/**  Entry id. Only its first eight characters name the file. */
+	id: string,
+	/**  Entry kind (`daily` or `weekly`), written into the frontmatter; empty when absent. */
+	kind?: string,
+	/**  Markdown body of the entry; empty when absent. */
+	body?: string,
+};
+
+/**  The GitLab writes for one log entry, planned without any request. */
+export type GitlabLogFilePlan = {
+	/**  REST URL of the entry's file in the repository. */
+	fileUrl: string,
+	/**  Branch to write to: the integration's branch, or `main`. */
+	branch: string,
+	/**  Repository path of the file (`logbook/<date>-<id8>.md`). */
+	path: string,
+	/**  File content: a frontmatter block with the date and kind, then the body. */
+	content: string,
+	/**  Commit message for a put or post. */
+	commitMessage: string,
+	/**  Commit message for a delete. */
+	deleteCommitMessage: string,
+};
+
+/**  A GitLab commit as the commits API returns it. Only the fields the UI reads. */
+export type GlCommit = {
+	/**  Full commit sha. */
+	id: string,
+	/**  Full commit message. */
+	message: string,
+	/**  Author name. */
+	author_name: string | null,
+	/**  Commit date, as the API formats it. */
+	created_at: string | null,
+	/**  Web URL of the commit. */
+	web_url: string | null,
+};
 
 /**  One resource's comment or edit right for the reader. */
 export type GrantIndexEntry = {
@@ -2781,13 +3055,13 @@ export type GraphBuildSection = {
 /**  Measured shape of a graph (TS `GraphDensity`). */
 export type GraphDensity = {
 	/**  Node count. */
-	nodes: number | null,
+	nodes: number,
 	/**  Undirected edge count. */
-	edges: number | null,
+	edges: number,
 	/**  Mean degree; the reference cascade uses density to pick an arm. */
-	meanDegree: number | null,
+	meanDegree: number,
 	/**  Fraction of nodes in the largest connected component. */
-	largestComponentRatio: number | null,
+	largestComponentRatio: number,
 };
 
 /**  One edge of the graph. */
@@ -2801,7 +3075,7 @@ export type GraphLink = {
 	/**  Stroke colour. */
 	color: string,
 	/**  Stroke width. */
-	width: number | null,
+	width: number,
 	/**  What the edge stands for. */
 	kind: LinkKind,
 	/**  The relation type, for a relation edge. */
@@ -2823,7 +3097,7 @@ export type GraphNode = {
 	/**  Text shown for the node. */
 	label: string,
 	/**  Draw size. */
-	val: number | null,
+	val: number,
 	/**  Fill colour. */
 	color: string,
 	/**  The paper, for a paper node. */
@@ -2848,15 +3122,15 @@ export type GraphPersistedState = {
 	selectedLists: string[],
 	selectedTags: string[],
 	localSeed: string | null,
-	localDepth: number | null,
+	localDepth: number,
 	/**  Node id to position, in the order the JSON gave them. */
 	pinned: { [key in string]: GraphPinnedPosition },
 };
 
 /**  A pinned node's position. */
 export type GraphPinnedPosition = {
-	x: number | null,
-	y: number | null,
+	x: number,
+	y: number,
 };
 
 /**  The graph's view settings (TS `GraphViewSettings`). */
@@ -2866,18 +3140,18 @@ export type GraphViewSettings = {
 	groupBy: GroupBy,
 	layout: LayoutMode,
 	showConcepts: boolean,
-	minConceptDegree: number | null,
+	minConceptDegree: number,
 	hideOrphans: boolean,
 	relationTypes: RelationType[],
 	showConceptCooccurrence: boolean,
 	searchQuery: string,
-	textFadeThreshold: number | null,
-	nodeSize: number | null,
-	linkThickness: number | null,
+	textFadeThreshold: number,
+	nodeSize: number,
+	linkThickness: number,
 	showAutoStyle: boolean,
-	centerStrength: number | null,
-	chargeStrength: number | null,
-	linkDistance: number | null,
+	centerStrength: number,
+	chargeStrength: number,
+	linkDistance: number,
 	nodePalette: NodePalette,
 	nodeColors: NodeColors,
 	colorGroups: ColorGroup[],
@@ -2909,9 +3183,9 @@ export type HashtagRef = {
 	/**  Normalized: no leading '#', lowercased. */
 	tag: string,
 	/**  UTF-16 index of the '#' in the text it was read from. */
-	index: number | null,
+	index: number,
 	/**  UTF-16 length of the matched text, including the '#'. */
-	length: number | null,
+	length: number,
 };
 
 /**  Why an outside edit waits for a person (the review-list wording). */
@@ -3000,6 +3274,20 @@ export type ImagePlacementPatch = {
 	align?: MdAlign | null,
 	/**  Width: absent keeps, `null` clears, a value sets. */
 	width?: string | null,
+};
+
+/**  An image-region draft (TS `draftImageRegion` input). */
+export type ImageRegionDraft = {
+	/**  Colour as CSS text. */
+	color: string,
+	/**  Zero-based page index. */
+	pageIndex: number,
+	/**  Unrotated page height in PDF units. */
+	pageHeight: number,
+	/**  PDF user-space rect `[x1,y1,x2,y2]`. */
+	rect: [number, number, number, number],
+	/**  Minimum width/height in PDF units; default 2. */
+	minSize?: number | null,
 };
 
 /**  What an import would do with one entry. */
@@ -3193,6 +3481,20 @@ export type InkColour =
 /**  Marker grey. */
 "grey";
 
+/**  An ink draft (TS `draftInkAnnotation` input). */
+export type InkDraft = {
+	/**  Colour as CSS text. */
+	color: string,
+	/**  Zero-based page index. */
+	pageIndex: number,
+	/**  Unrotated page height in PDF units. */
+	pageHeight: number,
+	/**  Flat `[x,y,...]` PDF user-space path, as captured. */
+	path: number[],
+	/**  Nib width in PDF units; a highlighter is simply a wide one. */
+	width?: number | null,
+};
+
 /**  Which hand the writer uses. */
 export type InkHand = 
 /**  Right hand. */
@@ -3205,7 +3507,7 @@ export type InkLineIndices = {
 	/**  Indices into the input strokes, in the order they joined the line. */
 	strokeIndices: number[],
 	/**  `[yMin, yMax]` over the line's strokes. */
-	yBand: [(number | null), (number | null)],
+	yBand: [number, number],
 };
 
 /**  One line as the container stores it. */
@@ -3215,13 +3517,13 @@ export type InkLineRecord = {
 	/**  Number of strokes in the line. */
 	strokeCount: number,
 	/**  Rounded top of the line's band. */
-	yMin: number | null,
+	yMin: number,
 	/**  Rounded bottom of the line's band. */
-	yMax: number | null,
+	yMax: number,
 	/**  The recognised text, `""` when there is none. */
 	text: string,
 	/**  The engine's confidence, `0` when there is none. */
-	confidence: number | null,
+	confidence: number,
 };
 
 /**  The ink metadata a note carries, as its frontmatter or body header holds it. */
@@ -3240,12 +3542,58 @@ export type InkNoteMeta = {
 	hand: InkHand,
 };
 
+/**  A page: absolute geometry plus its strokes and recognised lines. */
+export type InkPage = {
+	/**  Page width in 0.1 mm. */
+	width: number,
+	/**  Page height in 0.1 mm. */
+	height: number,
+	/**  Page background. */
+	paper: InkPaper,
+	/**  Attachment index for a page image, `0` for none. */
+	background: number,
+	/**  Strokes in drawing order. */
+	strokes: InkStroke[],
+	/**  Recognised lines. */
+	lines: InkPageLineRecord[],
+};
+
+/**  One line of the page, as the page holds it. */
+export type InkPageLineInput = {
+	/**  Strokes. */
+	strokes: InkPageStrokeInput[],
+};
+
+/**  One recognised line of a page. */
+export type InkPageLineRecord = {
+	/**  Index of the first stroke of the line. */
+	strokeStart: number,
+	/**  Number of strokes in the line. */
+	strokeCount: number,
+	/**  Top of the line in 0.1 mm. */
+	yMin: number,
+	/**  Bottom of the line in 0.1 mm. */
+	yMax: number,
+	/**  The recognised text. */
+	text: string,
+	/**  Confidence, `0` to `1`. */
+	confidence: number,
+};
+
 /**  A page's width and height, clamped to what an `Int16` coordinate can hold. */
 export type InkPageSize = {
 	/**  Width in 0.1 mm. */
-	width: number | null,
+	width: number,
 	/**  Height in 0.1 mm. */
-	height: number | null,
+	height: number,
+};
+
+/**  One stroke as the page holds it: flat `x, y` pairs and one pressure per point. */
+export type InkPageStrokeInput = {
+	/**  Flat `x, y` pairs. */
+	points: number[],
+	/**  One pressure per point; a missing one counts as 128. */
+	pressures?: number[],
 };
 
 /**  Page backgrounds, in the binary enum's order. */
@@ -3268,7 +3616,7 @@ export type InkPrintDocument = {
 	/**  The page size, in 0.1 mm. */
 	pageSize: InkPrintPageSize,
 	/**  Pixels per page unit the sheet was laid out at on screen. */
-	scale: number | null,
+	scale: number,
 	/**  The paper's name; `paper-{paper}` is the sheet's class. */
 	paper: string,
 	/**  The underlay's markup (the rendered markdown), already HTML. */
@@ -3288,15 +3636,15 @@ export type InkPrintDocument = {
 /**  A figure with the address of its picture: a data URL, so it needs no vault. */
 export type InkPrintFigure = {
 	/**  Top-left corner from the page's top-left, in page units. */
-	x: number | null,
+	x: number,
 	/**  Top edge, in page units. */
-	y: number | null,
+	y: number,
 	/**  Width, in page units. */
-	w: number | null,
+	w: number,
 	/**  Height, in page units. */
-	h: number | null,
+	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0–99 percent. */
-	crop?: [(number | null), (number | null), (number | null), (number | null)] | null,
+	crop?: [number, number, number, number] | null,
 	/**  The picture's data URL. */
 	url: string,
 };
@@ -3304,9 +3652,9 @@ export type InkPrintFigure = {
 /**  The page size in 0.1 mm, the page's own units. */
 export type InkPrintPageSize = {
 	/**  Width, in 0.1 mm. */
-	width: number | null,
+	width: number,
 	/**  Height, in 0.1 mm. */
-	height: number | null,
+	height: number,
 };
 
 /**  One stylesheet: a link by address, or the text of an inline sheet. */
@@ -3320,19 +3668,29 @@ export type InkPrintStyleSheet = {
 /**  The underlay's box, in CSS pixels at the sheet's scale. */
 export type InkPrintUnderlay = {
 	/**  Horizontal padding. */
-	padX: number | null,
+	padX: number,
 	/**  Vertical padding. */
-	padY: number | null,
+	padY: number,
 	/**  Font size. */
-	fontSize: number | null,
+	fontSize: number,
 	/**  Unitless line height. */
-	lineHeight: number | null,
+	lineHeight: number,
 };
 
 /**  One line of writing: flat `[x, y, pressure, x, y, pressure, ...]` per stroke. */
 export type InkRecognitionLineInput = {
 	/**  Strokes. */
-	strokes: ((number | null)[])[],
+	strokes: number[][],
+};
+
+/**  The checked request. `vocabulary` and `lang` are absent when the page did not send them. */
+export type InkRecognitionRequest = {
+	/**  Lines. */
+	lines: InkRecognitionLineInput[],
+	/**  Vocabulary. */
+	vocabulary?: string[] | null,
+	/**  Lang. */
+	lang?: string | null,
 };
 
 /**  The render inputs of one stored stroke: its colour name, tool and nib width. */
@@ -3342,7 +3700,7 @@ export type InkRenderSource = {
 	/**  The tool name; `highlighter` draws wide and translucent. */
 	tool: string,
 	/**  Nib width, in the same space as the stroke's points. */
-	width: number | null,
+	width: number,
 };
 
 /**
@@ -3353,11 +3711,21 @@ export type InkRenderStroke = {
 	/**  Position of the stroke in the source list. */
 	at: number,
 	/**  Nib width, in the same space as the stroke's points. */
-	width: number | null,
+	width: number,
 	/**  A resolved CSS colour, `rgb(r, g, b)`. */
 	colour: string,
 	/**  Wide and translucent, drawn over the pen. */
 	highlighter: boolean,
+};
+
+/**  What the page sends to build a request: its lines and the recognition hints. */
+export type InkRequestBuildInput = {
+	/**  Lines. */
+	lines: InkPageLineInput[],
+	/**  Expected words. */
+	vocabulary?: string[],
+	/**  Language tag; absent when not given. */
+	lang: string | null,
 };
 
 /**  Lines top to bottom, and the line each input stroke went into (`-1` for none). */
@@ -3384,45 +3752,45 @@ export type InkShape =
 /**  One stroke: absolute points and names, no deltas. */
 export type InkStroke = {
 	/**  Absolute positions in 0.1 mm as `[x0, y0, x1, y1, ...]`. */
-	points: (number | null)[],
+	points: number[],
 	/**  Pressure per point, 0 to 255, or empty when the device reports none. */
-	pressures: (number | null)[],
+	pressures: number[],
 	/**  Base nib width in 0.1 mm. */
-	width: number | null,
+	width: number,
 	/**  Tool the stroke was drawn with. */
 	tool: InkTool,
 	/**  Palette colour. */
 	colour: InkColour,
 	/**  Stroke start, ms from page creation. */
-	t0: number | null,
+	t0: number,
 	/**  Snapped shape, or `none` for the freehand path. */
 	shape: InkShape,
 	/**  Line this stroke was segmented into, `-1` when never. */
-	lineIndex: number | null,
+	lineIndex: number,
 };
 
 /**  Options for [`InkStrokePacker`] and [`pack_ink_stroke`]; a missing field takes the default. */
 export type InkStrokePackerOptions = {
 	/**  Distance, in 0.1 mm, the packed curve may stray; default `INK_PACK_TOLERANCE`. */
-	tolerance?: number | null,
+	tolerance?: number,
 	/**  Most points a stroke keeps; default `INK_STROKE_MAX_POINTS`. */
-	maxPoints?: number | null,
+	maxPoints?: number,
 	/**  Pressure deviation, out of 255, that keeps a point; default `INK_PACK_PRESSURE_TOLERANCE`. */
-	pressureTolerance?: number | null,
+	pressureTolerance?: number,
 };
 
 /**  A figure as the SVG export needs it: its placement and its pixels. */
 export type InkSvgFigure = {
 	/**  Top-left corner, page units. */
-	x: number | null,
+	x: number,
 	/**  Top edge, page units. */
-	y: number | null,
+	y: number,
 	/**  Width, page units. */
-	w: number | null,
+	w: number,
 	/**  Height, page units. */
-	h: number | null,
+	h: number,
 	/**  Crop insets `[left, top, right, bottom]`, each 0 to 99 percent. */
-	crop?: [(number | null), (number | null), (number | null), (number | null)] | null,
+	crop?: [number, number, number, number] | null,
 	/**  The image as a data URL. */
 	dataUrl: string,
 };
@@ -3430,7 +3798,7 @@ export type InkSvgFigure = {
 /**  The options of [`ink_page_svg`]. Every field may be left out. */
 export type InkSvgOptions = {
 	/**  Ink colours from the live theme; the light defaults when absent. */
-	palette?: { [key in string]: [(number | null), (number | null), (number | null)] } | null,
+	palette?: { [key in string]: [number, number, number] } | null,
 	/**  The page's background raster as a data URL, or absent. */
 	backgroundDataUrl?: string | null,
 	/**  The page's figures, drawn under the strokes. */
@@ -3442,9 +3810,9 @@ export type InkSvgOptions = {
 /**  The page fields the export reads: size and strokes. */
 export type InkSvgPage = {
 	/**  Width in 0.1 mm; A4 when zero or absent. */
-	width?: number | null,
+	width?: number,
 	/**  Height in 0.1 mm; A4 when zero or absent. */
-	height?: number | null,
+	height?: number,
 	/**  Strokes in drawing order. */
 	strokes?: InkSvgStroke[],
 };
@@ -3452,9 +3820,9 @@ export type InkSvgPage = {
 /**  One stroke as the SVG export reads it. Tool and colour may be absent. */
 export type InkSvgStroke = {
 	/**  Flat `[x0, y0, x1, y1, ...]` in 0.1 mm. */
-	points?: (number | null)[],
+	points?: number[],
 	/**  Nib width in 0.1 mm. */
-	width?: number | null,
+	width?: number,
 	/**  `"highlighter"` for a highlighter; anything else is a pen. */
 	tool?: string | null,
 	/**  Colour name; `"text"` when absent. */
@@ -3595,6 +3963,14 @@ export type InvalidationPlan = {
 	screens: string[],
 };
 
+/**  The item ids for a paper order, or the message that refuses it (TS `reorderPapers`). */
+export type ItemIdsPlan = {
+	/**  Why the order is refused; `None` when it is accepted. */
+	error: string | null,
+	/**  The item ids in the requested order, empty when refused. */
+	itemIds: string[],
+};
+
 /**  The writes that give a list its new item order, or the message that refuses the order. */
 export type ItemOrderPlan = {
 	/**  Why the order is refused; `None` when it is accepted. */
@@ -3608,7 +3984,7 @@ export type ItemOrderWrite = {
 	/**  The item to move. */
 	itemId: string,
 	/**  Its new position. */
-	sortOrder: number | null,
+	sortOrder: number,
 };
 
 /**  Where one item stands at one stage. */
@@ -3786,7 +4162,7 @@ export type LabSnapshotReportSection = {
 	/**  Writing status at freeze time. */
 	status: ReportStatus,
 	/**  Words written at freeze time. */
-	wordCount: number | null,
+	wordCount: number,
 };
 
 /**  A `lab_snapshots` row. `content` is `None` for a row that stored no content. */
@@ -3890,6 +4266,22 @@ export type LayoutMode =
 /**  x pinned to the publication year. */
 "timeline";
 
+/**  One note or paper the lexical extractor reads (TS `ExtractionDocument`). */
+export type LexicalDocument = {
+	/**  Note or paper id. */
+	id: string,
+	/**  The text read; absent reads as empty. */
+	text?: string | null,
+};
+
+/**  The lexical extractor's input (TS `ExtractionRequest`, the fields it reads). */
+export type LexicalRequest = {
+	/**  Documents to read. */
+	documents: LexicalDocument[],
+	/**  Keep at most this many concepts; zero or absent means no cap. */
+	maxConcepts?: number | null,
+};
+
 /**  A library pin as the app models it (TS `LibraryPin`). */
 export type LibraryPin = {
 	/**  The pin's id. */
@@ -3923,7 +4315,7 @@ export type LibraryPinIndexRow = {
 /**  One page's text items (TS `{ number, items }` argument of `coveredTextSpans`). */
 export type LinkCitationPage = {
 	/**  1-based page number. */
-	number: number | null,
+	number: number,
 	/**  Text items in reading order. */
 	items: SelectionPageTextItem[],
 };
@@ -4017,6 +4409,18 @@ export type LiveDocEntry = {
 	id: string,
 	/**  The path from the project root, with `/` between folders. */
 	path: string,
+};
+
+/**  Inputs for [`build_locus_link`] (TS `buildLocusLink` parameter). */
+export type LocusLinkInput = {
+	/**  Paper id; an empty string is treated as absent. */
+	paperId?: string | null,
+	/**  Direct PDF URL, allowlisted (https only) before it goes in the query. */
+	pdfUrl?: string | null,
+	/**  Locus encoded inline with [`encode_locus`]. */
+	locus?: AnchorPdfLocus | null,
+	/**  0-based page hint; only a non-negative integer is kept. */
+	page?: number | null,
 };
 
 /**  Entries on one calendar day, as indexes into the caller's list. */
@@ -4113,9 +4517,9 @@ export type MarginSlot = {
 	/**  Index of the card's mark in the input slice. */
 	index: number,
 	/**  Top of the card after stacking. */
-	top: number | null,
+	top: number,
 	/**  Top of the mark the card belongs to, before stacking. */
-	anchorTop: number | null,
+	anchorTop: number,
 };
 
 /**  The fields of an annotation the popover decision reads. */
@@ -4200,6 +4604,50 @@ export type MattermostOptions = {
 	channels: { [key in string]: string },
 };
 
+/**  Input for [`post_plan`]: the connection and the per-post channel override. */
+export type MattermostPostInput = {
+	/**  Server URL as stored. */
+	serverUrl: string,
+	/**  Channel the caller wants this post in. `None` or blank uses the main channel. */
+	channel: string | null,
+	/**  The connection's main channel id. */
+	mainChannel: string,
+};
+
+/**  Where one post goes, or why it cannot be sent. */
+export type MattermostPostPlan = {
+	/**  Channel id the post is sent to. */
+	channelId: string,
+	/**  `scheme://host[:port]` the request is sent to. `None` when the URL is not http(s). */
+	origin: string | null,
+	/**  Why `origin` is `None`. Set exactly when `origin` is. */
+	error: string | null,
+};
+
+/**  The HTTP status and body of a Mattermost post response. */
+export type MattermostPostResponse = {
+	/**  HTTP status code. */
+	status: number,
+	/**  Response body text (empty on success). */
+	body: string,
+};
+
+/**  What to do with a post response. */
+export type MattermostPostResponsePlan = {
+	/**  True on 401 or 403: the session is gone and the UI should offer re-sign-in. */
+	signedOut: boolean,
+	/**  The error to throw. `None` on a 2xx status. */
+	error: string | null,
+};
+
+/**  One test post: the channel and the message to send there. */
+export type MattermostTestPost = {
+	/**  Channel id to post to. */
+	channel: string,
+	/**  Test message listing the events that route there. */
+	message: string,
+};
+
 /**
  *  This machine's launch line: the app's binary run as Node, so no Node install is needed.
  *  Serialises in the field order `command`, `args`, `env`.
@@ -4220,9 +4668,9 @@ export type McpResult = {
 	/**  The fence marker, so a transport can repeat it in structured metadata. */
 	nonce: string,
 	/**  Items left out entirely because the result was already full. */
-	omitted: number | null,
+	omitted: number,
 	/**  Items included but cut short. */
-	truncated: number | null,
+	truncated: number,
 };
 
 /**  Where a figure sits in the column. */
@@ -4332,9 +4780,9 @@ export type MembershipRow = {
 /**  Geometry for one mention: one rect per text run it spans, plus their union. */
 export type MentionGeometry = {
 	/**  One rect per text run the mention spans, in reading order. */
-	rects: ([(number | null), (number | null), (number | null), (number | null)])[],
+	rects: ([number, number, number, number])[],
 	/**  Union of `rects`; `None` when there are none. */
-	bounds: [(number | null), (number | null), (number | null), (number | null)] | null,
+	bounds: [number, number, number, number] | null,
 };
 
 /**
@@ -4348,8 +4796,11 @@ export type MergeFieldDispute = {
 	base: unknown,
 	/**  The workspace's value. */
 	ours: unknown,
-	/**  The folder's value. */
-	theirs: unknown,
+	/**
+	 *  The folder's value. Absent (`null`) crosses to JS as `undefined`, which is what the
+	 *  TypeScript side reads for a folder that has no such key.
+	 */
+	theirs?: unknown,
 };
 
 /**  A page as the merge reads it (TS `MergeInput`). */
@@ -4426,9 +4877,9 @@ export type MetricPoint = {
 	/**  The metric's name. */
 	metric: string,
 	/**  The training step the point was logged at. */
-	step: number | null,
+	step: number,
 	/**  The logged value. */
-	value: number | null,
+	value: number,
 	/**  When the point was logged (ISO 8601), when recorded. */
 	wallTime?: string | null,
 };
@@ -4567,6 +5018,34 @@ export type MirrorResult = {
 	bases: ([string, VaultPageBase])[],
 };
 
+/**  One document in a batch (TS `ExtractionDocument`). */
+export type ModelDocument = {
+	/**  Note or paper id. */
+	id: string,
+	/**  Title shown beside the id. */
+	title: string,
+	/**  Body; absent reads as empty. */
+	text?: string | null,
+};
+
+/**  Defaults the TS shim reads, so the limits live in one place. */
+export type ModelExtractionLimits = {
+	/**  Documents per model call. */
+	batchSize: number,
+	/**  Characters of each document included. */
+	maxDocumentChars: number,
+	/**  Known concept names listed in the prompt. */
+	knownConceptLimit: number,
+};
+
+/**  One message of a model request (TS `AiMessage`). */
+export type ModelMessage = {
+	/**  Who wrote the message. */
+	role: ModelRole,
+	/**  The message text. */
+	content: string,
+};
+
 /**
  *  One configured AI adapter and whether it can answer right now (TS `AiModelAdapter`'s
  *  `provider` and `available`).
@@ -4578,11 +5057,39 @@ export type ModelProviderAvailability = {
 	available: boolean,
 };
 
+/**  A request for one batch (TS `AiModelRequest`). */
+export type ModelRequest = {
+	/**  The conversation, in order. */
+	messages: ModelMessage[],
+	/**  Passed through to the adapter; absent when not configured. */
+	model?: string | null,
+	/**  Extraction is a reading task, so sampling stays at zero. */
+	temperature: number,
+};
+
+/**  Who wrote a message (TS `AiMessage.role`, the two roles extraction uses). */
+export type ModelRole = 
+/**  Instructions to the model. */
+"system" | 
+/**  The user's turn. */
+"user";
+
 /**  The part of a reading list the graph tags read: its name. */
 export type NamedList = {
 	/**  List name, lowercased when shown as a tag. */
 	name: string,
 };
+
+/**  A named choice for a both-changed file: the string forms of TS `ConflictResolution`. */
+export type NamedResolution = 
+/**  Leave the workspace's copy alone. */
+"keep" | 
+/**  Take the folder's copy over the workspace's. */
+"folder" | 
+/**  Import the folder's copy as a new note, leaving the workspace's untouched. */
+"both" | 
+/**  Write conflict markers into the folder's copy. */
+"markers";
 
 /**  A nav item as the title lookup needs it: its path and the label it shows. */
 export type NavRouteInput = {
@@ -4662,6 +5169,26 @@ export type NewPaperRelationInput = {
 	source?: RelationSource | null,
 };
 
+/**  A local annotation before it is stored (TS `NewReaderAnnotation`, the fields the drafts set). */
+export type NewReaderAnnotation = {
+	/**  Annotation kind: `highlight`, `underline`, `note`, `ink`, `image` or `text`. */
+	type: string,
+	/**  Colour as CSS text. */
+	color: string,
+	/**  Quoted or typed text; empty for ink and images, and when absent. */
+	text?: string,
+	/**  Comment; absent for drafts that take none. */
+	comment?: string | null,
+	/**  Tags; absent means none. */
+	tags?: string[],
+	/**  Zero-based page index. */
+	pageIndex: number,
+	/**  Where the annotation sits; empty when absent. */
+	anchor?: AnchorCombinedPdf,
+	/**  Zotero-style sort key; empty or absent means one is built from the page. */
+	sortIndex?: string,
+};
+
 /**  What a caller supplies to create a section. */
 export type NewReportSectionInput = {
 	/**  Title; required after trimming. */
@@ -4709,13 +5236,13 @@ export type NewestRelease = {
 /**  One sample as it arrives from the digitiser, in 0.1 mm. */
 export type NibSample = {
 	/**  Horizontal position, in 0.1 mm. */
-	x: number | null,
+	x: number,
 	/**  Vertical position, in 0.1 mm. */
-	y: number | null,
+	y: number,
 	/**  0–1, or `0`/`0.5` for a device that does not report pressure. */
-	pressure: number | null,
+	pressure: number,
 	/**  Milliseconds. */
-	t: number | null,
+	t: number,
 };
 
 /**  Per-kind colour overrides, as lower-case `#rrggbb`. Missing keys follow the palette. */
@@ -4755,7 +5282,7 @@ export type NodeScore = {
 	/**  The node id. */
 	node: string,
 	/**  Visits to the node divided by total visits. */
-	score: number | null,
+	score: number,
 };
 
 /**  How big a node draws at a zoom. */
@@ -4818,11 +5345,19 @@ export type NoteNode = {
 /**  Cutoffs and speed coefficient for one channel. */
 export type OneEuroOptions = {
 	/**  Cutoff at zero speed, in hertz. */
-	minCutoff: number | null,
+	minCutoff: number,
 	/**  How fast the cutoff rises with speed, in hertz per (0.1 mm/ms). */
-	beta: number | null,
+	beta: number,
 	/**  Cutoff for the internal derivative estimate, in hertz. */
-	derivativeCutoff: number | null,
+	derivativeCutoff: number,
+};
+
+/**  The verb and base version of one op a device still owes for the row. */
+export type OpFact = {
+	/**  The verb of the op. */
+	op: OutboxOp,
+	/**  The row version the op was based on. `None` for an insert. */
+	baseVersion: number | null,
 };
 
 /**  One place a paper may be read for free. `url` is https, with no credentials. */
@@ -4915,6 +5450,15 @@ export type OpenAlexWork = {
 	cited_by_count?: number | null,
 };
 
+/**  The kind of an open conflict, as `sync_conflicts.kind` stores it. */
+export type OpenConflictKind = 
+/**  Both sides edited the row. */
+"edit" | 
+/**  Deleted on the server while this device still had edits. */
+"deleted_remote" | 
+/**  Deleted on this device while the server still had the row. */
+"deleted_local";
+
 /**  How a list is ordered. */
 export type OrderSpec = {
 	/**  The column to order by. */
@@ -4955,6 +5499,16 @@ export type OrgSetupState = {
 	error?: string | null,
 };
 
+/**  Caps on an outbound fetch (TS `OutboundFetchLimits`). */
+export type OutboundFetchLimits = {
+	/**  Redirects followed before the fetch gives up. */
+	maxRedirects: number,
+	/**  Response body bytes read before the fetch stops. */
+	maxBytes: number,
+	/**  Milliseconds before the fetch is abandoned. */
+	timeoutMs: number,
+};
+
 /**  The verb of an outbox op. */
 export type OutboxOp = 
 /**  A row created on this device. */
@@ -4977,7 +5531,7 @@ export type OutlineHeading = {
 /**  Only the page of a heading (`{ page: number }`), as `outlineIsPlausible` reads it. */
 export type OutlinePageRef = {
 	/**  1-based page number. */
-	page: number | null,
+	page: number,
 };
 
 /**  A bookmark-shaped outline node (`ReaderOutlineItem`). `pageNumber` is always set here. */
@@ -4997,9 +5551,9 @@ export type OutlineRecurringGroupIndices = {
 	/**  Furniture key shared by the members. */
 	key: string,
 	/**  Distinct pages in first-seen order. */
-	pages: (number | null)[],
+	pages: number[],
 	/**  Indices of the member lines. */
-	members: (number | null)[],
+	members: number[],
 };
 
 /**  A pdf.js text item for outline inference (`OutlineTextItem`). */
@@ -5007,15 +5561,15 @@ export type OutlineTextItem = {
 	/**  Item text. */
 	str: string,
 	/**  Font size in user-space units. */
-	fontSize: number | null,
+	fontSize: number,
 	/**  pdf.js font name, used for bold detection. */
 	fontName?: string | null,
 	/**  Left edge. */
-	x: number | null,
+	x: number,
 	/**  Baseline y. */
-	y: number | null,
+	y: number,
 	/**  1-based page number. */
-	page: number | null,
+	page: number,
 	/**  Set on text not laid out left to right, such as arXiv's vertical side stamp. */
 	rotated?: boolean | null,
 };
@@ -5056,6 +5610,18 @@ export type OverleafProject = {
 	name: string,
 };
 
+/**  Where a synced Overleaf folder stands (TS `DesktopOverleafSync.status`). */
+export type OverleafSyncStatus = {
+	/**  The Overleaf git URL; absent or empty when none is set. */
+	url?: string | null,
+	/**  Branch name. */
+	branch?: string,
+	/**  Commits the local branch has that Overleaf does not. */
+	ahead: number,
+	/**  Commits Overleaf has that the local branch does not. */
+	behind: number,
+};
+
 /**  One op a device still owes for a row. Slices of these are oldest first. */
 export type OwedOp = {
 	/**  The verb of the op. */
@@ -5072,25 +5638,44 @@ export type OwedOp = {
  */
 export type PackedInkStroke = {
 	/**  Flat x,y pairs in 0.1 mm. */
-	points: (number | null)[],
+	points: number[],
 	/**  One 0-255 pressure byte per point. */
-	pressures: (number | null)[],
+	pressures: number[],
 };
 
 /**  Per-page facts the rest of the app may want (`PageAnalysis`). */
 export type PageAnalysis = {
 	/**  1-based page number. */
-	pageNumber: number | null,
+	pageNumber: number,
 	/**  The page text, items concatenated with `\n` after each `hasEOL` item. */
 	text: string,
 	/**  Columns detected on the page; 1 for a single-column page. */
-	columns: number | null,
+	columns: number,
+};
+
+/**  Everything one page paints from the annotation list (TS `PageAnnotationGeometry`). */
+export type PageAnnotationGeometry = {
+	/**  Boxes to paint on this page. */
+	boxes: AnnotationBox[],
+	/**  Ink strokes to paint on this page. */
+	strokes: AnnotationStroke[],
+};
+
+/**
+ *  One page's share of the annotation list: positions in the input list, in input order.
+ *  The buckets come back in first-insertion order, matching the TS `Map`.
+ */
+export type PageBucket = {
+	/**  1-based page the annotations paint on. */
+	pageNumber: number,
+	/**  Indices into the input slice. `u32` keeps the type JS-safe. */
+	annotationIndices: number[],
 };
 
 /**  One page as the matcher reads it. Twin of `PageCitationInput`. */
 export type PageCitationInput = {
 	/**  Page number, 1-based. */
-	number: number | null,
+	number: number,
 	/**  Page text, the items concatenated. */
 	text: string,
 	/**  Raw PDF text items: geometry and superscript sizes. */
@@ -5140,14 +5725,24 @@ export type PageMetadata = {
 	isArticle: boolean,
 };
 
+/**  One page's picture in paint order. */
+export type PagePicture = {
+	/**  Stable picture id. */
+	id: string,
+	/**  Where and how large the picture is on the page. */
+	figure: FigureGeometry,
+	/**  Stacking order among the page's pictures. */
+	z: number,
+};
+
 /**  A pointer press on the page: where, and when. */
 export type PagePress = {
 	/**  X. */
-	x: number | null,
+	x: number,
 	/**  Y. */
-	y: number | null,
+	y: number,
 	/**  Time. */
-	time: number | null,
+	time: number,
 };
 
 /**  The fields the lookup reads from a vault page. */
@@ -5161,7 +5756,7 @@ export type PageRef = {
 /**  Which pages an answer names. */
 export type PageSelection = {
 	/**  Every page named that the document has, sorted and deduplicated. */
-	pages: (number | null)[],
+	pages: number[],
 	/**  The lowest page named past the page count, if any. */
 	outOfRange?: number | null,
 };
@@ -5278,7 +5873,7 @@ export type PaneSplit = {
 	/**  Axis the two children share. */
 	direction: SplitDirection,
 	/**  First child's share of the axis, 0.1–0.9 so neither side can vanish. */
-	ratio: number | null,
+	ratio: number,
 	/**  The first and second child nodes. */
 	children: [PaneNode, PaneNode],
 };
@@ -5325,6 +5920,22 @@ export type Paper = {
 	updatedAt: string,
 };
 
+/**  `paper_annotation`. */
+export type PaperAnnotationInput = {
+	/**  Annotation kind. */
+	type: string,
+	/**  Mark colour. */
+	color: string,
+	/**  Quoted text. */
+	text: string,
+	/**  The reader's note on the mark. */
+	comment?: string | null,
+	/**  Where the mark sits in the document. */
+	anchor: QuoteAnchor,
+	/**  Page the mark sits on. */
+	pageIndex: number,
+};
+
 /**  A paper as the tree needs it. */
 export type PaperEntry = {
 	/**  Paper id. */
@@ -5346,7 +5957,19 @@ export type PaperFieldDef = {
 	/**  Option labels, or encoded rollup tokens for a rollup. */
 	options: string[],
 	/**  Display order. */
-	sortOrder: number | null,
+	sortOrder: number,
+};
+
+/**  One paper-field definition, as the host lists it (only the fields the check needs). */
+export type PaperFieldDefInput = {
+	/**  Field id. */
+	id: string,
+	/**  Field name. */
+	name: string,
+	/**  Field type. */
+	kind: PaperFieldKind,
+	/**  Allowed options, for choice fields. */
+	options?: string[],
 };
 
 /**
@@ -5364,7 +5987,15 @@ export type PaperFieldDefRow = {
 	/**  The stored options JSON. */
 	options?: unknown,
 	/**  Display order. */
-	sort_order: number | null,
+	sort_order: number,
+};
+
+/**  `paper_field_value`: the field to write and the checked value. */
+export type PaperFieldFillInput = {
+	/**  Id of the field to write. */
+	fieldId: string,
+	/**  The checked value. */
+	value: PaperFieldValueData,
 };
 
 /**  Supported custom field kinds on papers. */
@@ -5420,7 +6051,7 @@ export type PaperFieldValueData =
 /**  A non-blank string, kept as sent. */
 string | 
 /**  A finite number. */
-number | null | 
+number | 
 /**  A list with blanks trimmed away and at least one item. */
 string[];
 
@@ -5626,6 +6257,16 @@ export type PaperTagRowInput = {
 	annotation_ref: string | null,
 };
 
+/**  `paper_update`: at least one of the three fields is present. */
+export type PaperUpdateInput = {
+	/**  New status. */
+	status?: string | null,
+	/**  New rating. */
+	rating?: number | null,
+	/**  New tags. */
+	tags?: string[] | null,
+};
+
 /**  A reference found in markdown, with its source span (TS `ParsedArtifactRef`). */
 export type ParsedArtifactRef = {
 	/**  Trimmed experiment id. */
@@ -5764,6 +6405,17 @@ export type PdfPageText = {
 	text?: string,
 };
 
+/**  One rung of the PDF source ladder (TS resolver classes in `@weaveforge/core`). */
+export type PdfSourceKind = 
+/**  Bytes already in the app's PDF cache. */
+"cache" | 
+/**  Open-access URL resolved from the paper's links and arXiv id. */
+"openAccess" | 
+/**  A file in the workspace's GitHub repo (desktop shell only). */
+"githubRepo" | 
+/**  WebDAV copy. Always last; it refuses until a proxy route exists. */
+"webDav";
+
 /**  Options for [`clean_pdf_text`]. */
 export type PdfTextOptions = {
 	/**  Remove page-number lines along with the page break around them. */
@@ -5790,6 +6442,35 @@ export type PickableProject = {
 	name: string,
 	/**  The project's folder under the root; "" for a pre-project layout. */
 	dir: string,
+};
+
+/**  The only value [`ConflictPicks::kind`] takes. */
+export type PicksKind = 
+/**  Picks per key and hunk. */
+"picks";
+
+/**  Input to [`draft_picture`] (TS `draftPicture` argument). */
+export type PictureDraftInput = {
+	/**  Stored picture file to place. */
+	path: string,
+	/**  Page the picture goes on. */
+	pageIndex: number,
+	/**  Unrotated page width in PDF user-space units. */
+	pageWidth: number,
+	/**  Unrotated page height in PDF user-space units. */
+	pageHeight: number,
+	/**  The picture's width over its height. */
+	aspect: number,
+};
+
+/**  What a picture's comment says about it. */
+export type PictureMeta = {
+	/**  The stored file. */
+	path: string,
+	/**  Crop insets, `[left, top, right, bottom]` in percent; absent is the whole image. */
+	crop?: [number, number, number, number] | null,
+	/**  Paint order among the page's pictures: higher is on top. */
+	z: number,
 };
 
 /**  A `library_pins` row with the columns the pin queries name. */
@@ -5905,9 +6586,9 @@ export type PlanTimelineMonth = {
 /**  Where the widget was left: its top-left corner. */
 export type PlanWidgetBounds = {
 	/**  Left edge, in logical pixels. */
-	x: number | null,
+	x: number,
 	/**  Top edge, in logical pixels. */
-	y: number | null,
+	y: number,
 };
 
 /**  The JSON summary a home-screen or desktop widget reads. */
@@ -5945,13 +6626,13 @@ export type PlanWidgetItem = {
 /**  One screen's work area: the part not covered by the taskbar. */
 export type PlanWidgetWorkArea = {
 	/**  Left edge, in logical pixels. */
-	x: number | null,
+	x: number,
 	/**  Top edge, in logical pixels. */
-	y: number | null,
+	y: number,
 	/**  Width, in logical pixels. */
-	width: number | null,
+	width: number,
 	/**  Height, in logical pixels. */
-	height: number | null,
+	height: number,
 };
 
 /**
@@ -5999,9 +6680,9 @@ export type Point = {
 /**  The part of a TS `ZoteroRectPosition` the rule reads. */
 export type PositionInput = {
 	/**  Zero-based page index. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  PDF user-space rects `[x1, y1, x2, y2]`. */
-	rects?: ((number | null)[])[] | null,
+	rects?: number[][] | null,
 };
 
 /**  Walk settings (TS `PprOptions` without the injected `rng`). Unset fields take the defaults. */
@@ -6017,23 +6698,23 @@ export type PprOptions = {
 /**  PRISMA box counts, derived from the screening decisions every time they are asked for. */
 export type PrismaCounts = {
 	/**  Everything the searches turned up, before anything was thrown away. */
-	identified: number | null,
+	identified: number,
 	/**  Records removed as duplicates of another record. */
-	duplicates: number | null,
+	duplicates: number,
 	/**  What was left to screen on title and abstract. */
-	screened: number | null,
+	screened: number,
 	/**  Records excluded on title and abstract. */
-	excludedAtScreening: number | null,
+	excludedAtScreening: number,
 	/**  Full texts sought and assessed. */
-	eligible: number | null,
+	eligible: number,
 	/**  Full texts excluded at full-text screening. */
-	excludedAtFullText: number | null,
+	excludedAtFullText: number,
 	/**  Studies included. */
-	included: number | null,
+	included: number,
 	/**  Items nobody has decided yet. A warning, not a box. */
-	undecided: number | null,
+	undecided: number,
 	/**  Items where reviewers disagree. A warning, not a box. */
-	conflicts: number | null,
+	conflicts: number,
 };
 
 /**  Optional inputs to the figure. `Default` gives the TS defaults. */
@@ -6091,6 +6772,24 @@ export type Project = {
 	createdAt: string,
 };
 
+/**  Input to [`project_page_annotation_geometry`] (TS `ProjectGeometryInput`). */
+export type ProjectGeometryInput = {
+	/**  Annotations to project onto the page. */
+	annotations: ReaderAnnotation[],
+	/**  1-based page currently being painted. */
+	pageNumber: number,
+	/**  CSS pixels per PDF user-space unit. */
+	scale: number,
+	/**  Unrotated page height in PDF user-space units. */
+	pageHeight: number,
+	/**  Unrotated page width in PDF user-space units. */
+	pageWidth: number,
+	/**  Page rotation in degrees: 0, 90, 180 or 270. */
+	rotation: number,
+	/**  Hash of the PDF on screen; empty means unknown. */
+	contentHash: string,
+};
+
 /**  A `projects` row as read with the `id, name, color, created_at` columns. */
 export type ProjectRow = {
 	/**  The project's id. */
@@ -6103,12 +6802,85 @@ export type ProjectRow = {
 	created_at: string,
 };
 
+/**  A proposal ready to save (TS `AiWriteProposal`). */
+export type ProposalDraft = {
+	/**  Proposal id. */
+	id: string,
+	/**  Kind of change proposed. */
+	kind: AiProposalKind,
+	/**  Resource the change targets. */
+	resourceId: string,
+	/**  Trimmed preview text. */
+	content: string,
+	/**  Kind-specific payload. */
+	payload: unknown,
+	/**  Creation time, ISO 8601. */
+	createdAt: string,
+	/**  Always `pending` at creation. */
+	status: ProposalDraftStatus,
+	/**  Source links; empty when none given. */
+	sourceLinks: string[],
+	/**  Expected revision, when given. */
+	expectedRevision?: string | null,
+	/**  Evidence; present only when non-empty. */
+	evidence?: unknown[] | null,
+};
+
+/**  The fields the caller supplies (TS `CreateAiProposalDraftUseCase.execute` input, after policy). */
+export type ProposalDraftInput = {
+	/**  Proposal id. */
+	id: string,
+	/**  Kind of change proposed. */
+	kind: AiProposalKind,
+	/**  Resource the change targets. */
+	resourceId: string,
+	/**  Preview text; trimmed, required. */
+	content: string,
+	/**  Kind-specific payload, kept as given. */
+	payload: unknown,
+	/**  Creation time, ISO 8601, from the caller's clock. */
+	createdAt: string,
+	/**  Source links; absent means none. */
+	sourceLinks?: string[] | null,
+	/**  Revision the change expects to apply to. */
+	expectedRevision?: string | null,
+	/**  Evidence entries; kept only when non-empty. */
+	evidence?: unknown[] | null,
+};
+
+/**  Lifecycle state of a new proposal. Only `pending` exists at creation. */
+export type ProposalDraftStatus = 
+/**  Awaiting the user's decision. */
+"pending";
+
 /**  One group: its key and the input indices it holds, in queue order. */
 export type ProposalGroup = {
 	/**  The resource id or `kind:<kind>` (document), or the kind (kind). */
 	key: string,
 	/**  Indices into the input list, in queue order. */
 	indices: number[],
+};
+
+/**  `create_log_entry`. `kind` is left to the host when absent, as in TS. */
+export type ProposalLogEntryInput = {
+	/**  Entry text. */
+	body: string,
+	/**  Date of the entry. */
+	entryDate?: string | null,
+	/**  Entry kind. */
+	kind?: string | null,
+};
+
+/**  `milestone_follow_up`. */
+export type ProposalMilestoneInput = {
+	/**  Milestone title. */
+	title: string,
+	/**  Milestone description. */
+	description?: string | null,
+	/**  Milestone status. */
+	status?: string | null,
+	/**  Target date. */
+	targetDate?: string | null,
 };
 
 /**  A draft's preview split for a card: bold first line → title, "Why:" → reason. */
@@ -6137,6 +6909,22 @@ export type ProposalRef = {
 	resourceId: string,
 };
 
+/**  `zotero_import`: the paper fields a Zotero draft may set. */
+export type ProposalZoteroPaperInput = {
+	/**  Paper title. */
+	title: string,
+	/**  Author names. */
+	authors?: string[] | null,
+	/**  Publication year. */
+	year?: number | null,
+	/**  DOI. */
+	doi?: string | null,
+	/**  Paper URL. */
+	url?: string | null,
+	/**  Abstract text. */
+	abstract?: string | null,
+};
+
 /**  Inputs to the fill prompt for one extraction column. */
 export type ProposeFillInput = {
 	/**  Reading list id. */
@@ -6161,6 +6949,47 @@ export type ProviderIds = {
 	citation: string[],
 	/**  Git-read provider ids. */
 	gitRead: string[],
+};
+
+/**  What the pull knows about one change before it picks a step. Gathered by reads only. */
+export type PullFacts = {
+	/**  Whether the change is a tombstone. */
+	deleted: boolean,
+	/**  The server row version the change carries. */
+	rowVersion: number,
+	/**  The ops this device still owes for the row, oldest first. */
+	ops: OpFact[],
+	/**  Whether this device has a conflict store to record conflicts in. */
+	hasStore: boolean,
+	/**  The conflict open on the row, if any. */
+	open: OpenConflictKind | null,
+	/**  Whether an edit still owed to the server points at the row. */
+	referenced: boolean,
+};
+
+/**  The new watermark, whether more is waiting, and which failures a later change superseded. */
+export type PullSummary = {
+	/**  The highest of the watermark and every fetched sequence. */
+	highest: number,
+	/**  Whether the page was full, so the server may have more waiting. */
+	more: boolean,
+	/**  One per failure, in the same order: true when a later change to the same row already won. */
+	stale: boolean[],
+};
+
+/**
+ *  One pull's page: the watermark it started from, the page size asked for, every change
+ *  fetched, and the first-pass failures.
+ */
+export type PullSummaryInput = {
+	/**  The watermark before the pull. */
+	watermark: number,
+	/**  The page size the pull asked for. */
+	pageSize: number,
+	/**  Every change the server returned, in feed order. */
+	fetched: SeqRow[],
+	/**  The first-pass failures, in feed order. */
+	failed: SeqRow[],
 };
 
 /**  A palette section: the hits of one kind, in score order. */
@@ -6191,6 +7020,26 @@ export type QuotationType =
 "paraphrase" | 
 /**  Condensed. */
 "summary";
+
+/**  The anchor of a quote: the locus that holds it. */
+export type QuoteAnchor = {
+	/**  Where the quote sits in the document. */
+	locus: QuoteLocus,
+};
+
+/**  The locus of a quote: the selector that finds it. */
+export type QuoteLocus = {
+	/**  The quote selector. */
+	quote: QuoteSelector,
+};
+
+/**  A quote selector: the reader finds the words on the page. */
+export type QuoteSelector = {
+	/**  Selector type. */
+	type: string,
+	/**  The exact words to find on the page. */
+	exact: string,
+};
 
 /**  R2 hot-tier fields, as read from env. */
 export type R2Fields = {
@@ -6228,7 +7077,7 @@ export type RailGroupWords = {
 /**  The document fields `document_boost` reads (TS `SearchDoc` subset). */
 export type RankedDoc = {
 	/**  Wiki-graph link degree; `0` until the graph phase fills it in. */
-	degree: number | null,
+	degree: number,
 	/**  ISO 8601 timestamp of the last update. Missing reads as blank: no recency boost. */
 	updatedAt?: string,
 };
@@ -6238,7 +7087,75 @@ export type RankedList = {
 	/**  Ids, best first. May repeat; every occurrence counts. */
 	ids: string[],
 	/**  Relative influence; finite and >= 0. */
-	weight: number | null,
+	weight: number,
+};
+
+/**  A reader annotation as the app holds it (TS `ReaderAnnotation`). */
+export type ReaderAnnotation = {
+	/**  Annotation id. */
+	id: string,
+	/**  `local` for a mark made in this app, otherwise where it came from. */
+	origin: string,
+	/**  The Zotero item key, when the mark has been synced to Zotero. */
+	zoteroKey: string | null,
+	/**  Annotation kind: `highlight`, `underline`, `note`, `ink`, `image` or `text`. */
+	type: string,
+	/**  Mark colour, as a CSS colour string. */
+	color: string,
+	/**  Quoted text, or the words of a text box. */
+	text: string,
+	/**  The reader's note on the mark. */
+	comment?: string | null,
+	/**  Tags on the mark. */
+	tags: string[],
+	/**  Where the mark sits in the PDF. */
+	anchor: AnchorCombinedPdf,
+	/**  Sort key that orders marks through the document. */
+	sortIndex: string,
+	/**  Creation time, as stored. */
+	createdAt: string,
+	/**  Last-change time, as stored. */
+	updatedAt: string,
+	/**  Sync state of the mark, when tracked. */
+	syncState?: string | null,
+	/**  Zotero's version of the row; `null` until one exists. */
+	zoteroVersion?: number | null,
+};
+
+/**  One row of the reader annotations table, as the backends read it. */
+export type ReaderAnnotationRow = {
+	/**  Annotation id. */
+	id: string,
+	/**  Id of the paper the annotation belongs to. */
+	paper_id: string,
+	/**  `local` or `zotero`. */
+	origin: string,
+	/**  The Zotero item key, when synced. */
+	zotero_key: string | null,
+	/**  Annotation kind; `type` on the wire. */
+	type: string,
+	/**  Mark colour. */
+	color: string,
+	/**  Quoted text, or the words of a text box. */
+	text: string,
+	/**  The reader's note on the mark. */
+	comment: string,
+	/**  Tags on the mark, when stored. */
+	tags: string[] | null,
+	/**  Where the mark sits in the PDF, when stored. */
+	anchor: AnchorCombinedPdf | null,
+	/**  Page index the mark sits on, as stored. */
+	page_index: number,
+	/**  Sort key that orders marks through the document. */
+	sort_index: string,
+	/**  Sync state of the row, when tracked. */
+	sync_state?: string | null,
+	/**  Zotero's version of the row, when one exists. */
+	zotero_version?: number | null,
+	/**  Creation time, as stored. */
+	created_at: string,
+	/**  Last-change time, as stored. */
+	updated_at: string,
 };
 
 /**  Stroke input of `compactInkPath`'s `options` object. Each field may be absent. */
@@ -6254,9 +7171,9 @@ export type ReaderCompactInkOptions = {
 /**  Container size in CSS pixels. Mirrors `ReaderContainerSize` in the TS copy. */
 export type ReaderContainerSize = {
 	/**  Container width. */
-	width: number | null,
+	width: number,
 	/**  Container height. */
-	height: number | null,
+	height: number,
 };
 
 /**  How the reader sizes the page. Mirrors `ReaderFitMode` in the TS copy. */
@@ -6271,27 +7188,27 @@ export type ReaderFitMode =
 /**  The ink group a new stroke may join, mirrors TS `InkGroupCandidate`. */
 export type ReaderInkGroupCandidate = {
 	/**  Page the group sits on. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  Colour of the group's strokes. */
 	color: string,
 	/**  Nib width of the group's strokes. */
-	width: number | null,
+	width: number,
 	/**  Strokes the target annotation already holds. */
-	pathCount: number | null,
+	pathCount: number,
 	/**  When the group last took a stroke. */
-	lastAt: number | null,
+	lastAt: number,
 };
 
 /**  The stroke being tested against a group, mirrors the TS `canJoinInkGroup` `next` argument. */
 export type ReaderInkGroupNext = {
 	/**  Page the stroke was drawn on. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  Colour of the stroke. */
 	color: string,
 	/**  Nib width of the stroke. */
-	width: number | null,
+	width: number,
 	/**  When the stroke was drawn. */
-	at: number | null,
+	at: number,
 };
 
 /**
@@ -6335,21 +7252,21 @@ delta: number } |
 /**  Input to the page projection. Mirrors `PageProjection` in the TS copy. */
 export type ReaderPageProjection = {
 	/**  Unrotated page width in PDF user-space units. */
-	pageWidth: number | null,
+	pageWidth: number,
 	/**  Unrotated page height in PDF user-space units. */
-	pageHeight: number | null,
+	pageHeight: number,
 	/**  Render scale. */
-	scale: number | null,
+	scale: number,
 	/**  Rotation in degrees; other values are normalised. */
-	rotation: number | null,
+	rotation: number,
 };
 
 /**  PDF page size in user-space units. Mirrors `ReaderPageSize` in the TS copy. */
 export type ReaderPageSize = {
 	/**  Page width. */
-	width: number | null,
+	width: number,
 	/**  Page height. */
-	height: number | null,
+	height: number,
 };
 
 /**  The whole print: the title, the pages and whether the comments are printed. */
@@ -6373,7 +7290,7 @@ export type ReaderPrintLayoutInput = {
 /**  One comment card beside a printed page. */
 export type ReaderPrintNote = {
 	/**  Offset from the top of the page, in the page image's own pixels. */
-	top: number | null,
+	top: number,
 	/**  The mark's colour. */
 	colour: string,
 	/**  The marked text, when the mark was on text. */
@@ -6387,9 +7304,9 @@ export type ReaderPrintPage = {
 	/**  The page raster as an image URL. */
 	image: string,
 	/**  The raster's size in pixels; the notes' `top` is in the same units. */
-	width: number | null,
+	width: number,
 	/**  The raster height in pixels. */
-	height: number | null,
+	height: number,
 	/**  The page's comments, top to bottom. */
 	notes: ReaderPrintNote[],
 };
@@ -6397,21 +7314,21 @@ export type ReaderPrintPage = {
 /**  A box in CSS pixels. Mirrors the object `pdfRectToScreenBox` returns. */
 export type ReaderScreenBox = {
 	/**  Left edge. */
-	left: number | null,
+	left: number,
 	/**  Top edge. */
-	top: number | null,
+	top: number,
 	/**  Width. */
-	width: number | null,
+	width: number,
 	/**  Height. */
-	height: number | null,
+	height: number,
 };
 
 /**  A point in CSS pixels. Mirrors the `{ x, y }` returned by the TS projection functions. */
 export type ReaderScreenPoint = {
 	/**  Horizontal position. */
-	x: number | null,
+	x: number,
 	/**  Vertical position. */
-	y: number | null,
+	y: number,
 };
 
 /**  The pane open beside the PDF (TS `ReaderSplitPane` without `null`). */
@@ -6424,23 +7341,23 @@ export type ReaderSplitPane =
 /**  The fields `resolve_viewport_scale` reads. Mirrors the `Pick` in the TS copy. */
 export type ReaderViewportScaleState = {
 	/**  Stored zoom scale. */
-	scale: number | null,
+	scale: number,
 	/**  Fit mode. */
 	fit: ReaderFitMode,
 	/**  Rotation in degrees. */
-	rotation: number | null,
+	rotation: number,
 };
 
 /**  The viewport state. Mirrors `ReaderViewportState` in the TS copy. */
 export type ReaderViewportState = {
 	/**  Stored zoom scale. */
-	scale: number | null,
+	scale: number,
 	/**  Fit mode. */
 	fit: ReaderFitMode,
 	/**  Rotation in degrees. */
-	rotation: number | null,
+	rotation: number,
 	/**  1-based current page. */
-	page: number | null,
+	page: number,
 };
 
 /**  A named, nestable grouping of papers (TS `ReadingList`). */
@@ -6454,11 +7371,21 @@ export type ReadingList = {
 	/**  Parent list id for nesting; absent = top level. */
 	parentId?: string | null,
 	/**  Position among siblings. */
-	sortOrder: number | null,
+	sortOrder: number,
 	/**  Display colour. */
 	color?: string | null,
 	/**  Creation time, ISO 8601 UTC. */
 	createdAt: string,
+};
+
+/**  `reading_list_change`. */
+export type ReadingListChangeInput = {
+	/**  Id of the reading list. */
+	listId: string,
+	/**  Note on the change. */
+	note?: string | null,
+	/**  What the change applies to. */
+	target: ReadingListTarget,
 };
 
 /**  A paper or note membership in a list (TS `ReadingListItem`). */
@@ -6472,7 +7399,7 @@ export type ReadingListItem = {
 	/**  Vault page id; exactly one of this and `paper_id` is set. */
 	vaultPageId?: string | null,
 	/**  Position among the list's items. */
-	sortOrder: number | null,
+	sortOrder: number,
 	/**  Why this item is in this list. */
 	note?: string | null,
 	/**  Set when membership was propagated from a descendant list. */
@@ -6490,7 +7417,7 @@ export type ReadingListItemRow = {
 	list_id: string,
 	paper_id: string | null,
 	vault_page_id: string | null,
-	sort_order: number | null,
+	sort_order: number,
 	note: string | null,
 	inherited_from_list_id?: string | null,
 	duplicate_of_item_id?: string | null,
@@ -6502,10 +7429,17 @@ export type ReadingListRow = {
 	name: string,
 	description: string | null,
 	parent_id: string | null,
-	sort_order: number | null,
+	sort_order: number,
 	color: string | null,
 	created_at: string,
 };
+
+/**  The target of a reading-list change: exactly one paper or one vault note. */
+export type ReadingListTarget = 
+/**  A paper, by id. */
+{ kind: "paper"; id: string } | 
+/**  A vault note, by id. */
+{ kind: "note"; id: string };
 
 /**  A list with its nested children (TS `ReadingListTreeNode`). */
 export type ReadingListTreeNode = {
@@ -6596,13 +7530,13 @@ export type ReferencePaper = {
  */
 export type ReferenceSectionSpan = {
 	/**  Index of the first entry line (the heading itself is excluded). */
-	start: number | null,
+	start: number,
 	/**  Exclusive index of the first line after the section. */
-	end: number | null,
+	end: number,
 	/**  The heading line's index, or `-1` when no heading was found. */
-	headingIndex: number | null,
+	headingIndex: number,
 	/**  Heading score; the fallback reports 3. */
-	score: number | null,
+	score: number,
 };
 
 /**  Which kind of region a marker opens. */
@@ -6639,7 +7573,7 @@ export type RelatedNode = {
 	/**  The node id. */
 	id: string,
 	/**  Its personalized PageRank score. */
-	score: number | null,
+	score: number,
 };
 
 /**  The output of [`collect_new_hits`]: the kept hits and the keys after them. */
@@ -6685,13 +7619,23 @@ export type RelatedResult = {
 	/**  Document id. */
 	id: string,
 	/**  Rank-blend score; not a number with meaning on its own. */
-	score: number | null,
+	score: number,
 	/**  The method that ranked it first. */
 	arm: RelatedArm,
 	/**  Every method that found it, strongest first, when more than one ran. */
 	arms?: RelatedArm[] | null,
 	/**  Cosine similarity to the seed, 0–1, when the meaning arm found it. */
 	similarity?: number | null,
+};
+
+/**  `relation`. */
+export type RelationInput = {
+	/**  Id of the paper the relation starts at. */
+	fromPaper: string,
+	/**  Id of the paper the relation points to. */
+	toPaper: string,
+	/**  Relation type. */
+	relation: string,
 };
 
 /**  How a relation edge was created (TS `source`). */
@@ -6803,7 +7747,7 @@ export type ReportSection = {
 	/**  Writing status. */
 	status: ReportStatus,
 	/**  Words written. */
-	wordCount: number | null,
+	wordCount: number,
 	/**  Words aimed for. */
 	targetWords?: number | null,
 	/**  ISO date (yyyy-mm-dd). */
@@ -6813,7 +7757,7 @@ export type ReportSection = {
 	/**  Free notes. */
 	notes?: string | null,
 	/**  Order among siblings. */
-	sortOrder: number | null,
+	sortOrder: number,
 	/**  ISO creation time. */
 	createdAt: string,
 	/**  When the section last changed; absent until first read back. */
@@ -6829,7 +7773,7 @@ export type ReportSectionInput = {
 	/**  Writing status. */
 	status: ReportStatus,
 	/**  Words written so far. */
-	wordCount: number | null,
+	wordCount: number,
 };
 
 /**  A section with its descendants resolved. */
@@ -6903,13 +7847,13 @@ export type RglPosition = {
 	/**  Card id (`i` in react-grid-layout). */
 	i: string,
 	/**  Column of the top-left cell. */
-	x: number | null,
+	x: number,
 	/**  Row of the top-left cell. */
-	y: number | null,
+	y: number,
 	/**  Width in columns. */
-	w: number | null,
+	w: number,
 	/**  Height in rows. */
-	h: number | null,
+	h: number,
 };
 
 /**  A field definition as a rollup reads it. Only a rollup's own `options` are read. */
@@ -6935,11 +7879,11 @@ export type RollupValue = {
 /**  The panel's row geometry, passed in from the TS constants. */
 export type RowMetrics = {
 	/**  One row's height in CSS px. */
-	rowPx: number | null,
+	rowPx: number,
 	/**  Rows painted before the panel has a size to measure. */
-	firstPaintRows: number | null,
+	firstPaintRows: number,
 	/**  Rows painted past each edge of the view. */
-	overscanRows: number | null,
+	overscanRows: number,
 };
 
 /**  One painted row, or a gap standing in for `rows` unpainted rows. */
@@ -6976,6 +7920,14 @@ export type RuntimeGate = {
 	kind: string,
 	/**  The provider id this gate needs selected. */
 	providerId: string,
+};
+
+/**  Both screen-cache ages, in milliseconds. */
+export type ScreenCachePolicy = {
+	/**  Age after which a cached screen is revalidated. */
+	revalidateAfterMs: number,
+	/**  Oldest cached screen that may still be shown. */
+	showMaxAgeMs: number,
 };
 
 /**  One reviewer's decision on one item at one stage. */
@@ -7197,7 +8149,7 @@ close: string };
 /**  One page's text geometry (TS `PageTextGeometry`). `pageWidth`/`pageHeight` are ignored. */
 export type SelectionPageTextGeometry = {
 	/**  Zero-based page index. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  Text items in reading order. */
 	items?: SelectionPageTextItem[],
 	/**  Hash of the PDF the geometry came from. */
@@ -7209,11 +8161,11 @@ export type SelectionPageTextItem = {
 	/**  Glyph run text. */
 	str?: string,
 	/**  pdf.js transform `[a,b,c,d,e,f]`; `e,f` are the origin. Missing reads as empty. */
-	transform?: (number | null)[],
+	transform?: number[],
 	/**  Run advance width; missing is non-finite. */
-	width: number | null,
+	width: number,
 	/**  Run height; missing or zero falls back to the transform's scale. */
-	height: number | null,
+	height: number,
 	/**  Whether a line break follows this item. */
 	hasEOL?: boolean,
 	/**  pdf.js font name, unused here. */
@@ -7223,13 +8175,13 @@ export type SelectionPageTextItem = {
 /**  A text-layer selection (TS `TextSelectionRange`). Offsets are UTF-16 code units. */
 export type SelectionTextRange = {
 	/**  Index of the item where the selection starts. */
-	startItemIndex: number | null,
+	startItemIndex: number,
 	/**  Offset into that item's text. */
-	startOffset: number | null,
+	startOffset: number,
 	/**  Index of the item where the selection ends. */
-	endItemIndex: number | null,
+	endItemIndex: number,
 	/**  Offset into that item's text. */
-	endOffset: number | null,
+	endOffset: number,
 };
 
 /**  One Semantic Scholar author. */
@@ -7305,6 +8257,16 @@ fallback?: boolean } |
 /**  Why it failed. */
 message: string };
 
+/**  A change's table, row and server sequence, as far as a pull needs them. */
+export type SeqRow = {
+	/**  The synced table the row belongs to. */
+	table: string,
+	/**  The row's id. */
+	rowId: string,
+	/**  The server sequence the change carries. */
+	serverSeq: number,
+};
+
 /**  An asset the mirror copies into `assets/`. */
 export type SerializedAsset = {
 	/**  The path after the app's blob scheme. */
@@ -7329,6 +8291,60 @@ export type ServerRow =
 "absent" | 
 /**  The transport could not read the row. */
 "unknown";
+
+/**  The grant a session starts with (TS `AiSessionGrant` plus `requiresConfirmationForWrites`). */
+export type SessionGrant = {
+	/**  Grant id. */
+	id: string,
+	/**  Workspace id. */
+	workspaceId: string,
+	/**  Expiry, ISO 8601. */
+	expiresAt: string,
+	/**  Resources the grant can read. */
+	readable: AiWorkspaceSource[],
+	/**  Tools the grant allows; de-duplicated, first occurrence kept. */
+	allowedTools: AiToolName[],
+	/**  Proposal kinds the grant allows; de-duplicated, first occurrence kept. */
+	proposalCapabilities: AiProposalKind[],
+	/**  Always true: writes need confirmation. */
+	requiresConfirmationForWrites: boolean,
+};
+
+/**  Inputs to start a session (TS `CreateAiSessionGrantInput`). */
+export type SessionGrantInput = {
+	/**  Id shared by the workspace and the grant. */
+	id: string,
+	/**  Display name; trimmed, required. */
+	workspaceName: string,
+	/**  Resources to read; de-duplicated, empty ids dropped. */
+	sources: AiWorkspaceSource[],
+	/**  Current settings. */
+	settings: AiAccessSettings,
+	/**  Whether the encryption key is unlocked. */
+	encryptionUnlocked: boolean,
+	/**  Session start, ISO 8601. */
+	now: string,
+	/**  Requested lifetime in ms; absent or non-finite uses the default. */
+	ttlMs?: number | null,
+	/**  Tools the grant allows. */
+	allowedTools: AiToolName[],
+	/**  Proposal kinds requested; kept only when enabled in settings and not credential-protected. */
+	proposalCapabilities: AiProposalKind[],
+};
+
+/**  The workspace a session starts with (TS `AiWorkspace`). */
+export type SessionWorkspace = {
+	/**  Workspace id. */
+	id: string,
+	/**  Trimmed display name. */
+	name: string,
+	/**  Sources the workspace reads. */
+	sources: AiWorkspaceSource[],
+	/**  Start time, ISO 8601. */
+	createdAt: string,
+	/**  Start time, ISO 8601. */
+	updatedAt: string,
+};
 
 /**  A share as the app reads it (TS `Share`). */
 export type Share = {
@@ -7531,9 +8547,9 @@ export type Sides = {
 /**  A width and height in grid cells. */
 export type Size = {
 	/**  Width in columns. */
-	w: number | null,
+	w: number,
 	/**  Height in rows. */
-	h: number | null,
+	h: number,
 };
 
 /**  Where a press snaps: the run it landed on, and the point inside it for the caret. */
@@ -7541,15 +8557,15 @@ export type SnapHit = {
 	/**  Index of the chosen run in the input slice. */
 	index: number,
 	/**  Horizontal caret position, kept half a pixel inside the run. */
-	x: number | null,
+	x: number,
 	/**  Vertical caret position: the press's own `y` when it is inside the run, else the middle. */
-	y: number | null,
+	y: number,
 };
 
 /**  A snapped mark: flat edge-sampled points and the shape it was fitted as. */
 export type SnappedShape = {
 	/**  Flat `[x0, y0, x1, y1, …]` in 0.1 mm. */
-	points: (number | null)[],
+	points: number[],
 	/**  The fitted shape. */
 	shape: InkShape,
 };
@@ -7620,19 +8636,19 @@ export type StorageConfig = {
 	/**  Primary blob adapter. */
 	provider: BlobProviderId,
 	/**  Hot-tier quota in GB. */
-	hotQuotaGb: number | null,
+	hotQuotaGb: number,
 	/**  Hot-tier fill ratio that starts eviction. */
-	hotHighWatermark: number | null,
+	hotHighWatermark: number,
 	/**  Hot-tier fill ratio eviction stops at. */
-	hotLowWatermark: number | null,
+	hotLowWatermark: number,
 	/**  Objects moved per eviction batch. */
-	tierBatchSize: number | null,
+	tierBatchSize: number,
 	/**  Eviction score weight on access count. */
-	tierAlpha: number | null,
+	tierAlpha: number,
 	/**  Eviction score weight on age. */
-	tierBeta: number | null,
+	tierBeta: number,
 	/**  Eviction score weight on priority. */
-	tierGamma: number | null,
+	tierGamma: number,
 	/**  Promote a cold object to hot when it is read. */
 	promoteOnAccess: boolean,
 	/**  R2 account id. */
@@ -7724,6 +8740,18 @@ export type SyncProvider =
 "gitlab" | 
 /**  Mattermost. */
 "mattermost";
+
+/**  What a folder sync did, reduced to the counts and the commit outcome the report needs. */
+export type SyncReport = {
+	/**  How many files the sync wrote to the folder. */
+	written: number,
+	/**  How many files the sync removed from the folder. */
+	removed: number,
+	/**  The commit message, when a commit was made. */
+	commitMessage: string | null,
+	/**  Why no commit was made, when git refused or failed. An empty reason counts as none. */
+	commitError: string | null,
+};
 
 /**  A tab group: a named, colored set of tabs in one pane. */
 export type TabGroup = {
@@ -7861,14 +8889,46 @@ export type TexErrorRow = {
 	message: string,
 };
 
+/**  A text-box draft (TS `draftTextBox` input). */
+export type TextBoxDraft = {
+	/**  Colour as CSS text. */
+	color: string,
+	/**  Zero-based page index. */
+	pageIndex: number,
+	/**  Unrotated page height in PDF units. */
+	pageHeight: number,
+	/**  The typed text. */
+	text: string,
+	/**  PDF user-space x of the box's bottom-left corner. */
+	x: number,
+	/**  PDF user-space y of the box's bottom-left corner. */
+	y: number,
+	/**  Box width in PDF units; default 120. */
+	width?: number | null,
+	/**  Box height in PDF units; default 24. */
+	height?: number | null,
+};
+
+/**  A PDF rect as the bottom-left corner and size a draft takes (TS `textBoxFromRect`). */
+export type TextBoxRect = {
+	/**  Left edge. */
+	x: number,
+	/**  Bottom edge. */
+	y: number,
+	/**  Width. */
+	width: number,
+	/**  Height. */
+	height: number,
+};
+
 /**  One passage of a document (TS `TextChunk`). */
 export type TextChunk = {
 	/**  The passage, trimmed. */
 	text: string,
 	/**  UTF-16 offset in the trimmed source, so a hit can point at the passage it matched. */
-	start: number | null,
+	start: number,
 	/**  UTF-16 offset just past the passage in the trimmed source. */
-	end: number | null,
+	end: number,
 };
 
 /**  One component of an op: an insert, a delete, or a comment. */
@@ -7918,13 +8978,48 @@ export type TextResult = {
 /**  A text run's box in screen pixels, as `getBoundingClientRect()` reports it. */
 export type TextRunBox = {
 	/**  Left edge. */
-	left: number | null,
+	left: number,
 	/**  Top edge. */
-	top: number | null,
+	top: number,
 	/**  Right edge. */
-	right: number | null,
+	right: number,
 	/**  Bottom edge. */
-	bottom: number | null,
+	bottom: number,
+};
+
+/**
+ *  A text-layer selection draft (TS `draftFromTextSelection` input). `kind` is one of
+ *  `highlight`, `underline` or `note`; the TS type enforces that, so it is not re-checked here.
+ */
+export type TextSelectionDraft = {
+	/**  Annotation kind. */
+	type: string,
+	/**  Colour as CSS text. */
+	color: string,
+	/**  The selection. */
+	selection: SelectionTextRange,
+	/**  The page the selection is on. */
+	page: TextSelectionPage,
+	/**  Comment to store with the annotation. */
+	comment?: string | null,
+	/**  Rects measured from the DOM, replacing the text-derived rects when non-empty. */
+	exactRects?: number[][] | null,
+	/**  Rects on the following page, for a highlight that spills over. */
+	nextPageRects?: number[][] | null,
+	/**  Full text across pages; replaces the quote when non-empty. */
+	fullText?: string | null,
+};
+
+/**  The page geometry a selection draft needs (TS `PageTextGeometry`). */
+export type TextSelectionPage = {
+	/**  Zero-based page index. */
+	pageIndex: number,
+	/**  Unrotated page height in PDF units; sets the sort index's top. */
+	pageHeight: number,
+	/**  Text items in reading order. */
+	items?: SelectionPageTextItem[],
+	/**  Hash of the PDF the geometry came from. */
+	contentHash?: string | null,
 };
 
 /**  A `[start, end)` range in UTF-16 units. */
@@ -7946,7 +9041,7 @@ export type ThemeConfig = {
 	/**  Whether the pointer-reactive animation layer is on. */
 	reactiveMotion: boolean,
 	/**  Global animation duration multiplier, 0.5 to 2. */
-	motionScale: number | null,
+	motionScale: number,
 	/**  Whether paper and note cards lean a little; unset leaves it to the theme. */
 	cardTilt?: boolean | null,
 	/**
@@ -8062,6 +9157,21 @@ export type TokenizerOptions = {
 	/**  Emit host and path segments of a URL as separate terms. TS default: `true`. */
 	tokenizeUrls: boolean,
 };
+
+/**  What `Puller.tombstone` does with a deleted row. */
+export type TombstoneStep = 
+/**  Deleted here too: drop this device's ops for the row and remove it. */
+"dropAndWrite" | 
+/**  A deleted-on-server conflict is already open: leave it as it is. */
+"keep" | 
+/**  Both sides deleted it: resolve the open deleted-here conflict and remove the row. */
+"resolveAndWrite" | 
+/**  Local edits or a referencing row keep it: open a deleted-on-server conflict. */
+"openDeletedRemote" | 
+/**  Local edits keep it but there is no conflict store to record them in: refuse, so the pull holds it. */
+"refuse" | 
+/**  Nothing local depends on it: remove the row. */
+"write";
 
 /**  What a tree row is: an entity kind, or one of the tree's own rows. */
 export type TreeNodeKind = 
@@ -8208,6 +9318,24 @@ export type UserSettings = {
 	search?: SearchSettings | null,
 };
 
+/**  `edit_vault_note`: the title and/or body to set. The body is kept as sent (untrimmed). */
+export type VaultNoteEditInput = {
+	/**  New title, when changed. */
+	title?: string | null,
+	/**  New body, when changed. */
+	body?: string | null,
+};
+
+/**  `create_vault_note`. */
+export type VaultNoteInput = {
+	/**  Note title. */
+	title: string,
+	/**  Note body. */
+	body: string,
+	/**  Parent note id. */
+	parentId?: string | null,
+};
+
 /**  A full page: the summary plus its markdown body (TS `VaultPage`). */
 export type VaultPage = {
 	body: string,
@@ -8215,8 +9343,11 @@ export type VaultPage = {
 
 /**  The note as it stood when the two sides last agreed. */
 export type VaultPageBase = {
-	/**  Frontmatter fields, with `title` included. */
-	fields: { [key in string]: unknown },
+	/**
+	 *  Frontmatter fields, with `title` included. Usually an object; an array survives
+	 *  a manifest round trip as-is and merges as having no named fields.
+	 */
+	fields: unknown,
 	/**  Digest, not text: enough to tell a rewrite from an untouched body. */
 	bodyDigest: string,
 };
@@ -8243,7 +9374,7 @@ export type VaultPageRow = {
 	parent_id: string | null,
 	pinned?: boolean | null,
 	folder?: boolean | null,
-	sort_order: number | null,
+	sort_order: number,
 	created_at: string,
 	updated_at: string,
 };
@@ -8267,7 +9398,7 @@ export type VaultPageSummary = {
 	parentId?: string | null,
 	pinned?: boolean | null,
 	folder?: boolean | null,
-	sortOrder: number | null,
+	sortOrder: number,
 	createdAt: string,
 	updatedAt: string,
 };
@@ -8283,7 +9414,7 @@ export type VaultPageWriteRow = {
 	parent_id: string | null,
 	pinned: boolean,
 	folder: boolean,
-	sort_order: number | null,
+	sort_order: number,
 	created_at: string,
 };
 
@@ -8304,7 +9435,7 @@ export type VectorHit = {
 	/**  The id the vector was added under. */
 	id: string,
 	/**  Cosine similarity to the query. */
-	score: number | null,
+	score: number,
 };
 
 /**  A visible row of the explorer, with its indent. */
@@ -8344,7 +9475,7 @@ export type WikiGraphDegree = {
 	/**  The node, `kind:id`. */
 	node: string,
 	/**  Number of neighbours. */
-	degree: number | null,
+	degree: number,
 };
 
 /**  One node and its neighbours, in insertion order (one TS `edges` entry). */
@@ -8392,7 +9523,7 @@ export type WikiPagePlan = {
 	/**  Documents the concept was found in, for the review queue's evidence. */
 	sourceDocumentIds: string[],
 	/**  How many documents mention the concept. */
-	mentions: number | null,
+	mentions: number,
 };
 
 /**  A page queued for a dead link (TS `WikiPagePlan`). */
@@ -8450,9 +9581,9 @@ export type WikilinkRef = {
 	/**  The full matched text, e.g. `[[Note#Heading|alias]]`. */
 	raw: string,
 	/**  UTF-16 offset of `raw` in the body it was read from. Absent on refs built by hand. */
-	index?: number | null,
+	index?: number,
 	/**  UTF-16 length of `raw`. */
-	length?: number | null,
+	length?: number,
 };
 
 /**  Kinds of entity the folder holds. */
@@ -8573,6 +9704,17 @@ export type WrappedTextOptions = {
 	minWrapWidth?: number | null,
 	/**  Treat a lone `$$` line as a maths delimiter. */
 	protectMath?: boolean,
+};
+
+/**
+ *  What one write clears: the repo caches of `repo_types` (the written type first, then the plan's
+ *  repos, each once) and the screen caches of `screens`.
+ */
+export type WriteScope = {
+	/**  Repo caches to clear. */
+	repoTypes: ResourceType[],
+	/**  Screen caches to clear. */
+	screens: string[],
 };
 
 /**  A Zotero annotation or note as the app caches it (TS `ZoteroAnnotation`). */
@@ -8740,13 +9882,13 @@ export type ZoteroAnnotationOrigin =
 /**  Zotero's `annotationPosition` (TS `ZoteroAnnotationPosition`). */
 export type ZoteroAnnotationPosition = {
 	/**  Page index. */
-	pageIndex: number | null,
+	pageIndex: number,
 	/**  `[x1, y1, x2, y2]` per line box, on `page_index`. */
-	rects?: ((number | null)[])[] | null,
+	rects?: number[][] | null,
 	/**  Tail of a highlight that crosses a page break, on `page_index + 1`. */
-	nextPageRects?: ((number | null)[])[] | null,
+	nextPageRects?: number[][] | null,
 	/**  Ink strokes as flat point lists. */
-	paths?: ((number | null)[])[] | null,
+	paths?: number[][] | null,
 };
 
 /**  The Zotero-side copy of an annotation (TS `ZoteroAnnotationRemote`). */
@@ -8754,7 +9896,7 @@ export type ZoteroAnnotationRemote = {
 	/**  Zotero item key. */
 	key: string,
 	/**  Zotero item version. */
-	version: number | null,
+	version: number,
 	/**  Annotation type (`type` in TS). */
 	type: ZoteroAnnotationType,
 	/**  Colour as written. */

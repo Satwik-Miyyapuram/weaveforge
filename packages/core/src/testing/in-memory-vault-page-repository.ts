@@ -1,4 +1,4 @@
-import { type VaultPage, type VaultPageFilter, type VaultPageSummary, type VaultPageTreeNode } from "../features/vault/domain/vault-page.js";
+import { type VaultPage, type VaultPageFilter, type VaultPageSummary, type VaultPageTreeNode } from "../shared/core-contract.js";
 import type { IVaultPageRepository } from "../features/vault/domain/vault-page-repository.js";
 import { rust } from "../shared/rust.js";
 

@@ -71,6 +71,12 @@ pub fn plural_js(n: u32, word: &str, many: Option<String>) -> String {
     panel_labels::plural(n, word, many.as_deref())
 }
 
+/// [`device_label`](panel_labels::device_label): the adoption suffix name for a platform string.
+#[wasm_bindgen(js_name = deviceLabel)]
+pub fn device_label_js(platform: &str) -> String {
+    panel_labels::device_label(platform)
+}
+
 /// [`unique_device_name`](panel_labels::unique_device_name): an adoption label no taken name matches.
 ///
 /// # Errors

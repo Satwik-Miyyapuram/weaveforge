@@ -194,6 +194,52 @@ pub fn is_known_resource_type(value: &str) -> bool {
     ResourceType::from_name(value).is_some()
 }
 
+/// What one write clears: the repo caches of `repo_types` (the written type first, then the plan's
+/// repos, each once) and the screen caches of `screens`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct WriteScope {
+    /// Repo caches to clear.
+    pub repo_types: Vec<ResourceType>,
+    /// Screen caches to clear.
+    pub screens: Vec<String>,
+}
+
+/// The [`WriteScope`] for a write of `resource`.
+#[must_use]
+pub fn write_scope(resource: ResourceType) -> WriteScope {
+    let plan = plan(resource);
+    let mut repo_types = vec![resource];
+    for repo in plan.repos {
+        if !repo_types.contains(&repo) {
+            repo_types.push(repo);
+        }
+    }
+    WriteScope {
+        repo_types,
+        screens: plan.screens,
+    }
+}
+
+/// The resource type a realtime `lww` broadcast clears on its own: `Some` only for a non-empty
+/// name the map knows. `None` means clear everything.
+#[must_use]
+pub fn lww_clear_target(resource_type: Option<&str>) -> Option<String> {
+    resource_type
+        .filter(|name| is_known_resource_type(name))
+        .map(str::to_owned)
+}
+
+/// The `lww` broadcast payload's `resourceType` for a write: `Some` for a non-empty name, `None`
+/// for a payload with no resource type.
+#[must_use]
+pub fn lww_notify_resource(resource_type: Option<&str>) -> Option<String> {
+    resource_type
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,5 +281,12 @@ mod tests {
     #[test]
     fn tag_and_paper_tag_share_a_plan() {
         assert_eq!(plan(ResourceType::Tag), plan(ResourceType::PaperTag));
+    }
+
+    #[test]
+    fn write_scope_json_uses_the_camel_case_name_the_web_reads() {
+        let json = serde_json::to_value(write_scope(ResourceType::Project)).unwrap();
+        assert!(json.get("repoTypes").is_some(), "{json}");
+        assert!(json.get("repo_types").is_none(), "{json}");
     }
 }

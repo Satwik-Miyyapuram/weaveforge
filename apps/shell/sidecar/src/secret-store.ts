@@ -1,3 +1,4 @@
+import { rust } from "@weaveforge/core";
 import type { DesktopSecretName } from "@/lib/desktop/desktop-bridge";
 
 import type { IpcResult } from "./channels";
@@ -67,7 +68,7 @@ const NO_KEYCHAIN =
   "It stays in memory for this session.";
 
 export function isSecretName(name: unknown): name is SecretName {
-  return typeof name === "string" && (SECRET_NAMES as readonly string[]).includes(name);
+  return typeof name === "string" && (rust().isSecretName(name) as boolean);
 }
 
 export class SecretStore {

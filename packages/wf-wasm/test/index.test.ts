@@ -184,15 +184,32 @@ test("the wrapper modules declare no types of their own", () => {
     ...["FreeCopyIds", "FreeCopyFailure", "FreeCopyPaperLinks", "MarginMark", "ReaderPrintOrientation"],
     // Report tables take the app's experiments as loose JSON; storage keeps the bucket-name union.
     ...["ResultsTableRef", "ResultsTableExperiment", "BlobStorageBucket"],
+    // Interim: wrappers from the 2026-11 port batches. They go when the wrapper
+    // typing decision lands (Rust emits these types, or the wrappers are deleted).
+    ...["AiActiveSession", "AiProposalDraft", "AiProposalDraftInput", "AiProviderApi", "AiProviderDescriptor"],
+    ...["AiSessionStartInput", "AiSplitSystem", "AiStoredProvider", "AppLibMenuGroup", "AppLibMenuItem"],
+    ...["AppLibMenuPaletteRow", "AppLibSettingsPaletteRow", "ArtifactKind", "CitationCandidateWire", "ClickFields"],
+    ...["CursorActionName", "CyclePhase", "EdgeStepResult", "FlatPaperRow", "GitRemoteAuthInput", "GitRemoteAuthPlan"],
+    ...["ImportTitlePlan", "InkConstants", "InkRouteFacts", "InkRouteName", "InkRouteQuestion", "InkRouteStep"],
+    ...["InkToolName", "LocalProject", "ManualPaperInput", "MergedOverleafProject", "MotionTier", "MotionTierInput"],
+    ...["OpenConflictRef", "PaperDropSplit", "ParsedGitFileStatus", "ParsedGitLogCommit", "PitchShareCard"],
+    ...["PitchShareConstants", "PitchShareImage", "PumpRoute", "PumpRouteAction", "PumpRouteInput", "PumpSendStatus"],
+    ...["ReferenceHints", "ReferenceRef", "Rename", "ResultsTablesTreeNode", "RootChoice", "RootVerdict", "SendVerdict"],
+    ...["SidecarArgsError", "SidecarArgsPlan", "SidecarArgsReply", "SyncPhase", "WireParsed", "WireRoute"],
+    ...["WireTagValue", "ZoteroWriteBackSummary", "FieldPick", "OverleafSyncStatus"],
   );
   const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);
 });
 
 test("every raw wasm export has a typed wrapper", () => {
-  // A raw export returns `any`; the wrapper is where it gets its generated type.
+  // A raw export that takes or returns `any` needs a wrapper to get its generated type.
+  // One wasm-bindgen already types (strings, numbers) is exported as is.
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
-  const names = [...dts.matchAll(/^export function (\w+)\(/gm)].map((m) => m[1]).filter((n) => n !== "initSync");
+  const names = [...dts.matchAll(/^export function (\w+)\(.*$/gm)]
+    .filter((m) => /\bany\b/.test(m[0]))
+    .map((m) => m[1])
+    .filter((n) => n !== "initSync");
   assert.ok(names.length > 0, "found no raw exports in wf_wasm.d.ts");
   const src = wrapperSources();
   for (const name of names) {
@@ -206,10 +223,22 @@ test("wf-wasm exports no classes or enums", () => {
   // The agreed classes: a factory wrapper builds each; wasm-bindgen types its methods.
   // VectorIndex (vector-index.ts), the live InkStrokePacker (ink.ts) and the
   // import ArchiveBudget (createArchiveBudget in index.ts), and the stateful pen
-  // filters OneEuroFilter, NibFilter and NibFilterSnapshot (one-euro.ts).
+  // filters OneEuroFilter, NibFilter and NibFilterSnapshot (one-euro.ts), and the
+  // stateful ink gesture machines EraserSweepState (eraser-sweep.ts),
+  // InkRoutePicker and StrokeEdgeSplit (ink-gesture.ts).
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   const declared = [...dts.matchAll(/^export (?:declare )?(?:class|enum) (\w+)/gm)].map((m) => m[1]);
-  assert.deepEqual(declared.sort(), ["ArchiveBudget", "InkStrokePacker", "NibFilter", "NibFilterSnapshot", "OneEuroFilter", "VectorIndex"]);
+  assert.deepEqual(declared.sort(), [
+    "ArchiveBudget",
+    "EraserSweepState",
+    "InkRoutePicker",
+    "InkStrokePacker",
+    "NibFilter",
+    "NibFilterSnapshot",
+    "OneEuroFilter",
+    "StrokeEdgeSplit",
+    "VectorIndex",
+  ]);
 });
 
 const ALL_ON: TokenizerOptions = {

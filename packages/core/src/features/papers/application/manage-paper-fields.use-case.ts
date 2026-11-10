@@ -30,7 +30,7 @@ export class ManagePaperFieldsUseCase {
   }
 
   async define(input: NewPaperFieldDefInput): Promise<PaperFieldDef> {
-    const name = normalizeName(input.name);
+    const name = rust().normalizeFieldName(input.name);
     if (!name) throw new PaperFieldValidationError("Field name is required.");
     if (!rust().isPaperFieldKind(input.kind)) {
       throw new PaperFieldValidationError(`Unknown field kind "${input.kind}".`);
@@ -60,7 +60,7 @@ export class ManagePaperFieldsUseCase {
   }
 
   async rename(fieldId: string, rawName: string): Promise<PaperFieldDef> {
-    const name = normalizeName(rawName);
+    const name = rust().normalizeFieldName(rawName);
     if (!name) throw new PaperFieldValidationError("Field name is required.");
     const def = await this.requireDef(fieldId);
     const existing = await this.deps.fields.listDefs();
@@ -143,10 +143,6 @@ export class ManagePaperFieldsUseCase {
       throw new PaperFieldValidationError("Rollup source must be a value field.");
     }
   }
-}
-
-function normalizeName(raw: string): string {
-  return rust().normalizeFieldName(raw);
 }
 
 function normalizeOptions(

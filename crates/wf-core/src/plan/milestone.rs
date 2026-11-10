@@ -143,6 +143,13 @@ pub fn is_iso_day(value: &str) -> bool {
     parts.len() == 3 && (1..=12).contains(&month) && (1..=days_in_month(year, month)).contains(&day)
 }
 
+/// The `yyyy-mm-dd` day for calendar parts, with month and day zero-padded. `month` is 1-based
+/// (TS `localIsoDay` passes `getMonth() + 1`). The parts are not checked; see [`is_iso_day`].
+#[must_use]
+pub fn iso_day_from_parts(year: i32, month: u32, day: u32) -> String {
+    format!("{year}-{month:02}-{day:02}")
+}
+
 /// The number when `s` is exactly `len` ASCII digits.
 fn fixed_digits(s: &str, len: usize) -> Option<u32> {
     if s.len() != len || !s.bytes().all(|b| b.is_ascii_digit()) {
@@ -280,6 +287,13 @@ mod tests {
         assert!(!is_iso_day("2026-1-01"));
         assert!(!is_iso_day("2026-01-01\n"));
         assert!(!is_iso_day("20260101"));
+    }
+
+    #[test]
+    fn iso_day_from_parts_pads_month_and_day() {
+        assert_eq!(iso_day_from_parts(2026, 1, 5), "2026-01-05");
+        assert_eq!(iso_day_from_parts(2026, 12, 31), "2026-12-31");
+        assert!(is_iso_day(&iso_day_from_parts(2024, 2, 29)));
     }
 
     #[test]

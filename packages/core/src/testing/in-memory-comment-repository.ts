@@ -1,5 +1,5 @@
 import type { ICommentRepository } from "../features/sharing/domain/comment-repository.js";
-import type { Comment, NewCommentInput } from "../features/sharing/domain/comment.js";
+import type { Comment, NewCommentInput } from "../shared/core-contract.js";
 import { ValidationError } from "../shared/errors.js";
 
 /** In-memory {@link ICommentRepository}. `currentId` = the comment author. */

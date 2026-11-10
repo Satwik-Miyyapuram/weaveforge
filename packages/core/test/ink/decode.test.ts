@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_ENGINE_MAX_CONFIDENCE, type InkWordReadings } from "../../src/ink/decode.js";
-import { INK_UNSURE_CONFIDENCE, isUnsureLine } from "../../src/ink/recognise.js";
+import { inkUnsureConfidence, isUnsureLine } from "../../src/ink/recognise.js";
 import { rust } from "../../src/shared/rust.js";
 
 const w = (candidates: string[], known?: boolean[] | null, join?: string): InkWordReadings => ({
@@ -49,7 +49,7 @@ test("a word no reading of which is a word makes the line unsure", () => {
     [],
   );
   assert.equal(line.text, "decoder output is garlded");
-  assert.ok(line.conf < INK_UNSURE_CONFIDENCE);
+  assert.ok(line.conf < inkUnsureConfidence());
   assert.ok(isUnsureLine(line));
 });
 

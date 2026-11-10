@@ -24,7 +24,7 @@ test("a new git integration starts on the default branch; Mattermost has no bran
   assert.equal(readyCore().emptyIntegration("mattermost").branch, "");
 });
 
-const entry = { id: "e1", entryDate: "2026-01-02", title: "t", body: "b" } as unknown as LogEntry;
+const entry = { id: "e1", entryDate: "2026-01-02", kind: "daily", title: "t", body: "b" } as unknown as LogEntry;
 
 for (const op of ["push", "remove"] as const) {
   test(`GitLab ${op} with a blank branch writes to the default branch`, async () => {

@@ -4,6 +4,7 @@
  * packages/core/src/features/papers/domain.
  */
 import {
+  checkNewPaper as rawCheckNewPaper,
   coercePaperFieldValue as rawCoercePaperFieldValue,
   encodeRollupOptions as rawEncodeRollupOptions,
   extractHashtagRefs as rawExtractHashtagRefs,
@@ -26,6 +27,14 @@ import type {
   PaperFieldValueData,
   QuotationType,
 } from "./bindings.js";
+
+/**
+ * The trimmed title of a new paper. Throws an Error with the refusal message when the title is
+ * blank or the rating (when given) is outside 1 to 5.
+ */
+export function checkNewPaper(title: string, rating?: number): string {
+  return rawCheckNewPaper(title, rating ?? undefined);
+}
 
 /** A DOI without its resolver prefix, lower-cased; undefined when blank. */
 export function normalizeDoi(doi?: string): string | undefined {

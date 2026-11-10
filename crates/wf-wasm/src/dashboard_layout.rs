@@ -154,6 +154,13 @@ pub fn dashboard_layout_signature_js(items: JsValue) -> Result<String, JsError> 
     Ok(layout::layout_signature(&items))
 }
 
+/// [`cache_key`](layout::cache_key): the cache slot for one project's student or supervisor layout.
+#[wasm_bindgen(js_name = dashboardLayoutCacheKey)]
+#[must_use]
+pub fn dashboard_layout_cache_key_js(project_id: &str, supervisor_layout: bool) -> String {
+    layout::cache_key(project_id, supervisor_layout)
+}
+
 /// [`sm_layout_needs_repack`](layout::sm_layout_needs_repack).
 ///
 /// # Errors

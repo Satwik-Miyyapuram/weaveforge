@@ -18,6 +18,9 @@ use crate::sync::ink_note::js_number_of;
 /// The alt text that marks an image ref as a placed figure.
 pub const FIGURE_ALT: &str = "figure";
 
+/// The handles a box shows, in reading order.
+pub const FIGURE_HANDLES: [&str; 8] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+
 /// A figure's box and crop, without the image it shows.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]

@@ -51,26 +51,30 @@ export class OutboxPump {
       const key = `${entry.table}:${entry.rowId}`;
       if (stalled.has(key)) continue;
       const outcome = await this.attempt(entry);
-      if (outcome.status === "offline") {
+      const route = readyCore().pumpRoute({
+        status: outcome.status,
+        opIsDelete: entry.op === "delete",
+        hasNewVersion: outcome.status === "accepted" && outcome.newVersion != null,
+        awaitingParent: outcome.status === "refused" && !!outcome.awaitingParent,
+      });
+      if (route.action === "stop") {
         result.stoppedBecause = "offline";
         break;
       }
+      if (route.stall) stalled.add(key);
       if (outcome.status === "accepted") {
         await this.outbox.settleSent(entry, outcome.newVersion);
-        if (outcome.newVersion != null && entry.op !== "delete") {
+        if (route.ack && outcome.newVersion != null) {
           await this.outbox.ack(entry.table, entry.rowId, outcome.newVersion);
         }
         result.sent += 1;
-        continue;
-      }
-      stalled.add(key);
-      if (outcome.status === "conflict") {
+      } else if (outcome.status === "conflict") {
         result.conflicts.push({ entry, serverVersion: outcome.serverVersion });
         await this.conflict(entry, outcome.serverVersion, outcome.serverRow, outcome.deletedElsewhere);
-        continue;
+      } else if (outcome.status === "refused") {
+        if (route.action === "wait") await this.outbox.wait(entry.opId, outcome.reason);
+        else await this.outbox.fail(entry.opId, outcome.reason);
       }
-      if (outcome.awaitingParent) await this.outbox.wait(entry.opId, outcome.reason);
-      else await this.outbox.fail(entry.opId, outcome.reason);
     }
     return result;
   }

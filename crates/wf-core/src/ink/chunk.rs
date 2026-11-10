@@ -29,6 +29,22 @@ pub const INK_NOTE_MAX_BYTES: f64 = 8.0 * 1024.0 * 1024.0;
 pub const INK_CHUNK_MAX_POINTS: usize = 2_000_000;
 /// Strokes one chunk may hold.
 pub const INK_CHUNK_MAX_STROKES: usize = 65_535;
+/// Bodies below this are stored raw: inflating a small page costs more than it saves.
+pub const INK_CHUNK_RAW_THRESHOLD: usize = 64 * 1024;
+
+/// Whether the codec is worth running on a body of this size.
+#[must_use]
+pub fn should_try_compress(body_len: usize) -> bool {
+    body_len >= INK_CHUNK_RAW_THRESHOLD
+}
+
+/// Whether the packed payload is stored: the body is at or above the threshold and
+/// the codec made it strictly smaller. Otherwise the chunk stays raw, so an identity
+/// codec never pays framing bytes for nothing.
+#[must_use]
+pub fn stores_compressed(body_len: usize, packed_len: usize) -> bool {
+    should_try_compress(body_len) && packed_len < body_len
+}
 
 /// Four `u32` counts, then the 6-byte page header padded to 24.
 const BODY_HEADER_BYTES: u64 = 24;
@@ -600,6 +616,22 @@ mod tests {
     }
 
     #[test]
+    fn a_small_body_is_never_compressed() {
+        assert!(!should_try_compress(INK_CHUNK_RAW_THRESHOLD - 1));
+        assert!(!stores_compressed(INK_CHUNK_RAW_THRESHOLD - 1, 1));
+    }
+
+    #[test]
+    fn a_large_body_is_compressed_only_when_the_codec_helped() {
+        let body = INK_CHUNK_RAW_THRESHOLD;
+        assert!(should_try_compress(body));
+        assert!(stores_compressed(body, body - 1));
+        // Identity codec: packed equals body, so the chunk stays raw.
+        assert!(!stores_compressed(body, body));
+        assert!(!stores_compressed(body, body + 10));
+    }
+
+    #[test]
     fn layout_aligns_every_section() {
         let layout = ink_chunk_layout(3, 2, 1, 6).unwrap();
         assert_eq!(layout.stroke_point_offset, 24);
@@ -717,5 +749,15 @@ mod tests {
         );
         assert!(fits_ink_note_budget(&[INK_NOTE_MAX_BYTES - 1.0, 1.0]));
         assert!(!fits_ink_note_budget(&[INK_NOTE_MAX_BYTES, 1.0]));
+        // The cases the TS wrapper test pins (ink-binary.test.ts, "budgeted against the 8 MB").
+        assert!(fits_ink_note_budget(&[52_000.0, 40_000.0, 39_000.0]));
+        assert!(fits_ink_note_budget(&[
+            4.0 * 1024.0 * 1024.0,
+            4.0 * 1024.0 * 1024.0
+        ]));
+        assert!(!fits_ink_note_budget(&[
+            4.0 * 1024.0 * 1024.0,
+            4.0 * 1024.0 * 1024.0 + 1.0
+        ]));
     }
 }

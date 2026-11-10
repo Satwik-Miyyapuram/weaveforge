@@ -5,13 +5,18 @@
  * thrown errors into `InkChunkError`.
  */
 import {
+  absolutePointTriples as rawAbsolutePointTriples,
   checkInkChunkBody as rawCheckInkChunkBody,
   encodeInkChunkBody as rawEncodeInkChunkBody,
   fitsInkNoteBudget as rawFitsInkNoteBudget,
   inkChunkBodySize as rawInkChunkBodySize,
   inkChunkHeaderBytes as rawInkChunkHeaderBytes,
+  inkChunkRawThreshold as rawInkChunkRawThreshold,
+  inkChunkShouldTryCompress as rawInkChunkShouldTryCompress,
+  inkChunkStoresCompressed as rawInkChunkStoresCompressed,
   pageFromChunkBody as rawPageFromChunkBody,
   readInkChunkHeader as rawReadInkChunkHeader,
+  strokePointTriples as rawStrokePointTriples,
 } from "../pkg/wf_wasm.js";
 import type { InkChunkBodyInfo, InkChunkHeader } from "./bindings.js";
 
@@ -45,7 +50,32 @@ export function pageFromChunkBody(body: Uint8Array): object {
   return rawPageFromChunkBody(body) as object;
 }
 
+/** One stroke's `x, y, pressure` triples, absolute and unwrapped; empty past the last stroke. */
+export function strokePointTriples(body: Uint8Array, strokeIndex: number): Float64Array {
+  return rawStrokePointTriples(body, strokeIndex);
+}
+
+/** Every point as `Int16` `x, y, pressure` triples, each coordinate wrapped as an `Int16Array` write wraps. */
+export function absolutePointTriples(body: Uint8Array): Int16Array {
+  return rawAbsolutePointTriples(body);
+}
+
 /** Whether chunks of these on-disk sizes still fit a note's budget. */
 export function fitsInkNoteBudget(sizes: readonly number[]): boolean {
   return rawFitsInkNoteBudget(Float64Array.from(sizes));
+}
+
+/** The body size at or above which a chunk is worth trying to compress. */
+export function inkChunkRawThreshold(): number {
+  return rawInkChunkRawThreshold();
+}
+
+/** Whether a body of `bodyLength` bytes is worth trying to compress. */
+export function inkChunkShouldTryCompress(bodyLength: number): boolean {
+  return rawInkChunkShouldTryCompress(bodyLength);
+}
+
+/** Whether a body of `bodyLength` bytes is stored compressed, given its packed length. */
+export function inkChunkStoresCompressed(bodyLength: number, packedLength: number): boolean {
+  return rawInkChunkStoresCompressed(bodyLength, packedLength);
 }

@@ -133,7 +133,9 @@ pub struct InkStrokeInput {
 
 /// One recognised line of a page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+// Exported type name differs from `segment::InkLineRecord`; the container name never reaches JSON.
+#[serde(rename = "InkPageLineRecord", rename_all = "camelCase")]
 pub struct InkLineRecord {
     /// Index of the first stroke of the line.
     pub stroke_start: f64,
@@ -151,6 +153,7 @@ pub struct InkLineRecord {
 
 /// A page: absolute geometry plus its strokes and recognised lines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct InkPage {
     /// Page width in 0.1 mm.

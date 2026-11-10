@@ -16,6 +16,9 @@ Each file under `crates/wf-core/src/reading_lists/` covers one job:
 - `list_row.rs`: maps reading-list rows to and from the table columns.
 - `extraction_table.rs`: the extraction table rules, such as cell values, export rows and empty cells.
 - `screening.rs`: screening decisions, agreement between reviewers, and PRISMA counts.
+- `name_filter.rs`: whether a list name contains a search needle, ignoring case. The decision to filter stays with the caller.
+- `extraction_keys.rs`: the extraction-table pending-fill cell key (`paperId::fieldId`) and the relation cell title text, with an unknown id shown as itself.
+- `extraction_rows.rs`: which listed papers still exist, de-duplicated in list order, each with its values (`flatten_paper_rows`).
 
 ## How the app calls it
 
@@ -25,10 +28,11 @@ and `screening_records.rs`). The TypeScript wrappers in `packages/wf-wasm/src`
 import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names are:
 
 - Tree: `buildListTree`, `deepestFirstListIds`, `listDisplayColor`, `listMembershipByKey`.
-- Order: `collectListIds`, `reorderedIds`, `movedIds`, `planItemOrder`, `subtreeIds`, `groupSubtreeItems`.
+- Order: `collectListIds`, `reorderedIds`, `movedIds`, `planItemOrder`, `itemIdsForPapers`, `nextSortOrder`, `isInheritedLinkCode`, `subtreeIds`, `groupSubtreeItems`.
+  `itemIdsForPapers` maps a paper order to item ids (refuses the first paper not in the list). `nextSortOrder` gives a new row its position. `isInheritedLinkCode` holds the database codes (23503, 42703, PGRST204) that mean only the inherited link failed.
 - Rows: `readingListToDomain`, `readingListToRow`, `readingListItemToDomain`, `readingListItemToRow`.
 - Creation: `createReadingListWith`, `verdictsFor`.
-- Extraction: `extractionValueRows`, `extractionMarkdown`, `extractionCsv`, `emptyCellPaperIds`, `buildProposeFillPrompt`, `pendingFieldFills`.
+- Extraction: `flattenPaperRows` (existing listed papers, in list order, with their values; the TS side maps the index back to the paper), `extractionMarkdown`, `extractionCsv`, `emptyCellPaperIds`, `buildProposeFillPrompt`, `pendingFieldFills`.
 - Screening: `verdictFor`, `agreementBetween`, `prismaCounts`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from

@@ -14,8 +14,6 @@ export interface ProjectRef {
 /** The app's projects from its local DB; absent when the shell has no DB open. */
 export type ProjectSource = () => Promise<WorkspaceProject[]>;
 
-const PROJECT_FOLDER = /--[a-z0-9]{1,6}$/i;
-
 /**
  * The projects to answer about. With the app's list, each gets the folder the app
  * itself would pick (exact `projectDir`, else the one folder ending in its id
@@ -36,10 +34,11 @@ export async function resolveProjects(session: VaultSession, source?: ProjectSou
       return { ...project, dir: tail.length === 1 ? (tail[0] as string) : exact };
     });
   }
-  const folders = dirs.filter((d) => PROJECT_FOLDER.test(d));
-  return folders.length
-    ? folders.map((dir) => ({ name: dir.replace(PROJECT_FOLDER, ""), dir }))
-    : [{ name: "workspace", dir: "" }];
+  const folders = dirs.flatMap((dir) => {
+    const name = rust().projectFolderName(dir) as string | undefined;
+    return name === undefined ? [] : [{ name, dir }];
+  });
+  return folders.length ? folders : [{ name: "workspace", dir: "" }];
 }
 
 /** A name as matching reads it: trimmed, lowercased, whitespace runs folded. Entries match the same way. */

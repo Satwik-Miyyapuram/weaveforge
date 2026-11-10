@@ -3,7 +3,7 @@
  * from. Pure, so the mapping is pinned without a page.
  */
 
-import { paletteName, type InkPalette } from "@/features/ink/render/ink-palette";
+import type { InkPalette } from "@/features/ink/render/ink-palette";
 import { setToolColour, type ToolColourId } from "@/features/ink";
 import { readyCore } from "@/lib/rust-core";
 
@@ -40,7 +40,7 @@ export function markColourTool(type: string): ToolColourId {
  * that is not on the palette is not remembered; the mark still takes it.
  */
 export function rememberToolColour(tool: ToolColourId, hex: string, palette: InkPalette): void {
-  const name = paletteName(palette, hex);
+  const name = readyCore().paletteName(palette, hex);
   if (name) setToolColour(tool, name);
 }
 

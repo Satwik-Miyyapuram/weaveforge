@@ -10,6 +10,7 @@ import {
   resolveAnnotationConflict as rawResolveAnnotationConflict,
   toZoteroWritePayload as rawToZoteroWritePayload,
   zoteroWriteBackAnnotations as rawZoteroWriteBackAnnotations,
+  zoteroWriteBackMessage as rawZoteroWriteBackMessage,
 } from "../pkg/wf_wasm.js";
 import type {
   ZoteroAnnotationDecision,
@@ -71,4 +72,22 @@ export function zoteroWriteBackAnnotations<T extends ZoteroAnnotationLocal>(
 ): T[] {
   const kept = rawZoteroWriteBackAnnotations(annotations) as number[];
   return kept.map((index) => annotations[index]!);
+}
+
+/** A write-back run's counts (TS `ZoteroAnnotationWriteBackSummary`). */
+export interface ZoteroWriteBackSummary {
+  created: number;
+  updated: number;
+  conflicts: number;
+  failed: number;
+  /** The first failure's reason. */
+  firstError?: string;
+}
+
+/**
+ * The write-back's part of the sync line, led by its separator, or "" when nothing
+ * was owed or there is no summary (Rust `zotero_write_back_message`).
+ */
+export function zoteroWriteBackMessage(summary: ZoteroWriteBackSummary | null): string {
+  return rawZoteroWriteBackMessage(summary);
 }

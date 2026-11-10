@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PostgrestIntegrationsStore } from "../infrastructure/postgrest-integrations-store";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Integration } from "../domain/integration";
+
+before(loadTestCore);
 
 /**
  * A blank Mattermost channel stays blank (33-11).

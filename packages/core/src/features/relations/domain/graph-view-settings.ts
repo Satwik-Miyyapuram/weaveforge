@@ -128,8 +128,6 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
   boundedZoomScale: true,
 };
 
-const HEX = /^#[0-9a-f]{6}$/i;
-
 /** Enough rules to be useful, few enough that the legend still fits. */
 export const MAX_COLOR_GROUPS = 12;
 

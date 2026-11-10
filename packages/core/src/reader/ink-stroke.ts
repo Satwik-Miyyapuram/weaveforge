@@ -2,24 +2,6 @@
 import type { INK_PEN_WIDTHS } from "../ink/width.js";
 
 /**
- * Minimum gap between consecutive captured points, in PDF units (≈ points).
- *
- * A stylus reports at 120–240 Hz; at reading speed most of those samples land
- * inside the width of the nib. Anything below this is noise being paid for.
- */
-const INK_MIN_POINT_DISTANCE = 0.75;
-
-/**
- * Ramer–Douglas–Peucker tolerance in PDF units: the furthest a dropped point
- * may sit from the line that replaces it. A third of a point is below what the
- * eye resolves at normal zoom, and typically removes 80–90% of a stroke.
- */
-const INK_SIMPLIFY_TOLERANCE = 0.35;
-
-/** Coordinate decimals kept. A PDF point is ~0.35 mm; 1/100 of one is plenty. */
-const INK_COORD_DECIMALS = 2;
-
-/**
  * Hardest cap on one stroke. Reached only by a stroke that is genuinely long
  * and wiggly; the tolerance is raised until the stroke fits rather than the
  * tail being cut, so the shape degrades gracefully instead of losing its end.
@@ -33,21 +15,7 @@ export const INK_MAX_POINTS = 400;
  */
 export const INK_MAX_PATHS_PER_ANNOTATION = 64;
 
-/** Idle gap after which a stroke is treated as starting a new annotation. */
-const INK_GROUP_WINDOW_MS = 2_000;
-
 export const INK_DEFAULT_WIDTH = 2;
-
-/**
- * The finest nib the pen rail offers is 0.1 mm (`INK_NIB_WIDTHS_PT[0]`, 0.28 pt),
- * so the floor sits under it rather than silently thickening that nib to 0.75.
- */
-const INK_MIN_WIDTH = 0.25;
-
-const INK_MAX_WIDTH = 24;
-
-/** Points per millimetre: PDF user space is 72 per inch, 25.4 mm to the inch. */
-const PT_PER_MM = 72 / 25.4;
 
 /**
  * The rail's four nibs, in PDF points, derived from the ink note's set:

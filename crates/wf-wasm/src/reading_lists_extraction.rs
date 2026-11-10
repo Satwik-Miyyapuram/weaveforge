@@ -5,10 +5,11 @@ use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 use wf_core::papers::compute_rollup::RollupValue;
+use wf_core::reading_lists::extraction_rows::flatten_paper_rows;
 use wf_core::reading_lists::extraction_table::{
     ExtractionFieldDef, ExtractionProposal, ExtractionRow, ProposeFillInput,
     build_propose_fill_prompt, empty_cell_paper_ids, extraction_csv, extraction_markdown,
-    paper_value_rows, pending_field_fills,
+    pending_field_fills,
 };
 
 use super::to_js;
@@ -17,17 +18,20 @@ fn parse<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
     serde_wasm_bindgen::from_value(value).map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`paper_value_rows`]: each listed paper's stored and rollup values, in list order.
-#[wasm_bindgen(js_name = extractionValueRows)]
-pub fn extraction_value_rows_js(
+/// [`flatten_paper_rows`]: the listed papers that exist, each with its index in `known_ids` and
+/// its stored and rollup values, in list order.
+#[wasm_bindgen(js_name = flattenPaperRows)]
+pub fn flatten_paper_rows_js(
+    known_ids: JsValue,
     paper_ids: JsValue,
     values: JsValue,
     defs: JsValue,
 ) -> Result<JsValue, JsError> {
+    let known_ids: Vec<String> = parse(known_ids)?;
     let paper_ids: Vec<String> = parse(paper_ids)?;
     let values: Vec<RollupValue> = parse(values)?;
     let defs: Vec<ExtractionFieldDef> = parse(defs)?;
-    let rows = paper_value_rows(&paper_ids, &values, &defs);
+    let rows = flatten_paper_rows(&known_ids, &paper_ids, &values, &defs);
     to_js(&rows).map_err(|error| JsError::new(&error.to_string()))
 }
 

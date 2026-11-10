@@ -6,7 +6,6 @@ import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
-  keepBothTitle,
   mergeBothChanged,
   settleConflict,
 } from "../application/workspace-folder";
@@ -49,7 +48,7 @@ test("keeping both creates a note and never touches the existing one", () => {
   // The id is dropped, which is what stops the import writing over the very
   // note the user asked to keep.
   assert.equal(settled?.entity.id, undefined);
-  assert.equal(settled?.entity.title, keepBothTitle("Both of us edited this"));
+  assert.equal(settled?.entity.title, rs.keepBothTitle("Both of us edited this"));
   assert.equal(settled?.entity.body, "the folder's copy");
 });
 

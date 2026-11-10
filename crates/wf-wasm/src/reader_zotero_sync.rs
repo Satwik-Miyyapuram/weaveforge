@@ -10,6 +10,8 @@ use wf_core::reader::zotero_sync::{
     to_zotero_write_payload, zotero_write_back_annotations,
 };
 
+use wf_core::reader::zotero_write_back_message::{WriteBackSummary, zotero_write_back_message};
+
 use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
@@ -79,4 +81,15 @@ pub fn to_zotero_write_payload_js(ann: JsValue, parent_item_key: &str) -> JsResu
 pub fn zotero_write_back_annotations_js(annotations: JsValue) -> JsResult<JsValue> {
     let annotations: Vec<ZoteroAnnotationLocal> = serde_wasm_bindgen::from_value(annotations)?;
     to_js(&zotero_write_back_annotations(&annotations))
+}
+
+/// [`zotero_write_back_message`]: the sync line's Zotero part for a summary, or `""` for null.
+///
+/// # Errors
+///
+/// Fails if `summary` is neither null nor a write-back summary object.
+#[wasm_bindgen(js_name = zoteroWriteBackMessage)]
+pub fn zotero_write_back_message_js(summary: JsValue) -> JsResult<String> {
+    let summary: Option<WriteBackSummary> = serde_wasm_bindgen::from_value(summary)?;
+    Ok(zotero_write_back_message(summary.as_ref()))
 }

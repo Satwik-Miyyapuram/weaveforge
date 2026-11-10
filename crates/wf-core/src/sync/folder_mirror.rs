@@ -4,7 +4,9 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
+use indexmap::IndexMap;
 use serde::Serialize;
+use serde_json::{Map, Value};
 
 use crate::sync::change_origin::digest_text;
 use crate::sync::folder_layout::WorkspaceProject;
@@ -118,6 +120,325 @@ pub fn json_edit_since(base: &HashMap<String, String>, path: &str, text: &str) -
     match base.get(path) {
         None => true,
         Some(recorded) => *recorded != digest_text(text),
+    }
+}
+
+/// Parses manifest text into a JSON value; `None` when absent or unparseable.
+fn parse_manifest(text: Option<&str>) -> Option<Value> {
+    serde_json::from_str(text?).ok()
+}
+
+/// The digest each path in the manifest's `paths` holds (TS `readMirrorBase`). A path with no
+/// string digest maps to `""`. Absent, unparseable, or `paths`-less manifests give an empty map.
+#[must_use]
+pub fn read_mirror_base(text: Option<&str>) -> IndexMap<String, String> {
+    let mut base = IndexMap::new();
+    let Some(root) = parse_manifest(text).and_then(|value| value.as_object().cloned()) else {
+        return base;
+    };
+    let Some(paths) = root.get("paths").and_then(Value::as_array) else {
+        return base;
+    };
+    let digests = root.get("digests").and_then(Value::as_object);
+    for path in paths.iter().filter_map(Value::as_str) {
+        let digest = digests
+            .and_then(|map| map.get(path))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let _ = base.insert(path.to_owned(), digest.to_owned());
+    }
+    base
+}
+
+/// The note bases in the manifest's `bases` (TS `readMirrorBases`), in manifest order. An entry
+/// needs a string `bodyDigest` and a `fields` that is an object or an array (TS's
+/// `typeof === "object"` accepts both); anything else is skipped. `fields` is kept as read, so
+/// an array survives a manifest round trip. Absent, unparseable, or `bases`-less manifests give
+/// an empty map.
+#[must_use]
+pub fn read_mirror_bases(text: Option<&str>) -> IndexMap<String, VaultPageBase> {
+    let mut bases = IndexMap::new();
+    let Some(root) = parse_manifest(text) else {
+        return bases;
+    };
+    let Some(entries) = root.get("bases").and_then(Value::as_object) else {
+        return bases;
+    };
+    for (path, value) in entries {
+        let Some(entry) = value.as_object() else {
+            continue;
+        };
+        let Some(body_digest) = entry.get("bodyDigest").and_then(Value::as_str) else {
+            continue;
+        };
+        let fields = match entry.get("fields") {
+            Some(fields @ (Value::Object(_) | Value::Array(_))) => fields.clone(),
+            _ => continue,
+        };
+        let _ = bases.insert(
+            path.clone(),
+            VaultPageBase {
+                fields,
+                body_digest: body_digest.to_owned(),
+            },
+        );
+    }
+    bases
+}
+
+/// The digest map with `path` claimed for `stamped` text (TS `claimImportedFile`'s record step).
+#[must_use]
+pub fn claim_digest(
+    base: &IndexMap<String, String>,
+    path: &str,
+    stamped: &str,
+) -> IndexMap<String, String> {
+    let mut next = base.clone();
+    let _ = next.insert(path.to_owned(), digest_text(stamped));
+    next
+}
+
+/// `path` after a project folder `old` moved to `root`: paths under `old/` move, others stay.
+#[must_use]
+pub fn moved_path(old: &str, root: &str, path: &str) -> String {
+    match path.strip_prefix(old) {
+        Some(rest) if rest.starts_with('/') => format!("{root}{rest}"),
+        _ => path.to_owned(),
+    }
+}
+
+/// The manifest text with `paths`, `digests` and `bases` re-keyed from `old` to `root`
+/// (TS `followProjectRename`). Absent keys stay absent, non-string paths stay, and the output is
+/// two-space JSON with a trailing newline. An array root has none of those keys, so it is
+/// written back unchanged in that format, as the TS does. `None` when the text is neither a
+/// JSON object nor an array.
+#[must_use]
+pub fn rekey_manifest_text(text: &str, old: &str, root: &str) -> Option<String> {
+    let mut parsed: Value = serde_json::from_str(text).ok()?;
+    if let Some(object) = parsed.as_object_mut() {
+        rekey_object(object, old, root);
+    } else if !parsed.is_array() {
+        return None;
+    }
+    serde_json::to_string_pretty(&parsed)
+        .ok()
+        .map(|json| format!("{json}\n"))
+}
+
+fn rekey_object(object: &mut Map<String, Value>, old: &str, root: &str) {
+    if let Some(paths) = object.get_mut("paths").and_then(Value::as_array_mut) {
+        for path in paths.iter_mut() {
+            if let Some(moved) = path.as_str().map(|p| moved_path(old, root, p)) {
+                *path = Value::String(moved);
+            }
+        }
+    }
+    for key in ["digests", "bases"] {
+        if let Some(value) = object.get_mut(key) {
+            let rekeyed = value.as_object().map(|map| {
+                map.iter()
+                    .map(|(k, v)| (moved_path(old, root, k), v.clone()))
+                    .collect::<Map<String, Value>>()
+            });
+            if let Some(rekeyed) = rekeyed {
+                *value = Value::Object(rekeyed);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod manifest_tests {
+    use super::*;
+
+    const OLD: &str = "Projects/alpha--abc123";
+    const ROOT: &str = "Projects/alpha-renamed--abc123";
+
+    #[test]
+    fn read_mirror_base_maps_paths_to_digests() {
+        let text = r#"{"paths":["a.md","b.md"],"digests":{"a.md":"d1","b.md":"d2"}}"#;
+        let base = read_mirror_base(Some(text));
+        assert_eq!(base.get("a.md").map(String::as_str), Some("d1"));
+        assert_eq!(base.get("b.md").map(String::as_str), Some("d2"));
+        assert_eq!(base.len(), 2);
+    }
+
+    #[test]
+    fn read_mirror_base_gives_empty_digest_for_missing_or_non_string() {
+        // Path with no digest, and a path whose digest is not a string: both become "".
+        let text = r#"{"paths":["a.md","b.md"],"digests":{"b.md":7}}"#;
+        let base = read_mirror_base(Some(text));
+        assert_eq!(base.get("a.md").map(String::as_str), Some(""));
+        assert_eq!(base.get("b.md").map(String::as_str), Some(""));
+    }
+
+    #[test]
+    fn read_mirror_base_gives_empty_digest_when_digests_not_object() {
+        let text = r#"{"paths":["a.md"],"digests":["x"]}"#;
+        let base = read_mirror_base(Some(text));
+        assert_eq!(base.get("a.md").map(String::as_str), Some(""));
+        let text = r#"{"paths":["a.md"],"digests":null}"#;
+        assert_eq!(
+            read_mirror_base(Some(text)).get("a.md").map(String::as_str),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn read_mirror_base_skips_non_string_paths() {
+        let text = r#"{"paths":[1,"a.md",null],"digests":{"a.md":"d"}}"#;
+        let base = read_mirror_base(Some(text));
+        assert_eq!(base.len(), 1);
+        assert_eq!(base.get("a.md").map(String::as_str), Some("d"));
+    }
+
+    #[test]
+    fn read_mirror_base_empty_without_paths_array_or_on_error() {
+        assert!(read_mirror_base(None).is_empty());
+        assert!(read_mirror_base(Some("not json")).is_empty());
+        assert!(read_mirror_base(Some("null")).is_empty());
+        assert!(read_mirror_base(Some("3")).is_empty());
+        assert!(read_mirror_base(Some(r#"{"digests":{"a.md":"d"}}"#)).is_empty());
+        assert!(read_mirror_base(Some(r#"{"paths":"a.md"}"#)).is_empty());
+    }
+
+    #[test]
+    fn read_mirror_bases_keeps_entries_with_digest_and_fields() {
+        let text = r#"{"bases":{"n.md":{"bodyDigest":"bd","fields":{"title":"T"}}}}"#;
+        let bases = read_mirror_bases(Some(text));
+        let entry = bases.get("n.md").expect("n.md base");
+        assert_eq!(entry.body_digest, "bd");
+        assert_eq!(entry.fields.get("title"), Some(&Value::String("T".into())));
+    }
+
+    #[test]
+    fn read_mirror_bases_skips_entries_missing_digest_or_fields() {
+        let text = r#"{"bases":{
+            "no-digest.md":{"fields":{}},
+            "digest-not-string.md":{"bodyDigest":1,"fields":{}},
+            "no-fields.md":{"bodyDigest":"bd"},
+            "fields-null.md":{"bodyDigest":"bd","fields":null},
+            "fields-string.md":{"bodyDigest":"bd","fields":"x"},
+            "null-entry.md":null,
+            "string-entry.md":"bd",
+            "ok.md":{"bodyDigest":"bd","fields":{}}
+        }}"#;
+        let bases = read_mirror_bases(Some(text));
+        assert_eq!(
+            bases.keys().map(String::as_str).collect::<Vec<_>>(),
+            vec!["ok.md"]
+        );
+    }
+
+    #[test]
+    fn read_mirror_bases_empty_for_older_or_broken_manifests() {
+        assert!(read_mirror_bases(None).is_empty());
+        assert!(read_mirror_bases(Some("{")).is_empty());
+        assert!(read_mirror_bases(Some("null")).is_empty());
+        assert!(read_mirror_bases(Some(r#"{"paths":["a.md"]}"#)).is_empty());
+        assert!(read_mirror_bases(Some(r#"{"bases":null}"#)).is_empty());
+        assert!(read_mirror_bases(Some(r#"{"bases":[]}"#)).is_empty());
+    }
+
+    #[test]
+    fn claim_digest_inserts_digest_of_stamped_text() {
+        let mut base = IndexMap::new();
+        let _ = base.insert("a.md".into(), "old".into());
+        let next = claim_digest(&base, "b.md", "stamped");
+        assert_eq!(next.get("a.md").map(String::as_str), Some("old"));
+        assert_eq!(
+            next.get("b.md").map(String::as_str),
+            Some(digest_text("stamped").as_str())
+        );
+        // The input is left alone.
+        assert!(!base.contains_key("b.md"));
+    }
+
+    #[test]
+    fn moved_path_moves_only_paths_under_old_folder() {
+        assert_eq!(
+            moved_path(OLD, ROOT, &format!("{OLD}/notes/a.md")),
+            format!("{ROOT}/notes/a.md")
+        );
+        assert_eq!(
+            moved_path(OLD, ROOT, &format!("{OLD}/a.md")),
+            format!("{ROOT}/a.md")
+        );
+        // A sibling that only shares the prefix is not under the folder.
+        assert_eq!(
+            moved_path(OLD, ROOT, &format!("{OLD}-copy/a.md")),
+            format!("{OLD}-copy/a.md")
+        );
+        assert_eq!(moved_path(OLD, ROOT, "Other/a.md"), "Other/a.md");
+    }
+
+    #[test]
+    fn rekey_manifest_text_moves_paths_digests_and_bases() {
+        let text = format!(
+            r#"{{"paths":["{OLD}/a.md","keep.md",3],"digests":{{"{OLD}/a.md":"d"}},"bases":{{"{OLD}/a.md":{{"bodyDigest":"bd","fields":{{}}}}}}}}"#
+        );
+        let out = rekey_manifest_text(&text, OLD, ROOT).expect("object manifest rekeys");
+        let parsed: Value = serde_json::from_str(&out).expect("output is JSON");
+        assert_eq!(
+            parsed["paths"],
+            serde_json::json!([format!("{ROOT}/a.md"), "keep.md", 3])
+        );
+        assert_eq!(parsed["digests"][format!("{ROOT}/a.md")], "d");
+        assert_eq!(parsed["bases"][format!("{ROOT}/a.md")]["bodyDigest"], "bd");
+        assert!(out.ends_with("}\n"));
+        assert!(out.contains("\n  \"paths\""), "two-space indent: {out}");
+    }
+
+    #[test]
+    fn rekey_manifest_text_keeps_absent_keys_absent() {
+        let out = rekey_manifest_text(r#"{"paths":[]}"#, OLD, ROOT).expect("rekeys");
+        let parsed: Value = serde_json::from_str(&out).expect("output is JSON");
+        assert!(parsed.get("digests").is_none());
+        assert!(parsed.get("bases").is_none());
+    }
+
+    #[test]
+    fn rekey_manifest_text_keeps_null_digests() {
+        let out = rekey_manifest_text(r#"{"digests":null}"#, OLD, ROOT).expect("rekeys");
+        let parsed: Value = serde_json::from_str(&out).expect("output is JSON");
+        assert_eq!(parsed["digests"], Value::Null);
+    }
+
+    #[test]
+    fn rekey_manifest_text_none_for_scalar_or_unparseable() {
+        assert_eq!(rekey_manifest_text("not json", OLD, ROOT), None);
+        assert_eq!(rekey_manifest_text("null", OLD, ROOT), None);
+        assert_eq!(rekey_manifest_text("3", OLD, ROOT), None);
+    }
+
+    #[test]
+    fn rekey_manifest_text_writes_an_array_root_back() {
+        // Parity point (f): an array root is written back, not dropped to None.
+        let out =
+            rekey_manifest_text(r#"["a","b"]"#, OLD, ROOT).expect("array root is written back");
+        let parsed: Value = serde_json::from_str(&out).expect("output is JSON");
+        assert_eq!(parsed, serde_json::json!(["a", "b"]));
+        assert!(out.ends_with("]\n"));
+    }
+
+    #[test]
+    fn read_mirror_bases_accepts_array_fields_and_keeps_them() {
+        // Parity point (b): TS `typeof fields === "object"` accepts arrays; the array is kept as read.
+        let text = r#"{"bases":{"n.md":{"bodyDigest":"bd","fields":["x"]},"m.md":{"bodyDigest":"bm","fields":null},"k.md":{"fields":{}}}}"#;
+        let bases = read_mirror_bases(Some(text));
+        assert_eq!(bases.len(), 1);
+        let base = bases.get("n.md").expect("array-fields entry is kept");
+        assert_eq!(base.body_digest, "bd");
+        assert_eq!(base.fields, serde_json::json!(["x"]));
+    }
+
+    #[test]
+    fn read_mirror_bases_keeps_manifest_order() {
+        // Parity point (c): insertion order is the manifest's, not sorted.
+        let text = r#"{"bases":{"z.md":{"bodyDigest":"1","fields":{}},"a.md":{"bodyDigest":"2","fields":{}},"m.md":{"bodyDigest":"3","fields":{}}}}"#;
+        let bases = read_mirror_bases(Some(text));
+        let keys: Vec<&str> = bases.keys().map(String::as_str).collect();
+        assert_eq!(keys, vec!["z.md", "a.md", "m.md"]);
     }
 }
 
@@ -328,6 +649,13 @@ fn unstamped<'a>(path: &str, text: &'a str) -> Cow<'a, str> {
     Cow::Owned(join_lines(&lines))
 }
 
+/// The text the folder compares, with the export time of a README or manifest blanked. Two texts
+/// that differ only in that time compare equal; any other path comes back unchanged.
+#[must_use]
+pub fn unstamp_for_compare(path: &str, text: &str) -> String {
+    unstamped(path, text).into_owned()
+}
+
 fn is_line_terminator(c: char) -> bool {
     matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}')
 }
@@ -389,4 +717,40 @@ fn strip_generated_at(line: &str) -> Option<String> {
         return None;
     }
     Some(format!("{}{}", &line[..open], &line[close + 1..]))
+}
+
+#[cfg(test)]
+mod unstamp_tests {
+    use super::*;
+
+    #[test]
+    fn a_readme_export_time_does_not_count_as_a_change() {
+        let before = unstamp_for_compare("README.md", "# Notes\nExported 2026-01-01.\n");
+        let after = unstamp_for_compare("README.md", "# Notes\nExported 2026-02-02.\n");
+        assert_eq!(before, after);
+        assert_eq!(before, "# Notes\nExported\n");
+    }
+
+    #[test]
+    fn a_manifest_generated_at_does_not_count_as_a_change() {
+        let path = "Projects/a/manifest.json";
+        let old = "{\n  \"generatedAt\": \"2026-01-01T00:00:00.000Z\"\n}\n";
+        let new = "{\n  \"generatedAt\": \"2026-02-02T00:00:00.000Z\"\n}\n";
+        let before = unstamp_for_compare(path, old);
+        let after = unstamp_for_compare(path, new);
+        assert_eq!(before, after);
+        assert_eq!(before, "{\n  \"generatedAt\": ,\n}\n");
+    }
+
+    #[test]
+    fn other_paths_are_compared_as_they_are() {
+        let text = "Exported 2026-01-01.\n\"generatedAt\": \"x\"";
+        assert_eq!(unstamp_for_compare("notes/a.md", text), text);
+    }
+
+    #[test]
+    fn a_line_without_a_closing_quote_keeps_its_value() {
+        let text = "  \"generatedAt\": \"open";
+        assert_eq!(unstamp_for_compare("manifest.json", text), text);
+    }
 }

@@ -25,9 +25,10 @@
 
 import Flatbush from "flatbush";
 
+import { readyCore } from "@/lib/rust-core";
+
 import {
   boundsContain,
-  boundsIntersect,
   type InkBounds,
   type InkPageBuffer,
 } from "./page-buffer";
@@ -170,19 +171,23 @@ export class InkStrokeIndex {
       box[3] + slack,
     );
     this.lastVisited = found.length;
-    const out: number[] = [];
-    for (const leaf of found) {
+    // The tree search above stays here (flatbush). The liveness and exact-box
+    // filter is the Rust pick: this gathers each candidate's flag and box.
+    const indices = new Uint32Array(found.length);
+    const alive = new Uint8Array(found.length);
+    const bounds = new Float64Array(found.length * 4);
+    found.forEach((leaf, i) => {
       const index = built.leaves[leaf];
-      if (index === undefined) continue;
-      if (!this.buffer.isAlive(index)) continue;
+      indices[i] = index ?? 0;
+      if (index === undefined || !this.buffer.isAlive(index)) return;
       const stroke = this.buffer.stroke(index);
-      if (!stroke) continue;
-      // A leaf's box is the stroke's own box, so this is an exact test against
-      // what the tree stored rather than a second approximation of it.
-      if (!boundsIntersect(stroke.bounds, box, slack)) continue;
-      out.push(index);
-    }
-    return out;
+      if (!stroke) return;
+      alive[i] = 1;
+      bounds.set(stroke.bounds, i * 4);
+    });
+    return Array.from(
+      readyCore().inkPickCandidates(indices, alive, bounds, Float64Array.from(box), slack),
+    );
   }
 
   /** Strokes whose bounds contain a point, dead ones skipped. */

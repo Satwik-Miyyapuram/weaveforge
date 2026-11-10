@@ -8,8 +8,8 @@ import {
   annotationPinKey,
   applyAnnotationPatch,
   optimisticAnnotationFromDraft,
-  PENDING_ANNOTATION_PREFIX,
-} from "../../application/reader-annotation-helpers";
+} from "@weaveforge/wasm";
+import { PENDING_ANNOTATION_PREFIX } from "../../application/reader-annotation-helpers";
 import type { PdfReaderProps } from "./types";
 
 type ChangeAnnotations = NonNullable<PdfReaderProps["onAnnotationsChange"]>;
@@ -82,7 +82,7 @@ export function useAnnotationActions({
       const tempId = `${PENDING_ANNOTATION_PREFIX}${
         globalThis.crypto?.randomUUID?.() ?? String(Date.now())
       }`;
-      const optimistic = optimisticAnnotationFromDraft(draft, tempId);
+      const optimistic = optimisticAnnotationFromDraft(draft, tempId, new Date().toISOString());
       change((prev) => [...prev, optimistic]);
       // Nothing is selected on create: a fresh mark framed in a dashed box read as stuck.
       clearPendingCreate();
@@ -172,7 +172,7 @@ export function useAnnotationActions({
   const pinLocal = useCallback(
     async (ann: ReaderAnnotation, sectionId: string | null) => {
       if (!paperId) return;
-      const key = annotationPinKey(ann);
+      const key = annotationPinKey(ann.id, ann.zoteroKey);
       try {
         await getContainer().papers.setAnnotationPin(paperId, key, sectionId);
         applyPin(key, sectionId, paperId);

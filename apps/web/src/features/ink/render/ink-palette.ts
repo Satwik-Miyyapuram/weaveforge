@@ -58,44 +58,6 @@ export const INK_COLOUR_TOKENS: Record<InkColour, string> = {
   grey: "--ink-grey",
 };
 
-/** One palette entry as a CSS colour, for a trail or a Canvas 2D fill. */
-export function paletteCss(
-  palette: InkPalette,
-  colour: InkColour,
-  alpha = 1,
-): string {
-  return readyCore().paletteCss(palette, colour, alpha);
-}
-
-/**
- * One palette entry as `#rrggbb`.
- *
- * A stored reader annotation carries a literal colour, not a name, so a paper's
- * ink resolves its ink colour through the same palette the note draws with —
- * one place decides what "red" is, on both surfaces.
- */
-export function paletteHex(palette: InkPalette, colour: InkColour): string {
-  return readyCore().paletteHex(palette, colour);
-}
-
-/**
- * The palette name a stored colour was written from, if any — `paletteHex`
- * the other way, so a hex picked off a mark can become the bar's colour again.
- */
-export function paletteName(palette: InkPalette, hex: string): InkColour | null {
-  return readyCore().paletteName(palette, hex);
-}
-
-/**
- * Parse what `getComputedStyle` answers for a colour: `rgb(r, g, b)`,
- * `rgba(r, g, b, a)`, or the modern `color(srgb r g b)`. Anything else — a
- * token that resolved to nothing — answers `null` so the caller keeps its
- * previous value rather than drawing in black.
- */
-export function parseCssColour(value: string): InkRgb | null {
-  return readyCore().parseCssColour(value);
-}
-
 /**
  * Read the theme's palette off the document: a probe element is given each
  * token as its colour and the computed value read back, which is the one way
@@ -112,16 +74,11 @@ export function readThemePalette(doc: Document): InkPalette {
   try {
     for (const colour of Object.keys(INK_COLOUR_TOKENS) as InkColour[]) {
       probe.style.color = `var(${INK_COLOUR_TOKENS[colour]})`;
-      const parsed = parseCssColour(getComputedStyle(probe).color);
+      const parsed = readyCore().parseCssColour(getComputedStyle(probe).color);
       if (parsed) palette[colour] = parsed;
     }
   } finally {
     probe.remove();
   }
   return palette;
-}
-
-/** Whether two palettes draw the same, so a theme poll can skip the post. */
-export function samePalette(a: InkPalette, b: InkPalette): boolean {
-  return readyCore().samePalette(a, b);
 }

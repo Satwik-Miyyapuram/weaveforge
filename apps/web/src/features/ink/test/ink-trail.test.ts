@@ -12,7 +12,6 @@ import { INK_A4_WIDTH } from "@weaveforge/core";
 import {
   requestInkPresenter,
   trailColour,
-  trailDiameterPx,
   trailStyle,
   updateTrail,
   type InkPresenterLike,
@@ -30,7 +29,7 @@ import {
   InkSamplePool,
   InkSampleWriter,
 } from "../application/capture-protocol";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);
@@ -76,10 +75,10 @@ test("a granted presenter is returned and asked for over the canvas", async () =
 
 test("the diameter is the nib's width on the page, and follows pressure", () => {
   // A 2100-unit page drawn 420 px wide: 0.1 mm is 0.2 px.
-  assert.equal(trailDiameterPx(INK_A4_WIDTH, 420), 420);
-  assert.equal(trailDiameterPx(10, 420), 2);
-  assert.equal(trailDiameterPx(0, 420), 1, "never thinner than a pixel");
-  assert.equal(trailDiameterPx(10, 0), 1, "a page with no width still draws");
+  assert.equal(readyCore().trailDiameterPx(INK_A4_WIDTH, 420), 420);
+  assert.equal(readyCore().trailDiameterPx(10, 420), 2);
+  assert.equal(readyCore().trailDiameterPx(0, 420), 1, "never thinner than a pixel");
+  assert.equal(readyCore().trailDiameterPx(10, 0), 1, "a page with no width still draws");
 
   const light = trailStyle({
     colour: "text",

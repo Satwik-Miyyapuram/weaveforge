@@ -1,15 +1,9 @@
 import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
+import type { GhCommit, GitCommit, GlCommit } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 
 /** Normalized git types so the UI doesn't care which provider it came from. */
-export interface GitCommit {
-  sha: string;
-  shortSha: string;
-  message: string;
-  author?: string;
-  date?: string;
-  url?: string;
-}
+export type { GitCommit };
 export interface GitBranch {
   name: string;
 }
@@ -24,8 +18,8 @@ export class GitClient {
   async listCommits(i: Integration, branch?: string): Promise<GitCommit[]> {
     const data = await this.get(i, "commits", branch);
     return i.provider === "github"
-      ? (data as GhCommit[]).map(ghCommit)
-      : (data as GlCommit[]).map(glCommit);
+      ? readyCore().githubCommits(data as GhCommit[])
+      : readyCore().gitlabCommits(data as GlCommit[]);
   }
 
   async listBranches(i: Integration): Promise<GitBranch[]> {
@@ -33,62 +27,26 @@ export class GitClient {
     return (data as { name: string }[]).map((b) => ({ name: b.name }));
   }
 
-  private async get(i: Integration, kind: string, branch?: string): Promise<unknown> {
-    const { token, repo, branch: defaultBranch } = readyCore().gitConnection(i);
-    if (!token || !repo) throw new Error("Connect this provider in Settings first.");
-    const selectedBranch = branch ?? defaultBranch ?? DEFAULT_GIT_BRANCH;
-    const url = i.provider === "github"
-      ? kind === "branches"
-        ? `https://api.github.com/repos/${repo}/branches?per_page=100`
-        : `https://api.github.com/repos/${repo}/commits?sha=${encodeURIComponent(selectedBranch)}&per_page=30`
-      : kind === "branches"
-        ? `https://gitlab.com/api/v4/projects/${encodeURIComponent(repo)}/repository/branches?per_page=100`
-        : `https://gitlab.com/api/v4/projects/${encodeURIComponent(repo)}/repository/commits?ref_name=${encodeURIComponent(selectedBranch)}&per_page=30`;
+  private async get(i: Integration, kind: "commits" | "branches", branch?: string): Promise<unknown> {
+    const conn = readyCore().gitConnection(i);
+    const token = conn.token ?? "";
+    const plan = readyCore().gitReadPlan({
+      host: i.provider === "github" ? "github" : "gitlab",
+      kind,
+      token,
+      repo: conn.repo ?? "",
+      branch: branch ?? null,
+      defaultBranch: conn.branch ?? DEFAULT_GIT_BRANCH,
+    });
+    if (plan.url === null) throw new Error(plan.error ?? "");
     const headers: Record<string, string> = i.provider === "github"
       ? { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" }
       : { "PRIVATE-TOKEN": token };
-    const res = await this.fetchFn(url, { headers });
+    const res = await this.fetchFn(plan.url, { headers });
     if (!res.ok) {
       const d = await res.text().catch(() => "");
-      throw new Error(`Git read failed (${res.status}). ${d}`.trim());
+      throw new Error(readyCore().gitReadFailureMessage(res.status, d));
     }
     return res.json();
   }
-}
-
-interface GhCommit { sha: string; commit: { message: string; author?: { name?: string; date?: string } }; html_url?: string }
-interface GlCommit { id: string; message: string; author_name?: string; created_at?: string; web_url?: string }
-
-function ghCommit(c: GhCommit): GitCommit {
-  return {
-    sha: c.sha,
-    shortSha: c.sha.slice(0, 7),
-    message: c.commit.message.split("\n")[0] ?? "",
-    author: c.commit.author?.name,
-    date: c.commit.author?.date,
-    url: c.html_url,
-  };
-}
-function glCommit(c: GlCommit): GitCommit {
-  return {
-    sha: c.id,
-    shortSha: c.id.slice(0, 7),
-    message: c.message.split("\n")[0] ?? "",
-    author: c.author_name,
-    date: c.created_at,
-    url: c.web_url,
-  };
-}
-
-/**
- * A repo URL safe to render as a link: http(s) only. The URL is user data, so a
- * `javascript:` or `data:` value must never reach an `<a href>`.
- */
-export function repoWebUrl(repoUrl?: string): string | undefined {
-  return readyCore().repoWebUrl(repoUrl);
-}
-
-/** Build a web URL to a commit from a repo URL + sha (best-effort by host). */
-export function commitUrl(repoUrl?: string, sha?: string): string | undefined {
-  return readyCore().commitUrl(repoUrl, sha);
 }

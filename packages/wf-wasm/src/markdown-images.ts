@@ -18,6 +18,7 @@ import {
   toRelativeBlobLinks as rawToRelativeBlobLinks,
   withImageWidth as rawWithImageWidth,
   withMdImageAlt as rawWithMdImageAlt,
+  workspaceBodies as rawWorkspaceBodies,
 } from "../pkg/wf_wasm.js";
 import type {
   FoundImageRef,
@@ -97,6 +98,17 @@ export function fromRelativeBlobLinks(body: string, resolved: Readonly<Record<st
 export function ownedAssetFolderPaths(bodies: readonly string[]): string[] {
   for (const body of bodies) checkIndexText(body);
   return rawOwnedAssetFolderPaths(bodies) as string[];
+}
+
+/**
+ * Every body that can carry an image reference (Rust `workspace_bodies`): vault page bodies,
+ * then paper summaries, a missing summary as an empty body.
+ */
+export function workspaceBodies(
+  vaultBodies: readonly string[],
+  paperSummaries: readonly (string | null | undefined)[],
+): string[] {
+  return rawWorkspaceBodies(vaultBodies, paperSummaries) as string[];
 }
 
 /** Classifies a body's asset refs as kept, uploaded or unresolved; `owned` and `available` are folder paths (Rust `plan_asset_reanchor`). */
