@@ -3098,6 +3098,19 @@ export function countJsonActions(entries) {
 }
 
 /**
+ * [`count_section_sources`](section_sources::count_section_sources) (TS `countSectionSources`).
+ * An absent or empty body counts 0.
+ * @param {string | null} [body]
+ * @returns {number}
+ */
+export function countSectionSources(body) {
+    var ptr0 = isLikeNone(body) ? 0 : passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.countSectionSources(ptr0, len0);
+    return ret >>> 0;
+}
+
+/**
  * [`count_words`](text::count_words): runs of non-whitespace in `text`.
  * @param {string} text
  * @returns {number}
@@ -4331,6 +4344,35 @@ export function describeChanges(status) {
     let deferred2_1;
     try {
         const ret = wasm.describeChanges(status);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`describe_free_copy_failure`]: `outcome` is the `"none"` outcome of a search.
+ *
+ * # Errors
+ *
+ * Fails if `outcome` does not have the expected shape.
+ * @param {any} outcome
+ * @param {boolean} web_article
+ * @returns {string}
+ */
+export function describeFreeCopyFailure(outcome, web_article) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.describeFreeCopyFailure(outcome, web_article);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -6554,6 +6596,26 @@ export function folderKeys(relative_paths) {
 }
 
 /**
+ * [`folder_title_from_path`](folder_layout::folder_title_from_path).
+ * @param {string} path
+ * @returns {string}
+ */
+export function folderTitleFromPath(path) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.folderTitleFromPath(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`font_size_of`](analysis_text::font_size_of) (TS `fontSizeOf`).
  *
  * # Errors
@@ -7653,6 +7715,27 @@ export function headingSlug(text) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`highlight_within_excerpt`](evidence::highlight_within_excerpt). `locus` is a PDF locus object or
+ * `undefined`; the result is `{ before, match, after, confidence }`, or `null` when nothing matches.
+ *
+ * # Errors
+ *
+ * Fails if `locus` is not a PDF locus object, or the result cannot be converted.
+ * @param {string} excerpt
+ * @param {any} locus
+ * @returns {any}
+ */
+export function highlightWithinExcerpt(excerpt, locus) {
+    const ptr0 = passStringToWasm0(excerpt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.highlightWithinExcerpt(ptr0, len0, locus);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -9625,6 +9708,23 @@ export function isUserIntegrationConnected(settings, provider_id, field_ids) {
 }
 
 /**
+ * [`is_web_article`]: `ids` is an `OpenAccessIds`.
+ *
+ * # Errors
+ *
+ * Fails if `ids` does not have the expected shape.
+ * @param {any} ids
+ * @returns {boolean}
+ */
+export function isWebArticle(ids) {
+    const ret = wasm.isWebArticle(ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`is_child_item`](zotero_library::is_child_item): true for an attachment, note, annotation or
  * an item with a parent.
  *
@@ -9757,6 +9857,29 @@ export function jsonDataPath(project_root, kind) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`json_edit_since`](folder_mirror::json_edit_since). `base` is the recorded digest map.
+ *
+ * # Errors
+ *
+ * Fails when `base` is not an object of string digests.
+ * @param {any} base
+ * @param {string} path
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function jsonEditSince(base, path, text) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.jsonEditSince(base, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -10191,6 +10314,27 @@ export function layoutFromRecord(raw) {
     var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.layoutFromRecord(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`layout_margin_notes`]: `marks` is one `{ hasComment, hasPicture, geometry }` per
+ * annotation and `projection` a page projection. Returns `{ index, top, anchorTop }[]` in
+ * ascending `anchorTop` order, where `index` is the mark's position in `marks`.
+ *
+ * # Errors
+ *
+ * Fails if `marks` or `projection` do not have the expected shape.
+ * @param {any} marks
+ * @param {any} projection
+ * @param {number} card_height
+ * @returns {any}
+ */
+export function layoutMarginNotes(marks, projection, card_height) {
+    const ret = wasm.layoutMarginNotes(marks, projection, card_height);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -12787,6 +12931,23 @@ export function oneEuroAlpha(cutoff, dt_ms) {
 }
 
 /**
+ * [`open_access_ids_of`]: `paper` carries `doi`, `arxivId`, `url` and `metadata`.
+ *
+ * # Errors
+ *
+ * Fails if `paper` does not have the expected shape.
+ * @param {any} paper
+ * @returns {any}
+ */
+export function openAccessIdsOf(paper) {
+    const ret = wasm.openAccessIdsOf(paper);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`openalex_to_hit`](related_paper_hit::openalex_to_hit): the hit for an OpenAlex work, or
  * nothing when it has no title.
  *
@@ -13087,6 +13248,25 @@ export function overleafGitUrl(id) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`wf_core::sync::blob_links::owned_asset_folder_paths`] for JS. `bodies` is an array
+ * of strings; the result is the sorted array of folder paths they point at.
+ *
+ * # Errors
+ *
+ * Fails when `bodies` is not an array of strings, or a body is over `MAX_INDEX_TEXT_UTF16`
+ * UTF-16 units.
+ * @param {any} bodies
+ * @returns {any}
+ */
+export function ownedAssetFolderPaths(bodies) {
+    const ret = wasm.ownedAssetFolderPaths(bodies);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -14739,6 +14919,29 @@ export function pickProject(projects, needle) {
 }
 
 /**
+ * [`pick_project_folder`](folder_layout::pick_project_folder). `undefined` when no folder fits.
+ * @param {string[]} dirs
+ * @param {string} exact
+ * @param {string} tail
+ * @returns {string | undefined}
+ */
+export function pickProjectFolder(dirs, exact, tail) {
+    const ptr0 = passArrayJsValueToWasm0(dirs, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(exact, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(tail, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.pickProjectFolder(ptr0, len0, ptr1, len1, ptr2, len2);
+    let v4;
+    if (ret[0] !== 0) {
+        v4 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v4;
+}
+
+/**
  * [`picture_path`]: the stored file behind a placed picture, or `null`.
  *
  * # Errors
@@ -14826,6 +15029,29 @@ export function placePlanWidget(saved, areas) {
  */
 export function planArchiveEntries(entries, limits) {
     const ret = wasm.planArchiveEntries(entries, limits);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::sync::blob_links::plan_asset_reanchor`] for JS. `owned` and `available` are
+ * arrays of folder paths; the result is `{ keep, upload, unresolved }`.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `owned` or `available`
+ * is not an array of strings.
+ * @param {string} body
+ * @param {any} owned
+ * @param {any} available
+ * @returns {any}
+ */
+export function planAssetReanchor(body, owned, available) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.planAssetReanchor(ptr0, len0, owned, available);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -15173,6 +15399,23 @@ export function planWidgetData(items, include_done, limit, now_ms) {
 }
 
 /**
+ * [`plan_wiki_pages`](wiki_plan::plan_wiki_pages) for a `PlanWikiPagesInput` object; returns the plans.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape, or the plans cannot be converted.
+ * @param {any} input
+ * @returns {any}
+ */
+export function planWikiPages(input) {
+    const ret = wasm.planWikiPages(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`plot_height`](plot_size::plot_height).
  * @param {number} width
  * @param {number} base
@@ -15289,6 +15532,36 @@ export function postgrestErrorInfo(body) {
     const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.postgrestErrorInfo(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`keyed_column_spec`]: the keyed-column spec named `name`, or `null` when there is none.
+ * @param {string} name
+ * @returns {any}
+ */
+export function postgrestKeyedColumnSpec(name) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.postgrestKeyedColumnSpec(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`row_spec`]: the row spec named `name`, or `null` when there is none.
+ * @param {string} name
+ * @returns {any}
+ */
+export function postgrestRowSpec(name) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.postgrestRowSpec(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -16163,6 +16436,54 @@ export function readerKeyboardCommand(event) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`reader_print_document`]: the paper as an HTML document for a print frame's `srcdoc`.
+ * @param {any} doc
+ * @returns {string}
+ */
+export function readerPrintDocument(doc) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.readerPrintDocument(doc);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`reader_print_orientation`]: `"portrait"` or `"landscape"` for the sheet.
+ * @param {any} input
+ * @returns {string}
+ */
+export function readerPrintOrientation(input) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.readerPrintOrientation(input);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -17299,6 +17620,18 @@ export function rewriteWikilinks(body, renames) {
 }
 
 /**
+ * [`role_rank`](member::role_rank). `undefined` for a role the rank table does not know.
+ * @param {string} role
+ * @returns {number | undefined}
+ */
+export function roleRank(role) {
+    const ptr0 = passStringToWasm0(role, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.roleRank(ptr0, len0);
+    return ret === 0xFFFFFF ? undefined : ret;
+}
+
+/**
  * [`root_folder_id_of`](upload::root_folder_id_of): the writable project's root folder id, or
  * `undefined` when read-only or the answer has none.
  * @param {any} join
@@ -18109,6 +18442,27 @@ export function selectionToAnchor(selection, page) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`semantic_scholar_target`](semantic_scholar_relay::semantic_scholar_target): the upstream
+ * URL for a relay path, or `undefined` when the path is not one.
+ * @param {string} pathname
+ * @param {string} search
+ * @returns {string | undefined}
+ */
+export function semanticScholarTarget(pathname, search) {
+    const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(search, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.semanticScholarTarget(ptr0, len0, ptr1, len1);
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
 }
 
 /**
@@ -20324,6 +20678,24 @@ export function toRelativeBlobLinks(body, file_path) {
 }
 
 /**
+ * [`to_render_strokes`]: `strokes` is an `InkRenderSource[]`, `palette` an
+ * `InkSvgPalette`, and `hidden` the positions to leave out.
+ * @param {any} strokes
+ * @param {any} palette
+ * @param {Uint32Array} hidden
+ * @returns {any}
+ */
+export function toRenderStrokes(strokes, palette, hidden) {
+    const ptr0 = passArray32ToWasm0(hidden, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.toRenderStrokes(strokes, palette, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`to_search_docs`](search_document::to_search_docs). `degrees` is a plain
  * `{ "kind:id": count }` object.
  *
@@ -21278,6 +21650,23 @@ export function wikiPageRefs(pages) {
 }
 
 /**
+ * [`wiki_proposal_content`](wiki_plan::wiki_proposal_content) for a `WikiPagePlan` object.
+ *
+ * # Errors
+ *
+ * Fails if `plan` is not a wiki page plan object.
+ * @param {any} plan
+ * @returns {any}
+ */
+export function wikiProposalContent(plan) {
+    const ret = wasm.wikiProposalContent(plan);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wiki_source_documents`]: notes and papers as extraction documents. `sourceIds` is
  * optional; omitted means every note and paper.
  * @param {any} pages
@@ -21788,6 +22177,26 @@ export function zoteroContentKeys(doi, arxiv_id, title) {
     var ptr2 = isLikeNone(title) ? 0 : passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len2 = WASM_VECTOR_LEN;
     const ret = wasm.zoteroContentKeys(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`zotero_headers`](zotero_library::zotero_headers): the API key and version headers for a
+ * request, as a plain object.
+ *
+ * # Errors
+ *
+ * Fails only if the headers cannot be converted to a JS value.
+ * @param {string} api_key
+ * @returns {any}
+ */
+export function zoteroHeaders(api_key) {
+    const ptr0 = passStringToWasm0(api_key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.zoteroHeaders(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

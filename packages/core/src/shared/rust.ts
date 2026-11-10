@@ -14,6 +14,9 @@ import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outl
 import type { Row } from "./three-way-merge.js";
 import type { CoreContract } from "./core-contract.js";
 import type { PdfLocus, ResolvedAnchor } from "../reader/anchor-shapes.js";
+import type { ExcerptHighlight } from "../features/ai-assistant/domain/ai-evidence.js";
+import type { ExtractionResult } from "../features/ai-assistant/domain/ai-extraction.js";
+import type { WikiPagePlan } from "../features/ai-assistant/application/plan-wiki-pages.use-case.js";
 import type { FrontmatterValue, ParsedDocument } from "../workspace/frontmatter.js";
 import type { ChangeSide } from "../workspace/change-origin.js";
 import type {
@@ -96,6 +99,15 @@ export interface RustCoreFns {
   normalizeDoi(doi?: string): string | undefined;
   projectName(name: string): string | undefined;
   resolveTextAnchor(text: string, locus: PdfLocus): ResolvedAnchor | null;
+  highlightWithinExcerpt(excerpt: string, locus: PdfLocus | undefined): ExcerptHighlight | null;
+  wikiProposalContent(plan: WikiPagePlan): string;
+  planWikiPages(input: {
+    extraction: ExtractionResult;
+    existingTitles: readonly string[];
+    minMentions?: number;
+    maxPages?: number;
+    titles: Readonly<Record<string, string>>;
+  }): WikiPagePlan[];
 
   creatableRoles(creator: string): string[];
   canCreateRole(creator: string, target: string): boolean;
@@ -124,6 +136,7 @@ export interface RustCoreFns {
     options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null },
   ): T[];
   isSupervisorRole(role: string | null | undefined): boolean;
+  roleRank(role: string): number | undefined;
   resolveDisplayRole(role: string, opts: { inLab: boolean; ownsOrg?: boolean }): string;
   needsStandaloneRoleSync(
     profile: { role: string; orgSetupComplete?: boolean | null; activeOrgId?: string | null } | null,

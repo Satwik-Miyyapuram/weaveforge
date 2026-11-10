@@ -4,7 +4,7 @@
 //! the app. Import never trusts a stored path; it re-anchors through
 //! [`ImportedAssetResolver`].
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -176,6 +176,79 @@ pub fn relative_asset_paths(body: &str) -> Vec<RelativeAsset> {
         false,
     );
     out
+}
+
+/// A folder-relative asset ref an imported body points at, in both its forms.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct AssetRef {
+    /// `assets/<scope>/<path>`: the folder path the ref names.
+    pub folder_path: String,
+    /// The claimed storage path: what follows the scope directory.
+    pub storage_path: String,
+    /// The asset tree: `notes`, `papers` or `report`.
+    pub scope: String,
+}
+
+/// What an imported body's asset refs become: honoured, uploaded, or left as written.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReanchorPlan {
+    /// Already referenced by this workspace: honour the path as written.
+    pub keep: Vec<AssetRef>,
+    /// Came with the import: upload under this user and rewrite to the new path.
+    pub upload: Vec<AssetRef>,
+    /// Neither. Left as written, which renders broken rather than resolving to an
+    /// object the importer has no demonstrated claim to.
+    pub unresolved: Vec<AssetRef>,
+}
+
+/// Every folder path a set of bodies already points at. Reuses the write-side
+/// rewriter, so whatever path it writes on export is the one recognised on import.
+#[must_use]
+pub fn owned_asset_folder_paths(bodies: &[String]) -> BTreeSet<String> {
+    bodies
+        .iter()
+        .flat_map(|body| to_relative_blob_links(body, "x.md").assets)
+        .map(|asset| asset.folder_path)
+        .collect()
+}
+
+/// Classifies every asset ref in an imported body. Only `notes` assets are ever
+/// uploaded: a paper or report image from outside has no equivalent home, so it is
+/// `unresolved` unless the workspace already owns it. Each folder path is decided
+/// once, at its first ref.
+#[must_use]
+pub fn plan_asset_reanchor(
+    body: &str,
+    owned: &BTreeSet<String>,
+    available: &BTreeSet<String>,
+) -> ReanchorPlan {
+    let mut plan = ReanchorPlan::default();
+    let mut seen = BTreeSet::new();
+    for asset in relative_asset_paths(body) {
+        let folder_path = format!("{ASSET_DIR}/{}/{}", asset.scope, asset.path);
+        if !seen.insert(folder_path.clone()) {
+            continue;
+        }
+        let is_owned = owned.contains(&folder_path);
+        let is_uploadable = asset.scope == "notes" && available.contains(&folder_path);
+        let entry = AssetRef {
+            folder_path,
+            storage_path: asset.path,
+            scope: asset.scope,
+        };
+        if is_owned {
+            plan.keep.push(entry);
+        } else if is_uploadable {
+            plan.upload.push(entry);
+        } else {
+            plan.unresolved.push(entry);
+        }
+    }
+    plan
 }
 
 fn blob_heads() -> Vec<&'static str> {

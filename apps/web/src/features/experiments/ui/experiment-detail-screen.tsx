@@ -13,7 +13,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
-import { commitUrl, repoWebUrl } from "@/features/sync";
+import { commitUrl, repoWebUrl } from "@/features/sync/infrastructure/git-client";
 import { CommentsIcon } from "@/components/view-icons";
 import {
   RecordActivity,

@@ -12,7 +12,7 @@
 import { useEffect } from "react";
 import type { InkColour } from "@weaveforge/core";
 
-import { isEditableTarget } from "@/lib/editable-target";
+import { typedCore } from "@/lib/rust-core";
 import { readyCore } from "@/lib/rust-core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
@@ -72,7 +72,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
+      if (typedCore().isEditableReaderTarget(event.target)) return;
       if (event.metaKey || event.ctrlKey) {
         const key = event.key.toLowerCase();
         if (key === "z") {

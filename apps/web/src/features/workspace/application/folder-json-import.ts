@@ -11,6 +11,7 @@
 
 import {
   JSON_KINDS,
+  digestText,
   type IWorkspaceFs,
   type JsonDiff,
   type JsonDiffEntry,
@@ -24,7 +25,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { loadCore } from "@/lib/rust-core";
 import { activeProjectOrNull } from "./active-project";
-import { baseDigest, readMirrorBase, readMirrorBases, writeMirrorManifest } from "./mirror-manifest";
+import { readMirrorBase, readMirrorBases, writeMirrorManifest } from "./mirror-manifest";
 
 /**
  * `<project>/.weaveforge/*.json`, diffed by id against what is stored.
@@ -68,8 +69,8 @@ export async function jsonDiff(
         origin: (changed) =>
           core.changedSide({
             base: base[changed] || undefined,
-            folder: baseDigest(text),
-            workspace: current[changed] === undefined ? undefined : baseDigest(current[changed]),
+            folder: digestText(text),
+            workspace: current[changed] === undefined ? undefined : digestText(current[changed]),
           }),
         // The generated row type is a plain record; the rows are the ones passed in.
       }).entries as JsonDiffEntry[]),
@@ -138,7 +139,7 @@ export async function refreshMirrorBase(
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
     const applied = expected[path];
-    const digest = baseDigest(text);
+    const digest = digestText(text);
     // A digest the base already holds is a write the apply made itself, such as an id stamp.
     if (applied !== undefined && digest !== applied && digest !== base[path]) {
       base[path] = applied;

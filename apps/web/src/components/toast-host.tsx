@@ -3,14 +3,14 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { Button, CloseButton } from "./button";
-import { isEditableTarget } from "@/lib/editable-target";
+import { typedCore } from "@/lib/rust-core";
 import { toasts, type Toast, type ToastStore } from "@/lib/toast/toast-store";
 
 /** Ctrl+Z / Cmd+Z, not in a text field (which has its own undo). */
 export function isUndoKey(event: KeyboardEvent): boolean {
   if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return false;
   if (event.key.toLowerCase() !== "z") return false;
-  return !isEditableTarget(event.target);
+  return !typedCore().isEditableReaderTarget(event.target);
 }
 
 /** The bottom-centre stack. The live region stays mounted so the first toast is announced. */

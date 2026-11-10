@@ -20,6 +20,7 @@ import {
   isMissingServiceRole as rawIsMissingServiceRole,
   needsMigrationHint as rawNeedsMigrationHint,
   isSupervisorRole as rawIsSupervisorRole,
+  roleRank as rawRoleRank,
   needsOrgSetup as rawNeedsOrgSetup,
   needsStandaloneRoleSync as rawNeedsStandaloneRoleSync,
   resolveDisplayRole as rawResolveDisplayRole,
@@ -67,6 +68,11 @@ export function filterLabMembers<T extends MemberLink>(
 /** The people below `viewerId` in the supervisor tree, at any depth. */
 export function studentsOf<T extends MemberLink>(viewerId: string | undefined, team: readonly T[]): T[] {
   return pick(team, rawStudentsOf(viewerId ?? undefined, team) as number[]);
+}
+
+/** Rank of a role: standalone -1, masters 0, phd 1, professor 2. `undefined` for an unknown role. */
+export function roleRank(role: string): number | undefined {
+  return rawRoleRank(role) ?? undefined;
 }
 
 /** Whether a role can supervise others (rank above masters). */

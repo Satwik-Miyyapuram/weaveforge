@@ -6,6 +6,7 @@
 import {
   buildSectionTree as rawBuildSectionTree,
   checkBibliography as rawCheckBibliography,
+  countSectionSources as rawCountSectionSources,
   createReportSectionWith as rawCreateReportSectionWith,
   editedRelativeLabel as rawEditedRelativeLabel,
   normalizeProjectPath as rawNormalizeProjectPath,
@@ -40,6 +41,11 @@ export function prismaFigureTex(
 /** A warning when the counts do not add up, or null when they do. */
 export function prismaCaveat(counts: PrismaCounts): string | null {
   return rawPrismaCaveat(counts) ?? null;
+}
+
+/** Distinct sources a section draft cites: `[[wikilinks]]` plus `@citekeys`. An absent or empty body counts 0. */
+export function countSectionSources(body?: string): number {
+  return rawCountSectionSources(body);
 }
 
 /** "edited 3h ago" for an age in seconds, or null for a week or more (the caller shows the date). */

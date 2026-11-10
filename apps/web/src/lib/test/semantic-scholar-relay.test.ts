@@ -1,6 +1,9 @@
-import test from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { forwardedHeaders, semanticScholarTarget } from "../semantic-scholar-relay";
+
+before(loadTestCore);
 
 /**
  * The relay policy both hosts share: the web route and the desktop shell map

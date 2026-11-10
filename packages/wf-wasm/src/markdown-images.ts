@@ -9,7 +9,9 @@ import {
   imagePathsInBody as rawImagePathsInBody,
   markdownImage as rawMarkdownImage,
   normalizeMarkdownImageSyntax as rawNormalizeMarkdownImageSyntax,
+  ownedAssetFolderPaths as rawOwnedAssetFolderPaths,
   parseMdImageAlt as rawParseMdImageAlt,
+  planAssetReanchor as rawPlanAssetReanchor,
   relativeAssetPaths as rawRelativeAssetPaths,
   setImagePlacement as rawSetImagePlacement,
   stripUnresolvedImageRefs as rawStripUnresolvedImageRefs,
@@ -22,6 +24,7 @@ import type {
   ImagePlacementPatch,
   MdImageAlt,
   MdPlacement,
+  ReanchorPlan,
   RelativeAsset,
   RelativeLinks,
 } from "./bindings.js";
@@ -88,6 +91,18 @@ export function relativeAssetPaths(body: string): RelativeAsset[] {
 export function fromRelativeBlobLinks(body: string, resolved: Readonly<Record<string, string>>): string {
   checkIndexText(body);
   return rawFromRelativeBlobLinks(body, resolved);
+}
+
+/** The folder paths the bodies already point at (Rust `owned_asset_folder_paths`). */
+export function ownedAssetFolderPaths(bodies: readonly string[]): string[] {
+  for (const body of bodies) checkIndexText(body);
+  return rawOwnedAssetFolderPaths(bodies) as string[];
+}
+
+/** Classifies a body's asset refs as kept, uploaded or unresolved; `owned` and `available` are folder paths (Rust `plan_asset_reanchor`). */
+export function planAssetReanchor(body: string, owned: readonly string[], available: readonly string[]): ReanchorPlan {
+  checkIndexText(body);
+  return rawPlanAssetReanchor(body, owned, available) as ReanchorPlan;
 }
 
 /** Drop `![alt](prefix+path)` refs whose path is not in `resolved` (Rust `strip_unresolved_image_refs`). */

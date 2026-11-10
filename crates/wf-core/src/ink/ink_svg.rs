@@ -182,7 +182,8 @@ pub fn stroke_path(points: &[f64]) -> Option<String> {
 }
 
 /// `rgb(r, g, b)` for a palette entry, falling back to the text colour.
-fn palette_css(palette: &InkSvgPalette, colour: &str) -> String {
+#[must_use]
+pub fn palette_css(palette: &InkSvgPalette, colour: &str) -> String {
     let rgb = palette
         .get(colour)
         .or_else(|| palette.get("text"))

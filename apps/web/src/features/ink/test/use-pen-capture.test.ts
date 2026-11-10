@@ -9,14 +9,8 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  CSS_PX_PER_MM,
-  InkPenGate,
-  PALM_CONTACT_AREA_MM2,
-  PALM_SECOND_TOUCH_MS,
-  contactAreaMm2,
-  type PenPointerEvent,
-} from "../index";
+import { CSS_PX_PER_MM, InkPenGate, PALM_CONTACT_AREA_MM2, PALM_SECOND_TOUCH_MS, contactAreaMm2 } from "../application/pen-gate";
+import { type PenPointerEvent } from "../application/use-pen-capture";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

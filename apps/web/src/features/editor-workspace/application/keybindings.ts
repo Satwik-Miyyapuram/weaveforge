@@ -104,7 +104,7 @@ export function shortcutTable(): Record<WorkspaceCommand, string> {
  * The editor itself is an exception: CodeMirror is a text surface, but the
  * whole point of `Ctrl-W` in an editor shell is closing the document you are
  * editing, so only genuine form fields swallow the chord. That is why this
- * is not `isEditableTarget` (lib/editable-target), which counts
+ * is not `isEditableReaderTarget` (Rust `is_editable_reader_target`), which counts
  * contenteditable as owning its keys.
  */
 export function isTypingTarget(target: { tagName?: string; isContentEditable?: boolean } | null): boolean {

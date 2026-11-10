@@ -4,6 +4,7 @@ import type {
   MilestoneDependency,
   MilestoneStatus,
 } from "@weaveforge/core";
+import { requireRowSpec } from "@/backend/providers/postgrest/spec-repository";
 import { readyCore } from "@/lib/rust-core";
 
 /**
@@ -30,12 +31,12 @@ export interface MilestoneRow {
 }
 
 /**
- * The columns a MilestoneRow is read as, named rather than starred.
- *
- * Derived from the row type: exactly the fields the mapper reads, where a star
- * would mean "whatever the table grows next".
+ * The columns a MilestoneRow is read as, named rather than starred. Rust's postgrest spec
+ * names them, next to the table and order the repository uses.
  */
-export const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
+export function milestoneColumns(): string {
+  return requireRowSpec("milestones").columns;
+}
 
 /**
  * The wasm mapper returns the bindings Milestone, whose optional fields are

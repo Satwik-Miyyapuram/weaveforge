@@ -7,7 +7,8 @@ use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::blob_links::{
-    from_relative_blob_links_mapped, relative_asset_paths, to_relative_blob_links,
+    from_relative_blob_links_mapped, owned_asset_folder_paths, plan_asset_reanchor,
+    relative_asset_paths, to_relative_blob_links,
 };
 use wf_core::sync::folder_layout::{
     ENTITY_DIRS, WorkspaceEntityType, WorkspaceProject, entity_dir, id_suffix, project_dir,
@@ -255,6 +256,37 @@ pub fn to_relative_blob_links_js(body: &str, file_path: &str) -> JsResult<JsValu
 pub fn relative_asset_paths_js(body: &str) -> JsResult<JsValue> {
     check_text(body)?;
     to_js(&relative_asset_paths(body))
+}
+
+/// [`wf_core::sync::blob_links::owned_asset_folder_paths`] for JS. `bodies` is an array
+/// of strings; the result is the sorted array of folder paths they point at.
+///
+/// # Errors
+///
+/// Fails when `bodies` is not an array of strings, or a body is over `MAX_INDEX_TEXT_UTF16`
+/// UTF-16 units.
+#[wasm_bindgen(js_name = ownedAssetFolderPaths)]
+pub fn owned_asset_folder_paths_js(bodies: JsValue) -> JsResult<JsValue> {
+    let bodies: Vec<String> = serde_wasm_bindgen::from_value(bodies)?;
+    for body in &bodies {
+        check_text(body)?;
+    }
+    to_js(&owned_asset_folder_paths(&bodies))
+}
+
+/// [`wf_core::sync::blob_links::plan_asset_reanchor`] for JS. `owned` and `available` are
+/// arrays of folder paths; the result is `{ keep, upload, unresolved }`.
+///
+/// # Errors
+///
+/// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `owned` or `available`
+/// is not an array of strings.
+#[wasm_bindgen(js_name = planAssetReanchor)]
+pub fn plan_asset_reanchor_js(body: &str, owned: JsValue, available: JsValue) -> JsResult<JsValue> {
+    check_text(body)?;
+    let owned: std::collections::BTreeSet<String> = serde_wasm_bindgen::from_value(owned)?;
+    let available: std::collections::BTreeSet<String> = serde_wasm_bindgen::from_value(available)?;
+    to_js(&plan_asset_reanchor(body, &owned, &available))
 }
 
 /// [`wf_core::sync::blob_links::from_relative_blob_links_mapped`] for JS. `resolved`

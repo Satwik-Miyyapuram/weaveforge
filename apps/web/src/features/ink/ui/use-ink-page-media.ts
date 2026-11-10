@@ -18,7 +18,6 @@
 
 import type { FigureClip } from "@weaveforge/wasm";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isEditableTarget } from "@/lib/editable-target";
 import { fromWasmFigure, readyCore, typedCore } from "@/lib/rust-core";
 import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
 
@@ -380,7 +379,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       const { deps, onAddFigure, pasteFigure } = pasteRef.current;
-      if (isEditableTarget(event.target)) return;
+      if (typedCore().isEditableReaderTarget(event.target)) return;
       const wrap = deps.wrapRef.current;
       if (!wrap || !wrap.contains(document.activeElement)) return;
       // A figure copied from a note (§figure-clipboard) comes back as itself,

@@ -6,9 +6,10 @@
  * this: one prefix, one upstream host, and two forwarded headers.
  */
 
+import { readyCore } from "@/lib/rust-core";
+
 /** The path the browser calls. `semanticScholarUrl` builds it. */
 export const SEMANTIC_SCHOLAR_RELAY_PREFIX = "/api/semantic-scholar/";
-const UPSTREAM = "https://api.semanticscholar.org";
 
 /**
  * Request headers forwarded upstream, and nothing else.
@@ -27,10 +28,7 @@ const FORWARDED = ["x-api-key", "content-type"] as const;
  * is always the upstream host plus the relay path's remainder.
  */
 export function semanticScholarTarget(pathname: string, search: string): string | null {
-  if (!pathname.startsWith(SEMANTIC_SCHOLAR_RELAY_PREFIX)) return null;
-  const rest = pathname.slice(SEMANTIC_SCHOLAR_RELAY_PREFIX.length);
-  if (!rest || rest.includes("..") || rest.startsWith("/") || /^[a-z]+:\/\//i.test(rest)) return null;
-  return `${UPSTREAM}/${rest}${search}`;
+  return readyCore().semanticScholarTarget(pathname, search) ?? null;
 }
 
 /** The headers sent upstream: JSON accepted, plus the forwarded ones present. */

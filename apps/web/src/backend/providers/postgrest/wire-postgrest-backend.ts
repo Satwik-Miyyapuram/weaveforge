@@ -36,14 +36,18 @@ import type {
   IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
   IBlobStore,
+  DashboardLayout,
+  GraphPersistedState,
+  Milestone,
+  MilestoneFilter,
 } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyWorkspaceChange } from "@/lib/workspace-changes";
 import { watchWrites } from "./watch-writes";
 import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { PostgrestDashboardLayoutRepository } from "@/features/dashboard/infrastructure/postgrest-dashboard-layout-repository";
-import { PostgrestGraphSettingsRepository } from "@/features/relations/infrastructure/postgrest-graph-settings-repository";
+import { KeyedColumnRepository, SpecRepository } from "./spec-repository";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { PostgrestExperimentRepository } from "@/features/experiments/infrastructure/postgrest-experiment-repository";
 import { PostgrestMetricRepository } from "@/features/experiments/infrastructure/postgrest-metric-repository";
 import { PostgrestLogEntryRepository } from "@/features/logbook/infrastructure/postgrest-log-entry-repository";
@@ -51,7 +55,7 @@ import { PostgrestMemberRepository } from "@/features/org/infrastructure/postgre
 import { PostgrestSupervisionRepository } from "@/features/org/infrastructure/postgrest-supervision-repository";
 import { PostgrestPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
 import { cachePaperRepository } from "@/features/papers/infrastructure/cached-paper-repository";
-import { PostgrestMilestoneRepository } from "@/features/plan/infrastructure/postgrest-milestone-repository";
+import { milestoneToDomain, milestoneToRow, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
 import { PostgrestProjectRepository } from "@/features/projects/infrastructure/postgrest-project-repository";
 import { ProjectZoteroStore } from "@/features/projects/infrastructure/project-zotero-store";
 import {
@@ -76,8 +80,8 @@ import { PostgrestSharedReader } from "@/features/sharing/infrastructure/postgre
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import { PostgrestIntegrationsStore } from "@/features/sync/infrastructure/postgrest-integrations-store";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
-import { PostgrestTagRepository, PostgrestPaperTagRepository } from "@/features/tags";
-import { PostgrestLibraryPinRepository } from "@/features/library";
+import { PostgrestTagRepository, PostgrestPaperTagRepository } from "@/features/tags/infrastructure/postgrest-tag-repository";
+import { PostgrestLibraryPinRepository } from "@/features/library/infrastructure/postgrest-library-pin-repository";
 import type { ProjectContext } from "@/lib/project-context";
 import { cacheRepo } from "@/lib/cache/cache-repo";
 import { systemClock } from "@/lib/system";
@@ -190,14 +194,16 @@ export function wirePostgrestBackend(
     { resourceType: "project" },
   );
   const dashboardLayoutRepository = cacheRepo(
-    new PostgrestDashboardLayoutRepository(db),
+    new KeyedColumnRepository<DashboardLayout>(db, "dashboardLayout", (raw) =>
+      readyCore().parseDashboardLayout(raw as never) as DashboardLayout | null),
     ["get"],
     ["save"],
     pid,
     { resourceType: "dashboard_layout" },
   );
   const graphSettingsRepository = cacheRepo(
-    new PostgrestGraphSettingsRepository(db),
+    new KeyedColumnRepository<GraphPersistedState>(db, "graphSettings", (raw) =>
+      typedCore().parseGraphPersistedState(raw as never)),
     ["get"],
     ["save"],
     pid,
@@ -299,7 +305,10 @@ export function wirePostgrestBackend(
     { resourceType: "share" },
   );
   const milestoneRepository = cacheRepo(
-    new PostgrestMilestoneRepository(db, projectContext),
+    new SpecRepository<Milestone, MilestoneRow, MilestoneFilter>(db, projectContext, "milestones", {
+      toDomain: milestoneToDomain,
+      toRow: milestoneToRow,
+    }),
     ["getById", "list"],
     ["save", "delete"],
     pid,

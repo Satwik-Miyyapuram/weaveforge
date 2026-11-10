@@ -180,6 +180,8 @@ test("the wrapper modules declare no types of their own", () => {
     ...["OutsideSeenFile", "WikiLintPageRef", "RecolourableNode", "RecolourLookups", "MetricRowInput"],
     // Specta widens every f64 to `number | null`; the pen filter only sees finite numbers.
     ...["OneEuroOptions", "NibSample", "FilteredNibSample"],
+    // Reader wrappers that keep the caller's optional, nullable and readonly shapes.
+    ...["FreeCopyIds", "FreeCopyFailure", "FreeCopyPaperLinks", "MarginMark", "ReaderPrintOrientation"],
   );
   const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);

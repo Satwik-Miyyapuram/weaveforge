@@ -45,7 +45,7 @@ export function zoteroLibraryUrl(library: string, apiOrigin = ZOTERO_API_ORIGIN)
 }
 
 export function zoteroHeaders(apiKey: string): Record<string, string> {
-  return { "Zotero-API-Key": apiKey, "Zotero-API-Version": "3" };
+  return typedCore().zoteroHeaders(apiKey);
 }
 
 /** Zotero's maximum page size for item reads. */

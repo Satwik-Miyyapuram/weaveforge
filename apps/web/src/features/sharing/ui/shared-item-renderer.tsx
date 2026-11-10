@@ -6,7 +6,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
 import { SharedPaperImages } from "@/features/sharing/ui/shared-paper-images";
-import { sharedPaperAnnotationSummary } from "@/features/sharing/application/shared-paper-annotations";
 import { AddToLibraryButton } from "@/features/sharing/ui/add-to-library-button";
 import { DuplicateCopyButton } from "@/features/sharing/ui/duplicate-copy-button";
 import { sharedItemHref, sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
@@ -251,7 +250,7 @@ function SharedBy({ ownerName }: { ownerName: string }) {
 }
 
 export function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknown> }) {
-  const summary = sharedPaperAnnotationSummary(metadata);
+  const summary = readyCore().sharedPaperAnnotationSummary(metadata);
   if (summary.count === 0) return null;
   return (
     <div className="shared-paper-annotations" aria-label="Shared annotations">

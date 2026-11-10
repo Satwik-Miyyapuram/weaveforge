@@ -89,7 +89,10 @@ mod tests {
     #[test]
     fn resolves_colours_through_the_palette_and_flags_highlighters() {
         let out = to_render_strokes(
-            &[stroke("black", "pen", 4.0), stroke("yellow", "highlighter", 4.0)],
+            &[
+                stroke("black", "pen", 4.0),
+                stroke("yellow", "highlighter", 4.0),
+            ],
             &palette(),
             &[],
         );
@@ -136,7 +139,7 @@ mod tests {
     #[test]
     fn channels_clamp_and_round_half_up() {
         let mut p = palette();
-        p.insert("edge".to_owned(), [1.5, -0.2, 0.5]);
+        let _ = p.insert("edge".to_owned(), [1.5, -0.2, 0.5]);
         let out = to_render_strokes(&[stroke("edge", "pen", 1.0)], &p, &[]);
         assert_eq!(out[0].colour, "rgb(255, 0, 128)");
     }

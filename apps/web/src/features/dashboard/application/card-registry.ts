@@ -1,5 +1,5 @@
 import type { DashboardCardType, Role } from "@weaveforge/core";
-import { ROLE_RANK } from "@weaveforge/core";
+import { readyCore } from "../../../lib/rust-core";
 
 /**
  * Card catalog (OCP). To add a card:
@@ -185,10 +185,12 @@ export function getCardDef(type: DashboardCardType): CardDef {
 }
 
 export function cardsForRole(role: Role | null | undefined): CardDef[] {
-  const rank = role ? ROLE_RANK[role] : 0;
+  const core = readyCore();
+  const rank = role ? core.roleRank(role) : 0;
   return CARD_REGISTRY.filter((c) => {
     if (!c.minRole) return true;
-    return rank >= ROLE_RANK[c.minRole];
+    const min = core.roleRank(c.minRole);
+    return rank !== undefined && min !== undefined && rank >= min;
   });
 }
 

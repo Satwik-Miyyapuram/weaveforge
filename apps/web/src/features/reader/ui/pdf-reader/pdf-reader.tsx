@@ -11,23 +11,16 @@ import {
 } from "react";
 import { errorMessage, type ReaderAnnotationType, type FigureTarget } from "@weaveforge/core";
 import type { DocumentSearchMatch, ReaderPageSize, TextSelectionRange, AnchorConfidence } from "@weaveforge/wasm";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import type { InkColour } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
-import {
-  InkBar,
-  INK_RENDER_COLOURS,
-  InkSelectionChip,
-  paletteHex,
-  readThemePalette,
-  setToolColour,
-  setToolQuickSlot,
-  useToolColours,
-  type ToolColourId,
-  type InkPalette,
-  InkPrintPreview,
-} from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
+import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
+import { InkSelectionChip } from "@/features/ink/ui/ink-selection-chip";
+import { paletteHex, readThemePalette, type InkPalette } from "@/features/ink/render/ink-palette";
+import { setToolColour, setToolQuickSlot, useToolColours, type ToolColourId } from "@/features/ink/ui/use-tool-colours";
+import { InkPrintPreview } from "@/features/ink/ui/ink-print-preview";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import {
@@ -91,7 +84,6 @@ import {
 } from "./constants";
 import {
   buildPageText,
-  isEditableTarget,
   loadPdfLib,
   pageScopedLocus,
   textItemsFromContent,
@@ -370,7 +362,7 @@ export function PdfReader({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || typedCore().isEditableReaderTarget(event.target)) return;
       const active = document.activeElement;
       const ours = !active || active === document.body || rootRef.current?.contains(active);
       if (!ours) return;
@@ -413,7 +405,7 @@ export function PdfReader({
         ctrlKey: event.ctrlKey,
         metaKey: event.metaKey,
         altKey: event.altKey,
-        fromEditable: isEditableTarget(event.target),
+        fromEditable: typedCore().isEditableReaderTarget(event.target),
       });
       if (!command) return;
       event.preventDefault();

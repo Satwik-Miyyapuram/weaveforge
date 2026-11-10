@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::ai::extraction::{concept_key, without_existing, ExtractedConcept, ExtractionResult};
+use crate::ai::extraction::{ExtractedConcept, ExtractionResult, concept_key, without_existing};
 use crate::reader::text_units::{as_f64, collapse_whitespace};
 
 const DEFAULT_MIN_MENTIONS: f64 = 2.0;
@@ -176,11 +176,7 @@ fn render_page(concept: &ExtractedConcept, sources: &[Source]) -> String {
 
 /// `""` for one, `"s"` otherwise.
 fn plural_s(count: usize) -> &'static str {
-    if count == 1 {
-        ""
-    } else {
-        "s"
-    }
+    if count == 1 { "" } else { "s" }
 }
 
 /// The end index JS `slice(0, end)` uses over `len` items. A negative `end` counts back from the end;
@@ -221,7 +217,10 @@ mod tests {
         }
     }
 
-    fn input(concepts: Vec<ExtractedConcept>, mentions: Vec<ExtractedMention>) -> PlanWikiPagesInput {
+    fn input(
+        concepts: Vec<ExtractedConcept>,
+        mentions: Vec<ExtractedMention>,
+    ) -> PlanWikiPagesInput {
         PlanWikiPagesInput {
             extraction: ExtractionResult {
                 concepts,
@@ -275,9 +274,11 @@ mod tests {
         assert_eq!(plans.len(), 1);
         assert_eq!(plans[0].title, "VAE");
         assert_eq!(plans[0].source_document_ids, ["d1", "d2"]);
-        assert!(plans[0]
-            .body
-            .contains("- [[Paper One]]\n  - VAE is good\n- [[d2]]\n  - x\n"));
+        assert!(
+            plans[0]
+                .body
+                .contains("- [[Paper One]]\n  - VAE is good\n- [[d2]]\n  - x\n")
+        );
         assert!(plans[0].body.ends_with("#concept"));
     }
 
@@ -292,7 +293,11 @@ mod tests {
         let titles: Vec<_> = plans.iter().map(|p| p.title.as_str()).collect();
         assert_eq!(titles, ["GAN"]);
 
-        let titles_now: Vec<String> = titles.iter().map(|t| (*t).to_owned()).chain(["VAE".to_owned()]).collect();
+        let titles_now: Vec<String> = titles
+            .iter()
+            .map(|t| (*t).to_owned())
+            .chain(["VAE".to_owned()])
+            .collect();
         let rerun = PlanWikiPagesInput {
             existing_titles: titles_now,
             ..input(
@@ -311,14 +316,20 @@ mod tests {
             max_pages: Some(2.0),
             ..input(concepts.clone(), mentions.clone())
         };
-        let names: Vec<_> = plan_wiki_pages(&capped).into_iter().map(|p| p.title).collect();
+        let names: Vec<_> = plan_wiki_pages(&capped)
+            .into_iter()
+            .map(|p| p.title)
+            .collect();
         assert_eq!(names, ["A", "B"]);
 
         let trimmed = PlanWikiPagesInput {
             max_pages: Some(-1.0),
             ..input(concepts, mentions)
         };
-        let names: Vec<_> = plan_wiki_pages(&trimmed).into_iter().map(|p| p.title).collect();
+        let names: Vec<_> = plan_wiki_pages(&trimmed)
+            .into_iter()
+            .map(|p| p.title)
+            .collect();
         assert_eq!(names, ["A", "B"]);
     }
 

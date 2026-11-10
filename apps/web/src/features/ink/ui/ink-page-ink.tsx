@@ -16,7 +16,7 @@ import { useMemo } from "react";
 import type { InkStroke } from "@weaveforge/core";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { InkStrokes } from "./ink-strokes";
-import { toRenderStrokes } from "./ink-render-strokes";
+import { readyCore } from "@/lib/rust-core";
 
 export interface InkPageInkProps {
   strokes?: readonly InkStroke[];
@@ -46,7 +46,7 @@ export function InkPageInk({
   palette = INK_RENDER_COLOURS,
   hidden,
 }: InkPageInkProps) {
-  const drawn = useMemo(() => toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
+  const drawn = useMemo(() => readyCore().toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
 
   if (drawn.length === 0) return null;
   return (

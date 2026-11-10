@@ -42,9 +42,11 @@ html, body { margin: 0; background: #fff; color: #1f2a44; font-family: Rubik, sy
 pub struct ReaderPrintNote {
     /// Offset from the top of the page, in the page image's own pixels.
     pub top: f64,
+    /// The mark's colour.
     pub colour: String,
     /// The marked text, when the mark was on text.
     pub quote: String,
+    /// The mark's comment.
     pub comment: String,
 }
 
@@ -53,10 +55,13 @@ pub struct ReaderPrintNote {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReaderPrintPage {
+    /// The page raster as an image URL.
     pub image: String,
     /// The raster's size in pixels; the notes' `top` is in the same units.
     pub width: f64,
+    /// The raster height in pixels.
     pub height: f64,
+    /// The page's comments, top to bottom.
     pub notes: Vec<ReaderPrintNote>,
 }
 
@@ -65,8 +70,11 @@ pub struct ReaderPrintPage {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReaderPrintDocument {
+    /// The document's title.
     pub title: String,
+    /// The printed pages.
     pub pages: Vec<ReaderPrintPage>,
+    /// Whether the comments are printed.
     pub with_comments: bool,
 }
 
@@ -75,14 +83,18 @@ pub struct ReaderPrintDocument {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReaderPrintLayoutInput {
+    /// Whether the comments are printed.
     pub with_comments: bool,
+    /// The printed pages.
     pub pages: Vec<ReaderPrintPage>,
 }
 
 /// The sheet's orientation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReaderPrintOrientation {
+    /// Taller than wide.
     Portrait,
+    /// Wider than tall.
     Landscape,
 }
 
@@ -99,7 +111,10 @@ impl ReaderPrintOrientation {
 
 /// Landscape only when there is a margin to print.
 #[must_use]
-pub fn reader_print_orientation(with_comments: bool, pages: &[ReaderPrintPage]) -> ReaderPrintOrientation {
+pub fn reader_print_orientation(
+    with_comments: bool,
+    pages: &[ReaderPrintPage],
+) -> ReaderPrintOrientation {
     if with_comments && pages.iter().any(|page| !page.notes.is_empty()) {
         ReaderPrintOrientation::Landscape
     } else {
@@ -109,18 +124,28 @@ pub fn reader_print_orientation(with_comments: bool, pages: &[ReaderPrintPage]) 
 
 /// A colour safe to put in a style attribute, or the ink colour.
 fn safe_colour(colour: &str) -> &str {
-    static COLOUR: OnceLock<Regex> = OnceLock::new();
-    let re = COLOUR.get_or_init(|| {
-        Regex::new(r"(?i)^(#[0-9a-f]{3,8}|[a-z]+|rgba?\([\d\s.,%]+\))$").expect("static pattern")
-    });
-    if re.is_match(colour) { colour } else { INK }
+    static COLOUR: OnceLock<Option<Regex>> = OnceLock::new();
+    let re = COLOUR
+        .get_or_init(|| Regex::new(r"(?i)^(#[0-9a-f]{3,8}|[a-z]+|rgba?\([\d\s.,%]+\))$").ok());
+    if re.as_ref().is_some_and(|re| re.is_match(colour)) {
+        colour
+    } else {
+        INK
+    }
 }
 
 fn note_card(note: &ReaderPrintNote, page_height: f64) -> String {
-    let top = if page_height > 0.0 { note.top / page_height * 100.0 } else { 0.0 };
+    let top = if page_height > 0.0 {
+        note.top / page_height * 100.0
+    } else {
+        0.0
+    };
     let quote = note.quote.trim();
     let clipped = if quote.chars().count() > QUOTE_LIMIT {
-        format!("{}\u{2026}", quote.chars().take(QUOTE_LIMIT - 1).collect::<String>())
+        format!(
+            "{}\u{2026}",
+            quote.chars().take(QUOTE_LIMIT - 1).collect::<String>()
+        )
     } else {
         quote.to_owned()
     };
@@ -129,9 +154,15 @@ fn note_card(note: &ReaderPrintNote, page_height: f64) -> String {
         safe_colour(&note.colour)
     );
     if !clipped.is_empty() {
-        card.push_str(&format!(r#"<p class="quote">{}</p>"#, escape_html(&clipped)));
+        card.push_str(&format!(
+            r#"<p class="quote">{}</p>"#,
+            escape_html(&clipped)
+        ));
     }
-    card.push_str(&format!(r#"<p class="comment">{}</p>"#, escape_html(note.comment.trim())));
+    card.push_str(&format!(
+        r#"<p class="comment">{}</p>"#,
+        escape_html(note.comment.trim())
+    ));
     card.push_str("</div>");
     card
 }
@@ -152,7 +183,11 @@ pub fn reader_print_document(input: &ReaderPrintDocument) -> String {
             sheets.push_str(&format!(r#"<section class="sheet">{img}</section>"#));
             continue;
         }
-        let notes: String = page.notes.iter().map(|note| note_card(note, page.height)).collect();
+        let notes: String = page
+            .notes
+            .iter()
+            .map(|note| note_card(note, page.height))
+            .collect();
         sheets.push_str(&format!(
             r#"<section class="sheet"><div class="page" style="aspect-ratio:{} / {}">{img}</div><div class="margin">{notes}</div></section>"#,
             page.width, page.height
@@ -174,22 +209,45 @@ mod tests {
     use super::*;
 
     fn note(colour: &str) -> ReaderPrintNote {
-        ReaderPrintNote { top: 50.0, colour: colour.into(), quote: "a line".into(), comment: "why <this>?".into() }
+        ReaderPrintNote {
+            top: 50.0,
+            colour: colour.into(),
+            quote: "a line".into(),
+            comment: "why <this>?".into(),
+        }
     }
 
     fn page(notes: Vec<ReaderPrintNote>) -> ReaderPrintPage {
-        ReaderPrintPage { image: "data:image/jpeg;base64,AA".into(), width: 100.0, height: 200.0, notes }
+        ReaderPrintPage {
+            image: "data:image/jpeg;base64,AA".into(),
+            width: 100.0,
+            height: 200.0,
+            notes,
+        }
     }
 
     fn doc(pages: Vec<ReaderPrintPage>, with_comments: bool) -> ReaderPrintDocument {
-        ReaderPrintDocument { title: "Paper".into(), pages, with_comments }
+        ReaderPrintDocument {
+            title: "Paper".into(),
+            pages,
+            with_comments,
+        }
     }
 
     #[test]
     fn comments_print_landscape_and_only_when_there_are_any() {
-        assert_eq!(reader_print_orientation(true, &[page(vec![note("#ffd400")])]).as_str(), "landscape");
-        assert_eq!(reader_print_orientation(true, &[page(vec![])]).as_str(), "portrait");
-        assert_eq!(reader_print_orientation(false, &[page(vec![note("#ffd400")])]).as_str(), "portrait");
+        assert_eq!(
+            reader_print_orientation(true, &[page(vec![note("#ffd400")])]).as_str(),
+            "landscape"
+        );
+        assert_eq!(
+            reader_print_orientation(true, &[page(vec![])]).as_str(),
+            "portrait"
+        );
+        assert_eq!(
+            reader_print_orientation(false, &[page(vec![note("#ffd400")])]).as_str(),
+            "portrait"
+        );
     }
 
     #[test]
@@ -202,7 +260,8 @@ mod tests {
 
     #[test]
     fn without_comments_the_page_fits_a_portrait_sheet_and_no_card_is_drawn() {
-        let html = reader_print_document(&doc(vec![page(vec![note("#ffd400")]), page(vec![])], false));
+        let html =
+            reader_print_document(&doc(vec![page(vec![note("#ffd400")]), page(vec![])], false));
         assert!(html.contains("size: A4 portrait"));
         assert!(!html.contains(r#"class="note""#));
         assert_eq!(html.matches(r#"class="sheet""#).count(), 2);
@@ -210,7 +269,10 @@ mod tests {
 
     #[test]
     fn a_colour_that_is_not_a_colour_does_not_reach_the_style_attribute() {
-        let html = reader_print_document(&doc(vec![page(vec![note(r#"red;background:url("x")"#)])], true));
+        let html = reader_print_document(&doc(
+            vec![page(vec![note(r#"red;background:url("x")"#)])],
+            true,
+        ));
         assert!(!html.contains("url("));
         assert!(html.contains("border-left-color:#1f2a44"));
     }
@@ -219,7 +281,9 @@ mod tests {
     fn a_sheet_is_a_bare_a4_with_no_page_margin_or_frame() {
         let html = reader_print_document(&doc(vec![page(vec![note("#ffd400")])], true));
         assert!(html.contains("margin: 0; }"));
-        assert!(!html.contains("img { display: block; width: 100%; height: 100%; object-fit: contain; border"));
+        assert!(!html.contains(
+            "img { display: block; width: 100%; height: 100%; object-fit: contain; border"
+        ));
     }
 
     #[test]
@@ -227,7 +291,12 @@ mod tests {
         let nasty = r#"a & b <i>"x"</i>"#;
         let input = ReaderPrintDocument {
             title: nasty.into(),
-            pages: vec![page(vec![ReaderPrintNote { top: 0.0, colour: "#000".into(), quote: nasty.into(), comment: nasty.into() }])],
+            pages: vec![page(vec![ReaderPrintNote {
+                top: 0.0,
+                colour: "#000".into(),
+                quote: nasty.into(),
+                comment: nasty.into(),
+            }])],
             with_comments: true,
         };
         let html = reader_print_document(&input);

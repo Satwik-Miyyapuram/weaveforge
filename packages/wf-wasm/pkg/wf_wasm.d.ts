@@ -1302,6 +1302,12 @@ export function countActions(entries: any): any;
 export function countJsonActions(entries: any): any;
 
 /**
+ * [`count_section_sources`](section_sources::count_section_sources) (TS `countSectionSources`).
+ * An absent or empty body counts 0.
+ */
+export function countSectionSources(body?: string | null): number;
+
+/**
  * [`count_words`](text::count_words): runs of non-whitespace in `text`.
  */
 export function countWords(text: string): number;
@@ -1859,6 +1865,15 @@ export function deletionFor(kind: any, side: any): any;
  * Fails when `status` is not that shape.
  */
 export function describeChanges(status: any): string;
+
+/**
+ * [`describe_free_copy_failure`]: `outcome` is the `"none"` outcome of a search.
+ *
+ * # Errors
+ *
+ * Fails if `outcome` does not have the expected shape.
+ */
+export function describeFreeCopyFailure(outcome: any, web_article: boolean): string;
 
 /**
  * [`wf_core::sync::git_remote::describe_pull`] for JS.
@@ -2722,6 +2737,11 @@ export function folderKey(relative_path: string): string;
 export function folderKeys(relative_paths: string[]): string[];
 
 /**
+ * [`folder_title_from_path`](folder_layout::folder_title_from_path).
+ */
+export function folderTitleFromPath(path: string): string;
+
+/**
  * [`font_size_of`](analysis_text::font_size_of) (TS `fontSizeOf`).
  *
  * # Errors
@@ -3139,6 +3159,16 @@ export function headingOutline(headings: any): any;
  * [`heading_slug`](heading_slug::heading_slug): the anchor id for a heading.
  */
 export function headingSlug(text: string): string;
+
+/**
+ * [`highlight_within_excerpt`](evidence::highlight_within_excerpt). `locus` is a PDF locus object or
+ * `undefined`; the result is `{ before, match, after, confidence }`, or `null` when nothing matches.
+ *
+ * # Errors
+ *
+ * Fails if `locus` is not a PDF locus object, or the result cannot be converted.
+ */
+export function highlightWithinExcerpt(excerpt: string, locus: any): any;
 
 /**
  * [`highlights_digest`](reading_digest::highlights_digest) (TS `highlightsDigest`).
@@ -3955,6 +3985,15 @@ export function isUnsureConfidence(conf: number): boolean;
 export function isUserIntegrationConnected(settings: any, provider_id: string, field_ids: any): boolean;
 
 /**
+ * [`is_web_article`]: `ids` is an `OpenAccessIds`.
+ *
+ * # Errors
+ *
+ * Fails if `ids` does not have the expected shape.
+ */
+export function isWebArticle(ids: any): boolean;
+
+/**
  * [`is_child_item`](zotero_library::is_child_item): true for an attachment, note, annotation or
  * an item with a parent.
  *
@@ -4005,6 +4044,15 @@ export function joinInkTextLayer(pages: any): string;
  * known kind.
  */
 export function jsonDataPath(project_root: string, kind: any): string;
+
+/**
+ * [`json_edit_since`](folder_mirror::json_edit_since). `base` is the recorded digest map.
+ *
+ * # Errors
+ *
+ * Fails when `base` is not an object of string digests.
+ */
+export function jsonEditSince(base: any, path: string, text: string): boolean;
 
 /**
  * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
@@ -4193,6 +4241,17 @@ export function layoutForTabMenu(layout: any, pane_id: string, index: number, co
  * Never fails in practice; returns the serializer's result type.
  */
 export function layoutFromRecord(raw?: string | null): any;
+
+/**
+ * [`layout_margin_notes`]: `marks` is one `{ hasComment, hasPicture, geometry }` per
+ * annotation and `projection` a page projection. Returns `{ index, top, anchorTop }[]` in
+ * ascending `anchorTop` order, where `index` is the mark's position in `marks`.
+ *
+ * # Errors
+ *
+ * Fails if `marks` or `projection` do not have the expected shape.
+ */
+export function layoutMarginNotes(marks: any, projection: any, card_height: number): any;
 
 /**
  * [`leaves`](pane::leaves). Returns owned copies of the leaves.
@@ -5271,6 +5330,15 @@ export function noticeFor(notice: any, entry_index: number): any;
 export function oneEuroAlpha(cutoff: number, dt_ms: number): number;
 
 /**
+ * [`open_access_ids_of`]: `paper` carries `doi`, `arxivId`, `url` and `metadata`.
+ *
+ * # Errors
+ *
+ * Fails if `paper` does not have the expected shape.
+ */
+export function openAccessIdsOf(paper: any): any;
+
+/**
  * [`openalex_to_hit`](related_paper_hit::openalex_to_hit): the hit for an OpenAlex work, or
  * nothing when it has no title.
  *
@@ -5406,6 +5474,17 @@ export function overleafExternalUrl(id: string): string;
  * [`overleaf_git_url`](overleaf::overleaf_git_url).
  */
 export function overleafGitUrl(id: string): string;
+
+/**
+ * [`wf_core::sync::blob_links::owned_asset_folder_paths`] for JS. `bodies` is an array
+ * of strings; the result is the sorted array of folder paths they point at.
+ *
+ * # Errors
+ *
+ * Fails when `bodies` is not an array of strings, or a body is over `MAX_INDEX_TEXT_UTF16`
+ * UTF-16 units.
+ */
+export function ownedAssetFolderPaths(bodies: any): any;
 
 /**
  * [`pack_ink_stroke`] as `{ points, pressures }`; `options` is the TS
@@ -6113,6 +6192,11 @@ export function pickNearestMatch(matches: any, position: any): any;
 export function pickProject(projects: any, needle?: string | null): number;
 
 /**
+ * [`pick_project_folder`](folder_layout::pick_project_folder). `undefined` when no folder fits.
+ */
+export function pickProjectFolder(dirs: string[], exact: string, tail: string): string | undefined;
+
+/**
  * [`picture_path`]: the stored file behind a placed picture, or `null`.
  *
  * # Errors
@@ -6160,6 +6244,17 @@ export function placePlanWidget(saved: any, areas: any): any;
  * Fails if an argument has the wrong shape, or past the entry count or the total cap.
  */
 export function planArchiveEntries(entries: any, limits: any): any;
+
+/**
+ * [`wf_core::sync::blob_links::plan_asset_reanchor`] for JS. `owned` and `available` are
+ * arrays of folder paths; the result is `{ keep, upload, unresolved }`.
+ *
+ * # Errors
+ *
+ * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `owned` or `available`
+ * is not an array of strings.
+ */
+export function planAssetReanchor(body: string, owned: any, available: any): any;
 
 /**
  * [`plan_bib_import`](bib_import::plan_bib_import) (TS `planBibImport`).
@@ -6300,6 +6395,15 @@ export function planTimeline(milestones: any, today: string): any;
 export function planWidgetData(items: any, include_done: boolean, limit: number | null | undefined, now_ms: number): any;
 
 /**
+ * [`plan_wiki_pages`](wiki_plan::plan_wiki_pages) for a `PlanWikiPagesInput` object; returns the plans.
+ *
+ * # Errors
+ *
+ * Fails if `input` has the wrong shape, or the plans cannot be converted.
+ */
+export function planWikiPages(input: any): any;
+
+/**
  * [`plot_height`](plot_size::plot_height).
  */
 export function plotHeight(width: number, base: number): number;
@@ -6341,6 +6445,16 @@ export function pointInPolygon(polygon: Float64Array, x: number, y: number): boo
  * Fails only if the result cannot be converted to a JS value.
  */
 export function postgrestErrorInfo(body: string): any;
+
+/**
+ * [`keyed_column_spec`]: the keyed-column spec named `name`, or `null` when there is none.
+ */
+export function postgrestKeyedColumnSpec(name: string): any;
+
+/**
+ * [`row_spec`]: the row spec named `name`, or `null` when there is none.
+ */
+export function postgrestRowSpec(name: string): any;
 
 /**
  * [`writable`] for JS (TS `postgrestWritable`): the payload minus the table's generated columns.
@@ -6706,6 +6820,16 @@ export function readableText(body: string): string;
  * Fails if `event` is not a `ReaderKeyEvent` object.
  */
 export function readerKeyboardCommand(event: any): any;
+
+/**
+ * [`reader_print_document`]: the paper as an HTML document for a print frame's `srcdoc`.
+ */
+export function readerPrintDocument(doc: any): string;
+
+/**
+ * [`reader_print_orientation`]: `"portrait"` or `"landscape"` for the sheet.
+ */
+export function readerPrintOrientation(input: any): string;
 
 /**
  * [`to_item_domain`]: a `reading_list_items` row as a domain item.
@@ -7136,6 +7260,11 @@ export function rewriteMcpConfig(config: any, key: string, launch: any): any;
 export function rewriteWikilinks(body: string, renames: any): string;
 
 /**
+ * [`role_rank`](member::role_rank). `undefined` for a role the rank table does not know.
+ */
+export function roleRank(role: string): number | undefined;
+
+/**
  * [`root_folder_id_of`](upload::root_folder_id_of): the writable project's root folder id, or
  * `undefined` when read-only or the answer has none.
  */
@@ -7456,6 +7585,12 @@ export function selectedText(lines: any, indices: any): string;
  * Fails if `selection` or `page` is not the expected object shape, or the result cannot be converted.
  */
 export function selectionToAnchor(selection: any, page: any): any;
+
+/**
+ * [`semantic_scholar_target`](semantic_scholar_relay::semantic_scholar_target): the upstream
+ * URL for a relay path, or `undefined` when the path is not one.
+ */
+export function semanticScholarTarget(pathname: string, search: string): string | undefined;
 
 /**
  * [`semantic_scholar_to_metadata`] (TS `semanticScholarToMetadata`). A Semantic Scholar paper
@@ -8334,6 +8469,12 @@ export function toPdfSearchDocs(sources: any, degrees: any): any;
 export function toRelativeBlobLinks(body: string, file_path: string): any;
 
 /**
+ * [`to_render_strokes`]: `strokes` is an `InkRenderSource[]`, `palette` an
+ * `InkSvgPalette`, and `hidden` the positions to leave out.
+ */
+export function toRenderStrokes(strokes: any, palette: any, hidden: Uint32Array): any;
+
+/**
  * [`to_search_docs`](search_document::to_search_docs). `degrees` is a plain
  * `{ "kind:id": count }` object.
  *
@@ -8706,6 +8847,15 @@ export function webCacheDocumentLimit(): number;
 export function wikiPageRefs(pages: any): any;
 
 /**
+ * [`wiki_proposal_content`](wiki_plan::wiki_proposal_content) for a `WikiPagePlan` object.
+ *
+ * # Errors
+ *
+ * Fails if `plan` is not a wiki page plan object.
+ */
+export function wikiProposalContent(plan: any): any;
+
+/**
  * [`wiki_source_documents`]: notes and papers as extraction documents. `sourceIds` is
  * optional; omitted means every note and paper.
  */
@@ -8895,6 +9045,16 @@ export function zoteroArxivId(item: any): any;
  * [`zotero_content_keys`] (TS `zoteroContentKeys`). The keys a paper matches on.
  */
 export function zoteroContentKeys(doi?: string | null, arxiv_id?: string | null, title?: string | null): any;
+
+/**
+ * [`zotero_headers`](zotero_library::zotero_headers): the API key and version headers for a
+ * request, as a plain object.
+ *
+ * # Errors
+ *
+ * Fails only if the headers cannot be converted to a JS value.
+ */
+export function zoteroHeaders(api_key: string): any;
 
 /**
  * [`is_pdf_attachment`] (TS `zoteroIsPdfAttachment`).
@@ -9148,6 +9308,7 @@ export interface InitOutput {
     readonly countActionList: (a: any) => [number, number, number];
     readonly countActions: (a: any) => [number, number, number];
     readonly countJsonActions: (a: any) => [number, number, number];
+    readonly countSectionSources: (a: number, b: number) => number;
     readonly countWords: (a: number, b: number) => number;
     readonly coveredHitMask: (a: any, b: number, c: number) => [number, number, number];
     readonly coveredTextSpans: (a: any, b: any) => [number, number, number];
@@ -9211,6 +9372,7 @@ export interface InitOutput {
     readonly deletionAction: (a: any, b: any, c: any, d: number, e: number, f: any) => [number, number, number];
     readonly deletionFor: (a: any, b: any) => [number, number, number];
     readonly describeChanges: (a: any) => [number, number, number, number];
+    readonly describeFreeCopyFailure: (a: any, b: number) => [number, number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
     readonly describeRemoteStatus: (a: any) => [number, number, number, number];
@@ -9323,6 +9485,7 @@ export interface InitOutput {
     readonly folderIdsOf: (a: any) => [number, number, number];
     readonly folderKey: (a: number, b: number) => [number, number];
     readonly folderKeys: (a: number, b: number) => [number, number];
+    readonly folderTitleFromPath: (a: number, b: number) => [number, number];
     readonly fontSizeOf: (a: any) => [number, number, number];
     readonly forgetSearchQuery: (a: number, b: number, c: number, d: number) => [number, number];
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
@@ -9377,6 +9540,7 @@ export interface InitOutput {
     readonly hasPdfView: (a: number, b: number) => number;
     readonly headingOutline: (a: any) => [number, number, number];
     readonly headingSlug: (a: number, b: number) => [number, number];
+    readonly highlightWithinExcerpt: (a: number, b: number, c: any) => [number, number, number];
     readonly highlightsDigest: (a: any, b: number, c: number) => [number, number, number, number];
     readonly hostOf: (a: number, b: number) => [number, number];
     readonly humanise: (a: number, b: number) => [number, number];
@@ -9498,12 +9662,14 @@ export interface InitOutput {
     readonly isUnderIgnoredFolder: (a: number, b: number) => [number, number, number];
     readonly isUnsureConfidence: (a: number) => number;
     readonly isUserIntegrationConnected: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly isWebArticle: (a: any) => [number, number, number];
     readonly isZoteroChildItem: (a: any) => [number, number, number];
     readonly isZoteroLibrarySyncMode: (a: any) => number;
     readonly itemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly joinBibtex: (a: any) => [number, number, number, number];
     readonly joinInkTextLayer: (a: any) => [number, number, number, number];
     readonly jsonDataPath: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly jsonEditSince: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly jsonKindOfPath: (a: number, b: number) => [number, number, number, number];
     readonly keepFigureOnPage: (a: any, b: number, c: number) => [number, number, number, number];
     readonly keyLabel: (a: number, b: number, c: number) => [number, number];
@@ -9526,6 +9692,7 @@ export interface InitOutput {
     readonly layoutForCommand: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly layoutForTabMenu: (a: any, b: number, c: number, d: number, e: any, f: number, g: number) => [number, number, number];
     readonly layoutFromRecord: (a: number, b: number) => [number, number, number];
+    readonly layoutMarginNotes: (a: any, b: any, c: number) => [number, number, number];
     readonly leaves: (a: any) => [number, number, number];
     readonly levenshtein: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly libraryBibtex: (a: any) => [number, number, number, number];
@@ -9676,6 +9843,7 @@ export interface InitOutput {
     readonly oneeurofilter_new: (a: any) => [number, number, number];
     readonly oneeurofilter_reset: (a: number) => void;
     readonly oneeurofilter_speed: (a: number) => number;
+    readonly openAccessIdsOf: (a: any) => [number, number, number];
     readonly openAlexToHit: (a: any) => [number, number, number];
     readonly openAlexToMetadata: (a: any) => [number, number, number];
     readonly openModeFor: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -9692,6 +9860,7 @@ export interface InitOutput {
     readonly outlineTextLines: (a: any) => [number, number, number];
     readonly overleafExternalUrl: (a: number, b: number) => [number, number];
     readonly overleafGitUrl: (a: number, b: number) => [number, number];
+    readonly ownedAssetFolderPaths: (a: any) => [number, number, number];
     readonly packInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly packVectors: (a: any, b: number, c: number) => [number, number, number, number];
     readonly pageFromChunkBody: (a: number, b: number) => [number, number, number];
@@ -9779,11 +9948,13 @@ export interface InitOutput {
     readonly pickKeysToEvict: (a: any, b: number) => [number, number, number];
     readonly pickNearestMatch: (a: any, b: any) => [number, number, number];
     readonly pickProject: (a: any, b: number, c: number) => [number, number, number];
+    readonly pickProjectFolder: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly picturePath: (a: any) => [number, number, number];
     readonly pinnedScreenIndex: (a: any) => [number, number, number];
     readonly placeOnSheet: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly placePlanWidget: (a: any, b: any) => [number, number, number];
     readonly planArchiveEntries: (a: any, b: any) => [number, number, number];
+    readonly planAssetReanchor: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly planBibImport: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number];
     readonly planBibliographyAnnotations: (a: any, b: any) => [number, number, number];
     readonly planChipTarget: (a: any, b: any, c: any, d: number) => [number, number, number];
@@ -9800,6 +9971,7 @@ export interface InitOutput {
     readonly planSeriesIngestIndices: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly planTimeline: (a: any, b: number, c: number) => [number, number, number];
     readonly planWidgetData: (a: any, b: number, c: number, d: number) => [number, number, number];
+    readonly planWikiPages: (a: any) => [number, number, number];
     readonly plotHeight: (a: number, b: number) => number;
     readonly plotTier: (a: number) => [number, number];
     readonly plural: (a: number, b: number, c: number, d: number, e: number) => [number, number];
@@ -9807,6 +9979,8 @@ export interface InitOutput {
     readonly pointInArea: (a: any, b: number, c: number) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
     readonly postgrestErrorInfo: (a: number, b: number) => [number, number, number];
+    readonly postgrestKeyedColumnSpec: (a: number, b: number) => [number, number, number];
+    readonly postgrestRowSpec: (a: number, b: number) => [number, number, number];
     readonly postgrestWritable: (a: number, b: number, c: any) => [number, number, number];
     readonly preprintServerFor: (a: number, b: number) => [number, number];
     readonly pressureByte: (a: number, b: number) => number;
@@ -9851,6 +10025,8 @@ export interface InitOutput {
     readonly readStorageConfig: (a: any) => [number, number, number];
     readonly readableText: (a: number, b: number) => [number, number, number, number];
     readonly readerKeyboardCommand: (a: any) => [number, number, number];
+    readonly readerPrintDocument: (a: any) => [number, number, number, number];
+    readonly readerPrintOrientation: (a: any) => [number, number, number, number];
     readonly readingListItemToDomain: (a: any) => [number, number, number];
     readonly readingListItemToRow: (a: any) => [number, number, number];
     readonly readingListToDomain: (a: any) => [number, number, number];
@@ -9905,6 +10081,7 @@ export interface InitOutput {
     readonly reviewers: (a: any) => [number, number, number, number];
     readonly rewriteMcpConfig: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly rewriteWikilinks: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly roleRank: (a: number, b: number) => number;
     readonly rootFolderIdOf: (a: any) => [number, number, number, number];
     readonly rootKey: (a: any) => [number, number, number];
     readonly rootOf: (a: any) => [number, number, number];
@@ -9944,6 +10121,7 @@ export interface InitOutput {
     readonly selectedPdfPages: (a: number, b: number, c: number) => [number, number, number];
     readonly selectedText: (a: any, b: any) => [number, number, number, number];
     readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
+    readonly semanticScholarTarget: (a: number, b: number, c: number, d: number) => [number, number];
     readonly semanticScholarToMetadata: (a: any) => [number, number, number];
     readonly semanticStatusText: (a: any) => [number, number, number, number];
     readonly serialiseArtifactRef: (a: any) => [number, number, number, number];
@@ -10058,6 +10236,7 @@ export interface InitOutput {
     readonly toExtractionResult: (a: any, b: number, c: number) => [number, number, number];
     readonly toPdfSearchDocs: (a: any, b: any) => [number, number, number];
     readonly toRelativeBlobLinks: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly toRenderStrokes: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly toSearchDocs: (a: any, b: any) => [number, number, number];
     readonly toZoteroItem: (a: any) => [number, number, number];
     readonly toZoteroWritePayload: (a: any, b: number, c: number) => [number, number, number];
@@ -10117,6 +10296,7 @@ export interface InitOutput {
     readonly walkOverleafSections: (a: any, b: any) => [number, number, number];
     readonly webCacheDocumentLimit: () => number;
     readonly wikiPageRefs: (a: any) => [number, number, number];
+    readonly wikiProposalContent: (a: any) => [number, number, number];
     readonly wikiSourceDocuments: (a: any, b: any, c: any) => [number, number, number];
     readonly withActive: (a: any, b: number, c: number) => [number, number, number];
     readonly withImageWidth: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -10141,6 +10321,7 @@ export interface InitOutput {
     readonly zoteroAnnotationFromItem: (a: any) => [number, number, number];
     readonly zoteroArxivId: (a: any) => [number, number, number];
     readonly zoteroContentKeys: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly zoteroHeaders: (a: number, b: number) => [number, number, number];
     readonly zoteroIsPdfAttachment: (a: any) => [number, number, number];
     readonly zoteroItemKey: (a: any) => [number, number, number];
     readonly zoteroKeyOf: (a: any) => [number, number, number];

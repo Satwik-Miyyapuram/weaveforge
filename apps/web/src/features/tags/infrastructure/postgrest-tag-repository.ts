@@ -7,15 +7,23 @@ import type {
   TagSource,
   TagWithPaperCount,
 } from "@weaveforge/core";
-import {
-  type TagRow,
-  type PaperTagRow,
-  toTagDomain,
-  toPaperTagDomain,
-} from "./tag-rows";
 import { one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { readyCore } from "@/lib/rust-core";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+
+/** Row shapes as stored in the tags and paper_tags tables. */
+interface TagRow {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+interface PaperTagRow {
+  paper_id: string;
+  tag_id: string;
+  source: string;
+  annotation_ref: string | null;
+}
 
 /** Tag ids per paper_tags read; the list travels in the URL. */
 const TAG_ID_CHUNK = 200;
@@ -43,20 +51,20 @@ export class PostgrestTagRepository extends ProjectRepository implements ITagRep
 
   async getById(id: string): Promise<Tag | null> {
     const row = await one<TagRow>(this.db.from(TAGS).select(TAG_COLUMNS).eq("id", id).maybeSingle());
-    return row ? toTagDomain(row) : null;
+    return row ? readyCore().tagFromRow(row) : null;
   }
 
   async findByName(name: string): Promise<Tag | null> {
     let q = this.db.from(TAGS).select(TAG_COLUMNS).eq("name", name);
     if (this.pid) q = q.eq("project_id", this.pid);
     const row = await one<TagRow>(q.maybeSingle());
-    return row ? toTagDomain(row) : null;
+    return row ? readyCore().tagFromRow(row) : null;
   }
 
   async list(): Promise<Tag[]> {
     let q = this.db.from(TAGS).select(TAG_COLUMNS).order("name");
     if (this.pid) q = q.eq("project_id", this.pid);
-    return (await rows<TagRow>(q)).map(toTagDomain);
+    return (await rows<TagRow>(q)).map((row) => readyCore().tagFromRow(row));
   }
 
   async listWithCounts(): Promise<TagWithPaperCount[]> {
@@ -99,15 +107,15 @@ export class PostgrestPaperTagRepository implements IPaperTagRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async listForPaper(paperId: string): Promise<PaperTag[]> {
-    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS).eq("paper_id", paperId))).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS).eq("paper_id", paperId))).map((row) => readyCore().paperTagFromRow(row));
   }
 
   async listForTag(tagId: string): Promise<PaperTag[]> {
-    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS).eq("tag_id", tagId))).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS).eq("tag_id", tagId))).map((row) => readyCore().paperTagFromRow(row));
   }
 
   async listAll(): Promise<PaperTag[]> {
-    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS))).map(toPaperTagDomain);
+    return (await rows<PaperTagRow>(this.db.from(PAPER_TAGS).select(PAPER_TAG_COLUMNS))).map((row) => readyCore().paperTagFromRow(row));
   }
 
   async link(link: PaperTag): Promise<void> {

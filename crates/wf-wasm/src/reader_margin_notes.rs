@@ -3,7 +3,7 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::margin_notes::{layout_margin_notes, stack_margin_notes, MarginMark};
+use wf_core::reader::margin_notes::{MarginMark, layout_margin_notes, stack_margin_notes};
 use wf_core::reader::viewport::ReaderPageProjection;
 
 use super::to_js;
@@ -18,7 +18,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `marks` or `projection` do not have the expected shape.
 #[wasm_bindgen(js_name = layoutMarginNotes)]
-pub fn layout_margin_notes_js(marks: JsValue, projection: JsValue, card_height: f64) -> JsResult<JsValue> {
+pub fn layout_margin_notes_js(
+    marks: JsValue,
+    projection: JsValue,
+    card_height: f64,
+) -> JsResult<JsValue> {
     let marks: Vec<MarginMark> = serde_wasm_bindgen::from_value(marks)?;
     let projection: ReaderPageProjection = serde_wasm_bindgen::from_value(projection)?;
     to_js(&layout_margin_notes(&marks, projection, card_height))

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
-import { buildMemberNameMap } from "@/features/sharing/application/member-labels";
+import { readyCore } from "@/lib/rust-core";
 import { SharedItemRenderer } from "@/features/sharing/ui/shared-item-renderer";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -45,7 +45,7 @@ type SharedWithMeView = {
 export function SharedWithMeScreen() {
   const loadScreen = useCallback(async (): Promise<SharedWithMeView> => {
     const data = await getContainer().sharing.loadSharedWithMeScreen();
-    return { items: data.items, nameOf: buildMemberNameMap(data.members) };
+    return { items: data.items, nameOf: readyCore().memberNameMap(data.members) };
   }, []);
 
   const { data, loading, error } = useScreenData("shared-with-me", loadScreen);

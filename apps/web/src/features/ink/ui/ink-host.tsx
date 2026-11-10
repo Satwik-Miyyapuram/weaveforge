@@ -50,7 +50,6 @@ import {
 import { InkBar } from "./ink-bar";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
-import { fitScale } from "./ink-page-math";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
@@ -179,7 +178,7 @@ export function InkHost({
   } = rpc;
 
   const scale = useMemo(
-    () => fitScale(containerWidth) * zoom,
+    () => readyCore().fitScale(containerWidth, INK_A4_WIDTH) * zoom,
     [containerWidth, zoom],
   );
   const page: InkStoredPage = pagesRef.current?.[pageIndex] ?? {

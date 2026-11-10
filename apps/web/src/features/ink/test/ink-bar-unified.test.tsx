@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { InkBar } from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

@@ -1,6 +1,6 @@
 /**
- * PDF response rules (Rust `reader_pdf_response`), re-exported from index.ts. Keeps the signatures of
- * apps/web/src/features/reader/application/pdf-response-rules.ts.
+ * PDF response rules (Rust `reader_pdf_response`), re-exported from index.ts. Keeps the signatures of the
+ * removed TS pdf-response-rules.
  */
 import {
   hasPdfMagic as rawHasPdfMagic,

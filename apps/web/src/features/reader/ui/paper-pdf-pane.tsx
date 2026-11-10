@@ -44,7 +44,6 @@ import { readyCore } from "@/lib/rust-core";
 import type { ZoteroAnnotation } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
-import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
 import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
@@ -164,7 +163,7 @@ export function PaperPdfPane({
           setError("Paper not found or inaccessible.");
           return;
         }
-        openAccessIds.current = openAccessIdsOf(paper);
+        openAccessIds.current = readyCore().openAccessIdsOf(paper);
         // Resolve the source first: the ladder is what knows the content hash,
         // and the projection needs it to stamp each Zotero rect with the file
         // it was captured against.
@@ -242,7 +241,7 @@ export function PaperPdfPane({
           if (cancelled) return;
           if (kept) {
             setHtmlPage(kept);
-          } else if (openAccessIds.current && isWebArticle(openAccessIds.current)) {
+          } else if (openAccessIds.current && readyCore().isWebArticle(openAccessIds.current)) {
             // A blog post or an essay: its own page is the paper, so open it
             // rather than wait for a button press to go and get it.
             setError("This paper is a web page and has no PDF.");
@@ -387,7 +386,7 @@ export function PaperPdfPane({
     if (!paperId || !openAccessIds.current) return;
     setFreeBusy(true);
     setFreeStatus({
-      text: isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
+      text: readyCore().isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
       error: false,
     });
     try {
@@ -421,7 +420,10 @@ export function PaperPdfPane({
           .then(({ indexPaperHtmlPage }) => indexPaperHtmlPage(outcome.page, paperTitle ?? undefined))
           .catch(() => undefined);
       } else {
-        setFreeStatus({ text: describeFreeCopyFailure(outcome, isWebArticle(openAccessIds.current)), error: true });
+        setFreeStatus({
+          text: readyCore().describeFreeCopyFailure(outcome, readyCore().isWebArticle(openAccessIds.current)),
+          error: true,
+        });
       }
     } catch (err) {
       setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
@@ -456,7 +458,7 @@ export function PaperPdfPane({
   const freeCopy = canLoad ? (
     <div className="paper-free-copy">
       <Button variant="primary" size="sm" disabled={freeBusy} onClick={() => void findFree()}>
-        {freeBusy ? "Searching…" : openAccessIds.current && isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
+        {freeBusy ? "Searching…" : openAccessIds.current && readyCore().isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
       </Button>
       {freeStatus && (
         <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>

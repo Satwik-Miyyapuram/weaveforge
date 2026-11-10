@@ -12,7 +12,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { type InkMenuAction, type InkMenuSection } from "@/features/ink";
+import { type InkMenuAction, type InkMenuSection } from "@/features/ink/ui/ink-bar-menus";
 import { useToolbarFold } from "@/features/ink/ui/ink-bar-fold";
 import {
   EDITOR_CITATION_FORMATS,
@@ -28,7 +28,7 @@ import { ToolbarSlotContext } from "./toolbar-slot";
  * first load (the bundle budget). Until it arrives the greyed bar stands in.
  */
 const LazyInkIdleBar = dynamic(
-  () => import("@/features/ink").then((m) => m.InkIdleBar),
+  () => import("@/features/ink/ui/ink-idle-bar").then((m) => m.InkIdleBar),
   {
     ssr: false,
     loading: () => <span className="workspace-toolbar-doc workspace-toolbar-idle" />,

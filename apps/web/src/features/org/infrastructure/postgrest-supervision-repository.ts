@@ -5,7 +5,7 @@ import type {
   Milestone,
 } from "@weaveforge/core";
 import {
-  MILESTONE_COLUMNS,
+  milestoneColumns,
   milestoneToDomain,
   type MilestoneRow,
 } from "@/features/plan/infrastructure/milestone-rows";
@@ -28,7 +28,7 @@ export class PostgrestSupervisionRepository implements ISupervisionRepository {
   async listMilestones(memberId: string): Promise<Milestone[]> {
     return (await rows<MilestoneRow>(this.db
       .from("milestones")
-      .select(MILESTONE_COLUMNS)
+      .select(milestoneColumns())
       .eq("user_id", memberId)
       .order("target_date", { ascending: true, nullsFirst: false }))).map(milestoneToDomain);
   }
@@ -46,11 +46,11 @@ export class PostgrestSupervisionRepository implements ISupervisionRepository {
     if (memberIds.length === 0) return new Map();
     const { data, error } = await this.db
       .from("milestones")
-      .select(`${MILESTONE_COLUMNS},user_id`)
+      .select(`${milestoneColumns()},user_id`)
       .in("user_id", memberIds)
       .order("target_date", { ascending: true, nullsFirst: false });
     if (error) throw error;
-    return groupByOwner(data as (MilestoneRow & { user_id: string })[], memberIds, milestoneToDomain);
+    return groupByOwner(data as unknown as (MilestoneRow & { user_id: string })[], memberIds, milestoneToDomain);
   }
 
   async listLogsFor(memberIds: readonly string[]): Promise<Map<string, LogEntry[]>> {

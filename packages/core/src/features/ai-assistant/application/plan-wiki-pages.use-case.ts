@@ -8,10 +8,7 @@
  * same human review as anything else the assistant writes.
  */
 
-import {
-  type ExtractedConcept,
-  type ExtractionResult,
-} from "../domain/ai-extraction.js";
+import { type ExtractionResult } from "../domain/ai-extraction.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface WikiPagePlan {
@@ -39,50 +36,7 @@ export interface PlanWikiPagesInput {
  * "Create note" said nothing about which page or why.
  */
 export function wikiProposalContent(plan: WikiPagePlan): string {
-  const times = plan.mentions === 1 ? "once" : `${plan.mentions} times`;
-  const sources = plan.sourceDocumentIds.length;
-  const where = `${sources} note${sources === 1 ? "" : "s"} or paper${sources === 1 ? "" : "s"}`;
-  return [`**New wiki page "${plan.title}"**`, `Why: mentioned ${times} in ${where}.`, "", plan.body].join("\n");
-}
-
-const DEFAULT_MIN_MENTIONS = 2;
-const DEFAULT_MAX_PAGES = 25;
-
-function renderPage(
-  concept: ExtractedConcept,
-  sources: { id: string; title: string; evidence: string }[],
-): string {
-  const lines: string[] = [];
-
-  lines.push(`> Drafted from ${sources.length} source${sources.length === 1 ? "" : "s"}. Edit freely — this is an ordinary note.`);
-  lines.push("");
-
-  if (concept.aliases.length) {
-    lines.push(`**Also known as:** ${concept.aliases.join(", ")}`);
-    lines.push("");
-  }
-
-  lines.push("## Summary");
-  lines.push("");
-  // Deliberately blank: inventing a definition is exactly the kind of
-  // confident wrongness that makes generated wikis untrustworthy. The
-  // structure and the links are the value; the prose is the user's.
-  lines.push("_Not written yet._");
-  lines.push("");
-
-  lines.push("## Mentioned in");
-  lines.push("");
-  for (const source of sources) {
-    lines.push(`- [[${source.title}]]`);
-    // One line, so a snippet's own headings and lists cannot leak into the page (E28).
-    const evidence = source.evidence.replace(/\s+/g, " ").trim();
-    if (evidence) lines.push(`  - ${evidence}`);
-  }
-  lines.push("");
-
-  lines.push(`#${concept.kind}`);
-
-  return lines.join("\n");
+  return rust().wikiProposalContent(plan);
 }
 
 /**
@@ -93,33 +47,18 @@ function renderPage(
  * queue filling with duplicates.
  */
 export function planWikiPages(input: PlanWikiPagesInput): WikiPagePlan[] {
-  const minMentions = input.minMentions ?? DEFAULT_MIN_MENTIONS;
-  const maxPages = input.maxPages ?? DEFAULT_MAX_PAGES;
-
-  const fresh = rust().withoutExisting(input.extraction, input.existingTitles);
-
-  const mentionsByConcept = new Map<string, { id: string; title: string; evidence: string }[]>();
-  for (const mention of fresh.mentions) {
-    const key = rust().conceptKey(mention.conceptName);
-    const list = mentionsByConcept.get(key) ?? [];
-    list.push({
-      id: mention.documentId,
-      title: input.titleOf?.(mention.documentId) ?? mention.documentId,
-      evidence: mention.evidence,
-    });
-    mentionsByConcept.set(key, list);
+  // `titleOf` is resolved here, once per mentioned document, because the Rust core takes data, not callbacks.
+  const titles: Record<string, string> = {};
+  for (const mention of input.extraction.mentions) {
+    if (mention.documentId in titles) continue;
+    const title = input.titleOf?.(mention.documentId);
+    if (title !== undefined) titles[mention.documentId] = title;
   }
-
-  return fresh.concepts
-    .filter((concept) => concept.mentions >= minMentions)
-    .slice(0, maxPages)
-    .map((concept) => {
-      const sources = mentionsByConcept.get(rust().conceptKey(concept.name)) ?? [];
-      return {
-        title: concept.name,
-        body: renderPage(concept, sources),
-        sourceDocumentIds: [...new Set(sources.map((source) => source.id))],
-        mentions: concept.mentions,
-      };
-    });
+  return rust().planWikiPages({
+    extraction: input.extraction,
+    existingTitles: input.existingTitles,
+    minMentions: input.minMentions,
+    maxPages: input.maxPages,
+    titles,
+  });
 }

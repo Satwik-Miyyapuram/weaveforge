@@ -15,9 +15,10 @@ export function toRenderStrokes(
   strokes: readonly (InkRenderSource & { readonly points: readonly number[] })[] | undefined,
   palette: Readonly<Record<string, readonly [number, number, number]>>,
   hidden?: ReadonlySet<number>,
-): (Omit<InkRenderStroke, "at"> & { readonly points: readonly number[] })[] {
+): (Omit<InkRenderStroke, "at" | "width"> & { width: number; readonly points: readonly number[] })[] {
   const list = strokes ?? [];
   const sources = list.map(({ colour, tool, width }) => ({ colour, tool, width }));
   const drawn: InkRenderStroke[] = rawToRenderStrokes(sources, palette, Uint32Array.from(hidden ?? []));
-  return drawn.map(({ at, ...rest }) => ({ ...rest, points: list[at]?.points ?? [] }));
+  // Rust f64 comes back null only for NaN; keep the old NaN.
+  return drawn.map(({ at, width, ...rest }) => ({ ...rest, width: width ?? Number.NaN, points: list[at]?.points ?? [] }));
 }

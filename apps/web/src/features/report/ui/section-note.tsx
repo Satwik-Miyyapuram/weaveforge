@@ -2,7 +2,7 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
+import { materializeBlobImages, REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
@@ -14,7 +14,6 @@ import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import { materializeReportBlobImages } from "../lib/report-images-md";
 import type { SectionProgress } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
@@ -91,8 +90,12 @@ export function SectionNote({
       setSaveError(null);
       try {
         const report = getContainer().report;
-        const { body, uploadError } = await materializeReportBlobImages(nextBody, section.id, (id, blob, ext) =>
-          report.uploadImage(id, blob, ext),
+        const { body, uploadError } = await materializeBlobImages(
+          nextBody,
+          section.id,
+          (id, blob, ext) => report.uploadImage(id, blob, ext),
+          "reportimg:",
+          (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
         );
         onReplace(await report.manageReportSection.setNotes(section.id, body));
         // The text is saved; a failed upload is still said out loud.

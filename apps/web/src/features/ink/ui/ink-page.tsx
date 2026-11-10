@@ -28,9 +28,8 @@ import {
   type TouchPoint,
 } from "./ink-page-pointer";
 import type { InkPageProps } from "./ink-page-props";
-import { doubleClickFigure } from "./ink-page-math";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export type { InkPageProps } from "./ink-page-props";
 
@@ -582,7 +581,7 @@ export function InkPage({
             // can receive, because a single one is a drag the page routes.
             const at = project(event.clientX, event.clientY);
             if (!at || presses.current.length < 2) return;
-            const hit = doubleClickFigure(figures, [...presses.current, at], editingFigure);
+            const hit = readyCore().doubleClickFigure(figures, [...presses.current, at], editingFigure);
             if (hit !== null) onFigureActivate?.(hit);
           }}
           onContextMenu={(event) => event.preventDefault()}

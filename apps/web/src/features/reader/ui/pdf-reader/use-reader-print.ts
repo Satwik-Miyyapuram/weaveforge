@@ -2,15 +2,11 @@
 
 import { useCallback, useState } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderPrintNote, ReaderPrintPage } from "@weaveforge/wasm";
 
 import { readyCore } from "@/lib/rust-core";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { projectPageAnnotationGeometry } from "../../application/project-annotation-geometry";
-import {
-  readerPrintDocument,
-  type ReaderPrintNote,
-  type ReaderPrintPage,
-} from "../../application/reader-print";
 import type { PdfDocument } from "./types";
 
 /**
@@ -150,7 +146,7 @@ export function useReaderPrint(deps: ReaderPrintDeps) {
           pdfPage.cleanup();
         }
         for (const bitmap of await Promise.all(pictures.values())) bitmap?.close();
-        setPrintDoc({ title, html: readerPrintDocument({ title, pages, withComments }) });
+        setPrintDoc({ title, html: readyCore().readerPrintDocument({ title, pages, withComments }) });
       } finally {
         setPrinting(false);
       }

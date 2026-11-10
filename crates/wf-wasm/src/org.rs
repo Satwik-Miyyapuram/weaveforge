@@ -71,6 +71,13 @@ pub fn is_supervisor_role_js(role: Option<String>) -> bool {
     member::is_supervisor_role(role.as_deref())
 }
 
+/// [`role_rank`](member::role_rank). `undefined` for a role the rank table does not know.
+#[wasm_bindgen(js_name = roleRank)]
+#[must_use]
+pub fn role_rank_js(role: &str) -> Option<i8> {
+    member::role_rank(role)
+}
+
 /// [`resolve_display_role`](member::resolve_display_role).
 #[wasm_bindgen(js_name = resolveDisplayRole)]
 #[must_use]

@@ -42,13 +42,5 @@ export function highlightWithinExcerpt(
   excerpt: string,
   locus: PdfLocus | undefined,
 ): ExcerptHighlight | null {
-  if (!excerpt || !locus) return null;
-  const anchor = rust().resolveTextAnchor(excerpt, locus);
-  if (!anchor) return null;
-  return {
-    before: excerpt.slice(0, anchor.start),
-    match: excerpt.slice(anchor.start, anchor.end),
-    after: excerpt.slice(anchor.end),
-    confidence: anchor.confidence,
-  };
+  return rust().highlightWithinExcerpt(excerpt, locus);
 }

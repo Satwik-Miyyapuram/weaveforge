@@ -1,4 +1,5 @@
 import {
+  digestText,
   type IWorkspaceFs,
   type JsonDiff,
 } from "@weaveforge/core";
@@ -12,7 +13,7 @@ import {
   workspaceBodies,
 } from "./asset-reanchor";
 import { refreshMirrorBase, applyJsonEntries } from "./folder-json-import";
-import { baseDigest, claimImportedFile } from "./mirror-manifest";
+import { claimImportedFile } from "./mirror-manifest";
 import { writeConflictMarkersTo, type ConflictResolution, settleConflict } from "./folder-merge";
 import { activeWorkspaceFs, syncToFolder } from "./workspace-folder";
 
@@ -54,7 +55,7 @@ export interface ApplyOptions {
 
 /** A note's title and body as one digest: what an update would overwrite. */
 export function storedDigest(page: { title: string; body: string }): string {
-  return baseDigest(`${page.title}
+  return digestText(`${page.title}
 ${page.body}`);
 }
 
@@ -222,6 +223,5 @@ async function reanchorAssets(
 
 /** The title a renamed file's name gives: no folder, kind suffix or id suffix. */
 export function titleFromFileName(path: string): string {
-  const name = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "").replace(/\.(note|ink)$/, "");
-  return name.replace(/--[A-Za-z0-9]{1,8}$/, "").trim() || "Untitled";
+  return readyCore().folderTitleFromPath(path);
 }

@@ -67,6 +67,7 @@ import init, {
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
+  AssetRef,
   BlobAsset,
   BlobScheme,
   BodyDiff,
@@ -110,6 +111,7 @@ import type {
   PdfTextOptions,
   RankedList,
   Rejoin,
+  ReanchorPlan,
   RelativeAsset,
   RelativeLinks,
   SearchKind,
@@ -161,6 +163,7 @@ export type {
   MdPlacement,
   ImagePlacementPatch,
   ActionCounts,
+  AssetRef,
   BlobAsset,
   BlobScheme,
   BodyDiff,
@@ -203,6 +206,7 @@ export type {
   PasteSettings,
   PdfTextOptions,
   Rejoin,
+  ReanchorPlan,
   RelativeAsset,
   RelativeLinks,
   SearchKind,

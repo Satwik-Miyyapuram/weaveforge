@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { createElement, createRef, type ReactPortal } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
-import { InkBar } from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
 import { BarMenuList } from "../ui/ink-bar-menus";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

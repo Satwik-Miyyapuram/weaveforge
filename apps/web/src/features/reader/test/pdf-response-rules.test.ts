@@ -2,7 +2,8 @@ import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { PDF_MAGIC_WINDOW } from "../application/pdf-response-rules";
+/** How far into the body `%PDF` may sit (Rust `PDF_MAGIC_WINDOW`). */
+const PDF_MAGIC_WINDOW = 1024;
 
 before(loadTestCore);
 

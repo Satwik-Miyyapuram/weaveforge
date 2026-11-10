@@ -15,6 +15,7 @@ use wf_core::report::report_section::{
     self, NewReportSectionInput, ReportSection, ReportSectionTreeNode,
 };
 use wf_core::report::section_progress;
+use wf_core::report::section_sources;
 
 use super::to_js;
 
@@ -41,6 +42,15 @@ pub fn prisma_figure_tex_js(counts: JsValue, options: JsValue) -> JsResult<Strin
 pub fn prisma_caveat_js(counts: JsValue) -> JsResult<Option<String>> {
     let counts: PrismaCounts = serde_wasm_bindgen::from_value(counts)?;
     Ok(prisma_figure::prisma_caveat(&counts))
+}
+
+/// [`count_section_sources`](section_sources::count_section_sources) (TS `countSectionSources`).
+/// An absent or empty body counts 0.
+#[wasm_bindgen(js_name = countSectionSources)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
+pub fn count_section_sources_js(body: Option<String>) -> u32 {
+    u32::try_from(section_sources::count_section_sources(body.as_deref())).unwrap_or(u32::MAX)
 }
 
 /// [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).

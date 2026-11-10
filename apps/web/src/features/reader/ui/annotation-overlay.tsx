@@ -7,12 +7,9 @@ import {
   type ReaderAnnotation,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import {
-  INK_SELECTION_HALO_PX,
-  InkFigureEditor,
-  InkFigures,
-  InkStrokes,
-} from "@/features/ink";
+import { INK_SELECTION_HALO_PX } from "@/features/ink/render/ink-renderer";
+import { InkFigureEditor, InkFigures } from "@/features/ink/ui/ink-figures";
+import { InkStrokes } from "@/features/ink/ui/ink-strokes";
 import { isCommitEnter } from "@/lib/commit-enter";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { grownTextRect } from "../application/draft-local-annotation";

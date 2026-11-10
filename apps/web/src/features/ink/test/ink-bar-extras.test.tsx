@@ -10,7 +10,8 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { InkBar, InkIdleBar } from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
+import { InkIdleBar } from "@/features/ink/ui/ink-idle-bar";
 import { hasInsertItems } from "../ui/ink-bar-view";
 import { MenuSections } from "../ui/ink-bar-more";
 import { loadTestCore } from "@/lib/test/load-test-core";
