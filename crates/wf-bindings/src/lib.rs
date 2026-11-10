@@ -1006,7 +1006,10 @@ mod tests {
         let out = render().unwrap();
         let start = out.find("export type ImagePlacementPatch").unwrap();
         let body = &out[start..start + out[start..].find("\n}").unwrap()];
-        assert!(body.contains("crop?: [number, number, number, number] | null"), "{body}");
+        assert!(
+            body.contains("crop?: [number, number, number, number] | null"),
+            "{body}"
+        );
     }
 
     #[test]
