@@ -20,7 +20,6 @@ import type {
 } from "@weaveforge/core";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { MIN_ARTICLE_TEXT_CHARS, MIN_PAPER_TEXT_CHARS } from "./paper-html";
 
 export type PdfAttempt = { ok: true } | { ok: false; reason: "no-cache" | "not-pdf" | "blocked" | "failed" };
 
@@ -99,8 +98,9 @@ export async function findFreeCopy(
       continue;
     }
     const clean = deps.sanitize(fetched.raw, fetched.finalUrl);
-    const minChars = webArticle && candidate.source === "paper" ? MIN_ARTICLE_TEXT_CHARS : MIN_PAPER_TEXT_CHARS;
-    if (!readyCore().isSubstantialPaperText(clean.text, minChars)) {
+    const core = readyCore();
+    const minChars = webArticle && candidate.source === "paper" ? core.minArticleTextChars() : core.minPaperTextChars();
+    if (!core.isSubstantialPaperText(clean.text, minChars)) {
       attempts.push({ url: candidate.url, format: "html", reason: "abstract-only" });
       continue;
     }

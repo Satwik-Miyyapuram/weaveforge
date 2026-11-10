@@ -4,6 +4,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::overleaf_workshop::encode_uri_component;
 use crate::reader_analysis::lines::js_trim;
 
 /// Item types that describe a file or a comment about a paper, not a paper (TS `CHILD_ITEM_TYPES`).
@@ -53,6 +54,19 @@ pub fn zotero_library_url(library: &str, api_origin: &str) -> String {
     let origin = api_origin.strip_suffix('/').unwrap_or(api_origin);
     let path = library.strip_prefix('/').unwrap_or(library);
     format!("{origin}/{path}")
+}
+
+/// The top-level items path, inside one collection when it has a key (TS `zoteroTopLevelPath`).
+/// An empty key counts as none, as the JS truthiness check does. The key is percent-encoded
+/// like `encodeURIComponent`.
+#[must_use]
+pub fn zotero_top_level_path(collection: Option<&str>) -> String {
+    match collection {
+        Some(key) if !key.is_empty() => {
+            format!("/collections/{}/items/top", encode_uri_component(key))
+        }
+        _ => "/items/top".to_owned(),
+    }
 }
 
 /// Non-empty and all ASCII digits, as the JS `/^\d+$/` check reads it.
@@ -147,6 +161,20 @@ mod tests {
         assert_eq!(
             zotero_library_url("/groups/2", "https://s.test/"),
             "https://s.test/groups/2"
+        );
+    }
+
+    #[test]
+    fn top_level_path_names_collection_when_given() {
+        assert_eq!(zotero_top_level_path(None), "/items/top");
+        assert_eq!(zotero_top_level_path(Some("")), "/items/top");
+        assert_eq!(
+            zotero_top_level_path(Some("ABCD1234")),
+            "/collections/ABCD1234/items/top"
+        );
+        assert_eq!(
+            zotero_top_level_path(Some("a b/c")),
+            "/collections/a%20b%2Fc/items/top"
         );
     }
 }

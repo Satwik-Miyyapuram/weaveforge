@@ -4,6 +4,7 @@
  */
 import {
   applyTemplate as rawApplyTemplate,
+  defaultSourceNoteTemplate as rawDefaultSourceNoteTemplate,
   mergeTemplate as rawMergeTemplate,
   parseRegions as rawParseRegions,
   renderTemplate as rawRenderTemplate,
@@ -15,6 +16,11 @@ import {
 import type { RegionKind, Segment } from "./bindings.js";
 
 export type { RegionKind, Segment };
+
+/** The default source-note template text (generated metadata, editable summary, key points, notes). */
+export function defaultSourceNoteTemplate(): string {
+  return rawDefaultSourceNoteTemplate();
+}
 
 /** Substitute `{{key}}` from context; missing keys become "". */
 export function substituteVariables(template: string, context: Record<string, unknown>): string {

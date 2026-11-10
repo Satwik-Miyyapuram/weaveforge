@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { DEFAULT_SOURCE_NOTE_TEMPLATE } from "../application/default-source-note-template";
 
 type Core = ReturnType<typeof readyCore>;
 // Each call reads the core lazily, so the module loads before the core does.
@@ -242,7 +241,7 @@ test("applyTemplate treats whitespace-only existing notes as empty", () => {
 });
 
 test("stripRegionMarkers removes markers for display without touching the body", () => {
-  const doc = applyTemplate(null, DEFAULT_SOURCE_NOTE_TEMPLATE, { title: "BISCUIT" });
+  const doc = applyTemplate(null, readyCore().defaultSourceNoteTemplate(), { title: "BISCUIT" });
   const shown = stripRegionMarkers(doc);
   assert.ok(!shown.includes("<!--"), "no HTML comment survives display");
   assert.ok(shown.includes("# BISCUIT"));

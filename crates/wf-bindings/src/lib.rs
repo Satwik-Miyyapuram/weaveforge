@@ -463,6 +463,8 @@ fn port_types_2(types: Types) -> Types {
         .register::<wf_core::search::search_document::PdfIndexSource>()
         .register::<wf_core::search::search_document::AnnotationSource>()
         .register::<wf_core::search::projection::StoredPdfProjection>()
+        .register::<wf_core::search::ask_library::AskSource>()
+        .register::<wf_core::search::ask_library::AskPrompt>()
         .register::<wf_core::search::text_chunks::TextChunk>()
         .register::<wf_core::search::wiki_graph::WikiGraphEdges>()
         .register::<wf_core::search::wiki_graph::WikiGraph>()

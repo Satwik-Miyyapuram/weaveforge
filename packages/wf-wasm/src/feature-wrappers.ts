@@ -8,6 +8,7 @@ export * from "./ai-access-policy.js";
 export * from "./ai-mcp-result.js";
 export * from "./ai-model-concepts.js";
 export * from "./ai-retrieval.js";
+export * from "./ask-library.js";
 export * from "./app-log-line.js";
 export * from "./asset-mime.js";
 export * from "./auth-transition.js";

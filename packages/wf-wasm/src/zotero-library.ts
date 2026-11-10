@@ -6,6 +6,7 @@ import {
   isZoteroChildItem as rawIsZoteroChildItem,
   normalizeZoteroLibrary as rawNormalizeZoteroLibrary,
   zoteroLibraryUrl as rawZoteroLibraryUrl,
+  zoteroTopLevelPath as rawZoteroTopLevelPath,
 } from "../pkg/wf_wasm.js";
 
 /** True when the item is an attachment, note or annotation, or has a parent item. */
@@ -21,4 +22,9 @@ export function normalizeZoteroLibrary(library: string | undefined): string | un
 /** The API URL for a library path under an origin. */
 export function zoteroLibraryUrl(library: string, apiOrigin: string): string {
   return rawZoteroLibraryUrl(library, apiOrigin);
+}
+
+/** The top-level items path, inside the collection when a key is given. */
+export function zoteroTopLevelPath(collection?: string): string {
+  return rawZoteroTopLevelPath(collection);
 }

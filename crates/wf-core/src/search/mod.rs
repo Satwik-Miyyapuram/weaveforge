@@ -3,6 +3,7 @@
 //! docs/plans/current/rust-port/phase-1-search.md).
 
 pub mod acronyms;
+pub mod ask_library;
 pub mod embedding;
 pub mod embedding_models;
 pub mod excerpt;

@@ -3,7 +3,6 @@ import test, { before } from "node:test";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { MIN_PAPER_TEXT_CHARS, PAPER_HTML_CSP } from "../application/paper-html";
 
 before(loadTestCore);
 
@@ -24,8 +23,9 @@ test("the file escapes the title and source, and carries the frame's CSP", () =>
   const doc = typedCore().buildPaperHtmlDocument(page);
   assert.ok(doc.includes("<title>Tom &amp; Jerry &lt;revisited&gt;</title>"));
   assert.ok(doc.includes('content="https://arxiv.org/html/2101.00001?a=1&amp;b=&quot;2&quot;"'));
-  assert.ok(doc.includes(`content="${PAPER_HTML_CSP}"`));
-  assert.ok(!/script-src/.test(PAPER_HTML_CSP));
+  const csp = typedCore().paperHtmlCsp();
+  assert.ok(doc.includes(`content="${csp}"`));
+  assert.ok(!/script-src/.test(csp));
   assert.ok(doc.includes(">arxiv.org</a>"));
 });
 
@@ -38,7 +38,7 @@ test("the print copy is light, has page margins, and keeps the CSP", () => {
   const doc = typedCore().buildPaperHtmlDocument(page, { scheme: "light", print: true });
   assert.ok(doc.includes("color-scheme: light"));
   assert.ok(doc.includes("@page"));
-  assert.ok(doc.includes(PAPER_HTML_CSP));
+  assert.ok(doc.includes(typedCore().paperHtmlCsp()));
   assert.ok(!typedCore().buildPaperHtmlDocument(page).includes("@page"));
 });
 
@@ -49,6 +49,7 @@ test("a file this app did not write is not read as a kept page", () => {
 });
 
 test("only a page with the paper's text counts, not an abstract", () => {
-  assert.equal(typedCore().isSubstantialPaperText("x".repeat(MIN_PAPER_TEXT_CHARS - 1), MIN_PAPER_TEXT_CHARS), false);
-  assert.equal(typedCore().isSubstantialPaperText("x".repeat(MIN_PAPER_TEXT_CHARS), MIN_PAPER_TEXT_CHARS), true);
+  const min = typedCore().minPaperTextChars();
+  assert.equal(typedCore().isSubstantialPaperText("x".repeat(min - 1), min), false);
+  assert.equal(typedCore().isSubstantialPaperText("x".repeat(min), min), true);
 });

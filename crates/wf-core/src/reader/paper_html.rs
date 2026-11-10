@@ -2,7 +2,7 @@
 //! Port of `isSubstantialPaperText`, `buildPaperHtmlDocument` and `parsePaperHtmlDocument` in
 //! `apps/web/src/features/reader/application/paper-html.ts`. Pure: no DOM.
 //!
-//! The minimum-length constants stay in TS, since callers import them as plain values.
+//! The thresholds and the frame CSP are defined here once; the wasm layer exposes them to TS.
 
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
@@ -47,8 +47,14 @@ pub fn is_substantial_paper_text(text: &str, min_chars: f64) -> bool {
     as_f64(utf16_len(&collapse_whitespace(text))) >= min_chars
 }
 
+/// How much text a page must carry to count as the paper (TS `MIN_PAPER_TEXT_CHARS`).
+pub const MIN_PAPER_TEXT_CHARS: f64 = 5000.0;
+
+/// The text a paper's own web page must carry (TS `MIN_ARTICLE_TEXT_CHARS`).
+pub const MIN_ARTICLE_TEXT_CHARS: f64 = 1500.0;
+
 /// The frame's own policy, on top of the page's. Matches the TS `PAPER_HTML_CSP`.
-const PAPER_HTML_CSP: &str =
+pub const PAPER_HTML_CSP: &str =
     "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; media-src https:";
 
 /// Readable defaults that follow the app's light or dark scheme.

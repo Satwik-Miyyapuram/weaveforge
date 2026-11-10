@@ -5,7 +5,6 @@
  */
 
 import { type Paper } from "@weaveforge/core";
-import { DEFAULT_SOURCE_NOTE_TEMPLATE } from "@/features/vault/application/default-source-note-template";
 import { readyCore } from "@/lib/rust-core";
 
 export function paperSourceNoteScaffold(input: {
@@ -17,7 +16,7 @@ export function paperSourceNoteScaffold(input: {
   citeKey?: string;
 }): string {
   const core = readyCore();
-  return core.applyTemplate(null, DEFAULT_SOURCE_NOTE_TEMPLATE, core.sourceNoteTemplateContext({ ...input, authors: input.authors && [...input.authors] }));
+  return core.applyTemplate(null, core.defaultSourceNoteTemplate(), core.sourceNoteTemplateContext({ ...input, authors: input.authors && [...input.authors] }));
 }
 
 /** Explicit re-render — never call silently on load. */
@@ -33,7 +32,7 @@ export function reRenderPaperSourceNote(
   },
 ): string {
   const core = readyCore();
-  return core.applyTemplate(existing, DEFAULT_SOURCE_NOTE_TEMPLATE, core.sourceNoteTemplateContext({ ...input, authors: input.authors && [...input.authors] }));
+  return core.applyTemplate(existing, core.defaultSourceNoteTemplate(), core.sourceNoteTemplateContext({ ...input, authors: input.authors && [...input.authors] }));
 }
 
 /**

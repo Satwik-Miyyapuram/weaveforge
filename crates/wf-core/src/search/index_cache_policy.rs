@@ -1,7 +1,12 @@
 //! Port of the decision in `apps/web/src/features/search/infrastructure/index-cache-policy.ts`.
 //! Platform detection (`isInstalledApp`) and IndexedDB writes stay in TS; this is only the rule.
 
-/// Documents past which a browser tab stops persisting its index (TS `WEB_CACHE_DOCUMENT_LIMIT`).
+/// Documents past which a browser tab stops persisting its index. Single source for the web app
+/// (read through `webCacheDocumentLimit`).
+///
+/// Chosen from the measured curve rather than a round number: at 5 000 documents the serialized
+/// index is roughly 37 MB, which is the point where writing it starts to cost more than the
+/// rebuild it saves.
 pub const WEB_CACHE_DOCUMENT_LIMIT: usize = 5_000;
 
 /// Persist when this is the installed app (any size), or the website within the limit.

@@ -89,9 +89,7 @@ export interface ZoteroPageRequest {
  * checks that a title exists.
  */
 export function zoteroTopLevelPath(collection?: string): string {
-  return collection
-    ? `/collections/${encodeURIComponent(collection)}/items/top`
-    : "/items/top";
+  return typedCore().zoteroTopLevelPath(collection);
 }
 
 /**

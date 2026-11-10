@@ -14,6 +14,7 @@ mod ai_mcp_result;
 mod ai_model_concepts;
 mod ai_retrieval;
 mod ai_tool_name;
+mod ask_library;
 mod auth_transition;
 mod batch_annotation_ops;
 mod cache_invalidation;

@@ -433,6 +433,11 @@ export function arxivCandidates(arxiv_id: string): any;
 export function arxivEntryToMetadata(xml: string, arxiv_id: string): any;
 
 /**
+ * [`ask_prompt`](ask_library::ask_prompt): `{ system, user }` for the sources as passed.
+ */
+export function askPrompt(question: string, sources: any, nonce: string): any;
+
+/**
  * [`assemble_page_citations`] (TS `assemblePageCitations`). `candidates` is optional.
  *
  * # Errors
@@ -1791,6 +1796,12 @@ export function defaultPasteSettings(): any;
  * of a new view link. `now_ms` is the JS `Date.now()` value.
  */
 export function defaultShareLinkExpiresAt(now_ms: number): string;
+
+/**
+ * [`default_source_note_template`](tpl::default_source_note_template): the default source-note
+ * template text, with generated metadata and editable summary, key points and notes.
+ */
+export function defaultSourceNoteTemplate(): string;
 
 /**
  * [`degree_colours`](node_colouring::degree_colours): `[id, colour]` pairs for `[id, degree]` pairs.
@@ -4800,6 +4811,16 @@ export function milestoneToRow(milestone: any): any;
 export function milestonesToIcs(items: any, include_done: boolean, reminder_days: number, now_ms: number): string;
 
 /**
+ * [`MIN_ARTICLE_TEXT_CHARS`]: the text a paper's own web page must carry.
+ */
+export function minArticleTextChars(): number;
+
+/**
+ * [`MIN_PAPER_TEXT_CHARS`]: how much text a page must carry to count as the paper.
+ */
+export function minPaperTextChars(): number;
+
+/**
  * [`missing_config_message`]: names the absent required env vars, never values.
  * `cfg` is the backend config object; `required` is an array of camelCase field names.
  *
@@ -5502,6 +5523,11 @@ export function paperFieldDefRowToDomain(row: any): any;
  * [`to_value_domain`]: a `paper_field_values` row as a domain value. Throws on a bad payload.
  */
 export function paperFieldValueRowToDomain(row: any): any;
+
+/**
+ * [`PAPER_HTML_CSP`]: the frame's own content security policy.
+ */
+export function paperHtmlCsp(): string;
 
 /**
  * [`paper_html_path`](folder_layout::paper_html_path).
@@ -8669,6 +8695,12 @@ export function vscodeJson(launch: any): string;
 export function walkOverleafSections(tree: any, opts: any): any;
 
 /**
+ * [`WEB_CACHE_DOCUMENT_LIMIT`](index_cache_policy::WEB_CACHE_DOCUMENT_LIMIT), the single source
+ * the web app reads instead of keeping its own copy.
+ */
+export function webCacheDocumentLimit(): number;
+
+/**
  * [`wiki_page_refs`]: the wiki's pages as `{ id, title, body }`.
  */
 export function wikiPageRefs(pages: any): any;
@@ -8951,6 +8983,12 @@ export function zoteroRemoteToInput(item: any): any;
 export function zoteroRemoteToMetadata(item: any): any;
 
 /**
+ * [`zotero_top_level_path`](zotero_library::zotero_top_level_path): the top-level items path,
+ * inside a collection when one is given.
+ */
+export function zoteroTopLevelPath(collection?: string | null): string;
+
+/**
  * [`zotero_write_back_annotations`]: indices of the annotations a write-back sends.
  *
  * # Errors
@@ -9002,6 +9040,7 @@ export interface InitOutput {
     readonly artifactBasename: (a: number, b: number) => [number, number];
     readonly arxivCandidates: (a: number, b: number) => [number, number, number];
     readonly arxivEntryToMetadata: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly askPrompt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly assemblePageCitations: (a: any, b: any, c: any, d: any, e: any) => [number, number, number];
     readonly assertSafeExportPath: (a: number, b: number) => [number, number];
     readonly assetExtension: (a: number, b: number) => [number, number];
@@ -9165,6 +9204,7 @@ export interface InitOutput {
     readonly defaultOpenSections: (a: any) => [number, number, number];
     readonly defaultPasteSettings: () => [number, number, number];
     readonly defaultShareLinkExpiresAt: (a: number) => [number, number];
+    readonly defaultSourceNoteTemplate: () => [number, number];
     readonly degreeColours: (a: any) => [number, number, number];
     readonly deletedLocalBase: (a: any) => [number, number, number];
     readonly deletedRemoteSides: (a: any, b: any) => [number, number, number];
@@ -9565,6 +9605,8 @@ export interface InitOutput {
     readonly milestoneMessage: (a: any) => [number, number, number, number];
     readonly milestoneToRow: (a: any) => [number, number, number];
     readonly milestonesToIcs: (a: any, b: number, c: number, d: number) => [number, number, number, number];
+    readonly minArticleTextChars: () => number;
+    readonly minPaperTextChars: () => number;
     readonly missingConfigMessage: (a: any, b: any) => [number, number, number];
     readonly missingFigureWarning: (a: number, b: number, c: number, d: number) => [number, number];
     readonly missingPagePlans: (a: any) => [number, number, number];
@@ -9664,6 +9706,7 @@ export interface InitOutput {
     readonly paperCountsForTags: (a: any, b: any) => [number, number, number];
     readonly paperFieldDefRowToDomain: (a: any) => [number, number, number];
     readonly paperFieldValueRowToDomain: (a: any) => [number, number, number];
+    readonly paperHtmlCsp: () => [number, number];
     readonly paperHtmlPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperImageThumbnailPath: (a: number, b: number) => [number, number];
     readonly paperPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
@@ -10072,6 +10115,7 @@ export interface InitOutput {
     readonly visualPageSize: (a: any, b: number) => [number, number, number];
     readonly vscodeJson: (a: any) => [number, number, number, number];
     readonly walkOverleafSections: (a: any, b: any) => [number, number, number];
+    readonly webCacheDocumentLimit: () => number;
     readonly wikiPageRefs: (a: any) => [number, number, number];
     readonly wikiSourceDocuments: (a: any, b: any, c: any) => [number, number, number];
     readonly withActive: (a: any, b: number, c: number) => [number, number, number];
@@ -10107,6 +10151,7 @@ export interface InitOutput {
     readonly zoteroPickMainPdf: (a: any) => [number, number, number];
     readonly zoteroRemoteToInput: (a: any) => [number, number, number];
     readonly zoteroRemoteToMetadata: (a: any) => [number, number, number];
+    readonly zoteroTopLevelPath: (a: number, b: number) => [number, number];
     readonly zoteroWriteBackAnnotations: (a: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
