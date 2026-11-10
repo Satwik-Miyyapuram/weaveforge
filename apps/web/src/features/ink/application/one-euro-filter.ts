@@ -46,68 +46,11 @@ export interface OneEuroOptions {
    * 0.05–5 units/ms. Carrying 0.007 across would put the cutoff at 1.02 Hz at
    * 5 units/ms — the filter would damp a fast stroke exactly as hard as a still
    * pen, which is the lag revision 2 was right to fear. β is therefore tuned to
-   * the *unit the samples are in*: see {@link inkPositionOptions}.
+   * the *unit the samples are in*: see `position_options` in wf-core `ink::one_euro`.
    */
   beta: number;
   /** Cutoff for the internal derivative estimate, in hertz. */
   derivativeCutoff: number;
-}
-
-/**
- * Position: `fcMin = 1 Hz`, `β = 30 Hz per (0.1 mm/ms)`.
- *
- * The pair to hold onto is the *behaviour*, and it is what the tests assert:
- *
- * | Speed | Cutoff | Lag behind a moving stroke |
- * | --- | --- | --- |
- * | 0.05 units/ms — a slow deliberate line | 2.5 Hz | a fraction of a pixel |
- * | 0.5 units/ms — normal writing | 16 Hz | ~0.5 mm |
- * | 5 units/ms — a fast sweep | 151 Hz | ~0.5 mm |
- *
- * The taper therefore damps where staircasing is visible and phases out where lag
- * would be felt. A *fixed* 1 Hz low-pass lags a normal-speed stroke by about 4 mm,
- * which is why revision 2's blanket ban read as necessary and why it was wrong.
- * `fcMin` is the plan's literature value and the paper's shape is unchanged; only
- * β is expressed in this feature's units. §9 item 7 is where the pair was
- * re-tuned on the real device: the first cut was `β = 80`, which phased out at
- * writing speed (41 Hz) and let the digitiser's per-sample jitter through as a
- * wobble on every curve. At 30 the lag caps near half a millimetre at any
- * speed — hidden under the OS ink trail on Windows, and a fraction of a nib
- * anywhere else — and a curve comes out as the hand drew it.
- *
- * `derivativeCutoff = 3 Hz` rather than the paper's 1 Hz, because the cutoff that
- * phases the filter out is *derived from* the speed estimate: at 1 Hz that
- * estimate takes ~150 ms to respond, so a stroke that reaches writing speed
- * quickly spends its first fifteen samples filtered as though it were still.
- */
-export function inkPositionOptions(): OneEuroOptions {
-  return readyCore().inkPositionOptions();
-}
-
-/**
- * Pressure: a higher floor and a much smaller β.
- *
- * A pressure channel is noisier than a position and *should not* phase out with
- * speed the way a position does — a press is a press whether the pen is moving or
- * not. `fcMin = 5 Hz` puts a deliberate press at 63 % in one time constant (32 ms)
- * and 95 % in 96 ms, while attenuating 120 Hz sensor noise about fivefold.
- */
-export function inkPressureOptions(): OneEuroOptions {
-  return readyCore().inkPressureOptions();
-}
-
-/**
- * The smoothing factor for a cutoff and a timestep: `1/(1 + τ/dt)`.
- *
- * `cutoff` is in **hertz** and `dt` in **milliseconds**, because a pen reports
- * milliseconds and a cutoff is a frequency. The conversion is explicit in the
- * Rust port (`ink::one_euro`) rather than left to the caller: mixing the two is
- * a factor of a thousand, and the symptom is a filter that looks like it is
- * working while doing almost nothing — at 120 Hz with `fc = 1` the right answer
- * is α ≈ 0.05, and the unit slip gives 0.98.
- */
-export function oneEuroAlpha(cutoff: number, dtMs: number): number {
-  return readyCore().oneEuroAlpha(cutoff, dtMs);
 }
 
 /**
