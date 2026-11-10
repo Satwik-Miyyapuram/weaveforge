@@ -6,18 +6,9 @@ import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-import {
-  MIRROR_MANIFEST_PATH,
-  jsonEditSince,
-  mirrorManifestPath,
-  claimImportedFile,
-  createCoalescer,
-  followProjectRename,
-  nextManifest,
-  readMirrorBase,
-  writeMirrorManifest,
-} from "../application/mirror-manifest";
+import { MIRROR_MANIFEST_PATH, jsonEditSince, mirrorManifestPath, claimImportedFile, createCoalescer, followProjectRename, readMirrorBase, writeMirrorManifest } from "../application/mirror-manifest";
 import { typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();
@@ -105,13 +96,13 @@ test("non-string entries are dropped rather than trusted", async () => {
 
 test("the next manifest keeps what stayed, drops what left, adds what was written", () => {
   assert.deepEqual(
-    nextManifest(["kept.md", "gone.md"], { written: ["new.md"], removed: ["gone.md"] }).sort(),
+    readyCore().nextManifest(["kept.md", "gone.md"], { written: ["new.md"], removed: ["gone.md"] }).sort(),
     ["kept.md", "new.md"],
   );
 });
 
 test("a file rewritten in place is not listed twice", () => {
-  assert.deepEqual(nextManifest(["a.md"], { written: ["a.md"], removed: [] }), ["a.md"]);
+  assert.deepEqual(readyCore().nextManifest(["a.md"], { written: ["a.md"], removed: [] }), ["a.md"]);
 });
 
 /** A coalescer whose clock this test owns. */

@@ -1,16 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@weaveforge/core";
-import {
-  buildProposeFillPrompt,
-  emptyCellPaperIds,
-  extractionCsv,
-  extractionMarkdown,
-  flattenPaperRows,
-  pendingFieldFills,
-  pendingKey,
-  relationTitles,
-} from "../application/extraction-rows";
+import { buildProposeFillPrompt, emptyCellPaperIds, extractionCsv, extractionMarkdown, flattenPaperRows, relationTitles } from "../application/extraction-rows";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -93,10 +84,10 @@ test("pendingFieldFills joins paper_field_value proposals (Option B test path)",
       payload: { paperId: "p1", fieldId: "f2", value: 3 },
     },
   ];
-  assert.deepEqual(pendingFieldFills(proposals, "f1"), [
+  assert.deepEqual(readyCore().pendingFieldFills(proposals, "f1"), [
     { proposalId: "prop-1", paperId: "p2", fieldId: "f1", preview: "VAE" },
   ]);
-  assert.equal(pendingKey("p2", "f1"), "p2::f1");
+  assert.equal(readyCore().pendingKey("p2", "f1"), "p2::f1");
 });
 
 test("emptyCellPaperIds and buildProposeFillPrompt target empty cells", () => {

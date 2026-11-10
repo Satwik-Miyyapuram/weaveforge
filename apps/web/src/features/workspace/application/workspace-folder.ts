@@ -14,16 +14,7 @@ import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
 import { gitFileHistory, shellFileHistory, type FileHistorySource } from "./folder-file-history";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
-import {
-  jsonEditSince,
-  createCoalescer,
-  followProjectRename,
-  nextManifest,
-  readMirrorBase,
-  readMirrorBases,
-  writeMirrorManifest,
-  type Coalescer,
-} from "./mirror-manifest";
+import { jsonEditSince, createCoalescer, followProjectRename, readMirrorBase, readMirrorBases, writeMirrorManifest, type Coalescer } from "./mirror-manifest";
 import { activeProject, activeProjectOrNull } from "./active-project";
 import { mirrorWorkspace } from "./folder-mirror";
 import { watchForLoss } from "./folder-watch-lost";
@@ -310,7 +301,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   await writeMirrorManifest(
     fs,
     projectRoot,
-    nextManifest(previousPaths, mirror),
+    readyCore().nextManifest(previousPaths, mirror),
     mirror.mirrored,
     mirror.bases,
   );

@@ -9,19 +9,7 @@ import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
-import {
-  buildProposeFillPrompt,
-  emptyCellPaperIds,
-  extractionCsv,
-  extractionMarkdown,
-  flattenPaperRows,
-  pendingFieldFills,
-  pendingKey,
-  relationTitles,
-  type ExtractionColumnId,
-  type ExtractionRow,
-  type PendingFieldFill,
-} from "../application/extraction-rows";
+import { buildProposeFillPrompt, emptyCellPaperIds, extractionCsv, extractionMarkdown, flattenPaperRows, relationTitles, type ExtractionColumnId, type ExtractionRow, type PendingFieldFill } from "../application/extraction-rows";
 import { FormError } from "@/components/form-error";
 import { latestGate } from "@/lib/latest-gate";
 import { Button } from "@/components/button";
@@ -66,7 +54,7 @@ export function ExtractionTable({
     const paperIds = items.flatMap((item) => (item.paperId ? [item.paperId] : []));
     setDefs(nextDefs);
     setRows(flattenPaperRows(papers, paperIds, allValues, nextDefs));
-    setPending(pendingFieldFills(proposals));
+    setPending(readyCore().pendingFieldFills(proposals));
     setColumns((prev) => {
       const fieldCols = nextDefs.map((d) => `field:${d.id}` as const);
       const kept = prev.filter(
@@ -100,7 +88,7 @@ export function ExtractionTable({
     const map = new Map<string, PendingFieldFill>();
     const counts = new Map<string, number>();
     for (const fill of pending) {
-      const key = pendingKey(fill.paperId, fill.fieldId);
+      const key = readyCore().pendingKey(fill.paperId, fill.fieldId);
       counts.set(key, (counts.get(key) ?? 0) + 1);
       map.set(key, fill); // last pending wins for preview
     }
@@ -143,7 +131,7 @@ export function ExtractionTable({
     const def = defs.find((d) => d.id === fieldId);
     if (!def || !isFillableField(def)) return;
     const pendingKeys = new Set(
-      pending.filter((p) => p.fieldId === fieldId).map((p) => pendingKey(p.paperId, p.fieldId)),
+      pending.filter((p) => p.fieldId === fieldId).map((p) => readyCore().pendingKey(p.paperId, p.fieldId)),
     );
     const pendingPaperIds = pending.filter((p) => p.fieldId === fieldId).map((p) => p.paperId);
     const emptyIds = new Set(emptyCellPaperIds(rows, fieldId, pendingPaperIds));
@@ -153,7 +141,7 @@ export function ExtractionTable({
     const promptPapers = targets.length
       ? targets
       : rows
-          .filter((r) => !pendingKeys.has(pendingKey(r.paper.id, fieldId)))
+          .filter((r) => !pendingKeys.has(readyCore().pendingKey(r.paper.id, fieldId)))
           .map((r) => ({ id: r.paper.id, title: r.paper.title }));
     if (!promptPapers.length) {
       setError("Every paper in this column already has a pending fill — review or reject those first.");
@@ -248,7 +236,7 @@ export function ExtractionTable({
               <tr key={row.paper.id}>
                 {columns.map((column) => {
                   const fieldId = column.startsWith("field:") ? column.slice("field:".length) : null;
-                  const cellKey = fieldId ? pendingKey(row.paper.id, fieldId) : null;
+                  const cellKey = fieldId ? readyCore().pendingKey(row.paper.id, fieldId) : null;
                   const fill = cellKey ? pendingByCell.map.get(cellKey) : undefined;
                   const dupCount = cellKey ? pendingByCell.counts.get(cellKey) ?? 0 : 0;
                   return (

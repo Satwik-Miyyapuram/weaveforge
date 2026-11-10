@@ -17,11 +17,6 @@ export interface PendingFieldFill {
   preview: string;
 }
 
-/** Plain key for a cell, so a pending fill can be looked up while rendering (wf-core `extraction_keys`). */
-export function pendingKey(paperId: string, fieldId: string): string {
-  return readyCore().pendingKey(paperId, fieldId);
-}
-
 /** A relation or rollup cell's papers, by title (the id when the paper is gone; wf-core `extraction_keys`). */
 export function relationTitles(ids: readonly unknown[], titleById: ReadonlyMap<string, string>): string {
   return readyCore().relationTitles(ids.map(String), titleById);
@@ -104,10 +99,3 @@ export function buildProposeFillPrompt(input: {
   return readyCore().buildProposeFillPrompt({ ...input, papers: [...input.papers] });
 }
 
-/** Pending AI proposals as cell fills, optionally for one field. */
-export function pendingFieldFills(
-  proposals: readonly AiWriteProposal[],
-  fieldId?: string,
-): PendingFieldFill[] {
-  return readyCore().pendingFieldFills(proposals, fieldId);
-}

@@ -64,14 +64,6 @@ export interface OverleafExportResult {
   };
 }
 
-/**
- * Cite keys live in core now, because the bibliography check needs the same
- * answers this export writes. Re-exported here so callers that already import
- * them from the export keep working.
- */
-export function collectCitedKeys(latex: string): Set<string> {
-  return readyCore().collectCitedKeys(latex);
-}
 export type { CitationFormat };
 
 /**
@@ -145,7 +137,7 @@ export function buildOverleafExportPackage(
   // Decide the bibliography set before the preamble, because `\nocite{*}` and
   // `\printbibliography` must agree with what actually lands in references.bib.
   const scope = opts.bibliographyScope ?? "all";
-  const citedKeys = collectCitedKeys(body.join("\n"));
+  const citedKeys = readyCore().collectCitedKeys(body.join("\n"));
   const bibPapers =
     includeBib && papers.length > 0
       ? scope === "cited"

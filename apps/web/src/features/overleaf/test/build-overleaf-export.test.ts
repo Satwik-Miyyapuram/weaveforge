@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { buildOverleafExportPackage, collectCitedKeys } from "../application/build-overleaf-export";
+import { buildOverleafExportPackage } from "../application/build-overleaf-export";
 import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -328,7 +328,7 @@ test("bibliographyScope 'cited' warns when the report cites nothing", () => {
 
 test("collectCitedKeys reads comma-separated cite lists", () => {
   assert.deepEqual(
-    [...collectCitedKeys("text \\cite{a, b} more \\cite{c}")].sort(),
+    [...typedCore().collectCitedKeys("text \\cite{a, b} more \\cite{c}")].sort(),
     ["a", "b", "c"],
   );
 });

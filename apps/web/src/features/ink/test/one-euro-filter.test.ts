@@ -9,14 +9,9 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  inkPositionOptions,
-  inkPressureOptions,
-  NibFilter,
-  OneEuroFilter,
-  oneEuroAlpha,
-} from "../application/one-euro-filter";
+import { NibFilter, OneEuroFilter } from "../application/one-euro-filter";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 
 before(loadTestCore);
 
@@ -31,24 +26,24 @@ function run(
 
 test("the smoothing factor rises with the cutoff and never exceeds one", () => {
   assert.ok(
-    oneEuroAlpha(1000, 8) > 0.97,
-    `a very high cutoff is nearly the identity: ${oneEuroAlpha(1000, 8)}`,
+    readyCore().oneEuroAlpha(1000, 8) > 0.97,
+    `a very high cutoff is nearly the identity: ${readyCore().oneEuroAlpha(1000, 8)}`,
   );
   assert.ok(
-    oneEuroAlpha(1, 8) < oneEuroAlpha(10, 8),
+    readyCore().oneEuroAlpha(1, 8) < readyCore().oneEuroAlpha(10, 8),
     "a lower cutoff damps harder",
   );
-  assert.ok(oneEuroAlpha(1, 0) < 1, "a zero timestep cannot divide by zero");
+  assert.ok(readyCore().oneEuroAlpha(1, 0) < 1, "a zero timestep cannot divide by zero");
   // The unit slip this pins: cutoffs are per second and a pen reports
   // milliseconds, so at 120 Hz a 1 Hz cutoff is heavy damping, not none.
   assert.ok(
-    oneEuroAlpha(1, 8) < 0.1,
-    `1 Hz at 120 Hz should damp hard: ${oneEuroAlpha(1, 8)}`,
+    readyCore().oneEuroAlpha(1, 8) < 0.1,
+    `1 Hz at 120 Hz should damp hard: ${readyCore().oneEuroAlpha(1, 8)}`,
   );
 });
 
 test("a jittery pressure ramp is smoothed: its roughness collapses", () => {
-  const filter = new OneEuroFilter(inkPressureOptions());
+  const filter = new OneEuroFilter(readyCore().inkPressureOptions());
   const ramp = Array.from({ length: 60 }, (_unused, i) => 0.3 + i * 0.01);
   const noisy = ramp.map((value, i) => value + (i % 2 === 0 ? 0.05 : -0.05));
   const filtered = run(filter, noisy);
@@ -78,7 +73,7 @@ test("a jittery pressure ramp is smoothed: its roughness collapses", () => {
 });
 
 test("a deliberate step in pressure is not over-damped: it arrives", () => {
-  const filter = new OneEuroFilter(inkPressureOptions());
+  const filter = new OneEuroFilter(readyCore().inkPressureOptions());
   const values = [...new Array(10).fill(0.2), ...new Array(30).fill(0.9)];
   const filtered = run(filter, values);
   const settled = filtered.at(-1)!;
@@ -99,7 +94,7 @@ test("a slow staircased position is smoothed into a line", () => {
   const staircase = [
     0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 20, 20, 20, 20, 20, 30, 30, 30, 30, 30,
   ];
-  const filter = new OneEuroFilter(inkPositionOptions());
+  const filter = new OneEuroFilter(readyCore().inkPositionOptions());
   const filtered = run(filter, staircase, 40);
 
   const roughness = (series: readonly number[]) => {
@@ -142,7 +137,7 @@ test("a slow staircased position is smoothed into a line", () => {
 test("a fast straight sweep is not dragged behind the pen", () => {
   // 120 Hz at 40 units a sample is 4 mm per 8 ms — a fast stroke.
   const sweep = Array.from({ length: 40 }, (_unused, i) => i * 40);
-  const filter = new OneEuroFilter(inkPositionOptions());
+  const filter = new OneEuroFilter(readyCore().inkPositionOptions());
   const filtered = run(filter, sweep);
   // After a few samples of a constant velocity the filter has phased out, so the
   // lag is a small fraction of one sample — the property revision 2's blanket ban
@@ -158,7 +153,7 @@ test("a fast straight sweep is not dragged behind the pen", () => {
 });
 
 test("the first sample of a stroke passes through untouched", () => {
-  const filter = new OneEuroFilter(inkPositionOptions());
+  const filter = new OneEuroFilter(readyCore().inkPositionOptions());
   assert.equal(
     filter.filter(1200, 1000),
     1200,
@@ -170,7 +165,7 @@ test("the first sample of a stroke passes through untouched", () => {
 });
 
 test("two samples with the same timestamp do not poison the filter", () => {
-  const filter = new OneEuroFilter(inkPositionOptions());
+  const filter = new OneEuroFilter(readyCore().inkPositionOptions());
   filter.filter(10, 100);
   filter.filter(12, 108);
   const held = filter.last;

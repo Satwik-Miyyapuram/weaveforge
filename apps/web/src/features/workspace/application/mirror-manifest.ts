@@ -186,20 +186,6 @@ export async function writeMirrorManifest(
   await fs.writeFile(file, next);
 }
 
-/**
- * Carry a manifest forward across one mirror run.
- *
- * Unchanged files are still ours, so what the last sync claimed survives minus
- * what left, plus what this run wrote. A lost manifest therefore re-learns the
- * folder one write at a time rather than adopting it wholesale.
- */
-export function nextManifest(
-  previous: readonly string[],
-  run: { written: readonly string[]; removed: readonly string[] },
-): string[] {
-  return readyCore().nextManifest(previous, run);
-}
-
 export interface Coalescer {
   /** Run after a quiet period, restarting the clock on each call. */
   request(): void;
