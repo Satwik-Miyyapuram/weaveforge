@@ -143,7 +143,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   Their TypeScript twins are deleted. The .wasm still loads lazily. 1780 KB
 //   is this batch's ceiling; shrinking it (wasm-opt, splitting rarely used
 //   exports) is a follow-up.
-export const WASM_GZIP_BUDGET = 1780 * 1024;
+// - TS removal (fourth round, PR #642): ~1940.7 KB gzipped, Windows build.
+//   ~230 KB from the remaining non-UI rules moved out of TypeScript (reader
+//   URL safety, experiments artifact names and view URLs, sharing, search,
+//   AI, vault and desktop shell contracts), mostly serde for their record
+//   shapes and the glue for the new exports. Their TypeScript twins are
+//   deleted. The .wasm still loads lazily. 2000 KB is this batch's ceiling;
+//   shrinking it stays a follow-up.
+export const WASM_GZIP_BUDGET = 2000 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
