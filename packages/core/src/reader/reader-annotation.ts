@@ -35,7 +35,7 @@ export interface ReaderAnnotation {
   updatedAt: string;
   /** R5 write-back bookkeeping — optional until sync touches the row. */
   syncState?: AnnotationSyncState;
-  zoteroVersion?: number | null;
+  zoteroVersion?: number;
 }
 
 export interface NewReaderAnnotation {

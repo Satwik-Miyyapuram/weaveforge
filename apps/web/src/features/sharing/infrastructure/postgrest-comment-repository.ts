@@ -1,22 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/core";
+// The `comments` row type is generated from Rust; Rust reads a null column as absent.
+import type { CommentRowInput as CommentRow } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
-
-/** A `comments` row as PostgREST returns it; mapped by `readyCore().commentFromRow`. */
-interface CommentRow {
-  id: string;
-  author_id: string;
-  resource_type: string;
-  resource_id: string;
-  body: string;
-  created_at: string;
-  anchor_quote?: string | null;
-  anchor_prefix?: string | null;
-  anchor_suffix?: string | null;
-  parent_id?: string | null;
-  resolved_at?: string | null;
-}
 
 /**
  * PostgREST adapter for comments (migration 0018). `author_id` defaults to

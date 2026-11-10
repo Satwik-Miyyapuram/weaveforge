@@ -23,7 +23,6 @@ function ink(id: string, paths: number[][] = [[0, 0, 10, 10]]): ReaderAnnotation
     createdAt: "2026-09-18T00:00:00.000Z",
     updatedAt: "2026-09-18T00:00:00.000Z",
     syncState: "local",
-    zoteroVersion: null,
   };
 }
 
