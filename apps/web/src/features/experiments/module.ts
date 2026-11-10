@@ -14,7 +14,7 @@ export const experimentsModule: FeatureModule = {
   // feature a copy with no account could not have. It now writes into the local
   // database over the loopback API (`local-sdk-api.ts`), so the offline build
   // has experiments to list — what it does not have is a page per experiment,
-  // which `experiment-href.ts` handles.
+  // which the Rust `experimentHref` (wf-core) handles.
   requiresNetwork: false,
   navItems: [{ key: "experiments", label: "Experiments", path: "/experiments", icon: "flask" }],
   routes: [{ path: "/experiments", component: "experiments/ExperimentsPage" }],

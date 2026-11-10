@@ -1,5 +1,6 @@
 import type { SqlRunner } from "./outbox";
 import { SyncStateStore } from "./sync-state";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Turning sync on for the first time: this device's work becomes an account's.
@@ -82,7 +83,7 @@ export class Adoption {
     const renamed: { id: string; from: string; to: string }[] = [];
     for (const project of local) {
       if (!taken.has(project.name)) continue;
-      const to = uniqueName(project.name, deviceLabel, taken);
+      const to = readyCore().uniqueDeviceName(project.name, deviceLabel, [...taken]);
       taken.add(to);
       await this.sql.exec("update projects set name = $1 where id = $2", [to, project.id]);
       renamed.push({ id: project.id, from: project.name, to });
@@ -107,15 +108,3 @@ export class Adoption {
   }
 }
 
-/**
- * `Thesis` → `Thesis (desktop)`. If that is taken too — the reader adopted a
- * third machine with the same label — count from there rather than overwrite.
- */
-function uniqueName(name: string, deviceLabel: string, taken: ReadonlySet<string>): string {
-  const base = `${name} (${deviceLabel})`;
-  if (!taken.has(base)) return base;
-  for (let n = 2; ; n += 1) {
-    const candidate = `${name} (${deviceLabel} ${n})`;
-    if (!taken.has(candidate)) return candidate;
-  }
-}

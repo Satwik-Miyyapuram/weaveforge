@@ -191,6 +191,50 @@ pub struct MemberLink {
     pub supervisor_id: Option<String>,
 }
 
+/// A member as the name map reads them (TS `Member`, the fields it uses).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct MemberNameSource {
+    /// The member's user id.
+    pub id: String,
+    /// The member's full name, when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub full_name: Option<String>,
+    /// The member's email, when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub email: Option<String>,
+}
+
+/// A member id and the name shown for them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct MemberName {
+    /// The member's user id.
+    pub id: String,
+    /// Full name, else email, else `"Member"`.
+    pub name: String,
+}
+
+/// The name shown for each member: full name, else email, else `"Member"`.
+#[must_use]
+pub fn member_name_map(members: &[MemberNameSource]) -> Vec<MemberName> {
+    members
+        .iter()
+        .map(|m| MemberName {
+            id: m.id.clone(),
+            name: m
+                .full_name
+                .clone()
+                .or_else(|| m.email.clone())
+                .unwrap_or_else(|| "Member".to_owned()),
+        })
+        .collect()
+}
+
 /// Ids the viewer can see: the viewer and everyone below them, at any depth.
 #[must_use]
 pub fn accessible_member_ids(viewer_id: &str, members: &[MemberLink]) -> HashSet<String> {

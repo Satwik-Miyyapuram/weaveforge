@@ -4,17 +4,22 @@
  * (03-14).
  */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 import type { ISupervisionRepository, Member } from "@weaveforge/core";
 
 import { PostgrestSupervisionRepository } from "../infrastructure/postgrest-supervision-repository";
 import { fetchSuperviseeMilestonesAndLogs } from "@/features/dashboard/application/fetch-supervisee-data";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const MILESTONE = {
   id: "m1", title: "T", description: "D", status: "planned", target_date: "2026-11-01",
-  dependencies: [{ id: "m0" }], compute: [{ kind: "gpu" }], created_at: "2026-10-01", user_id: "a",
+  dependencies: [{ kind: "milestone", refId: "m0" }], compute: [{ resource: "gpu" }], created_at: "2026-10-01", user_id: "a",
 };
-const LOG = { id: "l1", entry_date: "2026-10-02", kind: "note", body: "B", links: [{ id: "x" }], created_at: "2026-10-02", user_id: "b" };
+const LOG = { id: "l1", entry_date: "2026-10-02", kind: "daily", body: "B", links: [{ type: "experiment", id: "x" }], created_at: "2026-10-02", user_id: "b" };
 
 function fakeDb(data: unknown[]) {
   const selects: string[] = [];
@@ -39,7 +44,7 @@ test("batched milestones name their columns and keep every field (32-25)", async
   assert.match(selects[0]!, /user_id/);
   assert.deepEqual(out.get("a"), [{
     id: "m1", title: "T", description: "D", status: "planned", targetDate: "2026-11-01",
-    dependencies: [{ id: "m0" }], compute: [{ kind: "gpu" }], createdAt: "2026-10-01",
+    dependencies: [{ kind: "milestone", refId: "m0" }], compute: [{ resource: "gpu" }], createdAt: "2026-10-01",
   }]);
   assert.deepEqual(out.get("z"), []);
 });
@@ -49,7 +54,7 @@ test("batched logs name their columns and keep every field (32-25)", async () =>
   const out = await new PostgrestSupervisionRepository(db).listLogsFor(["b"]);
   assert.doesNotMatch(selects[0]!, /\*/);
   assert.match(selects[0]!, /user_id/);
-  assert.deepEqual(out.get("b"), [{ id: "l1", entryDate: "2026-10-02", kind: "note", body: "B", links: [{ id: "x" }], createdAt: "2026-10-02" }]);
+  assert.deepEqual(out.get("b"), [{ id: "l1", entryDate: "2026-10-02", kind: "daily", body: "B", links: [{ type: "experiment", id: "x" }], createdAt: "2026-10-02" }]);
 });
 
 test("no supervisees means no query", async () => {

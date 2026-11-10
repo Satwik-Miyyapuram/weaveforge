@@ -2,7 +2,7 @@ import type { IBlobStore } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
 import { getDataClient } from "@/lib/data-client";
 import { logToApp } from "@/lib/error-report/app-log";
-import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Browser-safe blob adapter when `BLOB_PROVIDER=tiered`.
@@ -61,9 +61,10 @@ export class HttpBlobStore implements IBlobStore {
     // The route caps one request, so a long list is sent in batches rather
     // than rejected — a gallery with 300 images should render, not blank.
     // The batches go out together; Promise.all keeps them in input order.
+    const cap = readyCore().maxSignedUrlPaths();
     const batches: string[][] = [];
-    for (let i = 0; i < paths.length; i += MAX_SIGNED_URL_PATHS) {
-      batches.push(paths.slice(i, i + MAX_SIGNED_URL_PATHS));
+    for (let i = 0; i < paths.length; i += cap) {
+      batches.push(paths.slice(i, i + cap));
     }
     const answers = await Promise.all(batches.map((batch) => this.signedUrlBatch(bucket, batch, ttlSeconds)));
     return answers.flat();

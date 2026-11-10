@@ -88,7 +88,5 @@ export async function describeRemoteSync(reply: DesktopVaultSync): Promise<strin
   if (reply.push) return core.describePush(reply.push);
   const status = reply.status;
   if (!status) return "";
-  if (!status.url) return "Not connected yet.";
-  if (status.ahead === 0 && status.behind === 0) return `In step with the remote on ${status.branch}.`;
-  return `${status.ahead} commit${status.ahead === 1 ? "" : "s"} to push, ${status.behind} to pull on ${status.branch}.`;
+  return core.describeRemoteStatus(status);
 }

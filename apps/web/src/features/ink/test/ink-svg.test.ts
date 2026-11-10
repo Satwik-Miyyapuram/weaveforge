@@ -10,15 +10,17 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_PACK_TOLERANCE, type InkPage } from "@weaveforge/core";
 
-import { inkPageSvg, strokePath } from "../application/ink-svg";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { INK_SEGMENT_SUBDIVISIONS, strokeCurveAt } from "../render/ink-renderer";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, toWasmInkPage, typedCore, type WasmInkSvgPage } from "@/lib/rust-core";
+
+before(loadTestCore);
 
 /** Every `x,y` a path command names, in order. */
 function pathPoints(d: string): [number, number][] {
@@ -28,8 +30,8 @@ function pathPoints(d: string): [number, number][] {
   ]);
 }
 
-function pageWith(...strokes: InkPage["strokes"]): InkPage {
-  return { ...typedCore().blankInkPage("blank"), strokes };
+function pageWith(...strokes: InkPage["strokes"]): WasmInkSvgPage {
+  return toWasmInkPage({ ...typedCore().blankInkPage("blank"), strokes });
 }
 
 /** The palette with one entry swapped, so a colour has to come from it. */
@@ -41,7 +43,7 @@ function paletteWith(
 }
 
 test("a page is A4 in millimetres over a viewBox in the model's own unit", () => {
-  const svg = inkPageSvg(pageWith());
+  const svg = readyCore().inkPageSvg(pageWith());
   assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
   assert.match(svg, /width="210mm" height="297mm"/);
   assert.match(svg, new RegExp(`viewBox="0 0 ${INK_A4_WIDTH} ${INK_A4_HEIGHT}"`));
@@ -50,7 +52,7 @@ test("a page is A4 in millimetres over a viewBox in the model's own unit", () =>
 });
 
 test("a stroke is one path, round-capped, at its own width and colour", () => {
-  const svg = inkPageSvg(
+  const svg = readyCore().inkPageSvg(
     pageWith(
       typedCore().makeInkStroke({ points: [100, 200, 300, 400], pressures: [], width: 5 }),
     ),
@@ -66,7 +68,7 @@ test("a stroke is one path, round-capped, at its own width and colour", () => {
 test("a two-point stroke stays the straight line it is", () => {
   // The spline must not bend a stroke that has no bend in it: every sub-segment
   // it emits between two samples lies on the line between them.
-  const svg = inkPageSvg(
+  const svg = readyCore().inkPageSvg(
     pageWith(typedCore().makeInkStroke({ points: [100, 200, 300, 400], pressures: [] })),
   );
   const points = pathPoints(/d="(M[^"]+)"/.exec(svg)?.[1] ?? "");
@@ -85,7 +87,7 @@ test("a stroke through a bend is drawn as a curve, not as corners at its samples
   // joint it draws is far shallower.
   const points = pathPoints(
     /d="(M[^"]+)"/.exec(
-      inkPageSvg(
+      readyCore().inkPageSvg(
         pageWith(typedCore().makeInkStroke({ points: [0, 0, 100, 0, 200, 100], pressures: [] })),
       ),
     )?.[1] ?? "",
@@ -117,7 +119,7 @@ test("a stroke through a bend is drawn as a curve, not as corners at its samples
 });
 
 test("a highlighter keeps its alpha and is drawn over the pen", () => {
-  const svg = inkPageSvg(
+  const svg = readyCore().inkPageSvg(
     pageWith(
       typedCore().makeInkStroke({
         points: [10, 10, 20, 20],
@@ -137,18 +139,18 @@ test("a highlighter keeps its alpha and is drawn over the pen", () => {
 });
 
 test("a page with an image embeds it; a page without one has no image", () => {
-  const withImage = inkPageSvg(pageWith(), {
+  const withImage = readyCore().inkPageSvg(pageWith(), {
     backgroundDataUrl: "data:image/png;base64,AAAA",
   });
   assert.match(withImage, /<image x="0" y="0" width="2100" height="2970"/);
   // Embedded, not linked: a blob URL would be dead by the time the file is
   // opened again.
   assert.match(withImage, /xlink:href="data:image\/png;base64,AAAA"/);
-  assert.doesNotMatch(inkPageSvg(pageWith()), /<image/);
+  assert.doesNotMatch(readyCore().inkPageSvg(pageWith()), /<image/);
 });
 
 test("a dot is a zero-length line, and a stroke with no points is nothing", () => {
-  const svg = inkPageSvg(
+  const svg = readyCore().inkPageSvg(
     pageWith(
       typedCore().makeInkStroke({ points: [7, 8], pressures: [] }),
       typedCore().makeInkStroke({ points: [], pressures: [] }),
@@ -160,7 +162,7 @@ test("a dot is a zero-length line, and a stroke with no points is nothing", () =
 });
 
 test("a title with markup in it cannot escape its element", () => {
-  const svg = inkPageSvg(pageWith(), { title: 'a<b & "c"' });
+  const svg = readyCore().inkPageSvg(pageWith(), { title: 'a<b & "c"' });
   assert.match(svg, /<title>a&lt;b &amp; &quot;c&quot;<\/title>/);
 });
 
@@ -168,11 +170,10 @@ test("figures embed under the strokes, and a crop clips rather than stretches", 
   const page = pageWith(
     typedCore().makeInkStroke({ points: [10, 10, 20, 20], pressures: [] }),
   );
-  const svg = inkPageSvg(page, {
+  const svg = readyCore().inkPageSvg(page, {
     figures: [
-      { path: "a.png", x: 100, y: 200, w: 500, h: 400, dataUrl: "data:image/webp;base64,AAAA" },
+      { x: 100, y: 200, w: 500, h: 400, dataUrl: "data:image/webp;base64,AAAA" },
       {
-        path: "b.png",
         x: 700,
         y: 200,
         w: 500,
@@ -220,7 +221,7 @@ function rendererPoints(points: readonly number[]): [number, number][] {
 }
 
 function assertSameCentreline(points: readonly number[], label: string): void {
-  const svg = pathPoints(strokePath({ points })!);
+  const svg = pathPoints(readyCore().strokePath(points)!);
   const gl = rendererPoints(points);
   assert.equal(svg.length, gl.length, `${label}: same number of curve points`);
   svg.forEach(([x, y], i) => {

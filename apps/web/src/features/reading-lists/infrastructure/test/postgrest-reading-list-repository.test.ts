@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { PostgrestReadingListRepository } from "../postgrest-reading-list-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Reading-list reads over the real local client, with every select answered

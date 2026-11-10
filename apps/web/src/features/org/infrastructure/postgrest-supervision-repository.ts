@@ -9,11 +9,12 @@ import {
   milestoneToDomain,
   type MilestoneRow,
 } from "@/features/plan/infrastructure/milestone-rows";
-import {
-  logEntryToDomain as logToDomain,
-  type LogEntryRow,
-} from "@/features/logbook/infrastructure/log-entry-rows";
+import type { LogEntryRow } from "@weaveforge/wasm";
 import { rows } from "@/backend/providers/postgrest/row-access";
+import { typedCore } from "@/lib/rust-core";
+
+// Log-entry row mapping runs in the Rust core (wf-core `logbook::log_entry_row`).
+const logToDomain = (row: LogEntryRow) => typedCore().logEntryToDomain(row);
 
 /**
  * Reads a supervisee's milestones and log entries by owner user id, across all

@@ -135,7 +135,15 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   retrieval and the vault template engine, mostly serde for their record
 //   shapes. Their TypeScript twins are deleted. 1340 KB is this batch's
 //   ceiling.
-export const WASM_GZIP_BUDGET = 1340 * 1024;
+// - TS removal (lanes 1-5, A-E, third round): ~1711.1 KB gzipped, Windows
+//   build. ~430 KB from the reader (references, viewport, selection),
+//   experiments and metric charts, plan and milestone rows, settings, org,
+//   proposals, sync conflict routing and the graph timeline, mostly serde for
+//   their record shapes and the wasm-bindgen glue for ~270 export modules.
+//   Their TypeScript twins are deleted. The .wasm still loads lazily. 1780 KB
+//   is this batch's ceiling; shrinking it (wasm-opt, splitting rarely used
+//   exports) is a follow-up.
+export const WASM_GZIP_BUDGET = 1780 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

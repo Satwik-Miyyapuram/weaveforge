@@ -2,7 +2,7 @@
 
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Fragment, useState } from "react";
-import { MARKER_OURS, MARKER_THEIRS, readyCore, type DiffLine, type HunkPick } from "@/lib/rust-core";
+import { readyCore, type DiffLine, type HunkPick } from "@/lib/rust-core";
 import type { OpenConflict } from "../domain/conflicts";
 import { FormError } from "@/components/form-error";
 import { runSyncAction } from "./run-sync-action";
@@ -48,9 +48,9 @@ export function SyncIssuesPanel() {
   if (decisions === 0 && dead.length === 0 && waiting === 0) return null;
 
   const summary = [
-    conflicts.length > 0 && plural(conflicts.length, "conflict"),
-    deletions.length > 0 && plural(deletions.length, "delete to confirm", "deletes to confirm"),
-    dead.length > 0 && plural(dead.length, "unsaved change"),
+    conflicts.length > 0 && readyCore().plural(conflicts.length, "conflict"),
+    deletions.length > 0 && readyCore().plural(deletions.length, "delete to confirm", "deletes to confirm"),
+    dead.length > 0 && readyCore().plural(dead.length, "unsaved change"),
     waiting > 0 && `${waiting} waiting`,
   ]
     .filter(Boolean)
@@ -110,8 +110,8 @@ export function SyncIssuesPanel() {
             <div key={entry.opId} className="sync-issue">
               <div>
                 <p>
-                  <span className="sync-chip">{kindOf(entry.table)}</span> {entry.op} not saved after{" "}
-                  {plural(entry.attempts, "try", "tries")}
+                  <span className="sync-chip">{readyCore().kindOf(entry.table)}</span> {entry.op} not saved after{" "}
+                  {readyCore().plural(entry.attempts, "try", "tries")}
                 </p>
                 <p className="muted">{entry.lastError ?? "No reason given."}</p>
               </div>
@@ -159,8 +159,8 @@ function DeletionCard({
   return (
     <article className="sync-conflict" data-kind={conflict.kind}>
       <header className="sync-conflict-head">
-        <span className="sync-chip">{kindOf(conflict.table)}</span>
-        <strong className="sync-conflict-name">{nameOf(conflict)}</strong>
+        <span className="sync-chip">{readyCore().kindOf(conflict.table)}</span>
+        <strong className="sync-conflict-name">{readyCore().nameOf(conflict.local, conflict.remote)}</strong>
         <span className="muted">
           {here ? "deleted on this device, edited in the cloud" : "deleted in the cloud, edited on this device"}
         </span>
@@ -205,7 +205,7 @@ function ConflictCard({
   // Fields equal on both sides need no choice; showing them hid the real difference.
   const fields = conflict.fields.filter((f) => !readyCore().sameValue(f.local ?? null, f.remote ?? null));
   const equal = conflict.fields.filter((f) => !fields.includes(f));
-  const settled = fields.filter((f) => isSettled(f, choices[f.field])).length;
+  const settled = fields.filter((f) => readyCore().isSettled(choices[f.field], text(f.local), text(f.remote))).length;
   const all = (kind: "local" | "remote") => setChoices(Object.fromEntries(fields.map((f) => [f.field, { kind }])));
 
   const resolve = async () => {
@@ -225,9 +225,9 @@ function ConflictCard({
   return (
     <article className="sync-conflict">
       <header className="sync-conflict-head">
-        <span className="sync-chip">{kindOf(conflict.table)}</span>
-        <strong className="sync-conflict-name">{nameOf(conflict)}</strong>
-        <span className="muted">changed on both sides: {fields.map((f) => humanize(f.field)).join(", ")}</span>
+        <span className="sync-chip">{readyCore().kindOf(conflict.table)}</span>
+        <strong className="sync-conflict-name">{readyCore().nameOf(conflict.local, conflict.remote)}</strong>
+        <span className="muted">changed on both sides: {fields.map((f) => readyCore().humanize(f.field)).join(", ")}</span>
       </header>
       {fields.map((f) => (
         <FieldMerge
@@ -273,14 +273,14 @@ function FieldMerge({ field, choice, onChoose }: { field: Field; choice?: Choice
   return (
     <div className="sync-field">
       <div className="sync-field-label">
-        <span>{humanize(field.field)}</span>
+        <span>{readyCore().humanize(field.field)}</span>
         {/* Both sides created the row: there was no earlier value to show. */}
         {field.base !== undefined && <span className="muted">was {format(field.base)}</span>}
       </div>
       {long ? (
         <TextMerge field={field} choice={choice} onChoose={onChoose} />
       ) : (
-        <div className="sync-sides wf-seg" role="radiogroup" aria-label={humanize(field.field)}>
+        <div className="sync-sides wf-seg" role="radiogroup" aria-label={readyCore().humanize(field.field)}>
           {(["local", "remote"] as const).map((side) => (
             <RadioButton checked={choice?.kind === side}
               key={side}
@@ -321,14 +321,14 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
     {
       label: "Edit",
       checked: choice?.kind === "edit",
-      choose: () => onChoose({ kind: "edit", text: deviceMarkers(ours, theirs) }),
+      choose: () => onChoose({ kind: "edit", text: readyCore().deviceMarkers(ours, theirs) }),
     },
   ];
 
   return (
     <div className="sync-text">
       <SegmentedControl
-        label={humanize(field.field)}
+        label={readyCore().humanize(field.field)}
         className="sync-modes"
         value={modes.find((m) => m.checked)?.label ?? null}
         onChange={(next) => modes.find((m) => m.label === next)?.choose()}
@@ -349,7 +349,7 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
         </>
       ) : (
         <div className="sync-diff">
-          {groupHunks(lines).map((group, i) =>
+          {readyCore().groupHunks(lines).map((group, i) =>
             group.hunk === null ? (
               <Fragment key={i}>
                 {group.lines.map((l, j) => (
@@ -388,56 +388,6 @@ function DiffRow({ line }: { line: DiffLine }) {
   );
 }
 
-/** Runs of unchanged lines, and each changed run tagged with its hunk index, as `diffBody` numbers them. */
-function groupHunks(lines: DiffLine[]): { hunk: number | null; lines: DiffLine[] }[] {
-  const groups: { hunk: number | null; lines: DiffLine[] }[] = [];
-  let next = 0;
-  for (const line of lines) {
-    const changed = line.op !== "same";
-    const last = groups[groups.length - 1];
-    if (last && (last.hunk !== null) === changed) last.lines.push(line);
-    else groups.push({ hunk: changed ? next++ : null, lines: [line] });
-  }
-  return groups;
-}
-
-function isSettled(field: Field, choice?: Choice): boolean {
-  if (!choice) return false;
-  if (choice.kind === "edit") return !readyCore().hasConflictMarkers(choice.text);
-  if (choice.kind === "hunks") {
-    return readyCore().diffBody(text(field.local), text(field.remote)).hunks.every((h) => choice.picks[h.index] !== undefined);
-  }
-  return true;
-}
-
-/** Markers named for the two sides of a sync, not the folder import they were written for. */
-function deviceMarkers(ours: string, theirs: string): string {
-  return readyCore().writeConflictMarkers(ours, theirs)
-    .split("\n")
-    .map((l) => (l === MARKER_OURS ? "<<<<<<< this device" : l === MARKER_THEIRS ? ">>>>>>> cloud" : l))
-    .join("\n");
-}
-
-function kindOf(table: string): string {
-  if (table === "vault_pages") return "Note";
-  const kind = table.replace(/_/g, " ").replace(/s$/, "");
-  return kind.charAt(0).toUpperCase() + kind.slice(1);
-}
-
-/** The row's own title rather than a uuid. */
-function nameOf({ local, remote }: OpenConflict): string {
-  const name = [local, remote ?? {}]
-    .flatMap((row) => [row.title, row.name, row.label])
-    .find((v): v is string => typeof v === "string" && v.trim() !== "");
-  if (!name) return "Untitled";
-  return name.length > 70 ? `${name.slice(0, 70)}…` : name;
-}
-
-function humanize(field: string): string {
-  const words = field.replace(/_id$/, "").replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
 function text(value: unknown): string {
   if (value === null || value === undefined) return "";
   return typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -462,8 +412,4 @@ function format(value: unknown): string {
 
 function raw(value: unknown): string {
   return value === undefined ? "missing" : JSON.stringify(value);
-}
-
-function plural(n: number, word: string, many = `${word}s`): string {
-  return `${n} ${n === 1 ? word : many}`;
 }

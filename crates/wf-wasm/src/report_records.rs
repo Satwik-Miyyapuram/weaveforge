@@ -8,6 +8,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::report::bibliography_report::{self, BibliographyInput};
+use wf_core::report::edited_label;
 use wf_core::report::prisma_figure::{self, PrismaCounts, PrismaFigureOptions};
 use wf_core::report::project_path;
 use wf_core::report::report_section::{
@@ -40,6 +41,14 @@ pub fn prisma_figure_tex_js(counts: JsValue, options: JsValue) -> JsResult<Strin
 pub fn prisma_caveat_js(counts: JsValue) -> JsResult<Option<String>> {
     let counts: PrismaCounts = serde_wasm_bindgen::from_value(counts)?;
     Ok(prisma_figure::prisma_caveat(&counts))
+}
+
+/// [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).
+/// `None` (a week or more, or NaN) becomes `undefined`; the caller then shows the date.
+#[wasm_bindgen(js_name = editedRelativeLabel)]
+#[must_use]
+pub fn edited_relative_label_js(seconds: f64) -> Option<String> {
+    edited_label::edited_relative_label(seconds)
 }
 
 /// [`normalize_project_path`](project_path::normalize_project_path) (TS `normalizeProjectPath`).

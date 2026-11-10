@@ -7,7 +7,6 @@
  * re-render. The server gets the escaped source back; diagrams draw on the
  * client.
  */
-import { escapeHtml } from "./escape-html";
 import { errorMessage } from "@weaveforge/core";
 import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 import { readyCore } from "@/lib/rust-core";
@@ -113,7 +112,7 @@ export function isMermaidFence(info: string): boolean {
  */
 export async function renderMermaidBlock(code: string): Promise<string> {
   if (typeof document === "undefined") {
-    return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre>`;
+    return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${readyCore().escapeHtml(code)}</code></pre>`;
   }
   const source = quoteAwkwardLabels(code.trim());
   const hit = renderCache.get(source);
@@ -137,7 +136,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
     // The message is shown, not tucked into a tooltip: a diagram that comes
     // back as its own source with nothing said looks like a renderer that
     // did not run, when it is a typo on line 3.
-    return `<div class="md-mermaid md-mermaid-error"><pre class="md-code" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre><p class="md-mermaid-message">Mermaid: ${escapeHtml(message)}</p></div>`;
+    return `<div class="md-mermaid md-mermaid-error"><pre class="md-code" data-lang="mermaid"><code>${readyCore().escapeHtml(code)}</code></pre><p class="md-mermaid-message">Mermaid: ${readyCore().escapeHtml(message)}</p></div>`;
   }
 }
 

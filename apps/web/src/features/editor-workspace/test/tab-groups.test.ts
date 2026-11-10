@@ -1,9 +1,12 @@
 /** Tab groups: named, coloured runs of tabs in one strip that fold away. */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { PaneLayout, PaneLeaf, TabRef } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { readLayout, writeLayout } from "../application/layout-storage";
+
+before(loadTestCore);
 
 const tab = (id: string): TabRef => ({ kind: "vault_page", id });
 const ABCD = ["a", "b", "c", "d"].reduce((layout, id) => readyCore().openTab(layout, tab(id)), readyCore().emptyLayout());

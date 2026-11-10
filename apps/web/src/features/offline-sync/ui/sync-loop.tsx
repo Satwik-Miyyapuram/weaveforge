@@ -10,7 +10,7 @@ import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/loc
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { logToApp, type AppLogInput } from "@/lib/error-report/app-log";
 import { alreadyRecorded } from "@/lib/error-report/log-buffer";
 import { LOCAL_USER_ID } from "@weaveforge/core";
@@ -69,11 +69,12 @@ const FOCUS_MS = 15 * 1000;
 const DEBOUNCE_CHANGE_MS = 1500;
 const BOOT_RETRY_MS = 30 * 1000;
 
+/** Rust `sync::device_session`: the signed-in account is the one this device adopted. */
 export function mayDriveDevice(
   signedInUserId: string | null,
   adoptedAccountId: string | null,
 ): boolean {
-  return adoptedAccountId !== null && signedInUserId === adoptedAccountId;
+  return readyCore().mayDriveDevice(signedInUserId, adoptedAccountId);
 }
 
 export function createCycleRunner(run: () => Promise<void>): () => Promise<void> {
@@ -195,9 +196,7 @@ export function sessionAction(
   signedInUserId: string | null,
   adoptedAccountId: string | null,
 ): SessionAction {
-  if (!signedInUserId) return "idle";
-  if (adoptedAccountId === null) return "adopt";
-  return mayDriveDevice(signedInUserId, adoptedAccountId) ? "drive" : "foreign";
+  return readyCore().sessionAction(signedInUserId, adoptedAccountId) as SessionAction;
 }
 
 export function SyncLoop() {

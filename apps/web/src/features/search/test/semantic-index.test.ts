@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SearchDoc } from "@weaveforge/core";
 import type { EmbedRequest, IEmbedder } from "../application/embedder";
-import { SemanticIndex, documentIdOf } from "@/features/search/application/semantic-index";
+import { SemanticIndex } from "@/features/search/application/semantic-index";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * A deterministic stand-in for the encoder.
@@ -105,12 +110,6 @@ test("passages collapse back to one hit per document", async () => {
   const hits = await index.search("transformer positions", 10);
   assert.equal(hits.length, 1, "a document appears once, however many passages matched");
   assert.equal(hits[0]!.id, "note:long");
-});
-
-test("passage ids carry their document", () => {
-  assert.equal(documentIdOf("note:a#3"), "note:a");
-  assert.equal(documentIdOf("note:a"), "note:a", "an unsuffixed id is its own document");
-  assert.equal(documentIdOf("pdf:p1:12#0"), "pdf:p1:12", "only the last # is the passage marker");
 });
 
 test("queries and passages are embedded under their own role", async () => {

@@ -6,13 +6,25 @@
  * the dashboard does not change shape when Customize is pressed; a list card's
  * height then follows its content and only its width can be dragged.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { DashboardLayoutItem } from "@weaveforge/core";
-import { fitLayoutToContent, rowsForHeight, FIT_MIN_ROWS } from "../application/fit-card-height";
-import { getCardDef } from "../application/card-registry";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { FIT_MAX_HEIGHTS, getCardDef } from "../application/card-registry";
+
+before(async () => {
+  await loadTestCore();
+});
+
+/** Mirrors the grid's calls into the Rust core. */
+const rowsForHeight = (px: number, rowHeight: number, margin: number) => readyCore().rowsForHeight(px, rowHeight, margin);
+const fitLayoutToContent = (items: DashboardLayoutItem[], measured: Map<string, number>) =>
+  readyCore().fitLayoutToContent(items, measured, FIT_MAX_HEIGHTS) as DashboardLayoutItem[];
+/** Smallest fitted list card, in rows (Rust `FIT_MIN_ROWS`). */
+const FIT_MIN_ROWS = 2;
 
 const item = (id: string, type: DashboardLayoutItem["type"], h: number): DashboardLayoutItem => ({ id, type, x: 0, y: 0, w: 12, h });
 

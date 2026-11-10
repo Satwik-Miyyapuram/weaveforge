@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 
-import { createdPageOf } from "../application/proposal-preview";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
+
+function createdPageOf<P extends { id: string; title: string; parentId?: string | null }>(
+  item: { kind: string; payload?: Record<string, unknown> | null },
+  pages: readonly P[],
+): P | null {
+  const index = readyCore().createdPageIndex(item, pages) as number | null;
+  return index === null ? null : (pages[index] ?? null);
+}
 
 test("an approved new note is found by its title under its parent (E27)", () => {
   const pages = [

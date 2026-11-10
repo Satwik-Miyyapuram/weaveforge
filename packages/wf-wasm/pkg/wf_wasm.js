@@ -259,6 +259,40 @@ export class VectorIndex {
 if (Symbol.dispose) VectorIndex.prototype[Symbol.dispose] = VectorIndex.prototype.free;
 
 /**
+ * [`account_menu::account_attention`]: the menu rows and the icon total as `{ rows, total }`.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not an `AccountAttentionInput`-shaped object, or the result cannot be converted to JS.
+ * @param {any} input
+ * @returns {any}
+ */
+export function accountAttention(input) {
+    const ret = wasm.accountAttention(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`account_links::account_links`]: the account block's rows as `{ id, label, href?, external? }`.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not an `AccountLinksInput`-shaped object, or the result cannot be converted to JS.
+ * @param {any} input
+ * @returns {any}
+ */
+export function accountLinks(input) {
+    const ret = wasm.accountLinks(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`acronyms_for_title`](acronyms::acronyms_for_title) as a JS array of strings.
  *
  * # Errors
@@ -399,6 +433,24 @@ export function addDays(iso, days) {
 }
 
 /**
+ * [`added_notice`]: what an add says.
+ * @param {boolean} created
+ * @returns {string}
+ */
+export function addedNotice(created) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.addedNotice(created);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`agreement_between`](screening::agreement_between) (TS `agreementBetween`).
  *
  * # Errors
@@ -428,6 +480,19 @@ export function agreementBetween(decisions, reviewers, stage) {
  */
 export function aiReadCategoryForResource(resource_type) {
     const ret = wasm.aiReadCategoryForResource(resource_type);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`align_series`]: overlaid runs on one union step axis, gaps as `null`.
+ * @param {any} series
+ * @returns {any}
+ */
+export function alignSeries(series) {
+    const ret = wasm.alignSeries(series);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -490,6 +555,117 @@ export function annotationDocId(annotation_id) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`annotation_identity`] (TS `sameAnnotation`): the key two annotations share when they are
+ * the same mark.
+ *
+ * # Errors
+ *
+ * Fails if `annotation` is not a JSON-like object.
+ * @param {any} annotation
+ * @returns {string}
+ */
+export function annotationIdentity(annotation) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.annotationIdentity(annotation);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`to_domain`](annotation_pin::to_domain) (TS `annotationPinToDomain`).
+ *
+ * # Errors
+ *
+ * Fails if `row` is not an annotation pin row, or the result cannot be converted.
+ * @param {any} row
+ * @returns {any}
+ */
+export function annotationPinToDomain(row) {
+    const ret = wasm.annotationPinToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_domain`]: an `annotation_quotation_types` row as a domain value. Throws on an unknown type.
+ * @param {any} row
+ * @returns {any}
+ */
+export function annotationQuotationTypeRowToDomain(row) {
+    const ret = wasm.annotationQuotationTypeRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`append_paper_note`]: the note with `addition` appended, or `undefined` when the addition is
+ * blank.
+ * @param {string | null | undefined} existing
+ * @param {string} addition
+ * @returns {string | undefined}
+ */
+export function appendPaperNote(existing, addition) {
+    var ptr0 = isLikeNone(existing) ? 0 : passStringToWasm0(existing, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(addition, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.appendPaperNote(ptr0, len0, ptr1, len1);
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
+}
+
+/**
+ * [`append_tag_hashtags`](note_tags::append_tag_hashtags). `tag_names` is an array of tag names.
+ *
+ * # Errors
+ *
+ * Fails if `tag_names` is not an array of strings.
+ * @param {string} body
+ * @param {any} tag_names
+ * @returns {string}
+ */
+export function appendTagHashtags(body, tag_names) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.appendTagHashtags(ptr0, len0, tag_names);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -639,6 +815,26 @@ export function applyUserIntegrationFields(settings, provider_id, fields) {
 }
 
 /**
+ * [`artifact_basename`](artifact_refs::artifact_basename) (TS `artifactBasename`).
+ * @param {string} name
+ * @returns {string}
+ */
+export function artifactBasename(name) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.artifactBasename(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`wf_core::papers::open_access::arxiv_candidates`]: arXiv's PDF and HTML copies.
  *
  * # Errors
@@ -702,6 +898,64 @@ export function assemblePageCitations(page, native, patterns, excluded, candidat
 }
 
 /**
+ * [`unsafe_export_path_error`](export_path::unsafe_export_path_error): the refusal message, or
+ * `undefined` when the path is a safe relative ZIP entry name.
+ * @param {string} path
+ * @returns {string | undefined}
+ */
+export function assertSafeExportPath(path) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.assertSafeExportPath(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * [`asset_extension`](asset_mime::asset_extension): lowercased extension of a path, `png` when none.
+ * @param {string} path
+ * @returns {string}
+ */
+export function assetExtension(path) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.assetExtension(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`asset_mime_type`](asset_mime::asset_mime_type): content type for an imported asset's extension.
+ * @param {string} ext
+ * @returns {string}
+ */
+export function assetMimeType(ext) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(ext, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.assetMimeType(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`asset_path`](folder_layout::asset_path). `scope` is `"notes"`, `"papers"` or `"report"`.
  *
  * # Errors
@@ -732,6 +986,25 @@ export function assetPath(scope, storage_path) {
     } finally {
         wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
     }
+}
+
+/**
+ * [`axis_spec`](plot_size::axis_spec) for a tier name (`PlotTier` in `bindings.ts`).
+ *
+ * # Errors
+ *
+ * Fails if `tier` is not one of the three tier names.
+ * @param {string} tier
+ * @returns {any}
+ */
+export function axisSpec(tier) {
+    const ptr0 = passStringToWasm0(tier, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.axisSpec(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -772,6 +1045,23 @@ export function bibImportMessage(added, skipped, problems) {
     } finally {
         wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
     }
+}
+
+/**
+ * [`bib_paper_input`](bib_import::bib_paper_input) (TS `bibPaperInput`).
+ *
+ * # Errors
+ *
+ * Fails if `entry` cannot be read as a planned `.bib` entry.
+ * @param {any} entry
+ * @returns {any}
+ */
+export function bibPaperInput(entry) {
+    const ret = wasm.bibPaperInput(entry);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -879,6 +1169,27 @@ export function bodyStats(body) {
 }
 
 /**
+ * [`local_first_route::both_ends_merge`]: `"serverError"`, `"preferLocalRows"` or `"concatRows"`.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ * @param {string} name
+ * @param {boolean} here_failed
+ * @param {boolean} there_failed
+ * @returns {any}
+ */
+export function bothEndsMerge(name, here_failed, there_failed) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.bothEndsMerge(ptr0, len0, here_failed, there_failed);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`bounded_body`](search_document::bounded_body).
  * @param {string} body
  * @returns {string}
@@ -896,6 +1207,25 @@ export function boundedBody(body) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`breadcrumbs`](crumbs::breadcrumbs) as an array of crumbs.
+ *
+ * # Errors
+ *
+ * Fails if `tab`, `files` or `lists` does not have the shape of its type.
+ * @param {any} tab
+ * @param {any} files
+ * @param {any} lists
+ * @returns {any}
+ */
+export function breadcrumbs(tab, files, lists) {
+    const ret = wasm.breadcrumbs(tab, files, lists);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -938,6 +1268,23 @@ export function buildExcerpt(body, terms, max_chars, single_line) {
     const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.buildExcerpt(ptr0, len0, terms, isLikeNone(max_chars) ? Number.MAX_SAFE_INTEGER : (max_chars) >>> 0, isLikeNone(single_line) ? 0xFFFFFF : single_line ? 1 : 0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`build_graph_data`](graph_build::build_graph_data): nodes, links and lookups for one graph view.
+ *
+ * # Errors
+ *
+ * Fails if the input has the wrong shape, or the result cannot be serialised.
+ * @param {any} input
+ * @returns {any}
+ */
+export function buildGraphData(input) {
+    const ret = wasm.buildGraphData(input);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1006,6 +1353,77 @@ export function buildListsTree(input) {
  */
 export function buildPageTree(pages) {
     const ret = wasm.buildPageTree(pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`build_paper_html_document`]: the framed, self-contained document for one kept paper.
+ *
+ * # Errors
+ *
+ * Fails if `page` is not a paper page object, or `options` is not an options object.
+ * @param {any} page
+ * @param {any} options
+ * @returns {string}
+ */
+export function buildPaperHtmlDocument(page, options) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.buildPaperHtmlDocument(page, options);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`build_propose_fill_prompt`]: the prompt that asks the AI to fill one column.
+ * @param {any} input
+ * @returns {string}
+ */
+export function buildProposeFillPrompt(input) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.buildProposeFillPrompt(input);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`build_reference_index`]: analyzes the pages and shapes the overlay's index.
+ *
+ * # Errors
+ *
+ * Fails if `pages` or `outline` do not have the expected shape.
+ * @param {any} pages
+ * @param {any} outline
+ * @returns {any}
+ */
+export function buildReferenceIndex(pages, outline) {
+    const ret = wasm.buildReferenceIndex(pages, outline);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1098,6 +1516,32 @@ export function buildWorkspaceTree(input) {
 }
 
 /**
+ * [`try_cache_path_segments`](model_cache::try_cache_path_segments): the segments a cache URL
+ * names under the cache root, or `null` when it names none or would leave the root.
+ *
+ * # Errors
+ *
+ * Throws on a URL that does not parse, or a path escape `decodeURIComponent` rejects, as the
+ * TS did.
+ * @param {string} url
+ * @returns {string[] | undefined}
+ */
+export function cachePathSegments(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.cachePathSegments(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    }
+    return v2;
+}
+
+/**
  * [`can_create_role`](member::can_create_role).
  * @param {string} creator
  * @param {string} target
@@ -1113,6 +1557,24 @@ export function canCreateRole(creator, target) {
 }
 
 /**
+ * [`can_drop`](edit::can_drop).
+ *
+ * # Errors
+ *
+ * Fails if an argument does not have the expected shape, or the result cannot be serialised.
+ * @param {any} source
+ * @param {any} target
+ * @returns {any}
+ */
+export function canDrop(source, target) {
+    const ret = wasm.canDrop(source, target);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
  * @param {any} group
  * @param {any} next
@@ -1125,6 +1587,23 @@ export function canJoinInkGroup(group, next, window_ms) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`can_rename`](edit::can_rename).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ * @param {any} node
+ * @returns {any}
+ */
+export function canRename(node) {
+    const ret = wasm.canRename(node);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -1260,6 +1739,25 @@ export function checkInkChunkBody(body) {
 }
 
 /**
+ * [`check_link_folder`]: whether a vault-relative folder may be linked, and its normalised form.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {string} raw
+ * @returns {any}
+ */
+export function checkOverleafLinkFolder(raw) {
+    const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.checkOverleafLinkFolder(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`check_url_shape`](url_safety::check_url_shape) on the parts of a parsed URL.
  *
  * # Errors
@@ -1326,6 +1824,34 @@ export function chunkForEmbedding(text, options) {
 }
 
 /**
+ * [`citation_alert_message`] for JS (TS `citationAlertMessage`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a citation alert input with the expected fields.
+ * @param {any} input
+ * @returns {string}
+ */
+export function citationAlertMessage(input) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.citationAlertMessage(input);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`citation_alert_score`](citation_alerts::citation_alert_score) of each candidate, in order.
  *
  * # Errors
@@ -1364,6 +1890,82 @@ export function citationAlertTrackFromRow(row) {
 }
 
 /**
+ * [`citation_contexts`](semantic_scholar_citation::citation_contexts): trimmed snippets, or
+ * nothing when none remain.
+ *
+ * # Errors
+ *
+ * Fails if the value cannot be read as JSON.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function citationContexts(raw) {
+    const ret = wasm.citationContexts(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`external_id_ref`](semantic_scholar_citation::external_id_ref): the lookup reference for
+ * a paper's external ids, or nothing.
+ *
+ * # Errors
+ *
+ * Fails if `ids` has the wrong shape.
+ * @param {any} ids
+ * @returns {any}
+ */
+export function citationExternalIdRef(ids) {
+    const ret = wasm.citationExternalIdRef(ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`intent_label`](citation_alerts::intent_label) of one candidate, or `undefined` when it has no intents.
+ *
+ * # Errors
+ *
+ * Fails if `candidate` has the wrong shape.
+ * @param {any} candidate
+ * @returns {string | undefined}
+ */
+export function citationIntentLabel(candidate) {
+    const ret = wasm.citationIntentLabel(candidate);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
+ * [`citation_intents`](semantic_scholar_citation::citation_intents): the known intents, or
+ * nothing when none remain.
+ *
+ * # Errors
+ *
+ * Fails if the value cannot be read as JSON.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function citationIntents(raw) {
+    const ret = wasm.citationIntents(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
  * exported as `citationItemToRect` because `itemToRect` belongs to another lane).
  *
@@ -1377,6 +1979,44 @@ export function citationAlertTrackFromRow(row) {
  */
 export function citationItemToRect(item, from, to) {
     const ret = wasm.citationItemToRect(item, from, to);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`cite_key_of`](bib_import::cite_key_of) (TS `citeKeyOf`).
+ *
+ * # Errors
+ *
+ * Fails if `metadata` cannot be read as a JSON value.
+ * @param {any} metadata
+ * @returns {any}
+ */
+export function citeKeyOf(metadata) {
+    const ret = wasm.citeKeyOf(metadata);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`cited_sources`](retrieval::cited_sources): the 1-based source numbers an answer cites, in
+ * first-citation order, out of `count` sources.
+ *
+ * # Errors
+ *
+ * Fails if the numbers cannot be converted to a JS value.
+ * @param {string} answer
+ * @param {number} count
+ * @returns {any}
+ */
+export function citedSourceNumbers(answer, count) {
+    const ptr0 = passStringToWasm0(answer, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.citedSourceNumbers(ptr0, len0, count);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1462,6 +2102,23 @@ export function clampScale(scale) {
 export function clampZoomFactor(factor, base_scale) {
     const ret = wasm.clampZoomFactor(factor, base_scale);
     return ret;
+}
+
+/**
+ * [`claude_code_commands`](mcp_client_config::claude_code_commands).
+ * @returns {string}
+ */
+export function claudeCodeCommands() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.claudeCodeCommands();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
 }
 
 /**
@@ -1577,6 +2234,23 @@ export function cleanUrlsWithRules(text, rules) {
 }
 
 /**
+ * [`clean_widget_palette`]: the palette if every key is valid, else `null`.
+ *
+ * # Errors
+ *
+ * Fails if `value` cannot be read as JSON, or the result cannot be converted to JS.
+ * @param {any} value
+ * @returns {any}
+ */
+export function cleanWidgetPalette(value) {
+    const ret = wasm.cleanWidgetPalette(value);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`clean_wrapped_text`] for JS, as `{ text, changed }`.
  *
  * # Errors
@@ -1609,6 +2283,23 @@ export function cleanWrappedText(input, options) {
  */
 export function clipSegmentToArea(area, from, to) {
     const ret = wasm.clipSegmentToArea(area, from, to);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`clone_links`] (TS `cloneLinks`): links with string endpoints, every other field kept.
+ *
+ * # Errors
+ *
+ * Fails if `links` is not an array of JSON values.
+ * @param {any} links
+ * @returns {any}
+ */
+export function cloneLinks(links) {
+    const ret = wasm.cloneLinks(links);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1655,6 +2346,24 @@ export function closedTabs(before, after) {
 }
 
 /**
+ * [`cluster_marks`](timeline::cluster_marks): marks nearer than `min_gap` stacked into clusters.
+ *
+ * # Errors
+ *
+ * Fails if `marks` has the wrong shape.
+ * @param {any} marks
+ * @param {number} min_gap
+ * @returns {any}
+ */
+export function clusterMarks(marks, min_gap) {
+    const ret = wasm.clusterMarks(marks, min_gap);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`coalesce_mentions`] (TS `coalesceMentions`).
  *
  * # Errors
@@ -1669,6 +2378,54 @@ export function coalesceMentions(mentions, text, items) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.coalesceMentions(mentions, ptr0, len0, items);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`codex_toml`](mcp_client_config::codex_toml) for a `McpLaunchLine`.
+ *
+ * # Errors
+ *
+ * Fails if `launch` has the wrong shape.
+ * @param {any} launch
+ * @returns {string}
+ */
+export function codexToml(launch) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.codexToml(launch);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`coerce_paper_field_value`] (TS `coercePaperFieldValue`). `null` or blank clears the value
+ * (returns `null`); a refusal throws an `Error` with the wf-core message.
+ *
+ * # Errors
+ *
+ * Fails if `kind` is not a field kind, if `value` is not a string, number, or string list,
+ * or if the value is refused for `kind`.
+ * @param {any} kind
+ * @param {any} value
+ * @returns {any}
+ */
+export function coercePaperFieldValue(kind, value) {
+    const ret = wasm.coercePaperFieldValue(kind, value);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -1693,6 +2450,45 @@ export function coldBlobClientConfig(fields) {
 }
 
 /**
+ * [`collapse_alert`]: the short form of a citation alert as `{ shown, hidden }`, or
+ * `undefined` when the entry is not a long citation alert.
+ * @param {string} headline
+ * @param {string} rest
+ * @returns {any}
+ */
+export function collapseAlert(headline, rest) {
+    const ptr0 = passStringToWasm0(headline, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(rest, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.collapseAlert(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`collapse_hits`](result_dedupe::collapse_hits) as `{id, score}` objects.
+ *
+ * # Errors
+ *
+ * Fails if `hits` is not an array of hit records.
+ * @param {any} hits
+ * @param {string} seed_entity_id
+ * @returns {any}
+ */
+export function collapseToEntities(hits, seed_entity_id) {
+    const ptr0 = passStringToWasm0(seed_entity_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.collapseToEntities(hits, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`collect_annotation_image_regions`](ops::collect_annotation_image_regions).
  *
  * # Errors
@@ -1708,6 +2504,58 @@ export function collectAnnotationImageRegions(annotations) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`collect_cited_keys`](bibtex::collect_cited_keys): the keys a LaTeX body cites, as an array.
+ * @param {string} latex
+ * @returns {any}
+ */
+export function collectCitedKeys(latex) {
+    const ptr0 = passStringToWasm0(latex, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.collectCitedKeys(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`collect_list_ids`]: every list id in the tree, parents before children.
+ * @param {any} tree
+ * @returns {any}
+ */
+export function collectListIds(tree) {
+    const ret = wasm.collectListIds(tree);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`colour_tool_for`]: returns `"pen"`, `"highlighter"`, `"text"` or `"highlight"`.
+ * @param {boolean} pen_open
+ * @param {string} pen_tool
+ * @param {string} picked_tool
+ * @returns {string}
+ */
+export function colourToolFor(pen_open, pen_tool, picked_tool) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(pen_tool, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(picked_tool, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.colourToolFor(pen_open, ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -1920,6 +2768,52 @@ export function conceptKey(name) {
 }
 
 /**
+ * [`conflict_route`] for JS (TS `conflictRoute`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a conflict input.
+ * @param {any} input
+ * @returns {any}
+ */
+export function conflictRoute(input) {
+    const ret = wasm.conflictRoute(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`container_resize`]: `last` and `next` are `{ width, height }`. Returns `"ignore"`, `"now"` or `"settle"`.
+ *
+ * # Errors
+ *
+ * Fails if either argument is not a `{ width, height }` object of numbers.
+ * @param {any} last
+ * @param {any} next
+ * @returns {string}
+ */
+export function containerResize(last, next) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.containerResize(last, next);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`context_nonce_from`](ai_tool_name::context_nonce_from): the caller passes the
  * `Math.random()` values.
  * @param {Float64Array} randoms
@@ -1950,6 +2844,40 @@ export function contextNonceFrom(randoms) {
  */
 export function coreInfo() {
     const ret = wasm.coreInfo();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`count_action_list`](folder_merge::count_action_list): the tally over bare actions.
+ *
+ * # Errors
+ *
+ * Fails when `actions` is not a list of import actions.
+ * @param {any} actions
+ * @returns {any}
+ */
+export function countActionList(actions) {
+    const ret = wasm.countActionList(actions);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`count_actions`](folder_merge::count_actions).
+ *
+ * # Errors
+ *
+ * Fails when `entries` is not a list of import entries.
+ * @param {any} entries
+ * @returns {any}
+ */
+export function countActions(entries) {
+    const ret = wasm.countActions(entries);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2031,6 +2959,23 @@ export function creatableRoles(creator) {
     const ptr0 = passStringToWasm0(creator, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.creatableRoles(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`creatable_under`](edit::creatable_under).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ * @param {any} node
+ * @returns {any}
+ */
+export function creatableUnder(node) {
+    const ret = wasm.creatableUnder(node);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2239,6 +3184,65 @@ export function createVectorIndex(dimensions) {
 }
 
 /**
+ * [`created_page_index`](proposal_created_page::created_page_index). `item` is a proposal with
+ * `kind` and `payload`; `pages` is a list of pages with `title` and `parentId`. Returns the
+ * index into `pages`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if an input cannot be read as the expected shape.
+ * @param {any} item
+ * @param {any} pages
+ * @returns {any}
+ */
+export function createdPageIndex(item, pages) {
+    const ret = wasm.createdPageIndex(item, pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`creation_kind_for`](edit::creation_kind_for). `activeKind` is `null` when no document is open.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ * @param {string | null} [active_kind]
+ * @returns {any}
+ */
+export function creationKindFor(active_kind) {
+    var ptr0 = isLikeNone(active_kind) ? 0 : passStringToWasm0(active_kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.creationKindFor(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`creation_target`](edit::creation_target). `active` is `null` when no document is open,
+ * `folders` the ids of the notes made as folders.
+ *
+ * # Errors
+ *
+ * Fails if an argument does not have the expected shape, or the result cannot be serialised.
+ * @param {any} kind
+ * @param {any} active
+ * @param {any} folders
+ * @returns {any}
+ */
+export function creationTarget(kind, active, folders) {
+    const ret = wasm.creationTarget(kind, active, folders);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`crop_figure_to`](figure::crop_figure_to): a figure re-cropped to `kept` inside `full`.
  *
  * # Errors
@@ -2292,6 +3296,50 @@ export function damerauLevenshtein(a, b) {
 }
 
 /**
+ * [`append_card_pair`](layout::append_card_pair): append one card to both breakpoints.
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} layout_value
+ * @param {string} card_type
+ * @param {string} id
+ * @param {any} limits
+ * @returns {any}
+ */
+export function dashboardAppendCardPair(layout_value, card_type, id, limits) {
+    const ptr0 = passStringToWasm0(card_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.dashboardAppendCardPair(layout_value, ptr0, len0, ptr1, len1, limits);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`build_dashboard_stats`](stats::build_dashboard_stats) for the whole dashboard.
+ *
+ * # Errors
+ *
+ * Fails if `input` cannot be read as the expected shape.
+ * @param {any} input
+ * @param {string} today
+ * @returns {any}
+ */
+export function dashboardBuildStats(input, today) {
+    const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.dashboardBuildStats(input, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`close_gaps`](packing::close_gaps).
  *
  * # Errors
@@ -2329,6 +3377,41 @@ export function dashboardCompactVertical(items, cols) {
 }
 
 /**
+ * [`default_layout`](layout::default_layout): the supervisor or the student default.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to a JS value.
+ * @param {boolean} supervisor
+ * @returns {any}
+ */
+export function dashboardDefaultLayout(supervisor) {
+    const ret = wasm.dashboardDefaultLayout(supervisor);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`finalize_dashboard_layout`](layout::finalize_dashboard_layout).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} layout_value
+ * @param {any} limits
+ * @returns {any}
+ */
+export function dashboardFinalizeLayout(layout_value, limits) {
+    const ret = wasm.dashboardFinalizeLayout(layout_value, limits);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`floors`](packing::floors) for one card type on a grid `cols` wide.
  *
  * # Errors
@@ -2340,6 +3423,92 @@ export function dashboardCompactVertical(items, cols) {
  */
 export function dashboardLayoutFloors(limit, cols) {
     const ret = wasm.dashboardLayoutFloors(limit, cols);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`layout_signature`](layout::layout_signature).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape.
+ * @param {any} items
+ * @returns {string}
+ */
+export function dashboardLayoutSignature(items) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.dashboardLayoutSignature(items);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`lg_layout_needs_repair`](layout::lg_layout_needs_repair).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} items
+ * @param {any} limits
+ * @returns {boolean}
+ */
+export function dashboardLgNeedsRepair(items, limits) {
+    const ret = wasm.dashboardLgNeedsRepair(items, limits);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`merge_rgl_positions`](layout::merge_rgl_positions): the grid's positions, normalized to `cols`.
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} items
+ * @param {any} rgl
+ * @param {any} limits
+ * @param {number} cols
+ * @returns {any}
+ */
+export function dashboardMergeRglPositions(items, rgl, limits, cols) {
+    const ret = wasm.dashboardMergeRglPositions(items, rgl, limits, cols);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`merge_supervisor_cards`](layout::merge_supervisor_cards). `ids` holds one new card id per
+ * supervisor-only card type, in order.
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} layout_value
+ * @param {any} limits
+ * @param {any} ids
+ * @returns {any}
+ */
+export function dashboardMergeSupervisorCards(layout_value, limits, ids) {
+    const ret = wasm.dashboardMergeSupervisorCards(layout_value, limits, ids);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2407,6 +3576,24 @@ export function dashboardPackSm(items, limits) {
 }
 
 /**
+ * [`sm_layout_needs_repack`](layout::sm_layout_needs_repack).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} items
+ * @param {any} limits
+ * @returns {boolean}
+ */
+export function dashboardSmNeedsRepack(items, limits) {
+    const ret = wasm.dashboardSmNeedsRepack(items, limits);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`supervisee_counts`](stats::supervisee_counts) for one supervisee.
  *
  * # Errors
@@ -2421,6 +3608,24 @@ export function dashboardSuperviseeCounts(milestones, logs, today) {
     const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.dashboardSuperviseeCounts(milestones, logs, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`sync_dashboard_layouts`](layout::sync_dashboard_layouts).
+ *
+ * # Errors
+ *
+ * Fails on a bad input shape or an unknown card type.
+ * @param {any} layout_value
+ * @param {any} limits
+ * @returns {any}
+ */
+export function dashboardSyncLayouts(layout_value, limits) {
+    const ret = wasm.dashboardSyncLayouts(layout_value, limits);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2459,6 +3664,25 @@ export function dashboardTeamAttention(supervisees, today) {
  */
 export function dashboardTopTags(tags, limit) {
     const ret = wasm.dashboardTopTags(tags, limit);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `undefined`
+ * unless both are real dates.
+ * @param {string} iso
+ * @param {string} today
+ * @returns {any}
+ */
+export function daysUntilDate(iso, today) {
+    const ptr0 = passStringToWasm0(iso, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.daysUntilDate(ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2523,6 +3747,29 @@ export function decideVaultCommit(enabled, state) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`declared_charset`]: the charset a page declares, lowercased, else `utf-8`.
+ * @param {string | null | undefined} content_type
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+export function declaredCharset(content_type, bytes) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        var ptr0 = isLikeNone(content_type) ? 0 : passStringToWasm0(content_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.declaredCharset(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -2618,6 +3865,45 @@ export function decodeShareLinkToken(encoded) {
 }
 
 /**
+ * [`deepest_first_list_ids`](reading_list::deepest_first_list_ids) (TS `removeList` order).
+ *
+ * # Errors
+ *
+ * Fails if `lists` has the wrong shape.
+ * @param {string} list_id
+ * @param {any} lists
+ * @returns {string[]}
+ */
+export function deepestFirstListIds(list_id, lists) {
+    const ptr0 = passStringToWasm0(list_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.deepestFirstListIds(ptr0, len0, lists);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
+ * [`default_expanded`](state::default_expanded).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not an array of strings, or the result cannot be serialised.
+ * @param {any} roots
+ * @returns {any}
+ */
+export function defaultExpanded(roots) {
+    const ret = wasm.defaultExpanded(roots);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`default_graph_settings`](graph_settings::default_graph_settings).
  *
  * # Errors
@@ -2650,6 +3936,43 @@ export function defaultInkNoteMeta() {
 }
 
 /**
+ * [`rules::default_mode_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function defaultModeFor(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.defaultModeFor(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`default_open_sections`](state::default_open_sections). Takes `{ id, collapsedByDefault }`
+ * objects; extra fields are ignored.
+ *
+ * # Errors
+ *
+ * Fails if the argument is not an array of section declarations, or the result cannot be serialised.
+ * @param {any} sections
+ * @returns {any}
+ */
+export function defaultOpenSections(sections) {
+    const ret = wasm.defaultOpenSections(sections);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * The default paste settings (TS `DEFAULT_PASTE_SETTINGS`).
  *
  * # Errors
@@ -2666,6 +3989,25 @@ export function defaultPasteSettings() {
 }
 
 /**
+ * [`default_share_link_expires_at`](sharing::default_share_link_expires_at): the default expiry
+ * of a new view link. `now_ms` is the JS `Date.now()` value.
+ * @param {number} now_ms
+ * @returns {string}
+ */
+export function defaultShareLinkExpiresAt(now_ms) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.defaultShareLinkExpiresAt(now_ms);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`degree_colours`](node_colouring::degree_colours): `[id, colour]` pairs for `[id, degree]` pairs.
  *
  * # Errors
@@ -2676,6 +4018,66 @@ export function defaultPasteSettings() {
  */
 export function degreeColours(degree) {
     const ret = wasm.degreeColours(degree);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`deleted_local_base`] for JS (TS `deletedLocalBase`). Empty when there are no ops.
+ *
+ * # Errors
+ *
+ * Fails when `ops` is not a list of outbox ops.
+ * @param {any} ops
+ * @returns {any}
+ */
+export function deletedLocalBase(ops) {
+    const ret = wasm.deletedLocalBase(ops);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`deleted_remote_sides`] for JS (TS `deletedRemoteSides`). `stored` is the local row or
+ * `null`; `null` is returned when neither it nor an owed op is available.
+ *
+ * # Errors
+ *
+ * Fails when `ops` is not a list of outbox ops or `stored` is not a plain object.
+ * @param {any} ops
+ * @param {any} stored
+ * @returns {any}
+ */
+export function deletedRemoteSides(ops, stored) {
+    const ret = wasm.deletedRemoteSides(ops, stored);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`deletion_action`] for JS (TS `deletionAction`). `kind` is `"deleted_remote"` or
+ * `"deleted_local"`, `choice` is `"keep"` or `"delete"`, and `remote` is the server row or `null`.
+ *
+ * # Errors
+ *
+ * Fails when `kind` or `choice` is not one of its strings, or a row is not a plain object.
+ * @param {any} kind
+ * @param {any} choice
+ * @param {any} local
+ * @param {string} row_id
+ * @param {any} remote
+ * @returns {any}
+ */
+export function deletionAction(kind, choice, local, row_id, remote) {
+    const ptr0 = passStringToWasm0(row_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.deletionAction(kind, choice, local, ptr0, len0, remote);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2786,6 +4188,34 @@ export function describePush(result) {
 }
 
 /**
+ * [`wf_core::sync::git_remote::describe_status`] for JS.
+ *
+ * # Errors
+ *
+ * Fails when `status` is not a valid `{ url, branch, ahead, behind }` object.
+ * @param {any} status
+ * @returns {string}
+ */
+export function describeRemoteStatus(status) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.describeRemoteStatus(status);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`detect_citation_style`] (TS `detectCitationStyle`). `texts` is the page texts as an array of
  * strings; the result is `"numeric"`, `"author-year"`, `"both"`, or `undefined` for neither.
  *
@@ -2818,6 +4248,29 @@ export function detectColumns(lines) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`device_markers`](panel_labels::device_markers): conflict markers named for this device and the cloud.
+ * @param {string} ours
+ * @param {string} theirs
+ * @returns {string}
+ */
+export function deviceMarkers(ours, theirs) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.deviceMarkers(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -2882,6 +4335,26 @@ export function diffJsonData(parsed, existing_json, side) {
 }
 
 /**
+ * [`diff_refresh`](refresh_diff::diff_refresh) as `{remove, add, prints}`.
+ *
+ * # Errors
+ *
+ * Fails if `prints` or `fresh` is not an array of `{id, print}` records, or
+ * `held` is not an array of strings.
+ * @param {any} prints
+ * @param {any} held
+ * @param {any} fresh
+ * @returns {any}
+ */
+export function diffRefreshPlan(prints, held, fresh) {
+    const ret = wasm.diffRefreshPlan(prints, held, fresh);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::deserialize::diff_workspace`] for JS. `sides` maps a parsed path to who
  * changed it; the TS wrapper fills it from `origin`. A path it lacks is `Unknown`. Without
  * `sides`, there is no origin.
@@ -2938,6 +4411,24 @@ export function distanceToSegmentSquared(px, py, ax, ay, bx, by) {
 }
 
 /**
+ * [`distinct_related`](result_dedupe::distinct_related) as kept indices and
+ * merge pairs.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not a distinct-input record.
+ * @param {any} input
+ * @returns {any}
+ */
+export function distinctRelated(input) {
+    const ret = wasm.distinctRelated(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`document_boost`](search_tuning::document_boost). `now` is epoch milliseconds.
  *
  * # Errors
@@ -2954,6 +4445,254 @@ export function documentBoost(doc, options, now) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`document_id_of`](semantic_fingerprint::document_id_of): the document a passage id belongs to.
+ * @param {string} passage
+ * @returns {string}
+ */
+export function documentIdOf(passage) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(passage, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.documentIdOf(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`document_id_of_path`](semantic_fingerprint::document_id_of_path): the document id behind a workspace file name.
+ * @param {string} file
+ * @returns {string}
+ */
+export function documentIdOfPath(file) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(file, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.documentIdOfPath(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`rules::document_kind`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function documentKind(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.documentKind(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::document_suffix`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function documentSuffix(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.documentSuffix(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`double_click_figure`](page_math::double_click_figure): the figure every press lands in.
+ *
+ * # Errors
+ *
+ * Fails if `figures` is not an array of boxes or `points` is not an array of points.
+ * @param {any} figures
+ * @param {any} points
+ * @param {number | null} [skip]
+ * @returns {number | undefined}
+ */
+export function doubleClickFigure(figures, points, skip) {
+    const ret = wasm.doubleClickFigure(figures, points, isLikeNone(skip) ? Number.MAX_SAFE_INTEGER : (skip) >>> 0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] === Number.MAX_SAFE_INTEGER ? undefined : ret[0];
+}
+
+/**
+ * [`draft_icon`](edit::draft_icon).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not a create kind, or the result cannot be serialised.
+ * @param {any} kind
+ * @returns {any}
+ */
+export function draftIcon(kind) {
+    const ret = wasm.draftIcon(kind);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`draft_makes`](edit::draft_makes).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not a create kind, or the result cannot be serialised.
+ * @param {any} kind
+ * @returns {any}
+ */
+export function draftMakes(kind) {
+    const ret = wasm.draftMakes(kind);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`draft_placeholder`](edit::draft_placeholder).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not a create kind, or the result cannot be serialised.
+ * @param {any} kind
+ * @returns {any}
+ */
+export function draftPlaceholder(kind) {
+    const ret = wasm.draftPlaceholder(kind);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`draft_reading_log`](reading_digest::draft_reading_log) (TS `draftReadingLog`).
+ *
+ * # Errors
+ *
+ * Fails if `papers` or `marks` are not lists of the right shape.
+ * @param {any} papers
+ * @param {any} marks
+ * @param {string} day
+ * @returns {string}
+ */
+export function draftReadingLog(papers, marks, day) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(day, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.draftReadingLog(papers, marks, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`drop_parent_id`](edit::drop_parent_id).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ * @param {any} target
+ * @returns {any}
+ */
+export function dropParentId(target) {
+    const ret = wasm.dropParentId(target);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`duplicate_plan`](duplicate::duplicate_plan) as `{ title, parentId, body }`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `doc` or `documents` does not have the shape of a duplicate source.
+ * @param {any} doc
+ * @param {any} documents
+ * @returns {any}
+ */
+export function duplicatePlan(doc, documents) {
+    const ret = wasm.duplicatePlan(doc, documents);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`edit_sides`] for JS (TS `editSides`). `null` when no non-delete op is owed.
+ *
+ * # Errors
+ *
+ * Fails when `ops` is not a list of outbox ops.
+ * @param {any} ops
+ * @returns {any}
+ */
+export function editSides(ops) {
+    const ret = wasm.editSides(ops);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).
+ * `None` (a week or more, or NaN) becomes `undefined`; the caller then shows the date.
+ * @param {number} seconds
+ * @returns {string | undefined}
+ */
+export function editedRelativeLabel(seconds) {
+    const ret = wasm.editedRelativeLabel(seconds);
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
 }
 
 /**
@@ -2991,6 +4730,94 @@ export function effectiveRelationTypes(settings) {
 }
 
 /**
+ * [`ema_smooth`]: debiased EMA over the values; `null` gaps stay gaps.
+ * @param {any} values
+ * @param {number} alpha
+ * @returns {any}
+ */
+export function emaSmooth(values, alpha) {
+    const ret = wasm.emaSmooth(values, alpha);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`embed_titles`](page::embed_titles): the trimmed title of each `![[...]]` in `body`.
+ * @param {string} body
+ * @returns {string[]}
+ */
+export function embedTitles(body) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.embedTitles(ptr0, len0);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
+ * [`embeddable_text`](semantic_fingerprint::embeddable_text): the text a document is embedded from.
+ * @param {string} title
+ * @param {string[]} aliases
+ * @param {string} body
+ * @returns {string}
+ */
+export function embeddableText(title, aliases, body) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayJsValueToWasm0(aliases, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.embeddableText(ptr0, len0, ptr1, len1, ptr2, len2);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * [`empty_cell_paper_ids`]: the papers whose cell for `field_id` is empty and not pending.
+ * @param {any} rows
+ * @param {string} field_id
+ * @param {any} pending_paper_ids
+ * @returns {any}
+ */
+export function emptyCellPaperIds(rows, field_id, pending_paper_ids) {
+    const ptr0 = passStringToWasm0(field_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.emptyCellPaperIds(rows, ptr0, len0, pending_paper_ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`empty_integration`](fields::empty_integration): the integration a provider starts from.
+ *
+ * # Errors
+ *
+ * Fails if `provider` is not `"github"`, `"gitlab"` or `"mattermost"`.
+ * @param {any} provider
+ * @returns {any}
+ */
+export function emptyIntegration(provider) {
+    const ret = wasm.emptyIntegration(provider);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`empty_layout`](pane::empty_layout).
  *
  * # Errors
@@ -3003,6 +4830,33 @@ export function emptyLayout(pane_id) {
     const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.emptyLayout(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`empty_page_history`] as `{ undo: [], redo: [] }`.
+ * @returns {any}
+ */
+export function emptyPageHistory() {
+    const ret = wasm.emptyPageHistory();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`empty_to_null`]: the text as stored, with an absent or empty value as `null`.
+ * @param {string | null} [value]
+ * @returns {any}
+ */
+export function emptyToNull(value) {
+    var ptr0 = isLikeNone(value) ? 0 : passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.emptyToNull(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3042,6 +4896,34 @@ export function encodeLocus(locus) {
     let deferred2_1;
     try {
         const ret = wasm.encodeLocus(locus);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`nav_open_groups::encode_open_groups`]: the stored JSON for an open-groups list.
+ *
+ * # Errors
+ *
+ * Fails if `groups` is not an array of strings.
+ * @param {any} groups
+ * @returns {string}
+ */
+export function encodeOpenGroups(groups) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.encodeOpenGroups(groups);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -3147,6 +5029,68 @@ export function entryFileError(entry_file) {
 }
 
 /**
+ * [`enum_label::enum_label`]: the label for `value` under `kind`, humanised when unknown.
+ * @param {string} kind
+ * @param {string} value
+ * @returns {string}
+ */
+export function enumLabel(kind, value) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.enumLabel(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`enum_label::enum_options`] as `{ value, label }` objects, in the fixed order.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function enumOptions(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.enumOptions(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`escape_html`](text::escape_html): `&`, `<`, `>` and `"` made safe for markup.
+ * @param {string} value
+ * @returns {string}
+ */
+export function escapeHtml(value) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.escapeHtml(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`escape_latex_text`](markdown_to_latex::escape_latex_text) (TS `escapeLatexText`).
  * @param {string} s
  * @returns {string}
@@ -3187,6 +5131,24 @@ export function evaluateAiAccess(input, now) {
 }
 
 /**
+ * [`excerpt_segments`](excerpt_segments::excerpt_segments) as `{text,
+ * highlighted}` runs.
+ *
+ * # Errors
+ *
+ * Fails if `excerpt` is not a `{text, highlights}` record.
+ * @param {any} excerpt
+ * @returns {any}
+ */
+export function excerptSegments(excerpt) {
+    const ret = wasm.excerptSegments(excerpt);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`exclusion_reasons`](screening::exclusion_reasons) (TS `exclusionReasons`).
  *
  * # Errors
@@ -3202,6 +5164,32 @@ export function exclusionReasons(decisions, stage) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`expand_embeds`](page::expand_embeds): `bodies[i]` is the body that `titles[i]` resolves to.
+ * @param {string} body
+ * @param {string[]} titles
+ * @param {string[]} bodies
+ * @returns {string}
+ */
+export function expandEmbeds(body, titles, bodies) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayJsValueToWasm0(titles, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArrayJsValueToWasm0(bodies, wasm.__wbindgen_malloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.expandEmbeds(ptr0, len0, ptr1, len1, ptr2, len2);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
 }
 
 /**
@@ -3241,6 +5229,70 @@ export function experimentActivityAt(experiment) {
 }
 
 /**
+ * [`experiment_href`](experiment_status::experiment_href): where an experiment opens.
+ * @param {string} id
+ * @param {boolean} is_offline_build
+ * @returns {string}
+ */
+export function experimentHref(id, is_offline_build) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.experimentHref(ptr0, len0, is_offline_build);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`to_domain`]: an `experiments` row as an experiment.
+ * @param {any} row
+ * @returns {any}
+ */
+export function experimentRowToDomain(row) {
+    const ret = wasm.experimentRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_row`]: an experiment as the `experiments` row it is written as.
+ * @param {any} experiment
+ * @returns {any}
+ */
+export function experimentToRow(experiment) {
+    const ret = wasm.experimentToRow(experiment);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`EXPERIMENTS_HREF`](experiment_status::EXPERIMENTS_HREF): the experiments list.
+ * @returns {string}
+ */
+export function experimentsListHref() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.experimentsListHref();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`explain_arm`](related::explain_arm).
  *
  * # Errors
@@ -3263,6 +5315,79 @@ export function explainArm(arm) {
         deferred2_0 = ptr1;
         deferred2_1 = len1;
         return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`export_asset_path`]: the folder a stored asset is written to in the export.
+ * @param {string} root
+ * @param {string} prefix
+ * @param {string} storage_path
+ * @returns {string}
+ */
+export function exportAssetPath(root, prefix, storage_path) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(prefix, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(storage_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.exportAssetPath(ptr0, len0, ptr1, len1, ptr2, len2);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * [`export_manifest_json`]: the export's `manifest.json` text.
+ * @param {string} exported_at
+ * @param {any} stats
+ * @returns {string}
+ */
+export function exportManifestJson(exported_at, stats) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(exported_at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.exportManifestJson(ptr0, len0, stats);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`export_readme`]: the export's `README.txt` text.
+ * @param {string} exported_at
+ * @returns {string}
+ */
+export function exportReadme(exported_at) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(exported_at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.exportReadme(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
@@ -3419,6 +5544,73 @@ export function extractWikilinks(body) {
 }
 
 /**
+ * [`extraction_csv`]: the table as CSV, with a header line.
+ * @param {any} rows
+ * @param {any} defs
+ * @param {any} columns
+ * @returns {string}
+ */
+export function extractionCsv(rows, defs, columns) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.extractionCsv(rows, defs, columns);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`extraction_markdown`]: the table as a Markdown table.
+ * @param {any} rows
+ * @param {any} defs
+ * @param {any} columns
+ * @returns {string}
+ */
+export function extractionMarkdown(rows, defs, columns) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.extractionMarkdown(rows, defs, columns);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`paper_value_rows`]: each listed paper's stored and rollup values, in list order.
+ * @param {any} paper_ids
+ * @param {any} values
+ * @param {any} defs
+ * @returns {any}
+ */
+export function extractionValueRows(paper_ids, values, defs) {
+    const ret = wasm.extractionValueRows(paper_ids, values, defs);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`fence_untrusted`](untrusted_context::fence_untrusted).
  *
  * # Errors
@@ -3477,6 +5669,30 @@ export function figureAltFor(body, path) {
 }
 
 /**
+ * [`figure_clip_text`]: the clipboard text for a copied figure.
+ * @param {any} clip
+ * @returns {string}
+ */
+export function figureClipText(clip) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.figureClipText(clip);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`figure_corner_hit`](figure::figure_corner_hit): the corner grab distance at `scale`.
  * @param {number} scale
  * @returns {number}
@@ -3497,6 +5713,67 @@ export function figureCornerHit(scale) {
  */
 export function figureImageFrame(value) {
     const ret = wasm.figureImageFrame(value);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`figure_label`](figure_label::figure_label): the label for an artifact URL. `index` is 0-based.
+ * @param {string} url
+ * @param {number} index
+ * @returns {string}
+ */
+export function figureLabel(url, index) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.figureLabel(ptr0, len0, index);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`figure_under`](page_math::figure_under): the topmost figure holding `at`, ignoring `skip`.
+ *
+ * # Errors
+ *
+ * Fails if `figures` is not an array of boxes or `at` is not a point.
+ * @param {any} figures
+ * @param {any} at
+ * @param {number | null} [skip]
+ * @returns {number | undefined}
+ */
+export function figureUnder(figures, at, skip) {
+    const ret = wasm.figureUnder(figures, at, isLikeNone(skip) ? Number.MAX_SAFE_INTEGER : (skip) >>> 0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] === Number.MAX_SAFE_INTEGER ? undefined : ret[0];
+}
+
+/**
+ * [`filter_graph_by_nodes`] (TS `filterGraphByNodes`). `allowed` is an array of node ids, or
+ * `null` to keep everything. Returns `{ nodes, links }`.
+ *
+ * # Errors
+ *
+ * Fails if `nodes` or `links` is not an array of JSON values, or `allowed` is not an array of
+ * strings or `null`.
+ * @param {any} nodes
+ * @param {any} links
+ * @param {any} allowed
+ * @returns {any}
+ */
+export function filterGraphByNodes(nodes, links, allowed) {
+    const ret = wasm.filterGraphByNodes(nodes, links, allowed);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3699,6 +5976,25 @@ export function findImageRefs(body, head, allow_space) {
 }
 
 /**
+ * [`find_marks`]: where each match falls in the document, as a fraction of its height.
+ *
+ * # Errors
+ *
+ * Fails if `matches` or `pages` do not have the expected shape.
+ * @param {any} matches
+ * @param {number} num_pages
+ * @param {any} pages
+ * @returns {any}
+ */
+export function findMarks(matches, num_pages, pages) {
+    const ret = wasm.findMarks(matches, num_pages, pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`find_pattern_citation_mentions`](analysis_citations::find_pattern_citation_mentions) (TS
  * `findPatternCitationMentions`). The TS wrapper always passes `excluded` and `candidates`.
  *
@@ -3786,6 +6082,61 @@ export function findRelated(graph, seed, limit, options, rng, lexical, tagged) {
 }
 
 /**
+ * [`find_wiki_root`]: the note titled `Wiki`, or nothing.
+ * @param {any} pages
+ * @returns {any}
+ */
+export function findWikiRoot(pages) {
+    const ret = wasm.findWikiRoot(pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`fit_cols`](plot_size::fit_cols).
+ * @param {number} grid_width
+ * @param {number} gap
+ * @returns {number}
+ */
+export function fitCols(grid_width, gap) {
+    const ret = wasm.fitCols(grid_width, gap);
+    return ret >>> 0;
+}
+
+/**
+ * [`fit_layout_to_content`](fit::fit_layout_to_content). `measured` and `maxHeights` map a card id
+ * (or card type) to rows; only card types in `maxHeights` fit their content.
+ *
+ * # Errors
+ *
+ * Fails when an argument is not the expected shape.
+ * @param {any} items
+ * @param {any} measured
+ * @param {any} max_heights
+ * @returns {any}
+ */
+export function fitLayoutToContent(items, measured, max_heights) {
+    const ret = wasm.fitLayoutToContent(items, measured, max_heights);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`fit_scale`](page_math::fit_scale): CSS pixels per 0.1 mm unit, `1` with no width.
+ * @param {number} container_width
+ * @param {number} page_width
+ * @returns {number}
+ */
+export function fitScale(container_width, page_width) {
+    const ret = wasm.fitScale(container_width, page_width);
+    return ret;
+}
+
+/**
  * [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
  * @param {Float64Array} sizes
  * @returns {boolean}
@@ -3832,6 +6183,32 @@ export function flatPath(entity, id, title, project_root) {
     } finally {
         wasm.__wbindgen_free(deferred5_0, deferred5_1, 1);
     }
+}
+
+/**
+ * [`flatten`] over `docs`: the project's text files as paths, in walk order.
+ * @param {any} root_folder
+ * @returns {any}
+ */
+export function flattenOverleafDocs(root_folder) {
+    const ret = wasm.flattenOverleafDocs(root_folder);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`flatten`] over `fileRefs`: the project's binary files as paths, in walk order.
+ * @param {any} root_folder
+ * @returns {any}
+ */
+export function flattenOverleafFiles(root_folder) {
+    const ret = wasm.flattenOverleafFiles(root_folder);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -3903,6 +6280,42 @@ export function folderIdsOf(nodes) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`folder_key`](folder_layout::folder_key) (TS `folderSegments` joined with `/`): the folder
+ * of one picked file's relative path.
+ * @param {string} relative_path
+ * @returns {string}
+ */
+export function folderKey(relative_path) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(relative_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.folderKey(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`folder_keys`](folder_layout::folder_keys) (TS `folderKeys`): every folder the picked files
+ * lead to, shallowest first.
+ * @param {string[]} relative_paths
+ * @returns {string[]}
+ */
+export function folderKeys(relative_paths) {
+    const ptr0 = passArrayJsValueToWasm0(relative_paths, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.folderKeys(ptr0, len0);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
 }
 
 /**
@@ -4048,6 +6461,38 @@ export function formatInviteCode(raw) {
 }
 
 /**
+ * [`format_log_line`]: one log entry as the text the panel and the log file both show.
+ * @param {string} at
+ * @param {string} level
+ * @param {string} source
+ * @param {string} message
+ * @param {string | null} [detail]
+ * @returns {string}
+ */
+export function formatLogLine(at, level, source, message, detail) {
+    let deferred6_0;
+    let deferred6_1;
+    try {
+        const ptr0 = passStringToWasm0(at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        var ptr4 = isLikeNone(detail) ? 0 : passStringToWasm0(detail, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len4 = WASM_VECTOR_LEN;
+        const ret = wasm.formatLogLine(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4);
+        deferred6_0 = ret[0];
+        deferred6_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred6_0, deferred6_1, 1);
+    }
+}
+
+/**
  * [`format_metric_cell`](experiment_status::format_metric_cell).
  *
  * # Errors
@@ -4131,6 +6576,69 @@ export function formatPaperCitation(paper, format) {
 }
 
 /**
+ * [`format_quote_block`] for JS (TS `formatQuoteBlock`).
+ *
+ * # Errors
+ *
+ * Fails when `quote` is over the text cap.
+ * @param {string} quote
+ * @returns {string}
+ */
+export function formatQuoteBlock(quote) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(quote, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatQuoteBlock(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`format_quote_cite_clipboard`] for JS (TS `formatQuoteCiteClipboard`).
+ *
+ * # Errors
+ *
+ * Fails when `quote` is over the text cap.
+ * @param {string} quote
+ * @param {string} paper_title
+ * @returns {string}
+ */
+export function formatQuoteCiteClipboard(quote, paper_title) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(quote, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(paper_title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.formatQuoteCiteClipboard(ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
  * [`format_reference`](reference_text::format_reference).
  *
  * # Errors
@@ -4207,6 +6715,53 @@ export function fromRelativeBlobLinks(body, resolved) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`frontmatter_list`](wf_core::sync::frontmatter::frontmatter_list) for JS: a list field
+ * as its entries as text, or a non-blank scalar string as one entry.
+ *
+ * # Errors
+ *
+ * Fails when `frontmatter` is not an object.
+ * @param {any} frontmatter
+ * @param {string} key
+ * @returns {any}
+ */
+export function frontmatterList(frontmatter, key) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.frontmatterList(frontmatter, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`frontmatter_string`](wf_core::sync::frontmatter::frontmatter_string) for JS: the
+ * field as text, or `undefined` when it is absent, a list, or blank.
+ *
+ * # Errors
+ *
+ * Fails when `frontmatter` is not an object.
+ * @param {any} frontmatter
+ * @param {string} key
+ * @returns {string | undefined}
+ */
+export function frontmatterString(frontmatter, key) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.frontmatterString(frontmatter, ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
 }
 
 /**
@@ -4300,6 +6855,23 @@ export function gateVectorMask(scores, floor, keep_top) {
 }
 
 /**
+ * [`gemini_install`](mcp_client_config::gemini_install).
+ * @returns {string}
+ */
+export function geminiInstall() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.geminiInstall();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`get_user_integration_field`](integration_credentials::get_user_integration_field);
  * `undefined` when empty.
  *
@@ -4355,6 +6927,26 @@ export function gitConnectionReady(integration) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`git_reason`](git_reason::git_reason): git's `fatal:`/`error:` lines from a failed command's text.
+ * @param {string} text
+ * @returns {string}
+ */
+export function gitReason(text) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.gitReason(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -4448,6 +7040,22 @@ export function graphFilterCountFor(selected_tags, selected_lists, settings) {
 }
 
 /**
+ * [`graph_palette`](graph_colour::graph_palette): every fixed colour the graph draws.
+ *
+ * # Errors
+ *
+ * Fails only if the palette cannot be serialised.
+ * @returns {any}
+ */
+export function graphPalette() {
+    const ret = wasm.graphPalette();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`graph_tag_names`](graph_tags::graph_tag_names): every filterable tag, sorted.
  *
  * # Errors
@@ -4500,6 +7108,40 @@ export function graphTopologyKey(shown, local_seed, local_depth) {
 }
 
 /**
+ * [`group_by_day`] for JS (TS `groupByDay`): `{ day, indexes }[]`, newest day first.
+ *
+ * # Errors
+ *
+ * Fails when `entryDates` is not an array of strings.
+ * @param {any} entry_dates
+ * @returns {any}
+ */
+export function groupByDay(entry_dates) {
+    const ret = wasm.groupByDay(entry_dates);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`group_hunks`](panel_labels::group_hunks): unchanged and changed runs of a body diff.
+ *
+ * # Errors
+ *
+ * Fails if `lines` has the wrong shape, or the result cannot be serialised.
+ * @param {any} lines
+ * @returns {any}
+ */
+export function groupHunks(lines) {
+    const ret = wasm.groupHunks(lines);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`group_palette_rows`](palette_groups::group_palette_rows): the headings present, each with the
  * indices of its rows, from the group of each row.
  *
@@ -4511,6 +7153,27 @@ export function graphTopologyKey(shown, local_seed, local_depth) {
  */
 export function groupPaletteRows(groups) {
     const ret = wasm.groupPaletteRows(groups);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`group_proposals`](proposal_groups::group_proposals). `items` is a list of objects with
+ * `kind` and `resourceId`; `by` is `"document"` or `"kind"`; `knownIds` is an optional string
+ * array. Returns `{ key, indices }[]`, with indices into `items`.
+ *
+ * # Errors
+ *
+ * Fails if an input cannot be read as the expected shape.
+ * @param {any} items
+ * @param {any} by
+ * @param {any} known_ids
+ * @returns {any}
+ */
+export function groupProposals(items, by, known_ids) {
+    const ret = wasm.groupProposals(items, by, known_ids);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4537,6 +7200,23 @@ export function groupRecurringLines(texts, pages) {
 }
 
 /**
+ * [`group_results`](quick::group_results) as an array of `{ kind, label, results }`.
+ *
+ * # Errors
+ *
+ * Fails if `results` is not an array of quick-open results.
+ * @param {any} results
+ * @returns {any}
+ */
+export function groupResults(results) {
+    const ret = wasm.groupResults(results);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`group_runs`](groups::group_runs).
  *
  * # Errors
@@ -4547,6 +7227,20 @@ export function groupRecurringLines(texts, pages) {
  */
 export function groupRuns(leaf) {
     const ret = wasm.groupRuns(leaf);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`group_subtree_items`]: the subtree's items grouped by list, in subtree order.
+ * @param {any} node
+ * @param {any} items
+ * @returns {any}
+ */
+export function groupSubtreeItems(node, items) {
+    const ret = wasm.groupSubtreeItems(node, items);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4642,6 +7336,54 @@ export function hasConflictMarkers(text) {
 }
 
 /**
+ * [`rules::has_ink_view`].
+ * @param {string} kind
+ * @returns {boolean}
+ */
+export function hasInkView(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.hasInkView(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`rules::has_lazy_body`].
+ * @param {string} kind
+ * @returns {boolean}
+ */
+export function hasLazyBody(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.hasLazyBody(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`has_pdf_magic`]: whether the first bytes carry the `%PDF-` signature.
+ * @param {Uint8Array} bytes
+ * @returns {boolean}
+ */
+export function hasPdfMagic(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.hasPdfMagic(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`rules::has_pdf_view`].
+ * @param {string} kind
+ * @returns {boolean}
+ */
+export function hasPdfView(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.hasPdfView(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`heading_outline`] (TS `headingOutline`).
  *
  * # Errors
@@ -4670,6 +7412,97 @@ export function headingSlug(text) {
         const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.headingSlug(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`highlights_digest`](reading_digest::highlights_digest) (TS `highlightsDigest`).
+ *
+ * # Errors
+ *
+ * Fails if `marks` is not a list of digest marks.
+ * @param {any} marks
+ * @param {string} existing
+ * @returns {string}
+ */
+export function highlightsDigest(marks, existing) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(existing, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.highlightsDigest(marks, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`host_of`]: the host and port of a PDF address for a failure line, or the address when it has none.
+ * @param {string} url
+ * @returns {string}
+ */
+export function hostOf(url) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.hostOf(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`enum_label::humanise`]: `made_up_kind` reads `Made up kind`.
+ * @param {string} value
+ * @returns {string}
+ */
+export function humanise(value) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.humanise(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`humanize`](panel_labels::humanize): a field name as a label.
+ * @param {string} field
+ * @returns {string}
+ */
+export function humanize(field) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(field, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.humanize(ptr0, len0);
         deferred2_0 = ret[0];
         deferred2_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
@@ -4860,6 +7693,25 @@ export function imagePathsInBody(body, prefix) {
 }
 
 /**
+ * [`images_of`](paper_image::images_of) (TS `imagesOf`). `null` metadata has no images.
+ *
+ * # Errors
+ *
+ * Fails if `metadata` is not an object of JSON values.
+ * @param {any} metadata
+ * @returns {string[]}
+ */
+export function imagesOf(metadata) {
+    const ret = wasm.imagesOf(metadata);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v1;
+}
+
+/**
  * [`in_reference_list`](analysis_citations::in_reference_list) (TS `inReferenceList`).
  *
  * # Errors
@@ -4877,6 +7729,61 @@ export function inReferenceList(page, start, end, ranges) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`account_menu::inbox_links`]: the Inbox rows as `{ key, label, path, icon, badge? }`.
+ *
+ * # Errors
+ *
+ * Fails if `input` is not an `InboxInput`-shaped object, or the result cannot be converted to JS.
+ * @param {any} input
+ * @returns {any}
+ */
+export function inboxLinks(input) {
+    const ret = wasm.inboxLinks(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`enum_label::incoming_relation_label`]: `cites` reads `Cited by`.
+ * @param {string} relation
+ * @returns {string}
+ */
+export function incomingRelationLabel(relation) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(relation, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.incomingRelationLabel(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`index_from_analysis`]: shapes an analysis the worker already ran into the overlay's index.
+ *
+ * # Errors
+ *
+ * Fails if `analysis` or `pages` do not have the expected shape.
+ * @param {any} analysis
+ * @param {any} pages
+ * @returns {any}
+ */
+export function indexFromAnalysis(analysis, pages) {
+    const ret = wasm.indexFromAnalysis(analysis, pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -5220,6 +8127,31 @@ export function inkPageOverBudget(page) {
 }
 
 /**
+ * [`ink_page_svg`]: `page` is an `InkSvgPage`, `options` an `InkSvgOptions` (may be `{}`).
+ * @param {any} page
+ * @param {any} options
+ * @returns {string}
+ */
+export function inkPageSvg(page, options) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.inkPageSvg(page, options);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`ink_path_json_size`].
  * @param {Float64Array} path
  * @returns {number}
@@ -5307,6 +8239,30 @@ export function inkPointInPolygon(px, py, polygon) {
 export function inkPressureFactor(pressure) {
     const ret = wasm.inkPressureFactor(!isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure);
     return ret;
+}
+
+/**
+ * [`ink_print_document`]: the page as an HTML document for a print frame's `srcdoc`.
+ * @param {any} doc
+ * @returns {string}
+ */
+export function inkPrintDocument(doc) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.inkPrintDocument(doc);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -5527,6 +8483,23 @@ export function invalidationPlan(resource_type) {
 }
 
 /**
+ * [`inverted_abstract`](related_paper_hit::inverted_abstract): the abstract text, or nothing.
+ *
+ * # Errors
+ *
+ * Fails if `index` is neither an object nor missing.
+ * @param {any} index
+ * @returns {any}
+ */
+export function invertedAbstract(index) {
+    const ret = wasm.invertedAbstract(index);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`is_all_pages`](pdf_pages::is_all_pages).
  * @param {string} answer
  * @returns {boolean}
@@ -5539,12 +8512,36 @@ export function isAllPages(answer) {
 }
 
 /**
+ * [`is_allowed_pdf_proxy_url`]: https, no credentials, and an allowlisted host.
+ * @param {string} raw
+ * @returns {boolean}
+ */
+export function isAllowedPdfProxyUrl(raw) {
+    const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isAllowedPdfProxyUrl(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
  * @param {any} value
  * @returns {boolean}
  */
 export function isAnnotationSyncState(value) {
     const ret = wasm.isAnnotationSyncState(value);
+    return ret !== 0;
+}
+
+/**
+ * [`is_api_host`](api_host::is_api_host): the URL's host is `weaveforge.org` or a subdomain of it.
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isApiHost(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isApiHost(ptr0, len0);
     return ret !== 0;
 }
 
@@ -5622,6 +8619,18 @@ export function isBoldFont(font_name) {
 }
 
 /**
+ * [`local_first_route::is_both_ends_rpc`].
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isBothEndsRpc(name) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isBothEndsRpc(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_citation_destination`] (TS `isCitationDestination`). `name` is optional.
  *
  * # Errors
@@ -5656,6 +8665,49 @@ export function isConferenceCopy(paper) {
 }
 
 /**
+ * [`rules::is_creatable_kind`].
+ * @param {string} kind
+ * @returns {boolean}
+ */
+export function isCreatableKind(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isCreatableKind(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`is_dismiss_tap`]: `down` and `up` are `{ x, y, time }`; `down` may be `null`.
+ *
+ * # Errors
+ *
+ * Fails if `down` or `up` is not a press object of numbers.
+ * @param {any} down
+ * @param {any} up
+ * @param {boolean} bar_open
+ * @returns {boolean}
+ */
+export function isDismissTap(down, up, bar_open) {
+    const ret = wasm.isDismissTap(down, up, bar_open);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`rules::is_document_kind`].
+ * @param {string} kind
+ * @returns {boolean}
+ */
+export function isDocumentKind(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isDocumentKind(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_document_node`](tree::is_document_node).
  *
  * # Errors
@@ -5684,6 +8736,19 @@ export function isEditableReaderTarget(tag_name, content_editable) {
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.isEditableReaderTarget(ptr0, len0, content_editable);
     return ret !== 0;
+}
+
+/**
+ * [`is_electron_entry`](mcp_config_rewrite::is_electron_entry): an entry the Electron app wrote.
+ * @param {any} entry
+ * @returns {boolean}
+ */
+export function isElectronMcpEntry(entry) {
+    const ret = wasm.isElectronMcpEntry(entry);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -5722,6 +8787,18 @@ export function isExplicitLabMembership(membership) {
  */
 export function isHighlighterInk(width) {
     const ret = wasm.isHighlighterInk(!isLikeNone(width), isLikeNone(width) ? 0 : width);
+    return ret !== 0;
+}
+
+/**
+ * [`is_html_content_type`]: whether a response counts as a web page.
+ * @param {string | null} [value]
+ * @returns {boolean}
+ */
+export function isHtmlContentType(value) {
+    var ptr0 = isLikeNone(value) ? 0 : passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isHtmlContentType(ptr0, len0);
     return ret !== 0;
 }
 
@@ -5805,6 +8882,18 @@ export function isInkNoteId(id) {
 }
 
 /**
+ * [`is_ink_tool`]: `ink` and `highlighter` draw on the page.
+ * @param {string} tool
+ * @returns {boolean}
+ */
+export function isInkTool(tool) {
+    const ptr0 = passStringToWasm0(tool, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isInkTool(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_ip_address`](url_safety::is_ip_address).
  * @param {string} value
  * @returns {boolean}
@@ -5871,6 +8960,48 @@ export function isLiteral(text) {
 }
 
 /**
+ * [`is_local_zotero_url`]: whether `url` is the local Zotero API's own path with no credentials.
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isLocalZoteroUrl(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isLocalZoteroUrl(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`is_newer`]: whether `candidate` is later than `current`, both `[major, minor, patch]`.
+ *
+ * # Errors
+ *
+ * Fails if either argument is not three numbers.
+ * @param {any} candidate
+ * @param {any} current
+ * @returns {boolean}
+ */
+export function isNewerVersion(candidate, current) {
+    const ret = wasm.isNewerVersion(candidate, current);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`is_note_import_file`](import_links::is_note_import_file).
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isNoteImportFile(name) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isNoteImportFile(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_on_sampling_grid`](experiments::is_on_sampling_grid).
  * @param {number} step
  * @returns {boolean}
@@ -5905,6 +9036,18 @@ export function isPaperFieldKind(value) {
 }
 
 /**
+ * [`is_pdf_content_type`]: whether a `Content-Type` value names a PDF. `null` or empty is not.
+ * @param {string | null} [value]
+ * @returns {boolean}
+ */
+export function isPdfContentType(value) {
+    var ptr0 = isLikeNone(value) ? 0 : passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isPdfContentType(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_pdf_file`](paper_drop::is_pdf_file) (TS `isPdfFile`).
  * @param {string} name
  * @param {string} mime_type
@@ -5916,6 +9059,36 @@ export function isPdfFile(name, mime_type) {
     const ptr1 = passStringToWasm0(mime_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.isPdfFile(ptr0, len0, ptr1, len1);
+    return ret !== 0;
+}
+
+/**
+ * [`is_pen_barrel_pointer`](pen_pointer::is_pen_barrel_pointer): whether a pen touched
+ * down with its barrel button held.
+ * @param {string} pointer_type
+ * @param {number | null} [button]
+ * @param {number | null} [buttons]
+ * @returns {boolean}
+ */
+export function isPenBarrelPointer(pointer_type, button, buttons) {
+    const ptr0 = passStringToWasm0(pointer_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isPenBarrelPointer(ptr0, len0, !isLikeNone(button), isLikeNone(button) ? 0 : button, !isLikeNone(buttons), isLikeNone(buttons) ? 0 : buttons);
+    return ret !== 0;
+}
+
+/**
+ * [`is_pen_eraser_pointer`](pen_pointer::is_pen_eraser_pointer): whether a pointer
+ * event is the pen's eraser end.
+ * @param {string} pointer_type
+ * @param {number | null} [button]
+ * @param {number | null} [buttons]
+ * @returns {boolean}
+ */
+export function isPenEraserPointer(pointer_type, button, buttons) {
+    const ptr0 = passStringToWasm0(pointer_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isPenEraserPointer(ptr0, len0, !isLikeNone(button), isLikeNone(button) ? 0 : button, !isLikeNone(buttons), isLikeNone(buttons) ? 0 : buttons);
     return ret !== 0;
 }
 
@@ -5950,6 +9123,18 @@ export function isPreviewKey(event, in_text_box) {
 }
 
 /**
+ * [`is_private_host`](private_host::is_private_host): a host this machine or its network answers for.
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+export function isPrivateHost(hostname) {
+    const ptr0 = passStringToWasm0(hostname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isPrivateHost(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`is_public_address`](url_safety::is_public_address).
  * @param {string} address
  * @returns {boolean}
@@ -5958,6 +9143,19 @@ export function isPublicAddress(address) {
     const ptr0 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.isPublicAddress(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`is_public_https_url`](private_host::is_public_https_url): https, no credentials, public host.
+ * `false` for text that does not parse, as the TS `catch` did.
+ * @param {string} raw
+ * @returns {boolean}
+ */
+export function isPublicHttpsUrl(raw) {
+    const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isPublicHttpsUrl(ptr0, len0);
     return ret !== 0;
 }
 
@@ -6015,6 +9213,49 @@ export function isSafeWorkspacePath(path) {
 }
 
 /**
+ * [`is_open`](state::is_open).
+ *
+ * # Errors
+ *
+ * Fails if the open argument is not an array of strings.
+ * @param {any} open
+ * @param {string} id
+ * @returns {boolean}
+ */
+export function isSectionOpen(open, id) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isSectionOpen(open, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
+ * [`is_settled`](panel_labels::is_settled): whether a field's choice is complete.
+ *
+ * # Errors
+ *
+ * Fails if `choice` has the wrong shape.
+ * @param {any} choice
+ * @param {string} ours
+ * @param {string} theirs
+ * @returns {boolean}
+ */
+export function isSettled(choice, ours, theirs) {
+    const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.isSettled(choice, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last metric time means none.
  *
  * # Errors
@@ -6035,6 +9276,19 @@ export function isStaleRunningExperiment(experiment, now_ms, stale_ms, last_metr
 }
 
 /**
+ * [`is_substantial_paper_text`]: whether the text reaches `min_chars` once whitespace is collapsed.
+ * @param {string} text
+ * @param {number} min_chars
+ * @returns {boolean}
+ */
+export function isSubstantialPaperText(text, min_chars) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isSubstantialPaperText(ptr0, len0, min_chars);
+    return ret !== 0;
+}
+
+/**
  * [`is_supervisor_role`](member::is_supervisor_role).
  * @param {string | null} [role]
  * @returns {boolean}
@@ -6043,6 +9297,18 @@ export function isSupervisorRole(role) {
     var ptr0 = isLikeNone(role) ? 0 : passStringToWasm0(role, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.isSupervisorRole(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`local_first_route::is_synced_table`].
+ * @param {string} table
+ * @returns {boolean}
+ */
+export function isSyncedTable(table) {
+    const ptr0 = passStringToWasm0(table, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.isSyncedTable(ptr0, len0);
     return ret !== 0;
 }
 
@@ -6097,6 +9363,24 @@ export function isUserIntegrationConnected(settings, provider_id, field_ids) {
 }
 
 /**
+ * [`is_child_item`](zotero_library::is_child_item): true for an attachment, note, annotation or
+ * an item with a parent.
+ *
+ * # Errors
+ *
+ * Fails if `item` cannot be read as an object.
+ * @param {any} item
+ * @returns {boolean}
+ */
+export function isZoteroChildItem(item) {
+    const ret = wasm.isZoteroChildItem(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`is_zotero_library_sync_mode`] for any JS value: false unless `value` is a string.
  * @param {any} value
  * @returns {boolean}
@@ -6123,6 +9407,34 @@ export function itemToRect(item, char_from, char_to) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`join_bibtex`](bibtex::join_bibtex): entries joined with a blank line, or `% (empty)`.
+ *
+ * # Errors
+ *
+ * Fails if `entries` is not an array of strings.
+ * @param {any} entries
+ * @returns {string}
+ */
+export function joinBibtex(entries) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.joinBibtex(entries);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -6231,6 +9543,66 @@ export function keepFigureOnPage(rect, width, height) {
 }
 
 /**
+ * [`shortcut_label::key_label`]: one keycap, `⌘` reads `Ctrl` off a Mac.
+ * @param {string} key
+ * @param {boolean} mac
+ * @returns {string}
+ */
+export function keyLabel(key, mac) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.keyLabel(ptr0, len0, mac);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`rules::kind_icon`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function kindIcon(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindIcon(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::kind_icon_class`]. `open` defaults to false.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @param {boolean | null} [open]
+ * @returns {any}
+ */
+export function kindIconClass(kind, open) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindIconClass(ptr0, len0, isLikeNone(open) ? 0xFFFFFF : open ? 1 : 0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`kind_multiplier`](search_settings::kind_multiplier); an unknown `kind` reads as `1`.
  *
  * # Errors
@@ -6248,6 +9620,118 @@ export function kindMultiplier(kind, settings) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`rules::KINDS`] as a string array.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @returns {any}
+ */
+export function kindNames() {
+    const ret = wasm.kindNames();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`kind_of`](panel_labels::kind_of): the label for a synced table.
+ * @param {string} table
+ * @returns {string}
+ */
+export function kindOf(table) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(table, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.kindOf(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`rules::kind_owner`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function kindOwner(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindOwner(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::kind_suffix`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function kindSuffix(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindSuffix(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::kind_tint_class`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function kindTintClass(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindTintClass(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`kinds_for_resource`](search_index_state::kinds_for_resource): the kinds a write can change, or `null` when unmapped.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialized.
+ * @param {string} resource_type
+ * @returns {any}
+ */
+export function kindsForResource(resource_type) {
+    const ptr0 = passStringToWasm0(resource_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.kindsForResource(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -6273,6 +9757,44 @@ export function knownCandidates(known_pdf, page) {
 }
 
 /**
+ * [`to_domain`]: a `lab_snapshots` row as a published snapshot.
+ * @param {any} row
+ * @returns {any}
+ */
+export function labSnapshotRowToDomain(row) {
+    const ret = wasm.labSnapshotRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`route_title::label_for_path`]: the screen's own name, or `undefined` for a route with none.
+ *
+ * # Errors
+ *
+ * Fails if `nav_items` is not an array of `{ path, label }` objects.
+ * @param {string} pathname
+ * @param {any} nav_items
+ * @returns {string | undefined}
+ */
+export function labelForPath(pathname, nav_items) {
+    const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.labelForPath(ptr0, len0, nav_items);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * [`labelNumber`](bibliography::label_number): entry number from the exec groups.
  *
  * # Errors
@@ -6287,6 +9809,25 @@ export function labelNumber(groups) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`label_size`](graph_sizing::label_size) as `{ font, line, gap }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ * @param {boolean} is_tag
+ * @param {number} zoom
+ * @param {boolean} bounded
+ * @returns {any}
+ */
+export function labelSize(is_tag, zoom, bounded) {
+    const ret = wasm.labelSize(is_tag, zoom, bounded);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -6375,6 +9916,26 @@ export function layoutForTabMenu(layout, pane_id, index, command, new_pane_id) {
 }
 
 /**
+ * [`layout_from_record`](layout_record::layout_from_record). A missing or
+ * unusable record is one empty pane, so this never fails on content.
+ *
+ * # Errors
+ *
+ * Never fails in practice; returns the serializer's result type.
+ * @param {string | null} [raw]
+ * @returns {any}
+ */
+export function layoutFromRecord(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.layoutFromRecord(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`leaves`](pane::leaves). Returns owned copies of the leaves.
  *
  * # Errors
@@ -6408,6 +9969,51 @@ export function levenshtein(a, b, limit) {
 }
 
 /**
+ * [`library_bibtex`](bibtex::library_bibtex): the whole library as one `.bib`.
+ *
+ * # Errors
+ *
+ * Fails if `papers` is not an array of paper objects.
+ * @param {any} papers_value
+ * @returns {string}
+ */
+export function libraryBibtex(papers_value) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.libraryBibtex(papers_value);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`to_domain`]: a `library_pins` row as a library pin.
+ *
+ * # Errors
+ *
+ * Fails if the row cannot be read as a `library_pins` row.
+ * @param {any} row
+ * @returns {any}
+ */
+export function libraryPinRowToDomain(row) {
+    const ret = wasm.libraryPinRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`link_citation_mentions`](link_citations::link_citation_mentions) (TS
  * `linkCitationMentions`).
  *
@@ -6421,6 +10027,43 @@ export function levenshtein(a, b, limit) {
  */
 export function linkCitationMentions(page, links, refs) {
     const ret = wasm.linkCitationMentions(page, links, refs);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::link_group_of`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function linkGroupOf(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.linkGroupOf(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`link_node_id`] (TS `linkNodeId`). `source` is a string endpoint or an endpoint object; the
+ * result is the id, or `null` when there is none.
+ *
+ * # Errors
+ *
+ * Fails if `source` cannot be read as a JSON value.
+ * @param {any} source
+ * @returns {any}
+ */
+export function linkNodeId(source) {
+    const ret = wasm.linkNodeId(source);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -6447,6 +10090,34 @@ export function lintWiki(pages, other_titles) {
 }
 
 /**
+ * [`list_display_colour`](reading_list::list_display_colour).
+ *
+ * # Errors
+ *
+ * Fails if `list` has the wrong shape.
+ * @param {any} list
+ * @returns {string}
+ */
+export function listDisplayColor(list) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.listDisplayColor(list);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`list_membership`](tree::list_membership). Returns a JS `Map` of `kind:id` to list titles.
  *
  * # Errors
@@ -6458,6 +10129,48 @@ export function lintWiki(pages, other_titles) {
  */
 export function listMembership(items, titles) {
     const ret = wasm.listMembership(items, titles);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`list_membership`](reading_list::list_membership) (TS `buildListMembership`). `key` is
+ * `"paper"`, `"vaultPage"` or `"either"`. Returns `[listId, resourceIds[]]` pairs in list order.
+ *
+ * # Errors
+ *
+ * Fails if `lists`, `items` or `key` has the wrong shape.
+ * @param {any} lists
+ * @param {any} items
+ * @param {any} key
+ * @returns {any}
+ */
+export function listMembershipByKey(lists, items, key) {
+    const ret = wasm.listMembershipByKey(lists, items, key);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`nav_open_groups::load_open_groups`]: the open groups from stored JSON, with `active` forced open.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ * @param {string | null} [raw]
+ * @param {string | null} [active]
+ * @returns {any}
+ */
+export function loadOpenGroups(raw, active) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(active) ? 0 : passStringToWasm0(active, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.loadOpenGroups(ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -6506,6 +10219,25 @@ export function locateAnchor(text, anchor) {
 }
 
 /**
+ * [`locate_mention`]: the rects and bounds a mention covers on its page.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of page text items.
+ * @param {any} items
+ * @param {number} start
+ * @param {number} end
+ * @returns {any}
+ */
+export function locateMention(items, start, end) {
+    const ret = wasm.locateMention(items, start, end);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`validate_new_log_entry`](log_entry::validate_new_log_entry): the error message, or `None`.
  *
  * # Errors
@@ -6525,6 +10257,80 @@ export function logEntryInputError(input) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v1;
+}
+
+/**
+ * [`log_entry_message`] for JS (TS `logEntryMessage`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a log entry message input with the expected fields.
+ * @param {any} input
+ * @returns {string}
+ */
+export function logEntryMessage(input) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.logEntryMessage(input);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`to_domain`]: a `log_entries` row as a domain entry.
+ * @param {any} row
+ * @returns {any}
+ */
+export function logEntryToDomain(row) {
+    const ret = wasm.logEntryToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_row`]: a domain entry as the `log_entries` row it is written as.
+ * @param {any} entry
+ * @returns {any}
+ */
+export function logEntryToRow(entry) {
+    const ret = wasm.logEntryToRow(entry);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`log_eyebrow`] for JS (TS `logEyebrow`): the line, or `undefined` with no entries.
+ *
+ * # Errors
+ *
+ * Fails when `entryDates` is not an array of strings.
+ * @param {any} entry_dates
+ * @param {string} today
+ * @returns {any}
+ */
+export function logEyebrow(entry_dates, today) {
+    const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.logEyebrow(entry_dates, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -6567,6 +10373,18 @@ export function looksLikeImageUrl(url) {
 }
 
 /**
+ * [`looks_like_pdf_url`]: `true` for a direct PDF path, `false` for an HTML landing page.
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function looksLikePdfUrl(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.looksLikePdfUrl(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
  * [`make_ink_stroke`](ink_page::make_ink_stroke) with the defaults filled in.
  *
  * # Errors
@@ -6592,6 +10410,58 @@ export function makeInkStroke(input) {
 export function mapInkConfidence(raw, scale) {
     const ret = wasm.mapInkConfidence(raw, !isLikeNone(scale), isLikeNone(scale) ? 0 : scale);
     return ret;
+}
+
+/**
+ * [`mark_actions`]: what the popover on a tapped mark offers, or `null` when it offers nothing.
+ *
+ * # Errors
+ *
+ * Fails if `target` is not a mark's `{ type, origin, comment }` object.
+ * @param {any} target
+ * @returns {any}
+ */
+export function markActions(target) {
+    const ret = wasm.markActions(target);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`mark_colour_tool`]: returns `"pen"`, `"highlight"`, `"underline"` or `"text"`.
+ * @param {string} mark_type
+ * @returns {string}
+ */
+export function markColourTool(mark_type) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(mark_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.markColourTool(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`mark_popover_shown`]: whether a mark's popover shows under the current tool.
+ * @param {string} annotation_type
+ * @param {string} tool
+ * @returns {boolean}
+ */
+export function markPopoverShown(annotation_type, tool) {
+    const ptr0 = passStringToWasm0(annotation_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(tool, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.markPopoverShown(ptr0, len0, ptr1, len1);
+    return ret !== 0;
 }
 
 /**
@@ -6846,6 +10716,67 @@ export function maxReportChars() {
 }
 
 /**
+ * [`blob_access::MAX_SIGNED_URL_PATHS`]: most paths one signed-url request may ask for.
+ * @returns {number}
+ */
+export function maxSignedUrlPaths() {
+    const ret = wasm.maxSignedUrlPaths();
+    return ret >>> 0;
+}
+
+/**
+ * [`may_drive_device`] for JS (TS `mayDriveDevice`).
+ * @param {string | null} [signed_in_user_id]
+ * @param {string | null} [adopted_account_id]
+ * @returns {boolean}
+ */
+export function mayDriveDevice(signed_in_user_id, adopted_account_id) {
+    var ptr0 = isLikeNone(signed_in_user_id) ? 0 : passStringToWasm0(signed_in_user_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(adopted_account_id) ? 0 : passStringToWasm0(adopted_account_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.mayDriveDevice(ptr0, len0, ptr1, len1);
+    return ret !== 0;
+}
+
+/**
+ * [`may_open_externally`](open_external::may_open_externally): a plain web address, with no
+ * credentials, on an allowed port and not a private host. Scheme-less input is read as https.
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function mayOpenExternally(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.mayOpenExternally(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`mcp_file_of`](mcp_config_rewrite::mcp_file_of): the MCP file name an env points at.
+ * @param {any} env
+ * @returns {string}
+ */
+export function mcpFileOf(env) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.mcpFileOf(env);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`mcp_read_result`](mcp_result::mcp_read_result), as a plain JS `McpResult` object.
  *
  * # Errors
@@ -6868,6 +10799,34 @@ export function mcpReadResult(items, max_item_chars, max_result_chars, nonce) {
 }
 
 /**
+ * [`mcp_servers_json`](mcp_client_config::mcp_servers_json) for a `McpLaunchLine`.
+ *
+ * # Errors
+ *
+ * Fails if `launch` has the wrong shape.
+ * @param {any} launch
+ * @returns {string}
+ */
+export function mcpServersJson(launch) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.mcpServersJson(launch);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`mean_pressure`]; `undefined` when no sample reports pressure.
  * @param {Float64Array} samples
  * @returns {number | undefined}
@@ -6877,6 +10836,55 @@ export function meanPressure(samples) {
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.meanPressure(ptr0, len0);
     return ret[0] === 0 ? undefined : ret[1];
+}
+
+/**
+ * [`media_type_essence`]: the media type without parameters, lowercased.
+ * @param {string} value
+ * @returns {string}
+ */
+export function mediaTypeEssence(value) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.mediaTypeEssence(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`member_name_map`](wf_core::member::member_name_map).
+ *
+ * # Errors
+ *
+ * Fails when `members` is not a list of member sources.
+ * @param {any} members
+ * @returns {any}
+ */
+export function memberNameMap(members) {
+    const ret = wasm.memberNameMap(members);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::member_rank`].
+ * @param {string} kind
+ * @returns {number}
+ */
+export function memberRank(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.memberRank(ptr0, len0);
+    return ret;
 }
 
 /**
@@ -6904,6 +10912,51 @@ export function memberRoleLabelOf(member, in_lab, owns_org) {
 }
 
 /**
+ * [`to_domain`]: a `profiles` row as a lab member.
+ * @param {any} row
+ * @returns {any}
+ */
+export function memberRowToDomain(row) {
+    const ret = wasm.memberRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_view`]: an `org_memberships` row with its embedded organisation as a membership view.
+ * @param {any} row
+ * @returns {any}
+ */
+export function membershipViewFromRow(row) {
+    const ret = wasm.membershipViewFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`mention_item_ranges`]: where a mention's offsets fall in each run it covers.
+ *
+ * # Errors
+ *
+ * Fails if `items` is not an array of page text items.
+ * @param {any} items
+ * @param {number} start
+ * @param {number} end
+ * @returns {any}
+ */
+export function mentionItemRanges(items, start, end) {
+    const ret = wasm.mentionItemRanges(items, start, end);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
  *
  * # Errors
@@ -6916,6 +10969,28 @@ export function memberRoleLabelOf(member, in_lab, owns_org) {
  */
 export function mentionRects(items, start, end) {
     const ret = wasm.mentionRects(items, start, end);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`merge_both_changed`](folder_merge::merge_both_changed). `base` and `workspace_content`
+ * may be absent, which keeps the entry as it was.
+ *
+ * # Errors
+ *
+ * Fails when `entry` or `base` is not the shape the folder import produces.
+ * @param {any} entry
+ * @param {any} base
+ * @param {string | null} [workspace_content]
+ * @returns {any}
+ */
+export function mergeBothChanged(entry, base, workspace_content) {
+    var ptr0 = isLikeNone(workspace_content) ? 0 : passStringToWasm0(workspace_content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.mergeBothChanged(entry, base, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7051,6 +11126,23 @@ export function mergeRows(base, local, remote) {
 }
 
 /**
+ * [`merge_seen_ids`](citation_alerts::merge_seen_ids): prior ids, then new ones, each once.
+ * @param {string[]} prior
+ * @param {string[]} current
+ * @returns {string[]}
+ */
+export function mergeSeenIds(prior, current) {
+    const ptr0 = passArrayJsValueToWasm0(prior, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayJsValueToWasm0(current, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.mergeSeenIds(ptr0, len0, ptr1, len1);
+    var v3 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v3;
+}
+
+/**
  * [`merge_template`](tpl::merge_template).
  * @param {string} existing
  * @param {string} rendered
@@ -7146,6 +11238,68 @@ export function metricKeys(experiments) {
 }
 
 /**
+ * [`to_domain`]: a metric row as a metric point.
+ * @param {any} row
+ * @returns {any}
+ */
+export function metricRowToDomain(row) {
+    const ret = wasm.metricRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`migrated_expanded`](state::migrated_expanded).
+ *
+ * # Errors
+ *
+ * Fails if an argument is not an array of strings, or the result cannot be serialised.
+ * @param {any} saved
+ * @param {any} roots
+ * @returns {any}
+ */
+export function migratedExpanded(saved, roots) {
+    const ret = wasm.migratedExpanded(saved, roots);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`migrated_notice`](migrated_notice::migrated_notice): the warning for the marker's text, or
+ * `undefined` when there is no marker. The TS wrapper maps `undefined` to `null`.
+ * @param {string | null} [raw]
+ * @returns {string | undefined}
+ */
+export function migratedNotice(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.migratedNotice(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * [`to_milestone`]: a `milestones` row as the app's milestone.
+ * @param {any} row
+ * @returns {any}
+ */
+export function milestoneFromRow(row) {
+    const ret = wasm.milestoneFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`validate_new_milestone`](milestone::validate_new_milestone): the validation message, or
  * `undefined` when the input is valid.
  *
@@ -7166,6 +11320,47 @@ export function milestoneInputError(input) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v1;
+}
+
+/**
+ * [`milestone_message`] for JS (TS `milestoneMessage`).
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a milestone message input with the expected fields.
+ * @param {any} input
+ * @returns {string}
+ */
+export function milestoneMessage(input) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.milestoneMessage(input);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`to_row`]: a milestone as the `milestones` row it is written as.
+ * @param {any} milestone
+ * @returns {any}
+ */
+export function milestoneToRow(milestone) {
+    const ret = wasm.milestoneToRow(milestone);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -7200,6 +11395,62 @@ export function milestonesToIcs(items, include_done, reminder_days, now_ms) {
 }
 
 /**
+ * [`missing_config_message`]: names the absent required env vars, never values.
+ * `cfg` is the backend config object; `required` is an array of camelCase field names.
+ *
+ * # Errors
+ *
+ * Fails if `cfg` is not an object of optional strings, `required` is not an array of
+ * known field names, or the result cannot be converted to JS.
+ * @param {any} cfg
+ * @param {any} required
+ * @returns {any}
+ */
+export function missingConfigMessage(cfg, required) {
+    const ret = wasm.missingConfigMessage(cfg, required);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`missing_figure_warning`](export_path::missing_figure_warning).
+ * @param {string} zip_path
+ * @param {string} storage_path
+ * @returns {string}
+ */
+export function missingFigureWarning(zip_path, storage_path) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(zip_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(storage_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.missingFigureWarning(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`missing_page_plans`]: one placeholder plan per distinct, non-blank dead-link target.
+ * @param {any} targets
+ * @returns {any}
+ */
+export function missingPagePlans(targets) {
+    const ret = wasm.missingPagePlans(targets);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`missing_r2_config_message`]: names the unset R2 env vars, never values.
  *
  * # Errors
@@ -7210,6 +11461,53 @@ export function milestonesToIcs(items, include_done, reminder_days, now_ms) {
  */
 export function missingR2ConfigMessage(fields) {
     const ret = wasm.missingR2ConfigMessage(fields);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`try_model_cache_url`](model_cache::try_model_cache_url): the cache URL a request names, or
+ * `null` when it is not a weights request.
+ *
+ * # Errors
+ *
+ * Throws on a URL that does not parse, as `new URL` did in the TS.
+ * @param {string} url
+ * @param {string} app_host
+ * @returns {string | undefined}
+ */
+export function modelCacheUrl(url, app_host) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(app_host, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.modelCacheUrl(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
+}
+
+/**
+ * [`rules::modes_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function modesFor(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.modesFor(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7239,6 +11537,52 @@ export function moveTab(layout, from_pane_id, from_index, to_pane_id, to_index) 
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `undefined` at either end.
+ * @param {any} ids
+ * @param {string} id
+ * @param {number} step
+ * @returns {any}
+ */
+export function movedIds(ids, id, step) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.movedIds(ids, ptr0, len0, step);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`name_of`](panel_labels::name_of): a conflict's title, or "Untitled".
+ *
+ * # Errors
+ *
+ * Fails if `local` or `remote` is not an object (or null for `remote`).
+ * @param {any} local
+ * @param {any} remote
+ * @returns {string}
+ */
+export function nameOf(local, remote) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.nameOf(local, remote);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -7406,6 +11750,41 @@ export function newIssueUrl(title, body, repo) {
 }
 
 /**
+ * [`newest_release`]: the newest stable desktop release in `releases`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `releases` does not match the release list shape, or the result cannot be converted
+ * to JS.
+ * @param {any} releases
+ * @returns {any}
+ */
+export function newestDesktopRelease(releases) {
+    const ret = wasm.newestDesktopRelease(releases);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`newest_first_order`] for JS (TS `newestFirstOrder`): indexes, latest stamp first.
+ *
+ * # Errors
+ *
+ * Fails when `publishedAt` is not an array of strings.
+ * @param {any} published_at
+ * @returns {any}
+ */
+export function newestFirstOrder(published_at) {
+    const ret = wasm.newestFirstOrder(published_at);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`next_auth_step`] (TS `nextAuthStep`): the step as `{ kind, ... }`.
  *
  * # Errors
@@ -7431,6 +11810,46 @@ export function nextAuthStep(user_id, previous_id, signing_out, was_expired, des
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`next_page_offset`](semantic_scholar_citation::next_page_offset): the next offset, or `-1`
+ * to stop. A non-number `next` is read as missing, as the TS did.
+ *
+ * # Errors
+ *
+ * Fails if `next` cannot be read as JSON.
+ * @param {number} current_offset
+ * @param {any} next
+ * @param {number} pages_fetched
+ * @returns {number}
+ */
+export function nextCitationPageOffset(current_offset, next, pages_fetched) {
+    const ret = wasm.nextCitationPageOffset(current_offset, next, pages_fetched);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * [`next_manifest`](folder_mirror::next_manifest).
+ * @param {string[]} previous
+ * @param {string[]} written
+ * @param {string[]} removed
+ * @returns {string[]}
+ */
+export function nextManifest(previous, written, removed) {
+    const ptr0 = passArrayJsValueToWasm0(previous, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayJsValueToWasm0(written, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArrayJsValueToWasm0(removed, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.nextManifest(ptr0, len0, ptr1, len1, ptr2, len2);
+    var v4 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v4;
 }
 
 /**
@@ -7467,6 +11886,25 @@ export function nextRotation(current, delta) {
 export function nibWidth(base, pressure, velocity, full_taper) {
     const ret = wasm.nibWidth(base, !isLikeNone(pressure), isLikeNone(pressure) ? 0 : pressure, !isLikeNone(velocity), isLikeNone(velocity) ? 0 : velocity, !isLikeNone(full_taper), isLikeNone(full_taper) ? 0 : full_taper);
     return ret;
+}
+
+/**
+ * [`node_size`](graph_sizing::node_size) as `{ r, line, drop, hit }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ * @param {number} base_r
+ * @param {number} zoom
+ * @param {boolean} bounded
+ * @returns {any}
+ */
+export function nodeSize(base_r, zoom, bounded) {
+    const ret = wasm.nodeSize(base_r, zoom, bounded);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -7610,6 +12048,26 @@ export function normalizeDoi(doi) {
 }
 
 /**
+ * [`normalize_field_name`](paper_field::normalize_field_name) (TS `normalizeFieldName`).
+ * @param {string} raw
+ * @returns {string}
+ */
+export function normalizeFieldName(raw) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.normalizeFieldName(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
  * non-string or a rejected stack.
  * @param {any} raw
@@ -7636,6 +12094,23 @@ export function normalizeFontStack(raw) {
  */
 export function normalizeGraphViewSettings(raw) {
     const ret = wasm.normalizeGraphViewSettings(raw);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`normalize_highlight_rects`]: one clean band per line of a text highlight.
+ *
+ * # Errors
+ *
+ * Fails if `rects` is not an array of number arrays.
+ * @param {any} rects
+ * @returns {any}
+ */
+export function normalizeHighlightRects(rects) {
+    const ret = wasm.normalizeHighlightRects(rects);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7784,6 +12259,20 @@ export function normalizeSearchSettings(raw) {
 }
 
 /**
+ * [`normalize_select_options`](paper_field::normalize_select_options) (TS `normalizeSelectOptions`).
+ * @param {string[]} raw
+ * @returns {string[]}
+ */
+export function normalizeSelectOptions(raw) {
+    const ptr0 = passArrayJsValueToWasm0(raw, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.normalizeSelectOptions(ptr0, len0);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
  * [`normalize_share_input`](sharing::normalize_share_input); a validation message throws as text.
  *
  * # Errors
@@ -7884,6 +12373,63 @@ export function normalizeVector(vector) {
 }
 
 /**
+ * [`normalize_zotero_library`](zotero_library::normalize_zotero_library): the library path, or
+ * nothing when the input is not a library.
+ *
+ * # Errors
+ *
+ * Fails if `library` is neither a string nor missing.
+ * @param {any} library
+ * @returns {any}
+ */
+export function normalizeZoteroLibrary(library) {
+    const ret = wasm.normalizeZoteroLibrary(library);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`note_backlinks`](page::note_backlinks) (TS `noteBacklinks`), as `{ id, title }` objects.
+ *
+ * # Errors
+ *
+ * Fails if `notes` has the wrong shape.
+ * @param {any} notes
+ * @param {string | null} [selected_id]
+ * @returns {any}
+ */
+export function noteBacklinks(notes, selected_id) {
+    var ptr0 = isLikeNone(selected_id) ? 0 : passStringToWasm0(selected_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.noteBacklinks(notes, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`note_tags`](page::note_tags) (TS `noteTags`): the distinct hashtags, sorted by UTF-16 order.
+ *
+ * # Errors
+ *
+ * Fails if `notes` has the wrong shape.
+ * @param {any} notes
+ * @returns {string[]}
+ */
+export function noteTags(notes) {
+    const ret = wasm.noteTags(notes);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v1;
+}
+
+/**
  * [`notes_tagged`](graph_tags::notes_tagged): indices of the notes matching `tags`.
  *
  * # Errors
@@ -7902,6 +12448,54 @@ export function notesTagged(notes, tags) {
 }
 
 /**
+ * [`notice_for`]: the text under `entry_index`, or `null` when the notice is about another entry.
+ *
+ * # Errors
+ *
+ * Fails if `notice` is neither `null` nor a `{ index, text }` object.
+ * @param {any} notice
+ * @param {number} entry_index
+ * @returns {any}
+ */
+export function noticeFor(notice, entry_index) {
+    const ret = wasm.noticeFor(notice, entry_index);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`one_euro_alpha`](one_euro::one_euro_alpha): the smoothing factor for a cutoff in
+ * hertz and a timestep in milliseconds.
+ * @param {number} cutoff
+ * @param {number} dt_ms
+ * @returns {number}
+ */
+export function oneEuroAlpha(cutoff, dt_ms) {
+    const ret = wasm.oneEuroAlpha(cutoff, dt_ms);
+    return ret;
+}
+
+/**
+ * [`openalex_to_hit`](related_paper_hit::openalex_to_hit): the hit for an OpenAlex work, or
+ * nothing when it has no title.
+ *
+ * # Errors
+ *
+ * Fails if `work` cannot be read as an OpenAlex work object.
+ * @param {any} work
+ * @returns {any}
+ */
+export function openAlexToHit(work) {
+    const ret = wasm.openAlexToHit(work);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`openalex_to_metadata`] (TS `openAlexToMetadata`). An OpenAlex work as a paper.
  *
  * # Errors
@@ -7912,6 +12506,28 @@ export function notesTagged(notes, tags) {
  */
 export function openAlexToMetadata(work) {
     const ret = wasm.openAlexToMetadata(work);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::open_mode_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @param {string} body
+ * @returns {any}
+ */
+export function openModeFor(kind, body) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.openModeFor(ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7950,6 +12566,31 @@ export function openTab(layout, tab, pane_id) {
  */
 export function openTabKeys(layout) {
     const ret = wasm.openTabKeys(layout);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rules::opening_tab`]. `body` absent reads as an empty body.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @param {string} id
+ * @param {string | null} [body]
+ * @returns {any}
+ */
+export function openingTab(kind, id, body) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    var ptr2 = isLikeNone(body) ? 0 : passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len2 = WASM_VECTOR_LEN;
+    const ret = wasm.openingTab(ptr0, len0, ptr1, len1, ptr2, len2);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8022,6 +12663,43 @@ export function outlineIsPlausible(headings, page_count) {
  */
 export function outlineItemOf(item, page) {
     const ret = wasm.outlineItemOf(item, page);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`outline_items_for`]: each page's runs as outline items.
+ *
+ * # Errors
+ *
+ * Fails if `pages` does not have the expected shape.
+ * @param {any} pages
+ * @returns {any}
+ */
+export function outlineItemsFor(pages) {
+    const ret = wasm.outlineItemsFor(pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`outline_of`](outline::outline_of) as an array of `{ level, text, slug }`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ * @param {string} body
+ * @param {number} max_level
+ * @returns {any}
+ */
+export function outlineOf(body, max_level) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.outlineOf(ptr0, len0, max_level);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8211,6 +12889,32 @@ export function pageListProblem(answer, count) {
 }
 
 /**
+ * [`page_text_after_recognition`]: the page text once handwriting has been recognised.
+ * @param {string} was
+ * @param {string} prior
+ * @param {string} recognised
+ * @returns {string}
+ */
+export function pageTextAfterRecognition(was, prior, recognised) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(was, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(prior, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(recognised, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.pageTextAfterRecognition(ptr0, len0, ptr1, len1, ptr2, len2);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
  * [`page_text_from_items`] over `{ str, hasEOL? }[]`.
  *
  * # Errors
@@ -8239,6 +12943,42 @@ export function pageTextFromItems(items) {
 }
 
 /**
+ * [`pages_to_evict`]: `rendered` and `visible` are number arrays; returns a sorted number array.
+ *
+ * # Errors
+ *
+ * Fails if `rendered` or `visible` is not an array of numbers.
+ * @param {any} rendered
+ * @param {any} visible
+ * @param {number} radius
+ * @returns {any}
+ */
+export function pagesToEvict(rendered, visible, radius) {
+    const ret = wasm.pagesToEvict(rendered, visible, radius);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`painted_order`](quick::painted_order): the results group by group.
+ *
+ * # Errors
+ *
+ * Fails if `results` is not an array of quick-open results.
+ * @param {any} results
+ * @returns {any}
+ */
+export function paintedOrder(results) {
+    const ret = wasm.paintedOrder(results);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`palette_mode_for`](palette_groups::palette_mode_for): the mode a key press opens, or `null`.
  *
  * # Errors
@@ -8249,6 +12989,68 @@ export function pageTextFromItems(items) {
  */
 export function paletteModeFor(event) {
     const ret = wasm.paletteModeFor(event);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`paper_cite_keys`](bibtex::paper_cite_keys) (TS `buildCiteByTitle`'s key list): one key per
+ * paper, in order, unique across the list.
+ *
+ * # Errors
+ *
+ * Fails if `papers` is not an array of paper objects.
+ * @param {any} papers_value
+ * @returns {any}
+ */
+export function paperCiteKeys(papers_value) {
+    const ret = wasm.paperCiteKeys(papers_value);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`paper_counts_for_tags`](tag_counts::paper_counts_for_tags): one count per `tagIds` entry, in order.
+ *
+ * # Errors
+ *
+ * Fails if `tagIds` or `links` has the wrong shape.
+ * @param {any} tag_ids
+ * @param {any} links
+ * @returns {any}
+ */
+export function paperCountsForTags(tag_ids, links) {
+    const ret = wasm.paperCountsForTags(tag_ids, links);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_def_domain`]: a `paper_fields` row as a domain field definition.
+ * @param {any} row
+ * @returns {any}
+ */
+export function paperFieldDefRowToDomain(row) {
+    const ret = wasm.paperFieldDefRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_value_domain`]: a `paper_field_values` row as a domain value. Throws on a bad payload.
+ * @param {any} row
+ * @returns {any}
+ */
+export function paperFieldValueRowToDomain(row) {
+    const ret = wasm.paperFieldValueRowToDomain(row);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8381,6 +13183,128 @@ export function paperRelationToRow(relation) {
 }
 
 /**
+ * [`paper_to_domain`]: a `papers` row as a domain paper.
+ * @param {any} row
+ * @returns {any}
+ */
+export function paperRowToDomain(row) {
+    const ret = wasm.paperRowToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`paper_to_summary`]: a `papers` row read with the card projection, as a summary.
+ * @param {any} row
+ * @returns {any}
+ */
+export function paperRowToSummary(row) {
+    const ret = wasm.paperRowToSummary(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
+ * @param {any} row
+ * @returns {any}
+ */
+export function paperTagFromRow(row) {
+    const ret = wasm.paperTagFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`paper_to_bibtex`](bibtex::paper_to_bibtex): one `.bib` entry under `key`.
+ *
+ * # Errors
+ *
+ * Fails if `paper` is not a paper object.
+ * @param {any} paper
+ * @param {string} key
+ * @returns {string}
+ */
+export function paperToBibtex(paper, key) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.paperToBibtex(paper, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`paper_to_row`]: a domain paper as the `papers` row it is written as.
+ * @param {any} paper
+ * @returns {any}
+ */
+export function paperToRow(paper) {
+    const ret = wasm.paperToRow(paper);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_version`]: `0.5.2` to `[0, 5, 2]`, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} version
+ * @returns {any}
+ */
+export function parseAppVersion(version) {
+    const ptr0 = passStringToWasm0(version, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseAppVersion(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_artifact_refs`](artifact_refs::parse_artifact_refs) (TS `parseArtifactRefs`). Offsets
+ * are UTF-16 code units.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ * @param {string} markdown
+ * @returns {any}
+ */
+export function parseArtifactRefs(markdown) {
+    const ptr0 = passStringToWasm0(markdown, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseArtifactRefs(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`parse_bib_entries`](bib_entries::parse_bib_entries) (TS `parseBibEntries`).
  *
  * # Errors
@@ -8473,10 +13397,6 @@ export function parseDashboardLayout(raw) {
 }
 
 /**
- * [`wf_core::papers::open_access::parse_doaj`]: DOAJ's answer as candidates.
- *
- * # Errors
- *
  * Fails if `body` is not valid JSON, or the result cannot be converted.
  * @param {any} body
  * @returns {any}
@@ -8507,6 +13427,27 @@ export function parseEuropePmc(body) {
 }
 
 /**
+ * [`parse_explorer_keys`](state::parse_explorer_keys). Takes the raw stored
+ * string (or `null` when absent) and returns the keys, or `null` when the
+ * record is unusable.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ * @param {string | null} [raw]
+ * @returns {any}
+ */
+export function parseExplorerKeys(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseExplorerKeys(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`parse_extraction_json`](model_concepts::parse_extraction_json): the reply's `concepts` list, or `[]`.
  *
  * # Errors
@@ -8519,6 +13460,21 @@ export function parseExtractionJson(text) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.parseExtractionJson(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_figure_clip`]: the figure a clipboard text names, or `null`.
+ * @param {string | null} [text]
+ * @returns {any}
+ */
+export function parseFigureClip(text) {
+    var ptr0 = isLikeNone(text) ? 0 : passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseFigureClip(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8748,6 +13704,25 @@ export function parseOpenalex(body) {
 }
 
 /**
+ * [`parse_links`]: the well-formed links in the stored JSON.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {string} stored
+ * @returns {any}
+ */
+export function parseOverleafLinks(stored) {
+    const ptr0 = passStringToWasm0(stored, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseOverleafLinks(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`parse_overleaf_project_id`](overleaf::parse_overleaf_project_id).
  * @param {string} raw
  * @returns {string | undefined}
@@ -8802,6 +13777,28 @@ export function parsePaperFieldValue(value, name) {
 }
 
 /**
+ * [`parse_paper_html_document`]: the paper a kept file holds, or `null` for a file this app did not write.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ * @param {string} paper_id
+ * @param {string} text
+ * @returns {any}
+ */
+export function parsePaperHtmlDocument(paper_id, text) {
+    const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.parsePaperHtmlDocument(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::paper_ref::parse_paper_ref`]: `value` as a `PaperRef`
  * (`PaperRef` in `bindings.ts`) of the given `kind`.
  *
@@ -8817,6 +13814,25 @@ export function parsePaperRef(kind, value) {
     const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.parsePaperRef(kind, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_bounds`]: the saved position from the preference JSON, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {string} stored
+ * @returns {any}
+ */
+export function parsePlanWidgetBounds(stored) {
+    const ptr0 = passStringToWasm0(stored, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parsePlanWidgetBounds(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8883,6 +13899,25 @@ export function parseRegions(document) {
 }
 
 /**
+ * [`parse_tag`]: `v0.5.2` to `[0, 5, 2]`, or `null` for any other tag.
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} tag
+ * @returns {any}
+ */
+export function parseReleaseTag(tag) {
+    const ptr0 = passStringToWasm0(tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseReleaseTag(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`parse_rollup_options`](paper_field::parse_rollup_options) (TS `parseRollupOptions`).
  *
  * # Errors
@@ -8912,6 +13947,40 @@ export function parseRollupOptions(options) {
  */
 export function parseSemanticScholar(body) {
     const ret = wasm.parseSemanticScholar(body);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_stroke_clip`]: the strokes a clipboard text carries, or `null`.
+ * @param {string | null} [text]
+ * @returns {any}
+ */
+export function parseStrokeClip(text) {
+    var ptr0 = isLikeNone(text) ? 0 : passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseStrokeClip(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_taskbar_created`]: the `TaskbarCreated` message id the helper printed, or `null`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {string} stdout
+ * @returns {any}
+ */
+export function parseTaskbarCreatedId(stdout) {
+    const ptr0 = passStringToWasm0(stdout, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseTaskbarCreatedId(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9009,6 +14078,24 @@ export function parseZenodo(body) {
 }
 
 /**
+ * [`partition_pdf_texts`](pdf_text_prune::partition_pdf_texts): which stored PDF texts survive and which to delete.
+ *
+ * # Errors
+ *
+ * Fails if `stored` is not an array of PDF sources or `paper_ids` is not an array of strings.
+ * @param {any} stored
+ * @param {any} paper_ids
+ * @returns {any}
+ */
+export function partitionPdfTexts(stored, paper_ids) {
+    const ret = wasm.partitionPdfTexts(stored, paper_ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`paste_lands_in_verbatim_context`] for JS. `offset` is in UTF-16 code units.
  *
  * # Errors
@@ -9026,6 +14113,36 @@ export function pasteLandsInVerbatimContext(document, offset) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`pasted_figure_place`]: `figure` is a `FigurePlacement`, `on_page` the page's figures, `page` an `InkPageSize`.
+ * @param {any} figure
+ * @param {any} on_page
+ * @param {any} page
+ * @returns {any}
+ */
+export function pastedFigurePlace(figure, on_page, page) {
+    const ret = wasm.pastedFigurePlace(figure, on_page, page);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pasted_strokes_place`]: `strokes` are the pasted ones, `on_page` the page's, `page` an `InkPageSize`.
+ * @param {any} strokes
+ * @param {any} on_page
+ * @param {any} page
+ * @returns {any}
+ */
+export function pastedStrokesPlace(strokes, on_page, page) {
+    const ret = wasm.pastedStrokesPlace(strokes, on_page, page);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -9140,6 +14257,22 @@ export function peersFromUsers(users, self_client_id, self_author_id) {
     const ptr0 = passStringToWasm0(self_author_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.peersFromUsers(users, self_client_id, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
+ * @param {any} proposals
+ * @param {string | null} [field_id]
+ * @returns {any}
+ */
+export function pendingFieldFills(proposals, field_id) {
+    var ptr0 = isLikeNone(field_id) ? 0 : passStringToWasm0(field_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pendingFieldFills(proposals, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9263,6 +14396,58 @@ export function pickNearestMatch(matches, position) {
 }
 
 /**
+ * [`pick_project`](project_pick::pick_project): the index of the picked project. A miss or an
+ * ambiguous match throws the message as a string; the TS wrapper turns it into an `Error`.
+ * @param {any} projects
+ * @param {string | null} [needle]
+ * @returns {number}
+ */
+export function pickProject(projects, needle) {
+    var ptr0 = isLikeNone(needle) ? 0 : passStringToWasm0(needle, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pickProject(projects, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] >>> 0;
+}
+
+/**
+ * [`picture_path`]: the stored file behind a placed picture, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `target` is not a mark's `{ type, origin, comment }` object.
+ * @param {any} target
+ * @returns {any}
+ */
+export function picturePath(target) {
+    const ret = wasm.picturePath(target);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pinned_screen_index`]: the pure half of merging pinned shared rows into a screen.
+ *
+ * # Errors
+ *
+ * Fails if `input` does not match the pinned-screen input shape, or the result cannot be
+ * converted to JS.
+ * @param {any} input
+ * @returns {any}
+ */
+export function pinnedScreenIndex(input) {
+    const ret = wasm.pinnedScreenIndex(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`place_on_sheet`](page_background::place_on_sheet) as `{ x, y, width, height }`.
  *
  * # Errors
@@ -9276,6 +14461,25 @@ export function pickNearestMatch(matches, position) {
  */
 export function placeOnSheet(source_width, source_height, sheet_width, sheet_height) {
     const ret = wasm.placeOnSheet(source_width, source_height, sheet_width, sheet_height);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`place_widget`]: the saved spot if it is on a screen, else the top-right of the first one.
+ *
+ * # Errors
+ *
+ * Fails if `saved` is not a position or `areas` is not a list of work areas, or the result
+ * cannot be converted to JS.
+ * @param {any} saved
+ * @param {any} areas
+ * @returns {any}
+ */
+export function placePlanWidget(saved, areas) {
+    const ret = wasm.placePlanWidget(saved, areas);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9331,6 +14535,63 @@ export function planBibImport(file_name, text, existing_dois, existing_keys) {
 }
 
 /**
+ * [`plan_bibliography_annotations`]. `papers` is an array of paper snapshots,
+ * `pull` the pulled annotations keyed by Zotero item key.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
+ * @param {any} papers
+ * @param {any} pull
+ * @returns {any}
+ */
+export function planBibliographyAnnotations(papers, pull) {
+    const ret = wasm.planBibliographyAnnotations(papers, pull);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`chip_target`](chip::chip_target): where a dependency chip goes when tapped.
+ *
+ * # Errors
+ *
+ * Fails if `dep` or `milestones` has the wrong shape, or the result cannot be serialised.
+ * @param {any} dep
+ * @param {any} known
+ * @param {any} milestones
+ * @param {boolean} is_offline_build
+ * @returns {any}
+ */
+export function planChipTarget(dep, known, milestones, is_offline_build) {
+    const ret = wasm.planChipTarget(dep, known, milestones, is_offline_build);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plan_citation_segments`]: each run split at the mention boundaries inside it.
+ *
+ * # Errors
+ *
+ * Fails if `items` or `mentions` do not have the expected shape.
+ * @param {any} items
+ * @param {any} mentions
+ * @returns {any}
+ */
+export function planCitationSegments(items, mentions) {
+    const ret = wasm.planCitationSegments(items, mentions);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::snapshot_delta::plan_delta`] for JS. `remote` is `{ id, updatedAt }[]`
  * and `held` is `[id, stamp][]`, as the TS shell passes them.
  *
@@ -9350,6 +14611,94 @@ export function planDelta(remote, held) {
 }
 
 /**
+ * [`plan_embedding_start`](embedding_models::plan_embedding_start) as `"reuse" | "swap" | "rebuild"`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialized.
+ * @param {string | null | undefined} stored_model
+ * @param {string} target
+ * @returns {any}
+ */
+export function planEmbeddingStart(stored_model, target) {
+    var ptr0 = isLikeNone(stored_model) ? 0 : passStringToWasm0(stored_model, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(target, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.planEmbeddingStart(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plan_eyebrow`](screen::plan_eyebrow): the line above the plan title, or `undefined` for none.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialised.
+ * @param {number} total
+ * @param {number} done
+ * @returns {any}
+ */
+export function planEyebrow(total, done) {
+    const ret = wasm.planEyebrow(total, done);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plan_feed_origin`](feed_urls::plan_feed_origin): where the calendar feed is served.
+ * @param {boolean} server_routes
+ * @param {string | null} [here]
+ * @param {string | null} [configured]
+ * @returns {string}
+ */
+export function planFeedOrigin(server_routes, here, configured) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        var ptr0 = isLikeNone(here) ? 0 : passStringToWasm0(here, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(configured) ? 0 : passStringToWasm0(configured, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.planFeedOrigin(server_routes, ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`plan_feed_urls`](feed_urls::plan_feed_urls): the calendar, https and widget links for `token`.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS object.
+ * @param {string} origin
+ * @param {string} token
+ * @param {boolean} include_done
+ * @param {number} reminder_days
+ * @returns {any}
+ */
+export function planFeedUrls(origin, token, include_done, reminder_days) {
+    const ptr0 = passStringToWasm0(origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.planFeedUrls(ptr0, len0, ptr1, len1, include_done, reminder_days);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`plan_fix_order`](wiki_lint::plan_fix_order).
  *
  * # Errors
@@ -9360,6 +14709,25 @@ export function planDelta(remote, held) {
  */
 export function planFixOrder(report) {
     const ret = wasm.planFixOrder(report);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plan_item_order`]: the writes for a new item order, or the message that refuses it.
+ * @param {string} list_id
+ * @param {any} items
+ * @param {string[]} ordered_ids
+ * @returns {any}
+ */
+export function planItemOrder(list_id, items, ordered_ids) {
+    const ptr0 = passStringToWasm0(list_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayJsValueToWasm0(ordered_ids, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.planItemOrder(ptr0, len0, items, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9391,6 +14759,33 @@ export function planMirror(files, asset_paths, previous_paths, base, disk) {
 }
 
 /**
+ * [`plan_pace`](timeline::plan_pace): `"on track"` or the overdue and due-soon counts.
+ * @param {any} milestones
+ * @param {string} today
+ * @returns {string}
+ */
+export function planPace(milestones, today) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.planPace(milestones, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`plan_series_ingest`](experiments::plan_series_ingest): `{ keep: indices, supersededTipStep }`.
  *
  * # Errors
@@ -9404,6 +14799,27 @@ export function planSeriesIngestIndices(steps, previous_max_step) {
     const ptr0 = passArrayF64ToWasm0(steps, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.planSeriesIngestIndices(ptr0, len0, !isLikeNone(previous_max_step), isLikeNone(previous_max_step) ? 0 : previous_max_step);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plan_timeline`](timeline::plan_timeline): the laid-out plan, or `null` when no milestone is
+ * dated.
+ *
+ * # Errors
+ *
+ * Fails if `milestones` has the wrong shape.
+ * @param {any} milestones
+ * @param {string} today
+ * @returns {any}
+ */
+export function planTimeline(milestones, today) {
+    const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.planTimeline(milestones, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9428,6 +14844,59 @@ export function planWidgetData(items, include_done, limit, now_ms) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`plot_height`](plot_size::plot_height).
+ * @param {number} width
+ * @param {number} base
+ * @returns {number}
+ */
+export function plotHeight(width, base) {
+    const ret = wasm.plotHeight(width, base);
+    return ret;
+}
+
+/**
+ * [`plot_tier`](plot_size::plot_tier): `"full"`, `"medium"` or `"compact"`.
+ * @param {number} width
+ * @returns {string}
+ */
+export function plotTier(width) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.plotTier(width);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * [`plural`](panel_labels::plural): "n word" with the right plural.
+ * @param {number} n
+ * @param {string} word
+ * @param {string | null} [many]
+ * @returns {string}
+ */
+export function plural(n, word, many) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(word, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(many) ? 0 : passStringToWasm0(many, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.plural(n, ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -9482,6 +14951,66 @@ export function pointInPolygon(polygon, x, y) {
 }
 
 /**
+ * [`error_info`] for JS (TS `postgrestErrorInfo`): `{ code, firstLine }` of an error body.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ * @param {string} body
+ * @returns {any}
+ */
+export function postgrestErrorInfo(body) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.postgrestErrorInfo(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`writable`] for JS (TS `postgrestWritable`): the payload minus the table's generated columns.
+ *
+ * # Errors
+ *
+ * Fails when `payload` is not an object.
+ * @param {string} table
+ * @param {any} payload
+ * @returns {any}
+ */
+export function postgrestWritable(table, payload) {
+    const ptr0 = passStringToWasm0(table, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.postgrestWritable(ptr0, len0, payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wf_core::papers::open_access::parse_doaj`]: DOAJ's answer as candidates.
+ *
+ * # Errors
+ *
+ * [`wf_core::papers::open_access::preprint_server_for`]: the preprint server for a DOI, or `None`.
+ * @param {string} doi
+ * @returns {string | undefined}
+ */
+export function preprintServerFor(doi) {
+    const ptr0 = passStringToWasm0(doi, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.preprintServerFor(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * [`wf_core::ink::pressure_byte`].
  * @param {number | null} [pressure]
  * @returns {number}
@@ -9506,6 +15035,29 @@ export function previewOpen(layout) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * [`preview_reader_href`](paper_preview::preview_reader_href) (TS `previewReaderHref`).
+ *
+ * # Errors
+ *
+ * Fails if `preview` is not a preview object, or the result cannot be converted.
+ * @param {string | null | undefined} remote_href
+ * @param {any} preview
+ * @param {string} local_href
+ * @returns {any}
+ */
+export function previewReaderHref(remote_href, preview, local_href) {
+    var ptr0 = isLikeNone(remote_href) ? 0 : passStringToWasm0(remote_href, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(local_href, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.previewReaderHref(ptr0, len0, preview, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -9536,6 +15088,28 @@ export function previewSource(layout, previous) {
  */
 export function previewTab() {
     const ret = wasm.previewTab();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`primary_paper_ref`]: the arXiv id, else the DOI, else `null`. Blank strings count as unset.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {string | null} [arxiv_id]
+ * @param {string | null} [doi]
+ * @returns {any}
+ */
+export function primaryPaperRef(arxiv_id, doi) {
+    var ptr0 = isLikeNone(arxiv_id) ? 0 : passStringToWasm0(arxiv_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(doi) ? 0 : passStringToWasm0(doi, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.primaryPaperRef(ptr0, len0, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9645,6 +15219,19 @@ export function projectDir(id, name) {
 }
 
 /**
+ * [`to_project`]: a `projects` row as the app's project.
+ * @param {any} row
+ * @returns {any}
+ */
+export function projectFromRow(row) {
+    const ret = wasm.projectFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`project_gate_open`].
  *
  * # Errors
@@ -9710,6 +15297,29 @@ export function projectName(name) {
 }
 
 /**
+ * [`project_zotero_annotations`](zotero_projection::project_zotero_annotations).
+ *
+ * # Errors
+ *
+ * Fails when `annotations` is not a list of cached Zotero annotations.
+ * @param {any} annotations
+ * @param {string | null} [content_hash]
+ * @param {string | null} [now]
+ * @returns {any}
+ */
+export function projectZoteroAnnotations(annotations, content_hash, now) {
+    var ptr0 = isLikeNone(content_hash) ? 0 : passStringToWasm0(content_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(now) ? 0 : passStringToWasm0(now, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.projectZoteroAnnotations(annotations, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`projected_page_size`] as `{ width, height }` (TS `projectedPageSize`).
  *
  * # Errors
@@ -9757,6 +15367,22 @@ export function projection(columns) {
 }
 
 /**
+ * [`proposal_applies`](proposal_apply::proposal_applies). `null` or `undefined` for the stored
+ * revision means the row is missing.
+ * @param {string | null} [stored_updated_at]
+ * @param {string | null} [expected_revision]
+ * @returns {boolean}
+ */
+export function proposalApplies(stored_updated_at, expected_revision) {
+    var ptr0 = isLikeNone(stored_updated_at) ? 0 : passStringToWasm0(stored_updated_at, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(expected_revision) ? 0 : passStringToWasm0(expected_revision, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.proposalApplies(ptr0, len0, ptr1, len1);
+    return ret !== 0;
+}
+
+/**
  * [`prune_layout`](pane::prune_layout). `open_keys` is an array of tab keys.
  *
  * # Errors
@@ -9768,6 +15394,23 @@ export function projection(columns) {
  */
 export function pruneLayout(layout, open_keys) {
     const ret = wasm.pruneLayout(layout, open_keys);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`push_figure_step`]: `before` and `after` are the page's figure arrays;
+ * `key` is the press number, or `null` when the edit is not from a press.
+ * @param {any} history
+ * @param {any} before
+ * @param {any} after
+ * @param {any} key
+ * @returns {any}
+ */
+export function pushFigureStep(history, before, after, key) {
+    const ret = wasm.pushFigureStep(history, before, after, key);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9822,6 +15465,26 @@ export function queryTermCount(terms) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`quick_open_results`](quick::quick_open_results) as an array of `{ node, score, matched }`.
+ *
+ * # Errors
+ *
+ * Fails if `documents` is not an array of tree rows.
+ * @param {any} documents
+ * @param {string} query
+ * @returns {any}
+ */
+export function quickOpenResults(documents, query) {
+    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.quickOpenResults(documents, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -9882,6 +15545,26 @@ export function r2BlobClientConfig(fields) {
 }
 
 /**
+ * [`rail_group_text`](rail_group_text::rail_group_text). `group` is a `RailGroupWords`,
+ * `visible` and `integrationTitles` are string arrays.
+ *
+ * # Errors
+ *
+ * Fails if an input cannot be read as the expected shape.
+ * @param {any} group
+ * @param {any} visible
+ * @param {any} integration_titles
+ * @returns {any}
+ */
+export function railGroupText(group, visible, integration_titles) {
+    const ret = wasm.railGroupText(group, visible, integration_titles);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`ramp_colour`](node_colouring::ramp_colour): a colour `t` of the way along the ramp.
  * @param {number} t
  * @returns {string}
@@ -9900,6 +15583,29 @@ export function rampColour(t) {
 }
 
 /**
+ * [`rank_filter_order`](rank_filter::rank_filter_order) as an array of indices
+ * into `items`.
+ *
+ * # Errors
+ *
+ * Fails if `hit_entity_ids` is not an array of strings or `items` is not an
+ * array of `{id, fallbackText}` records.
+ * @param {string} query
+ * @param {any} hit_entity_ids
+ * @param {any} items
+ * @returns {any}
+ */
+export function rankFilterOrder(query, hit_entity_ids, items) {
+    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rankFilterOrder(ptr0, len0, hit_entity_ids, items);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::papers::open_access::rank_open_access_candidates`]: deduplicated, PDFs first.
  *
  * # Errors
@@ -9914,6 +15620,27 @@ export function rankOpenAccessCandidates(candidates) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`read_failure_reason`]: why a read failed. `status` is the HTTP status when there was a response.
+ * @param {string} message
+ * @param {number | null} [status]
+ * @returns {string}
+ */
+export function readFailureReason(message, status) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.readFailureReason(ptr0, len0, isLikeNone(status) ? 0xFFFFFF : status);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -9992,6 +15719,24 @@ export function readInkNoteMeta(frontmatter) {
 }
 
 /**
+ * [`read_ink_request`]: the page's request checked whole, or `null` when it is malformed.
+ * Never throws, as the TS did not: input that is not convertible to JSON is `null` too.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JS value.
+ * @param {any} request
+ * @returns {any}
+ */
+export function readInkRequest(request) {
+    const ret = wasm.readInkRequest(request);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`read_storage_config`]. `env` is a plain object of env name to string value.
  *
  * # Errors
@@ -10057,6 +15802,96 @@ export function readerKeyboardCommand(event) {
 }
 
 /**
+ * [`to_item_domain`]: a `reading_list_items` row as a domain item.
+ * @param {any} row
+ * @returns {any}
+ */
+export function readingListItemToDomain(row) {
+    const ret = wasm.readingListItemToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_item_row`]: a domain item as a `reading_list_items` row.
+ * @param {any} item
+ * @returns {any}
+ */
+export function readingListItemToRow(item) {
+    const ret = wasm.readingListItemToRow(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_list_domain`]: a `reading_lists` row as a domain list.
+ * @param {any} row
+ * @returns {any}
+ */
+export function readingListToDomain(row) {
+    const ret = wasm.readingListToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_list_row`]: a domain list as a `reading_lists` row.
+ * @param {any} list
+ * @returns {any}
+ */
+export function readingListToRow(list) {
+    const ret = wasm.readingListToRow(list);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`recently_approved_wiki_pages`]: the wiki's pages, newest first, capped at `limit`.
+ * @param {any} pages
+ * @param {number} limit
+ * @returns {any}
+ */
+export function recentlyApprovedWikiPages(pages, limit) {
+    const ret = wasm.recentlyApprovedWikiPages(pages, limit);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`recolour_nodes`](graph_colour::recolour_nodes): one colour per node in order, or
+ * `null` when the mode leaves node colours as built.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} nodes
+ * @param {any} links
+ * @param {string} color_by
+ * @param {any} groups
+ * @param {any} ctx
+ * @returns {any}
+ */
+export function recolourNodes(nodes, links, color_by, groups, ctx) {
+    const ptr0 = passStringToWasm0(color_by, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.recolourNodes(nodes, links, ptr0, len0, groups, ctx);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`reconstruct_lines`] as an array of `TextLine`. `keep` is an array of
  * per-item flags (the TS predicate, already applied) or undefined to keep all.
  *
@@ -10089,6 +15924,30 @@ export function rectanglesOverlap(a, b) {
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.rectanglesOverlap(ptr0, len0, ptr1, len1);
     return ret !== 0;
+}
+
+/**
+ * [`redact_error_text`](error_redact::redact_error_text): the token and URL credentials removed,
+ * capped at 500 UTF-16 units. An empty or missing token is ignored.
+ * @param {string} raw
+ * @param {string | null} [token]
+ * @returns {string}
+ */
+export function redactOverleafErrorText(raw, token) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(token) ? 0 : passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.redactOverleafErrorText(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -10284,6 +16143,29 @@ export function rememberSearchQuery(history, query, max) {
 }
 
 /**
+ * [`remove_hashtag_from_body`](note_tags::remove_hashtag_from_body).
+ * @param {string} body
+ * @param {string} tag
+ * @returns {string}
+ */
+export function removeHashtagFromBody(body, tag) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.removeHashtagFromBody(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`rename_ink_undo_id`](ink_undo::rename_ink_undo_id).
  *
  * # Errors
@@ -10300,6 +16182,44 @@ export function renameInkUndoId(state, from, to) {
     const ptr1 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.renameInkUndoId(state, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rename_sources`](folder_diff::rename_sources) over the parsed entities and the
+ * folder and current texts by path. Returns new path to old path.
+ *
+ * # Errors
+ *
+ * Fails if the inputs do not match the shape, or the result cannot be serialized.
+ * @param {any} parsed
+ * @param {any} folder
+ * @param {any} current
+ * @returns {any}
+ */
+export function renameSources(parsed, folder, current) {
+    const ret = wasm.renameSources(parsed, folder, current);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`renamed_paths`](outside_edits::renamed_paths) over `seen` and the diff's `paths`.
+ *
+ * # Errors
+ *
+ * Fails if the inputs do not match the shape, or the result cannot be serialized.
+ * @param {any} seen
+ * @param {any} paths
+ * @returns {any}
+ */
+export function renamedOutsidePaths(seen, paths) {
+    const ret = wasm.renamedOutsidePaths(seen, paths);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -10356,6 +16276,51 @@ export function reorderFigureIndices(len, index, step) {
     var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v1;
+}
+
+/**
+ * [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `undefined`.
+ * @param {any} ids
+ * @param {string} drag_id
+ * @param {string} target_id
+ * @returns {any}
+ */
+export function reorderedIds(ids, drag_id, target_id) {
+    const ptr0 = passStringToWasm0(drag_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(target_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.reorderedIds(ids, ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`replace_vault_asset_paths`](page::replace_vault_asset_paths): `old_paths[i]` becomes `new_paths[i]`.
+ * @param {string} body
+ * @param {string[]} old_paths
+ * @param {string[]} new_paths
+ * @returns {string}
+ */
+export function replaceVaultAssetPaths(body, old_paths, new_paths) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayJsValueToWasm0(old_paths, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArrayJsValueToWasm0(new_paths, wasm.__wbindgen_malloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.replaceVaultAssetPaths(ptr0, len0, ptr1, len1, ptr2, len2);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
 }
 
 /**
@@ -10516,6 +16481,39 @@ export function resolveAnnotationConflict(row, choice) {
 }
 
 /**
+ * [`resolve_artifact_refs_markdown`](artifact_markdown::resolve_artifact_refs_markdown)
+ * (TS `resolveArtifactRefsMarkdown`). `now_ms` is `Date.now()`.
+ *
+ * # Errors
+ *
+ * Fails if `experiments` is not a list of experiment objects.
+ * @param {string} body
+ * @param {any} experiments
+ * @param {number} now_ms
+ * @returns {string}
+ */
+export function resolveArtifactRefsMarkdown(body, experiments, now_ms) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.resolveArtifactRefsMarkdown(ptr0, len0, experiments, now_ms);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`wf_core::papers::open_access::resolve_arxiv_id`]: the arXiv id to ask about.
  * @param {string | null} [arxiv_id]
  * @param {string | null} [doi]
@@ -10650,6 +16648,29 @@ export function resolveOrgJoinAssignment(target_role, professor_ids, phd_ids, pr
 }
 
 /**
+ * [`resolve_paper_pdf_url`]: `source` is `{ url, arxivId, openAccessPdf }`, each optional.
+ * Unknown fields such as `pdfPath` are ignored, as the TS version ignores them.
+ *
+ * # Errors
+ *
+ * Fails if `source` is not an object of strings or `null`.
+ * @param {any} source
+ * @returns {string | undefined}
+ */
+export function resolvePaperPdfUrl(source) {
+    const ret = wasm.resolvePaperPdfUrl(source);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
  * [`resolve_position_selector`] as `{ start, end }`, or `null` when unusable.
  *
  * # Errors
@@ -10667,6 +16688,30 @@ export function resolvePositionSelector(text, position) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`resolve_related_paper_url`](related_paper_url::resolve_related_paper_url) (TS
+ * `resolveRelatedPaperUrl`). `None` becomes `undefined`.
+ * @param {string | null} [url]
+ * @param {string | null} [doi]
+ * @param {string | null} [arxiv_id]
+ * @returns {string | undefined}
+ */
+export function resolveRelatedPaperUrl(url, doi, arxiv_id) {
+    var ptr0 = isLikeNone(url) ? 0 : passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(doi) ? 0 : passStringToWasm0(doi, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    var ptr2 = isLikeNone(arxiv_id) ? 0 : passStringToWasm0(arxiv_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len2 = WASM_VECTOR_LEN;
+    const ret = wasm.resolveRelatedPaperUrl(ptr0, len0, ptr1, len1, ptr2, len2);
+    let v4;
+    if (ret[0] !== 0) {
+        v4 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v4;
 }
 
 /**
@@ -10729,6 +16774,44 @@ export function resolveViewportScale(state, page, container) {
 }
 
 /**
+ * [`resolve_with_row`] for JS (TS `resolveWithRow`). `picks` maps a field to `"local"` or
+ * `"remote"`; `overrides` is a row or `null`.
+ *
+ * # Errors
+ *
+ * Fails when a row or `picks` is not a plain object, or a pick is not `"local"`/`"remote"`.
+ * @param {any} base
+ * @param {any} local
+ * @param {any} remote
+ * @param {any} picks
+ * @param {any} overrides
+ * @returns {any}
+ */
+export function resolveWithRow(base, local, remote, picks, overrides) {
+    const ret = wasm.resolveWithRow(base, local, remote, picks, overrides);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Every mapped resource type, in table order.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be serialized.
+ * @returns {any}
+ */
+export function resourceTypes() {
+    const ret = wasm.resourceTypes();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`results_table`](experiment_status::results_table): the header and rows of the runs table.
  *
  * # Errors
@@ -10780,6 +16863,150 @@ export function retryFuzzinessForTerm(term, retry) {
 }
 
 /**
+ * [`verdict_for`](screening::verdict_for) (TS `verdictFor`).
+ *
+ * # Errors
+ *
+ * Fails if `decisions` has the wrong shape.
+ * @param {any} decisions
+ * @returns {string[]}
+ */
+export function reviewers(decisions) {
+    const ret = wasm.reviewers(decisions);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v1;
+}
+
+/**
+ * [`rewrite_mcp_config`](mcp_config_rewrite::rewrite_mcp_config) as `{ changed, config }`.
+ *
+ * # Errors
+ *
+ * Fails when `launch` is not an object with `command`, `args` and `env`.
+ * @param {any} config
+ * @param {string} key
+ * @param {any} launch
+ * @returns {any}
+ */
+export function rewriteMcpConfig(config, key, launch) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rewriteMcpConfig(config, ptr0, len0, launch);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rewrite_wikilinks`](import_links::rewrite_wikilinks). `renames` is a plain JS object mapping a
+ * normalised old title to its new title.
+ *
+ * # Errors
+ *
+ * Fails if `renames` is not an object of string values.
+ * @param {string} body
+ * @param {any} renames
+ * @returns {string}
+ */
+export function rewriteWikilinks(body, renames) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.rewriteWikilinks(ptr0, len0, renames);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`root_folder_id_of`](upload::root_folder_id_of): the writable project's root folder id, or
+ * `undefined` when read-only or the answer has none.
+ * @param {any} join
+ * @returns {string | undefined}
+ */
+export function rootFolderIdOf(join) {
+    const ret = wasm.rootFolderIdOf(join);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
+ * [`root_key`](edit::root_key).
+ *
+ * # Errors
+ *
+ * Fails if the argument is not an editable root, or the result cannot be serialised.
+ * @param {any} root
+ * @returns {any}
+ */
+export function rootKey(root) {
+    const ret = wasm.rootKey(root);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`root_of`](edit::root_of).
+ *
+ * # Errors
+ *
+ * Fails if the node does not have the expected shape, or the result cannot be serialised.
+ * @param {any} node
+ * @returns {any}
+ */
+export function rootOf(node) {
+    const ret = wasm.rootOf(node);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`root_of_kind`](edit::root_of_kind). `kind` is a snake_case tree kind name.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function rootOfKind(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rootOfKind(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`row_slots`](window::row_slots). `viewport` is `null` before measuring,
  * `pinned` is an array of row indices, `metrics` the TS row constants.
  *
@@ -10798,6 +17025,103 @@ export function rowSlots(count, viewport, pinned, metrics) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`rows_for_height`](fit::rows_for_height): grid rows that show `px` of card.
+ * @param {number} px
+ * @param {number} row_height
+ * @param {number} margin
+ * @returns {number}
+ */
+export function rowsForHeight(px, row_height, margin) {
+    const ret = wasm.rowsForHeight(px, row_height, margin);
+    return ret;
+}
+
+/**
+ * [`s2_paper_id`](semantic_scholar_citation::s2_paper_id): the Semantic Scholar id for a reference.
+ *
+ * # Errors
+ *
+ * Fails if `reference` has the wrong shape.
+ * @param {any} reference
+ * @returns {string}
+ */
+export function s2PaperId(reference) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.s2PaperId(reference);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`s2_to_hit`](related_paper_hit::s2_to_hit): the hit for a Semantic Scholar paper, or nothing
+ * when it has no title.
+ *
+ * # Errors
+ *
+ * Fails if `paper` cannot be read as a Semantic Scholar paper object.
+ * @param {any} paper
+ * @returns {any}
+ */
+export function s2ToHit(paper) {
+    const ret = wasm.s2ToHit(paper);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`safe_artifact_caption`](artifact_markdown::safe_artifact_caption) (TS `safeArtifactCaption`).
+ * `undefined` or `null` counts as no caption.
+ * @param {string | null} [alt]
+ * @returns {string}
+ */
+export function safeArtifactCaption(alt) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        var ptr0 = isLikeNone(alt) ? 0 : passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.safeArtifactCaption(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`safe_image_destination`](artifact_markdown::safe_image_destination) (TS `safeImageDestination`).
+ * `undefined` when the URL is not allowed.
+ * @param {string} url
+ * @returns {string | undefined}
+ */
+export function safeImageDestination(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.safeImageDestination(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
 }
 
 /**
@@ -10840,6 +17164,37 @@ export function safeName(name) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`safe_relative`]: the normalised path inside the build directory.
+ *
+ * # Errors
+ *
+ * Throws an `Error` with the refusal message when the path leaves the build directory or names a
+ * latexmk rc file.
+ * @param {string} candidate
+ * @returns {string}
+ */
+export function safeRelative(candidate) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(candidate, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.safeRelative(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -10893,6 +17248,24 @@ export function samePeers(a, b) {
 }
 
 /**
+ * [`same_row`] for JS (TS `sameRow`).
+ *
+ * # Errors
+ *
+ * Fails when a row is not a plain object.
+ * @param {any} a
+ * @param {any} b
+ * @returns {boolean}
+ */
+export function sameRow(a, b) {
+    const ret = wasm.sameRow(a, b);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * [`wf_core::sync::merge::same_value`] for JS.
  *
  * # Errors
@@ -10911,6 +17284,57 @@ export function sameValue(a, b) {
 }
 
 /**
+ * [`sanitize_app_href`]: a same-origin app path on a known root, or `None`.
+ * @param {string | null} [raw]
+ * @returns {string | undefined}
+ */
+export function sanitizeAppHref(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.sanitizeAppHref(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * [`sanitize_pdf_url`]: `None` (`undefined` in JS) when the URL is refused.
+ * @param {string | null} [raw]
+ * @returns {string | undefined}
+ */
+export function sanitizePdfUrl(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.sanitizePdfUrl(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * [`sanitize_reader_href`]: a same-origin `/reader` path, or `None`.
+ * @param {string | null} [raw]
+ * @returns {string | undefined}
+ */
+export function sanitizeReaderHref(raw) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.sanitizeReaderHref(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * [`sanitize_section_targets`](overleaf::sanitize_section_targets); `null` when malformed.
  *
  * # Errors
@@ -10925,6 +17349,48 @@ export function sanitizeSectionTargets(input) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`scope_notes`](page::scope_notes) (TS `scopeNotes`): the indices of the notes that pass the
+ * list and tag filters. `membership` is an object of list id to an array of note ids.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape.
+ * @param {any} notes
+ * @param {string[]} list_filter
+ * @param {string[]} tag_filter
+ * @param {any} membership
+ * @returns {any}
+ */
+export function scopeNoteIndices(notes, list_filter, tag_filter, membership) {
+    const ptr0 = passArrayJsValueToWasm0(list_filter, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayJsValueToWasm0(tag_filter, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.scopeNoteIndices(notes, ptr0, len0, ptr1, len1, membership);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`screen_for_path::screen_for_path`]: the screen cache id for a pathname, or `undefined`.
+ * @param {string} pathname
+ * @returns {string | undefined}
+ */
+export function screenForPath(pathname) {
+    const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.screenForPath(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
 }
 
 /**
@@ -10968,6 +17434,42 @@ export function screeningDecisionError(next, existing) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v1;
+}
+
+/**
+ * [`decision_from_row`](screening::decision_from_row) (TS `PostgrestScreeningRepository`
+ * `toDomain`): a stored `screening_decisions` row as a decision.
+ *
+ * # Errors
+ *
+ * Fails if `row` has the wrong shape, or its stage or state is not one the enums know.
+ * @param {any} row
+ * @returns {any}
+ */
+export function screeningDecisionFromRow(row) {
+    const ret = wasm.screeningDecisionFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`decision_to_row`](screening::decision_to_row) (TS `PostgrestScreeningRepository`
+ * `record`): a decision as the `screening_decisions` row the table takes.
+ *
+ * # Errors
+ *
+ * Fails if `decision` has the wrong shape.
+ * @param {any} decision
+ * @returns {any}
+ */
+export function screeningDecisionToRow(decision) {
+    const ret = wasm.screeningDecisionToRow(decision);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -11033,6 +17535,49 @@ export function sectionProgress(node) {
 }
 
 /**
+ * [`seed_doi`](related_paper_hit::seed_doi): the seed's DOI, or the arXiv DOI, or nothing.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to a JavaScript value.
+ * @param {string | null} [doi]
+ * @param {string | null} [arxiv_id]
+ * @returns {any}
+ */
+export function seedDoi(doi, arxiv_id) {
+    var ptr0 = isLikeNone(doi) ? 0 : passStringToWasm0(doi, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(arxiv_id) ? 0 : passStringToWasm0(arxiv_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.seedDoi(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`seen_files`](folder_diff::seen_files) over the folder and current texts, the
+ * base digests by path, and the renames from [`renameSources`].
+ *
+ * # Errors
+ *
+ * Fails if the inputs do not match the shape, or the result cannot be serialized.
+ * @param {any} folder
+ * @param {any} current
+ * @param {any} base
+ * @param {any} renamed
+ * @returns {any}
+ */
+export function seenFiles(folder, current, base, renamed) {
+    const ret = wasm.seenFiles(folder, current, base, renamed);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`segment_ink_lines`] over strokes passed flat: stroke `i`'s points are
  * `points[offsets[i]..offsets[i + 1]]`, `pen[i]` is 1 for a pen stroke, and
  * `t0s[i]` its start (NaN when missing). Returns line indices into the strokes.
@@ -11065,6 +17610,56 @@ export function segmentInkLines(points, offsets, pen, t0s, window_ms, band_ratio
 }
 
 /**
+ * [`rules::segments_for`].
+ *
+ * # Errors
+ *
+ * Fails only if the value cannot be converted to a JS value.
+ * @param {string} kind
+ * @returns {any}
+ */
+export function segmentsFor(kind) {
+    const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.segmentsFor(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`select_model_provider`](model_router::select_model_provider); a refusal throws its message as text.
+ *
+ * # Errors
+ *
+ * Fails if `providers` is not a list of `{ provider, available }`, or the selection is refused.
+ * @param {any} providers
+ * @param {string} selected
+ * @returns {string}
+ */
+export function selectModelProvider(providers, selected) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(selected, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.selectModelProvider(providers, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`selected_pdf_pages`](pdf_pages::selected_pdf_pages) as an array of page numbers.
  *
  * # Errors
@@ -11082,6 +17677,36 @@ export function selectedPdfPages(answer, count) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`selected_text`](page_math::selected_text): the text of the lines the chosen strokes
+ * belong to, one per line.
+ *
+ * # Errors
+ *
+ * Fails if `lines` is not an array of lines or `indices` is not an array of numbers.
+ * @param {any} lines
+ * @param {any} indices
+ * @returns {string}
+ */
+export function selectedText(lines, indices) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.selectedText(lines, indices);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -11121,6 +17746,63 @@ export function semanticScholarToMetadata(paper) {
 }
 
 /**
+ * [`semantic_status_text`](semantic_status_text::semantic_status_text). `status` is a
+ * `SemanticStatus` (tagged by `phase`).
+ *
+ * # Errors
+ *
+ * Fails if `status` cannot be read as the expected shape.
+ * @param {any} status
+ * @returns {string}
+ */
+export function semanticStatusText(status) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.semanticStatusText(status);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`serialise_artifact_ref`](artifact_refs::serialise_artifact_ref) (TS `serialiseArtifactRef`).
+ *
+ * # Errors
+ *
+ * Fails if `artifact_ref` has the wrong shape.
+ * @param {any} artifact_ref
+ * @returns {string}
+ */
+export function serialiseArtifactRef(artifact_ref) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.serialiseArtifactRef(artifact_ref);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
  *
  * # Errors
@@ -11144,6 +17826,29 @@ export function serializeWorkspace(snapshot_json, project_id, project_name) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`session_action`] for JS (TS `sessionAction`): `"idle"`, `"adopt"`, `"drive"` or `"foreign"`.
+ * @param {string | null} [signed_in_user_id]
+ * @param {string | null} [adopted_account_id]
+ * @returns {string}
+ */
+export function sessionAction(signed_in_user_id, adopted_account_id) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        var ptr0 = isLikeNone(signed_in_user_id) ? 0 : passStringToWasm0(signed_in_user_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(adopted_account_id) ? 0 : passStringToWasm0(adopted_account_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.sessionAction(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -11214,6 +17919,27 @@ export function setRatio(layout, target, ratio) {
  */
 export function setTabMode(layout, target, mode) {
     const ret = wasm.setTabMode(layout, target, mode);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`settle_plan`] for JS (TS `settleConflictPlan`). `kind` is `"edit"`, `"deleted_remote"` or
+ * `"deleted_local"`. Returns `{ action, ... }`.
+ *
+ * # Errors
+ *
+ * Fails when `kind` is not one of those strings or a row is not a plain object.
+ * @param {any} kind
+ * @param {any} base
+ * @param {any} local
+ * @param {any} remote
+ * @returns {any}
+ */
+export function settleConflictPlan(kind, base, local, remote) {
+    const ret = wasm.settleConflictPlan(kind, base, local, remote);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11349,6 +18075,129 @@ export function sharedItem(kind, row, source) {
 }
 
 /**
+ * [`shared_item_href`](sharing::shared_item_href).
+ *
+ * # Errors
+ *
+ * Fails when `item` is not a shared item.
+ * @param {any} item
+ * @returns {string}
+ */
+export function sharedItemHref(item) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.sharedItemHref(item);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`shared_item_type_label`](sharing::shared_item_type_label).
+ *
+ * # Errors
+ *
+ * Fails when `kind` is not a shareable type.
+ * @param {any} kind
+ * @returns {string}
+ */
+export function sharedItemTypeLabel(kind) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.sharedItemTypeLabel(kind);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`shared_paper_annotation_summary`](sharing::shared_paper_annotation_summary).
+ *
+ * # Errors
+ *
+ * Fails when `metadata` is not JSON, or the summary cannot be converted to a JS value.
+ * @param {any} metadata
+ * @returns {any}
+ */
+export function sharedPaperAnnotationSummary(metadata) {
+    const ret = wasm.sharedPaperAnnotationSummary(metadata);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`shared_provider_hint`]. `descriptor` and `all` carry `id`, `provider` and `title`;
+ * other fields are ignored.
+ *
+ * # Errors
+ *
+ * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
+ * @param {any} descriptor
+ * @param {any} all
+ * @returns {any}
+ */
+export function sharedProviderHint(descriptor, all) {
+    const ret = wasm.sharedProviderHint(descriptor, all);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`shared_resource_href`](sharing::shared_resource_href).
+ *
+ * # Errors
+ *
+ * Fails when `kind` is not a shareable type.
+ * @param {any} kind
+ * @param {string} resource_id
+ * @returns {string}
+ */
+export function sharedResourceHref(kind, resource_id) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(resource_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.sharedResourceHref(kind, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
  * @param {string | null} [sha]
  * @returns {string | undefined}
@@ -11363,6 +18212,27 @@ export function shortSha(sha) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v2;
+}
+
+/**
+ * [`shortcut_label::shortcut_label`]: a whole chord, `⌘⇧F` reads `Ctrl+Shift+F` off a Mac.
+ * @param {string} chord
+ * @param {boolean} mac
+ * @returns {string}
+ */
+export function shortcutLabel(chord, mac) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(chord, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.shortcutLabel(ptr0, len0, mac);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -11381,6 +18251,45 @@ export function shouldAppendInkPoint(path, x, y, min_distance) {
 }
 
 /**
+ * [`should_mount_shell_children`](gate::should_mount_shell_children).
+ * @param {boolean} loading
+ * @param {boolean} needs_privacy_accept
+ * @param {boolean} container_ready
+ * @returns {boolean}
+ */
+export function shouldMountShellChildren(loading, needs_privacy_accept, container_ready) {
+    const ret = wasm.shouldMountShellChildren(loading, needs_privacy_accept, container_ready);
+    return ret !== 0;
+}
+
+/**
+ * [`should_persist_body`](collab::should_persist_body).
+ * @param {boolean} ready
+ * @param {string} next
+ * @param {string} last_saved
+ * @returns {boolean}
+ */
+export function shouldPersistBody(ready, next, last_saved) {
+    const ptr0 = passStringToWasm0(next, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(last_saved, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.shouldPersistBody(ready, ptr0, len0, ptr1, len1);
+    return ret !== 0;
+}
+
+/**
+ * [`should_persist_index`](index_cache_policy::should_persist_index).
+ * @param {boolean} installed_app
+ * @param {number} document_count
+ * @returns {boolean}
+ */
+export function shouldPersistIndex(installed_app, document_count) {
+    const ret = wasm.shouldPersistIndex(installed_app, document_count);
+    return ret !== 0;
+}
+
+/**
  * [`should_retry`](search_retry::should_retry).
  * @param {number} result_count
  * @param {number} term_count
@@ -11388,6 +18297,22 @@ export function shouldAppendInkPoint(path, x, y, min_distance) {
  */
 export function shouldRetrySearch(result_count, term_count) {
     const ret = wasm.shouldRetrySearch(result_count, term_count);
+    return ret !== 0;
+}
+
+/**
+ * [`should_show_workspace_loader`](gate::should_show_workspace_loader). `error` is the startup
+ * error text, or nothing; an empty string counts as no error, as it does in JS.
+ * @param {boolean} loading
+ * @param {boolean} needs_privacy_accept
+ * @param {boolean} container_ready
+ * @param {string | null} [error]
+ * @returns {boolean}
+ */
+export function shouldShowWorkspaceLoader(loading, needs_privacy_accept, container_ready, error) {
+    var ptr0 = isLikeNone(error) ? 0 : passStringToWasm0(error, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.shouldShowWorkspaceLoader(loading, needs_privacy_accept, container_ready, ptr0, len0);
     return ret !== 0;
 }
 
@@ -11476,6 +18401,26 @@ export function simplifyPathIndices(path, tolerance) {
 }
 
 /**
+ * [`site_of`](paper_preview::site_of) (TS `siteOf`).
+ * @param {string} url
+ * @returns {string}
+ */
+export function siteOf(url) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.siteOf(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`slug_for`](wf_core::sync::folder_layout::slug_for); `fallback` defaults to
  * `"untitled"` (TS `slugFor`).
  * @param {string} title
@@ -11560,6 +18505,43 @@ export function snapInkShape(points) {
 }
 
 /**
+ * [`snap_to_text`]: `runs` is `{ left, top, right, bottom }[]` (plain boxes, not DOMRects).
+ * Returns `{ index, x, y }` or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `runs` is not an array of `{ left, top, right, bottom }` objects.
+ * @param {any} runs
+ * @param {number} x
+ * @param {number} y
+ * @returns {any}
+ */
+export function snapToText(runs, x, y) {
+    const ret = wasm.snapToText(runs, x, y);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`sort_by_due`](screen::sort_by_due): dated milestones soonest first, undated after.
+ *
+ * # Errors
+ *
+ * Fails if `milestones` has the wrong shape, or the result cannot be serialised.
+ * @param {any} milestones
+ * @returns {any}
+ */
+export function sortByDue(milestones) {
+    const ret = wasm.sortByDue(milestones);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`sort_by_reading_order_indices`] as an array of input indices in reading order.
  *
  * # Errors
@@ -11595,6 +18577,19 @@ export function sortHitOrder(rows, order) {
 }
 
 /**
+ * [`source_note_template_context`]: the `{{...}}` values for a paper's source note.
+ * @param {any} input
+ * @returns {any}
+ */
+export function sourceNoteTemplateContext(input) {
+    const ret = wasm.sourceNoteTemplateContext(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`span_distance`](vocab_match::span_distance); `Infinity` when refused.
  *
  * # Errors
@@ -11610,6 +18605,24 @@ export function spanDistance(words, entry_words) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0];
+}
+
+/**
+ * [`span_points`](text_anchor::span_points): `lengths` are the text node lengths, in order.
+ *
+ * # Errors
+ *
+ * Fails when `lengths` is not a list of counts or `span` is not a text span.
+ * @param {any} lengths
+ * @param {any} span
+ * @returns {any}
+ */
+export function spanPoints(lengths, span) {
+    const ret = wasm.spanPoints(lengths, span);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -11664,6 +18677,21 @@ export function splitByMargins(lines) {
 }
 
 /**
+ * [`split_headline`] for JS (TS `splitHeadline`): `{ headline, rest }`.
+ * @param {string} body
+ * @returns {any}
+ */
+export function splitHeadline(body) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.splitHeadline(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`split_ink_text_layer`](wf_core::sync::ink_note::split_ink_text_layer): one string per
  * page (TS `splitInkTextLayer`).
  *
@@ -11694,6 +18722,24 @@ export function splitInkTextLayer(body) {
  */
 export function splitNumberedEntries(lines) {
     const ret = wasm.splitNumberedEntries(lines);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`split_outside_edits`](outside_edits::split_outside_edits) on `{ notes, rows, seen }`,
+ * returning `{ noteHeld, rowHeld, reasons }`.
+ *
+ * # Errors
+ *
+ * Fails if the input does not match the shape, or the result cannot be serialized.
+ * @param {any} input
+ * @returns {any}
+ */
+export function splitOutsideEdits(input) {
+    const ret = wasm.splitOutsideEdits(input);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11763,6 +18809,25 @@ export function splitTopLevel(expression) {
 }
 
 /**
+ * [`stack_margin_notes`]: `anchorTops` is a number array; returns `{ index, top, anchorTop }[]`
+ * in ascending `anchorTop` order.
+ *
+ * # Errors
+ *
+ * Fails if `anchorTops` is not an array of numbers.
+ * @param {any} anchor_tops
+ * @param {number} card_height
+ * @returns {any}
+ */
+export function stackMarginNotes(anchor_tops, card_height) {
+    const ret = wasm.stackMarginNotes(anchor_tops, card_height);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::stamp_workspace_id::stamp_workspace_id`] for JS; `null` when already stamped.
  *
  * # Errors
@@ -11811,6 +18876,18 @@ export function statusPatchForExperiment(experiment, status, now) {
 }
 
 /**
+ * [`step_cursor`](quick::step_cursor): the row an arrow key lands on.
+ * @param {number} cursor
+ * @param {number} delta
+ * @param {number} length
+ * @returns {number}
+ */
+export function stepCursor(cursor, delta, length) {
+    const ret = wasm.stepCursor(cursor, delta, length);
+    return ret;
+}
+
+/**
  * [`steps_to_prune`](experiments::steps_to_prune).
  * @param {Float64Array} stored_steps
  * @returns {Float64Array}
@@ -11822,6 +18899,26 @@ export function stepsToPrune(stored_steps) {
     var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
     return v2;
+}
+
+/**
+ * [`streak_days`] for JS (TS `streakDays`).
+ *
+ * # Errors
+ *
+ * Fails when `entryDates` is not an array of strings.
+ * @param {any} entry_dates
+ * @param {string} today
+ * @returns {number}
+ */
+export function streakDays(entry_dates, today) {
+    const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.streakDays(entry_dates, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] >>> 0;
 }
 
 /**
@@ -12006,6 +19103,47 @@ export function strokeBaseWidth(samples, base) {
 }
 
 /**
+ * [`stroke_clip_text`]: the clipboard text for a set of `InkStroke`s.
+ * @param {any} strokes
+ * @returns {string}
+ */
+export function strokeClipText(strokes) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.strokeClipText(strokes);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `undefined` for fewer than two numbers.
+ * @param {Float64Array} points
+ * @returns {string | undefined}
+ */
+export function strokePath(points) {
+    const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.strokePath(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * [`students_of`](member::students_of). Returns indices into `team`.
  *
  * # Errors
@@ -12057,6 +19195,19 @@ export function substituteVariables(template, context_value) {
 }
 
 /**
+ * [`subtree_ids`]: the id of `node` and of every list below it.
+ * @param {any} node
+ * @returns {any}
+ */
+export function subtreeIds(node) {
+    const ret = wasm.subtreeIds(node);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`summarize_pdf_drop`](paper_drop::summarize_pdf_drop) (TS `summarizePdfDrop`).
  *
  * # Errors
@@ -12091,6 +19242,66 @@ export function surnameKey(name) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`sync_dot`] for JS (TS `syncDot`). `null` when the account does not sync and is online.
+ *
+ * # Errors
+ *
+ * Fails when `input` is not a sync state with the expected fields.
+ * @param {any} input
+ * @returns {any}
+ */
+export function syncDot(input) {
+    const ret = wasm.syncDot(input);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`field_shown`]: whether the connection field with `key` is asked for in this sign-in mode.
+ * @param {string} key
+ * @param {boolean} mattermost_sign_in
+ * @returns {boolean}
+ */
+export function syncFieldShown(key, mattermost_sign_in) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.syncFieldShown(ptr0, len0, mattermost_sign_in);
+    return ret !== 0;
+}
+
+/**
+ * [`sync_stroke_steps`]: `history` is the page log, `depth` the worker's stroke count.
+ * @param {any} history
+ * @param {number} depth
+ * @returns {any}
+ */
+export function syncStrokeSteps(history, depth) {
+    const ret = wasm.syncStrokeSteps(history, depth);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`local_first_route::synced_tables`] as an array of table names.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted to JS.
+ * @returns {any}
+ */
+export function syncedTables() {
+    const ret = wasm.syncedTables();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -12179,6 +19390,59 @@ export function tabSeparatedToMarkdownTable(input) {
 }
 
 /**
+ * [`tag_colour`](graph_colour::tag_colour): the hue for a tag.
+ * @param {string} tag
+ * @returns {string}
+ */
+export function tagColor(tag) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.tagColor(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`to_tag`]: a `tags` row as the app's tag.
+ * @param {any} row
+ * @returns {any}
+ */
+export function tagFromRow(row) {
+    const ret = wasm.tagFromRow(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`tag_to_hashtag`](note_tags::tag_to_hashtag). Empty when the name has no usable characters.
+ * @param {string} name
+ * @returns {string}
+ */
+export function tagToHashtag(name) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.tagToHashtag(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`tag_tone`](tag_tone::tag_tone): colour slot `1..=6` for a tag.
  * @param {string} tag
  * @returns {number}
@@ -12225,6 +19489,67 @@ export function takeInkUndo(state) {
 }
 
 /**
+ * [`take_page_step`]: `direction` is `"undo"` or `"redo"`; gives
+ * `{ history, step }`, or `null` when that stack is empty.
+ * @param {any} history
+ * @param {string} direction
+ * @returns {any}
+ */
+export function takePageStep(history, direction) {
+    const ptr0 = passStringToWasm0(direction, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.takePageStep(history, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`engine_args`]: the argument vector for `engine` (`"latexmk"`, `"tectonic"` or `"pdflatex"`)
+ * compiling `entry`.
+ *
+ * # Errors
+ *
+ * Fails if `engine` is not one of the known engine names, or the result cannot be converted to
+ * JS.
+ * @param {any} engine
+ * @param {string} entry
+ * @returns {any}
+ */
+export function texEngineArgs(engine, entry) {
+    const ptr0 = passStringToWasm0(entry, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.texEngineArgs(engine, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_tex_log`]: the errors in a TeX log, one per place.
+ *
+ * # Errors
+ *
+ * Fails only if the result cannot be converted to JS.
+ * @param {string} log
+ * @param {string} entry
+ * @returns {any}
+ */
+export function texLogErrors(log, entry) {
+    const ptr0 = passStringToWasm0(log, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(entry, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.texLogErrors(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`text_fingerprint`](analysis_text::text_fingerprint) (TS `textFingerprint`).
  *
  * # Errors
@@ -12253,6 +19578,26 @@ export function textFingerprint(texts) {
 }
 
 /**
+ * [`text_hash`](semantic_fingerprint::text_hash): the stored fingerprint of a document's embedded text.
+ * @param {string} text
+ * @returns {string}
+ */
+export function textHash(text) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.textHash(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`theme_config_template`](theme_config::theme_config_template): the starter file.
  * @returns {string}
  */
@@ -12270,6 +19615,50 @@ export function themeConfigTemplate() {
 }
 
 /**
+ * [`tick_format`]: how the tick labels are rendered for these values.
+ * @param {any} values
+ * @returns {any}
+ */
+export function tickFormat(values) {
+    const ret = wasm.tickFormat(values);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`timeline_lane_offset`](timeline::timeline_lane_offset).
+ * @param {number} mid
+ * @param {number | null} [year]
+ * @returns {number | undefined}
+ */
+export function timelineLaneOffset(mid, year) {
+    const ret = wasm.timelineLaneOffset(mid, !isLikeNone(year), isLikeNone(year) ? 0 : year);
+    return ret[0] === 0 ? undefined : ret[1];
+}
+
+/**
+ * [`timeline_mid_year`](timeline::timeline_mid_year). `years` is an array of years, `null` where unknown.
+ *
+ * # Errors
+ *
+ * Fails if `years` is not an array of optional numbers.
+ * @param {string} layout
+ * @param {any} years
+ * @returns {number | undefined}
+ */
+export function timelineMidYear(layout, years) {
+    const ptr0 = passStringToWasm0(layout, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.timelineMidYear(ptr0, len0, years);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    return ret[0] === 0 ? undefined : ret[1];
+}
+
+/**
  * [`title_fixes`] (TS `titleFixes`). Only papers whose title needs a fix are listed.
  *
  * # Errors
@@ -12284,6 +19673,37 @@ export function titleFixes(papers) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`route_title::title_for_path`]. `navItems` is an array of `{ path, label }`.
+ *
+ * # Errors
+ *
+ * Fails if `nav_items` is not an array of `{ path, label }` objects.
+ * @param {string} pathname
+ * @param {any} nav_items
+ * @returns {string}
+ */
+export function titleForPath(pathname, nav_items) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.titleForPath(ptr0, len0, nav_items);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
 }
 
 /**
@@ -12321,6 +19741,34 @@ export function titleKey(title) {
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
     return v2;
+}
+
+/**
+ * [`title_of`](quick::title_of): the title a row is shown under.
+ *
+ * # Errors
+ *
+ * Fails if `node` is not a tree row.
+ * @param {any} node
+ * @returns {string}
+ */
+export function titleOf(node) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.titleOf(node);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -12476,6 +19924,46 @@ export function toZoteroWritePayload(ann, parent_item_key) {
 }
 
 /**
+ * [`toggle_key`](state::toggle_key) for the expanded rows.
+ *
+ * # Errors
+ *
+ * Fails if the expanded argument is not an array of strings, or the result cannot be serialised.
+ * @param {any} expanded
+ * @param {string} key
+ * @returns {any}
+ */
+export function toggleExpanded(expanded, key) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.toggleExpanded(expanded, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`nav_open_groups::toggle_group`]: `groups` with `key` added when closed, removed when open.
+ *
+ * # Errors
+ *
+ * Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
+ * @param {any} groups
+ * @param {string} key
+ * @returns {any}
+ */
+export function toggleGroup(groups, key) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.toggleGroup(groups, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`toggle_preview`](pane::toggle_preview).
  *
  * # Errors
@@ -12489,6 +19977,26 @@ export function togglePreview(layout, new_pane_id) {
     const ptr0 = passStringToWasm0(new_pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.togglePreview(layout, ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`toggle_key`](state::toggle_key) for the open sections.
+ *
+ * # Errors
+ *
+ * Fails if the open argument is not an array of strings, or the result cannot be serialised.
+ * @param {any} open
+ * @param {string} id
+ * @returns {any}
+ */
+export function toggleSection(open, id) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.toggleSection(open, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -12514,6 +20022,30 @@ export function tokenize(text, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`tool_owns_the_page`]: every tool but `select` takes the page from the text selection.
+ * @param {string} tool
+ * @returns {boolean}
+ */
+export function toolOwnsThePage(tool) {
+    const ptr0 = passStringToWasm0(tool, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.toolOwnsThePage(ptr0, len0);
+    return ret !== 0;
+}
+
+/**
+ * [`trail_diameter_px`](trail::trail_diameter_px): the trail's diameter in CSS px for a
+ * nib width in 0.1 mm on a page `page_width_px` wide.
+ * @param {number} width
+ * @param {number} page_width_px
+ * @returns {number}
+ */
+export function trailDiameterPx(width, page_width_px) {
+    const ret = wasm.trailDiameterPx(width, page_width_px);
+    return ret;
 }
 
 /**
@@ -12590,6 +20122,23 @@ export function uncroppedFigureBox(value) {
 }
 
 /**
+ * [`union_rect`]: the box around a set of rects, or `null` when there are none.
+ *
+ * # Errors
+ *
+ * Fails if `rects` is not an array of `[x1, y1, x2, y2]` arrays.
+ * @param {any} rects
+ * @returns {any}
+ */
+export function unionRect(rects) {
+    const ret = wasm.unionRect(rects);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`unique_cite_key`](cite_key::unique_cite_key) (TS `uniqueCiteKey`). `used` is a JS array of
  * strings; the caller records the returned key.
  *
@@ -12616,6 +20165,40 @@ export function uniqueCiteKey(paper, used) {
         return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`unique_device_name`](panel_labels::unique_device_name): an adoption label no taken name matches.
+ *
+ * # Errors
+ *
+ * Fails if `taken` is not an array of strings.
+ * @param {string} name
+ * @param {string} device_label
+ * @param {any} taken
+ * @returns {string}
+ */
+export function uniqueDeviceName(name, device_label, taken) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(device_label, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.uniqueDeviceName(ptr0, len0, ptr1, len1, taken);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
     }
 }
 
@@ -12742,6 +20325,16 @@ export function urlMetaToMetadata(meta) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`usable_status`](zotero_local_status::usable_status) (TS `usableStatus`).
+ * @param {number} status
+ * @returns {number}
+ */
+export function usableStatus(status) {
+    const ret = wasm.usableStatus(status);
+    return ret;
 }
 
 /**
@@ -12999,6 +20592,63 @@ export function vaultPageSide(path, content) {
 }
 
 /**
+ * [`to_domain`]: a `vault_pages` row as a full page.
+ * @param {any} row
+ * @returns {any}
+ */
+export function vaultPageToDomain(row) {
+    const ret = wasm.vaultPageToDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_row`]: a page as the `vault_pages` row it is written as.
+ * @param {any} page
+ * @returns {any}
+ */
+export function vaultPageToRow(page) {
+    const ret = wasm.vaultPageToRow(page);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`to_summary_domain`]: a `vault_pages` row as a summary page (no body, a preview).
+ * @param {any} row
+ * @returns {any}
+ */
+export function vaultPageToSummaryDomain(row) {
+    const ret = wasm.vaultPageToSummaryDomain(row);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `undefined`
+ * when there is none. The TS wrapper maps `undefined` to `null`.
+ * @param {string} text
+ * @returns {string | undefined}
+ */
+export function vaultRootFromText(text) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.vaultRootFromText(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * Rebuild an index from `VectorIndex.toBytes()` output.
  *
  * # Errors
@@ -13018,10 +20668,6 @@ export function vectorIndexFromBytes(bytes) {
 }
 
 /**
- * [`verdict_for`](screening::verdict_for) (TS `verdictFor`).
- *
- * # Errors
- *
  * Fails if `decisions` or `stage` has the wrong shape.
  * @param {any} decisions
  * @param {string} item_id
@@ -13104,6 +20750,97 @@ export function visibleRows(nodes, expanded) {
  */
 export function visualPageSize(page, rotation) {
     const ret = wasm.visualPageSize(page, rotation);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`vscode_json`](mcp_client_config::vscode_json) for a `McpLaunchLine`.
+ *
+ * # Errors
+ *
+ * Fails if `launch` has the wrong shape.
+ * @param {any} launch
+ * @returns {string}
+ */
+export function vscodeJson(launch) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.vscodeJson(launch);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`walk_sections`] over the report outline: body lines, warnings, figures and counts.
+ * @param {any} tree
+ * @param {any} opts
+ * @returns {any}
+ */
+export function walkOverleafSections(tree, opts) {
+    const ret = wasm.walkOverleafSections(tree, opts);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wiki_page_refs`]: the wiki's pages as `{ id, title, body }`.
+ * @param {any} pages
+ * @returns {any}
+ */
+export function wikiPageRefs(pages) {
+    const ret = wasm.wikiPageRefs(pages);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`wiki_source_documents`]: notes and papers as extraction documents. `sourceIds` is
+ * optional; omitted means every note and paper.
+ * @param {any} pages
+ * @param {any} papers
+ * @param {any} source_ids
+ * @returns {any}
+ */
+export function wikiSourceDocuments(pages, papers, source_ids) {
+    const ret = wasm.wikiSourceDocuments(pages, papers, source_ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`nav_open_groups::with_active`]: `groups` with `active` appended when it is not already listed.
+ *
+ * # Errors
+ *
+ * Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
+ * @param {any} groups
+ * @param {string | null} [active]
+ * @returns {any}
+ */
+export function withActive(groups, active) {
+    var ptr0 = isLikeNone(active) ? 0 : passStringToWasm0(active, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.withActive(groups, ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -13229,6 +20966,39 @@ export function withMdImageAlt(alt, placement) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`with_missing_figures`]: the package files with `manifest.json` rewritten for missing figures.
+ * @param {any} files
+ * @param {any} missing
+ * @returns {any}
+ */
+export function withMissingFigures(files, missing) {
+    const ret = wasm.withMissingFigures(files, missing);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`stored_heights`](fit::stored_heights): `heights[i]`, or the saved height of card `ids[i]`.
+ *
+ * # Errors
+ *
+ * Fails when an argument is not the expected shape.
+ * @param {any} ids
+ * @param {any} heights
+ * @param {any} stored
+ * @returns {any}
+ */
+export function withStoredHeights(ids, heights, stored) {
+    const ret = wasm.withStoredHeights(ids, heights, stored);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -13456,6 +21226,32 @@ export function yearColours(years) {
 }
 
 /**
+ * [`YEAR_SPACING`](timeline::YEAR_SPACING): canvas units between one publication year and the next.
+ * @returns {number}
+ */
+export function yearSpacing() {
+    const ret = wasm.yearSpacing();
+    return ret;
+}
+
+/**
+ * [`wf_core::papers::open_access::zenodo_record_id`]: the Zenodo record id in a DOI, or `None`.
+ * @param {string} doi
+ * @returns {string | undefined}
+ */
+export function zenodoRecordId(doi) {
+    const ptr0 = passStringToWasm0(doi, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.zenodoRecordId(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
  * @param {number} scale
  * @param {number} step
@@ -13475,6 +21271,23 @@ export function zoomIn(scale, step) {
 export function zoomOut(scale, step) {
     const ret = wasm.zoomOut(scale, step);
     return ret;
+}
+
+/**
+ * [`annotation_from_item`] (TS `zoteroAnnotationFromItem`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ * @param {any} item
+ * @returns {any}
+ */
+export function zoteroAnnotationFromItem(item) {
+    const ret = wasm.zoteroAnnotationFromItem(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -13509,6 +21322,150 @@ export function zoteroContentKeys(doi, arxiv_id, title) {
     var ptr2 = isLikeNone(title) ? 0 : passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len2 = WASM_VECTOR_LEN;
     const ret = wasm.zoteroContentKeys(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`is_pdf_attachment`] (TS `zoteroIsPdfAttachment`).
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ * @param {any} item
+ * @returns {any}
+ */
+export function zoteroIsPdfAttachment(item) {
+    const ret = wasm.zoteroIsPdfAttachment(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`item_key`] (TS `zoteroItemKey`). The key, or null.
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ * @param {any} item
+ * @returns {any}
+ */
+export function zoteroItemKey(item) {
+    const ret = wasm.zoteroItemKey(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`zotero_key_of`] (TS `zoteroKeyOf`): the paper's Zotero item key, or `null`.
+ *
+ * # Errors
+ *
+ * Fails if `metadata` is not an object of JSON values.
+ * @param {any} metadata
+ * @returns {any}
+ */
+export function zoteroKeyOf(metadata) {
+    const ret = wasm.zoteroKeyOf(metadata);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`zotero_library_url`](zotero_library::zotero_library_url): the API URL for a library path.
+ * @param {string} library
+ * @param {string} api_origin
+ * @returns {string}
+ */
+export function zoteroLibraryUrl(library, api_origin) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(library, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(api_origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.zoteroLibraryUrl(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * The message for the 403 the local API answers when its preference is off (TS
+ * `ZOTERO_LOCAL_API_OFF`).
+ * @returns {string}
+ */
+export function zoteroLocalApiOff() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.zoteroLocalApiOff();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * [`zotero_local_status_message`](zotero_local_status::zotero_local_status_message)
+ * (TS `zoteroLocalStatusMessage`).
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be converted.
+ * @param {number} status
+ * @returns {any}
+ */
+export function zoteroLocalStatusMessage(status) {
+    const ret = wasm.zoteroLocalStatusMessage(status);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`note_from_item`] (TS `zoteroNoteFromItem`). The note, or null when it has no text.
+ *
+ * # Errors
+ *
+ * Fails if `item` is not a Zotero item.
+ * @param {any} item
+ * @returns {any}
+ */
+export function zoteroNoteFromItem(item) {
+    const ret = wasm.zoteroNoteFromItem(item);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pick_main_pdf`] (TS `zoteroPickMainPdf`). The main PDF's key, or null.
+ *
+ * # Errors
+ *
+ * Fails if `pdfs` is not an array of Zotero items.
+ * @param {any} pdfs
+ * @returns {any}
+ */
+export function zoteroPickMainPdf(pdfs) {
+    const ret = wasm.zoteroPickMainPdf(pdfs);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

@@ -5,9 +5,28 @@
 import {
   addDays as rawAddDays,
   milestonesToIcs as rawMilestonesToIcs,
+  planFeedOrigin as rawPlanFeedOrigin,
+  planFeedUrls as rawPlanFeedUrls,
   planWidgetData as rawPlanWidgetData,
 } from "../pkg/wf_wasm.js";
-import type { FeedMilestone, PlanWidgetData } from "./bindings.js";
+import type { FeedMilestone, PlanFeedUrls, PlanWidgetData } from "./bindings.js";
+
+/**
+ * Where the calendar feed is served (Rust `plan::feed_urls::plan_feed_origin`).
+ * `configured` is the app URL the caller read from its environment.
+ */
+export function planFeedOrigin(serverRoutes: boolean, here?: string, configured?: string): string {
+  return rawPlanFeedOrigin(serverRoutes, here, configured);
+}
+
+/** The calendar, https and widget links for `token` (Rust `plan::feed_urls::plan_feed_urls`). */
+export function planFeedUrls(
+  origin: string,
+  token: string,
+  options: { includeDone?: boolean; reminderDays?: number } = {},
+): PlanFeedUrls {
+  return rawPlanFeedUrls(origin, token, options.includeDone ?? false, options.reminderDays ?? 0) as PlanFeedUrls;
+}
 
 /** The `.ics` text for `items`: one all-day event per dated milestone, with a reminder. */
 export function milestonesToIcs(

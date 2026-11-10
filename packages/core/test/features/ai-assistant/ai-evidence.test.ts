@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { highlightWithinExcerpt } from "../../../src/features/ai-assistant/domain/ai-evidence.js";
-import type { PdfLocus } from "../../../src/reader/index.js";
+import type { PdfLocus } from "../../../src/reader/anchor-shapes.js";
 
 const excerpt =
   "Prior work established the baseline. We show attention is all you need. Later sections expand on this.";

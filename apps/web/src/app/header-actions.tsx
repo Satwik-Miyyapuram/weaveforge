@@ -11,15 +11,14 @@ import { Popover } from "@/components/popover";
 import { SubmenuFlyout } from "@/components/menu";
 import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
-import { accountLinks, type AccountLinkId } from "./account-links";
+import type { AccountLinkId } from "@weaveforge/wasm";
 import { NavIcon } from "./nav-icon";
 import { useInbox } from "./use-inbox";
 import { MenuItemButton, MenuItemLink } from "@/components/controls";
 import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
 import { syncStatus } from "@/features/offline-sync/domain/sync-status";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { accountAttention } from "./account-attention";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -92,7 +91,7 @@ export function HeaderActions({
   const pathname = usePathname();
   const { links: inboxRows, local } = useInbox();
   const live = useLiveSync();
-  const attention = accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
+  const attention = readyCore().accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
   // Sync runs on the desktop only; its state is words in the menu, not a dot.
   const sync = desktop() ? syncStatus(live) : null;
   const labs = memberships ? memberships.filter(typedCore().isExplicitLabMembership) : [];
@@ -140,7 +139,7 @@ export function HeaderActions({
             {row.badge !== undefined && <b className="nav-badge">{row.badge}</b>}
           </MenuItemLink>
         ))}
-      {accountLinks({ hasProject: !!current, local }).map((link) => {
+      {readyCore().accountLinks({ hasProject: !!current, local }).map((link) => {
         const Icon = ICONS[link.id];
 
         // Leaving offline mode is not signing out — there is no session to end.

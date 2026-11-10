@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
 import { Puller } from "../domain/puller";
@@ -9,6 +9,11 @@ import { ConflictStore } from "../domain/conflicts";
 import { readyCore } from "@/lib/rust-core";
 import { SyncStateStore } from "../domain/sync-state";
 import type { RemoteChange, SyncTransport } from "../domain/sync-ports";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * The puller against the real schema.

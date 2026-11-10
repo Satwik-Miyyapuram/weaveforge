@@ -4,7 +4,7 @@ import test, { before } from "node:test";
 import type { SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
-import { collapseToEntities, distinctRelated } from "@/features/search/application/collapse-to-entities";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {
@@ -426,7 +426,7 @@ test("detaching the semantic arm restores keyword-only results", async () => {
 test("collapseToEntities folds a paper's pages onto the paper and drops the seed", () => {
   const hit = (id: string, kind: "paper" | "pdf", entityId: string, score: number) =>
     ({ id, kind, entityId, score, title: entityId, href: "/", terms: [] }) as const;
-  const folded = collapseToEntities(
+  const folded = readyCore().collapseToEntities(
     [
       hit("pdf:seed#0", "pdf", "seed", 9),
       hit("pdf:a#3", "pdf", "a", 5),
@@ -448,17 +448,17 @@ test("collapseToEntities folds a paper's pages onto the paper and drops the seed
 test("collapseToEntities keeps the best page when the paper itself is not indexed", () => {
   const hit = (id: string, entityId: string, score: number) =>
     ({ id, kind: "pdf" as const, entityId, score, title: entityId, href: "/", terms: [] }) as const;
-  const folded = collapseToEntities([hit("pdf:a#2", "a", 1), hit("pdf:a#0", "a", 7)], { entityId: "x" });
+  const folded = readyCore().collapseToEntities([hit("pdf:a#2", "a", 1), hit("pdf:a#0", "a", 7)], { entityId: "x" });
   assert.deepEqual(folded, [{ id: "pdf:a#2", score: 7 }]);
 });
 
 test("collapseToEntities sends a page to its paper's document even when the paper did not match", () => {
   const hit = (id: string, entityId: string, score: number) =>
     ({ id, kind: "pdf" as const, entityId, score, title: entityId, href: "/", terms: [] }) as const;
-  const folded = collapseToEntities(
+  const folded = readyCore().collapseToEntities(
     [hit("pdf:a#4", "a", 3), hit("pdf:b#0", "b", 2)],
     { entityId: "x" },
-    (page: SearchHit) => (page.entityId === "a" ? "paper:a" : null),
+    (page: { entityId: string }) => (page.entityId === "a" ? "paper:a" : null),
   );
   assert.deepEqual(folded, [
     { id: "paper:a", score: 3 },
@@ -481,11 +481,11 @@ test("distinctRelated lists a paper once, however the arms named it", () => {
   const results = ["paper:a", "pdf:a#3", "paper:b", "paper:a2", "note:n", "paper:b2", "gone", "paper:c"].map(
     (id, i) => ({ id, score: 10 - i }),
   );
-  const kept = distinctRelated(results, (id) => docs[id] ?? null);
+  const kept = readyCore().distinctRelated(results, (id) => docs[id] ?? null);
   // Order is kept and the best-ranked entry of each wins; an id the index no
   // longer resolves is passed through for the caller to drop.
   assert.deepEqual(kept.map((r) => r.id), ["paper:a", "paper:b", "note:n", "gone", "paper:c"]);
-  assert.deepEqual(distinctRelated(results, (id) => docs[id] ?? null, 2).map((r) => r.id), ["paper:a", "paper:b"]);
+  assert.deepEqual(readyCore().distinctRelated(results, (id) => docs[id] ?? null, 2).map((r) => r.id), ["paper:a", "paper:b"]);
 });
 
 test("distinctRelated reads a file-named import as the paper it is, and leaves out the seed's twin", () => {
@@ -499,7 +499,7 @@ test("distinctRelated reads a file-named import as the paper it is, and leaves o
   };
   const results = ["paper:file", "paper:x", "paper:y", "paper:z"].map((id, i) => ({ id, score: 10 - i }));
   assert.deepEqual(
-    distinctRelated(results, (id) => docs[id] ?? null, Infinity, "paper:seed").map((r) => r.id),
+    readyCore().distinctRelated(results, (id) => docs[id] ?? null, Infinity, "paper:seed").map((r) => r.id),
     ["paper:x", "paper:z"],
   );
 });
@@ -511,7 +511,7 @@ test("distinctRelated knows a file name cut short is still the paper", () => {
     "paper:other": "Nonparametric Bayes",
   };
   const resolve = (id: string) => ({ kind: "paper" as const, entityId: id, title: titles[id]! });
-  const kept = distinctRelated([{ id: "paper:cut" }, { id: "paper:other" }], resolve, 5, "paper:seed");
+  const kept = readyCore().distinctRelated([{ id: "paper:cut" }, { id: "paper:other" }], resolve, 5, "paper:seed");
   assert.deepEqual(kept.map((r) => r.id), ["paper:other"]);
 });
 
@@ -522,7 +522,7 @@ test("distinctRelated knows a second download of the file is the same paper", ()
     "paper:gpt": "Language Models are Unsupervised Multitask Learners GPT 2",
   };
   const resolve = (id: string) => ({ kind: "paper" as const, entityId: id, title: titles[id]! });
-  const kept = distinctRelated([{ id: "paper:copy" }, { id: "paper:gpt" }], resolve, 5, "paper:seed");
+  const kept = readyCore().distinctRelated([{ id: "paper:copy" }, { id: "paper:gpt" }], resolve, 5, "paper:seed");
   assert.deepEqual(kept.map((r) => r.id), ["paper:gpt"]);
 });
 

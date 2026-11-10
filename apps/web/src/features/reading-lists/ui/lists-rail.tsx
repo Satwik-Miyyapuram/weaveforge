@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { ReadingList, ReadingListTreeNode } from "@weaveforge/core";
-import { listDisplayColor } from "./list-ui";
+import { readyCore } from "@/lib/rust-core";
 import { RowButton } from "@/components/controls";
 
 /** One rail row: a list at its depth in the tree. */
@@ -55,7 +55,7 @@ export function ListsRail({
       style={{ "--depth": r.depth } as CSSProperties}
       onClick={() => onSelect(r.list.id)}
     >
-      <span className="list-color-dot" style={{ background: listDisplayColor(r.list) }} aria-hidden />
+      <span className="list-color-dot" style={{ background: readyCore().listDisplayColor(r.list) }} aria-hidden />
       <span className="lists-rail-name" title={r.list.name}>{r.list.name}</span>
       {r.sublists > 0 && (
         <span className="lists-rail-count" title={`${r.sublists} sublist${r.sublists === 1 ? "" : "s"}`}>

@@ -6,7 +6,7 @@ import { Responsive } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { getCardDef, isStatCard } from "../application/card-registry";
+import { FIT_MAX_HEIGHTS, getCardDef, isStatCard } from "../application/card-registry";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { getRglBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import type { DashboardLayout, DashboardLayoutItem } from "@weaveforge/core";
@@ -20,7 +20,7 @@ import {
   layoutFloors,
   layoutSignature,
 } from "../application/dashboard-layout";
-import { fitLayoutToContent, rowsForHeight, withStoredHeights } from "../application/fit-card-height";
+import { readyCore } from "@/lib/rust-core";
 import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
@@ -36,6 +36,16 @@ const GRID_MARGIN = { lg: 8, sm: 8 };
 /** Match --layout-duration in styles/base.css */
 const LAYOUT_TRANSITION_MS = 280;
 const CARD_ENTER_MS = 160;
+
+/** The layout as viewed: list cards take the rows they measured (Rust `dashboard::fit`). */
+function fitLayoutToContent(items: DashboardLayoutItem[], measured: ReadonlyMap<string, number>): DashboardLayoutItem[] {
+  return readyCore().fitLayoutToContent(items, measured, FIT_MAX_HEIGHTS) as DashboardLayoutItem[];
+}
+
+/** Positions with each card's saved height put back, so a fitted height is never stored. */
+function withStoredHeights<T extends { i: string; h: number }>(rgl: readonly T[], stored: readonly DashboardLayoutItem[]): T[] {
+  return readyCore().withStoredHeights(rgl, stored);
+}
 
 function estimateGridHeight(
   items: readonly DashboardLayoutItem[],
@@ -187,7 +197,7 @@ export function DashboardGrid({
         const card = fit.closest<HTMLElement>(".dashboard-card");
         if (!content || !card) return;
         const px = card.offsetHeight - content.clientHeight + fit.offsetHeight;
-        next.set(fit.dataset.fitId!, rowsForHeight(px, rowHeight, gridMargin));
+        next.set(fit.dataset.fitId!, readyCore().rowsForHeight(px, rowHeight, gridMargin));
       });
       setMeasuredRows((prev) =>
         prev.size === next.size && [...next].every(([id, rows]) => prev.get(id) === rows) ? prev : next,

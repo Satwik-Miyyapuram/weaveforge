@@ -1,11 +1,6 @@
 /** The vocabulary the pdf-reader modules share. */
-import type {
-  AnchorConfidence,
-  InkGroupCandidate,
-  PdfLocus,
-  QuotationType,
-  ReaderAnnotation,
-} from "@weaveforge/core";
+import type { InkGroupCandidate, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { PdfLocus, AnchorConfidence } from "@weaveforge/wasm";
 
 export type { PdfLib } from "@/lib/pdf-lib";
 import type { ReactNode } from "react";

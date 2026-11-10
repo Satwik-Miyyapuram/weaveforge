@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { type QuotationType, type ReaderAnnotation } from "@weaveforge/core";
 import { QUOTATION_TYPE_LABELS } from "@/lib/quotation-types";
-import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import { readyCore } from "@/lib/rust-core";
 import {
   annotationPinKey,
   READER_ANNOTATION_COLORS,
@@ -84,7 +84,7 @@ export function AnnotationSidebar({
     const quote = (a.text || a.comment).trim();
     if (!quote) return;
     try {
-      await navigator.clipboard.writeText(formatQuoteCiteClipboard(quote, paperTitle));
+      await navigator.clipboard.writeText(readyCore().formatQuoteCiteClipboard(quote, paperTitle));
     } catch {
       /* clipboard may be unavailable */
     }

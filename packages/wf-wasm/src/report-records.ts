@@ -7,6 +7,7 @@ import {
   buildSectionTree as rawBuildSectionTree,
   checkBibliography as rawCheckBibliography,
   createReportSectionWith as rawCreateReportSectionWith,
+  editedRelativeLabel as rawEditedRelativeLabel,
   normalizeProjectPath as rawNormalizeProjectPath,
   outlineProgress as rawOutlineProgress,
   prismaCaveat as rawPrismaCaveat,
@@ -39,6 +40,11 @@ export function prismaFigureTex(
 /** A warning when the counts do not add up, or null when they do. */
 export function prismaCaveat(counts: PrismaCounts): string | null {
   return rawPrismaCaveat(counts) ?? null;
+}
+
+/** "edited 3h ago" for an age in seconds, or null for a week or more (the caller shows the date). */
+export function editedRelativeLabel(seconds: number): string | null {
+  return rawEditedRelativeLabel(seconds) ?? null;
 }
 
 /** A project-relative path with `.` and `..` resolved, or null when it leaves the project. */

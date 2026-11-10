@@ -1,4 +1,5 @@
 import { errorMessage, type SearchDoc } from "@weaveforge/core";
+import type { SemanticStatus as SemanticStatusInput } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
@@ -6,7 +7,7 @@ import { WorkerEmbedder, supportsLocalEmbedding, type WorkerEmbedderOptions } fr
 import { NativeEmbedder, nativeEmbedBridge } from "../infrastructure/native-embedder";
 import { loadWithFallback } from "../infrastructure/load-with-fallback";
 import { vectorStore } from "../infrastructure/vector-store";
-import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
+import { targetEmbeddingModel } from "../infrastructure/embedding-models";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
@@ -71,21 +72,7 @@ function onFallback(current: WorkerEmbedder | NativeEmbedder | null): boolean {
  * checked it sat on "Downloading the model — 100%" with no sign of what came
  * next or whether it had worked.
  */
-export type SemanticStatus =
-  | { phase: "off" }
-  | { phase: "downloading"; loaded: number; total: number }
-  | { phase: "loading" }
-  | { phase: "embedding"; done: number; total: number }
-  | {
-      phase: "ready";
-      passages: number;
-      model: string;
-      /** A newer model is embedding in the background; this one keeps answering until it is done. */
-      upgrading?: { to: string; done: number; total: number };
-      /** The desktop's own encoder failed to load, so the web worker answers. */
-      fallback?: boolean;
-    }
-  | { phase: "error"; message: string };
+export type SemanticStatus = SemanticStatusInput;
 
 let status: SemanticStatus = { phase: "off" };
 const statusListeners = new Set<() => void>();
@@ -172,8 +159,8 @@ async function run(options: EnableOptions): Promise<void> {
   const stored = await vectorStore().get(projectId);
   // Vectors from a model the app has since moved on from still answer while
   // the new one embeds: an upgrade should never be minutes of search by
-  // meaning going dark. See `planEmbeddingStart`.
-  if (stored && planEmbeddingStart(stored.model, target.id) === "swap") {
+  // meaning going dark. See `planEmbeddingStart` in Rust (`embedding_models`).
+  if (stored && readyCore().planEmbeddingStart(stored.model, target.id) === "swap") {
     if (await serveWhileUpgrading(stored, docs, revision, projectId, target.id)) return;
   }
 
@@ -497,21 +484,9 @@ function serveRankingRequests(): void {
     const hits = await index.search(query, candidates.length);
     const byId = new Map(hits.map((hit) => [hit.id, hit.score]));
     const scored = candidates
-      .map((name) => ({ name, score: byId.get(documentIdOfPath(name)) }))
+      .map((name) => ({ name, score: byId.get(readyCore().documentIdOfPath(name)) }))
       .filter((entry): entry is { name: string; score: number } => entry.score !== undefined)
       .sort((a, b) => b.score - a.score);
     return scored.length ? scored.map((entry) => entry.name) : null;
   });
-}
-
-/**
- * The document id behind a workspace file name.
- *
- * The folder writes one file per entry, named for its id, so the id is the
- * base name with the extension taken off.
- */
-function documentIdOfPath(file: string): string {
-  const base = file.slice(file.lastIndexOf("/") + 1);
-  const dot = base.lastIndexOf(".");
-  return dot > 0 ? base.slice(0, dot) : base;
 }

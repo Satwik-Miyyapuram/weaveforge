@@ -1,7 +1,7 @@
 //! Sync integration fields (wf-core `sync::integration_fields`).
 
 use wasm_bindgen::JsValue;
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::{JsError, wasm_bindgen};
 use wf_core::sync::integration_fields::{self as fields, Integration};
 
 use super::to_js;
@@ -52,4 +52,16 @@ pub fn mattermost_connection_ready_js(
 ) -> Result<bool, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     Ok(fields::mattermost_connection_ready(&integration))
+}
+
+/// [`empty_integration`](fields::empty_integration): the integration a provider starts from.
+///
+/// # Errors
+///
+/// Fails if `provider` is not `"github"`, `"gitlab"` or `"mattermost"`.
+#[wasm_bindgen(js_name = emptyIntegration)]
+pub fn empty_integration_js(provider: JsValue) -> Result<JsValue, JsError> {
+    let provider: fields::SyncProvider =
+        serde_wasm_bindgen::from_value(provider).map_err(|e| JsError::new(&e.to_string()))?;
+    to_js(&fields::empty_integration(provider)).map_err(|e| JsError::new(&e.to_string()))
 }

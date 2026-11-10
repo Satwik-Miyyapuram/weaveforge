@@ -1,6 +1,6 @@
 "use client";
 
-import { experimentHref } from "../application/experiment-href";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { type Experiment, type MetricPoint } from "@weaveforge/core";
@@ -296,8 +296,9 @@ export function MetricCurves({
 }
 
 export function ExperimentTitleLink({ exp }: { exp: Experiment }) {
+  const href = useMemo(() => readyCore().experimentHref(exp.id, isOfflineBuild()), [exp.id]);
   return (
-    <Link href={experimentHref(exp.id)} className="exp-title-link">
+    <Link href={href} className="exp-title-link">
       {exp.name}
     </Link>
   );

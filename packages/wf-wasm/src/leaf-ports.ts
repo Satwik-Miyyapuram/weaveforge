@@ -2,7 +2,7 @@
  * Concept extraction, folder drafts (Rust `ai`), APA references (Rust `papers::reference_text`),
  * presence (Rust `collab`) and text anchors (Rust `text_anchor`), re-exported from index.ts.
  * Signatures match the removed TS in packages/core ai-assistant/domain/{ai-extraction,mcp-folder-draft}.ts
- * and apps/web {papers/domain/reference-text,collab/domain/presence,sharing/domain/text-anchor}.ts.
+ * and apps/web {papers/domain/reference-text,collab/domain/presence}.ts.
  */
 import {
   anchorAt as rawAnchorAt,
@@ -13,9 +13,18 @@ import {
   parseFolderDraft as rawParseFolderDraft,
   peersFromUsers as rawPeersFromUsers,
   samePeers as rawSamePeers,
+  shouldPersistBody as rawShouldPersistBody,
+  spanPoints as rawSpanPoints,
   withoutExisting as rawWithoutExisting,
 } from "../pkg/wf_wasm.js";
-import type { CommentAnchor, ExtractionResult, Peer, ReferencePaper } from "./bindings.js";
+import type {
+  CommentAnchor,
+  ExtractionResult,
+  Peer,
+  ReferencePaper,
+  SpanPoints,
+  TextSpan,
+} from "./bindings.js";
 
 /** Normalized key for comparing concept names: trimmed, lowercased, whitespace runs as one space. */
 export function conceptKey(name: string): string {
@@ -81,4 +90,14 @@ export function locateAnchor(text: string, anchor: CommentAnchor): { start: numb
 /** `[clientId, user]` pairs → one entry per other person (Rust `peers_from_users`). */
 export function peersFromUsers(users: readonly (readonly [number, unknown])[], selfClientId: number, selfAuthorId: string): Peer[] {
   return rawPeersFromUsers(users, selfClientId, selfAuthorId) as Peer[];
+}
+
+/** Whether an editor may write `next` back over `lastSaved`: only once `ready`, and only when the text changed (Rust `should_persist_body`). */
+export function shouldPersistBody(ready: boolean, next: string, lastSaved: string): boolean {
+  return rawShouldPersistBody(ready, next, lastSaved);
+}
+
+/** Start and end `[line, column]` points of a text span over text nodes of `lengths` (Rust `span_points`), or null when the span is out of range. */
+export function spanPoints(lengths: readonly number[], span: TextSpan): SpanPoints | null {
+  return (rawSpanPoints([...lengths], span) as SpanPoints | null) ?? null;
 }

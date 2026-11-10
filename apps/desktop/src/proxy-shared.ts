@@ -38,19 +38,12 @@ export function upstreamFailed(
  * because that would take a resolver the shell does not have.
  */
 export function isPrivateHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
-  if (host === "localhost" || host.endsWith(".localhost")) return true;
-  return rust().isIpAddress(host) && !rust().isPublicAddress(host);
+  return rust().isPrivateHost(hostname);
 }
 
 /** An https address without credentials on a public host. */
 export function isPublicHttpsUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw);
-    return url.protocol === "https:" && !url.username && !url.password && !isPrivateHost(url.hostname);
-  } catch {
-    return false;
-  }
+  return rust().isPublicHttpsUrl(raw);
 }
 
 const MAX_REDIRECTS = 5;

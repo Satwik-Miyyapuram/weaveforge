@@ -18,9 +18,11 @@ import type {
   ReaderOutlineItem,
 } from "@weaveforge/core";
 import { loadCore, readyCore } from "@/lib/rust-core";
-import type { ReferencePage } from "../application/reader-references";
+import type { PageTextItem } from "@weaveforge/wasm";
 
-export interface AnalysisWorkerPage extends ReferencePage {
+export interface AnalysisWorkerPage {
+  pageNumber: number;
+  items: PageTextItem[];
   links: PdfLink[];
 }
 

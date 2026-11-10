@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import { localSqlDb, type LocalSqlDb } from "./local-sql";
 import { ConflictStore } from "../domain/conflicts";
 import { Outbox } from "../domain/outbox";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * The reader's half of a conflict.

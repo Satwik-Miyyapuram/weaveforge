@@ -4,10 +4,8 @@ import type {
   SaveAnnotationPinInput,
 } from "@weaveforge/core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import {
-  type AnnotationPinRow,
-  toDomain,
-} from "./annotation-pin-rows";
+import type { AnnotationPinRow } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
 
 /**
@@ -39,7 +37,7 @@ export class PostgrestAnnotationPinRepository extends ProjectScopedPostgrestRepo
       )
       .select(ANNOTATION_PIN_COLUMNS)
       .single());
-    return toDomain(dbRow);
+    return readyCore().annotationPinToDomain(dbRow);
   }
 
   async remove(paperId: string, annotationKey: string): Promise<void> {
@@ -74,7 +72,7 @@ export class PostgrestAnnotationPinRepository extends ProjectScopedPostgrestRepo
     if (filter?.reportSectionId) {
       query = query.eq("report_section_id", filter.reportSectionId);
     }
-    return (await rows<AnnotationPinRow>(query.order("created_at", { ascending: true }))).map(toDomain);
+    return (await rows<AnnotationPinRow>(query.order("created_at", { ascending: true }))).map((row) => readyCore().annotationPinToDomain(row));
   }
 }
 

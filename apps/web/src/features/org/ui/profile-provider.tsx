@@ -16,7 +16,8 @@ import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } fr
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { latestGate, loadProfileBundle } from "../application/profile-refresh";
+import { latestGate } from "@/lib/latest-gate";
+import { loadProfileBundle } from "../application/profile-refresh";
 
 const EMPTY_PROFILE_STATE = {
   profile: null as Member | null,
@@ -63,7 +64,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const gate = useRef(latestGate());
 
   const refresh = useCallback(async () => {
-    const isLatest = gate.current.begin();
+    const isLatest = gate.current();
     const userId = user?.id;
     if (!userId) {
       setProfile(null);

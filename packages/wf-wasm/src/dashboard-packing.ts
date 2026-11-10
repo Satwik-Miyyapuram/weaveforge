@@ -1,5 +1,6 @@
 /**
- * Dashboard grid packing (Rust `dashboard::packing`). Card limits are passed in as data.
+ * Dashboard grid packing (Rust `dashboard::packing`) and fitted list-card heights (Rust `dashboard::fit`).
+ * Card limits are passed in as data.
  * The item and limit types come from ./bindings.js. An unknown card type throws.
  */
 import {
@@ -8,6 +9,9 @@ import {
   dashboardLayoutFloors as rawLayoutFloors,
   dashboardNormalizeItem as rawNormalizeItem,
   dashboardPackSm as rawPackSm,
+  fitLayoutToContent as rawFitLayoutToContent,
+  rowsForHeight as rawRowsForHeight,
+  withStoredHeights as rawStoredHeights,
 } from "../pkg/wf_wasm.js";
 import type { CardLimit, LayoutItem } from "./bindings.js";
 
@@ -57,4 +61,31 @@ export function dashboardCloseGaps(
   cols: number,
 ): LayoutItem[] {
   return rawCloseGaps(items, limits, cols) as LayoutItem[];
+}
+
+/** Grid rows needed to show `px` of card, given the row height and the gap between rows. */
+export function rowsForHeight(px: number, rowHeight: number, margin: number): number {
+  return rawRowsForHeight(px, rowHeight, margin);
+}
+
+/** The layout as viewed: fitting cards take their measured rows (Rust `fit_layout_to_content`). */
+export function fitLayoutToContent(
+  items: readonly LayoutItem[],
+  measured: ReadonlyMap<string, number>,
+  maxHeights: Readonly<Record<string, number>>,
+): LayoutItem[] {
+  return rawFitLayoutToContent(items, Object.fromEntries(measured), maxHeights) as LayoutItem[];
+}
+
+/** Each position's height, with the saved height put back where the card has one. */
+export function withStoredHeights<T extends { i: string; h: number }>(
+  rgl: readonly T[],
+  stored: readonly LayoutItem[],
+): T[] {
+  const heights = rawStoredHeights(
+    rgl.map((r) => r.i),
+    rgl.map((r) => r.h),
+    stored,
+  ) as number[];
+  return rgl.map((r, k) => ({ ...r, h: heights[k]! }));
 }

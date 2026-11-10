@@ -17,7 +17,8 @@ import { FoldedItems, foldedFind, foldMoves, useFoldOf } from "./ink-bar-fold";
 import { paperLabel } from "./ink-bar-glyphs";
 import { InsertItems, hasInsertItems, type InsertMenuProps } from "./ink-bar-view";
 import { BarMenuList, useBarMenu, type InkMenuSection } from "./ink-bar-menus";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { readyCore } from "@/lib/rust-core";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { MenuItemButton, ToolButton } from "@/components/controls";
 
 /** How much desk shows between two pages of a note. */
@@ -228,11 +229,11 @@ export function MoreMenu({
             <div className="ink-menu-section" role="group" aria-label="Export">
               <MenuItemButton onClick={choose(onPrint)}>
                 Print or save as PDF
-                <kbd>{shortcutLabel("⌘⇧P")}</kbd>
+                <kbd>{readyCore().shortcutLabel("⌘⇧P", isMacPlatform())}</kbd>
               </MenuItemButton>
               <MenuItemButton onClick={choose(onExportPng)}>
                 Full-page PNG
-                <kbd>{shortcutLabel("⌘⇧E")}</kbd>
+                <kbd>{readyCore().shortcutLabel("⌘⇧E", isMacPlatform())}</kbd>
               </MenuItemButton>
               {onExportSvg ? (
                 <MenuItemButton onClick={choose(onExportSvg)}>

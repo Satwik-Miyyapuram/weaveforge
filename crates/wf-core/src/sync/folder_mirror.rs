@@ -94,6 +94,23 @@ pub fn digest_map(mirrored: &[(String, String)]) -> HashMap<String, String> {
     mirrored.iter().cloned().collect()
 }
 
+/// Carry a manifest forward across one mirror run (TS `nextManifest`): what the last sync
+/// claimed minus what left, plus what this run wrote, each path once, in first-seen order.
+///
+/// Unchanged files are still ours, so a lost manifest re-learns the folder one write at a time.
+#[must_use]
+pub fn next_manifest(previous: &[String], written: &[String], removed: &[String]) -> Vec<String> {
+    let removed: HashSet<&str> = removed.iter().map(String::as_str).collect();
+    let mut seen: HashSet<&str> = HashSet::new();
+    previous
+        .iter()
+        .filter(|path| !removed.contains(path.as_str()))
+        .chain(written.iter())
+        .filter(|path| seen.insert(path.as_str()))
+        .cloned()
+        .collect()
+}
+
 /// What [`mirror_workspace`] would do, without touching a folder: the caller has read
 /// the folder's text into `disk` (path -> text; a missing key is a missing file) for every
 /// path in `files`, and for every previous path that is not present but has a `base`

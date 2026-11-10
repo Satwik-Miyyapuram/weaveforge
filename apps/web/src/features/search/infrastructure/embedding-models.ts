@@ -95,19 +95,6 @@ export function targetEmbeddingModel(): EmbeddingModelProfile {
   return DEFAULT_EMBEDDING_MODEL;
 }
 
-/**
- * What to do with stored vectors when the arm starts.
- *
- * `reuse` — same encoder, sync what changed. `swap` — a different encoder the
- * app still knows: serve with it while the target embeds, then swap. `rebuild`
- * — nothing stored, or vectors from an encoder nobody can load any more.
- */
-export function planEmbeddingStart(storedModel: string | null, target: string): "reuse" | "swap" | "rebuild" {
-  if (storedModel === null) return "rebuild";
-  if (storedModel === target) return "reuse";
-  return KNOWN.has(storedModel) ? "swap" : "rebuild";
-}
-
 /** A profile for any id; an unknown encoder gets symmetric mean pooling. */
 export function embeddingProfile(id: string): EmbeddingModelProfile {
   return KNOWN.get(id) ?? { ...MINILM_L6, id };

@@ -8,6 +8,7 @@ import {
   type UserSettings,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/user-settings-core";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import type { AiSourceOption } from "@/container/facades";
@@ -229,7 +230,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
       });
       const remembered = typedCore().getUserIntegrationField(settings, "mcp", "pairingSecret");
       const secret = remembered ?? (crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""));
-      if (rememberConnection && !remembered) onChange(typedCore().applyUserIntegrationFields(settings, "mcp", { pairingSecret: secret }));
+      if (rememberConnection && !remembered) onChange(userSettingsFromCore(typedCore().applyUserIntegrationFields(userSettingsToCore(settings), "mcp", { pairingSecret: secret })));
       getContainer().aiAssistant.ensureRelay(session.grant.id, secret, access);
       setConnection({ sessionId: session.grant.id, secret });
       setSessions(getContainer().aiAssistant.listActiveSessions());
@@ -348,7 +349,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                     <option value="10080">1 week</option>
                   </Select>
                 </div>
-                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="wf-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(typedCore().applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
+                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="wf-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(userSettingsFromCore(typedCore().applyUserIntegrationFields(userSettingsToCore(settings), "mcp", { pairingSecret: "" }))); }} /></label>
                 <div className="ai-mcp-token-control">
                   <div><strong>MCP token</strong><small>Codex signs in with an MCP token. Make, copy and revoke them on Settings › Access tokens.</small></div>
                   <Button onClick={onManageTokens}>Manage MCP tokens</Button>

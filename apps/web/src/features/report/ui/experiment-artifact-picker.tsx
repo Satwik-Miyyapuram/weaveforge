@@ -6,14 +6,14 @@ import type { Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { Select } from "@/components/select";
-import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
+import { readyCore } from "@/lib/rust-core";
 import { serialiseResultsTableRef } from "../application/results-table-refs";
 import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
 
 /** Collision key matching {@link artifactLabel} / insert serialization. */
 function artifactCollisionKey(name: string): string {
-  return artifactBasename(name) || name;
+  return readyCore().artifactBasename(name) || name;
 }
 
 /** Readable label for an artifact URL/name in the dropdown. */
@@ -108,7 +108,7 @@ export function ExperimentArtifactPicker({
     const name =
       collisions.length > 1 ? artifactName.trim() : base || artifactName.trim();
     onInsert(
-      serialiseArtifactRef({
+      readyCore().serialiseArtifactRef({
         experimentId,
         artifactName: name,
         alt: artifactCollisionKey(name),

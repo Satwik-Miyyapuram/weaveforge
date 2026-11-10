@@ -13,16 +13,18 @@ import {
 } from "../application/load-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
 
-const EMPTY_STATS = buildDashboardStats({
-  papers: [],
-  sections: [],
-  milestones: [],
-  experiments: [],
-  logEntries: [],
-  relations: [],
-  listCount: 0,
-  tags: [],
-});
+// Built on demand: the Rust core is not loaded when this module is imported.
+const emptyStats = (): DashboardStats =>
+  buildDashboardStats({
+    papers: [],
+    sections: [],
+    milestones: [],
+    experiments: [],
+    logEntries: [],
+    relations: [],
+    listCount: 0,
+    tags: [],
+  });
 
 type StatsCacheEntry = {
   stats: DashboardStats;
@@ -73,7 +75,7 @@ export function useDashboardStats(
 
   const [statsLoading, setStatsLoading] = useState(() => first == null);
   const [statsError, setStatsError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>(() => first?.stats ?? EMPTY_STATS);
+  const [stats, setStats] = useState<DashboardStats>(() => first?.stats ?? emptyStats());
   const [supervision, setSupervision] = useState<SupervisionStats | null>(
     () => first?.supervision ?? null,
   );
@@ -92,7 +94,7 @@ export function useDashboardStats(
   const loadStats = useCallback(async () => {
     latestKey.current = cacheKey;
     if (!projectId) {
-      setStats(EMPTY_STATS);
+      setStats(emptyStats());
       setSupervision(null);
       setStatsLoading(false);
       setStatsError(null);

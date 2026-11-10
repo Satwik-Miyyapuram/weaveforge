@@ -105,7 +105,7 @@ pub struct NewExperimentInput {
 }
 
 /// TS `Experiment`. Unset optionals are left out of the serialized object, as `undefined` is in JS.
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs, reason = "fields mirror the TS type one to one")]
 pub struct Experiment {

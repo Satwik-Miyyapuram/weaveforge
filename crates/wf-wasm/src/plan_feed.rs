@@ -4,6 +4,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::plan::feed::{self, FeedMilestone};
+use wf_core::plan::feed_urls;
 
 use super::to_js;
 
@@ -73,4 +74,36 @@ pub fn plan_widget_data_js(
 pub fn add_days_js(iso: &str, days: f64) -> Result<String, JsValue> {
     feed::add_days(iso, days as i64)
         .ok_or_else(|| JsValue::from_str(&format!("Not a calendar date: {iso}")))
+}
+
+/// [`plan_feed_origin`](feed_urls::plan_feed_origin): where the calendar feed is served.
+#[wasm_bindgen(js_name = planFeedOrigin)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn plan_feed_origin_js(
+    server_routes: bool,
+    here: Option<String>,
+    configured: Option<String>,
+) -> String {
+    feed_urls::plan_feed_origin(server_routes, here.as_deref(), configured.as_deref())
+}
+
+/// [`plan_feed_urls`](feed_urls::plan_feed_urls): the calendar, https and widget links for `token`.
+///
+/// # Errors
+///
+/// Fails only if the result cannot be converted to a JS object.
+#[wasm_bindgen(js_name = planFeedUrls)]
+pub fn plan_feed_urls_js(
+    origin: &str,
+    token: &str,
+    include_done: bool,
+    reminder_days: f64,
+) -> JsResult<JsValue> {
+    to_js(&feed_urls::plan_feed_urls(
+        origin,
+        token,
+        include_done,
+        reminder_days,
+    ))
 }

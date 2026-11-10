@@ -61,7 +61,7 @@ pub struct LayoutItem {
     pub h: f64,
     /// Per-card settings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional, type = Option<std::collections::BTreeMap<String, specta_typescript::Unknown>>))]
+    #[cfg_attr(feature = "specta", specta(optional, type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub config: Option<Map<String, Value>>,
     /// Any other keys, kept as they came in.
     /// Not in the TS type: callers pass their own card objects and get the

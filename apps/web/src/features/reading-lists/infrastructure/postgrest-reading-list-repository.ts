@@ -1,16 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type IReadingListItemRepository, type IReadingListRepository, type ReadingList, type ReadingListFilter, type ReadingListItem, type ReadingListTreeNode } from "@weaveforge/core";
-import {
-  type ReadingListRow,
-  type ReadingListItemRow,
-  toListDomain,
-  toListRow,
-  toItemDomain,
-  toItemRow,
-} from "./reading-list-rows";
+import type { ReadingListItemRow, ReadingListRow } from "@weaveforge/wasm";
 import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 import { typedCore } from "@/lib/rust-core";
+import { itemFromWasm, listFromWasm, treeFromWasm } from "../application/list-shapes";
+
+// Row mapping runs in the Rust core (wf-core `reading_lists::list_row`).
+const toListDomain = (row: ReadingListRow) => listFromWasm(typedCore().readingListToDomain(row));
+const toListRow = (list: ReadingList) => typedCore().readingListToRow(list);
+const toItemDomain = (row: ReadingListItemRow) => itemFromWasm(typedCore().readingListItemToDomain(row));
+const toItemRow = (item: ReadingListItem) => typedCore().readingListItemToRow(item);
 
 /**
  * PostgREST implementations of the reading-list repositories.
@@ -77,13 +77,13 @@ export class PostgrestReadingListRepository extends ProjectRepository implements
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
-    return typedCore().buildListTree(await this.list());
+    return typedCore().buildListTree(await this.list()).map(treeFromWasm);
   }
 
   async save(entity: ReadingList): Promise<void> {
     const row = toListRow(entity);
-    if (this.pid) row.project_id = this.pid;
-    await run(this.db.from(LISTS).upsert(row));
+    const payload: ReadingListRow & { project_id?: string } = this.pid ? { ...row, project_id: this.pid } : row;
+    await run(this.db.from(LISTS).upsert(payload));
   }
 
   async delete(id: string): Promise<void> {

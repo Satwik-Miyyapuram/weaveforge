@@ -60,7 +60,7 @@ export function exactBytes(body: Uint8Array): ArrayBuffer {
  * address" in the whole codebase.
  */
 export function mayOpenExternally(url: string): boolean {
-  return rust().checkUrlShape(url).ok;
+  return rust().mayOpenExternally(url);
 }
 
 /**

@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SearchDoc } from "@weaveforge/core";
 
-import { diffRefresh } from "../application/refresh-diff";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const doc = (id: string, body: string, degree = 0): SearchDoc => ({
   id: `note:${id}`,
@@ -20,40 +25,40 @@ const doc = (id: string, body: string, degree = 0): SearchDoc => ({
 });
 
 test("with nothing remembered, every fresh doc is (re-)added and the gone one removed", () => {
-  const out = diffRefresh(new Map(), ["note:a", "note:gone"], [doc("a", "x")]);
+  const out = readyCore().diffRefreshPlan(new Map(), ["note:a", "note:gone"], [doc("a", "x")]);
   assert.deepEqual(out.remove, ["note:gone"]);
   assert.deepEqual(out.add.map((d) => d.id), ["note:a"]);
 });
 
 test("an unchanged doc is left alone; an edited one is re-added", () => {
-  const first = diffRefresh(new Map(), [], [doc("a", "x"), doc("b", "y")]);
-  const out = diffRefresh(first.prints, ["note:a", "note:b"], [doc("a", "x"), doc("b", "edited")]);
+  const first = readyCore().diffRefreshPlan(new Map(), [], [doc("a", "x"), doc("b", "y")]);
+  const out = readyCore().diffRefreshPlan(first.prints, ["note:a", "note:b"], [doc("a", "x"), doc("b", "edited")]);
   assert.deepEqual(out.remove, []);
   assert.deepEqual(out.add.map((d) => d.id), ["note:b"]);
 });
 
 test("a deleted doc is removed, and forgotten", () => {
-  const first = diffRefresh(new Map(), [], [doc("a", "x"), doc("b", "y")]);
-  const out = diffRefresh(first.prints, ["note:a", "note:b"], [doc("a", "x")]);
+  const first = readyCore().diffRefreshPlan(new Map(), [], [doc("a", "x"), doc("b", "y")]);
+  const out = readyCore().diffRefreshPlan(first.prints, ["note:a", "note:b"], [doc("a", "x")]);
   assert.deepEqual(out.remove, ["note:b"]);
   assert.deepEqual(out.add, []);
   assert.equal(out.prints.has("note:b"), false);
 });
 
 test("a new link degree counts as a change, since it ranks the doc", () => {
-  const first = diffRefresh(new Map(), [], [doc("a", "x", 0)]);
-  const out = diffRefresh(first.prints, ["note:a"], [doc("a", "x", 2)]);
+  const first = readyCore().diffRefreshPlan(new Map(), [], [doc("a", "x", 0)]);
+  const out = readyCore().diffRefreshPlan(first.prints, ["note:a"], [doc("a", "x", 2)]);
   assert.deepEqual(out.add.map((d) => d.id), ["note:a"]);
 });
 
 test("a remembered doc the index no longer holds is added back", () => {
-  const first = diffRefresh(new Map(), [], [doc("a", "x")]);
-  const out = diffRefresh(first.prints, [], [doc("a", "x")]);
+  const first = readyCore().diffRefreshPlan(new Map(), [], [doc("a", "x")]);
+  const out = readyCore().diffRefreshPlan(first.prints, [], [doc("a", "x")]);
   assert.deepEqual(out.add.map((d) => d.id), ["note:a"]);
 });
 
 test("prints from other kinds survive a refresh of one kind", () => {
   const prints = new Map([["paper:p", "{}"]]);
-  const out = diffRefresh(prints, [], [doc("a", "x")]);
+  const out = readyCore().diffRefreshPlan(prints, [], [doc("a", "x")]);
   assert.equal(out.prints.get("paper:p"), "{}");
 });

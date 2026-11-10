@@ -10,7 +10,16 @@
  * tested without a DOM, and so a private-mode failure is one caller's problem.
  */
 
-import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import {
+  defaultExpanded,
+  defaultOpenSections,
+  migratedExpanded,
+  parseExplorerKeys,
+  type SectionState,
+  type WorkspaceTreeNode,
+} from "@weaveforge/wasm";
+
+export type { SectionState };
 
 export const EXPLORER_STORAGE_KEY = "weaveforge.explorer.expanded";
 /**
@@ -40,46 +49,6 @@ export function writeHidden(store: Storage | undefined, hidden: boolean): void {
 }
 export const SECTIONS_STORAGE_KEY = "weaveforge.explorer.sections";
 
-/**
- * The roots that start open, given the roots the workspace actually has.
- *
- * This used to be a constant — `["notes", "papers", "report"]` — and the
- * hard-coded list is a bug with a delay on it: the tree grows a root, the
- * constant does not, and the new root is the one section left shut. The logbook
- * found it. A reader with 22 log entries opens their workspace and sees "Log"
- * collapsed with no indication there is anything inside, which is the same
- * complaint as an empty explorer.
- *
- * Taking the roots as an argument means the default follows the tree: a plugin
- * that adds a root gets it open without anyone remembering to.
- */
-export function defaultExpanded(roots: readonly string[]): readonly string[] {
-  return roots;
-}
-
-/**
- * The roots the tree knows about but the stored record does not mention.
- *
- * A record is a *delta* against the roots of the day it was written, and nothing
- * ever rewrites it when a root appears — so a returning reader keeps a list from
- * before the logbook existed and the new root stays shut, which is exactly the
- * reader the "start open" rule was written for. The keys in the record win; a
- * root the record has never heard of is added.
- *
- * This is a **migration**, and the caller runs it once (see `readExpanded`'s
- * `migrate` argument). It has to be, because it cannot tell "the record predates
- * this root" from "the reader closed this root" by looking at the record alone:
- * a collapse and an absence are the same absent key. Run on every read, it
- * reopens every section anybody ever closed.
- */
-export function migratedExpanded(
-  saved: ReadonlySet<string>,
-  roots: readonly string[],
-): Set<string> {
-  const missing = defaultExpanded(roots).filter((key) => !saved.has(key));
-  return missing.length === 0 ? new Set(saved) : new Set([...saved, ...missing]);
-}
-
 export interface KeyValueStore {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
@@ -103,15 +72,11 @@ export function readExpanded(
   const fallback = defaultExpanded(roots);
   if (!store) return new Set(fallback);
   try {
-    const raw = store.getItem(EXPLORER_STORAGE_KEY);
-    if (raw === null) return new Set(fallback);
-    const parsed: unknown = JSON.parse(raw);
-    // An empty array is a real answer — the user collapsed everything — so it
-    // is honoured, unlike a missing or malformed record. It is also the one
-    // record that is never migrated *from*: an empty set is a decision, and
-    // filling it in would undo it.
-    if (!Array.isArray(parsed)) return new Set(fallback);
-    const saved = new Set(parsed.filter((key): key is string => typeof key === "string"));
+    // Parsing is Rust's (`parse_explorer_keys`): absent or unusable is null, and
+    // an empty list is a real answer, honoured rather than treated as missing.
+    const keys = parseExplorerKeys(store.getItem(EXPLORER_STORAGE_KEY));
+    if (keys === null) return new Set(fallback);
+    const saved = new Set(keys);
     // An empty record is a decision — "I collapsed everything" — and is never
     // migrated *from*: filling it in would undo the one answer that is a choice
     // rather than a record of a shape.
@@ -159,13 +124,6 @@ export function writeExpanded(store: KeyValueStore | undefined, expanded: Iterab
   }
 }
 
-/** Expanded rows, with `key` flipped. Returns a new set; never mutates. */
-export function toggleExpanded(expanded: ReadonlySet<string>, key: string): Set<string> {
-  const next = new Set(expanded);
-  if (!next.delete(key)) next.add(key);
-  return next;
-}
-
 /**
  * The sections the explorer stacks, each collapsible on its own.
  *
@@ -184,27 +142,16 @@ export interface ExplorerSection {
   collapsedByDefault?: boolean;
 }
 
-/** Which sections are open. Anything not in the set is closed. */
-export interface SectionState {
-  open: ReadonlySet<string>;
-}
-
 /** Which sections are open, honouring each section's own default. */
 export function readSections(
   store: KeyValueStore | undefined,
   sections: readonly ExplorerSection[],
 ): SectionState {
-  const defaults = (): SectionState => ({
-    open: new Set(
-      sections.filter((section) => !section.collapsedByDefault).map((section) => section.id),
-    ),
-  });
+  const defaults = (): SectionState => ({ open: new Set(defaultOpenSections(sections)) });
   try {
-    const raw = store?.getItem(SECTIONS_STORAGE_KEY) ?? null;
-    if (raw === null) return defaults();
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return defaults();
-    return { open: new Set(parsed.filter((id): id is string => typeof id === "string")) };
+    const ids = parseExplorerKeys(store?.getItem(SECTIONS_STORAGE_KEY) ?? null);
+    if (ids === null) return defaults();
+    return { open: new Set(ids) };
   } catch {
     return defaults();
   }
@@ -216,21 +163,4 @@ export function writeSections(store: KeyValueStore | undefined, state: SectionSt
   } catch {
     // Storage disabled. The sections still collapse for this session.
   }
-}
-
-/**
- * Open or close one section, touching no other.
- *
- * Collapsing Files must not close Reading lists — they are independent views,
- * and one shared "collapsed" flag is exactly the bug that makes a stacked
- * explorer feel like it is fighting the user.
- */
-export function toggleSection(state: SectionState, id: string): SectionState {
-  const open = new Set(state.open);
-  if (!open.delete(id)) open.add(id);
-  return { open };
-}
-
-export function isSectionOpen(state: SectionState, id: string): boolean {
-  return state.open.has(id);
 }

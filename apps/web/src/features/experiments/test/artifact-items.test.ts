@@ -4,7 +4,14 @@
  * them, has to read the stored entry, which keeps the real filename.
  */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 import { artifactItems } from "../ui/artifact-items";
 
 const SIGNED = "https://app.example/api/blobs/content?t=abc.def";

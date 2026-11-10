@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
-import { snapToText } from "./text-snap";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * A pen drags a text selection across the page, the way a mouse does.
@@ -17,7 +17,7 @@ import { snapToText } from "./text-snap";
  * selection (double-click for a word, shift-click to extend); a mouse press
  * just beside the words — left of a line, past its end, between lines — would
  * start no selection at all, so the reader starts it at the nearest text
- * (`text-snap.ts`). A finger belongs to `use-reader-gestures`.
+ * (`snapToText` in the Rust core). A finger belongs to `use-reader-gestures`.
  */
 export function usePenTextSelect(containerRef: RefObject<HTMLElement | null>, enabled: boolean): void {
   useEffect(() => {
@@ -104,7 +104,12 @@ const TEXT_RUN = ".pdf-reader-textlayer span:not(.markedContent):not([role='img'
 /** The caret in the text nearest a point beside the words, or null when none is near. */
 function snappedCaret(layer: Element, x: number, y: number): { node: Node; offset: number } | null {
   const runs = Array.from(layer.querySelectorAll<HTMLElement>(TEXT_RUN)).filter((run) => run.firstChild?.nodeType === Node.TEXT_NODE);
-  const point = snapToText(runs.map((run) => run.getBoundingClientRect()), x, y);
+  // Plain boxes: DOMRect getters do not cross into the Rust core.
+  const boxes = runs.map((run) => {
+    const { left, top, right, bottom } = run.getBoundingClientRect();
+    return { left, top, right, bottom };
+  });
+  const point = readyCore().snapToText(boxes, x, y);
   if (!point) return null;
   const run = runs[point.index]!;
   const at = caretAt(point.x, point.y);

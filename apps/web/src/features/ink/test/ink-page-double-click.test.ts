@@ -1,8 +1,11 @@
 /** A double-click opens a figure only when every press of it lands inside the box. */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { doubleClickFigure, figureUnder } from "../ui/ink-page-math";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const box = { x: 100, y: 100, w: 200, h: 100 };
 

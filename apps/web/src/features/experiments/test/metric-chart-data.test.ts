@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, before, test } from "node:test";
 
 import { alignSeries, emaSmooth, readPrefs, writePrefs } from "../ui/metric-chart-data";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** The chart's data half after the split (35-18): behaviour and pref keys unchanged. */
 

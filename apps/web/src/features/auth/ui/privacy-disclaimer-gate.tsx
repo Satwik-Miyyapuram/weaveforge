@@ -12,10 +12,7 @@ import {
 import { useStartup } from "@/features/startup";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
-import {
-  shouldMountShellChildren,
-  shouldShowWorkspaceLoader,
-} from "./privacy-disclaimer-readiness";
+import { readyCore } from "@/lib/rust-core";
 import { useCapability } from "@/deployment/capabilities";
 import {
   desktop,
@@ -118,13 +115,8 @@ export function PrivacyDisclaimerGate({
   }, [refreshProfile]);
 
   if (
-    shouldShowWorkspaceLoader({
-      // The loader waits only for the disclaimer decision, not the org bundle.
-      loading: !gateReady,
-      needsPrivacyAccept: needsAccept,
-      containerReady,
-      error,
-    })
+    // The loader waits only for the disclaimer decision, not the org bundle.
+    readyCore().shouldShowWorkspaceLoader(!gateReady, needsAccept, containerReady, error ?? undefined)
   ) {
     return <ThesisLoaderScreen status="Preparing your workspace…" />;
   }
@@ -168,11 +160,7 @@ export function PrivacyDisclaimerGate({
           </div>
         </Modal>
       ) : null}
-      {shouldMountShellChildren({
-        loading: !gateReady,
-        needsPrivacyAccept: needsAccept,
-        containerReady,
-      })
+      {readyCore().shouldMountShellChildren(!gateReady, needsAccept, containerReady)
         ? children
         : null}
     </>

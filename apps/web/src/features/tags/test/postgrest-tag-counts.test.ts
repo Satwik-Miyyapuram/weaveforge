@@ -6,10 +6,15 @@
  * project's tag ids, in URL-sized chunks.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { PostgrestTagRepository } from "../infrastructure/postgrest-tag-repository";
+
+before(async () => {
+  await loadTestCore();
+});
 
 interface Link {
   tag_id: string;

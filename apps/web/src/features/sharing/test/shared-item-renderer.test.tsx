@@ -21,6 +21,7 @@ const ITEMS: Record<string, SharedItemDetail> = {
     kind: "vault_page",
     id: "v1",
     title: "Notes",
+    status: "",
     vaultPage: { id: "v1", title: "Notes", body: "Some   body text", sortOrder: 0, createdAt: "", updatedAt: "" },
   } as unknown as SharedItemDetail,
   experiment: {
@@ -28,6 +29,7 @@ const ITEMS: Record<string, SharedItemDetail> = {
     kind: "experiment",
     id: "e1",
     title: "Run",
+    status: "",
     experiment: { id: "e1", name: "Run", hypothesis: "It works", metrics: { acc: 0.22 } },
   } as unknown as SharedItemDetail,
   milestone: { ...base, kind: "milestone", id: "m1", title: "Ship", status: "open" } as unknown as SharedItemDetail,

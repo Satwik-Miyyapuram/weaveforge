@@ -473,3 +473,46 @@ pub fn paper_html_path(paper_id: &str, project_root: &str) -> String {
 pub fn asset_path(scope: AssetScope, storage_path: &str) -> String {
     format!("{ASSET_DIR}/{}/{storage_path}", scope.as_str())
 }
+
+/// The folder segments of a picked file's path: backslashes read as separators, empty segments
+/// dropped, then the first segment (the picked root, which folder pickers include) and the file
+/// name removed (TS `folderSegments` in `vault/application/import-notes.ts`).
+fn folder_segments(relative_path: &str) -> Vec<String> {
+    let normalized = relative_path.replace('\\', "/");
+    let parts: Vec<&str> = normalized
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect();
+    if parts.len() < 2 {
+        return Vec::new();
+    }
+    parts[1..parts.len() - 1]
+        .iter()
+        .map(|part| (*part).to_owned())
+        .collect()
+}
+
+/// The folder key of one file: its folder segments joined with `/`, empty for a file at the root.
+#[must_use]
+pub fn folder_key(relative_path: &str) -> String {
+    folder_segments(relative_path).join("/")
+}
+
+/// Every folder that holds, or leads to, one of the files: each prefix of each file's folder path,
+/// distinct, shallowest first so a parent is made before its children. Ties keep first-seen order.
+#[must_use]
+pub fn folder_keys(relative_paths: &[String]) -> Vec<String> {
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut keys: Vec<String> = Vec::new();
+    for path in relative_paths {
+        let segments = folder_segments(path);
+        for end in 1..=segments.len() {
+            let key = segments[..end].join("/");
+            if seen.insert(key.clone()) {
+                keys.push(key);
+            }
+        }
+    }
+    keys.sort_by_key(|key| key.split('/').count());
+    keys
+}

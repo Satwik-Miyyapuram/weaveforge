@@ -5,7 +5,6 @@ import type { SearchExcerpt, SearchHit } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
-import { excerptSegments } from "@/features/search/excerpt-segments";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
@@ -22,7 +21,7 @@ import { JumpToCreateRow } from "@/components/jump-to-create-row";
 import { AskLibraryRow } from "@/components/ask-library-row";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { useTheme } from "@/lib/hooks/use-theme";
-import { isMacPlatform, shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { goToRoute } from "@/lib/go-to-route";
 import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
@@ -75,7 +74,7 @@ function paletteKeys(mac: boolean): { keys: string[]; label: string }[] {
     { keys: ["↑", "↓"], label: "move" },
     { keys: ["Enter"], label: "open" },
     { keys: ["Esc"], label: "close" },
-    { keys: [shortcutLabel("⌘K", mac)], label: "from anywhere" },
+    { keys: [readyCore().shortcutLabel("⌘K", mac)], label: "from anywhere" },
   ];
 }
 /** Kinds recorded as recent targets when opened. */
@@ -134,7 +133,7 @@ function JumpPreview({ entry }: { entry: Entry }) {
       )}
       {entry.excerpt?.text && (
         <p>
-          {excerptSegments(entry.excerpt).map((segment, index) =>
+          {readyCore().excerptSegments(entry.excerpt).map((segment, index) =>
             segment.highlighted ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>,
           )}
         </p>
@@ -425,13 +424,13 @@ export function JumpToPalette() {
       {
         key: "shortcuts",
         label: "Keyboard shortcuts",
-        hint: shortcutLabel(keys["show-shortcuts"], mac),
+        hint: readyCore().shortcutLabel(keys["show-shortcuts"], mac),
         run: leave(() => requestShortcuts()),
       },
       {
         key: "workspace-search",
         label: "Search workspace",
-        hint: shortcutLabel(keys["workspace-search"], mac),
+        hint: readyCore().shortcutLabel(keys["workspace-search"], mac),
         run: () => {
           setMode("search");
           setQuery("");
@@ -618,7 +617,7 @@ export function JumpToPalette() {
                     <div>{c.label}</div>
                     {c.excerpt && c.excerpt.text && (
                       <div className="jump-to-excerpt">
-                        {excerptSegments(c.excerpt).map((segment, index) =>
+                        {readyCore().excerptSegments(c.excerpt).map((segment, index) =>
                           segment.highlighted ? (
                             <mark key={index}>{segment.text}</mark>
                           ) : (

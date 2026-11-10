@@ -23,22 +23,3 @@ export const DEFAULT_SOURCE_NOTE_TEMPLATE = [
   "<!-- wf:editable:notes -->\nYour notes stay here across re-renders.\n<!-- /wf:editable:notes -->",
   "",
 ].join("\n");
-
-/** Context shape expected by {@link DEFAULT_SOURCE_NOTE_TEMPLATE}. */
-export function sourceNoteTemplateContext(input: {
-  title: string;
-  authors?: readonly string[];
-  year?: number;
-  venue?: string;
-  doi?: string;
-  citeKey?: string;
-}): Record<string, unknown> {
-  return {
-    title: input.title,
-    authors: input.authors?.length ? input.authors.join(", ") : "",
-    year: input.year ?? "",
-    venue: input.venue ?? "",
-    doi: input.doi ?? "",
-    citeKey: input.citeKey ?? "",
-  };
-}

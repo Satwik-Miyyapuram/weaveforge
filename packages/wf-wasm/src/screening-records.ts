@@ -8,7 +8,10 @@ import {
   exclusionReasons as rawExclusionReasons,
   latestByReviewerList as rawLatestByReviewerList,
   prismaCounts as rawPrismaCounts,
+  reviewers as rawReviewers,
   screeningDecisionError as rawScreeningDecisionError,
+  screeningDecisionFromRow as rawScreeningDecisionFromRow,
+  screeningDecisionToRow as rawScreeningDecisionToRow,
   verdictFor as rawVerdictFor,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -18,6 +21,7 @@ import type {
   PrismaCounts,
   ScreeningDecision,
   ScreeningDecisionDraft,
+  ScreeningDecisionRow,
   ScreeningItem,
   ScreeningStage,
 } from "./bindings.js";
@@ -86,10 +90,27 @@ export function prismaCounts(items: readonly ScreeningItem[], decisions: readonl
   return rawPrismaCounts(JSON.stringify(items), JSON.stringify(decisions)) as PrismaCounts;
 }
 
+/** Everyone who recorded a decision: distinct reviewer ids, sorted in UTF-16 order. */
+export function reviewers(decisions: readonly ScreeningDecision[]): string[] {
+  return rawReviewers(JSON.stringify(decisions)) as string[];
+}
+
 /** Why items were excluded at `stage`, most common first. */
 export function exclusionReasons(
   decisions: readonly ScreeningDecision[],
   stage: ScreeningStage = "full_text",
 ): ExclusionReasonCount[] {
   return rawExclusionReasons(JSON.stringify(decisions), stage) as ExclusionReasonCount[];
+}
+
+export type { ScreeningDecisionRow } from "./bindings.js";
+
+/** Map a `screening_decisions` row to a decision; throws on an unknown stage or state. */
+export function screeningDecisionFromRow(row: ScreeningDecisionRow): ScreeningDecision {
+  return rawScreeningDecisionFromRow(row) as ScreeningDecision;
+}
+
+/** Map a decision to its `screening_decisions` row. */
+export function screeningDecisionToRow(decision: ScreeningDecision): ScreeningDecisionRow {
+  return rawScreeningDecisionToRow(decision) as ScreeningDecisionRow;
 }

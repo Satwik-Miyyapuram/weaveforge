@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { readFailureReason } from "../application/index-library-pdfs";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Why a PDF could not be read, in words a reader can act on.

@@ -14,6 +14,7 @@ import {
   toPaperTagDomain,
 } from "./tag-rows";
 import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /** Tag ids per paper_tags read; the list travels in the URL. */
@@ -74,11 +75,9 @@ export class PostgrestTagRepository extends ProjectRepository implements ITagRep
         ),
       ),
     );
-    const counts = new Map<string, Set<string>>();
-    for (const row of pages.flat()) {
-      (counts.get(row.tag_id) ?? counts.set(row.tag_id, new Set()).get(row.tag_id)!).add(row.paper_id);
-    }
-    return tags.map((t) => ({ ...t, paperCount: counts.get(t.id)?.size ?? 0 }));
+    const links = pages.flat().map((row) => ({ tagId: row.tag_id, paperId: row.paper_id }));
+    const counts = readyCore().paperCountsForTags(ids, links);
+    return tags.map((t, i) => ({ ...t, paperCount: counts[i] ?? 0 }));
   }
 
   async save(entity: Tag): Promise<void> {

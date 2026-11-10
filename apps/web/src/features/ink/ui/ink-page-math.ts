@@ -9,6 +9,7 @@ import {
   INK_A4_WIDTH,
   type InkPage,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The fit: how many CSS pixels one 0.1 mm unit is worth.
@@ -24,8 +25,7 @@ export function fitScale(
   containerWidth: number,
   pageWidth = INK_A4_WIDTH,
 ): number {
-  if (!(containerWidth > 0)) return 1;
-  return containerWidth / pageWidth;
+  return readyCore().fitScale(containerWidth, pageWidth);
 }
 
 /** The lines the lasso's strokes belong to, as text, one per line. */
@@ -33,22 +33,7 @@ export function selectedText(
   page: InkPage,
   indices: readonly number[],
 ): string {
-  const chosen = new Set(indices);
-  const out: string[] = [];
-  for (const line of page.lines) {
-    if (!line.text) continue;
-    for (
-      let i = line.strokeStart;
-      i < line.strokeStart + line.strokeCount;
-      i += 1
-    ) {
-      if (chosen.has(i)) {
-        out.push(line.text);
-        break;
-      }
-    }
-  }
-  return out.join("\n");
+  return readyCore().selectedText(page.lines, indices);
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -60,12 +45,7 @@ export function figureUnder(
   at: At,
   skip: number | null = null,
 ): number | null {
-  for (let index = figures.length - 1; index >= 0; index -= 1) {
-    const one = figures[index];
-    if (!one || index === skip) continue;
-    if (at.x >= one.x && at.x <= one.x + one.w && at.y >= one.y && at.y <= one.y + one.h) return index;
-  }
-  return null;
+  return readyCore().figureUnder(figures, at, skip);
 }
 
 /**
@@ -77,8 +57,5 @@ export function doubleClickFigure(
   points: readonly At[],
   skip: number | null = null,
 ): number | null {
-  if (points.length === 0) return null;
-  const first = figureUnder(figures, points[0]!, skip);
-  if (first === null) return null;
-  return points.every((p) => figureUnder(figures, p, skip) === first) ? first : null;
+  return readyCore().doubleClickFigure(figures, points, skip);
 }

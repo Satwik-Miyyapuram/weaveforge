@@ -1,6 +1,11 @@
-import { describe, it, test } from "node:test";
+import { before, describe, it, test } from "node:test";
 import assert from "node:assert/strict";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { missingConfigMessage, readBackendConfig } from "../config";
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("readBackendConfig", () => {
   it("defaults to postgrest", () => {

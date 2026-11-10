@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import { localSqlDb } from "./local-sql";
 import { ConflictStore } from "../domain/conflicts";
 import { Outbox } from "../domain/outbox";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const ROW = "00000000-0000-4000-8000-0000000e0001";
 

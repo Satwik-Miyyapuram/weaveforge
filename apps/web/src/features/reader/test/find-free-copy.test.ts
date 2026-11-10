@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { OpenAccessCandidate, OpenAccessLookup } from "@weaveforge/core";
 import {
   describeFreeCopyFailure,
@@ -13,7 +13,10 @@ import {
   type HtmlFetchResult,
   type PdfAttempt,
 } from "../application/find-free-copy";
-import type { PaperHtmlPage } from "../application/paper-html";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const pdf = (host: string): OpenAccessCandidate => ({ url: `https://${host}/p.pdf`, format: "pdf", source: "openalex" });
 const html = (host: string): OpenAccessCandidate => ({ url: `https://${host}/p`, format: "html", source: "openalex" });

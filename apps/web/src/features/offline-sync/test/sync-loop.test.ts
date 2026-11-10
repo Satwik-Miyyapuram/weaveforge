@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 
 import {
   createCycleRunner,
   mayDriveDevice,
 } from "@/features/offline-sync/ui/sync-loop";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /**
  * The sync loop's concurrency guard.

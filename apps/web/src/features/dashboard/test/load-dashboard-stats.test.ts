@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import { dataSourcesForCardTypes } from "../application/card-registry";
@@ -6,6 +6,11 @@ import { loadDashboardStats } from "../application/load-dashboard-stats";
 import { buildDashboardStats } from "../application/build-dashboard-stats";
 import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
 import type { Member } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("dataSourcesForCardTypes", () => {
   it("collects deps from visible cards only", () => {

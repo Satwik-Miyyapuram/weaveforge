@@ -2,10 +2,15 @@
 // Overleaf's own `\cite{` completion offers every paper. Its keys must be the
 // ones the export writes, or a report cites keys the .bib does not have.
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { buildOverleafExportPackage } from "../application/build-overleaf-export";
 import { libraryBibtex } from "../application/bibtex-export";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const paper = (id: string, title: string, year: number): Paper => ({
   id,

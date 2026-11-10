@@ -1,6 +1,6 @@
 import { forceX, forceY } from "d3-force";
 
-import type { GNode } from "../application/build-graph-data";
+import type { GNode } from "@weaveforge/wasm";
 
 /** The pull towards the middle: always a little, more as Center goes up. */
 const GRAVITY_BASE = 0.02;

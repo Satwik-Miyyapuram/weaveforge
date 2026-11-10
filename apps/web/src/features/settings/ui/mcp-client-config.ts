@@ -1,7 +1,9 @@
 /**
  * The config each AI client takes to reach WeaveForge's MCP bridge, filled in with
  * this machine's launch line (the app's own binary run as Node, so no Node install).
+ * The text is built by the Rust core (`mcp_client_config`).
  */
+import { readyCore } from "@/lib/rust-core";
 
 export interface McpLaunchLine {
   command: string;
@@ -21,35 +23,25 @@ export const MCP_CLIENT_TABS: readonly { id: McpClientId; label: string }[] = [
   { id: "other", label: "Other" },
 ];
 
-const REPO = "Satwik-Miyyapuram/weaveforge";
-
 export function claudeCodeCommands(): string {
-  return `claude plugin marketplace add ${REPO}
-claude plugin install weaveforge-research@weaveforge`;
+  return readyCore().claudeCodeCommands();
 }
 
 export function geminiInstall(): string {
-  return `gemini extensions install https://github.com/${REPO}`;
+  return readyCore().geminiInstall();
 }
 
-/** TOML basic strings take JSON's escapes, so JSON.stringify quotes them. */
+/** The `[mcp_servers.weaveforge]` TOML table for Codex. */
 export function codexToml(launch: McpLaunchLine): string {
-  const q = (s: string) => JSON.stringify(s);
-  const env = Object.entries(launch.env)
-    .map(([k, v]) => `${k} = ${q(v)}`)
-    .join(", ");
-  return `[mcp_servers.weaveforge]
-command = ${q(launch.command)}
-args = [${launch.args.map(q).join(", ")}]
-env = { ${env} }`;
+  return readyCore().codexToml(launch);
 }
 
 /** The `mcpServers` shape Cursor, Windsurf, Cline, Zed, opencode and most others read. */
 export function mcpServersJson(launch: McpLaunchLine): string {
-  return JSON.stringify({ mcpServers: { weaveforge: launch } }, null, 2);
+  return readyCore().mcpServersJson(launch);
 }
 
 /** VS Code's `.vscode/mcp.json` shape. */
 export function vscodeJson(launch: McpLaunchLine): string {
-  return JSON.stringify({ servers: { weaveforge: { type: "stdio", ...launch } } }, null, 2);
+  return readyCore().vscodeJson(launch);
 }

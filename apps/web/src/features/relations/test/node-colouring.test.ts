@@ -1,18 +1,16 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { DEFAULT_GRAPH_SETTINGS, type Paper, type PaperRelation } from "@weaveforge/core";
-import { buildGraphData } from "../application/build-graph-data";
-import {
-  CLUSTER_PALETTE,
-  UNCOLOURED,
-  communities,
-  degreeColours,
-  groupColour,
-  rampColour,
-  yearColours,
-} from "../application/node-colouring";
-import { PAPER_COLOR, STATUS_COLORS } from "../domain/graph-palette";
+import { DEFAULT_GRAPH_SETTINGS, type ColorGroup, type Paper, type PaperRelation } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
+
+const palette = () => readyCore().graphPalette();
+const ramp = (t: number) => readyCore().rampColour(t);
 
 function paper(id: string, extra: Partial<Paper> = {}): Paper {
   return {
@@ -32,44 +30,56 @@ function cites(from: string, to: string): PaperRelation {
   return { id: `${from}-${to}`, fromPaper: from, toPaper: to, relation: "cites", source: "manual", createdAt: "2026-01-01T00:00:00.000Z" };
 }
 
+/** The colour a single paper gets from the custom-group rules, or undefined when none match. */
+function groupColour(groups: ColorGroup[], s: { title: string; tags: string[]; status: string; lists: string[] }): string | undefined {
+  const node = { id: "p", label: s.title, color: "", paperId: "p" };
+  readyCore().recolourNodes([node], [], "groups", groups, {
+    papers: new Map([["p", { id: "p", title: s.title, status: s.status, tags: s.tags }]]),
+    noteTags: new Map(),
+    membership: new Map(s.lists.map((_, i) => [`L${i}`, new Set(["p"])])),
+    lists: s.lists.map((name, i) => ({ id: `L${i}`, name })),
+  });
+  return node.color === palette().uncoloured ? undefined : node.color;
+}
+
 describe("rampColour", () => {
   it("runs from the pale end to the deep end and clamps", () => {
-    assert.equal(rampColour(0), "#e8d9b0");
-    assert.equal(rampColour(1), "#2f4b6e");
-    assert.equal(rampColour(-3), rampColour(0));
-    assert.equal(rampColour(9), rampColour(1));
-    assert.equal(rampColour(Number.NaN), rampColour(0));
+    assert.equal(ramp(0), "#e8d9b0");
+    assert.equal(ramp(1), "#2f4b6e");
+    assert.equal(ramp(-3), ramp(0));
+    assert.equal(ramp(9), ramp(1));
+    assert.equal(ramp(Number.NaN), ramp(0));
   });
 });
 
 describe("yearColours", () => {
   it("spreads the years present across the ramp", () => {
-    const c = yearColours(new Map([["a", 2000], ["b", 2010], ["c", 2020]]));
-    assert.equal(c.get("a"), rampColour(0));
-    assert.equal(c.get("b"), rampColour(0.5));
-    assert.equal(c.get("c"), rampColour(1));
+    const c = new Map(readyCore().yearColours([["a", 2000], ["b", 2010], ["c", 2020]]));
+    assert.equal(c.get("a"), ramp(0));
+    assert.equal(c.get("b"), ramp(0.5));
+    assert.equal(c.get("c"), ramp(1));
   });
 
   it("puts a single year mid-ramp", () => {
-    assert.equal(yearColours(new Map([["a", 2019]])).get("a"), rampColour(0.5));
+    assert.equal(new Map(readyCore().yearColours([["a", 2019]])).get("a"), ramp(0.5));
   });
 });
 
 describe("degreeColours", () => {
   it("scales by the square root, so hubs do not wash everyone else out", () => {
-    const c = degreeColours(new Map([["hub", 16], ["mid", 4], ["none", 0]]));
-    assert.equal(c.get("hub"), rampColour(1));
-    assert.equal(c.get("mid"), rampColour(0.5));
-    assert.equal(c.get("none"), rampColour(0));
+    const c = new Map(readyCore().degreeColours([["hub", 16], ["mid", 4], ["none", 0]]));
+    assert.equal(c.get("hub"), ramp(1));
+    assert.equal(c.get("mid"), ramp(0.5));
+    assert.equal(c.get("none"), ramp(0));
   });
 });
 
 describe("communities", () => {
   it("finds two triangles joined by nothing, biggest first", () => {
-    const index = communities(
+    const index = new Map(readyCore().communities(
       ["a", "b", "c", "d", "e", "f", "g", "lone"],
       [["a", "b"], ["b", "c"], ["c", "a"], ["a", "d"], ["d", "e"], ["e", "f"], ["f", "g"], ["g", "e"], ["f", "e"]],
-    );
+    ));
     assert.equal(index.get("a"), index.get("b"));
     assert.equal(index.get("b"), index.get("c"));
     assert.equal(index.get("e"), index.get("f"));
@@ -80,11 +90,15 @@ describe("communities", () => {
 
   it("is deterministic", () => {
     const edges: Array<[string, string]> = [["x", "y"], ["y", "z"], ["p", "q"]];
-    assert.deepEqual([...communities(["x", "y", "z", "p", "q"], edges)], [...communities(["q", "p", "z", "y", "x"], edges)]);
+    const sorted = (m: Map<string, number>) => [...m].sort();
+    assert.deepEqual(
+      sorted(new Map(readyCore().communities(["x", "y", "z", "p", "q"], edges))),
+      sorted(new Map(readyCore().communities(["q", "p", "z", "y", "x"], edges))),
+    );
   });
 });
 
-describe("groupColour", () => {
+describe("group rules", () => {
   const subject = { title: "Attention is all you need", tags: ["ml", "NLP"], status: "to_read", lists: ["Thesis"] };
 
   it("matches tag, list, status and title words, first rule wins", () => {
@@ -104,33 +118,33 @@ describe("buildGraphData colour modes", () => {
   const relations = [cites("a", "b"), cites("b", "c")];
   const colours = (colorBy: typeof DEFAULT_GRAPH_SETTINGS.colorBy, extra = {}) =>
     new Map(
-      buildGraphData(papers, relations, { ...DEFAULT_GRAPH_SETTINGS, colorBy, ...extra }).data.nodes.map((n) => [n.id, n.color]),
+      readyCore().buildGraphData(papers, relations, { ...DEFAULT_GRAPH_SETTINGS, colorBy, ...extra }).data.nodes.map((n) => [n.id, n.color]),
     );
 
   it("keeps status colours by default", () => {
-    assert.equal(colours("status").get("a"), STATUS_COLORS.to_read);
+    assert.equal(colours("status").get("a"), palette().readingStatus.to_read);
   });
 
   it("gives every paper one colour by type", () => {
-    assert.equal(colours("type").get("a"), PAPER_COLOR);
+    assert.equal(colours("type").get("a"), palette().paper);
   });
 
   it("ramps by year and greys papers without one", () => {
     const c = colours("year");
-    assert.equal(c.get("a"), rampColour(0));
-    assert.equal(c.get("b"), rampColour(1));
-    assert.equal(c.get("c"), UNCOLOURED);
+    assert.equal(c.get("a"), ramp(0));
+    assert.equal(c.get("b"), ramp(1));
+    assert.equal(c.get("c"), palette().uncoloured);
   });
 
   it("colours a linked chain as one cluster", () => {
     const c = colours("cluster");
-    assert.equal(c.get("a"), CLUSTER_PALETTE[0]);
-    assert.equal(c.get("c"), CLUSTER_PALETTE[0]);
+    assert.equal(c.get("a"), palette().cluster[0]);
+    assert.equal(c.get("c"), palette().cluster[0]);
   });
 
   it("applies custom groups and greys the rest", () => {
     const c = colours("groups", { colorGroups: [{ query: "paper b", color: "#123456" }] });
     assert.equal(c.get("b"), "#123456");
-    assert.equal(c.get("a"), UNCOLOURED);
+    assert.equal(c.get("a"), palette().uncoloured);
   });
 });

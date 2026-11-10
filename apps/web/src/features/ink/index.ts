@@ -225,7 +225,7 @@ export {
   useToolColours,
   type ToolColourId,
 } from "./ui/use-tool-colours";
-export { strokePath } from "./application/ink-svg";
+export { strokePath } from "@weaveforge/wasm";
 export { InkPrintPreview } from "./ui/ink-print-preview";
 export {
   InkFigures,

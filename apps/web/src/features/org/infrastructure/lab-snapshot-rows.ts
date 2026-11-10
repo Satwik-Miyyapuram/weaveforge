@@ -1,10 +1,7 @@
-import type {
-  LabSnapshot,
-  LabSnapshotContent,
-} from "@weaveforge/core";
+import type { LabSnapshotContent } from "@weaveforge/core";
 
 /**
- * How lab snapshot rows are stored, and how they map to the domain type.
+ * How lab snapshot rows are stored. The mapping to the domain type is in Rust (wf-core).
  *
  * Shared by both backend providers. They talk to the *same* table — one through
  * supabase-js, the other through `pg` — so the column shape and the mapping are
@@ -21,14 +18,3 @@ export interface LabSnapshotRow {
   created_at: string;
 }
 
-export function toDomain(row: LabSnapshotRow): LabSnapshot {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    title: row.title,
-    note: row.note ?? undefined,
-    content: row.content ?? { milestones: [], logs: [] },
-    publishedAt: row.published_at,
-    createdAt: row.created_at,
-  };
-}

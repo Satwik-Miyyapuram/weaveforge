@@ -6,16 +6,18 @@
 
 use std::collections::HashSet;
 
+use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::latex_section_tree::LatexSourceFile;
 use crate::papers::paper::normalize_doi;
 use crate::papers::paper_ref::{extract_doi, normalize_arxiv_id};
+use crate::reader_analysis::lines::js_trim;
 use crate::report::bib_entries::{BibEntry, BibWarning, parse_bib_entries};
 
 /// One paper ready to save, read from one `.bib` entry.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct BibImportPaper {
     /// Plain-text title.
@@ -434,10 +436,124 @@ pub fn plan_bib_import(
     plan
 }
 
+/// The save fields of one planned entry (TS `bibPaperInput`). Absent values serialize as
+/// `undefined`, the TS shape.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BibPaperInput {
+    /// Title.
+    pub title: String,
+    /// Authors.
+    pub authors: Vec<String>,
+    /// Year.
+    pub year: Option<i32>,
+    /// Venue.
+    pub venue: Option<String>,
+    /// Doi.
+    pub doi: Option<String>,
+    /// Arxiv id.
+    pub arxiv_id: Option<String>,
+    /// Url.
+    pub url: Option<String>,
+    /// Abstract text.
+    #[serde(rename = "abstract")]
+    pub abstract_text: Option<String>,
+    /// Bibtex.
+    pub bibtex: String,
+    /// Metadata.
+    pub metadata: BibPaperMetadata,
+}
+
+/// The metadata bag a `.bib` paper is saved with (`metadata.citeKey`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BibPaperMetadata {
+    /// Cite key.
+    pub cite_key: String,
+}
+
+/// The save fields for one planned entry.
+#[must_use]
+pub fn bib_paper_input(entry: &BibImportPaper) -> BibPaperInput {
+    BibPaperInput {
+        title: entry.title.clone(),
+        authors: entry.authors.clone(),
+        year: entry.year,
+        venue: entry.venue.clone(),
+        doi: entry.doi.clone(),
+        arxiv_id: entry.arxiv_id.clone(),
+        url: entry.url.clone(),
+        abstract_text: entry.abstract_text.clone(),
+        bibtex: entry.bibtex.clone(),
+        metadata: BibPaperMetadata {
+            cite_key: entry.citation_key.clone(),
+        },
+    }
+}
+
+/// The citation key a paper was imported or exported with (TS `citeKeyOf`): `metadata.citeKey`
+/// as written, when it is a string that is not blank after JS trim.
+#[must_use]
+pub fn cite_key_of(metadata: Option<&Value>) -> Option<String> {
+    let key = metadata?.get("citeKey")?.as_str()?;
+    (!js_trim(key).is_empty()).then(|| key.to_owned())
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
+
+    #[test]
+    fn bib_paper_input_keeps_fields_and_cite_key() {
+        let entry = BibImportPaper {
+            title: "T".to_owned(),
+            authors: vec!["A B".to_owned()],
+            year: Some(2020),
+            venue: None,
+            doi: None,
+            arxiv_id: None,
+            url: None,
+            citation_key: "k2020".to_owned(),
+            line: 3,
+            abstract_text: None,
+            bibtex: "@misc{k2020}".to_owned(),
+        };
+        let input = bib_paper_input(&entry);
+        assert_eq!(input.year, Some(2020));
+        assert_eq!(input.venue, None);
+        assert_eq!(input.metadata.cite_key, "k2020");
+    }
+
+    #[test]
+    fn bib_paper_input_minimal_object_maps_without_error() {
+        let entry: BibImportPaper =
+            serde_json::from_value(json!({ "citationKey": "k" })).expect("parses");
+        let input = bib_paper_input(&entry);
+        assert_eq!(input.title, "");
+        assert!(input.authors.is_empty());
+        assert_eq!(input.abstract_text, None);
+        assert_eq!(input.metadata.cite_key, "k");
+    }
+
+    #[test]
+    fn cite_key_of_minimal_object_is_none() {
+        assert_eq!(cite_key_of(Some(&json!({}))), None);
+        assert_eq!(cite_key_of(Some(&json!({ "citeKey": null }))), None);
+    }
+
+    #[test]
+    fn cite_key_of_needs_a_non_blank_string() {
+        assert_eq!(
+            cite_key_of(Some(&json!({ "citeKey": " smith " }))).as_deref(),
+            Some(" smith ")
+        );
+        assert_eq!(cite_key_of(Some(&json!({ "citeKey": "  " }))), None);
+        assert_eq!(cite_key_of(Some(&json!({ "citeKey": 7 }))), None);
+        assert_eq!(cite_key_of(None), None);
+    }
 
     /// Zotero "Export Collection… → BibTeX".
     const ZOTERO: &str = r"

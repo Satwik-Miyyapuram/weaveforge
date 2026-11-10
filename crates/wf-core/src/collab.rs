@@ -72,6 +72,16 @@ pub fn same_peers(a: &[Peer], b: &[Peer]) -> bool {
     a == b
 }
 
+/// When a collaborative editor may write its document back over the saved body (TS `shouldPersistBody`).
+///
+/// Never before the CRDT log is replayed and the seed has run, because an empty
+/// document would overwrite a real body. Never when the text is the saved text,
+/// because that would re-save what the server already has.
+#[must_use]
+pub fn should_persist_body(ready: bool, next: &str, last_saved: &str) -> bool {
+    ready && next != last_saved
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;

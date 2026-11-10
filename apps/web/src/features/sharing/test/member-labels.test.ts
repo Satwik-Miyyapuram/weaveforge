@@ -1,8 +1,13 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Member } from "@weaveforge/core";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { buildMemberNameMap } from "../application/member-labels";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const member = (id: string, fullName?: string, email?: string) =>
   ({ id, fullName, email }) as unknown as Member;

@@ -1,8 +1,8 @@
 /**
  * Lasso hit-testing, document search and match stepping (steps 5-2e), re-exported from
  * index.ts. Rust `reader::locate` computes these; the signatures match
- * `packages/core/src/reader/ink-lasso.ts` and `document-search.ts`. `encodeLocus` and
- * `decodeLocus` stay in core (`locus-link.ts`).
+ * `packages/core/src/reader/ink-lasso.ts` (document search was formerly `document-search.ts`). `encodeLocus` and
+ * `decodeLocus` live in `reader-locus.ts` (Rust).
  */
 import {
   pointInPolygon as rawPointInPolygon,

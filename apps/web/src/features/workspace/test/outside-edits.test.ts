@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 import type { ChangeSide, JsonDiffEntry } from "@weaveforge/core";
 import type { ImportAction, ImportDiffEntry } from "@weaveforge/wasm";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   applyOutsideEdits,
@@ -10,6 +11,10 @@ import {
   type FolderDiff,
   type SeenFile,
 } from "../application/outside-edits";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function note(action: ImportAction, path: string, id?: string): ImportDiffEntry {
   return {

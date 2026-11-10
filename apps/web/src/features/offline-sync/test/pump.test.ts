@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { after, describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/outbox";
 import { OutboxPump } from "../domain/pump";
 import { ConflictStore } from "../domain/conflicts";
 import type { OutboxEntry } from "../domain/outbox";
 import type { SendOutcome, SyncTransport } from "../domain/sync-ports";
 import { localSqlDb, type LocalSqlDb } from "./local-sql";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const open: LocalSqlDb[] = [];
 after(async () => {

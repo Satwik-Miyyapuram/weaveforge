@@ -1,11 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { type ICurrentUserProvider, type IMemberRepository, type Member } from "@weaveforge/core";
+import { type ICurrentUserProvider, type IMemberRepository, type Member, type Role } from "@weaveforge/core";
 import { singleFlight } from "@/lib/cache/single-flight";
 import {
   PROFILE_COLUMNS,
   type ProfileRow,
   byName,
-  toDomain,
 } from "./member-rows";
 import { one } from "@/backend/providers/postgrest/row-access";
 import { typedCore } from "@/lib/rust-core";
@@ -20,6 +19,22 @@ import type { CoreContract } from "@weaveforge/core";
  */
 
 const TABLE = "profiles";
+
+/** Rust keeps role as String; the DB check constraint limits it to Role. */
+const toRole = (role: string): Role => role as Role;
+
+const toDomain = (r: ProfileRow): Member => {
+  const m = typedCore().memberRowToDomain(r);
+  return {
+    id: m.id,
+    email: m.email ?? undefined,
+    fullName: m.fullName ?? undefined,
+    role: toRole(m.role),
+    supervisorId: m.supervisorId ?? undefined,
+    orgSetupComplete: m.orgSetupComplete,
+    activeOrgId: m.activeOrgId ?? undefined,
+  };
+};
 
 export class PostgrestMemberRepository implements IMemberRepository {
   constructor(

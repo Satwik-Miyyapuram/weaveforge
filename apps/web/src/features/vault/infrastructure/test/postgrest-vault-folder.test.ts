@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -6,6 +6,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PostgrestVaultPageRepository } from "../postgrest-vault-page-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "@/backend/test/pg-test-db";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** A folder survives the real table (PGlite, migrations applied), as itself. */
 test("a page saved as a folder reads back as one, in full and in the summary", async () => {

@@ -13,32 +13,24 @@ export type WikilinkEntry = CiteLinkEntry;
 
 /**
  * Expand `![[Note]]` transclusions to the target note's body, rendered as a
- * titled callout. One level deep: nested embeds inside the target are dropped
- * so a cycle can't blow the render up.
+ * titled callout (wf-core `vault::page::expand_embeds`). The callback can't
+ * cross into wasm, so each title is resolved here first.
  */
-function expandEmbeds(body: string, resolveEmbed: (title: string) => string | null): string {
-  return body.replace(/!\[\[([^\]\n|#]+)(?:[#|][^\]\n]*)?\]\]/g, (match, rawTitle: string) => {
-    const title = rawTitle.trim();
+function expandBodyEmbeds(body: string, resolveEmbed: (title: string) => string | null): string {
+  const resolved = new Map<string, string>();
+  for (const title of readyCore().embedTitles(body)) {
+    if (resolved.has(title)) continue;
     const inner = resolveEmbed(title);
-    if (inner == null) return match;
-    const oneLevel = inner.replace(/!\[\[[^\]\n]*\]\]/g, "").trim();
-    const quoted = oneLevel
-      ? oneLevel.split("\n").map((line) => `> ${line}`).join("\n")
-      : "> _(empty note)_";
-    return `\n\n> [!note] ${title}\n${quoted}\n\n`;
-  });
+    if (inner != null) resolved.set(title, inner);
+  }
+  return readyCore().expandEmbeds(body, resolved);
 }
 
 const VAULT_ASSETS_BUCKET = "vault-assets";
 
 function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  let next = readyCore().stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
-  for (const path of paths) {
-    if (urls.has(path)) continue;
-    const ref = `${readyCore().VAULT_IMAGE_PREFIX}${path}`;
-    next = next.replace(new RegExp(`!\\[[^\\]]*\\]\\(${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`, "g"), "");
-  }
-  return next;
+  const next = readyCore().stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
+  return readyCore().stripUnresolvedImageRefs(next, readyCore().VAULT_IMAGE_PREFIX, paths, [...urls.keys()]);
 }
 
 /**
@@ -63,7 +55,7 @@ export function VaultMarkdown({
   resolveEmbed?: (title: string) => string | null;
 }) {
   const source = useMemo(
-    () => (resolveEmbed ? expandEmbeds(body, resolveEmbed) : body),
+    () => (resolveEmbed ? expandBodyEmbeds(body, resolveEmbed) : body),
     [body, resolveEmbed],
   );
 

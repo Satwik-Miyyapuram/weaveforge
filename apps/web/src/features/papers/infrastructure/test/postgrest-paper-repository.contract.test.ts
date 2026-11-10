@@ -1,9 +1,15 @@
+import { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runPaperRepositoryContract } from "@weaveforge/core/testing";
 
 import { PostgrestPaperRepository } from "../postgrest-paper-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "@/backend/test/pg-test-db";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * The shared paper contract, run against the adapter the app uses.

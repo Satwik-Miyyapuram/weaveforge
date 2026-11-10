@@ -1,5 +1,5 @@
 /**
- * Deep-link locus (de)serialisation for jump-to-source (`packages/core/src/reader/locus-link.ts`),
+ * Deep-link locus (de)serialisation for jump-to-source (Rust `crates/wf-core/src/reader/locus.rs`),
  * backed by Rust. Re-exported from index.ts.
  */
 import { encodeLocus as rawEncodeLocus, decodeLocus as rawDecodeLocus } from "../pkg/wf_wasm.js";

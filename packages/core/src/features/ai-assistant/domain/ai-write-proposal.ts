@@ -1,5 +1,6 @@
 import type { AiProposalKind } from "./ai-types.js";
 import type { AiEvidence } from "./ai-evidence.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface AiWriteProposal {
   id: string;
@@ -71,8 +72,7 @@ export class AiProposalExecutorRegistry {
 }
 
 export function appendPaperNote(existing: string | undefined, addition: string): string {
-  const next = addition.trim();
-  if (!next) throw new Error("Note addition is required");
-  const current = existing?.trim();
-  return current ? `${current}\n\n${next}` : next;
+  const next = rust().appendPaperNote(existing, addition);
+  if (next === undefined) throw new Error("Note addition is required");
+  return next;
 }

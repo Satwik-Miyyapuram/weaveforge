@@ -13,6 +13,7 @@ import type { TextLine } from "../features/reader/analysis/line-reconstruction.j
 import type { OutlineTextItem, ReaderOutlineItem } from "../features/reader/outline-types.js";
 import type { Row } from "./three-way-merge.js";
 import type { CoreContract } from "./core-contract.js";
+import type { PdfLocus, ResolvedAnchor } from "../reader/anchor-shapes.js";
 import type { FrontmatterValue, ParsedDocument } from "../workspace/frontmatter.js";
 import type { ChangeSide } from "../workspace/change-origin.js";
 import type {
@@ -81,15 +82,20 @@ export interface JsonDiff {
 
 import type { PaperRef } from "../features/papers/application/metadata-source.js";
 import type { HashtagRef } from "../features/papers/domain/paper.js";
-import type { PaperFieldKind, PaperFieldRollupConfig } from "../features/papers/domain/paper-field.js";
+import type { ReadingList, ReadingListItem } from "../features/reading-lists/domain/reading-list.js";
+import type { ScreeningDecision } from "../features/reading-lists/domain/screening.js";
+import type { PaperFieldKind, PaperFieldRollupConfig, PaperFieldValueData } from "../features/papers/domain/paper-field.js";
 import type {
   EuropePmcAnswer,
   OpenAccessCandidate,
 } from "../features/papers/application/open-access.js";
 
 export interface RustCoreFns {
+  /** Sort key for an annotation: page, then character offset, then distance from the page top. */
+  buildAnnotationSortIndex(pageIndex: number, charOffset: number, topPdfUnits: number): string;
   normalizeDoi(doi?: string): string | undefined;
   projectName(name: string): string | undefined;
+  resolveTextAnchor(text: string, locus: PdfLocus): ResolvedAnchor | null;
 
   creatableRoles(creator: string): string[];
   canCreateRole(creator: string, target: string): boolean;
@@ -184,6 +190,8 @@ export interface RustCoreFns {
   vaultPageBase(path: string, content: string): VaultPageBase | null;
   readFrontmatter(content: string): ParsedDocument;
   writeFrontmatter(fields: Record<string, FrontmatterValue | undefined>, body: string): string;
+  frontmatterString(frontmatter: Record<string, FrontmatterValue>, key: string): string | undefined;
+  frontmatterList(frontmatter: Record<string, FrontmatterValue>, key: string): string[];
   parseWorkspaceFolder(files: Readonly<Record<string, string>>): ParsedEntity[];
   diffWorkspace(
     parsed: readonly ParsedEntity[],
@@ -224,6 +232,7 @@ export interface RustCoreFns {
   isPaperFieldKind(value: string): value is PaperFieldKind;
   encodeRollupOptions(config: PaperFieldRollupConfig): string[];
   parseRollupOptions(options: readonly string[]): PaperFieldRollupConfig | null;
+  coercePaperFieldValue(kind: PaperFieldKind, raw: PaperFieldValueData | null | undefined): PaperFieldValueData | null;
   mergeRows(
     base: Record<string, unknown>,
     local: Record<string, unknown>,
@@ -236,6 +245,64 @@ export interface RustCoreFns {
   imagePathsInBody(body: string, prefix: string): string[];
   looksLikeImageUrl(url: string): boolean;
   countWords(text: string): number;
+  preprintServerFor(doi: string): string | undefined;
+  zenodoRecordId(doi: string): string | undefined;
+  normalizeFieldName(raw: string): string;
+  normalizeSelectOptions(raw: readonly string[]): string[];
+  primaryPaperRef(arxivId: string | null | undefined, doi: string | null | undefined): PaperRef | null;
+  appendPaperNote(existing: string | undefined, addition: string): string | undefined;
+  defaultShareLinkExpiresAt(nowMs: number): string;
+  imagesOf(metadata: Record<string, unknown> | null | undefined): string[];
+  proposalApplies(storedUpdatedAt: string | null | undefined, expectedRevision?: string | null): boolean;
+  selectModelProvider(providers: readonly { provider: string; available: boolean }[], selected: string): string;
+  pinnedScreenIndex(input: {
+    resourceType: string;
+    ownedIds: string[];
+    pins: { resourceType: string; resourceId: string; ownerId: string; userId: string }[];
+    shares: { resourceType: string; resourceId: string | null; ownerId: string; access: string }[];
+  }): {
+    extraIds: string[];
+    pinnedSharedBy: { resourceId: string; ownerId: string }[];
+    canComment: { resourceId: string; granted: boolean }[];
+    canEdit: { resourceId: string; granted: boolean }[];
+  };
+  // net (desktop main process)
+  isPrivateHost(hostname: string): boolean;
+  isPublicHttpsUrl(raw: string): boolean;
+  modelCacheUrl(url: string, appHost: string): string | null;
+  cachePathSegments(url: string): string[] | null;
+  isApiHost(url: string): boolean;
+  mayOpenExternally(url: string): boolean;
+  // citation alerts
+  /** The candidate's citation-intent label, or null; the wasm side reads its CitationSignals fields. */
+  citationIntentLabel(candidate: object): string | null;
+  mergeSeenIds(prior: readonly string[], currentIds: readonly string[]): string[];
+  // sidecar (MCP config, home config)
+  isElectronMcpEntry(entry: unknown): boolean;
+  mcpFileOf(env: unknown): string;
+  rewriteMcpConfig(
+    config: unknown,
+    key: "mcpServers" | "servers",
+    launch: { command: string; args: string[]; env: Record<string, string> },
+  ): { changed: boolean; config: unknown };
+  vaultRootFromText(text: string): string | null;
+  /** The checked ink recognition request, or null; the desktop narrows it to its own type. */
+  readInkRequest(request: unknown): unknown;
+  listMembershipByKey(lists: readonly { id: string }[], items: readonly { listId: string; paperId?: string | null; vaultPageId?: string | null }[], key: "paper" | "vaultPage" | "either"): Map<string, Set<string>>;
+  /** The vault-relative path, or throws the refusal message. */
+  safeRelative(candidate: string): string;
+  isLocalZoteroUrl(url: string): boolean;
+  formatLogLine(entry: { at: string; level: string; source: string; message: string; detail?: string }): string;
+  /** The writes for a new item order, or the message that refuses it. */
+  planItemOrder(listId: string, items: readonly ReadingListItem[], orderedIds: readonly string[]): { error?: string | null; writes: { itemId: string; sortOrder: number }[] };
+  /** `listId` and every list below it, deepest first. */
+  deepestFirstListIds(listId: string, lists: readonly ReadingList[]): string[];
+  /** Distinct reviewers of the decisions. */
+  reviewers(decisions: readonly ScreeningDecision[]): string[];
+  gitReason(text: string): string;
+  migratedNotice(raw: string | null): string | null;
+  /** Index of the matching project; throws when none or several match. */
+  pickProject(projects: readonly { id?: string; name: string; dir: string }[], needle: string | null): number;
 }
 
 let core: RustCoreFns | null = null;

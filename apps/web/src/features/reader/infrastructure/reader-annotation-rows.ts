@@ -1,5 +1,6 @@
-import { type CombinedPdfAnchor, type ReaderAnnotation, type ReaderAnnotationType } from "@weaveforge/core";
+import { type ReaderAnnotation, type ReaderAnnotationType } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import type { CombinedPdfAnchor } from "@weaveforge/wasm";
 
 /**
  * How reader annotation rows are stored, and how they map to the domain type.

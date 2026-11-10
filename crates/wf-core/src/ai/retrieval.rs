@@ -5,7 +5,9 @@
 
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::sync::OnceLock;
 
+use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
 use unicode_properties::{GeneralCategoryGroup, UnicodeGeneralCategory};
 
@@ -202,6 +204,32 @@ fn find_units(haystack: &[u16], needle: &[u16]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
+}
+
+/// The `[n]` and `[n, m]` citation markers, compiled once.
+static CITATION_MARKER: OnceLock<Regex> = OnceLock::new();
+
+/// The 1-based source numbers an answer cites with `[n]` or `[n, m]`, in first-citation order,
+/// each once. A number outside `1..=count` names no source and is skipped.
+#[must_use]
+pub fn cited_sources(answer: &str, count: usize) -> Vec<usize> {
+    #[allow(clippy::expect_used, reason = "static regex literal, always valid")]
+    let marker = CITATION_MARKER
+        .get_or_init(|| Regex::new(r"\[([0-9]+(?:\s*,\s*[0-9]+)*)\]").expect("static pattern"));
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for caps in marker.captures_iter(answer) {
+        for part in caps[1].split(',') {
+            let Ok(n) = part.trim().parse::<usize>() else {
+                continue;
+            };
+            if n < 1 || n > count || !seen.insert(n) {
+                continue;
+            }
+            out.push(n);
+        }
+    }
+    out
 }
 
 #[cfg(test)]

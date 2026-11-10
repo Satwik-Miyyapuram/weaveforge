@@ -9,7 +9,7 @@ import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { buildMemberNameMap } from "../application/member-labels";
-import type { TextSpan } from "../domain/text-anchor";
+import type { TextSpan } from "@weaveforge/wasm";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
 import { CommentsBadge } from "./comments-badge";
 import { Button, IconButton } from "@/components/button";

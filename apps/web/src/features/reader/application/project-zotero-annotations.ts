@@ -1,75 +1,16 @@
 /**
  * Project cached Zotero annotations into the single ReaderAnnotation model.
  * Notes (kind === "note") are excluded — they are not page-anchored.
+ * The projection itself lives in Rust (`reader::zotero_projection`).
  */
 
-import { type CombinedPdfAnchor, type ReaderAnnotation } from "@weaveforge/core";
-import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
-import { DEFAULT_ANNOTATION_COLOR } from "./reader-annotation-helpers";
-import { typedCore } from "@/lib/rust-core";
+import type { ReaderAnnotation } from "@weaveforge/core";
+import type { ZoteroAnnotation } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 export function projectZoteroAnnotations(
   annotations: readonly ZoteroAnnotation[],
   options?: { contentHash?: string; now?: string },
 ): ReaderAnnotation[] {
-  const now = options?.now ?? new Date(0).toISOString();
-  const contentHash = options?.contentHash?.trim() || undefined;
-  const out: ReaderAnnotation[] = [];
-
-  for (const ann of annotations) {
-    if (ann.kind === "note") continue;
-    const type = ann.annotationType && typedCore().isReaderAnnotationType(ann.annotationType)
-      ? ann.annotationType
-      : "highlight";
-    const pageIndex = ann.annotationPosition?.pageIndex;
-    const rects = ann.annotationPosition?.rects;
-    const nextPageRects = ann.annotationPosition?.nextPageRects;
-    const paths = ann.annotationPosition?.paths;
-
-    const anchor: CombinedPdfAnchor = {
-      contentHash,
-      zoteroPosition:
-        typeof pageIndex === "number" && pageIndex >= 0
-          ? {
-              pageIndex,
-              ...(rects?.length ? { rects } : {}),
-              ...(nextPageRects?.length ? { nextPageRects } : {}),
-              ...(paths?.length ? { paths } : {}),
-            }
-          : undefined,
-      locus: ann.text?.trim()
-        ? {
-            quote: {
-              type: "TextQuoteSelector",
-              exact: ann.text.trim(),
-            },
-          }
-        : undefined,
-    };
-
-    const sortIndex =
-      ann.annotationSortIndex?.trim() ||
-      typedCore().buildAnnotationSortIndex(
-        typeof pageIndex === "number" ? pageIndex : 0,
-        0,
-        0,
-      );
-
-    out.push({
-      id: ann.key?.trim() || `zotero-${out.length + 1}`,
-      origin: "zotero",
-      zoteroKey: ann.key?.trim() || null,
-      type,
-      color: ann.color?.trim() || DEFAULT_ANNOTATION_COLOR,
-      text: ann.text?.trim() || "",
-      comment: ann.comment?.trim() || "",
-      tags: [...(ann.tags ?? [])],
-      anchor,
-      sortIndex,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  return out.sort((a, b) => a.sortIndex.localeCompare(b.sortIndex));
+  return readyCore().projectZoteroAnnotations(annotations, options) as ReaderAnnotation[];
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import {
   looksLikePdfUrl,
   resolvePaperPdfUrl,
@@ -7,6 +7,9 @@ import {
   sanitizeReaderHref,
   isReaderObjectUrl,
 } from "../application/sanitize-reader-url.js";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("sanitizePdfUrl accepts https only and rejects javascript/data/credentials/http", () => {
   assert.equal(sanitizePdfUrl("https://arxiv.org/pdf/1706.03762"), "https://arxiv.org/pdf/1706.03762");

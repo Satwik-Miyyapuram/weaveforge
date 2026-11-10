@@ -1,5 +1,5 @@
 import type { AppContainer } from "@/container/facades";
-import { screenForPath } from "@/lib/screen-for-path";
+import { readyCore } from "@/lib/rust-core";
 import type { ScreenId } from "@/lib/screens";
 
 /**
@@ -9,7 +9,7 @@ import type { ScreenId } from "@/lib/screens";
  * screen reports its own failure when it is opened.
  */
 export function prefetchScreenForPath(pathname: string): void {
-  const screen = screenForPath(pathname);
+  const screen = readyCore().screenForPath(pathname) as ScreenId | null;
   if (!screen) return;
 
   void import("@/bootstrap")

@@ -1,4 +1,4 @@
-import { shouldPersistBody } from "../domain/save-policy.js";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Writes a collaborative document's text back to its row: debounced while
@@ -70,7 +70,7 @@ export class BodySaver {
   }
 
   private isEdit(body: string): boolean {
-    return shouldPersistBody({ ready: this.ready, next: body, lastSaved: this.lastSaved });
+    return readyCore().shouldPersistBody(this.ready, body, this.lastSaved);
   }
 
   private write(body: string): Promise<boolean> {

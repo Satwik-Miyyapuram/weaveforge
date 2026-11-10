@@ -114,14 +114,11 @@ export class ManagePaperFieldsUseCase {
   ): Promise<PaperFieldValue | null> {
     if (!paperId) throw new PaperFieldValidationError("paperId is required.");
     const def = await this.requireDef(fieldId);
-    if (def.kind === "rollup") {
-      throw new PaperFieldValidationError("Rollup fields are computed and read-only.");
-    }
-    if (raw == null || isEmptyValue(raw)) {
+    const value = checkedValue(def.kind, raw);
+    if (value == null) {
       await this.deps.fields.removeValue(paperId, fieldId);
       return null;
     }
-    const value = coerceValue(def.kind, raw);
     return this.deps.fields.setValue({ paperId, fieldId, value });
   }
 
@@ -149,7 +146,7 @@ export class ManagePaperFieldsUseCase {
 }
 
 function normalizeName(raw: string): string {
-  return raw.trim().replace(/\s+/g, " ");
+  return rust().normalizeFieldName(raw);
 }
 
 function normalizeOptions(
@@ -162,60 +159,15 @@ function normalizeOptions(
     return rust().encodeRollupOptions(rollup);
   }
   if (kind !== "select" && kind !== "multi_select") return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const item of raw ?? []) {
-    const t = item.trim();
-    if (!t) continue;
-    const key = t.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(t);
-  }
-  return out;
+  return rust().normalizeSelectOptions(raw ?? []);
 }
 
-function isEmptyValue(raw: PaperFieldValueData | null): boolean {
-  if (raw == null) return true;
-  if (typeof raw === "string") return raw.trim() === "";
-  if (Array.isArray(raw)) return raw.length === 0;
-  return false;
-}
-
-function coerceValue(kind: PaperFieldKind, raw: PaperFieldValueData): PaperFieldValueData {
-  switch (kind) {
-    case "text":
-    case "select": {
-      if (typeof raw !== "string") {
-        throw new PaperFieldValidationError(`Field kind "${kind}" expects a string.`);
-      }
-      const trimmed = raw.trim();
-      if (!trimmed) throw new PaperFieldValidationError("Value is required.");
-      return trimmed;
-    }
-    case "number": {
-      const n = typeof raw === "number" ? raw : Number(String(raw).trim());
-      if (!Number.isFinite(n)) {
-        throw new PaperFieldValidationError("Value must be a finite number.");
-      }
-      return n;
-    }
-    case "multi_select":
-    case "relation": {
-      if (!Array.isArray(raw) || raw.some((x) => typeof x !== "string")) {
-        throw new PaperFieldValidationError(`${kind} expects a string array.`);
-      }
-      const seen = new Set<string>();
-      const out: string[] = [];
-      for (const item of raw) {
-        const t = item.trim();
-        if (!t || seen.has(t)) continue;
-        seen.add(t);
-        out.push(t);
-      }
-      return out;
-    }
-    case "rollup":
-      throw new PaperFieldValidationError("Rollup fields are computed and read-only.");
+/** The checked value for `kind`, or null to clear it. Refusals become PaperFieldValidationError. */
+function checkedValue(kind: PaperFieldKind, raw: PaperFieldValueData | null): PaperFieldValueData | null {
+  const core = rust();
+  try {
+    return core.coercePaperFieldValue(kind, raw);
+  } catch (error) {
+    throw new PaperFieldValidationError(error instanceof Error ? error.message : String(error));
   }
 }

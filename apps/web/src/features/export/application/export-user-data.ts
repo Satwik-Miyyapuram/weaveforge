@@ -40,12 +40,8 @@ export async function buildExportFiles(
   const root = `weaveforge-export-${date}`;
   const files: Record<string, Uint8Array> = {};
 
-  const manifest = {
-    schemaVersion: 3,
-    exportedAt: snapshot.collectedAt,
-    app: "WeaveForge",
-    encryption: { exportedDecrypted: true, e2eeEnabled: false },
-    stats: {
+  files[`${root}/manifest.json`] = strToU8(
+    readyCore().exportManifestJson(snapshot.collectedAt, {
       notes: counts.notes,
       papers: counts.papers,
       readingLists: counts.readingLists,
@@ -55,27 +51,9 @@ export async function buildExportFiles(
       logEntries: counts.logEntries,
       relations: counts.relations,
       tags: counts.tags,
-    },
-  };
-
-  files[`${root}/manifest.json`] = jsonFile(manifest);
-  files[`${root}/README.txt`] = strToU8(
-    [
-      "WeaveForge data export",
-      `Exported at: ${manifest.exportedAt}`,
-      "",
-      "Layout:",
-      "  manifest.json     — schema + counts",
-      "  notes/pages.json  — vault notes",
-      "  notes/assets/     — embedded note images",
-      "  papers/index.json — papers",
-      "  papers/images/    — paper image attachments",
-      "  reading-lists/, report/, experiments/, plan/, logbook/",
-      "  relations.json, tags.json",
-      "",
-      "Content is plaintext JSON + binary assets.",
-    ].join("\n"),
+    }),
   );
+  files[`${root}/README.txt`] = strToU8(readyCore().exportReadme(snapshot.collectedAt));
 
   files[`${root}/notes/pages.json`] = jsonFile(snapshot.vaultPages);
   files[`${root}/papers/index.json`] = jsonFile(snapshot.papers);
@@ -97,10 +75,8 @@ export async function buildExportFiles(
     const blobs = await assets.fetchVaultAssets([...vaultPaths]);
     for (const [path, blob] of blobs) {
       if (!blob) continue;
-      const name = path.split("/").pop() ?? path;
-      const pageId = path.split("/")[1] ?? "unknown";
       const bytes = new Uint8Array(await blob.arrayBuffer());
-      files[`${root}/notes/assets/${pageId}/${name}`] = bytes;
+      files[readyCore().exportAssetPath(root, "notes/assets", path)] = bytes;
     }
   }
 
@@ -116,10 +92,8 @@ export async function buildExportFiles(
     const blobs = await assets.fetchPaperImages(paperImagePaths);
     for (const [path, blob] of blobs) {
       if (!blob) continue;
-      const name = path.split("/").pop() ?? path;
-      const paperId = path.split("/")[1] ?? "unknown";
       const bytes = new Uint8Array(await blob.arrayBuffer());
-      files[`${root}/papers/images/${paperId}/${name}`] = bytes;
+      files[readyCore().exportAssetPath(root, "papers/images", path)] = bytes;
     }
   }
 

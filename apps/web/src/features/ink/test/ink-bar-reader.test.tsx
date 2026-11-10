@@ -2,7 +2,7 @@
  * The reader draws its chrome with the ink note's own bar: one toolbar, one
  * dock, one set of quick colours. These pin what the reader hands it.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,9 @@ import { INK_RENDER_COLOURS, InkBar, paletteHex, paletteName } from "@/features/
 import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
 import { NibRow } from "../ui/ink-bar";
 import { WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

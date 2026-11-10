@@ -74,33 +74,11 @@ export class ManageReadingListUseCase {
   async reorderItems(listId: string, orderedItemIds: readonly string[]): Promise<void> {
     if (!listId) throw new ReadingListValidationError("listId is required.");
     const items = await this.deps.items.listItems(listId);
-    if (orderedItemIds.length !== items.length) {
-      throw new ReadingListValidationError(
-        `orderedItemIds must include every item in list ${listId}.`,
-      );
-    }
-    const seen = new Set<string>();
-    for (const id of orderedItemIds) {
-      if (seen.has(id)) {
-        throw new ReadingListValidationError(
-          `orderedItemIds contains duplicates for list ${listId}.`,
-        );
-      }
-      seen.add(id);
-    }
-    for (const item of items) {
-      if (!seen.has(item.id)) {
-        throw new ReadingListValidationError(
-          `orderedItemIds is missing item ${item.id} for list ${listId}.`,
-        );
-      }
-    }
+    const plan = rust().planItemOrder(listId, items, orderedItemIds);
+    if (plan.error) throw new ReadingListValidationError(plan.error);
     const byId = new Map(items.map((i) => [i.id, i]));
-    for (let i = 0; i < orderedItemIds.length; i++) {
-      const itemId = orderedItemIds[i]!;
-      const item = byId.get(itemId);
-      if (!item || item.sortOrder === i) continue;
-      await this.deps.items.add({ ...item, sortOrder: i });
+    for (const write of plan.writes) {
+      await this.deps.items.add({ ...byId.get(write.itemId)!, sortOrder: write.sortOrder });
     }
   }
 
@@ -121,11 +99,7 @@ export class ManageReadingListUseCase {
 
     // One read of the lists; the tree is walked in memory.
     const all = await this.deps.lists.list();
-    const deepestFirst = (id: string): string[] => [
-      ...all.filter((l) => l.parentId === id).flatMap((child) => deepestFirst(child.id)),
-      id,
-    ];
-    for (const id of deepestFirst(listId)) {
+    for (const id of rust().deepestFirstListIds(listId, all)) {
       for (const item of await this.deps.items.listItems(id)) {
         await this.deps.items.remove(item.id);
       }

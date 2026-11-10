@@ -1,5 +1,6 @@
 import type { SearchKind } from "@weaveforge/core";
 import type { WorkspaceSearchFn } from "@/lib/hooks/use-search-index";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Apply the ranked index to a screen's list while keeping entities the index
@@ -34,23 +35,12 @@ export function rankedFilter<T>({
 
   const hits = search(trimmed, { kinds, limit: 500 });
 
-  const rank = new Map<string, number>();
-  hits.forEach((hit, position) => {
-    if (!rank.has(hit.entityId)) rank.set(hit.entityId, position);
-  });
-
-  const lower = trimmed.toLowerCase();
-  const matches = items.filter((item) => {
-    if (rank.has(idOf(item))) return true;
-    // Unindexed (shared/pinned) items keep the previous substring behaviour.
-    return fallbackText(item).toLowerCase().includes(lower);
-  });
-
-  // Ranked items first in score order; unindexed matches keep their list order
-  // after them, so a shared note never jumps above a genuinely better match.
-  const UNRANKED = Number.MAX_SAFE_INTEGER;
-  return matches
-    .map((item, position) => ({ item, position, score: rank.get(idOf(item)) ?? UNRANKED }))
-    .sort((a, b) => a.score - b.score || a.position - b.position)
-    .map((entry) => entry.item);
+  // Matching, ranking and the unindexed fallback live in Rust (`rank_filter`).
+  // Ranked items first; unindexed matches keep their list order after them.
+  const order = readyCore().rankFilterOrder(
+    trimmed,
+    hits.map((hit) => hit.entityId),
+    items.map((item) => ({ id: idOf(item), fallbackText: fallbackText(item) })),
+  );
+  return order.map((index: number) => items[index] as T);
 }

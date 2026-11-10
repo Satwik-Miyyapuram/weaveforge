@@ -1,4 +1,4 @@
-import type { TextSelectionRange } from "@weaveforge/core";
+import type { TextSelectionRange } from "@weaveforge/wasm";
 
 export interface ItemTextOffset {
   itemIndex: number;

@@ -15,7 +15,6 @@ import {
 import { readyCore } from "@/lib/rust-core";
 
 import { picturePath } from "./reader-picture";
-import { normalizeHighlightRects } from "./normalize-highlight-rects";
 
 interface AnnotationBox {
   id: string;
@@ -165,7 +164,7 @@ export function projectPageAnnotationGeometry(
     // a single box and are left alone.
     const textMark = ann.type === "highlight" || ann.type === "underline";
     for (const stored of rectSets) {
-      const rects = textMark ? normalizeHighlightRects(stored.filter(isRect)) : stored;
+      const rects = textMark ? readyCore().normalizeHighlightRects(stored.filter(isRect)) : stored;
       for (const rect of rects) {
         if (!isRect(rect)) continue;
         const box = readyCore().pdfRectToScreenBox(rect as [number, number, number, number], projection);

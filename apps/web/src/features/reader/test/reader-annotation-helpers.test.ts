@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import {
   annotationPinKey,
@@ -8,6 +8,9 @@ import {
   optimisticAnnotationFromDraft,
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers.js";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("annotationPinKey prefers zoteroKey", () => {
   assert.equal(annotationPinKey({ id: "local-1", zoteroKey: "ABCD1234" }), "ABCD1234");

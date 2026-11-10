@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import type { ReadingList, ReadingListItem, ReadingListTreeNode } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { loadSubtreeItems } from "../application/subtree-items";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * 36-08: every rendered list node fetched its own items, so a tree of N lists
@@ -10,7 +15,7 @@ import { loadSubtreeItems } from "../application/subtree-items";
  */
 
 const node = (id: string, children: ReadingListTreeNode[] = []): ReadingListTreeNode => ({
-  list: { id, name: id } as ReadingList,
+  list: { id, name: id, sortOrder: 0, createdAt: "2026-01-01T00:00:00.000Z" } as ReadingList,
   children,
 });
 const item = (id: string, listId: string, sortOrder: number): ReadingListItem =>

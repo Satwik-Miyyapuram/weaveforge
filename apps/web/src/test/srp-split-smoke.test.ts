@@ -26,7 +26,6 @@ const MOVED: Record<string, string[]> = {
   "../features/report/ui/section-card": ["SectionCard"],
   "../features/report/ui/report-section-tree": ["progressOf", "collectSectionIds", "patchSectionInTree"],
   "../features/report/ui/overleaf-report-forms": ["EditOverleafReportForm", "LinkOverleafForm"],
-  "../features/relations/application/graph-timeline": ["timelineLaneX"],
   "../features/relations/ui/use-graph-canvas-size": ["useGraphCanvasSize"],
   "../features/relations/ui/use-graph-hover": ["useGraphHover"],
 };

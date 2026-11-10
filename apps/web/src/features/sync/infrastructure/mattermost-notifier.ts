@@ -1,4 +1,3 @@
-import { enumLabel } from "@/lib/enum-label";
 import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { readyCore } from "@/lib/rust-core";
@@ -49,41 +48,33 @@ export class MattermostNotifier {
 
 /** Channel message for a milestone event (add / status change). */
 export function milestoneMessage(event: "added" | "status", m: Milestone): string {
-  const head =
-    event === "added"
-      ? `:new: Milestone added: **${m.title}**`
-      : `:arrows_counterclockwise: Milestone **${m.title}** → \`${enumLabel("milestoneStatus", m.status)}\``;
-  const lines = [head];
-  if (m.targetDate) lines.push(`Target: ${m.targetDate}`);
-  if (m.compute.length > 0) {
-    const c = m.compute
-      .map((x) => [x.count, x.resource, x.hours != null ? `~${x.hours}h` : null].filter(Boolean).join(" "))
-      .join(", ");
-    lines.push(`Compute: ${c}`);
-  }
-  if (m.dependencies.length > 0) lines.push(`Depends on ${m.dependencies.length} item(s)`);
-  return lines.join("\n");
+  return readyCore().milestoneMessage({
+    event,
+    title: m.title,
+    status: m.status,
+    targetDate: m.targetDate ?? null,
+    compute: m.compute.map((x) => ({
+      resource: x.resource,
+      count: x.count ?? null,
+      hours: x.hours != null ? String(x.hours) : null,
+    })),
+    dependencyCount: m.dependencies.length,
+  });
 }
 
 export function citationAlertMessage(tracked: Paper, citing: CitationCandidate[]): string {
-  const lines = [
-    `:bell: **${citing.length} new citation${citing.length === 1 ? "" : "s"}** for **${tracked.title}**`,
-  ];
-  for (const paper of citing.slice(0, 10)) {
-    const title = paper.url ? `[${paper.title}](${paper.url})` : paper.title;
-    const year = paper.year ? ` (${paper.year})` : "";
-    const cites =
-      typeof paper.citationCount === "number"
-        ? ` · ${paper.citationCount.toLocaleString()} citations`
-        : "";
-    lines.push(`- ${title}${year}${cites}`);
-  }
-  if (citing.length > 10) lines.push(`- …and ${citing.length - 10} more`);
-  return lines.join("\n");
+  return readyCore().citationAlertMessage({
+    trackedTitle: tracked.title,
+    citing: citing.map((paper) => ({
+      title: paper.title,
+      url: paper.url ?? null,
+      year: paper.year ?? null,
+      citationsLabel:
+        typeof paper.citationCount === "number" ? paper.citationCount.toLocaleString() : null,
+    })),
+  });
 }
 
 export function logEntryMessage(e: LogEntry): string {
-  const head = e.kind === "weekly" ? `:spiral_calendar_pad: **Weekly log — ${e.entryDate}**` : `:memo: **Daily log — ${e.entryDate}**`;
-  return `${head}
-${e.body}`;
+  return readyCore().logEntryMessage({ kind: e.kind, entryDate: e.entryDate, body: e.body });
 }

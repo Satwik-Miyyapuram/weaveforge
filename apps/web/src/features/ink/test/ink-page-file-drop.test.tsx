@@ -3,13 +3,16 @@
  * DA-114). The live canvas covers the sheet, so the drop lands on the canvas:
  * the handler has to sit on something the canvas is inside.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement, createRef } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
 import { InkPage } from "../ui/ink-page";
 import type { InkPageProps } from "../ui/ink-page-props";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= { requestAnimationFrame: () => 0, cancelAnimationFrame() {} };

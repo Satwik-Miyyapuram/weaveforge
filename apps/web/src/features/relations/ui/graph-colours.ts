@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NODE_COLOR_KEYS, type GraphViewSettings, type NodeColorKey } from "@weaveforge/core";
-import { EXPERIMENT_COLOR, NOTE_COLOR, PAPER_COLOR, READING_STATUS_COLORS, REPORT_COLOR } from "../domain/graph-palette";
+import { readyCore } from "@/lib/rust-core";
 import { readStampStyle, type StampStyle } from "./graph-stamp";
 
 /**
@@ -15,13 +15,16 @@ import { readStampStyle, type StampStyle } from "./graph-stamp";
  * node it names. Shapes are not in here on purpose: they mean the same thing
  * in every theme.
  */
-export const CLASSIC_NODE_COLORS: Record<NodeColorKey, string> = {
-  paper: PAPER_COLOR,
-  ...READING_STATUS_COLORS,
-  note: NOTE_COLOR,
-  report: REPORT_COLOR,
-  experiment: EXPERIMENT_COLOR,
-};
+export function classicNodeColors(): Record<NodeColorKey, string> {
+  const palette = readyCore().graphPalette();
+  return {
+    paper: palette.paper,
+    ...palette.readingStatus,
+    note: palette.note,
+    report: palette.report,
+    experiment: palette.experiment,
+  } as Record<NodeColorKey, string>;
+}
 
 const THEME_VARS: Record<NodeColorKey, string> = {
   paper: "--chip-reading",
@@ -58,11 +61,12 @@ function resolve(settings: Pick<GraphViewSettings, "nodePalette" | "nodeColors">
   const css = typeof document === "undefined" ? null : getComputedStyle(document.documentElement);
   const byKey = {} as Record<NodeColorKey, string>;
   const fills = new Map<string, string>();
+  const classic = classicNodeColors();
   for (const key of NODE_COLOR_KEYS) {
     const themed = settings.nodePalette === "theme" ? css?.getPropertyValue(THEME_VARS[key]).trim() : "";
-    const colour = settings.nodeColors[key] ?? (themed || CLASSIC_NODE_COLORS[key]);
+    const colour = settings.nodeColors[key] ?? (themed || classic[key]);
     byKey[key] = colour;
-    fills.set(CLASSIC_NODE_COLORS[key], colour);
+    fills.set(classic[key], colour);
   }
   return { byKey, fills, stamp: readStampStyle() };
 }

@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ForwardRequest, ForwardResponse } from "@overleaf-ide";
-import { rootFolderIdOf, uploadOverleafText } from "../infrastructure/overleaf-upload";
+import { readyCore } from "@/lib/rust-core";
+import { uploadOverleafText } from "../infrastructure/overleaf-upload";
 
 const json = (status: number, body: unknown): ForwardResponse => ({
   status,
@@ -54,6 +55,7 @@ test("a dropped connection is an error, not a throw", async () => {
 });
 
 test("the root folder comes from Overleaf's join answer", () => {
+  const rootFolderIdOf = readyCore().rootFolderIdOf;
   assert.equal(rootFolderIdOf([{ project: { rootFolder: [{ _id: "r1" }] }, permissionsLevel: "owner" }]), "r1");
   assert.equal(rootFolderIdOf([null, { project: { rootFolder: [{ _id: "r2" }] } }]), "r2");
   assert.equal(rootFolderIdOf([{ project: {} }]), null);
@@ -61,5 +63,5 @@ test("the root folder comes from Overleaf's join answer", () => {
 });
 
 test("a read-only join gives no folder to write to", () => {
-  assert.equal(rootFolderIdOf([{ project: { rootFolder: [{ _id: "r1" }] }, permissionsLevel: "readOnly" }]), null);
+  assert.equal(readyCore().rootFolderIdOf([{ project: { rootFolder: [{ _id: "r1" }] }, permissionsLevel: "readOnly" }]), null);
 });

@@ -15,7 +15,8 @@
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
 
 import { MenuItemButton } from "@/components/controls";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { readyCore } from "@/lib/rust-core";
+import { isMacPlatform } from "@/lib/shortcut-label";
 
 export const FOLD_STAGES = [
   "zoom",
@@ -154,7 +155,7 @@ export function FoldedItems({
         {has("find") ? (
           <MenuItemButton disabled={!onFind} onClick={onFind ? choose(onFind) : undefined}>
             <span>Find</span>
-            <kbd>{shortcutLabel("⌘F")}</kbd>
+            <kbd>{readyCore().shortcutLabel("⌘F", isMacPlatform())}</kbd>
           </MenuItemButton>
         ) : null}
         {has("insert") ? (

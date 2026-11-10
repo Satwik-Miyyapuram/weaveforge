@@ -8,10 +8,8 @@ import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
 import { persistSearchIndex } from "../infrastructure/index-cache-policy";
 import { SearchIndexState } from "./search-index-state";
-import { diffRefresh } from "./refresh-diff";
 import { projectSearchDocuments } from "./search-projection";
 import { pruneMissingPaperTexts } from "./pdf-text-pruning";
-import { collapseToEntities, distinctRelated } from "./collapse-to-entities";
 import { typedCore } from "@/lib/rust-core";
 
 /**
@@ -25,7 +23,7 @@ import { typedCore } from "@/lib/rust-core";
  * also used to hold live beside it now: the projection
  * (`search-projection.ts`), the extracted-text pruning (`pdf-text-pruning.ts`),
  * the fields and their transitions (`search-index-state.ts`), and the
- * related-document helper (`collapse-to-entities.ts`).
+ * related-document helper (`search-result-dedupe.ts`, in wf-wasm).
  */
 /** Most documents the vector arm may add to one answer. */
 const SEMANTIC_MAX_HITS = 30;
@@ -125,7 +123,7 @@ export class WorkspaceSearch {
     const docs = this.projectDocuments(snapshot);
     const revision = core.searchRevision(docs);
     // PDF pages are never refreshed this way (see search-index-state.ts).
-    this.prints = diffRefresh(new Map(), [], docs.filter((doc) => doc.kind !== "pdf")).prints;
+    this.prints = readyCore().diffRefreshPlan(new Map(), [], docs.filter((doc) => doc.kind !== "pdf")).prints;
     const cached = await idbGetSearchIndex(projectId);
     if (cached) {
       const restored = createMiniSearchIndexFactory(core).load(cached, revision);
@@ -229,7 +227,7 @@ export class WorkspaceSearch {
     // it, and would otherwise keep answering queries.
     // Only what changed is re-tokenized: an edit to one note leaves the rest.
     const before = index.idsOfKind(kinds);
-    const diff = diffRefresh(this.prints, before, fresh);
+    const diff = readyCore().diffRefreshPlan(this.prints, before, fresh);
     index.remove(diff.remove);
     index.add(diff.add);
     this.prints = diff.prints;
@@ -410,14 +408,14 @@ export class WorkspaceSearch {
       lexical: (id, max) => {
         const seed = index.hitById(id);
         if (!seed) return [];
-        return collapseToEntities(
+        return readyCore().collapseToEntities(
           index.search(seed.title, { limit: max * 8 }),
           seed,
           (hit) => index.hitById(`paper:${hit.entityId}`)?.id ?? null,
         ).slice(0, max);
       },
     }, limit * 2);
-    return distinctRelated(found, (id) => index.hitById(id), limit, seedId);
+    return readyCore().distinctRelated(found, (id) => index.hitById(id), limit, seedId);
   }
 
   /**
@@ -454,7 +452,7 @@ export class WorkspaceSearch {
       const doc = index.hitById(hit.id);
       return doc ? [{ ...doc, score: hit.score }] : [];
     });
-    const vector = collapseToEntities(hits, seed, (hit) => index.hitById(`paper:${hit.entityId}`)?.id ?? null);
+    const vector = readyCore().collapseToEntities(hits, seed, (hit) => index.hitById(`paper:${hit.entityId}`)?.id ?? null);
     if (vector.length === 0) return base;
 
     const baseArm = new Map(base.map((hit) => [hit.id, hit.arm]));
@@ -468,7 +466,7 @@ export class WorkspaceSearch {
       if (similarity !== undefined) arms.push("semantic");
       return { id: hit.id, score: hit.score, arm: arms[0] ?? "semantic", arms, similarity };
     });
-    return distinctRelated(results, (id) => index.hitById(id), limit, seedId, (kept, dropped) => {
+    return readyCore().distinctRelated(results, (id) => index.hitById(id), limit, seedId, (kept, dropped) => {
       for (const arm of dropped.arms) if (!kept.arms.includes(arm)) kept.arms.push(arm);
       if (dropped.similarity !== undefined && (kept.similarity ?? -1) < dropped.similarity) kept.similarity = dropped.similarity;
     });

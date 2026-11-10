@@ -1,5 +1,5 @@
 /**
- * Text-selection anchors and text-item rects (`packages/core/src/reader/selection-to-anchor.ts`),
+ * Text-selection anchors and text-item rects (formerly `packages/core/src/reader/selection-to-anchor.ts`),
  * backed by Rust. Offsets are UTF-16 code units, as in the TS copy. Re-exported from index.ts.
  */
 import {

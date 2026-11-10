@@ -52,11 +52,10 @@ export function projectSyncDescriptorsForConfig(config: IntegrationConfig): Proj
   return visible;
 }
 
+/** The hint text lives in the Rust core (`integrations::shared_provider_hint`). */
 export function sharedProviderHint(
   descriptor: ProjectSyncDescriptor,
   all: readonly ProjectSyncDescriptor[],
 ): string | undefined {
-  const siblings = all.filter((d) => d.provider === descriptor.provider && d.id !== descriptor.id);
-  if (siblings.length === 0) return undefined;
-  return `Uses the same stored credentials as “${siblings[0]?.title}”.`;
+  return readyCore().sharedProviderHint(descriptor, all) ?? undefined;
 }

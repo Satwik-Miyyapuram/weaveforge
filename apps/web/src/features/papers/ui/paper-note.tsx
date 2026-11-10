@@ -39,7 +39,6 @@ import { highlightsDigest } from "../application/reading-digest";
 import { showToast } from "@/lib/toast";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage, usePaperPreview } from "./paper-first-page";
-import { previewReaderHref } from "../application/paper-preview";
 import { StatusSelect, statusLabel } from "@/components/status-select";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
@@ -139,7 +138,7 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const hasSummary = !readyCore().isEmptyPaperSummary(paper.summary);
+  const hasSummary = useMemo(() => !readyCore().isEmptyPaperSummary(paper.summary), [paper.summary]);
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
@@ -153,7 +152,12 @@ export function PaperNote({
     return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
   }, [paper.id, paper.url, paper.arxivId, paper.pdfPath, paper.metadata]);
   // A PDF added from disk or a saved web page has no web link, but the reader opens it.
-  const readerHref = previewReaderHref(remoteReaderHref, preview, buildLocusLink({ paperId: paper.id }));
+  const readerHref = useMemo(
+    () => readyCore().previewReaderHref(remoteReaderHref, preview, buildLocusLink({ paperId: paper.id })),
+    [remoteReaderHref, preview, paper.id],
+  );
+  const displayTitle = useMemo(() => readyCore().titleFromFileName(paper.title), [paper.title]);
+  const summaryIsInk = useMemo(() => readyCore().isInkNoteBody(paper.summary ?? ""), [paper.summary]);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -419,7 +423,7 @@ export function PaperNote({
       </nav>
 
       <header className="record-head" onContextMenu={openMenu}>
-        <h1 className="record-title">{readyCore().titleFromFileName(paper.title)}</h1>
+        <h1 className="record-title">{displayTitle}</h1>
         {paper.authors.length > 0 && (
           <p className="record-by">
             {paper.authors.slice(0, 6).join(", ")}
@@ -464,7 +468,7 @@ export function PaperNote({
                 className={
                   mode !== "read"
                     ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
-                    : readyCore().isInkNoteBody(paper.summary ?? "")
+                    : summaryIsInk
                       ? "record-note-read record-note-read--ink"
                       : "record-note-read"
                 }

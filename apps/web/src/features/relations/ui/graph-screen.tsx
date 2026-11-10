@@ -12,7 +12,7 @@ import { useProject } from "@/features/projects";
 import { AddEdgeForm } from "./add-edge-form";
 import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
-import type { GNode } from "../application/build-graph-data";
+import type { GNode } from "@weaveforge/wasm";
 import { graphTagNames, notesTagged } from "../application/graph-tags";
 import { SettingsIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
@@ -22,7 +22,7 @@ import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
 import { useHiddenKeys } from "@/lib/toast";
 import { relationKey } from "./remove-relation";
-import { experimentHref } from "@/features/experiments";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -174,7 +174,7 @@ export function GraphScreen() {
      * the view they come back to.
      */
     if (node.kind === "experiment") {
-      router.push(experimentHref(node.experimentId ?? node.id));
+      router.push(readyCore().experimentHref(node.experimentId ?? node.id, isOfflineBuild()));
       return;
     }
     if (node.kind === "report" || node.sectionId) {

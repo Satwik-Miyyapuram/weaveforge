@@ -26,14 +26,6 @@ export interface ImportVault {
  */
 const NOTE_ADD_CONCURRENCY = 4;
 
-/** Folder segments between the picked root and the file (drops root + filename). */
-function folderSegments(relativePath: string): string[] {
-  const normalized = relativePath.replace(/\\/g, "/");
-  const parts = normalized.split("/").filter(Boolean);
-  // webkitdirectory paths include the root folder name as the first segment.
-  return parts.slice(1, -1);
-}
-
 function relativePathOf(file: File): string {
   return (file.webkitRelativePath || file.name).replace(/\\/g, "/");
 }
@@ -52,30 +44,6 @@ async function expandZip(file: File): Promise<File[]> {
     out.push(f);
   }
   return out;
-}
-
-/**
- * Rewrite `[[OldTitle]]` / `[[OldTitle|…]]` / `[[OldTitle#…]]` to the new title
- * when import auto-suffixed a colliding name.
- */
-function rewriteWikilinks(body: string, renames: Map<string, string>): string {
-  if (renames.size === 0) return body;
-  return body.replace(/\[\[([^\[\]\n]+?)\]\]/g, (raw, inner: string) => {
-    const pipe = inner.indexOf("|");
-    const link = (pipe === -1 ? inner : inner.slice(0, pipe)).trim();
-    const alias = pipe === -1 ? "" : inner.slice(pipe);
-    const hash = link.indexOf("#");
-    const target = (hash === -1 ? link : link.slice(0, hash)).trim();
-    const rest = hash === -1 ? "" : link.slice(hash);
-    const next = renames.get(readyCore().normalizeTitleKey(target));
-    if (!next) return raw;
-    return `[[${next}${rest}${alias}]]`;
-  });
-}
-
-/** A file the notes import reads: markdown, or a .zip of it. */
-export function isNoteImportFile(name: string): boolean {
-  return /\.(md|zip)$/i.test(name);
 }
 
 /**
@@ -108,13 +76,8 @@ export async function importNotesFromFiles(
 
   // Create a note for every folder that holds (or leads to) an .md file, parents
   // first, so children can reference their parent id.
-  const folderKeys = new Set<string>();
-  for (const f of mdFiles) {
-    const segs = folderSegments(relativePathOf(f));
-    for (let i = 1; i <= segs.length; i += 1) folderKeys.add(segs.slice(0, i).join("/"));
-  }
   const folderIds = new Map<string, string>();
-  const orderedFolders = [...folderKeys].sort((a, b) => a.split("/").length - b.split("/").length);
+  const orderedFolders = readyCore().folderKeys(mdFiles.map(relativePathOf));
   for (const key of orderedFolders) {
     const segs = key.split("/");
     const base = segs[segs.length - 1]!;
@@ -145,7 +108,7 @@ export async function importNotesFromFiles(
     planned.push({
       file: f,
       title,
-      parentKey: folderSegments(relativePathOf(f)).join("/"),
+      parentKey: readyCore().folderKey(relativePathOf(f)),
       raw,
     });
   }
@@ -156,7 +119,7 @@ export async function importNotesFromFiles(
   await mapLimit(planned, NOTE_ADD_CONCURRENCY, async (item) => {
     const { body, tags } = readyCore().stripFrontmatter(item.raw);
     const withTags = tags.length ? `${body.trimEnd()}\n\n${tags.map((t) => `#${t}`).join(" ")}\n` : body;
-    const rewritten = rewriteWikilinks(withTags, renameMap);
+    const rewritten = readyCore().rewriteWikilinks(withTags, renameMap);
     await vault.manageVaultPage.add({
       title: item.title,
       body: rewritten,

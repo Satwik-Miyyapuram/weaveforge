@@ -1,6 +1,7 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   appendCardPair,
   closeLayoutGaps,
@@ -17,6 +18,10 @@ import {
   mergeRglPositions,
   lgLayoutNeedsRepair,
 } from "../application/dashboard-layout";
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("compactLayoutVertical", () => {
   it("removes vertical gaps", () => {

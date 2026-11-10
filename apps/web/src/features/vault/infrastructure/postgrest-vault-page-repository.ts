@@ -1,14 +1,17 @@
 import { type IVaultPageRepository, type VaultPage, type VaultPageFilter, type VaultPageTreeNode } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
-import {
-  type VaultPageRow,
-  toDomain,
-  toSummaryDomain,
-  toRow,
-} from "./vault-page-rows";
-import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
+import type { VaultPageRow, VaultPageWriteRow } from "@weaveforge/wasm";
+import { inChunks, one, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 import { typedCore } from "@/lib/rust-core";
+
+// Row mapping runs in the Rust core (wf-core `vault::page_row`).
+// Bindings type absent optional fields as `null`; the domain says `undefined`. The
+// cast only retypes the Rust output, so runtime values (incl. `null`) are unchanged and
+// `"bodyPreview" in page` still tells the projections apart.
+const toDomain = (row: VaultPageRow): VaultPage => typedCore().vaultPageToDomain(timestampsAsText(row)) as unknown as VaultPage;
+const toSummaryDomain = (row: VaultPageRow): VaultPage => typedCore().vaultPageToSummaryDomain(timestampsAsText(row)) as unknown as VaultPage;
+const toRow = (page: VaultPage) => typedCore().vaultPageToRow(page);
 
 /**
  * The columns a VaultPageRow is read as, named rather than starred.
@@ -134,8 +137,9 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
 
   async save(entity: VaultPage): Promise<void> {
     const row = toRow(entity);
-    if (this.pid) row.project_id = this.pid;
-    await run(this.db.from(TABLE).upsert(row));
+    // The write row has no project_id; it is added only for a project-scoped repository.
+    const payload: VaultPageWriteRow & { project_id?: string } = this.pid ? { ...row, project_id: this.pid } : row;
+    await run(this.db.from(TABLE).upsert(payload));
   }
 
   async delete(id: string): Promise<void> {

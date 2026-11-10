@@ -1,5 +1,5 @@
 import { type NewReaderAnnotation, type ReaderAnnotation } from "@weaveforge/core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Pin / quotation-type key: Zotero key when present, else local id. */
 export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">): string {
@@ -86,17 +86,13 @@ export interface PagePress {
   time: number;
 }
 
-const TAP_SLOP_PX = 6;
-const TAP_MAX_MS = 400;
-
 /**
  * A short press that barely moved, off an open create bar: it dismisses the bar
  * and the words under it. A touch tap leaves the selection in place, so without
  * this the release reads the old words and raises the bar again.
  */
 export function isDismissTap(down: PagePress | null, up: PagePress, barOpen: boolean): boolean {
-  if (!barOpen || !down) return false;
-  return Math.hypot(up.x - down.x, up.y - down.y) <= TAP_SLOP_PX && up.time - down.time <= TAP_MAX_MS;
+  return readyCore().isDismissTap(down, up, barOpen);
 }
 
 /**
@@ -123,10 +119,8 @@ export type ReaderCreateTool =
   | "image"
   | "text";
 
-const READER_INK_TOOLS = new Set<ReaderCreateTool>(["ink", "highlighter"]);
-
 export function isInkTool(tool: ReaderCreateTool): boolean {
-  return READER_INK_TOOLS.has(tool);
+  return readyCore().isInkTool(tool);
 }
 
 /**
@@ -137,5 +131,5 @@ export function isInkTool(tool: ReaderCreateTool): boolean {
  * mean "the page is the tool's surface, not the text's".
  */
 export function toolOwnsThePage(tool: ReaderCreateTool): boolean {
-  return tool !== "select";
+  return readyCore().toolOwnsThePage(tool);
 }

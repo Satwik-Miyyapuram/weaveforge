@@ -1,0 +1,93 @@
+//! Extraction-table rules for JavaScript (wf-core `reading_lists::extraction_table`). The TS
+//! wrappers in `packages/wf-wasm/src/reading-lists-extraction.ts` apply the types.
+
+use serde::de::DeserializeOwned;
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsError, JsValue};
+use wf_core::papers::compute_rollup::RollupValue;
+use wf_core::reading_lists::extraction_table::{
+    ExtractionFieldDef, ExtractionProposal, ExtractionRow, ProposeFillInput,
+    build_propose_fill_prompt, empty_cell_paper_ids, extraction_csv, extraction_markdown,
+    paper_value_rows, pending_field_fills,
+};
+
+use super::to_js;
+
+fn parse<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
+    serde_wasm_bindgen::from_value(value).map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// [`paper_value_rows`]: each listed paper's stored and rollup values, in list order.
+#[wasm_bindgen(js_name = extractionValueRows)]
+pub fn extraction_value_rows_js(
+    paper_ids: JsValue,
+    values: JsValue,
+    defs: JsValue,
+) -> Result<JsValue, JsError> {
+    let paper_ids: Vec<String> = parse(paper_ids)?;
+    let values: Vec<RollupValue> = parse(values)?;
+    let defs: Vec<ExtractionFieldDef> = parse(defs)?;
+    let rows = paper_value_rows(&paper_ids, &values, &defs);
+    to_js(&rows).map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// [`extraction_markdown`]: the table as a Markdown table.
+#[wasm_bindgen(js_name = extractionMarkdown)]
+pub fn extraction_markdown_js(
+    rows: JsValue,
+    defs: JsValue,
+    columns: JsValue,
+) -> Result<String, JsError> {
+    let rows: Vec<ExtractionRow> = parse(rows)?;
+    let defs: Vec<ExtractionFieldDef> = parse(defs)?;
+    let columns: Vec<String> = parse(columns)?;
+    Ok(extraction_markdown(&rows, &defs, &columns))
+}
+
+/// [`extraction_csv`]: the table as CSV, with a header line.
+#[wasm_bindgen(js_name = extractionCsv)]
+pub fn extraction_csv_js(
+    rows: JsValue,
+    defs: JsValue,
+    columns: JsValue,
+) -> Result<String, JsError> {
+    let rows: Vec<ExtractionRow> = parse(rows)?;
+    let defs: Vec<ExtractionFieldDef> = parse(defs)?;
+    let columns: Vec<String> = parse(columns)?;
+    Ok(extraction_csv(&rows, &defs, &columns))
+}
+
+/// [`empty_cell_paper_ids`]: the papers whose cell for `field_id` is empty and not pending.
+#[wasm_bindgen(js_name = emptyCellPaperIds)]
+pub fn empty_cell_paper_ids_js(
+    rows: JsValue,
+    field_id: &str,
+    pending_paper_ids: JsValue,
+) -> Result<JsValue, JsError> {
+    let rows: Vec<ExtractionRow> = parse(rows)?;
+    let pending: Vec<String> = parse(pending_paper_ids)?;
+    let ids = empty_cell_paper_ids(&rows, field_id, &pending);
+    to_js(&ids).map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// [`build_propose_fill_prompt`]: the prompt that asks the AI to fill one column.
+#[wasm_bindgen(js_name = buildProposeFillPrompt)]
+pub fn build_propose_fill_prompt_js(input: JsValue) -> Result<String, JsError> {
+    let input: ProposeFillInput = parse(input)?;
+    Ok(build_propose_fill_prompt(&input))
+}
+
+/// [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
+#[wasm_bindgen(js_name = pendingFieldFills)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm-bindgen takes an optional string by value from JS"
+)]
+pub fn pending_field_fills_js(
+    proposals: JsValue,
+    field_id: Option<String>,
+) -> Result<JsValue, JsError> {
+    let proposals: Vec<ExtractionProposal> = parse(proposals)?;
+    let fills = pending_field_fills(&proposals, field_id.as_deref());
+    to_js(&fills).map_err(|error| JsError::new(&error.to_string()))
+}

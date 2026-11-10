@@ -5,7 +5,7 @@
  * workspace meant six 60 fps loops doing nothing. A stroke still gets its
  * samples to the worker once per frame; between strokes no frame is requested.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
@@ -14,6 +14,9 @@ import {
   usePenCapture,
   type PenCaptureHandle,
 } from "../application/use-pen-capture";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

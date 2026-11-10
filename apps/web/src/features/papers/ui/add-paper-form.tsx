@@ -1,10 +1,9 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useRef, useState } from "react";
 import { PAPER_STATUSES, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import type { PaperRef as WasmPaperRef } from "@weaveforge/wasm";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
@@ -195,7 +194,7 @@ export function AddPaperForm({
           >
             {PAPER_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {enumLabel("paperStatus", s)}
+                {readyCore().enumLabel("paperStatus", s)}
               </option>
             ))}
           </Select>

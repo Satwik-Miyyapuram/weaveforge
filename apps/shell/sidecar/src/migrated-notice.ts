@@ -1,20 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { rust } from "@weaveforge/core";
+
 /** File the new (Tauri) app writes into this data dir once it has copied it (phase-2-desktop.md, step 2.5). */
 export const MIGRATED_MARKER = "migrated";
 
 /** The warning for a data dir the new app has copied, or null when it never did. */
 export function migratedNotice(userData: string): string | null {
-  let raw: string;
+  let raw: string | null;
   try {
     raw = fs.readFileSync(path.join(userData, MIGRATED_MARKER), "utf8");
   } catch (error) {
     // Any read error still means the marker is there; only a missing file means no notice.
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    raw = "";
+    raw = (error as NodeJS.ErrnoException).code === "ENOENT" ? null : "";
   }
-  return `Your WeaveForge data was copied to the new WeaveForge app${whenOf(raw)}. Changes you make in this version stay here and do not reach the new app, so use the new app instead.`;
+  return rust().migratedNotice(raw);
 }
 
 /**
@@ -35,15 +36,4 @@ export async function showMigratedNotice(
     // A dialog that cannot open must not stop the app from starting.
   }
   return true;
-}
-
-/** " on <date>" from the marker's `at`, or "" when the marker is not the JSON the new app writes. */
-function whenOf(raw: string): string {
-  try {
-    const at = (JSON.parse(raw) as { at?: unknown }).at;
-    if (typeof at !== "string" || Number.isNaN(Date.parse(at))) return "";
-    return ` on ${at.slice(0, 10)}`;
-  } catch {
-    return "";
-  }
 }

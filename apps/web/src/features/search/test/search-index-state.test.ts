@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import type { IWorkspaceSearchIndex, SearchDoc, WorkspaceSnapshot } from "@weaveforge/core";
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
-import { SearchIndexState, KINDS_FOR_RESOURCE } from "../application/search-index-state";
+import { SearchIndexState } from "../application/search-index-state";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 import { projectSearchDocuments } from "../application/search-projection";
 
 /**
@@ -75,8 +81,8 @@ test("every mapped resource type names kinds the index knows", () => {
   // The mapping is the policy, so a typo in it is a write that silently never
   // refreshes anything — no error, just an edit the search cannot see.
   const known = new Set(["paper", "note", "annotation", "pdf", "list", "section", "experiment", "milestone", "log"]);
-  for (const [resourceType, kinds] of Object.entries(KINDS_FOR_RESOURCE)) {
-    for (const kind of kinds ?? []) {
+  for (const resourceType of readyCore().resourceTypes()) {
+    for (const kind of readyCore().kindsForResource(resourceType) ?? []) {
       assert.ok(known.has(kind), `${resourceType} names a search kind that does not exist: ${kind}`);
     }
   }

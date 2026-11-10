@@ -198,6 +198,31 @@ pub fn clean_pmcid(raw: Option<&str>) -> Option<String> {
     valid.then_some(with_prefix)
 }
 
+/// bioRxiv's DOI prefix `10.1101`, then the suffix. medRxiv shares the prefix, so the caller tries both.
+static BIORXIV_DOI: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"^10\.1101/[A-Za-z0-9_.-]+$").ok());
+
+/// Zenodo's DOI form `10.5281/zenodo.<digits>`, case-insensitive, with the digits captured.
+static ZENODO_DOI: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"(?i)^10\.5281/zenodo\.([0-9]+)$").ok());
+
+/// The preprint server that owns a DOI: `Some("biorxiv")` for a `10.1101` DOI, else `None`.
+#[must_use]
+pub fn preprint_server_for(doi: &str) -> Option<&'static str> {
+    let pattern = BIORXIV_DOI.as_ref()?;
+    pattern.is_match(doi).then_some("biorxiv")
+}
+
+/// The Zenodo record id in a `10.5281/zenodo.<id>` DOI, or `None`.
+#[must_use]
+pub fn zenodo_record_id(doi: &str) -> Option<String> {
+    let pattern = ZENODO_DOI.as_ref()?;
+    pattern
+        .captures(doi)?
+        .get(1)
+        .map(|digits| digits.as_str().to_owned())
+}
+
 /// The copies the caller already knows: the PDF it has and the page it has, both from the paper itself.
 #[must_use]
 pub fn known_candidates(
@@ -590,6 +615,23 @@ mod tests {
 
     fn pairs(list: &[OpenAccessCandidate]) -> Vec<(OpenAccessFormat, &str)> {
         list.iter().map(|c| (c.format, c.url.as_str())).collect()
+    }
+
+    #[test]
+    fn preprint_and_zenodo_dois_by_registrant() {
+        assert_eq!(
+            preprint_server_for("10.1101/2020.01.01.123456"),
+            Some("biorxiv")
+        );
+        assert_eq!(preprint_server_for("10.1101/"), None);
+        assert_eq!(preprint_server_for("10.1000/x"), None);
+        assert_eq!(
+            zenodo_record_id("10.5281/zenodo.123"),
+            Some("123".to_owned())
+        );
+        assert_eq!(zenodo_record_id("10.5281/ZENODO.7"), Some("7".to_owned()));
+        assert_eq!(zenodo_record_id("10.5281/zenodo."), None);
+        assert_eq!(zenodo_record_id("10.5281/zenodo.12a"), None);
     }
 
     #[test]

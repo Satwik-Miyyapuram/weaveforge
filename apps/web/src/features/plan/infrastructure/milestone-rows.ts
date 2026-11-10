@@ -4,6 +4,7 @@ import type {
   MilestoneDependency,
   MilestoneStatus,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How a milestone is stored, and how it maps to and from the domain type.
@@ -36,28 +37,30 @@ export interface MilestoneRow {
  */
 export const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
 
+/**
+ * The wasm mapper returns the bindings Milestone, whose optional fields are
+ * typed `?: T | null` (serde emits null). The domain type wants `?: T`, so
+ * each nullable field is mapped `?? undefined`.
+ */
 export function milestoneToDomain(r: MilestoneRow): Milestone {
-  return {
-    id: r.id,
-    title: r.title,
-    description: r.description ?? undefined,
-    status: r.status,
-    targetDate: r.target_date ?? undefined,
-    dependencies: r.dependencies ?? [],
-    compute: r.compute ?? [],
-    createdAt: r.created_at,
-  };
-}
-
-export function milestoneToRow(m: Milestone): Record<string, unknown> {
+  const m = readyCore().milestoneFromRow(r);
   return {
     id: m.id,
     title: m.title,
-    description: m.description ?? null,
+    description: m.description ?? undefined,
     status: m.status,
-    target_date: m.targetDate ?? null,
-    dependencies: m.dependencies,
-    compute: m.compute,
-    created_at: m.createdAt,
+    targetDate: m.targetDate ?? undefined,
+    dependencies: m.dependencies.map(withoutNulls),
+    compute: m.compute.map(withoutNulls),
+    createdAt: m.createdAt,
   };
+}
+
+/** The object with its null fields left out, as the stored JSON had them absent. */
+function withoutNulls<T extends object>(o: T): { [K in keyof T]: Exclude<T[K], null> } {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as { [K in keyof T]: Exclude<T[K], null> };
+}
+
+export function milestoneToRow(m: Milestone): Record<string, unknown> {
+  return readyCore().milestoneToRow(m);
 }

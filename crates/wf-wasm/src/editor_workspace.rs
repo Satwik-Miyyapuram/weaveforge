@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::editor_workspace::keybindings::{self as keys, KeyChord};
+use wf_core::editor_workspace::layout_record;
 use wf_core::editor_workspace::pane_tree::{
     self as pane, DocumentMode, PaneCommand, PaneLayout, PaneLeaf, PaneNode, PaneSplit,
     SplitDirection, TabMenuCommand, TabRef,
@@ -156,6 +157,18 @@ pub fn tab_key_js(tab: JsValue) -> JsResult<String> {
 #[wasm_bindgen(js_name = emptyLayout)]
 pub fn empty_layout_js(pane_id: &str) -> JsResult<JsValue> {
     to_js(&pane::empty_layout(pane_id))
+}
+
+/// [`layout_from_record`](layout_record::layout_from_record). A missing or
+/// unusable record is one empty pane, so this never fails on content.
+///
+/// # Errors
+///
+/// Never fails in practice; returns the serializer's result type.
+#[wasm_bindgen(js_name = layoutFromRecord)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
+pub fn layout_from_record_js(raw: Option<String>) -> JsResult<JsValue> {
+    to_js(&layout_record::layout_from_record(raw.as_deref()))
 }
 
 /// [`leaves`](pane::leaves). Returns owned copies of the leaves.

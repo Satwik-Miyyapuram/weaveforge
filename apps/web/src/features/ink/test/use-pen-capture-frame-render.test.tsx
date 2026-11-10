@@ -6,12 +6,15 @@
  * ink sheet, whose effects posted to the worker again: a render every
  * animation frame, which made switching tabs slow.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 
 import { usePenCapture, type InkWorkerLike } from "../application/use-pen-capture";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= {

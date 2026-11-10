@@ -12,10 +12,7 @@ import type { AiRetrievalFns } from "./../features/ai-assistant/domain/ai-retrie
 import type { MarkdownImageFns } from "./markdown-image.js";
 import type { ModelConceptFns } from "./../features/ai-assistant/domain/model-concept-extractor.js";
 import type { DashboardStatsFns } from "./../features/dashboard/domain/dashboard-stats.js";
-import type { AiSettingsFns } from "./../features/ai-assistant/domain/ai-settings.js";
 import type { AiTypesFns } from "./../features/ai-assistant/domain/ai-types.js";
-import type { AnchorResolutionFns } from "./../reader/anchor-resolution.js";
-import type { AnchorStrategyFns } from "./../reader/anchor-strategy.js";
 import type { BibEntriesFns } from "./../features/report/domain/bib-entries.js";
 import type { BibliographyReportFns } from "./../features/report/domain/bibliography-report.js";
 import type { CitationsFns } from "./../features/reader/analysis/citations.js";
@@ -28,7 +25,6 @@ import type { DecodeFns } from "./../ink/decode.js";
 import type { FigureFns } from "./../ink/figure.js";
 import type { RecogniseFns } from "./../ink/recognise.js";
 import type { InkChunkFns } from "./../ink/ink-binary.js";
-import type { DocumentSearchFns } from "./../reader/document-search.js";
 import type { DownsampleMetricsFns } from "./../features/experiments/domain/downsample-metrics.js";
 import type { ExperimentFns } from "./../features/experiments/domain/experiment.js";
 import type { FolderLayoutFns } from "./../workspace/folder-layout.js";
@@ -45,7 +41,6 @@ import type { LabSnapshotFns } from "./../features/org/domain/lab-snapshot.js";
 import type { LatexSectionTreeFns } from "./../features/report/domain/latex-section-tree.js";
 import type { LineReconstructionFns } from "./../features/reader/analysis/line-reconstruction.js";
 import type { LinkCitationsFns } from "./../features/reader/link-citations.js";
-import type { LocusLinkFns } from "./../reader/locus-link.js";
 import type { LogEntryFns } from "./../features/logbook/domain/log-entry.js";
 import type { MarkdownToLatexFns } from "./../features/report/domain/markdown-to-latex.js";
 import type { MemberFns } from "./../features/org/domain/member.js";
@@ -60,7 +55,6 @@ import type { PrivacyDisclaimerFns } from "./../features/settings/domain/privacy
 import type { ProjectPathFns } from "./../features/report/domain/project-path.js";
 import type { ReaderAnnotationFns } from "./../reader/reader-annotation.js";
 import type { ReaderKeyboardFns } from "./../reader/reader-keyboard.js";
-import type { ReaderViewportFns } from "./../reader/reader-viewport.js";
 import type { ReadingListFns } from "./../features/reading-lists/domain/reading-list.js";
 import type { RelatedFns } from "./../search/related.js";
 import type { ReportSectionFns } from "./../features/report/domain/report-section.js";
@@ -69,12 +63,10 @@ import type { SearchAcronymsFns } from "./../search/search-acronyms.js";
 import type { SearchSettingsFns } from "./../search/search-settings.js";
 import type { SearchTuningFns } from "./../search/search-tuning.js";
 import type { SegmentFns } from "./../ink/segment.js";
-import type { SelectionToAnchorFns } from "./../reader/selection-to-anchor.js";
 import type { DatesFns } from "./dates.js";
 import type { ShareFns } from "./../features/sharing/domain/share.js";
 import type { ShareLinkTokenFns } from "./../features/sharing/domain/share-link-token.js";
 import type { SmoothFns } from "./../ink/smooth.js";
-import type { SortIndexFns } from "./../reader/sort-index.js";
 import type { TextChunksFns } from "./../search/text-chunks.js";
 import type { TextFingerprintFns } from "./../features/reader/text-fingerprint.js";
 import type { TextFns } from "./text.js";
@@ -84,12 +76,10 @@ import type { TitleSimilarityFns } from "./../features/reader/title-similarity.j
 import type { UntrustedContextFns } from "./../features/ai-assistant/domain/untrusted-context.js";
 import type { UrlSafetyFns } from "./../net/url-safety.js";
 import type { UserAppearanceFns } from "./../features/settings/domain/user-appearance.js";
-import type { UserIntegrationCredentialsFns } from "./../features/settings/domain/user-integration-credentials.js";
 import type { UserSettingsFns } from "./../features/settings/domain/user-settings.js";
 import type { VaultPageFns } from "./../features/vault/domain/vault-page.js";
 import type { WidthFns } from "./../ink/width.js";
 import type { WikiGraphFns } from "./../search/wiki-graph.js";
-import type { WikiIndexFns } from "./../features/ai-assistant/domain/wiki-index.js";
 import type { WikiLintFns } from "./../features/ai-assistant/domain/wiki-lint.js";
 import type { WikiMergeFns } from "./../features/ai-assistant/domain/wiki-merge.js";
 import type { WorkspacePathFns } from "./../workspace/fs-port.js";
@@ -104,10 +94,7 @@ export interface CoreContract
     MarkdownImageFns,
     ModelConceptFns,
     DashboardStatsFns,
-    AiSettingsFns,
     AiTypesFns,
-    AnchorResolutionFns,
-    AnchorStrategyFns,
     BibEntriesFns,
     BibliographyReportFns,
     CitationsFns,
@@ -120,7 +107,6 @@ export interface CoreContract
     FigureFns,
     InkChunkFns,
     RecogniseFns,
-    DocumentSearchFns,
     DownsampleMetricsFns,
     ExperimentFns,
     FolderLayoutFns,
@@ -137,7 +123,6 @@ export interface CoreContract
     LatexSectionTreeFns,
     LineReconstructionFns,
     LinkCitationsFns,
-    LocusLinkFns,
     LogEntryFns,
     MarkdownToLatexFns,
     MemberFns,
@@ -152,7 +137,6 @@ export interface CoreContract
     ProjectPathFns,
     ReaderAnnotationFns,
     ReaderKeyboardFns,
-    ReaderViewportFns,
     ReadingListFns,
     RelatedFns,
     ReportSectionFns,
@@ -161,12 +145,10 @@ export interface CoreContract
     SearchSettingsFns,
     SearchTuningFns,
     SegmentFns,
-    SelectionToAnchorFns,
     ShareFns,
     DatesFns,
     ShareLinkTokenFns,
     SmoothFns,
-    SortIndexFns,
     TextChunksFns,
     TextFingerprintFns,
     TextFns,
@@ -176,12 +158,10 @@ export interface CoreContract
     UntrustedContextFns,
     UrlSafetyFns,
     UserAppearanceFns,
-    UserIntegrationCredentialsFns,
     UserSettingsFns,
     VaultPageFns,
     WidthFns,
     WikiGraphFns,
-    WikiIndexFns,
     WikiLintFns,
     WikiMergeFns,
     WorkspacePathFns,

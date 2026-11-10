@@ -14,7 +14,8 @@
  * test runner all get `null`, which is the fallback path and a no-op trail.
  */
 
-import { INK_A4_WIDTH, type InkColour } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { type InkColour } from "@weaveforge/core";
 
 import {
   INK_RENDER_COLOURS,
@@ -82,8 +83,7 @@ export async function requestInkPresenter(
  * where the tail meets the dry ink.
  */
 export function trailDiameterPx(width: number, pageWidthPx: number): number {
-  if (!(width > 0) || !(pageWidthPx > 0)) return 1;
-  return Math.max(1, (width / INK_A4_WIDTH) * pageWidthPx);
+  return readyCore().trailDiameterPx(width, pageWidthPx);
 }
 
 /** The trail's colour for a palette name: the renderer's own sRGB, as CSS. */

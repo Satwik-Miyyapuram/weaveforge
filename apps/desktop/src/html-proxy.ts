@@ -3,9 +3,9 @@ import {
   HTML_PROXY_MAX_BYTES,
   HTML_PROXY_PATH,
   htmlRelayResponse,
-  isHtmlContentType,
 } from "@/features/reader/application/paper-html-rules";
 import { readCapped } from "@/lib/read-capped";
+import { readyCore } from "@/lib/rust-core";
 import { fetchCheckedHops, isPublicHttpsUrl, refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 /**
@@ -46,7 +46,7 @@ export async function proxyHtml(requestUrl: string, fetchFn: ProxyFetch = fetch)
   const finalUrl = fetched.url;
   if (!upstream.ok) return refuse(502, `Upstream returned ${upstream.status}`);
   const type = upstream.headers.get("content-type");
-  if (!isHtmlContentType(type)) return refuse(415, "Upstream did not return a web page");
+  if (!readyCore().isHtmlContentType(type)) return refuse(415, "Upstream did not return a web page");
   const declared = Number(upstream.headers.get("content-length") ?? "0");
   if (declared > HTML_PROXY_MAX_BYTES) return refuse(413, "Page too large");
 

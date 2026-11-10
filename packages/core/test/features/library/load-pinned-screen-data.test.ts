@@ -25,7 +25,7 @@ interface Item {
 const item = (id: string, title = `Item ${id}`): Item => ({ id, title });
 
 function pin(resourceType: LibraryPin["resourceType"], resourceId: string): LibraryPin {
-  return { id: `pin-${resourceId}`, projectId: "proj", resourceType, resourceId, ownerId: "alice" };
+  return { id: `pin-${resourceId}`, projectId: "proj", resourceType, resourceId, ownerId: "alice", userId: "me", createdAt: "2026-01-01T00:00:00.000Z" };
 }
 
 function share(resourceType: Share["resourceType"], resourceId: string): Share {

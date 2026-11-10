@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/back-button";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { PdfLocus, ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderAnnotation } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";

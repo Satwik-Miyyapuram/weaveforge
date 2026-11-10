@@ -41,7 +41,7 @@ export class CreateShareLinkUseCase {
       expiresAt:
         input.expiresAt !== undefined
           ? input.expiresAt
-          : defaultShareLinkExpiresAt(this.deps.clock.nowIso),
+          : defaultShareLinkExpiresAt(Date.parse(this.deps.clock.nowIso())),
       dekWrap: null,
       dekEpoch: null,
     });

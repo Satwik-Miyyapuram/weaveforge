@@ -259,105 +259,16 @@ export type {
   CitationSignals,
 } from "./bindings.js";
 export { init, initSync };
-export * from "./ink.js";
-export * from "./ink-chunk.js";
-export * from "./ink-lines.js";
-export * from "./integration-config.js";
-export * from "./storage-config.js";
-export * from "./ink-note.js";
-export * from "./reader-anchor.js";
-export * from "./reader-annotation.js";
-export * from "./reader-ink-stroke.js";
-export * from "./reader-locate.js";
-export * from "./reader-analysis-lines.js";
-export * from "./reader-analysis-text.js";
-export * from "./reader-locus.js";
-export * from "./reader-selection.js";
-export * from "./reader-viewport.js";
-export * from "./reader-zotero-sync.js";
-export * from "./reader-analysis-bibliography.js";
-export * from "./reader-analysis-citations.js";
-export * from "./reader-analysis-document.js";
-export * from "./reader-analysis-outline.js";
-export * from "./reader-analysis-structure.js";
-export * from "./reader-annotation-backlinks.js";
-export * from "./reader-github-repo-path.js";
-export * from "./reader-pdf-source-ladder.js";
-export * from "./papers-bib-import.js";
-export * from "./papers-field-value.js";
-export * from "./papers-compute-rollup.js";
-export * from "./papers-library-tidy.js";
-export * from "./papers-merge.js";
-export * from "./papers-open-access.js";
-export * from "./papers-paper-title.js";
-export * from "./papers-records.js";
-export * from "./papers-zotero-mapping.js";
-export * from "./papers-metadata-mapping.js";
-export * from "./papers-text.js";
-export * from "./report-bib-entries.js";
-export * from "./report-cite-key.js";
-export * from "./report-markdown-to-latex.js";
-export * from "./report-records.js";
-export * from "./screening-records.js";
-export * from "./graph-settings.js";
-export * from "./graph-tags.js";
-export * from "./node-colouring.js";
-export * from "./repo-web-url.js";
-export * from "./vault-page.js";
-export * from "./experiment-status.js";
-export * from "./projects.js";
-export * from "./lab-snapshot.js";
-export * from "./untrusted-context.js";
-export * from "./wiki-index.js";
-export * from "./dashboard-layout.js";
-export * from "./theme-config.js";
-export * from "./user-appearance.js";
-export * from "./ai-access-policy.js";
-export * from "./log-entry.js";
-export * from "./milestone.js";
-export * from "./plan-feed.js";
-export * from "./figure.js";
-export * from "./citation-alerts.js";
-export * from "./citation-alert-track.js";
-export * from "./relations-local-graph.js";
-export * from "./sync-sql-ident.js";
-export * from "./sync-conflict-deletion.js";
-export * from "./auth-transition.js";
-export * from "./org.js";
-export * from "./paper-relation.js";
-export * from "./reader-ink-undo.js";
-export * from "./reading-list.js";
-export * from "./search-acronyms.js";
-export * from "./search-related.js";
-export * from "./search-settings.js";
-export * from "./sharing.js";
-export * from "./ai-mcp-result.js";
-export * from "./hybrid-fusion.js";
-export * from "./personalized-pagerank.js";
-export * from "./reader-link-citations.js";
-export * from "./search-tuning.js";
-export * from "./search-history.js";
-export * from "./search-retry.js";
-export * from "./search-embedding.js";
-export * from "./search-document.js";
-export * from "./vector-index.js";
+export * from "./feature-wrappers.js";
 export type { AnnotationSource } from "./bindings.js";
-export * from "./text-chunks.js";
-export * from "./url-safety.js";
-export * from "./user-integration-credentials.js";
-export * from "./wiki-graph.js";
-export * from "./wiki-merge.js";
-export * from "./user-settings.js";
-export * from "./workspace-tree.js";
-export * from "./pane-tree.js";
-export * from "./tab-groups.js";
-export * from "./document-stats.js";
-export * from "./paste-text.js";
-export * from "./error-report.js";
-export * from "./markdown-images.js";
-export * from "./mermaid-labels.js";
-export * from "./workspace-folder.js";
-export * from "./command-palette.js";
+export type {
+  AnnotationQuotationTypeRow,
+  PaperFieldDefRow,
+  PaperFieldValueRow,
+  PaperRow,
+  PlanFeedUrls,
+  PlanTimeline,
+} from "./bindings.js";
 
 /** Facts about this core build, such as its version. */
 export function coreInfo(): CoreInfo {
@@ -760,30 +671,3 @@ export function cardSnippet(body: string, max = 180): string {
   checkIndexText(body);
   return rawCardSnippet(body, max);
 }
-
-export * from "./core-extra.js";
-export * from "./metrics-overleaf.js";
-export * from "./leaf-ports.js";
-export * from "./ai-model-concepts.js";
-export * from "./ai-retrieval.js";
-export * from "./batch-annotation-ops.js";
-export * from "./clip-to-area.js";
-export * from "./dashboard-packing.js";
-export * from "./dashboard-stats.js";
-export * from "./experiment-artifacts.js";
-export * from "./explorer-window.js";
-export * from "./graph-topology.js";
-export * from "./hit-test.js";
-export * from "./integration-fields.js";
-export * from "./mattermost-options.js";
-export * from "./merge-reader-annotations.js";
-export * from "./overleaf-text-ot.js";
-export * from "./page-background.js";
-export * from "./pdf-cache-eviction.js";
-export * from "./pdf-pages.js";
-export * from "./proposal-preview.js";
-export * from "./reader-split.js";
-export * from "./sync-pglite-sql.js";
-export * from "./vault-template.js";
-export * from "./vector-codec.js";
-export * from "./vocab-match.js";

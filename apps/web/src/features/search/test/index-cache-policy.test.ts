@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import {
   WEB_CACHE_DOCUMENT_LIMIT,
   isInstalledApp,
   persistSearchIndex,
   shouldPersistIndex,
 } from "@/features/search/infrastructure/index-cache-policy";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 type Surface = { displayMode?: string; iosStandalone?: boolean; referrer?: string } | null;
 

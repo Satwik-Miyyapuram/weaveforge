@@ -4,7 +4,8 @@ import type {
   ExperimentPatch,
   IExperimentRepository,
 } from "@weaveforge/core";
-import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";
+import type { ExperimentRow } from "./experiment-rows";
+import { typedCore } from "@/lib/rust-core";
 import { deleteRowById, inChunks, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
@@ -17,6 +18,12 @@ import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-
 const EXPERIMENT_COLUMNS = "id,name,hypothesis,status,repo_url,commit_sha,branch,run_command,config,metrics,artifacts,result_note,started_at,finished_at,related_paper,created_at";
 
 const TABLE = "experiments";
+
+// The wasm mapper returns the Rust `Experiment` (domain fields); its generated binding type is a status subset, hence the cast.
+const experimentToDomain = (r: ExperimentRow): Experiment => typedCore().experimentRowToDomain(r) as unknown as Experiment;
+const experimentToRow = (e: Experiment) => typedCore().experimentToRow(e);
+/** Required fields of a whole experiment, for a patch to be mapped through the row mapper. */
+const PATCH_FILLER = { id: "", name: "", status: "planned", config: {}, metrics: {}, artifacts: [], createdAt: "" };
 
 export class PostgrestExperimentRepository extends ProjectRepository implements IExperimentRepository {
 
@@ -44,8 +51,7 @@ export class PostgrestExperimentRepository extends ProjectRepository implements 
     return needle ? all.filter((e) => e.name.toLowerCase().includes(needle)) : all;
   }
   async save(entity: Experiment): Promise<void> {
-    const row = experimentToRow(entity);
-    if (this.pid) row.project_id = this.pid;
+    const row = { ...experimentToRow(entity), ...(this.pid ? { project_id: this.pid } : {}) };
     await run(this.db.from(TABLE).upsert(row));
   }
   /**
@@ -55,7 +61,10 @@ export class PostgrestExperimentRepository extends ProjectRepository implements 
   async patch(id: string, fields: ExperimentPatch): Promise<void> {
     const keys = Object.keys(fields);
     if (keys.length === 0) return;
-    const full = experimentToRow(fields as Experiment);
+    // The row mapper takes a whole experiment; the filler supplies the fields a
+    // patch leaves out. Only the patch's own keys are copied below, so it never
+    // reaches the row.
+    const full: Record<string, unknown> = { ...experimentToRow({ ...PATCH_FILLER, ...fields } as Experiment) };
     const row: Record<string, unknown> = {};
     for (const key of keys) {
       const column = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);

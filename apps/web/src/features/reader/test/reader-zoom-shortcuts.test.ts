@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   READER_MIN_SCALE,
   READER_MAX_SCALE,
-} from "@weaveforge/core";
+} from "@weaveforge/wasm";
 import { typedCore } from "@/lib/rust-core";
 
 test("readerKeyboardCommand handles zoom in shortcuts", () => {

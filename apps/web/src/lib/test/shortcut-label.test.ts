@@ -1,30 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { keyLabel, shortcutLabel } from "../shortcut-label";
+import { readyCore } from "@/lib/rust-core";
 
 test("Windows and Linux read Ctrl, Shift and Alt, joined with + (E29)", () => {
-  assert.equal(shortcutLabel("⌘⇧F", false), "Ctrl+Shift+F");
-  assert.equal(shortcutLabel("⌘Z", false), "Ctrl+Z");
-  assert.equal(shortcutLabel("⌘⇧⇥", false), "Ctrl+Shift+Tab");
-  assert.equal(shortcutLabel("⌥⌘\\", false), "Alt+Ctrl+\\");
-  assert.equal(shortcutLabel("⌃C", false), "Ctrl+C");
+  assert.equal(readyCore().shortcutLabel("⌘⇧F", false), "Ctrl+Shift+F");
+  assert.equal(readyCore().shortcutLabel("⌘Z", false), "Ctrl+Z");
+  assert.equal(readyCore().shortcutLabel("⌘⇧⇥", false), "Ctrl+Shift+Tab");
+  assert.equal(readyCore().shortcutLabel("⌥⌘\\", false), "Alt+Ctrl+\\");
+  assert.equal(readyCore().shortcutLabel("⌃C", false), "Ctrl+C");
 });
 
 test("a function key is one cap, with or without modifiers", () => {
-  assert.equal(shortcutLabel("F11", false), "F11");
-  assert.equal(shortcutLabel("F2", false), "F2");
-  assert.equal(shortcutLabel("⌘⇧F2", false), "Ctrl+Shift+F2");
+  assert.equal(readyCore().shortcutLabel("F11", false), "F11");
+  assert.equal(readyCore().shortcutLabel("F2", false), "F2");
+  assert.equal(readyCore().shortcutLabel("⌘⇧F2", false), "Ctrl+Shift+F2");
 });
 
 test("a Mac keeps its glyphs", () => {
-  assert.equal(shortcutLabel("⌘⇧F", true), "⌘⇧F");
-  assert.equal(keyLabel("⌘", true), "⌘");
+  assert.equal(readyCore().shortcutLabel("⌘⇧F", true), "⌘⇧F");
+  assert.equal(readyCore().keyLabel("⌘", true), "⌘");
 });
 
 test("one keycap reads as a word off a Mac", () => {
-  assert.equal(keyLabel("⌘", false), "Ctrl");
-  assert.equal(keyLabel("⇧", false), "Shift");
-  assert.equal(keyLabel("⇥", false), "Tab");
-  assert.equal(keyLabel("P", false), "P");
+  assert.equal(readyCore().keyLabel("⌘", false), "Ctrl");
+  assert.equal(readyCore().keyLabel("⇧", false), "Shift");
+  assert.equal(readyCore().keyLabel("⇥", false), "Tab");
+  assert.equal(readyCore().keyLabel("P", false), "P");
 });

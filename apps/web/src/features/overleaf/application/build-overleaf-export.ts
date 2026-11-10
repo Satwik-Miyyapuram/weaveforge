@@ -4,7 +4,6 @@ import { PRISMA_FIGURE_PACKAGES } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 import { buildCiteByTitle, collectCitedKeys, joinBibtex, paperToBibtex } from "./bibtex-export";
 import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
 
 export interface OverleafExportOptions {
   /** Document title for `\title{}`. */
@@ -66,8 +65,6 @@ export interface OverleafExportResult {
   };
 }
 
-const SECTION_CMD = ["chapter", "section", "subsection", "subsubsection"] as const;
-
 /**
  * Cite keys live in core now, because the bibliography check needs the same
  * answers this export writes. Re-exported here so callers that already import
@@ -75,13 +72,6 @@ const SECTION_CMD = ["chapter", "section", "subsection", "subsubsection"] as con
  */
 export { collectCitedKeys };
 export type { CitationFormat };
-
-/** Throw unless `path` is a plain relative ZIP entry name: no `..`, no leading `/`, no `\`. */
-export function assertSafeExportPath(path: string): void {
-  if (path.includes("..") || path.startsWith("/") || path.includes("\\")) {
-    throw new Error(`Refusing unsafe export path: ${path}`);
-  }
-}
 
 /**
  * The export's files with `manifest.json` rewritten for figures whose blobs
@@ -93,78 +83,7 @@ export function withMissingFigures(
   missing: readonly OverleafExportImage[],
 ): readonly OverleafExportFile[] {
   if (missing.length === 0) return files;
-  const gone = new Set(missing.map((m) => m.zipPath));
-  return files.map((f) => {
-    if (f.path !== "manifest.json") return f;
-    const manifest = JSON.parse(f.contents) as { files: string[]; warnings: string[] };
-    const next = {
-      ...manifest,
-      files: manifest.files.filter((p) => !gone.has(p)),
-      missingFigures: [...gone],
-      warnings: [...manifest.warnings, ...missing.map((m) => missingFigureWarning(m))],
-    };
-    return { ...f, contents: JSON.stringify(next, null, 2) + "\n" };
-  });
-}
-
-/** The warning for a figure whose blob could not be loaded. */
-export function missingFigureWarning(img: OverleafExportImage): string {
-  return `Missing figure: ${img.zipPath} (could not load ${img.storagePath})`;
-}
-
-function walkSections(
-  nodes: readonly ReportSectionTreeNode[],
-  depth: number,
-  includeNotes: boolean,
-  citeByTitle: ReadonlyMap<string, string> | undefined,
-  out: string[],
-  warnings: string[],
-  images: OverleafExportImage[],
-  usedFigureNames: Set<string>,
-  stats: { sections: number; equationsApprox: number; figures: number },
-): void {
-  for (const node of nodes) {
-    const s = node.section;
-    stats.sections += 1;
-    const cmd = SECTION_CMD[Math.min(depth, SECTION_CMD.length - 1)]!;
-    const label = s.sectionNo ? `${s.sectionNo} ${s.title}` : s.title;
-    out.push(`\\${cmd}{${escapeTitle(label)}}`);
-    out.push(`% status: ${s.status}; words: ${s.wordCount}${s.targetWords != null ? ` / ${s.targetWords}` : ""}`);
-
-    if (includeNotes && s.notes?.trim()) {
-      const converted = readyCore().markdownToLatex(s.notes, citeByTitle ? { citeByTitle } : undefined);
-      warnings.push(...converted.warnings.map((w) => `Section "${s.title}": ${w}`));
-      stats.equationsApprox += (s.notes.match(/\$/g) ?? []).length;
-      const renamed = new Map<string, string>();
-      for (const img of converted.images) {
-        const fileName = typedCore().uniqueFigureName(img.fileName, usedFigureNames);
-        renamed.set(img.fileName, fileName);
-        images.push({ storagePath: img.path, zipPath: `figures/${fileName}` });
-        stats.figures += 1;
-      }
-      // One pass over whole `{figures/NAME}` references, so a rename never
-      // re-renames one made before it or rewrites inside a longer name.
-      const latex = converted.latex.replace(/\{figures\/([^}]+)\}/g, (ref, name: string) => {
-        const next = renamed.get(name);
-        return next === undefined ? ref : `{figures/${next}}`;
-      });
-      if (latex) out.push(latex);
-    } else if (!s.notes?.trim()) {
-      out.push("% (no section notes)");
-    }
-    out.push("");
-    walkSections(
-      node.children,
-      depth + 1,
-      includeNotes,
-      citeByTitle,
-      out,
-      warnings,
-      images,
-      usedFigureNames,
-      stats,
-    );
-  }
+  return readyCore().withMissingFigures(files, missing);
 }
 
 function escapeTitle(s: string): string {
@@ -192,18 +111,19 @@ export function buildOverleafExportPackage(
     ? buildCiteByTitle(papers)
     : { citeByTitle: new Map<string, string>(), keyByPaperId: new Map<string, string>() };
 
-  const body: string[] = [];
-  walkSections(
+  const walk = readyCore().walkOverleafSections(
     opts.experiments ? withResultsTables(tree, opts.experiments) : tree,
-    0,
-    includeNotes,
-    includeBib && papers.length > 0 ? citeByTitle : undefined,
-    body,
-    warnings,
-    images,
-    new Set(),
-    stats,
+    {
+      includeNotes,
+      citeByTitle: includeBib && papers.length > 0 ? citeByTitle : undefined,
+    },
   );
+  const body: string[] = walk.out;
+  warnings.push(...walk.warnings);
+  images.push(...walk.images);
+  stats.sections = walk.stats.sections;
+  stats.equationsApprox = walk.stats.equationsApprox;
+  stats.figures = walk.stats.figures;
 
   // Decide the bibliography set before the preamble, because `\nocite{*}` and
   // `\printbibliography` must agree with what actually lands in references.bib.

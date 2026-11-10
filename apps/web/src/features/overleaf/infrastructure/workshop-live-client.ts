@@ -5,6 +5,7 @@
  */
 import type { TextComponent } from "@weaveforge/wasm";
 import { post, type WorkshopClientDeps } from "./workshop-session-client";
+import { readyCore } from "@/lib/rust-core";
 
 export const WORKSHOP_LIVE_PATH = "/api/overleaf/workshop/live/";
 export const WORKSHOP_FILE_PATH = "/api/overleaf/workshop/file";
@@ -40,33 +41,19 @@ export type LiveEventsResult =
   | { ok: true; events: { name: string; args: unknown[] }[]; closed: boolean }
   | { ok: false; closed: boolean; message: string };
 
-type Folder = { name?: unknown; docs?: unknown; fileRefs?: unknown; folders?: unknown };
-
 /** The project's docs (not binary files) as paths, sorted; Overleaf's root folder has no name in paths. */
 export function flattenDocs(rootFolder: unknown): LiveDocEntry[] {
-  return flatten(rootFolder, "docs");
+  return sortByPath(readyCore().flattenOverleafDocs(rootFolder));
 }
 
 /** The project's binary files as paths, sorted. */
 export function flattenFiles(rootFolder: unknown): LiveDocEntry[] {
-  return flatten(rootFolder, "fileRefs");
+  return sortByPath(readyCore().flattenOverleafFiles(rootFolder));
 }
 
-function flatten(rootFolder: unknown, kind: "docs" | "fileRefs"): LiveDocEntry[] {
-  const out: LiveDocEntry[] = [];
-  const walk = (folder: Folder, prefix: string) => {
-    const entries = folder[kind];
-    for (const doc of Array.isArray(entries) ? entries : []) {
-      const d = doc as { _id?: unknown; name?: unknown };
-      if (typeof d._id === "string" && typeof d.name === "string") out.push({ id: d._id, path: prefix + d.name });
-    }
-    for (const child of Array.isArray(folder.folders) ? folder.folders : []) {
-      const f = child as Folder;
-      if (typeof f.name === "string") walk(f, `${prefix}${f.name}/`);
-    }
-  };
-  for (const root of Array.isArray(rootFolder) ? rootFolder : []) walk(root as Folder, "");
-  return out.sort((a, b) => a.path.localeCompare(b.path));
+/** The walk is Rust and returns walk order; the sort uses the locale the paths are shown in. */
+function sortByPath(entries: LiveDocEntry[]): LiveDocEntry[] {
+  return entries.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 /** Opens the live connection to one project of a stored Workshop session. */

@@ -8,7 +8,12 @@
  * PDF cannot: the hosts send no CORS headers. The relay fetches it and hands
  * back the markup as plain text — never as a document the browser would
  * render — and the reader sanitises it before showing it in a sandboxed frame.
+ *
+ * The content-type and charset decisions are in the Rust core; this file keeps
+ * the relay constants and the Response/TextDecoder parts.
  */
+
+import { readyCore } from "@/lib/rust-core";
 
 export const HTML_PROXY_PATH = "/api/html-proxy";
 
@@ -18,27 +23,13 @@ export const HTML_PROXY_MAX_BYTES = 15 * 1024 * 1024;
 /** The header the relay puts the address it ended up at in, after redirects. */
 export const HTML_FINAL_URL_HEADER = "x-final-url";
 
-export function isHtmlContentType(value: string | null): boolean {
-  if (!value) return false;
-  const type = value.split(";")[0]?.trim().toLowerCase() ?? "";
-  return type === "text/html" || type === "application/xhtml+xml";
-}
-
-function charsetOf(contentType: string | null, head: string): string {
-  const fromHeader = /charset\s*=\s*"?([\w.:-]+)/i.exec(contentType ?? "")?.[1];
-  if (fromHeader) return fromHeader.toLowerCase();
-  const fromMeta = /<meta[^>]+charset\s*=\s*["']?([\w.:-]+)/i.exec(head)?.[1];
-  return fromMeta ? fromMeta.toLowerCase() : "utf-8";
-}
-
 /**
  * Decode a page's bytes with the charset it declares, in the header or in a
- * `<meta>` near the top. An unknown label falls back to UTF-8 rather than
- * failing: a few wrong accents beat no page.
+ * `<meta>` near the top (resolved by the Rust core). An unknown label falls
+ * back to UTF-8 rather than failing: a few wrong accents beat no page.
  */
 export function decodeHtmlBytes(bytes: Uint8Array, contentType: string | null): string {
-  const head = new TextDecoder("latin1").decode(bytes.subarray(0, 4096));
-  const charset = charsetOf(contentType, head);
+  const charset = readyCore().declaredCharset(contentType, bytes);
   try {
     return new TextDecoder(charset).decode(bytes);
   } catch {

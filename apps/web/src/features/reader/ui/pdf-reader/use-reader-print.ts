@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
 
-import { strokePath } from "@/features/ink";
+import { readyCore } from "@/lib/rust-core";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { projectPageAnnotationGeometry } from "../../application/project-annotation-geometry";
 import {
@@ -118,7 +118,7 @@ export function useReaderPrint(deps: ReaderPrintDeps) {
             ctx.restore();
           }
           for (const stroke of strokes) {
-            const d = strokePath(stroke);
+            const d = readyCore().strokePath(stroke.points);
             if (!d) continue;
             ctx.save();
             ctx.strokeStyle = stroke.color;

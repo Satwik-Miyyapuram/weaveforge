@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { rust } from "@weaveforge/core";
+
 /**
  * The one setting that has to outlive the app: where the workspace folder is.
  *
@@ -32,12 +34,8 @@ export function homeConfigPath(home: string, variant?: string): string {
 /** What the file says, or an empty config for a file that is not there or not JSON. */
 export async function readHomeConfig(home: string, variant?: string): Promise<HomeConfig> {
   try {
-    const parsed: unknown = JSON.parse(await fs.promises.readFile(homeConfigPath(home, variant), "utf8"));
-    const root =
-      parsed && typeof parsed === "object" && "vaultRoot" in parsed
-        ? (parsed as { vaultRoot: unknown }).vaultRoot
-        : null;
-    return { vaultRoot: typeof root === "string" && root.length > 0 ? root : null };
+    const text = await fs.promises.readFile(homeConfigPath(home, variant), "utf8");
+    return { vaultRoot: rust().vaultRootFromText(text) };
   } catch {
     return { vaultRoot: null };
   }

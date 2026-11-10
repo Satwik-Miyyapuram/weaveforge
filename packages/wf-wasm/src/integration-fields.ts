@@ -8,13 +8,16 @@
 import {
   gitConnection as rawGitConnection,
   gitConnectionReady as rawGitConnectionReady,
+  emptyIntegration as rawEmptyIntegration,
   mattermostConnection as rawMattermostConnection,
   mattermostConnectionReady as rawMattermostConnectionReady,
 } from "../pkg/wf_wasm.js";
 import type {
+  EmptyIntegration,
   GitConnection,
   Integration,
   MattermostConnection,
+  SyncProvider,
 } from "./bindings.js";
 
 export type { Integration as IntegrationInput } from "./bindings.js";
@@ -37,4 +40,9 @@ export function gitConnectionReady(i: Integration): boolean {
 /** Switched on, with a non-blank bot token, server URL and channel id. */
 export function mattermostConnectionReady(i: Integration): boolean {
   return rawMattermostConnectionReady(i);
+}
+
+/** The integration a provider starts from: switched off, on the default branch (Mattermost: no channel). */
+export function emptyIntegration(provider: SyncProvider): EmptyIntegration {
+  return rawEmptyIntegration(provider) as EmptyIntegration;
 }

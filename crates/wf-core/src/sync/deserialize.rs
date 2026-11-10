@@ -75,7 +75,7 @@ pub struct ExistingEntity {
 }
 
 /// What an import would do with one parsed file.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportDiffEntry {
@@ -105,7 +105,7 @@ pub struct ImportDiffEntry {
 
 /// One key both sides moved, with all three sides so a person can pick.
 /// `ours` is the workspace's value, `theirs` the folder's.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MergeFieldDispute {
     /// The disputed key.
@@ -122,7 +122,7 @@ pub struct MergeFieldDispute {
 }
 
 /// The two copies of a disputed body, as the TypeScript's `bodySides` holds them.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct BodySides {
     /// The workspace's copy.
@@ -145,9 +145,16 @@ fn body_sides_js<S: Serializer>(
         .serialize(serializer)
 }
 
+/// Reads `{ ours, theirs }` back into the `(ours, theirs)` pair `body_sides_js` writes.
+fn body_sides_from_js<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<(String, String)>, D::Error> {
+    Ok(Option::<BodySides>::deserialize(deserializer)?.map(|b| (b.ours, b.theirs)))
+}
+
 /// What the resolver has to work with for one conflicted file: the merged
 /// result plus what is still in dispute.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportMergeDetail {
@@ -162,7 +169,8 @@ pub struct ImportMergeDetail {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "body_sides_js"
+        serialize_with = "body_sides_js",
+        deserialize_with = "body_sides_from_js"
     )]
     #[cfg_attr(feature = "specta", specta(type = BodySides))]
     pub body_sides: Option<(String, String)>,

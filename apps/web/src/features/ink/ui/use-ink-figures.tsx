@@ -5,9 +5,8 @@ import {
   type FigureGeometry,
 } from "@weaveforge/core";
 
-import { figureClipText } from "../application/figure-clipboard";
 import { InkFigureEditor } from "./ink-figures";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * The figures on the page being looked at (§figure): images placed on the
@@ -203,7 +202,7 @@ export async function copyFigureToClipboard(
   figure: FigureGeometry,
   imageUrl: string | undefined,
 ): Promise<boolean> {
-  const text = figureClipText({ noteId, figure });
+  const text = readyCore().figureClipText({ noteId, figure });
   if (typeof navigator === "undefined" || !navigator.clipboard) return false;
   if (imageUrl && typeof ClipboardItem !== "undefined") {
     // Read through an <img>, not fetch: the picture is a blob: URL, which the

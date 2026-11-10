@@ -7,7 +7,7 @@ import {
   type ReaderPageSize,
   type ReaderRotation,
   type ReaderViewportState,
-} from "@weaveforge/core";
+} from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 
 export interface UseReaderViewportOptions {

@@ -87,6 +87,23 @@ pub fn extract_doi(value: &str) -> Option<String> {
     group(&DOI_RE, text, 0).map(|m| trim_trailing_punctuation(m).to_lowercase())
 }
 
+/// The external id a stored paper resolves by: its arXiv id, else its DOI, else `None`.
+/// A blank value counts as unset, as an empty string is falsy in the TS original.
+/// Port of `paperRef` in `packages/core/src/features/relations/application/paper-ref.ts`.
+#[must_use]
+pub fn primary_paper_ref(arxiv_id: Option<&str>, doi: Option<&str>) -> Option<PaperRef> {
+    if let Some(id) = arxiv_id.filter(|id| !id.is_empty()) {
+        return Some(PaperRef {
+            kind: PaperRefKind::Arxiv,
+            value: id.to_owned(),
+        });
+    }
+    doi.filter(|doi| !doi.is_empty()).map(|doi| PaperRef {
+        kind: PaperRefKind::Doi,
+        value: doi.to_owned(),
+    })
+}
+
 /// Decide what a pasted reference really is. arXiv wins over DOI when both are present.
 #[must_use]
 pub fn parse_paper_ref(kind: PaperRefKind, value: &str) -> PaperRef {

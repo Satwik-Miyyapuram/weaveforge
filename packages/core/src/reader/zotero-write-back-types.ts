@@ -4,7 +4,7 @@
  */
 
 import type { ReaderAnnotation, ReaderAnnotationType, AnnotationSyncState } from "./reader-annotation.js";
-import type { CombinedPdfAnchor } from "./anchor-strategy.js";
+import type { CombinedPdfAnchor } from "./anchor-shapes.js";
 
 /** Per-library write-back mode. */
 export type ZoteroLibrarySyncMode = "bidirectional" | "read_only" | "ignored";

@@ -1,19 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { wikilinkPattern } from "../../../src/features/vault/domain/vault-page.js";
 import { rust } from "../../../src/shared/rust.js";
 
 
-test("one wikilink pattern serves notes and the LaTeX export (05-18)", () => {
+test("wikilink extraction and the LaTeX export share one rule (05-18)", () => {
   const text = "[[A|b]] [[x\ny]] [[[N]]] [[]] [[C#h]]";
-  const raws = (s: string) => [...s.matchAll(wikilinkPattern())].map((m) => m[0]);
-  assert.deepEqual(raws(text), ["[[A|b]]", "[[N]]", "[[C#h]]"]);
-  assert.deepEqual(rust().extractWikilinks(text).map((r) => r.raw), raws(text));
-
-  // Each call is a fresh /g regex, so one caller's lastIndex cannot skip another's match.
-  const first = wikilinkPattern();
-  first.exec(text);
-  assert.equal(wikilinkPattern().exec(text)?.[0], "[[A|b]]");
+  assert.deepEqual(rust().extractWikilinks(text).map((r) => r.raw), ["[[A|b]]", "[[N]]", "[[C#h]]"]);
 
   const cites = new Map([["a", "ka"], ["n", "kn"], ["c", "kc"]]);
   const { citedKeys } = rust().markdownToLatex(text.replaceAll("\n", " "), { citeByTitle: cites });

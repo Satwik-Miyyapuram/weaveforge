@@ -1,9 +1,6 @@
-import type {
-  MetricPoint,
-} from "@weaveforge/core";
 
 /**
- * How metric rows are stored, and how they map to the domain type.
+ * How metric rows are stored. The mapping to the domain type is in Rust (wf-core).
  *
  * Shared by both backend providers. They talk to the *same* table — one through
  * supabase-js, the other through `pg` — so the column shape and the mapping are
@@ -23,25 +20,8 @@ export interface MetricRow {
    * `string | null` made the difference invisible: the field is declared
    * `wallTime?: string` on `MetricPoint`, nothing narrowed it, and a `Date`
    * therefore travelled out of the adapter as a `Date` — through a type that
-   * promises a string. `toDomain` normalises it, which is why this is
+   * promises a string. the wasm wrapper normalises it, which is why this is
    * `string | Date | null` rather than the lie the previous type told.
    */
   wall_time: string | Date | null;
-}
-
-export function toDomain(r: MetricRow): MetricPoint {
-  return {
-    experimentId: r.experiment_id,
-    metric: r.metric,
-    step: r.step,
-    value: r.value,
-    wallTime: toIsoString(r.wall_time),
-  };
-}
-
-/** A `timestamptz` column as the ISO string `MetricPoint` declares, or nothing. */
-function toIsoString(value: string | Date | null): string | undefined {
-  if (value == null) return undefined;
-  if (value instanceof Date) return value.toISOString();
-  return value;
 }

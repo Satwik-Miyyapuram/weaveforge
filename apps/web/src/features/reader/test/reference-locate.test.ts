@@ -1,10 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { type PageTextItem } from "@weaveforge/core";
-import * as referenceLocate from "../application/reference-locate";
-import { locateMention, unionRect } from "../application/reference-locate";
 import { buildPageText } from "../ui/pdf-reader/pdf-document";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { pageTextFromItems } from "@weaveforge/wasm";
+import type { PageTextItem } from "@weaveforge/wasm";
+
+before(loadTestCore);
 
 /**
  * Three runs as pdf.js reports them: `see [12]`, `and` (end of line), `[13]`.
@@ -19,13 +21,13 @@ const items: PageTextItem[] = [
 
 test("a mention inside one run is narrowed to its own characters", () => {
   // "[12]" is characters 4-8 of a 8-character run starting at x=72 with w=40.
-  const { rects, bounds } = locateMention(items, 4, 8);
+  const { rects, bounds } = typedCore().locateMention(items, 4, 8);
   assert.deepEqual(rects, [[92, 700, 112, 710]]);
   assert.deepEqual(bounds, [92, 700, 112, 710]);
 });
 
 test("a mention covering a whole run uses the run's full width", () => {
-  assert.deepEqual(locateMention(items, 0, 8).rects, [[72, 700, 112, 710]]);
+  assert.deepEqual(typedCore().locateMention(items, 0, 8).rects, [[72, 700, 112, 710]]);
 });
 
 test("a mention spanning a line break yields one rect per run", () => {
@@ -34,7 +36,7 @@ test("a mention spanning a line break yields one rect per run", () => {
   // `[13]` is found at 12 and 2 of its 4 characters are covered. An offset walk
   // that ignored the newline would start this run at 11, cover 3 characters and
   // report x1=105 instead of 100.
-  const { rects, bounds } = locateMention(items, 9, 14);
+  const { rects, bounds } = typedCore().locateMention(items, 9, 14);
   assert.deepEqual(rects, [
     [78, 680, 90, 690],
     [90, 680, 100, 690],
@@ -43,14 +45,14 @@ test("a mention spanning a line break yields one rect per run", () => {
 });
 
 test("an empty, reversed or unmeasurable range paints nothing", () => {
-  assert.deepEqual(locateMention(items, 8, 8).rects, []);
-  assert.deepEqual(locateMention(items, 10, 2).rects, []);
-  assert.deepEqual(locateMention(items, Number.NaN, 12).rects, []);
-  assert.equal(locateMention(items, 8, 8).bounds, null);
+  assert.deepEqual(typedCore().locateMention(items, 8, 8).rects, []);
+  assert.deepEqual(typedCore().locateMention(items, 10, 2).rects, []);
+  assert.deepEqual(typedCore().locateMention(items, Number.NaN, 12).rects, []);
+  assert.equal(typedCore().locateMention(items, 8, 8).bounds, null);
 });
 
 test("a range past the end of the page paints nothing rather than a stray rect", () => {
-  assert.deepEqual(locateMention(items, 40, 60).rects, []);
+  assert.deepEqual(typedCore().locateMention(items, 40, 60).rects, []);
 });
 
 test("zero-length runs advance no geometry and do not shift the cursor", () => {
@@ -58,7 +60,7 @@ test("zero-length runs advance no geometry and do not shift the cursor", () => {
     { str: "", transform: [10, 0, 0, 10, 72, 700], width: 0, height: 10 },
     ...items,
   ];
-  assert.deepEqual(locateMention(withBlank, 4, 8).rects, [[92, 700, 112, 710]]);
+  assert.deepEqual(typedCore().locateMention(withBlank, 4, 8).rects, [[92, 700, 112, 710]]);
 });
 
 test("the offset space agrees with the reader's own page text", () => {
@@ -70,18 +72,15 @@ test("the offset space agrees with the reader's own page text", () => {
     { str: "tail", transform: [10, 0, 0, 10, 72, 660], width: 22, height: 10, hasEOL: true },
     { str: "", transform: [10, 0, 0, 10, 72, 640], width: 0, height: 10 },
   ];
-  assert.equal(typedCore().pageTextFromItems(all), buildPageText(all).text);
-  assert.equal(typedCore().pageTextFromItems(all), "see [12]and\n[13]tail\n");
+  assert.equal(pageTextFromItems(all), buildPageText(all).text);
+  assert.equal(pageTextFromItems(all), "see [12]and\n[13]tail\n");
 });
 
-test("the page text comes from core, with no copy here (xhelp-14)", () => {
-  assert.equal("pageTextFromItems" in referenceLocate, false);
-});
 
 test("unionRect is null with nothing to union, and reaches every corner", () => {
-  assert.equal(unionRect([]), null);
+  assert.equal(typedCore().unionRect([]), null);
   assert.deepEqual(
-    unionRect([
+    typedCore().unionRect([
       [10, 20, 30, 40],
       [5, 25, 12, 60],
     ]),

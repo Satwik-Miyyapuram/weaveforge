@@ -20,7 +20,8 @@
 
 import type { ReactNode } from "react";
 
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { readyCore } from "@/lib/rust-core";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { readMdSplitSide, setMdSplitSide, useMdPreviewMode, type MdSplitSide } from "@/lib/hooks/use-md-preview-mode";
 import { IconButton } from "./button";
 import { CardMenu } from "./card-menu";
@@ -98,7 +99,7 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
         <IconButton
           size="sm"
           label="Preview"
-          tip={`Preview ${splitSide === "below" ? "below" : "beside"} the text (${shortcutLabel("⌘E")})`}
+          tip={`Preview ${splitSide === "below" ? "below" : "beside"} the text (${readyCore().shortcutLabel("⌘E", isMacPlatform())})`}
           aria-pressed={on && canSplit(mode)}
           disabled={!canSplit(mode)}
           onClick={toggle}

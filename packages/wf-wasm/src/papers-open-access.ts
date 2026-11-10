@@ -18,6 +18,8 @@ import {
   parseZenodo as rawParseZenodo,
   parseHal as rawParseHal,
   rankOpenAccessCandidates as rawRankOpenAccessCandidates,
+  preprintServerFor as rawPreprintServerFor,
+  zenodoRecordId as rawZenodoRecordId,
 } from "../pkg/wf_wasm.js";
 import type { EuropePmcAnswer, OpenAccessCandidate } from "./bindings.js";
 
@@ -91,6 +93,16 @@ export function parseDoaj(body: unknown): OpenAccessCandidate[] {
 /** A Zenodo record's answer as candidates. */
 export function parseZenodo(body: unknown): OpenAccessCandidate[] {
   return rawParseZenodo(body) as OpenAccessCandidate[];
+}
+
+/** The preprint server that owns a DOI (`"biorxiv"`), or `undefined`. */
+export function preprintServerFor(doi: string): string | undefined {
+  return rawPreprintServerFor(doi);
+}
+
+/** The Zenodo record id in a `10.5281/zenodo.<id>` DOI, or `undefined`. */
+export function zenodoRecordId(doi: string): string | undefined {
+  return rawZenodoRecordId(doi);
 }
 
 /** HAL's answer as candidates. */

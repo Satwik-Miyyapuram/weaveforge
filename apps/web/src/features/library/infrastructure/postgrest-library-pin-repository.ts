@@ -5,11 +5,19 @@ import type {
   ShareableType,
 } from "@weaveforge/core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import {
-  type PinRow,
-  toDomain,
-} from "./library-pin-rows";
 import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { typedCore } from "@/lib/rust-core";
+
+/** A `library_pins` row as PostgREST returns it (snake_case columns). */
+interface PinRow {
+  id: string;
+  user_id: string;
+  project_id: string;
+  resource_type: ShareableType;
+  resource_id: string;
+  owner_id: string;
+  created_at: string;
+}
 
 /**
  * The columns a PinRow is read as, named rather than starred.
@@ -20,6 +28,8 @@ import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
 const PIN_COLUMNS = "id,user_id,project_id,resource_type,resource_id,owner_id,created_at";
 
 const TABLE = "library_pins";
+
+const toDomain = (row: PinRow): LibraryPin => typedCore().libraryPinRowToDomain(row) as LibraryPin;
 
 export class PostgrestLibraryPinRepository extends ProjectScopedPostgrestRepository implements ILibraryPinRepository {
   protected readonly action = "pinning items";

@@ -8,13 +8,18 @@
  * - 30-24: one guard refuses unsafe paths for every ZIP entry.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { ReportSectionTreeNode } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
-  assertSafeExportPath,
   buildOverleafExportPackage,
   withMissingFigures,
 } from "../application/build-overleaf-export";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const section = (id: string, notes: string): ReportSectionTreeNode => ({
   section: { id, title: `S${id}`, status: "drafting", wordCount: 0, sortOrder: Number(id), createdAt: "2026-01-01T00:00:00.000Z", notes },
@@ -49,9 +54,11 @@ test("a figure name that is a prefix of another is not rewritten inside it", () 
 
 test("assertSafeExportPath refuses traversal, absolute and backslash paths (30-24)", () => {
   for (const bad of ["../x", "figures/../../x", "/etc/passwd", "figures\\x.png", ".."]) {
-    assert.throws(() => assertSafeExportPath(bad), /Refusing unsafe export path/, bad);
+    assert.throws(() => readyCore().assertSafeExportPath(bad), /Refusing unsafe export path/, bad);
   }
-  for (const ok of ["main.tex", "figures/fig_2.png", "a.b.c"]) assert.doesNotThrow(() => assertSafeExportPath(ok));
+  for (const ok of ["main.tex", "figures/fig_2.png", "a.b.c"]) {
+    assert.doesNotThrow(() => readyCore().assertSafeExportPath(ok));
+  }
 });
 
 test("a missing figure is flagged in the manifest and dropped from its files (30-14)", () => {

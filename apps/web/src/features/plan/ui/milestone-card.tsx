@@ -12,7 +12,7 @@ import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { daysUntilDate } from "@/features/plan/application/plan-timeline";
+import { localIsoDay } from "@/features/plan/application/local-day";
 import { formatDate } from "@/lib/format-date";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
@@ -109,7 +109,7 @@ export function MilestoneCard({
     );
   }
 
-  const due = m.targetDate ? daysUntilDate(m.targetDate) : null;
+  const due = m.targetDate ? readyCore().daysUntilDate(m.targetDate, localIsoDay()) : null;
 
   return (
     <>

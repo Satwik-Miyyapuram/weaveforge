@@ -17,7 +17,6 @@ import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
-import { createdPageOf } from "../application/proposal-preview";
 import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/proposal-groups";
 import { useUndoWindow } from "./use-undo-window";
 import { Button } from "@/components/button";
@@ -230,7 +229,9 @@ export function AiProposalReviewScreen() {
         // The approve already landed, so a failed page lookup must not read as a failed approve.
         if (!conflicted && item) {
           try {
-            const page = createdPageOf(item, await getContainer().vault.listPages());
+            const pages = await getContainer().vault.listPages();
+            const index = readyCore().createdPageIndex(item, pages) as number | null;
+            const page = index === null ? null : pages[index];
             if (page) setCreated({ id: page.id, title: page.title });
           } catch { refreshFailed = true; }
         }
@@ -263,7 +264,7 @@ export function AiProposalReviewScreen() {
   // Bulk approve only touches what the user sees, so it follows the filtered list.
   const appendOnly = visible.filter((item) => item.kind === "append_paper_note");
   const groups = useMemo(
-    () => groupProposals(visible, grouping, (id) => sourceTargets.has(id)),
+    () => groupProposals(visible, grouping, [...sourceTargets.keys()]),
     [visible, grouping, sourceTargets],
   );
   function groupLabel(key: string): string {

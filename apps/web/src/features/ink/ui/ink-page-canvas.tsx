@@ -7,7 +7,7 @@ import type { InkStroke } from "@weaveforge/core";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { toRenderStrokes } from "./ink-render-strokes";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
-import { strokePath } from "../application/ink-svg";
+import { readyCore } from "@/lib/rust-core";
 import type { InkRenderStroke } from "./ink-strokes";
 import { perfEnd, perfStart } from "@/lib/perf-marks";
 
@@ -59,7 +59,7 @@ export function drawInkStrokes(
   const renderStroke = (stroke: InkRenderStroke) => {
     let path = pathCache.get(stroke.points);
     if (!path) {
-      const d = strokePath(stroke);
+      const d = readyCore().strokePath(stroke.points);
       if (!d) return;
       path = new Path2D(d);
       pathCache.set(stroke.points, path);

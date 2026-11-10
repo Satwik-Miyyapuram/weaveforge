@@ -36,7 +36,6 @@ import { Button } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
 import { showToast } from "@/lib/toast";
-import { experimentHref } from "../application/experiment-href";
 import { readyCore } from "@/lib/rust-core";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
@@ -211,7 +210,7 @@ export function ExperimentsScreen() {
             onAdded={(id) => {
               setComposeOpen(false);
               void load();
-              showToast("Experiment created", { label: "Open", run: () => router.push(experimentHref(id)) });
+              showToast("Experiment created", { label: "Open", run: () => router.push(readyCore().experimentHref(id, isOfflineBuild())) });
             }}
           />
         </Modal>

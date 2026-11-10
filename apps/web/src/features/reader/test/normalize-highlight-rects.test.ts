@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import type { CombinedPdfAnchor, ReaderAnnotation } from "@weaveforge/core";
-import { normalizeHighlightRects } from "../application/normalize-highlight-rects";
+import test, { before } from "node:test";
+import type { ReaderAnnotation } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
+import type { CombinedPdfAnchor } from "@weaveforge/wasm";
+
+before(async () => {
+  await loadTestCore();
+});
 
 type Box = { left: number; top: number; width: number; height: number };
 
@@ -74,7 +80,7 @@ test("a highlight paints no point of the page twice", () => {
 });
 
 test("one band per line, covering what was selected", () => {
-  const out = normalizeHighlightRects(SELECTION);
+  const out = readyCore().normalizeHighlightRects(SELECTION);
   assert.equal(out.length, 2);
   const [first, second] = out as [number[], number[]];
   assert.deepEqual([first[0], first[2]], [72, 300]);
@@ -91,7 +97,7 @@ test("underlines are normalised too", () => {
 });
 
 test("a gap wider than a word space stays a gap (two columns)", () => {
-  const out = normalizeHighlightRects([
+  const out = readyCore().normalizeHighlightRects([
     [72, 700, 280, 712],
     [320, 700, 540, 712],
   ]);
@@ -103,12 +109,12 @@ test("separate lines that do not touch are left alone", () => {
     [72, 700, 300, 712],
     [72, 680, 300, 692],
   ];
-  assert.deepEqual(normalizeHighlightRects(rects), rects);
+  assert.deepEqual(readyCore().normalizeHighlightRects(rects), rects);
 });
 
 test("bad rects are dropped and inverted corners repaired", () => {
   assert.deepEqual(
-    normalizeHighlightRects([[300, 712, 72, 700], [1, 2, 3], [5, 5, 5, 9], [0, 0, Number.NaN, 1]]),
+    readyCore().normalizeHighlightRects([[300, 712, 72, 700], [1, 2, 3], [5, 5, 5, 9], [0, 0, Number.NaN, 1]]),
     [[72, 700, 300, 712]],
   );
 });

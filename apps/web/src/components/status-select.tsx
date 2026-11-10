@@ -1,11 +1,11 @@
 "use client";
 
-import { humanise } from "@/lib/enum-label";
+import { readyCore } from "@/lib/rust-core";
 import { Select } from "@/components/select";
 
 /** "not_started" reads "Not started". */
 export function statusLabel(status: string): string {
-  return humanise(status);
+  return readyCore().humanise(status);
 }
 
 /** The one status pill, tinted from the shared status map on every card and page. */

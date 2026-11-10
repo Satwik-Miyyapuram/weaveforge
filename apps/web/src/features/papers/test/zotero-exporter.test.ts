@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import type { Paper } from "@weaveforge/core";
 import { ZoteroExporter } from "../infrastructure/zotero-exporter";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const paper: Paper = { id: "paper-1", title: "Direct browser write", authors: ["Ada Lovelace"], status: "to_read", tags: [], metadata: {}, createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z" };
 

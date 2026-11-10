@@ -3,13 +3,13 @@ import type {
   IAnnotationQuotationTypeRepository,
   SaveAnnotationQuotationTypeInput,
 } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import type { AnnotationQuotationTypeRow } from "@weaveforge/wasm";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import {
-  type AnnotationQuotationTypeRow,
-  toDomain,
-} from "./annotation-quotation-type-rows";
 import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+
+// Row mapping runs in the Rust core (wf-core `papers::annotation_quotation_type_row`).
+const toDomain = (row: AnnotationQuotationTypeRow) => typedCore().annotationQuotationTypeRowToDomain(row);
 
 /**
  * The columns a AnnotationQuotationTypeRow is read as, named rather than starred.

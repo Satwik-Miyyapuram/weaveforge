@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { OutboxEntry } from "../domain/outbox";
 import { PostgrestTransport } from "../infra/postgrest-transport";
+
+before(async () => {
+  await loadTestCore();
+});
 
 interface Call {
   url: string;

@@ -1,4 +1,4 @@
-//! Pinning a comment to a passage of changing text (TS apps/web sharing/domain/text-anchor.ts).
+//! Pinning a comment to a passage of changing text.
 //!
 //! An anchor is the passage plus up to [`CONTEXT`] UTF-16 units either side. Finding it again
 //! takes the occurrence of the quote whose surroundings agree best. Offsets are UTF-16, as in JS.
@@ -10,12 +10,29 @@ use crate::sharing::CommentAnchor;
 pub const CONTEXT: usize = 32;
 
 /// A `[start, end)` range in UTF-16 units.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct TextSpan {
     /// Start offset.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub start: usize,
     /// End offset.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub end: usize,
+}
+
+/// Where a span starts and ends, as `[text node index, offset within it]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct SpanPoints {
+    /// Start point.
+    #[cfg_attr(feature = "specta", specta(type = (u32, u32)))]
+    pub start: [usize; 2],
+    /// End point.
+    #[cfg_attr(feature = "specta", specta(type = (u32, u32)))]
+    pub end: [usize; 2],
 }
 
 fn string(units: &[u16]) -> String {
@@ -56,6 +73,29 @@ pub fn anchor_at(text: &str, start: f64, end: f64) -> Option<CommentAnchor> {
         prefix: string(&units[from.saturating_sub(CONTEXT)..from]),
         suffix: string(&units[to..(to + CONTEXT).min(len)]),
     })
+}
+
+/// Locate `span` across text nodes of the given lengths, or `None` when the text is shorter
+/// than the span. A boundary that falls between two nodes lands at the end of the earlier one.
+#[must_use]
+pub fn span_points(lengths: &[usize], span: TextSpan) -> Option<SpanPoints> {
+    let mut seen = 0;
+    let mut start: Option<[usize; 2]> = None;
+    for (i, &len) in lengths.iter().enumerate() {
+        if start.is_none() && span.start <= seen + len {
+            start = Some([i, span.start - seen]);
+        }
+        if let Some(from) = start
+            && span.end <= seen + len
+        {
+            return Some(SpanPoints {
+                start: from,
+                end: [i, span.end - seen],
+            });
+        }
+        seen += len;
+    }
+    None
 }
 
 fn index_of(hay: &[u16], needle: &[u16], from: usize) -> Option<usize> {
@@ -137,6 +177,26 @@ mod tests {
                 end: second + 3
             })
         );
+    }
+
+    #[test]
+    fn span_points_walks_text_nodes() {
+        let span = TextSpan { start: 3, end: 7 };
+        assert_eq!(
+            span_points(&[2, 4, 3], span),
+            Some(SpanPoints {
+                start: [1, 1],
+                end: [2, 1]
+            })
+        );
+        assert_eq!(
+            span_points(&[3, 4], span),
+            Some(SpanPoints {
+                start: [0, 3],
+                end: [1, 4]
+            })
+        );
+        assert_eq!(span_points(&[2], span), None);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@weaveforge/core";
 import {
   buildProposeFillPrompt,
@@ -10,8 +10,13 @@ import {
   pendingFieldFills,
   pendingKey,
   relationTitles,
-} from "../application/extraction-table";
+} from "../application/extraction-rows";
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function paper(id: string, title: string): Paper {
   return {
@@ -100,11 +105,8 @@ test("emptyCellPaperIds and buildProposeFillPrompt target empty cells", () => {
     ["p1", "p2"],
     values,
   );
-  assert.deepEqual(emptyCellPaperIds(rows, "f1"), ["p2"]);
-  assert.deepEqual(
-    emptyCellPaperIds(rows, "f1", new Set([pendingKey("p2", "f1")])),
-    [],
-  );
+  assert.deepEqual(emptyCellPaperIds(rows, "f1", []), ["p2"]);
+  assert.deepEqual(emptyCellPaperIds(rows, "f1", ["p2"]), []);
   const prompt = buildProposeFillPrompt({
     listId: "list-1",
     fieldId: "f1",

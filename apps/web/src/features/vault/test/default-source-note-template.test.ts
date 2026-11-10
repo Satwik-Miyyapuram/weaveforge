@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import {
-  DEFAULT_SOURCE_NOTE_TEMPLATE,
-  sourceNoteTemplateContext,
-} from "../application/default-source-note-template";
+import { DEFAULT_SOURCE_NOTE_TEMPLATE } from "../application/default-source-note-template";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+
+type SourceNoteInput = Parameters<ReturnType<typeof readyCore>["sourceNoteTemplateContext"]>[0];
+const sourceNoteTemplateContext = (input: SourceNoteInput) => readyCore().sourceNoteTemplateContext(input);
 
 type Core = ReturnType<typeof readyCore>;
 // Each call reads the core lazily, so the module loads before the core does.

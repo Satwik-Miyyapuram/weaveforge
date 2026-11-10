@@ -6,7 +6,13 @@
  * passes nothing and the browser fetches the module next to the glue.
  * `readyCore()` returns it synchronously once loaded.
  */
-import { setRustCore } from "@weaveforge/core";
+import {
+  setRustCore,
+  type FigureGeometry,
+  type InkPage,
+  type InkStroke,
+} from "@weaveforge/core";
+import type { FigurePlacement } from "@weaveforge/wasm";
 
 export type RustCore = typeof import("@weaveforge/wasm");
 
@@ -76,4 +82,35 @@ export type TypedCore = Pick<CoreModule, keyof CoreModule & keyof RustCore> &
 
 export function typedCore(): TypedCore {
   return readyCore() as unknown as TypedCore;
+}
+
+/** A stroke as the generated Rust bindings name it. */
+export type WasmInkStroke = Parameters<RustCore["strokeClipText"]>[0][number];
+/** A page as the generated SVG export names it. */
+export type WasmInkSvgPage = Parameters<RustCore["inkPageSvg"]>[0];
+
+// Bindings type f64 as number | null (NaN/Infinity serialise as null); core values are always finite.
+export function toWasmInkStrokes(strokes: readonly InkStroke[]): WasmInkStroke[] {
+  return strokes as unknown as WasmInkStroke[];
+}
+
+// Bindings type f64 as number | null (NaN/Infinity serialise as null); core values are always finite.
+export function fromWasmInkStrokes(strokes: readonly WasmInkStroke[]): InkStroke[] {
+  return strokes as unknown as InkStroke[];
+}
+
+// Bindings type f64 as number | null (NaN/Infinity serialise as null); core values are always finite.
+export function toWasmInkPage(page: InkPage): WasmInkSvgPage {
+  return page as unknown as WasmInkSvgPage;
+}
+
+/** A placed figure from the Rust core; an absent crop comes back as null, the model keeps it undefined. */
+export function fromWasmFigure(figure: FigurePlacement): FigureGeometry {
+  // Bindings type f64 as number | null (NaN/Infinity serialise as null); core values are always finite.
+  const { crop, ...rest } = figure as unknown as Omit<FigureGeometry, "crop"> & { crop?: FigureGeometry["crop"] | null };
+  return crop == null ? rest : { ...rest, crop };
+}
+
+export function fromWasmFigures(figures: readonly FigurePlacement[]): FigureGeometry[] {
+  return figures.map(fromWasmFigure);
 }

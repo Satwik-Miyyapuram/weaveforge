@@ -1,6 +1,6 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
+import { readyCore } from "@/lib/rust-core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Paper, PaperFieldDef, PaperFieldValueData, ReadingListTreeNode } from "@weaveforge/core";
@@ -21,8 +21,7 @@ import {
   type ExtractionColumnId,
   type ExtractionRow,
   type PendingFieldFill,
-} from "../application/extraction-table";
-import { collectListIds } from "./list-ui";
+} from "../application/extraction-rows";
 import { FormError } from "@/components/form-error";
 import { latestGate } from "@/lib/latest-gate";
 import { Button } from "@/components/button";
@@ -56,7 +55,7 @@ export function ExtractionTable({
 
   const reload = useCallback(async () => {
     const isCurrent = beginReload();
-    const listIds = collectListIds([node]);
+    const listIds = readyCore().collectListIds([node]);
     const [nextDefs, items, allValues, proposals] = await Promise.all([
       getContainer().paperFields.listPaperFieldDefs(),
       getContainer().readingLists.listItemsForLists(listIds),
@@ -146,7 +145,8 @@ export function ExtractionTable({
     const pendingKeys = new Set(
       pending.filter((p) => p.fieldId === fieldId).map((p) => pendingKey(p.paperId, p.fieldId)),
     );
-    const emptyIds = new Set(emptyCellPaperIds(rows, fieldId, pendingKeys));
+    const pendingPaperIds = pending.filter((p) => p.fieldId === fieldId).map((p) => p.paperId);
+    const emptyIds = new Set(emptyCellPaperIds(rows, fieldId, pendingPaperIds));
     const targets = rows
       .filter((r) => emptyIds.has(r.paper.id))
       .map((r) => ({ id: r.paper.id, title: r.paper.title }));
@@ -297,7 +297,7 @@ function ExtractionCell({
 }) {
   if (column === "title") return <span>{row.paper.title}</span>;
   if (column === "year") return <span>{row.paper.year ?? "—"}</span>;
-  if (column === "status") return <span>{enumLabel("paperStatus", row.paper.status)}</span>;
+  if (column === "status") return <span>{readyCore().enumLabel("paperStatus", row.paper.status)}</span>;
 
   const fieldId = column.slice("field:".length);
   const def = defs.find((d) => d.id === fieldId);

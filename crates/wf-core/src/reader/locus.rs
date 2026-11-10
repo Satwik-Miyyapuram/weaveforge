@@ -1,5 +1,5 @@
-//! Deep-link (de)serialisation for jump-to-locus. A faithful port of
-//! `packages/core/src/reader/locus-link.ts`.
+//! Deep-link (de)serialisation for jump-to-locus. Ported from the former TS
+//! `packages/core/src/reader/locus-link.ts` (now Rust).
 //!
 //! Stays in TS: nothing; both functions take and return plain data.
 //!

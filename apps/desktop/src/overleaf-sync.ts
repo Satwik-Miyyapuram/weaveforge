@@ -25,7 +25,13 @@ import {
   type GitRemoteStatus,
 } from "@weaveforge/core";
 
-import { isOverleafProjectId, overleafGitUrl, parseOverleafProjectId } from "@weaveforge/wasm";
+import {
+  checkOverleafLinkFolder,
+  isOverleafProjectId,
+  overleafGitUrl,
+  parseOverleafLinks,
+  parseOverleafProjectId,
+} from "@weaveforge/wasm";
 
 import type { IpcResult } from "../../shell/sidecar/src/channels";
 import { gitReason, NativeWorkspaceGit, redactAuth, serial } from "../../shell/sidecar/src/vault-git";
@@ -72,33 +78,12 @@ export type LinkFolderCheck = { ok: true; folder: string } | { ok: false; reason
  * absolute path, nothing in `.weaveforge` (the app's own files) or a `.git`.
  */
 export function checkLinkFolder(raw: unknown): LinkFolderCheck {
-  const bad = { ok: false, reason: "Choose a folder inside the vault, like Overleaf/thesis." } as const;
-  if (typeof raw !== "string") return bad;
-  const folder = raw.trim().replace(/\/+$/, "");
-  if (!folder || folder.length > 200 || folder.startsWith("/") || /[\\:]/.test(folder)) return bad;
-  const parts = folder.split("/");
-  if (parts.some((part) => part === "" || part === "." || part === ".." || part === ".git")) return bad;
-  if (parts[0] === ".weaveforge") return bad;
-  return { ok: true, folder };
+  return checkOverleafLinkFolder(raw);
 }
 
 /** The stored links, keeping only well-formed entries. */
 export function parseLinks(value: unknown): OverleafLink[] {
-  if (typeof value !== "string") return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed.flatMap((entry) => {
-    const { projectId, folder } = (entry ?? {}) as Partial<OverleafLink>;
-    const checked = checkLinkFolder(folder);
-    return typeof projectId === "string" && isOverleafProjectId(projectId) && checked.ok
-      ? [{ projectId, folder: checked.folder }]
-      : [];
-  });
+  return parseOverleafLinks(value);
 }
 
 const overlaps = (a: string, b: string) => a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);

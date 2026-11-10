@@ -118,3 +118,21 @@ pub fn locate_anchor_js(text: &str, anchor: JsValue) -> JsResult<JsValue> {
     let anchor: CommentAnchor = serde_wasm_bindgen::from_value(anchor)?;
     to_js(&text_anchor::locate_anchor(text, &anchor))
 }
+
+/// [`should_persist_body`](collab::should_persist_body).
+#[wasm_bindgen(js_name = shouldPersistBody)]
+pub fn should_persist_body_js(ready: bool, next: &str, last_saved: &str) -> bool {
+    collab::should_persist_body(ready, next, last_saved)
+}
+
+/// [`span_points`](text_anchor::span_points): `lengths` are the text node lengths, in order.
+///
+/// # Errors
+///
+/// Fails when `lengths` is not a list of counts or `span` is not a text span.
+#[wasm_bindgen(js_name = spanPoints)]
+pub fn span_points_js(lengths: JsValue, span: JsValue) -> JsResult<JsValue> {
+    let lengths: Vec<usize> = serde_wasm_bindgen::from_value(lengths)?;
+    let span: text_anchor::TextSpan = serde_wasm_bindgen::from_value(span)?;
+    to_js(&text_anchor::span_points(&lengths, span))
+}

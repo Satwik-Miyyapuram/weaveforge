@@ -23,6 +23,8 @@ import * as fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { rust } from "@weaveforge/core";
+import { texEngineArgs, texLogErrors } from "@weaveforge/wasm";
 
 const run = promisify(execFile);
 
@@ -88,21 +90,9 @@ const MAX_FILES = 500;
  * reason to send one does not exist.
  */
 function safeRelative(candidate: string): string {
-  const normalized = candidate.replaceAll("\\", "/").replace(/^\.\//, "");
-  if (
-    !normalized ||
-    normalized.startsWith("/") ||
-    /^[A-Za-z]:/.test(normalized) ||
-    normalized.split("/").some((part) => part === ".." || part === "")
-  ) {
-    throw new Error(`Refusing to write '${candidate}': it leaves the build directory.`);
-  }
-  // latexmk's rc files are Perl. `-norc` stops latexmk reading them; refusing
-  // them here means no engine ever sees one.
-  if (/(^|\/)\.?latexmkrc$/i.test(normalized)) {
-    throw new Error(`Refusing to write '${candidate}': latexmk would run it as a script.`);
-  }
-  return normalized;
+  // Rust `tex_path`. latexmk's rc files are Perl: `-norc` stops latexmk reading
+  // them, and refusing them here means no engine ever sees one.
+  return rust().safeRelative(candidate);
 }
 
 /** Ask one engine for its version. A missing binary answers null, not a throw. */
@@ -141,25 +131,7 @@ export async function probeTex(): Promise<TexTool | null> {
  * and a test that can read the arguments is what stops it coming back.
  */
 export function argsFor(tool: TexTool, entry: string): string[] {
-  switch (tool.kind) {
-    // `./` so a file named `-something.tex` is a file, not an option. No rc
-    // file and no shell escape: the sources came from a page, and a project
-    // that could ship a `.latexmkrc` could run Perl on this computer.
-    case "latexmk":
-      return ["-norc", "-pdf", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", `./${entry}`];
-    // No `--print`. It sends the PDF to stdout instead of writing it, and
-    // `compileTex` reads `<entry>.pdf` from the build directory -- so with
-    // `--print` the file was never there, `ok` was false on every
-    // tectonic-only machine, and the promisified `execFile` decoded a whole
-    // PDF's worth of binary as UTF-8 into the log the reader is shown.
-    // `--keep-logs` stays: it is what puts the `.log` `compileTex` reads
-    // beside the PDF. The `--` separator stays too, so an entry file whose
-    // name begins with a dash is a file rather than an option.
-    case "tectonic":
-      return ["--keep-logs", "--", entry];
-    case "pdflatex":
-      return ["-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", `./${entry}`];
-  }
+  return texEngineArgs(tool.kind, entry);
 }
 
 /**
@@ -171,42 +143,7 @@ export function argsFor(tool: TexTool, entry: string): string[] {
  * the line number arriving separately on a later line beginning `l.12`.
  */
 export function parseTexLog(log: string, entry: string): TexError[] {
-  const errors: TexError[] = [];
-  const lines = log.split("\n");
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i] as string;
-    const located = /^(?:\.\/)?([^\s:][^:]*):(\d+):\s*(.+)$/.exec(line);
-    if (located) {
-      errors.push({
-        file: (located[1] as string).replace(/^\.\//, ""),
-        line: Number(located[2]),
-        message: (located[3] as string).trim(),
-      });
-      continue;
-    }
-    if (!line.startsWith("!")) continue;
-    const message = line.slice(1).trim();
-    if (!message) continue;
-    // The line number, when it comes, is within a handful of lines.
-    let at = 0;
-    for (let j = i + 1; j < Math.min(i + 6, lines.length); j += 1) {
-      const numbered = /^l\.(\d+)/.exec(lines[j] as string);
-      if (numbered) {
-        at = Number(numbered[1]);
-        break;
-      }
-    }
-    errors.push({ file: entry, line: at, message });
-  }
-  // One report per place: a run that halts prints the same error to the log
-  // and to stdout, and the reader is being given a list to work through.
-  const seen = new Set<string>();
-  return errors.filter((error) => {
-    const at = `${error.file}:${error.line}:${error.message}`;
-    if (seen.has(at)) return false;
-    seen.add(at);
-    return true;
-  });
+  return texLogErrors(log, entry);
 }
 
 async function writeSources(root: string, files: readonly TexSourceFile[]): Promise<void> {

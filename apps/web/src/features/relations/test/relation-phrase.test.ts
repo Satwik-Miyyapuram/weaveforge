@@ -1,11 +1,14 @@
 /** How a relation reads from the paper you are looking at (design D17, DA-120..124). */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { RELATION_TYPES } from "@weaveforge/core";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { linkSentence, relationPhrase, sortPapersByTitle } from "../ui/relation-phrase";
+
+before(loadTestCore);
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 

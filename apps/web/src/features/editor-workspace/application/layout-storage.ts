@@ -7,11 +7,13 @@
  * blank workspace with no way back. Anything that does not parse is one empty
  * pane — which is exactly what a first run looks like, so the failure is
  * survivable rather than a dead screen.
+ *
+ * The parse is Rust's (`layoutFromRecord`); this module only reads and writes
+ * the storage key.
  */
 
 import type { KeyValueStore } from "./explorer-state";
-import type { DocumentMode, GroupColor, PaneLayout, PaneNode, TabGroup, TabRef } from "@weaveforge/wasm";
-import { readyCore } from "@/lib/rust-core";
+import { emptyLayout, layoutFromRecord, type PaneLayout } from "@weaveforge/wasm";
 
 export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
 
@@ -42,94 +44,16 @@ function readRaw(store: LayoutStore, projectId: string | null | undefined): stri
   return legacy;
 }
 
-// "read" and "pdf" are not here: both modes are gone, so a tab stored in one reopens unchosen.
-const MODES: readonly string[] = ["edit", "ink"] satisfies readonly DocumentMode[];
-
-/** A tab as stored. A missing or unknown mode reads as none chosen yet. */
-function parseTab(tab: { kind: string; id: string; mode?: unknown; group?: unknown }): TabRef {
-  const parsed: TabRef = { kind: tab.kind, id: tab.id };
-  if (typeof tab.mode === "string" && MODES.includes(tab.mode)) parsed.mode = tab.mode as DocumentMode;
-  if (typeof tab.group === "string") parsed.group = tab.group;
-  return parsed;
-}
-
-/** A group as stored; `cleanGroups` then drops any no tab is in. */
-function parseGroups(value: unknown): TabGroup[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((raw): TabGroup[] => {
-    const g = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
-    if (typeof g.id !== "string") return [];
-    const color = readyCore().GROUP_COLORS.includes(g.color as GroupColor) ? (g.color as GroupColor) : 1;
-    const group: TabGroup = { id: g.id, name: typeof g.name === "string" ? g.name : "", color };
-    if (g.collapsed === true) group.collapsed = true;
-    return [group];
-  });
-}
-
-function parseNode(value: unknown): PaneNode | null {
-  if (typeof value !== "object" || value === null) return null;
-  const node = value as Record<string, unknown>;
-
-  if (node.type === "leaf") {
-    if (typeof node.id !== "string" || !Array.isArray(node.tabs)) return null;
-    const tabs = node.tabs.filter(
-      (tab): tab is { kind: string; id: string; mode?: unknown } =>
-        typeof tab === "object" &&
-        tab !== null &&
-        typeof (tab as { kind?: unknown }).kind === "string" &&
-        typeof (tab as { id?: unknown }).id === "string",
-    );
-    const activeIndex = typeof node.activeIndex === "number" ? node.activeIndex : 0;
-    const leaf = readyCore().cleanGroups({
-      id: node.id,
-      tabs: tabs.map(parseTab),
-      activeIndex: Math.min(Math.max(activeIndex, 0), Math.max(tabs.length - 1, 0)),
-      groups: parseGroups(node.groups),
-    });
-    return { type: "leaf", ...leaf };
-  }
-
-  if (node.type === "split") {
-    if (!Array.isArray(node.children) || node.children.length !== 2) return null;
-    const first = parseNode(node.children[0]);
-    const second = parseNode(node.children[1]);
-    // Half a split is not half a workspace: keep whichever side survived.
-    if (!first) return second;
-    if (!second) return first;
-    const ratio = typeof node.ratio === "number" && Number.isFinite(node.ratio) ? node.ratio : 0.5;
-    return {
-      type: "split",
-      direction: node.direction === "column" ? "column" : "row",
-      ratio: Math.min(Math.max(ratio, 0.1), 0.9),
-      children: [first, second],
-    };
-  }
-
-  return null;
-}
-
 export function readLayout(
   store: LayoutStore | undefined,
   projectId?: string | null,
 ): PaneLayout {
-  if (!store) return readyCore().emptyLayout();
+  if (!store) return emptyLayout();
   try {
-    const raw = readRaw(store, projectId);
-    if (!raw) return readyCore().emptyLayout();
-    const parsed = JSON.parse(raw) as { root?: unknown; focusedPaneId?: unknown };
-    const root = parseNode(parsed.root);
-    if (!root) return readyCore().emptyLayout();
-    const focused = typeof parsed.focusedPaneId === "string" ? parsed.focusedPaneId : "";
-    // `settleFocus` runs on every operation, so a focus id that no longer
-    // matches a pane is corrected by the first thing the user does.
-    return { root, focusedPaneId: focused || firstLeafId(root) };
+    return layoutFromRecord(readRaw(store, projectId));
   } catch {
-    return readyCore().emptyLayout();
+    return emptyLayout();
   }
-}
-
-function firstLeafId(node: PaneNode): string {
-  return node.type === "leaf" ? node.id : firstLeafId(node.children[0]);
 }
 
 export function writeLayout(

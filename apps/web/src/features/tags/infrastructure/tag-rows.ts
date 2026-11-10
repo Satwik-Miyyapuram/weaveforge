@@ -1,8 +1,5 @@
-import type {
-  Tag,
-  PaperTag,
-  TagSource,
-} from "@weaveforge/core";
+import type { PaperTag, Tag } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * How tag rows are stored, and how they map to the domain type.
@@ -26,14 +23,9 @@ export interface PaperTagRow {
 }
 
 export function toTagDomain(row: TagRow): Tag {
-  return { id: row.id, name: row.name, color: row.color ?? undefined };
+  return readyCore().tagFromRow(row);
 }
 
 export function toPaperTagDomain(row: PaperTagRow): PaperTag {
-  return {
-    paperId: row.paper_id,
-    tagId: row.tag_id,
-    source: row.source as TagSource,
-    annotationRef: row.annotation_ref ?? undefined,
-  };
+  return readyCore().paperTagFromRow(row);
 }

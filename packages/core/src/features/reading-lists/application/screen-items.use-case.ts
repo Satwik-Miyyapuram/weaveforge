@@ -72,7 +72,7 @@ export class ScreenItemsUseCase {
       counts: rust().prismaCounts(items, decisions),
       verdicts,
       reasons: rust().exclusionReasons(decisions),
-      reviewers: [...new Set(decisions.map((decision) => decision.reviewerId))].sort(),
+      reviewers: rust().reviewers(decisions),
     };
   }
 }

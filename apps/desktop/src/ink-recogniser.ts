@@ -21,6 +21,7 @@
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
+import { rust } from "@weaveforge/core";
 
 /** One line of writing: flat `[x, y, pressure, x, y, pressure, …]` per stroke. */
 export interface InkRecognitionLineInput {
@@ -46,28 +47,20 @@ export interface InkRecognitionRequest {
  * Anything else is `null`. Only the known fields are kept.
  */
 export function readInkRequest(request: unknown): InkRecognitionRequest | null {
-  if (!request || typeof request !== "object") return null;
-  const { lines, vocabulary, lang } = request as Record<string, unknown>;
-  if (!Array.isArray(lines)) return null;
-  const read: InkRecognitionLineInput[] = [];
-  for (const line of lines) {
-    const strokes = (line as { strokes?: unknown } | null)?.strokes;
-    if (!Array.isArray(strokes)) return null;
-    for (const stroke of strokes) {
-      if (!Array.isArray(stroke) || !stroke.every((n) => typeof n === "number" && Number.isFinite(n))) return null;
-    }
-    read.push({ strokes: strokes as number[][] });
+  return rust().readInkRequest(jsonOrNull(request)) as InkRecognitionRequest | null;
+}
+
+/**
+ * The page's optional fields are left out, not `undefined`: the boundary reads a
+ * present `undefined` as JSON `null`, which Rust refuses. A JSON round trip drops
+ * those keys and turns non-finite numbers into `null`, which Rust refuses too.
+ */
+function jsonOrNull(value: unknown): unknown {
+  try {
+    return JSON.parse(JSON.stringify(value)) ?? null;
+  } catch {
+    return null;
   }
-  const out: InkRecognitionRequest = { lines: read };
-  if (vocabulary !== undefined) {
-    if (!Array.isArray(vocabulary) || !vocabulary.every((word) => typeof word === "string")) return null;
-    out.vocabulary = vocabulary as string[];
-  }
-  if (lang !== undefined) {
-    if (typeof lang !== "string") return null;
-    out.lang = lang;
-  }
-  return out;
 }
 
 export interface InkRecognitionLine {

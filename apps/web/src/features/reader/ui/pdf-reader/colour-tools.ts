@@ -5,6 +5,7 @@
 
 import { paletteName, type InkPalette } from "@/features/ink/render/ink-palette";
 import { setToolColour, type ToolColourId } from "@/features/ink";
+import { readyCore } from "@/lib/rust-core";
 
 import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import type { PenTool } from "./use-pen-prefs";
@@ -21,12 +22,7 @@ export function colourToolFor(input: {
   penTool: PenTool;
   pickedTool: ReaderCreateTool;
 }): ToolColourId {
-  if (input.penOpen) return input.penTool === "highlighter" ? "highlighter" : "pen";
-  if (input.pickedTool === "highlighter") return "highlighter";
-  if (input.pickedTool === "text") return "text";
-  // The paper's own selection makes highlights, so its colour is the highlight's.
-  if (input.pickedTool === "select") return "highlight";
-  return "pen";
+  return readyCore().colourToolFor(input.penOpen, input.penTool, input.pickedTool) as ToolColourId;
 }
 
 /**
@@ -36,10 +32,7 @@ export function colourToolFor(input: {
  * is written with the pen, so it shares the pen's list.
  */
 export function markColourTool(type: string): ToolColourId {
-  if (type === "highlight") return "highlight";
-  if (type === "underline") return "underline";
-  if (type === "text") return "text";
-  return "pen";
+  return readyCore().markColourTool(type) as ToolColourId;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { errorMessage } from "@weaveforge/core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
 import { ZoteroAnnotations } from "./zotero-annotations";
 import { ZoteroSync, type ZoteroSyncDeps } from "./zotero-sync";
 
@@ -34,34 +35,6 @@ export const ZOTERO_NOT_RUNNING =
   "Zotero is not answering on this computer. Open Zotero, then try again.";
 
 /**
- * What a 403 from the local API actually means, in full.
- *
- * Zotero 7 serves the local API only when a hidden preference says so, and a
- * copy of Zotero that has never had it switched on answers *every* local path
- * with 403 while `GET /connector/ping` keeps returning 200. So the symptom is
- * "the server is running and it refuses me", which reads like a permissions
- * problem on our side and is not one.
- *
- * The old message was "Local API is not enabled", which named the condition and
- * left the reader nowhere to go. This names the preference to flip, where it
- * lives, and the restart it needs — because the preference is read once at
- * startup, so setting it in a running Zotero changes nothing until it is
- * restarted, and a reader who tries it without the restart will conclude the
- * instruction is wrong.
- */
-export const ZOTERO_LOCAL_API_OFF =
-  `Zotero is running but its local API is switched off (it answered 403). ` +
-  `In Zotero open Settings → Advanced → Config Editor and set ` +
-  `extensions.zotero.httpServer.localAPI.enabled to true, then restart Zotero. ` +
-  `The setting is read only at startup, so it does nothing until Zotero restarts.`;
-
-/** The reader-facing message for a status the local API answered with. */
-export function zoteroLocalStatusMessage(status: number): string | null {
-  if (status === 403) return ZOTERO_LOCAL_API_OFF;
-  return null;
-}
-
-/**
  * A `fetch` that reaches only the local Zotero, via the shell.
  *
  * The reply is rebuilt into a real `Response` so everything downstream keeps
@@ -94,29 +67,13 @@ export function zoteroLocalFetch(bridge: DesktopBridge): typeof fetch {
       const why = errorMessage(cause);
       throw new Error(`${ZOTERO_NOT_RUNNING} (${why})`);
     });
-    const refused = zoteroLocalStatusMessage(reply.status);
+    const core = readyCore();
+    const refused = core.zoteroLocalStatusMessage(reply.status);
     if (refused) throw new Error(refused);
-    const status = usableStatus(reply.status);
+    const status = core.usableStatus(reply.status);
     const headers = { ...reply.headers, ...(status === reply.status ? {} : { "x-weaveforge-status": String(reply.status) }) };
     return new Response(reply.body, { status, headers });
   };
-}
-
-/**
- * A status a `Response` can be built with.
- *
- * `Response` accepts 200–599 and refuses 204, 205 and 304 by name — checked
- * against Node's own implementation rather than assumed. Anything else is
- * reported as a 500 with the real code in a header, because a response object
- * cannot carry it and a thrown constructor error is worse than a status nobody
- * expected: the callers all treat a non-ok response as a failed read, and the
- * header is there for the message.
- */
-export function usableStatus(status: number): number {
-  const constructible = Number.isInteger(status) && status >= 200 && status <= 599;
-  if (!constructible) return 500;
-  if (status === 204 || status === 205 || status === 304) return 500;
-  return status;
 }
 
 /**

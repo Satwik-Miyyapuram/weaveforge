@@ -3,7 +3,6 @@
  * through this file — never from internal paths.
  */
 export { ListsScreen } from "./ui/lists-screen";
-export { listDisplayColor } from "./ui/list-ui";
 /**
  * File a paper or a note into a list, from the item itself.
  *

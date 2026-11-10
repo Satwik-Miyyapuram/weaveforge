@@ -53,7 +53,7 @@ import { INK_COLOUR_TOKENS } from "../render/ink-palette";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { Button } from "@/components/button";
 import { Swatch, ToolButton } from "@/components/controls";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
@@ -461,7 +461,7 @@ export function InkBar({
 
       {/* 6. OCR Recognise */}
       {!idle && <ToolButton label="Recognise"
-        tip={busy ? (progress ?? "Recognising…") : `Recognise this page (${shortcutLabel("⌘⇧R")})`}
+        tip={busy ? (progress ?? "Recognising…") : `Recognise this page (${readyCore().shortcutLabel("⌘⇧R", isMacPlatform())})`}
         onClick={onRecognise}
         disabled={recogniseOff}
       >
@@ -531,7 +531,7 @@ function RecogniseGlyph() {
 function UndoRedo({ onUndo, onRedo, undoOff, redoOff }: { onUndo: () => void; onRedo: () => void; undoOff: boolean; redoOff: boolean }) {
   return (
       <div className="ink-bar-group">
-        <ToolButton label="Undo" tip={`Undo (${shortcutLabel("⌘Z")})`}
+        <ToolButton label="Undo" tip={`Undo (${readyCore().shortcutLabel("⌘Z", isMacPlatform())})`}
           onClick={onUndo}
           disabled={undoOff}
         >
@@ -550,7 +550,7 @@ function UndoRedo({ onUndo, onRedo, undoOff, redoOff }: { onUndo: () => void; on
             <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
           </svg>
         </ToolButton>
-        <ToolButton label="Redo" tip={`Redo (${shortcutLabel("⌘⇧Z")})`}
+        <ToolButton label="Redo" tip={`Redo (${readyCore().shortcutLabel("⌘⇧Z", isMacPlatform())})`}
           onClick={onRedo}
           disabled={redoOff}
         >

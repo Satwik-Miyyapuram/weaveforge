@@ -10,7 +10,7 @@
 
 import type { AddPaperResult, NewPaperInput, Paper } from "@weaveforge/core";
 import type { BibImportPaper, BibImportPlan } from "@weaveforge/wasm";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** The part of a `File` this needs. */
 export interface BibFileLike {
@@ -39,50 +39,36 @@ export interface BibImportOutcome {
   readonly problems: BibImportIssue[];
 }
 
-/** The citation key a paper was imported or exported with, if any. */
-function citeKeyOf(paper: Paper): string | undefined {
-  const key = paper.metadata?.citeKey;
-  return typeof key === "string" && key.trim() ? key : undefined;
-}
-
-/** A planned entry as the fields a new paper takes. */
+/** A planned entry as the fields a new paper takes; the field rules are in Rust (`bib_import`). */
 export function bibPaperInput(entry: BibImportPaper): NewPaperInput {
-  return {
-    title: entry.title,
-    authors: entry.authors,
-    year: entry.year ?? undefined,
-    venue: entry.venue ?? undefined,
-    doi: entry.doi ?? undefined,
-    arxivId: entry.arxivId ?? undefined,
-    url: entry.url ?? undefined,
-    abstract: entry.abstract ?? undefined,
-    bibtex: entry.bibtex,
-    metadata: { citeKey: entry.citationKey },
-  };
+  // Rust sends absent fields as null; the input type and the old TS have them undefined.
+  const input = typedCore().bibPaperInput(entry);
+  // Through unknown: the entries are re-keyed to undefined, which the record type does not model.
+  return Object.fromEntries(Object.entries(input).map(([k, v]) => [k, v ?? undefined])) as unknown as NewPaperInput;
 }
 
 /** Adds every new entry of a `.bib` file; one failed save does not stop the rest. */
 export async function importBibFile(file: BibFileLike, deps: BibImportDeps): Promise<BibImportOutcome> {
   const library = await deps.listPapers();
   const dois = library.flatMap((p) => (p.doi ? [p.doi] : []));
-  const keys = library.flatMap((p) => citeKeyOf(p) ?? []);
+  const keys = library.flatMap((p) => typedCore().citeKeyOf(p.metadata) ?? []);
   const plan = await deps.plan(file.name, await file.text(), dois, keys);
 
   const added: Paper[] = [];
   const skipped: BibImportIssue[] = plan.skipped.map((s) => ({ key: s.key, line: s.line, reason: s.reason }));
   const problems: BibImportIssue[] = plan.problems.map((p) => ({ key: "", line: p.line, reason: p.message }));
   for (const entry of plan.papers) {
-    const line = entry.line;
+    const line = entry.line ?? 0;
     try {
       const { paper, created } = await deps.add(bibPaperInput(entry));
       if (!created) {
-        skipped.push({ key: entry.citationKey, line, reason: `Already in the library as "${paper.title}".` });
+        skipped.push({ key: entry.citationKey ?? "", line, reason: `Already in the library as "${paper.title}".` });
         continue;
       }
       await deps.afterCreate(paper);
       added.push(paper);
     } catch (err) {
-      problems.push({ key: entry.citationKey, line, reason: err instanceof Error ? err.message : String(err) });
+      problems.push({ key: entry.citationKey ?? "", line, reason: err instanceof Error ? err.message : String(err) });
     }
   }
   return { added, skipped, problems };

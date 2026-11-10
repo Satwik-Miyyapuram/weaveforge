@@ -3,11 +3,16 @@
  * [n] markers map back to the hits it cited.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { UNTRUSTED_CONTEXT_RULE, type AiModelRequest, type SearchHit } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { askLibrary, buildAskRequest, citedSources } from "../application/ask-library";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function hit(id: string, title: string, text?: string, page?: number): SearchHit {
   return {

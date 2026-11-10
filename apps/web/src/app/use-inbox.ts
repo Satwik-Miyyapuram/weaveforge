@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
-import { inboxLinks, type InboxLink } from "./inbox-links";
+import { readyCore } from "@/lib/rust-core";
+import type { InboxLink } from "@weaveforge/wasm";
 
 /**
  * The Inbox entries for whoever is signed in, kept fresh as AI suggestions
@@ -35,5 +36,5 @@ export function useInbox(): { links: InboxLink[]; local: boolean } {
   }, []);
 
   const canSupervise = !!profile && profile.role !== "masters";
-  return { links: inboxLinks({ canSupervise, pendingProposals, local }), local };
+  return { links: readyCore().inboxLinks({ canSupervise, pendingProposals, local }), local };
 }

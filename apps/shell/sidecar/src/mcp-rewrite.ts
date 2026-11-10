@@ -7,7 +7,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { MCP_BRIDGE_FILE, type McpLaunch } from "./mcp-connect";
+import { rust } from "@weaveforge/core";
+
+import type { McpLaunch } from "./mcp-connect";
 
 /** Which key a client config keeps its servers under. */
 export type McpServersKey = "mcpServers" | "servers";
@@ -41,26 +43,14 @@ export function mcpClientConfigs(
   ];
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /** True for an entry the Electron app wrote: run as Node, first arg the bridge script. */
 export function isElectronEntry(entry: unknown): boolean {
-  if (!isPlainObject(entry)) return false;
-  const env = entry.env;
-  if (!isPlainObject(env) || env.ELECTRON_RUN_AS_NODE !== "1") return false;
-  const args = entry.args;
-  if (!Array.isArray(args) || typeof args[0] !== "string") return false;
-  const segments = args[0].split(/[\\/]/);
-  return segments[segments.length - 1] === MCP_BRIDGE_FILE;
+  return rust().isElectronMcpEntry(entry);
 }
 
 /** The MCP file a launch env points at, by basename; `mcp.json` when none is set. */
 export function mcpFileOf(env: unknown): string {
-  if (!isPlainObject(env)) return "mcp.json";
-  const file = env.WEAVEFORGE_MCP_FILE;
-  return typeof file === "string" && file !== "" ? path.basename(file) : "mcp.json";
+  return rust().mcpFileOf(env);
 }
 
 /** The config with every Electron entry for this launch's MCP file moved to `launch`; others untouched. */
@@ -69,29 +59,9 @@ export function rewriteMcpConfig(
   key: McpServersKey,
   launch: McpLaunch,
 ): { changed: boolean; config: unknown } {
-  if (!isPlainObject(config) || !isPlainObject(config[key])) {
-    return { changed: false, config };
-  }
-  const nextServers: Record<string, unknown> = {};
-  let changed = false;
-  for (const [name, entry] of Object.entries(config[key])) {
-    if (!isElectronEntry(entry) || mcpFileOf((entry as Record<string, unknown>).env) !== mcpFileOf(launch.env)) {
-      nextServers[name] = entry;
-      continue;
-    }
-    const old = entry as Record<string, unknown>;
-    const env: Record<string, unknown> = { ...(old.env as Record<string, unknown>) };
-    delete env.ELECTRON_RUN_AS_NODE;
-    nextServers[name] = {
-      ...old,
-      command: launch.command,
-      args: [...launch.args],
-      env: { ...env, ...launch.env },
-    };
-    changed = true;
-  }
-  if (!changed) return { changed: false, config };
-  return { changed: true, config: { ...config, [key]: nextServers } };
+  const result = rust().rewriteMcpConfig(config, key, launch);
+  // Rust hands back a copy; an untouched config stays the caller's own object.
+  return result.changed ? result : { changed: false, config };
 }
 
 /**

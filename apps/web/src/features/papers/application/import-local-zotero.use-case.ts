@@ -1,5 +1,6 @@
 import type { AddPaperUseCase, IPaperRepository, ManageTagsUseCase } from "@weaveforge/core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";
 
 /**
  * The Zotero running on this computer: its papers, then their annotations.
@@ -102,7 +103,9 @@ export class ImportLocalZoteroUseCase {
 
     // Scoped to the same collection as the papers, or the annotations would
     // arrive for papers the import deliberately did not take.
-    const pulled = await localZoteroAnnotations(bridge, collection).pull();
+    const pulled = toBibliographyAnnotationPull(
+      await localZoteroAnnotations(bridge, collection).pull(),
+    );
     // Loaded here, not at the top: the container builds this use case on every
     // route, and the merge is only needed once an import actually runs.
     const { applyBibliographyAnnotations } = await import(

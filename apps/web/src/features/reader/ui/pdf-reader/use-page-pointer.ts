@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  INK_HIGHLIGHTER_WIDTH,
-  INK_DEFAULT_WIDTH,
-  type PageProjection,
-  type PageTextGeometry,
-  type ReaderAnnotation,
-  type ReaderPageSize,
-} from "@weaveforge/core";
+import { INK_HIGHLIGHTER_WIDTH, INK_DEFAULT_WIDTH, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in

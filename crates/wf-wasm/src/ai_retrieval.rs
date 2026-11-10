@@ -24,3 +24,14 @@ pub fn retrieve_ai_excerpts_js(
     let options: RetrievalOptions = serde_wasm_bindgen::from_value(options)?;
     to_js(&retrieval::retrieve_ai_excerpts(&documents, query, options))
 }
+
+/// [`cited_sources`](retrieval::cited_sources): the 1-based source numbers an answer cites, in
+/// first-citation order, out of `count` sources.
+///
+/// # Errors
+///
+/// Fails if the numbers cannot be converted to a JS value.
+#[wasm_bindgen(js_name = citedSourceNumbers)]
+pub fn cited_source_numbers_js(answer: &str, count: usize) -> JsResult<JsValue> {
+    to_js(&retrieval::cited_sources(answer, count))
+}

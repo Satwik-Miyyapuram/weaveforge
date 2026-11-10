@@ -295,6 +295,199 @@ pub fn team_attention(supervisees: &[StatSupervisee], today: &str) -> Vec<TeamAt
     items
 }
 
+/// A log entry as the dashboard reads it: the date, creation stamp and body for the preview.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatLogEntry {
+    /// Entry id, used as the React key.
+    pub id: String,
+    /// `yyyy-mm-dd`.
+    pub entry_date: String,
+    /// Creation timestamp; breaks ties between entries on the same day.
+    pub created_at: String,
+    /// Markdown body, reduced to a plain-text preview.
+    pub body: String,
+}
+
+/// A report section, reduced to the status the progress reads.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatSection {
+    /// `done` or another status.
+    pub status: String,
+}
+
+/// Everything the dashboard stats are built from.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatsInput {
+    /// Library papers.
+    pub papers: Vec<StatPaper>,
+    /// Report sections.
+    pub sections: Vec<StatSection>,
+    /// Plan milestones.
+    pub milestones: Vec<StatMilestone>,
+    /// Experiments.
+    pub experiments: Vec<StatExperiment>,
+    /// Log entries; only the newest few are shown.
+    pub log_entries: Vec<StatLogEntry>,
+    /// Number of paper relations (the graph edge count).
+    pub relation_count: usize,
+    /// Number of paper lists.
+    pub list_count: usize,
+    /// Tags with their paper counts.
+    pub tags: Vec<StatTag>,
+}
+
+/// Done count, total, and whole percentage for one progress bar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Progress {
+    /// Items marked done.
+    pub done: usize,
+    /// All items.
+    pub total: usize,
+    /// `done / total` rounded to a whole percent; 0 when there are no items.
+    pub pct: usize,
+}
+
+/// Experiments progress plus the running count.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExperimentsStat {
+    /// Experiments marked done.
+    pub done: usize,
+    /// All experiments.
+    pub total: usize,
+    /// Done share as a whole percent.
+    pub pct: usize,
+    /// Experiments still running.
+    pub running: usize,
+}
+
+/// One recent log line on the dashboard.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentLogItem {
+    /// Entry id.
+    pub id: String,
+    /// Entry date, `yyyy-mm-dd`.
+    pub date: String,
+    /// Plain-text preview of the body.
+    pub preview: String,
+    /// App route the line links to.
+    pub href: String,
+}
+
+/// Library counts shown in the snapshot card.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibrarySnapshot {
+    /// Number of papers.
+    pub papers: usize,
+    /// Number of relations between papers.
+    pub edges: usize,
+    /// Number of lists.
+    pub lists: usize,
+    /// App route the card links to.
+    pub href: String,
+}
+
+/// The whole dashboard stats object.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardStats {
+    /// Reading progress over papers.
+    pub reading: Progress,
+    /// Report progress over sections.
+    pub report: Progress,
+    /// Plan progress over milestones.
+    pub plan: Progress,
+    /// Experiments progress and running count.
+    pub experiments: ExperimentsStat,
+    /// Attention lines, in display order.
+    pub attention: Vec<AttentionItem>,
+    /// The newest log lines, at most five.
+    pub recent_log: Vec<RecentLogItem>,
+    /// Library counts.
+    pub library: LibrarySnapshot,
+    /// The three most-used tags.
+    pub top_tags: Vec<TopTag>,
+}
+
+/// How many of `items` are done, and that as a whole percentage.
+fn progress_of<T>(items: &[T], is_done: impl Fn(&T) -> bool) -> Progress {
+    let total = items.len();
+    let done = items.iter().filter(|item| is_done(item)).count();
+    Progress {
+        done,
+        total,
+        pct: percent(done, total),
+    }
+}
+
+/// `done / total` as a whole percent, rounded half up like `Math.round`; 0 for no items.
+// A rounded percentage of two counts: non-negative and small, so the cast is exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn percent(done: usize, total: usize) -> usize {
+    if total == 0 {
+        return 0;
+    }
+    ((done as f64 / total as f64) * 100.0).round() as usize
+}
+
+/// Experiments progress with the running count.
+fn experiments_summary(experiments: &[StatExperiment]) -> ExperimentsStat {
+    let running = experiments.iter().filter(|e| e.status == "running").count();
+    let progress = progress_of(experiments, |e| e.status == "done");
+    ExperimentsStat {
+        done: progress.done,
+        total: progress.total,
+        pct: progress.pct,
+        running,
+    }
+}
+
+/// The newest `limit` log entries, newest date first, then newest creation stamp.
+fn recent_log_entries(entries: &[StatLogEntry], limit: usize) -> Vec<RecentLogItem> {
+    let mut sorted: Vec<&StatLogEntry> = entries.iter().collect();
+    sorted.sort_by(|a, b| {
+        b.entry_date
+            .cmp(&a.entry_date)
+            .then_with(|| b.created_at.cmp(&a.created_at))
+    });
+    sorted
+        .into_iter()
+        .take(limit)
+        .map(|e| RecentLogItem {
+            id: e.id.clone(),
+            date: e.entry_date.clone(),
+            // The same plain-text preview the note and paper cards show.
+            preview: crate::card_snippet::card_snippet(&e.body, 80),
+            href: "/log".into(),
+        })
+        .collect()
+}
+
+/// Build the whole dashboard stats object for `today` (`yyyy-mm-dd`).
+#[must_use]
+pub fn build_dashboard_stats(input: &StatsInput, today: &str) -> DashboardStats {
+    DashboardStats {
+        reading: progress_of(&input.papers, |p| p.status == "read"),
+        report: progress_of(&input.sections, |s| s.status == "done"),
+        plan: progress_of(&input.milestones, |m| m.status == "done"),
+        experiments: experiments_summary(&input.experiments),
+        attention: needs_attention(&input.papers, &input.milestones, &input.experiments, today),
+        recent_log: recent_log_entries(&input.log_entries, 5),
+        library: LibrarySnapshot {
+            papers: input.papers.len(),
+            edges: input.relation_count,
+            lists: input.list_count,
+            href: "/graph".into(),
+        },
+        top_tags: top_tags(&input.tags, 3),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

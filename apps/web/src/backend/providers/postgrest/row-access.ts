@@ -56,6 +56,22 @@ export async function one<R>(query: PromiseLike<Resolved<unknown>>): Promise<R |
   return (data as R | null) ?? null;
 }
 
+/**
+ * A row with its top-level `Date` values written as ISO text.
+ *
+ * The local PGlite client returns `timestamptz` columns as `Date` objects, while
+ * PostgREST returns them as strings. The Rust mappers take the string form, so
+ * a caller that hands a local row to one converts it first.
+ */
+export function timestampsAsText<R extends object>(row: R): R {
+  const out: Record<string, unknown> = { ...(row as object) };
+  for (const key of Object.keys(out)) {
+    const value = out[key];
+    if (value instanceof Date) out[key] = value.toISOString();
+  }
+  return out as R;
+}
+
 /** How many ids one `in` filter carries; the list travels in the URL. */
 export const ID_CHUNK = 200;
 

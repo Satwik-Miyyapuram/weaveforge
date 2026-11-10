@@ -1,7 +1,13 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import assert from "node:assert/strict";
 import type { NewPaperInput, Paper } from "@weaveforge/core";
 import { ZoteroSync } from "../infrastructure/zotero-sync";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Every Zotero item the library holds, keyed by endpoint path. The mock serves

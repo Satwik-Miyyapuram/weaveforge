@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { ZoteroAnnotations } from "../infrastructure/zotero-annotations";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function response(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });

@@ -1,4 +1,4 @@
-import type { PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { sanitizePdfUrl } from "./sanitize-reader-url";
 

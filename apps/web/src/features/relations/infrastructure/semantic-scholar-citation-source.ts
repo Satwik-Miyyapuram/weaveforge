@@ -1,3 +1,4 @@
+import { typedCore } from "@/lib/rust-core";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 
 import type { CitationCandidate, ICitationSource, PaperRef } from "@weaveforge/core";
@@ -50,24 +51,12 @@ interface S2CitationsResponse {
   next?: number;
 }
 
-const CITATION_INTENTS = new Set(["background", "method", "result"]);
-
 function mapContexts(raw: unknown): string[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const contexts = raw
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return contexts.length > 0 ? contexts : undefined;
+  return typedCore().citationContexts(raw);
 }
 
 function mapIntents(raw: unknown): CitationCandidate["intents"] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const intents = raw.filter(
-    (item): item is NonNullable<CitationCandidate["intents"]>[number] =>
-      typeof item === "string" && CITATION_INTENTS.has(item),
-  );
-  return intents.length > 0 ? intents : undefined;
+  return typedCore().citationIntents(raw) as CitationCandidate["intents"] | undefined;
 }
 
 function mapIsInfluential(raw: unknown): boolean | undefined {
@@ -75,33 +64,20 @@ function mapIsInfluential(raw: unknown): boolean | undefined {
 }
 
 function extId(ids: S2ExternalIds | null | undefined): PaperRef | null {
-  if (!ids) return null;
-  if (ids.ArXiv) return { kind: "arxiv", value: ids.ArXiv };
-  if (ids.DOI) return { kind: "doi", value: ids.DOI };
-  return null;
+  return typedCore().citationExternalIdRef(ids ?? null) as PaperRef | null;
 }
 
 function s2Id(ref: PaperRef): string {
-  return ref.kind === "arxiv" ? `ARXIV:${ref.value}` : `DOI:${ref.value}`;
+  // Bibliographic refs have no Semantic Scholar id, and the wasm PaperRefKind omits them.
+  if (ref.kind === "bibliographic") throw new Error("Semantic Scholar needs an arXiv id, DOI, URL or Zotero key");
+  return typedCore().s2PaperId(ref);
 }
 
 const BATCH_LIMIT = 500; // max ids per /paper/batch request
-/** Safety bound so a stuck/hostile `next` cannot spin forever. */
-const MAX_CITATION_PAGES = 50;
-/** Semantic Scholar Graph API rejects offsets at or above this value. */
-const S2_MAX_OFFSET = 10_000;
 
-function nextPageOffset(
-  currentOffset: number,
-  next: unknown,
-  pagesFetched: number,
-): number {
-  if (pagesFetched >= MAX_CITATION_PAGES) return -1;
-  if (typeof next !== "number" || !Number.isFinite(next)) return -1;
-  // Soft-stop before the API's hard offset cap — requesting offset≥10000 400s
-  // and would throw away pages already collected.
-  if (next <= currentOffset || next >= S2_MAX_OFFSET) return -1;
-  return next;
+/** Paging stop rule (page cap, offset ceiling, non-advancing next) lives in Rust. */
+function nextPageOffset(currentOffset: number, next: unknown, pagesFetched: number): number {
+  return typedCore().nextCitationPageOffset(currentOffset, next, pagesFetched);
 }
 
 export class SemanticScholarCitationSource implements ICitationSource {
@@ -147,10 +123,8 @@ export class SemanticScholarCitationSource implements ICitationSource {
       }
       const body = (await res.json()) as S2ReferencesResponse & { next?: number };
       for (const item of body.data ?? []) {
-        const ids = item.citedPaper?.externalIds;
-        if (!ids) continue;
-        if (ids.ArXiv) refs.push({ kind: "arxiv", value: ids.ArXiv });
-        else if (ids.DOI) refs.push({ kind: "doi", value: ids.DOI });
+        const ref = extId(item.citedPaper?.externalIds);
+        if (ref) refs.push(ref);
       }
       pages += 1;
       const next = body.next;

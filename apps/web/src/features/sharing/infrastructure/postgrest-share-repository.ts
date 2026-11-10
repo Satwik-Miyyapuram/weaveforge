@@ -6,11 +6,19 @@ import type {
   Share,
   ShareableType,
 } from "@weaveforge/core";
-import {
-  type ShareRow,
-  toDomain,
-} from "./share-rows";
-import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
+import { one, oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
+
+/** A `shares` row as PostgREST returns it; mapped by `readyCore().shareFromRow`. */
+interface ShareRow {
+  id: string;
+  owner_id: string;
+  recipient_id: string;
+  resource_type: ShareableType;
+  resource_id: string | null;
+  access: "view" | "comment";
+  created_at: string;
+}
 
 /**
  * PostgREST adapter for shares (migration 0018). `owner_id` defaults to
@@ -44,10 +52,10 @@ export class PostgrestShareRepository implements IShareRepository {
   async grant(input: NewShareInput): Promise<Share> {
     const access = input.access ?? "comment";
     const changed = await this.changeAccess(input, access);
-    if (changed) return toDomain(changed);
+    if (changed) return readyCore().shareFromRow(timestampsAsText(changed));
 
     try {
-      return toDomain(await oneRow<ShareRow>(this.db
+      return readyCore().shareFromRow(timestampsAsText(await oneRow<ShareRow>(this.db
         .from(TABLE)
         .insert({
           recipient_id: input.recipientId,
@@ -56,13 +64,13 @@ export class PostgrestShareRepository implements IShareRepository {
           access,
         })
         .select(SHARE_COLUMNS)
-        .single()));
+        .single())));
     } catch (e) {
       // Another grant for the same recipient inserted first; change that one.
       if ((e as { code?: unknown } | null)?.code !== UNIQUE_VIOLATION) throw e;
       const row = await this.changeAccess(input, access);
       if (!row) throw e;
-      return toDomain(row);
+      return readyCore().shareFromRow(timestampsAsText(row));
     }
   }
 
@@ -87,7 +95,7 @@ export class PostgrestShareRepository implements IShareRepository {
   ): Promise<Share[]> {
     let q = this.db.from(TABLE).select(SHARE_COLUMNS).eq("resource_type", resourceType);
     q = resourceId === null ? q.is("resource_id", null) : q.eq("resource_id", resourceId);
-    return (await rows<ShareRow>(q)).map(toDomain);
+    return (await rows<ShareRow>(q)).map((r) => readyCore().shareFromRow(timestampsAsText(r)));
   }
 
   async listSharedWithMe(resourceType?: ShareableType): Promise<Share[]> {
@@ -95,7 +103,7 @@ export class PostgrestShareRepository implements IShareRepository {
     if (!uid) return [];
     let q = this.db.from(TABLE).select(SHARE_COLUMNS).eq("recipient_id", uid);
     if (resourceType) q = q.eq("resource_type", resourceType);
-    return (await rows<ShareRow>(q.order("created_at", { ascending: false }))).map(toDomain);
+    return (await rows<ShareRow>(q.order("created_at", { ascending: false }))).map((r) => readyCore().shareFromRow(timestampsAsText(r)));
   }
 }
 

@@ -14,11 +14,9 @@ import type {
   ImportAction,
   ImportDiff,
   ImportDiffEntry,
-  ImportMergeDetail,
-  MergeFieldDispute,
 } from "@weaveforge/wasm";
 import type { HunkPick } from "@/lib/rust-core";
-import type { RustCore } from "@/lib/rust-core";
+import { readyCore, type RustCore } from "@/lib/rust-core";
 
 /**
  * Settle a both-changed file per field, or say what is actually in dispute.
@@ -38,92 +36,33 @@ export function mergeBothChanged(
   base: VaultPageBase | undefined,
   workspaceContent: string | undefined,
 ): ImportDiffEntry {
-  if (entry.action !== "conflict" || entry.kind !== "both-changed") return entry;
-  if (!base || workspaceContent === undefined) return entry;
-
   // A note over the WASM text limit cannot be merged here; it stays a conflict for the person to settle.
-  let workspace: ReturnType<RustCore["vaultPageSide"]>;
-  let merged: ReturnType<RustCore["mergeVaultPage"]>;
+  if ((workspaceContent?.length ?? 0) > MAX_INDEX_TEXT_UTF16) return entry;
+  let merged: ImportDiffEntry;
   try {
-    workspace = core.vaultPageSide(entry.entity.path, workspaceContent);
-    if (!workspace) return entry;
-
-    merged = core.mergeVaultPage(
-      base,
-      { fields: { ...entry.entity.fields, title: entry.entity.title }, body: entry.entity.body },
-      workspace,
-    );
+    merged = core.mergeBothChanged(entry, base, workspaceContent);
   } catch {
     return entry;
   }
+  // The core hands back the entry unchanged when there is no base, no workspace copy, or no
+  // vault page to read; keep the caller's own object in that case.
+  if (merged.action === entry.action && merged.merge === undefined) return entry;
+  return absentWhenNull(merged);
+}
 
-  if (merged.conflicts.length > 0) {
-    const fields = merged.conflicts.map((conflict) => conflict.field);
-    return {
-      ...entry,
-      conflictFields: fields,
-      merge: mergeDetail(merged, entry, workspace),
-      reason: `${entry.entity.path}: both sides changed ${listFields(fields)}.`,
-    };
-  }
+/** The index text limit, in UTF-16 units, that the WASM core enforces. */
+const MAX_INDEX_TEXT_UTF16 = 16 * 1024 * 1024;
 
-  const { title, ...fields } = merged.fields;
+/** A key the folder deleted is `undefined` in a dispute, never `null`. */
+function absentWhenNull(merged: ImportDiffEntry): ImportDiffEntry {
+  if (!merged.merge) return merged;
   return {
-    ...entry,
-    action: "updated",
-    kind: undefined,
-    reason: undefined,
-    entity: {
-      ...entry.entity,
-      title: typeof title === "string" ? title : entry.entity.title,
-      fields: fields as ImportDiffEntry["entity"]["fields"],
-      body: merged.body,
+    ...merged,
+    merge: {
+      ...merged.merge,
+      disputed: merged.merge.disputed.map((d) => (d.theirs === null ? { ...d, theirs: undefined } : d)),
     },
   };
-}
-
-/**
- * What the resolver may choose between, as opposed to what the merge settled.
- *
- * `merged.fields` and `merged.body` already carry every change only one side
- * made, and stand as ours where the two disagree, so a settlement is composed
- * from them rather than from the file: take these, override the disputed keys
- * and body hunks, write that. `bodySides` travels only when the body itself is
- * in dispute, because the hunk diff needs both copies and `merged.conflicts`
- * carries digests for a body, never text.
- */
-function mergeDetail(
-  merged: ReturnType<RustCore["mergeVaultPage"]>,
-  entry: ImportDiffEntry,
-  workspace: NonNullable<ReturnType<RustCore["vaultPageSide"]>>,
-): ImportMergeDetail {
-  const disputed: MergeFieldDispute[] = merged.conflicts
-    .filter((conflict) => conflict.field !== "body")
-    // local is the folder's side and remote the workspace's, so they land on
-    // `theirs` and `ours` respectively. An absent side crosses from Rust as
-    // `null`; it goes back to `undefined` so picking it drops the field
-    // instead of saving a null.
-    .map((conflict) => ({
-      field: conflict.field,
-      base: conflict.base ?? undefined,
-      ours: conflict.remote ?? undefined,
-      theirs: conflict.local ?? undefined,
-    }));
-  const bodyDisputed = merged.conflicts.some((conflict) => conflict.field === "body");
-
-  return {
-    fields: merged.fields,
-    body: merged.body,
-    disputed,
-    ...(bodyDisputed
-      ? { bodySides: { ours: workspace.body, theirs: entry.entity.body } }
-      : {}),
-  };
-}
-
-function listFields(fields: readonly string[]): string {
-  if (fields.length === 1) return fields[0]!;
-  return `${fields.slice(0, -1).join(", ")} and ${fields[fields.length - 1]}`;
 }
 
 /**
@@ -208,9 +147,10 @@ function settlePicks(
 
   const fields: Record<string, unknown> = { ...detail.fields };
   for (const dispute of detail.disputed) {
-    fields[dispute.field] = (picks.fields?.[dispute.field] ?? "ours") === "ours"
-      ? dispute.ours
-      : dispute.theirs;
+    const value = (picks.fields?.[dispute.field] ?? "ours") === "ours" ? dispute.ours : dispute.theirs;
+    // Picking a side that deleted the key leaves the key out of the note.
+    if (value === undefined) delete fields[dispute.field];
+    else fields[dispute.field] = value;
   }
 
   const { title, ...rest } = fields;
@@ -275,13 +215,5 @@ export async function writeConflictMarkersTo(
 }
 
 export function countActions(entries: readonly ImportDiffEntry[]): ImportDiff["counts"] {
-  const counts: ImportDiff["counts"] = {
-    created: 0,
-    updated: 0,
-    unchanged: 0,
-    conflict: 0,
-    removed: 0,
-  };
-  for (const entry of entries) counts[entry.action] += 1;
-  return counts;
+  return readyCore().countActions(entries);
 }

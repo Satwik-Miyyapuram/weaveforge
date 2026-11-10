@@ -7,6 +7,7 @@ import {
   previewTab as rawPreviewTab,
   tabKey as rawTabKey,
   emptyLayout as rawEmptyLayout,
+  layoutFromRecord as rawLayoutFromRecord,
   leaves as rawLeaves,
   openTab as rawOpenTab,
   activateTab as rawActivateTab,
@@ -71,6 +72,11 @@ export function tabKey(tab: TabRef): string {
 
 export function emptyLayout(paneId = "pane-1"): PaneLayout {
   return rawEmptyLayout(paneId) as PaneLayout;
+}
+
+/** A stored layout record parsed back into a layout; `null` or an unusable record is one empty pane. */
+export function layoutFromRecord(raw: string | null): PaneLayout {
+  return rawLayoutFromRecord(raw) as PaneLayout;
 }
 
 export function leaves(node: PaneNode): PaneLeaf[] {

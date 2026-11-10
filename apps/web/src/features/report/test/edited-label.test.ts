@@ -1,6 +1,11 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { editedLabel } from "../lib/edited-label";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const now = new Date("2026-09-26T12:00:00Z");
 

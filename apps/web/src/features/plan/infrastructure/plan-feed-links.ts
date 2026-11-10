@@ -3,6 +3,10 @@ import type { ICurrentUserProvider } from "@weaveforge/core";
 import { encodeBase64, encodeBytea } from "@/lib/bytea";
 import { formatError } from "@/lib/format-error";
 import { randomBytes } from "@/lib/system";
+import { readyCore } from "@/lib/rust-core";
+import type { PlanFeedUrls } from "@weaveforge/wasm";
+
+export type { PlanFeedUrls };
 
 /**
  * The link a calendar subscribes to and a widget reads: one per account.
@@ -31,45 +35,18 @@ export interface PlanFeedLink {
   lastUsedAt: string | null;
 }
 
-export interface PlanFeedUrls {
-  /** Opens straight in a calendar app. */
-  webcal: string;
-  /** The same feed over https, for calendars that ask for a URL. */
-  ics: string;
-  /** Widget data. */
-  widget: string;
-}
-
 export interface PlanFeedOptionsInput {
   includeDone?: boolean;
   reminderDays?: number;
 }
 
-const DEFAULT_FEED_ORIGIN = "https://app.weaveforge.org";
-
 /** Where the feed is served: this origin on the web, the web deployment elsewhere. */
 export function planFeedOrigin(serverRoutes: boolean, here?: string): string {
-  if (serverRoutes && here && /^https?:\/\//.test(here)) return here;
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  try {
-    return configured ? new URL(configured).origin : DEFAULT_FEED_ORIGIN;
-  } catch {
-    return DEFAULT_FEED_ORIGIN;
-  }
+  return readyCore().planFeedOrigin(serverRoutes, here, process.env.NEXT_PUBLIC_APP_URL);
 }
 
 export function planFeedUrls(origin: string, token: string, options: PlanFeedOptionsInput = {}): PlanFeedUrls {
-  const base = `${origin}/api/plan/feed/${encodeURIComponent(token)}`;
-  const query = new URLSearchParams();
-  if (options.includeDone) query.set("done", "1");
-  if (options.reminderDays && options.reminderDays > 0) query.set("alarm", String(Math.floor(options.reminderDays)));
-  const suffix = query.toString() ? `?${query}` : "";
-  const ics = `${base}/deadlines.ics${suffix}`;
-  return {
-    ics,
-    webcal: ics.replace(/^https?:/, "webcal:"),
-    widget: `${base}/widget.json${options.includeDone ? "?done=1" : ""}`,
-  };
+  return readyCore().planFeedUrls(origin, token, options);
 }
 
 interface Row {

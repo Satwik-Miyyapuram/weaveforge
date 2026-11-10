@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { INK_RENDER_COLOURS, paletteHex } from "@/features/ink/render/ink-palette";
 import { readToolColours, resetToolColoursCacheForTests } from "@/features/ink";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { colourToolFor, markColourTool, rememberRecolour, rememberToolColour } from "../ui/pdf-reader/colour-tools";
+
+before(loadTestCore);
 
 /** An in-memory localStorage, so a remembered colour is read back the way the app reads it. */
 function installStorage(): Map<string, string> {

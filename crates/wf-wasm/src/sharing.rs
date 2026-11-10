@@ -185,3 +185,70 @@ pub fn shared_item_js(kind: JsValue, row: JsValue, source: JsValue) -> JsResult<
     let source: SharedSource = serde_wasm_bindgen::from_value(source)?;
     to_js(&sharing::shared_item(kind, &row, &source))
 }
+
+/// [`member_name_map`](wf_core::member::member_name_map).
+///
+/// # Errors
+///
+/// Fails when `members` is not a list of member sources.
+#[wasm_bindgen(js_name = memberNameMap)]
+pub fn member_name_map_js(members: JsValue) -> JsResult<JsValue> {
+    let members: Vec<wf_core::member::MemberNameSource> = serde_wasm_bindgen::from_value(members)?;
+    to_js(&wf_core::member::member_name_map(&members))
+}
+
+/// [`shared_resource_href`](sharing::shared_resource_href).
+///
+/// # Errors
+///
+/// Fails when `kind` is not a shareable type.
+#[wasm_bindgen(js_name = sharedResourceHref)]
+pub fn shared_resource_href_js(kind: JsValue, resource_id: &str) -> JsResult<String> {
+    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
+    Ok(sharing::shared_resource_href(kind, resource_id))
+}
+
+/// [`shared_item_href`](sharing::shared_item_href).
+///
+/// # Errors
+///
+/// Fails when `item` is not a shared item.
+#[wasm_bindgen(js_name = sharedItemHref)]
+pub fn shared_item_href_js(item: JsValue) -> JsResult<String> {
+    let item: sharing::SharedItem = serde_wasm_bindgen::from_value(item)?;
+    Ok(sharing::shared_item_href(&item))
+}
+
+/// [`shared_item_type_label`](sharing::shared_item_type_label).
+///
+/// # Errors
+///
+/// Fails when `kind` is not a shareable type.
+#[wasm_bindgen(js_name = sharedItemTypeLabel)]
+pub fn shared_item_type_label_js(kind: JsValue) -> JsResult<String> {
+    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
+    Ok(sharing::shared_item_type_label(kind))
+}
+
+/// [`shared_paper_annotation_summary`](sharing::shared_paper_annotation_summary).
+///
+/// # Errors
+///
+/// Fails when `metadata` is not JSON, or the summary cannot be converted to a JS value.
+#[wasm_bindgen(js_name = sharedPaperAnnotationSummary)]
+pub fn shared_paper_annotation_summary_js(metadata: JsValue) -> JsResult<JsValue> {
+    let metadata: Option<serde_json::Value> = serde_wasm_bindgen::from_value(metadata)?;
+    to_js(&sharing::shared_paper_annotation_summary(metadata.as_ref()))
+}
+
+/// [`default_share_link_expires_at`](sharing::default_share_link_expires_at): the default expiry
+/// of a new view link. `now_ms` is the JS `Date.now()` value.
+#[must_use]
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "epoch milliseconds are whole numbers well inside i64"
+)]
+#[wasm_bindgen(js_name = defaultShareLinkExpiresAt)]
+pub fn default_share_link_expires_at_js(now_ms: f64) -> String {
+    sharing::default_share_link_expires_at(now_ms as i64)
+}

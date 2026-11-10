@@ -13,7 +13,7 @@ pub const EXCERPT_DEFAULT_CHARS: usize = 240;
 const ELLIPSIS: u16 = 0x2026;
 
 /// A highlight, as UTF-16 offsets into `Excerpt::text`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ExcerptRange {
     /// First unit.

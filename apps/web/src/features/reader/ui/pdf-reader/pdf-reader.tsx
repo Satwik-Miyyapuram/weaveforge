@@ -9,16 +9,10 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import {
-  errorMessage,
-  type AnchorConfidence,
-  type ReaderPageSize,
-  type DocumentSearchMatch,
-  type ReaderAnnotationType,
-  type FigureTarget,
-} from "@weaveforge/core";
+import { errorMessage, type ReaderAnnotationType, type FigureTarget } from "@weaveforge/core";
+import type { DocumentSearchMatch, ReaderPageSize, TextSelectionRange, AnchorConfidence } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import type { InkColour, TextSelectionRange } from "@weaveforge/core";
+import type { InkColour } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
 import {
@@ -62,7 +56,6 @@ import { bucketAnnotationsByPage } from "../../application/project-annotation-ge
 import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import { MarkPopover } from "../mark-popover";
-import { markActions, markPopoverShown } from "../../application/mark-actions";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
@@ -86,7 +79,6 @@ import { ReferencePopoverHost } from "./reference-popover-host";
 import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
 import { TargetHighlightOverlay } from "./target-highlight-overlay";
-import { findMarks } from "../../application/find-marks";
 import { ReferencesPanel } from "../references-panel";
 import { buildLocusLink } from "../../application/build-locus-link";
 
@@ -105,7 +97,7 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/shortcut-label";
 import { Button, IconButton } from "@/components/button";
 import { RowButton, Swatch, ToolButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";
@@ -610,8 +602,8 @@ export function PdfReader({
   const markPopover = (() => {
     if (!markAt || markAt.id !== selectedAnnId) return null;
     const ann = annotations.find((a) => a.id === markAt.id);
-    const actions = ann ? markActions(ann) : null;
-    if (!ann || !actions || !markPopoverShown(ann, createTool)) return null;
+    const actions = ann ? readyCore().markActions(ann) : null;
+    if (!ann || !actions || !readyCore().markPopoverShown(ann, createTool)) return null;
     return { ann, actions, at: markAt.at };
   })();
 
@@ -1492,7 +1484,7 @@ export function PdfReader({
     >
       {focus && (
         <span className="focus-exit">
-          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("F11")})`} size="sm" onClick={toggleFocus}>
+          <IconButton label="Exit focus" tip={`Exit focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} size="sm" onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
@@ -1533,7 +1525,7 @@ export function PdfReader({
             {toolbarExtra}
           </div>
           <span className="pdf-reader-focus-btn">
-            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("F11")})`} onClick={toggleFocus}>
+            <IconButton size="sm" label="Focus" tip={`Focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} onClick={toggleFocus}>
               <FocusGlyph on={false} />
             </IconButton>
           </span>
@@ -1710,11 +1702,14 @@ export function PdfReader({
             they stay put while the pages move. */}
         <div className="pdf-reader-scroll-wrap">
         <FindMarks
-          marks={findMarks(
+          marks={readyCore().findMarks(
             find.matches,
             numPages,
-            (n) => pageItems.get(n),
-            (n) => pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 0,
+            Array.from({ length: numPages }, (_, i) => ({
+              pageIndex: i,
+              items: pageItems.get(i + 1),
+              height: pageGeometries.current.get(i + 1)?.pageHeight ?? pageSize?.height ?? 0,
+            })),
           )}
           active={find.active}
         />

@@ -47,7 +47,7 @@ stays a Zotero annotation.
   `packages/core/src/ink/width.ts` (the ink note's nib set),
   `crates/wf-core/src/editor_workspace/pane_tree.rs`
   (`splitPane`, `openTab`, `setTabMode`, `DocumentMode`) and
-  `apps/web/src/features/editor-workspace/ui/kind.ts`.
+  `crates/wf-core/src/editor_workspace/kind.rs`.
 - Pure logic goes in `packages/core` with tests under `packages/core/test/`;
   hooks and components in `apps/web`. Nothing over 800 lines
   (`npm run check:hygiene`); split into sibling modules.

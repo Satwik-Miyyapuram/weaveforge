@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { buildOverleafExportPackage, collectCitedKeys } from "../application/build-overleaf-export";
 import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const tree: ReportSectionTreeNode[] = [
   {

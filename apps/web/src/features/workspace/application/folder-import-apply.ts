@@ -4,11 +4,9 @@ import {
 } from "@weaveforge/core";
 import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { activeProject } from "./active-project";
 import {
-  assetExtension,
-  assetMimeType,
   ownedAssetFolderPaths,
   planAssetReanchor,
   workspaceBodies,
@@ -213,8 +211,8 @@ async function reanchorAssets(
 
   for (const ref of plan.upload) {
     const bytes = pendingAssets.get(ref.folderPath)!;
-    const ext = assetExtension(ref.storagePath);
-    const blob = new Blob([bytes as BlobPart], { type: assetMimeType(ext) });
+    const ext = readyCore().assetExtension(ref.storagePath);
+    const blob = new Blob([bytes as BlobPart], { type: readyCore().assetMimeType(ext) });
     resolved.set(ref.folderPath, await getContainer().vault.uploadAsset(pageId, blob, ext));
   }
 

@@ -1,7 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/core";
-import { commentToDomain, type CommentRow } from "./comment-rows";
-import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
+import { oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
+
+/** A `comments` row as PostgREST returns it; mapped by `readyCore().commentFromRow`. */
+interface CommentRow {
+  id: string;
+  author_id: string;
+  resource_type: string;
+  resource_id: string;
+  body: string;
+  created_at: string;
+  anchor_quote?: string | null;
+  anchor_prefix?: string | null;
+  anchor_suffix?: string | null;
+  parent_id?: string | null;
+  resolved_at?: string | null;
+}
 
 /**
  * PostgREST adapter for comments (migration 0018). `author_id` defaults to
@@ -28,7 +43,7 @@ export class PostgrestCommentRepository implements ICommentRepository {
       .select(COMMENT_COLUMNS)
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
-      .order("created_at", { ascending: true }))).map(commentToDomain);
+      .order("created_at", { ascending: true }))).map((r) => readyCore().commentFromRow(timestampsAsText(r)));
   }
 
   async add(input: NewCommentInput): Promise<Comment> {
@@ -45,7 +60,7 @@ export class PostgrestCommentRepository implements ICommentRepository {
       })
       .select(COMMENT_COLUMNS)
       .single());
-    return commentToDomain(dbRow);
+    return readyCore().commentFromRow(timestampsAsText(dbRow));
   }
 
   async remove(id: string): Promise<void> {
