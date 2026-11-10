@@ -213,9 +213,9 @@ pub fn core_info() -> Result<JsValue, serde_wasm_bindgen::Error> {
 
 /// Largest text, in UTF-16 code units, that `tokenize`, `indexTerms` and
 /// `parseQuery` accept (16 Mi units, 32 MiB as UTF-16). Larger input is an error, never
-/// truncated. The TS wrappers check it before the text crosses into WASM, since
-/// wasm-bindgen's copy would otherwise grow linear memory first; this check
-/// stays for direct callers. The core itself has no cap (phase-1-search.md, Limits).
+/// truncated. The exports take a `JsString` and check it with `guarded_text` before
+/// copying, so oversize text never grows linear memory; `check_text` stays for direct
+/// callers. The core itself has no cap (phase-1-search.md, Limits).
 pub const MAX_INDEX_TEXT_UTF16: usize = 1 << 24;
 
 /// [`MAX_INDEX_TEXT_UTF16`] for JS, so the wrappers check the cap before the
@@ -244,6 +244,20 @@ fn check_text(text: &str) -> Result<(), serde_wasm_bindgen::Error> {
     Ok(())
 }
 
+/// Copies `text` out of JS after checking it against [`MAX_INDEX_TEXT_UTF16`].
+///
+/// Exports take the text as a `JsString` and call this, so oversize text is
+/// refused before it is copied into linear memory (which never shrinks).
+pub(crate) fn guarded_text(text: &js_sys::JsString) -> Result<String, serde_wasm_bindgen::Error> {
+    let len = text.length() as usize;
+    if len > MAX_INDEX_TEXT_UTF16 {
+        return Err(serde_wasm_bindgen::Error::new(format!(
+            "text is {len} UTF-16 units; MAX_INDEX_TEXT_UTF16 is {MAX_INDEX_TEXT_UTF16}"
+        )));
+    }
+    Ok(String::from(text))
+}
+
 /// Reads the JS options object and checks `text` against the cap.
 fn index_input(
     text: &str,
@@ -262,7 +276,11 @@ fn index_input(
 /// Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
 /// `options` is not a valid `TokenizerOptions` object.
 #[wasm_bindgen(js_name = tokenize)]
-pub fn tokenize(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+pub fn tokenize(
+    text: js_sys::JsString,
+    options: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let text = &guarded_text(&text)?;
     let options = index_input(text, options)?;
     debug_assert!(text.len() <= MAX_INDEX_TEXT_UTF16 * 3);
     let terms = core_tokenize(text, &options);
@@ -277,7 +295,11 @@ pub fn tokenize(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_bind
 /// Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
 /// `options` is not a valid `TokenizerOptions` object.
 #[wasm_bindgen(js_name = indexTerms)]
-pub fn index_terms(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+pub fn index_terms(
+    text: js_sys::JsString,
+    options: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let text = &guarded_text(&text)?;
     let options = index_input(text, options)?;
     debug_assert!(text.len() <= MAX_INDEX_TEXT_UTF16 * 3);
     let terms = core_index_terms(text, &options);
@@ -292,8 +314,8 @@ pub fn index_terms(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_b
 ///
 /// Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = parseQuery)]
-pub fn parse_query(query: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(query)?;
+pub fn parse_query(query: js_sys::JsString) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let query = &guarded_text(&query)?;
     let parsed = wf_core::search::query::parse_query(query);
     debug_assert!(parsed.text.len() <= query.len() * 3);
     debug_assert!(parsed.modified_within_days.is_none_or(|d| d >= 1));
@@ -335,12 +357,12 @@ fn excerpt_terms(terms: JsValue) -> Result<Vec<String>, serde_wasm_bindgen::Erro
 /// do (each counting its length + 1), or if `terms` is not an array of strings.
 #[wasm_bindgen(js_name = buildExcerpt)]
 pub fn build_excerpt(
-    body: &str,
+    body: js_sys::JsString,
     terms: JsValue,
     max_chars: Option<u32>,
     single_line: Option<bool>,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(body)?;
+    let body = &guarded_text(&body)?;
     let terms = excerpt_terms(terms)?;
     let options = ExcerptOptions {
         max_chars: max_chars.and_then(|n| usize::try_from(n).ok()),
@@ -425,8 +447,11 @@ pub fn fuse_rankings(
 /// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if `kind`
 /// is not a valid `PaperRefKind`.
 #[wasm_bindgen(js_name = parsePaperRef)]
-pub fn parse_paper_ref(kind: JsValue, value: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(value)?;
+pub fn parse_paper_ref(
+    kind: JsValue,
+    value: js_sys::JsString,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let value = &guarded_text(&value)?;
     let kind: PaperRefKind = serde_wasm_bindgen::from_value(kind)?;
     to_js(&wf_core::papers::paper_ref::parse_paper_ref(kind, value))
 }
@@ -438,8 +463,10 @@ pub fn parse_paper_ref(kind: JsValue, value: &str) -> Result<JsValue, serde_wasm
 ///
 /// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = normalizeArxivId)]
-pub fn normalize_arxiv_id(value: &str) -> Result<Option<String>, serde_wasm_bindgen::Error> {
-    check_text(value)?;
+pub fn normalize_arxiv_id(
+    value: js_sys::JsString,
+) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+    let value = &guarded_text(&value)?;
     Ok(wf_core::papers::paper_ref::normalize_arxiv_id(value))
 }
 
@@ -449,8 +476,8 @@ pub fn normalize_arxiv_id(value: &str) -> Result<Option<String>, serde_wasm_bind
 ///
 /// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = extractDoi)]
-pub fn extract_doi(value: &str) -> Result<Option<String>, serde_wasm_bindgen::Error> {
-    check_text(value)?;
+pub fn extract_doi(value: js_sys::JsString) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+    let value = &guarded_text(&value)?;
     Ok(wf_core::papers::paper_ref::extract_doi(value))
 }
 
@@ -461,9 +488,12 @@ pub fn extract_doi(value: &str) -> Result<Option<String>, serde_wasm_bindgen::Er
 ///
 /// Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = extractPageMetadata)]
-pub fn extract_page_metadata(html: &str, url: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(html)?;
-    check_text(url)?;
+pub fn extract_page_metadata(
+    html: js_sys::JsString,
+    url: js_sys::JsString,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let html = &guarded_text(&html)?;
+    let url = &guarded_text(&url)?;
     to_js(&wf_core::papers::page_metadata::extract_page_metadata(
         html, url,
     ))
@@ -488,8 +518,10 @@ pub fn page_import_refusal(meta: JsValue) -> Result<Option<String>, serde_wasm_b
 ///
 /// Fails if `path` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = guessBlobContentType)]
-pub fn guess_blob_content_type(path: &str) -> Result<String, serde_wasm_bindgen::Error> {
-    check_text(path)?;
+pub fn guess_blob_content_type(
+    path: js_sys::JsString,
+) -> Result<String, serde_wasm_bindgen::Error> {
+    let path = &guarded_text(&path)?;
     Ok(wf_core::storage::blob::guess_blob_content_type(path).to_owned())
 }
 

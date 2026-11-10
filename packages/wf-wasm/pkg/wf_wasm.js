@@ -1344,9 +1344,7 @@ export function applyAnnotationPatch(ann, patch) {
  * @returns {any}
  */
 export function applyCommaPlacement(input, placement) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.applyCommaPlacement(ptr0, len0, placement);
+    const ret = wasm.applyCommaPlacement(input, placement);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2098,9 +2096,7 @@ export function buildAnnotationSortIndex(page_index, char_offset, top_pdf_units)
  * @returns {any}
  */
 export function buildExcerpt(body, terms, max_chars, single_line) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.buildExcerpt(ptr0, len0, terms, isLikeNone(max_chars) ? Number.MAX_SAFE_INTEGER : (max_chars) >>> 0, isLikeNone(single_line) ? 0xFFFFFF : single_line ? 1 : 0);
+    const ret = wasm.buildExcerpt(body, terms, isLikeNone(max_chars) ? Number.MAX_SAFE_INTEGER : (max_chars) >>> 0, isLikeNone(single_line) ? 0xFFFFFF : single_line ? 1 : 0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -2540,23 +2536,21 @@ export function cappedEngineConfidence(conf) {
  * @returns {string}
  */
 export function cardSnippet(body, max) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.cardSnippet(ptr0, len0, max);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.cardSnippet(body, max);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -3204,9 +3198,7 @@ export function cleanGroups(leaf) {
  * @returns {any}
  */
 export function cleanPastedText(input, settings) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.cleanPastedText(ptr0, len0, settings);
+    const ret = wasm.cleanPastedText(input, settings);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3224,9 +3216,7 @@ export function cleanPastedText(input, settings) {
  * @returns {any}
  */
 export function cleanPdfText(input, options) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.cleanPdfText(ptr0, len0, options);
+    const ret = wasm.cleanPdfText(input, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3262,9 +3252,7 @@ export function cleanPmcid(id) {
  * @returns {any}
  */
 export function cleanUrlsWithRules(text, rules) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.cleanUrlsWithRules(ptr0, len0, rules);
+    const ret = wasm.cleanUrlsWithRules(text, rules);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3299,9 +3287,7 @@ export function cleanWidgetPalette(value) {
  * @returns {any}
  */
 export function cleanWrappedText(input, options) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.cleanWrappedText(ptr0, len0, options);
+    const ret = wasm.cleanWrappedText(input, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3643,9 +3629,7 @@ export function commandForChord(chord, tab_count) {
  * @returns {any}
  */
 export function commandMatchIndices(labels, query) {
-    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.commandMatchIndices(labels, ptr0, len0);
+    const ret = wasm.commandMatchIndices(labels, query);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -4895,9 +4879,7 @@ export function decideAnnotationSync(row, mode) {
  * @returns {any}
  */
 export function decideGitSyncPath(rel_path, size_bytes, max_file_bytes) {
-    const ptr0 = passStringToWasm0(rel_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.decideGitSyncPath(ptr0, len0, size_bytes, max_file_bytes);
+    const ret = wasm.decideGitSyncPath(rel_path, size_bytes, max_file_bytes);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -5678,11 +5660,7 @@ export function diffAnnotationFields(row) {
  * @returns {any}
  */
 export function diffBody(ours, theirs) {
-    const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.diffBody(ptr0, len0, ptr1, len1);
+    const ret = wasm.diffBody(ours, theirs);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -6504,25 +6482,23 @@ export function engineStartParams(defaults) {
  * @returns {string}
  */
 export function entityDir(entity, project_root) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred3_0;
+    let deferred3_1;
     try {
         const ptr0 = passStringToWasm0(entity, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.entityDir(ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.entityDir(ptr0, len0, project_root);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr2 = 0; len2 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -6654,12 +6630,16 @@ export function escapeLinkLabel(label) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(label, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.escapeLinkLabel(ptr0, len0);
-        deferred2_0 = ret[0];
-        deferred2_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
+        const ret = wasm.escapeLinkLabel(label);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
@@ -6979,18 +6959,16 @@ export function exportReadme(exported_at) {
  * @returns {string | undefined}
  */
 export function extractDoi(value) {
-    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.extractDoi(ptr0, len0);
+    const ret = wasm.extractDoi(value);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
-    let v2;
+    let v1;
     if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
+        v1 = getStringFromWasm0(ret[0], ret[1]);
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
-    return v2;
+    return v1;
 }
 
 /**
@@ -7069,11 +7047,7 @@ export function extractLexical(request) {
  * @returns {any}
  */
 export function extractPageMetadata(html, url) {
-    const ptr0 = passStringToWasm0(html, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.extractPageMetadata(ptr0, len0, ptr1, len1);
+    const ret = wasm.extractPageMetadata(html, url);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -7558,11 +7532,7 @@ export function findHeadingLines(lines, body, furniture_indices) {
  * @returns {any}
  */
 export function findImageRefs(body, head, allow_space) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(head, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.findImageRefs(ptr0, len0, ptr1, len1, allow_space);
+    const ret = wasm.findImageRefs(body, head, allow_space);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -8367,23 +8337,21 @@ export function formatWords(words) {
  * @returns {string}
  */
 export function fromRelativeBlobLinks(body, resolved) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.fromRelativeBlobLinks(ptr0, len0, resolved);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.fromRelativeBlobLinks(body, resolved);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -9182,23 +9150,21 @@ export function grownTextRect(rect, height) {
  * @returns {string}
  */
 export function guessBlobContentType(path) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.guessBlobContentType(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.guessBlobContentType(path);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -9250,9 +9216,7 @@ export function hasActiveLab(active_org_id, memberships, owns_active_org) {
  * @returns {boolean}
  */
 export function hasConflictMarkers(text) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.hasConflictMarkers(ptr0, len0);
+    const ret = wasm.hasConflictMarkers(text);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -9363,12 +9327,16 @@ export function headingSlug(text) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.headingSlug(ptr0, len0);
-        deferred2_0 = ret[0];
-        deferred2_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
+        const ret = wasm.headingSlug(text);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
@@ -9557,23 +9525,21 @@ export function hydrateUserSettings(settings) {
  * @returns {string}
  */
 export function idSuffix(id) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.idSuffix(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.idSuffix(id);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -9617,23 +9583,21 @@ export function ident(name) {
  * @returns {string}
  */
 export function imageAltFromFilename(name) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        var ptr0 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len0 = WASM_VECTOR_LEN;
-        const ret = wasm.imageAltFromFilename(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.imageAltFromFilename(isLikeNone(name) ? 0 : addToExternrefTable0(name));
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -9647,23 +9611,21 @@ export function imageAltFromFilename(name) {
  * @returns {string}
  */
 export function imageExtensionForMime(mime) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(mime, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.imageExtensionForMime(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.imageExtensionForMime(mime);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -9680,17 +9642,13 @@ export function imageExtensionForMime(mime) {
  * @returns {string[]}
  */
 export function imagePathsInBody(body, prefix) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(prefix, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.imagePathsInBody(ptr0, len0, ptr1, len1);
+    const ret = wasm.imagePathsInBody(body, prefix);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
-    var v3 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+    var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v3;
+    return v1;
 }
 
 /**
@@ -9844,9 +9802,7 @@ export function indexFromAnalysis(analysis, pages) {
  * @returns {any}
  */
 export function indexTerms(text, options) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.indexTerms(ptr0, len0, options);
+    const ret = wasm.indexTerms(text, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -10976,9 +10932,7 @@ export function invalidationMap() {
  * @returns {any}
  */
 export function invalidationPlan(resource_type) {
-    const ptr0 = passStringToWasm0(resource_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.invalidationPlan(ptr0, len0);
+    const ret = wasm.invalidationPlan(resource_type);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11082,9 +11036,7 @@ export function isApiHost(url) {
  * @returns {boolean}
  */
 export function isAppOwnedPath(path) {
-    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.isAppOwnedPath(ptr0, len0);
+    const ret = wasm.isAppOwnedPath(path);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11097,10 +11049,11 @@ export function isAppOwnedPath(path) {
  * @returns {boolean}
  */
 export function isBareUrl(text) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.isBareUrl(ptr0, len0);
-    return ret !== 0;
+    const ret = wasm.isBareUrl(text);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -11430,9 +11383,7 @@ export function isInheritedLinkCode(code) {
  * @returns {boolean}
  */
 export function isInkChunkId(text) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.isInkChunkId(ptr0, len0);
+    const ret = wasm.isInkChunkId(text);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11461,9 +11412,7 @@ export function isInkEngineId(id) {
  * @returns {boolean}
  */
 export function isInkNoteBody(body) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.isInkNoteBody(ptr0, len0);
+    const ret = wasm.isInkNoteBody(body);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -11956,9 +11905,7 @@ export function isRotatedText(transform) {
  * @returns {boolean}
  */
 export function isSafeWorkspacePath(path) {
-    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.isSafeWorkspacePath(ptr0, len0);
+    const ret = wasm.isSafeWorkspacePath(path);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -12151,9 +12098,7 @@ export function isTypingTarget(tag_name, is_content_editable) {
  * @returns {boolean}
  */
 export function isUnderIgnoredFolder(rel_path) {
-    const ptr0 = passStringToWasm0(rel_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.isUnderIgnoredFolder(ptr0, len0);
+    const ret = wasm.isUnderIgnoredFolder(rel_path);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -12386,23 +12331,21 @@ export function joinInkTextLayer(pages) {
  * @returns {string}
  */
 export function jsonDataPath(project_root, kind) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.jsonDataPath(ptr0, len0, kind);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.jsonDataPath(project_root, kind);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -12439,18 +12382,16 @@ export function jsonEditSince(base, path, text) {
  * @returns {string | undefined}
  */
 export function jsonKindOfPath(path) {
-    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.jsonKindOfPath(ptr0, len0);
+    const ret = wasm.jsonKindOfPath(path);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
-    let v2;
+    let v1;
     if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
+        v1 = getStringFromWasm0(ret[0], ret[1]);
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
-    return v2;
+    return v1;
 }
 
 /**
@@ -13049,15 +12990,16 @@ export function linkGroupOf(kind) {
  * @returns {string | undefined}
  */
 export function linkLabel(selected) {
-    const ptr0 = passStringToWasm0(selected, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.linkLabel(ptr0, len0);
-    let v2;
+    const ret = wasm.linkLabel(selected);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
     if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
+        v1 = getStringFromWasm0(ret[0], ret[1]);
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
-    return v2;
+    return v1;
 }
 
 /**
@@ -13615,25 +13557,21 @@ export function markPopoverShown(annotation_type, tool) {
  * @returns {string}
  */
 export function markdownImage(target, alt) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(target, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.markdownImage(ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.markdownImage(target, alt);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -13644,19 +13582,21 @@ export function markdownImage(target, alt) {
  * @returns {string}
  */
 export function markdownLink(label, url) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(label, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.markdownLink(ptr0, len0, ptr1, len1);
-        deferred3_0 = ret[0];
-        deferred3_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
+        const ret = wasm.markdownLink(label, url);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -13751,9 +13691,7 @@ export function matchVocabulary(text, vocabulary) {
  * @returns {any}
  */
 export function matchingPageIndices(labels, query) {
-    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.matchingPageIndices(labels, ptr0, len0);
+    const ret = wasm.matchingPageIndices(labels, query);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -14305,25 +14243,21 @@ export function mergeGraphPersistedState(stored) {
  * @returns {string}
  */
 export function mergeHunks(ours, theirs, picks) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.mergeHunks(ptr0, len0, ptr1, len1, picks);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.mergeHunks(ours, theirs, picks);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -15467,18 +15401,16 @@ export function normalizeAppearance(raw) {
  * @returns {string | undefined}
  */
 export function normalizeArxivId(value) {
-    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.normalizeArxivId(ptr0, len0);
+    const ret = wasm.normalizeArxivId(value);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
-    let v2;
+    let v1;
     if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
+        v1 = getStringFromWasm0(ret[0], ret[1]);
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
-    return v2;
+    return v1;
 }
 
 /**
@@ -15627,23 +15559,21 @@ export function normalizeLengthValue(raw, max_px) {
  * @returns {string}
  */
 export function normalizeMarkdownImageSyntax(body) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.normalizeMarkdownImageSyntax(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.normalizeMarkdownImageSyntax(body);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -15677,9 +15607,7 @@ export function normalizeOrgInviteCode(input) {
  * @returns {any}
  */
 export function normalizePasteSettings(json) {
-    const ptr0 = passStringToWasm0(json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.normalizePasteSettings(ptr0, len0);
+    const ret = wasm.normalizePasteSettings(json);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17442,11 +17370,7 @@ export function parseInkChunkPath(path) {
  * @returns {any}
  */
 export function parseJsonData(path, content, kind) {
-    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.parseJsonData(ptr0, len0, ptr1, len1, kind);
+    const ret = wasm.parseJsonData(path, content, kind);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17499,9 +17423,7 @@ export function parseLatexSectionTree(files, entry_file) {
  * @returns {any}
  */
 export function parseLinkRemovalText(text) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parseLinkRemovalText(ptr0, len0);
+    const ret = wasm.parseLinkRemovalText(text);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17519,9 +17441,7 @@ export function parseLinkRemovalText(text) {
  * @returns {any}
  */
 export function parseMdImageAlt(raw) {
-    const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parseMdImageAlt(ptr0, len0);
+    const ret = wasm.parseMdImageAlt(raw);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17653,9 +17573,7 @@ export function parsePaperHtmlDocument(paper_id, text) {
  * @returns {any}
  */
 export function parsePaperRef(kind, value) {
-    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parsePaperRef(kind, ptr0, len0);
+    const ret = wasm.parsePaperRef(kind, value);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17692,9 +17610,7 @@ export function parsePlanWidgetBounds(stored) {
  * @returns {any}
  */
 export function parseQuery(query) {
-    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parseQuery(ptr0, len0);
+    const ret = wasm.parseQuery(query);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -18025,9 +17941,7 @@ export function partitionPdfTexts(stored, paper_ids) {
  * @returns {boolean}
  */
 export function pasteLandsInVerbatimContext(document, offset) {
-    const ptr0 = passStringToWasm0(document, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.pasteLandsInVerbatimContext(ptr0, len0, offset);
+    const ret = wasm.pasteLandsInVerbatimContext(document, offset);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -18630,9 +18544,7 @@ export function planArchiveEntries(entries, limits) {
  * @returns {any}
  */
 export function planAssetReanchor(body, owned, available) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.planAssetReanchor(ptr0, len0, owned, available);
+    const ret = wasm.planAssetReanchor(body, owned, available);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -19424,25 +19336,21 @@ export function prismaFigureTex(counts, options) {
  * @returns {string}
  */
 export function projectDir(id, name) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.projectDir(ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.projectDir(id, name);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -19504,23 +19412,21 @@ export function projectGateOpen(config, gate) {
  * @returns {string}
  */
 export function projectMetaDir(project_root) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.projectMetaDir(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.projectMetaDir(project_root);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -20328,9 +20234,7 @@ export function readFailureReason(message, status) {
  * @returns {any}
  */
 export function readFrontmatter(content) {
-    const ptr0 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.readFrontmatter(ptr0, len0);
+    const ret = wasm.readFrontmatter(content);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -20366,9 +20270,7 @@ export function readInkChunkHeader(bytes) {
  * @returns {any}
  */
 export function readInkNoteBody(body) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.readInkNoteBody(ptr0, len0);
+    const ret = wasm.readInkNoteBody(body);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -20477,23 +20379,21 @@ export function readStorageConfig(env) {
  * @returns {string}
  */
 export function readableText(body) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.readableText(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.readableText(body);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -20992,9 +20892,7 @@ export function relationTitles(ids, titles) {
  * @returns {any}
  */
 export function relativeAssetPaths(body) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.relativeAssetPaths(ptr0, len0);
+    const ret = wasm.relativeAssetPaths(body);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -22224,23 +22122,21 @@ export function safeRelative(candidate) {
  * @returns {string}
  */
 export function safeWorkspacePath(path) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.safeWorkspacePath(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.safeWorkspacePath(path);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -23016,25 +22912,21 @@ export function sessionClaims(user_id) {
  * @returns {string}
  */
 export function setImagePlacement(body, alt, ordinal, patch) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.setImagePlacement(ptr0, len0, ptr1, len1, ordinal, patch);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.setImagePlacement(body, alt, ordinal, patch);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -24223,20 +24115,16 @@ export function stackMarginNotes(anchor_tops, card_height) {
  * @returns {string | undefined}
  */
 export function stampWorkspaceId(content, id) {
-    const ptr0 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.stampWorkspaceId(ptr0, len0, ptr1, len1);
+    const ret = wasm.stampWorkspaceId(content, id);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
-    let v3;
+    let v1;
     if (ret[0] !== 0) {
-        v3 = getStringFromWasm0(ret[0], ret[1]);
+        v1 = getStringFromWasm0(ret[0], ret[1]);
         wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     }
-    return v3;
+    return v1;
 }
 
 /**
@@ -24399,23 +24287,21 @@ export function stripInvisible(text) {
  * @returns {string}
  */
 export function stripKindSuffix(name) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.stripKindSuffix(ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.stripKindSuffix(name);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -24469,25 +24355,23 @@ export function stripStopwords(query) {
  * @returns {string}
  */
 export function stripUnresolvedImageRefs(body, prefix, paths, resolved) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred3_0;
+    let deferred3_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr0 = passStringToWasm0(prefix, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(prefix, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.stripUnresolvedImageRefs(ptr0, len0, ptr1, len1, paths, resolved);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.stripUnresolvedImageRefs(body, ptr0, len0, paths, resolved);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr2 = 0; len2 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -24804,9 +24688,7 @@ export function tabMode(tab) {
  * @returns {any}
  */
 export function tabSeparatedToMarkdownTable(input) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.tabSeparatedToMarkdownTable(ptr0, len0);
+    const ret = wasm.tabSeparatedToMarkdownTable(input);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -24889,10 +24771,11 @@ export function tagToHashtag(name) {
  * @returns {number}
  */
 export function tagTone(tag) {
-    const ptr0 = passStringToWasm0(tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.tagTone(ptr0, len0);
-    return ret >>> 0;
+    const ret = wasm.tagTone(tag);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] >>> 0;
 }
 
 /**
@@ -25380,11 +25263,7 @@ export function toPdfSearchDocs(sources, degrees) {
  * @returns {any}
  */
 export function toRelativeBlobLinks(body, file_path) {
-    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(file_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.toRelativeBlobLinks(ptr0, len0, ptr1, len1);
+    const ret = wasm.toRelativeBlobLinks(body, file_path);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -25557,9 +25436,7 @@ export function toggleSection(open, id) {
  * @returns {any}
  */
 export function tokenize(text, options) {
-    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.tokenize(ptr0, len0, options);
+    const ret = wasm.tokenize(text, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -26298,11 +26175,7 @@ export function vaultImagePrefix() {
  * @returns {any}
  */
 export function vaultPageBase(path, content) {
-    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.vaultPageBase(ptr0, len0, ptr1, len1);
+    const ret = wasm.vaultPageBase(path, content);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -26320,11 +26193,7 @@ export function vaultPageBase(path, content) {
  * @returns {any}
  */
 export function vaultPageSide(path, content) {
-    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.vaultPageSide(ptr0, len0, ptr1, len1);
+    const ret = wasm.vaultPageSide(path, content);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -26790,25 +26659,23 @@ export function withActive(groups, active) {
  * @returns {string}
  */
 export function withImageWidth(alt, width) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred3_0;
+    let deferred3_1;
     try {
-        const ptr0 = passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(width) ? 0 : passStringToWasm0(width, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        const ret = wasm.withImageWidth(ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        var ptr0 = isLikeNone(width) ? 0 : passStringToWasm0(width, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.withImageWidth(alt, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr2 = 0; len2 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -26879,23 +26746,21 @@ export function withInkPageFigures(text, figures) {
  * @returns {string}
  */
 export function withMdImageAlt(alt, placement) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.withMdImageAlt(ptr0, len0, placement);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.withMdImageAlt(alt, placement);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -27086,25 +26951,21 @@ export function wrapRegion(kind, name, body) {
  * @returns {string}
  */
 export function writeConflictMarkers(ours, theirs) {
-    let deferred4_0;
-    let deferred4_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(ours, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(theirs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.writeConflictMarkers(ptr0, len0, ptr1, len1);
-        var ptr3 = ret[0];
-        var len3 = ret[1];
+        const ret = wasm.writeConflictMarkers(ours, theirs);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr3 = 0; len3 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred4_0 = ptr3;
-        deferred4_1 = len3;
-        return getStringFromWasm0(ptr3, len3);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -27121,23 +26982,21 @@ export function writeConflictMarkers(ours, theirs) {
  * @returns {string}
  */
 export function writeFrontmatter(fields, body) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.writeFrontmatter(fields, ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.writeFrontmatter(fields, body);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -27153,23 +27012,21 @@ export function writeFrontmatter(fields, body) {
  * @returns {string}
  */
 export function writeInkNoteBody(meta, text) {
-    let deferred3_0;
-    let deferred3_1;
+    let deferred2_0;
+    let deferred2_1;
     try {
-        const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.writeInkNoteBody(meta, ptr0, len0);
-        var ptr2 = ret[0];
-        var len2 = ret[1];
+        const ret = wasm.writeInkNoteBody(meta, text);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
         if (ret[3]) {
-            ptr2 = 0; len2 = 0;
+            ptr1 = 0; len1 = 0;
             throw takeFromExternrefTable0(ret[2]);
         }
-        deferred3_0 = ptr2;
-        deferred3_1 = len2;
-        return getStringFromWasm0(ptr2, len2);
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
     } finally {
-        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
 
@@ -27201,9 +27058,7 @@ export function writeInkNoteMeta(meta) {
  * @returns {any}
  */
 export function writeScope(resource_type) {
-    const ptr0 = passStringToWasm0(resource_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.writeScope(ptr0, len0);
+    const ret = wasm.writeScope(resource_type);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -27761,6 +27616,10 @@ function __wbg_get_imports() {
         },
         __wbg_iterator_e3c31c892080e444: function() {
             const ret = Symbol.iterator;
+            return ret;
+        },
+        __wbg_length_78dac82682e59660: function(arg0) {
+            const ret = arg0.length;
             return ret;
         },
         __wbg_length_7f3c00c40364105e: function(arg0) {

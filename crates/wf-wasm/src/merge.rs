@@ -45,9 +45,9 @@ pub fn merge_vault_page_js(
 ///
 /// Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = vaultPageBase)]
-pub fn vault_page_base_js(path: &str, content: &str) -> JsResult<JsValue> {
-    check_text(path)?;
-    check_text(content)?;
+pub fn vault_page_base_js(path: js_sys::JsString, content: js_sys::JsString) -> JsResult<JsValue> {
+    let path = &crate::guarded_text(&path)?;
+    let content = &crate::guarded_text(&content)?;
     to_js(&vault_page_base(path, content))
 }
 
@@ -57,9 +57,9 @@ pub fn vault_page_base_js(path: &str, content: &str) -> JsResult<JsValue> {
 ///
 /// Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = vaultPageSide)]
-pub fn vault_page_side_js(path: &str, content: &str) -> JsResult<JsValue> {
-    check_text(path)?;
-    check_text(content)?;
+pub fn vault_page_side_js(path: js_sys::JsString, content: js_sys::JsString) -> JsResult<JsValue> {
+    let path = &crate::guarded_text(&path)?;
+    let content = &crate::guarded_text(&content)?;
     to_js(&vault_page_side(path, content))
 }
 
@@ -71,9 +71,13 @@ pub fn vault_page_side_js(path: &str, content: &str) -> JsResult<JsValue> {
 /// Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
 /// `picks` is not an object of `HunkPick` values.
 #[wasm_bindgen(js_name = mergeHunks)]
-pub fn merge_hunks_js(ours: &str, theirs: &str, picks: JsValue) -> JsResult<String> {
-    check_text(ours)?;
-    check_text(theirs)?;
+pub fn merge_hunks_js(
+    ours: js_sys::JsString,
+    theirs: js_sys::JsString,
+    picks: JsValue,
+) -> JsResult<String> {
+    let ours = &crate::guarded_text(&ours)?;
+    let theirs = &crate::guarded_text(&theirs)?;
     let picks: BTreeMap<String, HunkPick> = serde_wasm_bindgen::from_value(picks)?;
     let by_index: BTreeMap<usize, HunkPick> = picks
         .into_iter()
@@ -91,9 +95,12 @@ pub fn merge_hunks_js(ours: &str, theirs: &str, picks: JsValue) -> JsResult<Stri
 ///
 /// Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = writeConflictMarkers)]
-pub fn write_conflict_markers_js(ours: &str, theirs: &str) -> JsResult<String> {
-    check_text(ours)?;
-    check_text(theirs)?;
+pub fn write_conflict_markers_js(
+    ours: js_sys::JsString,
+    theirs: js_sys::JsString,
+) -> JsResult<String> {
+    let ours = &crate::guarded_text(&ours)?;
+    let theirs = &crate::guarded_text(&theirs)?;
     Ok(write_conflict_markers(ours, theirs))
 }
 
@@ -103,8 +110,8 @@ pub fn write_conflict_markers_js(ours: &str, theirs: &str) -> JsResult<String> {
 ///
 /// Fails when `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = readFrontmatter)]
-pub fn read_frontmatter_js(content: &str) -> JsResult<JsValue> {
-    check_text(content)?;
+pub fn read_frontmatter_js(content: js_sys::JsString) -> JsResult<JsValue> {
+    let content = &crate::guarded_text(&content)?;
     to_js(&read_frontmatter(content))
 }
 
@@ -116,8 +123,8 @@ pub fn read_frontmatter_js(content: &str) -> JsResult<JsValue> {
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
 /// `fields` is not an object.
 #[wasm_bindgen(js_name = writeFrontmatter)]
-pub fn write_frontmatter_js(fields: JsValue, body: &str) -> JsResult<String> {
-    check_text(body)?;
+pub fn write_frontmatter_js(fields: JsValue, body: js_sys::JsString) -> JsResult<String> {
+    let body = &crate::guarded_text(&body)?;
     let fields: Map<String, Value> = serde_wasm_bindgen::from_value(fields)?;
     let pairs: Vec<(String, Value)> = fields.into_iter().collect();
     Ok(write_frontmatter(&pairs, body))

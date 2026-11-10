@@ -8,8 +8,6 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::markdown_image_width::{self, ImagePlacementPatch};
 
-use super::check_text;
-
 /// [`with_image_width`](markdown_image_width::with_image_width): the alt for a width, keeping any
 /// crop or side. `null` clears the width.
 ///
@@ -18,10 +16,10 @@ use super::check_text;
 /// Fails if `alt` is longer than the index text limit.
 #[wasm_bindgen(js_name = withImageWidth)]
 pub fn with_image_width_js(
-    alt: &str,
+    alt: js_sys::JsString,
     width: Option<String>,
 ) -> Result<String, serde_wasm_bindgen::Error> {
-    check_text(alt)?;
+    let alt = &crate::guarded_text(&alt)?;
     Ok(markdown_image_width::with_image_width(
         alt,
         width.as_deref(),
@@ -36,13 +34,13 @@ pub fn with_image_width_js(
 /// Fails if `body` or `alt` is too long, or `patch` has the wrong shape.
 #[wasm_bindgen(js_name = setImagePlacement)]
 pub fn set_image_placement_js(
-    body: &str,
-    alt: &str,
+    body: js_sys::JsString,
+    alt: js_sys::JsString,
     ordinal: usize,
     patch: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
-    check_text(body)?;
-    check_text(alt)?;
+    let body = &crate::guarded_text(&body)?;
+    let alt = &crate::guarded_text(&alt)?;
     let patch: ImagePlacementPatch = serde_wasm_bindgen::from_value(patch)?;
     Ok(markdown_image_width::set_image_placement(
         body, alt, ordinal, &patch,

@@ -4,7 +4,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::palette_groups::{self, PaletteGroup, PaletteKey};
 
-use super::{check_text, to_js};
+use super::to_js;
 
 /// [`group_palette_rows`](palette_groups::group_palette_rows): the headings present, each with the
 /// indices of its rows, from the group of each row.
@@ -27,9 +27,9 @@ pub fn group_palette_rows_js(groups: JsValue) -> Result<JsValue, serde_wasm_bind
 #[wasm_bindgen(js_name = matchingPageIndices)]
 pub fn matching_page_indices_js(
     labels: JsValue,
-    query: &str,
+    query: js_sys::JsString,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(query)?;
+    let query = &crate::guarded_text(&query)?;
     let labels: Vec<String> = serde_wasm_bindgen::from_value(labels)?;
     to_js(&palette_groups::matching_page_indices(&labels, query))
 }
@@ -43,9 +43,9 @@ pub fn matching_page_indices_js(
 #[wasm_bindgen(js_name = commandMatchIndices)]
 pub fn command_match_indices_js(
     labels: JsValue,
-    query: &str,
+    query: js_sys::JsString,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(query)?;
+    let query = &crate::guarded_text(&query)?;
     let labels: Vec<String> = serde_wasm_bindgen::from_value(labels)?;
     to_js(&palette_groups::command_match_indices(&labels, query))
 }

@@ -21,3 +21,4 @@ serde.workspace = true
 serde_json.workspace = true
 indexmap.workspace = true
 serde-wasm-bindgen.workspace = true
+js-sys.workspace = true

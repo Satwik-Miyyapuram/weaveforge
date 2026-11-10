@@ -13,8 +13,10 @@ use super::{check_text, to_js};
 ///
 /// Fails if `resource_type` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = writeScope)]
-pub fn write_scope_js(resource_type: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(resource_type)?;
+pub fn write_scope_js(
+    resource_type: js_sys::JsString,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let resource_type = &crate::guarded_text(&resource_type)?;
     to_js(&ResourceType::from_name(resource_type).map(cache_invalidation::write_scope))
 }
 
@@ -63,8 +65,10 @@ pub fn lww_notify_resource_js(
 ///
 /// Fails if `resource_type` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = invalidationPlan)]
-pub fn invalidation_plan_js(resource_type: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    check_text(resource_type)?;
+pub fn invalidation_plan_js(
+    resource_type: js_sys::JsString,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let resource_type = &crate::guarded_text(&resource_type)?;
     to_js(&ResourceType::from_name(resource_type).map(cache_invalidation::plan))
 }
 

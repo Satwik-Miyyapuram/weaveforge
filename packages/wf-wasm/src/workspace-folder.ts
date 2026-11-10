@@ -39,7 +39,6 @@ import type {
   WorkspaceJsonKind,
   WorkspaceSnapshotCounts,
 } from "./bindings.js";
-import { checkIndexText } from "./text-check.js";
 
 export {
   addCounts,
@@ -48,20 +47,16 @@ export {
 
 /** The folder of a project, named from its id and name (Rust `project_dir`). */
 export function projectDir(project: { id: string; name: string }): string {
-  checkIndexText(project.id);
-  checkIndexText(project.name);
   return rawProjectDir(project.id, project.name);
 }
 
 /** The folder for one entity type under `projectRoot` (Rust `entity_dir`). */
 export function entityDir(type: WorkspaceEntityType, projectRoot = ""): string {
-  checkIndexText(projectRoot);
   return rawEntityDir(type, projectRoot);
 }
 
 /** The metadata folder under `projectRoot` (Rust `project_meta_dir`). */
 export function projectMetaDir(projectRoot = ""): string {
-  checkIndexText(projectRoot);
   return rawProjectMetaDir(projectRoot);
 }
 
@@ -73,25 +68,21 @@ export function folderKeys(relativePaths: readonly string[]): string[] {
 }
 
 export function idSuffix(id: string): string {
-  checkIndexText(id);
   return rawIdSuffix(id);
 }
 
 /** `name` without its entity-kind suffix (Rust `strip_kind_suffix`). */
 export function stripKindSuffix(name: string): string {
-  checkIndexText(name);
   return rawStripKindSuffix(name);
 }
 
 /** The JSON entity kind a path holds, or null for any other path (Rust `json_kind_of_path`). */
 export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
-  checkIndexText(path);
   return (rawJsonKindOfPath(path) ?? null) as WorkspaceJsonKind | null;
 }
 
 /** Whether `path` is a file the app owns rather than user content (Rust `is_app_owned_path`). */
 export function isAppOwnedPath(path: string): boolean {
-  checkIndexText(path);
   return rawIsAppOwnedPath(path);
 }
 
@@ -130,14 +121,11 @@ export function diffWorkspace(
 
 /** Path of one of the project's JSON data files (Rust `json_data_path`). */
 export function jsonDataPath(projectRoot: string, kind: WorkspaceJsonKind): string {
-  checkIndexText(projectRoot);
   return rawJsonDataPath(projectRoot, kind);
 }
 
 /** The rows of a JSON data file, or null when it is not a JSON array (Rust `parse_json_data`). */
 export function parseJsonData(path: string, content: string, kind: WorkspaceJsonKind): ParsedJsonData | null {
-  checkIndexText(path);
-  checkIndexText(content);
   return (rawParseJsonData(path, content, kind) ?? null) as ParsedJsonData | null;
 }
 

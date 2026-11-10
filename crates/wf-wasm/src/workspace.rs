@@ -68,8 +68,8 @@ struct InkNoteBodyJs {
 ///
 /// Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = isInkChunkId)]
-pub fn is_ink_chunk_id_js(text: &str) -> JsResult<bool> {
-    check_text(text)?;
+pub fn is_ink_chunk_id_js(text: js_sys::JsString) -> JsResult<bool> {
+    let text = &crate::guarded_text(&text)?;
     Ok(is_ink_chunk_id(text))
 }
 
@@ -79,8 +79,8 @@ pub fn is_ink_chunk_id_js(text: &str) -> JsResult<bool> {
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = isInkNoteBody)]
-pub fn is_ink_note_body_js(body: &str) -> JsResult<bool> {
-    check_text(body)?;
+pub fn is_ink_note_body_js(body: js_sys::JsString) -> JsResult<bool> {
+    let body = &crate::guarded_text(&body)?;
     Ok(is_ink_note_body(body))
 }
 
@@ -90,8 +90,8 @@ pub fn is_ink_note_body_js(body: &str) -> JsResult<bool> {
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = readInkNoteBody)]
-pub fn read_ink_note_body_js(body: &str) -> JsResult<JsValue> {
-    check_text(body)?;
+pub fn read_ink_note_body_js(body: js_sys::JsString) -> JsResult<JsValue> {
+    let body = &crate::guarded_text(&body)?;
     let (meta, text) = read_ink_note_body(body);
     to_js(&InkNoteBodyJs { meta, text })
 }
@@ -102,8 +102,8 @@ pub fn read_ink_note_body_js(body: &str) -> JsResult<JsValue> {
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = readableText)]
-pub fn readable_text_js(body: &str) -> JsResult<String> {
-    check_text(body)?;
+pub fn readable_text_js(body: js_sys::JsString) -> JsResult<String> {
+    let body = &crate::guarded_text(&body)?;
     Ok(readable_text(body))
 }
 
@@ -114,8 +114,8 @@ pub fn readable_text_js(body: &str) -> JsResult<String> {
 /// Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
 /// `meta` is not an `InkNoteMeta` (unknown paper or hand included).
 #[wasm_bindgen(js_name = writeInkNoteBody)]
-pub fn write_ink_note_body_js(meta: JsValue, text: &str) -> JsResult<String> {
-    check_text(text)?;
+pub fn write_ink_note_body_js(meta: JsValue, text: js_sys::JsString) -> JsResult<String> {
+    let text = &crate::guarded_text(&text)?;
     let meta: InkNoteMeta = serde_wasm_bindgen::from_value(meta)?;
     Ok(write_ink_note_body(&meta, text))
 }
@@ -136,9 +136,9 @@ pub fn default_ink_note_meta_js() -> JsResult<JsValue> {
 ///
 /// Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = diffBody)]
-pub fn diff_body_js(ours: &str, theirs: &str) -> JsResult<JsValue> {
-    check_text(ours)?;
-    check_text(theirs)?;
+pub fn diff_body_js(ours: js_sys::JsString, theirs: js_sys::JsString) -> JsResult<JsValue> {
+    let ours = &crate::guarded_text(&ours)?;
+    let theirs = &crate::guarded_text(&theirs)?;
     to_js(&diff_body(ours, theirs))
 }
 
@@ -148,8 +148,8 @@ pub fn diff_body_js(ours: &str, theirs: &str) -> JsResult<JsValue> {
 ///
 /// Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = hasConflictMarkers)]
-pub fn has_conflict_markers_js(text: &str) -> JsResult<bool> {
-    check_text(text)?;
+pub fn has_conflict_markers_js(text: js_sys::JsString) -> JsResult<bool> {
+    let text = &crate::guarded_text(&text)?;
     Ok(has_conflict_markers(text))
 }
 
@@ -159,9 +159,9 @@ pub fn has_conflict_markers_js(text: &str) -> JsResult<bool> {
 ///
 /// Fails when an argument is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = markdownImage)]
-pub fn markdown_image_js(target: &str, alt: &str) -> JsResult<String> {
-    check_text(target)?;
-    check_text(alt)?;
+pub fn markdown_image_js(target: js_sys::JsString, alt: js_sys::JsString) -> JsResult<String> {
+    let target = &crate::guarded_text(&target)?;
+    let alt = &crate::guarded_text(&alt)?;
     Ok(markdown_image(target, alt))
 }
 
@@ -175,7 +175,8 @@ pub fn markdown_image_js(target: &str, alt: &str) -> JsResult<String> {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes optional strings by value"
 )]
-pub fn image_alt_from_filename_js(name: Option<String>) -> JsResult<String> {
+pub fn image_alt_from_filename_js(name: Option<js_sys::JsString>) -> JsResult<String> {
+    let name = name.map(|name| crate::guarded_text(&name)).transpose()?;
     if let Some(name) = &name {
         check_text(name)?;
     }
@@ -188,8 +189,8 @@ pub fn image_alt_from_filename_js(name: Option<String>) -> JsResult<String> {
 ///
 /// Fails when `mime` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = imageExtensionForMime)]
-pub fn image_extension_for_mime_js(mime: &str) -> JsResult<String> {
-    check_text(mime)?;
+pub fn image_extension_for_mime_js(mime: js_sys::JsString) -> JsResult<String> {
+    let mime = &crate::guarded_text(&mime)?;
     Ok(image_extension_for_mime(mime).to_owned())
 }
 
@@ -199,9 +200,13 @@ pub fn image_extension_for_mime_js(mime: &str) -> JsResult<String> {
 ///
 /// Fails when `body` or `head` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = findImageRefs)]
-pub fn find_image_refs_js(body: &str, head: &str, allow_space: bool) -> JsResult<JsValue> {
-    check_text(body)?;
-    check_text(head)?;
+pub fn find_image_refs_js(
+    body: js_sys::JsString,
+    head: js_sys::JsString,
+    allow_space: bool,
+) -> JsResult<JsValue> {
+    let body = &crate::guarded_text(&body)?;
+    let head = &crate::guarded_text(&head)?;
     to_js(&find_image_refs(body, &[head], allow_space))
 }
 
@@ -213,9 +218,12 @@ pub fn find_image_refs_js(body: &str, head: &str, allow_space: bool) -> JsResult
 ///
 /// Fails when `body` or `prefix` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = imagePathsInBody)]
-pub fn image_paths_in_body_js(body: &str, prefix: &str) -> JsResult<Vec<String>> {
-    check_text(body)?;
-    check_text(prefix)?;
+pub fn image_paths_in_body_js(
+    body: js_sys::JsString,
+    prefix: js_sys::JsString,
+) -> JsResult<Vec<String>> {
+    let body = &crate::guarded_text(&body)?;
+    let prefix = &crate::guarded_text(&prefix)?;
     Ok(image_paths_in_body(
         body,
         prefix,
@@ -229,8 +237,8 @@ pub fn image_paths_in_body_js(body: &str, prefix: &str) -> JsResult<Vec<String>>
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = normalizeMarkdownImageSyntax)]
-pub fn normalize_markdown_image_syntax_js(body: &str) -> JsResult<String> {
-    check_text(body)?;
+pub fn normalize_markdown_image_syntax_js(body: js_sys::JsString) -> JsResult<String> {
+    let body = &crate::guarded_text(&body)?;
     Ok(normalize_markdown_image_syntax(body))
 }
 
@@ -241,9 +249,12 @@ pub fn normalize_markdown_image_syntax_js(body: &str) -> JsResult<String> {
 ///
 /// Fails when `body` or `file_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = toRelativeBlobLinks)]
-pub fn to_relative_blob_links_js(body: &str, file_path: &str) -> JsResult<JsValue> {
-    check_text(body)?;
-    check_text(file_path)?;
+pub fn to_relative_blob_links_js(
+    body: js_sys::JsString,
+    file_path: js_sys::JsString,
+) -> JsResult<JsValue> {
+    let body = &crate::guarded_text(&body)?;
+    let file_path = &crate::guarded_text(&file_path)?;
     to_js(&to_relative_blob_links(body, file_path))
 }
 
@@ -253,8 +264,8 @@ pub fn to_relative_blob_links_js(body: &str, file_path: &str) -> JsResult<JsValu
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = relativeAssetPaths)]
-pub fn relative_asset_paths_js(body: &str) -> JsResult<JsValue> {
-    check_text(body)?;
+pub fn relative_asset_paths_js(body: js_sys::JsString) -> JsResult<JsValue> {
+    let body = &crate::guarded_text(&body)?;
     to_js(&relative_asset_paths(body))
 }
 
@@ -296,8 +307,12 @@ pub fn workspace_bodies_js(vault_bodies: JsValue, paper_summaries: JsValue) -> J
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `owned` or `available`
 /// is not an array of strings.
 #[wasm_bindgen(js_name = planAssetReanchor)]
-pub fn plan_asset_reanchor_js(body: &str, owned: JsValue, available: JsValue) -> JsResult<JsValue> {
-    check_text(body)?;
+pub fn plan_asset_reanchor_js(
+    body: js_sys::JsString,
+    owned: JsValue,
+    available: JsValue,
+) -> JsResult<JsValue> {
+    let body = &crate::guarded_text(&body)?;
     let owned: std::collections::BTreeSet<String> = serde_wasm_bindgen::from_value(owned)?;
     let available: std::collections::BTreeSet<String> = serde_wasm_bindgen::from_value(available)?;
     to_js(&plan_asset_reanchor(body, &owned, &available))
@@ -311,8 +326,8 @@ pub fn plan_asset_reanchor_js(body: &str, owned: JsValue, available: JsValue) ->
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `resolved` is
 /// not an object of strings.
 #[wasm_bindgen(js_name = fromRelativeBlobLinks)]
-pub fn from_relative_blob_links_js(body: &str, resolved: JsValue) -> JsResult<String> {
-    check_text(body)?;
+pub fn from_relative_blob_links_js(body: js_sys::JsString, resolved: JsValue) -> JsResult<String> {
+    let body = &crate::guarded_text(&body)?;
     let map: std::collections::BTreeMap<String, String> = serde_wasm_bindgen::from_value(resolved)?;
     Ok(from_relative_blob_links_mapped(body, &map))
 }
@@ -331,9 +346,9 @@ fn entity_type(name: &str) -> Option<WorkspaceEntityType> {
 ///
 /// Fails when `id` or `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = projectDir)]
-pub fn project_dir_js(id: &str, name: &str) -> JsResult<String> {
-    check_text(id)?;
-    check_text(name)?;
+pub fn project_dir_js(id: js_sys::JsString, name: js_sys::JsString) -> JsResult<String> {
+    let id = &crate::guarded_text(&id)?;
+    let name = &crate::guarded_text(&name)?;
     Ok(project_dir(&WorkspaceProject {
         id: id.to_owned(),
         name: name.to_owned(),
@@ -347,8 +362,8 @@ pub fn project_dir_js(id: &str, name: &str) -> JsResult<String> {
 /// Fails when `entity` is not a workspace entity type, or `project_root` is
 /// over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = entityDir)]
-pub fn entity_dir_js(entity: &str, project_root: &str) -> JsResult<String> {
-    check_text(project_root)?;
+pub fn entity_dir_js(entity: &str, project_root: js_sys::JsString) -> JsResult<String> {
+    let project_root = &crate::guarded_text(&project_root)?;
     let entity = entity_type(entity)
         .ok_or_else(|| serde_wasm_bindgen::Error::new(format!("unknown entity type {entity:?}")))?;
     Ok(entity_dir(entity, project_root))
@@ -360,8 +375,8 @@ pub fn entity_dir_js(entity: &str, project_root: &str) -> JsResult<String> {
 ///
 /// Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = projectMetaDir)]
-pub fn project_meta_dir_js(project_root: &str) -> JsResult<String> {
-    check_text(project_root)?;
+pub fn project_meta_dir_js(project_root: js_sys::JsString) -> JsResult<String> {
+    let project_root = &crate::guarded_text(&project_root)?;
     Ok(project_meta_dir(project_root))
 }
 
@@ -371,8 +386,8 @@ pub fn project_meta_dir_js(project_root: &str) -> JsResult<String> {
 ///
 /// Fails when `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = idSuffix)]
-pub fn id_suffix_js(id: &str) -> JsResult<String> {
-    check_text(id)?;
+pub fn id_suffix_js(id: js_sys::JsString) -> JsResult<String> {
+    let id = &crate::guarded_text(&id)?;
     Ok(id_suffix(id))
 }
 
@@ -382,8 +397,8 @@ pub fn id_suffix_js(id: &str) -> JsResult<String> {
 ///
 /// Fails when `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = stripKindSuffix)]
-pub fn strip_kind_suffix_js(name: &str) -> JsResult<String> {
-    check_text(name)?;
+pub fn strip_kind_suffix_js(name: js_sys::JsString) -> JsResult<String> {
+    let name = &crate::guarded_text(&name)?;
     Ok(strip_kind_suffix(name))
 }
 
@@ -401,8 +416,8 @@ const fn json_kind_name(kind: WorkspaceJsonKind) -> &'static str {
 ///
 /// Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = jsonKindOfPath)]
-pub fn json_kind_of_path_js(path: &str) -> JsResult<Option<String>> {
-    check_text(path)?;
+pub fn json_kind_of_path_js(path: js_sys::JsString) -> JsResult<Option<String>> {
+    let path = &crate::guarded_text(&path)?;
     Ok(json_kind_of_path(path).map(|kind| json_kind_name(kind).to_owned()))
 }
 
@@ -412,8 +427,8 @@ pub fn json_kind_of_path_js(path: &str) -> JsResult<Option<String>> {
 ///
 /// Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = isAppOwnedPath)]
-pub fn is_app_owned_path_js(path: &str) -> JsResult<bool> {
-    check_text(path)?;
+pub fn is_app_owned_path_js(path: js_sys::JsString) -> JsResult<bool> {
+    let path = &crate::guarded_text(&path)?;
     Ok(is_app_owned_path(path))
 }
 
