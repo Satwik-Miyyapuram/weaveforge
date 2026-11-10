@@ -4437,11 +4437,11 @@ export function damerauLevenshtein(a, b) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} layout_value
+ * @param {B.DashboardLayout} layout_value
  * @param {string} card_type
  * @param {string} id
- * @param {any} limits
- * @returns {any}
+ * @param {readonly B.CardLimit[]} limits
+ * @returns {B.DashboardLayout}
  */
 export function dashboardAppendCardPair(layout_value, card_type, id, limits) {
     const ptr0 = passStringToWasm0(card_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -4519,7 +4519,7 @@ export function dashboardCompactVertical(items, cols) {
  *
  * Fails if the result cannot be converted to a JS value.
  * @param {boolean} supervisor
- * @returns {any}
+ * @returns {B.DashboardLayout}
  */
 export function dashboardDefaultLayout(supervisor) {
     const ret = wasm.dashboardDefaultLayout(supervisor);
@@ -4535,9 +4535,9 @@ export function dashboardDefaultLayout(supervisor) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} layout_value
- * @param {any} limits
- * @returns {any}
+ * @param {B.DashboardLayout} layout_value
+ * @param {readonly B.CardLimit[]} limits
+ * @returns {B.DashboardLayout}
  */
 export function dashboardFinalizeLayout(layout_value, limits) {
     const ret = wasm.dashboardFinalizeLayout(layout_value, limits);
@@ -4592,7 +4592,7 @@ export function dashboardLayoutFloors(limit, cols) {
  * # Errors
  *
  * Fails on a bad input shape.
- * @param {any} items
+ * @param {readonly B.LayoutItem[]} items
  * @returns {string}
  */
 export function dashboardLayoutSignature(items) {
@@ -4620,8 +4620,8 @@ export function dashboardLayoutSignature(items) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} items
- * @param {any} limits
+ * @param {readonly B.LayoutItem[]} items
+ * @param {readonly B.CardLimit[]} limits
  * @returns {boolean}
  */
 export function dashboardLgNeedsRepair(items, limits) {
@@ -4638,11 +4638,11 @@ export function dashboardLgNeedsRepair(items, limits) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} items
- * @param {any} rgl
- * @param {any} limits
+ * @param {readonly B.LayoutItem[]} items
+ * @param {readonly B.RglPosition[]} rgl
+ * @param {readonly B.CardLimit[]} limits
  * @param {number} cols
- * @returns {any}
+ * @returns {B.LayoutItem[]}
  */
 export function dashboardMergeRglPositions(items, rgl, limits, cols) {
     const ret = wasm.dashboardMergeRglPositions(items, rgl, limits, cols);
@@ -4659,10 +4659,10 @@ export function dashboardMergeRglPositions(items, rgl, limits, cols) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} layout_value
- * @param {any} limits
- * @param {any} ids
- * @returns {any}
+ * @param {B.DashboardLayout} layout_value
+ * @param {readonly B.CardLimit[]} limits
+ * @param {readonly string[]} ids
+ * @returns {B.DashboardLayout}
  */
 export function dashboardMergeSupervisorCards(layout_value, limits, ids) {
     const ret = wasm.dashboardMergeSupervisorCards(layout_value, limits, ids);
@@ -4738,8 +4738,8 @@ export function dashboardPackSm(items, limits) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} items
- * @param {any} limits
+ * @param {readonly B.LayoutItem[]} items
+ * @param {readonly B.CardLimit[]} limits
  * @returns {boolean}
  */
 export function dashboardSmNeedsRepack(items, limits) {
@@ -4777,9 +4777,9 @@ export function dashboardSuperviseeCounts(milestones, logs, today) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} layout_value
- * @param {any} limits
- * @returns {any}
+ * @param {B.DashboardLayout} layout_value
+ * @param {readonly B.CardLimit[]} limits
+ * @returns {B.DashboardLayout}
  */
 export function dashboardSyncLayouts(layout_value, limits) {
     const ret = wasm.dashboardSyncLayouts(layout_value, limits);
@@ -8635,7 +8635,7 @@ export function gitOverwrittenFiles(output) {
  *
  * Fails when the result cannot be converted to a JS value.
  * @param {string} stdout
- * @returns {any}
+ * @returns {{ oid: string; authoredAt: string; author: string; message: string }[]}
  */
 export function gitParseLog(stdout) {
     const ptr0 = passStringToWasm0(stdout, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -8654,7 +8654,7 @@ export function gitParseLog(stdout) {
  *
  * Fails when the result cannot be converted to a JS value.
  * @param {string} stdout
- * @returns {any}
+ * @returns {{ path: string; state: "deleted" | "added" | "modified" }[]}
  */
 export function gitParseStatus(stdout) {
     const ptr0 = passStringToWasm0(stdout, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -12154,7 +12154,7 @@ export function isUserIntegrationConnected(settings, provider_id, field_ids) {
  * # Errors
  *
  * Fails if `ids` does not have the expected shape.
- * @param {any} ids
+ * @param {{ doi?: string | null; arxivId?: string | null; pmcid?: string | null; knownPdfUrl?: string | null; pageUrl?: string | null }} ids
  * @returns {boolean}
  */
 export function isWebArticle(ids) {
@@ -13472,8 +13472,8 @@ export function makeInkStroke(input) {
 
 /**
  * [`manual_input_from_reference`]: the fields a manual add can fill from an entry.
- * @param {any} entry
- * @returns {any}
+ * @param {unknown} entry
+ * @returns {{ title: string; status: "to_read"; authors?: string[]; year?: number; doi?: string; arxivId?: string; url?: string }}
  */
 export function manualInputFromReference(entry) {
     const ret = wasm.manualInputFromReference(entry);
@@ -14123,10 +14123,10 @@ export function membershipViewFromRow(row) {
  * # Errors
  *
  * Fails if `items` is not an array of page text items.
- * @param {any} items
+ * @param {readonly { str: string; hasEOL?: boolean }[]} items
  * @param {number} start
  * @param {number} end
- * @returns {any}
+ * @returns {B.CitationItemRange[]}
  */
 export function mentionItemRanges(items, start, end) {
     const ret = wasm.mentionItemRanges(items, start, end);
@@ -14161,8 +14161,8 @@ export function mentionRects(items, start, end) {
  * # Errors
  *
  * Fails if `groups` has the wrong shape.
- * @param {any} groups
- * @returns {any}
+ * @param {readonly { items: { id: string; label: string; enabled: boolean }[] }[]} groups
+ * @returns {{ id: string; label: string }[]}
  */
 export function menuPaletteActions(groups) {
     const ret = wasm.menuPaletteActions(groups);
@@ -15942,8 +15942,8 @@ export function oneEuroAlpha(cutoff, dt_ms) {
  * # Errors
  *
  * Fails if `paper` does not have the expected shape.
- * @param {any} paper
- * @returns {any}
+ * @param {{ doi?: string | null; arxivId?: string | null; url?: string | null; metadata?: unknown }} paper
+ * @returns {{ doi?: string | null; arxivId?: string | null; pmcid?: string | null; knownPdfUrl?: string | null; pageUrl?: string | null }}
  */
 export function openAccessIdsOf(paper) {
     const ret = wasm.openAccessIdsOf(paper);
@@ -17135,8 +17135,8 @@ export function parseCssColour(value) {
  * # Errors
  *
  * Fails if `raw` cannot be read as JSON.
- * @param {any} raw
- * @returns {any}
+ * @param {unknown} raw
+ * @returns {{ lg: { id: string; type: string; x: number; y: number; w: number; h: number; config?: Record<string, unknown> }[]; sm: { id: string; type: string; x: number; y: number; w: number; h: number; config?: Record<string, unknown> }[] } | null}
  */
 export function parseDashboardLayout(raw) {
     const ret = wasm.parseDashboardLayout(raw);
@@ -17683,7 +17683,7 @@ export function parseReleaseTag(tag) {
  *
  * Fails if the result cannot be serialised.
  * @param {string} markdown
- * @returns {any}
+ * @returns {{ experimentIds: string[]; caption: string; start: number; end: number; raw: string }[]}
  */
 export function parseResultsTableRefs(markdown) {
     const ptr0 = passStringToWasm0(markdown, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -18441,7 +18441,7 @@ export function pinnedScreenIndex(input) {
  * Fails if the result cannot be converted to JS.
  * @param {string} base_path
  * @param {string} path
- * @returns {any}
+ * @returns {{ title: string; description: string; ogType: string; siteName: string; locale: string; url: string; image: { url: string; width: number; height: number; alt: string }; twitterCard: string }}
  */
 export function pitchShareCard(base_path, path) {
     const ptr0 = passStringToWasm0(base_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -18461,7 +18461,7 @@ export function pitchShareCard(base_path, path) {
  * # Errors
  *
  * Fails if the result cannot be converted to JS.
- * @returns {any}
+ * @returns {{ title: string; description: string; defaultAppOrigin: string }}
  */
 export function pitchShareConstants() {
     const ret = wasm.pitchShareConstants();
@@ -18624,9 +18624,9 @@ export function planChipTarget(dep, known, milestones, is_offline_build) {
  * # Errors
  *
  * Fails if `items` or `mentions` do not have the expected shape.
- * @param {any} items
- * @param {any} mentions
- * @returns {any}
+ * @param {readonly { str: string; hasEOL?: boolean }[]} items
+ * @param {readonly { key: string; start: number; end: number; text?: string; label?: string; kind?: "citation" | "figure" | "url"; url?: string }[]} mentions
+ * @returns {{ from: number; to: number; text: string; mention?: { key: string; start: number; end: number; text?: string; label?: string; kind?: "citation" | "figure" | "url"; url?: string } }[][]}
  */
 export function planCitationSegments(items, mentions) {
     const ret = wasm.planCitationSegments(items, mentions);
@@ -20754,8 +20754,8 @@ export function referenceForDestination(dest, refs) {
 
 /**
  * [`reference_ref`]: the paper reference a bibliography entry resolves by.
- * @param {any} entry
- * @returns {any}
+ * @param {unknown} entry
+ * @returns {{ kind: "doi"; value: string } | { kind: "arxiv"; value: string } | { kind: "bibliographic"; value: string; hints: { title?: string; year?: number; firstAuthor?: string } }}
  */
 export function referenceRef(entry) {
     const ret = wasm.referenceRef(entry);
@@ -21544,7 +21544,7 @@ export function resolveRelatedPaperUrl(url, doi, arxiv_id) {
  *
  * Fails if `experiments` is not a list of experiment objects.
  * @param {string} body
- * @param {any} experiments
+ * @param {readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[]} experiments
  * @param {string} format
  * @returns {string}
  */
@@ -22976,7 +22976,7 @@ export function setTabMode(layout, target, mode) {
  * Fails if the result cannot be converted to JS.
  * @param {boolean} has_plan_widget
  * @param {boolean} has_ink
- * @returns {any}
+ * @returns {{ key: string; label: string; path: string }[]}
  */
 export function settingsPaletteRows(has_plan_widget, has_ink) {
     const ret = wasm.settingsPaletteRows(has_plan_widget, has_ink);

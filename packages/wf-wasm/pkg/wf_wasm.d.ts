@@ -1859,7 +1859,7 @@ export function damerauLevenshtein(a: string, b: string): number;
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardAppendCardPair(layout_value: any, card_type: string, id: string, limits: any): any;
+export function dashboardAppendCardPair(layout_value: B.DashboardLayout, card_type: string, id: string, limits: readonly B.CardLimit[]): B.DashboardLayout;
 
 /**
  * [`build_dashboard_stats`](stats::build_dashboard_stats) for the whole dashboard.
@@ -1895,7 +1895,7 @@ export function dashboardCompactVertical(items: readonly B.LayoutItem[], cols: n
  *
  * Fails if the result cannot be converted to a JS value.
  */
-export function dashboardDefaultLayout(supervisor: boolean): any;
+export function dashboardDefaultLayout(supervisor: boolean): B.DashboardLayout;
 
 /**
  * [`finalize_dashboard_layout`](layout::finalize_dashboard_layout).
@@ -1904,7 +1904,7 @@ export function dashboardDefaultLayout(supervisor: boolean): any;
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardFinalizeLayout(layout_value: any, limits: any): any;
+export function dashboardFinalizeLayout(layout_value: B.DashboardLayout, limits: readonly B.CardLimit[]): B.DashboardLayout;
 
 /**
  * [`cache_key`](layout::cache_key): the cache slot for one project's student or supervisor layout.
@@ -1927,7 +1927,7 @@ export function dashboardLayoutFloors(limit: any, cols: number): any;
  *
  * Fails on a bad input shape.
  */
-export function dashboardLayoutSignature(items: any): string;
+export function dashboardLayoutSignature(items: readonly B.LayoutItem[]): string;
 
 /**
  * [`lg_layout_needs_repair`](layout::lg_layout_needs_repair).
@@ -1936,7 +1936,7 @@ export function dashboardLayoutSignature(items: any): string;
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardLgNeedsRepair(items: any, limits: any): boolean;
+export function dashboardLgNeedsRepair(items: readonly B.LayoutItem[], limits: readonly B.CardLimit[]): boolean;
 
 /**
  * [`merge_rgl_positions`](layout::merge_rgl_positions): the grid's positions, normalized to `cols`.
@@ -1945,7 +1945,7 @@ export function dashboardLgNeedsRepair(items: any, limits: any): boolean;
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardMergeRglPositions(items: any, rgl: any, limits: any, cols: number): any;
+export function dashboardMergeRglPositions(items: readonly B.LayoutItem[], rgl: readonly B.RglPosition[], limits: readonly B.CardLimit[], cols: number): B.LayoutItem[];
 
 /**
  * [`merge_supervisor_cards`](layout::merge_supervisor_cards). `ids` holds one new card id per
@@ -1955,7 +1955,7 @@ export function dashboardMergeRglPositions(items: any, rgl: any, limits: any, co
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardMergeSupervisorCards(layout_value: any, limits: any, ids: any): any;
+export function dashboardMergeSupervisorCards(layout_value: B.DashboardLayout, limits: readonly B.CardLimit[], ids: readonly string[]): B.DashboardLayout;
 
 /**
  * [`needs_attention`](stats::needs_attention) for the given papers, milestones, experiments,
@@ -1992,7 +1992,7 @@ export function dashboardPackSm(items: readonly B.LayoutItem[], limits: readonly
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardSmNeedsRepack(items: any, limits: any): boolean;
+export function dashboardSmNeedsRepack(items: readonly B.LayoutItem[], limits: readonly B.CardLimit[]): boolean;
 
 /**
  * [`supervisee_counts`](stats::supervisee_counts) for one supervisee.
@@ -2010,7 +2010,7 @@ export function dashboardSuperviseeCounts(milestones: any, logs: any, today: str
  *
  * Fails on a bad input shape or an unknown card type.
  */
-export function dashboardSyncLayouts(layout_value: any, limits: any): any;
+export function dashboardSyncLayouts(layout_value: B.DashboardLayout, limits: readonly B.CardLimit[]): B.DashboardLayout;
 
 /**
  * [`team_attention`](stats::team_attention) across all supervisees.
@@ -3516,7 +3516,7 @@ export function gitOverwrittenFiles(output: string): string[];
  *
  * Fails when the result cannot be converted to a JS value.
  */
-export function gitParseLog(stdout: string): any;
+export function gitParseLog(stdout: string): { oid: string; authoredAt: string; author: string; message: string }[];
 
 /**
  * [`parse_status`](wf_core::sync::vault_git_parse::parse_status): `[{ path, state }]` from porcelain `-z` output.
@@ -3525,7 +3525,7 @@ export function gitParseLog(stdout: string): any;
  *
  * Fails when the result cannot be converted to a JS value.
  */
-export function gitParseStatus(stdout: string): any;
+export function gitParseStatus(stdout: string): { path: string; state: "deleted" | "added" | "modified" }[];
 
 /**
  * [`path_chunks`](wf_core::sync::vault_git_parse::path_chunks): batches of paths for one command line each.
@@ -4983,7 +4983,7 @@ export function isUserIntegrationConnected(settings: any, provider_id: string, f
  *
  * Fails if `ids` does not have the expected shape.
  */
-export function isWebArticle(ids: any): boolean;
+export function isWebArticle(ids: { doi?: string | null; arxivId?: string | null; pmcid?: string | null; knownPdfUrl?: string | null; pageUrl?: string | null }): boolean;
 
 /**
  * [`is_zip_file`](import_links::is_zip_file).
@@ -5528,7 +5528,7 @@ export function makeInkStroke(input: any): any;
 /**
  * [`manual_input_from_reference`]: the fields a manual add can fill from an entry.
  */
-export function manualInputFromReference(entry: any): any;
+export function manualInputFromReference(entry: unknown): { title: string; status: "to_read"; authors?: string[]; year?: number; doi?: string; arxivId?: string; url?: string };
 
 /**
  * [`map_ink_confidence`]; `scale` defaults to 1.
@@ -5800,7 +5800,7 @@ export function membershipViewFromRow(row: any): any;
  *
  * Fails if `items` is not an array of page text items.
  */
-export function mentionItemRanges(items: any, start: number, end: number): any;
+export function mentionItemRanges(items: readonly { str: string; hasEOL?: boolean }[], start: number, end: number): B.CitationItemRange[];
 
 /**
  * [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
@@ -5818,7 +5818,7 @@ export function mentionRects(items: readonly B.AnalysisPdfItem[], start: number,
  *
  * Fails if `groups` has the wrong shape.
  */
-export function menuPaletteActions(groups: any): any;
+export function menuPaletteActions(groups: readonly { items: { id: string; label: string; enabled: boolean }[] }[]): { id: string; label: string }[];
 
 /**
  * [`merge_both_changed`](folder_merge::merge_both_changed). `base` and `workspace_content`
@@ -6542,7 +6542,7 @@ export function oneEuroAlpha(cutoff: number, dt_ms: number): number;
  *
  * Fails if `paper` does not have the expected shape.
  */
-export function openAccessIdsOf(paper: any): any;
+export function openAccessIdsOf(paper: { doi?: string | null; arxivId?: string | null; url?: string | null; metadata?: unknown }): { doi?: string | null; arxivId?: string | null; pmcid?: string | null; knownPdfUrl?: string | null; pageUrl?: string | null };
 
 /**
  * [`open_access_supports`] (TS `OpenAccessPdfResolver.supports`).
@@ -7025,7 +7025,7 @@ export function parseCssColour(value: string): Float64Array | undefined;
  *
  * Fails if `raw` cannot be read as JSON.
  */
-export function parseDashboardLayout(raw: any): any;
+export function parseDashboardLayout(raw: unknown): { lg: { id: string; type: string; x: number; y: number; w: number; h: number; config?: Record<string, unknown> }[]; sm: { id: string; type: string; x: number; y: number; w: number; h: number; config?: Record<string, unknown> }[] } | null;
 
 /**
  * Fails if `body` is not valid JSON, or the result cannot be converted.
@@ -7278,7 +7278,7 @@ export function parseReleaseTag(tag: string): [number, number, number] | null;
  *
  * Fails if the result cannot be serialised.
  */
-export function parseResultsTableRefs(markdown: string): any;
+export function parseResultsTableRefs(markdown: string): { experimentIds: string[]; caption: string; start: number; end: number; raw: string }[];
 
 /**
  * [`parse_rollup_options`](paper_field::parse_rollup_options) (TS `parseRollupOptions`).
@@ -7594,7 +7594,7 @@ export function pinnedScreenIndex(input: B.PinnedScreenIndexInput): B.PinnedScre
  *
  * Fails if the result cannot be converted to JS.
  */
-export function pitchShareCard(base_path: string, path: string): any;
+export function pitchShareCard(base_path: string, path: string): { title: string; description: string; ogType: string; siteName: string; locale: string; url: string; image: { url: string; width: number; height: number; alt: string }; twitterCard: string };
 
 /**
  * [`pitch_share_constants`]: the shared title, description and default origin.
@@ -7603,7 +7603,7 @@ export function pitchShareCard(base_path: string, path: string): any;
  *
  * Fails if the result cannot be converted to JS.
  */
-export function pitchShareConstants(): any;
+export function pitchShareConstants(): { title: string; description: string; defaultAppOrigin: string };
 
 /**
  * [`place_on_sheet`](page_background::place_on_sheet) as `{ x, y, width, height }`.
@@ -7681,7 +7681,7 @@ export function planChipTarget(dep: any, known: any, milestones: any, is_offline
  *
  * Fails if `items` or `mentions` do not have the expected shape.
  */
-export function planCitationSegments(items: any, mentions: any): any;
+export function planCitationSegments(items: readonly { str: string; hasEOL?: boolean }[], mentions: readonly { key: string; start: number; end: number; text?: string; label?: string; kind?: "citation" | "figure" | "url"; url?: string }[]): { from: number; to: number; text: string; mention?: { key: string; start: number; end: number; text?: string; label?: string; kind?: "citation" | "figure" | "url"; url?: string } }[][];
 
 /**
  * [`wf_core::sync::snapshot_delta::plan_delta`] for JS. `remote` is `{ id, updatedAt }[]`
@@ -8519,7 +8519,7 @@ export function referenceForDestination(dest: B.AnalysisLinkDest, refs: readonly
 /**
  * [`reference_ref`]: the paper reference a bibliography entry resolves by.
  */
-export function referenceRef(entry: any): any;
+export function referenceRef(entry: unknown): { kind: "doi"; value: string } | { kind: "arxiv"; value: string } | { kind: "bibliographic"; value: string; hints: { title?: string; year?: number; firstAuthor?: string } };
 
 /**
  * [`refresh_ink_undo_annotation`](ink_undo::refresh_ink_undo_annotation).
@@ -8797,7 +8797,7 @@ export function resolveRelatedPaperUrl(url?: string | null, doi?: string | null,
  *
  * Fails if `experiments` is not a list of experiment objects.
  */
-export function resolveResultsTables(body: string, experiments: any, format: string): string;
+export function resolveResultsTables(body: string, experiments: readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[], format: string): string;
 
 /**
  * [`resolve_supervisor_id`](member::resolve_supervisor_id).
@@ -9349,7 +9349,7 @@ export function setTabMode(layout: B.PaneLayout, target: B.TabRef, mode: B.Docum
  *
  * Fails if the result cannot be converted to JS.
  */
-export function settingsPaletteRows(has_plan_widget: boolean, has_ink: boolean): any;
+export function settingsPaletteRows(has_plan_widget: boolean, has_ink: boolean): { key: string; label: string; path: string }[];
 
 /**
  * [`settle_conflict`](folder_merge::settle_conflict). `resolutions` maps each conflicted path to

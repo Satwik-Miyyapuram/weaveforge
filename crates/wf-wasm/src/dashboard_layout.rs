@@ -24,8 +24,10 @@ fn js(value: &impl serde::Serialize) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `raw` cannot be read as JSON.
-#[wasm_bindgen(js_name = parseDashboardLayout)]
-pub fn parse_dashboard_layout_js(raw: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = parseDashboardLayout, unchecked_return_type = "{ lg: { id: string; type: string; x: number; y: number; w: number; h: number; config?: Record<string, unknown> }[]; sm: { id: string; type: string; x: number; y: number; w: number; h: number; config?: Record<string, unknown> }[] } | null")]
+pub fn parse_dashboard_layout_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let raw = if raw.is_undefined() {
         serde_json::Value::Null
     } else {
@@ -39,7 +41,7 @@ pub fn parse_dashboard_layout_js(raw: JsValue) -> Result<JsValue, serde_wasm_bin
 /// # Errors
 ///
 /// Fails if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = dashboardDefaultLayout)]
+#[wasm_bindgen(js_name = dashboardDefaultLayout, unchecked_return_type = "B.DashboardLayout")]
 pub fn dashboard_default_layout_js(supervisor: bool) -> Result<JsValue, JsError> {
     js(&layout::default_layout(supervisor))
 }
@@ -50,11 +52,11 @@ pub fn dashboard_default_layout_js(supervisor: bool) -> Result<JsValue, JsError>
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardMergeSupervisorCards)]
+#[wasm_bindgen(js_name = dashboardMergeSupervisorCards, unchecked_return_type = "B.DashboardLayout")]
 pub fn dashboard_merge_supervisor_cards_js(
-    layout_value: JsValue,
-    limits: JsValue,
-    ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DashboardLayout")] layout_value: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
 ) -> Result<JsValue, JsError> {
     let layout_value: DashboardLayout =
         serde_wasm_bindgen::from_value(layout_value).map_err(js_error)?;
@@ -68,12 +70,12 @@ pub fn dashboard_merge_supervisor_cards_js(
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardAppendCardPair)]
+#[wasm_bindgen(js_name = dashboardAppendCardPair, unchecked_return_type = "B.DashboardLayout")]
 pub fn dashboard_append_card_pair_js(
-    layout_value: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DashboardLayout")] layout_value: JsValue,
     card_type: &str,
     id: &str,
-    limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
 ) -> Result<JsValue, JsError> {
     let layout_value: DashboardLayout =
         serde_wasm_bindgen::from_value(layout_value).map_err(js_error)?;
@@ -86,10 +88,10 @@ pub fn dashboard_append_card_pair_js(
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardSyncLayouts)]
+#[wasm_bindgen(js_name = dashboardSyncLayouts, unchecked_return_type = "B.DashboardLayout")]
 pub fn dashboard_sync_layouts_js(
-    layout_value: JsValue,
-    limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DashboardLayout")] layout_value: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
 ) -> Result<JsValue, JsError> {
     let layout_value: DashboardLayout =
         serde_wasm_bindgen::from_value(layout_value).map_err(js_error)?;
@@ -102,10 +104,10 @@ pub fn dashboard_sync_layouts_js(
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardFinalizeLayout)]
+#[wasm_bindgen(js_name = dashboardFinalizeLayout, unchecked_return_type = "B.DashboardLayout")]
 pub fn dashboard_finalize_layout_js(
-    layout_value: JsValue,
-    limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DashboardLayout")] layout_value: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
 ) -> Result<JsValue, JsError> {
     let layout_value: DashboardLayout =
         serde_wasm_bindgen::from_value(layout_value).map_err(js_error)?;
@@ -118,11 +120,11 @@ pub fn dashboard_finalize_layout_js(
 /// # Errors
 ///
 /// Fails on a bad input shape or an unknown card type.
-#[wasm_bindgen(js_name = dashboardMergeRglPositions)]
+#[wasm_bindgen(js_name = dashboardMergeRglPositions, unchecked_return_type = "B.LayoutItem[]")]
 pub fn dashboard_merge_rgl_positions_js(
-    items: JsValue,
-    rgl: JsValue,
-    limits: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.RglPosition[]")] rgl: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
     cols: f64,
 ) -> Result<JsValue, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
@@ -137,7 +139,10 @@ pub fn dashboard_merge_rgl_positions_js(
 ///
 /// Fails on a bad input shape or an unknown card type.
 #[wasm_bindgen(js_name = dashboardLgNeedsRepair)]
-pub fn dashboard_lg_needs_repair_js(items: JsValue, limits: JsValue) -> Result<bool, JsError> {
+pub fn dashboard_lg_needs_repair_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
+) -> Result<bool, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
     let limits: Vec<CardLimit> = serde_wasm_bindgen::from_value(limits).map_err(js_error)?;
     layout::lg_layout_needs_repair(&items, &limits).map_err(js_error)
@@ -149,7 +154,9 @@ pub fn dashboard_lg_needs_repair_js(items: JsValue, limits: JsValue) -> Result<b
 ///
 /// Fails on a bad input shape.
 #[wasm_bindgen(js_name = dashboardLayoutSignature)]
-pub fn dashboard_layout_signature_js(items: JsValue) -> Result<String, JsError> {
+pub fn dashboard_layout_signature_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+) -> Result<String, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
     Ok(layout::layout_signature(&items))
 }
@@ -167,7 +174,10 @@ pub fn dashboard_layout_cache_key_js(project_id: &str, supervisor_layout: bool) 
 ///
 /// Fails on a bad input shape or an unknown card type.
 #[wasm_bindgen(js_name = dashboardSmNeedsRepack)]
-pub fn dashboard_sm_needs_repack_js(items: JsValue, limits: JsValue) -> Result<bool, JsError> {
+pub fn dashboard_sm_needs_repack_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CardLimit[]")] limits: JsValue,
+) -> Result<bool, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
     let limits: Vec<CardLimit> = serde_wasm_bindgen::from_value(limits).map_err(js_error)?;
     layout::sm_layout_needs_repack(&items, &limits).map_err(js_error)

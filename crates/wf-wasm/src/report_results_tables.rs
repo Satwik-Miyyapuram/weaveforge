@@ -34,7 +34,7 @@ pub fn serialise_results_table_ref_js(experiment_ids: JsValue, caption: &str) ->
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = parseResultsTableRefs)]
+#[wasm_bindgen(js_name = parseResultsTableRefs, unchecked_return_type = "{ experimentIds: string[]; caption: string; start: number; end: number; raw: string }[]")]
 pub fn parse_results_table_refs_js(markdown: &str) -> JsResult<JsValue> {
     to_js(&results_table_refs::parse_results_table_refs(markdown))
 }
@@ -49,6 +49,9 @@ pub fn parse_results_table_refs_js(markdown: &str) -> JsResult<JsValue> {
 #[wasm_bindgen(js_name = resolveResultsTables)]
 pub fn resolve_results_tables_js(
     body: &str,
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[]"
+    )]
     experiments: JsValue,
     format: &str,
 ) -> JsResult<String> {

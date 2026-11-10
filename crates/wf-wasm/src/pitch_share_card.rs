@@ -20,7 +20,7 @@ pub fn app_origin_from_js(configured: Option<String>) -> String {
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = pitchShareConstants)]
+#[wasm_bindgen(js_name = pitchShareConstants, unchecked_return_type = "{ title: string; description: string; defaultAppOrigin: string }")]
 pub fn pitch_share_constants_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&pitch_share_constants())
 }
@@ -30,7 +30,7 @@ pub fn pitch_share_constants_js() -> Result<JsValue, serde_wasm_bindgen::Error> 
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = pitchShareCard)]
+#[wasm_bindgen(js_name = pitchShareCard, unchecked_return_type = "{ title: string; description: string; ogType: string; siteName: string; locale: string; url: string; image: { url: string; width: number; height: number; alt: string }; twitterCard: string }")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn pitch_share_card_js(
     base_path: String,

@@ -4,9 +4,12 @@
  * apps/web/src/features/report/application/results-table-refs.ts.
  */
 import {
-  parseResultsTableRefs as rawParseResultsTableRefs,
-  resolveResultsTables as rawResolveResultsTables,
   serialiseResultsTableRef as rawSerialiseResultsTableRef,
+} from "../pkg/wf_wasm.js";
+
+export {
+  parseResultsTableRefs,
+  resolveResultsTables,
 } from "../pkg/wf_wasm.js";
 
 /** One `exptable:` reference in report markdown, with UTF-16 start and end offsets. */
@@ -23,26 +26,9 @@ export function serialiseResultsTableRef(experimentIds: readonly string[], capti
   return rawSerialiseResultsTableRef([...experimentIds], caption);
 }
 
-/** Every `exptable:` reference in the markdown, with UTF-16 start and end offsets. */
-export function parseResultsTableRefs(markdown: string): ResultsTableRef[] {
-  return rawParseResultsTableRefs(markdown) as ResultsTableRef[];
-}
-
-/**
- * Replaces each reference with its table, rebuilt from the runs' current metrics. `latex` picks the
- * LaTeX figure block over the Markdown table. Unknown runs get a warning line.
- */
 /** The fields of an experiment the tables read; the app's `Experiment` fits it. */
 export interface ResultsTableExperiment {
   id: string;
   name: string;
   metrics?: Record<string, unknown> | null;
-}
-
-export function resolveResultsTables(
-  body: string,
-  experiments: readonly ResultsTableExperiment[],
-  format: "markdown" | "latex",
-): string {
-  return rawResolveResultsTables(body, experiments, format);
 }

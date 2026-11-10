@@ -15,7 +15,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails when the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = gitParseStatus)]
+#[wasm_bindgen(js_name = gitParseStatus, unchecked_return_type = "{ path: string; state: \"deleted\" | \"added\" | \"modified\" }[]")]
 pub fn git_parse_status_js(stdout: &str) -> Result<JsValue, JsError> {
     to_js(&parse_status(stdout)).map_err(|error| JsError::new(&error.to_string()))
 }
@@ -25,7 +25,7 @@ pub fn git_parse_status_js(stdout: &str) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails when the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = gitParseLog)]
+#[wasm_bindgen(js_name = gitParseLog, unchecked_return_type = "{ oid: string; authoredAt: string; author: string; message: string }[]")]
 pub fn git_parse_log_js(stdout: &str) -> Result<JsValue, JsError> {
     to_js(&parse_log(stdout)).map_err(|error| JsError::new(&error.to_string()))
 }

@@ -31,7 +31,12 @@ pub fn describe_free_copy_failure_js(
 ///
 /// Fails if `ids` does not have the expected shape.
 #[wasm_bindgen(js_name = isWebArticle)]
-pub fn is_web_article_js(ids: JsValue) -> Result<bool, JsError> {
+pub fn is_web_article_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ doi?: string | null; arxivId?: string | null; pmcid?: string | null; knownPdfUrl?: string | null; pageUrl?: string | null }"
+    )]
+    ids: JsValue,
+) -> Result<bool, JsError> {
     let ids: OpenAccessIds =
         serde_wasm_bindgen::from_value(ids).map_err(|error| JsError::new(&error.to_string()))?;
     Ok(is_web_article(&ids))
@@ -42,8 +47,13 @@ pub fn is_web_article_js(ids: JsValue) -> Result<bool, JsError> {
 /// # Errors
 ///
 /// Fails if `paper` does not have the expected shape.
-#[wasm_bindgen(js_name = openAccessIdsOf)]
-pub fn open_access_ids_of_js(paper: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = openAccessIdsOf, unchecked_return_type = "{ doi?: string | null; arxivId?: string | null; pmcid?: string | null; knownPdfUrl?: string | null; pageUrl?: string | null }")]
+pub fn open_access_ids_of_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ doi?: string | null; arxivId?: string | null; url?: string | null; metadata?: unknown }"
+    )]
+    paper: JsValue,
+) -> Result<JsValue, JsError> {
     let paper: PaperLinks =
         serde_wasm_bindgen::from_value(paper).map_err(|error| JsError::new(&error.to_string()))?;
     // Absent ids are `undefined`, as the TypeScript type says, not `null`.
