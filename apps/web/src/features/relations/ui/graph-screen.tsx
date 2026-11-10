@@ -13,7 +13,6 @@ import { AddEdgeForm } from "./add-edge-form";
 import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
 import type { GNode } from "@weaveforge/wasm";
-import { graphTagNames, notesTagged } from "../application/graph-tags";
 import { SettingsIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -97,7 +96,7 @@ export function GraphScreen() {
   }, [focus]);
 
   const allTags = useMemo(
-    () => graphTagNames(papers, notes, lists, settings.includeListsAsConcepts !== false),
+    () => readyCore().graphTagNames(papers, notes, lists, settings.includeListsAsConcepts !== false),
     [papers, notes, lists, settings.includeListsAsConcepts],
   );
 
@@ -118,7 +117,7 @@ export function GraphScreen() {
   }, [edges, visiblePapers]);
 
   const visibleNotes = useMemo(
-    () => (selectedTags.length === 0 ? notes : notesTagged(notes, selectedTags)),
+    () => (selectedTags.length === 0 ? notes : readyCore().notesTagged(notes, selectedTags).map((i) => notes[i]!)),
     [notes, selectedTags],
   );
 

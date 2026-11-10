@@ -1,7 +1,6 @@
 /// <reference lib="webworker" />
 
 import { type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
-import { projectStoredPdfTexts } from "../application/search-projection";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
 import { formatError } from "@/lib/format-error";
@@ -47,7 +46,8 @@ async function project(
   snapshot: WorkspaceSnapshot,
   projectId: string | null,
 ): Promise<{ docs: SearchDoc[]; pdfPageCounts: [string, number][] }> {
-  return projectStoredPdfTexts(snapshot, await loadPdfTexts(projectId));
+  const core = await loadCore();
+  return core.projectStoredPdfTexts(snapshot, await loadPdfTexts(projectId));
 }
 
 self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {

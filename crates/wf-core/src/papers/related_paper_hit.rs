@@ -1,7 +1,8 @@
 //! Related-paper hits from Semantic Scholar and OpenAlex (TS `fetch-related-papers.ts` mappers).
 //! The HTTP fetching stays in TypeScript; this module holds the field rules.
 
-use std::collections::BTreeMap;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -9,9 +10,10 @@ use serde_json::{Map, Value};
 use super::paper::normalize_doi;
 use super::related_paper_url::resolve_related_paper_url;
 use crate::reader_analysis::lines::js_trim;
+use crate::vault::page::normalize_title_key;
 
 /// One neighbour of the seed paper. Absent fields serialize as `undefined`, the TS shape.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "specta", serde(rename = "RelatedPaperHitRow"))]
 #[serde(rename_all = "camelCase")]
@@ -214,6 +216,151 @@ pub fn seed_doi(doi: Option<&str>, arxiv_id: Option<&str>) -> Option<String> {
     (!arxiv.is_empty()).then(|| format!("10.48550/arXiv.{arxiv}"))
 }
 
+/// The Semantic Scholar fields the hit mappers read, in the order the requests ask for them.
+const S2_FIELDS: &str = "title,authors,year,externalIds,url,abstract,citationCount";
+
+/// The fields asked of the paper nested under `key` (`citedPaper`, `citingPaper`).
+#[must_use]
+pub fn s2_nested_fields(key: &str) -> String {
+    S2_FIELDS
+        .split(',')
+        .map(|field| format!("{key}.{field}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// The keys the dedupe checks a hit against: normalized DOIs, lower-cased arXiv ids and title keys.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct RelatedPaperKeys {
+    /// Normalized DOIs.
+    pub dois: BTreeSet<String>,
+    /// Lower-cased arXiv ids.
+    pub arxivs: BTreeSet<String>,
+    /// Normalized title keys.
+    pub titles: BTreeSet<String>,
+}
+
+/// One paper of the library, as far as the dedupe reads it.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LibraryPaper {
+    /// DOI, as stored.
+    pub doi: Option<String>,
+    /// arXiv id, as stored.
+    pub arxiv_id: Option<String>,
+    /// Title, as stored.
+    pub title: String,
+}
+
+/// The input to [`collect_new_hits`]: keys and hits kept so far, the new candidates, and the cap.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RelatedPaperCollectInput {
+    /// Keys so far.
+    pub keys: RelatedPaperKeys,
+    /// Hits kept so far; they count toward the limit.
+    pub hits: Vec<RelatedPaperHit>,
+    /// New candidates in order; `None` is a hit that could not be mapped.
+    pub candidates: Vec<Option<RelatedPaperHit>>,
+    /// Most hits to keep in total.
+    pub limit: usize,
+}
+
+/// The output of [`collect_new_hits`]: the kept hits and the keys after them.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct RelatedPaperCollectOutput {
+    /// Keys after the kept hits were added.
+    pub keys: RelatedPaperKeys,
+    /// Hits kept so far, in order.
+    pub hits: Vec<RelatedPaperHit>,
+}
+
+/// The dedupe keys of a library. A blank DOI or arXiv id adds nothing; a title key is always added.
+#[must_use]
+pub fn local_keys(library: &[LibraryPaper]) -> RelatedPaperKeys {
+    let mut keys = RelatedPaperKeys::default();
+    for paper in library {
+        note(
+            &mut keys,
+            paper.doi.as_deref(),
+            paper.arxiv_id.as_deref(),
+            &paper.title,
+        );
+    }
+    keys
+}
+
+/// Adds a paper's DOI, arXiv id and title key to the keys.
+fn note(keys: &mut RelatedPaperKeys, doi: Option<&str>, arxiv_id: Option<&str>, title: &str) {
+    if let Some(doi) = normalize_doi(doi).filter(|doi| !doi.is_empty()) {
+        let _ = keys.dois.insert(doi);
+    }
+    if let Some(arxiv) = arxiv_id.filter(|arxiv| !arxiv.is_empty()) {
+        let _ = keys.arxivs.insert(arxiv.to_lowercase());
+    }
+    let _ = keys.titles.insert(normalize_title_key(title));
+}
+
+/// Whether the library already holds the hit, by DOI, arXiv id or title key.
+fn is_local(hit: &RelatedPaperHit, keys: &RelatedPaperKeys) -> bool {
+    let by_doi = normalize_doi(hit.doi.as_deref()).is_some_and(|doi| keys.dois.contains(&doi));
+    let by_arxiv = hit
+        .arxiv_id
+        .as_deref()
+        .is_some_and(|arxiv| keys.arxivs.contains(&arxiv.to_lowercase()));
+    by_doi || by_arxiv || keys.titles.contains(&normalize_title_key(&hit.title))
+}
+
+/// Adds each candidate that is not in the library or already kept, until `limit` hits are kept.
+/// A `None` candidate is skipped. Nothing is kept between calls: the caller passes the state back in.
+#[must_use]
+pub fn collect_new_hits(input: RelatedPaperCollectInput) -> RelatedPaperCollectOutput {
+    let RelatedPaperCollectInput {
+        mut keys,
+        mut hits,
+        candidates,
+        limit,
+    } = input;
+    for candidate in candidates {
+        if hits.len() >= limit {
+            break;
+        }
+        let Some(hit) = candidate else {
+            continue;
+        };
+        if is_local(&hit, &keys) {
+            continue;
+        }
+        note(
+            &mut keys,
+            hit.doi.as_deref(),
+            hit.arxiv_id.as_deref(),
+            &hit.title,
+        );
+        hits.push(hit);
+    }
+    RelatedPaperCollectOutput { keys, hits }
+}
+
+/// Most cited first. A missing hit or citation count ranks as zero. Equal counts keep their order.
+#[must_use]
+pub fn sort_by_citations(mut hits: Vec<Option<RelatedPaperHit>>) -> Vec<Option<RelatedPaperHit>> {
+    hits.sort_by(|a, b| {
+        citation_rank(b.as_ref())
+            .partial_cmp(&citation_rank(a.as_ref()))
+            .unwrap_or(Ordering::Equal)
+    });
+    hits
+}
+
+fn citation_rank(hit: Option<&RelatedPaperHit>) -> f64 {
+    hit.and_then(|hit| hit.citation_count).unwrap_or(0.0)
+}
+
 /// Non-empty after JS trim, or `None`.
 fn trimmed(text: Option<&str>) -> Option<&str> {
     text.map(js_trim).filter(|text| !text.is_empty())
@@ -400,6 +547,124 @@ mod tests {
         assert_eq!(
             seed_doi(None, Some("2401.00001")).as_deref(),
             Some("10.48550/arXiv.2401.00001")
+        );
+    }
+
+    fn hit(
+        title: &str,
+        doi: Option<&str>,
+        arxiv: Option<&str>,
+        citations: Option<f64>,
+    ) -> RelatedPaperHit {
+        RelatedPaperHit {
+            title: title.to_owned(),
+            authors: Vec::new(),
+            year: None,
+            doi: doi.map(str::to_owned),
+            arxiv_id: arxiv.map(str::to_owned),
+            url: None,
+            abstract_text: None,
+            citation_count: citations,
+        }
+    }
+
+    fn titles(hits: &[RelatedPaperHit]) -> Vec<&str> {
+        hits.iter().map(|hit| hit.title.as_str()).collect()
+    }
+
+    #[test]
+    fn local_keys_normalize_each_library_paper() {
+        let library = vec![LibraryPaper {
+            doi: Some("https://doi.org/10.1/LIB".to_owned()),
+            arxiv_id: Some("2401.0001".to_owned()),
+            title: "Lib Paper".to_owned(),
+        }];
+        let keys = local_keys(&library);
+        assert!(keys.dois.contains("10.1/lib"));
+        assert!(keys.arxivs.contains("2401.0001"));
+        assert!(keys.titles.contains(&normalize_title_key("Lib Paper")));
+        let blank = local_keys(&[LibraryPaper {
+            doi: Some("  ".to_owned()),
+            arxiv_id: Some(String::new()),
+            title: String::new(),
+        }]);
+        assert!(blank.dois.is_empty());
+        assert!(blank.arxivs.is_empty());
+        assert_eq!(blank.titles.len(), 1);
+    }
+
+    #[test]
+    fn collect_skips_library_and_repeats_and_stops_at_limit() {
+        let library = vec![LibraryPaper {
+            doi: Some("https://doi.org/10.1/LIB".to_owned()),
+            arxiv_id: None,
+            title: "Lib Paper".to_owned(),
+        }];
+        let out = collect_new_hits(RelatedPaperCollectInput {
+            keys: local_keys(&library),
+            hits: Vec::new(),
+            candidates: vec![
+                Some(hit("Lib Paper", None, None, None)),
+                None,
+                Some(hit("Other", Some("10.1/lib"), None, None)),
+                Some(hit("New A", Some("10.2/a"), Some("2402.0002"), Some(3.0))),
+                Some(hit("Repeat", Some("10.2/a"), None, None)),
+                Some(hit("Second", None, Some("2402.0002"), None)),
+                Some(hit("New B", None, None, None)),
+                Some(hit("Cut", None, None, None)),
+            ],
+            limit: 2,
+        });
+        assert_eq!(titles(&out.hits), vec!["New A", "New B"]);
+        assert!(out.keys.dois.contains("10.2/a"));
+        assert!(out.keys.arxivs.contains("2402.0002"));
+        assert!(out.keys.titles.contains(&normalize_title_key("New B")));
+    }
+
+    #[test]
+    fn collect_counts_hits_kept_before_the_call() {
+        let out = collect_new_hits(RelatedPaperCollectInput {
+            keys: RelatedPaperKeys::default(),
+            hits: vec![hit("Kept", None, None, None)],
+            candidates: vec![Some(hit("Z", None, None, None))],
+            limit: 1,
+        });
+        assert_eq!(titles(&out.hits), vec!["Kept"]);
+        assert!(out.keys.titles.is_empty());
+    }
+
+    #[test]
+    fn citation_sort_is_stable_desc_with_missing_as_zero() {
+        let sorted = sort_by_citations(vec![
+            Some(hit("low", None, None, Some(1.0))),
+            None,
+            Some(hit("top", None, None, Some(9.0))),
+            Some(hit("tie-first", None, None, Some(4.0))),
+            Some(hit("tie-second", None, None, Some(4.0))),
+            Some(hit("no count", None, None, None)),
+        ]);
+        let order: Vec<Option<&str>> = sorted
+            .iter()
+            .map(|hit| hit.as_ref().map(|hit| hit.title.as_str()))
+            .collect();
+        assert_eq!(
+            order,
+            vec![
+                Some("top"),
+                Some("tie-first"),
+                Some("tie-second"),
+                Some("low"),
+                None,
+                Some("no count"),
+            ]
+        );
+    }
+
+    #[test]
+    fn nested_fields_prefix_each_s2_field() {
+        assert_eq!(
+            s2_nested_fields("citedPaper"),
+            "citedPaper.title,citedPaper.authors,citedPaper.year,citedPaper.externalIds,citedPaper.url,citedPaper.abstract,citedPaper.citationCount"
         );
     }
 }

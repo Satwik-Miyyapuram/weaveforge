@@ -3,12 +3,16 @@ import type {
   ICitationAlertTrackRepository,
   NewCitationAlertTrackInput,
 } from "@weaveforge/core";
+import type { CitationAlertTrackRow } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import {
-  type TrackRow,
-  toDomain,
-} from "./citation-alert-track-rows";
 import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+
+type TrackRow = CitationAlertTrackRow;
+
+/** Row mapping is Rust (`citation_alert_track_from_row`). */
+const toDomain = (row: TrackRow): CitationAlertTrack =>
+  readyCore().citationAlertTrackFromRow(row) as CitationAlertTrack;
 
 /**
  * The columns a TrackRow is read as, named rather than starred.

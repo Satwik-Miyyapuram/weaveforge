@@ -1,6 +1,6 @@
 /**
  * Reader ink undo stack (Rust `reader_ink_undo`), re-exported from index.ts. Each function keeps the
- * signature of packages/core/src/reader/ink-undo.ts.
+ * signature is InkUndoFns in packages/core/src/shared/core-contract.ts.
  */
 import {
   pushInkUndo as rawPushInkUndo,

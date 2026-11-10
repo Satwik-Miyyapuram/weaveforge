@@ -10,10 +10,77 @@ use std::collections::HashMap;
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::search::excerpt::{ExcerptOptions, build_excerpt as core_build_excerpt};
+use wf_core::search::projection;
 use wf_core::search::search_document::{self, AnnotationSource, PdfIndexSource, SearchDoc};
+use wf_core::search::tokenizer::{TokenizerOptions, index_terms as core_index_terms};
+use wf_core::search::wiki_graph::WikiGraph;
 use wf_core::sync::workspace_snapshot::WorkspaceSnapshot;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
+
+/// The longest prefix of `text` within `max` UTF-16 units, cut on a character boundary. The TS
+/// slice it replaces could split a surrogate pair; this never does.
+fn cap_utf16(text: &str, max: usize) -> &str {
+    let mut units = 0;
+    for (index, ch) in text.char_indices() {
+        units += ch.len_utf16();
+        if units > max {
+            return &text[..index];
+        }
+    }
+    text
+}
+
+/// The tokenizer defaults index and query share (TS `TOKENIZER_OPTIONS`).
+fn index_tokenizer_options() -> TokenizerOptions {
+    TokenizerOptions {
+        fold_diacritics: true,
+        fold_arabic_diacritics: false,
+        split_camel_case: true,
+        tokenize_urls: true,
+    }
+}
+
+/// [`indexTermsOf`]: the index terms of `text`, cut to the longest text the index accepts rather
+/// than throwing. Rust `index_terms` with the search tokenizer defaults.
+#[wasm_bindgen(js_name = indexTermsOf)]
+pub fn index_terms_of_js(text: &str) -> Vec<String> {
+    core_index_terms(
+        cap_utf16(text, crate::max_index_text_utf16()),
+        &index_tokenizer_options(),
+    )
+}
+
+/// [`excerptOf`]: a 200-character excerpt of `body` around `terms`, cut like [`index_terms_of_js`].
+///
+/// # Errors
+///
+/// Fails if `terms` is not an array of strings, or if the terms together need more than
+/// `MAX_INDEX_TEXT_UTF16` units (each counts its length + 1), as the TS `buildExcerpt` does.
+#[wasm_bindgen(js_name = excerptOf)]
+pub fn excerpt_of_js(body: &str, terms: JsValue) -> Result<JsValue, JsValue> {
+    let terms: Vec<String> = serde_wasm_bindgen::from_value(terms)?;
+    let max = crate::max_index_text_utf16();
+    let total: usize = terms
+        .iter()
+        .map(|term| term.encode_utf16().count() + 1)
+        .sum();
+    if total > max {
+        return Err(JsValue::from_str(&format!(
+            "terms need {total} UTF-16 units (length + 1 each); MAX_INDEX_TEXT_UTF16 is {max}"
+        )));
+    }
+    let excerpt = core_build_excerpt(
+        cap_utf16(body, max),
+        &terms,
+        ExcerptOptions {
+            max_chars: Some(200),
+            single_line: true,
+        },
+    );
+    Ok(serde_wasm_bindgen::to_value(&excerpt)?)
+}
 
 /// [`to_search_docs`](search_document::to_search_docs). `degrees` is a plain
 /// `{ "kind:id": count }` object.
@@ -127,4 +194,38 @@ pub fn to_annotation_search_docs_js(
         &titles,
         &degrees,
     ))
+}
+
+/// [`project_search_documents`](projection::project_search_documents). `graph` is a wiki graph or
+/// `null`; `pdfTexts` is the extracted PDF text array.
+///
+/// # Errors
+///
+/// Fails if an argument or a reader annotation does not match the expected shape.
+#[wasm_bindgen(js_name = projectSearchDocuments)]
+pub fn project_search_documents_js(
+    snapshot: JsValue,
+    graph: JsValue,
+    pdf_texts: JsValue,
+) -> Result<JsValue, JsValue> {
+    let snapshot: WorkspaceSnapshot = serde_wasm_bindgen::from_value(snapshot)?;
+    let graph: Option<WikiGraph> = serde_wasm_bindgen::from_value(graph)?;
+    let pdf_texts: Vec<PdfIndexSource> = serde_wasm_bindgen::from_value(pdf_texts)?;
+    let docs = projection::project_search_documents(&snapshot, graph.as_ref(), &pdf_texts)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    Ok(serde_wasm_bindgen::to_value(&docs)?)
+}
+
+/// [`project_stored_pdf_texts`](projection::project_stored_pdf_texts): the worker's build.
+///
+/// # Errors
+///
+/// Fails if an argument or a reader annotation does not match the expected shape.
+#[wasm_bindgen(js_name = projectStoredPdfTexts)]
+pub fn project_stored_pdf_texts_js(snapshot: JsValue, stored: JsValue) -> Result<JsValue, JsValue> {
+    let snapshot: WorkspaceSnapshot = serde_wasm_bindgen::from_value(snapshot)?;
+    let stored: Vec<PdfIndexSource> = serde_wasm_bindgen::from_value(stored)?;
+    let projection = projection::project_stored_pdf_texts(&snapshot, &stored)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    Ok(serde_wasm_bindgen::to_value(&projection)?)
 }

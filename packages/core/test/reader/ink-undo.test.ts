@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { type InkUndoState } from "../../src/reader/ink-undo.js";
+import { type InkUndoState } from "../../src/shared/core-contract.js";
 import type { ReaderAnnotation } from "../../src/reader/reader-annotation.js";
 import * as wasm from "../../../wf-wasm/src/index.ts";
 import type { CoreContract } from "../../src/index.js";

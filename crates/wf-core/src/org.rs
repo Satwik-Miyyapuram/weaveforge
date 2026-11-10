@@ -29,6 +29,20 @@ pub fn is_explicit_lab_membership(m: &Membership) -> bool {
     matches!(m.join_source.as_deref(), Some("invite" | "create"))
 }
 
+/// Whether an org RPC error means the DB functions are missing, so the schema migrations must run.
+#[must_use]
+pub fn needs_migration_hint(message: &str) -> bool {
+    message.contains("complete_org_setup")
+        || message.contains("switch_active_org")
+        || message.contains("Could not find the function")
+}
+
+/// Whether an org API error says the server has no Supabase service-role key.
+#[must_use]
+pub fn is_missing_service_role(message: &str) -> bool {
+    message.contains("Missing Supabase service role")
+}
+
 /// Whether the active lab is set and the user is explicitly in it, or owns it.
 #[must_use]
 pub fn has_active_lab(
@@ -229,6 +243,19 @@ mod membership_tests {
             Some("backfill")
         )));
         assert!(!is_explicit_lab_membership(&membership("a", None)));
+    }
+
+    #[test]
+    fn org_error_classifiers_match_known_messages() {
+        assert!(needs_migration_hint(
+            "function complete_org_setup() does not exist"
+        ));
+        assert!(needs_migration_hint(
+            "Could not find the function switch_active_org"
+        ));
+        assert!(!needs_migration_hint("permission denied"));
+        assert!(is_missing_service_role("Missing Supabase service role key"));
+        assert!(!is_missing_service_role("Missing invite"));
     }
 
     #[test]

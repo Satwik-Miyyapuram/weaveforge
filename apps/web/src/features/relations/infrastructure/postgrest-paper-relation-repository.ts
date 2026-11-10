@@ -4,11 +4,8 @@ import type {
   PaperRelationFilter,
   RelationType,
 } from "@weaveforge/core";
-import {
-  type PaperRelationRow,
-  toDomain,
-  toRow,
-} from "./paper-relation-rows";
+import type { PaperRelationRow } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
@@ -28,6 +25,11 @@ import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-
 const PAPER_RELATION_COLUMNS = "id,from_paper,to_paper,relation,note,source,created_at";
 
 const TABLE = "paper_relations";
+
+/** Row mapping is Rust (`paper_relation_from_row` / `paper_relation_to_row`). */
+const toDomain = (row: PaperRelationRow): PaperRelation =>
+  readyCore().paperRelationFromRow(row) as PaperRelation;
+const toRow = (r: PaperRelation): PaperRelationRow => readyCore().paperRelationToRow(r);
 
 export class PostgrestPaperRelationRepository extends ProjectRepository
   implements IPaperRelationRepository

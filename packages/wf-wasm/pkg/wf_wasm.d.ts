@@ -53,6 +53,75 @@ export class InkStrokePacker {
 }
 
 /**
+ * [`NibFilter`](CoreNibFilter): the pen-level filter (position and pressure, one state).
+ */
+export class NibFilter {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Filter one raw sample. Returns `[x, y, pressure, velocity, t]`.
+     */
+    filter(x: number, y: number, pressure: number, t: number): Float64Array;
+    /**
+     * `position` and `pressure` are each `{ minCutoff, beta, derivativeCutoff }`.
+     */
+    constructor(position: any, pressure: any);
+    /**
+     * Start a new stroke: no state carries over from the last one.
+     */
+    reset(): void;
+    /**
+     * Put back a state from [`Self::save`].
+     */
+    restore(snapshot: NibFilterSnapshot): void;
+    /**
+     * Snapshot the state, to pass to [`Self::restore`] later.
+     */
+    save(): NibFilterSnapshot;
+    /**
+     * The filter's own speed estimate for the newest sample, for diagnostics.
+     */
+    readonly speed: number;
+}
+
+/**
+ * An opaque snapshot of a [`NibFilter`], for [`NibFilter::restore`].
+ */
+export class NibFilterSnapshot {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+}
+
+/**
+ * [`OneEuroFilter`](CoreOneEuroFilter): one scalar channel, held across calls.
+ */
+export class OneEuroFilter {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Filter one sample taken at `time` milliseconds; returns the filtered value.
+     */
+    filter(value: number, time: number): number;
+    /**
+     * `options` is `{ minCutoff, beta, derivativeCutoff }`.
+     */
+    constructor(options: any);
+    /**
+     * Forget everything, as at pen-down.
+     */
+    reset(): void;
+    /**
+     * The last filtered value, or `undefined` before the first sample.
+     */
+    readonly last: number | undefined;
+    /**
+     * The last estimated speed, in value units per millisecond.
+     */
+    readonly speed: number;
+}
+
+/**
  * Brute-force cosine index over normalized vectors.
  */
 export class VectorIndex {
@@ -1071,6 +1140,15 @@ export function collectCitedKeys(latex: string): any;
  * [`collect_list_ids`]: every list id in the tree, parents before children.
  */
 export function collectListIds(tree: any): any;
+
+/**
+ * [`collect_new_hits`](related_paper_hit::collect_new_hits): adds the new candidates up to the limit.
+ *
+ * # Errors
+ *
+ * Fails if `input` cannot be read as a collect input.
+ */
+export function collectNewHits(input: any): any;
 
 /**
  * [`colour_tool_for`]: returns `"pen"`, `"highlighter"`, `"text"` or `"highlight"`.
@@ -2162,6 +2240,16 @@ export function escapeLatexText(s: string): string;
 export function evaluateAiAccess(input: any, now: string): any;
 
 /**
+ * [`excerptOf`]: a 200-character excerpt of `body` around `terms`, cut like [`index_terms_of_js`].
+ *
+ * # Errors
+ *
+ * Fails if `terms` is not an array of strings, or if the terms together need more than
+ * `MAX_INDEX_TEXT_UTF16` units (each counts its length + 1), as the TS `buildExcerpt` does.
+ */
+export function excerptOf(body: string, terms: any): any;
+
+/**
  * [`excerpt_segments`](excerpt_segments::excerpt_segments) as `{text,
  * highlighted}` runs.
  *
@@ -3182,6 +3270,12 @@ export function indexFromAnalysis(analysis: any, pages: any): any;
 export function indexTerms(text: string, options: any): any;
 
 /**
+ * [`indexTermsOf`]: the index terms of `text`, cut to the longest text the index accepts rather
+ * than throwing. Rust `index_terms` with the search tokenizer defaults.
+ */
+export function indexTermsOf(text: string): string[];
+
+/**
  * [`initial_reader_viewport`] as `{ scale, fit, rotation, page }` (TS `initialReaderViewport`).
  *
  * # Errors
@@ -3673,6 +3767,11 @@ export function isLiteral(text: string): string;
  * [`is_local_zotero_url`]: whether `url` is the local Zotero API's own path with no credentials.
  */
 export function isLocalZoteroUrl(url: string): boolean;
+
+/**
+ * [`is_missing_service_role`](org::is_missing_service_role).
+ */
+export function isMissingServiceRole(message: string): boolean;
 
 /**
  * [`is_newer`]: whether `candidate` is later than `current`, both `[major, minor, patch]`.
@@ -4191,6 +4290,15 @@ export function listMembershipByKey(lists: any, items: any, key: any): any;
  * Fails if the result cannot be converted to JS.
  */
 export function loadOpenGroups(raw?: string | null, active?: string | null): any;
+
+/**
+ * [`local_keys`](related_paper_hit::local_keys): the dedupe keys of a library.
+ *
+ * # Errors
+ *
+ * Fails if `papers` cannot be read as a list of library papers.
+ */
+export function localKeys(papers: any): any;
 
 /**
  * [`local_subgraph`] (TS `localSubgraph`). `neighbors` is an array of `[id, neighbourIds]` pairs.
@@ -4780,6 +4888,11 @@ export function nativeCitationMentions(page: any, refs: any, excluded: any): any
  * Fails if `settings` cannot be read as JSON.
  */
 export function needsDisclaimerAcceptance(settings: any): boolean;
+
+/**
+ * [`needs_migration_hint`](org::needs_migration_hint).
+ */
+export function needsMigrationHint(message: string): boolean;
 
 /**
  * [`needs_org_setup`](org::needs_org_setup).
@@ -6336,6 +6449,25 @@ export function projectMetaDir(project_root: string): string;
 export function projectName(name: string): string | undefined;
 
 /**
+ * [`project_search_documents`](projection::project_search_documents). `graph` is a wiki graph or
+ * `null`; `pdfTexts` is the extracted PDF text array.
+ *
+ * # Errors
+ *
+ * Fails if an argument or a reader annotation does not match the expected shape.
+ */
+export function projectSearchDocuments(snapshot: any, graph: any, pdf_texts: any): any;
+
+/**
+ * [`project_stored_pdf_texts`](projection::project_stored_pdf_texts): the worker's build.
+ *
+ * # Errors
+ *
+ * Fails if an argument or a reader annotation does not match the expected shape.
+ */
+export function projectStoredPdfTexts(snapshot: any, stored: any): any;
+
+/**
  * [`project_zotero_annotations`](zotero_projection::project_zotero_annotations).
  *
  * # Errors
@@ -7026,6 +7158,11 @@ export function rowSlots(count: number, viewport: any, pinned: any, metrics: any
 export function rowsForHeight(px: number, row_height: number, margin: number): number;
 
 /**
+ * [`s2_nested_fields`](related_paper_hit::s2_nested_fields): the S2 field list for a nested paper.
+ */
+export function s2NestedFields(key: string): string;
+
+/**
  * [`s2_paper_id`](semantic_scholar_citation::s2_paper_id): the Semantic Scholar id for a reference.
  *
  * # Errors
@@ -7413,6 +7550,15 @@ export function shareCoversResource(share: any, resource_type: any, resource_id:
 export function shareFromRow(row: any): any;
 
 /**
+ * [`share_link_from_row`](sharing::share_link_from_row): a `share_links` row as the app's `ShareLink`.
+ *
+ * # Errors
+ *
+ * Fails if `row` does not have the `share_links` columns.
+ */
+export function shareLinkFromRow(row: any): any;
+
+/**
  * [`share_supports_edit_access`](sharing::share_supports_edit_access).
  *
  * # Errors
@@ -7420,6 +7566,15 @@ export function shareFromRow(row: any): any;
  * Fails if `resource_type` is not a shareable type.
  */
 export function shareSupportsEditAccess(resource_type: any, resource_id?: string | null): boolean;
+
+/**
+ * [`share_targets`](sharing::share_targets): the ids and blanket owners of one type in a grant list.
+ *
+ * # Errors
+ *
+ * Fails if `kind` is not a shareable type or `shares` is not a list of shares.
+ */
+export function shareTargets(shares: any, kind: any): any;
 
 /**
  * [`shared_item`](sharing::shared_item): one table row as a `SharedItem`.
@@ -7466,6 +7621,16 @@ export function sharedPaperAnnotationSummary(metadata: any): any;
  * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
  */
 export function sharedProviderHint(descriptor: any, all: any): any;
+
+/**
+ * [`shared_read_plan`](sharing::shared_read_plan): the PostgREST table, columns and filter for
+ * one shared read, or `null` when there is no id and no owner.
+ *
+ * # Errors
+ *
+ * Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
+ */
+export function sharedReadPlan(kind: any, ids: any, owners: any): any;
 
 /**
  * [`shared_resource_href`](sharing::shared_resource_href).
@@ -7596,6 +7761,15 @@ export function snapInkShape(points: Float64Array): any;
  * Fails if `runs` is not an array of `{ left, top, right, bottom }` objects.
  */
 export function snapToText(runs: any, x: number, y: number): any;
+
+/**
+ * [`sort_by_citations`](related_paper_hit::sort_by_citations): most cited first, stable.
+ *
+ * # Errors
+ *
+ * Fails if `hits` cannot be read as a list of hits.
+ */
+export function sortByCitations(hits: any): any;
 
 /**
  * [`sort_by_due`](screen::sort_by_due): dated milestones soonest first, undated after.
@@ -8791,6 +8965,9 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_archivebudget_free: (a: number, b: number) => void;
     readonly __wbg_inkstrokepacker_free: (a: number, b: number) => void;
+    readonly __wbg_nibfilter_free: (a: number, b: number) => void;
+    readonly __wbg_nibfiltersnapshot_free: (a: number, b: number) => void;
+    readonly __wbg_oneeurofilter_free: (a: number, b: number) => void;
     readonly __wbg_vectorindex_free: (a: number, b: number) => void;
     readonly accountAttention: (a: any) => [number, number, number];
     readonly accountLinks: (a: any) => [number, number, number];
@@ -8912,6 +9089,7 @@ export interface InitOutput {
     readonly collectAnnotationImageRegions: (a: any) => [number, number, number];
     readonly collectCitedKeys: (a: number, b: number) => [number, number, number];
     readonly collectListIds: (a: any) => [number, number, number];
+    readonly collectNewHits: (a: any) => [number, number, number];
     readonly colourToolFor: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly commandForChord: (a: any, b: number) => [number, number, number];
     readonly commandMatchIndices: (a: any, b: number, c: number) => [number, number, number];
@@ -9043,6 +9221,7 @@ export interface InitOutput {
     readonly escapeHtml: (a: number, b: number) => [number, number];
     readonly escapeLatexText: (a: number, b: number) => [number, number];
     readonly evaluateAiAccess: (a: any, b: number, c: number) => [number, number, number];
+    readonly excerptOf: (a: number, b: number, c: any) => [number, number, number];
     readonly excerptSegments: (a: any) => [number, number, number];
     readonly exclusionReasons: (a: any, b: any) => [number, number, number];
     readonly expandEmbeds: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
@@ -9175,6 +9354,7 @@ export interface InitOutput {
     readonly incomingRelationLabel: (a: number, b: number) => [number, number];
     readonly indexFromAnalysis: (a: any, b: any) => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly indexTermsOf: (a: number, b: number) => [number, number];
     readonly initialReaderViewport: (a: number) => [number, number, number];
     readonly inkAttachmentIndex: (a: number, b: number, c: number, d: number) => number;
     readonly inkChunkBodySize: (a: any) => [number, number, number];
@@ -9250,6 +9430,7 @@ export interface InitOutput {
     readonly isKnownResourceType: (a: number, b: number) => number;
     readonly isLiteral: (a: number, b: number) => [number, number, number, number];
     readonly isLocalZoteroUrl: (a: number, b: number) => number;
+    readonly isMissingServiceRole: (a: number, b: number) => number;
     readonly isNewerVersion: (a: any, b: any) => [number, number, number];
     readonly isNoteImportFile: (a: number, b: number) => number;
     readonly isOnSamplingGrid: (a: number) => number;
@@ -9317,6 +9498,7 @@ export interface InitOutput {
     readonly listMembership: (a: any, b: any) => [number, number, number];
     readonly listMembershipByKey: (a: any, b: any, c: any) => [number, number, number];
     readonly loadOpenGroups: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly localKeys: (a: any) => [number, number, number];
     readonly localSubgraph: (a: number, b: number, c: number, d: any) => [number, number, number];
     readonly locateAnchor: (a: number, b: number, c: any) => [number, number, number];
     readonly locateMention: (a: any, b: number, c: number) => [number, number, number];
@@ -9394,6 +9576,7 @@ export interface InitOutput {
     readonly nameOf: (a: any, b: any) => [number, number, number, number];
     readonly nativeCitationMentions: (a: any, b: any, c: any) => [number, number, number];
     readonly needsDisclaimerAcceptance: (a: any) => [number, number, number];
+    readonly needsMigrationHint: (a: number, b: number) => number;
     readonly needsOrgSetup: (a: any) => [number, number, number];
     readonly needsStandaloneRoleSync: (a: any, b: any, c: number) => [number, number, number];
     readonly neutraliseContext: (a: number, b: number, c: number, d: number) => [number, number];
@@ -9407,6 +9590,12 @@ export interface InitOutput {
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
     readonly nextRotation: (a: number, b: number) => number;
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+    readonly nibfilter_filter: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly nibfilter_new: (a: any, b: any) => [number, number, number];
+    readonly nibfilter_reset: (a: number) => void;
+    readonly nibfilter_restore: (a: number, b: number) => void;
+    readonly nibfilter_save: (a: number) => number;
+    readonly nibfilter_speed: (a: number) => number;
     readonly nodeSize: (a: number, b: number, c: number) => [number, number, number];
     readonly normalisePageRotation: (a: number) => number;
     readonly normaliseWhitespace: (a: number, b: number, c: any) => [number, number, number];
@@ -9440,6 +9629,11 @@ export interface InitOutput {
     readonly notesTagged: (a: any, b: any) => [number, number, number];
     readonly noticeFor: (a: any, b: number) => [number, number, number];
     readonly oneEuroAlpha: (a: number, b: number) => number;
+    readonly oneeurofilter_filter: (a: number, b: number, c: number) => number;
+    readonly oneeurofilter_last: (a: number) => [number, number];
+    readonly oneeurofilter_new: (a: any) => [number, number, number];
+    readonly oneeurofilter_reset: (a: number) => void;
+    readonly oneeurofilter_speed: (a: number) => number;
     readonly openAlexToHit: (a: any) => [number, number, number];
     readonly openAlexToMetadata: (a: any) => [number, number, number];
     readonly openModeFor: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -9586,6 +9780,8 @@ export interface InitOutput {
     readonly projectGateOpen: (a: any, b: any) => [number, number, number];
     readonly projectMetaDir: (a: number, b: number) => [number, number, number, number];
     readonly projectName: (a: number, b: number) => [number, number];
+    readonly projectSearchDocuments: (a: any, b: any, c: any) => [number, number, number];
+    readonly projectStoredPdfTexts: (a: any, b: any) => [number, number, number];
     readonly projectZoteroAnnotations: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly projectedPageSize: (a: any) => [number, number, number];
     readonly projection: (a: number, b: number) => [number, number, number, number];
@@ -9672,6 +9868,7 @@ export interface InitOutput {
     readonly rootOfKind: (a: number, b: number) => [number, number, number];
     readonly rowSlots: (a: number, b: any, c: any, d: any) => [number, number, number];
     readonly rowsForHeight: (a: number, b: number, c: number) => number;
+    readonly s2NestedFields: (a: number, b: number) => [number, number];
     readonly s2PaperId: (a: any) => [number, number, number, number];
     readonly s2ToHit: (a: any) => [number, number, number];
     readonly safeArtifactCaption: (a: number, b: number) => [number, number];
@@ -9717,12 +9914,15 @@ export interface InitOutput {
     readonly shareAllowsEdit: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareCoversResource: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareFromRow: (a: any) => [number, number, number];
+    readonly shareLinkFromRow: (a: any) => [number, number, number];
     readonly shareSupportsEditAccess: (a: any, b: number, c: number) => [number, number, number];
+    readonly shareTargets: (a: any, b: any) => [number, number, number];
     readonly sharedItem: (a: any, b: any, c: any) => [number, number, number];
     readonly sharedItemHref: (a: any) => [number, number, number, number];
     readonly sharedItemTypeLabel: (a: any) => [number, number, number, number];
     readonly sharedPaperAnnotationSummary: (a: any) => [number, number, number];
     readonly sharedProviderHint: (a: any, b: any) => [number, number, number];
+    readonly sharedReadPlan: (a: any, b: any, c: any) => [number, number, number];
     readonly sharedResourceHref: (a: any, b: number, c: number) => [number, number, number, number];
     readonly shortSha: (a: number, b: number) => [number, number];
     readonly shortcutLabel: (a: number, b: number, c: number) => [number, number];
@@ -9743,6 +9943,7 @@ export interface InitOutput {
     readonly smoothInkStroke: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly snapInkShape: (a: number, b: number) => [number, number, number];
     readonly snapToText: (a: any, b: number, c: number) => [number, number, number];
+    readonly sortByCitations: (a: any) => [number, number, number];
     readonly sortByDue: (a: any) => [number, number, number];
     readonly sortByReadingOrder: (a: any) => [number, number, number];
     readonly sortHitOrder: (a: any, b: any) => [number, number, number];

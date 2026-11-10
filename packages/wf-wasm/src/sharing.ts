@@ -20,6 +20,9 @@ import {
   sharedItemTypeLabel as rawSharedItemTypeLabel,
   sharedPaperAnnotationSummary as rawSharedPaperAnnotationSummary,
   sharedResourceHref as rawSharedResourceHref,
+  shareLinkFromRow as rawShareLinkFromRow,
+  sharedReadPlan as rawSharedReadPlan,
+  shareTargets as rawShareTargets,
 } from "../pkg/wf_wasm.js";
 import type {
   Comment as CommentRecord,
@@ -34,7 +37,11 @@ import type {
   ShareableType,
   SharedItem as SharedItemRecord,
   SharedPaperAnnotationSummary,
+  SharedReadPlan,
   SharedSource as SharedSourceInput,
+  ShareLink as ShareLinkBinding,
+  ShareLinkRow as ShareLinkRowInput,
+  ShareTargets,
 } from "./bindings.js";
 
 export type {
@@ -149,6 +156,27 @@ export function decodeShareLinkToken(encoded: string): Uint8Array {
   } catch (error) {
     throw asError(error, "InvalidCharacterError");
   }
+}
+
+/** Map a share-link row to the app's link (Rust `share_link_from_row`). Links are view only. */
+export function shareLinkFromRow(
+  row: ShareLinkRowInput,
+): Omit<ShareLinkBinding, "access"> & { access: "view" } {
+  return rawShareLinkFromRow(row) as Omit<ShareLinkBinding, "access"> & { access: "view" };
+}
+
+/** The table, columns and PostgREST filter for one shared read; `null` when there is nothing to read (Rust `shared_read_plan`). */
+export function sharedReadPlan(
+  kind: ShareableType,
+  ids: readonly string[],
+  owners: readonly string[],
+): SharedReadPlan | null {
+  return rawSharedReadPlan(kind, [...ids], [...owners]) as SharedReadPlan | null;
+}
+
+/** Split one type's grants into per-item ids and blanket owners (Rust `share_targets`). */
+export function shareTargets(shares: readonly ShareRecord[], kind: ShareableType): ShareTargets {
+  return rawShareTargets([...shares], kind) as ShareTargets;
 }
 
 /** Map a share row to the domain share (Rust `share_from_row`). */

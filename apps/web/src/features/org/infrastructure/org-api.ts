@@ -6,7 +6,7 @@ import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { readJsonBody, responseError } from "@/lib/format-error";
 import type { OrgInviteRole, OrgJoinSource, OrgMembershipView } from "@weaveforge/core";
 import { MEMBERSHIP_ROW_COLUMNS } from "./membership-row";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
 
@@ -25,7 +25,7 @@ function toMembershipView(view: { orgId: string; orgName: string; role: string; 
 }
 
 function orgApiError(res: Response, message: string | undefined, fallback: string): Error {
-  if (message?.includes("Missing Supabase service role")) {
+  if (message && readyCore().isMissingServiceRole(message)) {
     return new Error(SERVICE_ROLE_HINT);
   }
   return responseError(res, message, fallback);
@@ -45,11 +45,7 @@ export async function orgResponse<T extends { error?: string }>(res: Response, f
 const authHeaders = () => bearerHeaders({ "Content-Type": "application/json" });
 
 function migrationHint(message: string): Error {
-  if (
-    message.includes("complete_org_setup") ||
-    message.includes("switch_active_org") ||
-    message.includes("Could not find the function")
-  ) {
+  if (readyCore().needsMigrationHint(message)) {
     return new Error(
       "Database update required — apply the schema migrations (npm run migrate:schema, 0030–0034) and try again.",
     );

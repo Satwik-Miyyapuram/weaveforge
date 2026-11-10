@@ -693,6 +693,242 @@ pub fn shared_paper_annotation_summary(
     }
 }
 
+/// A `share_links` row as PostgREST returns the columns the app reads (TS `ShareLinkRow`).
+///
+/// The key columns (`token_hash`, `dek_wrap`, `dek_epoch`) are never read back, so they are absent.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ShareLinkRow {
+    /// Row id.
+    pub id: String,
+    /// The sharer.
+    pub owner_id: String,
+    /// The type of item shared.
+    pub resource_type: ShareableType,
+    /// The item shared.
+    pub resource_id: String,
+    /// The access level (links are view only).
+    pub access: ShareAccess,
+    /// When the link stops working; `None` when it never expires.
+    pub expires_at: Option<String>,
+    /// When the link was made.
+    pub created_at: String,
+}
+
+/// A share link as the app reads it (TS `ShareLink`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ShareLink {
+    /// Row id.
+    pub id: String,
+    /// The sharer.
+    pub owner_id: String,
+    /// The type of item shared.
+    pub resource_type: ShareableType,
+    /// The item shared.
+    pub resource_id: String,
+    /// The access level (links are view only).
+    pub access: ShareAccess,
+    /// When the link stops working; `None` when it never expires.
+    pub expires_at: Option<String>,
+    /// When the link was made.
+    pub created_at: String,
+}
+
+#[must_use]
+/// Map a `share_links` row to a [`ShareLink`] (TS `mapRow` in `postgrest-share-link-repository.ts`).
+pub fn share_link_from_row(row: &ShareLinkRow) -> ShareLink {
+    ShareLink {
+        id: row.id.clone(),
+        owner_id: row.owner_id.clone(),
+        resource_type: row.resource_type,
+        resource_id: row.resource_id.clone(),
+        access: row.access,
+        expires_at: row.expires_at.clone(),
+        created_at: row.created_at.clone(),
+    }
+}
+
+/// The PostgREST read behind one shared-reader call (TS `PostgrestSharedReader.read`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct SharedReadPlan {
+    /// The table to read.
+    pub table: String,
+    /// The comma-separated select list.
+    pub columns: String,
+    /// The PostgREST `or` filter: `id.in.(..)` and/or `user_id.in.(..)`.
+    pub filter: String,
+}
+
+/// The table, title column and status column a shareable type's rows are read from
+/// (TS `SHARED_SOURCES`). `None` status means the type has no status column.
+#[must_use]
+pub const fn shared_table_source(
+    kind: ShareableType,
+) -> (&'static str, &'static str, Option<&'static str>) {
+    match kind {
+        ShareableType::Milestone => ("milestones", "title", Some("status")),
+        ShareableType::Experiment => ("experiments", "name", Some("status")),
+        ShareableType::ReportSection => ("report_sections", "title", Some("status")),
+        ShareableType::ReadingList => ("reading_lists", "name", None),
+        ShareableType::Paper => ("papers", "title", Some("status")),
+        ShareableType::VaultPage => ("vault_pages", "title", None),
+    }
+}
+
+#[must_use]
+/// The read for the given ids (per-item grants) and owners (blanket grants) of one type.
+/// `None` when there is neither, so no request is made (TS `read` returns `[]`).
+///
+/// Papers also select `metadata`, which the shared-paper annotations need.
+pub fn shared_read_plan(
+    kind: ShareableType,
+    ids: &[String],
+    owners: &[String],
+) -> Option<SharedReadPlan> {
+    let mut parts: Vec<String> = Vec::new();
+    if !ids.is_empty() {
+        parts.push(format!("id.in.({})", ids.join(",")));
+    }
+    if !owners.is_empty() {
+        parts.push(format!("user_id.in.({})", owners.join(",")));
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    let (table, title, status) = shared_table_source(kind);
+    let mut columns = vec!["id", title];
+    if let Some(status) = status {
+        columns.push(status);
+    }
+    columns.push("user_id");
+    let extra = if kind == ShareableType::Paper {
+        ", metadata"
+    } else {
+        ""
+    };
+    Some(SharedReadPlan {
+        table: table.to_string(),
+        columns: format!("{}{extra}", columns.join(", ")),
+        filter: parts.join(","),
+    })
+}
+
+/// The ids and owners of one type that a shared-with-me list reads (TS `ShareTargets` split).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ShareTargets {
+    /// Resource ids of per-item grants, in list order.
+    pub ids: Vec<String>,
+    /// Owner ids of blanket grants, in list order.
+    pub owners: Vec<String>,
+}
+
+#[must_use]
+/// Split the grants of one type into per-item ids and blanket owners. A grant with an empty
+/// resource id counts as blanket, as the TS truthiness check did (TS `load-shared-with-me`).
+pub fn share_targets(shares: &[Share], kind: ShareableType) -> ShareTargets {
+    let mut targets = ShareTargets {
+        ids: Vec::new(),
+        owners: Vec::new(),
+    };
+    for share in shares.iter().filter(|s| s.resource_type == kind) {
+        match share.resource_id.as_deref() {
+            Some(id) if !id.is_empty() => targets.ids.push(id.to_string()),
+            _ => targets.owners.push(share.owner_id.clone()),
+        }
+    }
+    targets
+}
+
+#[cfg(test)]
+mod shared_reads_tests {
+    use super::*;
+
+    fn share(resource_type: ShareableType, resource_id: Option<&str>, owner: &str) -> Share {
+        Share {
+            id: format!("s-{owner}"),
+            owner_id: owner.to_string(),
+            recipient_id: "me".to_string(),
+            resource_type,
+            resource_id: resource_id.map(str::to_string),
+            access: ShareAccess::View,
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn share_link_maps_every_column_and_keeps_null_expiry() {
+        let row = ShareLinkRow {
+            id: "l1".into(),
+            owner_id: "u1".into(),
+            resource_type: ShareableType::Paper,
+            resource_id: "p1".into(),
+            access: ShareAccess::View,
+            expires_at: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+        };
+        let link = share_link_from_row(&row);
+        assert_eq!(link.id, "l1");
+        assert_eq!(link.owner_id, "u1");
+        assert_eq!(link.resource_id, "p1");
+        assert_eq!(link.expires_at, None);
+        assert_eq!(link.created_at, "2026-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn read_plan_for_paper_selects_metadata_and_filters_ids_then_owners() {
+        let plan = shared_read_plan(
+            ShareableType::Paper,
+            &["a".into(), "b".into()],
+            &["u".into()],
+        )
+        .expect("a plan");
+        assert_eq!(plan.table, "papers");
+        assert_eq!(plan.columns, "id, title, status, user_id, metadata");
+        assert_eq!(plan.filter, "id.in.(a,b),user_id.in.(u)");
+    }
+
+    #[test]
+    fn read_plan_without_status_column_and_only_owners() {
+        let plan = shared_read_plan(ShareableType::VaultPage, &[], &["u".into()]).expect("a plan");
+        assert_eq!(plan.table, "vault_pages");
+        assert_eq!(plan.columns, "id, title, user_id");
+        assert_eq!(plan.filter, "user_id.in.(u)");
+    }
+
+    #[test]
+    fn reading_list_uses_name_column() {
+        let plan =
+            shared_read_plan(ShareableType::ReadingList, &["r".into()], &[]).expect("a plan");
+        assert_eq!(plan.table, "reading_lists");
+        assert_eq!(plan.columns, "id, name, user_id");
+    }
+
+    #[test]
+    fn read_plan_is_none_without_ids_or_owners() {
+        assert_eq!(shared_read_plan(ShareableType::Paper, &[], &[]), None);
+    }
+
+    #[test]
+    fn targets_split_by_type_and_treat_empty_resource_id_as_blanket() {
+        let shares = vec![
+            share(ShareableType::Paper, Some("p1"), "u1"),
+            share(ShareableType::Paper, None, "u2"),
+            share(ShareableType::Paper, Some(""), "u3"),
+            share(ShareableType::Experiment, Some("e1"), "u4"),
+            share(ShareableType::Paper, Some("p2"), "u5"),
+        ];
+        let targets = share_targets(&shares, ShareableType::Paper);
+        assert_eq!(targets.ids, vec!["p1", "p2"]);
+        assert_eq!(targets.owners, vec!["u2", "u3"]);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

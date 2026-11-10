@@ -24,6 +24,11 @@
  */
 
 import { readyCore } from "@/lib/rust-core";
+import type {
+  FilteredNibSample as WasmFilteredNibSample,
+  NibFilter as WasmNibFilter,
+  OneEuroFilter as WasmOneEuroFilter,
+} from "@weaveforge/wasm";
 
 /** Cutoffs and speed coefficient for one channel. */
 export interface OneEuroOptions {
@@ -109,234 +114,94 @@ export function oneEuroAlpha(cutoff: number, dtMs: number): number {
   return readyCore().oneEuroAlpha(cutoff, dtMs);
 }
 
-/** One scalar channel, filtered. */
+/**
+ * One scalar channel, filtered. The state lives in the Rust core
+ * (`ink::one_euro::OneEuroFilter`). The wasm handle is created on first use, not
+ * in the constructor, so this class can be built before `loadCore()` resolves.
+ */
 export class OneEuroFilter {
-  private readonly options: OneEuroOptions;
-  private value: number | null = null;
-  private derivative = 0;
-  private previousValue: number | null = null;
-  private previousTime: number | null = null;
+  private core: WasmOneEuroFilter | undefined;
 
-  constructor(options: OneEuroOptions) {
-    this.options = options;
+  constructor(private readonly options: OneEuroOptions) {}
+
+  private get handle(): WasmOneEuroFilter {
+    if (!this.core) this.core = new (readyCore().OneEuroFilter)(this.options);
+    return this.core;
   }
 
   /** The last filtered value, or `null` before the first sample. */
   get last(): number | null {
-    return this.value;
+    return this.handle.last;
   }
 
   /** The last estimated speed, in value units per millisecond. */
   get speed(): number {
-    return Math.abs(this.derivative);
+    return this.handle.speed;
   }
 
   /** Forget everything. Called at pen-down: a new stroke is a new signal. */
   reset(): void {
-    this.value = null;
-    this.derivative = 0;
-    this.previousValue = null;
-    this.previousTime = null;
+    this.handle.reset();
   }
 
-  /** The state, for {@link restore}. */
-  save(): [number | null, number, number | null, number | null] {
-    return [this.value, this.derivative, this.previousValue, this.previousTime];
-  }
-
-  restore(state: [number | null, number, number | null, number | null]): void {
-    [this.value, this.derivative, this.previousValue, this.previousTime] = state;
-  }
-
-  /**
-   * Filter one sample taken at `time` milliseconds.
-   *
-   * The first sample of a stroke passes through untouched: there is no previous
-   * value to blend with, and a first sample pulled toward zero would make the
-   * stroke begin somewhere the pen never was.
-   */
   filter(value: number, time: number): number {
-    const dt = this.observe(value, time);
-    if (dt === null) return this.value!;
-    return this.settle(value, dt, this.speed);
-  }
-
-  /**
-   * The first half of {@link filter}: take the sample in and update the speed
-   * estimate, without moving the filtered value yet.
-   *
-   * Returns the timestep to filter over, or `null` when there is none — the
-   * first sample of a stroke (which passes through untouched: a first sample
-   * pulled toward zero would begin the stroke somewhere the pen never was), or
-   * two samples with the same timestamp, where the estimate simply stands.
-   * Snapping to the raw value there would put an unfiltered point into the
-   * stroke wherever a platform repeats a sample, and a division by zero would
-   * poison every later one.
-   *
-   * Split from {@link settle} so a 2-D filter can read both axes' speeds before
-   * choosing one cutoff for the pair.
-   */
-  observe(value: number, time: number): number | null {
-    if (
-      this.value === null ||
-      this.previousTime === null ||
-      this.previousValue === null
-    ) {
-      this.value = value;
-      this.previousValue = value;
-      this.previousTime = time;
-      return null;
-    }
-    const dt = time - this.previousTime;
-    if (!(dt > 0)) return null;
-
-    const rawDerivative = (value - this.previousValue) / dt;
-    const derivativeAlpha = oneEuroAlpha(this.options.derivativeCutoff, dt);
-    this.derivative += derivativeAlpha * (rawDerivative - this.derivative);
-    this.previousValue = value;
-    this.previousTime = time;
-    return dt;
-  }
-
-  /** The second half: move the filtered value with the cutoff `speed` earns. */
-  settle(value: number, dt: number, speed: number): number {
-    const cutoff = this.options.minCutoff + this.options.beta * speed;
-    const alpha = oneEuroAlpha(cutoff, dt);
-    this.value! += alpha * (value - this.value!);
-    return this.value!;
+    return this.handle.filter(value, time);
   }
 }
 
-/** One sample as it arrives from the digitiser, in 0.1 mm. */
+/** One raw pen sample: position in 0.1 mm, pressure 0..1, time in ms. */
 export interface NibSample {
   x: number;
   y: number;
-  /** 0–1, or `0`/`0.5` for a device that does not report pressure. */
   pressure: number;
-  /** Milliseconds. The filter is entirely in terms of these. */
   t: number;
 }
 
-/** A filtered sample: where to draw, how wide, and how fast the pen is moving. */
-export interface FilteredNibSample {
-  x: number;
-  y: number;
-  pressure: number;
-  /** Speed in 0.1 mm per ms, for the nib's velocity taper. */
-  velocity: number;
-  t: number;
-}
+/** A filtered pen sample, with the velocity the taper reads. */
+export type FilteredNibSample = WasmFilteredNibSample;
 
 /**
- * The one filter state the pen path owns: position *and* pressure (D13).
- *
- * The two position channels keep their own state but share one cutoff, taken
- * from the pen's speed across the page. The original filter runs each axis on
- * its own speed; see {@link NibFilter.filter} for why that bends corners.
+ * Position and pressure filtered as one state (`ink::one_euro::NibFilter`).
+ * Options default to the tuned position and pressure channels above.
  */
 export class NibFilter {
-  private readonly x: OneEuroFilter;
-  private readonly y: OneEuroFilter;
-  private readonly pressure: OneEuroFilter;
-  private readonly positionOptions: OneEuroOptions;
-  private previous: { x: number; y: number; t: number } | null = null;
+  private core: WasmNibFilter | undefined;
+  private readonly options: { position: OneEuroOptions; pressure: OneEuroOptions };
 
+  /** The wasm handle is created on first use, so construction may precede `loadCore()`. */
   constructor(
     options: { position?: OneEuroOptions; pressure?: OneEuroOptions } = {},
   ) {
-    this.positionOptions = options.position ?? INK_POSITION_FILTER;
-    this.x = new OneEuroFilter(this.positionOptions);
-    this.y = new OneEuroFilter(this.positionOptions);
-    this.pressure = new OneEuroFilter(options.pressure ?? INK_PRESSURE_FILTER);
+    this.options = {
+      position: options.position ?? INK_POSITION_FILTER,
+      pressure: options.pressure ?? INK_PRESSURE_FILTER,
+    };
+  }
+
+  private get handle(): WasmNibFilter {
+    if (!this.core) this.core = new (readyCore().NibFilter)(this.options);
+    return this.core;
+  }
+
+  /**
+   * The speed the filter saw, in 0.1 mm per ms, from the *raw* samples. Raw
+   * rather than filtered: the velocity taper is a drawing property.
+   */
+  get speed(): number {
+    return this.handle.speed;
   }
 
   /** Start a new stroke: no state carries over from the last one. */
   reset(): void {
-    this.x.reset();
-    this.y.reset();
-    this.pressure.reset();
-    this.previous = null;
+    this.handle.reset();
   }
 
-  /** Snapshot the state so predicted samples can be filtered then forgotten. */
+  /** Snapshot the filter now; the returned function restores that snapshot. */
   save(): () => void {
-    const x = this.x.save();
-    const y = this.y.save();
-    const pressure = this.pressure.save();
-    const previous = this.previous;
-    return () => {
-      this.x.restore(x);
-      this.y.restore(y);
-      this.pressure.restore(pressure);
-      this.previous = previous;
-    };
+    return this.handle.save();
   }
 
-  /**
-   * The speed the filter saw, in 0.1 mm per ms, from the *raw* samples.
-   *
-   * Raw rather than filtered on purpose: the velocity taper is a drawing
-   * property, and taking it from the filtered position would make a stroke's
-   * width depend on how much the filter happened to be damping at that moment.
-   */
-  velocityBetween(
-    previous: { x: number; y: number; t: number } | null,
-    sample: NibSample,
-  ): number {
-    if (!previous) return 0;
-    const dt = sample.t - previous.t;
-    if (!(dt > 0)) return 0;
-    return Math.hypot(sample.x - previous.x, sample.y - previous.y) / dt;
-  }
-
-  /**
-   * Filter one sample.
-   *
-   * A device that does not report pressure has its pressure passed through
-   * untouched: filtering `0` toward a previous `0.5` would invent a pressure
-   * signal that is not there, and the width would then vary with the filter's
-   * state rather than with the hand.
-   */
   filter(sample: NibSample): FilteredNibSample {
-    const velocity = this.velocityBetween(this.previous, sample);
-    const reports =
-      Number.isFinite(sample.pressure) &&
-      sample.pressure > 0 &&
-      sample.pressure !== 0.5;
-    // A pen that has reported pressure and now reports `0` has lifted: the
-    // `pointerup` on Windows carries no pressure. Taking that `0` as "no
-    // channel" would give the last sample the full base width — a blob on the
-    // end of a light stroke — so the lift tapers from the last pressure instead.
-    const lifted =
-      !reports && sample.pressure === 0 && this.pressure.last !== null;
-    const pressure = reports
-      ? this.pressure.filter(sample.pressure, sample.t)
-      : lifted
-        ? this.pressure.last! * 0.6
-        : sample.pressure;
-    // One cutoff for both axes, from the pen's speed along the page rather than
-    // each axis's own. Per-axis speed is what the paper does, and it is wrong
-    // for handwriting at every corner: at the apex of a "Λ" the y velocity
-    // passes through zero while x carries on, so y is filtered at `minCutoff`
-    // for a few samples while x is not — the apex is dragged sideways into a
-    // shoulder. The pen's speed does not drop at a sharp corner drawn quickly,
-    // and neither should the filter's response.
-    const dtX = this.x.observe(sample.x, sample.t);
-    const dtY = this.y.observe(sample.y, sample.t);
-    const speed = Math.hypot(this.x.speed, this.y.speed);
-    const filtered = {
-      x: dtX === null ? this.x.last! : this.x.settle(sample.x, dtX, speed),
-      y: dtY === null ? this.y.last! : this.y.settle(sample.y, dtY, speed),
-      pressure,
-      velocity,
-      t: sample.t,
-    };
-    this.previous = { x: sample.x, y: sample.y, t: sample.t };
-    return filtered;
-  }
-
-  /** The filter's own speed estimate for the newest sample, for diagnostics. */
-  get speed(): number {
-    return Math.hypot(this.x.speed, this.y.speed);
+    return this.handle.filter(sample);
   }
 }

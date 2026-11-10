@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
 import { Button, CloseButton, IconButton } from "@/components/button";
 import { CloseIcon } from "@/components/view-icons";
@@ -14,6 +13,9 @@ import { FormError } from "@/components/form-error";
 import { removeRelationLater } from "./remove-relation";
 import { relationPhrase } from "./relation-phrase";
 import { Chip } from "@/components/controls";
+
+/** Related concepts shown per concept, most frequent first. */
+const RELATED_CONCEPT_LIMIT = 12;
 
 interface StoredAnnotation {
   text?: string;
@@ -241,7 +243,7 @@ function NotePanel({
   note: VaultPage;
   onSelectConcept: (name: string) => void;
 }) {
-  const uniqueTags = noteTags(note);
+  const uniqueTags = readyCore().extractHashtags(`${note.title}\n${note.body}`);
 
   return (
     <div className="graph-side-body">
@@ -312,7 +314,7 @@ function ConceptPanel({
   const linkedCount = linkedPapers.length + linkedNotes.length;
 
   const relatedConcepts = useMemo(
-    () => relatedConceptCounts(name, linkedPapers, linkedNotes),
+    () => readyCore().relatedConcepts(name, linkedPapers, linkedNotes, RELATED_CONCEPT_LIMIT),
     [linkedPapers, linkedNotes, name],
   );
 

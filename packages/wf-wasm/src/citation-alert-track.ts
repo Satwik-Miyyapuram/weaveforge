@@ -1,6 +1,6 @@
 /**
  * Citation alert track row mapping (Rust `citation_alert_track`), re-exported from index.ts.
- * Keeps the signature of apps/web/src/features/relations/infrastructure/citation-alert-track-rows.ts.
+ * Callers use readyCore().citationAlertTrackFromRow; the TS shim it replaced is removed.
  */
 import { citationAlertTrackFromRow as rawCitationAlertTrackFromRow } from "../pkg/wf_wasm.js";
 import type { CitationAlertTrack, CitationAlertTrackRow } from "./bindings.js";

@@ -252,3 +252,40 @@ pub fn shared_paper_annotation_summary_js(metadata: JsValue) -> JsResult<JsValue
 pub fn default_share_link_expires_at_js(now_ms: f64) -> String {
     sharing::default_share_link_expires_at(now_ms as i64)
 }
+
+/// [`share_link_from_row`](sharing::share_link_from_row): a `share_links` row as the app's `ShareLink`.
+///
+/// # Errors
+///
+/// Fails if `row` does not have the `share_links` columns.
+#[wasm_bindgen(js_name = shareLinkFromRow)]
+pub fn share_link_from_row_js(row: JsValue) -> JsResult<JsValue> {
+    let row: sharing::ShareLinkRow = serde_wasm_bindgen::from_value(row)?;
+    to_js(&sharing::share_link_from_row(&row))
+}
+
+/// [`shared_read_plan`](sharing::shared_read_plan): the PostgREST table, columns and filter for
+/// one shared read, or `null` when there is no id and no owner.
+///
+/// # Errors
+///
+/// Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
+#[wasm_bindgen(js_name = sharedReadPlan)]
+pub fn shared_read_plan_js(kind: JsValue, ids: JsValue, owners: JsValue) -> JsResult<JsValue> {
+    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
+    let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;
+    let owners: Vec<String> = serde_wasm_bindgen::from_value(owners)?;
+    to_js(&sharing::shared_read_plan(kind, &ids, &owners))
+}
+
+/// [`share_targets`](sharing::share_targets): the ids and blanket owners of one type in a grant list.
+///
+/// # Errors
+///
+/// Fails if `kind` is not a shareable type or `shares` is not a list of shares.
+#[wasm_bindgen(js_name = shareTargets)]
+pub fn share_targets_js(shares: JsValue, kind: JsValue) -> JsResult<JsValue> {
+    let shares: Vec<sharing::Share> = serde_wasm_bindgen::from_value(shares)?;
+    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
+    to_js(&sharing::share_targets(&shares, kind))
+}

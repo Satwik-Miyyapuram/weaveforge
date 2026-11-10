@@ -17,6 +17,8 @@ import {
   filterTeamMembers as rawFilterTeamMembers,
   hasActiveLab as rawHasActiveLab,
   isExplicitLabMembership as rawIsExplicitLabMembership,
+  isMissingServiceRole as rawIsMissingServiceRole,
+  needsMigrationHint as rawNeedsMigrationHint,
   isSupervisorRole as rawIsSupervisorRole,
   needsOrgSetup as rawNeedsOrgSetup,
   needsStandaloneRoleSync as rawNeedsStandaloneRoleSync,
@@ -92,6 +94,16 @@ export function needsStandaloneRoleSync(
 /** Whether the user created or joined the lab (not a migration backfill). */
 export function isExplicitLabMembership(membership: Membership): boolean {
   return rawIsExplicitLabMembership(membership);
+}
+
+/** Whether an org RPC error message means the schema migrations must run (Rust `needs_migration_hint`). */
+export function needsMigrationHint(message: string): boolean {
+  return rawNeedsMigrationHint(message);
+}
+
+/** Whether an org API error message says the server lacks its Supabase service-role key (Rust `is_missing_service_role`). */
+export function isMissingServiceRole(message: string): boolean {
+  return rawIsMissingServiceRole(message);
 }
 
 /** Whether the active lab is set and the user is explicitly in it, or owns it. */

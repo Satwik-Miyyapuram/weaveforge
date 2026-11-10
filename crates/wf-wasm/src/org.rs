@@ -109,6 +109,18 @@ pub fn is_explicit_lab_membership_js(membership: JsValue) -> JsResult<bool> {
     Ok(org::is_explicit_lab_membership(&membership))
 }
 
+/// [`needs_migration_hint`](org::needs_migration_hint).
+#[wasm_bindgen(js_name = needsMigrationHint)]
+pub fn needs_migration_hint_js(message: &str) -> bool {
+    org::needs_migration_hint(message)
+}
+
+/// [`is_missing_service_role`](org::is_missing_service_role).
+#[wasm_bindgen(js_name = isMissingServiceRole)]
+pub fn is_missing_service_role_js(message: &str) -> bool {
+    org::is_missing_service_role(message)
+}
+
 /// [`has_active_lab`](org::has_active_lab).
 ///
 /// # Errors

@@ -1,7 +1,7 @@
 /**
  * Citation candidates and pattern mentions (Rust `reader_analysis::citations`), re-exported from index.ts. Each
  * function keeps the signature and defaults of
- * packages/core/src/features/reader/analysis/citations.ts. Object shapes come from ./bindings.ts.
+ * CitationsFns in packages/core/src/shared/core-contract.ts. Object shapes come from ./bindings.ts.
  */
 import {
   matchAuthorYearText as rawMatchAuthorYearText,

@@ -7,10 +7,14 @@
 import {
   annotationDocId as rawAnnotationDocId,
   boundedBody as rawBoundedBody,
+  excerptOf as rawExcerptOf,
   extractHeadings as rawExtractHeadings,
+  indexTermsOf as rawIndexTermsOf,
   pdfDocId as rawPdfDocId,
   pdfDocIdsFor as rawPdfDocIdsFor,
   pdfPageHref as rawPdfPageHref,
+  projectSearchDocuments as rawProjectSearchDocuments,
+  projectStoredPdfTexts as rawProjectStoredPdfTexts,
   searchRevision as rawSearchRevision,
   toAnnotationSearchDocs as rawToAnnotationSearchDocs,
   toPdfSearchDocs as rawToPdfSearchDocs,
@@ -21,6 +25,8 @@ import type {
   PdfIndexSource as StoredPdfIndexSource,
   PdfPageText as StoredPdfPageText,
   SearchDoc,
+  StoredPdfProjection,
+  WikiGraph,
 } from "./bindings.js";
 import type { ReadonlyInput } from "./readonly-input.js";
 
@@ -36,6 +42,15 @@ function toObject(map: ReadonlyMap<string, string | number>): Record<string, str
   return Object.fromEntries(map);
 }
 
+/** Rust takes adjacency as an array of rows; this converts the TS Map form of the wiki graph. */
+function toWireGraph(graph: { nodes: string[]; edges: Map<string, string[]> } | null): WikiGraph | null {
+  if (!graph) return null;
+  return {
+    nodes: [...graph.nodes],
+    edges: [...graph.edges].map(([node, neighbours]) => ({ node, neighbours: [...neighbours] })),
+  };
+}
+
 /** Project a workspace snapshot into search documents. */
 export function toSearchDocs(
   snapshot: object,
@@ -47,6 +62,31 @@ export function toSearchDocs(
 /** Fingerprint of the indexed corpus; a differing revision means the index is stale. */
 export function searchRevision(docs: readonly ReadonlyInput<SearchDoc>[]): string {
   return rawSearchRevision(docs);
+}
+
+/**
+ * The index terms of `text` with the search tokenizer defaults, cut to the longest text the
+ * index accepts rather than throwing. Rust `index_terms_of_js`.
+ */
+export function indexTermsOf(text: string): string[] {
+  return rawIndexTermsOf(text);
+}
+
+/**
+ * A 200-character excerpt of `body` around `terms`, cut like `indexTermsOf`. Throws when the
+ * terms together need more than the index cap. Rust `excerpt_of_js`.
+ */
+export function excerptOf(
+  body: string,
+  terms: readonly string[],
+): { text: string; highlights: { start: number; end: number }[] } {
+  const raw = rawExcerptOf(body, terms) as { text: number[]; highlights: { start: number; end: number }[] };
+  // Rust sends UTF-16 units so a lone surrogate survives; chunks keep each spread under the argument limit.
+  let text = "";
+  for (let i = 0; i < raw.text.length; i += 8192) {
+    text += String.fromCharCode(...raw.text.slice(i, i + 8192));
+  }
+  return { text, highlights: raw.highlights };
 }
 
 /** Markdown h1–h3 headings, ignoring anything inside code. */
@@ -85,6 +125,30 @@ export function pdfDocIdsFor(paperId: string, pageCount: number): string[] {
 /** Stable id for a highlight's document. */
 export function annotationDocId(annotationId: string): string {
   return rawAnnotationDocId(annotationId);
+}
+
+/** The worker's build: documents plus per-paper page counts, as `[paperId, pageCount]` pairs. */
+/**
+ * The search corpus for a snapshot: its own documents, then PDF pages, then reader
+ * annotations. `graph` is null when degrees are not wanted. Rust `project_search_documents`.
+ */
+export function projectSearchDocuments(
+  snapshot: object,
+  graph: { nodes: string[]; edges: Map<string, string[]> } | null,
+  pdfTexts: readonly PdfIndexSource[],
+): SearchDoc[] {
+  return rawProjectSearchDocuments(snapshot, toWireGraph(graph), pdfTexts) as SearchDoc[];
+}
+
+/**
+ * The worker's build: stored PDF text minus papers the library no longer holds, projected
+ * with a graph built from the snapshot. Rust `project_stored_pdf_texts`.
+ */
+export function projectStoredPdfTexts(
+  snapshot: object,
+  stored: readonly PdfIndexSource[],
+): StoredPdfProjection {
+  return rawProjectStoredPdfTexts(snapshot, stored) as StoredPdfProjection;
 }
 
 /** Project reader annotations into search documents; titles are the paper's. */

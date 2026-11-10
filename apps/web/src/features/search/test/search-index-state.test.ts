@@ -10,7 +10,6 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 before(async () => {
   await loadTestCore();
 });
-import { projectSearchDocuments } from "../application/search-projection";
 
 /**
  * The two pieces of `WorkspaceSearch` that had no test of their own.
@@ -95,7 +94,7 @@ test("the projection holds three sources in a fixed order", () => {
     vaultPages: [{ id: "n1", title: "Method", body: "boiling water", sortOrder: 0 }] as never,
   });
 
-  const docs = projectSearchDocuments({ snapshot: ws, graph: null, pdfTexts: [] });
+  const docs = readyCore().projectSearchDocuments(ws, null, []);
 
   assert.ok(docs.length > 0);
   assert.equal(docs[0]!.kind, "note", "the snapshot's own documents come first");
@@ -111,12 +110,8 @@ test("the projection reads degrees from the graph it is handed", () => {
     ] as never,
   });
 
-  const withGraph = projectSearchDocuments({
-    snapshot: ws,
-    graph: { nodes: new Map(), edges: [] } as never,
-    pdfTexts: [],
-  });
-  const withoutGraph = projectSearchDocuments({ snapshot: ws, graph: null, pdfTexts: [] });
+  const withGraph = readyCore().projectSearchDocuments(ws, readyCore().buildWikiGraph(ws), []);
+  const withoutGraph = readyCore().projectSearchDocuments(ws, null, []);
 
   assert.equal(withGraph.length, withoutGraph.length, "the same corpus either way");
   assert.deepEqual(
@@ -142,18 +137,14 @@ test("extracted PDF text is projected with the snapshot's documents", () => {
     ] as never,
   });
 
-  const docs = projectSearchDocuments({
-    snapshot: ws,
-    graph: null,
-    pdfTexts: [
-      {
-        paperId: "p1",
-        title: "Attention",
-        pages: [{ pageIndex: 0, text: "photosynthesis ".repeat(60) }],
-        extractedAt: "2026-03-01T00:00:00.000Z",
-      },
-    ],
-  });
+  const docs = readyCore().projectSearchDocuments(ws, null, [
+    {
+      paperId: "p1",
+      title: "Attention",
+      pages: [{ pageIndex: 0, text: "photosynthesis ".repeat(60) }],
+      extractedAt: "2026-03-01T00:00:00.000Z",
+    },
+  ]);
 
   assert.ok(
     docs.some((doc) => doc.kind === "pdf"),
@@ -163,5 +154,5 @@ test("extracted PDF text is projected with the snapshot's documents", () => {
 
 test("a snapshot with nothing in it projects nothing, rather than throwing", () => {
   const ws: WorkspaceSnapshot = snapshot();
-  assert.deepEqual(projectSearchDocuments({ snapshot: ws, graph: null, pdfTexts: [] }), []);
+  assert.deepEqual(readyCore().projectSearchDocuments(ws, null, []), []);
 });

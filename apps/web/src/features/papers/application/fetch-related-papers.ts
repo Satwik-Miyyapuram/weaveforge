@@ -4,6 +4,7 @@
  * Filters out items already in the local library (by DOI / arXiv / title).
  */
 import { type PaperSummary } from "@weaveforge/core";
+import type { RelatedPaperKeys } from "@weaveforge/wasm";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
@@ -47,66 +48,25 @@ function s2ToHit(p: S2Paper): RelatedPaperHit | null {
   return undefinedForNull(typedCore().s2ToHit(p));
 }
 
-/**
- * The library rows a "is this already in my library?" check needs: DOI, arXiv
- * id and title. All three are on the summary projection, so the parameter is
- * typed on it — the library a screen passes in is a summary read, and asking
- * for a full `Paper` would be a demand the caller cannot meet without loading
- * the abstract and metadata bag for every row in the library.
- */
-function localKeys(papers: readonly PaperSummary[]) {
-  const dois = new Set<string>();
-  const arxivs = new Set<string>();
-  const titles = new Set<string>();
-  for (const p of papers) {
-    const doi = readyCore().normalizeDoi(p.doi);
-    if (doi) dois.add(doi);
-    if (p.arxivId) arxivs.add(p.arxivId.toLowerCase());
-    titles.add(readyCore().normalizeTitleKey(p.title));
-  }
-  return { dois, arxivs, titles };
-}
-
-function isLocal(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): boolean {
-  const doi = readyCore().normalizeDoi(hit.doi);
-  if (doi && keys.dois.has(doi)) return true;
-  if (hit.arxivId && keys.arxivs.has(hit.arxivId.toLowerCase())) return true;
-  if (keys.titles.has(readyCore().normalizeTitleKey(hit.title))) return true;
-  return false;
-}
-
-/**
- * Note a listed hit, so the same paper from the other source (or twice from
- * one) is skipped like a library paper. The panel keys rows by these ids.
- */
-function remember(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): void {
-  const doi = readyCore().normalizeDoi(hit.doi);
-  if (doi) keys.dois.add(doi);
-  if (hit.arxivId) keys.arxivs.add(hit.arxivId.toLowerCase());
-  keys.titles.add(readyCore().normalizeTitleKey(hit.title));
-}
-
 const S2_FIELDS = "title,authors,year,externalIds,url,abstract,citationCount";
-
-/** S2's fields, asked of the paper nested in a references or citations row. */
-const nested = (key: string) => S2_FIELDS.split(",").map((f) => `${key}.${f}`).join(",");
 
 /** Which neighbours to list: work like the seed, or the papers that cite it. */
 export type RelatedKind = "related" | "citedBy";
 
-/** Adds each new hit to `out` until it holds `limit`; the library and repeats are skipped. */
-function collect(
-  hits: readonly (RelatedPaperHit | null)[],
-  keys: ReturnType<typeof localKeys>,
-  out: RelatedPaperHit[],
-  limit: number,
-): void {
-  for (const hit of hits) {
-    if (out.length >= limit) return;
-    if (!hit || isLocal(hit, keys)) continue;
-    remember(hit, keys);
-    out.push(hit);
-  }
+/**
+ * The dedupe state carried across the sources: the keys (library plus listed
+ * hits) and the hits kept so far. The field rules and the dedupe are in Rust.
+ */
+type Collected = { keys: RelatedPaperKeys; hits: RelatedPaperHit[] };
+
+/**
+ * Adds each new candidate to the state until it holds `limit` hits; the library
+ * and repeats are skipped. The library is typed on the summary projection: the
+ * fields the dedupe reads are all on it.
+ */
+function collect(candidates: readonly unknown[], state: Collected, limit: number): Collected {
+  const out = typedCore().collectNewHits({ keys: state.keys, hits: state.hits, candidates, limit });
+  return { keys: out.keys, hits: out.hits.map((hit) => undefinedForNull(hit) as RelatedPaperHit) };
 }
 
 async function s2Json<T>(path: string, query: string, apiKey?: string): Promise<T> {
@@ -128,7 +88,7 @@ async function s2Recommended(paperId: string, limit: number, apiKey?: string) {
 async function s2References(paperId: string, apiKey?: string) {
   const body = await s2Json<{ data?: { citedPaper?: S2Paper | null }[] }>(
     `graph/v1/paper/${encodeURIComponent(paperId)}/references`,
-    `fields=${nested("citedPaper")}&limit=50`,
+    `fields=${typedCore().s2NestedFields("citedPaper")}&limit=50`,
     apiKey,
   );
   return (body.data ?? []).map((row) => s2ToHit(row.citedPaper ?? {}));
@@ -138,12 +98,12 @@ async function s2References(paperId: string, apiKey?: string) {
 async function s2Citing(paperId: string, apiKey?: string) {
   const body = await s2Json<{ data?: { citingPaper?: S2Paper | null }[] }>(
     `graph/v1/paper/${encodeURIComponent(paperId)}/citations`,
-    `fields=${nested("citingPaper")}&limit=100`,
+    `fields=${typedCore().s2NestedFields("citingPaper")}&limit=100`,
     apiKey,
   );
-  return (body.data ?? [])
-    .map((row) => s2ToHit(row.citingPaper ?? {}))
-    .sort((a, b) => (b?.citationCount ?? 0) - (a?.citationCount ?? 0));
+  return typedCore().sortByCitations(
+    (body.data ?? []).map((row) => s2ToHit(row.citingPaper ?? {})),
+  );
 }
 
 const OPENALEX = "https://api.openalex.org/works";
@@ -216,7 +176,7 @@ export async function fetchRelatedPapers(
   const limit = opts?.limit ?? 8;
   const kind = opts?.kind ?? "related";
   const apiKey = opts?.apiKey;
-  const keys = localKeys(library);
+  let state: Collected = { keys: typedCore().localKeys(library), hits: [] };
 
   const paperId =
     (seed.arxivId && `ARXIV:${seed.arxivId}`) ||
@@ -230,23 +190,22 @@ export async function fetchRelatedPapers(
     kind === "citedBy"
       ? [() => s2Citing(paperId, apiKey)]
       : [() => s2Recommended(paperId, limit, apiKey), () => s2References(paperId, apiKey)];
-  const out: RelatedPaperHit[] = [];
   let failure: unknown;
   for (const source of sources) {
-    if (out.length >= limit) break;
+    if (state.hits.length >= limit) break;
     try {
-      collect(await source(), keys, out, limit);
+      state = collect(await source(), state, limit);
     } catch (err) {
       failure ??= err;
     }
   }
-  if (out.length === 0) {
+  if (state.hits.length === 0) {
     try {
-      collect(await openAlexNeighbours(seed, kind, limit, opts?.openAlexKey), keys, out, limit);
+      state = collect(await openAlexNeighbours(seed, kind, limit, opts?.openAlexKey), state, limit);
     } catch {
       // Semantic Scholar's error, below, is the one worth showing.
     }
   }
-  if (out.length === 0 && failure) throw failure;
-  return out;
+  if (state.hits.length === 0 && failure) throw failure;
+  return state.hits;
 }
