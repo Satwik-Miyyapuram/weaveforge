@@ -516,3 +516,51 @@ pub fn folder_keys(relative_paths: &[String]) -> Vec<String> {
     keys.sort_by_key(|key| key.split('/').count());
     keys
 }
+
+/// The title a note's file path gives: the last segment without `.md`, its `.note` or `.ink`
+/// kind suffix and its `--id` suffix, trimmed. `Untitled` when nothing is left.
+#[must_use]
+pub fn folder_title_from_path(path: &str) -> String {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let name = name.strip_suffix(".md").unwrap_or(name);
+    let name = name
+        .strip_suffix(".note")
+        .or_else(|| name.strip_suffix(".ink"))
+        .unwrap_or(name);
+    let title = strip_id_suffix(name).trim_matches(crate::search::js_text::is_js_whitespace);
+    if title.is_empty() {
+        "Untitled".to_owned()
+    } else {
+        title.to_owned()
+    }
+}
+
+/// `name` without a trailing `--` plus 1 to 8 ASCII alphanumerics (the JS `/--[A-Za-z0-9]{1,8}$/`).
+/// Only the last `--` can qualify: an earlier one is followed by that `--`, which has a dash.
+fn strip_id_suffix(name: &str) -> &str {
+    match name.rfind("--") {
+        Some(at) => {
+            let tail = &name[at + 2..];
+            if (1..=8).contains(&tail.len()) && tail.bytes().all(|b| b.is_ascii_alphanumeric()) {
+                &name[..at]
+            } else {
+                name
+            }
+        }
+        None => name,
+    }
+}
+
+/// The folder a deleted project lives in: `exact` when it is listed, else the one listed folder
+/// ending in `tail` (the `--id` suffix). Two suffix matches are not surely this project's, so none.
+#[must_use]
+pub fn pick_project_folder(dirs: &[String], exact: &str, tail: &str) -> Option<String> {
+    if dirs.iter().any(|dir| dir.as_str() == exact) {
+        return Some(exact.to_owned());
+    }
+    let mut renamed = dirs.iter().filter(|dir| dir.ends_with(tail));
+    match (renamed.next(), renamed.next()) {
+        (Some(only), None) => Some(only.clone()),
+        _ => None,
+    }
+}

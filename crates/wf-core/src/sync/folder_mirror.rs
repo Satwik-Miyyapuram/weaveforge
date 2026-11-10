@@ -111,6 +111,16 @@ pub fn next_manifest(previous: &[String], written: &[String], removed: &[String]
         .collect()
 }
 
+/// Whether a JSON file's text is an edit to record: no digest is recorded for it yet, or the
+/// recorded digest differs from `text`.
+#[must_use]
+pub fn json_edit_since(base: &HashMap<String, String>, path: &str, text: &str) -> bool {
+    match base.get(path) {
+        None => true,
+        Some(recorded) => *recorded != digest_text(text),
+    }
+}
+
 /// What [`mirror_workspace`] would do, without touching a folder: the caller has read
 /// the folder's text into `disk` (path -> text; a missing key is a missing file) for every
 /// path in `files`, and for every previous path that is not present but has a `base`

@@ -2,7 +2,7 @@ import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core"
 import { resolveResultsTables } from "@/features/report/application/results-table-refs";
 import { PRISMA_FIGURE_PACKAGES } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
-import { buildCiteByTitle, collectCitedKeys, joinBibtex, paperToBibtex } from "./bibtex-export";
+import { paperCiteKeys } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 
 export interface OverleafExportOptions {
@@ -70,7 +70,9 @@ export interface OverleafExportResult {
  * answers this export writes. Re-exported here so callers that already import
  * them from the export keep working.
  */
-export { collectCitedKeys };
+export function collectCitedKeys(latex: string): Set<string> {
+  return readyCore().collectCitedKeys(latex);
+}
 export type { CitationFormat };
 
 /**
@@ -84,6 +86,22 @@ export function withMissingFigures(
 ): readonly OverleafExportFile[] {
   if (missing.length === 0) return files;
   return readyCore().withMissingFigures(files, missing);
+}
+
+/** Title→cite-key and paper-id→cite-key maps for the export's wikilinks and .bib keys. */
+function buildCiteByTitle(
+  papers: readonly Paper[],
+): { citeByTitle: Map<string, string>; keyByPaperId: Map<string, string> } {
+  const keys = paperCiteKeys(papers);
+  const citeByTitle = new Map<string, string>();
+  const keyByPaperId = new Map<string, string>();
+  papers.forEach((p, i) => {
+    const key = keys[i] ?? "";
+    keyByPaperId.set(p.id, key);
+    const titleKey = readyCore().normalizeTitleKey(p.title ?? "");
+    if (titleKey && !citeByTitle.has(titleKey)) citeByTitle.set(titleKey, key);
+  });
+  return { citeByTitle, keyByPaperId };
 }
 
 function escapeTitle(s: string): string {
@@ -181,14 +199,14 @@ export function buildOverleafExportPackage(
     const entries = bibPapers.map((p) => {
       const key = keyByPaperId.get(p.id)!;
       stats.bibliographyEntries += 1;
-      return paperToBibtex(p, key);
+      return readyCore().paperToBibtex(p, key);
     });
-    files.push({ path: "references.bib", contents: joinBibtex(entries) });
+    files.push({ path: "references.bib", contents: readyCore().joinBibtex(entries) });
   } else if (includeBib) {
     if (papers.length === 0) {
       warnings.push("Bibliography requested but no papers were available.");
     }
-    files.push({ path: "references.bib", contents: joinBibtex([]) });
+    files.push({ path: "references.bib", contents: readyCore().joinBibtex([]) });
   }
 
   const exportedAt = new Date().toISOString();

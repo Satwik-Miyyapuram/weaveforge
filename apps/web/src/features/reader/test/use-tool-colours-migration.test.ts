@@ -6,13 +6,7 @@ import { INK_HIGHLIGHTER_WIDTH, INK_PEN_WIDTHS } from "@weaveforge/core";
 import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
 import { DEFAULT_PEN_PREFS, persistPenPrefs } from "../ui/pdf-reader/use-pen-prefs";
 
-import {
-  DEFAULT_TOOL_COLOURS,
-  readToolColours,
-  resetToolColoursCacheForTests,
-  setToolQuickSlot,
-  subscribeToolColours,
-} from "@/features/ink";
+import { DEFAULT_TOOL_COLOURS, readToolColours, resetToolColoursCacheForTests, setToolQuickSlot, subscribeToolColours } from "@/features/ink/ui/use-tool-colours";
 
 const TOOL_COLOUR_KEY = "weaveforge.ink.tool-colours";
 const LEGACY_PEN_KEY = "weaveforge.reader.pen";

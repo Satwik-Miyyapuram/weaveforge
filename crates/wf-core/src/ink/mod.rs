@@ -71,4 +71,5 @@ pub mod page_math;
 pub mod page_text;
 pub mod pen_pointer;
 pub mod recognition_request;
+pub mod render_strokes;
 pub mod trail;

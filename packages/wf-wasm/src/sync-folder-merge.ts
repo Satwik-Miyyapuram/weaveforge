@@ -1,12 +1,16 @@
 /**
- * Folder merge core and mirror manifest (Rust `sync::folder_merge`, `sync::folder_mirror`),
- * re-exported from index.ts. Keeps the signatures of apps/web workspace/application/{folder-merge,mirror-manifest}.ts.
+ * Folder merge core, mirror manifest and folder-path helpers (Rust `sync::folder_merge`,
+ * `sync::folder_mirror`, `sync::folder_layout`), re-exported from index.ts. Keeps the signatures
+ * of apps/web workspace/application/{folder-merge,mirror-manifest,folder-import-apply,remove-project-folder}.ts.
  */
 import {
   countActionList as rawCountActionList,
   countActions as rawCountActions,
+  folderTitleFromPath as rawFolderTitleFromPath,
+  jsonEditSince as rawJsonEditSince,
   mergeBothChanged as rawMergeBothChanged,
   nextManifest as rawNextManifest,
+  pickProjectFolder as rawPickProjectFolder,
 } from "../pkg/wf_wasm.js";
 import type {
   ActionCounts,
@@ -40,4 +44,27 @@ export function nextManifest(
   run: { written: readonly string[]; removed: readonly string[] },
 ): string[] {
   return rawNextManifest([...previous], [...run.written], [...run.removed]);
+}
+
+/** Whether a JSON file's text is an edit to record: no digest recorded yet, or the digest differs. */
+export function jsonEditSince(
+  base: Readonly<Record<string, string>>,
+  path: string,
+  text: string,
+): boolean {
+  return rawJsonEditSince(base, path, text);
+}
+
+/** The title a note's file path gives: last segment minus `.md`, `.note`/`.ink` and `--id`; `Untitled` if empty. */
+export function folderTitleFromPath(path: string): string {
+  return rawFolderTitleFromPath(path);
+}
+
+/** The folder a deleted project lives in: `exact` when listed, else the single folder ending in `tail`. */
+export function pickProjectFolder(
+  dirs: readonly string[],
+  exact: string,
+  tail: string,
+): string | undefined {
+  return rawPickProjectFolder([...dirs], exact, tail);
 }

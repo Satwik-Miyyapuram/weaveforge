@@ -3,7 +3,9 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::print::{ReaderPrintDocument, ReaderPrintLayoutInput, reader_print_document, reader_print_orientation};
+use wf_core::reader::print::{
+    ReaderPrintDocument, ReaderPrintLayoutInput, reader_print_document, reader_print_orientation,
+};
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
@@ -18,5 +20,7 @@ pub fn reader_print_document_js(doc: JsValue) -> JsResult<String> {
 #[wasm_bindgen(js_name = readerPrintOrientation)]
 pub fn reader_print_orientation_js(input: JsValue) -> JsResult<String> {
     let input: ReaderPrintLayoutInput = serde_wasm_bindgen::from_value(input)?;
-    Ok(reader_print_orientation(input.with_comments, &input.pages).as_str().to_owned())
+    Ok(reader_print_orientation(input.with_comments, &input.pages)
+        .as_str()
+        .to_owned())
 }

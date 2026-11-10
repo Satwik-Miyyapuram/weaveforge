@@ -1,5 +1,5 @@
-import {  type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import { layoutMarginNotes as layoutMarks, type MarginMark, type MarginSlot } from "@weaveforge/wasm";
 import { picturePath } from "./reader-picture";
 
 /** One comment card in the writing margin beside a page, and where it sits. */
@@ -14,26 +14,11 @@ export interface MarginNote {
 /** Height a card is assumed to take before it is measured; stacking uses it. */
 export const MARGIN_NOTE_HEIGHT = 64;
 
-/** The top of an annotation's first mark on screen, or null when it has none. */
-function markTop(annotation: ReaderAnnotation, projection: PageProjection): number | null {
+/** The annotation's zotero position as the layout reads it, or null when it has none. */
+function markGeometry(annotation: ReaderAnnotation): MarginMark["geometry"] {
   const position = annotation.anchor.zoteroPosition;
   if (!position) return null;
-  let top = Number.POSITIVE_INFINITY;
-  for (const rect of position.rects ?? []) {
-    if (rect.length < 4) continue;
-    const box = readyCore().pdfRectToScreenBox([rect[0]!, rect[1]!, rect[2]!, rect[3]!], projection);
-    top = Math.min(top, box.top);
-  }
-  for (const path of position.paths ?? []) {
-    let x0 = Number.POSITIVE_INFINITY, y0 = Number.POSITIVE_INFINITY;
-    let x1 = Number.NEGATIVE_INFINITY, y1 = Number.NEGATIVE_INFINITY;
-    for (let i = 0; i + 1 < path.length; i += 2) {
-      x0 = Math.min(x0, path[i]!); x1 = Math.max(x1, path[i]!);
-      y0 = Math.min(y0, path[i + 1]!); y1 = Math.max(y1, path[i + 1]!);
-    }
-    if (x0 <= x1) top = Math.min(top, readyCore().pdfRectToScreenBox([x0, y0, x1, y1], projection).top);
-  }
-  return Number.isFinite(top) ? top : null;
+  return { rects: position.rects ?? [], paths: position.paths ?? [] };
 }
 
 /**
@@ -41,29 +26,23 @@ function markTop(annotation: ReaderAnnotation, projection: PageProjection): numb
  * level with the mark it annotates, pushed down only as far as the card
  * above it needs. Marks without a comment are not shown — the margin is for
  * what was said about the page, and the highlight itself is already on it.
+ * The rules live in Rust (`layoutMarginNotes`); this maps annotations to marks.
  */
 export function layoutMarginNotes(
   annotations: readonly ReaderAnnotation[],
   projection: PageProjection,
   cardHeight = MARGIN_NOTE_HEIGHT,
 ): MarginNote[] {
-  const candidates: { annotation: ReaderAnnotation; anchorTop: number }[] = [];
-  for (const annotation of annotations) {
+  const marks: MarginMark[] = annotations.map((annotation) => ({
+    hasComment: annotation.comment.trim().length > 0,
     // A placed picture keeps its file in the comment; it is drawn on the page, not in the margin.
-    if (!annotation.comment.trim() || picturePath(annotation)) continue;
-    const top = markTop(annotation, projection);
-    if (top === null) continue;
-    candidates.push({ annotation, anchorTop: top });
-  }
-  const slots = readyCore().stackMarginNotes(candidates.map((c) => c.anchorTop), cardHeight);
-  return slots.map((slot) => {
-    const candidate = candidates[slot.index]!;
-    // Rust sends null only for a non-finite number; every anchor here is finite, so the
-    // candidate's own anchor is what the slot holds, and a card is never above its mark.
-    return {
-      annotation: candidate.annotation,
-      top: slot.top ?? candidate.anchorTop,
-      anchorTop: candidate.anchorTop,
-    };
-  });
+    hasPicture: Boolean(picturePath(annotation)),
+    geometry: markGeometry(annotation),
+  }));
+  return layoutMarks(marks, projection, cardHeight).map((slot: MarginSlot) => ({
+    annotation: annotations[slot.index]!,
+    // Rust f64 comes back null only for NaN; keep the old NaN.
+    top: slot.top ?? Number.NaN,
+    anchorTop: slot.anchorTop ?? Number.NaN,
+  }));
 }

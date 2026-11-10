@@ -28,11 +28,12 @@ export function isAnnotationSyncState(value: string): value is "local" | "synced
  * option, or anything contenteditable (Rust `is_editable_reader_target`).
  */
 export function isEditableReaderTarget(
-  target: { tagName?: unknown; isContentEditable?: unknown } | null | undefined,
+  target: EventTarget | { tagName?: unknown; isContentEditable?: unknown } | null | undefined,
 ): boolean {
   if (!target) return false;
-  const tag = typeof target.tagName === "string" ? target.tagName : undefined;
-  return rawIsEditableReaderTarget(tag, Boolean(target.isContentEditable));
+  const el = target as { tagName?: unknown; isContentEditable?: unknown };
+  const tag = typeof el.tagName === "string" ? el.tagName : undefined;
+  return rawIsEditableReaderTarget(tag, Boolean(el.isContentEditable));
 }
 
 /**

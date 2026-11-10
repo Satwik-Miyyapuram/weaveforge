@@ -9,12 +9,9 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  InkPenGate,
-  PenCaptureSession,
-  type InkStrokeHeader,
-  type PenPointerEvent,
-} from "../index";
+import { InkPenGate } from "../application/pen-gate";
+import { PenCaptureSession, type PenPointerEvent } from "../application/use-pen-capture";
+import { type InkStrokeHeader } from "../application/capture-protocol";
 import { NibFilter } from "../application/one-euro-filter";
 import {
   InkSamplePool,

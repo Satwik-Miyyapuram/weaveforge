@@ -112,8 +112,7 @@ export function jsonEditSince(
   path: string,
   text: string,
 ): boolean {
-  const recorded = base[path];
-  return recorded === undefined || recorded !== digestText(text);
+  return readyCore().jsonEditSince(base, path, text);
 }
 
 /**
@@ -196,15 +195,6 @@ export async function followProjectRename(
   }
   await fs.remove(old, { recursive: true }).catch(() => undefined);
   return old;
-}
-
-/**
- * The digest a file's text is recorded under. Change detection only.
- * Stays TS: it hashes UTF-16 units, so WASM would only add an input limit and
- * change how lone surrogates hash against digests other TS code still writes.
- */
-export function baseDigest(text: string): string {
-  return digestText(text);
 }
 
 export async function writeMirrorManifest(

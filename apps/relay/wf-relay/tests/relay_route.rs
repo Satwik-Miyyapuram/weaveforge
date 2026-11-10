@@ -177,7 +177,7 @@ fn production_holds_the_ts_values() {
     // apps/desktop/src/blob-proxy.ts:18
     assert_eq!(cfg.hosted_app, BLOB_UPSTREAM);
     assert_eq!(cfg.hosted_app, "https://app.weaveforge.org");
-    // apps/web/src/lib/semantic-scholar-relay.ts:11, used by apps/desktop/src/semantic-scholar-proxy.ts:21
+    // crates/wf-core/src/net/semantic_scholar_relay.rs:7, used by apps/desktop/src/semantic-scholar-proxy.ts:21
     assert_eq!(cfg.semantic_scholar, SEMANTIC_SCHOLAR_UPSTREAM);
     assert_eq!(cfg.semantic_scholar, "https://api.semanticscholar.org");
     // apps/desktop/src/arxiv-proxy.ts:17

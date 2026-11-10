@@ -6,10 +6,9 @@
  * PDF; then web pages, kept sanitised and shown in a sandboxed frame. A page
  * with only an abstract on it is not the paper and is passed over.
  *
- * Every step is injected, so the order, the bounds and above all the messages
- * are tested without a network. The messages matter: "nothing found", "an
- * index could not be reached" and "found, but the site would not give it up"
- * are three different situations with three different things to do next.
+ * Every step is injected, so the order and the bounds are tested without a
+ * network. The messages and the ids are Rust (`reader::free_copy`); read them
+ * through `readyCore()`.
  */
 
 import type {
@@ -71,7 +70,7 @@ export async function findFreeCopy(
   const attempts: FreeCopyAttempt[] = [];
   const pdfs = lookup.candidates.filter((c) => c.format === "pdf").slice(0, MAX_PDF_ATTEMPTS);
   const pages = lookup.candidates.filter((c) => c.format === "html").slice(0, MAX_HTML_ATTEMPTS);
-  const webArticle = isWebArticle(ids);
+  const webArticle = readyCore().isWebArticle(ids);
 
   for (const candidate of pdfs) {
     let result: PdfAttempt;
@@ -126,116 +125,5 @@ export async function findFreeCopy(
     attempts,
     unreachable: lookup.failed,
     asked: lookup.asked,
-  };
-}
-
-const SOURCE_NAMES: Record<OpenAccessSource, string> = {
-  paper: "the paper's own link",
-  arxiv: "arXiv",
-  openalex: "OpenAlex",
-  unpaywall: "Unpaywall",
-  "semantic-scholar": "Semantic Scholar",
-  "europe-pmc": "Europe PMC",
-  biorxiv: "bioRxiv / medRxiv",
-  doaj: "DOAJ",
-  zenodo: "Zenodo",
-  hal: "HAL",
-};
-
-const REASON_WORDS: Record<AttemptReason, string> = {
-  "not-pdf": "did not answer with a PDF",
-  "not-html": "did not answer with a page",
-  blocked: "does not let the browser fetch it",
-  failed: "could not be reached",
-  "abstract-only": "has only the abstract",
-  "no-storage": "could not be kept on this device",
-};
-
-/** Pages go through a relay, so a blocked page is the site saying no, not CORS. */
-function reasonWords(attempt: FreeCopyAttempt): string {
-  return attempt.format === "html" && attempt.reason === "blocked" ? "refused to send it" : REASON_WORDS[attempt.reason];
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
-  }
-}
-
-function listNames(names: string[]): string {
-  if (names.length <= 1) return names.join("");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
-/**
- * The message for a search that opened nothing. Says what was found, what was
- * tried and why each failed, and which indexes were not asked because they
- * could not be reached — never "no free copy" when the truth is "could not
- * look".
- */
-export function describeFreeCopyFailure(
-  outcome: Extract<FreeCopyOutcome, { kind: "none" }>,
-  webArticle = false,
-): string {
-  const own = webArticle ? outcome.attempts.find((a) => a.format === "html") : undefined;
-  if (own) {
-    const why = own.reason === "abstract-only" ? "has too little text to be the article" : reasonWords(own);
-    return `The page on ${hostOf(own.url)} ${why}. Load a PDF of it instead, or open it in a browser.`;
-  }
-  const unreachable = outcome.unreachable.map((s) => SOURCE_NAMES[s]);
-  if (outcome.listed === 0) {
-    if (outcome.asked.length === 0) {
-      return "This paper has no DOI, arXiv id or PubMed Central id to look it up by. Add one, or paste the PDF's address.";
-    }
-    if (unreachable.length >= outcome.asked.length) {
-      return "None of the open-access indexes could be reached. Check the connection and try again.";
-    }
-    const base = "No open-access index lists a free copy of this paper.";
-    return unreachable.length
-      ? `${base} ${listNames(unreachable)} could not be reached, so try again later.`
-      : base;
-  }
-  const noStorage = outcome.attempts.some((a) => a.reason === "no-storage");
-  if (noStorage) return "A free copy was found but could not be kept here — open a workspace folder first.";
-  const tried = outcome.attempts
-    .slice(0, 4)
-    .map((a) => `${hostOf(a.url)} ${reasonWords(a)}`)
-    .join("; ");
-  const copies = outcome.listed === 1 ? "1 possible free copy" : `${outcome.listed} possible free copies`;
-  let message = `Found ${copies}, but none opened: ${tried}.`;
-  if (outcome.attempts.some((a) => a.format === "pdf" && a.reason === "blocked")) {
-    message += " Download it in a browser and use Load PDF…";
-  }
-  if (unreachable.length) message += ` ${listNames(unreachable)} could not be reached.`;
-  return message;
-}
-
-/**
- * A paper that is a web page and nothing else: a blog post or an essay with
- * no DOI, arXiv id or PMCID. Its own page is the paper, not a landing page in
- * front of one, so it is opened as it is.
- */
-export function isWebArticle(ids: OpenAccessIds): boolean {
-  return !!ids.pageUrl && !ids.doi && !ids.arxivId && !ids.pmcid;
-}
-
-/** The ids a paper offers the indexes, and its own link. */
-export function openAccessIdsOf(paper: {
-  doi?: string | null;
-  arxivId?: string | null;
-  url?: string | null;
-  metadata?: Record<string, unknown> | null;
-}): OpenAccessIds {
-  const pmcid = paper.metadata?.["pmcid"];
-  const url = paper.url && /^https?:\/\//i.test(paper.url) ? paper.url : undefined;
-  const isPdf = !!url && /\.pdf(?:$|[?#])|\/pdf\//i.test(url);
-  return {
-    doi: paper.doi ?? undefined,
-    arxivId: paper.arxivId ?? undefined,
-    pmcid: typeof pmcid === "string" ? pmcid : undefined,
-    knownPdfUrl: isPdf ? url : undefined,
-    pageUrl: url && !isPdf ? url : undefined,
   };
 }

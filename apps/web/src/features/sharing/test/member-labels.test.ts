@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { Member } from "@weaveforge/core";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { buildMemberNameMap } from "../application/member-labels";
+import { readyCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();
@@ -13,15 +13,15 @@ const member = (id: string, fullName?: string, email?: string) =>
   ({ id, fullName, email }) as unknown as Member;
 
 test("a member is named by full name first", () => {
-  assert.equal(buildMemberNameMap([member("a", "Ada", "ada@x.org")]).get("a"), "Ada");
+  assert.equal(readyCore().memberNameMap([member("a", "Ada", "ada@x.org")]).get("a"), "Ada");
 });
 
 test("a member with no name is named by email", () => {
-  assert.equal(buildMemberNameMap([member("b", undefined, "b@x.org")]).get("b"), "b@x.org");
+  assert.equal(readyCore().memberNameMap([member("b", undefined, "b@x.org")]).get("b"), "b@x.org");
 });
 
 test("a member with neither is 'Member', and an unknown id is absent", () => {
-  const map = buildMemberNameMap([member("c")]);
+  const map = readyCore().memberNameMap([member("c")]);
   assert.equal(map.get("c"), "Member");
   assert.equal(map.has("z"), false);
 });

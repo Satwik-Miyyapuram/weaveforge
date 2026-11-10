@@ -4,7 +4,8 @@
 use serde::Serialize;
 
 /// The `milestones` columns a row is read as, named rather than starred.
-pub const MILESTONE_COLUMNS: &str = "id,title,description,status,target_date,dependencies,compute,created_at";
+pub const MILESTONE_COLUMNS: &str =
+    "id,title,description,status,target_date,dependencies,compute,created_at";
 
 /// How a list is ordered.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

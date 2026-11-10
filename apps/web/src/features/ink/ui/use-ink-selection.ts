@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect } from "react";
 import type { InkPage as InkPageModel } from "@weaveforge/core";
-import { isEditableTarget } from "@/lib/editable-target";
+import { typedCore } from "@/lib/rust-core";
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import { fromWasmInkStrokes, readyCore, toWasmInkStrokes } from "@/lib/rust-core";
-import { selectedText } from "./ink-page-math";
 import type { InkSheetInk } from "./use-ink-worker-rpc";
 
 export interface UseInkSelectionOptions {
@@ -23,7 +22,7 @@ export interface UseInkSelectionOptions {
 
 /** A clipboard event the note should answer: focus is in it, not in a text field. */
 function forInk(event: ClipboardEvent, wrap: HTMLElement | null): boolean {
-  if (isEditableTarget(event.target)) return false;
+  if (typedCore().isEditableReaderTarget(event.target)) return false;
   return !!wrap && wrap.contains(document.activeElement);
 }
 
@@ -72,7 +71,7 @@ export function useInkSelection({
 
   const onCopyAsText = useCallback(async () => {
     const model = await requestModel();
-    const text = selectedText(model, selection);
+    const text = readyCore().selectedText(model.lines, selection);
     if (text && typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(text);
     }

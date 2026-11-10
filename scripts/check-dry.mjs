@@ -53,10 +53,10 @@ function report(lines, heading, footer) {
  * What replaces it is an allowlist over the whole of `features/`, not a filter
  * over ui directories, because the question worth asking is where the map gets
  * rebuilt, not what kind of file rebuilds it — the old ui-only filter could not
- * even see `application/`, which is where the real callers live. Four files may
- * name it:
+ * even see `application/`, which is where the real callers live. The map is
+ * built in Rust (`memberNameMap`, read through `readyCore()`); three files may
+ * call it:
  *
- *   - `member-labels.ts` defines it;
  *   - `load-pinned-owner-names.ts` is the wrapper screens are meant to use;
  *   - `shared-with-me-screen.tsx` builds the map from `data.members`, which its
  *     use-case has already loaded. It costs no extra directory read, so it is not
@@ -82,29 +82,25 @@ function report(lines, heading, footer) {
  */
 const MEMBER_LABEL_ALLOWED = new Map([
   [
-    "apps/web/src/features/sharing/application/member-labels.ts",
-    "export function buildMemberNameMap",
-  ],
-  [
     "apps/web/src/features/sharing/application/load-pinned-owner-names.ts",
-    "buildMemberNameMap(dir)",
+    "memberNameMap(dir)",
   ],
   [
     "apps/web/src/features/sharing/ui/shared-with-me-screen.tsx",
-    "buildMemberNameMap(data.members)",
+    "memberNameMap(data.members)",
   ],
   [
     "apps/web/src/features/sharing/ui/note-comments.tsx",
-    "buildMemberNameMap(members)",
+    "memberNameMap(members)",
   ],
 ]);
 
-const memberLabelLines = search("buildMemberNameMap");
+const memberLabelLines = search("memberNameMap");
 
 for (const [file, marker] of MEMBER_LABEL_ALLOWED) {
   if (!memberLabelLines.some((line) => line.startsWith(`${file}:`) && line.includes(marker))) {
     console.error(
-      `FAIL: check-dry exempts ${file} for buildMemberNameMap, and it no longer contains\n` +
+      `FAIL: check-dry exempts ${file} for memberNameMap, and it no longer contains\n` +
         `      "${marker}". Update the entry in scripts/check-dry.mjs to match where the code went.`,
     );
     failed = true;
@@ -119,7 +115,7 @@ const pinnedLabelDupes = memberLabelLines.filter(
 );
 report(
   pinnedLabelDupes,
-  "FAIL: buildMemberNameMap is used outside the module and helper that own it — call loadPinnedOwnerNames():",
+  "FAIL: memberNameMap is used outside the helper that owns it — call loadPinnedOwnerNames():",
 );
 
 /** Share-matching rules live in @weaveforge/core — not in UI. */

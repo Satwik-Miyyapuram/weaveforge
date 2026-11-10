@@ -10,7 +10,6 @@ import {
   MIRROR_MANIFEST_PATH,
   jsonEditSince,
   mirrorManifestPath,
-  baseDigest,
   claimImportedFile,
   createCoalescer,
   followProjectRename,
@@ -237,7 +236,7 @@ test("a hand-written file is stamped with the id it was imported as", async () =
   // under its own name — instead of leaving the folder holding both copies.
   const base = await readMirrorBase(fs, ROOT);
   assert.deepEqual(Object.keys(base).sort(), ["notes/My idea.md", "notes/old.note.md"]);
-  assert.equal(base["notes/My idea.md"], baseDigest(stamped));
+  assert.equal(base["notes/My idea.md"], digestText(stamped));
   assert.equal(base["notes/old.note.md"], "d0");
 });
 

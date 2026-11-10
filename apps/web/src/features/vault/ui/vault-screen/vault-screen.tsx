@@ -8,7 +8,6 @@ import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
-import { untitledTitle } from "../../application/untitled-title";
 import { importNotesFromFiles } from "../../application/import-notes";
 import { loadLinkTargets } from "../../application/load-link-targets";
 import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
@@ -220,7 +219,7 @@ export function VaultScreen() {
     setError(null);
     try {
       const page = await getContainer().vault.manageVaultPage.add({
-        title: untitledTitle(flat.map((p) => p.title)),
+        title: readyCore().uniqueTitle("Untitled", new Set(flat.map((p) => p.title).map(readyCore().normalizeTitleKey))),
       });
       setNewPageId(page.id);
       await load();

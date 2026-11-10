@@ -6,10 +6,11 @@ import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { REPORT_IMAGE_PREFIX, reportImagePathsInBody } from "../lib/report-images-md";
 import { parseResultsTableRefs, resolveResultsTables } from "../application/results-table-refs";
 import { readyCore } from "@/lib/rust-core";
 
+/** Prefix for report section images: `![](reportimg:userId/sectionId/file.webp)`. */
+const REPORT_IMAGE_PREFIX = "reportimg:";
 const REPORT_IMAGES_BUCKET = "report-images";
 
 function stripUnresolved(body: string, paths: readonly string[], urls: Map<string, string>): string {
@@ -74,7 +75,7 @@ export function ReportSectionMarkdown({
     return resolveResultsTables(readyCore().resolveArtifactRefsMarkdown(body, experiments), experiments, "markdown");
   }, [body, experiments, hasArtifactRefs, skipArtifactResolve]);
 
-  const paths = useMemo(() => reportImagePathsInBody(withArtifacts), [withArtifacts]);
+  const paths = useMemo(() => readyCore().imagePathsInBody(withArtifacts, REPORT_IMAGE_PREFIX), [withArtifacts]);
   const fetchOne = useCallback(
     (path: string) => getContainer().report.fetchImageBlob(path).catch(() => null),
     [],

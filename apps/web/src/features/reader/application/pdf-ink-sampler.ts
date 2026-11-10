@@ -1,4 +1,4 @@
-import { NibFilter } from "@/features/ink";
+import { NibFilter } from "@/features/ink/application/one-euro-filter";
 import { readyCore } from "@/lib/rust-core";
 
 /** 0.1 mm per PDF point: the notes' filter is tuned in tenths of a millimetre. */

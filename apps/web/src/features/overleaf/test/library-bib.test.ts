@@ -6,11 +6,13 @@ import test, { before } from "node:test";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { buildOverleafExportPackage } from "../application/build-overleaf-export";
-import { libraryBibtex } from "../application/bibtex-export";
+import { readyCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();
 });
+
+const libraryBibtex = (papers: readonly Paper[]) => readyCore().libraryBibtex(papers);
 
 const paper = (id: string, title: string, year: number): Paper => ({
   id,

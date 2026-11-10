@@ -16,11 +16,17 @@ use crate::papers::open_access::{OpenAccessFormat, OpenAccessSource};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AttemptReason {
+    /// The link did not serve a PDF.
     NotPdf,
+    /// The link did not serve a web page.
     NotHtml,
+    /// The host refused the request.
     Blocked,
+    /// The request failed.
     Failed,
+    /// The page held only an abstract.
     AbstractOnly,
+    /// No workspace storage to keep the copy in.
     NoStorage,
 }
 
@@ -28,8 +34,11 @@ pub enum AttemptReason {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FreeCopyAttempt {
+    /// The listed link.
     pub url: String,
+    /// Whether the index listed it as a PDF or a page.
     pub format: OpenAccessFormat,
+    /// Why it did not open.
     pub reason: AttemptReason,
 }
 
@@ -38,9 +47,13 @@ pub struct FreeCopyAttempt {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FreeCopyFailure {
+    /// How many copies the indexes listed.
     pub listed: usize,
+    /// The listed copies that were tried.
     pub attempts: Vec<FreeCopyAttempt>,
+    /// The indexes that could not be reached.
     pub unreachable: Vec<OpenAccessSource>,
+    /// The indexes that were asked.
     pub asked: Vec<OpenAccessSource>,
 }
 
@@ -48,10 +61,15 @@ pub struct FreeCopyFailure {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenAccessIds {
+    /// The DOI.
     pub doi: Option<String>,
+    /// The arXiv id.
     pub arxiv_id: Option<String>,
+    /// The PubMed Central id.
     pub pmcid: Option<String>,
+    /// The paper's own link, when it looks like a PDF.
     pub known_pdf_url: Option<String>,
+    /// The paper's own link, when it is a page.
     pub page_url: Option<String>,
 }
 
@@ -59,23 +77,27 @@ pub struct OpenAccessIds {
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaperLinks {
+    /// The DOI.
     pub doi: Option<String>,
+    /// The arXiv id.
     pub arxiv_id: Option<String>,
+    /// The paper's own link.
     pub url: Option<String>,
+    /// The paper's metadata, read for a `pmcid`.
     pub metadata: Option<Value>,
 }
 
-const NO_IDS: &str =
-    "This paper has no DOI, arXiv id or PubMed Central id to look it up by. Add one, or paste the PDF's address.";
-const ALL_INDEXES_DOWN: &str = "None of the open-access indexes could be reached. Check the connection and try again.";
+const NO_IDS: &str = "This paper has no DOI, arXiv id or PubMed Central id to look it up by. Add one, or paste the PDF's address.";
+const ALL_INDEXES_DOWN: &str =
+    "None of the open-access indexes could be reached. Check the connection and try again.";
 const NOTHING_LISTED: &str = "No open-access index lists a free copy of this paper.";
-const NO_STORAGE: &str = "A free copy was found but could not be kept here — open a workspace folder first.";
+const NO_STORAGE: &str =
+    "A free copy was found but could not be kept here — open a workspace folder first.";
 const LOAD_PDF_HINT: &str = " Download it in a browser and use Load PDF…";
 
-static HTTP_LINK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^https?://").expect("static pattern"));
-static PDF_LINK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)\.pdf(?:$|[?#])|/pdf/").expect("static pattern"));
+static HTTP_LINK: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?i)^https?://").ok());
+static PDF_LINK: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"(?i)\.pdf(?:$|[?#])|/pdf/").ok());
 
 fn source_name(source: OpenAccessSource) -> &'static str {
     match source {
@@ -126,25 +148,36 @@ fn present(value: &Option<String>) -> bool {
     value.as_deref().is_some_and(|text| !text.is_empty())
 }
 
+/// For a web article: why its own page did not open, if it was tried.
+fn own_page_message(outcome: &FreeCopyFailure) -> Option<String> {
+    let own = outcome
+        .attempts
+        .iter()
+        .find(|a| a.format == OpenAccessFormat::Html)?;
+    let why = if own.reason == AttemptReason::AbstractOnly {
+        "has too little text to be the article"
+    } else {
+        reason_words(own)
+    };
+    Some(format!(
+        "The page on {} {why}. Load a PDF of it instead, or open it in a browser.",
+        host_of(&own.url)
+    ))
+}
+
 /// The message for a search that opened nothing. Says what was found, what was tried and why
 /// each failed, and which indexes were not asked because they could not be reached. Never
 /// "no free copy" when the truth is "could not look".
 #[must_use]
 pub fn describe_free_copy_failure(outcome: &FreeCopyFailure, web_article: bool) -> String {
-    if web_article {
-        if let Some(own) = outcome.attempts.iter().find(|a| a.format == OpenAccessFormat::Html) {
-            let why = if own.reason == AttemptReason::AbstractOnly {
-                "has too little text to be the article"
-            } else {
-                reason_words(own)
-            };
-            return format!(
-                "The page on {} {why}. Load a PDF of it instead, or open it in a browser.",
-                host_of(&own.url)
-            );
-        }
+    if web_article && let Some(message) = own_page_message(outcome) {
+        return message;
     }
-    let unreachable: Vec<&str> = outcome.unreachable.iter().map(|s| source_name(*s)).collect();
+    let unreachable: Vec<&str> = outcome
+        .unreachable
+        .iter()
+        .map(|s| source_name(*s))
+        .collect();
     if outcome.listed == 0 {
         if outcome.asked.is_empty() {
             return NO_IDS.to_string();
@@ -161,7 +194,11 @@ pub fn describe_free_copy_failure(outcome: &FreeCopyFailure, web_article: bool) 
             )
         };
     }
-    if outcome.attempts.iter().any(|a| a.reason == AttemptReason::NoStorage) {
+    if outcome
+        .attempts
+        .iter()
+        .any(|a| a.reason == AttemptReason::NoStorage)
+    {
         return NO_STORAGE.to_string();
     }
     let tried = outcome
@@ -185,7 +222,10 @@ pub fn describe_free_copy_failure(outcome: &FreeCopyFailure, web_article: bool) 
         message.push_str(LOAD_PDF_HINT);
     }
     if !unreachable.is_empty() {
-        message.push_str(&format!(" {} could not be reached.", list_names(&unreachable)));
+        message.push_str(&format!(
+            " {} could not be reached.",
+            list_names(&unreachable)
+        ));
     }
     message
 }
@@ -206,14 +246,25 @@ pub fn open_access_ids_of(paper: &PaperLinks) -> OpenAccessIds {
         .and_then(|meta| meta.get("pmcid"))
         .and_then(Value::as_str)
         .map(str::to_string);
-    let url = paper.url.as_deref().filter(|link| HTTP_LINK.is_match(link));
-    let is_pdf = url.is_some_and(|link| PDF_LINK.is_match(link));
+    let url = paper
+        .url
+        .as_deref()
+        .filter(|link| HTTP_LINK.as_ref().is_some_and(|re| re.is_match(link)));
+    let is_pdf = url.is_some_and(|link| PDF_LINK.as_ref().is_some_and(|re| re.is_match(link)));
     OpenAccessIds {
         doi: paper.doi.clone(),
         arxiv_id: paper.arxiv_id.clone(),
         pmcid,
-        known_pdf_url: if is_pdf { url.map(str::to_string) } else { None },
-        page_url: if is_pdf { None } else { url.map(str::to_string) },
+        known_pdf_url: if is_pdf {
+            url.map(str::to_string)
+        } else {
+            None
+        },
+        page_url: if is_pdf {
+            None
+        } else {
+            url.map(str::to_string)
+        },
     }
 }
 
@@ -244,7 +295,10 @@ mod tests {
             asked: vec![],
             ..none_outcome(0, vec![])
         };
-        assert!(describe_free_copy_failure(&outcome, false).contains("no DOI, arXiv id or PubMed Central id"));
+        assert!(
+            describe_free_copy_failure(&outcome, false)
+                .contains("no DOI, arXiv id or PubMed Central id")
+        );
     }
 
     #[test]
@@ -254,7 +308,10 @@ mod tests {
             unreachable: vec![OpenAccessSource::OpenAlex, OpenAccessSource::Hal],
             ..none_outcome(0, vec![])
         };
-        assert!(describe_free_copy_failure(&outcome, false).contains("None of the open-access indexes could be reached"));
+        assert!(
+            describe_free_copy_failure(&outcome, false)
+                .contains("None of the open-access indexes could be reached")
+        );
     }
 
     #[test]
@@ -266,7 +323,11 @@ mod tests {
     #[test]
     fn nothing_listed_names_the_unreachable_indexes() {
         let outcome = FreeCopyFailure {
-            asked: vec![OpenAccessSource::OpenAlex, OpenAccessSource::Hal, OpenAccessSource::Doaj],
+            asked: vec![
+                OpenAccessSource::OpenAlex,
+                OpenAccessSource::Hal,
+                OpenAccessSource::Doaj,
+            ],
             unreachable: vec![OpenAccessSource::OpenAlex, OpenAccessSource::Hal],
             ..none_outcome(0, vec![])
         };
@@ -281,8 +342,16 @@ mod tests {
         let outcome = FreeCopyFailure {
             listed: 2,
             attempts: vec![
-                attempt("https://a.org/p.pdf", OpenAccessFormat::Pdf, AttemptReason::Blocked),
-                attempt("https://b.org/p", OpenAccessFormat::Html, AttemptReason::AbstractOnly),
+                attempt(
+                    "https://a.org/p.pdf",
+                    OpenAccessFormat::Pdf,
+                    AttemptReason::Blocked,
+                ),
+                attempt(
+                    "https://b.org/p",
+                    OpenAccessFormat::Html,
+                    AttemptReason::AbstractOnly,
+                ),
             ],
             unreachable: vec![OpenAccessSource::Doaj],
             asked: vec![OpenAccessSource::OpenAlex, OpenAccessSource::Doaj],
@@ -295,13 +364,27 @@ mod tests {
 
     #[test]
     fn a_copy_that_could_not_be_kept_says_so() {
-        let outcome = none_outcome(1, vec![attempt("https://a.org/p.pdf", OpenAccessFormat::Pdf, AttemptReason::NoStorage)]);
+        let outcome = none_outcome(
+            1,
+            vec![attempt(
+                "https://a.org/p.pdf",
+                OpenAccessFormat::Pdf,
+                AttemptReason::NoStorage,
+            )],
+        );
         assert!(describe_free_copy_failure(&outcome, false).contains("could not be kept here"));
     }
 
     #[test]
     fn a_web_article_that_will_not_open_says_so_about_its_own_page() {
-        let outcome = none_outcome(1, vec![attempt("https://blog.example/post", OpenAccessFormat::Html, AttemptReason::Blocked)]);
+        let outcome = none_outcome(
+            1,
+            vec![attempt(
+                "https://blog.example/post",
+                OpenAccessFormat::Html,
+                AttemptReason::Blocked,
+            )],
+        );
         assert_eq!(
             describe_free_copy_failure(&outcome, true),
             "The page on blog.example refused to send it. Load a PDF of it instead, or open it in a browser."
@@ -331,7 +414,10 @@ mod tests {
             ..PaperLinks::default()
         });
         assert_eq!(page.known_pdf_url, None);
-        assert_eq!(page.page_url.as_deref(), Some("https://publisher.com/article/1"));
+        assert_eq!(
+            page.page_url.as_deref(),
+            Some("https://publisher.com/article/1")
+        );
     }
 
     #[test]

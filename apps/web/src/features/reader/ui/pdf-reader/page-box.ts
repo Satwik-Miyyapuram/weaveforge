@@ -1,4 +1,4 @@
-import type { DrawArea } from "@/features/ink";
+import type { DrawArea } from "@weaveforge/wasm";
 
 /**
  * The rendered page box inside a page's row.

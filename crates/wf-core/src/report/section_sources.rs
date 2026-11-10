@@ -6,12 +6,17 @@ use std::sync::LazyLock;
 
 use regex_lite::Regex;
 
-use crate::papers::js_regex::compile;
+use crate::papers::js_regex::{compile, space_class};
 use crate::vault::page::{extract_wikilinks, normalize_title_key};
 
 /// Pandoc-style keys: `[@smith2020]`, `[@a; @b]`, or a bare `@smith2020` after a space. Group 1 is the key.
-static CITE_KEY_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| compile(r"(?:^|[\s\[;])@([A-Za-z][\w:.-]*\w)").ok());
+static CITE_KEY_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    compile(&format!(
+        r"(?:^|[{}\[;])@([A-Za-z][\w:.-]*\w)",
+        space_class()
+    ))
+    .ok()
+});
 
 /// How many distinct sources a section draft cites. An absent or empty body counts 0.
 #[must_use]
@@ -21,12 +26,12 @@ pub fn count_section_sources(body: Option<&str>) -> usize {
     };
     let mut seen: HashSet<String> = HashSet::new();
     for link in extract_wikilinks(body) {
-        seen.insert(format!("w:{}", normalize_title_key(&link.target)));
+        let _ = seen.insert(format!("w:{}", normalize_title_key(&link.target)));
     }
     if let Some(re) = CITE_KEY_RE.as_ref() {
         for caps in re.captures_iter(body) {
             if let Some(key) = caps.get(1) {
-                seen.insert(format!("k:{}", key.as_str().to_lowercase()));
+                let _ = seen.insert(format!("k:{}", key.as_str().to_lowercase()));
             }
         }
     }
@@ -39,7 +44,8 @@ mod tests {
 
     #[test]
     fn counts_distinct_wikilinks_and_citekeys() {
-        let body = "As [[Meng 2022]] shows [@smith2020; @doe_21], and [[meng 2022|again]] @smith2020.";
+        let body =
+            "As [[Meng 2022]] shows [@smith2020; @doe_21], and [[meng 2022|again]] @smith2020.";
         assert_eq!(count_section_sources(Some(body)), 3);
     }
 

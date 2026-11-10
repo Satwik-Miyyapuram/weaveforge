@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-use super::viewport::{pdf_rect_to_screen_box, ReaderPageProjection};
+use super::viewport::{ReaderPageProjection, pdf_rect_to_screen_box};
 
 /// Vertical gap, in pixels, between two stacked cards.
 pub const MARGIN_NOTE_GAP: f64 = 8.0;
@@ -105,7 +105,10 @@ fn mark_top(geometry: &MarkGeometry, p: ReaderPageProjection) -> Option<f64> {
         if rect.len() < 4 {
             continue;
         }
-        top = js_min(top, pdf_rect_to_screen_box([rect[0], rect[1], rect[2], rect[3]], p).top);
+        top = js_min(
+            top,
+            pdf_rect_to_screen_box([rect[0], rect[1], rect[2], rect[3]], p).top,
+        );
     }
     for path in &geometry.paths {
         let (mut x0, mut y0) = (f64::INFINITY, f64::INFINITY);

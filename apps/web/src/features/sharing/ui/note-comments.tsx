@@ -8,7 +8,7 @@ import { FormError } from "@/components/form-error";
 import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { buildMemberNameMap } from "../application/member-labels";
+import { readyCore } from "@/lib/rust-core";
 import type { TextSpan } from "@weaveforge/wasm";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
 import { CommentsBadge } from "./comments-badge";
@@ -107,7 +107,7 @@ export function NoteComments({
   }, [reload]);
 
   const nameOf = useMemo(() => {
-    const map = buildMemberNameMap(members);
+    const map = readyCore().memberNameMap(members);
     return (id: string) => (id === profile?.id ? "You" : map.get(id) ?? "Member");
   }, [members, profile?.id]);
 

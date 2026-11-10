@@ -2,10 +2,15 @@
  * One rule for "this target owns its keystrokes" (xhelp-03): the reader, the
  * ink shortcuts and the ink clipboard all ask it.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isEditableTarget } from "../editable-target";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
+
+const isEditableTarget = (t: EventTarget | null) => typedCore().isEditableReaderTarget(t);
 
 const el = (tagName: string, isContentEditable = false) =>
   ({ tagName, isContentEditable }) as unknown as EventTarget;

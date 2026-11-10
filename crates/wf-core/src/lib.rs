@@ -34,6 +34,7 @@ pub mod palette_sort;
 pub mod papers;
 pub mod paste;
 pub mod plan;
+pub mod postgrest_spec;
 pub mod projects;
 pub mod reader;
 pub mod reader_analysis;

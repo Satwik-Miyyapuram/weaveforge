@@ -11,13 +11,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ToolbarSlot } from "@/components/toolbar-slot";
-import { isEditableTarget } from "@/lib/editable-target";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_COLOURS, INK_PEN_WIDTHS } from "@weaveforge/core";
 import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
 import { awaitInkWrites } from "../application/ink-pending-writes";
 import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/ink-palette";
 import type { InkHostDeps } from "./ink-host-types";
-import { fitScale } from "./ink-page-math";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";
 import { useFlowedTextPages } from "./ink-text-flow";
@@ -72,7 +70,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   );
 
   const scale = useMemo(
-    () => fitScale(containerWidth, pageSize.width) * zoom,
+    () => readyCore().fitScale(containerWidth, pageSize.width) * zoom,
     [containerWidth, pageSize.width, zoom],
   );
 
@@ -206,7 +204,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isEditableTarget(e.target)) return;
+      if (typedCore().isEditableReaderTarget(e.target)) return;
       if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
         if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {

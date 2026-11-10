@@ -6,4 +6,5 @@ pub mod model_cache;
 pub mod open_external;
 pub mod page_title;
 pub mod private_host;
+pub mod semantic_scholar_relay;
 pub mod url_safety;

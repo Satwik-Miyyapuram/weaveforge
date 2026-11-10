@@ -44,7 +44,6 @@ export function textItemsFromContent(content: { items: readonly unknown[] }): Te
   });
 }
 
-export { isEditableTarget } from "@/lib/editable-target";
 
 export async function mapOutline(
   doc: PdfDocument,

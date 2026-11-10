@@ -1,4 +1,5 @@
 import {
+  digestText,
   type JsonDiff,
   type VaultPageBase,
   type WorkspaceProject,
@@ -10,7 +11,6 @@ import { ownedAssetFolderPaths, workspaceBodies } from "./asset-reanchor";
 import { jsonDiff } from "./folder-json-import";
 import { setPendingAssets, storedDigest } from "./folder-import-apply";
 import { countActions, mergeBothChanged } from "./folder-merge";
-import { baseDigest } from "./mirror-manifest";
 import type { FolderDiff } from "./outside-edits";
 
 /** What importing a folder or a ZIP would change in the workspace. */
@@ -88,8 +88,8 @@ export async function diffAgainstWorkspace(
         // as an empty string here and must not be mistaken for a file whose
         // contents hashed to nothing.
         base: base[path] || undefined,
-        folder: files[path] === undefined ? undefined : baseDigest(files[path]),
-        workspace: current[path] === undefined ? undefined : baseDigest(current[path]),
+        folder: files[path] === undefined ? undefined : digestText(files[path]),
+        workspace: current[path] === undefined ? undefined : digestText(current[path]),
       }),
     // The generated `fields` type is a plain record; the entities are the parsed ones above.
   }) as ImportDiff;

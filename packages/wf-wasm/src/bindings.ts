@@ -817,6 +817,16 @@ export type AskSource = {
 	excerpt: string | null,
 };
 
+/**  A folder-relative asset ref an imported body points at, in both its forms. */
+export type AssetRef = {
+	/**  `assets/<scope>/<path>`: the folder path the ref names. */
+	folderPath: string,
+	/**  The claimed storage path: what follows the scope directory. */
+	storagePath: string,
+	/**  The asset tree: `notes`, `papers` or `report`. */
+	scope: string,
+};
+
 /**  What the app does with a session change. */
 export type AuthStep = 
 /**  Open with the local copy's account, offline. */
@@ -2091,6 +2101,18 @@ export type EuropePmcAnswer = {
 	pmcid?: string | null,
 };
 
+/**  An excerpt split around its matched span (TS `ExcerptHighlight`). The offsets are UTF-16, so the three parts join back to the excerpt. */
+export type ExcerptHighlight = {
+	/**  Text before the matched span. */
+	before: string,
+	/**  The matched span (TS `match`). */
+	match: string,
+	/**  Text after the matched span. */
+	after: string,
+	/**  Trust in the match. */
+	confidence: AnchorConfidence,
+};
+
 /**  A highlight, as UTF-16 offsets into `Excerpt::text`. */
 export type ExcerptRange = {
 	/**  First unit. */
@@ -3313,6 +3335,31 @@ export type InkRecognitionLineInput = {
 	strokes: ((number | null)[])[],
 };
 
+/**  The render inputs of one stored stroke: its colour name, tool and nib width. */
+export type InkRenderSource = {
+	/**  The colour name, resolved through the palette. */
+	colour: string,
+	/**  The tool name; `highlighter` draws wide and translucent. */
+	tool: string,
+	/**  Nib width, in the same space as the stroke's points. */
+	width: number | null,
+};
+
+/**
+ *  One stroke as the renderer draws it. `at` is its position in the source list,
+ *  so the caller can take the points from the stroke it already holds.
+ */
+export type InkRenderStroke = {
+	/**  Position of the stroke in the source list. */
+	at: number,
+	/**  Nib width, in the same space as the stroke's points. */
+	width: number | null,
+	/**  A resolved CSS colour, `rgb(r, g, b)`. */
+	colour: string,
+	/**  Wide and translucent, drawn over the pen. */
+	highlighter: boolean,
+};
+
 /**  Lines top to bottom, and the line each input stroke went into (`-1` for none). */
 export type InkSegmentationIndices = {
 	/**  Lines in reading order, top to bottom. */
@@ -3626,6 +3673,14 @@ export type KeyChord = {
 	shiftKey?: boolean,
 	/**  Alt (Option) is held. */
 	altKey?: boolean,
+};
+
+/**  One JSON column of a row keyed by `id` (for example `projects.dashboard_layout`). */
+export type KeyedColumnSpec = {
+	/**  The table name. */
+	table: string,
+	/**  The column that holds the value. */
+	column: string,
 };
 
 /**  Which renderer a kind mounts. */
@@ -4860,6 +4915,16 @@ export type OpenAlexWork = {
 	cited_by_count?: number | null,
 };
 
+/**  How a list is ordered. */
+export type OrderSpec = {
+	/**  The column to order by. */
+	column: string,
+	/**  Smallest first when true. */
+	ascending: boolean,
+	/**  Whether nulls sort before the other values. */
+	nullsFirst: boolean,
+};
+
 /**  One membership as the app models it (TS `OrgMembershipView`). */
 export type OrgMembershipView = {
 	/**  The organisation's id. */
@@ -5889,6 +5954,23 @@ export type PlanWidgetWorkArea = {
 	height: number | null,
 };
 
+/**
+ *  Inputs to `plan_wiki_pages` (TS `PlanWikiPagesInput`). The TS `titleOf` callback is resolved
+ *  into `titles` (document id to title) before the call; a document id without an entry is shown as its id.
+ */
+export type PlanWikiPagesInput = {
+	/**  The extraction to plan from. */
+	extraction: ExtractionResult,
+	/**  Titles already in the wiki; these are never proposed again. */
+	existingTitles?: string[],
+	/**  Concepts below this many mentions are not worth a page of their own. Defaults to 2. */
+	minMentions?: number | null,
+	/**  Cap on the number of pages, with JS `slice` semantics (a negative value counts back from the end). Defaults to 25. */
+	maxPages?: number | null,
+	/**  Document id to title, for the page's mention list. */
+	titles?: { [key in string]: string },
+};
+
 /**  One entry of an archive and the action an import takes on it. */
 export type PlannedEntry = {
 	/**  The entry's name, as archived. */
@@ -6270,6 +6352,48 @@ export type ReaderPageSize = {
 	height: number | null,
 };
 
+/**  The whole print: the title, the pages and whether the comments are printed. */
+export type ReaderPrintDocument = {
+	/**  The document's title. */
+	title: string,
+	/**  The printed pages. */
+	pages: ReaderPrintPage[],
+	/**  Whether the comments are printed. */
+	withComments: boolean,
+};
+
+/**  What the orientation rule reads: the pages and whether comments are printed. */
+export type ReaderPrintLayoutInput = {
+	/**  Whether the comments are printed. */
+	withComments: boolean,
+	/**  The printed pages. */
+	pages: ReaderPrintPage[],
+};
+
+/**  One comment card beside a printed page. */
+export type ReaderPrintNote = {
+	/**  Offset from the top of the page, in the page image's own pixels. */
+	top: number | null,
+	/**  The mark's colour. */
+	colour: string,
+	/**  The marked text, when the mark was on text. */
+	quote: string,
+	/**  The mark's comment. */
+	comment: string,
+};
+
+/**  One printed page: its raster (marks drawn in) and its comments. */
+export type ReaderPrintPage = {
+	/**  The page raster as an image URL. */
+	image: string,
+	/**  The raster's size in pixels; the notes' `top` is in the same units. */
+	width: number | null,
+	/**  The raster height in pixels. */
+	height: number | null,
+	/**  The page's comments, top to bottom. */
+	notes: ReaderPrintNote[],
+};
+
 /**  A box in CSS pixels. Mirrors the object `pdfRectToScreenBox` returns. */
 export type ReaderScreenBox = {
 	/**  Left edge. */
@@ -6407,6 +6531,19 @@ export type ReadingPaper = {
 	title: string,
 	/**  The local `YYYY-MM-DD` day the paper was marked read, when it was. */
 	readDay: string | null,
+};
+
+/**  What an imported body's asset refs become: honoured, uploaded, or left as written. */
+export type ReanchorPlan = {
+	/**  Already referenced by this workspace: honour the path as written. */
+	keep: AssetRef[],
+	/**  Came with the import: upload under this user and rewrite to the new path. */
+	upload: AssetRef[],
+	/**
+	 *  Neither. Left as written, which renders broken rather than resolving to an
+	 *  object the importer has no demonstrated claim to.
+	 */
+	unresolved: AssetRef[],
 };
 
 /**  A wiki page that was written, when it was approved (TS `recentlyApprovedWikiPages`). */
@@ -6815,6 +6952,20 @@ index: number } |
 { kind: "gap"; 
 /**  How many rows the gap stands for. */
 rows: number };
+
+/**  A table of rows keyed by `id`, read and written one row at a time. */
+export type RowSpec = {
+	/**  The table name. */
+	table: string,
+	/**  The comma-separated column list a read selects. */
+	columns: string,
+	/**  Whether reads filter, and writes stamp, the selected project. */
+	projectScoped: boolean,
+	/**  The list order, when there is one. */
+	order: OrderSpec | null,
+	/**  Filter keys a list applies as equality when the caller sets them. */
+	eqFilters: string[],
+};
 
 /**  A descriptor's runtime gate: the gate kind and the provider it needs. */
 export type RuntimeGate = {
@@ -8230,6 +8381,18 @@ export type WikiNote = {
 	parentId?: string | null,
 	/**  When the note was created, as an ISO timestamp. */
 	createdAt: string,
+};
+
+/**  A page the planner proposes (TS `WikiPagePlan`). */
+export type WikiPagePlan = {
+	/**  Page title: the concept's name. */
+	title: string,
+	/**  Drafted note body. */
+	body: string,
+	/**  Documents the concept was found in, for the review queue's evidence. */
+	sourceDocumentIds: string[],
+	/**  How many documents mention the concept. */
+	mentions: number | null,
 };
 
 /**  A page queued for a dead link (TS `WikiPagePlan`). */

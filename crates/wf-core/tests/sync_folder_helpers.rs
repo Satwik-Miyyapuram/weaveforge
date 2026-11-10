@@ -9,7 +9,10 @@ use wf_core::sync::folder_mirror::json_edit_since;
 #[test]
 fn title_drops_md_kind_and_id_suffix() {
     assert_eq!(folder_title_from_path("notes/My idea.md"), "My idea");
-    assert_eq!(folder_title_from_path("notes/My idea--ab12cd.md"), "My idea");
+    assert_eq!(
+        folder_title_from_path("notes/My idea--ab12cd.md"),
+        "My idea"
+    );
     assert_eq!(folder_title_from_path("a/b--ab12cd.note"), "b");
     assert_eq!(folder_title_from_path("x.ink"), "x");
     assert_eq!(folder_title_from_path("Plain"), "Plain");
@@ -25,7 +28,10 @@ fn title_keeps_a_dashed_or_long_tail() {
     // Tail has a dash, so it is not an id.
     assert_eq!(folder_title_from_path("a--b-c.md"), "a--b-c");
     // Nine alphanumerics: over the 1 to 8 limit.
-    assert_eq!(folder_title_from_path("a--toolongsuffix.md"), "a--toolongsuffix");
+    assert_eq!(
+        folder_title_from_path("a--toolongsuffix.md"),
+        "a--toolongsuffix"
+    );
 }
 
 #[test]
@@ -72,7 +78,7 @@ fn json_edit_since_is_true_without_a_record() {
 fn json_edit_since_is_false_when_the_digest_matches() {
     let text = "[{\"id\":\"r1\"}]";
     let mut base = HashMap::new();
-    base.insert("relations.json".to_owned(), digest_text(text));
+    let _ = base.insert("relations.json".to_owned(), digest_text(text));
     assert!(!json_edit_since(&base, "relations.json", text));
     assert!(json_edit_since(&base, "relations.json", "[]"));
 }

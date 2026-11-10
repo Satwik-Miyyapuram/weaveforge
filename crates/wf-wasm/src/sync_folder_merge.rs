@@ -1,9 +1,12 @@
 //! Folder merge and mirror manifest for JavaScript (wf-core `sync::folder_merge`,
 //! `sync::folder_mirror::next_manifest`).
 
+use std::collections::HashMap;
+
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::deserialize::ImportDiffEntry;
+use wf_core::sync::folder_layout;
 use wf_core::sync::folder_merge;
 use wf_core::sync::folder_mirror;
 use wf_core::sync::import_action::ImportAction;
@@ -67,4 +70,30 @@ pub fn next_manifest_js(
     removed: Vec<String>,
 ) -> Vec<String> {
     folder_mirror::next_manifest(&previous, &written, &removed)
+}
+
+/// [`json_edit_since`](folder_mirror::json_edit_since). `base` is the recorded digest map.
+///
+/// # Errors
+///
+/// Fails when `base` is not an object of string digests.
+#[wasm_bindgen(js_name = jsonEditSince)]
+pub fn json_edit_since_js(base: JsValue, path: &str, text: &str) -> JsResult<bool> {
+    let base: HashMap<String, String> = serde_wasm_bindgen::from_value(base)?;
+    Ok(folder_mirror::json_edit_since(&base, path, text))
+}
+
+/// [`folder_title_from_path`](folder_layout::folder_title_from_path).
+#[wasm_bindgen(js_name = folderTitleFromPath)]
+#[must_use]
+pub fn folder_title_from_path_js(path: &str) -> String {
+    folder_layout::folder_title_from_path(path)
+}
+
+/// [`pick_project_folder`](folder_layout::pick_project_folder). `undefined` when no folder fits.
+#[wasm_bindgen(js_name = pickProjectFolder)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.
+#[must_use]
+pub fn pick_project_folder_js(dirs: Vec<String>, exact: &str, tail: &str) -> Option<String> {
+    folder_layout::pick_project_folder(&dirs, exact, tail)
 }

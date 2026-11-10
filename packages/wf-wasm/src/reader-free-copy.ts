@@ -10,15 +10,17 @@ import {
 
 /** The ids a paper offers the open-access indexes, and its own link split into a PDF or a page. */
 export interface FreeCopyIds {
-  doi?: string;
-  arxivId?: string;
-  pmcid?: string;
-  knownPdfUrl?: string;
-  pageUrl?: string;
+  doi?: string | null;
+  arxivId?: string | null;
+  pmcid?: string | null;
+  knownPdfUrl?: string | null;
+  pageUrl?: string | null;
 }
 
 /** The "none" outcome of a search: what was listed, tried, and which indexes were asked or unreachable. */
 export interface FreeCopyFailure {
+  /** The outcome tag the app's search result carries; the message ignores it. */
+  kind?: "none";
   listed: number;
   attempts: ReadonlyArray<{
     url: string;

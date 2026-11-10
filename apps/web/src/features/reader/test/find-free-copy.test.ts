@@ -2,12 +2,9 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { OpenAccessCandidate, OpenAccessLookup } from "@weaveforge/core";
 import {
-  describeFreeCopyFailure,
   findFreeCopy,
-  isWebArticle,
   MAX_HTML_ATTEMPTS,
   MAX_PDF_ATTEMPTS,
-  openAccessIdsOf,
   type FreeCopyDeps,
   type FreeCopyOutcome,
   type HtmlFetchResult,
@@ -15,8 +12,17 @@ import {
 } from "../application/find-free-copy";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 
 before(loadTestCore);
+
+// Thin shims so the cases read as before; the logic lives in Rust.
+const describeFreeCopyFailure = (...args: Parameters<ReturnType<typeof readyCore>["describeFreeCopyFailure"]>) =>
+  readyCore().describeFreeCopyFailure(...args);
+const isWebArticle = (...args: Parameters<ReturnType<typeof readyCore>["isWebArticle"]>) =>
+  readyCore().isWebArticle(...args);
+const openAccessIdsOf = (...args: Parameters<ReturnType<typeof readyCore>["openAccessIdsOf"]>) =>
+  readyCore().openAccessIdsOf(...args);
 
 const pdf = (host: string): OpenAccessCandidate => ({ url: `https://${host}/p.pdf`, format: "pdf", source: "openalex" });
 const html = (host: string): OpenAccessCandidate => ({ url: `https://${host}/p`, format: "html", source: "openalex" });

@@ -12,7 +12,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  * collaborative editor stack — into every page's bundle.
  */
 const WorkspaceScreen = dynamic(
-  () => import("@/features/editor-workspace").then((m) => m.WorkspaceScreen),
+  () => import("@/features/editor-workspace/ui/workspace-screen").then((m) => m.WorkspaceScreen),
   { ssr: false, loading: () => <ScreenLoader status="Loading workspace…" /> },
 );
 

@@ -44,13 +44,13 @@ const mcpTools = readAiToolNames(ROOT);
 const routeComponents = {
   dashboard: ["/dashboard", "@/features/dashboard", "DashboardScreen", "DashboardScreen"],
   papers: ["/papers", "@/features/papers", "PapersScreen", "PapersScreen"],
-  vault: ["/notes", "@/features/vault", "VaultScreen", "VaultScreen"],
+  vault: ["/notes", "@/features/vault/ui/vault-screen/vault-screen", "VaultScreen", "VaultScreen"],
   wiki: ["/wiki", "@/features/wiki", "WikiScreen", "WikiScreen"],
-  graph: ["/graph", "@/features/relations", "GraphScreen", "GraphScreen"],
+  graph: ["/graph", "@/features/relations/ui/graph-screen", "GraphScreen", "GraphScreen"],
   "reading-lists": ["/lists", "@/features/reading-lists", "ListsScreen", "ListsScreen"],
   experiments: ["/experiments", "@/features/experiments", "ExperimentsScreen", "ExperimentsScreen"],
-  git: ["/git", "@/features/sync", "GitScreen", "GitScreen"],
-  plan: ["/plan", "@/features/plan", "PlanScreen", "PlanScreen"],
+  git: ["/git", "@/features/sync/ui/git-screen", "GitScreen", "GitScreen"],
+  plan: ["/plan", "@/features/plan/ui/plan-screen", "PlanScreen", "PlanScreen"],
   logbook: ["/log", "@/features/logbook", "LogbookScreen", "LogbookScreen"],
   report: [
     ["/report", "@/features/report", "ReportScreen", "ReportScreen"],

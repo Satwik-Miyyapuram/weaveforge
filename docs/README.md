@@ -32,6 +32,7 @@ For somebody using the app.
 For somebody changing the code.
 
 - [How WeaveForge is put together](building/architecture-map.md) — where code lives and what runs offline
+- [Core modules](building/core/README.md) — one page per Rust core module: what is in Rust, how the app calls it, what stays in TypeScript
 - [The atlas](atlas.html) — the same map as one drawn page, every figure read off this commit
 - [Developer guide](building/dev.md) — running it, the checks, the hygiene rules
 - [Design principles](building/design.md)

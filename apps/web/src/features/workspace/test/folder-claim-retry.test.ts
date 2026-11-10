@@ -10,13 +10,13 @@ import { after, before, test } from "node:test";
 
 import type { AppContainer } from "@/bootstrap";
 import { setContainerForTests } from "@/bootstrap";
-import type { IWorkspaceFs } from "@weaveforge/core";
+import { digestText, type IWorkspaceFs } from "@weaveforge/core";
 import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { applyEntries, keepWorkspaceCopy, storedDigest, titleFromFileName } from "../application/folder-import-apply";
 import { readyCore } from "@/lib/rust-core";
 import { refreshMirrorBase } from "../application/folder-json-import";
-import { baseDigest, readMirrorBase } from "../application/mirror-manifest";
+import { readMirrorBase } from "../application/mirror-manifest";
 
 /** An in-memory folder; `failWrites` paths throw on write until removed. */
 function memoryFs(files: Record<string, string>) {
@@ -125,11 +125,11 @@ test("refreshMirrorBase records the folder's text, and the applied digest for a 
   const moved = `${projectRoot}/notes/moved.md`;
   const { fs } = memoryFs({ [kept]: "kept\n", [moved]: "moved now\n" });
 
-  await refreshMirrorBase(fs, [kept, moved], { [moved]: baseDigest("moved then\n") });
+  await refreshMirrorBase(fs, [kept, moved], { [moved]: digestText("moved then\n") });
   const base = await readMirrorBase(fs, projectRoot);
-  assert.equal(base[kept], baseDigest("kept\n"));
+  assert.equal(base[kept], digestText("kept\n"));
   // The applied text is what the workspace now holds, so the newer edit reads as the folder's alone.
-  assert.equal(base[moved], baseDigest("moved then\n"));
+  assert.equal(base[moved], digestText("moved then\n"));
 });
 
 test("refreshMirrorBase keeps the id stamp the apply itself wrote as the base", async () => {
@@ -140,10 +140,10 @@ test("refreshMirrorBase keeps the id stamp the apply itself wrote as the base", 
 
   const first = await applyEntries(fs, created(path, "first"), {});
   assert.deepEqual(first.appliedPaths, [path]);
-  await refreshMirrorBase(fs, first.appliedPaths, { [path]: baseDigest("# Idea\n\nfirst\n") });
+  await refreshMirrorBase(fs, first.appliedPaths, { [path]: digestText("# Idea\n\nfirst\n") });
   const stamped = await fs.readText(path);
   assert.match(stamped, /page-1/);
-  assert.equal((await readMirrorBase(fs, projectRoot))[path], baseDigest(stamped));
+  assert.equal((await readMirrorBase(fs, projectRoot))[path], digestText(stamped));
 });
 
 function updated(id: string, path: string, body: string): ImportDiff {
@@ -231,6 +231,6 @@ test("keeping the workspace copy writes it over the folder's file and makes it t
 
   assert.equal(await keepWorkspaceCopy(fs, path), true);
   assert.equal(store.get(path), files[path]);
-  assert.equal((await readMirrorBase(fs, projectRoot))[path], baseDigest(files[path] ?? ""));
+  assert.equal((await readMirrorBase(fs, projectRoot))[path], digestText(files[path] ?? ""));
   assert.equal(await keepWorkspaceCopy(fs, `${projectRoot}/notes/none.md`), false);
 });

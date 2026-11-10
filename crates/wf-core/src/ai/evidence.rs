@@ -1,6 +1,6 @@
 //! Splits an excerpt around the span a PDF locus points at (TS `ai-evidence.ts` `highlightWithinExcerpt`).
 
-use crate::reader::anchor::{resolve_text_anchor, AnchorConfidence, AnchorPdfLocus};
+use crate::reader::anchor::{AnchorConfidence, AnchorPdfLocus, resolve_text_anchor};
 use crate::reader::text_units::utf16_slice;
 
 /// An excerpt split around its matched span (TS `ExcerptHighlight`). The offsets are UTF-16, so the three parts join back to the excerpt.
@@ -67,8 +67,11 @@ mod tests {
 
     #[test]
     fn reports_low_confidence_for_an_ambiguous_quote() {
-        let hl = highlight_within_excerpt("the model. the model. the model.", Some(&quote("the model")))
-            .expect("quote is present");
+        let hl = highlight_within_excerpt(
+            "the model. the model. the model.",
+            Some(&quote("the model")),
+        )
+        .expect("quote is present");
         assert_eq!(hl.confidence, AnchorConfidence::Low);
     }
 

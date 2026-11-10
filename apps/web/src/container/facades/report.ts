@@ -5,9 +5,9 @@ import type {
   ReportSectionTreeNode,
 } from "@weaveforge/core";
 import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
-import { reportImagePathsInBody } from "@/features/report/lib/report-images-md";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
+import { readyCore } from "@/lib/rust-core";
 
 export class ReportFacade {
   constructor(
@@ -53,7 +53,7 @@ export class ReportFacade {
     const tree = await this.deps.sections.getTree().catch(() => []);
     const node = findNode(tree, section.id);
     const removed = node ? flatten(node) : [section];
-    const paths = [...new Set(removed.flatMap((s) => reportImagePathsInBody(s.notes ?? "")))];
+    const paths = [...new Set(removed.flatMap((s) => readyCore().imagePathsInBody(s.notes ?? "", "reportimg:")))];
     await this.deps.manageReportSection.remove(section.id);
     await Promise.all(
       paths.map(async (path) => {

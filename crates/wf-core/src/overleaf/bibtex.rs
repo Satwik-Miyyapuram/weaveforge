@@ -1,6 +1,6 @@
 //! The BibTeX half of the Overleaf export: cite keys for the LaTeX body, the keys the body
-//! actually cites, and one `references.bib` entry per paper. A faithful port of
-//! apps/web/src/features/overleaf/application/bibtex-export.ts.
+//! actually cites, and one `references.bib` entry per paper. Ported from the former TS
+//! overleaf/application/bibtex-export.ts.
 
 use std::sync::LazyLock;
 

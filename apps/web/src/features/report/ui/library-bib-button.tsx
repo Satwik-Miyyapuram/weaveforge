@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Button } from "@/components/button";
-import { libraryBibtex } from "@/features/overleaf/application/bibtex-export";
 import type { UploadResult } from "@/features/overleaf/infrastructure/overleaf-upload";
+import { readyCore } from "@/lib/rust-core";
 
 export const LIBRARY_BIB = "weaveforge.bib";
 
@@ -23,7 +23,7 @@ export function LibraryBibButton({ upload }: { upload: ((name: string, text: str
     setNote(null);
     try {
       const papers = await getContainer().papers.listPapers();
-      const result = await upload(LIBRARY_BIB, libraryBibtex(papers));
+      const result = await upload(LIBRARY_BIB, readyCore().libraryBibtex(papers));
       if (!result.ok) return setNote(result.message);
       window.dispatchEvent(new CustomEvent("reference:added"));
       setNote(`${papers.length} papers in ${LIBRARY_BIB}. Cite them with \\addbibresource{${LIBRARY_BIB}}.`);

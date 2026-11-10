@@ -2,6 +2,7 @@
 
 pub mod access_policy;
 pub mod ai_tool_name;
+pub mod evidence;
 pub mod extraction;
 pub mod folder_draft;
 pub mod mcp_result;
@@ -15,3 +16,4 @@ pub mod wiki_index;
 pub mod wiki_lint;
 pub mod wiki_merge;
 pub mod wiki_pages;
+pub mod wiki_plan;

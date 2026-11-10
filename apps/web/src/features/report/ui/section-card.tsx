@@ -12,7 +12,6 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { editedLabel } from "../lib/edited-label";
-import { countSectionSources } from "../lib/section-sources";
 import type { SectionProgress } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { Markdown } from "@/components/markdown/markdown";
@@ -146,7 +145,7 @@ export function SectionCard({
   onOpen?: (id: string) => void;
 }) {
   const hasNotes = Boolean(s.notes?.trim());
-  const sources = countSectionSources(s.notes);
+  const sources = readyCore().countSectionSources(s.notes);
   const { words, target, pct: progress } = rolled ?? readyCore().sectionProgress({ section: s, children: [] });
   const meta = [
     target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,

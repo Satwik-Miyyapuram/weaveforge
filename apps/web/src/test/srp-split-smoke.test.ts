@@ -11,7 +11,6 @@ const MOVED: Record<string, string[]> = {
   "../features/plan/ui/milestone-card": ["MilestoneCard"],
   "../features/settings/ui/library-pdf-indexing": ["LibraryPdfIndexing"],
   "../features/settings/ui/appearance-panel": ["AppearancePanel"],
-  "../features/overleaf/application/bibtex-export": ["buildCiteByTitle", "collectCitedKeys", "paperToBibtex"],
   "../features/dashboard/application/dashboard-layout-packing": [
     "compactLayoutVertical",
     "layoutFloors",

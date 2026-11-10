@@ -220,7 +220,7 @@ export interface ReaderKeyboardFns {
    * OPTION in any case, or anything contenteditable.
    */
   isEditableReaderTarget(
-    target: { tagName?: string; isContentEditable?: boolean } | null | undefined,
+    target: EventTarget | { tagName?: string; isContentEditable?: boolean } | null | undefined,
   ): boolean;
   /**
    * Return a command for navigable keys, or null when the event should pass through.

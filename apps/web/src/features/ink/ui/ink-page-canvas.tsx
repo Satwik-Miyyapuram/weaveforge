@@ -5,7 +5,6 @@
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import type { InkStroke } from "@weaveforge/core";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
-import { toRenderStrokes } from "./ink-render-strokes";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { readyCore } from "@/lib/rust-core";
 import type { InkRenderStroke } from "./ink-strokes";
@@ -143,7 +142,7 @@ export const InkPageCanvas = memo(function InkPageCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const modeRef = useRef<InkCanvasMode | null>(null);
 
-  const drawn = useMemo(() => toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
+  const drawn = useMemo(() => readyCore().toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
 
   const hasDrawn = drawn.length > 0;
 
