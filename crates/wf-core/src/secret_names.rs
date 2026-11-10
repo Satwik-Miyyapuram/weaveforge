@@ -10,6 +10,7 @@ pub const SECRET_NAMES: [&str; 4] = [
 ];
 
 /// Whether `name` is one of [`SECRET_NAMES`]. Exact match; no trimming or case folding.
+#[must_use]
 pub fn is_secret_name(name: &str) -> bool {
     SECRET_NAMES.contains(&name)
 }

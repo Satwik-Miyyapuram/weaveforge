@@ -122,7 +122,7 @@ pub fn polygon_bounds(polygon: &[f64]) -> [f64; 4] {
         f64::NEG_INFINITY,
         f64::NEG_INFINITY,
     ];
-    for point in polygon.chunks_exact(2) {
+    for point in polygon.as_chunks::<2>().0 {
         bounds[0] = js_math::min(bounds[0], point[0]);
         bounds[1] = js_math::min(bounds[1], point[1]);
         bounds[2] = js_math::max(bounds[2], point[0]);

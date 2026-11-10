@@ -179,20 +179,20 @@ pub fn draft_from_text_selection(input: &TextSelectionDraft) -> Option<NewReader
     };
     let mut anchor = selection_to_anchor(&input.selection, &geometry)?;
 
-    if let Some(exact) = input.exact_rects.as_ref().filter(|r| !r.is_empty()) {
-        if let Some(position) = anchor.zotero_position.as_mut() {
-            position.rects = Some(exact.clone());
-        }
+    if let Some(exact) = input.exact_rects.as_ref().filter(|r| !r.is_empty())
+        && let Some(position) = anchor.zotero_position.as_mut()
+    {
+        position.rects = Some(exact.clone());
     }
-    if let Some(next) = input.next_page_rects.as_ref().filter(|r| !r.is_empty()) {
-        if let Some(position) = anchor.zotero_position.as_mut() {
-            position.next_page_rects = Some(next.clone());
-        }
+    if let Some(next) = input.next_page_rects.as_ref().filter(|r| !r.is_empty())
+        && let Some(position) = anchor.zotero_position.as_mut()
+    {
+        position.next_page_rects = Some(next.clone());
     }
-    if let Some(full) = input.full_text.as_deref().filter(|s| !s.is_empty()) {
-        if let Some(locus) = anchor.locus.as_mut() {
-            locus.quote.exact = Some(full.to_owned());
-        }
+    if let Some(full) = input.full_text.as_deref().filter(|s| !s.is_empty())
+        && let Some(locus) = anchor.locus.as_mut()
+    {
+        locus.quote.exact = Some(full.to_owned());
     }
 
     let quote = anchor
@@ -644,6 +644,8 @@ mod tests {
     }
 
     #[test]
+    // The cap is a small whole number, so the cast is exact.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn append_ink_stroke_refuses_to_grow_one_row_without_bound() {
         let full = AnchorCombinedPdf {
             zotero_position: Some(AnchorZoteroPosition {

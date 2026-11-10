@@ -8,6 +8,10 @@
 //! `unsafe` glue under its own `#[allow]`, which `forbid` would reject. Code
 //! written here may not use `unsafe`.
 #![deny(unsafe_code)]
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen exports take owned JS values"
+)]
 
 mod ai_access_policy;
 mod ai_evidence;
@@ -486,6 +490,7 @@ pub fn guess_blob_content_type(path: &str) -> Result<String, serde_wasm_bindgen:
 
 /// [`wf_core::storage::blob::can_store_unchanged`]: whether an image of this
 /// MIME type and byte size is kept as it came.
+#[must_use]
 #[wasm_bindgen(js_name = canStoreUnchanged)]
 pub fn can_store_unchanged(mime: &str, size_bytes: f64) -> bool {
     wf_core::storage::blob::can_store_unchanged(mime, size_bytes)

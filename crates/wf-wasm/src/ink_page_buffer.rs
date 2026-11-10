@@ -69,6 +69,8 @@ pub fn ink_page_bounds_js(boxes: &[f64], live: &[u8]) -> Vec<f64> {
 /// [`kept_indices`](page_buffer::kept_indices): the old index of each live stroke, in order.
 #[must_use]
 #[wasm_bindgen(js_name = inkKeptIndices)]
+// Indices come from a JS byte array, which never holds more than u32::MAX items.
+#[allow(clippy::cast_possible_truncation)]
 pub fn ink_kept_indices_js(alive: &[u8]) -> Vec<u32> {
     let flags: Vec<bool> = alive.iter().map(|flag| *flag != 0).collect();
     page_buffer::kept_indices(&flags)

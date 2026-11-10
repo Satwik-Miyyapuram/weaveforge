@@ -95,6 +95,8 @@ pub struct ActiveSession {
 ///
 /// `None` and non-finite values use the default (TS `clampTtl` with `?? DEFAULT`).
 #[must_use]
+// The cast takes a whole number in `[1, AI_SESSION_MAX_TTL_MS]`, so it is exact.
+#[allow(clippy::cast_possible_truncation)]
 pub fn clamp_session_ttl_ms(ttl_ms: Option<f64>) -> i64 {
     match ttl_ms {
         Some(ms) if ms.is_finite() => {

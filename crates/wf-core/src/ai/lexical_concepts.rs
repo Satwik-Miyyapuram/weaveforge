@@ -201,19 +201,20 @@ fn informativeness(kind: &str) -> u8 {
 
 /// Whether `text[index]` starts a sentence, looking back past markup and list markers.
 fn opens_sentence(text: &[u16], index: usize) -> bool {
-    let mut i = index as isize - 1;
-    while i >= 0
+    // `i` is one past the character being looked at, so 0 means "before the start".
+    let mut i = index;
+    while i > 0
         && matches!(
-            text[i as usize],
+            text[i - 1],
             0x20 | 0x09 | 0x22 | 0x27 | 0x28 | 0x201C | 0x5B | 0x2A | 0x5F
         )
     {
         i -= 1;
     }
-    if i < 0 {
+    if i == 0 {
         return true;
     }
-    let c = text[i as usize];
+    let c = text[i - 1];
     if matches!(c, 0x0A | 0x2E | 0x21 | 0x3F | 0x3A | 0x3B | 0x7C) {
         return true;
     }
@@ -222,10 +223,10 @@ fn opens_sentence(text: &[u16], index: usize) -> bool {
         return false;
     }
     i -= 1;
-    while i >= 0 && matches!(text[i as usize], 0x20 | 0x09) {
+    while i > 0 && matches!(text[i - 1], 0x20 | 0x09) {
         i -= 1;
     }
-    i < 0 || text[i as usize] == 0x0A
+    i == 0 || text[i - 1] == 0x0A
 }
 
 /// A phrase is a name when its first word is not a stopword and not every word is one.
@@ -349,6 +350,8 @@ fn harvest_stated(doc: &Prepared) -> Vec<Harvested> {
         if target.is_empty() {
             continue;
         }
+        // Offsets come from extract_wikilinks: whole, non-negative UTF-16 indices.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         out.push(stated(
             doc,
             target,
@@ -525,6 +528,7 @@ fn project_mentions(mentions: &[Harvested], kept: &[Entry]) -> Vec<ExtractedMent
 
 /// Extracts concepts from documents by capitalisation, hashtags and wikilinks.
 /// No model is needed, so this runs anywhere.
+#[must_use]
 pub fn extract_lexical(request: &LexicalRequest) -> ExtractionResult {
     let mentions: Vec<Harvested> = request
         .documents
@@ -557,6 +561,7 @@ pub fn extract_lexical(request: &LexicalRequest) -> ExtractionResult {
 
 // Patterns are compiled once. They are literals, so a failure is a programming error.
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn candidate_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
@@ -568,46 +573,55 @@ fn candidate_re() -> &'static Regex {
     })
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn plain_word_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"^[A-Z][a-z]*(?:-[a-z]+)*$").expect("plain word pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn fence_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"```[\s\S]*?```").expect("fence pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn code_span_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"`[^`\n]*`").expect("code span pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn image_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"!\[[^\]]*\]\([^)]*\)").expect("image pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn bracket_link_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"\[\[([^\]]*)\]\]").expect("bracket link pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn heading_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"(?m)^#{1,6}\s+").expect("heading pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn wikilink_blank_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"\[\[[^\[\]\n]*\]\]").expect("wikilink pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn dataset_keyword_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| compile(r"(?i)\b(dataset|corpus|benchmark)\b").expect("dataset pattern"))
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn metric_keyword_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
@@ -615,6 +629,7 @@ fn metric_keyword_re() -> &'static Regex {
     })
 }
 
+#[allow(clippy::expect_used, reason = "static regex literal, always valid")]
 fn venue_keyword_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {

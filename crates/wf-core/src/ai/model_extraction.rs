@@ -83,6 +83,7 @@ pub struct ModelRequest {
 }
 
 /// The system prompt. The kind list comes from the shared concept kinds.
+#[must_use]
 pub fn system_prompt() -> String {
     [
         "You extract the named concepts a research corpus is about.".to_string(),
@@ -99,6 +100,7 @@ pub fn system_prompt() -> String {
 }
 
 /// The limits the TS shim starts from.
+#[must_use]
 pub fn limits() -> ModelExtractionLimits {
     ModelExtractionLimits {
         batch_size: DEFAULT_BATCH_SIZE as f64,
@@ -178,6 +180,7 @@ pub fn build_batch_request(
 /// Merges the batch results, drops concepts already in the wiki, then caps the
 /// concepts (JS `slice(0, max_concepts)` semantics, see `js_slice_keep`) and
 /// keeps only mentions of the kept ones. A falsy cap means no cap.
+#[must_use]
 pub fn finalize_extraction(
     results: &[ExtractionResult],
     existing: &[String],

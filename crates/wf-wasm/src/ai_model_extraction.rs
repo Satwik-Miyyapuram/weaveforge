@@ -30,6 +30,8 @@ pub fn model_extraction_limits_js() -> JsResult<JsValue> {
 ///
 /// Fails if `batch` is not a list of documents.
 #[wasm_bindgen(js_name = modelBuildBatchRequest)]
+// `max_chars` is a whole non-negative character budget, so the cast is exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Vec<String>.
 pub fn model_build_batch_request_js(
     batch: JsValue,

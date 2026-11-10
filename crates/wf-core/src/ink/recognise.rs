@@ -121,7 +121,7 @@ pub fn bands_coincide(a: (f64, f64), b: (f64, f64)) -> bool {
 /// number is ignored.
 #[must_use]
 pub fn band_union(bands: &[f64]) -> Option<(f64, f64)> {
-    let mut pairs = bands.chunks_exact(2).map(|p| (p[0], p[1]));
+    let mut pairs = bands.as_chunks::<2>().0.iter().map(|p| (p[0], p[1]));
     let first = pairs.next()?;
     Some(pairs.fold(first, |(lo, hi), (start, end)| {
         (js_math::min(lo, start), js_math::max(hi, end))

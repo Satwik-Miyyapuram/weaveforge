@@ -6,7 +6,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use wf_core::app_protocol::{
-    APP_CSP, app_file_candidates, app_headers, canonical_app_url, content_type_for, is_page_request,
+    app_file_candidates, app_headers, canonical_app_url, content_type_for, is_page_request,
 };
 
 const ROOT: &str = "/bundle";

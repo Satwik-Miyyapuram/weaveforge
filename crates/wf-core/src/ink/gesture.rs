@@ -260,7 +260,7 @@ impl StrokeEdgeSplit {
     pub fn move_to(&mut self, at: Point, area: Option<&DrawArea>) -> EdgeStep {
         let previous = self.last.unwrap_or(at);
         self.last = Some(at);
-        let on_paper = area.map_or(true, |a| point_in_area(a, at.x, at.y));
+        let on_paper = area.is_none_or(|a| point_in_area(a, at.x, at.y));
         if self.out {
             if !on_paper {
                 return EdgeStep::Outside;

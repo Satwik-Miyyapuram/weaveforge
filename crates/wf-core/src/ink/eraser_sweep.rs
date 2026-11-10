@@ -72,6 +72,7 @@ impl EraserSweepState {
 
     /// A hover: `Show` when `pointer` is the sticky one, so the caller re-shows the
     /// eraser on the surface under it (it skips a surface already shown).
+    #[must_use]
     pub fn hover(&self, pointer: i64) -> CursorAction {
         if self.sticky == Some(pointer) {
             CursorAction::Show
@@ -81,6 +82,7 @@ impl EraserSweepState {
     }
 
     /// The pointer left the surface: `Restore` when it is sticky and no sweep runs.
+    #[must_use]
     pub fn leave(&self, pointer: i64) -> CursorAction {
         if self.sticky == Some(pointer) && self.pointer.is_none() {
             CursorAction::Restore

@@ -22,6 +22,8 @@ pub struct EraserSweepState {
 }
 
 #[wasm_bindgen]
+// DOM `pointerId`s are small whole numbers, so the casts to i64 are exact.
+#[allow(clippy::cast_possible_truncation)]
 impl EraserSweepState {
     #[wasm_bindgen(constructor)]
     #[must_use]

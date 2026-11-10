@@ -560,6 +560,10 @@ mod tests {
         }
     }
 
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "test helper takes json! literals"
+    )]
     fn fill_error(defs: &[PaperFieldDefInput], payload: Value) -> String {
         paper_field_fill(&payload, defs).unwrap_err()
     }
