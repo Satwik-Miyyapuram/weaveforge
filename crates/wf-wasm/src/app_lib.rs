@@ -50,8 +50,13 @@ mod tests {
 /// # Errors
 ///
 /// Fails if `groups` has the wrong shape.
-#[wasm_bindgen(js_name = menuPaletteActions)]
-pub fn menu_palette_actions_js(groups: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = menuPaletteActions, unchecked_return_type = "{ id: string; label: string }[]")]
+pub fn menu_palette_actions_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { items: { id: string; label: string; enabled: boolean }[] }[]"
+    )]
+    groups: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let groups: Vec<menu_palette::MenuGroup> = serde_wasm_bindgen::from_value(groups)?;
     to_js(&menu_palette::menu_palette_actions(&groups))
 }
@@ -61,7 +66,7 @@ pub fn menu_palette_actions_js(groups: JsValue) -> Result<JsValue, serde_wasm_bi
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = settingsPaletteRows)]
+#[wasm_bindgen(js_name = settingsPaletteRows, unchecked_return_type = "{ key: string; label: string; path: string }[]")]
 pub fn settings_palette_rows_js(
     has_plan_widget: bool,
     has_ink: bool,

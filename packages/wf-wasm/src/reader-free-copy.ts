@@ -4,8 +4,11 @@
  */
 import {
   describeFreeCopyFailure as rawDescribeFreeCopyFailure,
-  isWebArticle as rawIsWebArticle,
-  openAccessIdsOf as rawOpenAccessIdsOf,
+} from "../pkg/wf_wasm.js";
+
+export {
+  isWebArticle,
+  openAccessIdsOf,
 } from "../pkg/wf_wasm.js";
 
 /** The ids a paper offers the open-access indexes, and its own link split into a PDF or a page. */
@@ -42,14 +45,4 @@ export interface FreeCopyPaperLinks {
 /** The message shown when no free copy opened (Rust `describe_free_copy_failure`). */
 export function describeFreeCopyFailure(outcome: FreeCopyFailure, webArticle = false): string {
   return rawDescribeFreeCopyFailure(outcome, webArticle);
-}
-
-/** Whether the paper is only a web page: a page link and no index id (Rust `is_web_article`). */
-export function isWebArticle(ids: FreeCopyIds): boolean {
-  return rawIsWebArticle(ids);
-}
-
-/** The open-access ids of `paper` (Rust `open_access_ids_of`). */
-export function openAccessIdsOf(paper: FreeCopyPaperLinks): FreeCopyIds {
-  return rawOpenAccessIdsOf(paper) as FreeCopyIds;
 }

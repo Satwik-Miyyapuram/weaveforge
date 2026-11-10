@@ -3,13 +3,10 @@
  * object and `metadataBase` are built in apps/web; this module supplies the text,
  * the paths and the origin rule.
  */
-import {
-  pitchShareCard as rawPitchShareCard,
-  pitchShareConstants as rawPitchShareConstants,
-} from "../pkg/wf_wasm.js";
-
 export {
   appOriginFrom,
+  pitchShareCard,
+  pitchShareConstants,
 } from "../pkg/wf_wasm.js";
 
 export interface PitchShareImage {
@@ -34,14 +31,4 @@ export interface PitchShareConstants {
   title: string;
   description: string;
   defaultAppOrigin: string;
-}
-
-/** The shared pitch title, description and default origin. */
-export function pitchShareConstants(): PitchShareConstants {
-  return rawPitchShareConstants() as PitchShareConstants;
-}
-
-/** Card metadata for a host serving the pitch, without `metadataBase`. */
-export function pitchShareCard(basePath: string, path: string): PitchShareCard {
-  return rawPitchShareCard(basePath, path) as PitchShareCard;
 }
