@@ -889,7 +889,7 @@ export function addedNotice(created) {
  *
  * Fails if the result cannot be serialised.
  * @param {string | null} [stopped_because]
- * @returns {any}
+ * @returns {{ phase: "idle" | "offline" | "error"; isOnline: boolean }}
  */
 export function afterCycle(stopped_because) {
     var ptr0 = isLikeNone(stopped_because) ? 0 : passStringToWasm0(stopped_because, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -908,7 +908,7 @@ export function afterCycle(stopped_because) {
  *
  * Fails if the result cannot be serialised.
  * @param {boolean} online
- * @returns {any}
+ * @returns {{ phase: "idle" | "offline" | "error"; isOnline: boolean }}
  */
 export function afterFailure(online) {
     const ret = wasm.afterFailure(online);
@@ -3642,8 +3642,8 @@ export function commandMatchIndices(labels, query) {
  * # Errors
  *
  * Fails if `row` does not have the `comments` columns.
- * @param {any} row
- * @returns {any}
+ * @param {B.CommentRow} row
+ * @returns {B.Comment}
  */
 export function commentFromRow(row) {
     const ret = wasm.commentFromRow(row);
@@ -9831,7 +9831,7 @@ export function indexTermsOf(text) {
  *
  * Fails if the result cannot be serialised.
  * @param {boolean} online
- * @returns {any}
+ * @returns {"idle" | "offline" | "error"}
  */
 export function initialPhase(online) {
     const ret = wasm.initialPhase(online);
@@ -11643,8 +11643,8 @@ export function isNetworkFailure(message) {
  * # Errors
  *
  * Fails if either argument is not three numbers.
- * @param {any} candidate
- * @param {any} current
+ * @param {[number, number, number]} candidate
+ * @param {[number, number, number]} current
  * @returns {boolean}
  */
 export function isNewerVersion(candidate, current) {
@@ -16943,8 +16943,8 @@ export function paperRowToSummary(row) {
 
 /**
  * [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
- * @param {any} row
- * @returns {any}
+ * @param {B.PaperTagRowInput} row
+ * @returns {{ paperId: string; tagId: string; source: "zotero_annotation" | "zotero_item" | "summary" | "manual"; annotationRef?: string }}
  */
 export function paperTagFromRow(row) {
     const ret = wasm.paperTagFromRow(row);
@@ -17005,7 +17005,7 @@ export function paperToRow(paper) {
  *
  * Fails only if the value cannot be converted to a JS value.
  * @param {string} version
- * @returns {any}
+ * @returns {[number, number, number] | null}
  */
 export function parseAppVersion(version) {
     const ptr0 = passStringToWasm0(version, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -17663,7 +17663,7 @@ export function parseRegions(document) {
  *
  * Fails only if the value cannot be converted to a JS value.
  * @param {string} tag
- * @returns {any}
+ * @returns {[number, number, number] | null}
  */
 export function parseReleaseTag(tag) {
     const ptr0 = passStringToWasm0(tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -23121,8 +23121,8 @@ export function shareCoversResource(share, resource_type, resource_id, owner_id)
  * # Errors
  *
  * Fails if `row` does not have the `shares` columns.
- * @param {any} row
- * @returns {any}
+ * @param {B.ShareRow} row
+ * @returns {B.Share}
  */
 export function shareFromRow(row) {
     const ret = wasm.shareFromRow(row);
@@ -23218,10 +23218,10 @@ export function shareableTypes() {
  * # Errors
  *
  * Fails if `kind` is not a shareable type or `source` lacks `title`.
- * @param {any} kind
- * @param {any} row
- * @param {any} source
- * @returns {any}
+ * @param {B.ShareableType} kind
+ * @param {Record<string, unknown>} row
+ * @param {B.SharedSource} source
+ * @returns {B.SharedItem}
  */
 export function sharedItem(kind, row, source) {
     const ret = wasm.sharedItem(kind, row, source);
@@ -23237,7 +23237,7 @@ export function sharedItem(kind, row, source) {
  * # Errors
  *
  * Fails when `item` is not a shared item.
- * @param {any} item
+ * @param {B.SharedItem} item
  * @returns {string}
  */
 export function sharedItemHref(item) {
@@ -24734,8 +24734,8 @@ export function tagColor(tag) {
 
 /**
  * [`to_tag`]: a `tags` row as the app's tag.
- * @param {any} row
- * @returns {any}
+ * @param {B.TagRowInput} row
+ * @returns {{ id: string; name: string; color?: string }}
  */
 export function tagFromRow(row) {
     const ret = wasm.tagFromRow(row);
@@ -26576,7 +26576,7 @@ export function wireOkReplyHead(id) {
  *
  * Fails only if the result cannot be turned into a JS value.
  * @param {string} line
- * @returns {any}
+ * @returns {{ ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string }}
  */
 export function wireParseRequest(line) {
     const ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -26597,7 +26597,7 @@ export function wireParseRequest(line) {
  * Fails only if the decision cannot be turned into a JS value.
  * @param {string} line
  * @param {boolean} accept_answers
- * @returns {any}
+ * @returns {{ kind: "skip" } | { kind: "reply"; reply: Record<string, unknown> } | { kind: "call"; id: number; method: string; params?: unknown } | { kind: "settle"; answer: number; ok: true; value: unknown } | { kind: "settle"; answer: number; ok: false; error: string } | { kind: "badAnswer" }}
  */
 export function wireRoute(line, accept_answers) {
     const ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -26616,8 +26616,8 @@ export function wireRoute(line, accept_answers) {
  * # Errors
  *
  * Fails if `value` cannot be read as JSON (for example, a JS bigint).
- * @param {any} value
- * @returns {any}
+ * @param {unknown} value
+ * @returns {{ kind: "bigint"; digits: string } | { kind: "bytes"; encoded: string } | null}
  */
 export function wireTag(value) {
     const ret = wasm.wireTag(value);

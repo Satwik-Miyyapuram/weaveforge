@@ -46,7 +46,7 @@ fn settle_value(answer: Answer) -> Value {
 /// # Errors
 ///
 /// Fails only if the decision cannot be turned into a JS value.
-#[wasm_bindgen(js_name = wireRoute)]
+#[wasm_bindgen(js_name = wireRoute, unchecked_return_type = "{ kind: \"skip\" } | { kind: \"reply\"; reply: Record<string, unknown> } | { kind: \"call\"; id: number; method: string; params?: unknown } | { kind: \"settle\"; answer: number; ok: true; value: unknown } | { kind: \"settle\"; answer: number; ok: false; error: string } | { kind: \"badAnswer\" }")]
 pub fn wire_route_js(line: &str, accept_answers: bool) -> JsResult<JsValue> {
     to_js(&route_value(wire::route_line(line, accept_answers)))
 }
@@ -57,7 +57,7 @@ pub fn wire_route_js(line: &str, accept_answers: bool) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails only if the result cannot be turned into a JS value.
-#[wasm_bindgen(js_name = wireParseRequest)]
+#[wasm_bindgen(js_name = wireParseRequest, unchecked_return_type = "{ ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string }")]
 pub fn wire_parse_request_js(line: &str) -> JsResult<JsValue> {
     let value = match wire::parse_request(line) {
         Ok(request) => {
@@ -78,8 +78,10 @@ pub fn wire_parse_request_js(line: &str) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `value` cannot be read as JSON (for example, a JS bigint).
-#[wasm_bindgen(js_name = wireTag)]
-pub fn wire_tag_js(value: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = wireTag, unchecked_return_type = "{ kind: \"bigint\"; digits: string } | { kind: \"bytes\"; encoded: string } | null")]
+pub fn wire_tag_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] value: JsValue,
+) -> JsResult<JsValue> {
     let parsed: Value = serde_wasm_bindgen::from_value(value)?;
     let tag = match wire::wire_tag(&parsed) {
         Some(WireTag::Bigint(digits)) => json!({"kind": "bigint", "digits": digits}),

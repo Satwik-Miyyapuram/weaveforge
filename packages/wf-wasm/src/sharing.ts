@@ -3,16 +3,12 @@
  * Each function keeps the signature of packages/core/src/features/sharing/domain/share.ts and comment.ts.
  */
 import {
-  commentFromRow as rawCommentFromRow,
   decodeShareLinkToken as rawDecodeShareLinkToken,
   isBlanketShare as rawIsBlanketShare,
   normalizeCommentInput as rawNormalizeCommentInput,
   normalizeShareInput as rawNormalizeShareInput,
-  shareFromRow as rawShareFromRow,
   shareSupportsEditAccess as rawShareSupportsEditAccess,
   memberNameMap as rawMemberNameMap,
-  sharedItem as rawSharedItem,
-  sharedItemHref as rawSharedItemHref,
   sharedPaperAnnotationSummary as rawSharedPaperAnnotationSummary,
   shareLinkFromRow as rawShareLinkFromRow,
   sharedReadPlan as rawSharedReadPlan,
@@ -27,7 +23,6 @@ import type {
   NewCommentInput,
   NewShareInput,
   Share as ShareRecord,
-  ShareGrant as Share,
   ShareRow as ShareRowInput,
   ShareableType,
   SharedItem as SharedItemRecord,
@@ -47,8 +42,12 @@ export {
 } from "../pkg/wf_wasm.js";
 
 export {
+  commentFromRow,
   encodeShareLinkToken,
+  shareFromRow,
   shareLinkDefaultTtlDays,
+  sharedItem,
+  sharedItemHref,
   sharedItemTypeLabel,
   sharedResourceHref,
 } from "../pkg/wf_wasm.js";
@@ -145,34 +144,10 @@ export function shareTargets(shares: readonly ShareRecord[], kind: ShareableType
   return rawShareTargets([...shares], kind) as ShareTargets;
 }
 
-/** Map a share row to the domain share (Rust `share_from_row`). */
-export function shareFromRow(row: ShareRowInput): ShareRecord {
-  return rawShareFromRow(row) as ShareRecord;
-}
-
-/** Map a comment row to the domain comment (Rust `comment_from_row`). */
-export function commentFromRow(row: CommentRowInput): CommentRecord {
-  return rawCommentFromRow(row) as CommentRecord;
-}
-
-/** Shape one reader row into a `SharedItem` (Rust `shared_item`). */
-export function sharedItem(
-  kind: ShareableType,
-  row: Record<string, unknown>,
-  source: SharedSourceInput,
-): SharedItemRecord {
-  return rawSharedItem(kind, row, source) as SharedItemRecord;
-}
-
 /** Display name per member id: full name, else email, else `"Member"` (Rust `member_name_map`). */
 export function memberNameMap(members: readonly MemberNameSource[]): Map<string, string> {
   const names = rawMemberNameMap([...members]) as MemberName[];
   return new Map(names.map((m) => [m.id, m.name]));
-}
-
-/** Route for a shared item (Rust `shared_item_href`). */
-export function sharedItemHref(item: SharedItemRecord): string {
-  return rawSharedItemHref(item);
 }
 
 /** Count and up to three sample texts of a paper's Zotero annotations, notes excluded (Rust `shared_paper_annotation_summary`). */
