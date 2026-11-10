@@ -1,6 +1,8 @@
 //! Zotero Web API library paths and the child-item test (TS `zotero-web-api.ts`). The fetching
 //! and paging stay in TypeScript; this module holds the string rules.
 
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -67,6 +69,16 @@ pub fn zotero_top_level_path(collection: Option<&str>) -> String {
         }
         _ => "/items/top".to_owned(),
     }
+}
+
+/// The headers every Zotero Web API request carries: the API key and the pinned API version (TS
+/// `zoteroHeaders`). `BTreeMap` keeps the keys in the order the JS object literal had.
+#[must_use]
+pub fn zotero_headers(api_key: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("Zotero-API-Key".to_owned(), api_key.to_owned()),
+        ("Zotero-API-Version".to_owned(), "3".to_owned()),
+    ])
 }
 
 /// Non-empty and all ASCII digits, as the JS `/^\d+$/` check reads it.
@@ -161,6 +173,20 @@ mod tests {
         assert_eq!(
             zotero_library_url("/groups/2", "https://s.test/"),
             "https://s.test/groups/2"
+        );
+    }
+
+    #[test]
+    fn headers_carry_key_and_api_version() {
+        let headers = zotero_headers("KEY123");
+        assert_eq!(headers.len(), 2);
+        assert_eq!(
+            headers.get("Zotero-API-Key").map(String::as_str),
+            Some("KEY123")
+        );
+        assert_eq!(
+            headers.get("Zotero-API-Version").map(String::as_str),
+            Some("3")
         );
     }
 
