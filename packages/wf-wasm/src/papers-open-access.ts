@@ -8,12 +8,15 @@ import {
   resolveArxivId as rawResolveArxivId,
   knownCandidates as rawKnownCandidates,
   pmcCandidates as rawPmcCandidates,
-  rankOpenAccessCandidates as rawRankOpenAccessCandidates,
 } from "../pkg/wf_wasm.js";
 import type {
   EuropePmcAnswer,
   OpenAccessCandidate,
 } from "./bindings.js";
+
+export {
+  rankOpenAccessCandidates,
+} from "../pkg/wf_wasm.js";
 
 export {
   arxivCandidates,
@@ -61,7 +64,3 @@ export function pmcCandidates(pmcid: string, license?: string): OpenAccessCandid
   return rawPmcCandidates(pmcid, license) as OpenAccessCandidate[];
 }
 
-/** Deduplicated candidates, PDFs first, then source order. */
-export function rankOpenAccessCandidates(candidates: readonly OpenAccessCandidate[]): OpenAccessCandidate[] {
-  return rawRankOpenAccessCandidates(candidates) as OpenAccessCandidate[];
-}

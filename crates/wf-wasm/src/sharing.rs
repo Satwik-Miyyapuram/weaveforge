@@ -50,8 +50,11 @@ pub fn share_supports_edit_access_js(
 /// Fails if `share` or `resource_type` has the wrong shape.
 #[wasm_bindgen(js_name = shareCoversResource)]
 pub fn share_covers_resource_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Pick<B.Share, \"resourceType\" | \"resourceId\" | \"ownerId\">"
+    )]
     share: JsValue,
-    resource_type: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] resource_type: JsValue,
     resource_id: &str,
     owner_id: &str,
 ) -> JsResult<bool> {
@@ -72,8 +75,11 @@ pub fn share_covers_resource_js(
 /// Fails if `share` or `resource_type` has the wrong shape.
 #[wasm_bindgen(js_name = shareAllowsComment)]
 pub fn share_allows_comment_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Pick<B.Share, \"resourceType\" | \"resourceId\" | \"ownerId\" | \"access\">"
+    )]
     share: JsValue,
-    resource_type: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] resource_type: JsValue,
     resource_id: &str,
     owner_id: &str,
 ) -> JsResult<bool> {
@@ -94,8 +100,11 @@ pub fn share_allows_comment_js(
 /// Fails if `share` or `resource_type` has the wrong shape.
 #[wasm_bindgen(js_name = shareAllowsEdit)]
 pub fn share_allows_edit_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Pick<B.Share, \"resourceType\" | \"resourceId\" | \"ownerId\" | \"access\">"
+    )]
     share: JsValue,
-    resource_type: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] resource_type: JsValue,
     resource_id: &str,
     owner_id: &str,
 ) -> JsResult<bool> {
@@ -311,7 +320,7 @@ pub fn shareable_types_js() -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if the list cannot be converted to a JS value.
-#[wasm_bindgen(js_name = crdtEditableShareTypes)]
+#[wasm_bindgen(js_name = crdtEditableShareTypes, unchecked_return_type = "readonly B.ShareableType[]")]
 pub fn crdt_editable_share_types_js() -> JsResult<JsValue> {
     to_js(&sharing::CRDT_EDITABLE_SHARE_TYPES)
 }

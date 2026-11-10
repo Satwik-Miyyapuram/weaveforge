@@ -37,10 +37,10 @@ pub fn parse_plan_widget_bounds_js(stored: &str) -> Result<JsValue, serde_wasm_b
 ///
 /// Fails if `saved` is not a position or `areas` is not a list of work areas, or the result
 /// cannot be converted to JS.
-#[wasm_bindgen(js_name = placePlanWidget)]
+#[wasm_bindgen(js_name = placePlanWidget, unchecked_return_type = "B.PlanWidgetBounds")]
 pub fn place_plan_widget_js(
-    saved: JsValue,
-    areas: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PlanWidgetBounds | null")] saved: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.PlanWidgetWorkArea[]")] areas: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let saved: Option<WidgetBounds> = serde_wasm_bindgen::from_value(saved)?;
     let areas: Vec<WorkArea> = serde_wasm_bindgen::from_value(areas)?;

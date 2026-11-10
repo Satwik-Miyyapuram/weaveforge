@@ -117,7 +117,9 @@ pub fn note_backlinks_js(notes: JsValue, selected_id: Option<String>) -> JsResul
 ///
 /// Fails if `notes` has the wrong shape.
 #[wasm_bindgen(js_name = noteTags)]
-pub fn note_tags_js(notes: JsValue) -> JsResult<Vec<String>> {
+pub fn note_tags_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly unknown[]")] notes: JsValue,
+) -> JsResult<Vec<String>> {
     Ok(page::note_tags(&notes_from(notes)?))
 }
 

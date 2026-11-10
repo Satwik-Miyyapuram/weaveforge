@@ -111,8 +111,10 @@ pub fn metric_keys_js(experiments: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `experiments` is not an array of run objects, or the result cannot be serialised.
-#[wasm_bindgen(js_name = resultsTable)]
-pub fn results_table_js(experiments: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = resultsTable, unchecked_return_type = "B.ResultsTable")]
+pub fn results_table_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Experiment[]")] experiments: JsValue,
+) -> JsResult<JsValue> {
     let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
     to_js(&experiment_status::results_table(&experiments))
 }

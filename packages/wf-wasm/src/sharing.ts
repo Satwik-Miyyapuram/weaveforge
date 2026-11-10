@@ -8,9 +8,6 @@ import {
   isBlanketShare as rawIsBlanketShare,
   normalizeCommentInput as rawNormalizeCommentInput,
   normalizeShareInput as rawNormalizeShareInput,
-  shareAllowsComment as rawShareAllowsComment,
-  shareAllowsEdit as rawShareAllowsEdit,
-  shareCoversResource as rawShareCoversResource,
   shareFromRow as rawShareFromRow,
   shareSupportsEditAccess as rawShareSupportsEditAccess,
   memberNameMap as rawMemberNameMap,
@@ -21,7 +18,6 @@ import {
   sharedReadPlan as rawSharedReadPlan,
   shareTargets as rawShareTargets,
   shareableTypes as rawShareableTypes,
-  crdtEditableShareTypes as rawCrdtEditableShareTypes,
 } from "../pkg/wf_wasm.js";
 import type {
   Comment as CommentRecord,
@@ -44,6 +40,13 @@ import type {
 } from "./bindings.js";
 
 export {
+  crdtEditableShareTypes,
+  shareAllowsComment,
+  shareAllowsEdit,
+  shareCoversResource,
+} from "../pkg/wf_wasm.js";
+
+export {
   encodeShareLinkToken,
   shareLinkDefaultTtlDays,
   sharedItemTypeLabel,
@@ -62,11 +65,6 @@ export type {
 /** Every type a share can cover (Rust `SHAREABLE_TYPES`). Read at call time; the wasm module must be loaded. */
 export function shareableTypes(): readonly ShareableType[] {
   return rawShareableTypes() as readonly ShareableType[];
-}
-
-/** Share types that support collaborative editing (Rust `CRDT_EDITABLE_SHARE_TYPES`). */
-export function crdtEditableShareTypes(): readonly ShareableType[] {
-  return rawCrdtEditableShareTypes() as readonly ShareableType[];
 }
 
 /** A thrown validation message becomes an `Error` named like the TS validation class. */
@@ -93,36 +91,6 @@ export function shareSupportsEditAccess(
   resourceId: string | null,
 ): boolean {
   return rawShareSupportsEditAccess(resourceType, resourceId ?? undefined);
-}
-
-/** Whether a share grant covers a specific resource (including blanket grants). */
-export function shareCoversResource(
-  share: Pick<Share, "resourceType" | "resourceId" | "ownerId">,
-  resourceType: ShareableType,
-  resourceId: string,
-  ownerId: string,
-): boolean {
-  return rawShareCoversResource(share, resourceType, resourceId, ownerId);
-}
-
-/** Whether a share grant allows commenting on a specific resource. */
-export function shareAllowsComment(
-  share: Pick<Share, "resourceType" | "resourceId" | "ownerId" | "access">,
-  resourceType: ShareableType,
-  resourceId: string,
-  ownerId: string,
-): boolean {
-  return rawShareAllowsComment(share, resourceType, resourceId, ownerId);
-}
-
-/** Whether a share grant allows collaborative editing (CRDT path). */
-export function shareAllowsEdit(
-  share: Pick<Share, "resourceType" | "resourceId" | "ownerId" | "access">,
-  resourceType: ShareableType,
-  resourceId: string,
-  ownerId: string,
-): boolean {
-  return rawShareAllowsEdit(share, resourceType, resourceId, ownerId);
 }
 
 /** Normalize + validate a grant request (pure). Throws an `Error` with the validation message. */

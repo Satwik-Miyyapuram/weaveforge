@@ -12,8 +12,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `maxEntries` is not a positive integer, or `entries` has the wrong shape.
-#[wasm_bindgen(js_name = pickKeysToEvict)]
-pub fn pick_keys_to_evict_js(entries: JsValue, max_entries: f64) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = pickKeysToEvict, unchecked_return_type = "string[]")]
+pub fn pick_keys_to_evict_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.CachedPdfAge[]")] entries: JsValue,
+    max_entries: f64,
+) -> Result<JsValue, JsError> {
     let entries: Vec<CachedPdfAge> = serde_wasm_bindgen::from_value(entries)
         .map_err(|error| JsError::new(&error.to_string()))?;
     let keys = pick_keys_to_evict(&entries, max_entries).map_err(JsError::new)?;

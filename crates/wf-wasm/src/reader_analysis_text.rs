@@ -50,8 +50,10 @@ pub fn font_size_of_js(
 /// # Errors
 ///
 /// Fails if `items` is not an array of text items.
-#[wasm_bindgen(js_name = searchTextFromItems)]
-pub fn search_text_from_items_js(items: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = searchTextFromItems, unchecked_return_type = "B.AnalysisSearchText")]
+pub fn search_text_from_items_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfItem[]")] items: JsValue,
+) -> JsResult<JsValue> {
     let items: Vec<AnalysisPdfItem> = serde_wasm_bindgen::from_value(items)?;
     to_js(&analysis_text::search_text_from_items(&items))
 }
@@ -88,8 +90,12 @@ pub fn citation_item_to_rect_js(item: JsValue, from: f64, to: f64) -> JsResult<J
 /// # Errors
 ///
 /// Fails if `items` is not an array of text items.
-#[wasm_bindgen(js_name = mentionRects)]
-pub fn mention_rects_js(items: JsValue, start: f64, end: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = mentionRects, unchecked_return_type = "number[][]")]
+pub fn mention_rects_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfItem[]")] items: JsValue,
+    start: f64,
+    end: f64,
+) -> JsResult<JsValue> {
     let items: Vec<AnalysisPdfItem> = serde_wasm_bindgen::from_value(items)?;
     to_js(&analysis_text::mention_rects(&items, start, end))
 }
@@ -114,7 +120,9 @@ pub fn rectangles_overlap_js(a: &[f64], b: &[f64]) -> bool {
 ///
 /// Fails if `texts` is not an array of strings.
 #[wasm_bindgen(js_name = textFingerprint)]
-pub fn text_fingerprint_js(texts: JsValue) -> JsResult<String> {
+pub fn text_fingerprint_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] texts: JsValue,
+) -> JsResult<String> {
     let texts: Vec<String> = serde_wasm_bindgen::from_value(texts)?;
     Ok(analysis_text::text_fingerprint(&texts))
 }

@@ -38,8 +38,10 @@ pub fn build_workspace_tree_js(
 /// # Errors
 ///
 /// Fails if `nodes` has the wrong shape.
-#[wasm_bindgen(js_name = flattenTree)]
-pub fn flatten_tree_js(nodes: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = flattenTree, unchecked_return_type = "B.WorkspaceTreeNode[]")]
+pub fn flatten_tree_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WorkspaceTreeNode[]")] nodes: JsValue,
+) -> JsResult<JsValue> {
     let nodes: Vec<WorkspaceTreeNode> = serde_wasm_bindgen::from_value(nodes)?;
     to_js(&tree::flatten_tree(&nodes))
 }
@@ -50,7 +52,9 @@ pub fn flatten_tree_js(nodes: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `node` has the wrong shape.
 #[wasm_bindgen(js_name = isDocumentNode)]
-pub fn is_document_node_js(node: JsValue) -> JsResult<bool> {
+pub fn is_document_node_js(
+    #[wasm_bindgen(unchecked_param_type = "Pick<B.WorkspaceTreeNode, \"kind\" | \"folder\">")] node: JsValue,
+) -> JsResult<bool> {
     let node: DocumentProbe = serde_wasm_bindgen::from_value(node)?;
     Ok(tree::is_document_kind(node.kind, node.folder))
 }

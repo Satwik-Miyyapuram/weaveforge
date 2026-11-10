@@ -105,7 +105,10 @@ pub fn diff_workspace_js(parsed: JsValue, existing: JsValue, sides: JsValue) -> 
 /// Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units or `kind` is not a
 /// known kind.
 #[wasm_bindgen(js_name = jsonDataPath)]
-pub fn json_data_path_js(project_root: js_sys::JsString, kind: JsValue) -> JsResult<String> {
+pub fn json_data_path_js(
+    project_root: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceJsonKind")] kind: JsValue,
+) -> JsResult<String> {
     let project_root = &crate::guarded_text(&project_root)?;
     let kind: WorkspaceJsonKind = serde_wasm_bindgen::from_value(kind)?;
     Ok(json_data_path(project_root, kind))
@@ -153,8 +156,10 @@ pub fn diff_json_data_js(parsed: JsValue, existing_json: &str, side: JsValue) ->
 /// # Errors
 ///
 /// Fails when `entries` does not match the diff entry shape.
-#[wasm_bindgen(js_name = countJsonActions)]
-pub fn count_json_actions_js(entries: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = countJsonActions, unchecked_return_type = "B.ActionCounts")]
+pub fn count_json_actions_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.JsonDiffEntry[]")] entries: JsValue,
+) -> JsResult<JsValue> {
     let entries: Vec<JsonDiffEntry> = serde_wasm_bindgen::from_value(entries)?;
     to_js(&count_json_actions(&entries))
 }

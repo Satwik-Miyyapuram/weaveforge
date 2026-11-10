@@ -13,8 +13,11 @@ type JsResult<T> = Result<T, JsValue>;
 /// # Errors
 ///
 /// Fails if `tagIds` or `links` has the wrong shape.
-#[wasm_bindgen(js_name = paperCountsForTags)]
-pub fn paper_counts_for_tags_js(tag_ids: JsValue, links: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = paperCountsForTags, unchecked_return_type = "number[]")]
+pub fn paper_counts_for_tags_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] tag_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TagPaperLink[]")] links: JsValue,
+) -> JsResult<JsValue> {
     let tag_ids: Vec<String> = serde_wasm_bindgen::from_value(tag_ids).map_err(JsValue::from)?;
     let links: Vec<TagPaperLink> = serde_wasm_bindgen::from_value(links).map_err(JsValue::from)?;
     to_js(&tag_counts::paper_counts_for_tags(&tag_ids, &links)).map_err(JsValue::from)

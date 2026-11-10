@@ -24,8 +24,10 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`collect_list_ids`]: every list id in the tree, parents before children.
-#[wasm_bindgen(js_name = collectListIds)]
-pub fn collect_list_ids_js(tree: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = collectListIds, unchecked_return_type = "string[]")]
+pub fn collect_list_ids_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingListTreeNode[]")] tree: JsValue,
+) -> Result<JsValue, JsError> {
     let tree: Vec<ReadingListTreeNode> = parse(tree)?;
     to_js(&collect_list_ids(&tree)).map_err(js_error)
 }
@@ -54,8 +56,11 @@ pub fn subtree_ids_js(
 }
 
 /// [`group_subtree_items`]: the subtree's items grouped by list, in subtree order.
-#[wasm_bindgen(js_name = groupSubtreeItems)]
-pub fn group_subtree_items_js(node: JsValue, items: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = groupSubtreeItems, unchecked_return_type = "B.SubtreeListItems[]")]
+pub fn group_subtree_items_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ReadingListTreeNode")] node: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingListItem[]")] items: JsValue,
+) -> Result<JsValue, JsError> {
     let node: ReadingListTreeNode = parse(node)?;
     let items: Vec<ReadingListItem> = parse(items)?;
     to_js(&group_subtree_items(&node, &items)).map_err(js_error)
@@ -93,7 +98,9 @@ pub fn item_ids_for_papers_js(
 
 /// [`next_sort_order`]: the sort order a new row gets after `siblings`.
 #[wasm_bindgen(js_name = nextSortOrder)]
-pub fn next_sort_order_js(siblings: JsValue) -> Result<f64, JsError> {
+pub fn next_sort_order_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingListItem[]")] siblings: JsValue,
+) -> Result<f64, JsError> {
     let siblings: Vec<ReadingListItem> = parse(siblings)?;
     Ok(next_sort_order(&siblings))
 }

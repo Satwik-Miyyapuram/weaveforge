@@ -38,9 +38,9 @@ pub fn flatten_paper_rows_js(
 /// [`extraction_markdown`]: the table as a Markdown table.
 #[wasm_bindgen(js_name = extractionMarkdown)]
 pub fn extraction_markdown_js(
-    rows: JsValue,
-    defs: JsValue,
-    columns: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionRow[]")] rows: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionFieldDef[]")] defs: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] columns: JsValue,
 ) -> Result<String, JsError> {
     let rows: Vec<ExtractionRow> = parse(rows)?;
     let defs: Vec<ExtractionFieldDef> = parse(defs)?;
@@ -51,9 +51,9 @@ pub fn extraction_markdown_js(
 /// [`extraction_csv`]: the table as CSV, with a header line.
 #[wasm_bindgen(js_name = extractionCsv)]
 pub fn extraction_csv_js(
-    rows: JsValue,
-    defs: JsValue,
-    columns: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionRow[]")] rows: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionFieldDef[]")] defs: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] columns: JsValue,
 ) -> Result<String, JsError> {
     let rows: Vec<ExtractionRow> = parse(rows)?;
     let defs: Vec<ExtractionFieldDef> = parse(defs)?;
@@ -62,11 +62,11 @@ pub fn extraction_csv_js(
 }
 
 /// [`empty_cell_paper_ids`]: the papers whose cell for `field_id` is empty and not pending.
-#[wasm_bindgen(js_name = emptyCellPaperIds)]
+#[wasm_bindgen(js_name = emptyCellPaperIds, unchecked_return_type = "string[]")]
 pub fn empty_cell_paper_ids_js(
-    rows: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionRow[]")] rows: JsValue,
     field_id: &str,
-    pending_paper_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] pending_paper_ids: JsValue,
 ) -> Result<JsValue, JsError> {
     let rows: Vec<ExtractionRow> = parse(rows)?;
     let pending: Vec<String> = parse(pending_paper_ids)?;

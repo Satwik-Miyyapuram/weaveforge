@@ -16,11 +16,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `hit_entity_ids` is not an array of strings or `items` is not an
 /// array of `{id, fallbackText}` records.
-#[wasm_bindgen(js_name = rankFilterOrder)]
+#[wasm_bindgen(js_name = rankFilterOrder, unchecked_return_type = "number[]")]
 pub fn rank_filter_order_js(
     query: &str,
-    hit_entity_ids: JsValue,
-    items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] hit_entity_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly { id: string; fallbackText: string }[]")] items: JsValue,
 ) -> JsResult<JsValue> {
     let hit_entity_ids: Vec<String> = serde_wasm_bindgen::from_value(hit_entity_ids)?;
     let items: Vec<RankItem> = serde_wasm_bindgen::from_value(items)?;

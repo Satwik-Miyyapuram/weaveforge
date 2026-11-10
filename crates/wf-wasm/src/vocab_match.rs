@@ -20,8 +20,8 @@ pub fn damerau_levenshtein_js(a: &str, b: &str) -> u32 {
 /// Fails if `words` or `entry_words` is not an array of strings.
 #[wasm_bindgen(js_name = spanDistance)]
 pub fn span_distance_js(
-    words: JsValue,
-    entry_words: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] words: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] entry_words: JsValue,
 ) -> Result<f64, serde_wasm_bindgen::Error> {
     let words: Vec<String> = serde_wasm_bindgen::from_value(words)?;
     let entry_words: Vec<String> = serde_wasm_bindgen::from_value(entry_words)?;
@@ -39,10 +39,10 @@ pub fn span_distance_js(
 /// # Errors
 ///
 /// Fails if `vocabulary` is not an array of strings, or the result cannot be serialised.
-#[wasm_bindgen(js_name = matchVocabulary)]
+#[wasm_bindgen(js_name = matchVocabulary, unchecked_return_type = "B.VocabMatchResult")]
 pub fn match_vocabulary_js(
     text: &str,
-    vocabulary: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] vocabulary: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let vocabulary: Vec<String> = serde_wasm_bindgen::from_value(vocabulary)?;
     to_js(&vocab_match::match_vocabulary(text, &vocabulary))

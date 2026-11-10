@@ -38,7 +38,11 @@ import {
   withInkPageBackground as rawWithInkPageBackground,
   inkAttachmentIndex as rawInkAttachmentIndex,
   resolveInkPageOrder as rawResolveInkPageOrder,
-  inkPageOverBudget as rawInkPageOverBudget,
+} from "../pkg/wf_wasm.js";
+
+export {
+  inkPageOverBudget,
+  memberRoleLabelOf,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -209,11 +213,6 @@ export function resolveInkPageOrder(declared: readonly string[], present: readon
   return rawResolveInkPageOrder([...declared], [...present]) as string[];
 }
 
-/** True when a page holds more strokes than the budget. */
-export function inkPageOverBudget(page: { strokes: readonly unknown[] }): boolean {
-  return rawInkPageOverBudget(page);
-}
-
 /** The strokes of one recognised line. */
 export function inkLineStrokes<S>(strokes: readonly S[], line: { strokeStart: number; strokeCount: number }): S[] {
   return rawInkLineStrokes([...strokes], line) as S[];
@@ -311,7 +310,3 @@ export function createVaultPageWith<I, P>(input: I, id: string, now: string): P 
   return rawCreateVaultPageWith(input, id, now) as P;
 }
 
-/** The label shown for a member's role, or undefined when it has none. */
-export function memberRoleLabelOf(member: { role: string }, inLab: boolean, ownsOrg: boolean): string | undefined {
-  return rawMemberRoleLabelOf(member, inLab, ownsOrg);
-}

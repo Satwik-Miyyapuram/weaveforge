@@ -3,8 +3,6 @@
  * re-exported from index.ts.
  */
 import {
-  gitlabCombinedActive as rawGitlabCombinedActive,
-  projectGateOpen as rawProjectGateOpen,
   userGateOpen as rawUserGateOpen,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -13,6 +11,11 @@ import type {
   ProviderIds,
   RuntimeGate,
 } from "./bindings.js";
+
+export {
+  gitlabCombinedActive,
+  projectGateOpen,
+} from "../pkg/wf_wasm.js";
 
 export {
   resolveIntegrationConfig,
@@ -30,12 +33,3 @@ export function userGateOpen(
   return rawUserGateOpen(config, gate ?? null) as boolean;
 }
 
-/** Whether a project-scope descriptor shows. */
-export function projectGateOpen(config: Omit<IntegrationConfig, "gitRead"> & { gitRead: readonly string[] }, gate: RuntimeGate): boolean {
-  return rawProjectGateOpen(config, gate) as boolean;
-}
-
-/** True when GitLab is both git-read and log-sync (the two descriptors merge). */
-export function gitlabCombinedActive(config: Omit<IntegrationConfig, "gitRead"> & { gitRead: readonly string[] }): boolean {
-  return rawGitlabCombinedActive(config) as boolean;
-}

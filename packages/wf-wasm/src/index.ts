@@ -18,43 +18,27 @@ import init, {
   coreInfo as rawCoreInfo,
   maxIndexTextUtf16 as rawMaxIndexTextUtf16,
   tokenize as rawTokenize,
-  indexTerms as rawIndexTerms,
-  parseQuery as rawParseQuery,
   maxFusionIds as rawMaxFusionIds,
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
   changedSide as rawChangedSide,
-  isUnderIgnoredFolder as rawIsUnderIgnoredFolder,
   decideGitSyncPath as rawDecideGitSyncPath,
   decideVaultCommit as rawDecideVaultCommit,
   redactSecret as rawRedactSecret,
-  describeChanges as rawDescribeChanges,
   stampWorkspaceId as rawStampWorkspaceId,
   planDelta as rawPlanDelta,
   applyDelta as rawApplyDelta,
   safeWorkspacePath as rawSafeWorkspacePath,
-  isSafeWorkspacePath as rawIsSafeWorkspacePath,
   planArchiveEntries as rawPlanArchiveEntries,
-  stripArchiveRoot as rawStripArchiveRoot,
-  parsePaperRef as rawParsePaperRef,
   normalizeArxivId as rawNormalizeArxivId,
   extractDoi as rawExtractDoi,
-  extractPageMetadata as rawExtractPageMetadata,
   pageImportRefusal as rawPageImportRefusal,
-  guessBlobContentType as rawGuessBlobContentType,
   mergeVaultPage as rawMergeVaultPage,
   vaultPageBase as rawVaultPageBase,
   vaultPageSide as rawVaultPageSide,
   mergeHunks as rawMergeHunks,
-  writeConflictMarkers as rawWriteConflictMarkers,
-  readFrontmatter as rawReadFrontmatter,
-  writeFrontmatter as rawWriteFrontmatter,
   mergeRows as rawMergeRows,
   sameValue as rawSameValue,
-  diffBody as rawDiffBody,
-  hasConflictMarkers as rawHasConflictMarkers,
-  tagTone as rawTagTone,
-  headingSlug as rawHeadingSlug,
   invalidationPlan as rawInvalidationPlan,
   writeScope as rawWriteScope,
   lwwClearTarget as rawLwwClearTarget,
@@ -299,16 +283,6 @@ export function tokenize(text: string, options: TokenizerOptions): string[] {
   return rawTokenize(text, options) as string[];
 }
 
-/** `tokenize` then `processTerm` on each token: what MiniSearch indexes. Not deduplicated. */
-export function indexTerms(text: string, options: TokenizerOptions): string[] {
-  return rawIndexTerms(text, options) as string[];
-}
-
-/** The query split into terms, phrases, exclusions and filters. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function parseQuery(query: string): ParsedQuery {
-  return rawParseQuery(query) as ParsedQuery;
-}
-
 /**
  * A snippet of `body` around the densest cluster of `terms`, like `buildExcerpt`
  * in @weaveforge/core. Offsets are UTF-16 units into `text`.
@@ -384,11 +358,6 @@ export function changedSide(origin: { base?: string; folder?: string; workspace?
   return rawChangedSide(origin.base, origin.folder, origin.workspace) as ChangeSide;
 }
 
-/** True when the path sits inside a folder git sync never touches. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function isUnderIgnoredFolder(relPath: string): boolean {
-  return rawIsUnderIgnoredFolder(relPath);
-}
-
 /** Whether one workspace path goes into git, and why not. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function decideGitSyncPath(
   relPath: string,
@@ -418,11 +387,6 @@ export function redactSecret(text: string, secret: string | undefined): string {
   checkIndexText(text);
   if (secret !== undefined) checkIndexText(secret);
   return rawRedactSecret(text, secret);
-}
-
-/** A commit message for the changes: "N added, N changed, N removed", or "No changes". */
-export function describeChanges(status: readonly { state: "added" | "modified" | "deleted" }[]): string {
-  return rawDescribeChanges(status);
 }
 
 /** The file with a `weaveforge-id` frontmatter line added, or null if it already has one. Throws over MAX_INDEX_TEXT_UTF16 units. */
@@ -455,11 +419,6 @@ export function safeWorkspacePath(path: string): string {
   return rawSafeWorkspacePath(path);
 }
 
-/** True when `safeWorkspacePath` accepts the path. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function isSafeWorkspacePath(path: string): boolean {
-  return rawIsSafeWorkspacePath(path);
-}
-
 /** Declared-size budget for an import, checked as entries are inflated (Rust `ArchiveBudget`). */
 export function createArchiveBudget(limits: ArchiveLimitsInput): ArchiveBudget {
   return new ArchiveBudget(limits);
@@ -476,6 +435,25 @@ import type {
   EntryInfo as ArchiveEntryFacts,
   PlannedEntry as PlannedArchiveEntry,
 } from "./bindings.js";
+
+export {
+  describeChanges,
+  diffBody,
+  extractPageMetadata,
+  guessBlobContentType,
+  hasConflictMarkers,
+  headingSlug,
+  indexTerms,
+  isSafeWorkspacePath,
+  isUnderIgnoredFolder,
+  parsePaperRef,
+  parseQuery,
+  readFrontmatter,
+  stripArchiveRoot,
+  tagTone,
+  writeConflictMarkers,
+  writeFrontmatter,
+} from "../pkg/wf_wasm.js";
 
 export {
   canStoreUnchanged,
@@ -497,16 +475,6 @@ export function planArchiveEntries(
   return rawPlanArchiveEntries(entries, limits) as PlannedArchiveEntry[];
 }
 
-/** The paths with their single wrapping folder removed, when every path has one (Rust `strip_archive_root`). */
-export function stripArchiveRoot(paths: readonly string[]): string[] {
-  return rawStripArchiveRoot(paths) as string[];
-}
-
-/** The paper id a `kind` reference points to, normalized (Rust `parse_paper_ref`). Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function parsePaperRef(kind: PaperRefKind, value: string): PaperRef {
-  return rawParsePaperRef(kind, value) as PaperRef;
-}
-
 /** The bare arXiv id in `value` (a URL or `arXiv:` prefix), or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function normalizeArxivId(value?: string): string | undefined {
   if (!value) return undefined;
@@ -519,19 +487,9 @@ export function extractDoi(value?: string): string | undefined {
   return rawExtractDoi(value) ?? undefined;
 }
 
-/** Citation metadata read from a page's HTML. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function extractPageMetadata(html: string, url: string): PageMetadata {
-  return rawExtractPageMetadata(html, url) as PageMetadata;
-}
-
 /** Why `meta` cannot be imported as a paper, or null if it can. */
 export function pageImportRefusal(meta: PageMetadata): string | null {
   return rawPageImportRefusal(meta) ?? null;
-}
-
-/** MIME type for a blob's file `path`, by extension. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function guessBlobContentType(path: string): string {
-  return rawGuessBlobContentType(path);
 }
 
 /** Three-way merge of a note's frontmatter fields and body (Rust `merge_vault_page`). */
@@ -565,21 +523,6 @@ export function mergeHunks(
   return rawMergeHunks(oursText, theirsText, picks);
 }
 
-/** Both copies in one text, differing lines fenced with git-style markers. */
-export function writeConflictMarkers(oursText: string, theirsText: string): string {
-  return rawWriteConflictMarkers(oursText, theirsText);
-}
-
-/** A note's frontmatter map and body. */
-export function readFrontmatter(content: string): ParsedDocument {
-  return rawReadFrontmatter(content) as ParsedDocument;
-}
-
-/** Fields as a `---` block followed by body; null, undefined and empty lists are skipped. */
-export function writeFrontmatter(fields: Readonly<Record<string, unknown>>, body: string): string {
-  return rawWriteFrontmatter(fields, body);
-}
-
 /** A value as JSON would carry it: dates become strings, undefined and functions become null. */
 function plainJson(value: unknown): unknown {
   const text = JSON.stringify(value);
@@ -598,26 +541,6 @@ export function mergeRows(
 /** Equality as the database means it (Rust `same_value`). */
 export function sameValue(a: unknown, b: unknown): boolean {
   return rawSameValue(plainJson(a), plainJson(b));
-}
-
-/** Line and hunk diff of two bodies (Rust `diff_body`). */
-export function diffBody(ours: string, theirs: string): BodyDiff {
-  return rawDiffBody(ours, theirs) as BodyDiff;
-}
-
-/** Whether `text` holds git-style conflict markers (Rust `has_conflict_markers`). */
-export function hasConflictMarkers(text: string): boolean {
-  return rawHasConflictMarkers(text);
-}
-
-/** Colour slot 1..6 for a tag (Rust `tag_tone`); a tag keeps its slot everywhere. */
-export function tagTone(tag: string): number {
-  return rawTagTone(tag);
-}
-
-/** Heading anchor id: trimmed, lowercased, non-alphanumeric runs as one hyphen (Rust `heading_slug`). */
-export function headingSlug(text: string): string {
-  return rawHeadingSlug(text);
 }
 
 /** The caches a write of this resource type clears, or `null` for an unknown name (Rust `invalidation_plan`). */

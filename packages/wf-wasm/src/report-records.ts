@@ -4,7 +4,6 @@
  * file of the same name in packages/core/src/features/report/domain.
  */
 import {
-  buildSectionTree as rawBuildSectionTree,
   checkBibliography as rawCheckBibliography,
   countSectionSources as rawCountSectionSources,
   createReportSectionWith as rawCreateReportSectionWith,
@@ -29,6 +28,10 @@ import type {
   ReportSectionTreeNode,
   SectionProgress,
 } from "./bindings.js";
+
+export {
+  buildSectionTree,
+} from "../pkg/wf_wasm.js";
 
 export {
   createReportSectionWith,
@@ -101,11 +104,6 @@ export function createReportSection(
 /** Why `input` is not a valid new section, or null when it is. */
 export function reportSectionInputError(input: NewReportSectionInput): string | null {
   return rawReportSectionInputError(input) ?? null;
-}
-
-/** The outline tree of a flat section list; siblings by sortOrder, sectionNo, then title. */
-export function buildSectionTree(sections: readonly ReportSection[]): ReportSectionTreeNode[] {
-  return rawBuildSectionTree(sections) as ReportSectionTreeNode[];
 }
 
 /** A section's words against its target, `null` where there is no target (`report::section_progress`). */

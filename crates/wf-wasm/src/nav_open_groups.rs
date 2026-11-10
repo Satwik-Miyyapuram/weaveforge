@@ -26,8 +26,11 @@ pub fn with_active_js(
 /// # Errors
 ///
 /// Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = toggleGroup)]
-pub fn toggle_group_js(groups: JsValue, key: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = toggleGroup, unchecked_return_type = "string[]")]
+pub fn toggle_group_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] groups: JsValue,
+    key: &str,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let groups: Vec<String> = serde_wasm_bindgen::from_value(groups)?;
     to_js(&nav_open_groups::toggle_group(&groups, key))
 }
@@ -55,7 +58,9 @@ pub fn load_open_groups_js(
 ///
 /// Fails if `groups` is not an array of strings.
 #[wasm_bindgen(js_name = encodeOpenGroups)]
-pub fn encode_open_groups_js(groups: JsValue) -> Result<String, serde_wasm_bindgen::Error> {
+pub fn encode_open_groups_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] groups: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
     let groups: Vec<String> = serde_wasm_bindgen::from_value(groups)?;
     Ok(nav_open_groups::encode_open_groups(&groups))
 }

@@ -219,8 +219,10 @@ pub fn parse_hal_js(
 /// # Errors
 ///
 /// Fails if `candidates` is not a candidate list, or the result cannot be converted.
-#[wasm_bindgen(js_name = rankOpenAccessCandidates)]
-pub fn rank_open_access_candidates_js(candidates: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = rankOpenAccessCandidates, unchecked_return_type = "B.OpenAccessCandidate[]")]
+pub fn rank_open_access_candidates_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.OpenAccessCandidate[]")] candidates: JsValue,
+) -> Result<JsValue, JsError> {
     out(&open_access::rank_open_access_candidates(read_candidates(
         candidates,
     )?))

@@ -65,8 +65,10 @@ pub fn reconstruct_lines_js(page: f64, items: JsValue, keep: JsValue) -> JsResul
 /// # Errors
 ///
 /// Fails if `lines` is not an array of `TextLine` objects.
-#[wasm_bindgen(js_name = detectColumns)]
-pub fn detect_columns_js(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = detectColumns, unchecked_return_type = "number[]")]
+pub fn detect_columns_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TextLine[]")] lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&detect_columns(&lines))
 }

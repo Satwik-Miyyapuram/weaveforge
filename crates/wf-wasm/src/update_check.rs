@@ -48,8 +48,10 @@ pub fn is_newer_version_js(
 ///
 /// Fails if `releases` does not match the release list shape, or the result cannot be converted
 /// to JS.
-#[wasm_bindgen(js_name = newestDesktopRelease)]
-pub fn newest_desktop_release_js(releases: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = newestDesktopRelease, unchecked_return_type = "B.NewestRelease | null")]
+pub fn newest_desktop_release_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReleaseRow[]")] releases: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let releases: Vec<Release> = serde_wasm_bindgen::from_value(releases)?;
     to_js(&newest_release(&releases))
 }

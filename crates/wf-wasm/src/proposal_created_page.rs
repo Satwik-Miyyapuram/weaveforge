@@ -13,8 +13,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if an input cannot be read as the expected shape.
-#[wasm_bindgen(js_name = createdPageIndex)]
-pub fn created_page_index_js(item: JsValue, pages: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = createdPageIndex, unchecked_return_type = "number | null")]
+pub fn created_page_index_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ProposalPreviewItem")] item: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.PageRef[]")] pages: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ProposalPreviewItem =
         serde_wasm_bindgen::from_value(item).map_err(|e| JsError::new(&e.to_string()))?;
     let pages: Vec<PageRef> =

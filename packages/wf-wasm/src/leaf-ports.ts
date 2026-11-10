@@ -12,7 +12,6 @@ import {
   mergeExtractions as rawMergeExtractions,
   parseFolderDraft as rawParseFolderDraft,
   peersFromUsers as rawPeersFromUsers,
-  samePeers as rawSamePeers,
   spanPoints as rawSpanPoints,
   withoutExisting as rawWithoutExisting,
 } from "../pkg/wf_wasm.js";
@@ -24,6 +23,10 @@ import type {
   SpanPoints,
   TextSpan,
 } from "./bindings.js";
+
+export {
+  samePeers,
+} from "../pkg/wf_wasm.js";
 
 export {
   conceptKey,
@@ -69,11 +72,6 @@ export function peersFromStates(
 ): Peer[] {
   const users = Array.from(states, ([id, s]) => [id, (s as { user?: unknown } | null)?.user ?? null]);
   return rawPeersFromUsers(users, self.clientId, self.authorId) as Peer[];
-}
-
-/** True when both lists show the same people the same way. */
-export function samePeers(a: readonly Peer[], b: readonly Peer[]): boolean {
-  return rawSamePeers(a, b);
 }
 
 /** The anchor for `text.slice(start, end)`, or null for an empty or blank span. */

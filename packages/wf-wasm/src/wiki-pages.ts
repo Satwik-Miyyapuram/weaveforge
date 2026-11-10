@@ -8,7 +8,6 @@ import {
   wikiPageRefs as rawWikiPageRefs,
   wikiSourceDocuments as rawWikiSourceDocuments,
   missingPagePlans as rawMissingPagePlans,
-  recentlyApprovedWikiPages as rawRecentlyApprovedWikiPages,
 } from "../pkg/wf_wasm.js";
 import type {
   RecentWikiPage,
@@ -17,6 +16,10 @@ import type {
   WikiPaper,
   WikiSourceDocument,
 } from "./bindings.js";
+
+export {
+  recentlyApprovedWikiPages,
+} from "../pkg/wf_wasm.js";
 
 export type { RecentWikiPage, WikiNote, WikiPagePlanRecord, WikiPaper, WikiSourceDocument } from "./bindings.js";
 
@@ -52,7 +55,3 @@ export function missingPagePlans(targets: readonly string[]): WikiPagePlanRecord
   return rawMissingPagePlans([...targets]) as WikiPagePlanRecord[];
 }
 
-/** The wiki's pages, newest first, capped at `limit`. */
-export function recentlyApprovedWikiPages(pages: readonly WikiNote[], limit: number): RecentWikiPage[] {
-  return rawRecentlyApprovedWikiPages(pages, limit) as RecentWikiPage[];
-}

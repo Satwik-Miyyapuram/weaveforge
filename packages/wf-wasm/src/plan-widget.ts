@@ -5,12 +5,15 @@
 import {
   cleanWidgetPalette as rawCleanWidgetPalette,
   parsePlanWidgetBounds as rawParsePlanWidgetBounds,
-  placePlanWidget as rawPlacePlanWidget,
 } from "../pkg/wf_wasm.js";
 import type {
   PlanWidgetBounds,
   PlanWidgetWorkArea,
 } from "./bindings.js";
+
+export {
+  placePlanWidget,
+} from "../pkg/wf_wasm.js";
 
 export {
   parseTaskbarCreatedId,
@@ -30,13 +33,5 @@ export function cleanWidgetPalette(value: unknown): PlanWidgetPalette | null {
 export function parsePlanWidgetBounds(stored: unknown): PlanWidgetBounds | null {
   if (typeof stored !== "string") return null;
   return rawParsePlanWidgetBounds(stored) as PlanWidgetBounds | null;
-}
-
-/** The saved spot if it is on a screen, else the top-right corner of the first screen. */
-export function placePlanWidget(
-  saved: PlanWidgetBounds | null,
-  areas: readonly PlanWidgetWorkArea[],
-): PlanWidgetBounds {
-  return rawPlacePlanWidget(saved, areas) as PlanWidgetBounds;
 }
 

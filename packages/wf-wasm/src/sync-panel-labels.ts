@@ -3,15 +3,14 @@
  */
 import {
   deviceLabel as rawDeviceLabel,
-  groupHunks as rawGroupHunks,
   isSettled as rawIsSettled,
   plural as rawPlural,
-  uniqueDeviceName as rawUniqueDeviceName,
 } from "../pkg/wf_wasm.js";
-import type {
-  DiffLine,
-  HunkGroup,
-} from "./bindings.js";
+
+export {
+  groupHunks,
+  uniqueDeviceName,
+} from "../pkg/wf_wasm.js";
 
 export {
   deviceMarkers,
@@ -26,11 +25,6 @@ export type PanelChoice =
   | { kind: "remote" }
   | { kind: "hunks"; picks: Readonly<Record<number, string>> }
   | { kind: "edit"; text: string };
-
-/** Runs of unchanged lines, and each changed run tagged with its hunk index. */
-export function groupHunks(lines: readonly DiffLine[]): HunkGroup[] {
-  return rawGroupHunks(lines) as HunkGroup[];
-}
 
 /** Whether a field's choice is complete (an edit with no markers, a pick for every hunk, or a side). */
 export function isSettled(choice: PanelChoice | undefined, ours: string, theirs: string): boolean {
@@ -47,7 +41,3 @@ export function deviceLabel(platform: string): string {
   return rawDeviceLabel(platform);
 }
 
-/** An adoption label, `name (deviceLabel)`, counted up past any name already in `taken`. */
-export function uniqueDeviceName(name: string, deviceLabel: string, taken: readonly string[]): string {
-  return rawUniqueDeviceName(name, deviceLabel, taken);
-}

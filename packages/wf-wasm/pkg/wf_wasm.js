@@ -1340,8 +1340,8 @@ export function applyAnnotationPatch(ann, patch) {
  *
  * Fails when `placement` is not `"inside"` or `"outside"`, or `input` is over the text cap.
  * @param {string} input
- * @param {any} placement
- * @returns {any}
+ * @param {B.CommaPlacement} placement
+ * @returns {B.TextResult}
  */
 export function applyCommaPlacement(input, placement) {
     const ret = wasm.applyCommaPlacement(input, placement);
@@ -1578,9 +1578,9 @@ export function arxivStamp(page_text) {
 /**
  * [`ask_prompt`](ask_library::ask_prompt): `{ system, user }` for the sources as passed.
  * @param {string} question
- * @param {any} sources
+ * @param {readonly B.AskSource[]} sources
  * @param {string} nonce
- * @returns {any}
+ * @returns {B.AskPrompt}
  */
 export function askPrompt(question, sources, nonce) {
     const ptr0 = passStringToWasm0(question, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -1731,9 +1731,9 @@ export function axisSpec(tier) {
  * # Errors
  *
  * Fails if `hits` is not an array of hits.
- * @param {any} hits
+ * @param {readonly B.AnnotationBacklinkHit[]} hits
  * @param {string} annotation_id
- * @returns {any}
+ * @returns {B.AnnotationBacklinkTarget[]}
  */
 export function backlinksForAnnotation(hits, annotation_id) {
     const ptr0 = passStringToWasm0(annotation_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -2160,8 +2160,8 @@ export function buildLabSnapshotContent(input) {
  * # Errors
  *
  * Fails if `lists` has the wrong shape.
- * @param {any} lists
- * @returns {any}
+ * @param {readonly B.ReadingList[]} lists
+ * @returns {B.ReadingListTreeNode[]}
  */
 export function buildListTree(lists) {
     const ret = wasm.buildListTree(lists);
@@ -2310,8 +2310,8 @@ export function buildReferenceIndex(pages, outline) {
  * # Errors
  *
  * Fails if `sections` is not a list of sections.
- * @param {any} sections
- * @returns {any}
+ * @param {readonly B.ReportSection[]} sections
+ * @returns {B.ReportSectionTreeNode[]}
  */
 export function buildSectionTree(sections) {
     const ret = wasm.buildSectionTree(sections);
@@ -3194,8 +3194,8 @@ export function cleanGroups(leaf) {
  *
  * Fails when `settings` is not a `PasteSettings` object, or `input` is over the text cap.
  * @param {string} input
- * @param {any} settings
- * @returns {any}
+ * @param {B.PasteSettings} settings
+ * @returns {B.CleanPasteResult}
  */
 export function cleanPastedText(input, settings) {
     const ret = wasm.cleanPastedText(input, settings);
@@ -3212,8 +3212,8 @@ export function cleanPastedText(input, settings) {
  *
  * Fails when `options` is not a `PdfTextOptions` object, or `input` is over the text cap.
  * @param {string} input
- * @param {any} options
- * @returns {any}
+ * @param {B.PdfTextOptions} options
+ * @returns {B.TextResult}
  */
 export function cleanPdfText(input, options) {
     const ret = wasm.cleanPdfText(input, options);
@@ -3248,8 +3248,8 @@ export function cleanPmcid(id) {
  *
  * Fails when `rules` is not a string array, or `text` is over the text cap.
  * @param {string} text
- * @param {any} rules
- * @returns {any}
+ * @param {readonly string[]} rules
+ * @returns {B.UrlCleanupResult}
  */
 export function cleanUrlsWithRules(text, rules) {
     const ret = wasm.cleanUrlsWithRules(text, rules);
@@ -3283,8 +3283,8 @@ export function cleanWidgetPalette(value) {
  *
  * Fails when `options` is not a `WrappedTextOptions` object, or `input` is over the text cap.
  * @param {string} input
- * @param {any} options
- * @returns {any}
+ * @param {B.WrappedTextOptions} options
+ * @returns {B.TextResult}
  */
 export function cleanWrappedText(input, options) {
     const ret = wasm.cleanWrappedText(input, options);
@@ -3375,9 +3375,9 @@ export function closedTabs(before, after) {
  * # Errors
  *
  * Fails if `marks` has the wrong shape.
- * @param {any} marks
+ * @param {readonly B.PlanTimelineMark[]} marks
  * @param {number} min_gap
- * @returns {any}
+ * @returns {B.PlanTimelineCluster[]}
  */
 export function clusterMarks(marks, min_gap) {
     const ret = wasm.clusterMarks(marks, min_gap);
@@ -3393,10 +3393,10 @@ export function clusterMarks(marks, min_gap) {
  * # Errors
  *
  * Fails if any argument does not have the expected shape.
- * @param {any} mentions
+ * @param {readonly B.AnalysisCitationMention[]} mentions
  * @param {string} text
- * @param {any} items
- * @returns {any}
+ * @param {readonly B.AnalysisPdfItem[]} items
+ * @returns {B.AnalysisCitationMention[]}
  */
 export function coalesceMentions(mentions, text, items) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -3519,8 +3519,8 @@ export function collapseToEntities(hits, seed_entity_id) {
  *
  * Fails if the annotations do not have the shape of a TS `ReaderAnnotation`,
  * or the result cannot be serialised.
- * @param {any} annotations
- * @returns {any}
+ * @param {readonly B.AnnotationInput[]} annotations
+ * @returns {B.BatchImageRegion[]}
  */
 export function collectAnnotationImageRegions(annotations) {
     const ret = wasm.collectAnnotationImageRegions(annotations);
@@ -3547,8 +3547,8 @@ export function collectCitedKeys(latex) {
 
 /**
  * [`collect_list_ids`]: every list id in the tree, parents before children.
- * @param {any} tree
- * @returns {any}
+ * @param {readonly B.ReadingListTreeNode[]} tree
+ * @returns {string[]}
  */
 export function collectListIds(tree) {
     const ret = wasm.collectListIds(tree);
@@ -3624,9 +3624,9 @@ export function commandForChord(chord, tab_count) {
  * # Errors
  *
  * Fails if `query` is too long or `labels` is not an array of strings.
- * @param {any} labels
+ * @param {readonly string[]} labels
  * @param {string} query
- * @returns {any}
+ * @returns {number[]}
  */
 export function commandMatchIndices(labels, query) {
     const ret = wasm.commandMatchIndices(labels, query);
@@ -3967,8 +3967,8 @@ export function countActions(entries) {
  * # Errors
  *
  * Fails when `entries` does not match the diff entry shape.
- * @param {any} entries
- * @returns {any}
+ * @param {readonly B.JsonDiffEntry[]} entries
+ * @returns {B.ActionCounts}
  */
 export function countJsonActions(entries) {
     const ret = wasm.countJsonActions(entries);
@@ -4057,9 +4057,9 @@ export function coveredHitMask(query_term_counts, term_count, min_coverage) {
  * # Errors
  *
  * Fails if `page` or `links` do not have the expected shape.
- * @param {any} page
- * @param {any} links
- * @returns {any}
+ * @param {B.LinkCitationPage} page
+ * @param {readonly B.AnalysisPdfLink[]} links
+ * @returns {B.CoveredTextSpans}
  */
 export function coveredTextSpans(page, links) {
     const ret = wasm.coveredTextSpans(page, links);
@@ -4076,7 +4076,7 @@ export function coveredTextSpans(page, links) {
  * # Errors
  *
  * Fails if the list cannot be converted to a JS value.
- * @returns {any}
+ * @returns {readonly B.ShareableType[]}
  */
 export function crdtEditableShareTypes() {
     const ret = wasm.crdtEditableShareTypes();
@@ -4107,8 +4107,8 @@ export function creatableRoles(creator) {
  * # Errors
  *
  * Fails if the node does not have the expected shape, or the result cannot be serialised.
- * @param {any} node
- * @returns {any}
+ * @param {B.WorkspaceTreeNode} node
+ * @returns {readonly B.CreateKind[]}
  */
 export function creatableUnder(node) {
     const ret = wasm.creatableUnder(node);
@@ -4327,9 +4327,9 @@ export function createVectorIndex(dimensions) {
  * # Errors
  *
  * Fails if an input cannot be read as the expected shape.
- * @param {any} item
- * @param {any} pages
- * @returns {any}
+ * @param {B.ProposalPreviewItem} item
+ * @param {readonly B.PageRef[]} pages
+ * @returns {number | null}
  */
 export function createdPageIndex(item, pages) {
     const ret = wasm.createdPageIndex(item, pages);
@@ -4481,10 +4481,10 @@ export function dashboardBuildStats(input, today) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} items
- * @param {any} limits
+ * @param {readonly B.LayoutItem[]} items
+ * @param {readonly B.CardLimit[]} limits
  * @param {number} cols
- * @returns {any}
+ * @returns {B.LayoutItem[]}
  */
 export function dashboardCloseGaps(items, limits, cols) {
     const ret = wasm.dashboardCloseGaps(items, limits, cols);
@@ -4500,9 +4500,9 @@ export function dashboardCloseGaps(items, limits, cols) {
  * # Errors
  *
  * Fails on a bad input shape.
- * @param {any} items
+ * @param {readonly B.LayoutItem[]} items
  * @param {number} cols
- * @returns {any}
+ * @returns {B.LayoutItem[]}
  */
 export function dashboardCompactVertical(items, cols) {
     const ret = wasm.dashboardCompactVertical(items, cols);
@@ -4701,10 +4701,10 @@ export function dashboardNeedsAttention(papers, milestones, experiments, today) 
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} item
- * @param {any} limits
+ * @param {B.LayoutItem} item
+ * @param {readonly B.CardLimit[]} limits
  * @param {number} cols
- * @returns {any}
+ * @returns {B.LayoutItem}
  */
 export function dashboardNormalizeItem(item, limits, cols) {
     const ret = wasm.dashboardNormalizeItem(item, limits, cols);
@@ -4720,9 +4720,9 @@ export function dashboardNormalizeItem(item, limits, cols) {
  * # Errors
  *
  * Fails on a bad input shape or an unknown card type.
- * @param {any} items
- * @param {any} limits
- * @returns {any}
+ * @param {readonly B.LayoutItem[]} items
+ * @param {readonly B.CardLimit[]} limits
+ * @returns {B.LayoutItem[]}
  */
 export function dashboardPackSm(items, limits) {
     const ret = wasm.dashboardPackSm(items, limits);
@@ -5060,8 +5060,8 @@ export function decodeShareLinkToken(encoded) {
  * # Errors
  *
  * Fails if `rows` has the wrong shape.
- * @param {any} rows
- * @returns {any}
+ * @param {readonly B.PaperRelationRow[]} rows
+ * @returns {B.PaperRelationRow[]}
  */
 export function dedupePaperRelationRows(rows) {
     const ret = wasm.dedupePaperRelationRows(rows);
@@ -5078,7 +5078,7 @@ export function dedupePaperRelationRows(rows) {
  *
  * Fails if `lists` has the wrong shape.
  * @param {string} list_id
- * @param {any} lists
+ * @param {readonly B.ReadingList[]} lists
  * @returns {string[]}
  */
 export function deepestFirstListIds(list_id, lists) {
@@ -5255,8 +5255,8 @@ export function degreeColours(degree) {
  * # Errors
  *
  * Fails when `ops` is not a list of outbox ops.
- * @param {any} ops
- * @returns {any}
+ * @param {readonly B.OwedOp[]} ops
+ * @returns {Record<string, unknown>}
  */
 export function deletedLocalBase(ops) {
     const ret = wasm.deletedLocalBase(ops);
@@ -5273,9 +5273,9 @@ export function deletedLocalBase(ops) {
  * # Errors
  *
  * Fails when `ops` is not a list of outbox ops or `stored` is not a plain object.
- * @param {any} ops
- * @param {any} stored
- * @returns {any}
+ * @param {readonly B.OwedOp[]} ops
+ * @param {Record<string, unknown> | null} stored
+ * @returns {B.Sides | null}
  */
 export function deletedRemoteSides(ops, stored) {
     const ret = wasm.deletedRemoteSides(ops, stored);
@@ -5334,7 +5334,7 @@ export function deletionFor(kind, side) {
  * # Errors
  *
  * Fails when `status` is not that shape.
- * @param {any} status
+ * @param {readonly { state: "added" | "modified" | "deleted" }[]} status
  * @returns {string}
  */
 export function describeChanges(status) {
@@ -5561,8 +5561,8 @@ export function describeUrlRejection(reason) {
  * # Errors
  *
  * Fails if `texts` is not an array of strings.
- * @param {any} texts
- * @returns {any}
+ * @param {readonly string[]} texts
+ * @returns {B.CitationStyle | null | undefined}
  */
 export function detectCitationStyle(texts) {
     const ret = wasm.detectCitationStyle(texts);
@@ -5578,8 +5578,8 @@ export function detectCitationStyle(texts) {
  * # Errors
  *
  * Fails if `lines` is not an array of `TextLine` objects.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.TextLine[]} lines
+ * @returns {number[]}
  */
 export function detectColumns(lines) {
     const ret = wasm.detectColumns(lines);
@@ -5657,7 +5657,7 @@ export function diffAnnotationFields(row) {
  * Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} ours
  * @param {string} theirs
- * @returns {any}
+ * @returns {B.BodyDiff}
  */
 export function diffBody(ours, theirs) {
     const ret = wasm.diffBody(ours, theirs);
@@ -6024,8 +6024,8 @@ export function draftPlaceholder(kind) {
  * # Errors
  *
  * Fails if `papers` or `marks` are not lists of the right shape.
- * @param {any} papers
- * @param {any} marks
+ * @param {readonly B.ReadingPaper[]} papers
+ * @param {readonly B.ReadingMark[]} marks
  * @param {string} day
  * @returns {string}
  */
@@ -6108,8 +6108,8 @@ export function duplicatePlan(doc, documents) {
  * # Errors
  *
  * Fails when `ops` is not a list of outbox ops.
- * @param {any} ops
- * @returns {any}
+ * @param {readonly B.OwedOp[]} ops
+ * @returns {B.Sides | null}
  */
 export function editSides(ops) {
     const ret = wasm.editSides(ops);
@@ -6225,10 +6225,10 @@ export function embeddableText(title, aliases, body) {
 
 /**
  * [`empty_cell_paper_ids`]: the papers whose cell for `field_id` is empty and not pending.
- * @param {any} rows
+ * @param {readonly B.ExtractionRow[]} rows
  * @param {string} field_id
- * @param {any} pending_paper_ids
- * @returns {any}
+ * @param {readonly string[]} pending_paper_ids
+ * @returns {string[]}
  */
 export function emptyCellPaperIds(rows, field_id, pending_paper_ids) {
     const ptr0 = passStringToWasm0(field_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -6396,7 +6396,7 @@ export function encodeLocus(locus) {
  * # Errors
  *
  * Fails if `groups` is not an array of strings.
- * @param {any} groups
+ * @param {readonly string[]} groups
  * @returns {string}
  */
 export function encodeOpenGroups(groups) {
@@ -6459,8 +6459,8 @@ export function encodeShareLinkToken(token) {
 
 /**
  * [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
- * @param {any} defaults
- * @returns {any}
+ * @param {readonly string[]} defaults
+ * @returns {string[]}
  */
 export function engineStartParams(defaults) {
     const ret = wasm.engineStartParams(defaults);
@@ -7044,7 +7044,7 @@ export function extractLexical(request) {
  * Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} html
  * @param {string} url
- * @returns {any}
+ * @returns {B.PageMetadata}
  */
 export function extractPageMetadata(html, url) {
     const ret = wasm.extractPageMetadata(html, url);
@@ -7112,9 +7112,9 @@ export function extractWikilinks(body) {
 
 /**
  * [`extraction_csv`]: the table as CSV, with a header line.
- * @param {any} rows
- * @param {any} defs
- * @param {any} columns
+ * @param {readonly B.ExtractionRow[]} rows
+ * @param {readonly B.ExtractionFieldDef[]} defs
+ * @param {readonly string[]} columns
  * @returns {string}
  */
 export function extractionCsv(rows, defs, columns) {
@@ -7138,9 +7138,9 @@ export function extractionCsv(rows, defs, columns) {
 
 /**
  * [`extraction_markdown`]: the table as a Markdown table.
- * @param {any} rows
- * @param {any} defs
- * @param {any} columns
+ * @param {readonly B.ExtractionRow[]} rows
+ * @param {readonly B.ExtractionFieldDef[]} defs
+ * @param {readonly string[]} columns
  * @returns {string}
  */
 export function extractionMarkdown(rows, defs, columns) {
@@ -7168,7 +7168,7 @@ export function extractionMarkdown(rows, defs, columns) {
  * # Errors
  *
  * Fails if `items` is not an array of `{ label, text }` objects.
- * @param {any} items
+ * @param {readonly B.UntrustedItem[]} items
  * @param {string} nonce
  * @returns {string}
  */
@@ -7470,8 +7470,8 @@ export function findDocumentMatches(pages, query) {
  * # Errors
  *
  * Fails if `papers` is not a list of paper summaries, or the result cannot be converted.
- * @param {any} papers
- * @returns {any}
+ * @param {readonly B.TidyPaper[]} papers
+ * @returns {B.DuplicateGroup[]}
  */
 export function findDuplicateGroups(papers) {
     const ret = wasm.findDuplicateGroups(papers);
@@ -7529,7 +7529,7 @@ export function findHeadingLines(lines, body, furniture_indices) {
  * @param {string} body
  * @param {string} head
  * @param {boolean} allow_space
- * @returns {any}
+ * @returns {B.FoundImageRef[]}
  */
 export function findImageRefs(body, head, allow_space) {
     const ret = wasm.findImageRefs(body, head, allow_space);
@@ -7814,8 +7814,8 @@ export function flattenPaperRows(known_ids, paper_ids, values, defs) {
  * # Errors
  *
  * Fails if `nodes` has the wrong shape.
- * @param {any} nodes
- * @returns {any}
+ * @param {readonly B.WorkspaceTreeNode[]} nodes
+ * @returns {B.WorkspaceTreeNode[]}
  */
 export function flattenTree(nodes) {
     const ret = wasm.flattenTree(nodes);
@@ -8333,7 +8333,7 @@ export function formatWords(words) {
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `resolved` is
  * not an object of strings.
  * @param {string} body
- * @param {any} resolved
+ * @param {Readonly<Record<string, string>>} resolved
  * @returns {string}
  */
 export function fromRelativeBlobLinks(body, resolved) {
@@ -8429,8 +8429,8 @@ export function furnitureKey(s) {
  * # Errors
  *
  * Fails if `lines` is not an array of text lines.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} lines
+ * @returns {boolean[]}
  */
 export function furnitureLines(lines) {
     const ret = wasm.furnitureLines(lines);
@@ -8803,8 +8803,8 @@ export function githubRepoPdfPath(given_pdf_path, paper_id) {
  * # Errors
  *
  * Fails if `config` has the wrong shape, or the result cannot be converted to JS.
- * @param {any} config
- * @returns {any}
+ * @param {Omit<B.IntegrationConfig, "gitRead"> & { gitRead: readonly string[] }} config
+ * @returns {boolean}
  */
 export function gitlabCombinedActive(config) {
     const ret = wasm.gitlabCombinedActive(config);
@@ -8923,11 +8923,11 @@ export function graphPalette() {
  * # Errors
  *
  * Fails if `papers`, `notes` or `lists` has the wrong shape.
- * @param {any} papers
- * @param {any} notes
- * @param {any} lists
+ * @param {readonly B.TaggedPaper[]} papers
+ * @param {readonly B.TaggedNote[]} notes
+ * @param {readonly B.NamedList[]} lists
  * @param {boolean} include_lists
- * @returns {any}
+ * @returns {string[]}
  */
 export function graphTagNames(papers, notes, lists, include_lists) {
     const ret = wasm.graphTagNames(papers, notes, lists, include_lists);
@@ -8975,8 +8975,8 @@ export function graphTopologyKey(shown, local_seed, local_depth) {
  * # Errors
  *
  * Fails when `entryDates` is not an array of strings.
- * @param {any} entry_dates
- * @returns {any}
+ * @param {readonly string[]} entry_dates
+ * @returns {B.LogDayGroup[]}
  */
 export function groupByDay(entry_dates) {
     const ret = wasm.groupByDay(entry_dates);
@@ -9004,8 +9004,8 @@ export function groupEligible(deleted, unique_clash, pending_ops) {
  * # Errors
  *
  * Fails if `lines` has the wrong shape, or the result cannot be serialised.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.DiffLine[]} lines
+ * @returns {B.HunkGroup[]}
  */
 export function groupHunks(lines) {
     const ret = wasm.groupHunks(lines);
@@ -9022,8 +9022,8 @@ export function groupHunks(lines) {
  * # Errors
  *
  * Fails if `groups` has the wrong shape.
- * @param {any} groups
- * @returns {any}
+ * @param {readonly B.PaletteGroup[]} groups
+ * @returns {B.GroupedRows[]}
  */
 export function groupPaletteRows(groups) {
     const ret = wasm.groupPaletteRows(groups);
@@ -9079,8 +9079,8 @@ export function groupRecurringLines(texts, pages) {
  * # Errors
  *
  * Fails if `results` is not an array of quick-open results.
- * @param {any} results
- * @returns {any}
+ * @param {readonly B.QuickOpenResult[]} results
+ * @returns {B.QuickOpenGroup[]}
  */
 export function groupResults(results) {
     const ret = wasm.groupResults(results);
@@ -9109,9 +9109,9 @@ export function groupRuns(leaf) {
 
 /**
  * [`group_subtree_items`]: the subtree's items grouped by list, in subtree order.
- * @param {any} node
- * @param {any} items
- * @returns {any}
+ * @param {B.ReadingListTreeNode} node
+ * @param {readonly B.ReadingListItem[]} items
+ * @returns {B.SubtreeListItems[]}
  */
 export function groupSubtreeItems(node, items) {
     const ret = wasm.groupSubtreeItems(node, items);
@@ -9307,8 +9307,8 @@ export function hasText(text) {
  * # Errors
  *
  * Fails if `headings` is not an array of text lines.
- * @param {any} headings
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} headings
+ * @returns {B.OutlineReaderItem[]}
  */
 export function headingOutline(headings) {
     const ret = wasm.headingOutline(headings);
@@ -9369,7 +9369,7 @@ export function highlightWithinExcerpt(excerpt, locus) {
  * # Errors
  *
  * Fails if `marks` is not a list of digest marks.
- * @param {any} marks
+ * @param {readonly B.DigestMark[]} marks
  * @param {string} existing
  * @returns {string}
  */
@@ -9724,7 +9724,7 @@ export function importableEntities(entities, note_ids) {
  * @param {number} page
  * @param {number} start
  * @param {number} end
- * @param {any} ranges
+ * @param {readonly B.AnalysisPageTextRange[]} ranges
  * @returns {boolean}
  */
 export function inReferenceList(page, start, end, ranges) {
@@ -9798,8 +9798,8 @@ export function indexFromAnalysis(analysis, pages) {
  * Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
  * `options` is not a valid `TokenizerOptions` object.
  * @param {string} text
- * @param {any} options
- * @returns {any}
+ * @param {B.TokenizerOptions} options
+ * @returns {string[]}
  */
 export function indexTerms(text, options) {
     const ret = wasm.indexTerms(text, options);
@@ -10420,7 +10420,7 @@ export function inkPageMarker(page) {
  * # Errors
  *
  * Fails if `page` has the wrong shape.
- * @param {any} page
+ * @param {{ strokes: readonly unknown[] }} page
  * @returns {boolean}
  */
 export function inkPageOverBudget(page) {
@@ -10589,7 +10589,7 @@ export function inkPickCandidates(indices, alive, bounds, query, slack) {
  * Fails if `polygon` is not an array of numbers.
  * @param {number} px
  * @param {number} py
- * @param {any} polygon
+ * @param {readonly number[]} polygon
  * @returns {boolean}
  */
 export function inkPointInPolygon(px, py, polygon) {
@@ -11232,7 +11232,7 @@ export function isDocumentKind(kind) {
  * # Errors
  *
  * Fails if `node` has the wrong shape.
- * @param {any} node
+ * @param {Pick<B.WorkspaceTreeNode, "kind" | "folder">} node
  * @returns {boolean}
  */
 export function isDocumentNode(node) {
@@ -12327,7 +12327,7 @@ export function joinInkTextLayer(pages) {
  * Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units or `kind` is not a
  * known kind.
  * @param {string} project_root
- * @param {any} kind
+ * @param {B.WorkspaceJsonKind} kind
  * @returns {string}
  */
 export function jsonDataPath(project_root, kind) {
@@ -12400,9 +12400,9 @@ export function jsonKindOfPath(path) {
  * # Errors
  *
  * Fails if `fields` is not an array of strings, or `side` is not `"local"` or `"remote"`.
- * @param {any} fields
- * @param {any} side
- * @returns {any}
+ * @param {readonly string[]} fields
+ * @param {"local" | "remote"} side
+ * @returns {{ field: string; side: "local" | "remote" }[]}
  */
 export function keepAllPicks(fields, side) {
     const ret = wasm.keepAllPicks(fields, side);
@@ -12539,7 +12539,7 @@ export function kindMultiplier(kind, settings) {
  * # Errors
  *
  * Fails only if the value cannot be converted to a JS value.
- * @returns {any}
+ * @returns {readonly B.TreeNodeKind[]}
  */
 export function kindNames() {
     const ret = wasm.kindNames();
@@ -12747,8 +12747,8 @@ export function labelSize(is_tag, zoom, bounded) {
  * # Errors
  *
  * Fails if `supports` is not an array of booleans.
- * @param {any} supports
- * @returns {any}
+ * @param {readonly boolean[]} supports
+ * @returns {number[]}
  */
 export function ladderOrder(supports) {
     const ret = wasm.ladderOrder(supports);
@@ -12952,10 +12952,10 @@ export function libraryPinRowToDomain(row) {
  * # Errors
  *
  * Fails if `page`, `links` or `refs` do not have the expected shape.
- * @param {any} page
- * @param {any} links
- * @param {any} refs
- * @returns {any}
+ * @param {B.LinkCitationPage} page
+ * @param {readonly B.AnalysisPdfLink[]} links
+ * @param {readonly B.AnalysisParsedReference[]} refs
+ * @returns {B.AnalysisCitationMention[]}
  */
 export function linkCitationMentions(page, links, refs) {
     const ret = wasm.linkCitationMentions(page, links, refs);
@@ -13009,8 +13009,8 @@ export function linkLabel(selected) {
  * # Errors
  *
  * Fails if `source` cannot be read as a JSON value.
- * @param {any} source
- * @returns {any}
+ * @param {string | { id: string }} source
+ * @returns {string}
  */
 export function linkNodeId(source) {
     const ret = wasm.linkNodeId(source);
@@ -13338,9 +13338,9 @@ export function logEntryToRow(entry) {
  * # Errors
  *
  * Fails when `entryDates` is not an array of strings.
- * @param {any} entry_dates
+ * @param {readonly string[]} entry_dates
  * @param {string} today
- * @returns {any}
+ * @returns {string | undefined}
  */
 export function logEyebrow(entry_dates, today) {
     const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -13627,8 +13627,8 @@ export function markdownToLatex(md, opts) {
  *
  * Fails if `refs` is not an array of parsed references.
  * @param {string} text
- * @param {any} refs
- * @returns {any}
+ * @param {readonly B.AnalysisParsedReference[]} refs
+ * @returns {number[]}
  */
 export function matchAuthorYearText(text, refs) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -13646,10 +13646,10 @@ export function matchAuthorYearText(text, refs) {
  * # Errors
  *
  * Fails if any argument does not have the expected shape.
- * @param {any} page
- * @param {any} references
- * @param {any} reference_ranges
- * @returns {any}
+ * @param {B.PageCitationInput} page
+ * @param {readonly B.AnalysisParsedReference[]} references
+ * @param {readonly B.AnalysisPageTextRange[]} reference_ranges
+ * @returns {B.AnalysisCitationMention[]}
  */
 export function matchPageCitations(page, references, reference_ranges) {
     const ret = wasm.matchPageCitations(page, references, reference_ranges);
@@ -13666,8 +13666,8 @@ export function matchPageCitations(page, references, reference_ranges) {
  *
  * Fails if `vocabulary` is not an array of strings, or the result cannot be serialised.
  * @param {string} text
- * @param {any} vocabulary
- * @returns {any}
+ * @param {readonly string[]} vocabulary
+ * @returns {B.VocabMatchResult}
  */
 export function matchVocabulary(text, vocabulary) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -13686,9 +13686,9 @@ export function matchVocabulary(text, vocabulary) {
  * # Errors
  *
  * Fails if `query` is too long or `labels` is not an array of strings.
- * @param {any} labels
+ * @param {readonly string[]} labels
  * @param {string} query
- * @returns {any}
+ * @returns {number[]}
  */
 export function matchingPageIndices(labels, query) {
     const ret = wasm.matchingPageIndices(labels, query);
@@ -14073,7 +14073,7 @@ export function memberRank(kind) {
  * # Errors
  *
  * Fails if `member` has the wrong shape.
- * @param {any} member
+ * @param {{ role: string }} member
  * @param {boolean} in_lab
  * @param {boolean} owns_org
  * @returns {string | undefined}
@@ -14142,10 +14142,10 @@ export function mentionItemRanges(items, start, end) {
  * # Errors
  *
  * Fails if `items` is not an array of text items.
- * @param {any} items
+ * @param {readonly B.AnalysisPdfItem[]} items
  * @param {number} start
  * @param {number} end
- * @returns {any}
+ * @returns {number[][]}
  */
 export function mentionRects(items, start, end) {
     const ret = wasm.mentionRects(items, start, end);
@@ -14672,10 +14672,10 @@ export function missingFigureWarning(zip_path, storage_path) {
  * # Errors
  *
  * Fails if any argument is not an array of strings.
- * @param {any} chunk
- * @param {any} held
- * @param {any} tombstoned
- * @returns {any}
+ * @param {readonly string[]} chunk
+ * @param {readonly string[]} held
+ * @param {readonly string[]} tombstoned
+ * @returns {string[]}
  */
 export function missingIds(chunk, held, tombstoned) {
     const ret = wasm.missingIds(chunk, held, tombstoned);
@@ -14818,7 +14818,7 @@ export function modelFinalizeExtraction(results, existing, max_concepts) {
  *
  * Fails only if the value cannot be converted to a JS value.
  * @param {string} kind
- * @returns {any}
+ * @returns {readonly B.DocumentMode[]}
  */
 export function modesFor(kind) {
     const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -14958,10 +14958,10 @@ export function nameOf(local, remote) {
  * # Errors
  *
  * Fails if any argument does not have the expected shape.
- * @param {any} page
- * @param {any} refs
- * @param {any} excluded
- * @returns {any}
+ * @param {B.AnalysisPdfPage} page
+ * @param {readonly B.AnalysisParsedReference[]} refs
+ * @param {readonly B.AnalysisPageTextRange[]} excluded
+ * @returns {B.AnalysisCitationMention[]}
  */
 export function nativeCitationMentions(page, refs, excluded) {
     const ret = wasm.nativeCitationMentions(page, refs, excluded);
@@ -15036,8 +15036,8 @@ export function needsPerson(kind, field_count) {
  * # Errors
  *
  * Fails if `profile` or `memberships` has the wrong shape.
- * @param {any} profile
- * @param {any} memberships
+ * @param {B.ProfileState | null} profile
+ * @param {readonly B.Membership[]} memberships
  * @param {boolean} in_lab
  * @returns {boolean}
  */
@@ -15148,8 +15148,8 @@ export function newIssueUrl(title, body, repo) {
  *
  * Fails if `releases` does not match the release list shape, or the result cannot be converted
  * to JS.
- * @param {any} releases
- * @returns {any}
+ * @param {readonly B.ReleaseRow[]} releases
+ * @returns {B.NewestRelease | null}
  */
 export function newestDesktopRelease(releases) {
     const ret = wasm.newestDesktopRelease(releases);
@@ -15165,8 +15165,8 @@ export function newestDesktopRelease(releases) {
  * # Errors
  *
  * Fails when `publishedAt` is not an array of strings.
- * @param {any} published_at
- * @returns {any}
+ * @param {readonly string[]} published_at
+ * @returns {number[]}
  */
 export function newestFirstOrder(published_at) {
     const ret = wasm.newestFirstOrder(published_at);
@@ -15282,7 +15282,7 @@ export function nextShortcutsOpen(open, how) {
 
 /**
  * [`next_sort_order`]: the sort order a new row gets after `siblings`.
- * @param {any} siblings
+ * @param {readonly B.ReadingListItem[]} siblings
  * @returns {number}
  */
 export function nextSortOrder(siblings) {
@@ -15852,7 +15852,7 @@ export function noteBodyText(body, body_preview) {
  * # Errors
  *
  * Fails if `notes` has the wrong shape.
- * @param {any} notes
+ * @param {readonly unknown[]} notes
  * @returns {string[]}
  */
 export function noteTags(notes) {
@@ -15871,9 +15871,9 @@ export function noteTags(notes) {
  * # Errors
  *
  * Fails if `notes` or `tags` has the wrong shape.
- * @param {any} notes
- * @param {any} tags
- * @returns {any}
+ * @param {readonly B.TaggedNote[]} notes
+ * @param {readonly string[]} tags
+ * @returns {number[]}
  */
 export function notesTagged(notes, tags) {
     const ret = wasm.notesTagged(notes, tags);
@@ -16173,7 +16173,7 @@ export function outlineFromText(all_pages) {
  * # Errors
  *
  * Fails if `headings` is not an array of `{ page }` objects.
- * @param {any} headings
+ * @param {readonly { page: number }[]} headings
  * @param {number} page_count
  * @returns {boolean}
  */
@@ -16340,7 +16340,7 @@ export function overleafProjectMatches(name, linked_title, query) {
  * Returns the deserialization error when `picked` is not an array of strings.
  * @param {boolean} has_link
  * @param {string} id
- * @param {any} picked
+ * @param {readonly string[]} picked
  * @returns {boolean}
  */
 export function overleafProjectShown(has_link, id, picked) {
@@ -16607,8 +16607,8 @@ export function pagesToEvict(rendered, visible, radius) {
  * # Errors
  *
  * Fails if `results` is not an array of quick-open results.
- * @param {any} results
- * @returns {any}
+ * @param {readonly B.QuickOpenResult[]} results
+ * @returns {B.QuickOpenResult[]}
  */
 export function paintedOrder(results) {
     const ret = wasm.paintedOrder(results);
@@ -16735,9 +16735,9 @@ export function paperCiteKeys(papers_value) {
  * # Errors
  *
  * Fails if `tagIds` or `links` has the wrong shape.
- * @param {any} tag_ids
- * @param {any} links
- * @returns {any}
+ * @param {readonly string[]} tag_ids
+ * @param {readonly B.TagPaperLink[]} links
+ * @returns {number[]}
  */
 export function paperCountsForTags(tag_ids, links) {
     const ret = wasm.paperCountsForTags(tag_ids, links);
@@ -17420,7 +17420,7 @@ export function parseLatexSectionTree(files, entry_file) {
  *
  * Fails when `text` is over the text cap.
  * @param {string} text
- * @returns {any}
+ * @returns {string[]}
  */
 export function parseLinkRemovalText(text) {
     const ret = wasm.parseLinkRemovalText(text);
@@ -17438,7 +17438,7 @@ export function parseLinkRemovalText(text) {
  *
  * Fails if `raw` is longer than the index text limit.
  * @param {string} raw
- * @returns {any}
+ * @returns {B.MdImageAlt}
  */
 export function parseMdImageAlt(raw) {
     const ret = wasm.parseMdImageAlt(raw);
@@ -17568,9 +17568,9 @@ export function parsePaperHtmlDocument(paper_id, text) {
  *
  * Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if `kind`
  * is not a valid `PaperRefKind`.
- * @param {any} kind
+ * @param {B.PaperRefKind} kind
  * @param {string} value
- * @returns {any}
+ * @returns {B.PaperRef}
  */
 export function parsePaperRef(kind, value) {
     const ret = wasm.parsePaperRef(kind, value);
@@ -17607,7 +17607,7 @@ export function parsePlanWidgetBounds(stored) {
  *
  * Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} query
- * @returns {any}
+ * @returns {B.ParsedQuery}
  */
 export function parseQuery(query) {
     const ret = wasm.parseQuery(query);
@@ -17950,10 +17950,10 @@ export function pasteLandsInVerbatimContext(document, offset) {
 
 /**
  * [`pasted_figure_place`]: `figure` is a `FigurePlacement`, `on_page` the page's figures, `page` an `InkPageSize`.
- * @param {any} figure
- * @param {any} on_page
- * @param {any} page
- * @returns {any}
+ * @param {B.FigurePlacement} figure
+ * @param {readonly B.FigureBox[]} on_page
+ * @param {B.InkPageSize} page
+ * @returns {B.FigurePlacement}
  */
 export function pastedFigurePlace(figure, on_page, page) {
     const ret = wasm.pastedFigurePlace(figure, on_page, page);
@@ -17965,10 +17965,10 @@ export function pastedFigurePlace(figure, on_page, page) {
 
 /**
  * [`pasted_strokes_place`]: `strokes` are the pasted ones, `on_page` the page's, `page` an `InkPageSize`.
- * @param {any} strokes
- * @param {any} on_page
- * @param {any} page
- * @returns {any}
+ * @param {readonly B.InkStroke[]} strokes
+ * @param {readonly B.InkStroke[]} on_page
+ * @param {B.InkPageSize} page
+ * @returns {B.InkStroke[]}
  */
 export function pastedStrokesPlace(strokes, on_page, page) {
     const ret = wasm.pastedStrokesPlace(strokes, on_page, page);
@@ -18211,7 +18211,7 @@ export function pgArray(values) {
  * # Errors
  *
  * Fails if `group` is not a list of paper summaries, or it is empty.
- * @param {any} group
+ * @param {readonly B.TidyPaper[]} group
  * @returns {string}
  */
 export function pickKeeper(group) {
@@ -18240,9 +18240,9 @@ export function pickKeeper(group) {
  * # Errors
  *
  * Fails if `maxEntries` is not a positive integer, or `entries` has the wrong shape.
- * @param {any} entries
+ * @param {readonly B.CachedPdfAge[]} entries
  * @param {number} max_entries
- * @returns {any}
+ * @returns {string[]}
  */
 export function pickKeysToEvict(entries, max_entries) {
     const ret = wasm.pickKeysToEvict(entries, max_entries);
@@ -18498,9 +18498,9 @@ export function placeOnSheet(source_width, source_height, sheet_width, sheet_hei
  *
  * Fails if `saved` is not a position or `areas` is not a list of work areas, or the result
  * cannot be converted to JS.
- * @param {any} saved
- * @param {any} areas
- * @returns {any}
+ * @param {B.PlanWidgetBounds | null} saved
+ * @param {readonly B.PlanWidgetWorkArea[]} areas
+ * @returns {B.PlanWidgetBounds}
  */
 export function placePlanWidget(saved, areas) {
     const ret = wasm.placePlanWidget(saved, areas);
@@ -18539,9 +18539,9 @@ export function planArchiveEntries(entries, limits) {
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `owned` or `available`
  * is not an array of strings.
  * @param {string} body
- * @param {any} owned
- * @param {any} available
- * @returns {any}
+ * @param {readonly string[]} owned
+ * @param {readonly string[]} available
+ * @returns {B.ReanchorPlan}
  */
 export function planAssetReanchor(body, owned, available) {
     const ret = wasm.planAssetReanchor(body, owned, available);
@@ -18586,9 +18586,9 @@ export function planBibImport(file_name, text, existing_dois, existing_keys) {
  * # Errors
  *
  * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
- * @param {any} papers
- * @param {any} pull
- * @returns {any}
+ * @param {readonly B.BibliographyPaperInput[]} papers
+ * @param {B.BibliographyPullInput} pull
+ * @returns {B.BibliographyPaperPlan[]}
  */
 export function planBibliographyAnnotations(papers, pull) {
     const ret = wasm.planBibliographyAnnotations(papers, pull);
@@ -19390,9 +19390,9 @@ export function projectFromRow(row) {
  * # Errors
  *
  * Fails if an argument has the wrong shape, or the result cannot be converted to JS.
- * @param {any} config
- * @param {any} gate
- * @returns {any}
+ * @param {Omit<B.IntegrationConfig, "gitRead"> & { gitRead: readonly string[] }} config
+ * @param {B.RuntimeGate} gate
+ * @returns {boolean}
  */
 export function projectGateOpen(config, gate) {
     const ret = wasm.projectGateOpen(config, gate);
@@ -19490,9 +19490,9 @@ export function projectSearchDocuments(snapshot, graph, pdf_texts) {
  * # Errors
  *
  * Fails if an argument or a reader annotation does not match the expected shape.
- * @param {any} snapshot
- * @param {any} stored
- * @returns {any}
+ * @param {object} snapshot
+ * @param {readonly (Omit<B.PdfIndexSource, "pages"> & { pages?: readonly B.PdfPageText[] })[]} stored
+ * @returns {B.StoredPdfProjection}
  */
 export function projectStoredPdfTexts(snapshot, stored) {
     const ret = wasm.projectStoredPdfTexts(snapshot, stored);
@@ -19964,11 +19964,11 @@ export function pumpRoute(input) {
 /**
  * [`push_figure_step`]: `before` and `after` are the page's figure arrays;
  * `key` is the press number, or `null` when the edit is not from a press.
- * @param {any} history
- * @param {any} before
- * @param {any} after
- * @param {any} key
- * @returns {any}
+ * @param {B.PageHistory} history
+ * @param {readonly B.FigurePlacement[]} before
+ * @param {readonly B.FigurePlacement[]} after
+ * @param {number | null} key
+ * @returns {B.PageHistory}
  */
 export function pushFigureStep(history, before, after, key) {
     const ret = wasm.pushFigureStep(history, before, after, key);
@@ -20017,7 +20017,7 @@ export function quantizeInkPath(path, decimals) {
  * # Errors
  *
  * Fails if `terms` is not an array of strings.
- * @param {any} terms
+ * @param {readonly string[]} terms
  * @returns {number}
  */
 export function queryTermCount(terms) {
@@ -20034,9 +20034,9 @@ export function queryTermCount(terms) {
  * # Errors
  *
  * Fails if `documents` is not an array of tree rows.
- * @param {any} documents
+ * @param {readonly B.WorkspaceTreeNode[]} documents
  * @param {string} query
- * @returns {any}
+ * @returns {B.QuickOpenResult[]}
  */
 export function quickOpenResults(documents, query) {
     const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -20112,10 +20112,10 @@ export function r2BlobClientConfig(fields) {
  * # Errors
  *
  * Fails if an input cannot be read as the expected shape.
- * @param {any} group
- * @param {any} visible
- * @param {any} integration_titles
- * @returns {any}
+ * @param {B.RailGroupWords} group
+ * @param {readonly string[]} visible
+ * @param {readonly string[]} integration_titles
+ * @returns {B.RailGroupText}
  */
 export function railGroupText(group, visible, integration_titles) {
     const ret = wasm.railGroupText(group, visible, integration_titles);
@@ -20152,9 +20152,9 @@ export function rampColour(t) {
  * Fails if `hit_entity_ids` is not an array of strings or `items` is not an
  * array of `{id, fallbackText}` records.
  * @param {string} query
- * @param {any} hit_entity_ids
- * @param {any} items
- * @returns {any}
+ * @param {readonly string[]} hit_entity_ids
+ * @param {readonly { id: string; fallbackText: string }[]} items
+ * @returns {number[]}
  */
 export function rankFilterOrder(query, hit_entity_ids, items) {
     const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -20172,8 +20172,8 @@ export function rankFilterOrder(query, hit_entity_ids, items) {
  * # Errors
  *
  * Fails if `candidates` is not a candidate list, or the result cannot be converted.
- * @param {any} candidates
- * @returns {any}
+ * @param {readonly B.OpenAccessCandidate[]} candidates
+ * @returns {B.OpenAccessCandidate[]}
  */
 export function rankOpenAccessCandidates(candidates) {
     const ret = wasm.rankOpenAccessCandidates(candidates);
@@ -20231,7 +20231,7 @@ export function readFailureReason(message, status) {
  *
  * Fails when `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} content
- * @returns {any}
+ * @returns {B.ParsedDocument}
  */
 export function readFrontmatter(content) {
     const ret = wasm.readFrontmatter(content);
@@ -20565,9 +20565,9 @@ export function recentFailureIds(failures, now) {
 
 /**
  * [`recently_approved_wiki_pages`]: the wiki's pages, newest first, capped at `limit`.
- * @param {any} pages
+ * @param {readonly B.WikiNote[]} pages
  * @param {number} limit
- * @returns {any}
+ * @returns {B.RecentWikiPage[]}
  */
 export function recentlyApprovedWikiPages(pages, limit) {
     const ret = wasm.recentlyApprovedWikiPages(pages, limit);
@@ -20740,9 +20740,9 @@ export function redactSecret(text, secret) {
  * # Errors
  *
  * Fails if `dest` or `refs` do not have the expected shape.
- * @param {any} dest
- * @param {any} refs
- * @returns {any}
+ * @param {B.AnalysisLinkDest} dest
+ * @param {readonly B.AnalysisParsedReference[]} refs
+ * @returns {B.AnalysisParsedReference | null}
  */
 export function referenceForDestination(dest, refs) {
     const ret = wasm.referenceForDestination(dest, refs);
@@ -20837,10 +20837,10 @@ export function relatedByPpr(graph, seed, limit, options, rng) {
  *
  * Fails if `papers` or `notes` has the wrong shape.
  * @param {string} name
- * @param {any} papers
- * @param {any} notes
+ * @param {readonly B.TaggedPaper[]} papers
+ * @param {readonly B.TaggedNote[]} notes
  * @param {number} limit
- * @returns {any}
+ * @returns {[string, number][]}
  */
 export function relatedConcepts(name, papers, notes, limit) {
     const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -20889,7 +20889,7 @@ export function relationTitles(ids, titles) {
  *
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} body
- * @returns {any}
+ * @returns {B.RelativeAsset[]}
  */
 export function relativeAssetPaths(body) {
     const ret = wasm.relativeAssetPaths(body);
@@ -21016,10 +21016,10 @@ export function renameInkUndoId(state, from, to) {
  * # Errors
  *
  * Fails if the inputs do not match the shape, or the result cannot be serialized.
- * @param {any} parsed
- * @param {any} folder
- * @param {any} current
- * @returns {any}
+ * @param {readonly B.FolderParsedEntity[]} parsed
+ * @param {Readonly<Record<string, string>>} folder
+ * @param {Readonly<Record<string, string>>} current
+ * @returns {Record<string, string>}
  */
 export function renameSources(parsed, folder, current) {
     const ret = wasm.renameSources(parsed, folder, current);
@@ -21617,9 +21617,9 @@ export function resolveTextAnchor(text, locus) {
  * # Errors
  *
  * Fails if an argument is not an object of the expected shape.
- * @param {any} state
- * @param {any} page
- * @param {any} container
+ * @param {Pick<B.ReaderViewportState, "scale" | "fit" | "rotation">} state
+ * @param {B.ReaderPageSize} page
+ * @param {B.ReaderContainerSize} container
  * @returns {number}
  */
 export function resolveViewportScale(state, page, container) {
@@ -21674,8 +21674,8 @@ export function resourceTypes() {
  * # Errors
  *
  * Fails if `experiments` is not an array of run objects, or the result cannot be serialised.
- * @param {any} experiments
- * @returns {any}
+ * @param {readonly B.Experiment[]} experiments
+ * @returns {B.ResultsTable}
  */
 export function resultsTable(experiments) {
     const ret = wasm.resultsTable(experiments);
@@ -21907,10 +21907,10 @@ export function rootVerdict(is_dir, entries, meta_dir) {
  *
  * Fails if an argument does not have the expected shape, or the result cannot be serialised.
  * @param {number} count
- * @param {any} viewport
- * @param {any} pinned
- * @param {any} metrics
- * @returns {any}
+ * @param {B.ExplorerViewport | null} viewport
+ * @param {readonly number[]} pinned
+ * @param {B.RowMetrics} metrics
+ * @returns {B.RowSlot[]}
  */
 export function rowSlots(count, viewport, pinned, metrics) {
     const ret = wasm.rowSlots(count, viewport, pinned, metrics);
@@ -22175,8 +22175,8 @@ export function samePalette(a, b) {
  * # Errors
  *
  * Fails when either list is not a list of peers.
- * @param {any} a
- * @param {any} b
+ * @param {readonly B.Peer[]} a
+ * @param {readonly B.Peer[]} b
  * @returns {boolean}
  */
 export function samePeers(a, b) {
@@ -22480,8 +22480,8 @@ export function searchRevision(docs) {
  * # Errors
  *
  * Fails if `items` is not an array of text items.
- * @param {any} items
- * @returns {any}
+ * @param {readonly B.AnalysisPdfItem[]} items
+ * @returns {B.AnalysisSearchText}
  */
 export function searchTextFromItems(items) {
     const ret = wasm.searchTextFromItems(items);
@@ -22590,7 +22590,7 @@ export function segmentInkLines(points, offsets, pen, t0s, window_ms, band_ratio
  *
  * Fails only if the value cannot be converted to a JS value.
  * @param {string} kind
- * @returns {any}
+ * @returns {readonly B.StatusSegment[]}
  */
 export function segmentsFor(kind) {
     const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -23049,8 +23049,8 @@ export function shapeAiProposalDraft(input) {
  * # Errors
  *
  * Fails if `share` or `resource_type` has the wrong shape.
- * @param {any} share
- * @param {any} resource_type
+ * @param {Pick<B.Share, "resourceType" | "resourceId" | "ownerId" | "access">} share
+ * @param {B.ShareableType} resource_type
  * @param {string} resource_id
  * @param {string} owner_id
  * @returns {boolean}
@@ -23073,8 +23073,8 @@ export function shareAllowsComment(share, resource_type, resource_id, owner_id) 
  * # Errors
  *
  * Fails if `share` or `resource_type` has the wrong shape.
- * @param {any} share
- * @param {any} resource_type
+ * @param {Pick<B.Share, "resourceType" | "resourceId" | "ownerId" | "access">} share
+ * @param {B.ShareableType} resource_type
  * @param {string} resource_id
  * @param {string} owner_id
  * @returns {boolean}
@@ -23097,8 +23097,8 @@ export function shareAllowsEdit(share, resource_type, resource_id, owner_id) {
  * # Errors
  *
  * Fails if `share` or `resource_type` has the wrong shape.
- * @param {any} share
- * @param {any} resource_type
+ * @param {Pick<B.Share, "resourceType" | "resourceId" | "ownerId">} share
+ * @param {B.ShareableType} resource_type
  * @param {string} resource_id
  * @param {string} owner_id
  * @returns {boolean}
@@ -23533,8 +23533,8 @@ export function shouldShowWorkspaceLoader(loading, needs_privacy_accept, contain
  * # Errors
  *
  * Fails if `profile` or `labs` has the wrong shape.
- * @param {any} profile
- * @param {any} labs
+ * @param {B.ProfileState | null} profile
+ * @param {readonly B.Membership[] | null} labs
  * @returns {boolean}
  */
 export function shouldSyncStandalone(profile, labs) {
@@ -23807,9 +23807,9 @@ export function sortByReadingOrder(tagged) {
  * # Errors
  *
  * Fails if `rows` or `order` has the wrong shape.
- * @param {any} rows
- * @param {any} order
- * @returns {any}
+ * @param {readonly B.HitKey[]} rows
+ * @param {B.HitSort} order
+ * @returns {number[]}
  */
 export function sortHitOrder(rows, order) {
     const ret = wasm.sortHitOrder(rows, order);
@@ -23838,8 +23838,8 @@ export function sourceNoteTemplateContext(input) {
  * # Errors
  *
  * Fails if `words` or `entry_words` is not an array of strings.
- * @param {any} words
- * @param {any} entry_words
+ * @param {readonly string[]} words
+ * @param {readonly string[]} entry_words
  * @returns {number}
  */
 export function spanDistance(words, entry_words) {
@@ -23891,8 +23891,8 @@ export function splitAiSystemMessages(messages) {
  * # Errors
  *
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} lines
+ * @returns {B.AnalysisTextLine[][]}
  */
 export function splitBibliographyEntries(lines) {
     const ret = wasm.splitBibliographyEntries(lines);
@@ -23908,8 +23908,8 @@ export function splitBibliographyEntries(lines) {
  * # Errors
  *
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} lines
+ * @returns {B.AnalysisTextLine[][]}
  */
 export function splitByAuthorStart(lines) {
     const ret = wasm.splitByAuthorStart(lines);
@@ -23925,8 +23925,8 @@ export function splitByAuthorStart(lines) {
  * # Errors
  *
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} lines
+ * @returns {B.AnalysisTextLine[][]}
  */
 export function splitByMargins(lines) {
     const ret = wasm.splitByMargins(lines);
@@ -23977,8 +23977,8 @@ export function splitInkTextLayer(body) {
  * # Errors
  *
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} lines
+ * @returns {B.AnalysisTextLine[][]}
  */
 export function splitNumberedEntries(lines) {
     const ret = wasm.splitNumberedEntries(lines);
@@ -24092,9 +24092,9 @@ export function splitTopLevel(expression) {
  * # Errors
  *
  * Fails if `anchorTops` is not an array of numbers.
- * @param {any} anchor_tops
+ * @param {readonly number[]} anchor_tops
  * @param {number} card_height
- * @returns {any}
+ * @returns {B.MarginSlot[]}
  */
 export function stackMarginNotes(anchor_tops, card_height) {
     const ret = wasm.stackMarginNotes(anchor_tops, card_height);
@@ -24197,7 +24197,7 @@ export function stepsToPrune(stored_steps) {
  * # Errors
  *
  * Fails when `entryDates` is not an array of strings.
- * @param {any} entry_dates
+ * @param {readonly string[]} entry_dates
  * @param {string} today
  * @returns {number}
  */
@@ -24227,8 +24227,8 @@ export function strideForStep(step) {
  * # Errors
  *
  * Fails if `paths` has the wrong shape.
- * @param {any} paths
- * @returns {any}
+ * @param {readonly string[]} paths
+ * @returns {string[]}
  */
 export function stripArchiveRoot(paths) {
     const ret = wasm.stripArchiveRoot(paths);
@@ -24350,8 +24350,8 @@ export function stripStopwords(query) {
  * `paths` and `resolved` are JS string arrays.
  * @param {string} body
  * @param {string} prefix
- * @param {any} paths
- * @param {any} resolved
+ * @param {readonly string[]} paths
+ * @param {readonly string[]} resolved
  * @returns {string}
  */
 export function stripUnresolvedImageRefs(body, prefix, paths, resolved) {
@@ -24390,7 +24390,7 @@ export function strokeBaseWidth(samples, base) {
 
 /**
  * [`stroke_clip_text`]: the clipboard text for a set of `InkStroke`s.
- * @param {any} strokes
+ * @param {readonly B.InkStroke[]} strokes
  * @returns {string}
  */
 export function strokeClipText(strokes) {
@@ -24602,7 +24602,7 @@ export function syncStrokeSteps(history, depth) {
  * # Errors
  *
  * Fails if the result cannot be converted to JS.
- * @returns {any}
+ * @returns {readonly string[]}
  */
 export function syncedTables() {
     const ret = wasm.syncedTables();
@@ -24685,7 +24685,7 @@ export function tabMode(tab) {
  *
  * Fails when `input` is over the text cap.
  * @param {string} input
- * @returns {any}
+ * @returns {B.TextResult}
  */
 export function tabSeparatedToMarkdownTable(input) {
     const ret = wasm.tabSeparatedToMarkdownTable(input);
@@ -24918,7 +24918,7 @@ export function textBoxFromRect(rect) {
  * # Errors
  *
  * Fails if `texts` is not an array of strings.
- * @param {any} texts
+ * @param {readonly string[]} texts
  * @returns {string}
  */
 export function textFingerprint(texts) {
@@ -25023,8 +25023,8 @@ export function thumbKey(project_id) {
 
 /**
  * [`tick_format`]: how the tick labels are rendered for these values.
- * @param {any} values
- * @returns {any}
+ * @param {readonly number[]} values
+ * @returns {B.TickFormat}
  */
 export function tickFormat(values) {
     const ret = wasm.tickFormat(values);
@@ -25071,8 +25071,8 @@ export function timelineMidYear(layout, years) {
  * # Errors
  *
  * Fails if `papers` is not a list of paper summaries, or the result cannot be converted.
- * @param {any} papers
- * @returns {any}
+ * @param {readonly B.TidyPaper[]} papers
+ * @returns {B.TitleFix[]}
  */
 export function titleFixes(papers) {
     const ret = wasm.titleFixes(papers);
@@ -25089,7 +25089,7 @@ export function titleFixes(papers) {
  *
  * Fails if `nav_items` is not an array of `{ path, label }` objects.
  * @param {string} pathname
- * @param {any} nav_items
+ * @param {readonly B.NavRouteInput[]} nav_items
  * @returns {string}
  */
 export function titleForPath(pathname, nav_items) {
@@ -25260,7 +25260,7 @@ export function toPdfSearchDocs(sources, degrees) {
  * Fails when `body` or `file_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} body
  * @param {string} file_path
- * @returns {any}
+ * @returns {B.RelativeLinks}
  */
 export function toRelativeBlobLinks(body, file_path) {
     const ret = wasm.toRelativeBlobLinks(body, file_path);
@@ -25370,9 +25370,9 @@ export function toggleExpanded(expanded, key) {
  * # Errors
  *
  * Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
- * @param {any} groups
+ * @param {readonly string[]} groups
  * @param {string} key
- * @returns {any}
+ * @returns {string[]}
  */
 export function toggleGroup(groups, key) {
     const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -25647,7 +25647,7 @@ export function uniqueConstraintName(message) {
  * Fails if `taken` is not an array of strings.
  * @param {string} name
  * @param {string} device_label
- * @param {any} taken
+ * @param {readonly string[]} taken
  * @returns {string}
  */
 export function uniqueDeviceName(name, device_label, taken) {
@@ -26742,7 +26742,7 @@ export function withInkPageFigures(text, figures) {
  *
  * Fails if `alt` is too long or `placement` has the wrong shape.
  * @param {string} alt
- * @param {any} placement
+ * @param {B.MdPlacement} placement
  * @returns {string}
  */
 export function withMdImageAlt(alt, placement) {
@@ -26977,7 +26977,7 @@ export function writeConflictMarkers(ours, theirs) {
  *
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
  * `fields` is not an object.
- * @param {any} fields
+ * @param {Readonly<Record<string, unknown>>} fields
  * @param {string} body
  * @returns {string}
  */
@@ -27007,7 +27007,7 @@ export function writeFrontmatter(fields, body) {
  *
  * Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
  * `meta` is not an `InkNoteMeta` (unknown paper or hand included).
- * @param {any} meta
+ * @param {Omit<B.InkNoteMeta, "pageOrder"> & { readonly pageOrder: readonly string[] }} meta
  * @param {string} text
  * @returns {string}
  */

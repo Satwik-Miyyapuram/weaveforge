@@ -11,7 +11,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = syncedTables)]
+#[wasm_bindgen(js_name = syncedTables, unchecked_return_type = "readonly string[]")]
 pub fn synced_tables_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&local_first_route::synced_tables())
 }

@@ -4,11 +4,17 @@
  */
 import {
   isNewerVersion as rawIsNewerVersion,
-  newestDesktopRelease as rawNewestDesktopRelease,
   parseAppVersion as rawParseAppVersion,
   parseReleaseTag as rawParseReleaseTag,
 } from "../pkg/wf_wasm.js";
-import type { NewestRelease, ReleaseRow } from "./bindings.js";
+import type {
+  NewestRelease,
+  ReleaseRow,
+} from "./bindings.js";
+
+export {
+  newestDesktopRelease,
+} from "../pkg/wf_wasm.js";
 
 export type { NewestRelease, ReleaseRow } from "./bindings.js";
 
@@ -30,7 +36,3 @@ export function isNewerVersion(candidate: AppVersion, current: AppVersion): bool
   return rawIsNewerVersion(candidate, current);
 }
 
-/** The newest non-draft, non-pre-release release in `releases`, or null. */
-export function newestDesktopRelease(releases: readonly ReleaseRow[]): NewestRelease | null {
-  return rawNewestDesktopRelease(releases) as NewestRelease | null;
-}

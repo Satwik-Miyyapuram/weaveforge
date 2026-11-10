@@ -92,7 +92,10 @@ pub fn peers_from_users_js(
 ///
 /// Fails when either list is not a list of peers.
 #[wasm_bindgen(js_name = samePeers)]
-pub fn same_peers_js(a: JsValue, b: JsValue) -> JsResult<bool> {
+pub fn same_peers_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Peer[]")] a: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Peer[]")] b: JsValue,
+) -> JsResult<bool> {
     let a: Vec<Peer> = serde_wasm_bindgen::from_value(a)?;
     let b: Vec<Peer> = serde_wasm_bindgen::from_value(b)?;
     Ok(collab::same_peers(&a, &b))

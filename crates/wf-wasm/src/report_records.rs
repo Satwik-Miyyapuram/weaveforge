@@ -116,8 +116,10 @@ pub fn create_report_section_js(
 /// # Errors
 ///
 /// Fails if `sections` is not a list of sections.
-#[wasm_bindgen(js_name = buildSectionTree)]
-pub fn build_section_tree_js(sections: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = buildSectionTree, unchecked_return_type = "B.ReportSectionTreeNode[]")]
+pub fn build_section_tree_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReportSection[]")] sections: JsValue,
+) -> JsResult<JsValue> {
     let sections: Vec<ReportSection> = serde_wasm_bindgen::from_value(sections)?;
     to_js(&report_section::build_section_tree(sections))
 }

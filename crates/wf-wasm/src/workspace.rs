@@ -114,7 +114,13 @@ pub fn readable_text_js(body: js_sys::JsString) -> JsResult<String> {
 /// Fails when `text` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or when
 /// `meta` is not an `InkNoteMeta` (unknown paper or hand included).
 #[wasm_bindgen(js_name = writeInkNoteBody)]
-pub fn write_ink_note_body_js(meta: JsValue, text: js_sys::JsString) -> JsResult<String> {
+pub fn write_ink_note_body_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Omit<B.InkNoteMeta, \"pageOrder\"> & { readonly pageOrder: readonly string[] }"
+    )]
+    meta: JsValue,
+    text: js_sys::JsString,
+) -> JsResult<String> {
     let text = &crate::guarded_text(&text)?;
     let meta: InkNoteMeta = serde_wasm_bindgen::from_value(meta)?;
     Ok(write_ink_note_body(&meta, text))
@@ -135,7 +141,7 @@ pub fn default_ink_note_meta_js() -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when either text is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = diffBody)]
+#[wasm_bindgen(js_name = diffBody, unchecked_return_type = "B.BodyDiff")]
 pub fn diff_body_js(ours: js_sys::JsString, theirs: js_sys::JsString) -> JsResult<JsValue> {
     let ours = &crate::guarded_text(&ours)?;
     let theirs = &crate::guarded_text(&theirs)?;
@@ -199,7 +205,7 @@ pub fn image_extension_for_mime_js(mime: js_sys::JsString) -> JsResult<String> {
 /// # Errors
 ///
 /// Fails when `body` or `head` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = findImageRefs)]
+#[wasm_bindgen(js_name = findImageRefs, unchecked_return_type = "B.FoundImageRef[]")]
 pub fn find_image_refs_js(
     body: js_sys::JsString,
     head: js_sys::JsString,
@@ -248,7 +254,7 @@ pub fn normalize_markdown_image_syntax_js(body: js_sys::JsString) -> JsResult<St
 /// # Errors
 ///
 /// Fails when `body` or `file_path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = toRelativeBlobLinks)]
+#[wasm_bindgen(js_name = toRelativeBlobLinks, unchecked_return_type = "B.RelativeLinks")]
 pub fn to_relative_blob_links_js(
     body: js_sys::JsString,
     file_path: js_sys::JsString,
@@ -263,7 +269,7 @@ pub fn to_relative_blob_links_js(
 /// # Errors
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = relativeAssetPaths)]
+#[wasm_bindgen(js_name = relativeAssetPaths, unchecked_return_type = "B.RelativeAsset[]")]
 pub fn relative_asset_paths_js(body: js_sys::JsString) -> JsResult<JsValue> {
     let body = &crate::guarded_text(&body)?;
     to_js(&relative_asset_paths(body))
@@ -306,11 +312,11 @@ pub fn workspace_bodies_js(vault_bodies: JsValue, paper_summaries: JsValue) -> J
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `owned` or `available`
 /// is not an array of strings.
-#[wasm_bindgen(js_name = planAssetReanchor)]
+#[wasm_bindgen(js_name = planAssetReanchor, unchecked_return_type = "B.ReanchorPlan")]
 pub fn plan_asset_reanchor_js(
     body: js_sys::JsString,
-    owned: JsValue,
-    available: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] owned: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] available: JsValue,
 ) -> JsResult<JsValue> {
     let body = &crate::guarded_text(&body)?;
     let owned: std::collections::BTreeSet<String> = serde_wasm_bindgen::from_value(owned)?;
@@ -326,7 +332,10 @@ pub fn plan_asset_reanchor_js(
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `resolved` is
 /// not an object of strings.
 #[wasm_bindgen(js_name = fromRelativeBlobLinks)]
-pub fn from_relative_blob_links_js(body: js_sys::JsString, resolved: JsValue) -> JsResult<String> {
+pub fn from_relative_blob_links_js(
+    body: js_sys::JsString,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] resolved: JsValue,
+) -> JsResult<String> {
     let body = &crate::guarded_text(&body)?;
     let map: std::collections::BTreeMap<String, String> = serde_wasm_bindgen::from_value(resolved)?;
     Ok(from_relative_blob_links_mapped(body, &map))

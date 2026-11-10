@@ -34,8 +34,10 @@ pub fn ema_smooth_js(values: JsValue, alpha: f64) -> Result<JsValue, JsError> {
 }
 
 /// [`tick_format`]: how the tick labels are rendered for these values.
-#[wasm_bindgen(js_name = tickFormat)]
-pub fn tick_format_js(values: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = tickFormat, unchecked_return_type = "B.TickFormat")]
+pub fn tick_format_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] values: JsValue,
+) -> Result<JsValue, JsError> {
     let values: Vec<f64> = parse(values)?;
     to_js(&tick_format(&values)).map_err(js_error)
 }

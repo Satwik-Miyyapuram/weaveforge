@@ -12,9 +12,7 @@ import {
   hasActiveLab as rawHasActiveLab,
   isSupervisorRole as rawIsSupervisorRole,
   roleRank as rawRoleRank,
-  needsStandaloneRoleSync as rawNeedsStandaloneRoleSync,
   resolveDisplayRole as rawResolveDisplayRole,
-  shouldSyncStandalone as rawShouldSyncStandalone,
   studentsOf as rawStudentsOf,
 } from "../pkg/wf_wasm.js";
 
@@ -23,8 +21,12 @@ import type {
   MemberLink,
   Membership,
   NewMember,
-  ProfileState,
 } from "./bindings.js";
+
+export {
+  needsStandaloneRoleSync,
+  shouldSyncStandalone,
+} from "../pkg/wf_wasm.js";
 
 export {
   canCreateRole,
@@ -92,15 +94,6 @@ export function resolveDisplayRole(
   return rawResolveDisplayRole(role, opts.inLab, opts.ownsOrg ?? false);
 }
 
-/** Whether `profiles.role` should be saved as standalone (the stored lab role is stale). */
-export function needsStandaloneRoleSync(
-  profile: ProfileState | null,
-  memberships: readonly Membership[],
-  inLab: boolean,
-): boolean {
-  return rawNeedsStandaloneRoleSync(profile, memberships, inLab);
-}
-
 /** Whether the active lab is set and the user is explicitly in it, or owns it. */
 export function hasActiveLab(
   activeOrgId: string | null | undefined,
@@ -108,14 +101,6 @@ export function hasActiveLab(
   ownsActiveOrg = false,
 ): boolean {
   return rawHasActiveLab(activeOrgId ?? undefined, memberships, ownsActiveOrg);
-}
-
-/** Whether the standalone role sync may run. `labs` is null when memberships are unknown. */
-export function shouldSyncStandalone(
-  profile: ProfileState | null,
-  labs: readonly Membership[] | null,
-): boolean {
-  return rawShouldSyncStandalone(profile, labs);
 }
 
 /**

@@ -12,8 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `groups` has the wrong shape.
-#[wasm_bindgen(js_name = groupPaletteRows)]
-pub fn group_palette_rows_js(groups: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = groupPaletteRows, unchecked_return_type = "B.GroupedRows[]")]
+pub fn group_palette_rows_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.PaletteGroup[]")] groups: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let groups: Vec<PaletteGroup> = serde_wasm_bindgen::from_value(groups)?;
     to_js(&palette_groups::group_palette_rows(&groups))
 }
@@ -24,9 +26,9 @@ pub fn group_palette_rows_js(groups: JsValue) -> Result<JsValue, serde_wasm_bind
 /// # Errors
 ///
 /// Fails if `query` is too long or `labels` is not an array of strings.
-#[wasm_bindgen(js_name = matchingPageIndices)]
+#[wasm_bindgen(js_name = matchingPageIndices, unchecked_return_type = "number[]")]
 pub fn matching_page_indices_js(
-    labels: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] labels: JsValue,
     query: js_sys::JsString,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let query = &crate::guarded_text(&query)?;
@@ -40,9 +42,9 @@ pub fn matching_page_indices_js(
 /// # Errors
 ///
 /// Fails if `query` is too long or `labels` is not an array of strings.
-#[wasm_bindgen(js_name = commandMatchIndices)]
+#[wasm_bindgen(js_name = commandMatchIndices, unchecked_return_type = "number[]")]
 pub fn command_match_indices_js(
-    labels: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] labels: JsValue,
     query: js_sys::JsString,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let query = &crate::guarded_text(&query)?;

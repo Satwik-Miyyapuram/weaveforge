@@ -131,7 +131,9 @@ pub fn resolve_ink_page_order_js(declared: JsValue, present: JsValue) -> JsResul
 ///
 /// Fails if `page` has the wrong shape.
 #[wasm_bindgen(js_name = inkPageOverBudget)]
-pub fn ink_page_over_budget_js(page: JsValue) -> JsResult<bool> {
+pub fn ink_page_over_budget_js(
+    #[wasm_bindgen(unchecked_param_type = "{ strokes: readonly unknown[] }")] page: JsValue,
+) -> JsResult<bool> {
     let page: ink_page::InkPage = serde_wasm_bindgen::from_value(page)?;
     Ok(ink_page::ink_page_over_budget(&page))
 }

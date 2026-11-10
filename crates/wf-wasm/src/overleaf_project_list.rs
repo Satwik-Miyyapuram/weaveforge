@@ -27,8 +27,12 @@ pub fn overleaf_project_matches(name: &str, linked_title: Option<String>, query:
 /// # Errors
 ///
 /// Returns the deserialization error when `picked` is not an array of strings.
-#[wasm_bindgen(js_name = overleafProjectShown)]
-pub fn overleaf_project_shown(has_link: bool, id: &str, picked: JsValue) -> Result<bool, JsValue> {
+#[wasm_bindgen(js_name = overleafProjectShown, unchecked_return_type = "boolean")]
+pub fn overleaf_project_shown(
+    has_link: bool,
+    id: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] picked: JsValue,
+) -> Result<bool, JsValue> {
     let picked: Vec<String> = serde_wasm_bindgen::from_value(picked)?;
     Ok(project_list::is_shown(has_link, id, &picked))
 }

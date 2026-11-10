@@ -25,8 +25,10 @@ pub fn label_number(groups: JsValue) -> JsResult<f64> {
 /// # Errors
 ///
 /// Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
-#[wasm_bindgen(js_name = splitNumberedEntries)]
-pub fn split_numbered_entries(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = splitNumberedEntries, unchecked_return_type = "B.AnalysisTextLine[][]")]
+pub fn split_numbered_entries(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&bibliography::split_numbered_entries(&lines))
 }
@@ -36,8 +38,10 @@ pub fn split_numbered_entries(lines: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
-#[wasm_bindgen(js_name = splitByMargins)]
-pub fn split_by_margins(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = splitByMargins, unchecked_return_type = "B.AnalysisTextLine[][]")]
+pub fn split_by_margins(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&bibliography::split_by_margins(&lines))
 }
@@ -47,8 +51,10 @@ pub fn split_by_margins(lines: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
-#[wasm_bindgen(js_name = splitByAuthorStart)]
-pub fn split_by_author_start(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = splitByAuthorStart, unchecked_return_type = "B.AnalysisTextLine[][]")]
+pub fn split_by_author_start(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&bibliography::split_by_author_start(&lines))
 }
@@ -58,8 +64,10 @@ pub fn split_by_author_start(lines: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
-#[wasm_bindgen(js_name = splitBibliographyEntries)]
-pub fn split_bibliography_entries(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = splitBibliographyEntries, unchecked_return_type = "B.AnalysisTextLine[][]")]
+pub fn split_bibliography_entries(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&bibliography::split_bibliography_entries(&lines))
 }

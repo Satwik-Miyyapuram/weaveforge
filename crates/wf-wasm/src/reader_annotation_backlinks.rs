@@ -24,8 +24,11 @@ pub fn find_annotation_backlinks_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `hits` is not an array of hits.
-#[wasm_bindgen(js_name = backlinksForAnnotation)]
-pub fn backlinks_for_annotation_js(hits: JsValue, annotation_id: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = backlinksForAnnotation, unchecked_return_type = "B.AnnotationBacklinkTarget[]")]
+pub fn backlinks_for_annotation_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnnotationBacklinkHit[]")] hits: JsValue,
+    annotation_id: &str,
+) -> JsResult<JsValue> {
     let hits: Vec<backlinks::AnnotationBacklinkHit> = serde_wasm_bindgen::from_value(hits)?;
     to_js(&backlinks::backlinks_for_annotation(&hits, annotation_id))
 }

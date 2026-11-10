@@ -13,7 +13,7 @@ use wf_core::ink::hit_test;
 pub fn ink_point_in_polygon_js(
     px: f64,
     py: f64,
-    polygon: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] polygon: JsValue,
 ) -> Result<bool, serde_wasm_bindgen::Error> {
     let polygon: Vec<f64> = serde_wasm_bindgen::from_value(polygon)?;
     Ok(hit_test::point_in_polygon(px, py, &polygon))

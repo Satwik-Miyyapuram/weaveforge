@@ -6,7 +6,6 @@ import {
   formatMetricCell as rawFormatMetricCell,
   isStaleRunningExperiment as rawIsStaleRunningExperiment,
   metricKeys as rawMetricKeys,
-  resultsTable as rawResultsTable,
   shortSha as rawShortSha,
   statusPatchForExperiment as rawStatusPatchForExperiment,
 } from "../pkg/wf_wasm.js";
@@ -16,6 +15,10 @@ import type {
   ExperimentStatusPatch,
   ResultsTable,
 } from "./bindings.js";
+
+export {
+  resultsTable,
+} from "../pkg/wf_wasm.js";
 
 export {
   experimentActivityAt,
@@ -84,9 +87,5 @@ export function metricKeys(experiments: readonly Experiment[]): string[] {
 /** Every metric name any of the runs logged, sorted by UTF-16 code units. */
 export function metricKeysOf(experiments: readonly Experiment[]): string[] {
   return metricKeys(experiments);
-}
-
-export function resultsTable(experiments: readonly Experiment[]): ResultsTable {
-  return rawResultsTable(experiments) as ResultsTable;
 }
 

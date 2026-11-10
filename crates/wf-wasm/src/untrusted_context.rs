@@ -34,7 +34,10 @@ pub fn safe_label_js(label: &str, nonce: &str) -> String {
 ///
 /// Fails if `items` is not an array of `{ label, text }` objects.
 #[wasm_bindgen(js_name = fenceUntrusted)]
-pub fn fence_untrusted_js(items: JsValue, nonce: &str) -> JsResult<String> {
+pub fn fence_untrusted_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.UntrustedItem[]")] items: JsValue,
+    nonce: &str,
+) -> JsResult<String> {
     let items: Vec<UntrustedItem> = serde_wasm_bindgen::from_value(items)?;
     Ok(untrusted_context::fence_untrusted(&items, nonce))
 }

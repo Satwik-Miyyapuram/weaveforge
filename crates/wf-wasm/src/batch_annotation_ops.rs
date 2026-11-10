@@ -12,9 +12,9 @@ use super::to_js;
 ///
 /// Fails if the annotations do not have the shape of a TS `ReaderAnnotation`,
 /// or the result cannot be serialised.
-#[wasm_bindgen(js_name = collectAnnotationImageRegions)]
+#[wasm_bindgen(js_name = collectAnnotationImageRegions, unchecked_return_type = "B.BatchImageRegion[]")]
 pub fn collect_annotation_image_regions_js(
-    annotations: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnnotationInput[]")] annotations: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let annotations: Vec<ops::AnnotationInput> = serde_wasm_bindgen::from_value(annotations)?;
     to_js(&ops::collect_annotation_image_regions(&annotations))

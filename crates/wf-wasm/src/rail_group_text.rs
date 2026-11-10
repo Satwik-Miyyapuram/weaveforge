@@ -12,11 +12,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if an input cannot be read as the expected shape.
-#[wasm_bindgen(js_name = railGroupText)]
+#[wasm_bindgen(js_name = railGroupText, unchecked_return_type = "B.RailGroupText")]
 pub fn rail_group_text_js(
-    group: JsValue,
-    visible: JsValue,
-    integration_titles: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.RailGroupWords")] group: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] visible: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] integration_titles: JsValue,
 ) -> Result<JsValue, JsError> {
     let group: RailGroupWords =
         serde_wasm_bindgen::from_value(group).map_err(|e| JsError::new(&e.to_string()))?;

@@ -12,13 +12,16 @@ import {
   levenshtein as rawLevenshtein,
   groupRecurringLines as rawGroupRecurringLines,
   outlineFromText as rawOutlineFromText,
-  outlineIsPlausible as rawOutlineIsPlausible,
 } from "../pkg/wf_wasm.js";
 import type {
   OutlineTextItem,
   OutlineReaderItem,
   OutlineRecurringGroupIndices,
 } from "./bindings.js";
+
+export {
+  outlineIsPlausible,
+} from "../pkg/wf_wasm.js";
 
 /** True when a pdf.js text matrix `[a, b, c, d, e, f]` sets its run rotated or mirrored. */
 export function isRotatedText(transform: readonly number[]): boolean {
@@ -63,7 +66,3 @@ export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[
   return rawOutlineFromText(allPages) as OutlineReaderItem[];
 }
 
-/** True when the headings are at least three, and no stretch without one exceeds half the document. */
-export function outlineIsPlausible(headings: readonly { page: number }[], pageCount: number): boolean {
-  return rawOutlineIsPlausible(headings, pageCount);
-}

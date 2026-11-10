@@ -294,10 +294,10 @@ pub fn tokenize(
 ///
 /// Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
 /// `options` is not a valid `TokenizerOptions` object.
-#[wasm_bindgen(js_name = indexTerms)]
+#[wasm_bindgen(js_name = indexTerms, unchecked_return_type = "string[]")]
 pub fn index_terms(
     text: js_sys::JsString,
-    options: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TokenizerOptions")] options: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let text = &guarded_text(&text)?;
     let options = index_input(text, options)?;
@@ -313,7 +313,7 @@ pub fn index_terms(
 /// # Errors
 ///
 /// Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = parseQuery)]
+#[wasm_bindgen(js_name = parseQuery, unchecked_return_type = "B.ParsedQuery")]
 pub fn parse_query(query: js_sys::JsString) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let query = &guarded_text(&query)?;
     let parsed = wf_core::search::query::parse_query(query);
@@ -446,9 +446,9 @@ pub fn fuse_rankings(
 ///
 /// Fails if `value` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if `kind`
 /// is not a valid `PaperRefKind`.
-#[wasm_bindgen(js_name = parsePaperRef)]
+#[wasm_bindgen(js_name = parsePaperRef, unchecked_return_type = "B.PaperRef")]
 pub fn parse_paper_ref(
-    kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaperRefKind")] kind: JsValue,
     value: js_sys::JsString,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let value = &guarded_text(&value)?;
@@ -487,7 +487,7 @@ pub fn extract_doi(value: js_sys::JsString) -> Result<Option<String>, serde_wasm
 /// # Errors
 ///
 /// Fails if `html` or `url` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = extractPageMetadata)]
+#[wasm_bindgen(js_name = extractPageMetadata, unchecked_return_type = "B.PageMetadata")]
 pub fn extract_page_metadata(
     html: js_sys::JsString,
     url: js_sys::JsString,

@@ -13,7 +13,6 @@ import {
   vaultImageMarkdown as rawImageMarkdown,
   normalizeTitleKey as rawNormalizeTitleKey,
   noteBacklinks as rawNoteBacklinks,
-  noteTags as rawNoteTags,
   scopeNoteIndices as rawScopeNoteIndices,
   uniqueTitle as rawUniqueTitle,
   vaultTitleOrBodyFilter as rawTitleOrBodyFilter,
@@ -22,6 +21,10 @@ import type {
   ParsedFrontmatter,
   WikilinkRef,
 } from "./bindings.js";
+
+export {
+  noteTags,
+} from "../pkg/wf_wasm.js";
 
 export {
   embedTitles,
@@ -90,11 +93,6 @@ export function noteBacklinks(
   selectedId?: string,
 ): { id: string; title: string }[] {
   return rawNoteBacklinks(notes, selectedId);
-}
-
-/** Every hashtag used across `notes`, distinct and sorted by UTF-16 order. */
-export function noteTags(notes: readonly unknown[]): string[] {
-  return rawNoteTags(notes);
 }
 
 /** Positions of the notes kept by a list and tag filter. An empty filter keeps everything. */

@@ -64,8 +64,10 @@ pub fn find_figure_mentions_js(pages: JsValue, outline: JsValue) -> JsResult<JsV
 /// # Errors
 ///
 /// Fails if `lines` is not an array of text lines.
-#[wasm_bindgen(js_name = furnitureLines)]
-pub fn furniture_lines_js(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = furnitureLines, unchecked_return_type = "boolean[]")]
+pub fn furniture_lines_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&furniture_lines(&lines))
 }
@@ -97,8 +99,10 @@ pub fn find_heading_lines_js(
 /// # Errors
 ///
 /// Fails if `headings` is not an array of text lines.
-#[wasm_bindgen(js_name = headingOutline)]
-pub fn heading_outline_js(headings: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = headingOutline, unchecked_return_type = "B.OutlineReaderItem[]")]
+pub fn heading_outline_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] headings: JsValue,
+) -> JsResult<JsValue> {
     let headings: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(headings)?;
     to_js(&heading_outline(&headings))
 }
@@ -109,8 +113,10 @@ pub fn heading_outline_js(headings: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `texts` is not an array of strings.
-#[wasm_bindgen(js_name = detectCitationStyle)]
-pub fn detect_citation_style_js(texts: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = detectCitationStyle, unchecked_return_type = "B.CitationStyle | null | undefined")]
+pub fn detect_citation_style_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] texts: JsValue,
+) -> JsResult<JsValue> {
     let texts: Vec<String> = serde_wasm_bindgen::from_value(texts)?;
     to_js(&detect_citation_style(&texts))
 }
@@ -131,11 +137,11 @@ pub fn is_citation_destination_js(name: JsValue) -> JsResult<bool> {
 /// # Errors
 ///
 /// Fails if any argument does not have the expected shape.
-#[wasm_bindgen(js_name = nativeCitationMentions)]
+#[wasm_bindgen(js_name = nativeCitationMentions, unchecked_return_type = "B.AnalysisCitationMention[]")]
 pub fn native_citation_mentions_js(
-    page: JsValue,
-    refs: JsValue,
-    excluded: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.AnalysisPdfPage")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisParsedReference[]")] refs: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPageTextRange[]")] excluded: JsValue,
 ) -> JsResult<JsValue> {
     let page: AnalysisPdfPage = serde_wasm_bindgen::from_value(page)?;
     let refs: Vec<AnalysisParsedReference> = serde_wasm_bindgen::from_value(refs)?;
@@ -148,8 +154,13 @@ pub fn native_citation_mentions_js(
 /// # Errors
 ///
 /// Fails if any argument does not have the expected shape.
-#[wasm_bindgen(js_name = coalesceMentions)]
-pub fn coalesce_mentions_js(mentions: JsValue, text: &str, items: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = coalesceMentions, unchecked_return_type = "B.AnalysisCitationMention[]")]
+pub fn coalesce_mentions_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisCitationMention[]")]
+    mentions: JsValue,
+    text: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfItem[]")] items: JsValue,
+) -> JsResult<JsValue> {
     let mentions: Vec<AnalysisCitationMention> = serde_wasm_bindgen::from_value(mentions)?;
     let items: Vec<AnalysisPdfItem> = serde_wasm_bindgen::from_value(items)?;
     to_js(&coalesce_mentions(&mentions, text, &items))
@@ -187,10 +198,12 @@ pub fn assemble_page_citations_js(
 /// # Errors
 ///
 /// Fails if any argument does not have the expected shape.
-#[wasm_bindgen(js_name = matchPageCitations)]
+#[wasm_bindgen(js_name = matchPageCitations, unchecked_return_type = "B.AnalysisCitationMention[]")]
 pub fn match_page_citations_js(
-    page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PageCitationInput")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisParsedReference[]")]
     references: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPageTextRange[]")]
     reference_ranges: JsValue,
 ) -> JsResult<JsValue> {
     let page: PageCitationInput = serde_wasm_bindgen::from_value(page)?;

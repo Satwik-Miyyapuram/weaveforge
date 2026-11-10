@@ -79,8 +79,10 @@ pub fn paper_relation_to_row_js(
 /// # Errors
 ///
 /// Fails if `rows` has the wrong shape.
-#[wasm_bindgen(js_name = dedupePaperRelationRows)]
-pub fn dedupe_paper_relation_rows_js(rows: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = dedupePaperRelationRows, unchecked_return_type = "B.PaperRelationRow[]")]
+pub fn dedupe_paper_relation_rows_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.PaperRelationRow[]")] rows: JsValue,
+) -> Result<JsValue, JsValue> {
     let rows: Vec<PaperRelationRow> = serde_wasm_bindgen::from_value(rows)?;
     Ok(to_js(&relation_rows::dedupe_relation_rows_by_id(rows))?)
 }

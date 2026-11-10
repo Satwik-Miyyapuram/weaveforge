@@ -13,7 +13,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = kindNames)]
+#[wasm_bindgen(js_name = kindNames, unchecked_return_type = "readonly B.TreeNodeKind[]")]
 pub fn kind_names_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::KINDS)
 }
@@ -132,7 +132,7 @@ pub fn document_suffix_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Err
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = modesFor)]
+#[wasm_bindgen(js_name = modesFor, unchecked_return_type = "readonly B.DocumentMode[]")]
 pub fn modes_for_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::modes_for(kind))
 }
@@ -187,7 +187,7 @@ pub fn document_kind_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = segmentsFor)]
+#[wasm_bindgen(js_name = segmentsFor, unchecked_return_type = "readonly B.StatusSegment[]")]
 pub fn segments_for_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::segments_for(kind))
 }

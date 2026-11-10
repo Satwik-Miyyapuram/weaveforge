@@ -12,7 +12,7 @@ use wf_core::route_title::{self, NavRoute};
 #[wasm_bindgen(js_name = titleForPath)]
 pub fn title_for_path_js(
     pathname: &str,
-    nav_items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.NavRouteInput[]")] nav_items: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let items: Vec<NavRoute> = serde_wasm_bindgen::from_value(nav_items)?;
     Ok(route_title::title_for_path(pathname, &items))

@@ -3,8 +3,6 @@
  * Keeps the signature of packages/core/src/features/reading-lists/domain/reading-list.ts.
  */
 import {
-  buildListTree as rawBuildListTree,
-  deepestFirstListIds as rawDeepestFirstListIds,
   listMembershipByKey as rawListMembershipByKey,
   relationTitles as rawRelationTitles,
 } from "../pkg/wf_wasm.js";
@@ -15,21 +13,17 @@ import type {
 } from "./bindings.js";
 
 export {
+  buildListTree,
+  deepestFirstListIds,
+} from "../pkg/wf_wasm.js";
+
+export {
   listDisplayColor,
   pendingKey,
   readingListNameMatches,
 } from "../pkg/wf_wasm.js";
 /** The reading list shapes callers type their state with. */
 export type { ListMembershipKey, ReadingList, ReadingListItem, ReadingListTreeNode } from "./bindings.js";
-
-export function buildListTree(lists: readonly ReadingList[]): ReadingListTreeNode[] {
-  return rawBuildListTree(lists) as ReadingListTreeNode[];
-}
-
-/** The list and every list below it, deepest first (children before their parent). */
-export function deepestFirstListIds(listId: string, lists: readonly ReadingList[]): string[] {
-  return rawDeepestFirstListIds(listId, lists) as string[];
-}
 
 /**
  * Which list holds which resource: `listId -> the ids in it`. Every list gets an entry,

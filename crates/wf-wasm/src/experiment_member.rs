@@ -32,7 +32,7 @@ pub fn create_experiment_with_js(input: JsValue, id: &str, now: &str) -> JsResul
 /// Fails if `member` has the wrong shape.
 #[wasm_bindgen(js_name = memberRoleLabelOf)]
 pub fn member_role_label_js(
-    member: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "{ role: string }")] member: JsValue,
     in_lab: bool,
     owns_org: bool,
 ) -> JsResult<Option<String>> {

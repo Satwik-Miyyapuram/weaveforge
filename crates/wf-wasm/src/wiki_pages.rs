@@ -52,8 +52,11 @@ pub fn missing_page_plans_js(targets: JsValue) -> Result<JsValue, JsError> {
 }
 
 /// [`recently_approved_wiki_pages`]: the wiki's pages, newest first, capped at `limit`.
-#[wasm_bindgen(js_name = recentlyApprovedWikiPages)]
-pub fn recently_approved_wiki_pages_js(pages: JsValue, limit: u32) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = recentlyApprovedWikiPages, unchecked_return_type = "B.RecentWikiPage[]")]
+pub fn recently_approved_wiki_pages_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WikiNote[]")] pages: JsValue,
+    limit: u32,
+) -> Result<JsValue, JsError> {
     let pages: Vec<WikiNote> = parse(pages)?;
     let recent = recently_approved_wiki_pages(&pages, limit as usize);
     to_js(&recent).map_err(|error| JsError::new(&error.to_string()))

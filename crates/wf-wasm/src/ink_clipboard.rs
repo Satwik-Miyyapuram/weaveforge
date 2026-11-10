@@ -32,11 +32,11 @@ pub fn parse_figure_clip_js(text: Option<String>) -> JsResult<JsValue> {
 }
 
 /// [`pasted_figure_place`]: `figure` is a `FigurePlacement`, `on_page` the page's figures, `page` an `InkPageSize`.
-#[wasm_bindgen(js_name = pastedFigurePlace)]
+#[wasm_bindgen(js_name = pastedFigurePlace, unchecked_return_type = "B.FigurePlacement")]
 pub fn pasted_figure_place_js(
-    figure: JsValue,
-    on_page: JsValue,
-    page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.FigurePlacement")] figure: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.FigureBox[]")] on_page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.InkPageSize")] page: JsValue,
 ) -> JsResult<JsValue> {
     let figure: FigurePlacement = serde_wasm_bindgen::from_value(figure)?;
     let on_page: Vec<FigureBox> = serde_wasm_bindgen::from_value(on_page)?;
@@ -46,7 +46,9 @@ pub fn pasted_figure_place_js(
 
 /// [`stroke_clip_text`]: the clipboard text for a set of `InkStroke`s.
 #[wasm_bindgen(js_name = strokeClipText)]
-pub fn stroke_clip_text_js(strokes: JsValue) -> JsResult<String> {
+pub fn stroke_clip_text_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.InkStroke[]")] strokes: JsValue,
+) -> JsResult<String> {
     let strokes: Vec<InkStroke> = serde_wasm_bindgen::from_value(strokes)?;
     Ok(stroke_clip_text(&strokes))
 }
@@ -59,11 +61,11 @@ pub fn parse_stroke_clip_js(text: Option<String>) -> JsResult<JsValue> {
 }
 
 /// [`pasted_strokes_place`]: `strokes` are the pasted ones, `on_page` the page's, `page` an `InkPageSize`.
-#[wasm_bindgen(js_name = pastedStrokesPlace)]
+#[wasm_bindgen(js_name = pastedStrokesPlace, unchecked_return_type = "B.InkStroke[]")]
 pub fn pasted_strokes_place_js(
-    strokes: JsValue,
-    on_page: JsValue,
-    page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.InkStroke[]")] strokes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.InkStroke[]")] on_page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.InkPageSize")] page: JsValue,
 ) -> JsResult<JsValue> {
     let strokes: Vec<InkStroke> = serde_wasm_bindgen::from_value(strokes)?;
     let on_page: Vec<InkStroke> = serde_wasm_bindgen::from_value(on_page)?;

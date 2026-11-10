@@ -4,9 +4,15 @@
  */
 import {
   findAnnotationBacklinks as rawFindAnnotationBacklinks,
-  backlinksForAnnotation as rawBacklinksForAnnotation,
 } from "../pkg/wf_wasm.js";
-import type { AnnotationBacklinkHit, AnnotationBacklinkTarget } from "./bindings.js";
+import type {
+  AnnotationBacklinkHit,
+  AnnotationBacklinkTarget,
+} from "./bindings.js";
+
+export {
+  backlinksForAnnotation,
+} from "../pkg/wf_wasm.js";
 
 export type { AnnotationBacklinkHit, AnnotationBacklinkTarget } from "./bindings.js";
 
@@ -23,10 +29,3 @@ export function findAnnotationBacklinks(input: {
   return rawFindAnnotationBacklinks(input) as AnnotationBacklinkHit[];
 }
 
-/** The targets of the first hit for an annotation, or none (Rust `backlinks_for_annotation`). */
-export function backlinksForAnnotation(
-  hits: readonly AnnotationBacklinkHit[],
-  annotationId: string,
-): AnnotationBacklinkTarget[] {
-  return rawBacklinksForAnnotation(hits, annotationId) as AnnotationBacklinkTarget[];
-}

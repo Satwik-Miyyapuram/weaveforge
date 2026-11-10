@@ -4,8 +4,6 @@
  * results are built here.
  */
 import {
-  flattenTree as rawFlattenTree,
-  isDocumentNode as rawIsDocumentNode,
   folderIdsOf as rawFolderIdsOf,
   visibleRows as rawVisibleRows,
   listMembership as rawListMembership,
@@ -18,18 +16,15 @@ import type {
 } from "./bindings.js";
 
 export {
+  flattenTree,
+  isDocumentNode,
+} from "../pkg/wf_wasm.js";
+
+export {
   buildListsTree,
   buildWorkspaceTree,
   slugSegment,
 } from "../pkg/wf_wasm.js";
-
-export function flattenTree(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeNode[] {
-  return rawFlattenTree(nodes) as WorkspaceTreeNode[];
-}
-
-export function isDocumentNode(node: Pick<WorkspaceTreeNode, "kind" | "folder">): boolean {
-  return rawIsDocumentNode(node);
-}
 
 export function folderIdsOf(nodes: readonly WorkspaceTreeNode[]): Set<string> {
   return new Set(rawFolderIdsOf(nodes) as string[]);

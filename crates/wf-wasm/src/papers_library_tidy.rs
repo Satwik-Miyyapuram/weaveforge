@@ -14,8 +14,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `papers` is not a list of paper summaries, or the result cannot be converted.
-#[wasm_bindgen(js_name = titleFixes)]
-pub fn title_fixes_js(papers: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = titleFixes, unchecked_return_type = "B.TitleFix[]")]
+pub fn title_fixes_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TidyPaper[]")] papers: JsValue,
+) -> Result<JsValue, JsError> {
     let papers: Vec<TidyPaper> =
         serde_wasm_bindgen::from_value(papers).map_err(|error| JsError::new(&error.to_string()))?;
     to_js(&title_fixes(&papers)).map_err(|error| JsError::new(&error.to_string()))
@@ -26,8 +28,10 @@ pub fn title_fixes_js(papers: JsValue) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `papers` is not a list of paper summaries, or the result cannot be converted.
-#[wasm_bindgen(js_name = findDuplicateGroups)]
-pub fn find_duplicate_groups_js(papers: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = findDuplicateGroups, unchecked_return_type = "B.DuplicateGroup[]")]
+pub fn find_duplicate_groups_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TidyPaper[]")] papers: JsValue,
+) -> Result<JsValue, JsError> {
     let papers: Vec<TidyPaper> =
         serde_wasm_bindgen::from_value(papers).map_err(|error| JsError::new(&error.to_string()))?;
     to_js(&find_duplicate_groups(&papers)).map_err(|error| JsError::new(&error.to_string()))
@@ -39,7 +43,9 @@ pub fn find_duplicate_groups_js(papers: JsValue) -> Result<JsValue, JsError> {
 ///
 /// Fails if `group` is not a list of paper summaries, or it is empty.
 #[wasm_bindgen(js_name = pickKeeper)]
-pub fn pick_keeper_js(group: JsValue) -> Result<String, JsError> {
+pub fn pick_keeper_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TidyPaper[]")] group: JsValue,
+) -> Result<String, JsError> {
     let group: Vec<TidyPaper> =
         serde_wasm_bindgen::from_value(group).map_err(|error| JsError::new(&error.to_string()))?;
     let refs: Vec<&TidyPaper> = group.iter().collect();

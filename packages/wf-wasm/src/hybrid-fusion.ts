@@ -5,7 +5,10 @@
 import {
   coveredHitMask as rawCoveredHitMask,
   gateVectorMask as rawGateVectorMask,
-  queryTermCount as rawQueryTermCount,
+} from "../pkg/wf_wasm.js";
+
+export {
+  queryTermCount,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -18,11 +21,6 @@ export const HYBRID_VECTOR_WEIGHT = 1.5;
 export const HYBRID_MIN_TERM_COVERAGE = 0.5;
 /** Top vector hits kept even under the encoder's floor once the best hit clears it. */
 export const HYBRID_VECTOR_KEEP_TOP = 5;
-
-/** Distinct non-empty terms; callers pass the query's index terms. */
-export function queryTermCount(terms: readonly string[]): number {
-  return rawQueryTermCount(terms);
-}
 
 /** Per hit (its matched-term count, or null), whether it covers enough of the query. */
 export function coveredHitMask(

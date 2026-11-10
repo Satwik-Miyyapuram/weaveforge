@@ -48,12 +48,12 @@ pub fn sync_stroke_steps_js(
 
 /// [`push_figure_step`]: `before` and `after` are the page's figure arrays;
 /// `key` is the press number, or `null` when the edit is not from a press.
-#[wasm_bindgen(js_name = pushFigureStep)]
+#[wasm_bindgen(js_name = pushFigureStep, unchecked_return_type = "B.PageHistory")]
 pub fn push_figure_step_js(
-    history: JsValue,
-    before: JsValue,
-    after: JsValue,
-    key: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PageHistory")] history: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.FigurePlacement[]")] before: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.FigurePlacement[]")] after: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "number | null")] key: JsValue,
 ) -> JsResult<JsValue> {
     let history = parse_history(history)?;
     let before = parse_figures(before)?;
