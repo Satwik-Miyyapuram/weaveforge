@@ -4,9 +4,9 @@ The `bytea` module holds the two byte codecs the web app uses for storage and
 sync payloads: PostgREST's `\x…` hex for `bytea` columns, and standard padded
 base64. It is pure and synchronous. It does no I/O and holds no state.
 
-It replaces `apps/web/src/lib/bytea.ts`, which is deleted. The output must stay
-byte-for-byte the same as that TypeScript, because stored rows and sync payloads
-depend on it.
+It replaces the old TypeScript bytea helpers in the web app, now deleted. The
+output must stay byte-for-byte the same as that TypeScript, because stored rows
+and sync payloads depend on it.
 
 ## What lives in Rust
 
