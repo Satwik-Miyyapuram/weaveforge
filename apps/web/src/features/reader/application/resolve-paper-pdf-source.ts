@@ -18,7 +18,6 @@ import {
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore } from "@/lib/rust-core";
 import type { PdfSourceKind } from "@weaveforge/wasm";
-import { resolvePaperPdfUrl } from "./sanitize-reader-url";
 
 export function paperToPdfSourcePaper(input: {
   id: string;
@@ -42,10 +41,9 @@ export function paperToPdfSourcePaper(input: {
 
 const openAccessResolver = new OpenAccessPdfResolver({
   resolveUrl: (paper) =>
-    resolvePaperPdfUrl({
+    readyCore().resolvePaperPdfUrl({
       url: paper.url,
       arxivId: paper.arxivId,
-      pdfPath: typeof paper.metadata?.["pdfPath"] === "string" ? paper.metadata["pdfPath"] : null,
       openAccessPdf:
         typeof paper.metadata?.["openAccessPdf"] === "string" ? paper.metadata["openAccessPdf"] : null,
     }),

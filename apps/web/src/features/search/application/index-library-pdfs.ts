@@ -2,7 +2,6 @@ import { errorMessage, type Paper } from "@weaveforge/core";
 import type { DocumentPageText } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
-import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import {
   pdfBytesForSource,
   resolvePaperPdfSourceForReader,
@@ -69,7 +68,7 @@ export async function papersNeedingIndex(): Promise<Paper[]> {
   return snapshot.papers.filter(
     (paper) =>
       !already.has(paper.id) &&
-      resolvePaperPdfUrl({ url: paper.url, arxivId: paper.arxivId }) !== null,
+      readyCore().resolvePaperPdfUrl({ url: paper.url, arxivId: paper.arxivId }) !== null,
   );
 }
 

@@ -9,7 +9,6 @@ import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { PaperPdfPane } from "./paper-pdf-pane";
-import { sanitizePdfUrl, looksLikePdfUrl } from "../application/sanitize-reader-url";
 import {
   appendActivityLog,
   type ActivityLogEntry,
@@ -35,9 +34,9 @@ export function ReaderScreen() {
   }, [pageParam]);
 
   const pdfFromParam = useMemo(() => {
-    const sanitized = sanitizePdfUrl(pdfParam);
+    const sanitized = readyCore().sanitizePdfUrl(pdfParam);
     if (!sanitized) return null;
-    return looksLikePdfUrl(sanitized) ? sanitized : null;
+    return readyCore().looksLikePdfUrl(sanitized) ? sanitized : null;
   }, [pdfParam]);
   const [title, setTitle] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<ReaderAnnotation[]>([]);

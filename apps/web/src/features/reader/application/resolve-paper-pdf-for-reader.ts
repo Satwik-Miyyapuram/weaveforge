@@ -21,7 +21,7 @@ import {
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { pdfProxyNeedsToken } from "./pdf-download-consent";
-import { isAllowedPdfProxyUrl, proxiedPdfUrl } from "./sanitize-reader-url";
+import { proxiedPdfUrl } from "./sanitize-reader-url";
 import { relayPath, relayUrl } from "@/lib/relay-url";
 
 const CACHE_CAP = 64;
@@ -227,7 +227,7 @@ export async function fetchTypedPdfToCache(
   const cache = getReaderPdfByteCache();
   if (!cache) return { ok: false, reason: "no-cache" };
   let bytes: ArrayBuffer | null = null;
-  if (isAllowedPdfProxyUrl(url)) {
+  if (readyCore().isAllowedPdfProxyUrl(url)) {
     bytes = await fetchPdfBytesForCache(url);
     // Null here is the proxy refusing, no token, or an empty body: a failed
     // fetch. Whether the bytes are a PDF is checked below.

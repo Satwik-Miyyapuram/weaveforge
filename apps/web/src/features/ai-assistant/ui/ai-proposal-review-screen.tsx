@@ -12,7 +12,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
+import { buildLocusLink } from "@/features/reader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
@@ -159,7 +159,7 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
       // Always bind the open link to evidence.paperId (ignore spoofed app hrefs).
       return `/papers?paper=${encodeURIComponent(evidence.paperId)}`;
     }
-    return sanitizeReaderHref(evidence.href) ?? sanitizeAppHref(evidence.href);
+    return readyCore().sanitizeReaderHref(evidence.href) ?? readyCore().sanitizeAppHref(evidence.href);
   }, [evidence.href, evidence.paperId, evidence.locus, evidence.page]);
 
   const locusMiss =
@@ -352,7 +352,7 @@ export function AiProposalReviewScreen() {
               <span className="ai-review-sources-label">Sources</span>
               {item.sourceLinks.map((raw, i) => {
                 const target = sourceTargets.get(raw.trim());
-                const href = target?.href ?? sanitizeReaderHref(raw) ?? sanitizeAppHref(raw);
+                const href = target?.href ?? readyCore().sanitizeReaderHref(raw) ?? readyCore().sanitizeAppHref(raw);
                 const text = target?.title ?? unresolvedSourceLabel(raw);
                 const key = `${item.id}-src-${i}`;
                 return href ? (
