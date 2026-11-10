@@ -1,7 +1,4 @@
-import {
-  isAllowedPdfProxyUrl,
-  PDF_PROXY_MAX_BYTES,
-} from "@/features/reader/application/sanitize-reader-url";
+import { PDF_PROXY_MAX_BYTES } from "@/features/reader/application/sanitize-reader-url";
 import { readCapped } from "@/lib/read-capped";
 import { readyCore } from "@/lib/rust-core";
 import { fetchCheckedHops, isPublicHttpsUrl, refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
@@ -48,7 +45,7 @@ export async function proxyPdf(
   const target = params.get("url");
   if (!target) return refuse(400, "url is required");
   const typed = params.get("typed") === "1";
-  const allowed = typed ? isPublicHttpsUrl : isAllowedPdfProxyUrl;
+  const allowed = typed ? isPublicHttpsUrl : (url: string) => readyCore().isAllowedPdfProxyUrl(url);
   if (!allowed(target)) return refuse(400, "URL host is not allowed for PDF proxy");
 
   const fetched = await fetchCheckedHops(

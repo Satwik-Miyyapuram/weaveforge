@@ -11,12 +11,7 @@ import { useContainerSize } from "./container-resize";
 import { getContainer } from "@/bootstrap";
 import { perfEnd, perfStart } from "@/lib/perf-marks";
 import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
-import {
-  sanitizePdfUrl,
-  originalUrlFromProxy,
-  isAllowedPdfProxyUrl,
-  isReaderObjectUrl,
-} from "../../application/sanitize-reader-url";
+import { originalUrlFromProxy, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pdfProxyNeedsToken } from "../../application/pdf-download-consent";
 import { pdfObjectUrlBytes } from "../../application/object-url-bytes";
 import {
@@ -175,20 +170,20 @@ export function usePdfRendering({
 const safeUrl = (() => {
   if (relayPath(url).startsWith("/api/pdf-proxy?")) {
     const original = originalUrlFromProxy(url);
-    return original && isAllowedPdfProxyUrl(original) ? url : null;
+    return original && readyCore().isAllowedPdfProxyUrl(original) ? url : null;
   }
   // Bytes this app already cached and materialised — see isReaderObjectUrl.
   if (isReaderObjectUrl(url)) return url;
   // The same bytes, still in the store: the desktop reader takes them as data.
   if (isCachePdfUrl(url)) return url;
-  return sanitizePdfUrl(url);
+  return readyCore().sanitizePdfUrl(url);
 })();
 const openUrl = (() => {
-  const direct = sanitizePdfUrl(originalUrl);
+  const direct = readyCore().sanitizePdfUrl(originalUrl);
   if (direct) return direct;
   const fromProxy = originalUrlFromProxy(url);
-  if (fromProxy && isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
-  return sanitizePdfUrl(url);
+  if (fromProxy && readyCore().isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
+  return readyCore().sanitizePdfUrl(url);
 })();
 
 const cancelRenderTasks = useCallback(() => {

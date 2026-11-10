@@ -32,7 +32,7 @@ import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 
 import { PaperExternalLink } from "./paper-external-link";
-import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
+import { buildLocusLink } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { PaperAnnotations } from "./paper-annotations";
 import { highlightsDigest } from "../application/reading-digest";
@@ -142,15 +142,14 @@ export function PaperNote({
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
-    const pdfUrl = resolvePaperPdfUrl({
+    const pdfUrl = readyCore().resolvePaperPdfUrl({
       url: paper.url,
       arxivId: paper.arxivId,
-      pdfPath: paper.pdfPath,
       openAccessPdf:
         typeof paper.metadata?.["openAccessPdf"] === "string" ? paper.metadata["openAccessPdf"] : null,
     });
     return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
-  }, [paper.id, paper.url, paper.arxivId, paper.pdfPath, paper.metadata]);
+  }, [paper.id, paper.url, paper.arxivId, paper.metadata]);
   // A PDF added from disk or a saved web page has no web link, but the reader opens it.
   const readerHref = useMemo(
     () => readyCore().previewReaderHref(remoteReaderHref, preview, buildLocusLink({ paperId: paper.id })),
