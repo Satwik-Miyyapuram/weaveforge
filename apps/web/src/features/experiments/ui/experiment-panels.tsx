@@ -10,7 +10,7 @@ import { getContainer } from "@/bootstrap";
 import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
-import { isTauriShell, viewableArtifactUrl } from "../infrastructure/experiment-artifact-store";
+import { isTauriShell } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
 import { Chip } from "@/components/controls";
 import { Modal } from "@/components/modal";
@@ -109,7 +109,7 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
 function useArtifactUrls(entries: string[]): { urls: (string | null)[]; settled: boolean; retry: () => void } {
   // One slot per entry, in order: absolute links are ready now, paths once signed.
   const [resolved, setResolved] = useState<(string | null)[]>(() =>
-    entries.map((entry) => (readyCore().isAbsoluteUrl(entry) ? viewableArtifactUrl(entry) : null)),
+    entries.map((entry) => (readyCore().isAbsoluteUrl(entry) ? readyCore().viewableArtifactUrl(entry, isTauriShell()) : null)),
   );
   // True once signing finished or failed: a path still without a URL is then missing.
   const [settled, setSettled] = useState(() => entries.every((entry) => readyCore().isAbsoluteUrl(entry)));

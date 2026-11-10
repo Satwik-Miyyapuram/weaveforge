@@ -54,6 +54,6 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [experiment-artifacts](experiment-artifacts.md) | Experiment artifact rules: storage key segment, viewable URL and absolute-link check (`safe_name`, `viewable_artifact_url`, `is_absolute_url`). |
 | [library-index](library-index.md) | Background PDF indexer decisions: the 7-day failure retry window and the courtesy pause (`recent_failure_ids`, `courtesy_pause_due`). |
 | [url-meta](url-meta.md) | Paper-from-URL rules in the desktop shell: relay target with `https://` default and read failure messages (`shell_target`, `read_failure_message`). |
-| [local_api_guard](local_api_guard.md) | Local API request guards: loopback Host check, Bearer credential extraction and legacy token shape (is_loopback_host, earer_token, is_legacy_token_hex). |
+| [local_api_guard](local_api_guard.md) | Local API request guards: loopback Host check, Bearer credential extraction and legacy token shape (is_loopback_host, bearer_token, is_legacy_token_hex). |
 | [secret_names](secret_names.md) | The four stored secret names and the exact-match check (SECRET_NAMES, is_secret_name). |
 | [project_folder](project_folder.md) | Project folder name from a --xxxxxx id suffix (project_folder_name). |
