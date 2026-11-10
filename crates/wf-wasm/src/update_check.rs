@@ -12,7 +12,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = parseReleaseTag)]
+#[wasm_bindgen(js_name = parseReleaseTag, unchecked_return_type = "[number, number, number] | null")]
 pub fn parse_release_tag_js(tag: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&parse_tag(tag))
 }
@@ -22,7 +22,7 @@ pub fn parse_release_tag_js(tag: &str) -> Result<JsValue, serde_wasm_bindgen::Er
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = parseAppVersion)]
+#[wasm_bindgen(js_name = parseAppVersion, unchecked_return_type = "[number, number, number] | null")]
 pub fn parse_app_version_js(version: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&parse_version(version))
 }
@@ -34,8 +34,8 @@ pub fn parse_app_version_js(version: &str) -> Result<JsValue, serde_wasm_bindgen
 /// Fails if either argument is not three numbers.
 #[wasm_bindgen(js_name = isNewerVersion)]
 pub fn is_newer_version_js(
-    candidate: JsValue,
-    current: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "[number, number, number]")] candidate: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "[number, number, number]")] current: JsValue,
 ) -> Result<bool, serde_wasm_bindgen::Error> {
     let candidate: Version = serde_wasm_bindgen::from_value(candidate)?;
     let current: Version = serde_wasm_bindgen::from_value(current)?;

@@ -5,13 +5,13 @@
  */
 import {
   wireOkReplyHead as rawWireOkReplyHead,
-  wireParseRequest as rawWireParseRequest,
-  wireRoute as rawWireRoute,
-  wireTag as rawWireTag,
 } from "../pkg/wf_wasm.js";
 
 export {
   wireErrorReply,
+  wireParseRequest,
+  wireRoute,
+  wireTag,
 } from "../pkg/wf_wasm.js";
 
 /** What to do with one line read from the shell. */
@@ -33,21 +33,6 @@ export type WireTagValue =
   | { kind: "bigint"; digits: string }
   | { kind: "bytes"; encoded: string }
   | null;
-
-/** Decide what one shell line means. `acceptAnswers` is false when no peer listens. */
-export function wireRoute(line: string, acceptAnswers: boolean): WireRoute {
-  return rawWireRoute(line, acceptAnswers) as WireRoute;
-}
-
-/** Read one request line on its own. */
-export function wireParseRequest(line: string): WireParsed {
-  return rawWireParseRequest(line) as WireParsed;
-}
-
-/** Recognise a one-key tagged object; `null` for anything else. */
-export function wireTag(value: unknown): WireTagValue {
-  return rawWireTag(value) as WireTagValue;
-}
 
 /** The start of a successful reply: `{id, ok: true}`. The shim adds `value`. */
 export function wireOkReplyHead(id: number): { id: number; ok: true } {

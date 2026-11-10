@@ -165,8 +165,10 @@ pub fn decode_share_link_token_js(encoded: &str) -> Result<Vec<u8>, JsValue> {
 /// # Errors
 ///
 /// Fails if `row` does not have the `shares` columns.
-#[wasm_bindgen(js_name = shareFromRow)]
-pub fn share_from_row_js(row: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = shareFromRow, unchecked_return_type = "B.Share")]
+pub fn share_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ShareRow")] row: JsValue,
+) -> JsResult<JsValue> {
     let row: ShareRow = serde_wasm_bindgen::from_value(row)?;
     to_js(&sharing::share_from_row(&row))
 }
@@ -176,8 +178,10 @@ pub fn share_from_row_js(row: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `row` does not have the `comments` columns.
-#[wasm_bindgen(js_name = commentFromRow)]
-pub fn comment_from_row_js(row: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = commentFromRow, unchecked_return_type = "B.Comment")]
+pub fn comment_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CommentRow")] row: JsValue,
+) -> JsResult<JsValue> {
     let row: CommentRow = serde_wasm_bindgen::from_value(row)?;
     to_js(&sharing::comment_from_row(&row))
 }
@@ -187,8 +191,12 @@ pub fn comment_from_row_js(row: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `kind` is not a shareable type or `source` lacks `title`.
-#[wasm_bindgen(js_name = sharedItem)]
-pub fn shared_item_js(kind: JsValue, row: JsValue, source: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = sharedItem, unchecked_return_type = "B.SharedItem")]
+pub fn shared_item_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] row: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.SharedSource")] source: JsValue,
+) -> JsResult<JsValue> {
     let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
     let row: serde_json::Value = serde_wasm_bindgen::from_value(row)?;
     let source: SharedSource = serde_wasm_bindgen::from_value(source)?;
@@ -226,7 +234,9 @@ pub fn shared_resource_href_js(
 ///
 /// Fails when `item` is not a shared item.
 #[wasm_bindgen(js_name = sharedItemHref)]
-pub fn shared_item_href_js(item: JsValue) -> JsResult<String> {
+pub fn shared_item_href_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SharedItem")] item: JsValue,
+) -> JsResult<String> {
     let item: sharing::SharedItem = serde_wasm_bindgen::from_value(item)?;
     Ok(sharing::shared_item_href(&item))
 }

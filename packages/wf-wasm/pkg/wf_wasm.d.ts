@@ -365,7 +365,7 @@ export function addedNotice(created: boolean): string;
  *
  * Fails if the result cannot be serialised.
  */
-export function afterCycle(stopped_because?: string | null): any;
+export function afterCycle(stopped_because?: string | null): { phase: "idle" | "offline" | "error"; isOnline: boolean };
 
 /**
  * [`after_failure`]: the phase a cycle that threw leaves.
@@ -374,7 +374,7 @@ export function afterCycle(stopped_because?: string | null): any;
  *
  * Fails if the result cannot be serialised.
  */
-export function afterFailure(online: boolean): any;
+export function afterFailure(online: boolean): { phase: "idle" | "offline" | "error"; isOnline: boolean };
 
 /**
  * [`agreement_between`](screening::agreement_between) (TS `agreementBetween`).
@@ -1515,7 +1515,7 @@ export function commandMatchIndices(labels: readonly string[], query: string): n
  *
  * Fails if `row` does not have the `comments` columns.
  */
-export function commentFromRow(row: any): any;
+export function commentFromRow(row: B.CommentRow): B.Comment;
 
 /**
  * [`commit_url`](repo_web_url::commit_url): a commit's web URL, or `undefined`.
@@ -4012,7 +4012,7 @@ export function indexTermsOf(text: string): string[];
  *
  * Fails if the result cannot be serialised.
  */
-export function initialPhase(online: boolean): any;
+export function initialPhase(online: boolean): "idle" | "offline" | "error";
 
 /**
  * [`initial_reader_viewport`] as `{ scale, fit, rotation, page }` (TS `initialReaderViewport`).
@@ -4762,7 +4762,7 @@ export function isNetworkFailure(message: string): boolean;
  *
  * Fails if either argument is not three numbers.
  */
-export function isNewerVersion(candidate: any, current: any): boolean;
+export function isNewerVersion(candidate: [number, number, number], current: [number, number, number]): boolean;
 
 /**
  * [`is_note_import_file`](import_links::is_note_import_file).
@@ -6941,7 +6941,7 @@ export function paperRowToSummary(row: B.PaperRow): B.PaperSummary;
 /**
  * [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
  */
-export function paperTagFromRow(row: any): any;
+export function paperTagFromRow(row: B.PaperTagRowInput): { paperId: string; tagId: string; source: "zotero_annotation" | "zotero_item" | "summary" | "manual"; annotationRef?: string };
 
 /**
  * [`paper_to_bibtex`](bibtex::paper_to_bibtex): one `.bib` entry under `key`.
@@ -6964,7 +6964,7 @@ export function paperToRow(paper: B.Paper): B.PaperRow;
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function parseAppVersion(version: string): any;
+export function parseAppVersion(version: string): [number, number, number] | null;
 
 /**
  * [`parse_artifact_refs`](artifact_refs::parse_artifact_refs) (TS `parseArtifactRefs`). Offsets
@@ -7268,7 +7268,7 @@ export function parseRegions(document: string): any;
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function parseReleaseTag(tag: string): any;
+export function parseReleaseTag(tag: string): [number, number, number] | null;
 
 /**
  * [`parse_results_table_refs`](results_table_refs::parse_results_table_refs) (TS
@@ -9414,7 +9414,7 @@ export function shareCoversResource(share: Pick<B.Share, "resourceType" | "resou
  *
  * Fails if `row` does not have the `shares` columns.
  */
-export function shareFromRow(row: any): any;
+export function shareFromRow(row: B.ShareRow): B.Share;
 
 /**
  * [`SHARE_LINK_DEFAULT_TTL_DAYS`](sharing::SHARE_LINK_DEFAULT_TTL_DAYS) as a JS number.
@@ -9464,7 +9464,7 @@ export function shareableTypes(): any;
  *
  * Fails if `kind` is not a shareable type or `source` lacks `title`.
  */
-export function sharedItem(kind: any, row: any, source: any): any;
+export function sharedItem(kind: B.ShareableType, row: Record<string, unknown>, source: B.SharedSource): B.SharedItem;
 
 /**
  * [`shared_item_href`](sharing::shared_item_href).
@@ -9473,7 +9473,7 @@ export function sharedItem(kind: any, row: any, source: any): any;
  *
  * Fails when `item` is not a shared item.
  */
-export function sharedItemHref(item: any): string;
+export function sharedItemHref(item: B.SharedItem): string;
 
 /**
  * [`shared_item_type_label`](sharing::shared_item_type_label).
@@ -10080,7 +10080,7 @@ export function tagColor(tag: string): string;
 /**
  * [`to_tag`]: a `tags` row as the app's tag.
  */
-export function tagFromRow(row: any): any;
+export function tagFromRow(row: B.TagRowInput): { id: string; name: string; color?: string };
 
 /**
  * [`tag_to_hashtag`](note_tags::tag_to_hashtag). Empty when the name has no usable characters.
@@ -10782,7 +10782,7 @@ export function wireOkReplyHead(id: any): any;
  *
  * Fails only if the result cannot be turned into a JS value.
  */
-export function wireParseRequest(line: string): any;
+export function wireParseRequest(line: string): { ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string };
 
 /**
  * [`route_line`](wire::route_line) as `{kind, ...}`: `skip`, `reply`, `call`,
@@ -10792,7 +10792,7 @@ export function wireParseRequest(line: string): any;
  *
  * Fails only if the decision cannot be turned into a JS value.
  */
-export function wireRoute(line: string, accept_answers: boolean): any;
+export function wireRoute(line: string, accept_answers: boolean): { kind: "skip" } | { kind: "reply"; reply: Record<string, unknown> } | { kind: "call"; id: number; method: string; params?: unknown } | { kind: "settle"; answer: number; ok: true; value: unknown } | { kind: "settle"; answer: number; ok: false; error: string } | { kind: "badAnswer" };
 
 /**
  * [`wire_tag`](wire::wire_tag) as `{kind: "bigint", digits}` or
@@ -10802,7 +10802,7 @@ export function wireRoute(line: string, accept_answers: boolean): any;
  *
  * Fails if `value` cannot be read as JSON (for example, a JS bigint).
  */
-export function wireTag(value: any): any;
+export function wireTag(value: unknown): { kind: "bigint"; digits: string } | { kind: "bytes"; encoded: string } | null;
 
 /**
  * [`nav_open_groups::with_active`]: `groups` with `active` appended when it is not already listed.

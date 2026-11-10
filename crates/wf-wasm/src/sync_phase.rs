@@ -14,7 +14,7 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = afterCycle)]
+#[wasm_bindgen(js_name = afterCycle, unchecked_return_type = "{ phase: \"idle\" | \"offline\" | \"error\"; isOnline: boolean }")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn after_cycle_js(stopped_because: Option<String>) -> JsResult<JsValue> {
     to_js(&after_cycle(stopped_because.as_deref()))
@@ -25,7 +25,7 @@ pub fn after_cycle_js(stopped_because: Option<String>) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = afterFailure)]
+#[wasm_bindgen(js_name = afterFailure, unchecked_return_type = "{ phase: \"idle\" | \"offline\" | \"error\"; isOnline: boolean }")]
 pub fn after_failure_js(online: bool) -> JsResult<JsValue> {
     to_js(&after_failure(online))
 }
@@ -42,7 +42,7 @@ pub fn is_caught_up_js(stopped_because: Option<String>, pulled_more: bool) -> bo
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = initialPhase)]
+#[wasm_bindgen(js_name = initialPhase, unchecked_return_type = "\"idle\" | \"offline\" | \"error\"")]
 pub fn initial_phase_js(online: bool) -> JsResult<JsValue> {
     to_js(&initial_phase(online))
 }

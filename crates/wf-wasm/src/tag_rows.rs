@@ -18,15 +18,19 @@ fn js_error(error: serde_wasm_bindgen::Error) -> JsError {
 }
 
 /// [`to_tag`]: a `tags` row as the app's tag.
-#[wasm_bindgen(js_name = tagFromRow)]
-pub fn tag_from_row_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = tagFromRow, unchecked_return_type = "{ id: string; name: string; color?: string }")]
+pub fn tag_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TagRowInput")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: TagRow = parse(row)?;
     to_js(&to_tag(&row)).map_err(js_error)
 }
 
 /// [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
-#[wasm_bindgen(js_name = paperTagFromRow)]
-pub fn paper_tag_from_row_js(row: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = paperTagFromRow, unchecked_return_type = "{ paperId: string; tagId: string; source: \"zotero_annotation\" | \"zotero_item\" | \"summary\" | \"manual\"; annotationRef?: string }")]
+pub fn paper_tag_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperTagRowInput")] row: JsValue,
+) -> Result<JsValue, JsError> {
     let row: PaperTagRow = parse(row)?;
     to_js(&to_paper_tag(&row)).map_err(js_error)
 }
