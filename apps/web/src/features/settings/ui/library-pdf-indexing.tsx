@@ -13,7 +13,7 @@ import {
 import { formatError } from "@/lib/format-error";
 import { getContainer } from "@/bootstrap";
 import {
-  WEB_CACHE_DOCUMENT_LIMIT,
+  webCacheDocumentLimit,
   isInstalledApp,
   shouldPersistIndex,
 } from "@/features/search/infrastructure/index-cache-policy";
@@ -237,7 +237,7 @@ export function IndexSize() {
       {!cached && (
         <p className="muted jump-to-meta">
           Too large to keep between visits in a browser tab, so it is rebuilt each session — in
-          the background, not while you wait. Above {WEB_CACHE_DOCUMENT_LIMIT.toLocaleString()}{" "}
+          the background, not while you wait. Above {webCacheDocumentLimit().toLocaleString()}{" "}
           items the cache costs more to write than the rebuild it saves.{" "}
           {!isInstalledApp() && "Installing the app keeps it on this device instead."}
         </p>

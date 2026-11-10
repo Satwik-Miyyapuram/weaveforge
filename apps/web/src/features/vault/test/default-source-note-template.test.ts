@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { DEFAULT_SOURCE_NOTE_TEMPLATE } from "../application/default-source-note-template";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -16,11 +15,12 @@ before(async () => {
   await loadTestCore();
 });
 const applyTemplate = lazy("applyTemplate");
+const defaultSourceNoteTemplate = () => readyCore().defaultSourceNoteTemplate();
 
 test("default template first render fills metadata and editable regions", () => {
   const out = applyTemplate(
     null,
-    DEFAULT_SOURCE_NOTE_TEMPLATE,
+    defaultSourceNoteTemplate(),
     sourceNoteTemplateContext({
       title: "Attention Is All You Need",
       authors: ["A. Vaswani", "N. Shazeer"],
@@ -41,7 +41,7 @@ test("default template first render fills metadata and editable regions", () => 
 test("re-render refreshes generated metadata but preserves editable notes byte-for-byte", () => {
   const first = applyTemplate(
     null,
-    DEFAULT_SOURCE_NOTE_TEMPLATE,
+    defaultSourceNoteTemplate(),
     sourceNoteTemplateContext({ title: "Paper", year: 2017 }),
   );
 
@@ -53,7 +53,7 @@ test("re-render refreshes generated metadata but preserves editable notes byte-f
 
   const reRendered = applyTemplate(
     edited,
-    DEFAULT_SOURCE_NOTE_TEMPLATE,
+    defaultSourceNoteTemplate(),
     sourceNoteTemplateContext({ title: "Renamed Paper", year: 2020, venue: "NeurIPS" }),
   );
 
@@ -69,13 +69,13 @@ test("re-render refreshes generated metadata but preserves editable notes byte-f
 test("re-render preserves unmarked freeform text the researcher added", () => {
   const first = applyTemplate(
     null,
-    DEFAULT_SOURCE_NOTE_TEMPLATE,
+    defaultSourceNoteTemplate(),
     sourceNoteTemplateContext({ title: "Paper", year: 2017 }),
   );
   const withAppendix = `${first}\n\n## My appendix\n\nKeep this.\n`;
   const reRendered = applyTemplate(
     withAppendix,
-    DEFAULT_SOURCE_NOTE_TEMPLATE,
+    defaultSourceNoteTemplate(),
     sourceNoteTemplateContext({ title: "Paper", year: 2021 }),
   );
   assert.match(reRendered, /## My appendix/);

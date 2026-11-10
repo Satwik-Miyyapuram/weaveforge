@@ -17,35 +17,17 @@ export interface AskResult {
   sources: CitedSource[];
 }
 
-const SYSTEM_PROMPT = [
-  "You answer questions about the user's research library.",
-  "Use only the numbered sources supplied. If they do not answer the question, say so.",
-  "Cite every claim with its source number in square brackets, like [1] or [2].",
-  "Be brief.",
-].join(" ");
-
-/** The source's heading line and passage; its number is the fence label. */
-function sourceText(hit: SearchHit): string {
-  const heading = `${hit.title}${hit.page != null ? ` (p. ${hit.page})` : ""}`;
-  return hit.excerpt?.text ? `${heading}\n${hit.excerpt.text}` : heading;
-}
-
+/** The system and user turns (prompt text and source fencing are Rust `search::ask_library`). */
 export function buildAskRequest(question: string, hits: readonly SearchHit[], nonce: string): AiModelRequest {
-  const sources = readyCore().fenceUntrusted(
-    hits.map((hit, i) => ({ label: String(i + 1), text: sourceText(hit) })),
+  const { system, user } = readyCore().askPrompt(
+    question,
+    hits.map((hit) => ({ title: hit.title, page: hit.page ?? null, excerpt: hit.excerpt?.text ?? null })),
     nonce,
   );
   return {
     messages: [
-      {
-        role: "system",
-        content: [
-          SYSTEM_PROMPT,
-          `Sources are delimited by <<context-${nonce}>> and <</context-${nonce}>>, each headed by its number.`,
-          readyCore().untrustedContextRule(),
-        ].join("\n"),
-      },
-      { role: "user", content: `${sources}\n\nQuestion: ${question}` },
+      { role: "system", content: system },
+      { role: "user", content: user },
     ],
     temperature: 0.2,
   };

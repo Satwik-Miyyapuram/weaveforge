@@ -799,6 +799,24 @@ export type ArtifactRef = {
 	alt?: string | null,
 };
 
+/**  The two turns of an ask request, before the app wraps them as a model request. */
+export type AskPrompt = {
+	/**  The system turn: instructions, fence description and untrusted-context rule. */
+	system: string,
+	/**  The user turn: fenced sources, then the question. */
+	user: string,
+};
+
+/**  The fields of a search hit the prompt reads (TS `SearchHit`). */
+export type AskSource = {
+	/**  The hit's title, the heading of its source block. */
+	title: string,
+	/**  The PDF page the hit came from, shown as `(p. N)`. */
+	page: number | null,
+	/**  The hit's excerpt text; an empty excerpt is treated as none. */
+	excerpt: string | null,
+};
+
 /**  What the app does with a session change. */
 export type AuthStep = 
 /**  Open with the local copy's account, offline. */

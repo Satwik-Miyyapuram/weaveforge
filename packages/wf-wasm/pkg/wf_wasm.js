@@ -1037,6 +1037,25 @@ export function arxivEntryToMetadata(xml, arxiv_id) {
 }
 
 /**
+ * [`ask_prompt`](ask_library::ask_prompt): `{ system, user }` for the sources as passed.
+ * @param {string} question
+ * @param {any} sources
+ * @param {string} nonce
+ * @returns {any}
+ */
+export function askPrompt(question, sources, nonce) {
+    const ptr0 = passStringToWasm0(question, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(nonce, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.askPrompt(ptr0, len0, sources, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`assemble_page_citations`] (TS `assemblePageCitations`). `candidates` is optional.
  *
  * # Errors
@@ -4176,6 +4195,24 @@ export function defaultShareLinkExpiresAt(now_ms) {
     let deferred1_1;
     try {
         const ret = wasm.defaultShareLinkExpiresAt(now_ms);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * [`default_source_note_template`](tpl::default_source_note_template): the default source-note
+ * template text, with generated metadata and editable summary, key points and notes.
+ * @returns {string}
+ */
+export function defaultSourceNoteTemplate() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.defaultSourceNoteTemplate();
         deferred1_0 = ret[0];
         deferred1_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
@@ -11637,6 +11674,24 @@ export function milestonesToIcs(items, include_done, reminder_days, now_ms) {
 }
 
 /**
+ * [`MIN_ARTICLE_TEXT_CHARS`]: the text a paper's own web page must carry.
+ * @returns {number}
+ */
+export function minArticleTextChars() {
+    const ret = wasm.minArticleTextChars();
+    return ret;
+}
+
+/**
+ * [`MIN_PAPER_TEXT_CHARS`]: how much text a page must carry to count as the paper.
+ * @returns {number}
+ */
+export function minPaperTextChars() {
+    const ret = wasm.minPaperTextChars();
+    return ret;
+}
+
+/**
  * [`missing_config_message`]: names the absent required env vars, never values.
  * `cfg` is the backend config object; `required` is an array of camelCase field names.
  *
@@ -13309,6 +13364,23 @@ export function paperFieldValueRowToDomain(row) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`PAPER_HTML_CSP`]: the frame's own content security policy.
+ * @returns {string}
+ */
+export function paperHtmlCsp() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.paperHtmlCsp();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
 }
 
 /**
@@ -21183,6 +21255,16 @@ export function walkOverleafSections(tree, opts) {
 }
 
 /**
+ * [`WEB_CACHE_DOCUMENT_LIMIT`](index_cache_policy::WEB_CACHE_DOCUMENT_LIMIT), the single source
+ * the web app reads instead of keeping its own copy.
+ * @returns {number}
+ */
+export function webCacheDocumentLimit() {
+    const ret = wasm.webCacheDocumentLimit();
+    return ret >>> 0;
+}
+
+/**
  * [`wiki_page_refs`]: the wiki's pages as `{ id, title, body }`.
  * @param {any} pages
  * @returns {any}
@@ -21890,6 +21972,27 @@ export function zoteroRemoteToMetadata(item) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`zotero_top_level_path`](zotero_library::zotero_top_level_path): the top-level items path,
+ * inside a collection when one is given.
+ * @param {string | null} [collection]
+ * @returns {string}
+ */
+export function zoteroTopLevelPath(collection) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        var ptr0 = isLikeNone(collection) ? 0 : passStringToWasm0(collection, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.zoteroTopLevelPath(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**

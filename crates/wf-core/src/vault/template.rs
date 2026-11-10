@@ -357,6 +357,34 @@ pub fn apply_template(existing: Option<&str>, template: &str, context: &Template
     }
 }
 
+/// The default source-note template (TS `DEFAULT_SOURCE_NOTE_TEMPLATE`): generated metadata,
+/// then editable summary, key points and notes. Lines are joined with `\n` and end with one.
+#[must_use]
+pub fn default_source_note_template() -> String {
+    [
+        wrap_region(
+            RegionKind::Generated,
+            "metadata",
+            "# {{title}}\n\n- Authors: {{authors}}\n- Year: {{year}}\n- Venue: {{venue}}\n- DOI: {{doi}}\n- Cite key: {{citeKey}}\n",
+        ),
+        "## Summary".to_owned(),
+        String::new(),
+        wrap_region(RegionKind::Editable, "summary", "\nWrite a short summary.\n"),
+        "## Key points".to_owned(),
+        String::new(),
+        wrap_region(RegionKind::Editable, "key-points", "\n- \n"),
+        "## Notes".to_owned(),
+        String::new(),
+        wrap_region(
+            RegionKind::Editable,
+            "notes",
+            "\nYour notes stay here across re-renders.\n",
+        ),
+        String::new(),
+    ]
+    .join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -680,6 +708,24 @@ mod tests {
             shown.starts_with("# BISCUIT"),
             "inline marker leaves the heading at line start"
         );
+    }
+
+    #[test]
+    fn default_source_note_template_matches_the_ts_literal() {
+        let expected = concat!(
+            "<!-- wf:generated:metadata -->",
+            "# {{title}}\n\n- Authors: {{authors}}\n- Year: {{year}}\n- Venue: {{venue}}\n- DOI: {{doi}}\n- Cite key: {{citeKey}}\n",
+            "<!-- /wf:generated:metadata -->",
+            "\n## Summary\n",
+            "\n",
+            "<!-- wf:editable:summary -->\nWrite a short summary.\n<!-- /wf:editable:summary -->",
+            "\n## Key points\n\n",
+            "<!-- wf:editable:key-points -->\n- \n<!-- /wf:editable:key-points -->",
+            "\n## Notes\n\n",
+            "<!-- wf:editable:notes -->\nYour notes stay here across re-renders.\n<!-- /wf:editable:notes -->",
+            "\n",
+        );
+        assert_eq!(default_source_note_template(), expected);
     }
 
     #[test]

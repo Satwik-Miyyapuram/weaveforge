@@ -1,16 +1,34 @@
 //! Paper HTML framing for JavaScript (`apps/web/src/features/reader/application/paper-html.ts`).
-//! Wraps `wf_core::reader::paper_html`. The minimum-length constants stay in TS.
+//! Wraps `wf_core::reader::paper_html`, including its thresholds and frame CSP as getters.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::paper_html::{
-    PaperHtmlOptions, PaperHtmlPage, build_paper_html_document, is_substantial_paper_text,
-    parse_paper_html_document,
+    MIN_ARTICLE_TEXT_CHARS, MIN_PAPER_TEXT_CHARS, PAPER_HTML_CSP, PaperHtmlOptions, PaperHtmlPage,
+    build_paper_html_document, is_substantial_paper_text, parse_paper_html_document,
 };
 
 use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
+
+/// [`MIN_PAPER_TEXT_CHARS`]: how much text a page must carry to count as the paper.
+#[wasm_bindgen(js_name = minPaperTextChars)]
+pub fn min_paper_text_chars_js() -> f64 {
+    MIN_PAPER_TEXT_CHARS
+}
+
+/// [`MIN_ARTICLE_TEXT_CHARS`]: the text a paper's own web page must carry.
+#[wasm_bindgen(js_name = minArticleTextChars)]
+pub fn min_article_text_chars_js() -> f64 {
+    MIN_ARTICLE_TEXT_CHARS
+}
+
+/// [`PAPER_HTML_CSP`]: the frame's own content security policy.
+#[wasm_bindgen(js_name = paperHtmlCsp)]
+pub fn paper_html_csp_js() -> String {
+    PAPER_HTML_CSP.to_string()
+}
 
 /// [`is_substantial_paper_text`]: whether the text reaches `min_chars` once whitespace is collapsed.
 #[wasm_bindgen(js_name = isSubstantialPaperText)]

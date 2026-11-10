@@ -105,6 +105,7 @@ export * from "./metrics-overleaf.js";
 export * from "./leaf-ports.js";
 export * from "./ai-model-concepts.js";
 export * from "./ai-retrieval.js";
+export * from "./ask-library.js";
 export * from "./batch-annotation-ops.js";
 export * from "./clip-to-area.js";
 export * from "./dashboard-packing.js";

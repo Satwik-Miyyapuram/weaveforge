@@ -39,3 +39,12 @@ pub fn normalize_zotero_library_js(library: JsValue) -> Result<JsValue, JsValue>
 pub fn zotero_library_url_js(library: &str, api_origin: &str) -> String {
     zotero_library::zotero_library_url(library, api_origin)
 }
+
+/// [`zotero_top_level_path`](zotero_library::zotero_top_level_path): the top-level items path,
+/// inside a collection when one is given.
+#[wasm_bindgen(js_name = zoteroTopLevelPath)]
+#[must_use]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
+pub fn zotero_top_level_path_js(collection: Option<String>) -> String {
+    zotero_library::zotero_top_level_path(collection.as_deref())
+}

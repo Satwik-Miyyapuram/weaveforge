@@ -29,6 +29,14 @@ pub fn substitute_variables_js(
     ))
 }
 
+/// [`default_source_note_template`](tpl::default_source_note_template): the default source-note
+/// template text, with generated metadata and editable summary, key points and notes.
+#[wasm_bindgen(js_name = defaultSourceNoteTemplate)]
+#[must_use]
+pub fn default_source_note_template_js() -> String {
+    tpl::default_source_note_template()
+}
+
 /// [`wrap_region`](tpl::wrap_region). Throws on an unknown kind.
 ///
 /// # Errors

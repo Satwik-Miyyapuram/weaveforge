@@ -19,13 +19,12 @@ import { idbSetSearchIndex } from "./search-index-idb";
  */
 
 /**
- * Documents past which the website stops persisting.
- *
- * Chosen from the measured curve rather than a round number: at 5 000 documents
- * the serialized index is roughly 37 MB, which is the point where writing it
- * starts to cost more than the rebuild it saves.
+ * Documents past which the website stops persisting. Single source is the Rust
+ * `WEB_CACHE_DOCUMENT_LIMIT`; this only reads it.
  */
-export const WEB_CACHE_DOCUMENT_LIMIT = 5_000;
+export function webCacheDocumentLimit(): number {
+  return readyCore().webCacheDocumentLimit();
+}
 
 /**
  * Is this the installed app rather than a browser tab?
