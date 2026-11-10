@@ -9,10 +9,9 @@ import {
   type OverleafExportOptions,
 } from "./build-overleaf-export";
 import { downloadBlob, zipToBlob } from "@/lib/blob-output";
-import { parseResultsTableRefs } from "@/features/report/application/results-table-refs";
 
 function hasResultsTables(nodes: readonly ReportSectionTreeNode[]): boolean {
-  return nodes.some((n) => parseResultsTableRefs(n.section.notes ?? "").length > 0 || hasResultsTables(n.children));
+  return nodes.some((n) => readyCore().parseResultsTableRefs(n.section.notes ?? "").length > 0 || hasResultsTables(n.children));
 }
 
 /** Build the Overleaf package and download it as a ZIP (browser-local). */

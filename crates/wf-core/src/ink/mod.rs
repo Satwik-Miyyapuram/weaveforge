@@ -63,12 +63,14 @@ pub struct PackedInkStroke {
     pub pressures: Vec<f64>,
 }
 pub mod clipboard;
+pub mod contact_area;
 pub mod ink_print;
 pub mod ink_svg;
 pub mod one_euro;
 pub mod page_history;
 pub mod page_math;
 pub mod page_text;
+pub mod palette;
 pub mod pen_pointer;
 pub mod recognition_request;
 pub mod render_strokes;

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { BlobNotFoundError } from "@weaveforge/core";
 
-import { encodeBase64 } from "@/lib/bytea";
+import { readyCore } from "@/lib/rust-core";
 import { LocalBlobStore, type LocalFiles } from "../local-blob-store";
 import type { LocalQuery } from "../pglite-client";
 
@@ -62,7 +62,7 @@ describe("the local blob store", () => {
     assert.equal(blob.type, "image/png");
     assert.deepEqual([...new Uint8Array(await blob.arrayBuffer())], [137, 80, 78, 71]);
     assert.deepEqual(await store.signedUrls("att", ["u/a.png", "nope"], 60), [
-      `data:image/png;base64,${encodeBase64(new Uint8Array([137, 80, 78, 71]))}`,
+      `data:image/png;base64,${readyCore().encodeBase64(new Uint8Array([137, 80, 78, 71]))}`,
       null,
     ]);
   });
@@ -95,7 +95,7 @@ describe("the local blob store", () => {
     const store = new LocalBlobStore(run);
     await store.upload("att", "a", png(5));
     const [row] = (await run("select bytes, on_disk from local_blobs", [])) as { bytes: string; on_disk: boolean }[];
-    assert.deepEqual(row, { bytes: encodeBase64(new Uint8Array([5])), on_disk: false });
+    assert.deepEqual(row, { bytes: readyCore().encodeBase64(new Uint8Array([5])), on_disk: false });
     assert.deepEqual([...(await store.fetchBytes("att", "a"))], [5]);
     await store.remove("att", "a");
     await assert.rejects(store.fetchBytes("att", "a"), BlobNotFoundError);

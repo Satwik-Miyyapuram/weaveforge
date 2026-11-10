@@ -12,7 +12,7 @@ Each file under `crates/wf-core/src/net/` covers one job:
 
 - `mod.rs`: registers the submodules and states that the module holds pure network helpers.
 - `private_host.rs`: decides whether a host is private, and whether a URL is a public HTTPS address.
-- `url_safety.rs`: the address and URL-shape checks, such as the IP address and IPv6 rules.
+- `url_safety.rs`: the address and URL-shape checks, such as the IP address and IPv6 rules, and `rejection_copy`, the sentence shown for each refused-URL reason (moved from the old TypeScript rejection-copy table).
 - `api_host.rs`: decides whether a host is the app's API host.
 - `open_external.rs`: decides whether a link may open outside the app.
 - `model_cache.rs`: decides which request is a model-weights request, and the cache path segments.
@@ -29,6 +29,7 @@ wrappers in `packages/wf-wasm/src` import the raw names from
 `../pkg/wf_wasm.js` and re-export them. The main names are:
 
 - Hosts and addresses: `isPrivateHost`, `isPublicHttpsUrl`, `isApiHost`, `checkUrlShape`, `isIpAddress`, `isPublicAddress`, `expandIpv6`.
+- Refusal copy: `describeUrlRejection(reason)`, which takes a reason code such as `"scheme"` and returns the sentence for it.
 - Links and images: `mayOpenExternally`, `looksLikeImageUrl`.
 - Model cache: `modelCacheUrl`, `cachePathSegments`.
 - Relay: `semanticScholarTarget`.

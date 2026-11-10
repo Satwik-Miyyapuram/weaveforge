@@ -4,7 +4,7 @@ The paste core cleans text on its way into a note. It strips tracking from links
 
 ## What lives in Rust
 
-The module is `wf_core::paste`. Its `mod.rs` says it holds "the rules `packages/core/src/paste` applied to clipboard text".
+The module is `wf_core::paste`. Its `mod.rs` says it holds "the rules the old TypeScript paste module applied to clipboard text".
 
 Each file below owns one part:
 
@@ -49,6 +49,6 @@ It applies a cleaned paste as one transaction, so one Ctrl+Z takes the whole pas
 
 Remote lookups stay in TypeScript too. A pasted address can have its title read or its picture downloaded through `markdown-remote-paste`. That needs the network and the editor, so Rust does not do it.
 
-One leftover is still on the TypeScript core. `apps/web/src/features/papers/application/sync-annotation-excerpts.ts` imports `cleanPdfText` from `@weaveforge/core`, not from `readyCore()`. It should move to the wasm call when that path is ported.
+`cleanPdfText` is reached only through `readyCore()`; no caller imports it from the TypeScript core any more.
 
 Source: `crates/wf-core/src/paste/`

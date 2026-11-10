@@ -12,7 +12,3 @@ test("countWords counts whitespace-separated words (xhelp-17)", () => {
   assert.equal(rust().countWords("line\nbreak\ttab"), 3);
   assert.equal(rust().countWords("naïve café — ok"), 4);
 });
-
-test("the barrel exports the same countWords", () => {
-  assert.equal(rust().countWords, rust().countWords);
-});

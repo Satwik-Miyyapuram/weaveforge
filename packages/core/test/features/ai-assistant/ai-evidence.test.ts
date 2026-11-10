@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { highlightWithinExcerpt } from "../../../src/features/ai-assistant/domain/ai-evidence.js";
+import { highlightWithinExcerpt } from "../../../../wf-wasm/src/index.ts";
 import type { PdfLocus } from "../../../src/reader/anchor-shapes.js";
 
 const excerpt =

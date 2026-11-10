@@ -1,7 +1,5 @@
-import type { AiAccessPolicy } from "../domain/ai-access-policy.js";
-import type { AiAccessSettings, AiProposalKind, AiResourceType, AiSessionGrant, AiToolName } from "../domain/ai-types.js";
+import type { AiAccessPolicy, AiAccessSettings, AiEvidence, AiProposalKind, AiResourceType, AiSessionGrant, AiToolName } from "../domain/ai-types.js";
 import type { AiWriteProposal, IAiProposalStore } from "../domain/ai-write-proposal.js";
-import type { AiEvidence } from "../domain/ai-evidence.js";
 
 /** The only application command allowed to persist an AI-originated draft. */
 export class CreateAiProposalDraftUseCase {

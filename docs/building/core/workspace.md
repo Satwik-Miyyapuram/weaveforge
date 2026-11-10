@@ -34,6 +34,11 @@ re-export them. The main names are:
 - Outside edits: `splitOutsideEdits`, `renamedOutsidePaths`.
 - Folder diff: `renameSources`, `seenFiles`.
 - Assets: `assetMimeType`, `assetExtension`.
+- Explorer rows: `rowSlots` (`crates/wf-core` `editor_workspace::explorer_window`).
+  The app calls `readyCore().rowSlots(count, viewport, pinned, EXPLORER_ROW_METRICS)`
+  from `editor-workspace/ui/explorer-panel.tsx`. The row metrics live in
+  `editor-workspace/ui/explorer-window-constants.ts`. The old
+  `application/explorer-window.ts` wrapper is gone (batch 7).
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`. Call `readyCore()` only after `loadCore()` has

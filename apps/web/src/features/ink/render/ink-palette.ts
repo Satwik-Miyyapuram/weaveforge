@@ -8,9 +8,14 @@
  * the live theme: the host reads the CSS tokens the toolbar swatches are painted
  * with and posts them to the worker, which has no document of its own. What is
  * here is the light theme's defaults, for the first frame and for the tests.
+ *
+ * The colour maths (CSS and hex, the name lookup, the parse, the palette
+ * comparison) is the Rust core's, reached through `readyCore()`. This module
+ * keeps the palette data and the DOM read of the theme.
  */
 
 import type { InkColour } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export type InkRgb = [number, number, number];
 export type InkPalette = Record<InkColour, InkRgb>;
@@ -59,12 +64,7 @@ export function paletteCss(
   colour: InkColour,
   alpha = 1,
 ): string {
-  const [r, g, b] = palette[colour] ?? palette.text ?? INK_RENDER_COLOURS.text;
-  const channel = (value: number) =>
-    Math.round(Math.max(0, Math.min(1, value)) * 255);
-  return alpha >= 1
-    ? `rgb(${channel(r)}, ${channel(g)}, ${channel(b)})`
-    : `rgba(${channel(r)}, ${channel(g)}, ${channel(b)}, ${alpha})`;
+  return readyCore().paletteCss(palette, colour, alpha);
 }
 
 /**
@@ -75,12 +75,7 @@ export function paletteCss(
  * one place decides what "red" is, on both surfaces.
  */
 export function paletteHex(palette: InkPalette, colour: InkColour): string {
-  const [r, g, b] = palette[colour] ?? palette.text ?? INK_RENDER_COLOURS.text;
-  const channel = (value: number) =>
-    Math.round(Math.max(0, Math.min(1, value)) * 255)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${channel(r)}${channel(g)}${channel(b)}`;
+  return readyCore().paletteHex(palette, colour);
 }
 
 /**
@@ -88,11 +83,7 @@ export function paletteHex(palette: InkPalette, colour: InkColour): string {
  * the other way, so a hex picked off a mark can become the bar's colour again.
  */
 export function paletteName(palette: InkPalette, hex: string): InkColour | null {
-  const wanted = hex.trim().toLowerCase();
-  for (const name of Object.keys(palette) as InkColour[]) {
-    if (paletteHex(palette, name) === wanted) return name;
-  }
-  return null;
+  return readyCore().paletteName(palette, hex);
 }
 
 /**
@@ -102,27 +93,7 @@ export function paletteName(palette: InkPalette, hex: string): InkColour | null 
  * previous value rather than drawing in black.
  */
 export function parseCssColour(value: string): InkRgb | null {
-  const text = value.trim();
-  let match = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
-  if (match) {
-    return [
-      Number(match[1]) / 255,
-      Number(match[2]) / 255,
-      Number(match[3]) / 255,
-    ];
-  }
-  match = /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i.exec(text);
-  if (match) return [Number(match[1]), Number(match[2]), Number(match[3])];
-  match = /^#([0-9a-f]{6})$/i.exec(text);
-  if (match) {
-    const hex = match[1]!;
-    return [
-      parseInt(hex.slice(0, 2), 16) / 255,
-      parseInt(hex.slice(2, 4), 16) / 255,
-      parseInt(hex.slice(4, 6), 16) / 255,
-    ];
-  }
-  return null;
+  return readyCore().parseCssColour(value);
 }
 
 /**
@@ -152,13 +123,5 @@ export function readThemePalette(doc: Document): InkPalette {
 
 /** Whether two palettes draw the same, so a theme poll can skip the post. */
 export function samePalette(a: InkPalette, b: InkPalette): boolean {
-  for (const colour of Object.keys(INK_COLOUR_TOKENS) as InkColour[]) {
-    const x = a[colour];
-    const y = b[colour];
-    if (!x || !y) return false;
-    for (let i = 0; i < 3; i += 1) {
-      if (Math.abs(x[i]! - y[i]!) > 1 / 512) return false;
-    }
-  }
-  return true;
+  return readyCore().samePalette(a, b);
 }

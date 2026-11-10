@@ -1297,6 +1297,18 @@ export function blobProviderForRuntime(configured, runtime) {
 }
 
 /**
+ * [`blob_access::BLOB_STORAGE_BUCKETS`]: every bucket a user's blobs live in, as a string array.
+ * @returns {any}
+ */
+export function blobStorageBuckets() {
+    const ret = wasm.blobStorageBuckets();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`body_font_size`](analysis_outline::body_font_size) (TS `bodyFontSize`).
  *
  * # Errors
@@ -2981,6 +2993,17 @@ export function conflictRoute(input) {
 }
 
 /**
+ * [`contact_area_mm2`]: a touch's contact area in mm², from its CSS-pixel box.
+ * @param {number} width
+ * @param {number} height
+ * @returns {number}
+ */
+export function contactAreaMm2(width, height) {
+    const ret = wasm.contactAreaMm2(width, height);
+    return ret;
+}
+
+/**
  * [`container_resize`]: `last` and `next` are `{ width, height }`. Returns `"ignore"`, `"now"` or `"settle"`.
  *
  * # Errors
@@ -3982,6 +4005,40 @@ export function declaredCharset(content_type, bytes) {
 }
 
 /**
+ * [`decode_base64`](bytea::decode_base64): bytes from base64 text, as `atob` reads it.
+ *
+ * # Errors
+ * Throws when the text is not base64.
+ * @param {string} text
+ * @returns {Uint8Array}
+ */
+export function decodeBase64(text) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decodeBase64(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * [`decode_bytea`](bytea::decode_bytea): bytes from a PostgREST `\x…` string.
+ * @param {string} text
+ * @returns {Uint8Array}
+ */
+export function decodeBytea(text) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.decodeBytea(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
  * [`decode_html_entities`]: the named and numeric entities in `value`, decoded once.
  *
  * # Errors
@@ -4457,6 +4514,34 @@ export function describeRemoteStatus(status) {
     let deferred2_1;
     try {
         const ret = wasm.describeRemoteStatus(status);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`rejection_copy`](url_safety::rejection_copy) for a reason code such as `"scheme"`.
+ *
+ * # Errors
+ *
+ * Fails if the value is not a known reason code.
+ * @param {any} reason
+ * @returns {string}
+ */
+export function describeUrlRejection(reason) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.describeUrlRejection(reason);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -5120,6 +5205,46 @@ export function emptyToNull(value) {
 }
 
 /**
+ * [`encode_base64`](bytea::encode_base64): padded base64 for bytes.
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+export function encodeBase64(bytes) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.encodeBase64(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`encode_bytea`](bytea::encode_bytea): PostgREST `\x…` string for bytes.
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+export function encodeBytea(bytes) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.encodeBytea(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`encode_ink_chunk_body`](chunk::encode_ink_chunk_body): a page packed into an uncompressed body.
  *
  * # Errors
@@ -5231,6 +5356,19 @@ export function encodeShareLinkToken(token) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
+ * @param {any} defaults
+ * @returns {any}
+ */
+export function engineStartParams(defaults) {
+    const ret = wasm.engineStartParams(defaults);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -10584,6 +10722,23 @@ export function loadOpenGroups(raw, active) {
 }
 
 /**
+ * [`local_db_engine_params::LOCAL_DB_SHARED_BUFFERS`]: the `shared_buffers` value the local engine runs with.
+ * @returns {string}
+ */
+export function localDbSharedBuffers() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.localDbSharedBuffers();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`local_keys`](related_paper_hit::local_keys): the dedupe keys of a library.
  *
  * # Errors
@@ -13468,6 +13623,61 @@ export function paintedOrder(results) {
 }
 
 /**
+ * [`palette_css`]: one palette entry as a CSS colour, `rgba` below an alpha of 1.
+ * @param {any} palette
+ * @param {string} colour
+ * @param {number} alpha
+ * @returns {string}
+ */
+export function paletteCss(palette, colour, alpha) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(colour, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.paletteCss(palette, ptr0, len0, alpha);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * [`palette_hex`]: one palette entry as `#rrggbb`.
+ * @param {any} palette
+ * @param {string} colour
+ * @returns {string}
+ */
+export function paletteHex(palette, colour) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(colour, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.paletteHex(palette, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * [`palette_mode_for`](palette_groups::palette_mode_for): the mode a key press opens, or `null`.
  *
  * # Errors
@@ -13482,6 +13692,27 @@ export function paletteModeFor(event) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`palette_name`]: the palette name a hex colour came from, or `undefined`.
+ * @param {any} palette
+ * @param {string} hex
+ * @returns {string | undefined}
+ */
+export function paletteName(palette, hex) {
+    const ptr0 = passStringToWasm0(hex, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.paletteName(palette, ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
 }
 
 /**
@@ -13882,6 +14113,23 @@ export function parseBiorxiv(body, server) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_css_colour`] as `[r, g, b]` in 0..1, or `undefined` for a colour it does not read.
+ * @param {string} value
+ * @returns {Float64Array | undefined}
+ */
+export function parseCssColour(value) {
+    const ptr0 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseCssColour(ptr0, len0);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    }
+    return v2;
 }
 
 /**
@@ -14417,6 +14665,26 @@ export function parseReleaseTag(tag) {
     const ptr0 = passStringToWasm0(tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.parseReleaseTag(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`parse_results_table_refs`](results_table_refs::parse_results_table_refs) (TS
+ * `parseResultsTableRefs`). Offsets are UTF-16 code units.
+ *
+ * # Errors
+ *
+ * Fails if the result cannot be serialised.
+ * @param {string} markdown
+ * @returns {any}
+ */
+export function parseResultsTableRefs(markdown) {
+    const ptr0 = passStringToWasm0(markdown, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseResultsTableRefs(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17400,6 +17668,42 @@ export function resolveRelatedPaperUrl(url, doi, arxiv_id) {
 }
 
 /**
+ * [`resolve_results_tables`](results_table_refs::resolve_results_tables) (TS
+ * `resolveResultsTables`). `format` is `"latex"` for the figure block, anything else for the
+ * Markdown table.
+ *
+ * # Errors
+ *
+ * Fails if `experiments` is not a list of experiment objects.
+ * @param {string} body
+ * @param {any} experiments
+ * @param {string} format
+ * @returns {string}
+ */
+export function resolveResultsTables(body, experiments, format) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(format, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.resolveResultsTables(ptr0, len0, experiments, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
  * [`resolve_supervisor_id`](member::resolve_supervisor_id).
  * @param {string} creator_id
  * @returns {string}
@@ -17944,6 +18248,20 @@ export function safeWorkspacePath(path) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * [`same_palette`]: whether two palettes draw the same.
+ * @param {any} a
+ * @param {any} b
+ * @returns {boolean}
+ */
+export function samePalette(a, b) {
+    const ret = wasm.samePalette(a, b);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**
@@ -18537,6 +18855,38 @@ export function serialiseArtifactRef(artifact_ref) {
         return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`serialise_results_table_ref`](results_table_refs::serialise_results_table_ref) (TS
+ * `serialiseResultsTableRef`).
+ *
+ * # Errors
+ *
+ * Fails if `experiment_ids` is not a list of strings.
+ * @param {any} experiment_ids
+ * @param {string} caption
+ * @returns {string}
+ */
+export function serialiseResultsTableRef(experiment_ids, caption) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(caption, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.serialiseResultsTableRef(experiment_ids, ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 

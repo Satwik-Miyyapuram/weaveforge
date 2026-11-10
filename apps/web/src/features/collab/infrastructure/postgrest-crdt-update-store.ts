@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompactOutcome, CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";
-import { decodeBytea, encodeBytea } from "@/lib/bytea.js";
+import { readyCore } from "@/lib/rust-core";
 import { oneRow, run } from "@/backend/providers/postgrest/row-access";
 
 /**
@@ -31,7 +31,7 @@ function mapRow(row: CrdtRow): CrdtUpdateRecord {
     resourceId: row.resource_id,
     projectId: row.project_id,
     epoch: row.epoch,
-    payload: decodeBytea(row.payload),
+    payload: readyCore().decodeBytea(row.payload),
     authorId: row.author_id,
     createdAt: row.created_at,
   };
@@ -55,7 +55,7 @@ export class PostgrestCrdtUpdateStore implements ICrdtUpdateStore {
         resource_id: input.resourceId,
         project_id: input.projectId,
         epoch: input.epoch,
-        payload: encodeBytea(input.payload),
+        payload: readyCore().encodeBytea(input.payload),
         author_id: input.authorId,
       })
       .select(CRDT_COLUMNS)

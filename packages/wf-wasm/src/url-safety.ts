@@ -5,12 +5,18 @@
  */
 import {
   checkUrlShape as rawCheckUrlShape,
+  describeUrlRejection as rawDescribeUrlRejection,
   expandIpv6 as rawExpandIpv6,
   isIpAddress as rawIsIpAddress,
   isPublicAddress as rawIsPublicAddress,
   looksLikeImageUrl as rawLooksLikeImageUrl,
 } from "../pkg/wf_wasm.js";
-import type { UrlCheck } from "./bindings.js";
+import type { UrlCheck, UrlRejection } from "./bindings.js";
+
+/** The person-facing sentence for a refused URL (Rust `rejection_copy`). */
+export function describeUrlRejection(reason: UrlRejection): string {
+  return rawDescribeUrlRejection(reason);
+}
 
 /**
  * Parses a URL, accepting a scheme-less host the way a person would type it.

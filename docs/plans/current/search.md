@@ -1191,7 +1191,7 @@ reranker (brief P2) would go after.
 
 ## 3 · What shipped
 
-- `packages/core/src/search/hybrid-fusion.ts` — `stripStopwords`,
+- `crates/wf-core/src/search/hybrid_fusion.rs` (was `hybrid-fusion.ts` in packages/core) — `stripStopwords`,
   `queryTermCount`, `coveredHits`, `gateVectorHits` and the three constants
   (`HYBRID_VECTOR_WEIGHT` 1.5, `HYBRID_MIN_TERM_COVERAGE` 0.5,
   `HYBRID_VECTOR_KEEP_TOP` 5). Tested in `test/search/hybrid-fusion.test.ts`.

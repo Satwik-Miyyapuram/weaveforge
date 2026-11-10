@@ -2,7 +2,7 @@ import { errorMessage, type AiAccessSettings, type AiEvidence } from "@weaveforg
 import { relayUrl } from "@/lib/relay-url";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
-import { decodeBase64, encodeBase64 } from "@/lib/bytea";
+
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
 import { typedCore } from "@/lib/rust-core";
 
@@ -329,5 +329,5 @@ async function buildPaperEvidence(
 }
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("weaveforge-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }
-async function encrypt(sessionKey: Promise<CryptoKey>, value: unknown): Promise<Envelope> { const iv = crypto.getRandomValues(new Uint8Array(12)); const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await sessionKey, new TextEncoder().encode(JSON.stringify(value))); return { iv: encodeBase64(iv), ciphertext: encodeBase64(new Uint8Array(data)) }; }
-async function decrypt(sessionKey: Promise<CryptoKey>, envelope: Envelope): Promise<{ tool?: string; arguments?: Record<string, unknown> }> { const data = await crypto.subtle.decrypt({ name: "AES-GCM", iv: decodeBase64(envelope.iv) }, await sessionKey, decodeBase64(envelope.ciphertext)); return JSON.parse(new TextDecoder().decode(data)); }
+async function encrypt(sessionKey: Promise<CryptoKey>, value: unknown): Promise<Envelope> { const iv = crypto.getRandomValues(new Uint8Array(12)); const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await sessionKey, new TextEncoder().encode(JSON.stringify(value))); return { iv: readyCore().encodeBase64(iv), ciphertext: readyCore().encodeBase64(new Uint8Array(data)) }; }
+async function decrypt(sessionKey: Promise<CryptoKey>, envelope: Envelope): Promise<{ tool?: string; arguments?: Record<string, unknown> }> { const data = await crypto.subtle.decrypt({ name: "AES-GCM", iv: readyCore().decodeBase64(envelope.iv) }, await sessionKey, readyCore().decodeBase64(envelope.ciphertext)); return JSON.parse(new TextDecoder().decode(data)); }

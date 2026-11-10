@@ -62,8 +62,7 @@ first, so a token or credential cannot appear in the message.
   does not cross into wasm, and the requests need the browser's fetch.
 - The collaborative editor connection stays in TypeScript, because it holds the
   socket. `text_ot` only transforms the operations it is given.
-- `apps/web/src/features/overleaf/application/bibtex-export.ts` is deleted. Its
-  logic lives in `bibtex`. The file is not part of the port.
+- The old TypeScript BibTeX export is deleted. Its logic lives in `bibtex`.
 
 ## Related
 

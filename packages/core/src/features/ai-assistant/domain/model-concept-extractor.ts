@@ -23,7 +23,7 @@ import {
   type IConceptExtractor,
 } from "./ai-extraction.js";
 import type { AiModelRequest, IModelConversation } from "./ai-types.js";
-import { UNTRUSTED_CONTEXT_RULE } from "./untrusted-context.js";
+import { UNTRUSTED_CONTEXT_RULE } from "./ai-types.js";
 import { rust } from "../../../shared/rust.js";
 
 /** Characters of a document sent per batch. Past this, prose stops being cheap. */

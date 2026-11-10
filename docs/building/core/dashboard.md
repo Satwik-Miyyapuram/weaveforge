@@ -61,3 +61,5 @@ the core has loaded.
 - [Settings core](settings.md)
 
 Source: `crates/wf-core/src/dashboard/`
+
+Batch 7 note: `build-dashboard-stats.ts`, `build-supervision-stats.ts` and `dashboard-layout-packing.ts` stay as TS files. They still export types and `CARD_LIMITS` used by UI and `dashboard-layout.ts`. Their wasm twins (`dashboardBuildStats`, `dashboardSuperviseeCounts`, `dashboardPackSm` and others) are called from them. `DashboardStats`, `ProgressStat`, `AttentionItem` and `LibrarySnapshot` are not in the generated `bindings.ts`, so `build-dashboard-stats.ts` stays KEEP until they are generated. Remove the TS files once the types move and the card registry is ported.

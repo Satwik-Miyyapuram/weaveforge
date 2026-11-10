@@ -48,7 +48,19 @@ names are:
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
 `readyCore()` throws until `loadCore()` has resolved, so call it only after
-the core has loaded.
+the core has loaded. The app must not import these names from `@weaveforge/core`
+(the `rust-owned-imports` test enforces this for non-test files). The typed
+surface is `CoreContract` in `packages/core/src/shared/core-contract.ts`, which
+includes the access policy, evidence, retrieval, MCP result, untrusted context
+and wiki merge interfaces. Examples: `readyCore().AiAccessPolicy`,
+`readyCore().highlightWithinExcerpt(...)`, `readyCore().retrieveAiExcerpts(...)`,
+`typedCore().mergeWikiPages(...)`.
+
+The shared types (`AiEvidence`, `ExcerptHighlight`, `McpResult`, `MergeResult`,
+`UNTRUSTED_CONTEXT_RULE` and the rest) live in
+`packages/core/src/features/ai-assistant/domain/ai-types.ts`. Import them from
+there, or from `@weaveforge/core`, and never from the per-feature files that
+are being removed.
 
 ## What stays in TypeScript, and why
 
@@ -61,8 +73,13 @@ the core has loaded.
   and shapes the data.
 - **Hooks and UI.** React state, hooks and components stay in `apps/web`.
 - **Type contracts.** The TypeScript types that describe the wasm inputs and
-  outputs stay in `packages/wf-wasm/src`, because they are the boundary the
-  app type-checks against.
+  outputs stay in TypeScript, because they are the boundary the app
+  type-checks against. They now sit in `ai-types.ts` (data types and the
+  `UNTRUSTED_CONTEXT_RULE` const) and `core-contract.ts` (the `*Fns` interfaces
+  that `CoreContract` extends). The wf-wasm wrappers keep only the runtime
+  forwarding.
+- **Proposal grouping.** `apps/web/src/features/ai-assistant/application/proposal-groups.ts`
+  is UI-side grouping and bulk-run logic. It stays in TypeScript for now.
 - **Thin wrappers.** `packages/wf-wasm/src/proposal-apply.ts` only forwards to
   the raw `proposalApplies` export. It keeps no logic of its own.
 

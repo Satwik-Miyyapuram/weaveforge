@@ -1,5 +1,5 @@
 import { BlobNotFoundError, type IBlobFetcher } from "@weaveforge/core";
-import { decodeBase64, encodeBase64 } from "@/lib/bytea";
+import { readyCore } from "@/lib/rust-core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import type { LocalQuery } from "./pglite-client";
 
@@ -61,7 +61,7 @@ export class LocalBlobStore implements IBlobFetcher {
        on conflict (bucket, path) do update
          set content_type = excluded.content_type, bytes = excluded.bytes,
              on_disk = excluded.on_disk, updated_at = now()`,
-      [bucket, path, type, this.files ? null : encodeBase64(bytes), Boolean(this.files)],
+      [bucket, path, type, this.files ? null : readyCore().encodeBase64(bytes), Boolean(this.files)],
     );
   }
 
@@ -77,7 +77,7 @@ export class LocalBlobStore implements IBlobFetcher {
     const found = await this.read(bucket, paths);
     return paths.map((path) => {
       const row = found.get(path);
-      return row ? `data:${row.content_type};base64,${encodeBase64(row.bytes)}` : null;
+      return row ? `data:${row.content_type};base64,${readyCore().encodeBase64(row.bytes)}` : null;
     });
   }
 
@@ -118,7 +118,7 @@ export class LocalBlobStore implements IBlobFetcher {
 
   private async bytesOf(bucket: string, row: BlobRow): Promise<StoredBlob | null> {
     if (!row.on_disk) {
-      return row.bytes === null ? null : { ...row, bytes: decodeBase64(row.bytes) };
+      return row.bytes === null ? null : { ...row, bytes: readyCore().decodeBase64(row.bytes) };
     }
     const bytes = this.files ? await this.files.read(bucket, row.path) : null;
     return bytes ? { path: row.path, content_type: row.content_type, bytes } : null;

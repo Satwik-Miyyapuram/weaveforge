@@ -251,7 +251,7 @@ fn is_hex_escape(bytes: &[u8], index: usize) -> bool {
 }
 
 /// `decodeURIComponent`: `None` on a malformed escape or invalid UTF-8.
-fn decode_uri_component(text: &str) -> Option<String> {
+pub(crate) fn decode_uri_component(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -298,7 +298,7 @@ fn last_segment_fallback(trimmed: &str) -> String {
         .to_owned()
 }
 
-fn utf16_len(text: &str) -> usize {
+pub(crate) fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
 }
 

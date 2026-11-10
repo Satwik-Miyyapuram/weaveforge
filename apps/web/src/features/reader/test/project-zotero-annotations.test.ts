@@ -1,14 +1,17 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import {
-  projectZoteroAnnotations,
-} from "../application/project-zotero-annotations.js";
+import { readyCore } from "@/lib/rust-core";
 import type { ZoteroAnnotation } from "@weaveforge/wasm";
 
 before(async () => {
   await loadTestCore();
 });
+
+// The app calls the Rust projection through the loaded core.
+const projectZoteroAnnotations: ReturnType<typeof readyCore>["projectZoteroAnnotations"] = (
+  ...args
+) => readyCore().projectZoteroAnnotations(...args);
 
 const sample: ZoteroAnnotation[] = [
   {

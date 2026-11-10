@@ -12,7 +12,7 @@ import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } fr
 import * as Y from "yjs";
 import { mergeUpdates, encodeStateAsUpdate } from "yjs";
 import { formatError } from "@/lib/format-error";
-import { decodeBase64, encodeBase64 } from "@/lib/bytea";
+import { readyCore } from "@/lib/rust-core";
 
 const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
@@ -128,7 +128,7 @@ export class RealtimeYjsProvider {
     this.awarenessHandler = ({ added, updated, removed }) => {
       const changed = added.concat(updated, removed);
       const update = encodeAwarenessUpdate(awareness, changed);
-      const data = encodeBase64(update);
+      const data = readyCore().encodeBase64(update);
       void this.channel?.send({ type: "broadcast", event: "awareness", payload: { data } });
     };
     awareness.on("update", this.awarenessHandler);
@@ -159,7 +159,7 @@ export class RealtimeYjsProvider {
     }
     const merged = mergeUpdates(this.pending);
     this.pending = [];
-    const data = encodeBase64(merged);
+    const data = readyCore().encodeBase64(merged);
     try {
       const res = await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
       if (res !== "ok") this.opts.onError?.("send", `broadcast returned ${String(res)}`);
@@ -179,13 +179,13 @@ export class RealtimeYjsProvider {
 
   private onRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed) return;
-    const bin = decodeBase64(payload.data);
+    const bin = readyCore().decodeBase64(payload.data);
     Y.applyUpdate(this.opts.doc, bin, this);
   }
 
   private onAwarenessRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed || !this.opts.awareness) return;
-    const bin = decodeBase64(payload.data);
+    const bin = readyCore().decodeBase64(payload.data);
     applyAwarenessUpdate(this.opts.awareness, bin, this);
   }
 

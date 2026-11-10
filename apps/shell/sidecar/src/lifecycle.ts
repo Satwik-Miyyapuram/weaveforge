@@ -4,7 +4,7 @@ import {
   LocalDbBackups,
   readBackup,
 } from "./local-db-backup";
-import { engineStartParams } from "./local-db-engine-params";
+import { rust } from "@weaveforge/core";
 import { LocalDbHost } from "./local-db-host";
 import { DatabaseInUseError } from "./local-db-lock";
 import { prepareDataDir } from "./local-db-prepare";
@@ -66,7 +66,7 @@ async function openEngine(
       [types.TIMESTAMPTZ]: (x) => new Date(x).toISOString(),
     },
     ...(loadDataDir ? { loadDataDir } : {}),
-    startParams: engineStartParams(PGlite.defaultStartParams),
+    startParams: rust().engineStartParams(PGlite.defaultStartParams),
   });
   // Same as the desktop: backups come from the files on disk, not PGlite's in-memory dump.
   return Object.assign(engine, {

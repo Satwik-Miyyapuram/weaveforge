@@ -15,12 +15,12 @@ import { readyCore, typedCore } from "@/lib/rust-core";
 import type { InkColour } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
-import { InkBar } from "@/features/ink/ui/ink-bar";
+import { InkBar } from "@/features/ink";
 import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
-import { InkSelectionChip } from "@/features/ink/ui/ink-selection-chip";
+import { InkSelectionChip } from "@/features/ink";
 import { paletteHex, readThemePalette, type InkPalette } from "@/features/ink/render/ink-palette";
-import { setToolColour, setToolQuickSlot, useToolColours, type ToolColourId } from "@/features/ink/ui/use-tool-colours";
-import { InkPrintPreview } from "@/features/ink/ui/ink-print-preview";
+import { setToolColour, setToolQuickSlot, useToolColours, type ToolColourId } from "@/features/ink";
+import { InkPrintPreview } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import {

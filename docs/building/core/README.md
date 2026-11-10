@@ -5,11 +5,14 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | Page | Purpose |
 | --- | --- |
 | [ai](ai.md) | Pure helpers behind the AI assistant: prompt fencing and the wiki index. |
+| [bytea](bytea.md) | Bytea `\x` hex and base64 codecs for storage and sync payloads. |
+| [report-results-tables](report-results-tables.md) | Live `exptable:` results-table refs in report notes: parse, serialise and resolve to Markdown or LaTeX. |
 | [dashboard](dashboard.md) | Dashboard rules ported from `packages/core/src/features/dashboard/domain`. |
 | [editor-workspace](editor-workspace.md) | The editor workspace: pane layout, tab groups and the explorer tree. |
 | [error-report](error-report.md) | Error-report helpers: making a report safe to send and keep it readable. |
 | [ink](ink.md) | Ink geometry: smoothing, curves, nib widths, zoom and the live stroke packer. |
 | [integrations](integrations.md) | Integration provider selection and runtime gates. |
+| [local-db-engine-params](local-db-engine-params.md) | Local database engine start params: the shared buffer cap added to PGlite's defaults. |
 | [logbook](logbook.md) | Pure helpers behind the logbook. |
 | [net](net.md) | Pure network helpers: URL shape and address checks. |
 | [overleaf](overleaf.md) | Overleaf link rules: project id and entry file validation, section target sanitizing, and project URLs. |

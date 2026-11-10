@@ -1,12 +1,13 @@
 // Opens the local database the way the app does, then prints settled RSS in MB.
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { engineStartParams } from "../../src/local-db-engine-params";
+import { rust } from "@weaveforge/core";
+import "../preload-rust";
 
 void (async () => {
   const db = await PGlite.create({
     extensions: { pgcrypto },
-    startParams: engineStartParams(PGlite.defaultStartParams),
+    startParams: rust().engineStartParams(PGlite.defaultStartParams),
   });
   await db.query("select 1");
   const gc = (globalThis as { gc?: () => void }).gc;

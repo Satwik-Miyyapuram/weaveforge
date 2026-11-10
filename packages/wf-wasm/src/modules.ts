@@ -170,6 +170,7 @@ export * from "./search-rank-filter.js";
 export * from "./search-refresh-diff.js";
 export * from "./search-result-dedupe.js";
 export * from "./shortcut-label.js";
+export * from "./local-db-engine-params.js";
 export * from "./storage-blob-access.js";
 export * from "./sync-local-first-route.js";
 export * from "./text.js";
