@@ -69,6 +69,7 @@ function and tests, add it to `repo_step`, then build the TS object with
 | `ai_proposals`, `ai_audit` | `features/ai-assistant/infrastructure/postgrest-ai-proposal-store.ts` (`rustAiStores`) |
 | `members` | `PostgrestMemberRepository` in `features/org/infrastructure/postgrest-member-repository.ts` (`memberRepository` keeps the single-flight memo and the team/lab filters; Rust reads `profiles` and the lab context) |
 | `lab_snapshots` | `PostgrestLabSnapshotRepository` in `features/org/infrastructure/parts.ts` (now `labSnapshotRepository`; Rust also checks the title) |
+| `org` | `fetchMemberships`, `switchOrg`, `leaveOrg` and `continueStandalone` in `features/org/infrastructure/parts.ts` (the memberships read and the three org RPCs; the service-role relay fallbacks stay in TS) |
 | `supervision` | `PostgrestSupervisionRepository` in `features/org/infrastructure/parts.ts` (now `supervisionRepository`; the batched reads return `[memberId, items]` pairs that TS turns into a `Map`) |
 
 ## Not done: a Rust network stack

@@ -450,6 +450,7 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "comments" => crate::repos::comments::step(method, call),
         "library_pins" => crate::repos::library_pins::step(method, call),
         "members" => crate::repos::members::step(method, call),
+        "org" => crate::repos::org::step(method, call),
         "lab_snapshots" => crate::repos::lab_snapshots::step(method, call),
         "supervision" => crate::repos::supervision::step(method, call),
         "paper_tags" => crate::repos::paper_tags::step(method, call),
