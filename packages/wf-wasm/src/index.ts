@@ -15,9 +15,7 @@
  */
 import init, {
   initSync,
-  coreInfo as rawCoreInfo,
   maxIndexTextUtf16 as rawMaxIndexTextUtf16,
-  tokenize as rawTokenize,
   maxFusionIds as rawMaxFusionIds,
   fuseRankings as rawFuseRankings,
   buildExcerpt as rawBuildExcerpt,
@@ -25,14 +23,10 @@ import init, {
   decideGitSyncPath as rawDecideGitSyncPath,
   decideVaultCommit as rawDecideVaultCommit,
   redactSecret as rawRedactSecret,
-  stampWorkspaceId as rawStampWorkspaceId,
   planDelta as rawPlanDelta,
   applyDelta as rawApplyDelta,
-  safeWorkspacePath as rawSafeWorkspacePath,
-  planArchiveEntries as rawPlanArchiveEntries,
   normalizeArxivId as rawNormalizeArxivId,
   extractDoi as rawExtractDoi,
-  pageImportRefusal as rawPageImportRefusal,
   mergeVaultPage as rawMergeVaultPage,
   vaultPageBase as rawVaultPageBase,
   vaultPageSide as rawVaultPageSide,
@@ -273,16 +267,6 @@ export type {
   ProjectGeometryInput,
 } from "./bindings.js";
 
-/** Facts about this core build, such as its version. */
-export function coreInfo(): CoreInfo {
-  return rawCoreInfo() as CoreInfo;
-}
-
-/** Search terms of `text`, deduplicated, first occurrence wins. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function tokenize(text: string, options: TokenizerOptions): string[] {
-  return rawTokenize(text, options) as string[];
-}
-
 /**
  * A snippet of `body` around the densest cluster of `terms`, like `buildExcerpt`
  * in @weaveforge/core. Offsets are UTF-16 units into `text`.
@@ -389,11 +373,6 @@ export function redactSecret(text: string, secret: string | undefined): string {
   return rawRedactSecret(text, secret);
 }
 
-/** The file with a `weaveforge-id` frontmatter line added, or null if it already has one. Throws over MAX_INDEX_TEXT_UTF16 units. */
-export function stampWorkspaceId(content: string, id: string): string | null {
-  return rawStampWorkspaceId(content, id) ?? null;
-}
-
 /**
  * What to fetch and what to forget. `remote` is the database's `{ id, updatedAt }` listing;
  * `held` maps each held id to its stamp.
@@ -414,10 +393,6 @@ export function applyDelta<T extends { id: string }>(
   return rawApplyDelta(held, fetched, order) as T[];
 }
 
-/** The normalized relative path; throws `Unsafe workspace path: <path>` for one that could leave the root. */
-export function safeWorkspacePath(path: string): string {
-  return rawSafeWorkspacePath(path);
-}
 
 /** Declared-size budget for an import, checked as entries are inflated (Rust `ArchiveBudget`). */
 export function createArchiveBudget(limits: ArchiveLimitsInput): ArchiveBudget {
@@ -430,13 +405,10 @@ export type {
   EntryInfo as ArchiveEntryFacts,
   PlannedEntry as PlannedArchiveEntry,
 } from "./bindings.js";
-import type {
-  ArchiveLimits as ArchiveLimitsInput,
-  EntryInfo as ArchiveEntryFacts,
-  PlannedEntry as PlannedArchiveEntry,
-} from "./bindings.js";
+import type { ArchiveLimits as ArchiveLimitsInput } from "./bindings.js";
 
 export {
+  coreInfo,
   describeChanges,
   diffBody,
   extractPageMetadata,
@@ -446,11 +418,16 @@ export {
   indexTerms,
   isSafeWorkspacePath,
   isUnderIgnoredFolder,
+  pageImportRefusal,
   parsePaperRef,
   parseQuery,
+  planArchiveEntries,
   readFrontmatter,
+  safeWorkspacePath,
+  stampWorkspaceId,
   stripArchiveRoot,
   tagTone,
+  tokenize,
   writeConflictMarkers,
   writeFrontmatter,
 } from "../pkg/wf_wasm.js";
@@ -467,14 +444,6 @@ export {
   maxIndexTextUtf16,
 } from "../pkg/wf_wasm.js";
 
-/** Decide each archive entry, in order (Rust `plan_entries`). Throws past the entry or total cap. */
-export function planArchiveEntries(
-  entries: readonly ArchiveEntryFacts[],
-  limits: ArchiveLimitsInput,
-): PlannedArchiveEntry[] {
-  return rawPlanArchiveEntries(entries, limits) as PlannedArchiveEntry[];
-}
-
 /** The bare arXiv id in `value` (a URL or `arXiv:` prefix), or undefined. Throws over MAX_INDEX_TEXT_UTF16 units. */
 export function normalizeArxivId(value?: string): string | undefined {
   if (!value) return undefined;
@@ -485,11 +454,6 @@ export function normalizeArxivId(value?: string): string | undefined {
 export function extractDoi(value?: string): string | undefined {
   if (!value) return undefined;
   return rawExtractDoi(value) ?? undefined;
-}
-
-/** Why `meta` cannot be imported as a paper, or null if it can. */
-export function pageImportRefusal(meta: PageMetadata): string | null {
-  return rawPageImportRefusal(meta) ?? null;
 }
 
 /** Three-way merge of a note's frontmatter fields and body (Rust `merge_vault_page`). */

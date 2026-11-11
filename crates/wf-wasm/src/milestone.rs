@@ -33,7 +33,9 @@ pub fn iso_day_from_parts_js(year: i32, month: u32, day: u32) -> String {
 ///
 /// Fails if `deps` has the wrong shape.
 #[wasm_bindgen(js_name = validateDependenciesError)]
-pub fn validate_dependencies_error_js(deps: JsValue) -> JsResult<Option<String>> {
+pub fn validate_dependencies_error_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MilestoneDependency[]")] deps: JsValue,
+) -> JsResult<Option<String>> {
     let deps: Vec<MilestoneDependency> = serde_wasm_bindgen::from_value(deps)?;
     Ok(milestone::validate_dependencies(&deps).err())
 }
@@ -45,7 +47,9 @@ pub fn validate_dependencies_error_js(deps: JsValue) -> JsResult<Option<String>>
 ///
 /// Fails if `compute` has the wrong shape.
 #[wasm_bindgen(js_name = validateComputeError)]
-pub fn validate_compute_error_js(compute: JsValue) -> JsResult<Option<String>> {
+pub fn validate_compute_error_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ComputeNeed[]")] compute: JsValue,
+) -> JsResult<Option<String>> {
     let compute: Vec<ComputeNeed> = serde_wasm_bindgen::from_value(compute)?;
     Ok(milestone::validate_compute(&compute).err())
 }
@@ -57,7 +61,9 @@ pub fn validate_compute_error_js(compute: JsValue) -> JsResult<Option<String>> {
 ///
 /// Fails if `input` has the wrong shape.
 #[wasm_bindgen(js_name = milestoneInputError)]
-pub fn milestone_input_error_js(input: JsValue) -> JsResult<Option<String>> {
+pub fn milestone_input_error_js(
+    #[wasm_bindgen(unchecked_param_type = "B.NewMilestoneInput")] input: JsValue,
+) -> JsResult<Option<String>> {
     let input: NewMilestoneInput = serde_wasm_bindgen::from_value(input)?;
     Ok(milestone::validate_new_milestone(&input).err())
 }
@@ -68,8 +74,12 @@ pub fn milestone_input_error_js(input: JsValue) -> JsResult<Option<String>> {
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape or is invalid.
-#[wasm_bindgen(js_name = createMilestoneWith)]
-pub fn create_milestone_with_js(input: JsValue, id: &str, created_at: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = createMilestoneWith, unchecked_return_type = "B.Milestone")]
+pub fn create_milestone_with_js(
+    #[wasm_bindgen(unchecked_param_type = "B.NewMilestoneInput")] input: JsValue,
+    id: &str,
+    created_at: &str,
+) -> JsResult<JsValue> {
     let input: NewMilestoneInput = serde_wasm_bindgen::from_value(input)?;
     let made = milestone::create_milestone(&input, id, created_at)
         .map_err(serde_wasm_bindgen::Error::new)?;

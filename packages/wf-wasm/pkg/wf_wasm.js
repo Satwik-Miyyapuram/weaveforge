@@ -2643,7 +2643,7 @@ export function checkInkChunkBody(body) {
  *
  * Fails with the refusal message when the title is blank or the rating is outside 1 to 5.
  * @param {string} title
- * @param {number | null} [rating]
+ * @param {number | null | undefined} rating
  * @returns {string}
  */
 export function checkNewPaper(title, rating) {
@@ -3912,7 +3912,7 @@ export function continuePushRound(sent, stopped_early) {
  * # Errors
  *
  * Fails only if the value cannot be converted to a JS value.
- * @returns {any}
+ * @returns {B.CoreInfo}
  */
 export function coreInfo() {
     const ret = wasm.coreInfo();
@@ -4186,10 +4186,10 @@ export function createLogEntry(input, id, now) {
  * # Errors
  *
  * Fails if `input` has the wrong shape or is invalid.
- * @param {any} input
+ * @param {B.NewMilestoneInput} input
  * @param {string} id
  * @param {string} created_at
- * @returns {any}
+ * @returns {B.Milestone}
  */
 export function createMilestoneWith(input, id, created_at) {
     const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -6967,8 +6967,8 @@ export function extractDoi(value) {
  * # Errors
  *
  * Fails only if the result cannot be converted to a JS value.
- * @param {string | null} [text]
- * @returns {any}
+ * @param {string | null | undefined} text
+ * @returns {B.HashtagRef[]}
  */
 export function extractHashtagRefs(text) {
     var ptr0 = isLikeNone(text) ? 0 : passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -6982,7 +6982,7 @@ export function extractHashtagRefs(text) {
 
 /**
  * [`extract_hashtags`](paper::extract_hashtags) (TS `extractHashtags`).
- * @param {string | null} [text]
+ * @param {string | null | undefined} text
  * @returns {string[]}
  */
 export function extractHashtags(text) {
@@ -9107,9 +9107,9 @@ export function groupSubtreeItems(node, items) {
  * # Errors
  *
  * Fails if `rect` is not four numbers.
- * @param {any} rect
+ * @param {readonly [number, number, number, number]} rect
  * @param {number} height
- * @returns {any}
+ * @returns {[number, number, number, number]}
  */
 export function grownTextRect(rect, height) {
     const ret = wasm.grownTextRect(rect, height);
@@ -11259,7 +11259,7 @@ export function isElectronMcpEntry(entry) {
 
 /**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
- * @param {string | null} [summary]
+ * @param {string | null | undefined} summary
  * @returns {boolean}
  */
 export function isEmptyPaperSummary(summary) {
@@ -12626,9 +12626,9 @@ export function kindsForResource(resource_type) {
  * # Errors
  *
  * Fails only if the result cannot be converted to a JS value.
- * @param {string | null} [known_pdf]
- * @param {string | null} [page]
- * @returns {any}
+ * @param {string | null | undefined} known_pdf
+ * @param {string | null | undefined} page
+ * @returns {B.OpenAccessCandidate[]}
  */
 export function knownCandidates(known_pdf, page) {
     var ptr0 = isLikeNone(known_pdf) ? 0 : passStringToWasm0(known_pdf, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -14472,7 +14472,7 @@ export function milestoneFromRow(row) {
  * # Errors
  *
  * Fails if `input` has the wrong shape.
- * @param {any} input
+ * @param {B.NewMilestoneInput} input
  * @returns {string | undefined}
  */
 export function milestoneInputError(input) {
@@ -15398,7 +15398,7 @@ export function normalizeCommentInput(input) {
 
 /**
  * [`normalize_doi`](paper::normalize_doi) (TS `normalizeDoi`). `None` becomes `undefined`.
- * @param {string | null} [doi]
+ * @param {string | null | undefined} doi
  * @returns {string | undefined}
  */
 export function normalizeDoi(doi) {
@@ -16399,20 +16399,15 @@ export function pageFromChunkBody(body) {
  * # Errors
  *
  * Fails if `meta` is not a valid `PageMetadata` object.
- * @param {any} meta
- * @returns {string | undefined}
+ * @param {B.PageMetadata} meta
+ * @returns {string | null}
  */
 export function pageImportRefusal(meta) {
     const ret = wasm.pageImportRefusal(meta);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -18280,8 +18275,8 @@ export function pictureComment(meta) {
  *
  * Fails if the result cannot be converted to a JS value.
  * @param {string} kind
- * @param {string | null} [comment]
- * @returns {any}
+ * @param {string | null | undefined} comment
+ * @returns {B.PictureMeta | null}
  */
 export function pictureMeta(kind, comment) {
     const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -18453,9 +18448,9 @@ export function placePlanWidget(saved, areas) {
  * # Errors
  *
  * Fails if an argument has the wrong shape, or past the entry count or the total cap.
- * @param {any} entries
- * @param {any} limits
- * @returns {any}
+ * @param {readonly B.EntryInfo[]} entries
+ * @param {B.ArchiveLimits} limits
+ * @returns {B.PlannedEntry[]}
  */
 export function planArchiveEntries(entries, limits) {
     const ret = wasm.planArchiveEntries(entries, limits);
@@ -18952,7 +18947,7 @@ export function plural(n, word, many) {
  * Fails only if the result cannot be converted to a JS value.
  * @param {string} pmcid
  * @param {string | null} [license]
- * @returns {any}
+ * @returns {B.OpenAccessCandidate[]}
  */
 export function pmcCandidates(pmcid, license) {
     const ptr0 = passStringToWasm0(pmcid, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -22352,7 +22347,7 @@ export function searchMatches(text, query) {
  * # Errors
  *
  * Fails if `docs` is not an array of search documents.
- * @param {any} docs
+ * @param {readonly { readonly id: string; readonly kind: B.SearchKind; readonly entityId: string; readonly title: string; readonly aliases: readonly string[]; readonly headings: readonly string[]; readonly tags: readonly string[]; readonly path: string; readonly body: string; readonly updatedAt: string; readonly href: string; readonly page?: number; readonly degree: number }[]} docs
  * @returns {string}
  */
 export function searchRevision(docs) {
@@ -24007,19 +24002,14 @@ export function stackMarginNotes(anchor_tops, card_height) {
  * Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} content
  * @param {string} id
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function stampWorkspaceId(content, id) {
     const ret = wasm.stampWorkspaceId(content, id);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -24796,8 +24786,8 @@ export function texLogErrors(log, entry) {
  * # Errors
  *
  * Fails if `rect` is not four numbers.
- * @param {any} rect
- * @returns {any}
+ * @param {readonly [number, number, number, number]} rect
+ * @returns {B.TextBoxRect}
  */
 export function textBoxFromRect(rect) {
     const ret = wasm.textBoxFromRect(rect);
@@ -25322,8 +25312,8 @@ export function toggleSection(open, id) {
  * Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
  * `options` is not a valid `TokenizerOptions` object.
  * @param {string} text
- * @param {any} options
- * @returns {any}
+ * @param {B.TokenizerOptions} options
+ * @returns {string[]}
  */
 export function tokenize(text, options) {
     const ret = wasm.tokenize(text, options);
@@ -25838,7 +25828,7 @@ export function usesInkHighlighterPass(tool) {
  * # Errors
  *
  * Fails if `compute` has the wrong shape.
- * @param {any} compute
+ * @param {B.ComputeNeed[]} compute
  * @returns {string | undefined}
  */
 export function validateComputeError(compute) {
@@ -25861,7 +25851,7 @@ export function validateComputeError(compute) {
  * # Errors
  *
  * Fails if `deps` has the wrong shape.
- * @param {any} deps
+ * @param {B.MilestoneDependency[]} deps
  * @returns {string | undefined}
  */
 export function validateDependenciesError(deps) {

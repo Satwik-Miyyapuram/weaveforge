@@ -3,11 +3,10 @@
  * Each function keeps the signature of packages/core/src/features/plan/domain/milestone.ts.
  */
 import {
-  createMilestoneWith as rawCreateMilestoneWith,
-  isIsoDay as rawIsIsoDay,
-  milestoneInputError as rawMilestoneInputError,
-  validateComputeError as rawValidateComputeError,
-  validateDependenciesError as rawValidateDependenciesError,
+  createMilestoneWith,
+  milestoneInputError,
+  validateComputeError,
+  validateDependenciesError,
 } from "../pkg/wf_wasm.js";
 import type {
   ComputeNeed,
@@ -19,7 +18,12 @@ import type {
 } from "./bindings.js";
 
 export {
+  createMilestoneWith,
+  isIsoDay,
   isoDayFromParts,
+  milestoneInputError,
+  validateComputeError,
+  validateDependenciesError,
 } from "../pkg/wf_wasm.js";
 
 /** Every milestone status. */
@@ -34,31 +38,6 @@ function throwIfInvalid(message: string | undefined): void {
   const error = new Error(message);
   error.name = "MilestoneValidationError";
   throw error;
-}
-
-/** True for a `yyyy-mm-dd` day that is on the calendar. */
-export function isIsoDay(value: string): boolean {
-  return rawIsIsoDay(value);
-}
-
-/** The validation message for a dependency list, if it is invalid. */
-export function validateDependenciesError(deps: MilestoneDependency[]): string | undefined {
-  return rawValidateDependenciesError(deps);
-}
-
-/** The validation message for compute needs, if they are invalid. */
-export function validateComputeError(compute: ComputeNeed[]): string | undefined {
-  return rawValidateComputeError(compute);
-}
-
-/** The validation message for milestone input, if it is invalid. */
-export function milestoneInputError(input: NewMilestoneInput): string | undefined {
-  return rawMilestoneInputError(input);
-}
-
-/** A new milestone from valid input, with the id and timestamp given. */
-export function createMilestoneWith(input: NewMilestoneInput, id: string, createdAt: string): Milestone {
-  return rawCreateMilestoneWith(input, id, createdAt) as Milestone;
 }
 
 /** Validate a dependency list; throws on structurally invalid entries. */

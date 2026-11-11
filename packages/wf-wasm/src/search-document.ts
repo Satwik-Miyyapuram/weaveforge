@@ -5,16 +5,9 @@
  * Degree and title maps cross the boundary as plain objects.
  */
 import {
-  annotationDocId as rawAnnotationDocId,
   boundedBody as rawBoundedBody,
   excerptOf as rawExcerptOf,
-  extractHeadings as rawExtractHeadings,
-  indexTermsOf as rawIndexTermsOf,
-  pdfDocId as rawPdfDocId,
-  pdfDocIdsFor as rawPdfDocIdsFor,
-  pdfPageHref as rawPdfPageHref,
   projectSearchDocuments as rawProjectSearchDocuments,
-  searchRevision as rawSearchRevision,
   toAnnotationSearchDocs as rawToAnnotationSearchDocs,
   toPdfSearchDocs as rawToPdfSearchDocs,
   toSearchDocs as rawToSearchDocs,
@@ -26,10 +19,16 @@ import type {
   SearchDoc,
   WikiGraph,
 } from "./bindings.js";
-import type { ReadonlyInput } from "./readonly-input.js";
 
 export {
+  annotationDocId,
+  extractHeadings,
+  indexTermsOf,
+  pdfDocId,
+  pdfDocIdsFor,
+  pdfPageHref,
   projectStoredPdfTexts,
+  searchRevision,
 } from "../pkg/wf_wasm.js";
 
 /** One PDF page's extracted text. */
@@ -61,19 +60,6 @@ export function toSearchDocs(
   return rawToSearchDocs(snapshot, toObject(degrees)) as SearchDoc[];
 }
 
-/** Fingerprint of the indexed corpus; a differing revision means the index is stale. */
-export function searchRevision(docs: readonly ReadonlyInput<SearchDoc>[]): string {
-  return rawSearchRevision(docs);
-}
-
-/**
- * The index terms of `text` with the search tokenizer defaults, cut to the longest text the
- * index accepts rather than throwing. Rust `index_terms_of_js`.
- */
-export function indexTermsOf(text: string): string[] {
-  return rawIndexTermsOf(text);
-}
-
 /**
  * A 200-character excerpt of `body` around `terms`, cut like `indexTermsOf`. Throws when the
  * terms together need more than the index cap. Rust `excerpt_of_js`.
@@ -91,11 +77,6 @@ export function excerptOf(
   return { text, highlights: raw.highlights };
 }
 
-/** Markdown h1–h3 headings, ignoring anything inside code. */
-export function extractHeadings(body?: string): string[] {
-  return rawExtractHeadings(body);
-}
-
 /** Truncate to the indexed body cap without splitting a surrogate pair. */
 export function boundedBody(body: string | undefined): string {
   return rawBoundedBody(body ?? "");
@@ -107,26 +88,6 @@ export function toPdfSearchDocs(
   degrees: ReadonlyMap<string, number> = new Map(),
 ): SearchDoc[] {
   return rawToPdfSearchDocs(sources, toObject(degrees)) as SearchDoc[];
-}
-
-/** Stable id for one PDF page's document. */
-export function pdfDocId(paperId: string, pageIndex: number): string {
-  return rawPdfDocId(paperId, pageIndex);
-}
-
-/** Deep link to one PDF page in the reader. */
-export function pdfPageHref(paperId: string, pageIndex: number): string {
-  return rawPdfPageHref(paperId, pageIndex);
-}
-
-/** Ids for every page of one paper, so a re-extraction can replace them wholesale. */
-export function pdfDocIdsFor(paperId: string, pageCount: number): string[] {
-  return rawPdfDocIdsFor(paperId, pageCount);
-}
-
-/** Stable id for a highlight's document. */
-export function annotationDocId(annotationId: string): string {
-  return rawAnnotationDocId(annotationId);
 }
 
 /** The worker's build: documents plus per-paper page counts, as `[paperId, pageCount]` pairs. */

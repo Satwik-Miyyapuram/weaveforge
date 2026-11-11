@@ -206,7 +206,7 @@ fn to_js<T: Serialize>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> 
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = coreInfo)]
+#[wasm_bindgen(js_name = coreInfo, unchecked_return_type = "B.CoreInfo")]
 pub fn core_info() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&wf_core::core_info())
 }
@@ -275,10 +275,10 @@ fn index_input(
 ///
 /// Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
 /// `options` is not a valid `TokenizerOptions` object.
-#[wasm_bindgen(js_name = tokenize)]
+#[wasm_bindgen(js_name = tokenize, unchecked_return_type = "string[]")]
 pub fn tokenize(
     text: js_sys::JsString,
-    options: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TokenizerOptions")] options: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let text = &guarded_text(&text)?;
     let options = index_input(text, options)?;
@@ -505,10 +505,13 @@ pub fn extract_page_metadata(
 /// # Errors
 ///
 /// Fails if `meta` is not a valid `PageMetadata` object.
-#[wasm_bindgen(js_name = pageImportRefusal)]
-pub fn page_import_refusal(meta: JsValue) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = pageImportRefusal, unchecked_return_type = "string | null")]
+pub fn page_import_refusal(
+    #[wasm_bindgen(unchecked_param_type = "B.PageMetadata")] meta: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let meta: PageMetadata = serde_wasm_bindgen::from_value(meta)?;
-    Ok(wf_core::papers::page_metadata::page_import_refusal(&meta).map(str::to_owned))
+    let refusal = wf_core::papers::page_metadata::page_import_refusal(&meta).map(str::to_owned);
+    Ok(refusal.map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`

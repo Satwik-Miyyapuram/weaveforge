@@ -306,14 +306,11 @@ pub fn apply_delta_js(held: JsValue, fetched: JsValue, order: JsValue) -> JsResu
 /// # Errors
 ///
 /// Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = stampWorkspaceId)]
-pub fn stamp_workspace_id_js(
-    content: js_sys::JsString,
-    id: js_sys::JsString,
-) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = stampWorkspaceId, unchecked_return_type = "string | null")]
+pub fn stamp_workspace_id_js(content: js_sys::JsString, id: js_sys::JsString) -> JsResult<JsValue> {
     let content = &crate::guarded_text(&content)?;
     let id = &crate::guarded_text(&id)?;
-    Ok(stamp_workspace_id(content, id))
+    Ok(stamp_workspace_id(content, id).map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`wf_core::workspace::safe_workspace_path`] for JS.
@@ -503,8 +500,11 @@ impl ArchiveBudget {
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape, or past the entry count or the total cap.
-#[wasm_bindgen(js_name = planArchiveEntries)]
-pub fn plan_archive_entries_js(entries: JsValue, limits: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = planArchiveEntries, unchecked_return_type = "B.PlannedEntry[]")]
+pub fn plan_archive_entries_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.EntryInfo[]")] entries: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ArchiveLimits")] limits: JsValue,
+) -> Result<JsValue, JsError> {
     let entries: Vec<EntryInfo> = serde_wasm_bindgen::from_value(entries).map_err(js_error)?;
     let limits: ArchiveLimits = serde_wasm_bindgen::from_value(limits).map_err(js_error)?;
     let plan =
