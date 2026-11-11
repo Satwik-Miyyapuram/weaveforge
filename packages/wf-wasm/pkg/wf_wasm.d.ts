@@ -5427,16 +5427,6 @@ export function logEntryInputError(input: B.NewLogEntryInput): string | undefine
 export function logEntryMessage(input: B.LogEntryMessageInput): string;
 
 /**
- * [`to_domain`]: a `log_entries` row as a domain entry.
- */
-export function logEntryToDomain(row: B.LogEntryRow): B.LogEntry;
-
-/**
- * [`to_row`]: a domain entry as the `log_entries` row it is written as.
- */
-export function logEntryToRow(entry: B.LogEntry): B.LogEntryWriteRow;
-
-/**
  * [`log_eyebrow`] for JS (TS `logEyebrow`): the line, or `undefined` with no entries.
  *
  * # Errors
@@ -11722,8 +11712,6 @@ export interface InitOutput {
     readonly locateMention: (a: any, b: number, c: number) => [number, number, number];
     readonly logEntryInputError: (a: any) => [number, number, number, number];
     readonly logEntryMessage: (a: any) => [number, number, number, number];
-    readonly logEntryToDomain: (a: any) => [number, number, number];
-    readonly logEntryToRow: (a: any) => [number, number, number];
     readonly logEyebrow: (a: any, b: number, c: number) => [number, number, number];
     readonly logPath: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly looksLikeImageUrl: (a: number, b: number) => number;

@@ -593,7 +593,6 @@ mod kind;
 mod library_pins;
 mod local_api_guard;
 mod local_db_engine_params;
-mod log_entry_rows;
 mod logbook_collapse_alert;
 mod logbook_view;
 mod mcp_client_config;

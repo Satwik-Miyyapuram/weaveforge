@@ -19,13 +19,14 @@ Source: `crates/wf-core/src/logbook/`
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src` (`log_entry.rs`,
-`log_entry_rows.rs`, `logbook_view.rs`, `logbook_collapse_alert.rs`). The
+`logbook_view.rs`, `logbook_collapse_alert.rs`). The
 TypeScript wrappers in `packages/wf-wasm/src` import the raw names from
 `../pkg/wf_wasm.js` and re-export them. The main names are:
 
 - Entry (`log-entry.ts`): `createLogEntry`, `logEntryInputError`, `LOG_KINDS`
   (`daily`, `weekly`).
-- Rows (`log-entry-rows.ts`): `logEntryToDomain`, `logEntryToRow`.
+- Rows: no export. The `log_entries` repository runs in Rust
+  (`repos/log_entries.rs`, see [data-access](data-access.md)) and maps rows there.
 - View (`logbook-view.ts`): `groupByDay`, `streakDays`, `logEyebrow`,
   `splitHeadline`, `newestFirstOrder`.
 - Alert (`logbook-collapse-alert.ts`): `collapseAlert`.
