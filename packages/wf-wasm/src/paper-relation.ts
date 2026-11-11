@@ -14,6 +14,7 @@ import type {
 } from "./bindings.js";
 
 export {
+  createPaperRelationWith,
   dedupePaperRelationRows,
 } from "../pkg/wf_wasm.js";
 
@@ -40,15 +41,6 @@ export function paperRelationInputError(input: NewPaperRelationInput): string | 
   return rawPaperRelationInputError(input);
 }
 
-/** A new relation from valid input, with the id and timestamp given. */
-export function createPaperRelationWith(
-  input: NewPaperRelationInput,
-  id: string,
-  createdAt: string,
-): PaperRelation {
-  return rawCreatePaperRelationWith(input, id, createdAt) as PaperRelation;
-}
-
 /** A new relation from caller input. Throws `PaperRelationValidationError` before drawing an id. */
 export function createPaperRelation(
   input: NewPaperRelationInput,
@@ -62,6 +54,6 @@ export function createPaperRelation(
   }
   const id = deps.ids.newId();
   const now = deps.clock.nowIso();
-  return createPaperRelationWith(input, id, now);
+  return rawCreatePaperRelationWith(input, id, now);
 }
 

@@ -430,7 +430,7 @@ export function annotationDocId(annotation_id: string): string;
  *
  * Fails if `annotation` is not a JSON-like object.
  */
-export function annotationIdentity(annotation: any): string;
+export function annotationIdentity(annotation: { type: string; color?: string | null; text?: string | null; comment?: string | null; anchor?: unknown }): string;
 
 /**
  * [`annotation_pin_key`]: the Zotero key when present and non-blank, else the local id.
@@ -865,7 +865,7 @@ export function buildInkRequest(input: B.InkRequestBuildInput): B.InkRecognition
  *
  * Fails if `input` has the wrong shape.
  */
-export function buildLabSnapshotContent(input: any): any;
+export function buildLabSnapshotContent(input: { milestones: B.MilestoneInput[]; logs: B.LogEntryInput[]; experiments: B.ExperimentInput[]; report: B.ReportSectionInput[]; aiAssisted?: number }): B.LabSnapshotContent;
 
 /**
  * [`build_list_tree`](reading_list::build_list_tree).
@@ -1760,7 +1760,7 @@ export function createMilestoneWith(input: B.NewMilestoneInput, id: string, crea
  *
  * Fails if `input` has the wrong shape or does not validate.
  */
-export function createPaperRelationWith(input: any, id: string, created_at: string): any;
+export function createPaperRelationWith(input: B.NewPaperRelationInput, id: string, created_at: string): B.PaperRelation;
 
 /**
  * [`create_reading_list`](reading_list::create_reading_list) with the id and time supplied.
@@ -5450,7 +5450,7 @@ export function locateMention(items: any, start: number, end: number): any;
  *
  * Fails if `input` has the wrong shape.
  */
-export function logEntryInputError(input: any): string | undefined;
+export function logEntryInputError(input: B.NewLogEntryInput): string | undefined;
 
 /**
  * [`log_entry_message`] for JS (TS `logEntryMessage`).
@@ -11017,7 +11017,7 @@ export function zoteroArxivId(item: B.ZoteroItem): string | null;
 /**
  * [`zotero_content_keys`] (TS `zoteroContentKeys`). The keys a paper matches on.
  */
-export function zoteroContentKeys(doi?: string | null, arxiv_id?: string | null, title?: string | null): any;
+export function zoteroContentKeys(doi?: string | null, arxiv_id?: string | null, title?: string | null): string[];
 
 /**
  * [`zotero_headers`](zotero_library::zotero_headers): the API key and version headers for a

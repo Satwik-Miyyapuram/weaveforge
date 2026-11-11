@@ -5,19 +5,14 @@
 import {
   addDays as rawAddDays,
   milestonesToIcs as rawMilestonesToIcs,
-  planFeedOrigin as rawPlanFeedOrigin,
   planFeedUrls as rawPlanFeedUrls,
   planWidgetData as rawPlanWidgetData,
 } from "../pkg/wf_wasm.js";
 import type { FeedMilestone, PlanFeedUrls, PlanWidgetData } from "./bindings.js";
 
-/**
- * Where the calendar feed is served (Rust `plan::feed_urls::plan_feed_origin`).
- * `configured` is the app URL the caller read from its environment.
- */
-export function planFeedOrigin(serverRoutes: boolean, here?: string, configured?: string): string {
-  return rawPlanFeedOrigin(serverRoutes, here, configured);
-}
+export {
+  planFeedOrigin,
+} from "../pkg/wf_wasm.js";
 
 /** The calendar, https and widget links for `token` (Rust `plan::feed_urls::plan_feed_urls`). */
 export function planFeedUrls(

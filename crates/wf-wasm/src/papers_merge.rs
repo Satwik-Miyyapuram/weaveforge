@@ -47,7 +47,12 @@ pub fn zotero_key_of_js(metadata: JsValue) -> Result<JsValue, JsError> {
 ///
 /// Fails if `annotation` is not a JSON-like object.
 #[wasm_bindgen(js_name = annotationIdentity)]
-pub fn annotation_identity_js(annotation: JsValue) -> Result<String, JsError> {
+pub fn annotation_identity_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ type: string; color?: string | null; text?: string | null; comment?: string | null; anchor?: unknown }"
+    )]
+    annotation: JsValue,
+) -> Result<String, JsError> {
     let annotation: Value = serde_wasm_bindgen::from_value(annotation)
         .map_err(|error| JsError::new(&error.to_string()))?;
     Ok(annotation_identity(&annotation))

@@ -33,9 +33,9 @@ pub fn paper_relation_input_error_js(input: JsValue) -> JsResult<Option<String>>
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape or does not validate.
-#[wasm_bindgen(js_name = createPaperRelationWith)]
+#[wasm_bindgen(js_name = createPaperRelationWith, unchecked_return_type = "B.PaperRelation")]
 pub fn create_paper_relation_js(
-    input: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.NewPaperRelationInput")] input: JsValue,
     id: &str,
     created_at: &str,
 ) -> Result<JsValue, JsValue> {

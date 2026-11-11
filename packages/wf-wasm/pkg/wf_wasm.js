@@ -1033,7 +1033,7 @@ export function annotationDocId(annotation_id) {
  * # Errors
  *
  * Fails if `annotation` is not a JSON-like object.
- * @param {any} annotation
+ * @param {{ type: string; color?: string | null; text?: string | null; comment?: string | null; anchor?: unknown }} annotation
  * @returns {string}
  */
 export function annotationIdentity(annotation) {
@@ -2143,8 +2143,8 @@ export function buildInkRequest(input) {
  * # Errors
  *
  * Fails if `input` has the wrong shape.
- * @param {any} input
- * @returns {any}
+ * @param {{ milestones: B.MilestoneInput[]; logs: B.LogEntryInput[]; experiments: B.ExperimentInput[]; report: B.ReportSectionInput[]; aiAssisted?: number }} input
+ * @returns {B.LabSnapshotContent}
  */
 export function buildLabSnapshotContent(input) {
     const ret = wasm.buildLabSnapshotContent(input);
@@ -4210,10 +4210,10 @@ export function createMilestoneWith(input, id, created_at) {
  * # Errors
  *
  * Fails if `input` has the wrong shape or does not validate.
- * @param {any} input
+ * @param {B.NewPaperRelationInput} input
  * @param {string} id
  * @param {string} created_at
- * @returns {any}
+ * @returns {B.PaperRelation}
  */
 export function createPaperRelationWith(input, id, created_at) {
     const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -13222,7 +13222,7 @@ export function locateMention(items, start, end) {
  * # Errors
  *
  * Fails if `input` has the wrong shape.
- * @param {any} input
+ * @param {B.NewLogEntryInput} input
  * @returns {string | undefined}
  */
 export function logEntryInputError(input) {
@@ -27024,7 +27024,7 @@ export function zoteroArxivId(item) {
  * @param {string | null} [doi]
  * @param {string | null} [arxiv_id]
  * @param {string | null} [title]
- * @returns {any}
+ * @returns {string[]}
  */
 export function zoteroContentKeys(doi, arxiv_id, title) {
     var ptr0 = isLikeNone(doi) ? 0 : passStringToWasm0(doi, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
