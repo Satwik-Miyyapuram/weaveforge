@@ -166,6 +166,14 @@ test("every RPC the app calls is classified as a write or not", async () => {
     const text = readFileSync(path.join(entry.parentPath, entry.name), "utf8");
     for (const match of text.matchAll(/\.rpc(?:<[^>]*>)?\(\s*"([a-z_0-9]+)"/g)) called.add(match[1]!);
   }
+  // Rust-planned repositories name their RPCs in wf-core; the TS sender calls them.
+  const core = path.resolve(src, "../../../crates/wf-core/src");
+  for (const entry of readdirSync(core, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".rs")) continue;
+    // Unit tests below `#[cfg(test)]` call made-up RPCs; only the shipped code counts.
+    const text = readFileSync(path.join(entry.parentPath, entry.name), "utf8").split("#[cfg(test)]")[0]!;
+    for (const match of text.matchAll(/RepoQuery::rpc\(\s*"([a-z_0-9]+)"/g)) called.add(match[1]!);
+  }
   assert.ok(called.size > 10, "the scan found the app's RPC calls");
   const unclassified = [...called].filter((fn) => !Object.hasOwn(RPC_WRITES, fn)).sort();
   assert.deepEqual(unclassified, []);

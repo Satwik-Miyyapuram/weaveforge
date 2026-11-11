@@ -38,7 +38,7 @@ function fakeDb(answer: (calls: Call[]) => { data?: unknown; error?: unknown }) 
           return Promise.resolve({ data: null, error: null, ...answer(calls) }).then(ok, fail);
         },
       };
-      for (const m of ["select", "insert", "delete", "contains", "neq", "order", "limit", "single", "eq"]) {
+      for (const m of ["select", "insert", "delete", "filter", "neq", "order", "limit", "single", "eq"]) {
         chain[m] = (...args: unknown[]) => {
           calls.push([m, ...args]);
           return chain;
@@ -50,7 +50,7 @@ function fakeDb(answer: (calls: Call[]) => { data?: unknown; error?: unknown }) 
   return { db: db as unknown as SupabaseClient, queries };
 }
 
-const session = { requireUserId: async () => "user-1" } as unknown as ICurrentUserProvider;
+const session = { requireUserId: async () => "user-1", getCurrentUserId: async () => "user-1" } as unknown as ICurrentUserProvider;
 const has = (calls: Call[], method: string) => calls.some(([m]) => m === method);
 const ROW = { id: "new-id", token_prefix: "tt_abcdefgh…", created_at: "2026-01-01", last_used_at: null };
 
@@ -63,7 +63,7 @@ test("plan feed create: inserts the new link before removing the old one, sparin
   const deleteAt = queries.findIndex((q) => has(q, "delete"));
   assert.ok(insertAt >= 0 && deleteAt > insertAt, "insert first, then delete");
   assert.deepEqual(queries[deleteAt]!.find(([m]) => m === "neq"), ["neq", "id", "new-id"]);
-  assert.ok(queries[deleteAt]!.some(([m, col]) => m === "contains" && col === "scopes"), "only plan_feed rows");
+  assert.ok(queries[deleteAt]!.some(([m, col]) => m === "filter" && col === "scopes"), "only plan_feed rows");
 });
 
 test("plan feed create: a failed insert leaves the old link working", async () => {

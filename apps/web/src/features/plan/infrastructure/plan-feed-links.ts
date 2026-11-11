@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
 
+import { rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { formatError } from "@/lib/format-error";
 import { randomBytes } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
@@ -45,75 +46,57 @@ export function planFeedOrigin(serverRoutes: boolean, here?: string): string {
   return readyCore().planFeedOrigin(serverRoutes, here, process.env.NEXT_PUBLIC_APP_URL);
 }
 
-interface Row {
-  id: string;
-  token_prefix: string;
-  created_at: string;
-  last_used_at: string | null;
+/** The `api_tokens` queries, planned by Rust (`crates/wf-core/src/repos/plan_feed_links.rs`). */
+interface PlanFeedLinkStore {
+  current(): Promise<PlanFeedLink | null>;
+  create(tokenHash: string, tokenPrefix: string): Promise<PlanFeedLink>;
+  revoke(): Promise<void>;
+}
+
+/** Runs `op`, giving a PostgREST error a readable message. */
+async function readable<T>(op: Promise<T>): Promise<T> {
+  try {
+    return await op;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error(formatError(error));
+  }
 }
 
 export class PlanFeedLinks {
+  private readonly store: PlanFeedLinkStore;
+
   constructor(
-    private readonly db: SupabaseClient,
+    db: SupabaseClient,
     private readonly session: ICurrentUserProvider,
-  ) {}
+  ) {
+    this.store = rustRepository<PlanFeedLinkStore>(db, "plan_feed_links", ["current", "create", "revoke"], async () => ({
+      userId: (await session.getCurrentUserId()) ?? undefined,
+    }));
+  }
 
   /** The current link, if there is one. */
-  async current(): Promise<PlanFeedLink | null> {
-    const { data, error } = await this.db
-      .from("api_tokens")
-      .select("id,token_prefix,created_at,last_used_at")
-      .contains("scopes", [PLAN_FEED_SCOPE])
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (error) throw new Error(formatError(error));
-    const row = (data as Row[] | null)?.[0];
-    return row
-      ? { id: row.id, tokenPrefix: row.token_prefix, createdAt: row.created_at, lastUsedAt: row.last_used_at }
-      : null;
+  current(): Promise<PlanFeedLink | null> {
+    return readable(this.store.current());
   }
 
   /**
    * A new link, replacing any old one: an old link stops working the moment
-   * this returns. The token is returned once and not kept anywhere.
-   *
-   * Insert first, then remove the others: if the insert fails, the old link
-   * still works instead of the account being left with none.
+   * this returns. The token is returned once and not kept anywhere; only its
+   * SHA-256 is stored. Rust inserts first, then removes the others.
    */
   async create(): Promise<{ link: PlanFeedLink; token: string }> {
-    const userId = await this.session.requireUserId();
+    await this.session.requireUserId();
     const body = readyCore().encodeBase64(await randomBytes(32)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const token = `${TOKEN_PREFIX}${body}`;
     const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
-    const { data, error } = await this.db
-      .from("api_tokens")
-      .insert({
-        user_id: userId,
-        name: "Calendar and widget link",
-        token_hash: readyCore().encodeBytea(hash),
-        token_prefix: `${token.slice(0, TOKEN_PREFIX.length + 8)}…`,
-        scopes: [PLAN_FEED_SCOPE],
-        expires_at: null,
-      })
-      .select("id,token_prefix,created_at,last_used_at")
-      .single();
-    if (error) throw new Error(formatError(error));
-    const row = data as Row;
-    const { error: revokeError } = await this.db
-      .from("api_tokens")
-      .delete()
-      .contains("scopes", [PLAN_FEED_SCOPE])
-      .neq("id", row.id);
-    if (revokeError) throw new Error(formatError(revokeError));
-    return {
-      token,
-      link: { id: row.id, tokenPrefix: row.token_prefix, createdAt: row.created_at, lastUsedAt: row.last_used_at },
-    };
+    const link = await readable(
+      this.store.create(readyCore().encodeBytea(hash), `${token.slice(0, TOKEN_PREFIX.length + 8)}…`),
+    );
+    return { token, link };
   }
 
   /** Turn the link off. Calendars subscribed to it get a 404 and stop updating. */
-  async revoke(): Promise<void> {
-    const { error } = await this.db.from("api_tokens").delete().contains("scopes", [PLAN_FEED_SCOPE]);
-    if (error) throw new Error(formatError(error));
+  revoke(): Promise<void> {
+    return readable(this.store.revoke());
   }
 }

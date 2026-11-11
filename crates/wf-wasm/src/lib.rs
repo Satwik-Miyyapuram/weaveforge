@@ -92,7 +92,6 @@ mod pdf_cache_eviction;
 mod pdf_pages;
 mod personalized_pagerank;
 mod plan_feed;
-mod postgrest_spec;
 mod projects;
 mod proposal_inputs;
 mod proposal_preview;

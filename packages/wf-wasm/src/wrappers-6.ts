@@ -34,8 +34,6 @@ import {
   pickProject as rawPickProject,
   planFeedUrls as rawPlanFeedUrls,
   planWidgetData as rawPlanWidgetData,
-  postgrestKeyedColumnSpec as rawPostgrestKeyedColumnSpec,
-  postgrestRowSpec as rawPostgrestRowSpec,
   projectName as rawProjectName,
   proposalApplies as rawProposalApplies,
   proposalExperimentUpdate as rawExperimentUpdate,
@@ -339,21 +337,6 @@ export type PlanWidgetPalette = Record<string, string>;
 export function parsePlanWidgetBounds(stored: unknown): PlanWidgetBounds | null {
   if (typeof stored !== "string") return null;
   return rawParsePlanWidgetBounds(stored) as PlanWidgetBounds | null;
-}
-
-// --- postgrest-spec ---
-/**
- * PostgREST table specs (Rust `postgrest_spec`): which table, columns, project scope, order and
- * filters a generic repository uses.
- */
-/** The row spec named `name`, or `null` when there is none. */
-export function postgrestRowSpec(name: string): RowSpec | null {
-  return (rawPostgrestRowSpec(name) as RowSpec | null) ?? null;
-}
-
-/** The keyed-column spec named `name`, or `null` when there is none. */
-export function postgrestKeyedColumnSpec(name: string): KeyedColumnSpec | null {
-  return (rawPostgrestKeyedColumnSpec(name) as KeyedColumnSpec | null) ?? null;
 }
 
 // --- privacy-disclaimer-readiness ---
