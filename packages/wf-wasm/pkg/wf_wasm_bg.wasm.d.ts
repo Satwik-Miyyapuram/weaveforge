@@ -887,7 +887,7 @@ export const packInkStroke: (a: number, b: number, c: number, d: number, e: any)
 export const packInkStrokeInstances: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
 export const packVectors: (a: any, b: number, c: number) => [number, number, number, number];
 export const pageFromChunkBody: (a: number, b: number) => [number, number, number];
-export const pageImportRefusal: (a: any) => [number, number, number, number];
+export const pageImportRefusal: (a: any) => [number, number, number];
 export const pageListProblem: (a: number, b: number, c: number) => [number, number, number];
 export const pagePictures: (a: any, b: number) => [number, number, number];
 export const pageTextAfterRecognition: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
@@ -1279,7 +1279,7 @@ export const splitPaperDrop: (a: any) => [number, number, number];
 export const splitProposalContent: (a: number, b: number) => [number, number, number];
 export const splitTopLevel: (a: number, b: number) => [number, number, number];
 export const stackMarginNotes: (a: any, b: number) => [number, number, number];
-export const stampWorkspaceId: (a: any, b: any) => [number, number, number, number];
+export const stampWorkspaceId: (a: any, b: any) => [number, number, number];
 export const startAiSession: (a: any) => [number, number, number];
 export const statusPatchForExperiment: (a: any, b: any, c: number, d: number) => [number, number, number];
 export const stepCursor: (a: number, b: number, c: number) => number;

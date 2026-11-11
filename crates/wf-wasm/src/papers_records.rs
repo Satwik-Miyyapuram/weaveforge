@@ -27,7 +27,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 )]
 #[wasm_bindgen(js_name = normalizeDoi)]
 #[must_use]
-pub fn normalize_doi_js(doi: Option<String>) -> Option<String> {
+pub fn normalize_doi_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] doi: Option<String>,
+) -> Option<String> {
     paper::normalize_doi(doi.as_deref())
 }
 
@@ -83,8 +85,10 @@ pub fn normalize_tags_js(tags: Vec<String>) -> Vec<String> {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes optional strings by value"
 )]
-#[wasm_bindgen(js_name = extractHashtagRefs)]
-pub fn extract_hashtag_refs_js(text: Option<String>) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = extractHashtagRefs, unchecked_return_type = "B.HashtagRef[]")]
+pub fn extract_hashtag_refs_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] text: Option<String>,
+) -> JsResult<JsValue> {
     to_js(&paper::extract_hashtag_refs(text.as_deref()))
 }
 
@@ -95,7 +99,9 @@ pub fn extract_hashtag_refs_js(text: Option<String>) -> JsResult<JsValue> {
 )]
 #[wasm_bindgen(js_name = extractHashtags)]
 #[must_use]
-pub fn extract_hashtags_js(text: Option<String>) -> Vec<String> {
+pub fn extract_hashtags_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] text: Option<String>,
+) -> Vec<String> {
     paper::extract_hashtags(text.as_deref())
 }
 
@@ -106,7 +112,9 @@ pub fn extract_hashtags_js(text: Option<String>) -> Vec<String> {
 )]
 #[wasm_bindgen(js_name = isEmptyPaperSummary)]
 #[must_use]
-pub fn is_empty_paper_summary_js(summary: Option<String>) -> bool {
+pub fn is_empty_paper_summary_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] summary: Option<String>,
+) -> bool {
     paper::is_empty_paper_summary(summary.as_deref())
 }
 
@@ -117,7 +125,10 @@ pub fn is_empty_paper_summary_js(summary: Option<String>) -> bool {
 ///
 /// Fails with the refusal message when the title is blank or the rating is outside 1 to 5.
 #[wasm_bindgen(js_name = checkNewPaper)]
-pub fn check_new_paper_js(title: &str, rating: Option<f64>) -> Result<String, JsError> {
+pub fn check_new_paper_js(
+    title: &str,
+    #[wasm_bindgen(unchecked_param_type = "number | null | undefined")] rating: Option<f64>,
+) -> Result<String, JsError> {
     paper::check_new_paper(title, rating).map_err(|message| JsError::new(&message))
 }
 

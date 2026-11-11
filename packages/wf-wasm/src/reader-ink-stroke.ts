@@ -4,7 +4,6 @@
  * Rust export; flat point arrays cross as `Float64Array`s and come back as `number[]`.
  */
 import {
-  inkWidthForPressure as rawInkWidthForPressure,
   meanPressure as rawMeanPressure,
   shouldAppendInkPoint as rawShouldAppendInkPoint,
   simplifyPathIndices as rawSimplifyPathIndices,
@@ -21,12 +20,9 @@ import {
 export {
   clampInkWidth,
   inkNoteWidthToPdfPoints,
+  inkWidthForPressure,
   isHighlighterInk,
 } from "../pkg/wf_wasm.js";
-
-export function inkWidthForPressure(pressure: number | undefined, base?: number): number {
-  return rawInkWidthForPressure(pressure, base);
-}
 
 export function meanPressure(samples: readonly number[]): number | undefined {
   return rawMeanPressure(Float64Array.from(samples));

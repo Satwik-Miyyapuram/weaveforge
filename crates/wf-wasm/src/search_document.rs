@@ -101,7 +101,12 @@ pub fn to_search_docs_js(snapshot: JsValue, degrees: JsValue) -> JsResult<JsValu
 ///
 /// Fails if `docs` is not an array of search documents.
 #[wasm_bindgen(js_name = searchRevision)]
-pub fn search_revision_js(docs: JsValue) -> JsResult<String> {
+pub fn search_revision_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { readonly id: string; readonly kind: B.SearchKind; readonly entityId: string; readonly title: string; readonly aliases: readonly string[]; readonly headings: readonly string[]; readonly tags: readonly string[]; readonly path: string; readonly body: string; readonly updatedAt: string; readonly href: string; readonly page?: number; readonly degree: number }[]"
+    )]
+    docs: JsValue,
+) -> JsResult<String> {
     let docs: Vec<SearchDoc> = serde_wasm_bindgen::from_value(docs)?;
     Ok(search_document::search_revision(&docs))
 }

@@ -18,8 +18,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = pictureMeta)]
-pub fn picture_meta_js(kind: &str, comment: Option<String>) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pictureMeta, unchecked_return_type = "B.PictureMeta | null")]
+pub fn picture_meta_js(
+    kind: &str,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] comment: Option<String>,
+) -> JsResult<JsValue> {
     to_js(&picture_meta(kind, comment.as_deref()))
 }
 

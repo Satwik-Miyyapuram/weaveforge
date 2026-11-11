@@ -81,8 +81,12 @@ pub fn draft_image_region_js(
 /// # Errors
 ///
 /// Fails if `rect` is not four numbers.
-#[wasm_bindgen(js_name = grownTextRect)]
-pub fn grown_text_rect_js(rect: JsValue, height: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = grownTextRect, unchecked_return_type = "[number, number, number, number]")]
+pub fn grown_text_rect_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly [number, number, number, number]")]
+    rect: JsValue,
+    height: f64,
+) -> JsResult<JsValue> {
     let rect: [f64; 4] = serde_wasm_bindgen::from_value(rect)?;
     to_js(&grown_text_rect(rect, height))
 }
@@ -92,8 +96,11 @@ pub fn grown_text_rect_js(rect: JsValue, height: f64) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `rect` is not four numbers.
-#[wasm_bindgen(js_name = textBoxFromRect)]
-pub fn text_box_from_rect_js(rect: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = textBoxFromRect, unchecked_return_type = "B.TextBoxRect")]
+pub fn text_box_from_rect_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly [number, number, number, number]")]
+    rect: JsValue,
+) -> JsResult<JsValue> {
     let rect: [f64; 4] = serde_wasm_bindgen::from_value(rect)?;
     to_js(&text_box_from_rect(rect))
 }

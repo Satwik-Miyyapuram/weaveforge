@@ -1074,7 +1074,7 @@ export function checkInkChunkBody(body: Uint8Array): B.InkChunkBodyInfo;
  *
  * Fails with the refusal message when the title is blank or the rating is outside 1 to 5.
  */
-export function checkNewPaper(title: string, rating?: number | null): string;
+export function checkNewPaper(title: string, rating: number | null | undefined): string;
 
 /**
  * [`check_link_folder`]: whether a vault-relative folder may be linked, and its normalised form.
@@ -1616,7 +1616,7 @@ export function continuePushRound(sent: number, stopped_early: boolean): boolean
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function coreInfo(): any;
+export function coreInfo(): B.CoreInfo;
 
 /**
  * [`count_action_list`](folder_merge::count_action_list): the tally over bare actions.
@@ -1750,7 +1750,7 @@ export function createLogEntry(input: any, id: string, now: string): any;
  *
  * Fails if `input` has the wrong shape or is invalid.
  */
-export function createMilestoneWith(input: any, id: string, created_at: string): any;
+export function createMilestoneWith(input: B.NewMilestoneInput, id: string, created_at: string): B.Milestone;
 
 /**
  * [`create_paper_relation`](paper_relation::create_paper_relation) with the id and time
@@ -2880,12 +2880,12 @@ export function extractDoi(value: string): string | undefined;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function extractHashtagRefs(text?: string | null): any;
+export function extractHashtagRefs(text: string | null | undefined): B.HashtagRef[];
 
 /**
  * [`extract_hashtags`](paper::extract_hashtags) (TS `extractHashtags`).
  */
-export function extractHashtags(text?: string | null): string[];
+export function extractHashtags(text: string | null | undefined): string[];
 
 /**
  * [`extract_headings`](search_document::extract_headings).
@@ -3744,7 +3744,7 @@ export function groupSubtreeItems(node: B.ReadingListTreeNode, items: readonly B
  *
  * Fails if `rect` is not four numbers.
  */
-export function grownTextRect(rect: any, height: number): any;
+export function grownTextRect(rect: readonly [number, number, number, number], height: number): [number, number, number, number];
 
 /**
  * [`wf_core::storage::blob::guess_blob_content_type`]: MIME type for `path`
@@ -4607,7 +4607,7 @@ export function isElectronMcpEntry(entry: unknown): boolean;
 /**
  * [`is_empty_paper_summary`](paper::is_empty_paper_summary) (TS `isEmptyPaperSummary`).
  */
-export function isEmptyPaperSummary(summary?: string | null): boolean;
+export function isEmptyPaperSummary(summary: string | null | undefined): boolean;
 
 /**
  * [`is_explicit_lab_membership`](org::is_explicit_lab_membership).
@@ -5182,7 +5182,7 @@ export function kindsForResource(resource_type: string): B.SearchKind[] | null;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function knownCandidates(known_pdf?: string | null, page?: string | null): any;
+export function knownCandidates(known_pdf: string | null | undefined, page: string | null | undefined): B.OpenAccessCandidate[];
 
 /**
  * [`to_domain`]: a `lab_snapshots` row as a published snapshot.
@@ -5974,7 +5974,7 @@ export function milestoneFromRow(row: B.MilestoneRowInput): B.Milestone;
  *
  * Fails if `input` has the wrong shape.
  */
-export function milestoneInputError(input: any): string | undefined;
+export function milestoneInputError(input: B.NewMilestoneInput): string | undefined;
 
 /**
  * [`milestone_message`] for JS (TS `milestoneMessage`).
@@ -6340,7 +6340,7 @@ export function normalizeCommentInput(input: any): any;
 /**
  * [`normalize_doi`](paper::normalize_doi) (TS `normalizeDoi`). `None` becomes `undefined`.
  */
-export function normalizeDoi(doi?: string | null): string | undefined;
+export function normalizeDoi(doi: string | null | undefined): string | undefined;
 
 /**
  * [`normalize_field_name`](paper_field::normalize_field_name) (TS `normalizeFieldName`).
@@ -6767,7 +6767,7 @@ export function pageFromChunkBody(body: Uint8Array): object;
  *
  * Fails if `meta` is not a valid `PageMetadata` object.
  */
-export function pageImportRefusal(meta: any): string | undefined;
+export function pageImportRefusal(meta: B.PageMetadata): string | null;
 
 /**
  * [`page_list_problem`](pdf_pages::page_list_problem): the message, or `null`.
@@ -7546,7 +7546,7 @@ export function pictureComment(meta: B.PictureMeta): string;
  *
  * Fails if the result cannot be converted to a JS value.
  */
-export function pictureMeta(kind: string, comment?: string | null): any;
+export function pictureMeta(kind: string, comment: string | null | undefined): B.PictureMeta | null;
 
 /**
  * [`picture_path`]: the stored file behind a placed picture, or `null`.
@@ -7633,7 +7633,7 @@ export function placePlanWidget(saved: B.PlanWidgetBounds | null, areas: readonl
  *
  * Fails if an argument has the wrong shape, or past the entry count or the total cap.
  */
-export function planArchiveEntries(entries: any, limits: any): any;
+export function planArchiveEntries(entries: readonly B.EntryInfo[], limits: B.ArchiveLimits): B.PlannedEntry[];
 
 /**
  * [`wf_core::sync::blob_links::plan_asset_reanchor`] for JS. `owned` and `available` are
@@ -7835,7 +7835,7 @@ export function plural(n: number, word: string, many?: string | null): string;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function pmcCandidates(pmcid: string, license?: string | null): any;
+export function pmcCandidates(pmcid: string, license?: string | null): B.OpenAccessCandidate[];
 
 /**
  * [`point_in_area`](clip::point_in_area).
@@ -9153,7 +9153,7 @@ export function searchMatches(text: string, query: string): string[];
  *
  * Fails if `docs` is not an array of search documents.
  */
-export function searchRevision(docs: any): string;
+export function searchRevision(docs: readonly { readonly id: string; readonly kind: B.SearchKind; readonly entityId: string; readonly title: string; readonly aliases: readonly string[]; readonly headings: readonly string[]; readonly tags: readonly string[]; readonly path: string; readonly body: string; readonly updatedAt: string; readonly href: string; readonly page?: number; readonly degree: number }[]): string;
 
 /**
  * [`search_text_from_items`](analysis_text::search_text_from_items) (TS `searchTextFromItems`).
@@ -9846,7 +9846,7 @@ export function stackMarginNotes(anchor_tops: readonly number[], card_height: nu
  *
  * Fails when `content` or `id` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
-export function stampWorkspaceId(content: string, id: string): string | undefined;
+export function stampWorkspaceId(content: string, id: string): string | null;
 
 /**
  * [`start_session`](session_grant::start_session): the session, or the message for the first failed check.
@@ -10148,7 +10148,7 @@ export function texLogErrors(log: string, entry: string): B.TexErrorRow[];
  *
  * Fails if `rect` is not four numbers.
  */
-export function textBoxFromRect(rect: any): any;
+export function textBoxFromRect(rect: readonly [number, number, number, number]): B.TextBoxRect;
 
 /**
  * [`text_fingerprint`](analysis_text::text_fingerprint) (TS `textFingerprint`).
@@ -10363,7 +10363,7 @@ export function toggleSection(open: any, id: string): any;
  * Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
  * `options` is not a valid `TokenizerOptions` object.
  */
-export function tokenize(text: string, options: any): any;
+export function tokenize(text: string, options: B.TokenizerOptions): string[];
 
 /**
  * [`tool_owns_the_page`]: every tool but `select` takes the page from the text selection.
@@ -10549,7 +10549,7 @@ export function usesInkHighlighterPass(tool: string): boolean;
  *
  * Fails if `compute` has the wrong shape.
  */
-export function validateComputeError(compute: any): string | undefined;
+export function validateComputeError(compute: B.ComputeNeed[]): string | undefined;
 
 /**
  * [`validate_dependencies`](milestone::validate_dependencies): the validation message, or
@@ -10559,7 +10559,7 @@ export function validateComputeError(compute: any): string | undefined;
  *
  * Fails if `deps` has the wrong shape.
  */
-export function validateDependenciesError(deps: any): string | undefined;
+export function validateDependenciesError(deps: B.MilestoneDependency[]): string | undefined;
 
 /**
  * [`validate_new_member`](member::validate_new_member). Throws the validation message.
@@ -12029,7 +12029,7 @@ export interface InitOutput {
     readonly packInkStrokeInstances: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly packVectors: (a: any, b: number, c: number) => [number, number, number, number];
     readonly pageFromChunkBody: (a: number, b: number) => [number, number, number];
-    readonly pageImportRefusal: (a: any) => [number, number, number, number];
+    readonly pageImportRefusal: (a: any) => [number, number, number];
     readonly pageListProblem: (a: number, b: number, c: number) => [number, number, number];
     readonly pagePictures: (a: any, b: number) => [number, number, number];
     readonly pageTextAfterRecognition: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
@@ -12421,7 +12421,7 @@ export interface InitOutput {
     readonly splitProposalContent: (a: number, b: number) => [number, number, number];
     readonly splitTopLevel: (a: number, b: number) => [number, number, number];
     readonly stackMarginNotes: (a: any, b: number) => [number, number, number];
-    readonly stampWorkspaceId: (a: any, b: any) => [number, number, number, number];
+    readonly stampWorkspaceId: (a: any, b: any) => [number, number, number];
     readonly startAiSession: (a: any) => [number, number, number];
     readonly statusPatchForExperiment: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly stepCursor: (a: number, b: number, c: number) => number;

@@ -8,8 +8,6 @@ import {
   appendInkStroke as rawAppendInkStroke,
   eraseInkPaths as rawEraseInkPaths,
   draftImageRegion as rawDraftImageRegion,
-  grownTextRect as rawGrownTextRect,
-  textBoxFromRect as rawTextBoxFromRect,
   draftTextBox as rawDraftTextBox,
 } from "../pkg/wf_wasm.js";
 import type { NewReaderAnnotation } from "@weaveforge/core";
@@ -18,9 +16,10 @@ import type {
   ImageRegionDraft,
   InkDraft,
   TextBoxDraft,
-  TextBoxRect,
   TextSelectionDraft,
 } from "./bindings.js";
+
+export { grownTextRect, textBoxFromRect } from "../pkg/wf_wasm.js";
 
 /** The mark for a text selection, or null when it has no placeable text. */
 export function draftFromTextSelection(input: TextSelectionDraft): NewReaderAnnotation | null {
@@ -50,16 +49,6 @@ export function eraseInkPaths(
 /** A region mark, or null for an empty region. */
 export function draftImageRegion(input: ImageRegionDraft): NewReaderAnnotation | null {
   return rawDraftImageRegion(input) as NewReaderAnnotation | null;
-}
-
-/** A `[x1, y1, x2, y2]` rect grown to at least `height`. */
-export function grownTextRect(rect: readonly [number, number, number, number], height: number): [number, number, number, number] {
-  return rawGrownTextRect(rect, height) as [number, number, number, number];
-}
-
-/** A text box's rect in page units. */
-export function textBoxFromRect(rect: readonly [number, number, number, number]): TextBoxRect {
-  return rawTextBoxFromRect(rect) as TextBoxRect;
 }
 
 /** A text-box mark. */

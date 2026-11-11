@@ -63,10 +63,10 @@ pub fn resolve_arxiv_id_js(arxiv_id: Option<String>, doi: Option<String>) -> Opt
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes optional strings by value"
 )]
-#[wasm_bindgen(js_name = knownCandidates)]
+#[wasm_bindgen(js_name = knownCandidates, unchecked_return_type = "B.OpenAccessCandidate[]")]
 pub fn known_candidates_js(
-    known_pdf: Option<String>,
-    page: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] known_pdf: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] page: Option<String>,
 ) -> Result<JsValue, JsError> {
     out(&open_access::known_candidates(known_pdf, page))
 }
@@ -94,7 +94,7 @@ pub fn arxiv_candidates_js(arxiv_id: String) -> Result<JsValue, JsError> {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes optional strings by value"
 )]
-#[wasm_bindgen(js_name = pmcCandidates)]
+#[wasm_bindgen(js_name = pmcCandidates, unchecked_return_type = "B.OpenAccessCandidate[]")]
 pub fn pmc_candidates_js(pmcid: String, license: Option<String>) -> Result<JsValue, JsError> {
     out(&open_access::pmc_candidates(&pmcid, license))
 }

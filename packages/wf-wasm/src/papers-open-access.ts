@@ -6,13 +6,7 @@ import {
   cleanArxivId as rawCleanArxivId,
   cleanPmcid as rawCleanPmcid,
   resolveArxivId as rawResolveArxivId,
-  knownCandidates as rawKnownCandidates,
-  pmcCandidates as rawPmcCandidates,
 } from "../pkg/wf_wasm.js";
-import type {
-  EuropePmcAnswer,
-  OpenAccessCandidate,
-} from "./bindings.js";
 
 export {
   rankOpenAccessCandidates,
@@ -20,6 +14,7 @@ export {
 
 export {
   arxivCandidates,
+  knownCandidates,
   parseBiorxiv,
   parseDoaj,
   parseEuropePmc,
@@ -28,6 +23,7 @@ export {
   parseSemanticScholar,
   parseUnpaywall,
   parseZenodo,
+  pmcCandidates,
   preprintServerFor,
   zenodoRecordId,
 } from "../pkg/wf_wasm.js";
@@ -52,15 +48,5 @@ export function cleanPmcid(id: string | null | undefined): string | undefined {
 /** The arXiv id to ask about, from the arXiv id or the DOI. */
 export function resolveArxivId(arxivId: string | null | undefined, doi: string | null | undefined): string | undefined {
   return rawResolveArxivId(arxivId ?? undefined, doi ?? undefined) ?? undefined;
-}
-
-/** The paper's own PDF and page, when known. */
-export function knownCandidates(knownPdf: string | null | undefined, page: string | null | undefined): OpenAccessCandidate[] {
-  return rawKnownCandidates(knownPdf ?? undefined, page ?? undefined) as OpenAccessCandidate[];
-}
-
-/** PubMed Central's PDF and HTML copies. */
-export function pmcCandidates(pmcid: string, license?: string): OpenAccessCandidate[] {
-  return rawPmcCandidates(pmcid, license) as OpenAccessCandidate[];
 }
 
