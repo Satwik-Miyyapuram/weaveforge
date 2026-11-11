@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 import {
   AddPaperUseCase,
   ImportPaperUseCase,

@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project } from "../features/projects/domain/project.js";
-import type { IProjectRepository } from "../features/projects/domain/project-repository.js";
+import type { IProjectRepository, Project } from "../features/projects/domain/parts.js";
 
 function sampleProject(overrides: Partial<Project> = {}): Project {
   return {

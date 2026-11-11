@@ -3,7 +3,7 @@
 /// Whether a proposal applies to the stored row. `stored_updated_at` is the row's `updatedAt`,
 /// or `None` when the row is missing. An empty or absent expected revision counts as no
 /// expectation, which the TS code always did. Port of `proposalApplies` in
-/// `packages/core/src/features/ai-assistant/application/append-paper-note.use-case.ts`.
+/// `packages/core/src/features/ai-assistant/application/parts.ts`.
 #[must_use]
 pub fn proposal_applies(stored_updated_at: Option<&str>, expected_revision: Option<&str>) -> bool {
     let Some(stored) = stored_updated_at else {

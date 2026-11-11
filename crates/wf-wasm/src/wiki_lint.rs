@@ -1,5 +1,5 @@
 //! Wiki lint for JavaScript (wf-core `ai::wiki_lint`). The JS names match
-//! `packages/core/src/features/ai-assistant/domain/wiki-lint.ts`.
+//! `packages/core/src/features/ai-assistant/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

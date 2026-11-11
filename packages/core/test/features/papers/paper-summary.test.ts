@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NO_SUMMARY } from "../../../src/features/papers/domain/paper.js";
+import { NO_SUMMARY } from "../../../src/features/papers/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 test("the placeholder is the text old rows were saved with", () => {

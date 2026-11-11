@@ -11,7 +11,7 @@
 | Virtualised pages | ✅ `IntersectionObserver`, 600px root margin |
 | **Jump-to-locus** from a stored anchor | ✅ quote-first, position fallback, low-confidence surfaced |
 | Source resolution | ⚠️ **step 4 only** (arXiv / open-access URL). `resolvePaperPdfUrl` is what the reader calls |
-| Steps 1 (cache) and 2 (Zotero storage) | ❌ `packages/core/src/reader/pdf-source-ladder.ts` implements the ladder and is **never called by the app** |
+| Steps 1 (cache) and 2 (Zotero storage) | ❌ `packages/core/src/reader/parts.ts` implements the ladder and is **never called by the app** |
 | IndexedDB byte cache with LRU cap | ❌ absent |
 | Page navigation, zoom, fit-width/fit-page, rotate | ❌ absent — `scale` is a fixed prop with no controls |
 | Text selection + copy | ❌ **no text layer is rendered.** `getTextContent()` is used for anchor matching only; the page is a bare canvas, so text cannot be selected or copied |

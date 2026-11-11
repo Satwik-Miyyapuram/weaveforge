@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { OpenAlexMetadataSource } from "../infrastructure/openalex-metadata-source";
+import { OpenAlexMetadataSource } from "../../../container/app-parts";
 
 const ref = { kind: "bibliographic", value: "Some title", hints: { title: "Some title" } } as const;
 

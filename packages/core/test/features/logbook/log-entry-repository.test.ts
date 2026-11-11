@@ -4,6 +4,6 @@
  * substitutability.
  */
 import { runLogEntryRepositoryContract } from "../../../src/testing/log-entry-repository-contract.js";
-import { InMemoryLogEntryRepository } from "../../../src/testing/in-memory-log-entry-repository.js";
+import { InMemoryLogEntryRepository } from "../../../src/testing/in-memory-a.js";
 
 runLogEntryRepositoryContract("InMemory", () => new InMemoryLogEntryRepository());

@@ -1,5 +1,5 @@
 //! Report (thesis) sections: creating one and building the outline tree. Port
-//! of `packages/core/src/features/report/domain/report-section.ts`. Pure.
+//! of `packages/core/src/features/report/domain/parts.ts`. Pure.
 
 use crate::js_collate::locale_compare;
 use crate::reader_analysis::lines::js_trim;

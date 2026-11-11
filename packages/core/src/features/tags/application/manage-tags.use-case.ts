@@ -3,8 +3,7 @@
  * as a denormalized cache for filters and legacy callers.
  */
 
-import type { Paper } from "../../papers/domain/paper.js";
-import type { IPaperRepository } from "../../papers/domain/parts.js";
+import type { IPaperRepository, Paper } from "../../papers/domain/parts.js";
 import { normalizeTagName, type PaperTag, type Tag, type TagSource } from "../domain/parts.js";
 import type { ITagRepository, IPaperTagRepository } from "../domain/parts.js";
 import type { Clock, IdGenerator } from "../../../shared/parts.js";

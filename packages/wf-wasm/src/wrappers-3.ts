@@ -705,7 +705,7 @@ export function spanPoints(lengths: readonly number[], span: TextSpan): SpanPoin
 // --- log-entry ---
 /**
  * Log entry construction (Rust `log_entry`), re-exported from index.ts.
- * Each function keeps the signature of packages/core/src/features/logbook/domain/log-entry.ts.
+ * Each function keeps the signature of packages/core/src/features/logbook/domain/parts.ts.
  */
 export const LOG_KINDS: readonly LogKind[] = ["daily", "weekly"];
 

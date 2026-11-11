@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { type Experiment } from "../../../src/features/experiments/domain/experiment.js";
+import { type Experiment } from "../../../src/features/experiments/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 const base: Experiment = {

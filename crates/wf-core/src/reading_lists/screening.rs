@@ -1,5 +1,5 @@
 //! Screening decisions, agreement between reviewers, and PRISMA counts. Port of
-//! `packages/core/src/features/reading-lists/domain/screening.ts`.
+//! `packages/core/src/features/reading-lists/domain/parts.ts`.
 //!
 //! A decision belongs to a reviewer and a stage, so two reviewers disagreeing is a
 //! normal state. Every count is derived from the decisions each time it is asked for.

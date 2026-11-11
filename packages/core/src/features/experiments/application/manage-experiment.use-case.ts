@@ -2,7 +2,7 @@
  * Use-case for experiments. Orchestration only (DIP): add, change status
  * (stamping started/finished timestamps), and record metrics.
  */
-import { type Experiment, type ExperimentStatus, type NewExperimentInput } from "../domain/experiment.js";
+import { type Experiment, type ExperimentStatus, type NewExperimentInput } from "../domain/parts.js";
 import type { ExperimentPatch, IExperimentRepository } from "../domain/parts.js";
 import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";

@@ -10,9 +10,9 @@ use wf_core::sync::folder_layout::{ENTITY_DIRS, WorkspaceEntityType};
 pub const DEFAULT_PAGE_SPAN: u32 = 10;
 
 // Lists wf-core has no enum for; the strings are the TS lists, in TS order.
-// From packages/core/src/features/experiments/domain/experiment.ts.
+// From packages/core/src/features/experiments/domain/parts.ts.
 const EXPERIMENT_STATUSES: &[&str] = &["planned", "running", "done", "failed", "abandoned"];
-// From packages/core/src/features/relations/domain/paper-relation.ts.
+// From packages/core/src/features/relations/domain/parts.ts.
 const RELATION_TYPES: &[&str] = &[
     "cites",
     "extends",

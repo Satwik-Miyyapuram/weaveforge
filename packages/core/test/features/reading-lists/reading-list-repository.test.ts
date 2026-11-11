@@ -9,7 +9,7 @@ import {
 import {
   InMemoryReadingListItemRepository,
   InMemoryReadingListRepository,
-} from "../../../src/testing/in-memory-reading-list-repository.js";
+} from "../../../src/testing/in-memory-b.js";
 
 runReadingListRepositoryContract(
   "InMemory",

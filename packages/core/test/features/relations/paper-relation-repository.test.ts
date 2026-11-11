@@ -3,7 +3,7 @@
  * PostgREST implementation runs the SAME suite — proving substitutability.
  */
 import { runPaperRelationRepositoryContract } from "../../../src/testing/paper-relation-repository-contract.js";
-import { InMemoryPaperRelationRepository } from "../../../src/testing/in-memory-paper-relation-repository.js";
+import { InMemoryPaperRelationRepository } from "../../../src/testing/in-memory-a.js";
 
 runPaperRelationRepositoryContract(
   "InMemory",

@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GitHubRepoPdfResolver } from "../../src/reader/parts.js";
-import { resolvePdfSource, type IPdfSourceResolver } from "../../src/reader/pdf-source-ladder.js";
+import {
+  GitHubRepoPdfResolver,
+  type IPdfSourceResolver,
+  resolvePdfSource,
+} from "../../src/reader/parts.js";
 
 const echo = new GitHubRepoPdfResolver({ buildFileUrl: (path) => `gh://${path}` });
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperFieldRepository } from "../../../src/testing/in-memory-paper-field-repository.js";
+import { InMemoryPaperFieldRepository } from "../../../src/testing/in-memory-a.js";
 import { ManagePaperFieldsUseCase } from "../../../src/features/papers/application/manage-paper-fields.use-case.js";
 import { seqIds } from "../../../src/testing/parts.js";
 

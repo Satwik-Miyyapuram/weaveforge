@@ -1,4 +1,4 @@
-//! Port of the log entry construction in packages/core/src/features/logbook/domain/log-entry.ts. Pure.
+//! Port of the log entry construction in packages/core/src/features/logbook/domain/parts.ts. Pure.
 //!
 //! The TS `Clock` and `IdGenerator` are replaced by the caller passing the new id and the
 //! current ISO 8601 time, so this module stays free of I/O.

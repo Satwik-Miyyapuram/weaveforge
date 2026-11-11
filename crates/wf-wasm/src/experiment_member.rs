@@ -1,6 +1,6 @@
 //! Experiment creation and member role labels for JavaScript (wf-core `experiments` and
-//! `member`). The JS names match `packages/core/src/features/experiments/domain/experiment.ts`
-//! and `packages/core/src/features/org/domain/member.ts`.
+//! `member`). The JS names match `packages/core/src/features/experiments/domain/parts.ts`
+//! and `packages/core/src/features/org/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

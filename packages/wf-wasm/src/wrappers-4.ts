@@ -293,7 +293,7 @@ export function planSeriesIngestIndices(
 // --- milestone ---
 /**
  * Milestone domain rules (Rust `milestone`), re-exported from index.ts.
- * Each function keeps the signature of packages/core/src/features/plan/domain/milestone.ts.
+ * Each function keeps the signature of packages/core/src/features/plan/domain/parts.ts.
  */
 /** Every milestone status. */
 export const MILESTONE_STATUSES: readonly MilestoneStatus[] = ["planned", "in_progress", "done", "blocked"];

@@ -1,5 +1,5 @@
 //! Paper note appending for JavaScript (wf-core `paper_note`). JS name matches
-//! `packages/core/src/features/ai-assistant/domain/ai-write-proposal.ts`.
+//! `packages/core/src/features/ai-assistant/domain/parts.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::paper_note::append_paper_note;

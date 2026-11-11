@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryAnnotationPinRepository } from "../../../src/testing/in-memory-annotation-pin-repository.js";
+import { InMemoryAnnotationPinRepository } from "../../../src/testing/in-memory-a.js";
 
 test("upserts one pin per paper annotation and queries both directions", async () => {
   const repository = new InMemoryAnnotationPinRepository();

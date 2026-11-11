@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryLabSnapshotRepository } from "../../../src/testing/in-memory-lab-snapshot-repository.js";
+import { InMemoryLabSnapshotRepository } from "../../../src/testing/in-memory-a.js";
 
 test("publishes a freeze and lists by owner", async () => {
   const repository = new InMemoryLabSnapshotRepository();

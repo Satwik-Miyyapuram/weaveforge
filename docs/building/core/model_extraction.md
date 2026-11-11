@@ -26,7 +26,7 @@ The wasm exports are in `crates/wf-wasm/src/ai_model_extraction.rs`. The wrapper
 `modelBuildBatchRequest` and `modelFinalizeExtraction`. It passes `[...existing]`
 copies and maps an absent `maxConcepts` to `undefined`.
 
-`packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts` is a thin
+`packages/core/src/features/ai-assistant/domain/parts.ts` is a thin
 shim. Its `ModelConceptExtractor.extract` filters blank documents, reads the limits,
 runs the batch loop, and throws the last error only when every batch failed.
 

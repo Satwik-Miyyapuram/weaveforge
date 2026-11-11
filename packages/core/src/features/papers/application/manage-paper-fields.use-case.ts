@@ -5,7 +5,7 @@
  */
 
 import type { IdGenerator } from "../../../shared/parts.js";
-import { PaperFieldValidationError, type NewPaperFieldDefInput, type PaperFieldDef, type PaperFieldKind, type PaperFieldValue, type PaperFieldValueData } from "../domain/paper-field.js";
+import { PaperFieldValidationError, type NewPaperFieldDefInput, type PaperFieldDef, type PaperFieldKind, type PaperFieldValue, type PaperFieldValueData } from "../domain/parts.js";
 import type { IPaperFieldRepository } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 

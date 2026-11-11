@@ -3,8 +3,8 @@
  * status, and remove. Validation lives in the domain module.
  */
 
-import { MilestoneValidationError, type EditMilestoneInput, type Milestone, type MilestoneStatus, type NewMilestoneInput } from "../domain/milestone.js";
-import type { IMilestoneRepository } from "../domain/milestone-repository.js";
+import { MilestoneValidationError, type EditMilestoneInput, type Milestone, type MilestoneStatus, type NewMilestoneInput } from "../domain/parts.js";
+import type { IMilestoneRepository } from "../domain/parts.js";
 import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";

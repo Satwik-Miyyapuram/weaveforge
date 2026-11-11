@@ -1,13 +1,14 @@
 import type {
+  DashboardLayout,
   IDashboardLayoutRepository,
 } from "../features/dashboard/domain/parts.js";
-import type { DashboardLayout } from "../features/dashboard/domain/dashboard-layout.js";
-import type { IAccountProvisioner } from "../features/org/domain/parts.js";
-import type { Member, NewMemberInput } from "../features/org/domain/member.js";
-import type { IMilestoneRepository } from "../features/plan/domain/milestone-repository.js";
-import type { Milestone, MilestoneFilter } from "../features/plan/domain/milestone.js";
-import type { IProjectRepository } from "../features/projects/domain/project-repository.js";
-import type { Project } from "../features/projects/domain/project.js";
+import type { IAccountProvisioner, Member, NewMemberInput } from "../features/org/domain/parts.js";
+import type {
+  IMilestoneRepository,
+  Milestone,
+  MilestoneFilter,
+} from "../features/plan/domain/parts.js";
+import type { IProjectRepository, Project } from "../features/projects/domain/parts.js";
 import type {
   GraphPersistedState,
   IGraphSettingsRepository,
@@ -16,7 +17,7 @@ import type { ISettingsRepository, UserSettings } from "../features/settings/dom
 import type { Clock, IdGenerator } from "../shared/parts.js";
 import { rust } from "../shared/rust.js";
 import type { WorkspaceSnapshot } from "../workspace/workspace-snapshot.js";
-import type { InMemoryMemberRepository } from "./in-memory-member-repository.js";
+import type { InMemoryMemberRepository } from "./in-memory-a.js";
 
 // --- fakes ---
 /** A clock that never moves, so a test asserting on a timestamp has one to name. */

@@ -30,7 +30,7 @@ stays a Zotero annotation.
 - Read `docs/building/design.md` §3–4 first. Feature-module shape, dependencies
   inward only, no SDK/HTTP/DOM in `packages/core`.
 - Read before writing:
-  `packages/core/src/reader/reader-annotation.ts` (the annotation model, the
+  `packages/core/src/reader/parts.ts` (the annotation model, the
   sink port), `packages/core/src/reader/parts.ts` (`clampInkWidth`,
   `inkWidthForPressure`, `INK_DEFAULT_WIDTH`, point caps),
   `crates/wf-core/src/reader/zotero_sync.rs` (what R5 syncs — ink is in),

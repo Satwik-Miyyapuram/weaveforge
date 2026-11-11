@@ -68,7 +68,7 @@ import {
   InMemoryReportSectionRepository,
   InMemoryTagRepository,
 } from "../../src/testing/index.js";
-import { InMemoryVaultPageRepository } from "../../src/testing/in-memory-vault-page-repository.js";
+import { InMemoryVaultPageRepository } from "../../src/testing/in-memory-b.js";
 import { fixedClock, seqIds } from "../../src/testing/parts.js";
 
 const clock = fixedClock();

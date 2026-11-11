@@ -62,13 +62,13 @@ and wiki merge functions. Examples: `readyCore().AiAccessPolicy`,
 
 The shared types (`AiEvidence`, `ExcerptHighlight`, `McpResult`, `MergeResult`,
 `UNTRUSTED_CONTEXT_RULE` and the rest) live in
-`packages/core/src/features/ai-assistant/domain/ai-types.ts`. Import them from
+`packages/core/src/features/ai-assistant/domain/parts.ts`. Import them from
 there, or from `@weaveforge/core`, and never from the per-feature files that
 are being removed.
 
 ## What stays in TypeScript, and why
 
-- **DI facades and use cases.** `packages/core/src/features/ai-assistant/application/append-paper-note.use-case.ts`
+- **DI facades and use cases.** `packages/core/src/features/ai-assistant/application/parts.ts`
   wires ports together and keeps the retry loop (`MAX_ATTEMPTS=3`). It calls
   `rust().proposalApplies` for the rule check. The rule lives in Rust; the
   orchestration stays in TypeScript.

@@ -1,4 +1,4 @@
-//! Port of packages/core/src/features/ai-assistant/domain/wiki-lint.ts. Pure.
+//! Port of packages/core/src/features/ai-assistant/domain/parts.ts. Pure.
 //!
 //! Health checks over the wiki, all findable without a model.
 

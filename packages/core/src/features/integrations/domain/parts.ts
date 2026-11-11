@@ -1,6 +1,6 @@
-import type { LogEntry } from "../../logbook/domain/log-entry.js";
-import type { Paper } from "../../papers/domain/paper.js";
-import type { Milestone } from "../../plan/domain/milestone.js";
+import type { LogEntry } from "../../logbook/domain/parts.js";
+import type { Paper } from "../../papers/domain/parts.js";
+import type { Milestone } from "../../plan/domain/parts.js";
 import type { CitationCandidate } from "../../relations/application/parts.js";
 
 // --- integration-descriptors ---

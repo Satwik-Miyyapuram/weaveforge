@@ -1,5 +1,5 @@
 //! Appending an AI-suggested addition to a paper's note. Pure.
-//! Port of `appendPaperNote` in `packages/core/src/features/ai-assistant/domain/ai-write-proposal.ts`.
+//! Port of `appendPaperNote` in `packages/core/src/features/ai-assistant/domain/parts.ts`.
 
 /// The note after `addition` is appended, with a blank line between the existing text and the
 /// new one. The addition is trimmed; the existing note is trimmed too, and an empty note is

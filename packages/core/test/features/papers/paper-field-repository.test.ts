@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperFieldRepository } from "../../../src/testing/in-memory-paper-field-repository.js";
+import { InMemoryPaperFieldRepository } from "../../../src/testing/in-memory-a.js";
 
 test("paper field repository upserts values and cascades def delete", async () => {
   const repository = new InMemoryPaperFieldRepository();

@@ -1,5 +1,5 @@
 //! Reading-list model and nested tree. Port of
-//! `packages/core/src/features/reading-lists/domain/reading-list.ts`.
+//! `packages/core/src/features/reading-lists/domain/parts.ts`.
 //!
 //! `createReadingList` takes its id and timestamp as arguments, so it stays pure.
 

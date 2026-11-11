@@ -1,5 +1,5 @@
 //! Project rules for JavaScript, via `wasm-bindgen` (wf-core `projects::project_name`). The JS
-//! name matches `packages/core/src/features/projects/domain/project.ts`.
+//! name matches `packages/core/src/features/projects/domain/parts.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::projects::project_name;

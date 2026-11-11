@@ -1,4 +1,4 @@
-import type { AiToolName } from "../features/ai-assistant/domain/ai-types.js";
+import type { AiToolName } from "../features/ai-assistant/domain/parts.js";
 import type { FeatureModule } from "../shared/parts.js";
 
 // --- plugin ---

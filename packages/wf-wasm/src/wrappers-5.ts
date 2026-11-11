@@ -456,7 +456,7 @@ export function hydrateTabModes(
 // --- paper-note-append ---
 /**
  * Paper note appending (Rust `paper_note::append_paper_note`), re-exported from index.ts. Keeps
- * the result of packages/core/src/features/ai-assistant/domain/ai-write-proposal.ts.
+ * the result of packages/core/src/features/ai-assistant/domain/parts.ts.
  */
 /** The note with `addition` after a blank line; `undefined` when the addition is blank. */
 export function appendPaperNote(existing: string | undefined, addition: string): string | undefined {
@@ -480,7 +480,7 @@ export function primaryPaperRef(
 // --- paper-relation ---
 /**
  * Paper relation domain rules (Rust `paper_relation`), re-exported from index.ts.
- * Each function keeps the signature of packages/core/src/features/relations/domain/paper-relation.ts.
+ * Each function keeps the signature of packages/core/src/features/relations/domain/parts.ts.
  */
 export type { PaperRelationRow };
 

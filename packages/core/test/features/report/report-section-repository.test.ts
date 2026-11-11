@@ -3,7 +3,7 @@
  * The PostgREST implementation runs the SAME suite — proving substitutability.
  */
 import { runReportSectionRepositoryContract } from "../../../src/testing/report-section-repository-contract.js";
-import { InMemoryReportSectionRepository } from "../../../src/testing/in-memory-report-section-repository.js";
+import { InMemoryReportSectionRepository } from "../../../src/testing/in-memory-b.js";
 
 runReportSectionRepositoryContract(
   "InMemory",

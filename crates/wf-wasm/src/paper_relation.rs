@@ -1,5 +1,5 @@
 //! Paper relation rules for JavaScript (wf-core `paper_relation`). The JS names match
-//! `packages/core/src/features/relations/domain/paper-relation.ts`.
+//! `packages/core/src/features/relations/domain/parts.ts`.
 //!
 //! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` draws the id and time, after
 //! validation, as the TS function does.

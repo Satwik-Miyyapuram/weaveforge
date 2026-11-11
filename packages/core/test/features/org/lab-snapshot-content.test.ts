@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 
-import type { Experiment } from "../../../src/features/experiments/domain/experiment.js";
-import type { ReportSection } from "../../../src/features/report/domain/report-section.js";
+import type { Experiment } from "../../../src/features/experiments/domain/parts.js";
+import type { ReportSection } from "../../../src/features/report/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 const experiment = {

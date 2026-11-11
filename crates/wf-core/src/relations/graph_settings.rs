@@ -1,5 +1,5 @@
 //! Graph view settings and the per-project graph state. Port of
-//! `packages/core/src/features/relations/domain/graph-view-settings.ts` and
+//! `packages/core/src/features/relations/domain/parts.ts` and
 //! `graph-persisted-state.ts`.
 //!
 //! Both read untrusted JSON (a project row, local storage), so they take a

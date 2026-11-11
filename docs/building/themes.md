@@ -239,7 +239,7 @@ starter file from Settings → Appearance. Shape:
 ```
 
 The file is untrusted input and is validated by `parseThemeConfig`
-(`packages/core/src/features/settings/domain/theme-config.ts`) before anything
+(`packages/core/src/features/settings/domain/parts.ts`) before anything
 is applied:
 
 - A byte cap is enforced *before* `JSON.parse`.

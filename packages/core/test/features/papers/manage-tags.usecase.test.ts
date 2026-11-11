@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
-import { InMemoryTagRepository, InMemoryPaperTagRepository } from "../../../src/testing/in-memory-tag-repository.js";
+import {
+  InMemoryPaperRepository,
+  InMemoryPaperTagRepository,
+  InMemoryTagRepository,
+} from "../../../src/testing/in-memory-b.js";
 import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
 import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
 import { fixedClock, seqIds } from "../../../src/testing/parts.js";

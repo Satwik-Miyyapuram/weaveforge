@@ -1,5 +1,5 @@
 //! Reader annotation type guards and keyboard command mapping. A faithful port of
-//! `packages/core/src/reader/reader-annotation.ts` and `packages/core/src/reader/reader-keyboard.ts`.
+//! `packages/core/src/reader/parts.ts` and `packages/core/src/reader/reader-keyboard.ts`.
 //!
 //! Stays in TS: `resolvePdfSource` in `pdf-source-ladder.ts` (async, calls injected resolvers).
 

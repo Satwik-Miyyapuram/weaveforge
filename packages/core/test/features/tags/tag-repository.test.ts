@@ -4,7 +4,7 @@ import { runTagRepositoryContract } from "../../../src/testing/tag-repository-co
 import {
   InMemoryTagRepository,
   InMemoryPaperTagRepository,
-} from "../../../src/testing/in-memory-tag-repository.js";
+} from "../../../src/testing/in-memory-b.js";
 
 runTagRepositoryContract("InMemory", () => {
   const paperTags = new InMemoryPaperTagRepository();

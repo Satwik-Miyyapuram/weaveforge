@@ -1,6 +1,6 @@
 //! Reader annotation type guards and keyboard command mapping for JavaScript.
 //! Each export wraps a `wf_core::reader::annotation` function; the JS shapes
-//! match `packages/core/src/reader/reader-annotation.ts` and `reader-keyboard.ts`.
+//! match `packages/core/src/reader/parts.ts` and `reader-keyboard.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

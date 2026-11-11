@@ -1,4 +1,4 @@
-//! Project rules (the Rust twin of `packages/core/src/features/projects/domain/project.ts`).
+//! Project rules (the Rust twin of `packages/core/src/features/projects/domain/parts.ts`).
 
 /// The name a new project is stored under: trimmed, or `None` when nothing is left.
 #[must_use]

@@ -1,3 +1,25 @@
+import { NotFoundError } from "../../../shared/errors.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
+import { rust } from "../../../shared/rust.js";
+import type {
+  IReadingListItemRepository,
+  IReadingListRepository,
+  IScreeningRepository,
+  ItemVerdict,
+  PrismaCounts,
+  ScreeningDecision,
+  ScreeningItem,
+  ScreeningStage,
+  ScreeningState,
+} from "../domain/parts.js";
+import {
+  type NewReadingListInput,
+  type ReadingList,
+  type ReadingListItem,
+  ReadingListValidationError,
+} from "../domain/parts.js";
+
+// --- manage-reading-list.use-case ---
 /**
  * Use-cases for reading lists and membership.
  *
@@ -6,16 +28,6 @@
  * note to a list is idempotent (dedupe by list+ref, matching the DB unique
  * constraint).
  */
-
-import { ReadingListValidationError, type NewReadingListInput, type ReadingList, type ReadingListItem } from "../domain/reading-list.js";
-import type {
-  IReadingListItemRepository,
-  IReadingListRepository,
-} from "../domain/parts.js";
-import type { Clock, IdGenerator } from "../../../shared/parts.js";
-import { NotFoundError } from "../../../shared/errors.js";
-import { rust } from "../../../shared/rust.js";
-
 export interface ManageReadingListDeps {
   lists: IReadingListRepository;
   items: IReadingListItemRepository;
@@ -219,4 +231,78 @@ type ItemRef = { paperId: string } | { vaultPageId: string };
 function isInheritedLinkError(err: unknown): boolean {
   const code = (err as { code?: unknown } | null)?.code;
   return rust().isInheritedLinkCode(typeof code === "string" ? code : undefined);
+}
+
+// --- screen-items.use-case ---
+/**
+ * Recording a screening decision, and reading a screen back.
+ *
+ * Orchestration only. The rules are in `screening.ts` and the counts are
+ * derived there; this coordinates the repository with them, and is the one
+ * place that knows a decision needs an id and a timestamp.
+ */
+export interface ScreenItemsDeps {
+  screening: IScreeningRepository;
+  clock: Clock;
+  ids: IdGenerator;
+}
+
+export interface RecordDecisionInput {
+  itemId: string;
+  reviewerId: string;
+  stage: ScreeningStage;
+  state: ScreeningState;
+  reason?: string;
+}
+
+/** A whole screen, read once: the decisions, the counts, and what is unsettled. */
+export interface ScreenSummary {
+  decisions: ScreeningDecision[];
+  counts: PrismaCounts;
+  /** One verdict per item per stage, for a table to render without recomputing. */
+  verdicts: ItemVerdict[];
+  reasons: { reason: string; count: number }[];
+  /** Everyone who has recorded a decision, so a caller can offer the comparisons. */
+  reviewers: string[];
+}
+
+export class ScreenItemsUseCase {
+  constructor(private readonly deps: ScreenItemsDeps) {}
+
+  /**
+   * Record one decision.
+   *
+   * The existing decisions are read first because the one rule worth enforcing
+   * -- do not screen the full text of something you excluded on the abstract --
+   * is about them. Checked here rather than in the database: it is a rule about
+   * one reviewer's own trail, and a CHECK constraint cannot see another row.
+   */
+  async record(input: RecordDecisionInput): Promise<ScreeningDecision> {
+    const existing = await this.deps.screening.listForItems([input.itemId]);
+    rust().checkDecision(input, existing);
+
+    const decision: ScreeningDecision = {
+      id: this.deps.ids.newId(),
+      itemId: input.itemId,
+      reviewerId: input.reviewerId,
+      stage: input.stage,
+      state: input.state,
+      reason: input.reason?.trim() || undefined,
+      decidedAt: this.deps.clock.nowIso(),
+    };
+    await this.deps.screening.record(decision);
+    return decision;
+  }
+
+  async summarize(items: readonly ScreeningItem[]): Promise<ScreenSummary> {
+    const decisions = await this.deps.screening.listForItems(items.map((item) => item.id));
+    const verdicts = rust().verdictsFor(items, decisions) as ItemVerdict[];
+    return {
+      decisions,
+      counts: rust().prismaCounts(items, decisions),
+      verdicts,
+      reasons: rust().exclusionReasons(decisions),
+      reviewers: rust().reviewers(decisions),
+    };
+  }
 }

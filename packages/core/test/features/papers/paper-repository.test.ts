@@ -4,6 +4,6 @@
  * substitutability.
  */
 import { runPaperRepositoryContract } from "../../../src/testing/paper-repository-contract.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 
 runPaperRepositoryContract("InMemory", () => new InMemoryPaperRepository());

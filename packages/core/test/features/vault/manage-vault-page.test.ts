@@ -5,7 +5,7 @@ import {
   VaultPageValidationError,
   type VaultPage,
 } from "../../../src/index.js";
-import { InMemoryVaultPageRepository } from "../../../src/testing/in-memory-vault-page-repository.js";
+import { InMemoryVaultPageRepository } from "../../../src/testing/in-memory-b.js";
 
 /**
  * The shipped in-memory repository, not a hand-rolled one.

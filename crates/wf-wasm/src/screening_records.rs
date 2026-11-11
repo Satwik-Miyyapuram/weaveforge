@@ -1,5 +1,5 @@
 //! Screening rules for JavaScript (wf-core `reading_lists::screening`). The JS names match
-//! `packages/core/src/features/reading-lists/domain/screening.ts`.
+//! `packages/core/src/features/reading-lists/domain/parts.ts`.
 //!
 //! The TS wrappers in `packages/wf-wasm/src/wrappers-8.ts` throw `ScreeningError`,
 //! rebuild the `Map` and apply the default stage.

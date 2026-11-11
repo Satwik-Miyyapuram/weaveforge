@@ -7,7 +7,7 @@
  * resolver or the use-case (Open/Closed Principle).
  */
 
-import type { NewPaperInput } from "../domain/paper.js";
+import type { NewPaperInput } from "../domain/parts.js";
 import { WeaveForgeError } from "../../../shared/errors.js";
 
 export type PaperRef =

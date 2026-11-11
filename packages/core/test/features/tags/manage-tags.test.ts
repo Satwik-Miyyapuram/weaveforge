@@ -9,7 +9,7 @@ import {
   type ITagRepository,
   type IPaperTagRepository,
 } from "../../../src/index.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 
 class FakeTagRepo implements ITagRepository {
   readonly rows = new Map<string, Tag>();

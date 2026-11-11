@@ -3,6 +3,6 @@
  * The PostgREST implementation runs the SAME suite — proving substitutability.
  */
 import { runMetricRepositoryContract } from "../../../src/testing/metric-repository-contract.js";
-import { InMemoryMetricRepository } from "../../../src/testing/in-memory-metric-repository.js";
+import { InMemoryMetricRepository } from "../../../src/testing/in-memory-a.js";
 
 runMetricRepositoryContract("InMemory", () => new InMemoryMetricRepository());

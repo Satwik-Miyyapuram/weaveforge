@@ -1,5 +1,5 @@
 //! Graph view settings for JavaScript (wf-core `relations::graph_settings`). The JS names
-//! match `packages/core/src/features/relations/domain/graph-view-settings.ts` and
+//! match `packages/core/src/features/relations/domain/parts.ts` and
 //! `graph-persisted-state.ts`.
 
 use wasm_bindgen::JsValue;

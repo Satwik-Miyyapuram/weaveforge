@@ -3,7 +3,7 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { wirePostgrestBackend, type BackendParts } from "@/backend/providers/postgrest/wire-postgrest-backend";
-import { HttpAccountProvisioner } from "@/features/org/infrastructure/http-account-provisioner";
+import { HttpAccountProvisioner } from "@/container/app-parts";
 import { invalidateForWrite, setActiveProjectIdForCache } from "@/lib/cache/project-lww-invalidator";
 import type { ProjectContext } from "@/lib/project-context";
 

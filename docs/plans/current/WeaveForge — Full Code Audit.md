@@ -734,7 +734,7 @@ Every finding below follows one shape: problem, how it was discovered, why it ha
 - `packages/core/src/features/papers/application/parse-paper-ref.ts` — arXiv/DOI/URL classification of pasted references
 - `packages/core/src/features/papers/application/compute-rollup.ts` — Rollup aggregation over related papers' fields
 - `packages/core/src/features/papers/application/add-paper.use-case.ts` — Dedupe-on-add orchestration
-- `packages/core/src/features/library/application/merge-pinned-screen-data.ts` — Pinned/share merge used by six screens
+- `packages/core/src/features/library/application/parts.ts` — Pinned/share merge used by six screens
 - `packages/core/src/features/library/application/sync-offer.ts` — One-time offline-sync offer state
 
 #### apps/web — application layer
@@ -1833,7 +1833,7 @@ return body.replace(re, (whole, path) => (urls.has(path) ? whole : ''));
 
 **category:** Speed · **area:** packages/core · library · **effort:** S
 
-**files:** `packages/core/src/features/library/application/merge-pinned-screen-data.ts`
+**files:** `packages/core/src/features/library/application/parts.ts`
 
 **problem:**
 

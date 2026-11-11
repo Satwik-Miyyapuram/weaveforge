@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {
   InMemoryReadingListItemRepository,
   InMemoryReadingListRepository,
-} from "../../../src/testing/in-memory-reading-list-repository.js";
-import { ManageReadingListUseCase } from "../../../src/features/reading-lists/application/manage-reading-list.use-case.js";
+} from "../../../src/testing/in-memory-b.js";
+import { ManageReadingListUseCase } from "../../../src/features/reading-lists/application/parts.js";
 import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
