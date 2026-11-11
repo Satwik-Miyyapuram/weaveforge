@@ -45,7 +45,6 @@ import {
   unpackVectorHead as rawUnpackVectorHead,
   vaultBodyPreview as rawBodyPreview,
   vaultBodyPreviewChars as rawBodyPreviewChars,
-  vaultTitleOrBodyFilter as rawTitleOrBodyFilter,
   wikiPageRefs as rawWikiPageRefs,
   wikiSourceDocuments as rawWikiSourceDocuments,
   wireOkReplyHead as rawWireOkReplyHead,
@@ -103,7 +102,6 @@ export {
   isIpAddress,
   isLinkInsert,
   isMarkdownFile,
-  isMissingBodyPreviewColumn,
   isNewerVersion,
   isNoteImportFile,
   isPublicAddress,
@@ -149,7 +147,6 @@ export {
   vaultBodyPreviewChars,
   vaultImageMarkdown,
   vaultImagePrefix,
-  vaultTitleLikePattern,
   wireErrorReply,
   wireParseRequest,
   wireRoute,
@@ -492,14 +489,6 @@ export function scopeNoteIndices(
   membership: Readonly<Record<string, readonly string[]>>,
 ): number[] {
   return rawScopeNoteIndices(notes, [...listFilter], [...tagFilter], membership);
-}
-
-/**
- * The PostgREST `or` filter for a case-insensitive title or body search, or `undefined`
- * for an empty query (no filter).
- */
-export function vaultTitleOrBodyFilter(query: string): string | undefined {
-  return rawTitleOrBodyFilter(query) ?? undefined;
 }
 
 // --- vault-search ---

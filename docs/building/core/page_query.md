@@ -1,8 +1,7 @@
 # page_query
 
-Source: `crates/wf-core/src/vault/page_query.rs`. Wasm: `crates/wf-wasm/src/vault_page_query.rs`
-(exports `vaultTitleOrBodyFilter`, `vaultTitleLikePattern`, `isMissingBodyPreviewColumn`).
-Rust: `crates/wf-core/src/repos/vault_pages.rs` uses it directly. The wasm exports have no TS caller left.
+Source: `crates/wf-core/src/vault/page_query.rs`. No wasm export:
+`crates/wf-core/src/repos/vault_pages.rs` uses it directly.
 
 ## Rules
 

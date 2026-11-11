@@ -40,7 +40,7 @@ import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 - Timeline: `yearSpacing`, `timelineMidYear`, `timelineLaneOffset`.
 - Colour and size: `graphPalette`, `tagColor`, `recolourNodes`, `nodeSize`, `labelSize`, `rampColour`, `yearColours`, `degreeColours`, `communities`.
 - Settings: `defaultGraphSettings`, `normalizeGraphViewSettings`, `effectiveRelationTypes`, `graphFilterCountFor`, `parseGraphPersistedState`, `mergeGraphPersistedState`, `showRelationEdges`, `showConceptEdges`.
-- Relations and alerts: `paperRelationInputError`, `createPaperRelationWith`, `paperRelationFromRow`, `paperRelationToRow`, `citationAlertTrackFromRow`.
+- Relations and alerts: `paperRelationInputError`, `createPaperRelationWith`, `citationAlertTrackFromRow`.
 - Vault pages: `createVaultPageWith`, `buildPageTree`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
