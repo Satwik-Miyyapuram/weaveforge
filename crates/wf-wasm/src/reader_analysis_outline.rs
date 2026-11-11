@@ -57,8 +57,8 @@ pub fn body_font_size_js(
 /// [`levenshtein`](analysis_outline::levenshtein) (TS `levenshtein`).
 #[wasm_bindgen(js_name = levenshtein)]
 #[must_use]
-pub fn levenshtein_js(a: &str, b: &str, limit: f64) -> f64 {
-    analysis_outline::levenshtein(a, b, limit)
+pub fn levenshtein_js(a: &str, b: &str, limit: Option<f64>) -> f64 {
+    analysis_outline::levenshtein(a, b, limit.unwrap_or(f64::INFINITY))
 }
 
 /// [`group_recurring_lines`](analysis_outline::group_recurring_lines) (TS `groupRecurringLines`).

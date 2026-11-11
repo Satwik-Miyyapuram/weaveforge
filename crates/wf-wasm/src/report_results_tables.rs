@@ -20,11 +20,14 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `experiment_ids` is not a list of strings.
 #[wasm_bindgen(js_name = serialiseResultsTableRef)]
-pub fn serialise_results_table_ref_js(experiment_ids: JsValue, caption: &str) -> JsResult<String> {
+pub fn serialise_results_table_ref_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] experiment_ids: JsValue,
+    caption: Option<String>,
+) -> JsResult<String> {
     let experiment_ids: Vec<String> = serde_wasm_bindgen::from_value(experiment_ids)?;
     Ok(results_table_refs::serialise_results_table_ref(
         &experiment_ids,
-        caption,
+        caption.as_deref().unwrap_or("Results"),
     ))
 }
 

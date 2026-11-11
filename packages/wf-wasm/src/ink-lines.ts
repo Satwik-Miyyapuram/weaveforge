@@ -8,7 +8,6 @@ import {
   segmentInkLines as rawSegmentInkLines,
   inkLineRecords as rawInkLineRecords,
   isUnsureConfidence as rawIsUnsureConfidence,
-  mapInkConfidence as rawMapInkConfidence,
   inkPageConfidence as rawInkPageConfidence,
   decodeInkWords as rawDecodeInkWords,
   bandsCoincide as rawBandsCoincide,
@@ -23,6 +22,7 @@ export {
   cappedEngineConfidence,
   inkUnsureConfidence,
   inkVocabularyHints,
+  mapInkConfidence,
 } from "../pkg/wf_wasm.js";
 
 /**
@@ -119,11 +119,6 @@ export function inkPageSummary(
   lines: readonly { text: string; conf: number }[],
 ): { text: string; confidence: number; unsure: number } {
   return rawInkPageSummary(lines) as ReturnType<typeof inkPageSummary>;
-}
-
-/** An engine's raw score mapped to [0, 1] (Rust `map_ink_confidence`). */
-export function mapInkConfidence(raw: number, scale = 1): number {
-  return rawMapInkConfidence(raw, scale);
 }
 
 /** A page's mean line confidence, corrected lines counting as 1 (Rust `ink_page_confidence`). */

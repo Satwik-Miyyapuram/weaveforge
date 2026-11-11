@@ -17,12 +17,18 @@ use serde::Serialize;
 /// Fails if `outcome` does not have the expected shape.
 #[wasm_bindgen(js_name = describeFreeCopyFailure)]
 pub fn describe_free_copy_failure_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ kind?: \"none\"; listed: number; attempts: ReadonlyArray<{ url: string; format: string; reason: \"not-pdf\" | \"not-html\" | \"blocked\" | \"failed\" | \"abstract-only\" | \"no-storage\" }>; unreachable: readonly string[]; asked: readonly string[] }"
+    )]
     outcome: JsValue,
-    web_article: bool,
+    web_article: Option<bool>,
 ) -> Result<String, JsError> {
     let outcome: FreeCopyFailure = serde_wasm_bindgen::from_value(outcome)
         .map_err(|error| JsError::new(&error.to_string()))?;
-    Ok(describe_free_copy_failure(&outcome, web_article))
+    Ok(describe_free_copy_failure(
+        &outcome,
+        web_article.unwrap_or(false),
+    ))
 }
 
 /// [`is_web_article`]: `ids` is an `OpenAccessIds`.

@@ -5,17 +5,16 @@
  * page-projection.ts and sort-index.ts. Object shapes come from ./bindings.ts.
  */
 import {
-  initialReaderViewport as rawInitialReaderViewport,
   pdfPointToScreen as rawPdfPointToScreen,
   screenPointToPdf as rawScreenPointToPdf,
   pdfRectToScreenBox as rawPdfRectToScreenBox,
 } from "../pkg/wf_wasm.js";
 import type {
-  ReaderFitMode,
   ReaderPageProjection,
 } from "./bindings.js";
 
 export {
+  initialReaderViewport,
   resolveViewportScale,
 } from "../pkg/wf_wasm.js";
 
@@ -33,11 +32,6 @@ export {
   zoomIn,
   zoomOut,
 } from "../pkg/wf_wasm.js";
-
-/** The starting viewport: fit-width, rotation 0, scale 1, on the clamped page. */
-export function initialReaderViewport(page = 1): { scale: number; fit: ReaderFitMode; rotation: 0 | 90 | 180 | 270; page: number } {
-  return rawInitialReaderViewport(page) as { scale: number; fit: ReaderFitMode; rotation: 0 | 90 | 180 | 270; page: number };
-}
 
 /** PDF user-space point to CSS pixels within the rendered page box. */
 export function pdfPointToScreen(x: number, y: number, p: ReaderPageProjection): { x: number; y: number } {

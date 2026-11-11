@@ -77,8 +77,8 @@ pub fn unique_title_js(base: &str, used: Vec<String>) -> String {
 /// [`vault_image_markdown`](page::vault_image_markdown) (TS `vaultImageMarkdown`).
 #[wasm_bindgen(js_name = vaultImageMarkdown)]
 #[must_use]
-pub fn vault_image_markdown_js(path: &str, alt: &str) -> String {
-    page::vault_image_markdown(path, alt)
+pub fn vault_image_markdown_js(path: &str, alt: Option<String>) -> String {
+    page::vault_image_markdown(path, alt.as_deref().unwrap_or("image"))
 }
 
 /// [`vault_asset_paths_in_body`](page::vault_asset_paths_in_body) (TS `vaultAssetPathsInBody`).

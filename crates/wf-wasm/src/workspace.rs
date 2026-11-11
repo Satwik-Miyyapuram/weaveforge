@@ -371,8 +371,9 @@ pub fn project_dir_js(id: js_sys::JsString, name: js_sys::JsString) -> JsResult<
 /// Fails when `entity` is not a workspace entity type, or `project_root` is
 /// over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = entityDir)]
-pub fn entity_dir_js(entity: &str, project_root: js_sys::JsString) -> JsResult<String> {
-    let project_root = &crate::guarded_text(&project_root)?;
+pub fn entity_dir_js(entity: &str, project_root: Option<js_sys::JsString>) -> JsResult<String> {
+    let project_root =
+        &project_root.map_or(Ok(String::new()), |root| crate::guarded_text(&root))?;
     let entity = entity_type(entity)
         .ok_or_else(|| serde_wasm_bindgen::Error::new(format!("unknown entity type {entity:?}")))?;
     Ok(entity_dir(entity, project_root))
@@ -384,8 +385,9 @@ pub fn entity_dir_js(entity: &str, project_root: js_sys::JsString) -> JsResult<S
 ///
 /// Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
 #[wasm_bindgen(js_name = projectMetaDir)]
-pub fn project_meta_dir_js(project_root: js_sys::JsString) -> JsResult<String> {
-    let project_root = &crate::guarded_text(&project_root)?;
+pub fn project_meta_dir_js(project_root: Option<js_sys::JsString>) -> JsResult<String> {
+    let project_root =
+        &project_root.map_or(Ok(String::new()), |root| crate::guarded_text(&root))?;
     Ok(project_meta_dir(project_root))
 }
 

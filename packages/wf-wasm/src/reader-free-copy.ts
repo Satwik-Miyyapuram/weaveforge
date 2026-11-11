@@ -2,11 +2,8 @@
  * "Find a free copy" messages and ids (Rust `reader::free_copy`). Keeps the
  * signatures of apps/web/src/features/reader/application/find-free-copy.ts.
  */
-import {
-  describeFreeCopyFailure as rawDescribeFreeCopyFailure,
-} from "../pkg/wf_wasm.js";
-
 export {
+  describeFreeCopyFailure,
   isWebArticle,
   openAccessIdsOf,
 } from "../pkg/wf_wasm.js";
@@ -40,9 +37,4 @@ export interface FreeCopyPaperLinks {
   arxivId?: string | null;
   url?: string | null;
   metadata?: unknown;
-}
-
-/** The message shown when no free copy opened (Rust `describe_free_copy_failure`). */
-export function describeFreeCopyFailure(outcome: FreeCopyFailure, webArticle = false): string {
-  return rawDescribeFreeCopyFailure(outcome, webArticle);
 }

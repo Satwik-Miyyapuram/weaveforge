@@ -6,7 +6,6 @@
  * wrapper maps them back to the caller's objects.
  */
 import {
-  levenshtein as rawLevenshtein,
   groupRecurringLines as rawGroupRecurringLines,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -16,15 +15,11 @@ import type {
 export {
   bodyFontSize,
   isRotatedText,
+  levenshtein,
   outlineFromText,
   outlineIsPlausible,
   outlineTextLines,
 } from "../pkg/wf_wasm.js";
-
-/** Edit distance, capped at `limit` so the running-head test stays cheap on long lines. */
-export function levenshtein(a: string, b: string, limit = Number.POSITIVE_INFINITY): number {
-  return rawLevenshtein(a, b, limit);
-}
 
 /** Group lines by (near-)identical text. Members keep the caller's objects. */
 export function groupRecurringLines<T>(

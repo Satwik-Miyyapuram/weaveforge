@@ -11,8 +11,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = outlineOf)]
-pub fn outline_of_js(body: &str, max_level: u32) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    let max_level = usize::try_from(max_level).unwrap_or(usize::MAX);
+#[wasm_bindgen(js_name = outlineOf, unchecked_return_type = "B.OutlineHeading[]")]
+pub fn outline_of_js(
+    body: &str,
+    max_level: Option<u32>,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let max_level = usize::try_from(max_level.unwrap_or(3)).unwrap_or(usize::MAX);
     to_js(&outline::outline_of(body, max_level))
 }

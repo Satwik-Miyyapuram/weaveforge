@@ -141,9 +141,9 @@ pub fn resolve_viewport_scale_js(
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = initialReaderViewport)]
-pub fn initial_reader_viewport_js(page: f64) -> JsResult<JsValue> {
-    to_js(&initial_reader_viewport(page))
+#[wasm_bindgen(js_name = initialReaderViewport, unchecked_return_type = "{ scale: number; fit: B.ReaderFitMode; rotation: 0 | 90 | 180 | 270; page: number }")]
+pub fn initial_reader_viewport_js(page: Option<f64>) -> JsResult<JsValue> {
+    to_js(&initial_reader_viewport(page.unwrap_or(1.0)))
 }
 
 /// [`normalise_page_rotation`] (TS `normalisePageRotation`): 0, 90, 180 or 270.
