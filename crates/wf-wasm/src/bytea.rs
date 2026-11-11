@@ -21,7 +21,7 @@ pub fn encode_bytea_js(bytes: &[u8]) -> String {
 ///
 /// # Errors
 /// Throws when the text is not base64.
-#[wasm_bindgen(js_name = decodeBase64)]
+#[wasm_bindgen(js_name = decodeBase64, unchecked_return_type = "Uint8Array<ArrayBuffer>")]
 pub fn decode_base64_js(text: &str) -> Result<Vec<u8>, JsError> {
     bytea::decode_base64(text).map_err(JsError::new)
 }

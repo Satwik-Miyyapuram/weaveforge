@@ -2075,7 +2075,7 @@ export function declaredCharset(content_type: string | null | undefined, bytes: 
  * # Errors
  * Throws when the text is not base64.
  */
-export function decodeBase64(text: string): Uint8Array;
+export function decodeBase64(text: string): Uint8Array<ArrayBuffer>;
 
 /**
  * [`decode_bytea`](bytea::decode_bytea): bytes from a PostgREST `\x…` string.
@@ -4281,12 +4281,12 @@ export function inkPathJsonSize(path: readonly number[]): number;
 /**
  * [`ink_paths_bounds`]; `[x1, y1, x2, y2]` or `null`.
  */
-export function inkPathsBounds(paths: any): any;
+export function inkPathsBounds(paths: readonly (readonly number[])[]): [number, number, number, number] | null;
 
 /**
  * [`ink_paths_hit_test`]; `paths` is an array of number arrays.
  */
-export function inkPathsHitTest(paths: any, x: number, y: number, radius: number): boolean;
+export function inkPathsHitTest(paths: readonly (readonly number[])[], x: number, y: number, radius: number): boolean;
 
 /**
  * [`ink_paths_in_polygon`]. `paths` is every path's flat `x, y` pairs back to back; `pathLengths`
@@ -9307,7 +9307,7 @@ export function serializeWorkspace(snapshot_json: string, project_id: string, pr
 /**
  * [`session_action`] for JS (TS `sessionAction`): `"idle"`, `"adopt"`, `"drive"` or `"foreign"`.
  */
-export function sessionAction(signed_in_user_id?: string | null, adopted_account_id?: string | null): string;
+export function sessionAction(signed_in_user_id?: string | null, adopted_account_id?: string | null): "idle" | "adopt" | "drive" | "foreign";
 
 /**
  * [`db_claims::session_claims`]: the `request.jwt.claims` JSON; `null`/`undefined` or `""` gives `anon`.
@@ -10394,7 +10394,7 @@ export function transitionsOn(motion: string | null | undefined, theme: string |
 /**
  * [`translate_ink_paths`]; `decimals` defaults to 2. Returns an array of number arrays.
  */
-export function translateInkPaths(paths: any, dx: number, dy: number, decimals?: number | null): any;
+export function translateInkPaths(paths: readonly (readonly number[])[], dx: number, dy: number, decimals?: number | null): number[][];
 
 /**
  * [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `[id, path]` pairs in
