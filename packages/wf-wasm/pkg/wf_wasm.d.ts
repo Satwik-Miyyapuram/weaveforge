@@ -447,16 +447,6 @@ export function annotationPinKey(id: string, zotero_key?: string | null): string
 export function annotationPinToDomain(row: B.AnnotationPinRow): B.AnnotationPin;
 
 /**
- * [`to_domain`] (TS `toDomain`): the row as a `ReaderAnnotation` object.
- *
- * # Errors
- *
- * Throws an `Error` (`Invalid annotation type in store: <type>`) when the row's type is not a
- * reader annotation type, and fails if `row` is not a `ReaderAnnotationRow` object.
- */
-export function annotationRowToDomain(row: B.ReaderAnnotationRow): B.ReaderAnnotation;
-
-/**
  * [`canonical_app_url`](app_protocol::canonical_app_url): the URL with its
  * path's repeated slashes collapsed, or `null` when no redirect is needed.
  *
@@ -2620,11 +2610,6 @@ export function emptyLayout(pane_id?: string | null): B.PaneLayout;
 export function emptyPageHistory(): B.PageHistory;
 
 /**
- * [`empty_to_null`]: the text as stored, with an absent or empty value as `null`.
- */
-export function emptyToNull(value?: string | null): any;
-
-/**
  * [`encode_base64`](bytea::encode_base64): padded base64 for bytes.
  */
 export function encodeBase64(bytes: Uint8Array): string;
@@ -2798,16 +2783,6 @@ export function experimentActivityAt(experiment: B.Experiment): number;
  * [`experiment_href`](experiment_status::experiment_href): where an experiment opens.
  */
 export function experimentHref(id: string, is_offline_build: boolean): string;
-
-/**
- * [`to_domain`]: an `experiments` row as an experiment.
- */
-export function experimentRowToDomain(row: B.ExperimentRow): B.Experiment;
-
-/**
- * [`to_row`]: an experiment as the `experiments` row it is written as.
- */
-export function experimentToRow(experiment: B.Experiment): B.ExperimentWriteRow;
 
 /**
  * [`EXPERIMENTS_HREF`](experiment_status::EXPERIMENTS_HREF): the experiments list.
@@ -5876,11 +5851,6 @@ export function metadataTitle(raw?: string | null): string | undefined;
 export function metricKeys(experiments: readonly B.Experiment[]): string[];
 
 /**
- * [`to_domain`]: a metric row as a metric point.
- */
-export function metricRowToDomain(row: any): any;
-
-/**
  * [`migrated_expanded`](state::migrated_expanded).
  *
  * # Errors
@@ -6794,16 +6764,6 @@ export function paletteName(palette: any, hex: string): string | undefined;
 export function paperCiteKeys(papers_value: any): any;
 
 /**
- * [`to_def_domain`]: a `paper_fields` row as a domain field definition.
- */
-export function paperFieldDefRowToDomain(row: B.PaperFieldDefRow): B.PaperFieldDef;
-
-/**
- * [`to_value_domain`]: a `paper_field_values` row as a domain value. Throws on a bad payload.
- */
-export function paperFieldValueRowToDomain(row: B.PaperFieldValueRow): B.PaperFieldValue;
-
-/**
  * [`PAPER_HTML_CSP`]: the frame's own content security policy.
  */
 export function paperHtmlCsp(): string;
@@ -6834,16 +6794,6 @@ export function paperPdfPath(paper_id: string, project_root?: string | null): st
 export function paperRelationInputError(input: any): string | undefined;
 
 /**
- * [`paper_to_domain`]: a `papers` row as a domain paper.
- */
-export function paperRowToDomain(row: B.PaperRow): B.Paper;
-
-/**
- * [`paper_to_summary`]: a `papers` row read with the card projection, as a summary.
- */
-export function paperRowToSummary(row: B.PaperRow): B.PaperSummary;
-
-/**
  * [`paper_to_bibtex`](bibtex::paper_to_bibtex): one `.bib` entry under `key`.
  *
  * # Errors
@@ -6851,11 +6801,6 @@ export function paperRowToSummary(row: B.PaperRow): B.PaperSummary;
  * Fails if `paper` is not a paper object.
  */
 export function paperToBibtex(paper: any, key: string): string;
-
-/**
- * [`paper_to_row`]: a domain paper as the `papers` row it is written as.
- */
-export function paperToRow(paper: B.Paper): B.PaperRow;
 
 /**
  * [`parse_version`]: `0.5.2` to `[0, 5, 2]`, or `null`.
@@ -8305,30 +8250,10 @@ export function readerPrintDocument(doc: B.ReaderPrintDocument): string;
 export function readerPrintOrientation(input: B.ReaderPrintLayoutInput): string;
 
 /**
- * [`to_item_domain`]: a `reading_list_items` row as a domain item.
- */
-export function readingListItemToDomain(row: B.ReadingListItemRow): B.ReadingListItem;
-
-/**
- * [`to_item_row`]: a domain item as a `reading_list_items` row.
- */
-export function readingListItemToRow(item: B.ReadingListItem): B.ReadingListItemRow;
-
-/**
  * [`name_contains`](name_filter::name_contains): whether `name` contains `needle`, ignoring
  * case. An empty `needle` matches every name.
  */
 export function readingListNameMatches(name: string, needle: string): boolean;
-
-/**
- * [`to_list_domain`]: a `reading_lists` row as a domain list.
- */
-export function readingListToDomain(row: B.ReadingListRow): B.ReadingList;
-
-/**
- * [`to_list_row`]: a domain list as a `reading_lists` row.
- */
-export function readingListToRow(list: B.ReadingList): B.ReadingListRow;
 
 /**
  * [`reads_folder`](preview_folder::reads_folder).
@@ -11031,7 +10956,6 @@ export interface InitOutput {
     readonly annotationIdentity: (a: any) => [number, number, number, number];
     readonly annotationPinKey: (a: number, b: number, c: number, d: number) => [number, number];
     readonly annotationPinToDomain: (a: any) => [number, number, number];
-    readonly annotationRowToDomain: (a: any) => [number, number, number];
     readonly appCanonicalUrl: (a: number, b: number) => [number, number, number];
     readonly appContentTypeFor: (a: number, b: number) => [number, number];
     readonly appFileCandidates: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
@@ -11300,7 +11224,6 @@ export interface InitOutput {
     readonly emptyIntegration: (a: any) => [number, number, number];
     readonly emptyLayout: (a: number, b: number) => [number, number, number];
     readonly emptyPageHistory: () => [number, number, number];
-    readonly emptyToNull: (a: number, b: number) => [number, number, number];
     readonly encodeBase64: (a: number, b: number) => [number, number];
     readonly encodeBytea: (a: number, b: number) => [number, number];
     readonly encodeInkChunkBody: (a: any) => [number, number, number, number];
@@ -11332,8 +11255,6 @@ export interface InitOutput {
     readonly expandIpv6: (a: number, b: number) => [number, number, number];
     readonly experimentActivityAt: (a: any) => [number, number, number];
     readonly experimentHref: (a: number, b: number, c: number) => [number, number];
-    readonly experimentRowToDomain: (a: any) => [number, number, number];
-    readonly experimentToRow: (a: any) => [number, number, number];
     readonly experimentsListHref: () => [number, number];
     readonly explainArm: (a: any) => [number, number, number, number];
     readonly exportAssetPath: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
@@ -11759,7 +11680,6 @@ export interface InitOutput {
     readonly mergeWikiPages: (a: any, b: any) => [number, number, number];
     readonly metadataTitle: (a: number, b: number) => [number, number];
     readonly metricKeys: (a: any) => [number, number, number];
-    readonly metricRowToDomain: (a: any) => [number, number, number];
     readonly migratedExpanded: (a: any, b: any) => [number, number, number];
     readonly migratedNotice: (a: number, b: number) => any;
     readonly milestoneFromRow: (a: any) => [number, number, number];
@@ -11889,17 +11809,12 @@ export interface InitOutput {
     readonly paletteModeFor: (a: any) => [number, number, number];
     readonly paletteName: (a: any, b: number, c: number) => [number, number, number, number];
     readonly paperCiteKeys: (a: any) => [number, number, number];
-    readonly paperFieldDefRowToDomain: (a: any) => [number, number, number];
-    readonly paperFieldValueRowToDomain: (a: any) => [number, number, number];
     readonly paperHtmlCsp: () => [number, number];
     readonly paperHtmlPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperImageThumbnailPath: (a: number, b: number) => [number, number];
     readonly paperPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperRelationInputError: (a: any) => [number, number, number, number];
-    readonly paperRowToDomain: (a: any) => [number, number, number];
-    readonly paperRowToSummary: (a: any) => [number, number, number];
     readonly paperToBibtex: (a: any, b: number, c: number) => [number, number, number, number];
-    readonly paperToRow: (a: any) => [number, number, number];
     readonly parseAppVersion: (a: number, b: number) => [number, number, number];
     readonly parseArtifactRefs: (a: number, b: number) => [number, number, number];
     readonly parseBibEntries: (a: any) => [number, number, number];
@@ -12082,11 +11997,7 @@ export interface InitOutput {
     readonly readerKeyboardCommand: (a: any) => [number, number, number];
     readonly readerPrintDocument: (a: any) => [number, number, number, number];
     readonly readerPrintOrientation: (a: any) => [number, number, number, number];
-    readonly readingListItemToDomain: (a: any) => [number, number, number];
-    readonly readingListItemToRow: (a: any) => [number, number, number];
     readonly readingListNameMatches: (a: number, b: number, c: number, d: number) => number;
-    readonly readingListToDomain: (a: any) => [number, number, number];
-    readonly readingListToRow: (a: any) => [number, number, number];
     readonly readsFolder: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly recentFailureIds: (a: any, b: number) => [number, number, number];
     readonly recentlyApprovedWikiPages: (a: any, b: number) => [number, number, number];

@@ -1096,24 +1096,6 @@ export function annotationPinToDomain(row) {
 }
 
 /**
- * [`to_domain`] (TS `toDomain`): the row as a `ReaderAnnotation` object.
- *
- * # Errors
- *
- * Throws an `Error` (`Invalid annotation type in store: <type>`) when the row's type is not a
- * reader annotation type, and fails if `row` is not a `ReaderAnnotationRow` object.
- * @param {B.ReaderAnnotationRow} row
- * @returns {B.ReaderAnnotation}
- */
-export function annotationRowToDomain(row) {
-    const ret = wasm.annotationRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`canonical_app_url`](app_protocol::canonical_app_url): the URL with its
  * path's repeated slashes collapsed, or `null` when no redirect is needed.
  *
@@ -6229,21 +6211,6 @@ export function emptyPageHistory() {
 }
 
 /**
- * [`empty_to_null`]: the text as stored, with an absent or empty value as `null`.
- * @param {string | null} [value]
- * @returns {any}
- */
-export function emptyToNull(value) {
-    var ptr0 = isLikeNone(value) ? 0 : passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    const ret = wasm.emptyToNull(ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`encode_base64`](bytea::encode_base64): padded base64 for bytes.
  * @param {Uint8Array} bytes
  * @returns {string}
@@ -6743,32 +6710,6 @@ export function experimentHref(id, is_offline_build) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
-}
-
-/**
- * [`to_domain`]: an `experiments` row as an experiment.
- * @param {B.ExperimentRow} row
- * @returns {B.Experiment}
- */
-export function experimentRowToDomain(row) {
-    const ret = wasm.experimentRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_row`]: an experiment as the `experiments` row it is written as.
- * @param {B.Experiment} experiment
- * @returns {B.ExperimentWriteRow}
- */
-export function experimentToRow(experiment) {
-    const ret = wasm.experimentToRow(experiment);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -14256,19 +14197,6 @@ export function metricKeys(experiments) {
 }
 
 /**
- * [`to_domain`]: a metric row as a metric point.
- * @param {any} row
- * @returns {any}
- */
-export function metricRowToDomain(row) {
-    const ret = wasm.metricRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`migrated_expanded`](state::migrated_expanded).
  *
  * # Errors
@@ -16507,32 +16435,6 @@ export function paperCiteKeys(papers_value) {
 }
 
 /**
- * [`to_def_domain`]: a `paper_fields` row as a domain field definition.
- * @param {B.PaperFieldDefRow} row
- * @returns {B.PaperFieldDef}
- */
-export function paperFieldDefRowToDomain(row) {
-    const ret = wasm.paperFieldDefRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_value_domain`]: a `paper_field_values` row as a domain value. Throws on a bad payload.
- * @param {B.PaperFieldValueRow} row
- * @returns {B.PaperFieldValue}
- */
-export function paperFieldValueRowToDomain(row) {
-    const ret = wasm.paperFieldValueRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`PAPER_HTML_CSP`]: the frame's own content security policy.
  * @returns {string}
  */
@@ -16639,32 +16541,6 @@ export function paperRelationInputError(input) {
 }
 
 /**
- * [`paper_to_domain`]: a `papers` row as a domain paper.
- * @param {B.PaperRow} row
- * @returns {B.Paper}
- */
-export function paperRowToDomain(row) {
-    const ret = wasm.paperRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`paper_to_summary`]: a `papers` row read with the card projection, as a summary.
- * @param {B.PaperRow} row
- * @returns {B.PaperSummary}
- */
-export function paperRowToSummary(row) {
-    const ret = wasm.paperRowToSummary(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`paper_to_bibtex`](bibtex::paper_to_bibtex): one `.bib` entry under `key`.
  *
  * # Errors
@@ -16693,19 +16569,6 @@ export function paperToBibtex(paper, key) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
-}
-
-/**
- * [`paper_to_row`]: a domain paper as the `papers` row it is written as.
- * @param {B.Paper} paper
- * @returns {B.PaperRow}
- */
-export function paperToRow(paper) {
-    const ret = wasm.paperToRow(paper);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -20169,32 +20032,6 @@ export function readerPrintOrientation(input) {
 }
 
 /**
- * [`to_item_domain`]: a `reading_list_items` row as a domain item.
- * @param {B.ReadingListItemRow} row
- * @returns {B.ReadingListItem}
- */
-export function readingListItemToDomain(row) {
-    const ret = wasm.readingListItemToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_item_row`]: a domain item as a `reading_list_items` row.
- * @param {B.ReadingListItem} item
- * @returns {B.ReadingListItemRow}
- */
-export function readingListItemToRow(item) {
-    const ret = wasm.readingListItemToRow(item);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`name_contains`](name_filter::name_contains): whether `name` contains `needle`, ignoring
  * case. An empty `needle` matches every name.
  * @param {string} name
@@ -20208,32 +20045,6 @@ export function readingListNameMatches(name, needle) {
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.readingListNameMatches(ptr0, len0, ptr1, len1);
     return ret !== 0;
-}
-
-/**
- * [`to_list_domain`]: a `reading_lists` row as a domain list.
- * @param {B.ReadingListRow} row
- * @returns {B.ReadingList}
- */
-export function readingListToDomain(row) {
-    const ret = wasm.readingListToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_list_row`]: a domain list as a `reading_lists` row.
- * @param {B.ReadingList} list
- * @returns {B.ReadingListRow}
- */
-export function readingListToRow(list) {
-    const ret = wasm.readingListToRow(list);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**

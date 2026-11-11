@@ -22,7 +22,6 @@ import {
   computeRollupsForPapers as rawComputeRollupsForPapers,
   createPaperRelationWith as rawCreatePaperRelationWith,
   describeOverleafStatus as rawDescribeOverleafStatus,
-  emptyToNull as rawEmptyToNull,
   hydrateTabModes as rawHydrateTabModes,
   imagesOf as rawImagesOf,
   layoutForCommand as rawLayoutForCommand,
@@ -141,12 +140,7 @@ export {
   normalizeFieldName,
   normalizeTags,
   pageListProblem,
-  paperFieldDefRowToDomain,
-  paperFieldValueRowToDomain,
   paperImageThumbnailPath,
-  paperRowToDomain,
-  paperRowToSummary,
-  paperToRow,
   parseBiorxiv,
   parseDoaj,
   parseEuropePmc,
@@ -510,18 +504,6 @@ export function createPaperRelation(
   const id = deps.ids.newId();
   const now = deps.clock.nowIso();
   return rawCreatePaperRelationWith(input, id, now);
-}
-
-// --- paper-rows ---
-/**
- * Paper, paper field and annotation quotation type row mapping (Rust `papers::paper_row`,
- * `papers::paper_field_row` and `papers::annotation_quotation_type_row`). The rows are the
- * tables' columns; the domain types are camelCase. The repositories that read and write them
- * stay in the web app.
- */
-/** The text, or `null` when it is absent or empty. */
-export function emptyToNull(value: string | null | undefined): string | null {
-  return rawEmptyToNull(value ?? undefined) as string | null;
 }
 
 // --- papers-annotation-pin ---
