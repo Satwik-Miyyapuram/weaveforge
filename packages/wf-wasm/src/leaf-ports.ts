@@ -5,7 +5,6 @@
  * and apps/web {papers/domain/reference-text,collab/domain/presence}.ts.
  */
 import {
-  compactSkipReason as rawCompactSkipReason,
   formatReference as rawFormatReference,
   mergeExtractions as rawMergeExtractions,
   peersFromUsers as rawPeersFromUsers,
@@ -22,6 +21,7 @@ import type {
 
 export {
   anchorAt,
+  compactSkipReason,
   locateAnchor,
   parseFolderDraft,
   peersFromUsers,
@@ -56,17 +56,6 @@ export function peersFromStates(
 ): Peer[] {
   const users = Array.from(states, ([id, s]): [number, unknown] => [id, (s as { user?: unknown } | null)?.user ?? null]);
   return rawPeersFromUsers(users, self.clientId, self.authorId);
-}
-
-/** Why a CRDT compaction is a no-op (`nothing-to-do` or `stale`), or undefined to send it (Rust `compact_skip_reason`). */
-export function compactSkipReason(
-  snapshotUptoId: number,
-  currentSnapshotUpto?: number,
-): "nothing-to-do" | "stale" | undefined {
-  return (rawCompactSkipReason(snapshotUptoId, currentSnapshotUpto) ?? undefined) as
-    | "nothing-to-do"
-    | "stale"
-    | undefined;
 }
 
 /** Start and end `[line, column]` points of a text span over text nodes of `lengths` (Rust `span_points`), or null when the span is out of range. */

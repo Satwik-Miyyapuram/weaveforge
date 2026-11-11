@@ -15,8 +15,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `value` cannot be read as JSON, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = cleanWidgetPalette)]
-pub fn clean_widget_palette_js(value: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = cleanWidgetPalette, unchecked_return_type = "Record<string, string> | null")]
+pub fn clean_widget_palette_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] value: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let value: Value = serde_wasm_bindgen::from_value(value)?;
     to_js(&clean_widget_palette(&value))
 }
