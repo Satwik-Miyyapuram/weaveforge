@@ -3575,9 +3575,9 @@ export function gitRemoteAuth(input: any): any;
 export function githubCommits(items: B.GhCommit[]): B.GitCommit[];
 
 /**
- * [`github_repo_pdf_path`] (TS `githubRepoPdfPath`): the repo-relative PDF path, or none.
+ * [`github_repo_pdf_path`] (TS `githubRepoPdfPath`): the repo-relative PDF path, or null.
  */
-export function githubRepoPdfPath(given_pdf_path: string | null | undefined, paper_id: string): string | undefined;
+export function githubRepoPdfPath(given_pdf_path: string | null | undefined, paper_id: string): string | null;
 
 /**
  * [`gitlab_combined_active`].
@@ -4814,7 +4814,7 @@ export function isPenEraserPointer(pointer_type: string, button?: number | null,
 /**
  * [`is_placeholder_title`](paper_title::is_placeholder_title) (TS `isPlaceholderTitle`).
  */
-export function isPlaceholderTitle(title?: string | null): boolean;
+export function isPlaceholderTitle(title: string | null | undefined): boolean;
 
 /**
  * [`is_plain_click`] (TS `isPlainClick`): the event fields, read in TS, judged in Rust.
@@ -5326,9 +5326,9 @@ export function linkCitationMentions(page: B.LinkCitationPage, links: readonly B
 export function linkGroupOf(kind: string): B.LinkGroup | null;
 
 /**
- * [`link_label`] for JS: the label, or `undefined` for an empty or multi-line selection.
+ * [`link_label`] for JS: the label, or `null` for an empty or multi-line selection.
  */
-export function linkLabel(selected: string): string | undefined;
+export function linkLabel(selected: string): string | null;
 
 /**
  * [`link_node_id`] (TS `linkNodeId`). `source` is a string endpoint or an endpoint object; the
@@ -5957,9 +5957,9 @@ export function migratedExpanded(saved: any, roots: any): any;
 
 /**
  * [`migrated_notice`](migrated_notice::migrated_notice): the warning for the marker's text, or
- * `undefined` when there is no marker. The TS wrapper maps `undefined` to `null`.
+ * `null` when there is no marker.
  */
-export function migratedNotice(raw?: string | null): string | undefined;
+export function migratedNotice(raw: string | null | undefined): string | null;
 
 /**
  * [`to_milestone`]: a `milestones` row as the app's milestone.
@@ -6547,7 +6547,7 @@ export function openAccessIdsOf(paper: { doi?: string | null; arxivId?: string |
 /**
  * [`open_access_supports`] (TS `OpenAccessPdfResolver.supports`).
  */
-export function openAccessSupports(arxiv_id?: string | null, url?: string | null, doi?: string | null): boolean;
+export function openAccessSupports(arxiv_id: string | null | undefined, url: string | null | undefined, doi: string | null | undefined): boolean;
 
 /**
  * [`openalex_to_hit`](related_paper_hit::openalex_to_hit): the hit for an OpenAlex work, or
@@ -8978,13 +8978,13 @@ export function s2ToHit(paper: any): any;
  * [`safe_artifact_caption`](artifact_markdown::safe_artifact_caption) (TS `safeArtifactCaption`).
  * `undefined` or `null` counts as no caption.
  */
-export function safeArtifactCaption(alt?: string | null): string;
+export function safeArtifactCaption(alt: string | null | undefined): string;
 
 /**
  * [`safe_image_destination`](artifact_markdown::safe_image_destination) (TS `safeImageDestination`).
- * `undefined` when the URL is not allowed.
+ * `null` when the URL is not allowed.
  */
-export function safeImageDestination(url: string): string | undefined;
+export function safeImageDestination(url: string): string | null;
 
 /**
  * [`safe_label`](untrusted_context::safe_label).
@@ -9056,17 +9056,17 @@ export function sameValue(a: any, b: any): boolean;
 /**
  * [`sanitize_app_href`]: a same-origin app path on a known root, or `None`.
  */
-export function sanitizeAppHref(raw?: string | null): string | undefined;
+export function sanitizeAppHref(raw: string | null | undefined): string | null;
 
 /**
- * [`sanitize_pdf_url`]: `None` (`undefined` in JS) when the URL is refused.
+ * [`sanitize_pdf_url`]: `null` when the URL is refused.
  */
-export function sanitizePdfUrl(raw?: string | null): string | undefined;
+export function sanitizePdfUrl(raw: string | null | undefined): string | null;
 
 /**
  * [`sanitize_reader_href`]: a same-origin `/reader` path, or `None`.
  */
-export function sanitizeReaderHref(raw?: string | null): string | undefined;
+export function sanitizeReaderHref(raw: string | null | undefined): string | null;
 
 /**
  * [`sanitize_section_targets`](overleaf::sanitize_section_targets); `null` when malformed.
@@ -9098,9 +9098,9 @@ export function scopeNoteIndices(notes: any, list_filter: string[], tag_filter: 
 export function screenCachePolicy(): B.ScreenCachePolicy;
 
 /**
- * [`screen_for_path::screen_for_path`]: the screen cache id for a pathname, or `undefined`.
+ * [`screen_for_path::screen_for_path`]: the screen cache id for a pathname, or `null`.
  */
-export function screenForPath(pathname: string): string | undefined;
+export function screenForPath(pathname: string): string | null;
 
 /**
  * [`screen_point_to_pdf`] as `{ x, y }` (TS `screenPointToPdf`).
@@ -9251,9 +9251,9 @@ export function selectionToAnchor(selection: any, page: any): any;
 
 /**
  * [`semantic_scholar_target`](semantic_scholar_relay::semantic_scholar_target): the upstream
- * URL for a relay path, or `undefined` when the path is not one.
+ * URL for a relay path, or `null` when the path is not one.
  */
-export function semanticScholarTarget(pathname: string, search: string): string | undefined;
+export function semanticScholarTarget(pathname: string, search: string): string | null;
 
 /**
  * [`semantic_scholar_to_metadata`] (TS `semanticScholarToMetadata`). A Semantic Scholar paper
@@ -10229,9 +10229,9 @@ export function titleForPath(pathname: string, nav_items: readonly B.NavRouteInp
 export function titleFromFileName(title: string): string;
 
 /**
- * [`title_key`](paper_title::title_key) (TS `titleKey`). `None` becomes `undefined` in JS.
+ * [`title_key`](paper_title::title_key) (TS `titleKey`). `None` becomes `null` in JS.
  */
-export function titleKey(title?: string | null): string | undefined;
+export function titleKey(title: string | null | undefined): string | null;
 
 /**
  * [`title_of`](quick::title_of): the title a row is shown under.
@@ -10409,7 +10409,7 @@ export function treePathPairs(nodes: any, entity: any, project_root: string): an
 /**
  * [`trimmed_or_none`]: trim a resolver path or URL, null when blank.
  */
-export function trimmedOrNone(value?: string | null): string | undefined;
+export function trimmedOrNone(value: string | null | undefined): string | null;
 
 /**
  * [`uncropped_figure_box`](figure::uncropped_figure_box): the box with the crop lifted.
@@ -11576,7 +11576,7 @@ export interface InitOutput {
     readonly gitReason: (a: number, b: number) => [number, number];
     readonly gitRemoteAuth: (a: any) => [number, number, number];
     readonly githubCommits: (a: any) => [number, number, number];
-    readonly githubRepoPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly githubRepoPdfPath: (a: number, b: number, c: number, d: number) => any;
     readonly gitlabCombinedActive: (a: any) => [number, number, number];
     readonly gitlabCommits: (a: any) => [number, number, number];
     readonly gitlabLogFilePlan: (a: any) => [number, number, number];
@@ -11833,7 +11833,7 @@ export interface InitOutput {
     readonly libraryPinRowToDomain: (a: any) => [number, number, number];
     readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
     readonly linkGroupOf: (a: number, b: number) => [number, number, number];
-    readonly linkLabel: (a: any) => [number, number, number, number];
+    readonly linkLabel: (a: any) => [number, number, number];
     readonly linkNodeId: (a: any) => [number, number, number];
     readonly linkTargetsError: (a: number, b: number) => [number, number];
     readonly lintWiki: (a: any, b: any) => [number, number, number];
@@ -11914,7 +11914,7 @@ export interface InitOutput {
     readonly metricKeys: (a: any) => [number, number, number];
     readonly metricRowToDomain: (a: any) => [number, number, number];
     readonly migratedExpanded: (a: any, b: any) => [number, number, number];
-    readonly migratedNotice: (a: number, b: number) => [number, number];
+    readonly migratedNotice: (a: number, b: number) => any;
     readonly milestoneFromRow: (a: any) => [number, number, number];
     readonly milestoneInputError: (a: any) => [number, number, number, number];
     readonly milestoneMessage: (a: any) => [number, number, number, number];
@@ -12314,7 +12314,7 @@ export interface InitOutput {
     readonly s2PaperId: (a: any) => [number, number, number, number];
     readonly s2ToHit: (a: any) => [number, number, number];
     readonly safeArtifactCaption: (a: number, b: number) => [number, number];
-    readonly safeImageDestination: (a: number, b: number) => [number, number];
+    readonly safeImageDestination: (a: number, b: number) => any;
     readonly safeLabel: (a: number, b: number, c: number, d: number) => [number, number];
     readonly safeName: (a: number, b: number) => [number, number];
     readonly safeRelative: (a: number, b: number) => [number, number, number, number];
@@ -12324,13 +12324,13 @@ export interface InitOutput {
     readonly samePeers: (a: any, b: any) => [number, number, number];
     readonly sameRow: (a: any, b: any) => [number, number, number];
     readonly sameValue: (a: any, b: any) => [number, number, number];
-    readonly sanitizeAppHref: (a: number, b: number) => [number, number];
-    readonly sanitizePdfUrl: (a: number, b: number) => [number, number];
-    readonly sanitizeReaderHref: (a: number, b: number) => [number, number];
+    readonly sanitizeAppHref: (a: number, b: number) => any;
+    readonly sanitizePdfUrl: (a: number, b: number) => any;
+    readonly sanitizeReaderHref: (a: number, b: number) => any;
     readonly sanitizeSectionTargets: (a: any) => [number, number, number];
     readonly scopeNoteIndices: (a: any, b: number, c: number, d: number, e: number, f: any) => [number, number, number];
     readonly screenCachePolicy: () => [number, number, number];
-    readonly screenForPath: (a: number, b: number) => [number, number];
+    readonly screenForPath: (a: number, b: number) => any;
     readonly screenPointToPdf: (a: number, b: number, c: any) => [number, number, number];
     readonly screeningDecisionError: (a: any, b: any) => [number, number, number, number];
     readonly screeningDecisionFromRow: (a: any) => [number, number, number];
@@ -12347,7 +12347,7 @@ export interface InitOutput {
     readonly selectedPdfPages: (a: number, b: number, c: number) => [number, number, number];
     readonly selectedText: (a: any, b: any) => [number, number, number, number];
     readonly selectionToAnchor: (a: any, b: any) => [number, number, number];
-    readonly semanticScholarTarget: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly semanticScholarTarget: (a: number, b: number, c: number, d: number) => any;
     readonly semanticScholarToMetadata: (a: any) => [number, number, number];
     readonly semanticStatusText: (a: any) => [number, number, number, number];
     readonly serialiseArtifactRef: (a: any) => [number, number, number, number];
@@ -12481,7 +12481,7 @@ export interface InitOutput {
     readonly titleFixes: (a: any) => [number, number, number];
     readonly titleForPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly titleFromFileName: (a: number, b: number) => [number, number];
-    readonly titleKey: (a: number, b: number) => [number, number];
+    readonly titleKey: (a: number, b: number) => any;
     readonly titleOf: (a: any) => [number, number, number, number];
     readonly titleSimilarity: (a: number, b: number, c: number, d: number) => number;
     readonly toAnnotationSearchDocs: (a: any, b: any, c: any) => [number, number, number];
@@ -12503,7 +12503,7 @@ export interface InitOutput {
     readonly transitionsOn: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly translateInkPaths: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly treePathPairs: (a: any, b: any, c: number, d: number) => [number, number, number];
-    readonly trimmedOrNone: (a: number, b: number) => [number, number];
+    readonly trimmedOrNone: (a: number, b: number) => any;
     readonly uncroppedFigureBox: (a: any) => [number, number, number];
     readonly unionRect: (a: any) => [number, number, number];
     readonly uniqueCiteKey: (a: any, b: any) => [number, number, number, number];

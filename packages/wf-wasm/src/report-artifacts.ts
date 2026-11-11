@@ -5,8 +5,6 @@
  */
 import {
   resolveArtifactRefsMarkdown as rawResolveArtifactRefsMarkdown,
-  safeArtifactCaption as rawSafeArtifactCaption,
-  safeImageDestination as rawSafeImageDestination,
 } from "../pkg/wf_wasm.js";
 import type {
   ReportExperiment,
@@ -15,6 +13,8 @@ import type {
 export {
   artifactBasename,
   parseArtifactRefs,
+  safeArtifactCaption,
+  safeImageDestination,
   serialiseArtifactRef,
 } from "../pkg/wf_wasm.js";
 
@@ -25,14 +25,4 @@ export function resolveArtifactRefsMarkdown(
   nowMs: number = Date.now(),
 ): string {
   return rawResolveArtifactRefsMarkdown(body, experiments, nowMs);
-}
-
-/** Alt text made safe for a caption; `artifact` when nothing is left. */
-export function safeArtifactCaption(alt?: string | null): string {
-  return rawSafeArtifactCaption(alt ?? undefined);
-}
-
-/** An image URL safe to put in a destination, or null when the scheme or characters are not allowed. */
-export function safeImageDestination(url: string): string | null {
-  return rawSafeImageDestination(url) ?? null;
 }

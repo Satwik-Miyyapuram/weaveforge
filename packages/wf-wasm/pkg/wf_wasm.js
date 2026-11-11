@@ -8763,10 +8763,10 @@ export function githubCommits(items) {
 }
 
 /**
- * [`github_repo_pdf_path`] (TS `githubRepoPdfPath`): the repo-relative PDF path, or none.
+ * [`github_repo_pdf_path`] (TS `githubRepoPdfPath`): the repo-relative PDF path, or null.
  * @param {string | null | undefined} given_pdf_path
  * @param {string} paper_id
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function githubRepoPdfPath(given_pdf_path, paper_id) {
     var ptr0 = isLikeNone(given_pdf_path) ? 0 : passStringToWasm0(given_pdf_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -8774,12 +8774,7 @@ export function githubRepoPdfPath(given_pdf_path, paper_id) {
     const ptr1 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.githubRepoPdfPath(ptr0, len0, ptr1, len1);
-    let v3;
-    if (ret[0] !== 0) {
-        v3 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v3;
+    return ret;
 }
 
 /**
@@ -11750,7 +11745,7 @@ export function isPenEraserPointer(pointer_type, button, buttons) {
 
 /**
  * [`is_placeholder_title`](paper_title::is_placeholder_title) (TS `isPlaceholderTitle`).
- * @param {string | null} [title]
+ * @param {string | null | undefined} title
  * @returns {boolean}
  */
 export function isPlaceholderTitle(title) {
@@ -12960,21 +12955,16 @@ export function linkGroupOf(kind) {
 }
 
 /**
- * [`link_label`] for JS: the label, or `undefined` for an empty or multi-line selection.
+ * [`link_label`] for JS: the label, or `null` for an empty or multi-line selection.
  * @param {string} selected
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function linkLabel(selected) {
     const ret = wasm.linkLabel(selected);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -14451,20 +14441,15 @@ export function migratedExpanded(saved, roots) {
 
 /**
  * [`migrated_notice`](migrated_notice::migrated_notice): the warning for the marker's text, or
- * `undefined` when there is no marker. The TS wrapper maps `undefined` to `null`.
- * @param {string | null} [raw]
- * @returns {string | undefined}
+ * `null` when there is no marker.
+ * @param {string | null | undefined} raw
+ * @returns {string | null}
  */
 export function migratedNotice(raw) {
     var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.migratedNotice(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -15910,9 +15895,9 @@ export function openAccessIdsOf(paper) {
 
 /**
  * [`open_access_supports`] (TS `OpenAccessPdfResolver.supports`).
- * @param {string | null} [arxiv_id]
- * @param {string | null} [url]
- * @param {string | null} [doi]
+ * @param {string | null | undefined} arxiv_id
+ * @param {string | null | undefined} url
+ * @param {string | null | undefined} doi
  * @returns {boolean}
  */
 export function openAccessSupports(arxiv_id, url, doi) {
@@ -21941,7 +21926,7 @@ export function s2ToHit(paper) {
 /**
  * [`safe_artifact_caption`](artifact_markdown::safe_artifact_caption) (TS `safeArtifactCaption`).
  * `undefined` or `null` counts as no caption.
- * @param {string | null} [alt]
+ * @param {string | null | undefined} alt
  * @returns {string}
  */
 export function safeArtifactCaption(alt) {
@@ -21961,20 +21946,15 @@ export function safeArtifactCaption(alt) {
 
 /**
  * [`safe_image_destination`](artifact_markdown::safe_image_destination) (TS `safeImageDestination`).
- * `undefined` when the URL is not allowed.
+ * `null` when the URL is not allowed.
  * @param {string} url
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function safeImageDestination(url) {
     const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.safeImageDestination(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -22165,53 +22145,38 @@ export function sameValue(a, b) {
 
 /**
  * [`sanitize_app_href`]: a same-origin app path on a known root, or `None`.
- * @param {string | null} [raw]
- * @returns {string | undefined}
+ * @param {string | null | undefined} raw
+ * @returns {string | null}
  */
 export function sanitizeAppHref(raw) {
     var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.sanitizeAppHref(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
- * [`sanitize_pdf_url`]: `None` (`undefined` in JS) when the URL is refused.
- * @param {string | null} [raw]
- * @returns {string | undefined}
+ * [`sanitize_pdf_url`]: `null` when the URL is refused.
+ * @param {string | null | undefined} raw
+ * @returns {string | null}
  */
 export function sanitizePdfUrl(raw) {
     var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.sanitizePdfUrl(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
  * [`sanitize_reader_href`]: a same-origin `/reader` path, or `None`.
- * @param {string | null} [raw]
- * @returns {string | undefined}
+ * @param {string | null | undefined} raw
+ * @returns {string | null}
  */
 export function sanitizeReaderHref(raw) {
     var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.sanitizeReaderHref(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -22274,20 +22239,15 @@ export function screenCachePolicy() {
 }
 
 /**
- * [`screen_for_path::screen_for_path`]: the screen cache id for a pathname, or `undefined`.
+ * [`screen_for_path::screen_for_path`]: the screen cache id for a pathname, or `null`.
  * @param {string} pathname
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function screenForPath(pathname) {
     const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.screenForPath(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -22643,10 +22603,10 @@ export function selectionToAnchor(selection, page) {
 
 /**
  * [`semantic_scholar_target`](semantic_scholar_relay::semantic_scholar_target): the upstream
- * URL for a relay path, or `undefined` when the path is not one.
+ * URL for a relay path, or `null` when the path is not one.
  * @param {string} pathname
  * @param {string} search
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function semanticScholarTarget(pathname, search) {
     const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -22654,12 +22614,7 @@ export function semanticScholarTarget(pathname, search) {
     const ptr1 = passStringToWasm0(search, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.semanticScholarTarget(ptr0, len0, ptr1, len1);
-    let v3;
-    if (ret[0] !== 0) {
-        v3 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v3;
+    return ret;
 }
 
 /**
@@ -25074,20 +25029,15 @@ export function titleFromFileName(title) {
 }
 
 /**
- * [`title_key`](paper_title::title_key) (TS `titleKey`). `None` becomes `undefined` in JS.
- * @param {string | null} [title]
- * @returns {string | undefined}
+ * [`title_key`](paper_title::title_key) (TS `titleKey`). `None` becomes `null` in JS.
+ * @param {string | null | undefined} title
+ * @returns {string | null}
  */
 export function titleKey(title) {
     var ptr0 = isLikeNone(title) ? 0 : passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.titleKey(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -25483,19 +25433,14 @@ export function treePathPairs(nodes, entity, project_root) {
 
 /**
  * [`trimmed_or_none`]: trim a resolver path or URL, null when blank.
- * @param {string | null} [value]
- * @returns {string | undefined}
+ * @param {string | null | undefined} value
+ * @returns {string | null}
  */
 export function trimmedOrNone(value) {
     var ptr0 = isLikeNone(value) ? 0 : passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.trimmedOrNone(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**

@@ -199,11 +199,11 @@ pub fn markdown_link_js(label: js_sys::JsString, url: js_sys::JsString) -> JsRes
     Ok(markdown_link(label, url))
 }
 
-/// [`link_label`] for JS: the label, or `undefined` for an empty or multi-line selection.
-#[wasm_bindgen(js_name = linkLabel)]
-pub fn link_label_js(selected: js_sys::JsString) -> JsResult<Option<String>> {
+/// [`link_label`] for JS: the label, or `null` for an empty or multi-line selection.
+#[wasm_bindgen(js_name = linkLabel, unchecked_return_type = "string | null")]
+pub fn link_label_js(selected: js_sys::JsString) -> JsResult<JsValue> {
     let selected = &crate::guarded_text(&selected)?;
-    Ok(link_label(selected))
+    Ok(link_label(selected).map_or(JsValue::NULL, JsValue::from))
 }
 
 #[cfg(test)]
