@@ -53,7 +53,6 @@ export {
   cachePathSegments,
   checkInkChunkBody,
   citationAlertMessage,
-  citationAlertTrackFromRow,
   claudeCodeCommands,
   clipSegmentToArea,
   clusterMarks,

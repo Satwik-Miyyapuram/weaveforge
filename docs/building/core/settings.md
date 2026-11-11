@@ -32,6 +32,9 @@ TypeScript wrappers in `packages/wf-wasm/src` import the raw names from
 - Integration credentials: `getUserIntegrationField`, `isUserIntegrationConnected`,
   `integrationsBagFromLegacy`.
 
+The `user_settings` row queries run in Rust (`repos/user_settings.rs`, see
+[data-access](data-access.md)).
+
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
 `readyCore()` throws until `loadCore()` has resolved, so call it only after
