@@ -84,13 +84,17 @@ pub fn extract_venue(after_title: &str) -> Option<String> {
 /// # Errors
 ///
 /// Returns an error when `lines` is empty or does not deserialize as text lines, or the result fails to convert.
-#[wasm_bindgen(js_name = parseBibliographyEntry)]
+#[wasm_bindgen(
+    js_name = parseBibliographyEntry,
+    unchecked_return_type = "B.AnalysisParsedReference"
+)]
 pub fn parse_bibliography_entry(
-    lines: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
     index: f64,
-    with_offsets: bool,
+    with_offsets: Option<bool>,
 ) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
+    let with_offsets = with_offsets.unwrap_or(true);
     match bibliography::parse_bibliography_entry(&lines, index, with_offsets) {
         Some(entry) => to_js(&entry),
         None => Err(serde_wasm_bindgen::Error::new(
@@ -104,8 +108,17 @@ pub fn parse_bibliography_entry(
 /// # Errors
 ///
 /// Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
-#[wasm_bindgen(js_name = parseBibliography)]
-pub fn parse_bibliography(lines: JsValue, with_offsets: bool) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = parseBibliography,
+    unchecked_return_type = "B.AnalysisParsedReference[]"
+)]
+pub fn parse_bibliography(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisTextLine[]")] lines: JsValue,
+    with_offsets: Option<bool>,
+) -> JsResult<JsValue> {
     let lines: Vec<AnalysisTextLine> = serde_wasm_bindgen::from_value(lines)?;
-    to_js(&bibliography::parse_bibliography(&lines, with_offsets))
+    to_js(&bibliography::parse_bibliography(
+        &lines,
+        with_offsets.unwrap_or(true),
+    ))
 }

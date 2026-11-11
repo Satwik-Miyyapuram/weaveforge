@@ -16,21 +16,17 @@ import type {
 } from "./bindings.js";
 
 export {
+  findCitationCandidates,
   inReferenceList,
   matchAuthorYearText,
 } from "../pkg/wf_wasm.js";
-
-/** Numeric and author-year citation candidates in the page items, sorted by start. */
-export function findCitationCandidates(items: readonly AnalysisPdfItem[]): CitationCandidate[] {
-  return rawFindCitationCandidates(items) as CitationCandidate[];
-}
 
 /** Citation mentions on one page that name bibliography entries, sorted by start. */
 export function findPatternCitationMentions(
   page: { number: number; text: string; items: readonly AnalysisPdfItem[] },
   refs: readonly AnalysisParsedReference[],
   excluded: readonly AnalysisPageTextRange[] = [],
-  candidates: readonly CitationCandidate[] = findCitationCandidates(page.items),
+  candidates: readonly CitationCandidate[] = rawFindCitationCandidates(page.items),
 ): AnalysisCitationMention[] {
   return rawFindPatternCitationMentions(page, refs, excluded, candidates) as AnalysisCitationMention[];
 }

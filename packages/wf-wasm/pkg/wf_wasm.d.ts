@@ -1025,7 +1025,7 @@ export function cappedEngineConfidence(conf: number): number;
  *
  * Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
-export function cardSnippet(body: string, max: number): string;
+export function cardSnippet(body: string, max?: number | null): string;
 
 /**
  * [`wf_core::sync::change_origin::changed_side`] for JS, as a `ChangeSide` string.
@@ -1529,7 +1529,7 @@ export function commitUrl(repo_url?: string | null, sha?: string | null): string
  *
  * Fails if `ids` or `edges` has the wrong shape.
  */
-export function communities(ids: any, edges: any): any;
+export function communities(ids: readonly string[], edges: readonly (readonly [string, string])[]): [string, number][];
 
 /**
  * [`compact_ink_path`]; `options` is `{ tolerance?, maxPoints?, decimals? }` or absent.
@@ -1553,7 +1553,7 @@ export function composeSpacingAccents(text: string): string;
  *
  * Fails if `page` or `container` is not an object with `width` and `height`.
  */
-export function computeFitPageScale(page: any, container: any, rotation: number, gutter_px: number): number;
+export function computeFitPageScale(page: B.ReaderPageSize, container: B.ReaderContainerSize, rotation?: number | null, gutter_px?: number | null): number;
 
 /**
  * [`compute_fit_width_scale`] (TS `computeFitWidthScale`).
@@ -1562,7 +1562,7 @@ export function computeFitPageScale(page: any, container: any, rotation: number,
  *
  * Fails if `page` or `container` is not an object with `width` and `height`.
  */
-export function computeFitWidthScale(page: any, container: any, rotation: number, gutter_px: number): number;
+export function computeFitWidthScale(page: B.ReaderPageSize, container: B.ReaderContainerSize, rotation?: number | null, gutter_px?: number | null): number;
 
 /**
  * [`compute_rollup_for_papers`] (TS `computeRollupsForPapers`). One call fills a rollup column
@@ -2212,7 +2212,7 @@ export function defaultSourceNoteTemplate(): string;
  *
  * Fails if `degree` is not an array of `[id, number]` pairs.
  */
-export function degreeColours(degree: any): any;
+export function degreeColours(degree: readonly (readonly [string, number])[]): [string, string][];
 
 /**
  * [`deleted_local_base`] for JS (TS `deletedLocalBase`). Empty when there are no ops.
@@ -2638,7 +2638,7 @@ export function emptyIntegration(provider: B.SyncProvider): B.EmptyIntegration;
  *
  * Never fails in practice; returns the serializer's result type.
  */
-export function emptyLayout(pane_id: string): any;
+export function emptyLayout(pane_id?: string | null): B.PaneLayout;
 
 /**
  * [`empty_page_history`] as `{ undo: [], redo: [] }`.
@@ -3059,7 +3059,7 @@ export function findAnnotationBacklinks(input: any): any;
  *
  * Fails if `items` is not an array of text items.
  */
-export function findCitationCandidates(items: any): any;
+export function findCitationCandidates(items: readonly B.AnalysisPdfItem[]): B.CitationCandidate[];
 
 /**
  * [`find_document_matches`] as an array of `{ pageIndex, start, end }`; `pages` is `{ pageIndex, text }[]`.
@@ -3198,7 +3198,7 @@ export function fitsInkNoteBudget(sizes: readonly number[]): boolean;
  *
  * Fails if `entity` is not a known entity type.
  */
-export function flatPath(entity: any, id: string, title: string, project_root: string): string;
+export function flatPath(entity: string, id: string, title: string, project_root?: string | null): string;
 
 /**
  * [`flatten`] over `docs`: the project's text files as paths, in walk order.
@@ -3214,7 +3214,7 @@ export function flattenOverleafFiles(root_folder: unknown): B.LiveDocEntry[];
  * [`flatten_paper_rows`]: the listed papers that exist, each with its index in `known_ids` and
  * its stored and rollup values, in list order.
  */
-export function flattenPaperRows(known_ids: any, paper_ids: any, values: any, defs: any): any;
+export function flattenPaperRows(known_ids: readonly string[], paper_ids: readonly string[], values: readonly B.RollupValue[], defs: readonly B.ExtractionFieldDef[]): { paperIndex: number; values: B.ExtractionValues["values"] }[];
 
 /**
  * [`flatten_tree`](tree::flatten_tree).
@@ -4394,7 +4394,7 @@ export function inkVelocityFactor(velocity: number, full_taper?: number | null):
  *
  * Fails if `sources` is not an array of string arrays.
  */
-export function inkVocabularyHints(sources: any, limit?: number | null): any;
+export function inkVocabularyHints(sources: readonly (readonly string[])[], limit?: number | null): string[];
 
 /**
  * [`ink_vocabulary_words`](wf_core::ink::decode::ink_vocabulary_words), sorted
@@ -5483,7 +5483,7 @@ export function logEyebrow(entry_dates: readonly string[], today: string): strin
 /**
  * [`log_path`](folder_layout::log_path).
  */
-export function logPath(id: string, entry_date: string, project_root: string): string;
+export function logPath(id: string, entry_date: string, project_root?: string | null): string;
 
 /**
  * [`looks_like_image_url`](wf_core::net::image_url::looks_like_image_url): the URL's own
@@ -6251,9 +6251,9 @@ export function nextManifest(previous: string[], written: string[], removed: str
 export function nextMatchIndex(current: number, total: number, direction: number): number;
 
 /**
- * [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90 in the TS wrapper.
+ * [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90.
  */
-export function nextRotation(current: number, delta: number): number;
+export function nextRotation(current: number, delta?: number | null): 0 | 90 | 180 | 270;
 
 /**
  * [`next_shortcuts_open`](shortcuts::next_shortcuts_open): whether the sheet is open after a request.
@@ -6277,7 +6277,7 @@ export function nibWidth(base: number, pressure?: number | null, velocity?: numb
  *
  * Fails only if the result cannot be serialised.
  */
-export function nodeSize(base_r: number, zoom: number, bounded: boolean): any;
+export function nodeSize(base_r: number, zoom: number, bounded?: boolean | null): B.NodeSize;
 
 /**
  * [`normalise_page_rotation`] (TS `normalisePageRotation`): 0, 90, 180 or 270.
@@ -6886,7 +6886,7 @@ export function paperHtmlCsp(): string;
 /**
  * [`paper_html_path`](folder_layout::paper_html_path).
  */
-export function paperHtmlPath(paper_id: string, project_root: string): string;
+export function paperHtmlPath(paper_id: string, project_root?: string | null): string;
 
 /**
  * [`paper_image_thumbnail_path`](paper_image::paper_image_thumbnail_path) (TS `paperImageThumbnailPath`).
@@ -6896,7 +6896,7 @@ export function paperImageThumbnailPath(path: string): string;
 /**
  * [`paper_pdf_path`](folder_layout::paper_pdf_path).
  */
-export function paperPdfPath(paper_id: string, project_root: string): string;
+export function paperPdfPath(paper_id: string, project_root?: string | null): string;
 
 /**
  * [`paper_relation_from_row`](paper_relation::paper_relation_from_row): the domain relation
@@ -6992,7 +6992,7 @@ export function parseBibEntries(files: any): any;
  *
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
  */
-export function parseBibliography(lines: any, with_offsets: boolean): any;
+export function parseBibliography(lines: readonly B.AnalysisTextLine[], with_offsets?: boolean | null): B.AnalysisParsedReference[];
 
 /**
  * [`parseBibliographyEntry`](bibliography::parse_bibliography_entry): fields of one entry.
@@ -7001,7 +7001,7 @@ export function parseBibliography(lines: any, with_offsets: boolean): any;
  *
  * Returns an error when `lines` is empty or does not deserialize as text lines, or the result fails to convert.
  */
-export function parseBibliographyEntry(lines: any, index: number, with_offsets: boolean): any;
+export function parseBibliographyEntry(lines: readonly B.AnalysisTextLine[], index: number, with_offsets?: boolean | null): B.AnalysisParsedReference;
 
 /**
  * [`wf_core::papers::open_access::parse_biorxiv`]: a bioRxiv or medRxiv answer as candidates.
@@ -7465,7 +7465,7 @@ export function peersFromUsers(users: readonly (readonly [number, unknown])[], s
 /**
  * [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
  */
-export function pendingFieldFills(proposals: any, field_id?: string | null): any;
+export function pendingFieldFills(proposals: readonly B.ExtractionProposal[], field_id?: string | null): B.ExtractionPendingFill[];
 
 /**
  * [`pending_key`](extraction_keys::pending_key): the `paper::field` lookup key for one cell.
@@ -8797,7 +8797,7 @@ export function resolveRelatedPaperUrl(url?: string | null, doi?: string | null,
  *
  * Fails if `experiments` is not a list of experiment objects.
  */
-export function resolveResultsTables(body: string, experiments: readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[], format: string): string;
+export function resolveResultsTables(body: string, experiments: readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[], format: "latex" | "markdown"): string;
 
 /**
  * [`resolve_supervisor_id`](member::resolve_supervisor_id).
@@ -10974,7 +10974,7 @@ export function writeScope(resource_type: string): any;
  *
  * Fails if `years` is not an array of `[id, number]` pairs.
  */
-export function yearColours(years: any): any;
+export function yearColours(years: readonly (readonly [string, number])[]): [string, string][];
 
 /**
  * [`YEAR_SPACING`](timeline::YEAR_SPACING): canvas units between one publication year and the next.
@@ -10987,14 +10987,14 @@ export function yearSpacing(): number;
 export function zenodoRecordId(doi: string): string | undefined;
 
 /**
- * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
+ * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25.
  */
-export function zoomIn(scale: number, step: number): number;
+export function zoomIn(scale: number, step?: number | null): number;
 
 /**
- * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25 in the TS wrapper.
+ * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25.
  */
-export function zoomOut(scale: number, step: number): number;
+export function zoomOut(scale: number, step?: number | null): number;
 
 /**
  * [`annotation_from_item`] (TS `zoteroAnnotationFromItem`).
@@ -11315,8 +11315,8 @@ export interface InitOutput {
     readonly compactInkPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly compactSkipReason: (a: number, b: number, c: number) => [number, number];
     readonly composeSpacingAccents: (a: number, b: number) => [number, number];
-    readonly computeFitPageScale: (a: any, b: any, c: number, d: number) => [number, number, number];
-    readonly computeFitWidthScale: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly computeFitPageScale: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
+    readonly computeFitWidthScale: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly computeRollupsForPapers: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly conceptKey: (a: number, b: number) => [number, number];
     readonly conflictRoute: (a: any) => [number, number, number];
@@ -11952,7 +11952,7 @@ export interface InitOutput {
     readonly nextCitationPageOffset: (a: number, b: any, c: number) => [number, number, number];
     readonly nextManifest: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly nextMatchIndex: (a: number, b: number, c: number) => number;
-    readonly nextRotation: (a: number, b: number) => number;
+    readonly nextRotation: (a: number, b: number, c: number) => number;
     readonly nextShortcutsOpen: (a: number, b: number, c: number) => number;
     readonly nextSortOrder: (a: any) => [number, number, number];
     readonly nibWidth: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
@@ -12591,8 +12591,8 @@ export interface InitOutput {
     readonly yearColours: (a: any) => [number, number, number];
     readonly yearSpacing: () => number;
     readonly zenodoRecordId: (a: number, b: number) => [number, number];
-    readonly zoomIn: (a: number, b: number) => number;
-    readonly zoomOut: (a: number, b: number) => number;
+    readonly zoomIn: (a: number, b: number, c: number) => number;
+    readonly zoomOut: (a: number, b: number, c: number) => number;
     readonly zoteroAnnotationFromItem: (a: any) => [number, number, number];
     readonly zoteroArxivId: (a: any) => [number, number, number];
     readonly zoteroContentKeys: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];

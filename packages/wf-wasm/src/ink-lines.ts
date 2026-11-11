@@ -10,7 +10,6 @@ import {
   isUnsureConfidence as rawIsUnsureConfidence,
   mapInkConfidence as rawMapInkConfidence,
   inkPageConfidence as rawInkPageConfidence,
-  inkVocabularyHints as rawInkVocabularyHints,
   decodeInkWords as rawDecodeInkWords,
   bandsCoincide as rawBandsCoincide,
   inkPageSummary as rawInkPageSummary,
@@ -23,6 +22,7 @@ import type {
 export {
   cappedEngineConfidence,
   inkUnsureConfidence,
+  inkVocabularyHints,
 } from "../pkg/wf_wasm.js";
 
 /**
@@ -129,11 +129,6 @@ export function mapInkConfidence(raw: number, scale = 1): number {
 /** A page's mean line confidence, corrected lines counting as 1 (Rust `ink_page_confidence`). */
 export function inkPageConfidence(lines: readonly { conf: number }[]): number {
   return rawInkPageConfidence(Float64Array.from(lines, (line) => line.conf));
-}
-
-/** Trimmed, case-insensitively unique hint words, at most `limit` (Rust `ink_vocabulary_hints`). */
-export function inkVocabularyHints(sources: readonly (readonly string[])[], limit = 500): string[] {
-  return rawInkVocabularyHints(sources, limit) as string[];
 }
 
 /**

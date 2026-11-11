@@ -23,11 +23,19 @@ pub struct ReaderAnnotation {
     /// Annotation id.
     pub id: String,
     /// `local` for a mark made in this app, otherwise where it came from.
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::reader::zotero_sync::ZoteroAnnotationOrigin)
+    )]
     pub origin: String,
     /// The Zotero item key, when the mark has been synced to Zotero.
     pub zotero_key: Option<String>,
     /// Annotation kind: `highlight`, `underline`, `note`, `ink`, `image` or `text`.
     #[serde(rename = "type")]
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::reader::zotero_sync::ZoteroAnnotationType)
+    )]
     pub kind: String,
     /// Mark colour, as a CSS colour string.
     pub color: String,

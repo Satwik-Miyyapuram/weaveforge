@@ -20,12 +20,15 @@ fn parse<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
 
 /// [`flatten_paper_rows`]: the listed papers that exist, each with its index in `known_ids` and
 /// its stored and rollup values, in list order.
-#[wasm_bindgen(js_name = flattenPaperRows)]
+#[wasm_bindgen(
+    js_name = flattenPaperRows,
+    unchecked_return_type = "{ paperIndex: number; values: B.ExtractionValues[\"values\"] }[]"
+)]
 pub fn flatten_paper_rows_js(
-    known_ids: JsValue,
-    paper_ids: JsValue,
-    values: JsValue,
-    defs: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] known_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paper_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.RollupValue[]")] values: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionFieldDef[]")] defs: JsValue,
 ) -> Result<JsValue, JsError> {
     let known_ids: Vec<String> = parse(known_ids)?;
     let paper_ids: Vec<String> = parse(paper_ids)?;
@@ -84,13 +87,16 @@ pub fn build_propose_fill_prompt_js(
 }
 
 /// [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
-#[wasm_bindgen(js_name = pendingFieldFills)]
+#[wasm_bindgen(
+    js_name = pendingFieldFills,
+    unchecked_return_type = "B.ExtractionPendingFill[]"
+)]
 #[allow(
     clippy::needless_pass_by_value,
     reason = "wasm-bindgen takes an optional string by value from JS"
 )]
 pub fn pending_field_fills_js(
-    proposals: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionProposal[]")] proposals: JsValue,
     field_id: Option<String>,
 ) -> Result<JsValue, JsError> {
     let proposals: Vec<ExtractionProposal> = parse(proposals)?;

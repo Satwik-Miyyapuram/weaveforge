@@ -28,31 +28,36 @@ pub fn parse_kind_suffix_js(path: &str) -> JsResult<JsValue> {
 /// Fails if `entity` is not a known entity type.
 #[wasm_bindgen(js_name = flatPath)]
 pub fn flat_path_js(
-    entity: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "string")] entity: JsValue,
     id: &str,
     title: &str,
-    project_root: &str,
+    project_root: Option<String>,
 ) -> JsResult<String> {
     let entity: WorkspaceEntityType = serde_wasm_bindgen::from_value(entity)?;
-    Ok(folder_layout::flat_path(entity, id, title, project_root))
+    Ok(folder_layout::flat_path(
+        entity,
+        id,
+        title,
+        project_root.as_deref().unwrap_or(""),
+    ))
 }
 
 /// [`log_path`](folder_layout::log_path).
 #[wasm_bindgen(js_name = logPath)]
-pub fn log_path_js(id: &str, entry_date: &str, project_root: &str) -> String {
-    folder_layout::log_path(id, entry_date, project_root)
+pub fn log_path_js(id: &str, entry_date: &str, project_root: Option<String>) -> String {
+    folder_layout::log_path(id, entry_date, project_root.as_deref().unwrap_or(""))
 }
 
 /// [`paper_pdf_path`](folder_layout::paper_pdf_path).
 #[wasm_bindgen(js_name = paperPdfPath)]
-pub fn paper_pdf_path_js(paper_id: &str, project_root: &str) -> String {
-    folder_layout::paper_pdf_path(paper_id, project_root)
+pub fn paper_pdf_path_js(paper_id: &str, project_root: Option<String>) -> String {
+    folder_layout::paper_pdf_path(paper_id, project_root.as_deref().unwrap_or(""))
 }
 
 /// [`paper_html_path`](folder_layout::paper_html_path).
 #[wasm_bindgen(js_name = paperHtmlPath)]
-pub fn paper_html_path_js(paper_id: &str, project_root: &str) -> String {
-    folder_layout::paper_html_path(paper_id, project_root)
+pub fn paper_html_path_js(paper_id: &str, project_root: Option<String>) -> String {
+    folder_layout::paper_html_path(paper_id, project_root.as_deref().unwrap_or(""))
 }
 
 /// [`asset_path`](folder_layout::asset_path). `scope` is `"notes"`, `"papers"` or `"report"`.

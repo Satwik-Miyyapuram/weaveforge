@@ -396,8 +396,11 @@ pub fn ink_page_summary_js(lines: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `sources` is not an array of string arrays.
-#[wasm_bindgen(js_name = inkVocabularyHints)]
-pub fn ink_vocabulary_hints_js(sources: JsValue, limit: Option<f64>) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = inkVocabularyHints, unchecked_return_type = "string[]")]
+pub fn ink_vocabulary_hints_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly string[])[]")] sources: JsValue,
+    limit: Option<f64>,
+) -> JsResult<JsValue> {
     let sources: Vec<Vec<String>> = serde_wasm_bindgen::from_value(sources)?;
     to_js(&ink_vocabulary_hints(
         &sources,

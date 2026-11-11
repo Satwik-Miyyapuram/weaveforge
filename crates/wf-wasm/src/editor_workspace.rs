@@ -162,9 +162,9 @@ pub fn tab_key_js(tab: JsValue) -> JsResult<String> {
 /// # Errors
 ///
 /// Never fails in practice; returns the serializer's result type.
-#[wasm_bindgen(js_name = emptyLayout)]
-pub fn empty_layout_js(pane_id: &str) -> JsResult<JsValue> {
-    to_js(&pane::empty_layout(pane_id))
+#[wasm_bindgen(js_name = emptyLayout, unchecked_return_type = "B.PaneLayout")]
+pub fn empty_layout_js(pane_id: Option<String>) -> JsResult<JsValue> {
+    to_js(&pane::empty_layout(pane_id.as_deref().unwrap_or("pane-1")))
 }
 
 /// [`layout_from_record`](layout_record::layout_from_record). A missing or

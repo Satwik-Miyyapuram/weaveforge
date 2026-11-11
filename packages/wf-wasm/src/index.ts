@@ -37,7 +37,6 @@ import init, {
   writeScope as rawWriteScope,
   lwwClearTarget as rawLwwClearTarget,
   lwwNotifyResource as rawLwwNotifyResource,
-  cardSnippet as rawCardSnippet,
   ArchiveBudget,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -434,6 +433,7 @@ export {
 
 export {
   canStoreUnchanged,
+  cardSnippet,
   countWords,
   describePull,
   describePush,
@@ -529,7 +529,3 @@ export function lwwNotifyResource(resourceType: string | null | undefined): stri
   return rawLwwNotifyResource(resourceType ?? undefined) ?? null;
 }
 
-/** Plain-text card preview of a markdown body, cut to `max` UTF-16 units (Rust `card_snippet`). */
-export function cardSnippet(body: string, max = 180): string {
-  return rawCardSnippet(body, max);
-}
