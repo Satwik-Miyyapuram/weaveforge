@@ -110,7 +110,10 @@ pub fn surname_key_js(name: &str) -> String {
 /// [`rectangles_overlap`](analysis_text::rectangles_overlap) (TS `rectanglesOverlap`).
 #[wasm_bindgen(js_name = rectanglesOverlap)]
 #[must_use]
-pub fn rectangles_overlap_js(a: &[f64], b: &[f64]) -> bool {
+pub fn rectangles_overlap_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] a: &[f64],
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] b: &[f64],
+) -> bool {
     analysis_text::rectangles_overlap(a, b)
 }
 
@@ -140,7 +143,11 @@ pub fn title_similarity_js(left: &str, right: &str) -> f64 {
 ///
 /// Fails if `hints` or `candidate` is not an object of the expected shape.
 #[wasm_bindgen(js_name = isBibliographicMatch)]
-pub fn is_bibliographic_match_js(hints: JsValue, candidate: JsValue) -> JsResult<bool> {
+pub fn is_bibliographic_match_js(
+    #[wasm_bindgen(unchecked_param_type = "{ title?: string | null; year?: number | null }")] hints: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "{ title: string; year?: number | null }")]
+    candidate: JsValue,
+) -> JsResult<bool> {
     let hints: AnalysisBibliographicHints = serde_wasm_bindgen::from_value(hints)?;
     let candidate: AnalysisBibliographicCandidate = serde_wasm_bindgen::from_value(candidate)?;
     Ok(analysis_text::is_bibliographic_match(&hints, &candidate))

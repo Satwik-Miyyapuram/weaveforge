@@ -50,20 +50,30 @@ pub fn ink_width_for_pressure_js(pressure: Option<f64>, base: Option<f64>) -> f6
 /// [`mean_pressure`]; `undefined` when no sample reports pressure.
 #[wasm_bindgen(js_name = meanPressure)]
 #[must_use]
-pub fn mean_pressure_js(samples: &[f64]) -> Option<f64> {
+pub fn mean_pressure_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] samples: &[f64],
+) -> Option<f64> {
     mean_pressure(samples)
 }
 
 /// [`should_append_ink_point`]; `minDistance` defaults to 0.75.
 #[wasm_bindgen(js_name = shouldAppendInkPoint)]
 #[must_use]
-pub fn should_append_ink_point_js(path: &[f64], x: f64, y: f64, min_distance: Option<f64>) -> bool {
+pub fn should_append_ink_point_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] path: &[f64],
+    x: f64,
+    y: f64,
+    min_distance: Option<f64>,
+) -> bool {
     should_append_ink_point(path, x, y, min_distance.unwrap_or(INK_MIN_POINT_DISTANCE))
 }
 
 /// [`simplify_path_indices`]; `tolerance` defaults to 0.35. Returns a JS array of indices.
-#[wasm_bindgen(js_name = simplifyPathIndices)]
-pub fn simplify_path_indices_js(path: &[f64], tolerance: Option<f64>) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = simplifyPathIndices, unchecked_return_type = "number[]")]
+pub fn simplify_path_indices_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] path: &[f64],
+    tolerance: Option<f64>,
+) -> JsResult<JsValue> {
     to_js(&simplify_path_indices(
         path,
         tolerance.unwrap_or(INK_SIMPLIFY_TOLERANCE),
@@ -98,7 +108,9 @@ pub fn compact_ink_path_js(path: &[f64], options: JsValue) -> JsResult<Vec<f64>>
 /// [`ink_path_json_size`].
 #[wasm_bindgen(js_name = inkPathJsonSize)]
 #[must_use]
-pub fn ink_path_json_size_js(path: &[f64]) -> usize {
+pub fn ink_path_json_size_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] path: &[f64],
+) -> usize {
     ink_path_json_size(path)
 }
 

@@ -14,8 +14,13 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails when `argv` is not an array of strings, or when the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = parseSidecarArgs)]
-pub fn parse_sidecar_args_js(argv: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(
+    js_name = parseSidecarArgs,
+    unchecked_return_type = "{ kind: \"ok\"; dataDir: string; migrations: string[]; backupsDir: string; migrateFrom: string | null; artifacts: string | null; bridge: string | null; appVersion: string | null; homeVariant: string | null; noLocalApi: boolean } | { kind: \"error\"; message: string }"
+)]
+pub fn parse_sidecar_args_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] argv: JsValue,
+) -> Result<JsValue, JsError> {
     let argv: Vec<String> =
         serde_wasm_bindgen::from_value(argv).map_err(|error| JsError::new(&error.to_string()))?;
     to_js(&parse_sidecar_args(&argv)).map_err(|error| JsError::new(&error.to_string()))

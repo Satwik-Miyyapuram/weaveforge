@@ -43,8 +43,10 @@ pub fn merge_both_changed_js(
 /// # Errors
 ///
 /// Fails when `entries` is not a list of import entries.
-#[wasm_bindgen(js_name = countActions)]
-pub fn count_actions_js(entries: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = countActions, unchecked_return_type = "B.ActionCounts")]
+pub fn count_actions_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ImportDiffEntry[]")] entries: JsValue,
+) -> JsResult<JsValue> {
     let entries: Vec<ImportDiffEntry> = serde_wasm_bindgen::from_value(entries)?;
     to_js(&folder_merge::count_actions(&entries))
 }
@@ -54,8 +56,10 @@ pub fn count_actions_js(entries: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `actions` is not a list of import actions.
-#[wasm_bindgen(js_name = countActionList)]
-pub fn count_action_list_js(actions: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = countActionList, unchecked_return_type = "B.ActionCounts")]
+pub fn count_action_list_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ImportAction[]")] actions: JsValue,
+) -> JsResult<JsValue> {
     let actions: Vec<ImportAction> = serde_wasm_bindgen::from_value(actions)?;
     to_js(&folder_merge::count_action_list(&actions))
 }
@@ -98,7 +102,11 @@ pub fn folder_title_from_path_js(path: &str) -> String {
 #[wasm_bindgen(js_name = pickProjectFolder)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.
 #[must_use]
-pub fn pick_project_folder_js(dirs: Vec<String>, exact: &str, tail: &str) -> Option<String> {
+pub fn pick_project_folder_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] dirs: Vec<String>,
+    exact: &str,
+    tail: &str,
+) -> Option<String> {
     folder_layout::pick_project_folder(&dirs, exact, tail)
 }
 

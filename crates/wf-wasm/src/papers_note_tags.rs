@@ -20,7 +20,7 @@ pub fn tag_to_hashtag_js(name: &str) -> String {
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn append_tag_hashtags_js(
     body: &str,
-    tag_names: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] tag_names: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let names: Vec<String> = serde_wasm_bindgen::from_value(tag_names)?;
     Ok(note_tags::append_tag_hashtags(body, &names))

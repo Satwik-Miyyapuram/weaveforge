@@ -21,7 +21,10 @@ pub fn remember_search_query_js(history: Vec<String>, query: String, max: u32) -
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings and vectors by value"
 )]
-pub fn forget_search_query_js(history: Vec<String>, query: String) -> Vec<String> {
+pub fn forget_search_query_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] history: Vec<String>,
+    query: String,
+) -> Vec<String> {
     search_history::forget_search_query(&history, &query)
 }
 

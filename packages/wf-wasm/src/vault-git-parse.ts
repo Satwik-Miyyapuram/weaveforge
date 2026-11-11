@@ -2,13 +2,12 @@
  * Git text output parsers (Rust `sync::vault_git_parse`), re-exported from feature-wrappers.ts.
  * Keeps running git and reading its stdout in apps/shell/sidecar/src/vault-git.ts.
  */
-import { gitPathChunks as rawGitPathChunks } from "../pkg/wf_wasm.js";
-
 export {
   gitNulList,
   gitOverwrittenFiles,
   gitParseLog,
   gitParseStatus,
+  gitPathChunks,
 } from "../pkg/wf_wasm.js";
 
 export interface ParsedGitFileStatus {
@@ -26,9 +25,4 @@ export interface ParsedGitLogCommit {
   author: string;
   /** Subject and body, rejoined with the field separator. */
   message: string;
-}
-
-/** Batches of paths, each within `maxUnits` UTF-16 units (default 8000) for one command line. */
-export function gitPathChunks(paths: readonly string[], maxUnits?: number): string[][] {
-  return rawGitPathChunks([...paths], maxUnits) as string[][];
 }

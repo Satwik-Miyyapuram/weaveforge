@@ -4,13 +4,9 @@
  * Rust export; flat point arrays cross as `Float64Array`s and come back as `number[]`.
  */
 import {
-  meanPressure as rawMeanPressure,
-  shouldAppendInkPoint as rawShouldAppendInkPoint,
-  simplifyPathIndices as rawSimplifyPathIndices,
   simplifyInkPath as rawSimplifyInkPath,
   quantizeInkPath as rawQuantizeInkPath,
   compactInkPath as rawCompactInkPath,
-  inkPathJsonSize as rawInkPathJsonSize,
   canJoinInkGroup as rawCanJoinInkGroup,
   inkPathsHitTest as rawInkPathsHitTest,
   translateInkPaths as rawTranslateInkPaths,
@@ -20,26 +16,13 @@ import {
 export {
   clampInkWidth,
   inkNoteWidthToPdfPoints,
+  inkPathJsonSize,
   inkWidthForPressure,
   isHighlighterInk,
+  meanPressure,
+  shouldAppendInkPoint,
+  simplifyPathIndices,
 } from "../pkg/wf_wasm.js";
-
-export function meanPressure(samples: readonly number[]): number | undefined {
-  return rawMeanPressure(Float64Array.from(samples));
-}
-
-export function shouldAppendInkPoint(
-  path: readonly number[],
-  x: number,
-  y: number,
-  minDistance?: number,
-): boolean {
-  return rawShouldAppendInkPoint(Float64Array.from(path), x, y, minDistance);
-}
-
-export function simplifyPathIndices(path: readonly number[], tolerance?: number): number[] {
-  return rawSimplifyPathIndices(Float64Array.from(path), tolerance);
-}
 
 export function simplifyInkPath(path: readonly number[], tolerance?: number): number[] {
   return Array.from(rawSimplifyInkPath(Float64Array.from(path), tolerance));
@@ -54,10 +37,6 @@ export function compactInkPath(
   options?: { tolerance?: number; maxPoints?: number; decimals?: number },
 ): number[] {
   return Array.from(rawCompactInkPath(Float64Array.from(path), options));
-}
-
-export function inkPathJsonSize(path: readonly number[]): number {
-  return rawInkPathJsonSize(Float64Array.from(path));
 }
 
 export function canJoinInkGroup(

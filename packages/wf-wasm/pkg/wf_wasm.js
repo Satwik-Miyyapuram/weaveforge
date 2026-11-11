@@ -1291,7 +1291,7 @@ export function appendPaperNote(existing, addition) {
  *
  * Fails if `tag_names` is not an array of strings.
  * @param {string} body
- * @param {any} tag_names
+ * @param {readonly string[]} tag_names
  * @returns {string}
  */
 export function appendTagHashtags(body, tag_names) {
@@ -1821,8 +1821,8 @@ export function bibImportMessage(added, skipped, problems) {
  * # Errors
  *
  * Fails if `entry` cannot be read as a planned `.bib` entry.
- * @param {any} entry
- * @returns {any}
+ * @param {B.BibImportPaper} entry
+ * @returns {{ title: string; authors: string[]; year?: number; venue?: string; doi?: string; arxivId?: string; url?: string; abstract?: string; bibtex: string; metadata: { citeKey: string } }}
  */
 export function bibPaperInput(entry) {
     const ret = wasm.bibPaperInput(entry);
@@ -1903,7 +1903,7 @@ export function blobStorageBuckets() {
  * # Errors
  *
  * Fails if `pages` is not an array of arrays of text items.
- * @param {any} pages
+ * @param {readonly (readonly B.OutlineTextItem[])[]} pages
  * @returns {number}
  */
 export function bodyFontSize(pages) {
@@ -2604,8 +2604,8 @@ export function checkBibliography(input) {
  * # Errors
  *
  * Fails only if the result cannot be converted to a JS value.
- * @param {any} raw
- * @returns {any}
+ * @param {unknown} raw
+ * @returns {{ ok: true; url: string } | { ok: false; reason: string }}
  */
 export function checkGitRemoteUrl(raw) {
     const ret = wasm.checkGitRemoteUrl(raw);
@@ -3047,7 +3047,7 @@ export function clampInkNoteWidth(width, fallback) {
  * Fails only if the value cannot be converted to a JS value.
  * @param {number} width
  * @param {number} height
- * @returns {any}
+ * @returns {{ width: number; height: number }}
  */
 export function clampInkPageSize(width, height) {
     const ret = wasm.clampInkPageSize(width, height);
@@ -3877,7 +3877,7 @@ export function containerResize(last, next) {
 /**
  * [`context_nonce_from`](ai_tool_name::context_nonce_from): the caller passes the
  * `Math.random()` values.
- * @param {Float64Array} randoms
+ * @param {readonly number[]} randoms
  * @returns {string}
  */
 export function contextNonceFrom(randoms) {
@@ -3928,8 +3928,8 @@ export function coreInfo() {
  * # Errors
  *
  * Fails when `actions` is not a list of import actions.
- * @param {any} actions
- * @returns {any}
+ * @param {readonly B.ImportAction[]} actions
+ * @returns {B.ActionCounts}
  */
 export function countActionList(actions) {
     const ret = wasm.countActionList(actions);
@@ -3945,8 +3945,8 @@ export function countActionList(actions) {
  * # Errors
  *
  * Fails when `entries` is not a list of import entries.
- * @param {any} entries
- * @returns {any}
+ * @param {readonly B.ImportDiffEntry[]} entries
+ * @returns {B.ActionCounts}
  */
 export function countActions(entries) {
     const ret = wasm.countActions(entries);
@@ -5094,8 +5094,8 @@ export function deepestFirstListIds(list_id, lists) {
  * # Errors
  *
  * Fails if the argument is not an array of strings, or the result cannot be serialised.
- * @param {any} roots
- * @returns {any}
+ * @param {readonly string[]} roots
+ * @returns {readonly string[]}
  */
 export function defaultExpanded(roots) {
     const ret = wasm.defaultExpanded(roots);
@@ -6190,7 +6190,7 @@ export function embedTitles(body) {
 /**
  * [`embeddable_text`](semantic_fingerprint::embeddable_text): the text a document is embedded from.
  * @param {string} title
- * @param {string[]} aliases
+ * @param {readonly string[]} aliases
  * @param {string} body
  * @returns {string}
  */
@@ -7435,9 +7435,9 @@ export function findCitationCandidates(items) {
  * # Errors
  *
  * Fails if `pages` is not an array of `{ pageIndex, text }` objects.
- * @param {any} pages
+ * @param {readonly { pageIndex: number; text: string }[]} pages
  * @param {string} query
- * @returns {any}
+ * @returns {{ pageIndex: number; start: number; end: number }[]}
  */
 export function findDocumentMatches(pages, query) {
     const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -7633,7 +7633,7 @@ export function findRelated(graph, seed, limit, options, rng, lexical, tagged) {
 /**
  * [`find_title_match`](link_resolve::find_title_match). Returns the index of the match, or
  * `undefined` in JS when none matches.
- * @param {string[]} existing_titles
+ * @param {readonly string[]} existing_titles
  * @param {string} title
  * @returns {number | undefined}
  */
@@ -7648,8 +7648,8 @@ export function findTitleMatch(existing_titles, title) {
 
 /**
  * [`find_wiki_root`]: the note titled `Wiki`, or nothing.
- * @param {any} pages
- * @returns {any}
+ * @param {readonly B.WikiNote[]} pages
+ * @returns {B.WikiNote | null}
  */
 export function findWikiRoot(pages) {
     const ret = wasm.findWikiRoot(pages);
@@ -7703,7 +7703,7 @@ export function fitScale(container_width, page_width) {
 
 /**
  * [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
- * @param {Float64Array} sizes
+ * @param {readonly number[]} sizes
  * @returns {boolean}
  */
 export function fitsInkNoteBudget(sizes) {
@@ -7911,7 +7911,7 @@ export function folderKey(relative_path) {
 /**
  * [`folder_keys`](folder_layout::folder_keys) (TS `folderKeys`): every folder the picked files
  * lead to, shallowest first.
- * @param {string[]} relative_paths
+ * @param {readonly string[]} relative_paths
  * @returns {string[]}
  */
 export function folderKeys(relative_paths) {
@@ -7962,7 +7962,7 @@ export function fontSizeOf(item) {
 
 /**
  * [`forget_search_query`](search_history::forget_search_query).
- * @param {string[]} history
+ * @param {readonly string[]} history
  * @param {string} query
  * @returns {string[]}
  */
@@ -8658,9 +8658,9 @@ export function gitParseStatus(stdout) {
  * # Errors
  *
  * Fails when `paths` is not an array of strings, or when the result cannot be converted to a JS value.
- * @param {any} paths
+ * @param {readonly string[]} paths
  * @param {number | null} [max_units]
- * @returns {any}
+ * @returns {string[][]}
  */
 export function gitPathChunks(paths, max_units) {
     const ret = wasm.gitPathChunks(paths, isLikeNone(max_units) ? Number.MAX_SAFE_INTEGER : (max_units) >>> 0);
@@ -9841,7 +9841,7 @@ export function initialReaderViewport(page) {
 /**
  * [`ink_attachment_index`](ink_page::ink_attachment_index): the attachment index of `path`, or `0`.
  * @param {string} body
- * @param {string | null} [path]
+ * @param {string | null | undefined} path
  * @returns {number}
  */
 export function inkAttachmentIndex(body, path) {
@@ -10137,7 +10137,7 @@ export function inkEngineRank(id) {
  * # Errors
  *
  * Fails if `values` is not an array of strings.
- * @param {any} values
+ * @param {readonly string[]} values
  * @param {string} value
  * @returns {number}
  */
@@ -10310,7 +10310,7 @@ export function inkNoteWidthToPdfPoints(tenths) {
  *
  * Fails only if the value cannot be converted to a JS value.
  * @param {string} text
- * @returns {any}
+ * @returns {string | null}
  */
 export function inkPageBackground(text) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -10471,7 +10471,7 @@ export function inkPageSvg(page, options) {
 
 /**
  * [`ink_path_json_size`].
- * @param {Float64Array} path
+ * @param {readonly number[]} path
  * @returns {number}
  */
 export function inkPathJsonSize(path) {
@@ -11049,8 +11049,8 @@ export function isBibFile(name) {
  * # Errors
  *
  * Fails if `hints` or `candidate` is not an object of the expected shape.
- * @param {any} hints
- * @param {any} candidate
+ * @param {{ title?: string | null; year?: number | null }} hints
+ * @param {{ title: string; year?: number | null }} candidate
  * @returns {boolean}
  */
 export function isBibliographicMatch(hints, candidate) {
@@ -11063,7 +11063,7 @@ export function isBibliographicMatch(hints, candidate) {
 
 /**
  * [`is_blanket_share`](sharing::is_blanket_share); `null` or `undefined` means every resource.
- * @param {string | null} [resource_id]
+ * @param {string | null | undefined} resource_id
  * @returns {boolean}
  */
 export function isBlanketShare(resource_id) {
@@ -11338,7 +11338,7 @@ export function isHydratedPage(body, body_preview) {
 
 /**
  * [`is_inherited_link_code`]: whether a database error code means only the inherited link failed.
- * @param {string | null} [code]
+ * @param {string | null | undefined} code
  * @returns {boolean}
  */
 export function isInheritedLinkCode(code) {
@@ -11860,7 +11860,7 @@ export function isRecentTarget(value) {
 
 /**
  * [`is_rotated_text`](analysis_outline::is_rotated_text) (TS `isRotatedText`).
- * @param {Float64Array} transform
+ * @param {readonly number[]} transform
  * @returns {boolean}
  */
 export function isRotatedText(transform) {
@@ -12203,9 +12203,9 @@ export function isoDayFromParts(year, month, day) {
 /**
  * [`item_ids_for_papers`]: the item id of each paper in order, or the message that refuses it.
  * @param {string} list_id
- * @param {any} items
- * @param {string[]} paper_ids
- * @returns {any}
+ * @param {readonly B.ReadingListItem[]} items
+ * @param {readonly string[]} paper_ids
+ * @returns {B.ItemIdsPlan}
  */
 export function itemIdsForPapers(list_id, items, paper_ids) {
     const ptr0 = passStringToWasm0(list_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -12272,7 +12272,7 @@ export function joinBibtex(entries) {
  * # Errors
  *
  * Fails if `pages` is not an array of strings.
- * @param {any} pages
+ * @param {readonly string[]} pages
  * @returns {string}
  */
 export function joinInkTextLayer(pages) {
@@ -12348,25 +12348,20 @@ export function jsonEditSince(base, path, text) {
 }
 
 /**
- * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
+ * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `null` for none.
  *
  * # Errors
  *
  * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} path
- * @returns {string | undefined}
+ * @returns {B.WorkspaceJsonKind | null}
  */
 export function jsonKindOfPath(path) {
     const ret = wasm.jsonKindOfPath(path);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -12988,7 +12983,7 @@ export function linkNodeId(source) {
 /**
  * [`link_targets_error`](link_resolve::link_targets_error). Returns the message, or `undefined`
  * when no target failed.
- * @param {string[]} failed
+ * @param {readonly string[]} failed
  * @returns {string | undefined}
  */
 export function linkTargetsError(failed) {
@@ -13968,7 +13963,7 @@ export function mcpServersJson(launch) {
 
 /**
  * [`mean_pressure`]; `undefined` when no sample reports pressure.
- * @param {Float64Array} samples
+ * @param {readonly number[]} samples
  * @returns {number | undefined}
  */
 export function meanPressure(samples) {
@@ -14586,9 +14581,9 @@ export function minPaperTextChars() {
  *
  * Fails if `cfg` is not an object of optional strings, `required` is not an array of
  * known field names, or the result cannot be converted to JS.
- * @param {any} cfg
- * @param {any} required
- * @returns {any}
+ * @param {B.BackendConfigFields} cfg
+ * @param {readonly B.BackendConfigField[]} required
+ * @returns {string | null}
  */
 export function missingConfigMessage(cfg, required) {
     const ret = wasm.missingConfigMessage(cfg, required);
@@ -14642,8 +14637,8 @@ export function missingIds(chunk, held, tombstoned) {
 
 /**
  * [`missing_page_plans`]: one placeholder plan per distinct, non-blank dead-link target.
- * @param {any} targets
- * @returns {any}
+ * @param {readonly string[]} targets
+ * @returns {B.WikiPagePlanRecord[]}
  */
 export function missingPagePlans(targets) {
     const ret = wasm.missingPagePlans(targets);
@@ -14678,12 +14673,12 @@ export function missingR2ConfigMessage(fields) {
  * # Errors
  *
  * Fails if `batch` is not a list of documents.
- * @param {any} batch
- * @param {string[]} existing
+ * @param {readonly B.ModelDocument[]} batch
+ * @param {readonly string[]} existing
  * @param {string | null | undefined} model
  * @param {number} max_chars
  * @param {string} nonce
- * @returns {any}
+ * @returns {B.ModelRequest}
  */
 export function modelBuildBatchRequest(batch, existing, model, max_chars, nonce) {
     const ptr0 = passArrayJsValueToWasm0(existing, wasm.__wbindgen_malloc);
@@ -14751,10 +14746,10 @@ export function modelExtractionLimits() {
  * # Errors
  *
  * Fails if `results` is not a list of extraction results.
- * @param {any} results
- * @param {string[]} existing
- * @param {number | null} [max_concepts]
- * @returns {any}
+ * @param {readonly B.ExtractionResult[]} results
+ * @param {readonly string[]} existing
+ * @param {number | null | undefined} max_concepts
+ * @returns {B.ExtractionResult}
  */
 export function modelFinalizeExtraction(results, existing, max_concepts) {
     const ptr0 = passArrayJsValueToWasm0(existing, wasm.__wbindgen_malloc);
@@ -14836,11 +14831,11 @@ export function moveTab(layout, from_pane_id, from_index, to_pane_id, to_index) 
 }
 
 /**
- * [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `undefined` at either end.
- * @param {any} ids
+ * [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `null` at either end.
+ * @param {readonly string[]} ids
  * @param {string} id
  * @param {number} step
- * @returns {any}
+ * @returns {string[] | null}
  */
 export function movedIds(ids, id, step) {
     const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -16091,8 +16086,8 @@ export function originalRange(view, start, end) {
  * # Errors
  *
  * Fails if `allPages` is not an array of arrays of text items.
- * @param {any} all_pages
- * @returns {any}
+ * @param {readonly (readonly B.OutlineTextItem[])[]} all_pages
+ * @returns {B.OutlineReaderItem[]}
  */
 export function outlineFromText(all_pages) {
     const ret = wasm.outlineFromText(all_pages);
@@ -16198,8 +16193,8 @@ export function outlineProgress(roots) {
  * # Errors
  *
  * Fails if `pages` is not an array of arrays of text items.
- * @param {any} pages
- * @returns {any}
+ * @param {readonly (readonly B.OutlineTextItem[])[]} pages
+ * @returns {B.OutlineTextItem[]}
  */
 export function outlineTextLines(pages) {
     const ret = wasm.outlineTextLines(pages);
@@ -17296,8 +17291,8 @@ export function parseInkChunkPath(path) {
  * not a known kind.
  * @param {string} path
  * @param {string} content
- * @param {any} kind
- * @returns {any}
+ * @param {B.WorkspaceJsonKind} kind
+ * @returns {B.ParsedJsonData | null}
  */
 export function parseJsonData(path, content, kind) {
     const ret = wasm.parseJsonData(path, content, kind);
@@ -17668,8 +17663,8 @@ export function parseSemanticScholar(body) {
  * # Errors
  *
  * Fails when `argv` is not an array of strings, or when the result cannot be converted to a JS value.
- * @param {any} argv
- * @returns {any}
+ * @param {readonly string[]} argv
+ * @returns {{ kind: "ok"; dataDir: string; migrations: string[]; backupsDir: string; migrateFrom: string | null; artifacts: string | null; bridge: string | null; appVersion: string | null; homeVariant: string | null; noLocalApi: boolean } | { kind: "error"; message: string }}
  */
 export function parseSidecarArgs(argv) {
     const ret = wasm.parseSidecarArgs(argv);
@@ -18219,7 +18214,7 @@ export function pickProject(projects, needle) {
 
 /**
  * [`pick_project_folder`](folder_layout::pick_project_folder). `undefined` when no folder fits.
- * @param {string[]} dirs
+ * @param {readonly string[]} dirs
  * @param {string} exact
  * @param {string} tail
  * @returns {string | undefined}
@@ -18489,9 +18484,9 @@ export function planAssetReanchor(body, owned, available) {
  * Fails only if the result cannot be converted to a JS value.
  * @param {string} file_name
  * @param {string} text
- * @param {string[]} existing_dois
- * @param {string[]} existing_keys
- * @returns {any}
+ * @param {readonly string[]} existing_dois
+ * @param {readonly string[]} existing_keys
+ * @returns {B.BibImportPlan}
  */
 export function planBibImport(file_name, text, existing_dois, existing_keys) {
     const ptr0 = passStringToWasm0(file_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -18534,11 +18529,11 @@ export function planBibliographyAnnotations(papers, pull) {
  * # Errors
  *
  * Fails if `dep` or `milestones` has the wrong shape, or the result cannot be serialised.
- * @param {any} dep
- * @param {any} known
- * @param {any} milestones
+ * @param {B.MilestoneDependency} dep
+ * @param {readonly string[]} known
+ * @param {readonly B.ChipMilestone[]} milestones
  * @param {boolean} is_offline_build
- * @returns {any}
+ * @returns {B.ChipTarget}
  */
 export function planChipTarget(dep, known, milestones, is_offline_build) {
     const ret = wasm.planChipTarget(dep, known, milestones, is_offline_build);
@@ -18719,9 +18714,9 @@ export function planImportTitles(folder_keys, note_names, existing_titles) {
 /**
  * [`plan_item_order`]: the writes for a new item order, or the message that refuses it.
  * @param {string} list_id
- * @param {any} items
- * @param {string[]} ordered_ids
- * @returns {any}
+ * @param {readonly B.ReadingListItem[]} items
+ * @param {readonly string[]} ordered_ids
+ * @returns {B.ItemOrderPlan}
  */
 export function planItemOrder(list_id, items, ordered_ids) {
     const ptr0 = passStringToWasm0(list_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -18978,7 +18973,7 @@ export function pointInArea(area, x, y) {
 
 /**
  * [`point_in_polygon`]: is `(x, y)` inside the flat `x, y` polygon.
- * @param {Float64Array} polygon
+ * @param {readonly number[]} polygon
  * @param {number} x
  * @param {number} y
  * @returns {boolean}
@@ -19648,9 +19643,9 @@ export function proposalPaperAnnotation(payload) {
  * # Errors
  *
  * Throws for an unknown field, a non-fillable kind, a refused value, or an option not allowed.
- * @param {any} payload
- * @param {any} defs
- * @returns {any}
+ * @param {unknown} payload
+ * @param {readonly B.PaperFieldDefInput[]} defs
+ * @returns {B.PaperFieldFillInput}
  */
 export function proposalPaperFieldFill(payload, defs) {
     const ret = wasm.proposalPaperFieldFill(payload, defs);
@@ -20548,8 +20543,8 @@ export function reconstructLines(page, items, keep) {
 
 /**
  * [`rectangles_overlap`](analysis_text::rectangles_overlap) (TS `rectanglesOverlap`).
- * @param {Float64Array} a
- * @param {Float64Array} b
+ * @param {readonly number[]} a
+ * @param {readonly number[]} b
  * @returns {boolean}
  */
 export function rectanglesOverlap(a, b) {
@@ -21025,11 +21020,11 @@ export function reorderFigureIndices(len, index, step) {
 }
 
 /**
- * [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `undefined`.
- * @param {any} ids
+ * [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `null`.
+ * @param {readonly string[]} ids
  * @param {string} drag_id
  * @param {string} target_id
- * @returns {any}
+ * @returns {string[] | null}
  */
 export function reorderedIds(ids, drag_id, target_id) {
     const ptr0 = passStringToWasm0(drag_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -21162,10 +21157,10 @@ export function reportSectionInputError(input) {
  * # Errors
  *
  * Fails only if the value cannot be converted to a JS value.
- * @param {Float64Array} points
- * @param {Float64Array} pressures
+ * @param {readonly number[]} points
+ * @param {readonly number[]} pressures
  * @param {number | null} [spacing]
- * @returns {any}
+ * @returns {B.PackedInkStroke}
  */
 export function resampleInkStroke(points, pressures, spacing) {
     const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
@@ -21330,9 +21325,9 @@ export function resolveDisplayRole(role, in_lab, owns_org) {
  * # Errors
  *
  * Fails if either list is not an array of strings.
- * @param {any} declared
- * @param {any} present
- * @returns {any}
+ * @param {readonly string[]} declared
+ * @param {readonly string[]} present
+ * @returns {string[]}
  */
 export function resolveInkPageOrder(declared, present) {
     const ret = wasm.resolveInkPageOrder(declared, present);
@@ -23037,8 +23032,8 @@ export function shareLinkDefaultTtlDays() {
  * # Errors
  *
  * Fails if `row` does not have the `share_links` columns.
- * @param {any} row
- * @returns {any}
+ * @param {B.ShareLinkRow} row
+ * @returns {Omit<B.ShareLink, "access"> & { access: "view" }}
  */
 export function shareLinkFromRow(row) {
     const ret = wasm.shareLinkFromRow(row);
@@ -23054,8 +23049,8 @@ export function shareLinkFromRow(row) {
  * # Errors
  *
  * Fails if `resource_type` is not a shareable type.
- * @param {any} resource_type
- * @param {string | null} [resource_id]
+ * @param {B.ShareableType} resource_type
+ * @param {string | null | undefined} resource_id
  * @returns {boolean}
  */
 export function shareSupportsEditAccess(resource_type, resource_id) {
@@ -23074,9 +23069,9 @@ export function shareSupportsEditAccess(resource_type, resource_id) {
  * # Errors
  *
  * Fails if `kind` is not a shareable type or `shares` is not a list of shares.
- * @param {any} shares
- * @param {any} kind
- * @returns {any}
+ * @param {readonly B.Share[]} shares
+ * @param {B.ShareableType} kind
+ * @returns {B.ShareTargets}
  */
 export function shareTargets(shares, kind) {
     const ret = wasm.shareTargets(shares, kind);
@@ -23092,7 +23087,7 @@ export function shareTargets(shares, kind) {
  * # Errors
  *
  * Fails if the list cannot be converted to a JS value.
- * @returns {any}
+ * @returns {readonly B.ShareableType[]}
  */
 export function shareableTypes() {
     const ret = wasm.shareableTypes();
@@ -23220,10 +23215,10 @@ export function sharedProviderHint(descriptor, all) {
  * # Errors
  *
  * Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
- * @param {any} kind
- * @param {any} ids
- * @param {any} owners
- * @returns {any}
+ * @param {B.ShareableType} kind
+ * @param {readonly string[]} ids
+ * @param {readonly string[]} owners
+ * @returns {B.SharedReadPlan | null}
  */
 export function sharedReadPlan(kind, ids, owners) {
     const ret = wasm.sharedReadPlan(kind, ids, owners);
@@ -23304,7 +23299,7 @@ export function shortcutLabel(chord, mac) {
 
 /**
  * [`should_append_ink_point`]; `minDistance` defaults to 0.75.
- * @param {Float64Array} path
+ * @param {readonly number[]} path
  * @param {number} x
  * @param {number} y
  * @param {number | null} [min_distance]
@@ -23502,9 +23497,9 @@ export function simplifyInkPath(path, tolerance) {
 
 /**
  * [`simplify_path_indices`]; `tolerance` defaults to 0.35. Returns a JS array of indices.
- * @param {Float64Array} path
+ * @param {readonly number[]} path
  * @param {number | null} [tolerance]
- * @returns {any}
+ * @returns {number[]}
  */
 export function simplifyPathIndices(path, tolerance) {
     const ptr0 = passArrayF64ToWasm0(path, wasm.__wbindgen_malloc);
@@ -23607,8 +23602,8 @@ export function smoothInkStroke(points, pressures, options) {
 /**
  * Fit a line, rect, ellipse or arrow to a finished mark (Rust `snap_ink_shape`).
  * `null` when the recogniser abstains.
- * @param {Float64Array} points
- * @returns {any}
+ * @param {readonly number[]} points
+ * @returns {{ points: number[]; shape: Exclude<B.InkShape, "none"> } | null}
  */
 export function snapInkShape(points) {
     const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
@@ -23926,8 +23921,8 @@ export function splitPane(layout, pane_id, direction, new_pane_id) {
  * # Errors
  *
  * Fails if `names` is not an array of strings, or the result cannot be converted.
- * @param {any} names
- * @returns {any}
+ * @param {readonly string[]} names
+ * @returns {{ pdfIndices: number[]; bibIndices: number[] }}
  */
 export function splitPaperDrop(names) {
     const ret = wasm.splitPaperDrop(names);
@@ -24262,7 +24257,7 @@ export function stripUnresolvedImageRefs(body, prefix, paths, resolved) {
 
 /**
  * [`stroke_base_width`].
- * @param {Float64Array} samples
+ * @param {readonly number[]} samples
  * @param {number} base
  * @returns {number}
  */
@@ -24298,20 +24293,15 @@ export function strokeClipText(strokes) {
 }
 
 /**
- * [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `undefined` for fewer than two numbers.
- * @param {Float64Array} points
- * @returns {string | undefined}
+ * [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `null` for fewer than two numbers.
+ * @param {readonly number[]} points
+ * @returns {string | null}
  */
 export function strokePath(points) {
     const ptr0 = passArrayF64ToWasm0(points, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.strokePath(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -24406,8 +24396,8 @@ export function subtreeIds(node) {
  * # Errors
  *
  * Fails if `entries` is not an array of drop entries, or the result cannot be converted.
- * @param {any} entries
- * @returns {any}
+ * @param {readonly B.DropEntry[]} entries
+ * @returns {B.PdfDropSummary}
  */
 export function summarizePdfDrop(entries) {
     const ret = wasm.summarizePdfDrop(entries);
@@ -25556,7 +25546,7 @@ export function uniqueDeviceName(name, device_label, taken) {
  *
  * Fails if `used` is not an array of strings.
  * @param {string} raw
- * @param {any} used
+ * @param {readonly string[]} used
  * @returns {string}
  */
 export function uniqueFigureNameIn(raw, used) {
@@ -26548,7 +26538,7 @@ export function withImageWidth(alt, width) {
  * [`with_ink_page_background`](ink_page::with_ink_page_background): the text with its
  * background line set to `path`, or removed for `null`.
  * @param {string} text
- * @param {string | null} [path]
+ * @param {string | null | undefined} path
  * @returns {string}
  */
 export function withInkPageBackground(text, path) {
@@ -26669,7 +26659,7 @@ export function withStoredHeights(ids, heights, stored) {
  *
  * Fails if `tags` is not an array of strings.
  * @param {string} body
- * @param {any} tags
+ * @param {readonly string[]} tags
  * @returns {string}
  */
 export function withTagLine(body, tags) {

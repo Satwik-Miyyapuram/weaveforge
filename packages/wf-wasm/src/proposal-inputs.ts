@@ -3,14 +3,7 @@
  * Keeps the messages of apps/web/src/features/ai-assistant/application/proposal-executors.ts.
  * A refused payload throws an Error with that message.
  */
-import type {
-  PaperFieldDefInput,
-  PaperFieldFillInput,
-} from "./bindings.js";
-import {
-  proposalExperimentUpdate as rawExperimentUpdate,
-  proposalPaperFieldFill as rawPaperFieldFill,
-} from "../pkg/wf_wasm.js";
+import { proposalExperimentUpdate as rawExperimentUpdate } from "../pkg/wf_wasm.js";
 
 export {
   proposalAppendVaultNoteBody,
@@ -20,6 +13,7 @@ export {
   proposalMilestoneFollowUp,
   proposalMilestoneStatus,
   proposalPaperAnnotation,
+  proposalPaperFieldFill,
   proposalPaperFieldId,
   proposalPaperNoteAddition,
   proposalPaperUpdate,
@@ -29,11 +23,6 @@ export {
   proposalVaultNote,
   proposalZoteroImport,
 } from "../pkg/wf_wasm.js";
-
-/** The checked paper-field write, given the listed field definitions. */
-export function proposalPaperFieldFill(payload: unknown, defs: readonly PaperFieldDefInput[]): PaperFieldFillInput {
-  return rawPaperFieldFill(payload, [...defs]) as PaperFieldFillInput;
-}
 
 /**
  * Experiment update: status, metrics and artifacts. Generic until the Rust type carries specta

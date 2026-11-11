@@ -29,13 +29,13 @@ pub fn model_extraction_limits_js() -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `batch` is not a list of documents.
-#[wasm_bindgen(js_name = modelBuildBatchRequest)]
+#[wasm_bindgen(js_name = modelBuildBatchRequest, unchecked_return_type = "B.ModelRequest")]
 // `max_chars` is a whole non-negative character budget, so the cast is exact.
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Vec<String>.
 pub fn model_build_batch_request_js(
-    batch: JsValue,
-    existing: Vec<String>,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ModelDocument[]")] batch: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] existing: Vec<String>,
     model: Option<String>,
     max_chars: f64,
     nonce: &str,
@@ -58,12 +58,12 @@ pub fn model_build_batch_request_js(
 /// # Errors
 ///
 /// Fails if `results` is not a list of extraction results.
-#[wasm_bindgen(js_name = modelFinalizeExtraction)]
+#[wasm_bindgen(js_name = modelFinalizeExtraction, unchecked_return_type = "B.ExtractionResult")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Vec<String>.
 pub fn model_finalize_extraction_js(
-    results: JsValue,
-    existing: Vec<String>,
-    max_concepts: Option<f64>,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionResult[]")] results: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] existing: Vec<String>,
+    #[wasm_bindgen(unchecked_param_type = "number | null | undefined")] max_concepts: Option<f64>,
 ) -> JsResult<JsValue> {
     let results: Vec<ExtractionResult> = serde_wasm_bindgen::from_value(results)?;
     to_js(&model_extraction::finalize_extraction(

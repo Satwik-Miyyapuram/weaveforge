@@ -4,16 +4,11 @@
  */
 import {
   decodeShareLinkToken as rawDecodeShareLinkToken,
-  isBlanketShare as rawIsBlanketShare,
   normalizeCommentInput as rawNormalizeCommentInput,
   normalizeShareInput as rawNormalizeShareInput,
-  shareSupportsEditAccess as rawShareSupportsEditAccess,
   memberNameMap as rawMemberNameMap,
   sharedPaperAnnotationSummary as rawSharedPaperAnnotationSummary,
-  shareLinkFromRow as rawShareLinkFromRow,
-  sharedReadPlan as rawSharedReadPlan,
-  shareTargets as rawShareTargets,
-  shareableTypes as rawShareableTypes,
+  shareableTypes,
 } from "../pkg/wf_wasm.js";
 import type {
   Comment as CommentRecord,
@@ -24,21 +19,21 @@ import type {
   NewShareInput,
   Share as ShareRecord,
   ShareRow as ShareRowInput,
-  ShareableType,
   SharedItem as SharedItemRecord,
   SharedPaperAnnotationSummary,
-  SharedReadPlan,
   SharedSource as SharedSourceInput,
-  ShareLink as ShareLinkBinding,
-  ShareLinkRow as ShareLinkRowInput,
-  ShareTargets,
 } from "./bindings.js";
 
 export {
   crdtEditableShareTypes,
+  isBlanketShare,
   shareAllowsComment,
   shareAllowsEdit,
   shareCoversResource,
+  shareLinkFromRow,
+  shareSupportsEditAccess,
+  shareTargets,
+  shareableTypes,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -49,6 +44,7 @@ export {
   sharedItem,
   sharedItemHref,
   sharedItemTypeLabel,
+  sharedReadPlan,
   sharedResourceHref,
 } from "../pkg/wf_wasm.js";
 
@@ -61,11 +57,6 @@ export type {
   SharedSourceInput,
 };
 
-/** Every type a share can cover (Rust `SHAREABLE_TYPES`). Read at call time; the wasm module must be loaded. */
-export function shareableTypes(): readonly ShareableType[] {
-  return rawShareableTypes() as readonly ShareableType[];
-}
-
 /** A thrown validation message becomes an `Error` named like the TS validation class. */
 function asError(thrown: unknown, name: string): unknown {
   // Rust rejects with a string or with an unnamed `Error` (serde_wasm_bindgen).
@@ -77,19 +68,6 @@ function asError(thrown: unknown, name: string): unknown {
   const error = new Error(thrown);
   error.name = name;
   return error;
-}
-
-/** Whether a share grant covers every resource of a type (`resourceId` is null). */
-export function isBlanketShare(resourceId: string | null): boolean {
-  return rawIsBlanketShare(resourceId ?? undefined);
-}
-
-/** Share types that support collaborative editing (CRDT path). */
-export function shareSupportsEditAccess(
-  resourceType: ShareableType,
-  resourceId: string | null,
-): boolean {
-  return rawShareSupportsEditAccess(resourceType, resourceId ?? undefined);
 }
 
 /** Normalize + validate a grant request (pure). Throws an `Error` with the validation message. */
@@ -121,27 +99,6 @@ export function decodeShareLinkToken(encoded: string): Uint8Array {
   } catch (error) {
     throw asError(error, "InvalidCharacterError");
   }
-}
-
-/** Map a share-link row to the app's link (Rust `share_link_from_row`). Links are view only. */
-export function shareLinkFromRow(
-  row: ShareLinkRowInput,
-): Omit<ShareLinkBinding, "access"> & { access: "view" } {
-  return rawShareLinkFromRow(row) as Omit<ShareLinkBinding, "access"> & { access: "view" };
-}
-
-/** The table, columns and PostgREST filter for one shared read; `null` when there is nothing to read (Rust `shared_read_plan`). */
-export function sharedReadPlan(
-  kind: ShareableType,
-  ids: readonly string[],
-  owners: readonly string[],
-): SharedReadPlan | null {
-  return rawSharedReadPlan(kind, [...ids], [...owners]) as SharedReadPlan | null;
-}
-
-/** Split one type's grants into per-item ids and blanket owners (Rust `share_targets`). */
-export function shareTargets(shares: readonly ShareRecord[], kind: ShareableType): ShareTargets {
-  return rawShareTargets([...shares], kind) as ShareTargets;
 }
 
 /** Display name per member id: full name, else email, else `"Member"` (Rust `member_name_map`). */

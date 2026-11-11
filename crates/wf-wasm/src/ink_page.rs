@@ -16,7 +16,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `values` is not an array of strings.
 #[wasm_bindgen(js_name = inkEnumIndex)]
-pub fn ink_enum_index_js(values: JsValue, value: &str) -> JsResult<usize> {
+pub fn ink_enum_index_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] values: JsValue,
+    value: &str,
+) -> JsResult<usize> {
     let values: Vec<String> = serde_wasm_bindgen::from_value(values)?;
     Ok(ink_page::ink_enum_index(&values, value))
 }
@@ -60,7 +63,7 @@ pub fn blank_ink_page_js(paper: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = clampInkPageSize)]
+#[wasm_bindgen(js_name = clampInkPageSize, unchecked_return_type = "{ width: number; height: number }")]
 pub fn clamp_ink_page_size_js(width: f64, height: f64) -> JsResult<JsValue> {
     to_js(&ink_page::clamp_ink_page_size(width, height))
 }
@@ -77,7 +80,9 @@ pub fn ink_page_marker_js(page: f64) -> String {
 ///
 /// Fails if `pages` is not an array of strings.
 #[wasm_bindgen(js_name = joinInkTextLayer)]
-pub fn join_ink_text_layer_js(pages: JsValue) -> JsResult<String> {
+pub fn join_ink_text_layer_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] pages: JsValue,
+) -> JsResult<String> {
     let pages: Vec<String> = serde_wasm_bindgen::from_value(pages)?;
     Ok(ink_page::join_ink_text_layer(&pages))
 }
@@ -87,9 +92,9 @@ pub fn join_ink_text_layer_js(pages: JsValue) -> JsResult<String> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = inkPageBackground)]
+#[wasm_bindgen(js_name = inkPageBackground, unchecked_return_type = "string | null")]
 pub fn ink_page_background_js(text: &str) -> JsResult<JsValue> {
-    to_js(&ink_page::ink_page_background(text))
+    ink_page::ink_page_background(text).map_or(Ok(JsValue::NULL), |path| to_js(&path))
 }
 
 /// [`with_ink_page_background`](ink_page::with_ink_page_background): the text with its
@@ -99,7 +104,10 @@ pub fn ink_page_background_js(text: &str) -> JsResult<JsValue> {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-pub fn with_ink_page_background_js(text: &str, path: Option<String>) -> String {
+pub fn with_ink_page_background_js(
+    text: &str,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] path: Option<String>,
+) -> String {
     ink_page::with_ink_page_background(text, path.as_deref())
 }
 
@@ -109,7 +117,10 @@ pub fn with_ink_page_background_js(text: &str, path: Option<String>) -> String {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-pub fn ink_attachment_index_js(body: &str, path: Option<String>) -> u8 {
+pub fn ink_attachment_index_js(
+    body: &str,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] path: Option<String>,
+) -> u8 {
     ink_page::ink_attachment_index(body, path.as_deref())
 }
 
@@ -118,8 +129,11 @@ pub fn ink_attachment_index_js(body: &str, path: Option<String>) -> u8 {
 /// # Errors
 ///
 /// Fails if either list is not an array of strings.
-#[wasm_bindgen(js_name = resolveInkPageOrder)]
-pub fn resolve_ink_page_order_js(declared: JsValue, present: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = resolveInkPageOrder, unchecked_return_type = "string[]")]
+pub fn resolve_ink_page_order_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] declared: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] present: JsValue,
+) -> JsResult<JsValue> {
     let declared: Vec<String> = serde_wasm_bindgen::from_value(declared)?;
     let present: Vec<String> = serde_wasm_bindgen::from_value(present)?;
     to_js(&ink_page::resolve_ink_page_order(&declared, &present))

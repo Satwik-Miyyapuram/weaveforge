@@ -120,16 +120,16 @@ pub fn json_data_path_js(
 ///
 /// Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `kind` is
 /// not a known kind.
-#[wasm_bindgen(js_name = parseJsonData)]
+#[wasm_bindgen(js_name = parseJsonData, unchecked_return_type = "B.ParsedJsonData | null")]
 pub fn parse_json_data_js(
     path: js_sys::JsString,
     content: js_sys::JsString,
-    kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceJsonKind")] kind: JsValue,
 ) -> JsResult<JsValue> {
     let path = &crate::guarded_text(&path)?;
     let content = &crate::guarded_text(&content)?;
     let kind: WorkspaceJsonKind = serde_wasm_bindgen::from_value(kind)?;
-    to_js(&parse_json_data(path, content, kind))
+    parse_json_data(path, content, kind).map_or(Ok(JsValue::NULL), |parsed| to_js(&parsed))
 }
 
 /// [`wf_core::sync::json_entities::diff_json_data`] for JS. `side` is who changed `parsed.path`;

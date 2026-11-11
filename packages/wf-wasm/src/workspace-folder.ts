@@ -2,15 +2,11 @@
  * Workspace folder mirror: paths, serializing, parsing and diffs (Rust `workspace_folder`), re-exported from index.ts.
  */
 import {
-  checkGitRemoteUrl as rawCheckGitRemoteUrl,
   slugFor as rawSlugFor,
   treePathPairs as rawTreePathPairs,
   diffJsonData as rawDiffJsonData,
   diffWorkspace as rawDiffWorkspace,
   entityDir as rawEntityDir,
-  folderKeys as rawFolderKeys,
-  jsonKindOfPath as rawJsonKindOfPath,
-  parseJsonData as rawParseJsonData,
   parseWorkspaceFolder as rawParseWorkspaceFolder,
   planMirror as rawPlanMirror,
   projectDir as rawProjectDir,
@@ -29,7 +25,6 @@ import type {
   SerializedAsset,
   SerializedWorkspace,
   WorkspaceEntityType,
-  WorkspaceJsonKind,
   WorkspaceSnapshotCounts,
 } from "./bindings.js";
 
@@ -43,7 +38,11 @@ export {
 
 export {
   addCounts,
+  checkGitRemoteUrl,
   folderKey,
+  folderKeys,
+  jsonKindOfPath,
+  parseJsonData,
 } from "../pkg/wf_wasm.js";
 
 /** The folder of a project, named from its id and name (Rust `project_dir`). */
@@ -62,16 +61,6 @@ export function projectMetaDir(projectRoot = ""): string {
 }
 
 /** The short suffix that makes a folder name unique to its id (Rust `id_suffix`). */
-
-/** Every folder the picked files lead to, shallowest first. */
-export function folderKeys(relativePaths: readonly string[]): string[] {
-  return rawFolderKeys([...relativePaths]);
-}
-
-/** The JSON entity kind a path holds, or null for any other path (Rust `json_kind_of_path`). */
-export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
-  return (rawJsonKindOfPath(path) ?? null) as WorkspaceJsonKind | null;
-}
 
 /** The project's folder-mirror files for a snapshot (Rust `serialize_workspace`). */
 export function serializeWorkspace(
@@ -104,11 +93,6 @@ export function diffWorkspace(
   const origin = options.origin;
   const sides = origin ? Object.fromEntries(parsed.map((entity) => [entity.path, origin(entity.path)])) : undefined;
   return rawDiffWorkspace(parsed, existing, sides) as ImportDiff;
-}
-
-/** The rows of a JSON data file, or null when it is not a JSON array (Rust `parse_json_data`). */
-export function parseJsonData(path: string, content: string, kind: WorkspaceJsonKind): ParsedJsonData | null {
-  return (rawParseJsonData(path, content, kind) ?? null) as ParsedJsonData | null;
 }
 
 /** What importing a JSON data file would do to the stored rows (Rust `diff_json_data`). */
@@ -153,11 +137,6 @@ export function treePaths(
   projectRoot = "",
 ): Map<string, string> {
   return new Map(rawTreePathPairs([...nodes], type, projectRoot) as [string, string][]);
-}
-
-/** Accepts only an https remote with no credentials in it. */
-export function checkGitRemoteUrl(raw: unknown): { ok: true; url: string } | { ok: false; reason: string } {
-  return rawCheckGitRemoteUrl(raw) as { ok: true; url: string } | { ok: false; reason: string };
 }
 
 /** `[id, path]` pairs for each node in a tree (Rust `tree_paths`). */

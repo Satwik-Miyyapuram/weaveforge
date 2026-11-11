@@ -8,10 +8,12 @@ use wf_core::ink::ink_svg::{InkSvgOptions, InkSvgPage, ink_page_svg, stroke_path
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `undefined` for fewer than two numbers.
-#[wasm_bindgen(js_name = strokePath)]
-pub fn stroke_path_js(points: &[f64]) -> Option<String> {
-    stroke_path(points)
+/// [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `null` for fewer than two numbers.
+#[wasm_bindgen(js_name = strokePath, unchecked_return_type = "string | null")]
+pub fn stroke_path_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] points: &[f64],
+) -> JsValue {
+    stroke_path(points).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`ink_page_svg`]: `page` is an `InkSvgPage`, `options` an `InkSvgOptions` (may be `{}`).

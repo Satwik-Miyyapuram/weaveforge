@@ -29,7 +29,10 @@ pub fn rewrite_wikilinks_js(body: &str, renames: JsValue) -> JsResult<String> {
 ///
 /// Fails if `tags` is not an array of strings.
 #[wasm_bindgen(js_name = withTagLine)]
-pub fn with_tag_line_js(body: &str, tags: JsValue) -> JsResult<String> {
+pub fn with_tag_line_js(
+    body: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] tags: JsValue,
+) -> JsResult<String> {
     let tags: Vec<String> = serde_wasm_bindgen::from_value(tags)?;
     Ok(import_links::with_tag_line(body, &tags))
 }

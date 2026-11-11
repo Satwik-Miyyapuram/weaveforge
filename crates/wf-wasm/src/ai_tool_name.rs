@@ -17,6 +17,8 @@ pub fn canonical_ai_tool_name_js(name: String) -> String {
 /// [`context_nonce_from`](ai_tool_name::context_nonce_from): the caller passes the
 /// `Math.random()` values.
 #[wasm_bindgen(js_name = contextNonceFrom)]
-pub fn context_nonce_from_js(randoms: &[f64]) -> String {
+pub fn context_nonce_from_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] randoms: &[f64],
+) -> String {
     ai_tool_name::context_nonce_from(randoms)
 }

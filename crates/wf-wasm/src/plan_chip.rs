@@ -12,11 +12,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `dep` or `milestones` has the wrong shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = planChipTarget)]
+#[wasm_bindgen(js_name = planChipTarget, unchecked_return_type = "B.ChipTarget")]
 pub fn plan_chip_target_js(
-    dep: JsValue,
-    known: JsValue,
-    milestones: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.MilestoneDependency")] dep: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] known: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ChipMilestone[]")] milestones: JsValue,
     is_offline_build: bool,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let dep: MilestoneDependency = serde_wasm_bindgen::from_value(dep)?;

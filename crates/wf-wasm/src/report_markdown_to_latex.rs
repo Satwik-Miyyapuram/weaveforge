@@ -38,7 +38,10 @@ pub fn markdown_to_latex_js(md: &str, opts: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `used` is not an array of strings.
 #[wasm_bindgen(js_name = uniqueFigureNameIn)]
-pub fn unique_figure_name_js(raw: &str, used: JsValue) -> JsResult<String> {
+pub fn unique_figure_name_js(
+    raw: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] used: JsValue,
+) -> JsResult<String> {
     let used: Vec<String> = serde_wasm_bindgen::from_value(used)?;
     let mut used: std::collections::HashSet<String> = used.into_iter().collect();
     Ok(markdown_to_latex::unique_figure_name(raw, &mut used))
