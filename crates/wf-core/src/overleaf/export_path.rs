@@ -1,5 +1,5 @@
 //! Export path guard and missing-figure warning (ports of `assertSafeExportPath` and
-//! `missingFigureWarning` in apps/web/src/features/overleaf/application/build-overleaf-export.ts).
+//! `missingFigureWarning` in apps/web/src/features/overleaf/application/parts.ts).
 
 /// Why `path` is not a plain relative ZIP entry name (no `..`, no leading `/`, no `\`), or `None`
 /// when it is safe. The TS wrapper throws this message.

@@ -43,7 +43,7 @@ the core has loaded.
 
 ## What stays in TypeScript, and why
 
-- **The card registry.** `apps/web/src/features/dashboard/application/card-registry.ts`
+- **The card registry.** `apps/web/src/features/dashboard/application/parts.ts`
   owns the card table: which cards exist, their limits and their heights. It
   calls `roleRank` through `readyCore()` to filter cards by role, and passes
   the limits into the Rust layout functions as data. The table stays in

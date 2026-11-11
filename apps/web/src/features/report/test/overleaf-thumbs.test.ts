@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { loadOverleafThumb, saveOverleafThumb, serialQueue, type OverleafThumbDeps } from "../lib/overleaf-thumbs";
+import { loadOverleafThumb, saveOverleafThumb, serialQueue, type OverleafThumbDeps } from "../lib/parts";
 
 function memoryStore() {
   const map = new Map<string, string>();

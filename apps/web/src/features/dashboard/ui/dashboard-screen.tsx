@@ -19,11 +19,11 @@ import { Button } from "@/components/button";
 
 import {
   appendCardPair,
+  CARD_LIMITS,
   clearLegacyLayoutStorage,
   closeLayoutGaps,
   initialDashboardLayout,
-} from "../application/dashboard-layout";
-import { CARD_LIMITS } from "../application/dashboard-layout-packing";
+} from "../application/parts";
 import { DashboardGrid } from "./dashboard-grid";
 import { DashboardEditBar } from "./dashboard-edit-bar";
 import { CardPickerSheet } from "./card-picker-sheet";

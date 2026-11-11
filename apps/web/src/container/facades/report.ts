@@ -4,7 +4,7 @@ import type {
   ReportSection,
   ReportSectionTreeNode,
 } from "@weaveforge/core";
-import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
+import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
@@ -15,7 +15,7 @@ export class ReportFacade {
       load: LoadReportScreenUseCase;
       sections: IReportSectionRepository;
       manageReportSection: ManageReportSectionUseCase;
-      images: import("@/features/report/infrastructure/report-image-store").ReportImageStore;
+      images: import("@/features/report/infrastructure/parts").ReportImageStore;
     },
   ) {}
 

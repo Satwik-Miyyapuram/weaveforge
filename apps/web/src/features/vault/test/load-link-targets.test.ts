@@ -10,7 +10,7 @@ import test, { before } from "node:test";
 
 import type { AppLogInput } from "@/lib/error-report/app-log";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { loadLinkTargets } from "@/features/vault/application/load-link-targets";
+import { loadLinkTargets } from "@/features/vault/application/parts";
 
 before(loadTestCore);
 

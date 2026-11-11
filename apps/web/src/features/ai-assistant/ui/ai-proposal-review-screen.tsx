@@ -15,7 +15,7 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
-import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/proposal-groups";
+import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/parts";
 import { useUndoWindow } from "./use-undo-window";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/controls";

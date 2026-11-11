@@ -1,9 +1,9 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { type DeferredDelete, type ToastInput, toasts } from "./toast-store";
+import { type DeferredDelete, type ToastInput, toasts } from "./parts";
 
-export { type DeferredDelete, TOAST_MS } from "./toast-store";
+export { type DeferredDelete, TOAST_MS } from "./parts";
 
 // --- index ---
 

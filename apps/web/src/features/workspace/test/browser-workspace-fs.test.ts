@@ -8,7 +8,7 @@ import { before, test } from "node:test";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
+import { BrowserWorkspaceFs } from "../infrastructure/parts";
 
 before(async () => {
   await loadTestCore();

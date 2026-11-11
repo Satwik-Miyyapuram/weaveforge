@@ -14,5 +14,5 @@ Source: `crates/wf-core/src/ai/folder_draft.rs`. Wasm: `crates/wf-wasm/src/ai_fo
 
 ## What stays in TypeScript
 
-`apps/web/src/features/ai-assistant/application/import-folder-drafts.ts` keeps the folder
+`apps/web/src/features/ai-assistant/application/parts.ts` keeps the folder
 listing, the delete and write-back, the queue calls, and the single-flight run.

@@ -7,7 +7,7 @@ import {
   readSections,
   writeExpanded,
   type ExplorerSection,
-} from "../application/explorer-state";
+} from "../application/parts";
 import {
   defaultExpanded,
   isSectionOpen,

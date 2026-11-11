@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { importNotesFromFiles, type ImportVault } from "../application/import-notes";
+import { importNotesFromFiles, type ImportVault } from "../application/parts";
 import { readyCore } from "@/lib/rust-core";
 
 before(async () => {

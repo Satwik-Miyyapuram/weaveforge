@@ -11,8 +11,8 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
-import { PostgrestExperimentRepository } from "@/features/experiments/infrastructure/postgrest-experiment-repository";
-import { PostgrestReadingListRepository } from "@/features/reading-lists/infrastructure/postgrest-reading-list-repository";
+import { PostgrestExperimentRepository } from "@/features/experiments/infrastructure/parts";
+import { PostgrestReadingListRepository } from "@/features/reading-lists/infrastructure/parts";
 
 function recorder() {
   const sql: string[] = [];

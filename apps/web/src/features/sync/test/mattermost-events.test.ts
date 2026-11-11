@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { LogEntry, Milestone } from "@weaveforge/core";
-import { MattermostNotifier } from "../infrastructure/mattermost-notifier";
+import { MattermostNotifier } from "../infrastructure/parts";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { IIntegrationsStore, Integration } from "../domain/parts";

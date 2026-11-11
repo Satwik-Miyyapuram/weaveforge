@@ -8,7 +8,7 @@ import {
   type UserSettings,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/user-settings-core";
+import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/parts";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import type { AiSourceOption } from "@/container/facades";

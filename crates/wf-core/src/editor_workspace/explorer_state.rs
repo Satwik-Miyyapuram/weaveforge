@@ -1,5 +1,5 @@
 //! Which explorer rows and sections are open (pure rules). A port of the
-//! non-storage half of `apps/web/src/features/editor-workspace/application/explorer-state.ts`.
+//! non-storage half of `apps/web/src/features/editor-workspace/application/parts.ts`.
 //! The `localStorage` read and write stay in TS.
 //!
 //! Open sets are ordered lists here: the order is insertion order, matching the

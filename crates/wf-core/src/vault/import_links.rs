@@ -1,5 +1,5 @@
 //! Notes import rules: which files are read, and wikilink rewrites after titles are auto-suffixed.
-//! A port of the pure parts of `apps/web/src/features/vault/application/import-notes.ts`.
+//! A port of the pure parts of `apps/web/src/features/vault/application/parts.ts`.
 
 use std::collections::BTreeMap;
 use std::sync::LazyLock;

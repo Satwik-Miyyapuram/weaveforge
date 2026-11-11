@@ -1,6 +1,6 @@
 //! Note-link rules: which existing note a `[[title]]` resolves to, and the message for link
 //! targets that failed to load. Ports the pure parts of
-//! `apps/web/src/features/vault/application/create-note-from-link.ts` and `load-link-targets.ts`.
+//! `apps/web/src/features/vault/application/parts.ts` and `load-link-targets.ts`.
 
 use crate::vault::page::normalize_title_key;
 

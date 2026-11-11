@@ -1,5 +1,5 @@
 //! Whether a report tree has any results table (TS `hasResultsTables` in
-//! `apps/web/src/features/overleaf/application/download-overleaf-export.ts`). The export loads the
+//! `apps/web/src/features/overleaf/application/parts.ts`). The export loads the
 //! experiments only when this is true.
 
 use serde::Deserialize;

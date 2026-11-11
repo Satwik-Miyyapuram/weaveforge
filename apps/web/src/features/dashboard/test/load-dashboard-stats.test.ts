@@ -1,10 +1,12 @@
 import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { dataSourcesForCardTypes } from "../application/card-registry";
-import { loadDashboardStats } from "../application/load-dashboard-stats";
-import { buildDashboardStats } from "../application/build-dashboard-stats";
-import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
+import {
+  buildDashboardStats,
+  dataSourcesForCardTypes,
+  loadDashboardStats,
+} from "../application/parts";
+import type { DashboardStatsPorts } from "../application/parts";
 import type { Member } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

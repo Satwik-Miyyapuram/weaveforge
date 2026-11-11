@@ -15,7 +15,7 @@ import { ProjectContext } from "@/features/projects";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { renderHook } from "@/lib/test/react-harness";
 import { useDashboardStats } from "../ui/use-dashboard-stats";
-import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
+import type { DashboardStatsPorts } from "../application/parts";
 
 before(async () => {
   await loadTestCore();

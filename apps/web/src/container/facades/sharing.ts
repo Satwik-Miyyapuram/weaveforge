@@ -17,7 +17,7 @@ import type {
   ShareableType,
 } from "@weaveforge/core";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
-import type { LoadSharedWithMeScreenUseCase, LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
+import type { LoadSharedWithMeScreenUseCase, LoadSharedWithMeScreenData } from "@/features/sharing/application/parts";
 
 /** A share-link use case, or the one error every caller gets without it. */
 function requireLinks<T>(useCase: T | null): T {

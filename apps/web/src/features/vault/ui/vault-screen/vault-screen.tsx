@@ -7,10 +7,14 @@ import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
 import { FileDropZone } from "@/components/file-drop-zone";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
-import { importNotesFromFiles } from "../../application/import-notes";
-import { loadLinkTargets } from "../../application/load-link-targets";
-import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
+import { loadPinnedOwnerNames } from "@/features/sharing/application/parts";
+import {
+  createNoteFromLink as createOrReuseNote,
+  importNotesFromFiles,
+  loadLinkTargets,
+  noteBacklinks,
+  scopeNotes,
+} from "../../application/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
@@ -22,7 +26,6 @@ import { rememberRecentTarget } from "@/lib/recent-targets";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { noteBodyText, isHydratedPage } from "./note-card";
 import { NoteCardGrid } from "./note-card-grid";
-import { noteBacklinks, scopeNotes } from "../../application/note-derivations";
 import { openNoteBody } from "./open-note-body";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";

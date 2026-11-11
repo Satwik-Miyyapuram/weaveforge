@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   RouteSecretsStore,
   type SecretsStore,
-} from "@/features/settings/infrastructure/postgrest-settings-repository";
+} from "@/features/settings/infrastructure/parts";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { DeviceSecretsStore } from "./local/parts";
 

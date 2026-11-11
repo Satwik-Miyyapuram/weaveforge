@@ -13,7 +13,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LogEntry } from "@weaveforge/core";
 
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
-import { PostgrestLogEntryRepository } from "../infrastructure/postgrest-log-entry-repository";
+import { PostgrestLogEntryRepository } from "../infrastructure/parts";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 

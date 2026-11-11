@@ -8,7 +8,7 @@ import { formatError } from "@/lib/format-error";
 import {
   activeProviderLabel,
   onProviderChange,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import {
   applyMerge,
   previewMerge,

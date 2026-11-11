@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { removeLater } from "../index";
-import { toasts } from "../toast-store";
+import { toasts } from "../parts";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { createElement } from "react";
 import { act, create, type ReactTestInstance } from "react-test-renderer";
 
-import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
+import { shortcutTable, type WorkspaceCommand } from "../application/parts";
 import { CHEATSHEET_COMMANDS } from "../ui/shortcuts-dialog";
 import { ShortcutGrid } from "../ui/pane-view";
 

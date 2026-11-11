@@ -18,7 +18,7 @@ import { usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
+import type { ExperimentsScreenData } from "@/features/experiments/application/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ScreenHead } from "@/components/screen-head";
 import { FilterRow } from "@/components/filter-row";

@@ -415,7 +415,7 @@ export function localSubgraph(
 // --- repo-web-url ---
 /**
  * Git repo web links (Rust `repo_web_url`), re-exported from index.ts.
- * Keeps the signatures of apps/web/src/features/sync/infrastructure/git-client.ts.
+ * Keeps the signatures of apps/web/src/features/sync/infrastructure/parts.ts.
  */
 /** The trimmed repo URL when it is http(s), otherwise undefined. */
 export function repoWebUrl(repoUrl?: string): string | undefined {
@@ -633,7 +633,7 @@ function normalizeProgress(raw: unknown): SectionProgress {
 /**
  * Results-table presence in a report tree (Rust `report::results_tables_presence`), re-exported from
  * index.ts. Keeps the signature of the TS `hasResultsTables` it replaces in
- * apps/web/src/features/overleaf/application/download-overleaf-export.ts.
+ * apps/web/src/features/overleaf/application/parts.ts.
  */
 /** The part of a report section tree node the presence check reads. */
 export interface ResultsTablesTreeNode {

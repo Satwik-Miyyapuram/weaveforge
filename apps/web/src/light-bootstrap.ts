@@ -1,8 +1,7 @@
 "use client";
 
 import type { IAuthService, ISelfProvisioner, ManageSettingsUseCase } from "@weaveforge/core";
-import { readBackendConfig } from "@/backend/config";
-import { wireLightBackend } from "@/backend/wire-light-backend";
+import { readBackendConfig, wireLightBackend } from "@/backend/parts";
 
 /** Dependencies needed before the privacy disclaimer is accepted. */
 export interface LightContainer {

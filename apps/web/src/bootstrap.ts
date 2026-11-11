@@ -7,9 +7,9 @@
  */
 
 import type { AppContainer } from "@/container/facades";
-import { readBackendConfig } from "@/backend/config";
+import { readBackendConfig } from "@/backend/parts";
 import { readStorageConfig } from "@/storage/config";
-import { createRebuildSlot } from "@/container/rebuild-slot";
+import { createRebuildSlot } from "@/container/parts";
 import { loadCore } from "@/lib/rust-core";
 
 export type { AppContainer };

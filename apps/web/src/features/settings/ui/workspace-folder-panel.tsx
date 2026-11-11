@@ -38,7 +38,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { remoteSyncAvailable } from "@/features/workspace/application/folder-remote-sync";
 import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
-import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
+import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { SkippedFiles } from "./skipped-files";

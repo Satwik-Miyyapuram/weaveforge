@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatError } from "@/lib/format-error";
-import { linkOverleafReport } from "../application/link-overleaf-report";
+import { linkOverleafReport } from "../application/parts";
 import { type LinkedReport, local, api } from "./linked-overleaf-api";
 import { Button } from "@/components/button";
 

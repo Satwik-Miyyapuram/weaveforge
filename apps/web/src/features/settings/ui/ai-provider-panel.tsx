@@ -11,7 +11,7 @@ import {
   rememberActiveProvider,
   restoreActiveProvider,
   setActiveProvider,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import { getContainer } from "@/bootstrap";
 import { PROVIDER_PRESETS, type ProviderApi } from "@/container/facades";
 import { FormError } from "@/components/form-error";

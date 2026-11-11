@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import type { ISupervisionRepository, Member } from "@weaveforge/core";
 
-import { PostgrestSupervisionRepository } from "../infrastructure/postgrest-supervision-repository";
-import { fetchSuperviseeMilestonesAndLogs } from "@/features/dashboard/application/fetch-supervisee-data";
+import { PostgrestSupervisionRepository } from "../infrastructure/parts";
+import { fetchSuperviseeMilestonesAndLogs } from "@/features/dashboard/application/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

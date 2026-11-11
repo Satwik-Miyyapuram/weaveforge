@@ -9,7 +9,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
-} from "../infrastructure/desktop-workspace-fs";
+} from "../infrastructure/parts";
 import { followProjectRename } from "../application/mirror-manifest";
 import { typedCore } from "@/lib/rust-core";
 

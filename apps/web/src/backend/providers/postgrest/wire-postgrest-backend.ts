@@ -1,28 +1,24 @@
-import type { BackendConfig } from "@/backend/config";
+import type { BackendConfig } from "@/backend/parts";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import {
   PostgrestExperimentRepository,
-} from "@/features/experiments/infrastructure/postgrest-experiment-repository";
-import {
   PostgrestMetricRepository,
-} from "@/features/experiments/infrastructure/postgrest-metric-repository";
+} from "@/features/experiments/infrastructure/parts";
 import {
   PostgrestLibraryPinRepository,
 } from "@/features/library/infrastructure/postgrest-library-pin-repository";
 import {
   PostgrestLogEntryRepository,
-} from "@/features/logbook/infrastructure/postgrest-log-entry-repository";
+} from "@/features/logbook/infrastructure/parts";
 import {
   PostgrestLabSnapshotRepository,
-} from "@/features/org/infrastructure/postgrest-lab-snapshot-repository";
+  PostgrestSupervisionRepository,
+} from "@/features/org/infrastructure/parts";
 import {
   PostgrestMemberRepository,
 } from "@/features/org/infrastructure/postgrest-member-repository";
-import {
-  PostgrestSupervisionRepository,
-} from "@/features/org/infrastructure/postgrest-supervision-repository";
 import {
   PostgrestAnnotationPinRepository,
 } from "@/features/papers/infrastructure/postgrest-annotation-pin-repository";
@@ -45,22 +41,20 @@ import {
 import {
   PostgrestReadingListItemRepository,
   PostgrestReadingListRepository,
-} from "@/features/reading-lists/infrastructure/postgrest-reading-list-repository";
-import {
   PostgrestScreeningRepository,
-} from "@/features/reading-lists/infrastructure/postgrest-screening-repository";
+} from "@/features/reading-lists/infrastructure/parts";
 import {
   PostgrestCitationAlertTrackRepository,
-} from "@/features/relations/infrastructure/postgrest-citation-alert-track-repository";
+} from "@/features/relations/infrastructure/parts";
 import {
   PostgrestPaperRelationRepository,
 } from "@/features/relations/infrastructure/postgrest-paper-relation-repository";
 import {
   PostgrestReportSectionRepository,
-} from "@/features/report/infrastructure/postgrest-report-section-repository";
+} from "@/features/report/infrastructure/parts";
 import {
   PostgrestSettingsRepository,
-} from "@/features/settings/infrastructure/postgrest-settings-repository";
+} from "@/features/settings/infrastructure/parts";
 import {
   PostgrestCommentRepository,
 } from "@/features/sharing/infrastructure/postgrest-comment-repository";
@@ -129,8 +123,7 @@ import {
 } from "@weaveforge/core";
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
-import { SupabaseAdminUserProvisioner } from "../supabase-auth/admin-provisioner";
-import { SupabaseSessionProvider } from "../supabase-auth/session";
+import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./client";
 import { KeyedColumnRepository, SpecRepository } from "./spec-repository";
 import { watchWrites } from "./watch-writes";

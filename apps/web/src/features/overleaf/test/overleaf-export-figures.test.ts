@@ -15,7 +15,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   buildOverleafExportPackage,
   withMissingFigures,
-} from "../application/build-overleaf-export";
+} from "../application/parts";
 
 before(async () => {
   await loadTestCore();

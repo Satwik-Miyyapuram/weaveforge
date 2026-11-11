@@ -32,7 +32,7 @@ That layering is the extension model. You extend the app by implementing a **por
 | Client | File |
 |--------|------|
 | Web PWA | `apps/web/src/bootstrap.ts` |
-| Backend selection | `apps/web/src/container/app-parts.ts` |
+| Backend selection | `apps/web/src/container/parts.ts` |
 | Integrations | `apps/web/src/integrations/wire-integrations.ts` |
 | Blob storage | `apps/web/src/storage/wire-storage.ts` |
 | Python SDK | `python/weaveforge/container.py` |

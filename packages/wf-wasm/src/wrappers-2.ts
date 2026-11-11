@@ -322,7 +322,7 @@ export function redactAndCap(input: string, limit: number = maxReportChars()): R
 // --- experiment-artifacts ---
 /**
  * Experiment artifact names and view URLs (Rust `experiment_artifacts`), re-exported from index.ts.
- * Each function keeps the signature of apps/web/src/features/experiments/infrastructure/experiment-artifact-store.ts.
+ * Each function keeps the signature of apps/web/src/features/experiments/infrastructure/parts.ts.
  */
 /** How a stored entry is shown: an image, a PDF, or a link. */
 export type ArtifactKind = "image" | "pdf" | "link";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ToastStore } from "@/lib/toast/toast-store";
+import { ToastStore } from "@/lib/toast/parts";
 import { ToastList, isUndoKey } from "../toast-host";
 
 test("toasts render in a polite live region with their message, button and close", () => {

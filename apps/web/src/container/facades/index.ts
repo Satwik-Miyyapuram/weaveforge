@@ -10,14 +10,14 @@
 import { isLocalMode, setLocalMode } from "@/backend/providers/local/local-identity";
 import {
   fetchSuperviseeMilestonesAndLogs,
-} from "@/features/dashboard/application/fetch-supervisee-data";
+} from "@/features/dashboard/application/parts";
 import type {
   DuplicateSharedVaultPageUseCase,
 } from "@/features/library/application/duplicate-shared-vault.use-case";
 import type {
   LoadPlanScreenUseCase,
   PlanScreenData as PlanScreenLoadData,
-} from "@/features/plan/application/load-plan-screen.use-case";
+} from "@/features/plan/application/parts";
 import type { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import type { createReferenceActions } from "@/features/reader/application/reference-actions";
 import type {
@@ -28,7 +28,7 @@ import type { IGitClient, IIntegrationsStore, Integration } from "@/features/syn
 import type {
   LoadVaultScreenUseCase,
   VaultScreenData,
-} from "@/features/vault/application/load-vault-screen.use-case";
+} from "@/features/vault/application/parts";
 import type { ProjectContext } from "@/lib/project-context";
 import { readyCore } from "@/lib/rust-core";
 import type {
@@ -55,7 +55,7 @@ import type {
   Milestone,
   ParsedReference,
 } from "@weaveforge/core";
-import { MattermostNotifier } from "../../features/sync/infrastructure/mattermost-notifier";
+import { MattermostNotifier } from "../../features/sync/infrastructure/parts";
 
 export * from "./papers";
 export * from "./paper-fields";
@@ -128,7 +128,7 @@ export interface AppContainer {
   prefetchProject: PrefetchProjectUseCase;
   /** Active integration providers for this deployment (env-driven). */
   integrationConfig: import("@/integrations/config").IntegrationConfig;
-  backendConfig: import("@/backend/config").BackendConfig;
+  backendConfig: import("@/backend/parts").BackendConfig;
 }
 
 // --- auth ---

@@ -42,7 +42,7 @@ re-export them. The main names are `rewriteWikilinks`, `isNoteImportFile`,
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`. Examples:
 
-- `apps/web/src/features/vault/application/import-notes.ts` calls
+- `apps/web/src/features/vault/application/parts.ts` calls
   `readyCore().rewriteWikilinks`.
 - `apps/web/src/features/vault/infrastructure/postgrest-vault-page-repository.ts`
   calls `typedCore().vaultPageToDomain` and `typedCore().vaultPageToRow`.

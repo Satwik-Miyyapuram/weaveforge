@@ -6,7 +6,7 @@ import {
   type AiWriteProposal,
   type PaperFieldDef,
 } from "@weaveforge/core";
-import { createAiProposalExecutors } from "../application/proposal-executors";
+import { createAiProposalExecutors } from "../application/parts";
 
 const draft = (kind: AiProposalKind, payload: Record<string, unknown>): AiWriteProposal => ({ id: `proposal-${kind}`, kind, resourceId: "paper-1", content: "Append this", createdAt: "2026-07-15T00:00:00.000Z", status: "pending", sourceLinks: [], payload });
 

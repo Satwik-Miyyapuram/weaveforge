@@ -364,7 +364,7 @@ Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
   api.weaveforge.org checks `Origin`, and Tauri has no hook like Electron's
   `webRequest` to rewrite it. `isApiHost` in `apps/desktop/src/api-cors.ts`
   covers every `*.weaveforge.org` host, not only `api`, and includes the
-  realtime WebSocket (`realtimeUrl` in `apps/web/src/backend/config.ts`). A
+  realtime WebSocket (`realtimeUrl` in `apps/web/src/backend/parts.ts`). A
   custom scheme cannot proxy a WebSocket upgrade. Browsers apply no CORS to
   WebSockets, so 2.2 checks whether realtime checks `Origin` on upgrade. 2.2
   lists each host and picks one of two options for HTTP:

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import type { DashboardLayoutItem } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { FIT_MAX_HEIGHTS, getCardDef } from "../application/card-registry";
+import { FIT_MAX_HEIGHTS, getCardDef } from "../application/parts";
 
 before(async () => {
   await loadTestCore();

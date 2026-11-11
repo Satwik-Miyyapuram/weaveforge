@@ -1,7 +1,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { commandForChord, isTypingTarget, shortcutTable } from "../application/keybindings";
+import { commandForChord, isTypingTarget, shortcutTable } from "../application/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

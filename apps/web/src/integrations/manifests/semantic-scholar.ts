@@ -1,4 +1,4 @@
-import { SemanticScholarCitationSource } from "@/features/relations/infrastructure/semantic-scholar-citation-source";
+import { SemanticScholarCitationSource } from "@/features/relations/infrastructure/parts";
 import { createCredentialReader } from "../parts";
 import type { WireCitationsDeps } from "../parts";
 import type { CitationIntegrationManifest } from "./types";

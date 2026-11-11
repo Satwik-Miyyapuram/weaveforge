@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toasts } from "@/lib/toast/toast-store";
+import { toasts } from "@/lib/toast/parts";
 import { mergeLater } from "../merge-later";
 import { paperKey } from "../remove-paper";
 

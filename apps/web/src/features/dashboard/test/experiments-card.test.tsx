@@ -9,8 +9,8 @@ import test, { before } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { renderDashboardCard, type CardRenderProps } from "../ui/cards/card-renderers";
-import { buildDashboardStats } from "../application/build-dashboard-stats";
-import type { DashboardStats } from "../application/build-dashboard-stats";
+import { buildDashboardStats } from "../application/parts";
+import type { DashboardStats } from "../application/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

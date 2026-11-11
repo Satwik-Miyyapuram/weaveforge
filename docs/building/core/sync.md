@@ -35,7 +35,7 @@ results in.
 - `gitlab_log_file.rs`: `gitlabLogFilePlan` plans a log entry's GitLab writes:
   the file URL, the `logbook/` path, the markdown body, the branch fallback and
   the commit messages. The PUT, POST fallback and DELETE stay in
-  `apps/web/src/features/sync/infrastructure/gitlab-log-exporter.ts`.
+  `apps/web/src/features/sync/infrastructure/parts.ts`.
 - `integration_store.rs`: `branchRead` and `branchSave` give the branch an
   integration reads back from its row and the value it writes. Mattermost keeps
   a blank channel blank; git falls back to `main`. The row reads and the upsert
@@ -43,12 +43,12 @@ results in.
 - `git_api.rs`: `gitReadPlan` gives the provider request URL, or the
   not-connected message. `githubCommits`, `gitlabCommits` and
   `gitReadFailureMessage` normalise commits and failure text. The fetch and the
-  auth headers stay in `apps/web/src/features/sync/infrastructure/git-client.ts`.
+  auth headers stay in `apps/web/src/features/sync/infrastructure/parts.ts`.
 - `mattermost_post.rs`: `mattermostPostPlan` picks the channel and checks the
   server origin. `mattermostPostResponsePlan` flags a signed-out response.
   `mattermostTestPosts` groups test posts by channel. The fetch, the desktop
   bridge and the signed-out event stay in
-  `apps/web/src/features/sync/infrastructure/mattermost-notifier.ts`.
+  `apps/web/src/features/sync/infrastructure/parts.ts`.
 - `ink_note.rs`: `splitInkTextLayer` splits an ink note body into text layers.
 - `stamp_workspace_id.rs`: `stampWorkspaceId` writes the `weaveforge-id` line
   into a hand-written file's frontmatter.

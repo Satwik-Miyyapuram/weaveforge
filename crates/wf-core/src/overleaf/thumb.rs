@@ -1,6 +1,6 @@
 //! Keeping an Overleaf project's card picture in local storage (wf-core `overleaf::thumb`).
 //! Parity with the former TypeScript rules in
-//! `apps/web/src/features/report/lib/overleaf-thumbs.ts`.
+//! `apps/web/src/features/report/lib/parts.ts`.
 
 /// The longest data URL kept in storage: about 300 KB. A page drawn at card size is far smaller.
 pub const MAX_SAVED_CHARS: usize = 300_000;

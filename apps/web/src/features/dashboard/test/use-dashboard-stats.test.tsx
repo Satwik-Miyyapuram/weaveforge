@@ -6,7 +6,7 @@ import type { DashboardCardType, Member, Project, TagWithPaperCount } from "@wea
 
 import { ProjectContext } from "@/features/projects";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
+import type { DashboardStatsPorts } from "../application/parts";
 import { useDashboardStats } from "../ui/use-dashboard-stats";
 
 before(async () => {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestReadingListRepository } from "../postgrest-reading-list-repository";
+import { PostgrestReadingListRepository } from "../parts";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

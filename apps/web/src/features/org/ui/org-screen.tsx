@@ -11,7 +11,7 @@ import { useProfile } from "./profile-provider";
 import { OrgChart } from "./member-tree";
 import { OrgCodesPanel, OrgLabModal } from "./org-setup-gate";
 import { OrgSwitcher } from "./org-switcher";
-import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
+import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/parts";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { ownedOrgsOrError, type OwnedOrg } from "./owned-orgs";

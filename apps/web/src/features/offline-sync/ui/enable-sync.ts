@@ -1,5 +1,5 @@
 import { createDataClient } from "@/backend/providers/postgrest/client";
-import { readBackendConfig } from "@/backend/config";
+import { readBackendConfig } from "@/backend/parts";
 import { readyCore } from "@/lib/rust-core";
 import { syncEngine } from "./use-sync";
 import type { AdoptionResult } from "../domain/adoption";

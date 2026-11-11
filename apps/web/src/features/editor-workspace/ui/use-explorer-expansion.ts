@@ -10,7 +10,7 @@ import {
   writeMigrated,
   type ExplorerSection,
   type SectionState,
-} from "../application/explorer-state";
+} from "../application/parts";
 
 /**
  * Which rows and which sections of the explorer are open, read from storage

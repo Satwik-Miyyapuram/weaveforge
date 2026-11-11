@@ -15,7 +15,7 @@ import type {
   TabMenuCommand,
   TabRef,
 } from "@weaveforge/wasm";
-import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
+import { shortcutTable, type WorkspaceCommand } from "../application/parts";
 import { readyCore } from "@/lib/rust-core";
 import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";

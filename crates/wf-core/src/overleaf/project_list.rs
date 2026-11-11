@@ -1,5 +1,5 @@
 //! The Overleaf projects a report tab lists (wf-core `overleaf::project_list`). Parity with
-//! `apps/web/src/features/report/lib/overleaf-project-list.ts`. The order is left to the caller:
+//! `apps/web/src/features/report/lib/parts.ts`. The order is left to the caller:
 //! the TypeScript side sorts with `localeCompare`, which decides how names order.
 
 use std::collections::HashMap;

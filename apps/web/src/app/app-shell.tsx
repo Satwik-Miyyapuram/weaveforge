@@ -15,7 +15,7 @@ import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { useIsDetailView, useModuleRegistry, useWorkspaceRoute } from "@/lib/hooks/parts";
 import { useNavFolded } from "@/lib/hooks/use-nav-fold";
-import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/keybindings";
+import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/parts";
 import { HeaderActions } from "./header-actions";
 import { TabBar } from "./tabbar";
 import { SubNav } from "./sub-nav";

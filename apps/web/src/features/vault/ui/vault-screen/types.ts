@@ -1,6 +1,6 @@
 "use client";
 
-import type { VaultScreenData } from "@/features/vault/application/load-vault-screen.use-case";
+import type { VaultScreenData } from "@/features/vault/application/parts";
 
 export type VaultViewData = VaultScreenData & {
   ownerNames: Map<string, string>;

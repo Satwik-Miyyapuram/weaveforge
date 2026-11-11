@@ -5,7 +5,7 @@ import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/user-settings-core";
+import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/parts";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";

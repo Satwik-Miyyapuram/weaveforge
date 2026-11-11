@@ -9,7 +9,7 @@ import {
   overleafSync,
   overleafSyncAvailable,
   saveOverleafToken,
-} from "../application/overleaf-folder-sync";
+} from "../application/parts";
 
 function fakeShell() {
   const calls: unknown[][] = [];

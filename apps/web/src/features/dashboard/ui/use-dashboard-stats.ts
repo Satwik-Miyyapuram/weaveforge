@@ -9,12 +9,13 @@ import {
 } from "@/lib/cache/parts";
 import type { DashboardCardType, Member } from "@weaveforge/core";
 
-import { buildDashboardStats, type DashboardStats } from "../application/build-dashboard-stats";
 import {
-  loadDashboardStats,
+  buildDashboardStats,
+  type DashboardStats,
   type DashboardStatsPorts,
-} from "../application/load-dashboard-stats";
-import type { SupervisionStats } from "../application/build-supervision-stats";
+  loadDashboardStats,
+} from "../application/parts";
+import type { SupervisionStats } from "../application/parts";
 
 // Built on demand: the Rust core is not loaded when this module is imported.
 const emptyStats = (): DashboardStats =>

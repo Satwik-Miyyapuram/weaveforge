@@ -1,5 +1,5 @@
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
-import { GitLabLogExporter } from "@/features/sync/infrastructure/gitlab-log-exporter";
+import { GitLabLogExporter } from "@/features/sync/infrastructure/parts";
 import type { ILogSyncIntegration, LogEntry } from "@weaveforge/core";
 import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { LogSyncIntegrationManifest } from "./types";

@@ -10,9 +10,16 @@ import { readyCore } from "@/lib/rust-core";
 
 import { useProject } from "@/features/projects";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
-import { commandForChord, isTypingTarget } from "../application/keybindings";
-import { readLayout, writeLayout } from "../application/layout-storage";
-import { loadWorkspace, type Document } from "../application/workspace-load";
+import {
+  commandForChord,
+  type Document,
+  isTypingTarget,
+  loadWorkspace,
+  readHidden,
+  readLayout,
+  writeHidden,
+  writeLayout,
+} from "../application/parts";
 import {
   breadcrumbs,
   creationKindFor,
@@ -32,11 +39,10 @@ import {
   segmentsFor,
 } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
-import type { ExplorerSection } from "../application/explorer-state";
+import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
-import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/open-notes";
 import { PaneView, openTabs } from "./pane-view";

@@ -11,8 +11,8 @@ import {
   serialQueue,
   type OverleafThumbDeps,
   type ThumbStore,
-} from "../lib/overleaf-thumbs";
-import type { OverleafProjectRow } from "../lib/overleaf-project-list";
+} from "../lib/parts";
+import type { OverleafProjectRow } from "../lib/parts";
 
 type AuthHeaders = WorkshopPdfDeps["authHeaders"];
 type Thumb = { kind: "loading" } | { kind: "image"; url: string } | { kind: "none" };

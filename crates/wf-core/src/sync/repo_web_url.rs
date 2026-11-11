@@ -1,5 +1,5 @@
 //! Web links to a git repo and its commits, ported from
-//! `apps/web/src/features/sync/infrastructure/git-client.ts`.
+//! `apps/web/src/features/sync/infrastructure/parts.ts`.
 
 use url::Url;
 

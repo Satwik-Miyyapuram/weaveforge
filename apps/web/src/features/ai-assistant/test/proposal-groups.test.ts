@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { AiWriteProposal } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { groupProposals, runBulk } from "../application/proposal-groups";
+import { groupProposals, runBulk } from "../application/parts";
 
 before(async () => {
   await loadTestCore();

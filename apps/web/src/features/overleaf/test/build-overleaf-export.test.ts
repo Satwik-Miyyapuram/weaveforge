@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { buildOverleafExportPackage } from "../application/build-overleaf-export";
+import { buildOverleafExportPackage } from "../application/parts";
 import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";

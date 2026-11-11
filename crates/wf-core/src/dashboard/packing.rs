@@ -1,4 +1,4 @@
-//! Dashboard grid packing. Port of `apps/web/src/features/dashboard/application/dashboard-layout-packing.ts`.
+//! Dashboard grid packing. Port of `apps/web/src/features/dashboard/application/parts.ts`.
 //!
 //! Pure geometry. Each card's size limits come in as data (the TS card registry), so this
 //! module holds no card table of its own.

@@ -386,7 +386,7 @@ export function documentBoost(
 /**
  * Semantic Scholar citation field rules (Rust `semantic_scholar_citation`), re-exported from index.ts.
  * Keeps the results of the helpers in
- * apps/web/src/features/relations/infrastructure/semantic-scholar-citation-source.ts.
+ * apps/web/src/features/relations/infrastructure/parts.ts.
  */
 /** A citing paper as the citation source keeps it (matches the app's `CitationCandidate`). */
 export interface CitationCandidateWire {

@@ -7,16 +7,16 @@ import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   appendCardPair,
+  CARD_LIMITS,
   closeLayoutGaps,
   compactLayoutVertical,
+  initialDashboardLayout,
+  mergeSupervisorCardsIfMissing,
   normalizeSmLayout,
   parseDashboardLayout,
   studentDefaultLg,
   studentDefaultSm,
-  mergeSupervisorCardsIfMissing,
-  initialDashboardLayout,
-} from "../application/dashboard-layout";
-import { CARD_LIMITS } from "../application/dashboard-layout-packing";
+} from "../application/parts";
 
 // Short names for the Rust calls these tests cover.
 const defaultLayout = (supervisor: boolean) =>

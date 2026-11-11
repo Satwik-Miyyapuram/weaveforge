@@ -1,6 +1,6 @@
 import { LexicalConceptExtractor, planWikiPages, wikiProposalContent, type FixStep, type IConceptExtractor, type LintReport, type MergeResult, type WikiPagePlan } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { modelExtractor } from "@/features/ai-assistant/application/ai-provider-session";
+import { modelExtractor } from "@/features/ai-assistant/application/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**

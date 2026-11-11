@@ -23,7 +23,7 @@ import { useModuleRegistry } from "@/lib/hooks/parts";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
-import { shortcutTable } from "@/features/editor-workspace/application/keybindings";
+import { shortcutTable } from "@/features/editor-workspace/application/parts";
 import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";

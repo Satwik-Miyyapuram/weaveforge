@@ -1,5 +1,5 @@
 //! Auth session transition for JavaScript (wf-core `auth_transition`). The JS name matches
-//! `nextAuthStep` in `apps/web/src/features/auth/domain/auth-transition.ts`.
+//! `nextAuthStep` in `apps/web/src/features/auth/domain/parts.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::auth_transition::{AuthTransitionInput, next_auth_step};

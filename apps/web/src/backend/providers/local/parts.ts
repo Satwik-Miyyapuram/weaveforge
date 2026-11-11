@@ -2,7 +2,7 @@ import {
   PostgrestSettingsRepository,
   type Secrets,
   type SecretsStore,
-} from "@/features/settings/infrastructure/postgrest-settings-repository";
+} from "@/features/settings/infrastructure/parts";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { notifyWorkspaceChange } from "@/lib/parts";
 import type { SupabaseClient } from "@supabase/supabase-js";

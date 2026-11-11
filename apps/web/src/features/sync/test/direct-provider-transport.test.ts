@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { GitClient } from "../infrastructure/git-client";
-import { GitLabLogExporter } from "../infrastructure/gitlab-log-exporter";
-import { MattermostNotifier } from "../infrastructure/mattermost-notifier";
+import { GitClient, GitLabLogExporter, MattermostNotifier } from "../infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Integration } from "../domain/parts";
 

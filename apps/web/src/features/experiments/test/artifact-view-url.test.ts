@@ -1,6 +1,6 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
-import { isTauriShell } from "../infrastructure/experiment-artifact-store";
+import { isTauriShell } from "../infrastructure/parts";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

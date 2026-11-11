@@ -4,7 +4,7 @@ import type { Milestone } from "@weaveforge/core";
 
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { localIsoDay } from "../local-day";
+import { localIsoDay } from "../parts";
 
 before(async () => {
   await loadTestCore();

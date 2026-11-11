@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { createNoteFromLink } from "../application/create-note-from-link";
+import { createNoteFromLink } from "../application/parts";
 
 before(loadTestCore);
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/button";
 import { LinkIcon, OpenIcon } from "@/components/view-icons";
 import { useFoldNav } from "@/lib/hooks/use-nav-fold";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
-import type { OverleafProjectRow } from "../lib/overleaf-project-list";
+import type { OverleafProjectRow } from "../lib/parts";
 import type { LinkedReport } from "./linked-overleaf-api";
 import { EditOverleafReportForm, LinkOverleafForm } from "./overleaf-report-forms";
 import type { WorkshopSession } from "./use-workshop-session";

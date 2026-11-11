@@ -36,7 +36,7 @@ Three findings, because they move items around:
   Zotero over `weaveforge:zotero-local`. Item 4 is a second reader behind the
   same domain types, not a new feature.
 - **Cite-key resolution already exists**, in
-  `apps/web/src/features/overleaf/application/build-overleaf-export.ts`
+  `apps/web/src/features/overleaf/application/parts.ts`
   (`resolveCiteKey`, `bibKey`). Item 1 needs those rules in `core`, which means
   item 1 *moves* code before it adds any.
 
