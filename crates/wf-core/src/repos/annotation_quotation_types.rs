@@ -132,8 +132,8 @@ fn list_for_paper(call: &RepoCall) -> RepoStep {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
     use crate::repo_query::{RepoAction, RepoCtx};
+    use serde_json::Value;
     use serde_json::json;
 
     fn call(args: Vec<Value>, replies: Vec<Value>, project: Option<&str>) -> RepoCall {

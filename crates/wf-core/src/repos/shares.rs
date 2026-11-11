@@ -408,7 +408,11 @@ mod tests {
     #[test]
     fn grant_fails_with_the_message_of_an_error_without_code() {
         let error = json!({"error": {"code": null, "message": "offline"}});
-        let s = step("grant", &call(vec![grant_input()], vec![Value::Null, error])).unwrap();
+        let s = step(
+            "grant",
+            &call(vec![grant_input()], vec![Value::Null, error]),
+        )
+        .unwrap();
         assert_eq!(s, RepoStep::fail("offline"));
     }
 

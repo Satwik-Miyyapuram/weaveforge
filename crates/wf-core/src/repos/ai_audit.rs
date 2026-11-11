@@ -80,8 +80,8 @@ fn count_accepted(call: &RepoCall) -> RepoStep {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
     use crate::repo_query::{RepoAction, RepoCtx};
+    use serde_json::Value;
 
     fn call(args: Vec<Value>, replies: Vec<Value>) -> RepoCall {
         RepoCall {
