@@ -2,12 +2,11 @@
  * Timeline layout lanes (Rust `relations::graph_timeline`), re-exported from index.ts.
  * Keeps the signatures of apps/web/src/features/relations/application/graph-timeline.ts.
  */
-import {
-  timelineLaneOffset as rawTimelineLaneOffset,
-  timelineMidYear as rawTimelineMidYear,
-} from "../pkg/wf_wasm.js";
+import { timelineLaneOffset, timelineMidYear } from "../pkg/wf_wasm.js";
 
 export {
+  timelineLaneOffset,
+  timelineMidYear,
   yearSpacing,
 } from "../pkg/wf_wasm.js";
 
@@ -23,14 +22,4 @@ export function timelineLaneX(
   const mid = timelineMidYear(layout, nodes.map((n) => n.year ?? null));
   if (mid === null) return null;
   return (node) => timelineLaneOffset(mid, node.year ?? undefined);
-}
-
-/** The mean publication year the timeline centres on; `null` when the layout is not `"timeline"` or no year is known. */
-export function timelineMidYear(layout: string, years: (number | null)[]): number | null {
-  return rawTimelineMidYear(layout, years) ?? null;
-}
-
-/** One node's x offset from the centre year; `null` for a node without a year. */
-export function timelineLaneOffset(mid: number, year: number | undefined): number | null {
-  return rawTimelineLaneOffset(mid, year) ?? null;
 }

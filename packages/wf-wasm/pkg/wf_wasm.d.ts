@@ -2031,10 +2031,10 @@ export function dashboardTeamAttention(supervisees: any, today: string): any;
 export function dashboardTopTags(tags: any, limit: number): any;
 
 /**
- * [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `undefined`
+ * [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `null`
  * unless both are real dates.
  */
-export function daysUntilDate(iso: string, today: string): any;
+export function daysUntilDate(iso: string, today: string): number | null;
 
 /**
  * [`decide_annotation_sync`] for a row and a mode string (unknown modes act as `bidirectional`).
@@ -2558,7 +2558,7 @@ export function draftTextBox(input: B.TextBoxDraft): B.NewReaderAnnotation;
  *
  * Fails if the node does not have the expected shape, or the result cannot be serialised.
  */
-export function dropParentId(target: any): any;
+export function dropParentId(target: B.WorkspaceTreeNode): string | null;
 
 /**
  * [`duplicate_plan`](duplicate::duplicate_plan) as `{ title, parentId, body }`, or `null`.
@@ -2580,9 +2580,9 @@ export function editSides(ops: readonly B.OwedOp[]): B.Sides | null;
 
 /**
  * [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).
- * `None` (a week or more, or NaN) becomes `undefined`; the caller then shows the date.
+ * `None` (a week or more, or NaN) becomes `null`; the caller then shows the date.
  */
-export function editedRelativeLabel(seconds: number): string | undefined;
+export function editedRelativeLabel(seconds: number): string | null;
 
 /**
  * [`effective_field_boosts`](search_settings::effective_field_boosts).
@@ -2970,7 +2970,7 @@ export function fetchLimits(): B.OutboundFetchLimits;
  *
  * Fails if `body` is longer than the index text limit.
  */
-export function figureAltFor(body: string, path: string): string | undefined;
+export function figureAltFor(body: string, path: string): string | null;
 
 /**
  * [`figure_clip_text`]: the clipboard text for a copied figure.
@@ -5190,13 +5190,13 @@ export function knownCandidates(known_pdf?: string | null, page?: string | null)
 export function labSnapshotRowToDomain(row: B.LabSnapshotRow): B.LabSnapshot;
 
 /**
- * [`route_title::label_for_path`]: the screen's own name, or `undefined` for a route with none.
+ * [`route_title::label_for_path`]: the screen's own name, or `null` for a route with none.
  *
  * # Errors
  *
  * Fails if `nav_items` is not an array of `{ path, label }` objects.
  */
-export function labelForPath(pathname: string, nav_items: any): string | undefined;
+export function labelForPath(pathname: string, nav_items: readonly B.NavRouteInput[]): string | null;
 
 /**
  * [`labelNumber`](bibliography::label_number): entry number from the exec groups.
@@ -6323,10 +6323,10 @@ export function normalizeAppearance(raw: any): any;
 export function normalizeArxivId(value: string): string | undefined;
 
 /**
- * [`normalize_color_value`](theme_config::normalize_color_value); `undefined` for a
+ * [`normalize_color_value`](theme_config::normalize_color_value); `null` for a
  * non-string or a rejected color.
  */
-export function normalizeColorValue(raw: any): string | undefined;
+export function normalizeColorValue(raw: unknown): string | null;
 
 /**
  * [`normalize_comment_input`](sharing::normalize_comment_input); a message throws as text.
@@ -6348,10 +6348,10 @@ export function normalizeDoi(doi?: string | null): string | undefined;
 export function normalizeFieldName(raw: string): string;
 
 /**
- * [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
+ * [`normalize_font_stack`](theme_config::normalize_font_stack); `null` for a
  * non-string or a rejected stack.
  */
-export function normalizeFontStack(raw: any): string | undefined;
+export function normalizeFontStack(raw: unknown): string | null;
 
 /**
  * [`normalize_graph_view_settings`](graph_settings::normalize_graph_view_settings).
@@ -6401,9 +6401,9 @@ export function normalizePasteSettings(json: string): any;
 
 /**
  * [`normalize_project_path`](project_path::normalize_project_path) (TS `normalizeProjectPath`).
- * `None` becomes `undefined`.
+ * `None` becomes `null`.
  */
-export function normalizeProjectPath(path: string): string | undefined;
+export function normalizeProjectPath(path: string): string | null;
 
 /**
  * [`normalize_search_history`](search_history::normalize_search_history). Any
@@ -7764,7 +7764,7 @@ export function planMirror(files: any, asset_paths: any, previous_paths: any, ba
 /**
  * [`plan_pace`](timeline::plan_pace): `"on track"` or the overdue and due-soon counts.
  */
-export function planPace(milestones: any, today: string): string;
+export function planPace(milestones: readonly B.Milestone[], today: string): string;
 
 /**
  * [`plan_renames`]: the renames adoption needs. `local` is the projects in name order.
@@ -7793,7 +7793,7 @@ export function planSeriesIngestIndices(steps: Float64Array, previous_max_step?:
  *
  * Fails if `milestones` has the wrong shape.
  */
-export function planTimeline(milestones: any, today: string): any;
+export function planTimeline(milestones: readonly B.Milestone[], today: string): B.PlanTimeline | null;
 
 /**
  * [`plan_widget`](feed::plan_widget): the summary a widget draws.
@@ -7935,13 +7935,13 @@ export function previewTab(): B.TabRef;
 export function primaryPaperRef(arxiv_id?: string | null, doi?: string | null): any;
 
 /**
- * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `undefined`.
+ * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `null`.
  *
  * # Errors
  *
  * Fails if `counts` has the wrong shape.
  */
-export function prismaCaveat(counts: any): string | undefined;
+export function prismaCaveat(counts: B.PrismaCounts): string | null;
 
 /**
  * [`prisma_counts`](screening::prisma_counts) (TS `prismaCounts`).
@@ -8671,13 +8671,13 @@ export function reportMarkdown(input: B.ReportMarkdown): string;
 
 /**
  * [`validate_report_section_input`](report_section::validate_report_section_input): the
- * validation message, or `undefined` when the input is valid.
+ * validation message, or `null` when the input is valid.
  *
  * # Errors
  *
  * Fails if `input` has the wrong shape.
  */
-export function reportSectionInputError(input: any): string | undefined;
+export function reportSectionInputError(input: B.NewReportSectionInput): string | null;
 
 /**
  * [`resample_ink_stroke`] as `{ points, pressures }`.
@@ -8919,7 +8919,7 @@ export function rootKey(root: B.EditableRoot): string;
  *
  * Fails if the node does not have the expected shape, or the result cannot be serialised.
  */
-export function rootOf(node: any): any;
+export function rootOf(node: B.WorkspaceTreeNode): B.EditableRoot | null;
 
 /**
  * [`root_of_kind`](edit::root_of_kind). `kind` is a snake_case tree kind name.
@@ -8928,7 +8928,7 @@ export function rootOf(node: any): any;
  *
  * Fails if the result cannot be serialised.
  */
-export function rootOfKind(kind: string): any;
+export function rootOfKind(kind: string): B.EditableRoot | null;
 
 /**
  * [`root_verdict`](vault_search::root_verdict) as `"notADirectory" | "existing" | "empty" | "notEmpty"`.
@@ -9238,7 +9238,7 @@ export function selectedPdfPages(answer: string, count: number): number[];
  *
  * Fails if `lines` is not an array of lines or `indices` is not an array of numbers.
  */
-export function selectedText(lines: any, indices: any): string;
+export function selectedText(lines: readonly B.TextLine[], indices: readonly number[]): string;
 
 /**
  * [`selection_to_anchor`] as a `CombinedPdfAnchor`, or `null` when the selection is empty or out of range.
@@ -10194,7 +10194,7 @@ export function tickFormat(values: readonly number[]): B.TickFormat;
 /**
  * [`timeline_lane_offset`](timeline::timeline_lane_offset).
  */
-export function timelineLaneOffset(mid: number, year?: number | null): number | undefined;
+export function timelineLaneOffset(mid: number, year?: number | null): number | null;
 
 /**
  * [`timeline_mid_year`](timeline::timeline_mid_year). `years` is an array of years, `null` where unknown.
@@ -10203,7 +10203,7 @@ export function timelineLaneOffset(mid: number, year?: number | null): number | 
  *
  * Fails if `years` is not an array of optional numbers.
  */
-export function timelineMidYear(layout: string, years: any): number | undefined;
+export function timelineMidYear(layout: string, years: (number | null)[]): number | null;
 
 /**
  * [`title_fixes`] (TS `titleFixes`). Only papers whose title needs a fix are listed.
@@ -10644,10 +10644,10 @@ export function vaultPageToRow(page: B.VaultPage): B.VaultPageWriteRow;
 export function vaultPageToSummaryDomain(row: B.VaultPageRow): B.VaultPage;
 
 /**
- * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `undefined`
- * when there is none. The TS wrapper maps `undefined` to `null`.
+ * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `null`
+ * when there is none.
  */
-export function vaultRootFromText(text: string): string | undefined;
+export function vaultRootFromText(text: string): string | null;
 
 /**
  * [`title_like_pattern`](page_query::title_like_pattern): the ILIKE pattern for a normalised title key.
@@ -11436,7 +11436,7 @@ export interface InitOutput {
     readonly dropParentId: (a: any) => [number, number, number];
     readonly duplicatePlan: (a: any, b: any) => [number, number, number];
     readonly editSides: (a: any) => [number, number, number];
-    readonly editedRelativeLabel: (a: number) => [number, number];
+    readonly editedRelativeLabel: (a: number) => any;
     readonly effectiveFieldBoosts: (a: any) => [number, number, number];
     readonly effectiveRelationTypes: (a: any) => [number, number, number];
     readonly emaSmooth: (a: any, b: number) => [number, number, number];
@@ -11498,7 +11498,7 @@ export interface InitOutput {
     readonly extractionMarkdown: (a: any, b: any, c: any) => [number, number, number, number];
     readonly fenceUntrusted: (a: any, b: number, c: number) => [number, number, number, number];
     readonly fetchLimits: () => [number, number, number];
-    readonly figureAltFor: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly figureAltFor: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly figureClipText: (a: any) => [number, number, number, number];
     readonly figureCornerHit: (a: number) => number;
     readonly figureImageFrame: (a: any) => [number, number, number];
@@ -11818,7 +11818,7 @@ export interface InitOutput {
     readonly kindsForResource: (a: number, b: number) => [number, number, number];
     readonly knownCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly labSnapshotRowToDomain: (a: any) => [number, number, number];
-    readonly labelForPath: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly labelForPath: (a: number, b: number, c: any) => [number, number, number];
     readonly labelNumber: (a: any) => [number, number, number];
     readonly labelSize: (a: number, b: number, c: number) => [number, number, number];
     readonly ladderOrder: (a: any) => [number, number, number];
@@ -11968,18 +11968,18 @@ export interface InitOutput {
     readonly normalizeAiAccessSettings: (a: any) => [number, number, number];
     readonly normalizeAppearance: (a: any) => [number, number, number];
     readonly normalizeArxivId: (a: any) => [number, number, number, number];
-    readonly normalizeColorValue: (a: any) => [number, number];
+    readonly normalizeColorValue: (a: any) => any;
     readonly normalizeCommentInput: (a: any) => [number, number, number];
     readonly normalizeDoi: (a: number, b: number) => [number, number];
     readonly normalizeFieldName: (a: number, b: number) => [number, number];
-    readonly normalizeFontStack: (a: any) => [number, number];
+    readonly normalizeFontStack: (a: any) => any;
     readonly normalizeGraphViewSettings: (a: any) => [number, number, number];
     readonly normalizeHighlightRects: (a: any) => [number, number, number];
     readonly normalizeLengthValue: (a: any, b: number, c: number) => [number, number];
     readonly normalizeMarkdownImageSyntax: (a: any) => [number, number, number, number];
     readonly normalizeOrgInviteCode: (a: number, b: number) => [number, number];
     readonly normalizePasteSettings: (a: any) => [number, number, number];
-    readonly normalizeProjectPath: (a: number, b: number) => [number, number];
+    readonly normalizeProjectPath: (a: number, b: number) => any;
     readonly normalizeSearchHistory: (a: any, b: number) => [number, number, number, number];
     readonly normalizeSearchSettings: (a: any) => [number, number, number];
     readonly normalizeSelectOptions: (a: number, b: number) => [number, number];
@@ -12175,7 +12175,7 @@ export interface InitOutput {
     readonly previewSource: (a: any, b: any) => [number, number, number];
     readonly previewTab: () => [number, number, number];
     readonly primaryPaperRef: (a: number, b: number, c: number, d: number) => [number, number, number];
-    readonly prismaCaveat: (a: any) => [number, number, number, number];
+    readonly prismaCaveat: (a: any) => [number, number, number];
     readonly prismaCounts: (a: any, b: any) => [number, number, number];
     readonly prismaFigureTex: (a: any, b: any) => [number, number, number, number];
     readonly projectDir: (a: any, b: any) => [number, number, number, number];
@@ -12276,7 +12276,7 @@ export interface InitOutput {
     readonly replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
     readonly repoWebUrl: (a: number, b: number) => [number, number];
     readonly reportMarkdown: (a: any) => [number, number, number, number];
-    readonly reportSectionInputError: (a: any) => [number, number, number, number];
+    readonly reportSectionInputError: (a: any) => [number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resizeFigureBox: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resolveAnnotationConflict: (a: any, b: number, c: number) => [number, number, number];
@@ -12476,8 +12476,8 @@ export interface InitOutput {
     readonly thumbFits: (a: number) => number;
     readonly thumbKey: (a: number, b: number) => [number, number];
     readonly tickFormat: (a: any) => [number, number, number];
-    readonly timelineLaneOffset: (a: number, b: number, c: number) => [number, number];
-    readonly timelineMidYear: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly timelineLaneOffset: (a: number, b: number, c: number) => any;
+    readonly timelineMidYear: (a: number, b: number, c: any) => [number, number, number];
     readonly titleFixes: (a: any) => [number, number, number];
     readonly titleForPath: (a: number, b: number, c: any) => [number, number, number, number];
     readonly titleFromFileName: (a: number, b: number) => [number, number];
@@ -12538,7 +12538,7 @@ export interface InitOutput {
     readonly vaultPageToDomain: (a: any) => [number, number, number];
     readonly vaultPageToRow: (a: any) => [number, number, number];
     readonly vaultPageToSummaryDomain: (a: any) => [number, number, number];
-    readonly vaultRootFromText: (a: number, b: number) => [number, number];
+    readonly vaultRootFromText: (a: number, b: number) => any;
     readonly vaultTitleLikePattern: (a: number, b: number) => [number, number];
     readonly vaultTitleOrBodyFilter: (a: number, b: number) => [number, number];
     readonly vaultTooLargeMessage: (a: number) => [number, number];

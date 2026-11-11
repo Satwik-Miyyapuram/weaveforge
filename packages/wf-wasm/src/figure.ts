@@ -6,7 +6,6 @@
  */
 import {
   cropFigureTo as rawCropFigureTo,
-  figureAltFor as rawFigureAltFor,
   inkPageFigures as rawInkPageFigures,
   keepFigureOnPage as rawKeepFigureOnPage,
   parseFigureCrop as rawParseFigureCrop,
@@ -24,6 +23,7 @@ import type {
 } from "./bindings.js";
 
 export {
+  figureAltFor,
   figureCornerHit,
   figureImageFrame,
   formatFigureTokens,
@@ -72,11 +72,6 @@ export function withInkPageFigures(text: string, figures: readonly FigurePlaceme
     text,
     figures.map(({ path, x, y, w, h, crop }) => ({ path, x, y, w, h, ...(crop ? { crop } : {}) })),
   );
-}
-
-/** The alt of the first image ref at `path` in `body` when it is a placed figure, else `null`. */
-export function figureAltFor(body: string, path: string): string | null {
-  return rawFigureAltFor(body, path) ?? null;
 }
 
 /** The new order of `len` figures as old indices, with the one at `index` moved by `step`. */

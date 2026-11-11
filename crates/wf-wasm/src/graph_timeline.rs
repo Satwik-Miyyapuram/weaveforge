@@ -16,19 +16,20 @@ pub fn timeline_year_spacing() -> f64 {
 /// # Errors
 ///
 /// Fails if `years` is not an array of optional numbers.
-#[wasm_bindgen(js_name = timelineMidYear)]
+#[wasm_bindgen(js_name = timelineMidYear, unchecked_return_type = "number | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn timeline_mid_year_js(
     layout: &str,
-    years: JsValue,
-) -> Result<Option<f64>, serde_wasm_bindgen::Error> {
+    #[wasm_bindgen(unchecked_param_type = "(number | null)[]")] years: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let years: Vec<Option<f64>> = serde_wasm_bindgen::from_value(years)?;
-    Ok(timeline::timeline_mid_year(layout, &years))
+    let mid = timeline::timeline_mid_year(layout, &years);
+    Ok(mid.map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`timeline_lane_offset`](timeline::timeline_lane_offset).
-#[wasm_bindgen(js_name = timelineLaneOffset)]
+#[wasm_bindgen(js_name = timelineLaneOffset, unchecked_return_type = "number | null")]
 #[must_use]
-pub fn timeline_lane_offset_js(mid: f64, year: Option<f64>) -> Option<f64> {
-    timeline::timeline_lane_offset(mid, year)
+pub fn timeline_lane_offset_js(mid: f64, year: Option<f64>) -> JsValue {
+    timeline::timeline_lane_offset(mid, year).map_or(JsValue::NULL, JsValue::from)
 }

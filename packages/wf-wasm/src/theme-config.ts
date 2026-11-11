@@ -4,8 +4,6 @@
  * Types come from ./bindings.ts.
  */
 import {
-  normalizeColorValue as rawNormalizeColorValue,
-  normalizeFontStack as rawNormalizeFontStack,
   normalizeLengthValue as rawNormalizeLengthValue,
   normalizeThemeConfig as rawNormalizeThemeConfig,
 } from "../pkg/wf_wasm.js";
@@ -14,19 +12,11 @@ import type {
 } from "./bindings.js";
 
 export {
+  normalizeColorValue,
+  normalizeFontStack,
   parseThemeConfig,
   themeConfigTemplate,
 } from "../pkg/wf_wasm.js";
-
-/** Colors: hex, numeric-argument rgb/hsl, or one of four keywords; null otherwise. */
-export function normalizeColorValue(raw: unknown): string | null {
-  return rawNormalizeColorValue(raw) ?? null;
-}
-
-/** Font stacks of up to five safe family names; null otherwise. */
-export function normalizeFontStack(raw: unknown): string | null {
-  return rawNormalizeFontStack(raw) ?? null;
-}
 
 /** Lengths such as `12px`, `0.5rem` or a px number, limited to `maxPx`; null otherwise. */
 export function normalizeLengthValue(raw: unknown, maxPx = 64): string | null {
