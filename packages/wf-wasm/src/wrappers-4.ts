@@ -1,6 +1,6 @@
 /**
  * Typed wrappers over the raw wasm exports, folded from 17 one-module files:
- * markdown-images, mcp-config-rewrite, membership-row, merge-reader-annotations,
+ * markdown-images, mcp-config-rewrite, merge-reader-annotations,
  * metric-chart-data, metric-rows, metrics-overleaf, milestone, nav-open-groups, node-colouring,
  * one-euro, org, overleaf-bibtex, overleaf-error, overleaf-export-package, overleaf-upload.
  */
@@ -16,7 +16,6 @@ import {
   joinBibtex as rawJoinBibtex,
   libraryBibtex as rawLibraryBibtex,
   loadOpenGroups as rawLoadOpenGroups,
-  membershipViewFromRow as rawMembershipViewFromRow,
   mergeReaderAnnotations as rawMergeReaderAnnotations,
   metricRowToDomain as rawMetricRowToDomain,
   milestoneInputError,
@@ -45,7 +44,6 @@ import {
   withActive as rawWithActive,
   withMissingFigures as rawWithMissingFigures,
 } from "../pkg/wf_wasm.js";
-import type { OrgInviteRole } from "../../core/src/index.js";
 import type {
   AlignedChart,
   ChartSeries,
@@ -57,14 +55,12 @@ import type {
   Member,
   MemberLink,
   Membership,
-  MembershipRow,
   MetricPoint,
   Milestone,
   MilestoneDependency,
   MilestoneStatus,
   NewMember,
   NewMilestoneInput,
-  OrgMembershipView,
   ReportSectionTreeNode,
   TickFormat,
 } from "./bindings.js";
@@ -168,17 +164,6 @@ export function rewriteMcpConfig(
   launch: { command: string; args: string[]; env: Record<string, string> },
 ): { changed: boolean; config: unknown } {
   return rawRewriteMcpConfig(config, key, launch) as { changed: boolean; config: unknown };
-}
-
-// --- membership-row ---
-/**
- * Org membership row mapping (Rust `membership_row`). The column list stays in the web app,
- * next to the queries that select it.
- */
-/** A membership row as the membership view the app models. Rust hands the role back as a plain string; the cast to the invite role is made here, once. */
-export function membershipViewFromRow(row: MembershipRow): OrgMembershipView {
-  const raw = rawMembershipViewFromRow(row) as Omit<OrgMembershipView, "role"> & { role: string };
-  return { ...raw, role: raw.role as OrgInviteRole };
 }
 
 // --- merge-reader-annotations ---

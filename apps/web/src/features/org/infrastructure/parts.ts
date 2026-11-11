@@ -5,7 +5,7 @@ import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { readJsonBody, responseError } from "@/lib/format-error";
 import { getDataClient, relayUrl } from "@/lib/parts";
 import type { ProjectContext } from "@/lib/parts-2";
-import { readyCore, typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   ICurrentUserProvider,
@@ -17,11 +17,6 @@ import type {
   OrgJoinSource,
   OrgMembershipView,
 } from "@weaveforge/core";
-
-// --- org-api ---
-// --- membership-row ---
-/** The `org_memberships` columns both the client and the admin path select. */
-export const MEMBERSHIP_ROW_COLUMNS = "org_id, role, joined_via, organizations(name)";
 
 // --- org-api ---
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
@@ -38,6 +33,33 @@ function toJoinSource(source: string): OrgJoinSource {
 
 function toMembershipView(view: { orgId: string; orgName: string; role: string; joinSource: string }): OrgMembershipView {
   return { orgId: view.orgId, orgName: view.orgName, role: toInviteRole(view.role), joinSource: toJoinSource(view.joinSource) };
+}
+
+/** The org queries Rust plans (`crates/wf-core/src/repos/org.rs`); the relay fallbacks stay here. */
+interface OrgSteps {
+  memberships(): Promise<{ orgId: string; orgName: string; role: string; joinSource: string }[]>;
+  switchActive(orgId: string): Promise<void>;
+  leave(orgId: string): Promise<void>;
+  completeSetup(): Promise<void>;
+}
+
+function orgSteps(userId?: string): OrgSteps {
+  return rustRepository<OrgSteps>(
+    getDataClient(),
+    "org",
+    ["memberships", "switchActive", "leave", "completeSetup"],
+    () => ({ userId }),
+  );
+}
+
+/** Runs an org RPC: the error it failed with, or null. */
+async function tryRpc(run: (org: OrgSteps) => Promise<void>): Promise<{ message?: string } | null> {
+  try {
+    await run(orgSteps());
+    return null;
+  } catch (err) {
+    return err as { message?: string };
+  }
 }
 
 function orgApiError(res: Response, message: string | undefined, fallback: string): Error {
@@ -97,23 +119,15 @@ export async function joinOrg(input: {
 
 /** Marks org onboarding complete — anon key + RPC, no service role. */
 export async function continueStandalone() {
-  let rpcErr: { message?: string } | null = null;
-  try {
-    const db = getDataClient();
-    const res = await db.rpc("complete_org_setup");
-    rpcErr = res.error;
-    if (rpcErr) {
-      try {
-        const { getLightContainer } = await import("@/light-bootstrap");
-        await getLightContainer().selfProvisioner.ensureProvisioned();
-        const retry = await db.rpc("complete_org_setup");
-        rpcErr = retry.error;
-      } catch {
-        /* fallback below will handle */
-      }
+  let rpcErr = await tryRpc((org) => org.completeSetup());
+  if (rpcErr) {
+    try {
+      const { getLightContainer } = await import("@/light-bootstrap");
+      await getLightContainer().selfProvisioner.ensureProvisioned();
+      rpcErr = await tryRpc((org) => org.completeSetup());
+    } catch {
+      /* fallback below will handle */
     }
-  } catch (err) {
-    rpcErr = err as Error;
   }
 
   if (!rpcErr) {
@@ -188,12 +202,11 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
   const userId = session.session?.user.id;
   if (!userId) throw new Error("Not authenticated.");
 
-  const { data, error } = await db
-    .from("org_memberships")
-    .select(MEMBERSHIP_ROW_COLUMNS)
-    .eq("user_id", userId)
-    .order("joined_at", { ascending: true });
-  if (!error && data) return data.map((row) => toMembershipView(typedCore().membershipViewFromRow(row)));
+  try {
+    return (await orgSteps(userId).memberships()).map(toMembershipView);
+  } catch {
+    /* relay fallback below */
+  }
 
   const res = await fetch(relayUrl("/api/org/memberships"), { headers: await authHeaders() });
   const body = await orgResponse<{
@@ -204,8 +217,7 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
 }
 
 export async function switchOrg(orgId: string) {
-  const db = getDataClient();
-  const { error: rpcErr } = await db.rpc("switch_active_org", { p_org_id: orgId });
+  const rpcErr = await tryRpc((org) => org.switchActive(orgId));
   if (!rpcErr) {
     invalidateAllRepoCaches();
     return;
@@ -222,14 +234,13 @@ export async function switchOrg(orgId: string) {
     return;
   }
 
-  const message = body.error ?? rpcErr.message;
+  const message = body.error ?? rpcErr.message ?? "Failed to switch lab.";
   throw migrationHint(message);
 }
 
 /** Leave a lab — RPC first, service-role API fallback. */
 export async function leaveOrg(orgId: string) {
-  const db = getDataClient();
-  const { error: rpcErr } = await db.rpc("leave_org", { p_org_id: orgId });
+  const rpcErr = await tryRpc((org) => org.leave(orgId));
   if (!rpcErr) {
     invalidateAllRepoCaches();
     return;
@@ -246,7 +257,7 @@ export async function leaveOrg(orgId: string) {
     return;
   }
 
-  const message = body.error ?? rpcErr.message;
+  const message = body.error ?? rpcErr.message ?? "Failed to leave lab.";
   throw migrationHint(message);
 }
 

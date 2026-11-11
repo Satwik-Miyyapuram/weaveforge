@@ -7,6 +7,7 @@ pub mod comments;
 pub mod lab_snapshots;
 pub mod library_pins;
 pub mod members;
+pub mod org;
 pub mod paper_relations;
 pub mod paper_tags;
 pub mod share_links;
