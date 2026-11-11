@@ -1677,7 +1677,7 @@ export function courtesyPauseDue(from_cache: boolean, indexed: number, failed: n
  *
  * Fails if `query_term_counts` is not an array of numbers or `null`.
  */
-export function coveredHitMask(query_term_counts: any, term_count: number, min_coverage: number): any;
+export function coveredHitMask(query_term_counts: readonly (number | null)[], term_count: number, min_coverage: number): boolean[];
 
 /**
  * [`covered_text_spans`](link_citations::covered_text_spans) (TS `coveredTextSpans`).
@@ -2182,7 +2182,7 @@ export function defaultModeFor(kind: string): B.DocumentMode;
  *
  * Fails if the argument is not an array of section declarations, or the result cannot be serialised.
  */
-export function defaultOpenSections(sections: any): any;
+export function defaultOpenSections(sections: readonly { id: string; collapsedByDefault?: boolean }[]): string[];
 
 /**
  * The default paste settings (TS `DEFAULT_PASTE_SETTINGS`).
@@ -3451,7 +3451,7 @@ export function fuzzinessForTerm(term: string): number;
  *
  * Fails if `scores` is not an array of numbers.
  */
-export function gateVectorMask(scores: any, floor: number, keep_top: number): any;
+export function gateVectorMask(scores: readonly number[], floor: number, keep_top: number): boolean[];
 
 /**
  * [`gemini_install`](mcp_client_config::gemini_install).
@@ -8485,7 +8485,7 @@ export function redactOverleafErrorText(raw: string, token?: string | null): str
  *
  * Fails when `input` is over the text cap.
  */
-export function redactReport(input: string): any;
+export function redactReport(input: string): B.Redacted;
 
 /**
  * [`wf_core::error_report::redact::redact_and_cap`] for JS, as `{ text, redactions }`.
@@ -8495,7 +8495,7 @@ export function redactReport(input: string): any;
  *
  * Fails when `input` is over the text cap.
  */
-export function redactReportAndCap(input: string, limit: number): any;
+export function redactReportAndCap(input: string, limit: number): B.Redacted;
 
 /**
  * [`wf_core::sync::git_remote::redact_secret`] for JS.

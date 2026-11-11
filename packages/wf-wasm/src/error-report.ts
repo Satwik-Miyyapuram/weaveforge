@@ -3,9 +3,9 @@
  * address and body. Re-exported from index.ts.
  */
 import {
-  maxReportChars as rawMaxReportChars,
-  redactReport as rawRedactReport,
-  redactReportAndCap as rawRedactReportAndCap,
+  maxReportChars,
+  redactReport,
+  redactReportAndCap,
 } from "../pkg/wf_wasm.js";
 import type {
   Redacted,
@@ -14,7 +14,10 @@ import type {
 
 export {
   isNetworkFailure,
+  maxReportChars,
   newIssueUrl,
+  redactReport,
+  redactReportAndCap,
   reportMarkdown,
 } from "../pkg/wf_wasm.js";
 
@@ -22,21 +25,6 @@ export {
 export type { Redacted as RedactionOutcome } from "./bindings.js";
 /** The fields of an issue body (generated `ReportMarkdown`). */
 export type { ReportMarkdown as ReportMarkdownInput } from "./bindings.js";
-
-/** Rust `MAX_REPORT_CHARS`, read at call time because the module must be initialised first. */
-export function maxReportChars(): number {
-  return rawMaxReportChars();
-}
-
-/** Redacts every sensitive span in `input` (Rust `redact_report`). */
-export function redactReport(input: string): Redacted {
-  return rawRedactReport(input) as Redacted;
-}
-
-/** Redacts, then keeps the result to `limit` UTF-16 units (Rust `redact_report_and_cap`). */
-export function redactReportAndCap(input: string, limit: number): Redacted {
-  return rawRedactReportAndCap(input, limit) as Redacted;
-}
 
 /** Redacts every sensitive span in `input` (same as `redactReport`). */
 export function redact(input: string): Redacted {
@@ -50,4 +38,3 @@ export function redact(input: string): Redacted {
 export function redactAndCap(input: string, limit: number = maxReportChars()): Redacted {
   return redactReportAndCap(input, Math.max(0, Math.floor(limit)));
 }
-

@@ -4038,10 +4038,10 @@ export function courtesyPauseDue(from_cache, indexed, failed) {
  * # Errors
  *
  * Fails if `query_term_counts` is not an array of numbers or `null`.
- * @param {any} query_term_counts
+ * @param {readonly (number | null)[]} query_term_counts
  * @param {number} term_count
  * @param {number} min_coverage
- * @returns {any}
+ * @returns {boolean[]}
  */
 export function coveredHitMask(query_term_counts, term_count, min_coverage) {
     const ret = wasm.coveredHitMask(query_term_counts, term_count, min_coverage);
@@ -5168,8 +5168,8 @@ export function defaultModeFor(kind) {
  * # Errors
  *
  * Fails if the argument is not an array of section declarations, or the result cannot be serialised.
- * @param {any} sections
- * @returns {any}
+ * @param {readonly { id: string; collapsedByDefault?: boolean }[]} sections
+ * @returns {string[]}
  */
 export function defaultOpenSections(sections) {
     const ret = wasm.defaultOpenSections(sections);
@@ -8479,10 +8479,10 @@ export function fuzzinessForTerm(term) {
  * # Errors
  *
  * Fails if `scores` is not an array of numbers.
- * @param {any} scores
+ * @param {readonly number[]} scores
  * @param {number} floor
  * @param {number} keep_top
- * @returns {any}
+ * @returns {boolean[]}
  */
 export function gateVectorMask(scores, floor, keep_top) {
     const ret = wasm.gateVectorMask(scores, floor, keep_top);
@@ -20667,7 +20667,7 @@ export function redactOverleafErrorText(raw, token) {
  *
  * Fails when `input` is over the text cap.
  * @param {string} input
- * @returns {any}
+ * @returns {B.Redacted}
  */
 export function redactReport(input) {
     const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -20688,7 +20688,7 @@ export function redactReport(input) {
  * Fails when `input` is over the text cap.
  * @param {string} input
  * @param {number} limit
- * @returns {any}
+ * @returns {B.Redacted}
  */
 export function redactReportAndCap(input, limit) {
     const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);

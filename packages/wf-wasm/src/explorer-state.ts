@@ -4,7 +4,6 @@
  */
 import {
   defaultExpanded as rawDefaultExpanded,
-  defaultOpenSections as rawDefaultOpenSections,
   isSectionOpen as rawIsSectionOpen,
   migratedExpanded as rawMigratedExpanded,
   toggleExpanded as rawToggleExpanded,
@@ -12,6 +11,7 @@ import {
 } from "../pkg/wf_wasm.js";
 
 export {
+  defaultOpenSections,
   parseExplorerKeys,
 } from "../pkg/wf_wasm.js";
 
@@ -23,13 +23,6 @@ export interface SectionState {
 /** The rows that start open: every root the tree has. */
 export function defaultExpanded(roots: readonly string[]): readonly string[] {
   return rawDefaultExpanded([...roots]);
-}
-
-/** The section ids open when nothing is stored: every section not declared collapsed. */
-export function defaultOpenSections(
-  sections: readonly { id: string; collapsedByDefault?: boolean }[],
-): string[] {
-  return rawDefaultOpenSections(sections) as string[];
 }
 
 /** The saved keys plus any root the record never mentioned. Saved keys win. */

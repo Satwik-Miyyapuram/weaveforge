@@ -32,9 +32,9 @@ pub fn query_term_count_js(
 /// # Errors
 ///
 /// Fails if `query_term_counts` is not an array of numbers or `null`.
-#[wasm_bindgen(js_name = coveredHitMask)]
+#[wasm_bindgen(js_name = coveredHitMask, unchecked_return_type = "boolean[]")]
 pub fn covered_hit_mask_js(
-    query_term_counts: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly (number | null)[]")] query_term_counts: JsValue,
     term_count: f64,
     min_coverage: f64,
 ) -> JsResult<JsValue> {
@@ -51,8 +51,12 @@ pub fn covered_hit_mask_js(
 /// # Errors
 ///
 /// Fails if `scores` is not an array of numbers.
-#[wasm_bindgen(js_name = gateVectorMask)]
-pub fn gate_vector_mask_js(scores: JsValue, floor: f64, keep_top: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = gateVectorMask, unchecked_return_type = "boolean[]")]
+pub fn gate_vector_mask_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] scores: JsValue,
+    floor: f64,
+    keep_top: f64,
+) -> JsResult<JsValue> {
     let scores: Vec<f64> = serde_wasm_bindgen::from_value(scores)?;
     to_js(&hybrid_fusion::gate_vector_mask(&scores, floor, keep_top))
 }
