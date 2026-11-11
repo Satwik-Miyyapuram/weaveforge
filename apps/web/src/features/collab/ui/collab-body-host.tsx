@@ -14,7 +14,7 @@ import { bindEditorHandle } from "@/components/markdown/markdown-editor-handle";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import type { EditorCitationFormat } from "@/lib/parts";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
 import { docChangeListener } from "./doc-change-listener";
 

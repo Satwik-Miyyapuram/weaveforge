@@ -276,7 +276,7 @@ test("formatError: a missing database function says the server needs its migrati
 });
 
 test("a refusal while signed out says to sign in, and only while signed out", async () => {
-  const { setSessionLost, SESSION_LOST_MESSAGE } = await import("../session-lost");
+  const { setSessionLost, SESSION_LOST_MESSAGE } = await import("../parts");
   const refusal = { code: "42501", details: null, hint: null, message: "permission denied for table projects" };
   assert.equal(formatError(refusal), "permission denied for table projects");
   setSessionLost(true);

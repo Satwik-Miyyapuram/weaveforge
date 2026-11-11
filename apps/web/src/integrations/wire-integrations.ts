@@ -1,6 +1,5 @@
 import { getAppConfig } from "@/deployment/app-config";
-import type { Integration } from "@/features/sync/domain/integration";
-import type { IGitClient, IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import type { IGitClient, IIntegrationsStore, Integration } from "@/features/sync/domain/parts";
 import type { ProjectContext } from "@/lib/project-context";
 import type {
   AddPaperUseCase,
@@ -28,7 +27,7 @@ import {
   findLogSyncManifest,
   findNotificationManifest,
 } from "./manifests/types";
-import type { IntegrationsRegistry } from "./registry";
+import type { IntegrationsRegistry } from "./parts";
 
 // --- noop-bibliography-integration ---
 /** Disabled bibliography provider — safe no-ops for local-only deployments. */

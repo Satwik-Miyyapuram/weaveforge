@@ -21,7 +21,7 @@
 import type { ReactNode } from "react";
 
 import { readyCore } from "@/lib/rust-core";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { readMdSplitSide, setMdSplitSide, useMdPreviewMode, type MdSplitSide } from "@/lib/hooks/use-md-preview-mode";
 import { IconButton } from "./button";
 import { CardMenu } from "./card-menu";

@@ -1,5 +1,5 @@
 //! Shortcut text for the platform it is read on, ported from
-//! `apps/web/src/lib/shortcut-label.ts`. Chords are written once with Mac glyphs
+//! `apps/web/src/lib/parts.ts`. Chords are written once with Mac glyphs
 //! (`⌘⇧F`); off a Mac they read `Ctrl+Shift+F`. The platform check stays in the
 //! web app, which passes `mac` in. Pure.
 

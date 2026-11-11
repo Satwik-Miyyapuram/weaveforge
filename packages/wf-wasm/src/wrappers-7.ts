@@ -45,7 +45,7 @@ import {
   takeInkUndo as rawTakeInkUndo,
   unionRect as rawUnionRect,
 } from "../pkg/wf_wasm.js";
-import type { NewReaderAnnotation, ReaderAnnotation } from "@weaveforge/core";
+import type { NewReaderAnnotation, ReaderAnnotation } from "../../core/src/index.js";
 import type {
   AnchorPdfLocus,
   AnnotationPatch,
@@ -257,7 +257,7 @@ export type ContainerResizeAction = "ignore" | "now" | "settle";
 // --- reader-create-tool ---
 /**
  * Create-tool rules (Rust `reader_create_tool`). Keeps the pure rules of
- * apps/web/src/features/reader/application/reader-annotation-helpers.ts and
+ * apps/web/src/features/reader/application/parts.ts and
  * ui/pdf-reader/colour-tools.ts.
  */
 /** The colour a create or recolour draws with. (Narrowing: pure TS literal union, no Rust enum.) */

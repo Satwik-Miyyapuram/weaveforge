@@ -2,7 +2,7 @@ import { errorMessage } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 import type { OutboxEntry } from "../domain/outbox";
-import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-ports";
+import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/parts";
 
 /**
  * What the transport needs to reach PostgREST.

@@ -13,7 +13,7 @@ page body fallbacks and key-event checks. Storage, DOM access, React state and l
 - `page_text::body_text`: full body when non-empty, else preview, else empty.
 - `page_text::is_hydrated_page`: body present and no non-empty preview.
   Cap: the wasm exports no longer throw over the 16Mi UTF-16 cap. The TS wrappers
-  (`apps/web/src/lib/page-text.ts`) check `textWithinCap` first and, above the
+  (`apps/web/src/lib/parts.ts`) check `textWithinCap` first and, above the
   cap, keep the old TS rule (`full || preview || ""`; `!preview` for hydration).
 - `page_text` non-string preview: a truthy non-string `bodyPreview` is not a
   stand-in, so `isHydratedPage` returns false before the Rust call, matching the
@@ -34,7 +34,7 @@ typed fields), and `takenTitles` in `apps/web/src/features/wiki/application/wiki
 `pages.map((page) => page.title)` projection with no rule to port).
 `hasResultsTables` moved to Rust: see `report-results-tables.md`.
 
-Source: `apps/web/src/lib/palette-actions.ts`, `apps/web/src/lib/page-text.ts`,
-`apps/web/src/lib/ink-haptics-preference.ts`, `apps/web/src/lib/citation-format-preference.ts`,
-`apps/web/src/lib/wikilink-create-preference.ts`, `apps/web/src/lib/commit-enter.ts`,
+Source: `apps/web/src/lib/palette-actions.ts`, `apps/web/src/lib/parts.ts`,
+`apps/web/src/lib/parts.ts`, `apps/web/src/lib/parts.ts`,
+`apps/web/src/lib/wikilink-create-preference.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/desktop/menu-edit.ts`.

@@ -1,5 +1,5 @@
 import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
-import type { Integration } from "../domain/integration";
+import type { Integration } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { emitMattermostSignedOut } from "./mattermost-session";

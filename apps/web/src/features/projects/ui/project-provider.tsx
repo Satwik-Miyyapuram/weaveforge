@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/device-snapshot";
+import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/parts";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";

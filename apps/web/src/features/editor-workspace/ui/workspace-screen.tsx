@@ -44,8 +44,7 @@ import { QuickOpenDialog } from "./quick-open-dialog";
 import { requestShortcuts } from "@/lib/palette-actions";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { FormError } from "@/components/form-error";
-import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 

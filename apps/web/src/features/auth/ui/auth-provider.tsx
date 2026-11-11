@@ -11,11 +11,11 @@ import {
 } from "react";
 import type { AuthUser } from "../domain/auth";
 import { nextAuthStep } from "../domain/auth-transition";
-import { clearSessionCaches } from "@/lib/cache/clear-session-caches";
+import { clearSessionCaches } from "@/lib/cache/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
-import { setSessionLost } from "@/lib/session-lost";
+import { setSessionLost } from "@/lib/parts";
 import { localFirstActive, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
 
 interface AuthState {

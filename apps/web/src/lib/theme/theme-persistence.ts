@@ -36,7 +36,7 @@ import {
   type ThemeMode,
 } from "@/lib/theme/theme";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
-import { singleFlight } from "@/lib/cache/single-flight";
+import { singleFlight } from "@/lib/cache/parts";
 import { removeStored, writeStored } from "@/lib/safe-storage";
 
 let hydrating = false;

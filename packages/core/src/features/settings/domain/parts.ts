@@ -1,5 +1,5 @@
 import type { SearchSettings } from "../../../search/parts.js";
-import type { AiAccessSettings } from "../../ai-assistant/index.js";
+import type { AiAccessSettings } from "../../ai-assistant/domain/ai-types.js";
 import type { SurfaceStyle, ThemeConfig } from "./theme-config.js";
 
 // --- privacy-disclaimer ---

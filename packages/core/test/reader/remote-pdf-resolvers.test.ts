@@ -51,6 +51,6 @@ test("ladder order: cache, open access, then GitHub repo", async () => {
 });
 
 test("PDFs are never read from our storage: no such ladder step exists", async () => {
-  const reader = await import("../../src/reader/index.js");
+  const reader = await import("../../src/index.js");
   assert.equal("StoredPdfResolver" in reader, false);
 });

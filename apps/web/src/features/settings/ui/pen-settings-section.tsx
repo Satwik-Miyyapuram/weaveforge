@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { readInkHapticsOn, writeInkHapticsOn } from "@/lib/ink-haptics-preference";
+import { readInkHapticsOn, writeInkHapticsOn } from "@/lib/parts";
 
 interface PenState {
   recognition: boolean;

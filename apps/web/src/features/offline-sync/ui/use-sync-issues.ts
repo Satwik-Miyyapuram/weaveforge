@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { readyCore } from "@/lib/rust-core";
 import { ConflictStore, type OpenConflict } from "../domain/conflicts";
 import { Outbox, type OutboxEntry } from "../domain/outbox";

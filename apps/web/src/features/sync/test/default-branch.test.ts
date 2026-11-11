@@ -5,7 +5,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { LogEntry } from "@weaveforge/core";
-import { DEFAULT_GIT_BRANCH } from "../domain/integration";
+import { DEFAULT_GIT_BRANCH } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { GitLabLogExporter } from "../infrastructure/gitlab-log-exporter";

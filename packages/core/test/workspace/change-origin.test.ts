@@ -2,7 +2,7 @@ import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { ParsedEntity } from "../../src/workspace/index.js";
+import type { ParsedEntity } from "../../src/index.js";
 
 test("a digest is stable and text-sensitive", () => {
   assert.equal(rust().digestText("hello"), rust().digestText("hello"));

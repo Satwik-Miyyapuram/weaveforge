@@ -7,7 +7,7 @@ import {
   notifyWorkspaceChange,
   onWorkspaceChange,
   resetWorkspaceChangeListeners,
-} from "@/lib/workspace-changes";
+} from "@/lib/parts";
 
 /**
  * A stand-in for the PostgREST builder: fluent, thenable, and settling with

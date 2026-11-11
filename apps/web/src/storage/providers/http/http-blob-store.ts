@@ -1,6 +1,5 @@
 import type { IBlobStore } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
-import { getDataClient } from "@/lib/data-client";
+import { getDataClient, relayUrl } from "@/lib/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 

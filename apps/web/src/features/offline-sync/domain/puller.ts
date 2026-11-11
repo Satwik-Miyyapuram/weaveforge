@@ -1,6 +1,6 @@
 import { Outbox, type SqlRunner } from "./outbox";
 import type { SyncStateStore } from "./sync-state";
-import type { RemoteChange, SyncTransport } from "./sync-ports";
+import type { RemoteChange, SyncTransport } from "./parts";
 import type { ConflictStore } from "./conflicts";
 import { readyCore } from "@/lib/rust-core";
 import type { PullFacts, SeqRow } from "@weaveforge/wasm";

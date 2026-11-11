@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadPdfLib, type PdfLib } from "@/lib/pdf-lib";
+import { loadPdfLib, type PdfLib } from "@/lib/parts";
 
 test("a failed pdf.js load is retried on the next open, then kept (11-06)", async () => {
   const lib = { GlobalWorkerOptions: { workerSrc: "" } } as unknown as PdfLib;

@@ -9,7 +9,7 @@ import { describeRejection, formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
-import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
+import { useCitationFormatPreference, WORKSPACE_PATH } from "@/lib/hooks/parts";
 import {
   RecordActivity,
   RecordEmpty,
@@ -20,7 +20,7 @@ import {
 } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { materializePaperBlobImages } from "../lib/paper-images-md";
+import { materializePaperBlobImages } from "../lib/parts";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { BackButton } from "@/components/back-button";
@@ -29,7 +29,6 @@ import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
-import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 
 import { PaperExternalLink } from "./paper-external-link";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";

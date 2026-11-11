@@ -6,7 +6,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
 import { McpClients } from "./mcp-clients";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import { Button } from "@/components/button";
 import { Switch } from "@/components/controls";
 import { ConfirmDialog } from "@/components/confirm-dialog";

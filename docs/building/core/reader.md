@@ -83,7 +83,7 @@ KEEP decision, not a gap.
 - `apps/web/src/features/reader/application/sanitize-reader-url.ts`: kept in TS
   because it runs at the browser boundary where the URL is opened. The pure
   allowlist lives in `sanitize_reader_url.rs`.
-- `apps/web/src/features/reader/application/reader-annotation-helpers.ts`: blocked.
+- `apps/web/src/features/reader/application/parts.ts`: blocked.
   It needs a `ReaderAnnotation` type in Rust before it can move. Until that type
   exists, the helpers stay in TS.
 - `crates/wf-core/src/reader/reference_actions.rs` (wasm `reader_reference_actions.rs`):

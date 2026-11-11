@@ -53,7 +53,7 @@ import { INK_COLOUR_TOKENS } from "../render/ink-palette";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { Button } from "@/components/button";
 import { Swatch, ToolButton } from "@/components/controls";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";

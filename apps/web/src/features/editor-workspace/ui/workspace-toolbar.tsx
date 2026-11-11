@@ -16,7 +16,7 @@ import {
   useFoldOf,
   useToolbarFold,
 } from "@/features/ink";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import type { DocumentMode, PaneLayout, PaneSplit, TabRef } from "@weaveforge/wasm";
 import { modesFor } from "@weaveforge/wasm";

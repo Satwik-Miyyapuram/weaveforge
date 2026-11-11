@@ -44,7 +44,7 @@ import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vaul
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { readyCore } from "@/lib/rust-core";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import type { EditorCitationFormat } from "@/lib/parts";
 import type { DocumentMode, TabRef } from "@weaveforge/wasm";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "@weaveforge/wasm";

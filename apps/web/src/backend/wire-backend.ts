@@ -4,7 +4,7 @@ import type { IAdminUserProvisioner } from "@weaveforge/core";
 import { SupabaseAdminUserProvisioner } from "./providers/supabase-auth/admin-provisioner";
 import { wirePostgrestBackend, type WiredPostgrestBackend } from "./providers/postgrest/wire-postgrest-backend";
 import { isLocalMode } from "./providers/local/local-identity";
-import { localBackendParts } from "./providers/local/wire-local-backend";
+import { localBackendParts } from "./providers/local/parts";
 import { localFirstParts } from "./providers/local/local-first";
 import { localFirstActive } from "./providers/local/local-first-marker";
 

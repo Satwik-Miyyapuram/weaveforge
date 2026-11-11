@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { parseInkHapticsOn } from "../ink-haptics-preference";
+import { parseInkHapticsOn } from "../parts";
 
 before(loadTestCore);
 

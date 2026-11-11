@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { fetchBlobsCached } from "@/lib/cache/blob-fetch-cache";
-import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/parts";
 import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "@/lib/mermaid-render";
 
 type Log = { level: string; source: string; message: string; detail?: string };

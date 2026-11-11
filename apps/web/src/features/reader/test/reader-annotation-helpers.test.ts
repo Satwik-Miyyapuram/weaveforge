@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import {
   READER_ANNOTATION_COLORS,
-} from "../application/reader-annotation-helpers.js";
+} from "../application/parts.js";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore } from "@/lib/rust-core";
 
@@ -133,7 +133,7 @@ test("isDismissTap: one short tap off an open bar dismisses it", () => {
 });
 
 test("one default colour: the palette's first, used for a blank colour (22-07)", async () => {
-  const helpers = await import("../application/reader-annotation-helpers");
+  const helpers = await import("../application/parts");
   assert.equal(helpers.DEFAULT_ANNOTATION_COLOR, "#ffd400");
   assert.equal(helpers.READER_ANNOTATION_COLORS[0], helpers.DEFAULT_ANNOTATION_COLOR);
 });

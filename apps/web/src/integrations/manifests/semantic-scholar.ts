@@ -1,6 +1,6 @@
 import { SemanticScholarCitationSource } from "@/features/relations/infrastructure/semantic-scholar-citation-source";
-import { createCredentialReader } from "../credentials";
-import type { WireCitationsDeps } from "../wire-citations";
+import { createCredentialReader } from "../parts";
+import type { WireCitationsDeps } from "../parts";
 import type { CitationIntegrationManifest } from "./types";
 
 export const semanticScholarCitationManifest: CitationIntegrationManifest = {

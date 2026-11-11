@@ -1,4 +1,4 @@
-//! Local annotation records (`apps/web/src/features/reader/application/reader-annotation-helpers.ts`).
+//! Local annotation records (`apps/web/src/features/reader/application/parts.ts`).
 //! Wraps `wf_core::reader::annotation_helpers`. Palette constants and the create-tool
 //! predicates stay in `reader_create_tool` and TS.
 

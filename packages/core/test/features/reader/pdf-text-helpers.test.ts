@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FURNITURE_MARGIN } from "../../../src/features/reader/analysis/line-reconstruction.js";
-import * as reader from "../../../src/features/reader/index.js";
+import * as reader from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
 /**

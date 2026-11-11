@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { type ParsedReference } from "../../../src/features/reader/index.js";
+import { type ParsedReference } from "../../../src/index.js";
 import type { PageTextItem } from "../../../src/features/reader/parts.js";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
 import { rust } from "../../../src/shared/rust.js";

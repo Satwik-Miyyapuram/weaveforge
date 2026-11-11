@@ -1,4 +1,4 @@
-import type { EmbedRequest, IEmbedder } from "../application/embedder";
+import type { EmbedRequest, IEmbedder } from "../application/parts";
 import type {
   EmbedWorkerRequest,
   EmbedWorkerResponse,

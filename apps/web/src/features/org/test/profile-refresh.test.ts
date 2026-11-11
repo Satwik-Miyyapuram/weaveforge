@@ -9,7 +9,7 @@ import test, { before } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
 
-import { latestGate } from "@/lib/latest-gate";
+import { latestGate } from "@/lib/parts";
 import { loadProfileBundle, type ProfileSources } from "../application/profile-refresh";
 
 type Log = { level: string; source: string; message: string; detail?: string };

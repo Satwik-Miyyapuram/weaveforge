@@ -16,7 +16,7 @@ import { NavIcon } from "./nav-icon";
 import { useInbox } from "./use-inbox";
 import { MenuItemButton, MenuItemLink } from "@/components/controls";
 import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
-import { syncStatus } from "@/features/offline-sync/domain/sync-status";
+import { syncStatus } from "@/features/offline-sync/domain/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 

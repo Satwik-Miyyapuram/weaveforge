@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { syncStatus } from "../domain/sync-status";
+import { syncStatus } from "../domain/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

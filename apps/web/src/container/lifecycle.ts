@@ -6,7 +6,7 @@ import {
   ProjectLwwInvalidator,
   setActiveProjectIdForCache,
 } from "@/lib/cache/project-lww-invalidator";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { registerSessionReset } from "@/lib/cache/parts";
 
 /**
  * Everything a container registers, and the way it takes it all back.

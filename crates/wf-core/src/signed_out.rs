@@ -1,4 +1,4 @@
-//! Ports `isSignedOutRefusal` in `apps/web/src/lib/session-lost.ts`: whether a
+//! Ports `isSignedOutRefusal` in `apps/web/src/lib/parts.ts`: whether a
 //! failed server request means the person is signed out, rather than that the
 //! request itself was not allowed.
 

@@ -5,7 +5,7 @@ import { useState, type KeyboardEvent } from "react";
 import { formatError } from "@/lib/format-error";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import {
   MCP_CLIENT_TABS,
   claudeCodeCommands,

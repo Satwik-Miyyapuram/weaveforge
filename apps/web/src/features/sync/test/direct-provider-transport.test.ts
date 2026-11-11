@@ -4,7 +4,7 @@ import { GitClient } from "../infrastructure/git-client";
 import { GitLabLogExporter } from "../infrastructure/gitlab-log-exporter";
 import { MattermostNotifier } from "../infrastructure/mattermost-notifier";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import type { Integration } from "../domain/integration";
+import type { Integration } from "../domain/parts";
 
 before(loadTestCore);
 

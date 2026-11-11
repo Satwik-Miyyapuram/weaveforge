@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
 
 import { formatError } from "@/lib/format-error";
-import { randomBytes } from "@/lib/system";
+import { randomBytes } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import type { PlanFeedUrls } from "@weaveforge/wasm";
 

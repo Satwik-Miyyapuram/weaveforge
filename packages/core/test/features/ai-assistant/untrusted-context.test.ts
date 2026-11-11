@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { UNTRUSTED_CONTEXT_RULE } from "../../../src/features/ai-assistant/index.js";
+import { UNTRUSTED_CONTEXT_RULE } from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
 /** A nonce this test knows, so it can try to spend it the way a document would. */

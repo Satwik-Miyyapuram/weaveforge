@@ -3,7 +3,7 @@ import {
   PostgrestSettingsRepository,
 } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { formatError } from "@/lib/format-error";
-import { systemClock } from "@/lib/system";
+import { systemClock } from "@/lib/parts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type IAuthService,
@@ -13,7 +13,7 @@ import {
 } from "@weaveforge/core";
 import { type BackendConfig, readBackendConfig } from "./config";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
-import { localBackendParts } from "./providers/local/wire-local-backend";
+import { localBackendParts } from "./providers/local/parts";
 import { createDataClient } from "./providers/postgrest/client";
 import { secretsStoreFor } from "./providers/secrets-store";
 import { SupabaseSessionProvider } from "./providers/supabase-auth/session";

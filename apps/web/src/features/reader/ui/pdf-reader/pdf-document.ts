@@ -8,7 +8,7 @@ import type { PdfDocument, PageText, TextItemGeometry } from "./types";
  * editor's page backgrounds, and it lives in `lib` so neither feature has to
  * import the other's `ui/`.
  */
-export { loadPdfLib, type PdfLib } from "@/lib/pdf-lib";
+export { loadPdfLib, type PdfLib } from "@/lib/parts";
 
 /** Per-page resolve must ignore document-scoped position offsets. */
 export function pageScopedLocus(locus: PdfLocus): PdfLocus {

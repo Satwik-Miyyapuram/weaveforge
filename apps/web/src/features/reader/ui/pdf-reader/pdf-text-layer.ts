@@ -17,7 +17,7 @@
 import type { PageViewport, TextLayer } from "pdfjs-dist";
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
 import type { PdfLink } from "@weaveforge/core";
-import type { PdfLib } from "@/lib/pdf-lib";
+import type { PdfLib } from "@/lib/parts";
 import type { PageTextItem } from "@weaveforge/wasm";
 
 /**

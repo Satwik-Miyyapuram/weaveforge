@@ -4,8 +4,8 @@ import type {
   IProjectBibliographyCollectionStore,
   ManageSettingsUseCase,
 } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
-import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import { relayUrl } from "@/lib/parts";
+import type { IIntegrationsStore } from "@/features/sync/domain/parts";
 import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
 
 /** A personal access token as the settings API reports it — never the secret. */

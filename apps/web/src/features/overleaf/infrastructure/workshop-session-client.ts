@@ -4,7 +4,7 @@
  * The cookie goes up once, on sign-in; only the opaque session id comes back.
  */
 
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 
 export const WORKSHOP_SESSION_PATH = "/api/overleaf/workshop/session";
 export const WORKSHOP_PROJECTS_PATH = "/api/overleaf/workshop/projects";

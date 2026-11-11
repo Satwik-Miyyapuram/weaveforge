@@ -11,7 +11,7 @@ import {
   registerRepoCacheEntry,
   setActiveProjectIdForCache,
 } from "@/lib/cache/project-lww-invalidator";
-import { clearSessionCaches, registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { clearSessionCaches, registerSessionReset } from "@/lib/cache/parts";
 import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/screen-cache";
 
 function makeRepo(name: string, resourceType?: string) {

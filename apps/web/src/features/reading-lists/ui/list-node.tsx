@@ -10,7 +10,7 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { ArrowDownIcon, ArrowUpIcon, CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { SegmentedControl } from "@/components/segmented-control";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { usePersistedState } from "@/lib/hooks/parts";
 import { readyCore } from "@/lib/rust-core";
 import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";

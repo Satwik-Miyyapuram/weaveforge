@@ -8,14 +8,14 @@ import { defaultKeymap } from "@codemirror/commands";
 import { yCollab } from "y-codemirror.next";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
-import type { CollabSession } from "../application/collab-session.js";
+import type { CollabSession } from "../application/parts.js";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
 import { seedIfEmpty } from "../domain/seed-document.js";
 import { BodySaver } from "../application/body-saver.js";
 import { logToApp } from "@/lib/error-report/app-log";
 import type { Peer } from "../domain/presence.js";
-import { publishPeers } from "../application/presence-store.js";
+import { publishPeers } from "../application/parts.js";
 import { typedCore } from "@/lib/rust-core";
 import { PresenceAvatars } from "./presence-avatars";
 

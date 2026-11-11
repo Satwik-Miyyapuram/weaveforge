@@ -23,7 +23,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { loadCore, readyCore } from "@/lib/rust-core";
-import { activeProjectOrNull } from "./active-project";
+import { activeProjectOrNull } from "./parts";
 import { readMirrorBase, readMirrorBases, writeMirrorManifest } from "./mirror-manifest";
 
 /**

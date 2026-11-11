@@ -4,8 +4,8 @@ import {
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { activeProject } from "@/features/workspace/application/active-project";
-import { downloadBlob, zipToBlob } from "@/lib/blob-output";
+import { activeProject } from "@/features/workspace/application/parts";
+import { downloadBlob, zipToBlob } from "@/lib/parts";
 import { loadCore, readyCore } from "@/lib/rust-core";
 
 function jsonFile(value: unknown): Uint8Array {

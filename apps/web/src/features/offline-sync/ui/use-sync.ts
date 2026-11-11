@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncEngine } from "../domain/sync-engine";
 import { PostgrestTransport } from "../infra/postgrest-transport";

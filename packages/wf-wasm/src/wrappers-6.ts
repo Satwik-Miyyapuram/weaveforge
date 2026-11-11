@@ -47,7 +47,7 @@ import {
   shouldShowWorkspaceLoader as rawShouldShowWorkspaceLoader,
   sortByReadingOrder as rawSortByReadingOrderIndices,
 } from "../pkg/wf_wasm.js";
-import type { ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderAnnotation } from "../../core/src/index.js";
 import type {
   AnalysisCitationMention,
   AnalysisPageTextRange,

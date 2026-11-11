@@ -3,11 +3,11 @@
 import { useCallback, useState } from "react";
 import { type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/core";
 
-import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
+import { blobToDataUrl, downloadBlob } from "@/lib/parts";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import { containsMath } from "@/components/markdown/math-renderer";
 import type { InkPrintFigure, InkSvgFigure } from "@weaveforge/wasm";
-import { loadInOrder } from "../application/load-in-order";
+import { loadInOrder } from "../application/parts";
 import type { InkPalette } from "../render/ink-palette";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";

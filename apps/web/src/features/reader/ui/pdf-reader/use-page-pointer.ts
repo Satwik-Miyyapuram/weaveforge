@@ -17,7 +17,7 @@ import {
   draftInkAnnotation,
 } from "@weaveforge/wasm";
 import { PdfInkSampler, coalescedSamples } from "../../application/pdf-ink-sampler";
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/parts";
 import {
   EMPTY_ANNOTATIONS,
   INK_MOVE_THRESHOLD,

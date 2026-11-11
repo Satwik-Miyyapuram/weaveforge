@@ -13,10 +13,8 @@ import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gat
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
-import { useIsDetailView } from "@/lib/hooks/use-detail-view";
-import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
+import { useIsDetailView, useModuleRegistry, useWorkspaceRoute } from "@/lib/hooks/parts";
 import { useNavFolded } from "@/lib/hooks/use-nav-fold";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/keybindings";
 import { HeaderActions } from "./header-actions";
 import { TabBar } from "./tabbar";

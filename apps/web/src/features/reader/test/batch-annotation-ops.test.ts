@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendActivityLog } from "../application/batch-annotation-ops.js";
+import { appendActivityLog } from "../application/parts.js";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 

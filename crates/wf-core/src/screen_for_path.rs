@@ -1,10 +1,10 @@
-//! Screen cache id for a pathname, ported from `apps/web/src/lib/screen-for-path.ts`.
+//! Screen cache id for a pathname, ported from `apps/web/src/lib/parts.ts`.
 //! Only exact list routes have a screen cache. Detail routes such as
 //! `/experiments/:id` have none, because caching one run under the list's key
 //! would paint the list instead. Pure.
 
 /// Top-level list routes and the screen cache id each one keeps. The ids match
-/// the `SCREEN_IDS` names in `apps/web/src/lib/screens.ts`.
+/// the `SCREEN_IDS` names in `apps/web/src/lib/parts.ts`.
 const ROUTE_SCREENS: &[(&str, &str)] = &[
     ("/papers", "papers"),
     ("/notes", "vault"),

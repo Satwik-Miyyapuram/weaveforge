@@ -15,7 +15,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
-import { latestGate } from "@/lib/latest-gate";
+import { latestGate } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 import { ToggleButton } from "@/components/controls";

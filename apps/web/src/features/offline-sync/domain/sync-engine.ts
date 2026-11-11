@@ -4,7 +4,7 @@ import { Outbox, type SqlRunner } from "./outbox";
 import { OutboxPump, type PumpResult } from "./pump";
 import { Puller, type PullResult } from "./puller";
 import { SyncStateStore } from "./sync-state";
-import type { SyncTransport } from "./sync-ports";
+import type { SyncTransport } from "./parts";
 import { readyCore } from "@/lib/rust-core";
 
 /**

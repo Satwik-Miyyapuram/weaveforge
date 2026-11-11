@@ -18,7 +18,7 @@ import {
   EDITOR_CITATION_FORMATS,
   EDITOR_CITATION_FORMAT_LABELS,
   type EditorCitationFormat,
-} from "@/lib/citation-format-preference";
+} from "@/lib/parts";
 import type { EditorHandleRef } from "./editor-handle";
 import { ToolbarSlotContext } from "./toolbar-slot";
 

@@ -1,4 +1,4 @@
-import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import type { IIntegrationsStore } from "@/features/sync/domain/parts";
 import type { MattermostNotifier } from "@/features/sync/infrastructure/mattermost-notifier";
 import type {
   CitationCandidate,

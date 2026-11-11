@@ -45,7 +45,7 @@ import {
 import {
   type PagePress,
   type ReaderCreateTool,
-} from "../../application/reader-annotation-helpers";
+} from "../../application/parts";
 import { ReaderSearchBar } from "../reader-search-bar";
 import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
@@ -90,7 +90,7 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { Button, IconButton } from "@/components/button";
 import { RowButton, Swatch, ToolButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";

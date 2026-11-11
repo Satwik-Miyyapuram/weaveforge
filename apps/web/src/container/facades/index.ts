@@ -24,8 +24,7 @@ import type {
   ReferenceLookupService,
   ResolvedReference,
 } from "@/features/reader/application/reference-lookup";
-import type { Integration } from "@/features/sync/domain/integration";
-import type { IGitClient, IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import type { IGitClient, IIntegrationsStore, Integration } from "@/features/sync/domain/parts";
 import type {
   LoadVaultScreenUseCase,
   VaultScreenData,
@@ -76,7 +75,7 @@ export * from "./reading-lists";
 export * from "./workspace";
 export * from "./ink";
 
-import type { IntegrationsRegistry } from "@/integrations/registry";
+import type { IntegrationsRegistry } from "@/integrations/parts";
 import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import type { PapersFacade } from "./papers";
 import type { PaperFieldsFacade } from "./paper-fields";

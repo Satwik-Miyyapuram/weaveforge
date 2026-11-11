@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { afterEach } from "node:test";
 
-import { readDeviceSnapshot, writeDeviceSnapshot } from "../device-snapshot";
+import { readDeviceSnapshot, writeDeviceSnapshot } from "../parts";
 
 const g = globalThis as { window?: unknown };
 const hadWindow = "window" in g;

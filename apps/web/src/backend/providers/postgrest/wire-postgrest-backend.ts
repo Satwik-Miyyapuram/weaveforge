@@ -67,7 +67,7 @@ import {
 import {
   PostgrestShareRepository,
 } from "@/features/sharing/infrastructure/postgrest-share-repository";
-import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import type { IIntegrationsStore } from "@/features/sync/domain/parts";
 import {
   PostgrestPaperTagRepository,
   PostgrestTagRepository,
@@ -78,8 +78,7 @@ import {
 import { cacheRepo } from "@/lib/cache/cache-repo";
 import type { ProjectContext } from "@/lib/project-context";
 import { readyCore, typedCore } from "@/lib/rust-core";
-import { systemClock } from "@/lib/system";
-import { notifyWorkspaceChange } from "@/lib/workspace-changes";
+import { notifyWorkspaceChange, systemClock } from "@/lib/parts";
 import { wireStorage } from "@/storage/wire-storage";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -129,7 +128,7 @@ import {
   type ShareableType,
 } from "@weaveforge/core";
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
-import type { Integration, SyncProvider } from "../../../features/sync/domain/integration";
+import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner } from "../supabase-auth/admin-provisioner";
 import { SupabaseSessionProvider } from "../supabase-auth/session";
 import { createDataClient } from "./client";

@@ -10,7 +10,7 @@ import {
   pictureRect,
   type PagePicture,
 } from "@weaveforge/wasm";
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/parts";
 import type { AnnotationActions } from "./use-annotation-actions";
 import { pageBoxOf } from "./page-box";
 import { typedCore } from "@/lib/rust-core";

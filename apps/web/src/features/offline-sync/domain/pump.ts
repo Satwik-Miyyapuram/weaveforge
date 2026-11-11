@@ -2,7 +2,7 @@ import { readyCore } from "@/lib/rust-core";
 import type { ConflictRoute } from "@weaveforge/wasm";
 import type { Outbox, OutboxEntry } from "./outbox";
 import type { ConflictStore } from "./conflicts";
-import type { SendOutcome, SyncTransport } from "./sync-ports";
+import type { SendOutcome, SyncTransport } from "./parts";
 
 /**
  * Drains the outbox, in order, and stops at the first thing it cannot send.

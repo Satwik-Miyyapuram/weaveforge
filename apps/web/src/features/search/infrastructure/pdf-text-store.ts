@@ -12,7 +12,7 @@
 
 import type { PdfIndexSource } from "@weaveforge/wasm";
 import { PDF_TEXT_STORE, openAppDb } from "@/lib/cache/app-idb";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 
 /** Guard against one pathological document filling the user's quota. */
 const MAX_STORED_CHARS = 2_000_000;

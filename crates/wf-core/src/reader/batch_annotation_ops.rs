@@ -1,6 +1,6 @@
 //! Image-region annotations for bulk extract. A port of
 //! `collectAnnotationImageRegions` in
-//! `apps/web/src/features/reader/application/batch-annotation-ops.ts`. The
+//! `apps/web/src/features/reader/application/parts.ts`. The
 //! activity log stays in TS: it reads the clock and a random id.
 
 use serde::{Deserialize, Serialize};

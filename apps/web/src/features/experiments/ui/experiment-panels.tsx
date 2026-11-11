@@ -17,7 +17,7 @@ import { Modal } from "@/components/modal";
 import { PdfReader } from "@/features/reader";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {

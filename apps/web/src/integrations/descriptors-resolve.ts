@@ -2,7 +2,7 @@ import type { UserIntegrationDescriptor } from "@weaveforge/core";
 import { getAppConfig } from "@/deployment/app-config";
 import { readyCore } from "@/lib/rust-core";
 import type { IntegrationConfig } from "./config";
-import type { ProjectSyncDescriptor } from "./descriptors-types";
+import type { ProjectSyncDescriptor } from "./parts";
 
 const GITLAB_MERGED_DESCRIPTOR: ProjectSyncDescriptor = {
   id: "gitlab-combined",

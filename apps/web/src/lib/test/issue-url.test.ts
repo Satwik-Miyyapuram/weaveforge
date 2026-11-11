@@ -1,6 +1,6 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_REPORT_REPO, newIssueUrl } from "@/lib/error-report/issue-url";
+import { DEFAULT_REPORT_REPO, newIssueUrl } from "@/lib/error-report/parts";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

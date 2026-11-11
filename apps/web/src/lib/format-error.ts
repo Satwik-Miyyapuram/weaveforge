@@ -1,5 +1,5 @@
 import { readyCore } from "@/lib/rust-core";
-import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./session-lost";
+import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./parts";
 
 /**
  * Browser network failures, which arrive as a bare TypeError. The phrase match

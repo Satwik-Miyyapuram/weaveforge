@@ -12,11 +12,11 @@ import { findOpenAccessCopies, type OpenAccessHttp, type OpenAccessIds } from "@
 import { getContainer } from "@/bootstrap";
 import { typedCore } from "@/lib/rust-core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { pdfProxyNeedsToken } from "./pdf-download-consent";
+import { pdfProxyNeedsToken } from "./parts";
 import { fetchTypedPdfToCache } from "./resolve-paper-pdf-for-reader";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "./paper-html-rules";
 import { findFreeCopy, type FreeCopyOutcome, type HtmlFetchResult } from "./find-free-copy";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 
 const INDEX_TIMEOUT_MS = 12_000;
 

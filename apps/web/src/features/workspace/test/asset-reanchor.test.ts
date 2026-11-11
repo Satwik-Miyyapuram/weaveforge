@@ -5,7 +5,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   ownedAssetFolderPaths,
   planAssetReanchor,
-} from "@/features/workspace/application/asset-reanchor";
+} from "@/features/workspace/application/parts";
 
 before(async () => {
   await loadTestCore();

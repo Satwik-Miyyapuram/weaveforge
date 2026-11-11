@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AppLogInput } from "@/lib/error-report/app-log";
-import { linkPdfSource } from "../application/link-pdf-source";
+import { linkPdfSource } from "../application/parts";
 
 test("a link that saves logs nothing", async () => {
   const linked: string[] = [];

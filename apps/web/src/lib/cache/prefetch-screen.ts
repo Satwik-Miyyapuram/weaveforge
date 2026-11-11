@@ -1,6 +1,6 @@
 import type { AppContainer } from "@/container/facades";
 import { readyCore } from "@/lib/rust-core";
-import type { ScreenId } from "@/lib/screens";
+import type { ScreenId } from "@/lib/parts";
 
 /**
  * Warm screen data on tab hover (Phase 3).

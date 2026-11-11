@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "@/features/org/ui/profile-provider";
-import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
+import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import type { InboxLink } from "@weaveforge/wasm";
 

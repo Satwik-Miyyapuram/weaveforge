@@ -16,7 +16,7 @@ import type { SectionProgress } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { Markdown } from "@/components/markdown/markdown";
 import { StatusSelect } from "@/components/status-select";
-import { runReported } from "@/lib/run-reported";
+import { runReported } from "@/lib/parts";
 import { useHiddenKeys } from "@/lib/toast/index";
 import { removeSectionLater, sectionKey } from "./remove-section";
 import { useRef, useState } from "react";

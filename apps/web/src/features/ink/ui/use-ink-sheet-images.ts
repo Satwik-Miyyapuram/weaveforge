@@ -22,8 +22,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getContainer } from "@/bootstrap";
-import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "@/features/papers/lib/paper-images-md";
-import { fetchPaperImageBlob, fetchPaperImageBlobs } from "@/features/papers/lib/image-variants";
+import {
+  fetchPaperImageBlob,
+  fetchPaperImageBlobs,
+  PAPER_IMAGE_PREFIX,
+  paperImagePathsInBody,
+} from "@/features/papers/lib/parts";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
 import type { InkHostDeps } from "./ink-host-types";
 import { readyCore } from "@/lib/rust-core";

@@ -7,10 +7,9 @@ import type {
   IProjectBibliographyCollectionStore,
   UserIntegrationDescriptor,
 } from "@weaveforge/core";
-import type { IGitClient } from "@/features/sync/domain/sync-ports";
+import type { IGitClient } from "@/features/sync/domain/parts";
 import type { WireIntegrationsDeps } from "../wire-integrations";
-import type { WireCitationsDeps } from "../wire-citations";
-import type { ProjectSyncDescriptor } from "../descriptors-types";
+import type { ProjectSyncDescriptor, WireCitationsDeps } from "../parts";
 
 type IntegrationManifestKind =
   | "bibliography"

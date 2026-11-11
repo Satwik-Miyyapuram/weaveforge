@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
+import { DESKTOP_BREAKPOINT_PX } from "@/lib/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 /**
  * Loaded on demand, and only once the window is known to be wide enough. A

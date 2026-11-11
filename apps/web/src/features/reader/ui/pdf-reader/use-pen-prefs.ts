@@ -31,7 +31,7 @@ import {
   readToolColours,
 } from "@/features/ink";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/parts";
 
 const PEN_PREFS_KEY = "weaveforge.reader.pen";
 

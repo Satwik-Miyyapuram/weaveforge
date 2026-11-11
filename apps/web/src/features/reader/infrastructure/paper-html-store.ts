@@ -9,7 +9,7 @@
 
 import { type IWorkspaceFs } from "@weaveforge/core";
 import { loadCore, typedCore } from "@/lib/rust-core";
-import { activeProjectRoot } from "@/features/workspace/application/active-project";
+import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { PAPER_HTML_DB_NAME } from "./local-cache-names";

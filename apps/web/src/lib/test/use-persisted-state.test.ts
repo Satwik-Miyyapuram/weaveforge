@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { afterEach, beforeEach } from "node:test";
 
 import { renderHook } from "./react-harness.js";
-import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 
 const g = globalThis as { window?: unknown };
 const hadWindow = "window" in g;

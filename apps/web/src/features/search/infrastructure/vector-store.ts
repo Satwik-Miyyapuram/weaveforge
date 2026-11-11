@@ -1,12 +1,12 @@
 import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { localFiles, type LocalFiles } from "@/backend/providers/local/local-blob-store";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /**

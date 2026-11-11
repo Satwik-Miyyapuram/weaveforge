@@ -1,9 +1,8 @@
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { singleFlight } from "@/lib/cache/single-flight";
-import { getDataClient } from "@/lib/data-client";
+import { singleFlight } from "@/lib/cache/parts";
+import { getDataClient, relayUrl } from "@/lib/parts";
 import { readJsonBody, responseError } from "@/lib/format-error";
-import { relayUrl } from "@/lib/relay-url";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import type { OrgInviteRole, OrgJoinSource, OrgMembershipView } from "@weaveforge/core";
 

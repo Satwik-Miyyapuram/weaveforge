@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { projectSyncDescriptorsForConfig, sharedProviderHint } from "../descriptors-resolve";
 import { readIntegrationConfig } from "../config";
-import type { ProjectSyncDescriptor } from "../descriptors-types";
+import type { ProjectSyncDescriptor } from "../parts";
 
 before(async () => {
   await loadTestCore();

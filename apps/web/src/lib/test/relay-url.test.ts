@@ -1,6 +1,6 @@
 import test, { afterEach, before } from "node:test";
 import assert from "node:assert/strict";
-import { relayPath, relayUrl } from "../relay-url";
+import { relayPath, relayUrl } from "../parts";
 import { originalUrlFromProxy, proxiedPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import { semanticScholarUrl } from "../semantic-scholar-fetch";
 import { loadTestCore } from "@/lib/test/load-test-core";

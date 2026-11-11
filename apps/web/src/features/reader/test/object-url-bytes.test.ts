@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createPdfObjectUrl, pdfObjectUrlBytes, revokePdfObjectUrl } from "../application/object-url-bytes";
+import { createPdfObjectUrl, pdfObjectUrlBytes, revokePdfObjectUrl } from "../application/parts";
 
 test("a registered object URL answers its bytes until revoked", async () => {
   const revoked: string[] = [];

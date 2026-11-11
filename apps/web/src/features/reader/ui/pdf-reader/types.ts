@@ -2,9 +2,9 @@
 import type { InkGroupCandidate, QuotationType, ReaderAnnotation } from "@weaveforge/core";
 import type { PdfLocus, AnchorConfidence } from "@weaveforge/wasm";
 
-export type { PdfLib } from "@/lib/pdf-lib";
+export type { PdfLib } from "@/lib/parts";
 import type { ReactNode } from "react";
-import type { PdfLib } from "@/lib/pdf-lib";
+import type { PdfLib } from "@/lib/parts";
 
 export type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
 

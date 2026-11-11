@@ -9,7 +9,7 @@ import {
   applyAnnotationPatch,
   optimisticAnnotationFromDraft,
 } from "@weaveforge/wasm";
-import { PENDING_ANNOTATION_PREFIX } from "../../application/reader-annotation-helpers";
+import { PENDING_ANNOTATION_PREFIX } from "../../application/parts";
 import type { PdfReaderProps } from "./types";
 
 type ChangeAnnotations = NonNullable<PdfReaderProps["onAnnotationsChange"]>;

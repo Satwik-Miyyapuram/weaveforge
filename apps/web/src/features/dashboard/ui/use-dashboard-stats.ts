@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
-import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
-import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/device-snapshot";
+import {
+  readDeviceSnapshot,
+  registerDashboardUiCacheClear,
+  writeDeviceSnapshot,
+} from "@/lib/cache/parts";
 import type { DashboardCardType, Member } from "@weaveforge/core";
 
 import { buildDashboardStats, type DashboardStats } from "../application/build-dashboard-stats";

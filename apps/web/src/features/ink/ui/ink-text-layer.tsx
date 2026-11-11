@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RecognisedLine } from "@weaveforge/core";
 import { Markdown } from "@/components/markdown/markdown";
-import { isCommitEnter } from "@/lib/commit-enter";
+import { isCommitEnter } from "@/lib/parts";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { Button } from "@/components/button";
 import { readyCore } from "@/lib/rust-core";

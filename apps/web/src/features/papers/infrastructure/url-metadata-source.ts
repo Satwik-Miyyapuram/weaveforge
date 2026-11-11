@@ -10,7 +10,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { UrlMetaResponse } from "@weaveforge/wasm";
 import { loadCore } from "@/lib/rust-core";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "@/features/reader/application/paper-html-rules";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 
 /**
  * URL metadata source. Resolves an arbitrary paper URL to metadata by reading

@@ -9,10 +9,10 @@
  */
 import { getContainer } from "@/bootstrap";
 import { overleafSidebarRows } from "@/features/report/index";
-import { activeProjectRoot } from "@/features/workspace/application/active-project";
+import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { type CiteCompletion, paperCiteLabel } from "@/lib/hooks/use-cite-links";
-import { isHydratedPage, noteBodyText } from "@/lib/page-text";
+import { isHydratedPage, noteBodyText } from "@/lib/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
   kindNames,

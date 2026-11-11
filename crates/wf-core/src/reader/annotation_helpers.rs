@@ -1,5 +1,5 @@
 //! Pure helpers for local reader annotations (`reader::annotation_helpers`).
-//! Port of `apps/web/src/features/reader/application/reader-annotation-helpers.ts`.
+//! Port of `apps/web/src/features/reader/application/parts.ts`.
 //!
 //! The palette constants and the pointer and tool predicates stay where they already live (TS
 //! constants, `reader::create_tool`). Only the pure record logic moves here.

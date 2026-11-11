@@ -5,7 +5,7 @@ import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/outbox";
 import { OutboxPump } from "../domain/pump";
 import { ConflictStore } from "../domain/conflicts";
 import type { OutboxEntry } from "../domain/outbox";
-import type { SendOutcome, SyncTransport } from "../domain/sync-ports";
+import type { SendOutcome, SyncTransport } from "../domain/parts";
 import { localSqlDb, type LocalSqlDb } from "./local-sql";
 
 before(async () => {

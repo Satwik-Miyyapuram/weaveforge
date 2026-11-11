@@ -6,8 +6,12 @@ import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
-import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/image-variants";
+import {
+  fetchPaperImageBlob,
+  fetchPaperImageBlobs,
+  PAPER_IMAGE_PREFIX,
+  paperImagePathsInBody,
+} from "../lib/parts";
 
 const PAPER_IMAGES_BUCKET = "paper-images";
 

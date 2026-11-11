@@ -10,7 +10,7 @@ import type { Paper } from "@weaveforge/core";
 
 import { autoIndexStatus, startAutoIndex, stopAutoIndex, type AutoIndexDeps } from "../application/auto-index-library";
 import type { LibraryIndexResult } from "../application/index-library-pdfs";
-import { clearSessionCaches } from "@/lib/cache/clear-session-caches";
+import { clearSessionCaches } from "@/lib/cache/parts";
 
 const store = new Map<string, string>([["thesis.search.pdf-auto", "1"]]);
 (globalThis as Record<string, unknown>).localStorage = {

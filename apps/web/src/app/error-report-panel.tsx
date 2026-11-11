@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 
 import { getContainer } from "@/bootstrap";
-import { newIssueUrl } from "@/lib/error-report/issue-url";
+import { newIssueUrl } from "@/lib/error-report/parts";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore } from "@/lib/rust-core";

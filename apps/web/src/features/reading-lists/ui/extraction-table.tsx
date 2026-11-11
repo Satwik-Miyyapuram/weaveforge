@@ -5,13 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Paper, PaperFieldDef, PaperFieldValueData, ReadingListTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
+import { AI_PROPOSALS_CHANGED_EVENT, latestGate } from "@/lib/parts";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
 import { buildProposeFillPrompt, emptyCellPaperIds, extractionCsv, extractionMarkdown, flattenPaperRows, relationTitles, type ExtractionColumnId, type ExtractionRow, type PendingFieldFill } from "../application/extraction-rows";
 import { FormError } from "@/components/form-error";
-import { latestGate } from "@/lib/latest-gate";
 import { Button } from "@/components/button";
 import { Table } from "@/components/table";
 

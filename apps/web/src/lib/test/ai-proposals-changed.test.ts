@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AI_PROPOSALS_CHANGED_EVENT, announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
+import { AI_PROPOSALS_CHANGED_EVENT, announceAiProposalsChanged } from "@/lib/parts";
 
 test("the memo is forgotten before the event fires", () => {
   const order: string[] = [];

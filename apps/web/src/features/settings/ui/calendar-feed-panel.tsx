@@ -10,7 +10,7 @@ import { useAuth } from "@/features/auth";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import { formatError } from "@/lib/format-error";
 import { PlanWidgetToggle } from "./plan-widget-toggle";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import {
   planFeedOrigin,
   type PlanFeedLink,

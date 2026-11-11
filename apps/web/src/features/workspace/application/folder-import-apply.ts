@@ -5,12 +5,7 @@ import {
 import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { loadCore, readyCore } from "@/lib/rust-core";
-import { activeProject } from "./active-project";
-import {
-  ownedAssetFolderPaths,
-  planAssetReanchor,
-  workspaceBodies,
-} from "./asset-reanchor";
+import { activeProject, ownedAssetFolderPaths, planAssetReanchor, workspaceBodies } from "./parts";
 import { refreshMirrorBase, applyJsonEntries } from "./folder-json-import";
 import { claimImportedFile } from "./mirror-manifest";
 import { writeConflictMarkersTo, type ConflictResolution, settleConflict } from "./folder-merge";

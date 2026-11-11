@@ -7,8 +7,11 @@ import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
 
 import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
-import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
-import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/device-snapshot";
+import {
+  readDeviceSnapshot,
+  registerDashboardUiCacheClear,
+  writeDeviceSnapshot,
+} from "@/lib/cache/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";

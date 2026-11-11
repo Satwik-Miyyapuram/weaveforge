@@ -16,7 +16,7 @@ import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } fr
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { latestGate } from "@/lib/latest-gate";
+import { latestGate } from "@/lib/parts";
 import { loadProfileBundle } from "../application/profile-refresh";
 
 const EMPTY_PROFILE_STATE = {

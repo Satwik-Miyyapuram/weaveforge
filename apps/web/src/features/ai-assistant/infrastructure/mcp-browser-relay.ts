@@ -1,5 +1,5 @@
 import { errorMessage, type AiAccessSettings, type AiEvidence } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 

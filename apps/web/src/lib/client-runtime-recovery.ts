@@ -1,6 +1,6 @@
 "use client";
 
-import { clearCacheStorage } from "@/lib/cache-storage";
+import { clearCacheStorage } from "@/lib/parts";
 
 /**
  * Recovers from Next.js blank “Application error” pages caused by stale

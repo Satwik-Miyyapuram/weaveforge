@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { activeNavItem, groupForPath, phoneItems } from "@/registry";
-import { useNavGroups } from "@/lib/hooks/use-nav-groups";
+import { useNavGroups } from "@/lib/hooks/parts";
 import { useNavPending } from "@/lib/nav-pending";
 
 /**

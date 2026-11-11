@@ -10,7 +10,7 @@ import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
-import { isHydratedPage, noteBodyText } from "@/lib/page-text";
+import { isHydratedPage, noteBodyText } from "@/lib/parts";
 import { runNoteAction } from "./run-note-action";
 import { readyCore } from "@/lib/rust-core";
 

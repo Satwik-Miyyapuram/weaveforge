@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 test("useSubmit ignores a second submit while the first is in flight", () => {
-  const src = readFileSync(new URL("../../../lib/hooks/use-submit.ts", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../../../lib/hooks/parts.ts", import.meta.url), "utf8");
   assert.match(src, /if \(busyRef\.current\) return false;/);
   assert.match(src, /busyRef\.current = true;/);
   assert.match(src, /finally \{\s*busyRef\.current = false;/);
