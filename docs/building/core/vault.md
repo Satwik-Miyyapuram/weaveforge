@@ -33,7 +33,6 @@ the pages, the files and the database.
 The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 `packages/wf-wasm/src` import the raw names from `../pkg/wf_wasm.js` and
 re-export them. The main names are `rewriteWikilinks`, `isNoteImportFile`,
-`vaultPageToDomain`, `vaultPageToRow`, `vaultPageToSummaryDomain`,
 `sourceNoteTemplateContext`, `renderTemplate`, `mergeTemplate`, `applyTemplate`,
 `parseRegions`, `wrapRegion`, `stripRegionMarkers`, `substituteVariables`,
 `defaultSourceNoteTemplate`, `normalizeTitleKey`, `uniqueTitle`,

@@ -1,11 +1,10 @@
-//! Paper, paper field and annotation quotation type row mapping for JavaScript (wf-core
-//! `papers::{paper_row, paper_field_row, annotation_quotation_type_row}`). The TS wrappers in
+//! Paper and paper field row mapping for JavaScript (wf-core
+//! `papers::{paper_row, paper_field_row}`). The TS wrappers in
 //! `packages/wf-wasm/src/wrappers-5.ts` apply the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
-use wf_core::papers::annotation_quotation_type_row::{AnnotationQuotationTypeRow, to_domain};
 use wf_core::papers::paper_field_row::{
     PaperFieldDefRow, PaperFieldValueRow, to_def_domain, to_value_domain,
 };
@@ -73,15 +72,5 @@ pub fn paper_field_value_row_to_domain_js(
 ) -> Result<JsValue, JsError> {
     let row: PaperFieldValueRow = parse(row)?;
     let value = to_value_domain(row).map_err(|message| JsError::new(&message))?;
-    to_js(&value).map_err(js_error)
-}
-
-/// [`to_domain`]: an `annotation_quotation_types` row as a domain value. Throws on an unknown type.
-#[wasm_bindgen(js_name = annotationQuotationTypeRowToDomain, unchecked_return_type = "B.AnnotationQuotationType")]
-pub fn annotation_quotation_type_row_to_domain_js(
-    #[wasm_bindgen(unchecked_param_type = "B.AnnotationQuotationTypeRow")] row: JsValue,
-) -> Result<JsValue, JsError> {
-    let row: AnnotationQuotationTypeRow = parse(row)?;
-    let value = to_domain(row).map_err(|message| JsError::new(&message))?;
     to_js(&value).map_err(js_error)
 }

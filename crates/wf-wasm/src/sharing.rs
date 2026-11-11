@@ -4,8 +4,8 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sharing::{
-    self, CommentRow, NewCommentInput, NewShareInput, ShareGrant, ShareRow, ShareScope,
-    ShareableType, SharedSource,
+    self, CommentRow, NewCommentInput, NewShareInput, ShareGrant, ShareScope, ShareableType,
+    SharedSource,
 };
 
 use super::to_js;
@@ -162,19 +162,6 @@ pub fn decode_share_link_token_js(encoded: &str) -> Result<Vec<u8>, JsValue> {
     sharing::decode_share_link_token(encoded).map_err(|message| JsValue::from_str(&message))
 }
 
-/// [`share_from_row`](sharing::share_from_row): a `shares` row as the app's `Share`.
-///
-/// # Errors
-///
-/// Fails if `row` does not have the `shares` columns.
-#[wasm_bindgen(js_name = shareFromRow, unchecked_return_type = "B.Share")]
-pub fn share_from_row_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ShareRow")] row: JsValue,
-) -> JsResult<JsValue> {
-    let row: ShareRow = serde_wasm_bindgen::from_value(row)?;
-    to_js(&sharing::share_from_row(&row))
-}
-
 /// [`comment_from_row`](sharing::comment_from_row): a `comments` row as the app's `Comment`.
 ///
 /// # Errors
@@ -277,22 +264,6 @@ pub fn shared_paper_annotation_summary_js(metadata: JsValue) -> JsResult<JsValue
 #[wasm_bindgen(js_name = defaultShareLinkExpiresAt)]
 pub fn default_share_link_expires_at_js(now_ms: f64) -> String {
     sharing::default_share_link_expires_at(now_ms as i64)
-}
-
-/// [`share_link_from_row`](sharing::share_link_from_row): a `share_links` row as the app's `ShareLink`.
-///
-/// # Errors
-///
-/// Fails if `row` does not have the `share_links` columns.
-#[wasm_bindgen(
-    js_name = shareLinkFromRow,
-    unchecked_return_type = "Omit<B.ShareLink, \"access\"> & { access: \"view\" }"
-)]
-pub fn share_link_from_row_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ShareLinkRow")] row: JsValue,
-) -> JsResult<JsValue> {
-    let row: sharing::ShareLinkRow = serde_wasm_bindgen::from_value(row)?;
-    to_js(&sharing::share_link_from_row(&row))
 }
 
 /// [`shared_read_plan`](sharing::shared_read_plan): the PostgREST table, columns and filter for
