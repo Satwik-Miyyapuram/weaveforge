@@ -447,11 +447,6 @@ export function annotationPinKey(id: string, zotero_key?: string | null): string
 export function annotationPinToDomain(row: B.AnnotationPinRow): B.AnnotationPin;
 
 /**
- * [`to_domain`]: an `annotation_quotation_types` row as a domain value. Throws on an unknown type.
- */
-export function annotationQuotationTypeRowToDomain(row: B.AnnotationQuotationTypeRow): B.AnnotationQuotationType;
-
-/**
  * [`to_domain`] (TS `toDomain`): the row as a `ReaderAnnotation` object.
  *
  * # Errors
@@ -2118,16 +2113,6 @@ export function decodeLocus(raw?: string | null): any;
  * Fails if `encoded` is not valid base64 (either alphabet).
  */
 export function decodeShareLinkToken(encoded: string): Uint8Array;
-
-/**
- * [`dedupe_relation_rows_by_id`](relation_rows::dedupe_relation_rows_by_id): one row per id,
- * in first-seen order, so a relation on both sides of a paper appears once.
- *
- * # Errors
- *
- * Fails if `rows` has the wrong shape.
- */
-export function dedupePaperRelationRows(rows: readonly B.PaperRelationRow[]): B.PaperRelationRow[];
 
 /**
  * [`deepest_first_list_ids`](reading_list::deepest_first_list_ids) (TS `removeList` order).
@@ -4736,12 +4721,6 @@ export function isLoopbackHost(host: string | null | undefined, port: number): b
 export function isMarkdownFile(name: string): boolean;
 
 /**
- * [`is_missing_body_preview_column`](page_query::is_missing_body_preview_column). Takes the
- * error's `message` and `code`, either of which may be absent.
- */
-export function isMissingBodyPreviewColumn(message?: string | null, code?: string | null): boolean;
-
-/**
  * [`is_missing_service_role`](org::is_missing_service_role).
  */
 export function isMissingServiceRole(message: string): boolean;
@@ -5296,15 +5275,6 @@ export function levenshtein(a: string, b: string, limit?: number | null): number
  * Fails if `papers` is not an array of paper objects.
  */
 export function libraryBibtex(papers_value: any): string;
-
-/**
- * [`to_domain`]: a `library_pins` row as a library pin.
- *
- * # Errors
- *
- * Fails if the row cannot be read as a `library_pins` row.
- */
-export function libraryPinRowToDomain(row: B.PinRow): B.LibraryPin;
 
 /**
  * [`link_citation_mentions`](link_citations::link_citation_mentions) (TS
@@ -6860,15 +6830,6 @@ export function paletteName(palette: any, hex: string): string | undefined;
 export function paperCiteKeys(papers_value: any): any;
 
 /**
- * [`paper_counts_for_tags`](tag_counts::paper_counts_for_tags): one count per `tagIds` entry, in order.
- *
- * # Errors
- *
- * Fails if `tagIds` or `links` has the wrong shape.
- */
-export function paperCountsForTags(tag_ids: readonly string[], links: readonly B.TagPaperLink[]): number[];
-
-/**
  * [`to_def_domain`]: a `paper_fields` row as a domain field definition.
  */
 export function paperFieldDefRowToDomain(row: B.PaperFieldDefRow): B.PaperFieldDef;
@@ -6899,16 +6860,6 @@ export function paperImageThumbnailPath(path: string): string;
 export function paperPdfPath(paper_id: string, project_root?: string | null): string;
 
 /**
- * [`paper_relation_from_row`](paper_relation::paper_relation_from_row): the domain relation
- * for a stored row (a null note reads as absent).
- *
- * # Errors
- *
- * Fails if `row` has the wrong shape.
- */
-export function paperRelationFromRow(row: B.PaperRelationRow): B.PaperRelation;
-
-/**
  * [`validate_new_paper_relation`](paper_relation::validate_new_paper_relation): the
  * validation message, or `undefined` when the input is valid.
  *
@@ -6919,16 +6870,6 @@ export function paperRelationFromRow(row: B.PaperRelationRow): B.PaperRelation;
 export function paperRelationInputError(input: any): string | undefined;
 
 /**
- * [`paper_relation_to_row`](paper_relation::paper_relation_to_row): the stored row for a
- * relation (an absent note is stored as null).
- *
- * # Errors
- *
- * Fails if `relation` has the wrong shape.
- */
-export function paperRelationToRow(relation: B.PaperRelation): B.PaperRelationRow;
-
-/**
  * [`paper_to_domain`]: a `papers` row as a domain paper.
  */
 export function paperRowToDomain(row: B.PaperRow): B.Paper;
@@ -6937,11 +6878,6 @@ export function paperRowToDomain(row: B.PaperRow): B.Paper;
  * [`paper_to_summary`]: a `papers` row read with the card projection, as a summary.
  */
 export function paperRowToSummary(row: B.PaperRow): B.PaperSummary;
-
-/**
- * [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
- */
-export function paperTagFromRow(row: B.PaperTagRowInput): { paperId: string; tagId: string; source: "zotero_annotation" | "zotero_item" | "summary" | "manual"; annotationRef?: string };
 
 /**
  * [`paper_to_bibtex`](bibtex::paper_to_bibtex): one `.bib` entry under `key`.
@@ -9419,27 +9355,9 @@ export function shareAllowsEdit(share: Pick<B.Share, "resourceType" | "resourceI
 export function shareCoversResource(share: Pick<B.Share, "resourceType" | "resourceId" | "ownerId">, resource_type: B.ShareableType, resource_id: string, owner_id: string): boolean;
 
 /**
- * [`share_from_row`](sharing::share_from_row): a `shares` row as the app's `Share`.
- *
- * # Errors
- *
- * Fails if `row` does not have the `shares` columns.
- */
-export function shareFromRow(row: B.ShareRow): B.Share;
-
-/**
  * [`SHARE_LINK_DEFAULT_TTL_DAYS`](sharing::SHARE_LINK_DEFAULT_TTL_DAYS) as a JS number.
  */
 export function shareLinkDefaultTtlDays(): number;
-
-/**
- * [`share_link_from_row`](sharing::share_link_from_row): a `share_links` row as the app's `ShareLink`.
- *
- * # Errors
- *
- * Fails if `row` does not have the `share_links` columns.
- */
-export function shareLinkFromRow(row: B.ShareLinkRow): Omit<B.ShareLink, "access"> & { access: "view" };
 
 /**
  * [`share_supports_edit_access`](sharing::share_supports_edit_access).
@@ -10089,11 +10007,6 @@ export function tableGroups(tables: string[]): number[][];
 export function tagColor(tag: string): string;
 
 /**
- * [`to_tag`]: a `tags` row as the app's tag.
- */
-export function tagFromRow(row: B.TagRowInput): { id: string; name: string; color?: string };
-
-/**
  * [`tag_to_hashtag`](note_tags::tag_to_hashtag). Empty when the name has no usable characters.
  */
 export function tagToHashtag(name: string): string;
@@ -10640,36 +10553,10 @@ export function vaultPageBase(path: string, content: string): any;
 export function vaultPageSide(path: string, content: string): any;
 
 /**
- * [`to_domain`]: a `vault_pages` row as a full page.
- */
-export function vaultPageToDomain(row: B.VaultPageRow): B.VaultPage;
-
-/**
- * [`to_row`]: a page as the `vault_pages` row it is written as.
- */
-export function vaultPageToRow(page: B.VaultPage): B.VaultPageWriteRow;
-
-/**
- * [`to_summary_domain`]: a `vault_pages` row as a summary page (no body, a preview).
- */
-export function vaultPageToSummaryDomain(row: B.VaultPageRow): B.VaultPage;
-
-/**
  * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `null`
  * when there is none.
  */
 export function vaultRootFromText(text: string): string | null;
-
-/**
- * [`title_like_pattern`](page_query::title_like_pattern): the ILIKE pattern for a normalised title key.
- */
-export function vaultTitleLikePattern(key: string): string;
-
-/**
- * [`title_or_body_filter`](page_query::title_or_body_filter): the PostgREST `or` filter for a
- * title or body search. `undefined` for an empty query.
- */
-export function vaultTitleOrBodyFilter(query: string): string | undefined;
 
 /**
  * [`too_large_message`](wf_core::sync::vault_limits::too_large_message): the "too large to open here" text for a byte cap.
@@ -11185,7 +11072,6 @@ export interface InitOutput {
     readonly annotationIdentity: (a: any) => [number, number, number, number];
     readonly annotationPinKey: (a: number, b: number, c: number, d: number) => [number, number];
     readonly annotationPinToDomain: (a: any) => [number, number, number];
-    readonly annotationQuotationTypeRowToDomain: (a: any) => [number, number, number];
     readonly annotationRowToDomain: (a: any) => [number, number, number];
     readonly appCanonicalUrl: (a: number, b: number) => [number, number, number];
     readonly appContentTypeFor: (a: number, b: number) => [number, number];
@@ -11394,7 +11280,6 @@ export interface InitOutput {
     readonly decodeInkWords: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly decodeLocus: (a: number, b: number) => [number, number, number];
     readonly decodeShareLinkToken: (a: number, b: number) => [number, number, number, number];
-    readonly dedupePaperRelationRows: (a: any) => [number, number, number];
     readonly deepestFirstListIds: (a: number, b: number, c: any) => [number, number, number, number];
     readonly defaultExpanded: (a: any) => [number, number, number];
     readonly defaultGraphSettings: () => [number, number, number];
@@ -11762,7 +11647,6 @@ export interface InitOutput {
     readonly isLocalZoteroUrl: (a: number, b: number) => number;
     readonly isLoopbackHost: (a: number, b: number, c: number) => number;
     readonly isMarkdownFile: (a: number, b: number) => number;
-    readonly isMissingBodyPreviewColumn: (a: number, b: number, c: number, d: number) => number;
     readonly isMissingServiceRole: (a: number, b: number) => number;
     readonly isNetworkFailure: (a: number, b: number) => [number, number, number];
     readonly isNewerVersion: (a: any, b: any) => [number, number, number];
@@ -11841,7 +11725,6 @@ export interface InitOutput {
     readonly leaves: (a: any) => [number, number, number];
     readonly levenshtein: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly libraryBibtex: (a: any) => [number, number, number, number];
-    readonly libraryPinRowToDomain: (a: any) => [number, number, number];
     readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
     readonly linkGroupOf: (a: number, b: number) => [number, number, number];
     readonly linkLabel: (a: any) => [number, number, number];
@@ -12053,19 +11936,15 @@ export interface InitOutput {
     readonly paletteModeFor: (a: any) => [number, number, number];
     readonly paletteName: (a: any, b: number, c: number) => [number, number, number, number];
     readonly paperCiteKeys: (a: any) => [number, number, number];
-    readonly paperCountsForTags: (a: any, b: any) => [number, number, number];
     readonly paperFieldDefRowToDomain: (a: any) => [number, number, number];
     readonly paperFieldValueRowToDomain: (a: any) => [number, number, number];
     readonly paperHtmlCsp: () => [number, number];
     readonly paperHtmlPath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly paperImageThumbnailPath: (a: number, b: number) => [number, number];
     readonly paperPdfPath: (a: number, b: number, c: number, d: number) => [number, number];
-    readonly paperRelationFromRow: (a: any) => [number, number, number];
     readonly paperRelationInputError: (a: any) => [number, number, number, number];
-    readonly paperRelationToRow: (a: any) => [number, number, number];
     readonly paperRowToDomain: (a: any) => [number, number, number];
     readonly paperRowToSummary: (a: any) => [number, number, number];
-    readonly paperTagFromRow: (a: any) => [number, number, number];
     readonly paperToBibtex: (a: any, b: number, c: number) => [number, number, number, number];
     readonly paperToRow: (a: any) => [number, number, number];
     readonly parseAppVersion: (a: number, b: number) => [number, number, number];
@@ -12377,9 +12256,7 @@ export interface InitOutput {
     readonly shareAllowsComment: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareAllowsEdit: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly shareCoversResource: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
-    readonly shareFromRow: (a: any) => [number, number, number];
     readonly shareLinkDefaultTtlDays: () => number;
-    readonly shareLinkFromRow: (a: any) => [number, number, number];
     readonly shareSupportsEditAccess: (a: any, b: number, c: number) => [number, number, number];
     readonly shareTargets: (a: any, b: any) => [number, number, number];
     readonly shareableTypes: () => [number, number, number];
@@ -12471,7 +12348,6 @@ export interface InitOutput {
     readonly tabSeparatedToMarkdownTable: (a: any) => [number, number, number];
     readonly tableGroups: (a: any) => [number, number, number];
     readonly tagColor: (a: number, b: number) => [number, number];
-    readonly tagFromRow: (a: any) => [number, number, number];
     readonly tagToHashtag: (a: number, b: number) => [number, number];
     readonly tagTone: (a: any) => [number, number, number];
     readonly takeInkRedo: (a: any) => [number, number, number];
@@ -12547,12 +12423,7 @@ export interface InitOutput {
     readonly vaultImagePrefix: () => [number, number];
     readonly vaultPageBase: (a: any, b: any) => [number, number, number];
     readonly vaultPageSide: (a: any, b: any) => [number, number, number];
-    readonly vaultPageToDomain: (a: any) => [number, number, number];
-    readonly vaultPageToRow: (a: any) => [number, number, number];
-    readonly vaultPageToSummaryDomain: (a: any) => [number, number, number];
     readonly vaultRootFromText: (a: number, b: number) => any;
-    readonly vaultTitleLikePattern: (a: number, b: number) => [number, number];
-    readonly vaultTitleOrBodyFilter: (a: number, b: number) => [number, number];
     readonly vaultTooLargeMessage: (a: number) => [number, number];
     readonly vectorIndexFromBytes: (a: number, b: number) => [number, number, number];
     readonly vectorindex_add: (a: number, b: any, c: number, d: number) => [number, number];
