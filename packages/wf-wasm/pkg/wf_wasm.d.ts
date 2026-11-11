@@ -8655,6 +8655,17 @@ export function replaceVaultAssetPaths(body: string, old_paths: string[], new_pa
 export function replaceWikiIndex(body: string, index: string): string;
 
 /**
+ * [`repo_query::repo_step`]: what `repo.method` does next, given its arguments and the
+ * replies to the queries it already sent.
+ *
+ * # Errors
+ *
+ * Fails if `args` or `replies` is not an array, `ctx` is not a `RepoCtx`, or the step cannot
+ * be converted to JS.
+ */
+export function repoStep(repo: string, method: string, args: unknown[], ctx: B.RepoCtx, replies: unknown[]): B.RepoStep;
+
+/**
  * [`repo_web_url`](repo_web_url::repo_web_url): the trimmed repo URL when it is
  * http(s), otherwise `undefined`.
  */
@@ -12274,6 +12285,7 @@ export interface InitOutput {
     readonly reorderedIds: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly replaceVaultAssetPaths: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly repoStep: (a: number, b: number, c: number, d: number, e: any, f: any, g: any) => [number, number, number];
     readonly repoWebUrl: (a: number, b: number) => [number, number];
     readonly reportMarkdown: (a: any) => [number, number, number, number];
     readonly reportSectionInputError: (a: any) => [number, number, number];

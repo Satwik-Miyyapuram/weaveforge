@@ -2,7 +2,7 @@
 
 Source: `crates/wf-core/src/vault/page_query.rs`. Wasm: `crates/wf-wasm/src/vault_page_query.rs`
 (exports `vaultTitleOrBodyFilter`, `vaultTitleLikePattern`, `isMissingBodyPreviewColumn`).
-TS: `packages/wf-wasm/src/wrappers-11.ts`, used by `apps/web/src/features/vault/infrastructure/postgrest-vault-page-repository.ts`.
+Rust: `crates/wf-core/src/repos/vault_pages.rs` uses it directly. The wasm exports have no TS caller left.
 
 ## Rules
 

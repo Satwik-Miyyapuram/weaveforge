@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestVaultPageRepository } from "../postgrest-vault-page-repository";
+import type { IVaultPageRepository } from "@weaveforge/core";
+import { rustVaultPageRepository } from "@/backend/providers/postgrest/rust-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "@/backend/test/pg-test-db";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -21,7 +22,7 @@ async function repoWith(pages: { title: string; body?: string }[]) {
     "insert into projects (user_id, name) values ($1, 'Vault') returning id",
     [user],
   );
-  const repo = new PostgrestVaultPageRepository(
+  const repo = rustVaultPageRepository(
     createLocalClient(sql as LocalQuery) as unknown as SupabaseClient,
     { projectId: project!.id },
   );
@@ -32,7 +33,7 @@ async function repoWith(pages: { title: string; body?: string }[]) {
   return repo;
 }
 
-const titles = async (repo: PostgrestVaultPageRepository, query: string) =>
+const titles = async (repo: IVaultPageRepository, query: string) =>
   (await repo.list({ query })).map((p) => p.title).sort();
 
 test("list({ query }) matches title or body, case-insensitively (34-18)", async () => {

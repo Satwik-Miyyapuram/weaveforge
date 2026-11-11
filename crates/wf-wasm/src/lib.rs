@@ -130,6 +130,7 @@ mod reading_list_extra;
 mod reading_list_extraction_keys;
 mod reading_list_name_filter;
 mod relations_local_graph;
+mod repo_step;
 mod repo_web_url;
 mod report_bib_entries;
 mod report_cite_key;

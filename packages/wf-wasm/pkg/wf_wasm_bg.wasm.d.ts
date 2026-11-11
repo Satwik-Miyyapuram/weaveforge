@@ -1132,6 +1132,7 @@ export const reorderFigureIndices: (a: number, b: number, c: any) => [number, nu
 export const reorderedIds: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
 export const replaceVaultAssetPaths: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
 export const replaceWikiIndex: (a: number, b: number, c: number, d: number) => [number, number];
+export const repoStep: (a: number, b: number, c: number, d: number, e: any, f: any, g: any) => [number, number, number];
 export const repoWebUrl: (a: number, b: number) => [number, number];
 export const reportMarkdown: (a: any) => [number, number, number, number];
 export const reportSectionInputError: (a: any) => [number, number, number];

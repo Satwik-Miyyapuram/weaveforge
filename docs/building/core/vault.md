@@ -44,8 +44,6 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 
 - `apps/web/src/features/vault/application/parts.ts` calls
   `readyCore().rewriteWikilinks`.
-- `apps/web/src/features/vault/infrastructure/postgrest-vault-page-repository.ts`
-  calls `typedCore().vaultPageToDomain` and `typedCore().vaultPageToRow`.
 - `apps/web/src/features/vault/ui/vault-screen/vault-screen.tsx` and
   `page-editor.tsx` call the template and wikilink functions.
 

@@ -65,7 +65,7 @@ import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
-import { PostgrestShareLinkRepository } from "@/features/sharing/infrastructure/postgrest-share-link-repository";
+import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import {
@@ -134,14 +134,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     { wireIntegrations },
     { wireCitationSources },
     { GENERATED_MCP_ENABLED, GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
-    { PostgrestAiAuditStore, PostgrestAiProposalStore },
     { PostgrestCrdtUpdateStore },
     { CrdtSnapshotStore },
   ] = await Promise.all([
     import("@/integrations/wire-integrations"),
     import("@/integrations/parts"),
     import("@/deployment/generated-registry"),
-    import("@/features/ai-assistant/infrastructure/postgrest-ai-proposal-store"),
     import("@/features/collab/infrastructure/parts"),
     import("@/features/collab/infrastructure/parts"),
   ]);
@@ -180,8 +178,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const commentRepository = backend.commentRepository;
   const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
-  const aiProposalStore = new PostgrestAiProposalStore(backend.db, backend.session, pid);
-  const aiAuditStore = new PostgrestAiAuditStore(backend.db, backend.session, pid);
+  const { proposals: aiProposalStore, audit: aiAuditStore } = rustAiStores(backend.db, projectContext, backend.session);
 
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
@@ -355,7 +352,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const manageComments = new ManageCommentsUseCase({ repository: commentRepository });
   const shareLinkTokenHasher = new WebCryptoShareLinkTokenHasher();
   const shareLinkRepository =
-    "db" in backend ? new PostgrestShareLinkRepository(backend.db) : null;
+    "db" in backend ? rustShareLinkRepository(backend.db) : null;
   const createShareLink =
     shareLinkRepository &&
     new CreateShareLinkUseCase({
