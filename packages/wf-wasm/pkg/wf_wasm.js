@@ -21088,6 +21088,33 @@ export function replaceWikiIndex(body, index) {
 }
 
 /**
+ * [`repo_query::repo_step`]: what `repo.method` does next, given its arguments and the
+ * replies to the queries it already sent.
+ *
+ * # Errors
+ *
+ * Fails if `args` or `replies` is not an array, `ctx` is not a `RepoCtx`, or the step cannot
+ * be converted to JS.
+ * @param {string} repo
+ * @param {string} method
+ * @param {unknown[]} args
+ * @param {B.RepoCtx} ctx
+ * @param {unknown[]} replies
+ * @returns {B.RepoStep}
+ */
+export function repoStep(repo, method, args, ctx, replies) {
+    const ptr0 = passStringToWasm0(repo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(method, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.repoStep(ptr0, len0, ptr1, len1, args, ctx, replies);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`repo_web_url`](repo_web_url::repo_web_url): the trimmed repo URL when it is
  * http(s), otherwise `undefined`.
  * @param {string | null} [repo_url]

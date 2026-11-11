@@ -7700,6 +7700,108 @@ export type RemoteStatusInput = {
 	behind?: number,
 };
 
+/**  What a table query does. */
+export type RepoAction = 
+/**  Read rows. */
+"select" | 
+/**  Add rows. */
+"insert" | 
+/**  Add or replace rows. */
+"upsert" | 
+/**  Change rows matching the filters. */
+"update" | 
+/**  Remove rows matching the filters. */
+"delete";
+
+/**  Who is asking: the selected project and the signed-in user, when known. */
+export type RepoCtx = {
+	/**  The selected project. */
+	projectId?: string | null,
+	/**  The signed-in user. */
+	userId?: string | null,
+	/**  The sender's clock as an ISO-8601 instant (Rust in wasm has none); set on every call. */
+	now?: string | null,
+};
+
+/**  One filter, sent as the supabase-js method of the same name (`eq`, `in`, `is`, `or`, …). */
+export type RepoFilter = {
+	/**  The supabase-js filter method. */
+	op: string,
+	/**  The column; empty for `or`. */
+	column: string,
+	/**  The value; for `or`, the filter text; for `not` and `filter`, `[operator, value]`. */
+	value: unknown,
+};
+
+/**  A list order. */
+export type RepoOrder = {
+	/**  The column. */
+	column: string,
+	/**  Smallest first when true. */
+	ascending: boolean,
+	/**  Nulls first when set; the server default otherwise. */
+	nullsFirst?: boolean,
+};
+
+/**  One request: a table query, or an RPC when `rpc` is set. */
+export type RepoQuery = {
+	/**  The table; empty for an RPC. */
+	table: string,
+	/**  The RPC name, when this is a call rather than a table query. */
+	rpc?: string,
+	/**  What the query does. */
+	action: RepoAction,
+	/**  Columns a select reads, or a write returns; a write returns nothing when absent. */
+	columns?: string,
+	/**  The write body, or the RPC arguments. */
+	body?: unknown,
+	/**  Upsert conflict columns. */
+	onConflict?: string,
+	/**  Upsert keeps the existing row instead of replacing it. */
+	ignoreDuplicates: boolean,
+	/**  Filters, applied in order. */
+	filters: RepoFilter[],
+	/**  Orders, applied in order. */
+	order: RepoOrder[],
+	/**  Row limit. */
+	limit?: number,
+	/**  Inclusive row range `[from, to]`. */
+	range?: [number, number],
+	/**  How many rows the reply holds. */
+	single: RepoSingle,
+	/**  A head request: the reply is the exact row count (a number), not rows. */
+	count: boolean,
+	/**
+	 *  A failed query replies `{"error": {"code", "message"}}` instead of failing the call,
+	 *  so the step can react (e.g. retry after a unique-violation race).
+	 */
+	soft: boolean,
+};
+
+/**  How many rows the reply holds. */
+export type RepoSingle = 
+/**  An array of rows. */
+"many" | 
+/**  Exactly one row; PostgREST errors otherwise. */
+"one" | 
+/**  One row or `null`. */
+"maybe";
+
+/**  What a repository method does next. */
+export type RepoStep = 
+/**  Send these queries together; their replies come back in the same order. */
+{ kind: "send"; 
+/**  The queries. */
+queries: RepoQuery[] } | 
+/**  The method's result. */
+{ kind: "done"; 
+/**  The value the method resolves to. */
+value: unknown } | 
+/**  The method fails with this message. */
+{ kind: "fail"; 
+/**  The error message. */
+message: string };
+
 /**  The experiment fields the markdown rewrite reads (a subset of TS `Experiment`). */
 export type ReportExperiment = {
 	/**  Experiment id; references name it. */

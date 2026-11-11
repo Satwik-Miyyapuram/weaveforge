@@ -466,7 +466,7 @@ export async function deleteRowById(
  * two hundred call sites destructured it, tested `error`, threw it, and cast
  * `data`. The two helpers below do that once so a query reads as the query.
  */
-interface Resolved<T> {
+export interface Resolved<T> {
   data: T | null;
   error: unknown;
 }

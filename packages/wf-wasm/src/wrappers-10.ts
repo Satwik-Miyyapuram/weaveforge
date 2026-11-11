@@ -116,6 +116,7 @@ export {
   readMirrorBase,
   readMirrorBases,
   rekeyManifestText,
+  repoStep,
   retryFuzzinessForTerm,
   s2PaperId,
   sessionAction,
@@ -434,6 +435,9 @@ export type {
   SharedItemRecord,
   SharedSourceInput,
 };
+
+/** Rust-planned repository I/O (Rust `repo_query`); `rustRepository` in the web app sends the queries. */
+export type { RepoCtx, RepoQuery, RepoStep } from "./bindings.js";
 
 /** A thrown validation message becomes an `Error` named like the TS validation class. */
 function asError(thrown: unknown, name: string): unknown {

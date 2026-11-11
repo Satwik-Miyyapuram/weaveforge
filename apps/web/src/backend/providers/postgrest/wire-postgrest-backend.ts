@@ -7,9 +7,6 @@ import {
   PostgrestMetricRepository,
 } from "@/features/experiments/infrastructure/parts";
 import {
-  PostgrestLibraryPinRepository,
-} from "@/features/library/infrastructure/postgrest-library-pin-repository";
-import {
   PostgrestLogEntryRepository,
 } from "@/features/logbook/infrastructure/parts";
 import {
@@ -23,9 +20,6 @@ import {
   PostgrestAnnotationPinRepository,
   PostgrestPaperFieldRepository,
 } from "@/features/papers/infrastructure/parts-1";
-import {
-  PostgrestAnnotationQuotationTypeRepository,
-} from "@/features/papers/infrastructure/postgrest-annotation-quotation-type-repository";
 import {
   PostgrestPaperRepository,
 } from "@/features/papers/infrastructure/postgrest-paper-repository";
@@ -45,28 +39,12 @@ import {
   PostgrestCitationAlertTrackRepository,
 } from "@/features/relations/infrastructure/parts";
 import {
-  PostgrestPaperRelationRepository,
-} from "@/features/relations/infrastructure/postgrest-paper-relation-repository";
-import {
   PostgrestReportSectionRepository,
 } from "@/features/report/infrastructure/parts";
 import {
   PostgrestSettingsRepository,
 } from "@/features/settings/infrastructure/parts";
-import {
-  PostgrestCommentRepository,
-} from "@/features/sharing/infrastructure/postgrest-comment-repository";
-import {
-  PostgrestShareRepository,
-} from "@/features/sharing/infrastructure/postgrest-share-repository";
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
-import {
-  PostgrestPaperTagRepository,
-  PostgrestTagRepository,
-} from "@/features/tags/infrastructure/postgrest-tag-repository";
-import {
-  PostgrestVaultPageRepository,
-} from "@/features/vault/infrastructure/postgrest-vault-page-repository";
 import { cacheRepo } from "@/lib/cache/parts-1";
 import type { ProjectContext } from "@/lib/parts-2";
 import { readyCore, typedCore } from "@/lib/rust-core";
@@ -123,6 +101,7 @@ import type { ISharedReader, SharedItem } from "../../../features/sharing/domain
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient, KeyedColumnRepository, SpecRepository } from "./parts-1";
+import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
 import { watchWrites } from "./watch-writes";
 
 export type { SharedItem } from "../../../features/sharing/domain/shared-reader";
@@ -483,14 +462,27 @@ export function wirePostgrestBackend(
   const tagPaperCache = new Map<string, Promise<unknown>>();
   const tagPaperSettled = new Map<string, unknown>();
   const tagRepository = cacheRepo(
-    new PostgrestTagRepository(db, projectContext),
+    rustRepository<ITagRepository>(
+      db,
+      "tags",
+      ["getById", "findByName", "list", "listWithCounts", "save", "delete"],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "findByName", "list", "listWithCounts"],
     ["save", "delete"],
     pid,
     { resourceType: "tag", sharedCache: tagPaperCache, sharedSettled: tagPaperSettled },
   );
   const paperTagRepository = cacheRepo(
-    new PostgrestPaperTagRepository(db),
+    rustRepository<IPaperTagRepository>(db, "paper_tags", [
+      "listForPaper",
+      "listForTag",
+      "listAll",
+      "link",
+      "unlink",
+      "unlinkBySource",
+      "reconcile",
+    ]),
     ["listForPaper", "listForTag", "listAll"],
     ["link", "unlink", "unlinkBySource", "reconcile"],
     pid,
@@ -516,7 +508,7 @@ export function wirePostgrestBackend(
   // repository, so every consumer that wanted real note bodies — wiki, search,
   // export, the folder mirror — paid its own round trip on the same page.
   const rawVaultPageRepository = cacheRepo(
-    new PostgrestVaultPageRepository(db, projectContext),
+    rustVaultPageRepository(db, projectContext),
     ["getById", "list", "listSummaries", "getTree"],
     ["save", "delete"],
     pid,
@@ -541,7 +533,12 @@ export function wirePostgrestBackend(
   const screeningRepository = new PostgrestScreeningRepository(db);
 
   const paperRelationRepository = cacheRepo(
-    new PostgrestPaperRelationRepository(db, projectContext),
+    rustRepository<IPaperRelationRepository>(
+      db,
+      "paper_relations",
+      ["getById", "list", "getGraph", "relationsFor", "findEdge", "save", "delete"],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "list", "getGraph", "relationsFor", "findEdge"],
     ["save", "delete"],
     pid,
@@ -556,13 +553,18 @@ export function wirePostgrestBackend(
   );
   const metricRepository = new PostgrestMetricRepository(db);
   const shareRepository = cacheRepo(
-    new PostgrestShareRepository(db, session),
+    rustRepository<IShareRepository>(
+      db,
+      "shares",
+      ["grant", "revoke", "listForResource", "listSharedWithMe"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForResource", "listSharedWithMe"],
     ["grant", "revoke"],
     pid,
     { resourceType: "share" },
   );
-  const commentRepository = new PostgrestCommentRepository(db);
+  const commentRepository = rustRepository<ICommentRepository>(db, "comments", ["list", "add", "remove", "setResolved"]);
   // What you can read depends on the grants, so a share change (yours or a
   // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
@@ -598,7 +600,12 @@ export function wirePostgrestBackend(
   const projectBibliographyCollection = new ProjectZoteroStore(db);
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
-    new PostgrestLibraryPinRepository(db, projectContext, session),
+    rustRepository<ILibraryPinRepository>(
+      db,
+      "library_pins",
+      ["pin", "unpin", "listForProject", "isPinned"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForProject", "isPinned"],
     ["pin", "unpin"],
     pid,
@@ -619,7 +626,12 @@ export function wirePostgrestBackend(
     { resourceType: "paper" },
   );
   const annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository = cacheRepo(
-    new PostgrestAnnotationQuotationTypeRepository(db, projectContext, session),
+    rustRepository<IAnnotationQuotationTypeRepository>(
+      db,
+      "annotation_quotation_types",
+      ["save", "remove", "listForPaper"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForPaper"],
     ["save", "remove"],
     pid,
