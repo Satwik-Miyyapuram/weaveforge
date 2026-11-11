@@ -6046,6 +6046,7 @@ dependencies = [
 name = "wf-core"
 version = "0.1.0"
 dependencies = [
+ "indexmap 2.14.2",
  "regex-lite",
  "serde",
  "serde_json",
