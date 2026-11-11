@@ -5,9 +5,6 @@
 import {
   creationKindFor as rawCreationKindFor,
   creationTarget as rawCreationTarget,
-  dropParentId as rawDropParentId,
-  rootOf as rawRootOf,
-  rootOfKind as rawRootOfKind,
 } from "../pkg/wf_wasm.js";
 
 import type {
@@ -15,7 +12,6 @@ import type {
   CreationTarget,
   DraftMakes,
   EditableRoot,
-  WorkspaceTreeNode,
 } from "./bindings.js";
 
 export {
@@ -28,7 +24,10 @@ export {
   draftIcon,
   draftMakes,
   draftPlaceholder,
+  dropParentId,
   rootKey,
+  rootOf,
+  rootOfKind,
 } from "../pkg/wf_wasm.js";
 
 export type { CreateKind, DraftMakes, EditableRoot };
@@ -39,16 +38,6 @@ export interface Draft {
   root: EditableRoot;
   /** The parent note or section; `null` puts it at the root. */
   parentId: string | null;
-}
-
-/** The root a *kind* belongs to. */
-export function rootOfKind(kind: string): EditableRoot | null {
-  return rawRootOfKind(kind) ?? null;
-}
-
-/** The root a row sits under, or `null` for a list member or outline heading. */
-export function rootOf(node: WorkspaceTreeNode): EditableRoot | null {
-  return rawRootOf(node) ?? null;
 }
 
 /** The kind the "new file" gestures make for the document on screen. */
@@ -64,10 +53,5 @@ export function creationTarget(
 ): CreationTarget {
   const doc = active ? { kind: active.kind, parentId: active.parentId ?? null } : null;
   return rawCreationTarget(kind, doc, [...folders]);
-}
-
-/** The parent id a drop on `target` gives: `null` for the root row. */
-export function dropParentId(target: WorkspaceTreeNode): string | null {
-  return rawDropParentId(target) ?? null;
 }
 

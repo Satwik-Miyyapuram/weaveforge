@@ -7,10 +7,7 @@ import {
   checkBibliography as rawCheckBibliography,
   countSectionSources as rawCountSectionSources,
   createReportSectionWith as rawCreateReportSectionWith,
-  editedRelativeLabel as rawEditedRelativeLabel,
-  normalizeProjectPath as rawNormalizeProjectPath,
   outlineProgress as rawOutlineProgress,
-  prismaCaveat as rawPrismaCaveat,
   prismaFigureTex as rawPrismaFigureTex,
   reportSectionInputError as rawReportSectionInputError,
   sectionProgress as rawSectionProgress,
@@ -31,10 +28,11 @@ import type {
 
 export {
   buildSectionTree,
-} from "../pkg/wf_wasm.js";
-
-export {
   createReportSectionWith,
+  editedRelativeLabel,
+  normalizeProjectPath,
+  prismaCaveat,
+  reportSectionInputError,
 } from "../pkg/wf_wasm.js";
 
 /** The PRISMA flow diagram as a LaTeX figure. */
@@ -45,24 +43,9 @@ export function prismaFigureTex(
   return rawPrismaFigureTex(counts, options);
 }
 
-/** A warning when the counts do not add up, or null when they do. */
-export function prismaCaveat(counts: PrismaCounts): string | null {
-  return rawPrismaCaveat(counts) ?? null;
-}
-
 /** Distinct sources a section draft cites: `[[wikilinks]]` plus `@citekeys`. An absent or empty body counts 0. */
 export function countSectionSources(body?: string): number {
   return rawCountSectionSources(body);
-}
-
-/** "edited 3h ago" for an age in seconds, or null for a week or more (the caller shows the date). */
-export function editedRelativeLabel(seconds: number): string | null {
-  return rawEditedRelativeLabel(seconds) ?? null;
-}
-
-/** A project-relative path with `.` and `..` resolved, or null when it leaves the project. */
-export function normalizeProjectPath(path: string): string | null {
-  return rawNormalizeProjectPath(path) ?? null;
 }
 
 /** Every citation and bibliography finding in the project's sources. Entries carry their fields as a record, as in core. */
@@ -99,11 +82,6 @@ export function createReportSection(
   const id = deps.ids.newId();
   const now = deps.clock.nowIso();
   return rawCreateReportSectionWith(input, id, now) as ReportSection;
-}
-
-/** Why `input` is not a valid new section, or null when it is. */
-export function reportSectionInputError(input: NewReportSectionInput): string | null {
-  return rawReportSectionInputError(input) ?? null;
 }
 
 /** A section's words against its target, `null` where there is no target (`report::section_progress`). */

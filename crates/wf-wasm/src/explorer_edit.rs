@@ -27,9 +27,9 @@ pub fn root_key_js(
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = rootOfKind)]
+#[wasm_bindgen(js_name = rootOfKind, unchecked_return_type = "B.EditableRoot | null")]
 pub fn root_of_kind_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    to_js(&edit::root_of_kind(kind))
+    edit::root_of_kind(kind).map_or(Ok(JsValue::NULL), |v| to_js(&v))
 }
 
 /// [`root_of`](edit::root_of).
@@ -37,10 +37,12 @@ pub fn root_of_kind_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error>
 /// # Errors
 ///
 /// Fails if the node does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = rootOf)]
-pub fn root_of_js(node: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = rootOf, unchecked_return_type = "B.EditableRoot | null")]
+pub fn root_of_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] node: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let node: WorkspaceTreeNode = serde_wasm_bindgen::from_value(node)?;
-    to_js(&edit::root_of(&node))
+    edit::root_of(&node).map_or(Ok(JsValue::NULL), |v| to_js(&v))
 }
 
 /// [`creatable_under`](edit::creatable_under).
@@ -121,10 +123,12 @@ pub fn can_drop_js(
 /// # Errors
 ///
 /// Fails if the node does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = dropParentId)]
-pub fn drop_parent_id_js(target: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = dropParentId, unchecked_return_type = "string | null")]
+pub fn drop_parent_id_js(
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceTreeNode")] target: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let target: WorkspaceTreeNode = serde_wasm_bindgen::from_value(target)?;
-    to_js(&edit::drop_parent_id(&target))
+    edit::drop_parent_id(&target).map_or(Ok(JsValue::NULL), |v| to_js(&v))
 }
 
 /// [`draft_placeholder`](edit::draft_placeholder).

@@ -33,15 +33,18 @@ pub fn prisma_figure_tex_js(counts: JsValue, options: JsValue) -> JsResult<Strin
     Ok(prisma_figure::prisma_figure_tex(&counts, &options))
 }
 
-/// [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `undefined`.
+/// [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `null`.
 ///
 /// # Errors
 ///
 /// Fails if `counts` has the wrong shape.
-#[wasm_bindgen(js_name = prismaCaveat)]
-pub fn prisma_caveat_js(counts: JsValue) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = prismaCaveat, unchecked_return_type = "string | null")]
+pub fn prisma_caveat_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PrismaCounts")] counts: JsValue,
+) -> JsResult<JsValue> {
     let counts: PrismaCounts = serde_wasm_bindgen::from_value(counts)?;
-    Ok(prisma_figure::prisma_caveat(&counts))
+    let caveat = prisma_figure::prisma_caveat(&counts);
+    Ok(caveat.map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`count_section_sources`](section_sources::count_section_sources) (TS `countSectionSources`).
@@ -54,19 +57,19 @@ pub fn count_section_sources_js(body: Option<String>) -> u32 {
 }
 
 /// [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).
-/// `None` (a week or more, or NaN) becomes `undefined`; the caller then shows the date.
-#[wasm_bindgen(js_name = editedRelativeLabel)]
+/// `None` (a week or more, or NaN) becomes `null`; the caller then shows the date.
+#[wasm_bindgen(js_name = editedRelativeLabel, unchecked_return_type = "string | null")]
 #[must_use]
-pub fn edited_relative_label_js(seconds: f64) -> Option<String> {
-    edited_label::edited_relative_label(seconds)
+pub fn edited_relative_label_js(seconds: f64) -> JsValue {
+    edited_label::edited_relative_label(seconds).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`normalize_project_path`](project_path::normalize_project_path) (TS `normalizeProjectPath`).
-/// `None` becomes `undefined`.
-#[wasm_bindgen(js_name = normalizeProjectPath)]
+/// `None` becomes `null`.
+#[wasm_bindgen(js_name = normalizeProjectPath, unchecked_return_type = "string | null")]
 #[must_use]
-pub fn normalize_project_path_js(path: &str) -> Option<String> {
-    project_path::normalize_project_path(path)
+pub fn normalize_project_path_js(path: &str) -> JsValue {
+    project_path::normalize_project_path(path).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`check_bibliography`](bibliography_report::check_bibliography) (TS `checkBibliography`).
@@ -82,15 +85,18 @@ pub fn check_bibliography_js(input: JsValue) -> JsResult<JsValue> {
 }
 
 /// [`validate_report_section_input`](report_section::validate_report_section_input): the
-/// validation message, or `undefined` when the input is valid.
+/// validation message, or `null` when the input is valid.
 ///
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape.
-#[wasm_bindgen(js_name = reportSectionInputError)]
-pub fn report_section_input_error_js(input: JsValue) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = reportSectionInputError, unchecked_return_type = "string | null")]
+pub fn report_section_input_error_js(
+    #[wasm_bindgen(unchecked_param_type = "B.NewReportSectionInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: NewReportSectionInput = serde_wasm_bindgen::from_value(input)?;
-    Ok(report_section::validate_report_section_input(&input).err())
+    let message = report_section::validate_report_section_input(&input).err();
+    Ok(message.map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`create_report_section`](report_section::create_report_section) with the id and time

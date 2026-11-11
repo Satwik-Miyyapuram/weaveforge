@@ -61,8 +61,11 @@ pub fn double_click_figure_js(
 /// # Errors
 ///
 /// Fails if `lines` is not an array of lines or `indices` is not an array of numbers.
-#[wasm_bindgen(js_name = selectedText)]
-pub fn selected_text_js(lines: JsValue, indices: JsValue) -> JsResult<String> {
+#[wasm_bindgen(js_name = selectedText, unchecked_return_type = "string")]
+pub fn selected_text_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TextLine[]")] lines: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] indices: JsValue,
+) -> JsResult<String> {
     let lines: Vec<TextLine> = serde_wasm_bindgen::from_value(lines)?;
     let indices: Vec<usize> = serde_wasm_bindgen::from_value(indices)?;
     Ok(page_math::selected_text(&lines, &indices))

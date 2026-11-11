@@ -16,14 +16,18 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `milestones` has the wrong shape.
-#[wasm_bindgen(js_name = planTimeline)]
+#[wasm_bindgen(js_name = planTimeline, unchecked_return_type = "B.PlanTimeline | null")]
 #[allow(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-pub fn plan_timeline_js(milestones: JsValue, today: String) -> JsResult<JsValue> {
+pub fn plan_timeline_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Milestone[]")] milestones: JsValue,
+    today: String,
+) -> JsResult<JsValue> {
     let milestones: Vec<TimelineMilestone> = serde_wasm_bindgen::from_value(milestones)?;
-    to_js(&timeline::plan_timeline(&milestones, &today))
+    timeline::plan_timeline(&milestones, &today)
+        .map_or(Ok(JsValue::NULL), |timeline| to_js(&timeline))
 }
 
 /// [`cluster_marks`](timeline::cluster_marks): marks nearer than `min_gap` stacked into clusters.
@@ -41,15 +45,15 @@ pub fn cluster_marks_js(
     to_js(&clusters)
 }
 
-/// [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `undefined`
+/// [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `null`
 /// unless both are real dates.
-#[wasm_bindgen(js_name = daysUntilDate)]
+#[wasm_bindgen(js_name = daysUntilDate, unchecked_return_type = "number | null")]
 #[allow(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
 pub fn days_until_date_js(iso: String, today: String) -> JsResult<JsValue> {
-    to_js(&timeline::days_until_date(&iso, &today))
+    timeline::days_until_date(&iso, &today).map_or(Ok(JsValue::NULL), |days| to_js(&days))
 }
 
 /// [`plan_pace`](timeline::plan_pace): `"on track"` or the overdue and due-soon counts.
@@ -58,7 +62,10 @@ pub fn days_until_date_js(iso: String, today: String) -> JsResult<JsValue> {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-pub fn plan_pace_js(milestones: JsValue, today: String) -> JsResult<String> {
+pub fn plan_pace_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Milestone[]")] milestones: JsValue,
+    today: String,
+) -> JsResult<String> {
     let milestones: Vec<TimelineMilestone> = serde_wasm_bindgen::from_value(milestones)?;
     Ok(timeline::plan_pace(&milestones, &today))
 }

@@ -20,22 +20,30 @@ pub fn parse_theme_config_js(
     to_js(&theme_config::parse_theme_config(&text))
 }
 
-/// [`normalize_color_value`](theme_config::normalize_color_value); `undefined` for a
+/// [`normalize_color_value`](theme_config::normalize_color_value); `null` for a
 /// non-string or a rejected color.
 #[must_use]
-#[wasm_bindgen(js_name = normalizeColorValue)]
-pub fn normalize_color_value_js(raw: &JsValue) -> Option<String> {
-    raw.as_string()
-        .and_then(|raw| theme_config::normalize_color_value(&raw))
+#[wasm_bindgen(js_name = normalizeColorValue, unchecked_return_type = "string | null")]
+pub fn normalize_color_value_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: &JsValue,
+) -> JsValue {
+    let value = raw
+        .as_string()
+        .and_then(|raw| theme_config::normalize_color_value(&raw));
+    value.map_or(JsValue::NULL, JsValue::from)
 }
 
-/// [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
+/// [`normalize_font_stack`](theme_config::normalize_font_stack); `null` for a
 /// non-string or a rejected stack.
 #[must_use]
-#[wasm_bindgen(js_name = normalizeFontStack)]
-pub fn normalize_font_stack_js(raw: &JsValue) -> Option<String> {
-    raw.as_string()
-        .and_then(|raw| theme_config::normalize_font_stack(&raw))
+#[wasm_bindgen(js_name = normalizeFontStack, unchecked_return_type = "string | null")]
+pub fn normalize_font_stack_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: &JsValue,
+) -> JsValue {
+    let value = raw
+        .as_string()
+        .and_then(|raw| theme_config::normalize_font_stack(&raw));
+    value.map_or(JsValue::NULL, JsValue::from)
 }
 
 /// A length from a number (px) or a string, limited to `max_px` (default 64).

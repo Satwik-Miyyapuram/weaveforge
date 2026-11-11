@@ -92,10 +92,10 @@ pub fn with_ink_page_figures_js(text: &str, figures: JsValue) -> JsResult<String
 /// # Errors
 ///
 /// Fails if `body` is longer than the index text limit.
-#[wasm_bindgen(js_name = figureAltFor)]
-pub fn figure_alt_for_js(body: &str, path: &str) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = figureAltFor, unchecked_return_type = "string | null")]
+pub fn figure_alt_for_js(body: &str, path: &str) -> JsResult<JsValue> {
     check_text(body)?;
-    Ok(figure::figure_alt_for(body, path))
+    Ok(figure::figure_alt_for(body, path).map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`reorder_figure_indices`](figure::reorder_figure_indices): the new order as old indices.

@@ -4828,11 +4828,11 @@ export function dashboardTopTags(tags, limit) {
 }
 
 /**
- * [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `undefined`
+ * [`days_until_date`](timeline::days_until_date): the whole days from `today`, or `null`
  * unless both are real dates.
  * @param {string} iso
  * @param {string} today
- * @returns {any}
+ * @returns {number | null}
  */
 export function daysUntilDate(iso, today) {
     const ptr0 = passStringToWasm0(iso, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -6073,8 +6073,8 @@ export function draftTextBox(input) {
  * # Errors
  *
  * Fails if the node does not have the expected shape, or the result cannot be serialised.
- * @param {any} target
- * @returns {any}
+ * @param {B.WorkspaceTreeNode} target
+ * @returns {string | null}
  */
 export function dropParentId(target) {
     const ret = wasm.dropParentId(target);
@@ -6121,18 +6121,13 @@ export function editSides(ops) {
 
 /**
  * [`edited_relative_label`](edited_label::edited_relative_label) (TS `editedRelativeLabel`).
- * `None` (a week or more, or NaN) becomes `undefined`; the caller then shows the date.
+ * `None` (a week or more, or NaN) becomes `null`; the caller then shows the date.
  * @param {number} seconds
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function editedRelativeLabel(seconds) {
     const ret = wasm.editedRelativeLabel(seconds);
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return ret;
 }
 
 /**
@@ -7217,7 +7212,7 @@ export function fetchLimits() {
  * Fails if `body` is longer than the index text limit.
  * @param {string} body
  * @param {string} path
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function figureAltFor(body, path) {
     const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -7225,15 +7220,10 @@ export function figureAltFor(body, path) {
     const ptr1 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.figureAltFor(ptr0, len0, ptr1, len1);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v3;
-    if (ret[0] !== 0) {
-        v3 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v3;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -12681,28 +12671,23 @@ export function labSnapshotRowToDomain(row) {
 }
 
 /**
- * [`route_title::label_for_path`]: the screen's own name, or `undefined` for a route with none.
+ * [`route_title::label_for_path`]: the screen's own name, or `null` for a route with none.
  *
  * # Errors
  *
  * Fails if `nav_items` is not an array of `{ path, label }` objects.
  * @param {string} pathname
- * @param {any} nav_items
- * @returns {string | undefined}
+ * @param {readonly B.NavRouteInput[]} nav_items
+ * @returns {string | null}
  */
 export function labelForPath(pathname, nav_items) {
     const ptr0 = passStringToWasm0(pathname, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.labelForPath(ptr0, len0, nav_items);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -15414,19 +15399,14 @@ export function normalizeArxivId(value) {
 }
 
 /**
- * [`normalize_color_value`](theme_config::normalize_color_value); `undefined` for a
+ * [`normalize_color_value`](theme_config::normalize_color_value); `null` for a
  * non-string or a rejected color.
- * @param {any} raw
- * @returns {string | undefined}
+ * @param {unknown} raw
+ * @returns {string | null}
  */
 export function normalizeColorValue(raw) {
     const ret = wasm.normalizeColorValue(raw);
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return ret;
 }
 
 /**
@@ -15484,19 +15464,14 @@ export function normalizeFieldName(raw) {
 }
 
 /**
- * [`normalize_font_stack`](theme_config::normalize_font_stack); `undefined` for a
+ * [`normalize_font_stack`](theme_config::normalize_font_stack); `null` for a
  * non-string or a rejected stack.
- * @param {any} raw
- * @returns {string | undefined}
+ * @param {unknown} raw
+ * @returns {string | null}
  */
 export function normalizeFontStack(raw) {
     const ret = wasm.normalizeFontStack(raw);
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return ret;
 }
 
 /**
@@ -15616,20 +15591,15 @@ export function normalizePasteSettings(json) {
 
 /**
  * [`normalize_project_path`](project_path::normalize_project_path) (TS `normalizeProjectPath`).
- * `None` becomes `undefined`.
+ * `None` becomes `null`.
  * @param {string} path
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function normalizeProjectPath(path) {
     const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.normalizeProjectPath(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -18831,7 +18801,7 @@ export function planMirror(files, asset_paths, previous_paths, base, disk) {
 
 /**
  * [`plan_pace`](timeline::plan_pace): `"on track"` or the overdue and due-soon counts.
- * @param {any} milestones
+ * @param {readonly B.Milestone[]} milestones
  * @param {string} today
  * @returns {string}
  */
@@ -18905,9 +18875,9 @@ export function planSeriesIngestIndices(steps, previous_max_step) {
  * # Errors
  *
  * Fails if `milestones` has the wrong shape.
- * @param {any} milestones
+ * @param {readonly B.Milestone[]} milestones
  * @param {string} today
- * @returns {any}
+ * @returns {B.PlanTimeline | null}
  */
 export function planTimeline(milestones, today) {
     const ptr0 = passStringToWasm0(today, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -19257,25 +19227,20 @@ export function primaryPaperRef(arxiv_id, doi) {
 }
 
 /**
- * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `undefined`.
+ * [`prisma_caveat`](prisma_figure::prisma_caveat) (TS `prismaCaveat`). `None` becomes `null`.
  *
  * # Errors
  *
  * Fails if `counts` has the wrong shape.
- * @param {any} counts
- * @returns {string | undefined}
+ * @param {B.PrismaCounts} counts
+ * @returns {string | null}
  */
 export function prismaCaveat(counts) {
     const ret = wasm.prismaCaveat(counts);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -21215,25 +21180,20 @@ export function reportMarkdown(input) {
 
 /**
  * [`validate_report_section_input`](report_section::validate_report_section_input): the
- * validation message, or `undefined` when the input is valid.
+ * validation message, or `null` when the input is valid.
  *
  * # Errors
  *
  * Fails if `input` has the wrong shape.
- * @param {any} input
- * @returns {string | undefined}
+ * @param {B.NewReportSectionInput} input
+ * @returns {string | null}
  */
 export function reportSectionInputError(input) {
     const ret = wasm.reportSectionInputError(input);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -21845,8 +21805,8 @@ export function rootKey(root) {
  * # Errors
  *
  * Fails if the node does not have the expected shape, or the result cannot be serialised.
- * @param {any} node
- * @returns {any}
+ * @param {B.WorkspaceTreeNode} node
+ * @returns {B.EditableRoot | null}
  */
 export function rootOf(node) {
     const ret = wasm.rootOf(node);
@@ -21863,7 +21823,7 @@ export function rootOf(node) {
  *
  * Fails if the result cannot be serialised.
  * @param {string} kind
- * @returns {any}
+ * @returns {B.EditableRoot | null}
  */
 export function rootOfKind(kind) {
     const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -22660,8 +22620,8 @@ export function selectedPdfPages(answer, count) {
  * # Errors
  *
  * Fails if `lines` is not an array of lines or `indices` is not an array of numbers.
- * @param {any} lines
- * @param {any} indices
+ * @param {readonly B.TextLine[]} lines
+ * @param {readonly number[]} indices
  * @returns {string}
  */
 export function selectedText(lines, indices) {
@@ -25038,11 +24998,11 @@ export function tickFormat(values) {
  * [`timeline_lane_offset`](timeline::timeline_lane_offset).
  * @param {number} mid
  * @param {number | null} [year]
- * @returns {number | undefined}
+ * @returns {number | null}
  */
 export function timelineLaneOffset(mid, year) {
     const ret = wasm.timelineLaneOffset(mid, !isLikeNone(year), isLikeNone(year) ? 0 : year);
-    return ret[0] === 0 ? undefined : ret[1];
+    return ret;
 }
 
 /**
@@ -25052,17 +25012,17 @@ export function timelineLaneOffset(mid, year) {
  *
  * Fails if `years` is not an array of optional numbers.
  * @param {string} layout
- * @param {any} years
- * @returns {number | undefined}
+ * @param {(number | null)[]} years
+ * @returns {number | null}
  */
 export function timelineMidYear(layout, years) {
     const ptr0 = passStringToWasm0(layout, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.timelineMidYear(ptr0, len0, years);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    return ret[0] === 0 ? undefined : ret[1];
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -26240,21 +26200,16 @@ export function vaultPageToSummaryDomain(row) {
 }
 
 /**
- * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `undefined`
- * when there is none. The TS wrapper maps `undefined` to `null`.
+ * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `null`
+ * when there is none.
  * @param {string} text
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function vaultRootFromText(text) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.vaultRootFromText(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**

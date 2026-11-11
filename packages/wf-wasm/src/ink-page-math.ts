@@ -6,27 +6,18 @@
 import {
   doubleClickFigure as rawDoubleClickFigure,
   figureUnder as rawFigureUnder,
-  selectedText as rawSelectedText,
 } from "../pkg/wf_wasm.js";
 import type {
   HitBox as InkHitBox,
   Point as InkHitPoint,
-  TextLine as InkTextLine,
 } from "./bindings.js";
 
 export {
   fitScale,
+  selectedText,
 } from "../pkg/wf_wasm.js";
 
 export type { HitBox as InkHitBox, Point as InkHitPoint, TextLine as InkTextLine } from "./bindings.js";
-
-/** The lines the chosen strokes belong to, as text, one per line. */
-export function selectedText(
-  lines: readonly InkTextLine[],
-  indices: readonly number[],
-): string {
-  return rawSelectedText(lines, indices);
-}
 
 /** The topmost figure whose box holds `at`, edges included, ignoring `skip`. */
 export function figureUnder(
