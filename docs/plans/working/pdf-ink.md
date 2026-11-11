@@ -40,7 +40,7 @@ stays a Zotero annotation.
   (ink capture, `endInkGroup`, the shared `InkPenGate`),
   `apps/web/src/features/reader/ui/annotation-overlay.tsx` (how a stored
   stroke is drawn: `pdf-reader-ink`, `--highlighter`, width in PDF units),
-  `apps/web/src/features/reader/application/draft-local-annotation.ts`,
+  `crates/wf-core/src/reader/annotation_draft.rs` (local drafts),
   `apps/web/src/features/reader/ui/paper-pdf-pane.tsx` (`onAnnotationsChange`,
   the `aside` slot), `apps/web/src/features/ink/ui/ink-bar.tsx` (the ink
   note's tool bar: `INK_BAR_TOOLS`, `nibForTool`, `InkBar`),

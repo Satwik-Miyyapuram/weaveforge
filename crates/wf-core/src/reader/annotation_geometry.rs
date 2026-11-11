@@ -1,5 +1,5 @@
 //! Project stored annotation geometry onto one rendered page (`reader::annotation_geometry`).
-//! Port of `apps/web/src/features/reader/application/project-annotation-geometry.ts`.
+//! Port of the removed TS `project-annotation-geometry`.
 //!
 //! Stored anchors are PDF user space with a bottom-left origin. This module flips them to the
 //! DOM's top-left CSS pixels, scales them, and groups annotations by the page they paint on.

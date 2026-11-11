@@ -1,4 +1,4 @@
-//! Local annotation drafts (`apps/web/src/features/reader/application/draft-local-annotation.ts`).
+//! Local annotation drafts (the removed TS `draft-local-annotation`).
 //! Wraps `wf_core::reader::annotation_draft`.
 
 use wasm_bindgen::JsValue;

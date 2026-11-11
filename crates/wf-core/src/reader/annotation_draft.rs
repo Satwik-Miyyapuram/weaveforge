@@ -1,5 +1,5 @@
 //! Draft builders for local reader annotations (`reader::annotation_draft`).
-//! Port of `apps/web/src/features/reader/application/draft-local-annotation.ts`.
+//! Port of the removed TS `draft-local-annotation`.
 //! Pure geometry only: the DOM and the pdf.js sampler stay in TS.
 
 use serde::{Deserialize, Serialize};

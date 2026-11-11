@@ -1,5 +1,5 @@
 //! Semantic Scholar relay target for JavaScript (wf-core `net::semantic_scholar_relay`).
-//! The JS name matches `packages/wf-wasm/src/net-semantic-scholar-relay.ts`.
+//! The JS name matches `packages/wf-wasm/src/wrappers-9.ts`.
 
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wf_core::net::semantic_scholar_relay;
