@@ -29,7 +29,9 @@ pub fn create_log_entry_js(input: JsValue, id: &str, now: &str) -> JsResult<JsVa
 ///
 /// Fails if `input` has the wrong shape.
 #[wasm_bindgen(js_name = logEntryInputError)]
-pub fn log_entry_input_error(input: JsValue) -> JsResult<Option<String>> {
+pub fn log_entry_input_error(
+    #[wasm_bindgen(unchecked_param_type = "B.NewLogEntryInput")] input: JsValue,
+) -> JsResult<Option<String>> {
     let input: NewLogEntryInput = serde_wasm_bindgen::from_value(input).map_err(JsValue::from)?;
     Ok(log_entry::validate_new_log_entry(&input)
         .err()

@@ -8,12 +8,11 @@ import {
 } from "../pkg/wf_wasm.js";
 import type { LogEntry, LogKind, NewLogEntryInput } from "./bindings.js";
 
-export const LOG_KINDS: readonly LogKind[] = ["daily", "weekly"];
+export {
+  logEntryInputError,
+} from "../pkg/wf_wasm.js";
 
-/** The validation message for log entry input, if it is invalid. */
-export function logEntryInputError(input: NewLogEntryInput): string | undefined {
-  return rawLogEntryInputError(input);
-}
+export const LOG_KINDS: readonly LogKind[] = ["daily", "weekly"];
 
 /**
  * Build a valid LogEntry from partial input, applying defaults and invariants.
@@ -23,7 +22,7 @@ export function createLogEntry(
   input: NewLogEntryInput,
   deps: { clock: { nowIso(): string }; ids: { newId(): string } },
 ): LogEntry {
-  const message = logEntryInputError(input);
+  const message = rawLogEntryInputError(input);
   if (message) {
     const error = new Error(message);
     error.name = "LogEntryValidationError";

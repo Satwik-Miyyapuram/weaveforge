@@ -37,7 +37,7 @@ pub fn zotero_arxiv_id_js(
 }
 
 /// [`zotero_content_keys`] (TS `zoteroContentKeys`). The keys a paper matches on.
-#[wasm_bindgen(js_name = zoteroContentKeys)]
+#[wasm_bindgen(js_name = zoteroContentKeys, unchecked_return_type = "string[]")]
 pub fn zotero_content_keys_js(
     doi: Option<String>,
     arxiv_id: Option<String>,
