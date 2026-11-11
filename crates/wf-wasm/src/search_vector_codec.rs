@@ -26,7 +26,7 @@ pub fn pack_vectors_js(
 /// # Errors
 ///
 /// Fails only if the head cannot be serialised.
-#[wasm_bindgen(js_name = unpackVectorHead)]
+#[wasm_bindgen(js_name = unpackVectorHead, unchecked_return_type = "B.VectorFileHead | null")]
 pub fn unpack_vector_head_js(file: &[u8]) -> Result<JsValue, serde_wasm_bindgen::Error> {
     match codec::unpack_head(file) {
         Some((head, _)) => to_js(&head),

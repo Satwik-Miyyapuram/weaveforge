@@ -1144,7 +1144,7 @@ export function citationAlertScores(candidates: any): Float64Array;
  *
  * Fails if `row` has the wrong shape.
  */
-export function citationAlertTrackFromRow(row: any): any;
+export function citationAlertTrackFromRow(row: B.CitationAlertTrackRow): B.CitationAlertTrack;
 
 /**
  * [`citation_candidates`](citation_candidate::citation_candidates): the candidates from one
@@ -2591,7 +2591,7 @@ export function editedRelativeLabel(seconds: number): string | null;
  *
  * Fails if `settings` cannot be read as JSON.
  */
-export function effectiveFieldBoosts(settings: any): any;
+export function effectiveFieldBoosts(settings: B.SearchSettings): B.FieldBoosts;
 
 /**
  * [`effective_relation_types`](graph_settings::effective_relation_types).
@@ -5123,7 +5123,7 @@ export function kindIconClass(kind: string, open?: boolean | null): string | nul
  *
  * Fails if `settings` cannot be read as JSON.
  */
-export function kindMultiplier(kind: string, settings: any): number;
+export function kindMultiplier(kind: B.SearchKind, settings: B.SearchSettings): number;
 
 /**
  * [`rules::KINDS`] as a string array.
@@ -5939,7 +5939,7 @@ export function metadataTitle(raw?: string | null): string | undefined;
  *
  * Fails if `experiments` is not an array of run objects.
  */
-export function metricKeys(experiments: any): any;
+export function metricKeys(experiments: readonly B.Experiment[]): string[];
 
 /**
  * [`to_domain`]: a metric row as a metric point.
@@ -10480,7 +10480,7 @@ export function unpackVectorBlob(file: Uint8Array): Uint8Array | undefined;
  *
  * Fails only if the head cannot be serialised.
  */
-export function unpackVectorHead(file: Uint8Array): any;
+export function unpackVectorHead(file: Uint8Array): B.VectorFileHead | null;
 
 /**
  * [`unstamp_for_compare`](folder_mirror::unstamp_for_compare): `text` with a README or manifest's
@@ -11437,7 +11437,7 @@ export interface InitOutput {
     readonly duplicatePlan: (a: any, b: any) => [number, number, number];
     readonly editSides: (a: any) => [number, number, number];
     readonly editedRelativeLabel: (a: number) => any;
-    readonly effectiveFieldBoosts: (a: any) => [number, number, number];
+    readonly effectiveFieldBoosts: (a: number) => [number, number, number];
     readonly effectiveRelationTypes: (a: any) => [number, number, number];
     readonly emaSmooth: (a: any, b: number) => [number, number, number];
     readonly embedTitles: (a: number, b: number) => [number, number];
@@ -11809,7 +11809,7 @@ export interface InitOutput {
     readonly keyLabel: (a: number, b: number, c: number) => [number, number];
     readonly kindIcon: (a: number, b: number) => [number, number, number];
     readonly kindIconClass: (a: number, b: number, c: number) => [number, number, number];
-    readonly kindMultiplier: (a: number, b: number, c: any) => [number, number, number];
+    readonly kindMultiplier: (a: number, b: number, c: number) => [number, number, number];
     readonly kindNames: () => [number, number, number];
     readonly kindOf: (a: number, b: number) => [number, number];
     readonly kindOwner: (a: number, b: number) => [number, number, number];

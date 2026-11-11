@@ -24,6 +24,7 @@ export {
   experimentHref,
   experimentsListHref,
   formatMetricValue,
+  metricKeys,
   shortSha,
 } from "../pkg/wf_wasm.js";
 export type { ResultsTable } from "./bindings.js";
@@ -74,13 +75,8 @@ export function formatMetricCell(_metric: string, value: unknown): string {
   return rawFormatMetricCell(_metric, value);
 }
 
-/** Every metric name any of the runs logged, sorted by UTF-16 code units (Rust `metric_keys`). */
-export function metricKeys(experiments: readonly Experiment[]): string[] {
-  return rawMetricKeys(experiments) as string[];
-}
-
 /** Every metric name any of the runs logged, sorted by UTF-16 code units. */
 export function metricKeysOf(experiments: readonly Experiment[]): string[] {
-  return metricKeys(experiments);
+  return rawMetricKeys(experiments);
 }
 

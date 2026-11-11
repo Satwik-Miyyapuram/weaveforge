@@ -2827,8 +2827,8 @@ export function citationAlertScores(candidates) {
  * # Errors
  *
  * Fails if `row` has the wrong shape.
- * @param {any} row
- * @returns {any}
+ * @param {B.CitationAlertTrackRow} row
+ * @returns {B.CitationAlertTrack}
  */
 export function citationAlertTrackFromRow(row) {
     const ret = wasm.citationAlertTrackFromRow(row);
@@ -6131,11 +6131,11 @@ export function editedRelativeLabel(seconds) {
  * # Errors
  *
  * Fails if `settings` cannot be read as JSON.
- * @param {any} settings
- * @returns {any}
+ * @param {B.SearchSettings} settings
+ * @returns {B.FieldBoosts}
  */
 export function effectiveFieldBoosts(settings) {
-    const ret = wasm.effectiveFieldBoosts(settings);
+    const ret = wasm.effectiveFieldBoosts(isLikeNone(settings) ? 0 : addToExternrefTable0(settings));
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -12489,14 +12489,14 @@ export function kindIconClass(kind, open) {
  * # Errors
  *
  * Fails if `settings` cannot be read as JSON.
- * @param {string} kind
- * @param {any} settings
+ * @param {B.SearchKind} kind
+ * @param {B.SearchSettings} settings
  * @returns {number}
  */
 export function kindMultiplier(kind, settings) {
     const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.kindMultiplier(ptr0, len0, settings);
+    const ret = wasm.kindMultiplier(ptr0, len0, isLikeNone(settings) ? 0 : addToExternrefTable0(settings));
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -14392,8 +14392,8 @@ export function metadataTitle(raw) {
  * # Errors
  *
  * Fails if `experiments` is not an array of run objects.
- * @param {any} experiments
- * @returns {any}
+ * @param {readonly B.Experiment[]} experiments
+ * @returns {string[]}
  */
 export function metricKeys(experiments) {
     const ret = wasm.metricKeys(experiments);
@@ -25617,7 +25617,7 @@ export function unpackVectorBlob(file) {
  *
  * Fails only if the head cannot be serialised.
  * @param {Uint8Array} file
- * @returns {any}
+ * @returns {B.VectorFileHead | null}
  */
 export function unpackVectorHead(file) {
     const ptr0 = passArray8ToWasm0(file, wasm.__wbindgen_malloc);

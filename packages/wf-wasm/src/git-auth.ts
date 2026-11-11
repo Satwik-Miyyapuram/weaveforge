@@ -2,7 +2,9 @@
  * Git remote credentials (Rust `sync::git_auth`), re-exported from feature-wrappers.ts.
  * Keeps spawning git and merging `process.env` in apps/shell/sidecar/src/vault-git.ts.
  */
-import { gitBasicAuth as rawGitBasicAuth, gitRemoteAuth as rawGitRemoteAuth } from "../pkg/wf_wasm.js";
+import { gitRemoteAuth as rawGitRemoteAuth } from "../pkg/wf_wasm.js";
+
+export { gitBasicAuth } from "../pkg/wf_wasm.js";
 
 export interface GitRemoteAuthInput {
   /** The remote URL as stored. */
@@ -18,11 +20,6 @@ export interface GitRemoteAuthPlan {
   flags: string[];
   /** Environment keys to set on top of `process.env`. */
   env: Record<string, string>;
-}
-
-/** Base64 of `username:token` for HTTP basic auth. */
-export function gitBasicAuth(token: string, username?: string): string {
-  return rawGitBasicAuth(token, username);
 }
 
 /** The git flags and environment overrides for one remote command. */
