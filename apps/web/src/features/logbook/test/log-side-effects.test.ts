@@ -9,11 +9,11 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LogEntry } from "@weaveforge/core";
+import type { ILogEntryRepository, LogEntry } from "@weaveforge/core";
 
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
-import { PostgrestLogEntryRepository } from "../infrastructure/parts";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 
@@ -89,7 +89,7 @@ test("bodyContains adds no server filter (29-09)", async () => {
   }
   builder.then = (resolve: (v: unknown) => void) => resolve({ data: [], error: null });
   const db = { from: () => builder } as unknown as SupabaseClient;
-  const repo = new PostgrestLogEntryRepository(db, { projectId: "p1" } as never);
+  const repo = rustRepository<ILogEntryRepository>(db, "log_entries", ["list"], projectUserCtx({ projectId: "p1" } as never));
   assert.deepEqual(await repo.list({ bodyContains: "secret" }), []);
   assert.ok(!calls.some((c) => /^(ilike|like|textSearch|or):/.test(c)), calls.join(", "));
 });

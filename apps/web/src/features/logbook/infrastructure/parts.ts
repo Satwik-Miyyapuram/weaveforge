@@ -1,81 +1,10 @@
-import {
-  deleteRowById,
-  ProjectRepository,
-  rowById,
-  rows,
-  run,
-} from "@/backend/providers/postgrest/parts-1";
 import { BucketAssetStore } from "@/lib/parts-1";
-import { typedCore } from "@/lib/rust-core";
-import type {
-  IBlobFetcher,
-  ICurrentUserProvider,
-  ILogEntryRepository,
-  LogEntry,
-  LogEntryFilter,
-} from "@weaveforge/core";
-import type { LogEntryRow } from "@weaveforge/wasm";
+import type { IBlobFetcher, ICurrentUserProvider } from "@weaveforge/core";
 
 // --- log-image-store ---
 /** Private log entry image storage — `{userId}/{entryId}/{uuid}.{ext}`. */
 export class LogImageStore extends BucketAssetStore {
   constructor(blobs: IBlobFetcher, session: ICurrentUserProvider) {
     super("log-images", blobs, session);
-  }
-}
-
-// --- postgrest-log-entry-repository ---
-// Row mapping runs in the Rust core (wf-core `logbook::log_entry_row`).
-const logEntryToDomain = (row: LogEntryRow) => typedCore().logEntryToDomain(row);
-const logEntryToRow = (entry: LogEntry) => typedCore().logEntryToRow(entry);
-
-/**
- * PostgREST implementation of ILogEntryRepository.
- *
- * The ONLY job of this class is persistence against the `log_entries` table,
- * including the snake_case <-> camelCase mapping. No business rules live here.
- * It must pass the same contract test suite as the in-memory repository
- * (run `runLogEntryRepositoryContract` against an instance pointed at a test DB).
- */
-
-
-/**
- * The columns a LogEntryRow is read as, named rather than starred.
- *
- * Derived from the row type: exactly the fields the mapper reads, where a star
- * would mean "whatever the table grows next".
- */
-const LOG_ENTRY_COLUMNS = "id,entry_date,kind,body,links,created_at";
-
-const TABLE = "log_entries";
-
-export class PostgrestLogEntryRepository extends ProjectRepository implements ILogEntryRepository {
-
-  async getById(id: string): Promise<LogEntry | null> {
-    const row = await rowById<LogEntryRow>(this.db, TABLE, id);
-    return row ? logEntryToDomain(row) : null;
-  }
-
-  async list(filter?: LogEntryFilter): Promise<LogEntry[]> {
-    let query = this.db.from(TABLE).select(LOG_ENTRY_COLUMNS);
-    if (this.pid) query = query.eq("project_id", this.pid);
-    if (filter?.kind) query = query.eq("kind", filter.kind);
-    if (filter?.dateFrom) query = query.gte("entry_date", filter.dateFrom);
-    if (filter?.dateTo) query = query.lte("entry_date", filter.dateTo);
-    // No server filter for bodyContains: bodies are end-to-end encrypted, so
-    // the decrypting repository filters them after the read.
-    query = query
-      .order("entry_date", { ascending: false })
-      .order("created_at", { ascending: false });
-    return (await rows<LogEntryRow>(query)).map(logEntryToDomain);
-  }
-
-  async save(entity: LogEntry): Promise<void> {
-    const row = { ...logEntryToRow(entity), ...(this.pid ? { project_id: this.pid } : {}) };
-    await run(this.db.from(TABLE).upsert(row));
-  }
-
-  async delete(id: string): Promise<void> {
-    await deleteRowById(this.db, TABLE, id);
   }
 }

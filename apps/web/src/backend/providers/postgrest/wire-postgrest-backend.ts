@@ -7,9 +7,6 @@ import {
   PostgrestMetricRepository,
 } from "@/features/experiments/infrastructure/parts";
 import {
-  PostgrestLogEntryRepository,
-} from "@/features/logbook/infrastructure/parts";
-import {
   labSnapshotRepository as rustLabSnapshotRepository,
   supervisionRepository as rustSupervisionRepository,
 } from "@/features/org/infrastructure/parts";
@@ -36,9 +33,6 @@ import {
 import {
   PostgrestCitationAlertTrackRepository,
 } from "@/features/relations/infrastructure/parts";
-import {
-  PostgrestReportSectionRepository,
-} from "@/features/report/infrastructure/parts";
 import {
   PostgrestSettingsRepository,
 } from "@/features/settings/infrastructure/parts";
@@ -488,14 +482,19 @@ export function wirePostgrestBackend(
   );
 
   const logEntryRepository = cacheRepo(
-    new PostgrestLogEntryRepository(db, projectContext),
+    rustRepository<ILogEntryRepository>(db, "log_entries", ["getById", "list", "save", "delete"], projectUserCtx(projectContext)),
     ["getById", "list"],
     ["save", "delete"],
     pid,
     { resourceType: "log_entry" },
   );
   const reportSectionRepository = cacheRepo(
-    new PostgrestReportSectionRepository(db, projectContext),
+    rustRepository<IReportSectionRepository>(
+      db,
+      "report_sections",
+      ["getById", "list", "getTree", "save", "delete"],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "list", "getTree"],
     ["save", "delete"],
     pid,

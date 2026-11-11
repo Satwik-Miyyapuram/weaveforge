@@ -176,8 +176,6 @@ export {
   linkTargetsError,
   localDbSharedBuffers,
   logEntryMessage,
-  logEntryToDomain,
-  logEntryToRow,
   logEyebrow,
   mattermostConnection,
   mattermostConnectionReady,

@@ -13190,32 +13190,6 @@ export function logEntryMessage(input) {
 }
 
 /**
- * [`to_domain`]: a `log_entries` row as a domain entry.
- * @param {B.LogEntryRow} row
- * @returns {B.LogEntry}
- */
-export function logEntryToDomain(row) {
-    const ret = wasm.logEntryToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_row`]: a domain entry as the `log_entries` row it is written as.
- * @param {B.LogEntry} entry
- * @returns {B.LogEntryWriteRow}
- */
-export function logEntryToRow(entry) {
-    const ret = wasm.logEntryToRow(entry);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`log_eyebrow`] for JS (TS `logEyebrow`): the line, or `undefined` with no entries.
  *
  * # Errors
