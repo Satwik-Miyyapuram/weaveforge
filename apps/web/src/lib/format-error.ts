@@ -32,6 +32,18 @@ export function isNetworkFailure(err: unknown): boolean {
   return isNetworkMessage(message);
 }
 
+/**
+ * Text between `prefix` and the next `)`, e.g. the host in `(could not reach h)`.
+ * Linear scan; the regex it replaces was quadratic on unclosed markers.
+ */
+function markerValue(message: string, prefix: string): string | undefined {
+  const start = message.indexOf(prefix);
+  if (start < 0) return undefined;
+  const from = start + prefix.length;
+  const end = message.indexOf(")", from);
+  return end > from ? message.slice(from, end) : undefined;
+}
+
 function networkFailureMessage(message: string): string | null {
   const lower = message.toLowerCase();
   if (lower.includes("dynamically imported module")) {
@@ -41,7 +53,7 @@ function networkFailureMessage(message: string): string | null {
   // The client names the host it was going to (see providers/postgrest/client),
   // and this app talks to two of them — keep it, because "which one" is the
   // whole of what a reader can pass on to whoever can fix it.
-  const host = /\(could not reach ([^)]+)\)/.exec(message)?.[1];
+  const host = markerValue(message, "(could not reach ");
   /**
    * The host answered a probe that CORS does not apply to, so it is up.
    *
@@ -58,7 +70,7 @@ function networkFailureMessage(message: string): string | null {
    * now carries through, are the part that says what happened. Both are kept.
    */
   const answered = /\(host answered\)/.exec(message) !== null;
-  const browserSaid = /\(browser said: ([^)]+)\)/.exec(message)?.[1];
+  const browserSaid = markerValue(message, "(browser said: ");
   if (answered) {
     const where = typeof window === "undefined" ? "this app" : window.location.origin;
     return (
