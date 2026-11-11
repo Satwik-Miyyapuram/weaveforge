@@ -230,6 +230,17 @@ impl RepoQuery {
         self
     }
 
+    /// Orders by `column`, with nulls first or last.
+    #[must_use]
+    pub fn order_nulls(mut self, column: &str, ascending: bool, nulls_first: bool) -> Self {
+        self.order.push(RepoOrder {
+            column: column.into(),
+            ascending,
+            nulls_first: Some(nulls_first),
+        });
+        self
+    }
+
     /// Upsert conflict columns, and whether a conflict keeps the existing row.
     #[must_use]
     pub fn on_conflict(mut self, columns: &str, ignore_duplicates: bool) -> Self {
@@ -439,6 +450,8 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "comments" => crate::repos::comments::step(method, call),
         "library_pins" => crate::repos::library_pins::step(method, call),
         "members" => crate::repos::members::step(method, call),
+        "lab_snapshots" => crate::repos::lab_snapshots::step(method, call),
+        "supervision" => crate::repos::supervision::step(method, call),
         "paper_tags" => crate::repos::paper_tags::step(method, call),
         "paper_relations" => crate::repos::paper_relations::step(method, call),
         "share_links" => crate::repos::share_links::step(method, call),

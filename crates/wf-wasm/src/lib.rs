@@ -590,7 +590,6 @@ mod integration_bibliography;
 mod integration_hint;
 mod ipc_origin;
 mod kind;
-mod lab_snapshot_rows;
 mod library_pins;
 mod local_api_guard;
 mod local_db_engine_params;

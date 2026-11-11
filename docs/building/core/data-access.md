@@ -68,6 +68,8 @@ function and tests, add it to `repo_step`, then build the TS object with
 | `annotation_quotation_types` | `features/papers/infrastructure/postgrest-annotation-quotation-type-repository.ts` |
 | `ai_proposals`, `ai_audit` | `features/ai-assistant/infrastructure/postgrest-ai-proposal-store.ts` (`rustAiStores`) |
 | `members` | `PostgrestMemberRepository` in `features/org/infrastructure/postgrest-member-repository.ts` (`memberRepository` keeps the single-flight memo and the team/lab filters; Rust reads `profiles` and the lab context) |
+| `lab_snapshots` | `PostgrestLabSnapshotRepository` in `features/org/infrastructure/parts.ts` (now `labSnapshotRepository`; Rust also checks the title) |
+| `supervision` | `PostgrestSupervisionRepository` in `features/org/infrastructure/parts.ts` (now `supervisionRepository`; the batched reads return `[memberId, items]` pairs that TS turns into a `Map`) |
 
 ## Not done: a Rust network stack
 
