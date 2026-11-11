@@ -5,9 +5,15 @@ import { useMemo, useState } from "react";
 import { Modal } from "@/components/modal";
 import { NavIcon } from "@/app/nav-icon";
 import { isCommitEnter as isPickEnter } from "@/lib/commit-enter";
-import { groupResults, paintedOrder, quickOpenResults, stepCursor, titleOf } from "@weaveforge/wasm";
+import {
+  groupResults,
+  kindIcon,
+  paintedOrder,
+  quickOpenResults,
+  stepCursor,
+  titleOf,
+} from "@weaveforge/wasm";
 import type { WorkspaceTreeNode } from "@weaveforge/wasm";
-import { kindIcon } from "@weaveforge/wasm";
 import { OptionButton } from "@/components/controls";
 
 /**

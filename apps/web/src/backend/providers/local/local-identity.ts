@@ -18,8 +18,12 @@
  */
 
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import type { AuthChangeCallback, AuthUser, IAuthService } from "@weaveforge/core";
-import type { ICurrentUserProvider } from "@weaveforge/core";
+import type {
+  AuthChangeCallback,
+  AuthUser,
+  IAuthService,
+  ICurrentUserProvider,
+} from "@weaveforge/core";
 import type { LocalQuery } from "./pglite-client";
 
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";

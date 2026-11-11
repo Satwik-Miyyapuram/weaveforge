@@ -10,14 +10,17 @@ import {
   canDrop,
   canRename,
   creatableUnder,
+  type CreateKind,
   creationTarget,
+  type Draft,
   draftPlaceholder,
   dropParentId,
+  isDocumentKind,
+  isSectionOpen,
+  kindIcon,
+  kindIconClass,
   rootKey,
   rootOf,
-  type CreateKind,
-  type Draft,
-  isSectionOpen,
   toggleExpanded,
   toggleSection,
 } from "@weaveforge/wasm";
@@ -31,7 +34,6 @@ import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import type { TreeNodeKind, VisibleRow, WorkspaceTreeNode } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { isDocumentKind, kindIcon, kindIconClass } from "@weaveforge/wasm";
 import {
   DraftIcon,
   HideGlyph,

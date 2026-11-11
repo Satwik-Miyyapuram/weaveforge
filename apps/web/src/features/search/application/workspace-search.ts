@@ -1,15 +1,72 @@
-import { type IWorkspaceSearchIndex, type GraphDensity, type RelatedArm, type RelatedResult, type SearchDoc, type SearchHit, type SearchQueryOptions, type SearchSettings, type WikiGraph, type WorkspaceSnapshot } from "@weaveforge/core";
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
+import type {
+  GraphDensity,
+  IWorkspaceSearchIndex,
+  RelatedArm,
+  RelatedResult,
+  SearchDoc,
+  SearchHit,
+  SearchQueryOptions,
+  SearchSettings,
+  WikiGraph,
+  WorkspaceSnapshot,
+} from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
-import { loadCore, readyCore } from "@/lib/rust-core";
-import { applySearchSettings, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
-import type { SemanticIndex } from "./semantic-index";
-import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
 import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
 import { persistSearchIndex } from "../infrastructure/index-cache-policy";
+import {
+  applySearchSettings,
+  buildSearchIndex,
+  createMiniSearchIndexFactory,
+} from "../infrastructure/minisearch-index";
+import { loadPdfTexts } from "../infrastructure/pdf-text-store";
+import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
+import { reconcilePdfTextFolder, removePdfTextsDurably } from "./pdf-text-folder";
 import { SearchIndexState } from "./search-index-state";
-import { pruneMissingPaperTexts } from "./pdf-text-pruning";
-import { typedCore } from "@/lib/rust-core";
+import type { SemanticIndex } from "./semantic-index";
 
+// --- pdf-text-pruning ---
+/**
+ * The PDF text worth indexing, and the text that has to go.
+ *
+ * Extracted text outlives the papers it came from: nothing deletes it when a
+ * paper is removed, so the store slowly becomes a corpus of documents whose
+ * reader would open nothing. Reading it back without pruning means search
+ * answers with hits that cannot be opened — the failure is not an error, it is a
+ * result that looks fine and goes nowhere.
+ *
+ * Pulled out of `WorkspaceSearch` because it is the one part of the build that
+ * does I/O of its own, and it is worth reading on its own terms: it *returns*
+ * what survives and *deletes* what does not, in that order, so a failed write
+ * leaves the read still correct for this build.
+ */
+export interface PdfTextForIndex {
+  /** Text whose paper still exists, in stored order. */
+  texts: readonly PdfIndexSource[];
+  /** Pages held per paper, so a re-extraction knows what to retract. */
+  pageCounts: Map<string, number>;
+  /** How many orphans were deleted, for the log and for tests. */
+  removed: number;
+}
+
+export async function pruneMissingPaperTexts(
+  projectId: string | null,
+  snapshot: WorkspaceSnapshot,
+): Promise<PdfTextForIndex> {
+  await reconcilePdfTextFolder(projectId);
+  const stored = await loadPdfTexts(projectId);
+  const { kept, pageCounts, orphanPaperIds } = readyCore().partitionPdfTexts(
+    stored,
+    snapshot.papers.map((paper) => paper.id),
+  );
+
+  const texts = kept.map((index) => stored[index]!);
+  if (orphanPaperIds.length) await removePdfTextsDurably(projectId, orphanPaperIds);
+
+  return { texts, pageCounts, removed: orphanPaperIds.length };
+}
+
+// --- workspace-search ---
 /**
  * Owns the lifecycle of the workspace search index: build from a snapshot,
  * persist it, and rehydrate it on the next load.

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { noteKey } from "./note-key";
 import { InlineError } from "@/components/form-error";
 import { EntityCard } from "@/components/entity-card";

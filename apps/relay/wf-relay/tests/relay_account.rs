@@ -1,4 +1,4 @@
-//! Tests for the account relay (ported from apps/desktop/src/account-proxy.ts).
+//! Tests for the account relay (ported from apps/desktop/src/main-setup.ts).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 #[path = "common/upstream.rs"]

@@ -1,13 +1,17 @@
-import { getDataClient } from "@/lib/data-client";
-import { relayUrl } from "@/lib/relay-url";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
-import { singleFlight } from "@/lib/cache/single-flight";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { singleFlight } from "@/lib/cache/single-flight";
+import { getDataClient } from "@/lib/data-client";
 import { readJsonBody, responseError } from "@/lib/format-error";
-import type { OrgInviteRole, OrgJoinSource, OrgMembershipView } from "@weaveforge/core";
-import { MEMBERSHIP_ROW_COLUMNS } from "./membership-row";
+import { relayUrl } from "@/lib/relay-url";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import type { OrgInviteRole, OrgJoinSource, OrgMembershipView } from "@weaveforge/core";
 
+// --- membership-row ---
+/** The `org_memberships` columns both the client and the admin path select. */
+export const MEMBERSHIP_ROW_COLUMNS = "org_id, role, joined_via, organizations(name)";
+
+// --- org-api ---
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
 
 /** Rust keeps role as String; this narrows it to OrgInviteRole. */

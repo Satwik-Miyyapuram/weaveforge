@@ -35,7 +35,7 @@ import { CompareView } from "./experiments-compare";
 import { Button } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };

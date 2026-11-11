@@ -15,7 +15,7 @@ import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
-import { useHiddenKeys } from "@/lib/toast";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { mergeLater } from "./merge-later";
 import { paperKey } from "./remove-paper";
 

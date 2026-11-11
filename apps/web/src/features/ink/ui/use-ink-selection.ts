@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect } from "react";
 import type { InkPage as InkPageModel } from "@weaveforge/core";
-import { typedCore } from "@/lib/rust-core";
+import { fromWasmInkStrokes, readyCore, toWasmInkStrokes, typedCore } from "@/lib/rust-core";
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import { fromWasmInkStrokes, readyCore, toWasmInkStrokes } from "@/lib/rust-core";
 import type { InkSheetInk } from "./use-ink-worker-rpc";
 
 export interface UseInkSelectionOptions {

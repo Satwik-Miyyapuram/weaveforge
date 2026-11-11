@@ -1,10 +1,10 @@
 import type {
   BibliographyCredentials,
   IBibliographyIntegration,
+  IProjectBibliographyCollectionStore,
   ManageSettingsUseCase,
 } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
-import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
 import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
 

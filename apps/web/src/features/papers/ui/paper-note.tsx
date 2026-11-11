@@ -7,7 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { removePaper } from "./remove-paper";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
@@ -35,7 +35,7 @@ import { PaperExternalLink } from "./paper-external-link";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { PaperAnnotations } from "./paper-annotations";
 import { highlightsDigest } from "../application/reading-digest";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage, usePaperPreview } from "./paper-first-page";
 import { StatusSelect, statusLabel } from "@/components/status-select";
@@ -49,7 +49,6 @@ import { useRouter } from "next/navigation";
 import { isEditableTarget, openContextMenu } from "@/components/context-menu-store";
 import { paperNoteMenuItems } from "./paper-note-menu";
 import { copyPaperAs } from "./copy-paper";
-import { typedCore } from "@/lib/rust-core";
 
 /** The modes the switch offers, as the Editor's toolbar does. */
 const NOTE_MODES = ["edit", "ink"] as const;

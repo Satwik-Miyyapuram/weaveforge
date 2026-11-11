@@ -1,21 +1,133 @@
-import type { IMetadataSource, IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import { getAppConfig } from "@/deployment/app-config";
-import { readIntegrationConfig, type IntegrationConfig } from "./config";
-import { NoopBibliographyIntegration } from "./noop/noop-bibliography-integration";
-import { NoopNotificationIntegration } from "./noop/noop-notification-integration";
-import { NoopLogSyncIntegration } from "./noop/noop-log-sync-integration";
-import { NoopProjectBibliographyCollectionStore } from "./noop/noop-project-bibliography-collection-store";
-import { NoopGitClient } from "./noop/noop-git-client";
+import type { Integration } from "@/features/sync/domain/integration";
+import type { IGitClient, IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import type { ProjectContext } from "@/lib/project-context";
+import type {
+  AddPaperUseCase,
+  BibliographyAnnotationPull,
+  BibliographyCollection,
+  BibliographyCredentials,
+  BibliographySyncResult,
+  CitationCandidate,
+  IBibliographyIntegration,
+  ILogSyncIntegration,
+  IMetadataSource,
+  INotificationIntegration,
+  IPaperRepository,
+  IProjectBibliographyCollectionStore,
+  ISettingsRepository,
+  LogEntry,
+  ManageSettingsUseCase,
+  ManageTagsUseCase,
+  Milestone,
+  Paper,
+} from "@weaveforge/core";
+import { type IntegrationConfig, readIntegrationConfig } from "./config";
 import {
   findBibliographyManifest,
   findLogSyncManifest,
   findNotificationManifest,
 } from "./manifests/types";
 import type { IntegrationsRegistry } from "./registry";
-import type { WireIntegrationsDeps } from "./wire-integrations-deps";
 
-export type { WireIntegrationsDeps } from "./wire-integrations-deps";
+// --- noop-bibliography-integration ---
+/** Disabled bibliography provider — safe no-ops for local-only deployments. */
+export class NoopBibliographyIntegration implements IBibliographyIntegration {
+  readonly providerId = "none";
 
+  async syncLibrary(): Promise<BibliographySyncResult> {
+    return { pushed: 0, pulled: 0, deletedLocal: 0 };
+  }
+
+  async pullAnnotations(): Promise<BibliographyAnnotationPull> {
+    return { byPaper: new Map(), attachments: new Map() };
+  }
+
+  async pushPaper(_paper: Paper): Promise<string | undefined> {
+    return undefined;
+  }
+
+  async removeRemotePaper(_remoteKey: string): Promise<void> {
+    /* no remote library */
+  }
+
+  async listCollections(
+    _credentials?: BibliographyCredentials,
+  ): Promise<BibliographyCollection[]> {
+    return [];
+  }
+}
+
+// --- noop-git-client ---
+/** Used when NEXT_PUBLIC_GIT_READ_PROVIDERS=none — Git tab is hidden. */
+export class NoopGitClient implements IGitClient {
+  async listCommits(_integration: Integration, _branch?: string) {
+    return [];
+  }
+
+  async listBranches(_integration: Integration) {
+    return [];
+  }
+}
+
+// --- noop-log-sync-integration ---
+/** Disabled log-sync provider. */
+export class NoopLogSyncIntegration implements ILogSyncIntegration {
+  readonly providerId = "none";
+
+  async pushLog(_entry: LogEntry): Promise<void> {
+    /* log sync off */
+  }
+
+  async removeLog(_entry: LogEntry): Promise<void> {
+    /* log sync off */
+  }
+}
+
+// --- noop-notification-integration ---
+/** Disabled notification provider. */
+export class NoopNotificationIntegration implements INotificationIntegration {
+  readonly providerId = "none";
+
+  async notifyMilestone(_event: "added" | "status", _milestone: Milestone): Promise<void> {
+    /* notifications off */
+  }
+
+  async notifyCitationAlert(_tracked: Paper, _citing: CitationCandidate[]): Promise<void> {
+    /* notifications off */
+  }
+
+  async notifyLogEntry(_entry: LogEntry): Promise<void> {
+    /* notifications off */
+  }
+}
+
+// --- noop-project-bibliography-collection-store ---
+/** No per-project bibliography collection when bibliography integration is disabled. */
+export class NoopProjectBibliographyCollectionStore implements IProjectBibliographyCollectionStore {
+  async getCollection(_projectId: string): Promise<string | undefined> {
+    return undefined;
+  }
+
+  async setCollection(_projectId: string, _collectionKey: string | null): Promise<void> {
+    /* no-op */
+  }
+}
+
+// --- wire-integrations-deps ---
+export interface WireIntegrationsDeps {
+  projectContext: ProjectContext;
+  integrationsStore: IIntegrationsStore;
+  manageSettings: ManageSettingsUseCase;
+  settingsRepository: ISettingsRepository;
+  paperRepository: IPaperRepository;
+  manageTags: ManageTagsUseCase;
+  addPaper: AddPaperUseCase;
+  projectBibliographyCollection: IProjectBibliographyCollectionStore;
+  config?: IntegrationConfig;
+}
+
+// --- wire-integrations ---
 export interface WiredIntegrations {
   registry: IntegrationsRegistry;
   config: IntegrationConfig;

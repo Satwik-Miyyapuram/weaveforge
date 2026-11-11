@@ -1,7 +1,7 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { forwardedHeaders, semanticScholarTarget } from "../semantic-scholar-relay";
+import { forwardedHeaders, semanticScholarTarget } from "../src/semantic-scholar-proxy";
 
 before(loadTestCore);
 

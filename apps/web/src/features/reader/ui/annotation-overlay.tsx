@@ -8,8 +8,7 @@ import {
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { INK_SELECTION_HALO_PX } from "@/features/ink/render/ink-renderer";
-import { InkFigureEditor, InkFigures } from "@/features/ink";
-import { InkStrokes } from "@/features/ink";
+import { InkFigureEditor, InkFigures, InkStrokes } from "@/features/ink";
 import { isCommitEnter } from "@/lib/commit-enter";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import {

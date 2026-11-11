@@ -36,7 +36,7 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
-import { showToast, useHiddenKeys } from "@/lib/toast";
+import { showToast, useHiddenKeys } from "@/lib/toast/index";
 import { paperKey } from "./remove-paper";
 import { PaperDropZone } from "./pdf-drop-zone";
 import { summarizePdfDrop, type PdfDropOutcome } from "../application/paper-from-pdf";

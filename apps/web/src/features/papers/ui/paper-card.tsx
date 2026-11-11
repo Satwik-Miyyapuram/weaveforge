@@ -10,7 +10,7 @@ import { PaperCardThumbs } from "@/components/card-thumbs";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
-import { removeLater } from "@/lib/toast";
+import { removeLater } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import { copyPaperAs } from "./copy-paper";
 

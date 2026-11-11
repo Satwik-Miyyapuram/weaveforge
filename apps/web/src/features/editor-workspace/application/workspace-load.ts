@@ -7,20 +7,39 @@
  * reload is a pure function of the container's screen data and the bodies
  * already hydrated, and the screen only has to put the result into state.
  */
-
-
 import { getContainer } from "@/bootstrap";
-import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
-import { isHydratedPage, noteBodyText } from "@/lib/page-text";
-
+import { overleafSidebarRows } from "@/features/report/index";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
-import { kindNames, memberRank } from "@weaveforge/wasm";
-import type { ListItemEntry, WorkspaceTreeNode } from "@weaveforge/wasm";
-import { sectionOr } from "./section-fallback";
-import { readyCore } from "@/lib/rust-core";
-import { overleafSidebarRows } from "@/features/report";
-import { typedCore } from "@/lib/rust-core";
+import { logToApp } from "@/lib/error-report/app-log";
+import { type CiteCompletion, paperCiteLabel } from "@/lib/hooks/use-cite-links";
+import { isHydratedPage, noteBodyText } from "@/lib/page-text";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import {
+  kindNames,
+  type ListItemEntry,
+  memberRank,
+  type WorkspaceTreeNode,
+} from "@weaveforge/wasm";
 
+// --- section-fallback ---
+/**
+ * One explorer section's load, isolated: a section that fails falls back (and
+ * so hides) without taking the others down, and the failure is logged rather
+ * than vanishing.
+ */
+export function sectionOr<T, F>(load: Promise<T>, section: string, fallback: F): Promise<T | F> {
+  return load.catch((err: unknown) => {
+    logToApp({
+      level: "warn",
+      source: "workspace",
+      message: `The ${section} section could not load`,
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return fallback;
+  });
+}
+
+// --- workspace-load ---
 export interface Document {
   kind: string;
   id: string;

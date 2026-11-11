@@ -13,9 +13,8 @@ import { PaletteDockButton } from "@/components/palette-dock";
 import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
 import { InkBar } from "@/features/ink/ui/ink-bar";
 import { readyCore } from "@/lib/rust-core";
-import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
+import { InsertMenu, PageField, ViewMenu, WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
 import { NibRow } from "../ui/ink-bar";
-import { WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

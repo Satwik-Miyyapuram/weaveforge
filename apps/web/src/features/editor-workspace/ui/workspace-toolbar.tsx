@@ -8,10 +8,14 @@ import { MenuItemButton, ToolButton } from "@/components/controls";
 import { DocumentModeSwitch, canSplit, type DocumentModeName } from "@/components/document-mode-switch";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { PreviewIcon } from "@/components/view-icons";
-import { BarMenuList, useBarMenu } from "@/features/ink";
-import { Caret } from "@/features/ink";
-import { InkIdleBar } from "@/features/ink";
-import { useFoldOf, useToolbarFold } from "@/features/ink";
+import {
+  BarMenuList,
+  Caret,
+  InkIdleBar,
+  useBarMenu,
+  useFoldOf,
+  useToolbarFold,
+} from "@/features/ink";
 import { isMacPlatform } from "@/lib/shortcut-label";
 import { readyCore } from "@/lib/rust-core";
 import type { DocumentMode, PaneLayout, PaneSplit, TabRef } from "@weaveforge/wasm";

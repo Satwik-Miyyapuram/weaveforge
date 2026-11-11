@@ -29,10 +29,9 @@ import {
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { InkBar } from "./ink-bar";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { typedCore } from "@/lib/rust-core";
 
 export interface InkReaderProps {
   noteId: string;

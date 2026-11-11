@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { readIfPresent } from "../src/read-if-present";
+import { readIfPresent } from "../src/main-stores";
 
 const dir = mkdtempSync(path.join(tmpdir(), "read-if-present-"));
 

@@ -8,7 +8,7 @@ import {
   type ExperimentStatus,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { useNavPending } from "@/lib/nav-pending";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";

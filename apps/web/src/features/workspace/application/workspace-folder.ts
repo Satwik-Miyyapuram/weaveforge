@@ -8,7 +8,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach } from "@/lib/notify-each";
-import { loadCore, readyCore } from "@/lib/rust-core";
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
@@ -19,7 +19,7 @@ import { activeProject, activeProjectOrNull } from "./active-project";
 import { mirrorWorkspace } from "./folder-mirror";
 import { watchForLoss } from "./folder-watch-lost";
 import { readPreviewFolder } from "./folder-preview-read";
-import { applyFolderImport, keepWorkspaceCopy } from "./folder-import-apply";
+import { applyFolderImport, clearPendingAssets, keepWorkspaceCopy } from "./folder-import-apply";
 import { isNoteOpen, onNoteClosed } from "./open-notes";
 import { diffAgainstWorkspace } from "./folder-diff";
 import {
@@ -91,7 +91,6 @@ export function markFolderRestored(): void {
 
 
 
-import { clearPendingAssets } from "./folder-import-apply";
 
 export interface FolderSession {
   kind: "picked" | "opfs" | "desktop";
@@ -748,7 +747,6 @@ import {
   type ConflictPicks,
   type ConflictResolution,
 } from "./folder-merge";
-import { typedCore } from "@/lib/rust-core";
 
 export {
   mergeBothChanged,

@@ -41,7 +41,7 @@ import {
   writeVaultFile,
 } from "../../shell/sidecar/src/vault-handlers";
 import { registerMainAppLog } from "./main-app-log";
-import { followTaskbarTheme } from "./taskbar-icon";
+import { answerRelay, followTaskbarTheme } from "./main-setup";
 import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
@@ -56,7 +56,6 @@ import { ARTIFACT_HOST, serveLocalArtifact } from "../../shell/sidecar/src/local
 import { modelCacheUrl, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
-import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { sendWhenLoaded } from "./sign-in-relay";

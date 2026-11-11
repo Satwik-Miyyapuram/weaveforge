@@ -1,8 +1,7 @@
-import type { ICitationSource } from "@weaveforge/core";
+import type { ICitationSource, ManageSettingsUseCase } from "@weaveforge/core";
 import { getAppConfig } from "@/deployment/app-config";
 import { readIntegrationConfig, type IntegrationConfig } from "./config";
 import { findCitationManifest } from "./manifests/types";
-import type { ManageSettingsUseCase } from "@weaveforge/core";
 
 export interface WireCitationsDeps {
   manageSettings: ManageSettingsUseCase;

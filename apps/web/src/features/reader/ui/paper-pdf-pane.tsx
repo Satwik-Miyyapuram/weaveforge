@@ -17,10 +17,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { OpenAccessIds, QuotationType, ReaderAnnotation } from "@weaveforge/core";
-import type { PdfLocus } from "@weaveforge/wasm";
+import type { PaperHtmlPage, PdfLocus, ZoteroAnnotation } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
-import { describeRejection } from "@/lib/format-error";
+import { describeRejection, formatError } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
 import { proxiedPdfUrl } from "../application/sanitize-reader-url";
@@ -40,9 +40,6 @@ import {
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
-import type { ZoteroAnnotation } from "@weaveforge/wasm";
-import { formatError } from "@/lib/format-error";
-import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";

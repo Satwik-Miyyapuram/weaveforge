@@ -16,7 +16,7 @@ import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";
 import { runListAction } from "./run-list-action";
 import { Button, IconButton } from "@/components/button";
-import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
+import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast/index";
 
 /** The key a list hides under while its Undo toast shows (D-07). */
 export const listKey = (id: string) => `list:${id}`;

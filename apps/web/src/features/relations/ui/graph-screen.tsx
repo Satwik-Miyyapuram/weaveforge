@@ -19,7 +19,7 @@ import { NavIcon } from "@/app/nav-icon";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
-import { useHiddenKeys } from "@/lib/toast";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { relationKey } from "./remove-relation";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";

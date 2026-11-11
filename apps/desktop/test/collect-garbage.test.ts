@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectGarbage } from "../src/collect-garbage";
+import { collectGarbage } from "../src/main-local-db";
 
 /**
  * Boot leaves tens of MB of dead buffers (the engine's WASM and data bundle)

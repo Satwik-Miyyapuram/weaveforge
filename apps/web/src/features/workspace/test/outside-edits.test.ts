@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import type { JsonDiffEntry } from "@weaveforge/core";
-import type { ChangeSide } from "@weaveforge/wasm";
-import type { ImportAction, ImportDiffEntry } from "@weaveforge/wasm";
+import type { ChangeSide, ImportAction, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {

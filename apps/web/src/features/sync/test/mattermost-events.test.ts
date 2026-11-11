@@ -8,7 +8,7 @@ import type { Integration } from "../domain/integration";
 
 before(loadTestCore);
 import type { IIntegrationsStore } from "../domain/sync-ports";
-import { MattermostNotificationIntegration } from "@/integrations/providers/mattermost/notification-integration";
+import { MattermostNotificationIntegration } from "@/integrations/manifests/mattermost";
 
 const base: Integration = { provider: "mattermost", enabled: true, token: "t", repo: "https://chat.example.com", branch: "main-ch" };
 

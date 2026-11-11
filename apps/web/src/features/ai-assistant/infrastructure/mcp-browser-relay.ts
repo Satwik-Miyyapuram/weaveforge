@@ -1,10 +1,9 @@
 import { errorMessage, type AiAccessSettings, type AiEvidence } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
-import { typedCore } from "@/lib/rust-core";
 
 /**
  * The slice of the assistant facade the tools need.

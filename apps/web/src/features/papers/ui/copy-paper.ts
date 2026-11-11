@@ -1,6 +1,6 @@
 import type { Paper, PaperSummary } from "@weaveforge/core";
 import { copyText } from "@/lib/toast/copy-text";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 export type PaperCopyKind = "reference" | "bibtex";

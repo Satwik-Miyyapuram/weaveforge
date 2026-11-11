@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { getContainer } from "@/bootstrap";
 import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { useProject } from "@/features/projects";
 import {
   activeWorkspaceFs,

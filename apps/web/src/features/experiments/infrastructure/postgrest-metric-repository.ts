@@ -1,9 +1,36 @@
+import { run } from "@/backend/providers/postgrest/row-access";
+import { typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IMetricRepository, MetricBudget, MetricPoint } from "@weaveforge/core";
-import { run } from "@/backend/providers/postgrest/row-access";
-import type { MetricRow } from "./metric-rows";
-import { typedCore } from "@/lib/rust-core";
 
+// --- metric-rows ---
+/**
+ * How metric rows are stored. The mapping to the domain type is in Rust (wf-core).
+ *
+ * Shared by both backend providers. They talk to the *same* table — one through
+ * supabase-js, the other through `pg` — so the column shape and the mapping are
+ * not per-provider facts, and holding two copies of them is how they drift.
+ */
+export interface MetricRow {
+  experiment_id: string;
+  metric: string;
+  step: number;
+  value: number;
+  /**
+   * `timestamptz` as PostgREST returns it — **not** always a string.
+   *
+   * `supabase-js` hands back an ISO string, and the local PostgREST-shaped client
+   * hands back a `Date`, because that is what the driver produced. Typing this
+   * `string | null` made the difference invisible: the field is declared
+   * `wallTime?: string` on `MetricPoint`, nothing narrowed it, and a `Date`
+   * therefore travelled out of the adapter as a `Date` — through a type that
+   * promises a string. the wasm wrapper normalises it, which is why this is
+   * `string | Date | null` rather than the lie the previous type told.
+   */
+  wall_time: string | Date | null;
+}
+
+// --- postgrest-metric-repository ---
 /** Bindings type f64 as number | null (NaN/Infinity serialise as null); values are always finite. */
 const toFinite = (n: number | null): number => n as number;
 

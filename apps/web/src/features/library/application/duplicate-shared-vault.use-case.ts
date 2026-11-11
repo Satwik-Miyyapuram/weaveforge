@@ -5,10 +5,9 @@ import type {
   VaultPage,
 } from "@weaveforge/core";
 import { LibraryPinError } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import type { IVaultAssetStore } from "@/features/vault/domain/vault-assets";
 import { logToApp } from "@/lib/error-report/app-log";
-import { typedCore } from "@/lib/rust-core";
 
 /** The copy, and the images it still borrows from the owner because they could not be copied. */
 export interface DuplicatedVaultPage {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PostgrestIntegrationsStore } from "../infrastructure/postgrest-integrations-store";
+import { PostgrestIntegrationsStore } from "../../../backend/providers/postgrest/wire-postgrest-backend";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Integration } from "../domain/integration";

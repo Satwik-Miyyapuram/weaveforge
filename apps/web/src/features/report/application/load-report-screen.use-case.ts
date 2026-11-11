@@ -3,9 +3,9 @@ import type {
   IReportSectionRepository,
   IShareRepository,
   ReportSection,
+  ReportSectionTreeNode,
 } from "@weaveforge/core";
 import { loadPinnedScreenData } from "@weaveforge/core";
-import type { ReportSectionTreeNode } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 
 export interface ReportScreenData {

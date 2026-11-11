@@ -13,8 +13,7 @@ import { OpenIcon } from "@/components/view-icons";
 import { IconLink } from "@/components/button";
 import { Chip } from "@/components/controls";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */
 const CARD_COMMENTS = new Set(["milestone", "reading_list"]);

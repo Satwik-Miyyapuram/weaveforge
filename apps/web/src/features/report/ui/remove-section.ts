@@ -1,6 +1,6 @@
 import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deferDelete, deletedMessage } from "@/lib/toast";
+import { deferDelete, deletedMessage } from "@/lib/toast/index";
 
 /** The key a section hides under while its Undo toast shows. */
 export const sectionKey = (id: string) => `section:${id}`;

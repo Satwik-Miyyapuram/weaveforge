@@ -14,7 +14,7 @@ import { MenuItemButton } from "./controls";
 import { IconButton } from "./button";
 import { runEditCommand } from "@/lib/desktop/menu-edit";
 import { readyCore } from "@/lib/rust-core";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the

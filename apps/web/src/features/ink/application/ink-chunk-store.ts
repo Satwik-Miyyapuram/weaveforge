@@ -16,8 +16,7 @@
 import { type InkNoteMeta, type InkPaper } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export interface InkChunkStore {
   /** The chunk's bytes, or `null` where no such chunk exists. Throws when the read itself failed. */

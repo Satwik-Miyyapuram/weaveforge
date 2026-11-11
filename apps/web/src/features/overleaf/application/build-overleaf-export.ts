@@ -1,6 +1,5 @@
-import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import type { CitationFormat, Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { PRISMA_FIGURE_PACKAGES } from "@weaveforge/core";
-import type { CitationFormat } from "@weaveforge/core";
 import { paperCiteKeys } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 

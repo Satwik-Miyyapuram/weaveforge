@@ -6,8 +6,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { activeProject } from "@/features/workspace/application/active-project";
 import { downloadBlob, zipToBlob } from "@/lib/blob-output";
-import { loadCore } from "@/lib/rust-core";
-import { readyCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));

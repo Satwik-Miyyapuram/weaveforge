@@ -1,6 +1,5 @@
 import { type IWorkspaceFs, type WorkspaceProject } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { loadCore, typedCore } from "@/lib/rust-core";
 
 /**
  * Remove a deleted project's folder from the workspace.

@@ -1,5 +1,5 @@
 import { getContainer } from "@/bootstrap";
-import { deferDelete } from "@/lib/toast";
+import { deferDelete } from "@/lib/toast/index";
 
 /** The key a relation hides under while its Undo toast shows. */
 export const relationKey = (id: string) => `relation:${id}`;

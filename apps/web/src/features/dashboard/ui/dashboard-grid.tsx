@@ -9,7 +9,7 @@ import "react-resizable/css/styles.css";
 import { FIT_MAX_HEIGHTS, getCardDef, isStatCard } from "../application/card-registry";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { getRglBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
-import type { DashboardLayout, DashboardLayoutItem } from "@weaveforge/core";
+import type { DashboardLayout, DashboardLayoutItem, Member } from "@weaveforge/core";
 import {
   normalizeSmLayout,
   compactLayoutVertical,
@@ -21,7 +21,6 @@ import { readyCore } from "@/lib/rust-core";
 import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
-import type { Member } from "@weaveforge/core";
 import { GripIcon } from "@/components/view-icons";
 import { CloseButton } from "@/components/button";
 

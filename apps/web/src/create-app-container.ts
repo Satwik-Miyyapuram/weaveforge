@@ -96,7 +96,11 @@ import {
 import { BlobInkChunkStore } from "@/features/ink/infrastructure/blob-ink-chunk-store";
 import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-store";
 import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
-import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
+import {
+  activeWorkspaceFs,
+  closeFolder,
+  folderRestored,
+} from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "@/lib/rust-core";
 import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
@@ -114,7 +118,6 @@ import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/e
 import { createCredentialReader } from "@/integrations/credentials";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
-import { closeFolder } from "@/features/workspace/application/workspace-folder";
 import { relayUrl } from "@/lib/relay-url";
 import { readInkHapticsOn } from "@/lib/ink-haptics-preference";
 

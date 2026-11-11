@@ -3,13 +3,16 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 import assert from "node:assert/strict";
 
-import { MemberPermissionError, MemberValidationError, type Member } from "@weaveforge/core";
+import {
+  CreateMemberUseCase,
+  type Member,
+  MemberPermissionError,
+  MemberValidationError,
+} from "@weaveforge/core";
 
-import { CreateMemberUseCase } from "@weaveforge/core";
 
-import { InMemoryMemberRepository } from "@weaveforge/core/testing";
+import { InMemoryAccountProvisioner, InMemoryMemberRepository } from "@weaveforge/core/testing";
 
-import { InMemoryAccountProvisioner } from "@weaveforge/core/testing";
 import { typedCore } from "@/lib/rust-core";
 
 

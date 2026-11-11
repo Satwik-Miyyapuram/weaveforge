@@ -1,7 +1,12 @@
-import type { ICurrentUserProvider } from "@weaveforge/core";
+import type {
+  ICurrentUserProvider,
+  ISettingsRepository,
+  SettingsMetadata,
+  UserAppearance,
+  UserSettings,
+} from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SettingsMetadata, ISettingsRepository, UserAppearance, UserSettings } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { run } from "@/backend/providers/postgrest/row-access";
 

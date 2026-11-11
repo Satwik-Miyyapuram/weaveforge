@@ -2,6 +2,8 @@ import type {
   AddRelationUseCase,
   Experiment,
   GraphExperimentEntry,
+  GraphPersistedState,
+  IGraphSettingsRepository,
   IPaperRelationRepository,
   IPaperRepository,
   IReadingListItemRepository,
@@ -14,11 +16,10 @@ import type {
   Paper,
   PaperRelation,
   ReadingList,
+  RemoveRelationUseCase,
   ReportSection,
   VaultPage,
 } from "@weaveforge/core";
-import type { IGraphSettingsRepository, GraphPersistedState } from "@weaveforge/core";
-import type { RemoveRelationUseCase } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
 export interface GraphScreenData {

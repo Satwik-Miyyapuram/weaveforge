@@ -40,8 +40,7 @@ import {
   ReportOverleafScreen,
   ReportSectionMarkdown,
 } from "@/features/report";
-import { NoteReadView } from "@/features/vault";
-import { VaultMarkdown, type WikilinkEntry } from "@/features/vault";
+import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import { readyCore } from "@/lib/rust-core";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";

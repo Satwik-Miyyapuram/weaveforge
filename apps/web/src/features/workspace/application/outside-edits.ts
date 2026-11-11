@@ -10,8 +10,7 @@
  * changed entries and the app's open notes, and applies the result.
  */
 import type { JsonDiff } from "@weaveforge/core";
-import type { ChangeSide } from "@weaveforge/wasm";
-import type { HeldReason, ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
+import type { ChangeSide, HeldReason, ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 
 /** What the preview saw of one folder file: who moved it since the sides last agreed, and its digest then. */

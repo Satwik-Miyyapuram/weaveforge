@@ -6,7 +6,7 @@ import {
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater } from "@/lib/toast";
+import { deletedMessage, removeLater } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
 import type { EditorHandle } from "@/components/editor-handle";

@@ -12,8 +12,7 @@ import {
   type NewReaderAnnotation,
   type ReaderAnnotation,
 } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * `![picture](path)`, with the placement the rectangle cannot hold after the

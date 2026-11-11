@@ -4,8 +4,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { ORG_INVITE_ROLES } from "@weaveforge/core";
-import { ROLE_RANK, ROLES, type Member } from "@weaveforge/core";
+import { type Member, ORG_INVITE_ROLES, ROLE_RANK, ROLES } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 
 before(async () => { await loadTestCore(); });

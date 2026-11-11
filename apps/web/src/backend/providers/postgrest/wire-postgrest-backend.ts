@@ -1,96 +1,375 @@
-import type {
-  IAdminUserProvisioner,
-  IAuthService,
-  ICommentRepository,
-  ICurrentUserProvider,
-  IDashboardLayoutRepository,
-  IGraphSettingsRepository,
-  IExperimentRepository,
-  ILogEntryRepository,
-  IMemberRepository,
-  IMetricRepository,
-  IMilestoneRepository,
-  IPaperRelationRepository,
-  IPaperRepository,
-  IProjectBibliographyCollectionStore,
-  IProjectRepository,
-  IReadingListItemRepository,
-  IScreeningRepository,
-  IReadingListRepository,
-  IReportSectionRepository,
-  ISettingsRepository,
-  IShareRepository,
-  ISupervisionRepository,
-  ITagRepository,
-  IPaperTagRepository,
-  IVaultPageRepository,
-  ManageSettingsUseCase,
-  ILibraryPinRepository,
-  ICitationAlertTrackRepository,
-  IAnnotationPinRepository,
-  IAnnotationQuotationTypeRepository,
-  ILabSnapshotRepository,
-  IPaperFieldRepository,
-  IReaderAnnotationSink,
-  IReaderAnnotationSyncRecorder,
-  IReaderAnnotationProjectSource,
-  IReaderAnnotationSource,
-  IBlobStore,
-  DashboardLayout,
-  GraphPersistedState,
-  Milestone,
-  MilestoneFilter,
-} from "@weaveforge/core";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { notifyWorkspaceChange } from "@/lib/workspace-changes";
-import { watchWrites } from "./watch-writes";
-import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
-import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { KeyedColumnRepository, SpecRepository } from "./spec-repository";
-import { readyCore, typedCore } from "@/lib/rust-core";
-import { PostgrestExperimentRepository } from "@/features/experiments/infrastructure/postgrest-experiment-repository";
-import { PostgrestMetricRepository } from "@/features/experiments/infrastructure/postgrest-metric-repository";
-import { PostgrestLogEntryRepository } from "@/features/logbook/infrastructure/postgrest-log-entry-repository";
-import { PostgrestMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
-import { PostgrestSupervisionRepository } from "@/features/org/infrastructure/postgrest-supervision-repository";
-import { PostgrestPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
-import { cachePaperRepository } from "@/features/papers/infrastructure/cached-paper-repository";
-import { milestoneToDomain, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
-import { PostgrestProjectRepository } from "@/features/projects/infrastructure/postgrest-project-repository";
-import { ProjectZoteroStore } from "@/features/projects/infrastructure/project-zotero-store";
-import {
-  PostgrestReadingListRepository,
-  PostgrestReadingListItemRepository,
-} from "@/features/reading-lists/infrastructure/postgrest-reading-list-repository";
-import { PostgrestScreeningRepository } from "@/features/reading-lists/infrastructure/postgrest-screening-repository";
-import { PostgrestPaperRelationRepository } from "@/features/relations/infrastructure/postgrest-paper-relation-repository";
-import { PostgrestCitationAlertTrackRepository } from "@/features/relations/infrastructure/postgrest-citation-alert-track-repository";
-import { PostgrestAnnotationPinRepository } from "@/features/papers/infrastructure/postgrest-annotation-pin-repository";
-import { PostgrestAnnotationQuotationTypeRepository } from "@/features/papers/infrastructure/postgrest-annotation-quotation-type-repository";
-import { PostgrestLabSnapshotRepository } from "@/features/org/infrastructure/postgrest-lab-snapshot-repository";
-import { PostgrestReaderAnnotationRepository } from "@/features/reader/infrastructure/postgrest-reader-annotation-repository";
-import { PostgrestPaperFieldRepository } from "@/features/papers/infrastructure/postgrest-paper-field-repository";
-import { PostgrestReportSectionRepository } from "@/features/report/infrastructure/postgrest-report-section-repository";
-import { PostgrestVaultPageRepository } from "@/features/vault/infrastructure/postgrest-vault-page-repository";
-import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
-import { secretsStoreFor } from "@/backend/providers/secrets-store";
-import { PostgrestCommentRepository } from "@/features/sharing/infrastructure/postgrest-comment-repository";
-import { PostgrestShareRepository } from "@/features/sharing/infrastructure/postgrest-share-repository";
-import { PostgrestSharedReader } from "@/features/sharing/infrastructure/postgrest-shared-reader";
-import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
-import { PostgrestIntegrationsStore } from "@/features/sync/infrastructure/postgrest-integrations-store";
-import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
-import { PostgrestTagRepository, PostgrestPaperTagRepository } from "@/features/tags/infrastructure/postgrest-tag-repository";
-import { PostgrestLibraryPinRepository } from "@/features/library/infrastructure/postgrest-library-pin-repository";
-import type { ProjectContext } from "@/lib/project-context";
-import { cacheRepo } from "@/lib/cache/cache-repo";
-import { systemClock } from "@/lib/system";
 import type { BackendConfig } from "@/backend/config";
-import { createDataClient } from "./client";
-import { SupabaseSessionProvider } from "../supabase-auth/session";
-import { SupabaseAdminUserProvisioner } from "../supabase-auth/admin-provisioner";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
+import { secretsStoreFor } from "@/backend/providers/secrets-store";
+import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
+import {
+  PostgrestExperimentRepository,
+} from "@/features/experiments/infrastructure/postgrest-experiment-repository";
+import {
+  PostgrestMetricRepository,
+} from "@/features/experiments/infrastructure/postgrest-metric-repository";
+import {
+  PostgrestLibraryPinRepository,
+} from "@/features/library/infrastructure/postgrest-library-pin-repository";
+import {
+  PostgrestLogEntryRepository,
+} from "@/features/logbook/infrastructure/postgrest-log-entry-repository";
+import {
+  PostgrestLabSnapshotRepository,
+} from "@/features/org/infrastructure/postgrest-lab-snapshot-repository";
+import {
+  PostgrestMemberRepository,
+} from "@/features/org/infrastructure/postgrest-member-repository";
+import {
+  PostgrestSupervisionRepository,
+} from "@/features/org/infrastructure/postgrest-supervision-repository";
+import {
+  PostgrestAnnotationPinRepository,
+} from "@/features/papers/infrastructure/postgrest-annotation-pin-repository";
+import {
+  PostgrestAnnotationQuotationTypeRepository,
+} from "@/features/papers/infrastructure/postgrest-annotation-quotation-type-repository";
+import {
+  PostgrestPaperFieldRepository,
+} from "@/features/papers/infrastructure/postgrest-paper-field-repository";
+import {
+  PostgrestPaperRepository,
+} from "@/features/papers/infrastructure/postgrest-paper-repository";
+import {
+  type MilestoneRow,
+  milestoneToDomain,
+} from "@/features/plan/infrastructure/milestone-rows";
+import {
+  PostgrestReaderAnnotationRepository,
+} from "@/features/reader/infrastructure/postgrest-reader-annotation-repository";
+import {
+  PostgrestReadingListItemRepository,
+  PostgrestReadingListRepository,
+} from "@/features/reading-lists/infrastructure/postgrest-reading-list-repository";
+import {
+  PostgrestScreeningRepository,
+} from "@/features/reading-lists/infrastructure/postgrest-screening-repository";
+import {
+  PostgrestCitationAlertTrackRepository,
+} from "@/features/relations/infrastructure/postgrest-citation-alert-track-repository";
+import {
+  PostgrestPaperRelationRepository,
+} from "@/features/relations/infrastructure/postgrest-paper-relation-repository";
+import {
+  PostgrestReportSectionRepository,
+} from "@/features/report/infrastructure/postgrest-report-section-repository";
+import {
+  PostgrestSettingsRepository,
+} from "@/features/settings/infrastructure/postgrest-settings-repository";
+import {
+  PostgrestCommentRepository,
+} from "@/features/sharing/infrastructure/postgrest-comment-repository";
+import {
+  PostgrestShareRepository,
+} from "@/features/sharing/infrastructure/postgrest-share-repository";
+import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import {
+  PostgrestPaperTagRepository,
+  PostgrestTagRepository,
+} from "@/features/tags/infrastructure/postgrest-tag-repository";
+import {
+  PostgrestVaultPageRepository,
+} from "@/features/vault/infrastructure/postgrest-vault-page-repository";
+import { cacheRepo } from "@/lib/cache/cache-repo";
+import type { ProjectContext } from "@/lib/project-context";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import { systemClock } from "@/lib/system";
+import { notifyWorkspaceChange } from "@/lib/workspace-changes";
 import { wireStorage } from "@/storage/wire-storage";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  type DashboardLayout,
+  type GraphPersistedState,
+  type IAdminUserProvisioner,
+  type IAnnotationPinRepository,
+  type IAnnotationQuotationTypeRepository,
+  type IAuthService,
+  type IBlobStore,
+  type ICitationAlertTrackRepository,
+  type ICommentRepository,
+  type ICurrentUserProvider,
+  type IDashboardLayoutRepository,
+  type IExperimentRepository,
+  type IGraphSettingsRepository,
+  type ILabSnapshotRepository,
+  type ILibraryPinRepository,
+  type ILogEntryRepository,
+  type IMemberRepository,
+  type IMetricRepository,
+  type IMilestoneRepository,
+  type IPaperFieldRepository,
+  type IPaperRelationRepository,
+  type IPaperRepository,
+  type IPaperTagRepository,
+  type IProjectBibliographyCollectionStore,
+  type IProjectRepository,
+  type IReaderAnnotationProjectSource,
+  type IReaderAnnotationSink,
+  type IReaderAnnotationSource,
+  type IReaderAnnotationSyncRecorder,
+  type IReadingListItemRepository,
+  type IReadingListRepository,
+  type IReportSectionRepository,
+  type IScreeningRepository,
+  type ISettingsRepository,
+  type IShareRepository,
+  type ISupervisionRepository,
+  type ITagRepository,
+  type IVaultPageRepository,
+  type ManageSettingsUseCase,
+  ManageSettingsUseCase as ManageSettingsUseCaseClass,
+  type Milestone,
+  type MilestoneFilter,
+  type Project,
+  type ShareableType,
+} from "@weaveforge/core";
+import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
+import type { Integration, SyncProvider } from "../../../features/sync/domain/integration";
+import { SupabaseAdminUserProvisioner } from "../supabase-auth/admin-provisioner";
+import { SupabaseSessionProvider } from "../supabase-auth/session";
+import { createDataClient } from "./client";
+import { KeyedColumnRepository, SpecRepository } from "./spec-repository";
+import { watchWrites } from "./watch-writes";
 
+export type { SharedItem } from "../../../features/sharing/domain/shared-reader";
+
+// --- cached-paper-repository ---
+/**
+ * What the read memo does with each repository method.
+ *
+ * A record over every method rather than two lists, so a method added to the
+ * port does not compile until someone decides. A write left off the list
+ * keeps the memo, and the next read paints the row as it was before.
+ */
+const PAPER_METHODS: Record<keyof IPaperRepository, "read" | "write" | "uncached"> = {
+  getById: "read",
+  list: "read",
+  listSummaries: "uncached",
+  findByArxivId: "uncached",
+  findByDoi: "uncached",
+  findByTitleKey: "uncached",
+  findIdentityByArxivId: "uncached",
+  findIdentityByDoi: "uncached",
+  save: "write",
+  delete: "write",
+  setTags: "write",
+  replaceSummary: "write",
+};
+
+function methods(kind: "read" | "write"): string[] {
+  return Object.entries(PAPER_METHODS)
+    .filter(([, value]) => value === kind)
+    .map(([name]) => name);
+}
+
+/** The paper repository behind the project-scoped read memo. */
+export function cachePaperRepository<R extends IPaperRepository>(inner: R, pid: () => string | null): R {
+  return cacheRepo(inner, methods("read"), methods("write"), pid, { resourceType: "paper" });
+}
+
+// --- integrations-rows ---
+/**
+ * How integrations rows are stored, and how they map to the domain type.
+ *
+ * Shared by both backend providers. They talk to the *same* table — one through
+ * supabase-js, the other through `pg` — so the column shape and the mapping are
+ * not per-provider facts, and holding two copies of them is how they drift.
+ */
+
+export interface IntegrationRow {
+  provider: SyncProvider;
+  enabled: boolean;
+  token: string | null;
+  repo: string | null;
+  branch: string | null;
+  options?: Record<string, unknown> | null;
+}
+
+// --- postgrest-integrations-store ---
+/** Reads/writes `project_integrations` per (project, provider). */
+export class PostgrestIntegrationsStore {
+  constructor(private readonly db: SupabaseClient) {}
+
+  async get(projectId: string, provider: SyncProvider): Promise<Integration> {
+    const { data, error } = await this.db
+      .from("project_integrations")
+      .select("provider,enabled,token,repo,branch,options")
+      .eq("project_id", projectId)
+      .eq("provider", provider)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return readyCore().emptyIntegration(provider);
+    const r = data as IntegrationRow;
+    return {
+      provider,
+      enabled: r.enabled,
+      token: r.token ?? undefined,
+      repo: r.repo ?? undefined,
+      branch: readyCore().branchRead({ provider, branch: r.branch ?? null }),
+      options: r.options ?? undefined,
+    };
+  }
+
+  async save(projectId: string, integration: Integration): Promise<void> {
+    await run(this.db.from("project_integrations").upsert(
+      {
+        project_id: projectId,
+        provider: integration.provider,
+        enabled: integration.enabled,
+        token: integration.token ?? null,
+        repo: integration.repo ?? null,
+        // For Mattermost this is the channel id; a blank one stays blank.
+        branch: readyCore().branchSave({ provider: integration.provider, branch: integration.branch ?? "" }),
+        options: integration.options ?? {},
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "project_id,provider" },
+    ));
+  }
+}
+
+// --- project-rows ---
+/**
+ * How project rows are stored, and how they map to the domain type.
+ *
+ * Shared by both backend providers. They talk to the *same* table — one through
+ * supabase-js, the other through `pg` — so the column shape and the mapping are
+ * not per-provider facts, and holding two copies of them is how they drift.
+ */
+
+export interface ProjectRow {
+  id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+}
+
+export function toDomain(r: ProjectRow): Project {
+  const p = readyCore().projectFromRow(r);
+  return { id: p.id, name: p.name, color: p.color ?? undefined, createdAt: p.createdAt };
+}
+
+// --- postgrest-project-repository ---
+/**
+ * The columns a ProjectRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const PROJECT_COLUMNS = "id,name,color,created_at";
+
+const TABLE = "projects";
+
+export class PostgrestProjectRepository implements IProjectRepository {
+  constructor(
+    private readonly db: SupabaseClient,
+    private readonly session: ICurrentUserProvider,
+  ) {}
+
+  async getById(id: string): Promise<Project | null> {
+    const row = await rowById<ProjectRow>(this.db, TABLE, id);
+    return row ? toDomain(row) : null;
+  }
+  async list(): Promise<Project[]> {
+    return (await rows<ProjectRow>(this.db.from(TABLE).select(PROJECT_COLUMNS).order("created_at"))).map(toDomain);
+  }
+  async save(entity: Project): Promise<void> {
+    const userId = await this.session.getCurrentUserId();
+    await run(this.db.from(TABLE).upsert({
+      id: entity.id,
+      user_id: userId,
+      name: entity.name,
+      color: entity.color ?? null,
+      created_at: entity.createdAt,
+    }));
+  }
+  async delete(id: string): Promise<void> {
+    await deleteRowById(this.db, TABLE, id);
+  }
+}
+
+// --- shared-reader-sources ---
+/** Per-type row mapping: which table, and which columns hold the title/status. */
+export const SHARED_SOURCES: Record<
+  ShareableType,
+  { table: string; title: string; status: string | null }
+> = {
+  milestone: { table: "milestones", title: "title", status: "status" },
+  experiment: { table: "experiments", title: "name", status: "status" },
+  report_section: { table: "report_sections", title: "title", status: "status" },
+  reading_list: { table: "reading_lists", title: "name", status: null },
+  paper: { table: "papers", title: "title", status: "status" },
+  vault_page: { table: "vault_pages", title: "title", status: null },
+};
+
+/**
+ * Shape one row into a `SharedItem`.
+ *
+ * Shared by the PostgREST and Postgres readers deliberately: they differ in how
+ * they *fetch* — PostgREST `.or()` filters against SQL `any($n::uuid[])` — but
+ * a shared item must look identical whichever backend produced it, and this
+ * mapping had drifted into two copies of the same twelve lines.
+ */
+export function toSharedItem(kind: ShareableType, row: Record<string, unknown>): SharedItem {
+  return readyCore().sharedItem(kind, row, SHARED_SOURCES[kind]);
+}
+
+// --- postgrest-shared-reader ---
+/**
+ * Fetches the actual rows behind a set of shares — by id (per-item grants) or by
+ * owner (blanket "share everything" grants). Reads whatever the widened SELECT
+ * policies (0018) permit, independent of the project-scoped feature repos.
+ */
+export class PostgrestSharedReader implements ISharedReader {
+  constructor(private readonly db: import("@supabase/supabase-js").SupabaseClient) {}
+
+  async read(kind: ShareableType, ids: string[], owners: string[]): Promise<SharedItem[]> {
+    // Table, columns and filter come from Rust (`shared_read_plan`); no plan, no request.
+    const plan = readyCore().sharedReadPlan(kind, ids, owners);
+    if (!plan) return [];
+
+    const { data, error } = await this.db.from(plan.table).select(plan.columns).or(plan.filter);
+    if (error) throw error;
+    // The dynamic column list makes PostgREST infer an error type; the rows are
+    // plain records, so cast through unknown.
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    return rows.map((r) => toSharedItem(kind, r));
+  }
+}
+
+// --- project-zotero-store ---
+/**
+ * Per-project Zotero collection mapping. Reads/writes `projects.zotero_collection`.
+ * The API key + library are per-user (user_settings); only the target collection
+ * is per-project, so a project syncs to its own Zotero collection.
+ */
+export class ProjectZoteroStore implements IProjectBibliographyCollectionStore {
+  constructor(private readonly db: SupabaseClient) {}
+
+  async getCollection(projectId: string): Promise<string | undefined> {
+    const { data, error } = await this.db
+      .from("projects")
+      .select("zotero_collection")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { zotero_collection: string | null } | null)?.zotero_collection ?? undefined;
+  }
+
+  async setCollection(projectId: string, collection: string | null): Promise<void> {
+    await run(this.db
+      .from("projects")
+      .update({ zotero_collection: collection || null })
+      .eq("id", projectId));
+  }
+}
+
+// --- wire-postgrest-backend ---
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;

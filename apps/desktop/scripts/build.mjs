@@ -66,7 +66,7 @@ fs.mkdirSync(path.join(root, "build"), { recursive: true });
  * takes nothing else.
  */
 fs.copyFileSync(iconPng, path.join(root, "dist/icon.png"));
-// Swapped in for a dark Windows taskbar; see `src/taskbar-icon.ts`.
+// Swapped in for a dark Windows taskbar; see `src/main-setup.ts`.
 fs.copyFileSync(iconPng.replace(/\.png$/, "-dark.png"), path.join(root, "dist/icon-dark.png"));
 
 /**
