@@ -27,7 +27,7 @@ pub fn max_report_chars() -> usize {
 /// # Errors
 ///
 /// Fails when `input` is over the text cap.
-#[wasm_bindgen(js_name = redactReport)]
+#[wasm_bindgen(js_name = redactReport, unchecked_return_type = "B.Redacted")]
 pub fn redact_report(input: &str) -> JsResult<JsValue> {
     check_text(input)?;
     to_js(&core_redact(input))
@@ -39,7 +39,7 @@ pub fn redact_report(input: &str) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `input` is over the text cap.
-#[wasm_bindgen(js_name = redactReportAndCap)]
+#[wasm_bindgen(js_name = redactReportAndCap, unchecked_return_type = "B.Redacted")]
 pub fn redact_report_and_cap(input: &str, limit: usize) -> JsResult<JsValue> {
     check_text(input)?;
     to_js(&redact_and_cap(input, limit))

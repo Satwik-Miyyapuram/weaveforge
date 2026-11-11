@@ -6,7 +6,6 @@ import {
   formatMetricCell as rawFormatMetricCell,
   isStaleRunningExperiment as rawIsStaleRunningExperiment,
   metricKeys as rawMetricKeys,
-  shortSha as rawShortSha,
   statusPatchForExperiment as rawStatusPatchForExperiment,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -25,6 +24,7 @@ export {
   experimentHref,
   experimentsListHref,
   formatMetricValue,
+  shortSha,
 } from "../pkg/wf_wasm.js";
 export type { ResultsTable } from "./bindings.js";
 
@@ -42,11 +42,6 @@ export function statusPatchForExperiment(
   const patch = rawStatusPatchForExperiment(experiment, status, now) as ExperimentStatusPatch;
   // Every key is present, so spreading the patch clears a stamp Rust left out.
   return { status: patch.status, startedAt: patch.startedAt ?? undefined, finishedAt: patch.finishedAt ?? undefined };
-}
-
-/** Short display form of a commit SHA. */
-export function shortSha(sha?: string): string | undefined {
-  return rawShortSha(sha);
 }
 
 export function isStaleRunningExperiment(

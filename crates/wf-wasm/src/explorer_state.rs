@@ -75,8 +75,13 @@ pub fn is_section_open_js(open: JsValue, id: &str) -> Result<bool, serde_wasm_bi
 /// # Errors
 ///
 /// Fails if the argument is not an array of section declarations, or the result cannot be serialised.
-#[wasm_bindgen(js_name = defaultOpenSections)]
-pub fn default_open_sections_js(sections: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = defaultOpenSections, unchecked_return_type = "string[]")]
+pub fn default_open_sections_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { id: string; collapsedByDefault?: boolean }[]"
+    )]
+    sections: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let sections: Vec<state::SectionDecl> = serde_wasm_bindgen::from_value(sections)?;
     to_js(&state::default_open_sections(&sections))
 }
