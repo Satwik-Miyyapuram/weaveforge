@@ -1096,19 +1096,6 @@ export function annotationPinToDomain(row) {
 }
 
 /**
- * [`to_domain`]: an `annotation_quotation_types` row as a domain value. Throws on an unknown type.
- * @param {B.AnnotationQuotationTypeRow} row
- * @returns {B.AnnotationQuotationType}
- */
-export function annotationQuotationTypeRowToDomain(row) {
-    const ret = wasm.annotationQuotationTypeRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`to_domain`] (TS `toDomain`): the row as a `ReaderAnnotation` object.
  *
  * # Errors
@@ -5046,24 +5033,6 @@ export function decodeShareLinkToken(encoded) {
     var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v2;
-}
-
-/**
- * [`dedupe_relation_rows_by_id`](relation_rows::dedupe_relation_rows_by_id): one row per id,
- * in first-seen order, so a relation on both sides of a paper appears once.
- *
- * # Errors
- *
- * Fails if `rows` has the wrong shape.
- * @param {readonly B.PaperRelationRow[]} rows
- * @returns {B.PaperRelationRow[]}
- */
-export function dedupePaperRelationRows(rows) {
-    const ret = wasm.dedupePaperRelationRows(rows);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -11566,22 +11535,6 @@ export function isMarkdownFile(name) {
 }
 
 /**
- * [`is_missing_body_preview_column`](page_query::is_missing_body_preview_column). Takes the
- * error's `message` and `code`, either of which may be absent.
- * @param {string | null} [message]
- * @param {string | null} [code]
- * @returns {boolean}
- */
-export function isMissingBodyPreviewColumn(message, code) {
-    var ptr0 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    var ptr1 = isLikeNone(code) ? 0 : passStringToWasm0(code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len1 = WASM_VECTOR_LEN;
-    const ret = wasm.isMissingBodyPreviewColumn(ptr0, len0, ptr1, len1);
-    return ret !== 0;
-}
-
-/**
  * [`is_missing_service_role`](org::is_missing_service_role).
  * @param {string} message
  * @returns {boolean}
@@ -12891,23 +12844,6 @@ export function libraryBibtex(papers_value) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
-}
-
-/**
- * [`to_domain`]: a `library_pins` row as a library pin.
- *
- * # Errors
- *
- * Fails if the row cannot be read as a `library_pins` row.
- * @param {B.PinRow} row
- * @returns {B.LibraryPin}
- */
-export function libraryPinRowToDomain(row) {
-    const ret = wasm.libraryPinRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -16655,24 +16591,6 @@ export function paperCiteKeys(papers_value) {
 }
 
 /**
- * [`paper_counts_for_tags`](tag_counts::paper_counts_for_tags): one count per `tagIds` entry, in order.
- *
- * # Errors
- *
- * Fails if `tagIds` or `links` has the wrong shape.
- * @param {readonly string[]} tag_ids
- * @param {readonly B.TagPaperLink[]} links
- * @returns {number[]}
- */
-export function paperCountsForTags(tag_ids, links) {
-    const ret = wasm.paperCountsForTags(tag_ids, links);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`to_def_domain`]: a `paper_fields` row as a domain field definition.
  * @param {B.PaperFieldDefRow} row
  * @returns {B.PaperFieldDef}
@@ -16782,24 +16700,6 @@ export function paperPdfPath(paper_id, project_root) {
 }
 
 /**
- * [`paper_relation_from_row`](paper_relation::paper_relation_from_row): the domain relation
- * for a stored row (a null note reads as absent).
- *
- * # Errors
- *
- * Fails if `row` has the wrong shape.
- * @param {B.PaperRelationRow} row
- * @returns {B.PaperRelation}
- */
-export function paperRelationFromRow(row) {
-    const ret = wasm.paperRelationFromRow(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`validate_new_paper_relation`](paper_relation::validate_new_paper_relation): the
  * validation message, or `undefined` when the input is valid.
  *
@@ -16823,24 +16723,6 @@ export function paperRelationInputError(input) {
 }
 
 /**
- * [`paper_relation_to_row`](paper_relation::paper_relation_to_row): the stored row for a
- * relation (an absent note is stored as null).
- *
- * # Errors
- *
- * Fails if `relation` has the wrong shape.
- * @param {B.PaperRelation} relation
- * @returns {B.PaperRelationRow}
- */
-export function paperRelationToRow(relation) {
-    const ret = wasm.paperRelationToRow(relation);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`paper_to_domain`]: a `papers` row as a domain paper.
  * @param {B.PaperRow} row
  * @returns {B.Paper}
@@ -16860,19 +16742,6 @@ export function paperRowToDomain(row) {
  */
 export function paperRowToSummary(row) {
     const ret = wasm.paperRowToSummary(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_paper_tag`]: a `paper_tags` row as the app's paper-tag link.
- * @param {B.PaperTagRowInput} row
- * @returns {{ paperId: string; tagId: string; source: "zotero_annotation" | "zotero_item" | "summary" | "manual"; annotationRef?: string }}
- */
-export function paperTagFromRow(row) {
-    const ret = wasm.paperTagFromRow(row);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -23028,46 +22897,12 @@ export function shareCoversResource(share, resource_type, resource_id, owner_id)
 }
 
 /**
- * [`share_from_row`](sharing::share_from_row): a `shares` row as the app's `Share`.
- *
- * # Errors
- *
- * Fails if `row` does not have the `shares` columns.
- * @param {B.ShareRow} row
- * @returns {B.Share}
- */
-export function shareFromRow(row) {
-    const ret = wasm.shareFromRow(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`SHARE_LINK_DEFAULT_TTL_DAYS`](sharing::SHARE_LINK_DEFAULT_TTL_DAYS) as a JS number.
  * @returns {number}
  */
 export function shareLinkDefaultTtlDays() {
     const ret = wasm.shareLinkDefaultTtlDays();
     return ret;
-}
-
-/**
- * [`share_link_from_row`](sharing::share_link_from_row): a `share_links` row as the app's `ShareLink`.
- *
- * # Errors
- *
- * Fails if `row` does not have the `share_links` columns.
- * @param {B.ShareLinkRow} row
- * @returns {Omit<B.ShareLink, "access"> & { access: "view" }}
- */
-export function shareLinkFromRow(row) {
-    const ret = wasm.shareLinkFromRow(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -24635,19 +24470,6 @@ export function tagColor(tag) {
 }
 
 /**
- * [`to_tag`]: a `tags` row as the app's tag.
- * @param {B.TagRowInput} row
- * @returns {{ id: string; name: string; color?: string }}
- */
-export function tagFromRow(row) {
-    const ret = wasm.tagFromRow(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`tag_to_hashtag`](note_tags::tag_to_hashtag). Empty when the name has no usable characters.
  * @param {string} name
  * @returns {string}
@@ -26093,45 +25915,6 @@ export function vaultPageSide(path, content) {
 }
 
 /**
- * [`to_domain`]: a `vault_pages` row as a full page.
- * @param {B.VaultPageRow} row
- * @returns {B.VaultPage}
- */
-export function vaultPageToDomain(row) {
-    const ret = wasm.vaultPageToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_row`]: a page as the `vault_pages` row it is written as.
- * @param {B.VaultPage} page
- * @returns {B.VaultPageWriteRow}
- */
-export function vaultPageToRow(page) {
-    const ret = wasm.vaultPageToRow(page);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`to_summary_domain`]: a `vault_pages` row as a summary page (no body, a preview).
- * @param {B.VaultPageRow} row
- * @returns {B.VaultPage}
- */
-export function vaultPageToSummaryDomain(row) {
-    const ret = wasm.vaultPageToSummaryDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`vault_root_from_text`](home_config::vault_root_from_text): the `vaultRoot` string, or `null`
  * when there is none.
  * @param {string} text
@@ -26142,44 +25925,6 @@ export function vaultRootFromText(text) {
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.vaultRootFromText(ptr0, len0);
     return ret;
-}
-
-/**
- * [`title_like_pattern`](page_query::title_like_pattern): the ILIKE pattern for a normalised title key.
- * @param {string} key
- * @returns {string}
- */
-export function vaultTitleLikePattern(key) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.vaultTitleLikePattern(ptr0, len0);
-        deferred2_0 = ret[0];
-        deferred2_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
-    } finally {
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
-}
-
-/**
- * [`title_or_body_filter`](page_query::title_or_body_filter): the PostgREST `or` filter for a
- * title or body search. `undefined` for an empty query.
- * @param {string} query
- * @returns {string | undefined}
- */
-export function vaultTitleOrBodyFilter(query) {
-    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.vaultTitleOrBodyFilter(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
 }
 
 /**
