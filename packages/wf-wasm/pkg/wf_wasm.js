@@ -2807,25 +2807,6 @@ export function citationAlertScores(candidates) {
 }
 
 /**
- * [`citation_alert_track_from_row`](citation_alert_track::citation_alert_track_from_row):
- * the domain track for a stored row (null `last_checked_at` reads as absent, null
- * `seen_citing_ids` as empty).
- *
- * # Errors
- *
- * Fails if `row` has the wrong shape.
- * @param {B.CitationAlertTrackRow} row
- * @returns {B.CitationAlertTrack}
- */
-export function citationAlertTrackFromRow(row) {
-    const ret = wasm.citationAlertTrackFromRow(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`citation_candidates`](citation_candidate::citation_candidates): the candidates from one
  * page of `/citations` edges, in order. Edges without a usable citing paper are skipped.
  *

@@ -1,4 +1,4 @@
-import { run } from "@/backend/providers/postgrest/parts-1";
+import { rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { relayUrl } from "@/lib/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -6,7 +6,6 @@ import type {
   ICurrentUserProvider,
   ISettingsRepository,
   SettingsMetadata,
-  UserAppearance,
   UserSettings,
 } from "@weaveforge/core";
 import type { applyUserIntegrationFields } from "@weaveforge/wasm";
@@ -14,20 +13,12 @@ import type { applyUserIntegrationFields } from "@weaveforge/wasm";
 // --- postgrest-settings-repository ---
 /**
  * PostgREST implementation of ISettingsRepository. One row per user; user_id is
- * filled by the column default auth.uid(). Non-secret fields are read/written
- * directly; integration credentials (Zotero / GitLab / Semantic Scholar) go
+ * filled by the column default auth.uid(). Non-secret fields go through the
+ * Rust-planned queries (`repos/user_settings.rs`); integration credentials (Zotero / GitLab / Semantic Scholar) go
  * through a `SecretsStore` — by default the server route that seals them with a
  * server-held key, and on a deployment with no routes of its own, this machine
  * (see `SecretsStore`).
  */
-
-/**
- * The columns a SettingsRow is read as, named rather than starred.
- *
- * Derived from the row type: these are exactly the fields the mapper reads, and a
- * star would make them "whatever the table grows next".
- */
-const SETTINGS_COLUMNS = "user_id,zotero_library,disclaimer_accepted_at,disclaimer_version,appearance,ai_access";
 
 interface SettingsRow {
   user_id: string;
@@ -40,7 +31,13 @@ interface SettingsRow {
 
 export type Secrets = Pick<UserSettings, "zoteroApiKey" | "semanticScholarKey" | "integrations">;
 
-const TABLE = "user_settings";
+/** The `user_settings` row queries Rust plans. */
+interface SettingsRows {
+  row(): Promise<SettingsRow | null>;
+  metadata(): Promise<SettingsMetadata>;
+  saveRow(settings: UserSettings): Promise<void>;
+  saveDisclaimer(acceptedAt: string, version: number): Promise<void>;
+}
 const CREDENTIALS_ROUTE = "/api/settings/credentials";
 
 /**
@@ -143,7 +140,14 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     private readonly session: ICurrentUserProvider,
     /** Defaults to the server route; see `SecretsStore` for when it must not. */
     private readonly secrets: SecretsStore = new RouteSecretsStore(db),
-  ) {}
+  ) {
+    this.rows = rustRepository<SettingsRows>(db, "user_settings", ["row", "metadata", "saveRow", "saveDisclaimer"], async () => ({
+      userId: (await session.getCurrentUserId()) ?? undefined,
+    }));
+  }
+
+  /** The row queries, planned in Rust (`repos/user_settings.rs`). */
+  private readonly rows: SettingsRows;
 
   /**
    * Full settings, memoized like the metadata read.
@@ -173,9 +177,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
 
   /** The `user_settings` row alone, without the credentials round trip. */
   private async readRow(): Promise<SettingsRow | null> {
-    const { data, error } = await this.db.from(TABLE).select(SETTINGS_COLUMNS).maybeSingle();
-    if (error) throw error;
-    return (data as SettingsRow | null) ?? null;
+    return (await this.rows.row()) as SettingsRow | null;
   }
 
   private fromRow(row: SettingsRow, secrets: Secrets): UserSettings {
@@ -216,60 +218,25 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
   }
 
   private async readMetadata(): Promise<SettingsMetadata> {
-    const { data, error } = await this.db
-      .from(TABLE)
-      .select("disclaimer_accepted_at, disclaimer_version, appearance")
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return {};
-    const row = data as Pick<SettingsRow, "disclaimer_accepted_at" | "disclaimer_version" | "appearance">;
-    return {
-      disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
-      disclaimerVersion: row.disclaimer_version ?? undefined,
-      appearance: typedCore().normalizeAppearance(row.appearance) as UserAppearance | undefined,
-    };
+    return this.rows.metadata();
   }
 
   async save(settings: UserSettings): Promise<void> {
-    const userId = await this.session.requireUserId();
-    // Read through, not from the memo: this is a read-modify-write, and merging
-    // onto a minute-old copy could drop a field another tab just wrote. Only the
-    // row is merged; the secrets below are replaced, so they are not read.
-    const row = await this.readRow();
-    const existing = row ? this.fromRow(row, {}) : typedCore().EMPTY_SETTINGS;
+    await this.session.requireUserId();
     // Seal secrets first (owns credentials_enc + clears plaintext).
     await this.secrets.save({
       zoteroApiKey: settings.zoteroApiKey,
       semanticScholarKey: settings.semanticScholarKey,
       integrations: settings.integrations,
     });
-    // Non-secret fields (credentials_enc is left untouched by this upsert).
-    await run(this.db.from(TABLE).upsert(
-      {
-        user_id: userId,
-        zotero_library: settings.zoteroLibrary ?? null,
-        disclaimer_accepted_at: settings.disclaimerAcceptedAt ?? existing.disclaimerAcceptedAt ?? null,
-        disclaimer_version: settings.disclaimerVersion ?? existing.disclaimerVersion ?? null,
-        appearance: settings.appearance ?? existing.appearance ?? null,
-        ai_access: settings.aiAccess ?? existing.aiAccess ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    ));
+    // Non-secret fields, read-modify-write in Rust: it reads the row through, not
+    // from the memo, so a field another tab just wrote is not dropped.
+    await this.rows.saveRow(settings);
     forgetSettingsMetadata();
   }
 
   async saveDisclaimer(acceptedAt: string, version: number): Promise<void> {
-    const userId = await this.session.requireUserId();
-    await run(this.db.from(TABLE).upsert(
-      {
-        user_id: userId,
-        disclaimer_accepted_at: acceptedAt,
-        disclaimer_version: version,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    ));
+    await this.rows.saveDisclaimer(acceptedAt, version);
     forgetSettingsMetadata();
   }
 }

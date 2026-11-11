@@ -31,9 +31,6 @@ import {
   PostgrestScreeningRepository,
 } from "@/features/reading-lists/infrastructure/parts";
 import {
-  PostgrestCitationAlertTrackRepository,
-} from "@/features/relations/infrastructure/parts";
-import {
   PostgrestSettingsRepository,
 } from "@/features/settings/infrastructure/parts";
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
@@ -609,7 +606,12 @@ export function wirePostgrestBackend(
     { resourceType: "library_pin" },
   );
   const citationAlertTrackRepository: ICitationAlertTrackRepository = cacheRepo(
-    new PostgrestCitationAlertTrackRepository(db, projectContext, session),
+    rustRepository<ICitationAlertTrackRepository>(
+      db,
+      "citation_alert_tracks",
+      ["track", "untrack", "listForProject", "getByPaperId", "save"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForProject", "getByPaperId"],
     ["track", "untrack", "save"],
     pid,

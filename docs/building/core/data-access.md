@@ -58,8 +58,10 @@ function and tests, add it to `repo_step`, then build the TS object with
 
 | Repository | Replaced TS class (deleted) |
 | --- | --- |
+| `citation_alert_tracks` | `PostgrestCitationAlertTrackRepository` in `features/relations/infrastructure/parts.ts` (the Semantic Scholar citation source stays in TS) |
 | `comments` | `features/sharing/infrastructure/postgrest-comment-repository.ts` |
 | `tags`, `paper_tags` | `features/tags/infrastructure/postgrest-tag-repository.ts` |
+| `user_settings` | The row queries of `PostgrestSettingsRepository` in `features/settings/infrastructure/parts.ts` (the class keeps its memo and the sealed-credentials `SecretsStore`; `saveRow` reads the row through, then merges) |
 | `vault_pages` | `features/vault/infrastructure/postgrest-vault-page-repository.ts` (`rustVaultPageRepository` adds `listStamps` and `listByIds` to the type) |
 | `paper_relations` | `features/relations/infrastructure/postgrest-paper-relation-repository.ts` |
 | `shares` | `features/sharing/infrastructure/postgrest-share-repository.ts` |

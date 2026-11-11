@@ -24,7 +24,8 @@ Each file under `crates/wf-core/src/relations/` covers one job:
 - `graph_timeline.rs`: timeline lanes, year spacing and the middle year.
 - `local_graph.rs`: the nodes within a few hops of a seed, for the local graph view.
 - `citation_alerts.rs`: how strongly a citing paper asks to be read.
-- `citation_alert_track.rs`: maps citation-alert track rows.
+- `citation_alert_track.rs`: maps citation-alert track rows; the `citation_alert_tracks`
+  repository (`repos/citation_alert_tracks.rs`, see [data-access](data-access.md)) uses it.
 - `semantic_scholar_citation.rs`: field rules for the Semantic Scholar citation source.
 
 ## How the app calls it
@@ -40,7 +41,7 @@ import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 - Timeline: `yearSpacing`, `timelineMidYear`, `timelineLaneOffset`.
 - Colour and size: `graphPalette`, `tagColor`, `recolourNodes`, `nodeSize`, `labelSize`, `rampColour`, `yearColours`, `degreeColours`, `communities`.
 - Settings: `defaultGraphSettings`, `normalizeGraphViewSettings`, `effectiveRelationTypes`, `graphFilterCountFor`, `parseGraphPersistedState`, `mergeGraphPersistedState`, `showRelationEdges`, `showConceptEdges`.
-- Relations and alerts: `paperRelationInputError`, `createPaperRelationWith`, `citationAlertTrackFromRow`.
+- Relations and alerts: `paperRelationInputError`, `createPaperRelationWith`.
 - Vault pages: `createVaultPageWith`, `buildPageTree`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from

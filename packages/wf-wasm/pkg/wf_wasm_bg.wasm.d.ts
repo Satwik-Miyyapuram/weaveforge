@@ -120,7 +120,6 @@ export const chooseRoot: (a: number, b: number) => [number, number];
 export const chunkForEmbedding: (a: number, b: number, c: any) => [number, number, number];
 export const citationAlertMessage: (a: any) => [number, number, number, number];
 export const citationAlertScores: (a: any) => [number, number, number, number];
-export const citationAlertTrackFromRow: (a: any) => [number, number, number];
 export const citationCandidates: (a: any) => [number, number, number];
 export const citationContexts: (a: any) => [number, number, number];
 export const citationExternalIdRef: (a: any) => [number, number, number];

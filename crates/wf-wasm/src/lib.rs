@@ -26,7 +26,6 @@ mod batch_annotation_ops;
 mod cache_invalidation;
 mod cache_policy;
 mod card_snippet;
-mod citation_alert_track;
 mod citation_alerts;
 mod clip_to_area;
 mod dashboard_layout;

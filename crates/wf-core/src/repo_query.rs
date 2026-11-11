@@ -447,6 +447,7 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "annotation_quotation_types" => {
             crate::repos::annotation_quotation_types::step(method, call)
         }
+        "citation_alert_tracks" => crate::repos::citation_alert_tracks::step(method, call),
         "comments" => crate::repos::comments::step(method, call),
         "library_pins" => crate::repos::library_pins::step(method, call),
         "members" => crate::repos::members::step(method, call),
@@ -460,6 +461,7 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "share_links" => crate::repos::share_links::step(method, call),
         "shares" => crate::repos::shares::step(method, call),
         "tags" => crate::repos::tags::step(method, call),
+        "user_settings" => crate::repos::user_settings::step(method, call),
         "vault_pages" => crate::repos::vault_pages::step(method, call),
         _ => return RepoStep::fail(format!("No Rust repository named {repo}")),
     };
