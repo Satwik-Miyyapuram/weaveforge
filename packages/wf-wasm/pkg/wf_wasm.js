@@ -2450,8 +2450,8 @@ export function canDrop(source, target) {
 
 /**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
- * @param {any} group
- * @param {any} next
+ * @param {{ pageIndex: number; color: string; width: number; pathCount: number; lastAt: number } | null} group
+ * @param {{ pageIndex: number; color: string; width: number; at: number }} next
  * @param {number | null} [window_ms]
  * @returns {boolean}
  */
@@ -7401,8 +7401,8 @@ export function filterTeamMembers(viewer_id, members, options) {
  * # Errors
  *
  * Fails if `input` lacks the `annotations`, `pins`, `sections` or `vaultPages` arrays.
- * @param {any} input
- * @returns {any}
+ * @param {{ annotations: readonly { id: string; zoteroKey?: string | null; text: string }[]; pins: readonly { annotationKey: string; reportSectionId: string }[]; sections: readonly { id: string; title: string }[]; vaultPages: readonly { id: string; title: string; body?: string | null }[] }} input
+ * @returns {B.AnnotationBacklinkHit[]}
  */
 export function findAnnotationBacklinks(input) {
     const ret = wasm.findAnnotationBacklinks(input);
@@ -16475,7 +16475,7 @@ export function pageTextAfterRecognition(was, prior, recognised) {
  * # Errors
  *
  * Fails if `items` is not an array of run objects.
- * @param {any} items
+ * @param {readonly { str: string; hasEOL?: boolean }[]} items
  * @returns {string}
  */
 export function pageTextFromItems(items) {
@@ -24514,7 +24514,7 @@ export function tabAt(layout, pane_id, index) {
  * # Errors
  *
  * Fails if `tab` has the wrong shape.
- * @param {any} tab
+ * @param {B.TabRef} tab
  * @returns {string}
  */
 export function tabKey(tab) {

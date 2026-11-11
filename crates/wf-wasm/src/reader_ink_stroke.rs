@@ -117,7 +117,13 @@ pub fn ink_path_json_size_js(
 /// [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
 #[wasm_bindgen(js_name = canJoinInkGroup)]
 pub fn can_join_ink_group_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ pageIndex: number; color: string; width: number; pathCount: number; lastAt: number } | null"
+    )]
     group: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ pageIndex: number; color: string; width: number; at: number }"
+    )]
     next: JsValue,
     window_ms: Option<f64>,
 ) -> JsResult<bool> {

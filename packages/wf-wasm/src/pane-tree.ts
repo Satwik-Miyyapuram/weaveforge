@@ -46,6 +46,7 @@ export {
   previewTab,
   setRatio,
   setTabMode,
+  tabKey,
   tabMode,
 } from "../pkg/wf_wasm.js";
 
@@ -62,10 +63,6 @@ function nextPaneId(): string {
 /** True for the preview tab, which is one tab not tied to a document. */
 export function isPreviewTab(tab?: TabRef): boolean {
   return tab?.kind === PREVIEW_KIND;
-}
-
-export function tabKey(tab: TabRef): string {
-  return rawTabKey(tab);
 }
 
 export function openTab(layout: PaneLayout, tab: TabRef, paneId = layout.focusedPaneId): PaneLayout {
@@ -173,7 +170,7 @@ export function pruneLayout(layout: PaneLayout, exists: (tab: TabRef) => boolean
   const open = new Set<string>();
   for (const leaf of rawLeaves(layout.root) as PaneLeaf[]) {
     for (const tab of leaf.tabs) {
-      if (exists(tab)) open.add(tabKey(tab));
+      if (exists(tab)) open.add(rawTabKey(tab));
     }
   }
   return rawPruneLayout(layout, [...open]) as PaneLayout;
@@ -190,7 +187,7 @@ export function hydrateTabModes(
   const modes: Record<string, DocumentMode> = {};
   for (const leaf of rawLeaves(layout.root) as PaneLeaf[]) {
     for (const tab of leaf.tabs) {
-      if (tab.mode == null) modes[tabKey(tab)] = modeFor(tab);
+      if (tab.mode == null) modes[rawTabKey(tab)] = modeFor(tab);
     }
   }
   if (Object.keys(modes).length === 0) return layout;

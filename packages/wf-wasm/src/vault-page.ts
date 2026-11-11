@@ -32,17 +32,13 @@ export {
   parseWikilinkInner,
   stripFrontmatter,
   vaultAssetPathsInBody,
+  vaultBodyPreviewChars,
   vaultImageMarkdown,
   vaultImagePrefix,
   vaultTitleLikePattern,
 } from "../pkg/wf_wasm.js";
 
 export type { ParsedFrontmatter, WikilinkRef };
-
-/** Max chars kept for note-card previews from `listSummaries`. */
-export function vaultBodyPreviewChars(): number {
-  return rawBodyPreviewChars();
-}
 
 export function extractWikilinks(body?: string): WikilinkRef[] {
   if (!body) return [];
@@ -61,7 +57,7 @@ export function uniqueTitle(base: string, used: Set<string>): string {
   return title;
 }
 
-export function vaultBodyPreview(body: string, max = vaultBodyPreviewChars()): string {
+export function vaultBodyPreview(body: string, max = rawBodyPreviewChars()): string {
   if (!body) return "";
   return rawBodyPreview(body, max);
 }

@@ -13,8 +13,13 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `input` lacks the `annotations`, `pins`, `sections` or `vaultPages` arrays.
-#[wasm_bindgen(js_name = findAnnotationBacklinks)]
-pub fn find_annotation_backlinks_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = findAnnotationBacklinks, unchecked_return_type = "B.AnnotationBacklinkHit[]")]
+pub fn find_annotation_backlinks_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ annotations: readonly { id: string; zoteroKey?: string | null; text: string }[]; pins: readonly { annotationKey: string; reportSectionId: string }[]; sections: readonly { id: string; title: string }[]; vaultPages: readonly { id: string; title: string; body?: string | null }[] }"
+    )]
+    input: JsValue,
+) -> JsResult<JsValue> {
     let input: backlinks::BacklinkInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&backlinks::find_annotation_backlinks(&input))
 }
