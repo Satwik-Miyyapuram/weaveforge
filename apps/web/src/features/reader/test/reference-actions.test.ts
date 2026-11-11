@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ValidationError, type NewPaperInput, type NewPaperRelationInput, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore } from "@/lib/rust-core";
-import { createReferenceActions } from "../application/reference-actions";
+import { createReferenceActions } from "../application/parts-2";
 
 before(loadTestCore);
 

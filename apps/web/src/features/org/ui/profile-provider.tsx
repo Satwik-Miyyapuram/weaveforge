@@ -13,7 +13,7 @@ import type { Member, OrgMembershipView } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useStartupOptional } from "@/features/startup";
 import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/parts";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { latestGate } from "@/lib/parts";

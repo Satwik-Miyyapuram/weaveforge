@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PAPER_STATUSES, type Paper, type PaperSummary, type ReadingList } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { rememberRecentTarget } from "@/lib/parts-2";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -20,8 +21,7 @@ import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/parts";
-import type { PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
-import { rememberRecentTarget } from "@/lib/recent-targets";
+import type { PapersScreenData } from "@/features/papers/application/parts-1";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { PaperCard } from "./paper-card";
 import { LibraryTidyNotice } from "./library-tidy";
@@ -39,8 +39,12 @@ import { Button } from "@/components/button";
 import { showToast, useHiddenKeys } from "@/lib/toast/index";
 import { paperKey } from "./remove-paper";
 import { PaperDropZone } from "./pdf-drop-zone";
-import { summarizePdfDrop, type PdfDropOutcome } from "../application/paper-from-pdf";
-import { bibImportMessage, type BibImportOutcome } from "../application/paper-from-bib";
+import {
+  bibImportMessage,
+  type BibImportOutcome,
+  type PdfDropOutcome,
+  summarizePdfDrop,
+} from "../application/parts-2";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 

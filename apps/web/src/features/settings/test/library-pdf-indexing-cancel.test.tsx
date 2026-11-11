@@ -11,8 +11,8 @@ import {
   setAutoIndexDeps,
   stopAutoIndex,
   type AutoIndexDeps,
-} from "@/features/search/application/auto-index-library";
-import type { LibraryIndexResult } from "@/features/search/application/index-library-pdfs";
+} from "@/features/search/application/parts-1";
+import type { LibraryIndexResult } from "@/features/search/application/parts-1";
 import { LibraryPdfIndexing } from "../ui/library-pdf-indexing";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

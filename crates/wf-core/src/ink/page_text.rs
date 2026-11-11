@@ -1,7 +1,7 @@
 //! The page's text once handwriting has been recognised: the typed text, then the
 //! recognised text, with the page's background and figures kept as they were.
 //!
-//! A port of `pageTextAfterRecognition` in `apps/web/src/features/ink/application/recognise-page.ts`.
+//! A port of `pageTextAfterRecognition` in `apps/web/src/features/ink/application/parts-4.ts`.
 
 use super::figure::{ink_page_figures, with_ink_page_figures};
 use super::ink_page::{ink_page_background, with_ink_page_background};

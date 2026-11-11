@@ -15,8 +15,8 @@ import type {
   ReaderAnnotationPatch,
   UpdatePaperUseCase,
 } from "@weaveforge/core";
-import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
-import type { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
+import type { DeletePaperUseCase } from "@/features/papers/application/parts-1";
+import type { LoadPapersScreenUseCase } from "@/features/papers/application/parts-1";
 import type { IPaperImageStore } from "@/features/papers/domain/zotero";
 
 /**

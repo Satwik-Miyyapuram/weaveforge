@@ -18,12 +18,11 @@ import {
   type InkWorkerEvent,
   type InkWorkerMessage,
 } from "../application/capture-protocol";
-import { inkChunkCodec } from "../application/ink-chunk-codec";
-import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/page-buffer";
+import { inkChunkCodec } from "../application/parts-1";
+import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/parts-3";
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
-import type { InkPalette } from "../render/ink-palette";
-import type { InkLiveStroke, InkRenderer } from "../render/ink-renderer";
+import type { InkLiveStroke, InkPalette, InkRenderer } from "../render/parts-1";
 import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
 import {
   clearSelection,

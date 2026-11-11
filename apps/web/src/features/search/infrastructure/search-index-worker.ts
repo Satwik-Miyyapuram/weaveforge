@@ -2,7 +2,7 @@
 
 import { type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
 import { buildSearchIndex } from "./minisearch-index";
-import { loadPdfTexts } from "./pdf-text-store";
+import { loadPdfTexts } from "./parts-2";
 import { formatError } from "@/lib/format-error";
 import { loadCore } from "@/lib/rust-core";
 

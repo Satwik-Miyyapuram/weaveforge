@@ -1,5 +1,5 @@
 //! Which top-level folders a folder import preview reads (TS `readsFolder` in
-//! `apps/web/src/features/workspace/application/folder-preview-read.ts`). Pure: the
+//! `apps/web/src/features/workspace/application/parts-2.ts`). Pure: the
 //! caller lists the folder and reads what this says to read.
 
 use super::folder_layout::{ASSET_DIR, WORKSPACE_META_DIR};

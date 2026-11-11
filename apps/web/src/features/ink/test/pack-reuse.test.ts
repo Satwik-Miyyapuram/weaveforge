@@ -10,7 +10,7 @@ import {
   packStrokeInstances,
   strokeCurveAt,
   strokeInstanceCount,
-} from "../render/ink-renderer";
+} from "../render/parts-1";
 
 before(loadTestCore);
 

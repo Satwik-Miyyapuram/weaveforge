@@ -1,7 +1,10 @@
 import {
+  one,
+  oneRow,
   ProjectScopedPostgrestRepository,
-} from "@/backend/providers/postgrest/project-scoped-repository";
-import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+  rows,
+  run,
+} from "@/backend/providers/postgrest/parts-1";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { fetchSemanticScholar, semanticScholarUrl } from "@/lib/semantic-scholar-fetch";
 import type {

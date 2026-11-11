@@ -1,5 +1,5 @@
 //! Ports `isRecentTarget` and `pinRecentTargets` in
-//! `apps/web/src/lib/recent-targets.ts`. localStorage, timestamps and the
+//! `apps/web/src/lib/parts-2.ts`. localStorage, timestamps and the
 //! 15-entry cap stay in TS; only the shape check and the ordering are decided here.
 
 use std::collections::HashMap;

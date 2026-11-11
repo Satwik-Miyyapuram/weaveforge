@@ -87,7 +87,7 @@ invalidation channel down together.
 Nothing about this is visible from the client: `phx_join` still reports
 `SUBSCRIBED`, and the socket reconnects, and the next send kills it again. The
 realtime client therefore pins its encoder to Phoenix's plain-JSON tuple
-([`client.ts`](../../apps/web/src/backend/providers/postgrest/client.ts)). Do not
+([`client.ts`](../../apps/web/src/backend/providers/postgrest/parts-1.ts)). Do not
 remove that override without checking the deployed Realtime version.
 
 ### Teardown order

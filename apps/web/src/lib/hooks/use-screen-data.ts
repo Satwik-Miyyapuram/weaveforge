@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProject } from "@/features/projects";
 import {
-  clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, readPersistedScreen, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
-import { idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
-import { clearRepoCaches } from "@/lib/cache/project-lww-invalidator";
+  clearScreenCachesForScreens,
+  getScreenCache,
+  idbSetScreenCache,
+  isScreenCacheFresh,
+  readPersistedScreen,
+  screenCacheKey,
+  setScreenCache,
+} from "@/lib/cache/parts-2";
+import { clearRepoCaches } from "@/lib/cache/parts-1";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/parts";
 import { formatError, isNetworkFailure } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";

@@ -4,8 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { wirePostgrestBackend, type BackendParts } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { HttpAccountProvisioner } from "@/container/parts";
-import { invalidateForWrite, setActiveProjectIdForCache } from "@/lib/cache/project-lww-invalidator";
-import type { ProjectContext } from "@/lib/project-context";
+import { invalidateForWrite, setActiveProjectIdForCache } from "@/lib/cache/parts-1";
+import type { ProjectContext } from "@/lib/parts-2";
 
 /**
  * The shared reader and the member repository are memoized like every other

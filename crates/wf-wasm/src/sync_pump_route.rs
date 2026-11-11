@@ -1,5 +1,5 @@
 //! Outbox pump routing for JavaScript (wf-core `sync::pump_route`).
-//! The JS name is `pumpRoute`, called from `apps/web/src/features/offline-sync/domain/pump.ts`.
+//! The JS name is `pumpRoute`, called from `apps/web/src/features/offline-sync/domain/parts-3.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

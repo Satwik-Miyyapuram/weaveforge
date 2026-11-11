@@ -22,7 +22,7 @@ results in.
   equal (the mirror's unchanged check).
 - `folder_layout.rs`: folder names and paths. `folderTitleFromPath` gives a note
   title from a file path, and `pickProjectFolder` chooses a project folder. The
-  TypeScript folder names in `packages/core/src/workspace/folder-layout.ts` stay
+  TypeScript folder names in `packages/core/src/workspace/parts-1.ts` stay
   in `packages/core`: that package has no wasm dependency, and the names are read
   when the workspace is loaded.
 - `preview_folder.rs`: `readsFolder` decides which top-level folders a folder import preview reads (git, the project's own folder, the shared assets, and the legacy flat-folder rule).
@@ -62,7 +62,7 @@ results in.
   and `keepAllPicks` builds the picks for "keep all mine or theirs".
 - `adoption_plan.rs`: `planRenames` picks which local project collides with a
   name the account already holds, and the name it takes. The `update` statements
-  stay in `apps/web/src/features/offline-sync/domain/adoption.ts`. The caller
+  stay in `apps/web/src/features/offline-sync/domain/parts-1.ts`. The caller
   passes local projects in `order by name`, which the plan relies on.
 - `send_verdict.rs`: `classifySend` turns a PostgREST status, error code and row
   count into one verdict (awaiting parent, conflict, offline, RLS refused, refused,
@@ -91,7 +91,7 @@ from `../pkg/wf_wasm.js` and re-export them. The main names are `digestText`,
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`. For example,
-`apps/web/src/features/workspace/application/mirror-manifest.ts` calls
+`apps/web/src/features/workspace/application/parts-3.ts` calls
 `readyCore().jsonEditSince`, `folder-import-apply.ts` calls
 `readyCore().folderTitleFromPath`, and `remove-project-folder.ts` calls
 `typedCore().pickProjectFolder`. `ink-host.tsx` calls
@@ -103,7 +103,7 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
   calls stay in `apps/web/src/features/offline-sync`. Rust picks the route; the
   app carries it out.
 - **The merge itself and file I/O.** `folder_merge.rs` decides the merge. The
-  file reads and writes stay in `apps/web/src/features/workspace/application/folder-merge.ts`.
+  file reads and writes stay in `apps/web/src/features/workspace/application/parts-1.ts`.
 - **Git and network.** Running git and sending the push stay in TypeScript.
   Rust only checks the URL and describes the result.
 - **The PGlite runtime.** `pglite_sql.rs` builds SQL text. The value encoding and

@@ -9,14 +9,12 @@ import { idle } from "./pdf-page-window";
 import { useContainerSize } from "./container-resize";
 
 import { getContainer } from "@/bootstrap";
-import { perfEnd, perfStart } from "@/lib/perf-marks";
-import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
-import { originalUrlFromProxy, isReaderObjectUrl } from "../../application/sanitize-reader-url";
+import { readyCore } from "@/lib/rust-core";
+import { perfEnd, perfStart } from "@/lib/parts-2";
+import { savePdfTextDurably } from "@/features/search/application/parts-1";
+import { isReaderObjectUrl, originalUrlFromProxy } from "../../application/sanitize-reader-url";
+import { isCachePdfUrl, readStoredPdfBytes } from "../../application/parts-3";
 import { pdfObjectUrlBytes, pdfProxyNeedsToken } from "../../application/parts";
-import {
-  isCachePdfUrl,
-  readStoredPdfBytes,
-} from "../../application/resolve-paper-pdf-for-reader";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";
 import type { ReaderOutlineItem } from "../reader-outline";
 import type { JumpState, PdfDocument, PdfLib, PdfReaderProps, RenderTask, TextItemGeometry } from "./types";
@@ -27,7 +25,6 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 import { relayPath } from "@/lib/parts";
-import { readyCore } from "@/lib/rust-core";
 
 export interface PdfRenderingDeps {
   url: string;

@@ -9,7 +9,7 @@ import { act, create } from "react-test-renderer";
 
 
 
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 import { useDecodedStrokes } from "../ui/use-decoded-strokes";
 import { typedCore } from "@/lib/rust-core";
 

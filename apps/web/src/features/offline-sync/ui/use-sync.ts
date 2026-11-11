@@ -6,9 +6,8 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { SyncEngine } from "../domain/sync-engine";
+import { SyncEngine, SyncStateStore } from "../domain/parts-3";
 import { PostgrestTransport } from "../infra/postgrest-transport";
-import { SyncStateStore } from "../domain/sync-state";
 import { readBackendConfig } from "@/backend/parts";
 
 /**

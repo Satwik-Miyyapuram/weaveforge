@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 import type { IWorkspaceFs } from "@weaveforge/core";
-import { MIRROR_MANIFEST_PATH } from "../application/mirror-manifest";
+import { holdOpenNotes, MIRROR_MANIFEST_PATH } from "../application/parts-3";
 import {
   AUTO_APPLY_DEBOUNCE_MS,
   applyFolderImport,
@@ -18,7 +18,6 @@ import {
   settleExternalChanges,
 } from "../application/workspace-folder";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { holdOpenNotes } from "../application/open-notes";
 
 before(async () => {
   await loadTestCore();

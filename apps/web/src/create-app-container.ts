@@ -38,7 +38,7 @@ import {
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
-import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
+import { SemanticScholarMetadataSource, UrlMetadataSource } from "@/features/papers/infrastructure/parts-2";
 import {
   createContainerLifecycle,
   createLibraryTidy,
@@ -52,15 +52,11 @@ import {
   WebCryptoShareLinkTokenHasher,
   wireBackend,
 } from "@/container/parts";
-import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
-import { createReferenceActions } from "@/features/reader/application/reference-actions";
+import { createReferenceActions, ReferenceLookupService } from "@/features/reader/application/parts-2";
 import { ArxivMetadataSource, CrossrefMetadataSource, localZoteroCollection } from "@/features/papers/infrastructure/parts";
-import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
-import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
-import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
+import { DeletePaperUseCase, ImportLocalZoteroUseCase, LoadPapersScreenUseCase } from "@/features/papers/application/parts-1";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
-import { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
 import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/parts";
 import { LoadVaultScreenUseCase } from "@/features/vault/application/parts";
 import { LoadReportScreenUseCase } from "@/features/report/application/parts";
@@ -106,11 +102,11 @@ import {
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "@/lib/rust-core";
-import type { ProjectContext } from "@/lib/project-context";
+import type { ProjectContext } from "@/lib/parts-2";
 import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
-import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
+import type { ProjectLwwInvalidator } from "@/lib/cache/parts-1";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
-import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
+import { PaperImageStore } from "@/features/papers/infrastructure/parts-1";
 import { ReportImageStore } from "@/features/report/infrastructure/parts";
 import { LogImageStore } from "@/features/logbook/infrastructure/parts";
 import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/parts";

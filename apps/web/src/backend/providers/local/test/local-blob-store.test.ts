@@ -7,7 +7,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { BlobNotFoundError } from "@weaveforge/core";
 
 import { readyCore } from "@/lib/rust-core";
-import { LocalBlobStore, type LocalFiles } from "../local-blob-store";
+import { LocalBlobStore, type LocalFiles } from "../parts-1";
 import type { LocalQuery } from "../pglite-client";
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");

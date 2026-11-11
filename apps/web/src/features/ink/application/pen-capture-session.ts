@@ -12,9 +12,9 @@
 
 import { type InkColour } from "@weaveforge/core";
 
-import { NibFilter, type FilteredNibSample } from "./one-euro-filter";
+import { NibFilter, type FilteredNibSample } from "./parts-2";
 import { type InkSampleWriter, type InkStrokeHeader } from "./capture-protocol";
-import { InkPenGate, type PenClaim, type PenGateEvent } from "./pen-gate";
+import { InkPenGate, type PenClaim, type PenGateEvent } from "./parts-4";
 
 /* -------------------------------------------------------------------------
  * The session: samples in, worker out

@@ -1,5 +1,5 @@
 //! Where a page background sits on the A4 sheet: a port of `placeOnSheet` in
-//! `apps/web/src/features/ink/application/page-background.ts`.
+//! `apps/web/src/features/ink/application/parts-2.ts`.
 
 use serde::Serialize;
 

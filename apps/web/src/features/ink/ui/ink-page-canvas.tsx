@@ -4,11 +4,11 @@
 
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import type { InkStroke } from "@weaveforge/core";
-import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { readyCore } from "@/lib/rust-core";
+import { perfEnd, perfStart } from "@/lib/parts-2";
 import type { InkRenderStroke } from "./ink-strokes";
-import { perfEnd, perfStart } from "@/lib/perf-marks";
 
 export interface InkPageCanvasProps {
   strokes?: readonly InkStroke[];

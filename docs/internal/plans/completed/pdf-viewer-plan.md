@@ -199,7 +199,7 @@ Resolution order when opening: try rects if the content hash matches the file th
 
 ### 5.2 What already exists
 
-`apps/web/src/features/papers/infrastructure/zotero-annotations.ts` (158 lines) already paginates `itemType=annotation`, resolves attachment → parent paper in two passes, and handles 429 with `Retry-After` and `Backoff`. The ingest pipeline is done.
+`apps/web/src/features/papers/infrastructure/parts-2.ts` (158 lines) already paginates `itemType=annotation`, resolves attachment → parent paper in two passes, and handles 429 with `Retry-After` and `Backoff`. The ingest pipeline is done.
 
 **It discards the fields the viewer needs.** `ZoteroItem.data` currently maps `annotationText`, `annotationComment`, `annotationColor`, `annotationPageLabel`, and `tags`. Add to both that interface and the `ZoteroAnnotation` domain type:
 

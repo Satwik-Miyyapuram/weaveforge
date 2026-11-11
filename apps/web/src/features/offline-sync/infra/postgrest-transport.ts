@@ -1,7 +1,7 @@
 import { errorMessage } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
-import type { OutboxEntry } from "../domain/outbox";
+import type { OutboxEntry } from "../domain/parts-2";
 import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/parts";
 
 /**

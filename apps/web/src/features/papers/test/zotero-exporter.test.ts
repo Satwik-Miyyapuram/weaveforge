@@ -3,7 +3,7 @@ import test, { before } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import type { Paper } from "@weaveforge/core";
-import { ZoteroExporter } from "../infrastructure/zotero-exporter";
+import { ZoteroExporter } from "../infrastructure/parts-2";
 
 before(async () => {
   await loadTestCore();

@@ -1,5 +1,5 @@
 //! Golden, ported and property tests for `sync::git_policy` and `sync::git_remote`.
-//! Goldens were printed by `packages/core/src/workspace/git-remote.ts` and
+//! Goldens were printed by `packages/core/src/workspace/parts-2.ts` and
 //! `git-sync-policy.ts` through `tests/goldens/sync-leaf.mjs`. Ported from
 //! `packages/core/test/workspace/git-sync-policy.test.ts` and `git-remote.test.ts`.
 //! The `NoOpWorkspaceGit` case in `git-remote.test.ts` needs the TypeScript git

@@ -1,4 +1,4 @@
-//! Ports `deletionFor` in `apps/web/src/features/offline-sync/domain/conflicts.ts`:
+//! Ports `deletionFor` in `apps/web/src/features/offline-sync/domain/parts-1.ts`:
 //! the choice a bulk "mine" or "cloud" pick makes on a delete conflict.
 
 use serde::{Deserialize, Serialize};

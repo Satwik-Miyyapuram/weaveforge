@@ -1,4 +1,4 @@
-//! Port of `planEmbeddingStart` in `apps/web/src/features/search/infrastructure/embedding-models.ts`.
+//! Port of `planEmbeddingStart` in `apps/web/src/features/search/infrastructure/parts-1.ts`.
 //! The profile constants stay in TS (the UI reads them). `KNOWN_MODELS` must list
 //! every profile id the TS side keeps; never remove one.
 

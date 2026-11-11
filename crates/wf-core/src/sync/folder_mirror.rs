@@ -1,4 +1,4 @@
-//! Port of `packages/core/src/workspace/folder-mirror.ts`: writes a workspace
+//! Port of `packages/core/src/workspace/parts-1.ts`: writes a workspace
 //! snapshot into its project folder, leaving alone whatever the reader edited.
 
 use std::borrow::Cow;

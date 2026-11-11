@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_GROUP_WINDOW_MS } from "../../src/ink/parts.js";
-import { type InkStroke } from "../../src/ink/ink-note.js";
+import { type InkStroke } from "../../src/ink/parts-2.js";
 import { rust } from "../../src/shared/rust.js";
 
 /** A stroke of `count` points along a row centred on `y`. */

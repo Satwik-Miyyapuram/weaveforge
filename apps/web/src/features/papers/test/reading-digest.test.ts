@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import type { ReaderAnnotation, WorkspaceAnnotation } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { draftReadingLog, highlightsDigest } from "../application/reading-digest";
+import { draftReadingLog, highlightsDigest } from "../application/parts-2";
 
 before(async () => {
   await loadTestCore();

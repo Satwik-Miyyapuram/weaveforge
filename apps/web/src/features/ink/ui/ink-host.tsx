@@ -39,13 +39,13 @@ import { readyCore, typedCore } from "@/lib/rust-core";
 import {
   INK_RENDER_COLOURS,
   type InkPalette,
-} from "../render/ink-palette";
+} from "../render/parts-1";
 import type {
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import {
   type InkStoredPage,
-} from "../application/ink-chunk-store";
+} from "../application/parts-1";
 import { InkBar } from "./ink-bar";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";

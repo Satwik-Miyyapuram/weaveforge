@@ -5,7 +5,7 @@ import type {
 } from "@weaveforge/wasm";
 import { readyCore, type RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { mergeBothChanged, settleConflict } from "../application/folder-merge";
+import { mergeBothChanged, settleConflict } from "../application/parts-1";
 
 let rs: RustCore;
 before(async () => {

@@ -3,11 +3,10 @@ import { randomUUID } from "node:crypto";
 import { before, describe, it } from "node:test";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
-import { Puller } from "../domain/puller";
-import { Outbox } from "../domain/outbox";
-import { ConflictStore } from "../domain/conflicts";
+import { Outbox, Puller } from "../domain/parts-2";
+import { ConflictStore } from "../domain/parts-1";
 import { readyCore } from "@/lib/rust-core";
-import { SyncStateStore } from "../domain/sync-state";
+import { SyncStateStore } from "../domain/parts-3";
 import type { RemoteChange, SyncTransport } from "../domain/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

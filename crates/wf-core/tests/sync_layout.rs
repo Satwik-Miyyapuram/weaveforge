@@ -1,5 +1,5 @@
 //! Golden, ported and property tests for `sync::folder_layout`. Goldens were
-//! printed by `packages/core/src/workspace/folder-layout.ts` through
+//! printed by `packages/core/src/workspace/parts-1.ts` through
 //! `tests/goldens/sync-text.mjs`. Ported from `packages/core/test/workspace/`:
 //! `kind-suffix.test.ts`, `project-layout.test.ts` and `entity-types.test.ts`.
 //! The folder-reader and frontmatter-reader cases in those files need

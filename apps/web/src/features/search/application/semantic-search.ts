@@ -5,16 +5,16 @@ import { readyCore } from "@/lib/rust-core";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import { errorMessage, type SearchDoc } from "@weaveforge/core";
 import type { SemanticStatus as SemanticStatusInput } from "@weaveforge/wasm";
-import { targetEmbeddingModel } from "../infrastructure/embedding-models";
-import { nativeEmbedBridge, NativeEmbedder } from "../infrastructure/native-embedder";
+import { targetEmbeddingModel } from "../infrastructure/parts-1";
+import { nativeEmbedBridge, NativeEmbedder } from "../infrastructure/parts-2";
 import { vectorStore } from "../infrastructure/vector-store";
 import {
   supportsLocalEmbedding,
   WorkerEmbedder,
   type WorkerEmbedderOptions,
-} from "../infrastructure/worker-embedder";
+} from "../infrastructure/parts-3";
 import { SEMANTIC_CHANGED_EVENT } from "./parts";
-import { type EmbedProgress, SemanticIndex } from "./semantic-index";
+import { type EmbedProgress, SemanticIndex } from "./parts-2";
 
 // --- load-with-fallback ---
 /** Something that loads before use and can be released. */

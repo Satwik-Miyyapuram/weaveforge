@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { formatDate, formatDateTime, formatRelative } from "../format-date";
+import { formatDate, formatDateTime, formatRelative } from "../parts-1";
 
 const now = new Date("2026-07-10T12:00:00");
 

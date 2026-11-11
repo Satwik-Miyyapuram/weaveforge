@@ -1,5 +1,5 @@
 //! Reading a checked chunk body back as the model. A port of
-//! `packages/core/src/ink/ink-chunk-read.ts`: the views stay in TS for the
+//! `packages/core/src/ink/parts-1.ts`: the views stay in TS for the
 //! renderer, and the expensive direction — names, absolute coordinates, real
 //! numbers — is built here for segmentation, recognition, tests and `wf ink dump`.
 

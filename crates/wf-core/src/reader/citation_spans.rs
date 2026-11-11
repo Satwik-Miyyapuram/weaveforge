@@ -1,6 +1,6 @@
 //! Citation underline planning: map mention offsets onto the page's text runs and split each run at
 //! the mention boundaries. Port of `mentionItemRanges` and `planCitationSegments` in
-//! `apps/web/src/features/reader/application/citation-spans.ts`. The DOM rewrite stays in TS.
+//! `apps/web/src/features/reader/application/parts-1.ts`. The DOM rewrite stays in TS.
 
 use serde::{Deserialize, Serialize};
 

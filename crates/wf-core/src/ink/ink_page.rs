@@ -1,5 +1,5 @@
 //! Ink page model and text-layer helpers. Ports the page, stroke and text-layer
-//! functions of `packages/core/src/ink/ink-note.ts`; the frontmatter, body header and
+//! functions of `packages/core/src/ink/parts-2.ts`; the frontmatter, body header and
 //! frontmatter-level helpers live in `crate::sync::ink_note`.
 
 use std::collections::HashSet;

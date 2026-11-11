@@ -16,14 +16,14 @@
 import { useEffect, useMemo } from "react";
 import type { InkColour, InkHand } from "@weaveforge/core";
 
-import { trailStyle } from "../application/ink-trail";
+import { trailStyle } from "../application/parts-1";
 import {
   installNativeStrokeHandler,
   nativeInkBridge,
   nativeStrokeEvents,
-} from "../application/native-bridge";
+} from "../application/parts-2";
 import type { PenCaptureSession } from "../application/use-pen-capture";
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/parts-1";
 
 /** What the overlay needs from the host; the host owns the pen and the canvas. */
 export interface InkNativeOverlayDeps {

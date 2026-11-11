@@ -16,7 +16,7 @@ import type {
 import type { ISettingsRepository, UserSettings } from "../features/settings/domain/parts.js";
 import type { Clock, IdGenerator } from "../shared/parts.js";
 import { rust } from "../shared/rust.js";
-import type { WorkspaceSnapshot } from "../workspace/workspace-snapshot.js";
+import type { WorkspaceSnapshot } from "../workspace/parts-2.js";
 import type { InMemoryMemberRepository } from "./in-memory-a.js";
 
 // --- fakes ---

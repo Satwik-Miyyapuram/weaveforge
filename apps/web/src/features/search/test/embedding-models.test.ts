@@ -7,7 +7,7 @@ import {
   MINILM_L6,
   embeddingProfile,
   targetEmbeddingModel,
-} from "@/features/search/infrastructure/embedding-models";
+} from "@/features/search/infrastructure/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

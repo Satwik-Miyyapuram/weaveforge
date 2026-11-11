@@ -349,7 +349,7 @@ export function pinRecentTargets<T extends { kind: string; id: string }>(
 /**
  * Related-paper hit mappers (Rust `related_paper_hit`), re-exported from index.ts.
  * Keeps the results of the helpers in
- * apps/web/src/features/papers/application/fetch-related-papers.ts.
+ * apps/web/src/features/papers/application/parts-1.ts.
  */
 /** The hit for a Semantic Scholar paper, or null when it has no title. */
 export function s2ToHit(paper: unknown): RelatedPaperHitRow | null {

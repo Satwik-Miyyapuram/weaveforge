@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import test, { afterEach, beforeEach } from "node:test";
 
-import {
-  readStored,
-  readStoredJson,
-  removeStored,
-  resetStorageWarning,
-  writeStored,
-  writeStoredJson,
-} from "../safe-storage";
+import { readStored, readStoredJson, removeStored, resetStorageWarning, writeStored, writeStoredJson } from "../safe-storage";
 
 const g = globalThis as { window?: unknown };
 const hadWindow = "window" in g;

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fetchTypedPdfToCache } from "../application/resolve-paper-pdf-for-reader.js";
+import { fetchTypedPdfToCache } from "../application/parts-3.js";
 
 /**
  * 22-05: a proxy error is a failed fetch, not "the source is not a PDF".

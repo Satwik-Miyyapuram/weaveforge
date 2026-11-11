@@ -1,8 +1,8 @@
 "use client";
 
-import { compressImage } from "@/lib/image-compress";
-import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
+import { compressImage } from "@/lib/parts-1";
+import { logToApp } from "@/lib/error-report/app-log";
 import { loadCore } from "@/lib/rust-core";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 

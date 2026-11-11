@@ -36,13 +36,13 @@ import { FormError } from "@/components/form-error";
 import { ProjectContext } from "@/features/projects";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
-import { remoteSyncAvailable } from "@/features/workspace/application/folder-remote-sync";
+import { remoteSyncAvailable } from "@/features/workspace/application/parts-2";
 import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { SkippedFiles } from "./skipped-files";
-import type { SkippedFile } from "@/features/workspace/application/import-limits";
+import type { SkippedFile } from "@/features/workspace/application/parts-2";
 import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
 
 const FolderConflictCard = dynamic(

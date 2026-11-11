@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/embedding-models";
+import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/parts-1";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   SEARCH_KINDS,

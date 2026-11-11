@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import type { AddPaperResult, NewPaperInput, Paper } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { RustCore } from "@/lib/rust-core";
-import { bibImportMessage, importBibFile, splitPaperDrop, type BibImportDeps } from "../application/paper-from-bib";
+import { bibImportMessage, importBibFile, splitPaperDrop, type BibImportDeps } from "../application/parts-2";
 
 let core: RustCore;
 before(async () => { core = await loadTestCore(); });

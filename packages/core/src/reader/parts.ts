@@ -1,5 +1,5 @@
 import { rust } from "../shared/rust.js";
-import type { WorkspaceAnnotation } from "../workspace/workspace-snapshot.js";
+import type { WorkspaceAnnotation } from "../workspace/parts-2.js";
 
 // --- pdf-source-ladder ---
 /**

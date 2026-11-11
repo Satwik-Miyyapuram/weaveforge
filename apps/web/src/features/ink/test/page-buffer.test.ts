@@ -20,7 +20,7 @@ import {
   fromGeometry,
   toGeometry,
   type InkStrokeGeometry,
-} from "../application/page-buffer";
+} from "../application/parts-3";
 import { typedCore } from "@/lib/rust-core";
 
 /** A stroke that is a horizontal line at `y`, `count` points from `x0`. */

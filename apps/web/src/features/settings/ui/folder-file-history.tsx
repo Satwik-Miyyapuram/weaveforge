@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { WorkspaceCommit } from "@weaveforge/core";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
-import type { FileHistorySource } from "@/features/workspace/application/folder-file-history";
+import type { FileHistorySource } from "@/features/workspace/application/parts-1";
 import { formatError } from "@/lib/format-error";
 
 const LIMIT = 30;

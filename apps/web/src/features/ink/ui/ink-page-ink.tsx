@@ -14,7 +14,7 @@
 
 import { useMemo } from "react";
 import type { InkStroke } from "@weaveforge/core";
-import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import { InkStrokes } from "./ink-strokes";
 import { readyCore } from "@/lib/rust-core";
 

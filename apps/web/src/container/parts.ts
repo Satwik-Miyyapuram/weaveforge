@@ -1,21 +1,22 @@
 import { LibraryTidyFacade } from "@/container/facades/library-tidy";
 import type { IAuthService } from "@/features/auth/domain/parts";
-import { MergePapersUseCase } from "@/features/papers/application/merge-papers.use-case";
-import { queuePaperPdfDownload } from "@/features/reader/application/download-library-pdfs";
-import { BucketAssetStore } from "@/lib/bucket-asset-store";
-import { openAppDb, REFERENCE_STORE } from "@/lib/cache/app-idb";
-import { registerSessionReset } from "@/lib/cache/parts";
+import { MergePapersUseCase } from "@/features/papers/application/parts-1";
+import { queuePaperPdfDownload } from "@/features/reader/application/parts-1";
+import { describeRejection, responseError } from "@/lib/format-error";
+import { BucketAssetStore } from "@/lib/parts-1";
 import {
   clearProjectCacheHooks,
   configureProjectCacheHooks,
   invalidateAllRepoCaches,
+  openAppDb,
   ProjectLwwInvalidator,
+  REFERENCE_STORE,
   setActiveProjectIdForCache,
-} from "@/lib/cache/project-lww-invalidator";
+} from "@/lib/cache/parts-1";
+import { registerSessionReset } from "@/lib/cache/parts";
 import { logToApp } from "@/lib/error-report/app-log";
-import { describeRejection, responseError } from "@/lib/format-error";
 import { relayUrl } from "@/lib/parts";
-import type { ProjectContext } from "@/lib/project-context";
+import type { ProjectContext } from "@/lib/parts-2";
 import { loadCore } from "@/lib/rust-core";
 import {
   type AddPaperDeps,
@@ -48,11 +49,11 @@ import {
   wirePostgrestBackend,
 } from "../backend/providers/postgrest/wire-postgrest-backend";
 import { SupabaseAdminUserProvisioner } from "../backend/providers/supabase-auth/parts";
-import type { InkChunkStore } from "../features/ink/application/ink-chunk-store";
+import type { InkChunkStore } from "../features/ink/application/parts-1";
 import type {
   ReferenceLookupCache,
   ResolvedReference,
-} from "../features/reader/application/reference-lookup";
+} from "../features/reader/application/parts-2";
 import type { IVaultAssetStore } from "../features/vault/domain/vault-assets";
 
 // --- app-parts ---

@@ -1,12 +1,12 @@
 "use client";
 
-import { formatDateTime } from "@/lib/format-date";
+import { formatError } from "@/lib/format-error";
+import { formatDateTime } from "@/lib/parts-1";
 import { useState } from "react";
 import { useAuth } from "@/features/auth";
-import { formatError } from "@/lib/format-error";
 import { useSyncStatus } from "./use-sync";
 import { FormError } from "@/components/form-error";
-import { requestSync } from "../domain/live-sync";
+import { requestSync } from "../domain/parts-1";
 import { Button } from "@/components/button";
 
 /**

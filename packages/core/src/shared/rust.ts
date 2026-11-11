@@ -3,7 +3,7 @@
  * module here (apps/web `lib/rust-core.ts`), and core glue calls Rust through
  * `rust()`, typed from the wasm package's generated declarations.
  */
-import type { ConflictKind, ImportAction } from "../workspace/deserialize-workspace.js";
+import type { ConflictKind, ImportAction } from "../workspace/parts-1.js";
 
 /** The note as it stood when the two sides last agreed (Rust `VaultPageBase`). */
 export interface VaultPageBase {

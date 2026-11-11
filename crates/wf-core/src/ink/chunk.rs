@@ -1,5 +1,5 @@
 //! The ink chunk container: one page, columnar binary (a port of
-//! `packages/core/src/ink/ink-binary.ts`; its header has the layout table and
+//! `packages/core/src/ink/parts-1.ts`; its header has the layout table and
 //! the size measurements).
 //!
 //! Here: the layout arithmetic, the 16-byte header, the strict body checks and

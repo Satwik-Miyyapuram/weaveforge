@@ -4,7 +4,7 @@ import type {
   MilestoneDependency,
   MilestoneStatus,
 } from "@weaveforge/core";
-import { requireRowSpec } from "@/backend/providers/postgrest/spec-repository";
+import { requireRowSpec } from "@/backend/providers/postgrest/parts-1";
 import { readyCore } from "@/lib/rust-core";
 
 /**

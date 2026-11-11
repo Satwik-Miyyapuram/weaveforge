@@ -1,4 +1,4 @@
-//! Filesystem port for the workspace folder. Ports `packages/core/src/workspace/fs-port.ts`.
+//! Filesystem port for the workspace folder. Ports `packages/core/src/workspace/parts-1.ts`.
 //!
 //! Nine methods, deliberately small: no symlinks, modes, streams or watching. Paths are POSIX
 //! and relative to a root the adapter owns; adapters reject unsafe paths.

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isCachePdfUrl } from "../application/resolve-paper-pdf-for-reader.js";
+import { isCachePdfUrl } from "../application/parts-3.js";
 
 test("isCachePdfUrl recognises the ladder cache scheme", () => {
   assert.equal(isCachePdfUrl("cache://paper-1"), true);

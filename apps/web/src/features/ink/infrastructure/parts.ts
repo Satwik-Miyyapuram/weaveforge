@@ -6,7 +6,7 @@ import {
   INK_CHUNK_EXT,
   type IWorkspaceFs,
 } from "@weaveforge/core";
-import type { InkChunkStore } from "../application/ink-chunk-store";
+import type { InkChunkStore } from "../application/parts-1";
 
 // --- blob-ink-chunk-store ---
 /**

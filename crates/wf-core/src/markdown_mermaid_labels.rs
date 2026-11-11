@@ -1,4 +1,4 @@
-//! Mermaid label quoting (wf-core `markdown_mermaid_labels`). Ported from `apps/web/src/lib/mermaid-render.ts`.
+//! Mermaid label quoting (wf-core `markdown_mermaid_labels`). Ported from `apps/web/src/lib/parts-2.ts`.
 //!
 //! Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`. A label
 //! that needs it is quoted before the parser sees it; anything else is left byte for byte.

@@ -1,12 +1,11 @@
 import { clearPersistedMcpSessions } from "@/features/ai-assistant/infrastructure/mcp-session-store";
 import { stopAllRelays } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
-import { closeAppDb } from "@/lib/cache/app-idb";
+import { closeAppDb } from "@/lib/cache/parts-1";
 import { clearCacheStorage } from "@/lib/parts";
-import { idbClearScreenCaches } from "@/lib/cache/screen-cache-idb";
-import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
-import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";
-import { idbClearVectors } from "@/features/search/infrastructure/vector-store-idb";
-import { PAPER_HTML_DB_NAME, PDF_CACHE_DB_NAME } from "@/features/reader/infrastructure/local-cache-names";
+import { idbClearScreenCaches } from "@/lib/cache/parts-2";
+import { idbClearSearchIndexes, idbClearVectors } from "@/features/search/infrastructure/parts-3";
+import { clearPdfTexts } from "@/features/search/infrastructure/parts-2";
+import { PAPER_HTML_DB_NAME, PDF_CACHE_DB_NAME } from "@/features/reader/infrastructure/parts-1";
 
 /**
  * `weaveforge.` and `wf.` keys that describe this device, not the account:

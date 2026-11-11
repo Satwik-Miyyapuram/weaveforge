@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import type { DesktopInkHaptics } from "@/lib/desktop/desktop-bridge";
 
-import { createPenHaptics } from "../application/pen-haptics";
+import { createPenHaptics } from "../application/parts-4";
 
 function sink() {
   const sent: DesktopInkHaptics[] = [];

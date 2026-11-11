@@ -1,5 +1,5 @@
 //! The sync line's Zotero write-back part, from a write-back summary.
-//! A port of `zoteroWriteBackMessage` in apps/web/src/features/reader/application/write-back-zotero-annotations.ts.
+//! A port of `zoteroWriteBackMessage` in apps/web/src/features/reader/application/parts-3.ts.
 
 use serde::Deserialize;
 

@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { WorkerEmbedder } from "../infrastructure/worker-embedder";
+import { WorkerEmbedder } from "../infrastructure/parts-3";
 
 type Listener = (event: { data: unknown }) => void;
 

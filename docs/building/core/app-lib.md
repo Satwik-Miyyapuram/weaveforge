@@ -34,7 +34,7 @@ typed fields), and `takenTitles` in `apps/web/src/features/wiki/application/wiki
 `pages.map((page) => page.title)` projection with no rule to port).
 `hasResultsTables` moved to Rust: see `report-results-tables.md`.
 
-Source: `apps/web/src/lib/palette-actions.ts`, `apps/web/src/lib/parts.ts`,
+Source: `apps/web/src/lib/parts-2.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/parts.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/wikilink-create-preference.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/desktop/menu-edit.ts`.

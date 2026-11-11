@@ -151,7 +151,7 @@ What the rail adds is state around creation, not a new record:
 
 - A vault page or ink note whose header carries `paper: <paperId>`
   (frontmatter on a text note; `ink-paper:` header key on an ink note, new in
-  `packages/core/src/ink/ink-note.ts`). Title `Notes — <paper title>`; created
+  `packages/core/src/ink/parts-2.ts`). Title `Notes — <paper title>`; created
   on first request, opened after. `findCompanion(paperId, kind)` on the vault
   indexes the key — no full-body scan per call.
 - Explorer nests companions under the paper (`workspace-tree.ts`): 📝 text,

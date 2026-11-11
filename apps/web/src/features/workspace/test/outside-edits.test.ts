@@ -10,7 +10,7 @@ import {
   splitOutsideEdits,
   type FolderDiff,
   type SeenFile,
-} from "../application/outside-edits";
+} from "../application/parts-3";
 
 before(async () => {
   await loadTestCore();

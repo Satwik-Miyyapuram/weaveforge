@@ -4,8 +4,8 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
-import { Adoption, AlreadyAdoptedError } from "../domain/adoption";
-import { SyncStateStore } from "../domain/sync-state";
+import { Adoption, AlreadyAdoptedError } from "../domain/parts-1";
+import { SyncStateStore } from "../domain/parts-3";
 
 before(loadTestCore);
 

@@ -1,4 +1,4 @@
-import type { SkippedFile } from "@/features/workspace/application/import-limits";
+import type { SkippedFile } from "@/features/workspace/application/parts-2";
 
 /** How many left-out files are named before the rest is only counted. */
 const SHOWN = 10;

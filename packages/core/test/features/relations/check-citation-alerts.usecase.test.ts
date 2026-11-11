@@ -7,7 +7,7 @@ import type {
   ICitationSource,
 } from "../../../src/features/relations/application/parts.js";
 import type { INotificationIntegration } from "../../../src/features/integrations/domain/parts.js";
-import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
+import type { PaperRef } from "../../../src/features/papers/application/parts-1.js";
 import type { Milestone } from "../../../src/features/plan/domain/parts.js";
 import type { Paper } from "../../../src/features/papers/domain/parts.js";
 import {

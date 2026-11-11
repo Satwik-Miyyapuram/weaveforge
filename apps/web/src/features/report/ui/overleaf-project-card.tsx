@@ -22,7 +22,7 @@ const store: ThumbStore = { get: (key) => readStored(key), set: (key, value) => 
 const queue = serialQueue();
 
 async function renderFirstPage(pdf: Blob): Promise<string> {
-  const { renderPdfPage, toWebpBlob } = await import("@/features/ink/application/pdf-page-raster");
+  const { renderPdfPage, toWebpBlob } = await import("@/features/ink/application/parts-3");
   const canvas = await renderPdfPage(await pdf.arrayBuffer(), 1, 360);
   const { blob } = await toWebpBlob(canvas);
   return new Promise((resolve, reject) => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { normalizeZoteroLibrary } from "../zotero-web-api";
+import { normalizeZoteroLibrary } from "../parts-3";
 
 before(async () => {
   await loadTestCore();

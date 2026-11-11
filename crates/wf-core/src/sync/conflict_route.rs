@@ -1,6 +1,6 @@
 //! Where the outbox pump sends an op the server refused as stale, decided from the server's
 //! answer (wf-core `sync::conflict_route`). Ports the branching in `OutboxPump.conflict` in
-//! `apps/web/src/features/offline-sync/domain/pump.ts`. The outbox writes, the conflict store
+//! `apps/web/src/features/offline-sync/domain/parts-3.ts`. The outbox writes, the conflict store
 //! calls and the merge stay in TypeScript; this module only picks the route.
 
 use serde::{Deserialize, Serialize};

@@ -1,5 +1,5 @@
 //! The pure parts of the page buffer (a port of
-//! `apps/web/src/features/ink/application/page-buffer.ts`): bounding boxes, the
+//! `apps/web/src/features/ink/application/parts-3.ts`): bounding boxes, the
 //! compaction remap, the background-index clamp and a stroke's typed arrays.
 //!
 //! The buffer itself (its typed arrays, tombstone flags and the renderer hooks)

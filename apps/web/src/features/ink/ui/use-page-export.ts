@@ -8,7 +8,7 @@ import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import { containsMath } from "@/components/markdown/math-renderer";
 import type { InkPrintFigure, InkSvgFigure } from "@weaveforge/wasm";
 import { loadInOrder } from "../application/parts";
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/parts-1";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
 

@@ -7,9 +7,8 @@ import { PGlite } from "@electric-sql/pglite";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IBlobStore } from "@weaveforge/core";
 
-import { LocalFirstBlobStore } from "../local-first-blob-store";
+import { ExperimentPush, keepPushing, LocalFirstBlobStore } from "../parts-1";
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { ExperimentPush, keepPushing } from "../local-first-experiment-push";
 import type { LocalQuery } from "../pglite-client";
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");

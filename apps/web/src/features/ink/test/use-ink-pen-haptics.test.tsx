@@ -8,9 +8,9 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import type { PenHaptics, PenHapticsTool } from "../application/pen-haptics";
+import type { PenHaptics, PenHapticsTool } from "../application/parts-4";
 import { useInkPen, type InkPenDeps } from "../ui/use-ink-pen";
-import { INK_RENDER_COLOURS } from "../render/ink-palette";
+import { INK_RENDER_COLOURS } from "../render/parts-1";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

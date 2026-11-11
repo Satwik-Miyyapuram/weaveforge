@@ -1,4 +1,4 @@
-//! Ports `packages/core/src/workspace/deserialize-workspace.ts`: reads the
+//! Ports `packages/core/src/workspace/parts-1.ts`: reads the
 //! folder's markdown files into entities and diffs them against what is stored.
 //!
 //! Divergence: the TypeScript looks directory names up on a plain object, so a

@@ -3,7 +3,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 import assert from "node:assert/strict";
 import type { NewPaperInput, Paper } from "@weaveforge/core";
-import { ZoteroSync } from "../infrastructure/zotero-sync";
+import { ZoteroSync } from "../infrastructure/parts-3";
 
 before(async () => {
   await loadTestCore();

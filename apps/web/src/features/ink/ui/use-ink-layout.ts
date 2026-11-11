@@ -13,8 +13,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import { backingRatio } from "../render/ink-renderer";
-import { readThemePalette, type InkPalette } from "../render/ink-palette";
+import { backingRatio, type InkPalette, readThemePalette } from "../render/parts-1";
 import { readyCore } from "@/lib/rust-core";
 
 /** What the layout needs from the host. */

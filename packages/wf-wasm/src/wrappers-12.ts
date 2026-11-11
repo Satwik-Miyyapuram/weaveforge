@@ -295,7 +295,7 @@ export function filterRows(
 // --- zotero-library ---
 /**
  * Zotero Web API library helpers (Rust `zotero_library`), re-exported from index.ts.
- * Keeps the results of the helpers in apps/web/src/features/papers/infrastructure/zotero-web-api.ts.
+ * Keeps the results of the helpers in apps/web/src/features/papers/infrastructure/parts-3.ts.
  */
 /** The library path for a pasted library id or path, or undefined when it is not one. */
 export function normalizeZoteroLibrary(library: string | undefined): string | undefined {

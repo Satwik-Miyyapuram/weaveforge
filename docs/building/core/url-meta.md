@@ -22,7 +22,7 @@ stay in TypeScript.
   (`crates/wf-wasm/src/url_meta.rs`). The prefix avoids name collisions.
 - `packages/wf-wasm/src/wrappers-9.ts` wraps them, re-exported from `modules.ts`
   and `feature-wrappers.ts`.
-- `apps/web/src/features/papers/infrastructure/url-metadata-source.ts`
+- `apps/web/src/features/papers/infrastructure/parts-2.ts`
   (`readInShell`) calls `loadCore()` and uses both functions. The relay's `error`
   is still trimmed and cut to 200 characters in TypeScript before it reaches Rust.
 

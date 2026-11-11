@@ -1,7 +1,7 @@
-import { formatRelative } from "@/lib/format-date";
+import { formatRelative } from "@/lib/parts-1";
 import { readyCore } from "@/lib/rust-core";
-import type { LiveSyncState } from "./live-sync";
-import type { OutboxEntry } from "./outbox";
+import type { LiveSyncState } from "./parts-1";
+import type { OutboxEntry } from "./parts-2";
 
 export type { SyncDotState } from "@weaveforge/wasm";
 

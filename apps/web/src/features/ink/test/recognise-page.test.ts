@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import { type InkPage, type InkRecogniser, type RecognisedLine } from "@weaveforge/core";
 
-import { acceptLine, recognisePage } from "../application/recognise-page";
+import { acceptLine, recognisePage } from "../application/parts-4";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { papersNeedingIndex } from "@/features/search/application/index-library-pdfs";
 import {
   autoIndexEnabled,
   autoIndexStatus,
   cancelLibraryIndex,
+  papersNeedingIndex,
   runLibraryIndex,
   setAutoIndexEnabled,
   subscribeAutoIndex,
-} from "@/features/search/application/auto-index-library";
+} from "@/features/search/application/parts-1";
 import { formatError } from "@/lib/format-error";
 import { getContainer } from "@/bootstrap";
 import {
   isInstalledApp,
   shouldPersistIndex,
-} from "@/features/search/infrastructure/index-cache-policy";
+} from "@/features/search/infrastructure/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";

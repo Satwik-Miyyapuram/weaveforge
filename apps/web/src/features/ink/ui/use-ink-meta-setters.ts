@@ -1,7 +1,7 @@
 import { useCallback, type MutableRefObject } from "react";
 import type { InkHand, InkNoteMeta, InkPaper } from "@weaveforge/core";
 
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 
 export interface InkMetaSettersDeps {
   /** The header, as it will be written back. */

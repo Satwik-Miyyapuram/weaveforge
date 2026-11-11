@@ -49,7 +49,7 @@ import {
   type ViewMenuProps,
 } from "./ink-bar-view";
 import { InkQuickColours } from "./ink-quick-colours";
-import { INK_COLOUR_TOKENS } from "../render/ink-palette";
+import { INK_COLOUR_TOKENS } from "../render/parts-1";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";

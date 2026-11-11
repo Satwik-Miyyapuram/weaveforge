@@ -7,7 +7,7 @@ import { typedCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
-import type { RelatedKind } from "@/features/papers/application/fetch-related-papers";
+import type { RelatedKind } from "@/features/papers/application/parts-1";
 
 type RelatedHit = {
   title: string;
@@ -39,7 +39,7 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
     setOpen(true);
     try {
       const { fetchRelatedPapers } = await import(
-        "@/features/papers/application/fetch-related-papers"
+        "@/features/papers/application/parts-1"
       );
       const c = getContainer();
       const [library, settings] = await Promise.all([c.papers.loadScreenData(), c.settings.manageSettings.get()]);

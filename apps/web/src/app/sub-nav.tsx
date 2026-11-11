@@ -4,7 +4,7 @@ import { useNavPending } from "@/lib/nav-pending";
 import { useLayoutEffect, useRef } from "react";
 import { activeNavItem, groupForPath, phoneItems } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/parts";
-import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
+import { prefetchScreenForPath } from "@/lib/cache/parts-1";
 import { NavLink } from "@/components/controls";
 
 /**

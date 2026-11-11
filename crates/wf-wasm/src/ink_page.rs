@@ -1,5 +1,5 @@
 //! Ink page helpers for JavaScript (wf-core `ink::ink_page`). The JS names match
-//! `packages/core/src/ink/ink-note.ts`.
+//! `packages/core/src/ink/parts-2.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -4,7 +4,7 @@
  */
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
-import { getRealtimeClient } from "@/backend/providers/postgrest/client";
+import { getRealtimeClient } from "@/backend/providers/postgrest/parts-1";
 import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
 import type { Awareness } from "y-protocols/awareness";
 import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from "y-protocols/awareness";

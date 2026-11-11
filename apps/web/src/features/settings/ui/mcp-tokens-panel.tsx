@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import type { McpTokenRecord } from "@/container/facades";
-import { formatDate } from "@/lib/format-date";
 import { formatError } from "@/lib/format-error";
+import { formatDate } from "@/lib/parts-1";
 import { FormError } from "@/components/form-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";

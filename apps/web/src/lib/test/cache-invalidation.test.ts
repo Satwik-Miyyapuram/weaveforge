@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheRepo } from "@/lib/cache/cache-repo";
-import { readyCore } from "@/lib/rust-core";
 import {
+  cacheRepo,
   cacheWriteNotify,
   clearProjectCacheHooks,
   configureProjectCacheHooks,
@@ -10,9 +9,10 @@ import {
   invalidateForWrite,
   registerRepoCacheEntry,
   setActiveProjectIdForCache,
-} from "@/lib/cache/project-lww-invalidator";
+} from "@/lib/cache/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { clearSessionCaches, registerSessionReset } from "@/lib/cache/parts";
-import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/screen-cache";
+import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/parts-2";
 
 function makeRepo(name: string, resourceType?: string) {
   const cache = new Map<string, Promise<unknown>>();

@@ -1,5 +1,5 @@
 //! The row or the action a reader's choice produces (`ConflictStore.resolveWith` and
-//! `resolveDeletion` in `apps/web/src/features/offline-sync/domain/conflicts.ts`). The outbox
+//! `resolveDeletion` in `apps/web/src/features/offline-sync/domain/parts-1.ts`). The outbox
 //! and `sync_*` SQL calls stay in TypeScript; this module only decides what they should do.
 
 use std::collections::HashMap;

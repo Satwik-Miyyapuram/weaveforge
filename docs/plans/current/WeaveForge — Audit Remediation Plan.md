@@ -194,7 +194,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 ### 1.4 The experiments screen must not write on load — `BUG-20`, `PERF-10`
 - Split `reconcileAndLoad` into a pure read and a single-flight `reconcileStaleRuns`, called from a scheduler rather than from `loadScreenData`.
 - **Filter to runs this user owns before writing any status.** Reconciliation currently walks the merged list, which includes other users' shared runs, and persists `abandoned` with no ownership check. This is the most serious finding in the audit's web half and the audit does not mention it.
-- Bound the fan-out (upload and status writes) with the concurrency mapper that already exists privately in `apps/web/src/features/papers/infrastructure/zotero-web-api.ts` — export it rather than writing a second copy, and apply it to the same unbounded pattern in `container/facades/report.ts` and `container/facades/papers.ts`.
+- Bound the fan-out (upload and status writes) with the concurrency mapper that already exists privately in `apps/web/src/features/papers/infrastructure/parts-3.ts` — export it rather than writing a second copy, and apply it to the same unbounded pattern in `container/facades/report.ts` and `container/facades/papers.ts`.
 - Test: `experiments-facade.test.ts` from 0.3 — two concurrent calls produce one batch of writes; a shared run owned by someone else is never written.
 
 ### 1.5 Zotero preview and live push must send the same set — `BUG-09`
@@ -228,7 +228,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 - Tests must assert the *primitive* (`isPublicAddress("010.0.0.1")`) — asserting `checkUrlShape("http://010.0.0.1/")` is refused would be asserting something false.
 
 ### 1.12 Two small leaks
-- `apps/web/src/lib/recent-targets.ts`: guard the `setItem`. One caller is a navigation handler, so today a full disk aborts the navigation; the other three throw inside effects.
+- `apps/web/src/lib/parts-2.ts`: guard the `setItem`. One caller is a navigation handler, so today a full disk aborts the navigation; the other three throw inside effects.
 - `apps/web/src/backend/net/safe-fetch.ts`: cancel the response body on the non-OK path, as the redirect path already does. Every 403/404/5xx currently holds the socket.
 
 ### 1.13 Session reset must invalidate the search index — *audit missed*

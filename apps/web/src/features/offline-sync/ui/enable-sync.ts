@@ -1,8 +1,8 @@
-import { createDataClient } from "@/backend/providers/postgrest/client";
+import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import { readBackendConfig } from "@/backend/parts";
 import { readyCore } from "@/lib/rust-core";
 import { syncEngine } from "./use-sync";
-import type { AdoptionResult } from "../domain/adoption";
+import type { AdoptionResult } from "../domain/parts-1";
 
 /**
  * A **fresh** access token per request.

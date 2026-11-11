@@ -19,17 +19,17 @@ import type {
   PlanScreenData as PlanScreenLoadData,
 } from "@/features/plan/application/parts";
 import type { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
-import type { createReferenceActions } from "@/features/reader/application/reference-actions";
 import type {
+  createReferenceActions,
   ReferenceLookupService,
   ResolvedReference,
-} from "@/features/reader/application/reference-lookup";
+} from "@/features/reader/application/parts-2";
 import type { IGitClient, IIntegrationsStore, Integration } from "@/features/sync/domain/parts";
 import type {
   LoadVaultScreenUseCase,
   VaultScreenData,
 } from "@/features/vault/application/parts";
-import type { ProjectContext } from "@/lib/project-context";
+import type { ProjectContext } from "@/lib/parts-2";
 import { readyCore } from "@/lib/rust-core";
 import type {
   DashboardLayout,
@@ -77,23 +77,23 @@ export * from "./ink";
 
 import type { IntegrationsRegistry } from "@/integrations/parts";
 import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
-import type { PapersFacade } from "./papers";
-import type { PaperFieldsFacade } from "./paper-fields";
 import type { LibraryTidyFacade } from "./library-tidy";
-import type { ZoteroFacade } from "./zotero";
-import type { GraphFacade } from "./graph";
 import type { LogbookFacade } from "./logbook";
+import type { OrgFacade } from "./org";
+import type { PaperFieldsFacade } from "./paper-fields";
+import type { PapersFacade } from "./papers";
+import type { ReadingListsFacade } from "./reading-lists";
 import type { ReportFacade } from "./report";
+import type { SettingsFacade } from "./settings";
+import type { SharingFacade } from "./sharing";
+import type { WorkspaceFacade } from "./workspace";
+import type { ZoteroFacade } from "./zotero";
+import type { AiProposalFacade } from "./ai-proposals";
 import type { CollabFacade } from "./collab";
 import type { ExperimentsFacade } from "./experiments";
-import type { SettingsFacade } from "./settings";
-import type { AiAssistantFacade } from "./ai-assistant";
-import type { AiProposalFacade } from "./ai-proposals";
-import type { OrgFacade } from "./org";
-import type { SharingFacade } from "./sharing";
-import type { ReadingListsFacade } from "./reading-lists";
-import type { WorkspaceFacade } from "./workspace";
+import type { GraphFacade } from "./graph";
 import type { InkFacade } from "./ink";
+import type { AiAssistantFacade } from "./ai-assistant";
 
 export interface AppContainer {
   integrations: IntegrationsRegistry;

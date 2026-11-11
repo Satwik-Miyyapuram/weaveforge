@@ -14,7 +14,7 @@ import {
 import type { BackendConfigField } from "@weaveforge/wasm";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/parts";
-import { createDataClient } from "./providers/postgrest/client";
+import { createDataClient } from "./providers/postgrest/parts-1";
 import { secretsStoreFor } from "./providers/secrets-store";
 import { SupabaseSessionProvider } from "./providers/supabase-auth/parts";
 

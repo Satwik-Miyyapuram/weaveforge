@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fetchPdfBytesForCache } from "../application/resolve-paper-pdf-for-reader.js";
+import { fetchPdfBytesForCache } from "../application/parts-3.js";
 
 const TOKEN = "test-access-token";
 const withToken = async () => TOKEN;

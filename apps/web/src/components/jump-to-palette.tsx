@@ -3,18 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SearchExcerpt, SearchHit } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+import { DOCS_URL, type MenuPaletteAction, menuPaletteActions, pinRecentTargets, readRecentTargets, type RecentTargetKind, rememberRecentTarget, requestShortcuts, settingsPaletteActions } from "@/lib/parts-2";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
-import {
-  pinRecentTargets,
-  readRecentTargets,
-  rememberRecentTarget,
-  type RecentTargetKind,
-} from "@/lib/recent-targets";
-import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { createNoteFromQuery, goToRoute, isMacPlatform } from "@/lib/parts";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
@@ -22,7 +17,6 @@ import { AskLibraryRow } from "@/components/ask-library-row";
 import { useModuleRegistry } from "@/lib/hooks/parts";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
 import { shortcutTable } from "@/features/editor-workspace/application/parts";
 import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";
 import { showNewProject, useProject } from "@/features/projects";

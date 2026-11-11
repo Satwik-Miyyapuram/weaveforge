@@ -7,7 +7,7 @@ import type {
   ShareableType,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { one, oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
+import { one, oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/parts-1";
 
 /** A `shares` row as PostgREST returns it; mapped by `readyCore().shareFromRow`. */
 interface ShareRow {

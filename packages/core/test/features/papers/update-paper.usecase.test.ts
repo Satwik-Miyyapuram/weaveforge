@@ -5,7 +5,7 @@ import {
   InMemoryPaperTagRepository,
   InMemoryTagRepository,
 } from "../../../src/testing/in-memory-b.js";
-import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
+import { AddPaperUseCase } from "../../../src/features/papers/application/parts-1.js";
 import { UpdatePaperUseCase } from "../../../src/features/papers/application/update-paper.use-case.js";
 import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
 import { fixedClock, seqIds } from "../../../src/testing/parts.js";

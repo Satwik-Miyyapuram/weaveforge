@@ -6,7 +6,7 @@ Four pure helpers moved from `apps/web/src/lib` into `crates/wf-core`. Each has 
 | --- | --- | --- | --- |
 | `signed_out` | `is_signed_out_refusal` | `isSignedOutRefusal` | `apps/web/src/lib/parts.ts` |
 | `view_transition` | `motion_tier`, `transitions_on`, `is_plain_click` | `motionTier`, `transitionsOn`, `isPlainClick` | `apps/web/src/lib/view-transition.ts` |
-| `recent_targets` | `is_recent_target`, `pin_recent_targets` | `isRecentTarget`, `pinRecentTargets` | `apps/web/src/lib/recent-targets.ts` |
+| `recent_targets` | `is_recent_target`, `pin_recent_targets` | `isRecentTarget`, `pinRecentTargets` | `apps/web/src/lib/parts-2.ts` |
 | `relay_url` | `relay_url`, `relay_path` | `relayUrl`, `relayPath` | `apps/web/src/lib/parts.ts` |
 
 Rules:

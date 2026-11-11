@@ -9,6 +9,7 @@ import {
   type ExperimentStatus,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -29,7 +30,6 @@ import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { Button, IconButton, IconLink } from "@/components/button";
-import { readyCore, typedCore } from "@/lib/rust-core";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {

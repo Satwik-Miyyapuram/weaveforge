@@ -21,7 +21,7 @@ import {
   summarizePdfDrop,
   type PdfDropDeps,
   type PdfDropOutcome,
-} from "../application/paper-from-pdf";
+} from "../application/parts-2";
 
 const paper = (id: string, title = id) => ({ id, title }) as Paper;
 

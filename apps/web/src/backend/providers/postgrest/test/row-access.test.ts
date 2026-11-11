@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { deleteRowById, rowById } from "../row-access";
+import { deleteRowById, rowById } from "../parts-1";
 
 interface Call {
   table: string;

@@ -10,8 +10,8 @@ import {
   setAutoIndexDeps,
   stopAutoIndex,
   type AutoIndexDeps,
-} from "../application/auto-index-library";
-import type { LibraryIndexResult } from "../application/index-library-pdfs";
+} from "../application/parts-1";
+import type { LibraryIndexResult } from "../application/parts-1";
 import { PdfIndexChip } from "../ui/pdf-index-chip";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

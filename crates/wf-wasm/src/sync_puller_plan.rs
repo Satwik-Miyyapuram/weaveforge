@@ -1,6 +1,6 @@
 //! Pull decisions for the offline-sync `Puller`, for JavaScript (wf-core `sync::puller_plan`).
 //! The JS names are `pullSummary`, `pullApplyStep`, `pullTombstoneStep`, `uniqueConstraintName`
-//! and `isUniqueClash`, called from `apps/web/src/features/offline-sync/domain/puller.ts`.
+//! and `isUniqueClash`, called from `apps/web/src/features/offline-sync/domain/parts-2.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

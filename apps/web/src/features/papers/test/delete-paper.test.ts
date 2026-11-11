@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { Paper } from "@weaveforge/core";
-import { DeletePaperUseCase } from "../application/delete-paper.use-case";
+import { DeletePaperUseCase } from "../application/parts-1";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 

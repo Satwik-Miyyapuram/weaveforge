@@ -1,9 +1,9 @@
 "use client";
 
-import { formatDate, formatDateTime } from "@/lib/format-date";
+import { formatDate, formatDateTime } from "@/lib/parts-1";
 import { Fragment, useState } from "react";
 import { readyCore, type DiffLine, type HunkPick } from "@/lib/rust-core";
-import type { OpenConflict } from "../domain/conflicts";
+import type { OpenConflict } from "../domain/parts-1";
 import { FormError } from "@/components/form-error";
 import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";

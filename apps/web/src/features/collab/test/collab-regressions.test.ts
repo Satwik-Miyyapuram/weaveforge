@@ -10,7 +10,7 @@ import * as Y from "yjs";
 import { seedIfEmpty, seedUpdate } from "../domain/seed-document";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { encodeRealtimeMessageAsJson } from "@/backend/providers/postgrest/client";
+import { encodeRealtimeMessageAsJson } from "@/backend/providers/postgrest/parts-1";
 
 before(async () => {
   await loadTestCore();

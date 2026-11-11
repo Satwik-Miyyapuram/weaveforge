@@ -1,5 +1,5 @@
 //! Ask-your-library prompt for JavaScript (wf-core `search::ask_library`).
-//! The JS names match `apps/web/src/features/search/application/ask-library.ts`.
+//! The JS names match `apps/web/src/features/search/application/parts-1.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

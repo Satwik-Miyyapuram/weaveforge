@@ -2,7 +2,7 @@
 
 import type { ParsedReference } from "@weaveforge/core";
 import { Button, CloseButton } from "@/components/button";
-import type { ResolvedReference } from "../application/reference-lookup";
+import type { ResolvedReference } from "../application/parts-2";
 
 export interface ReferencePopoverProps {
   entry: ParsedReference;

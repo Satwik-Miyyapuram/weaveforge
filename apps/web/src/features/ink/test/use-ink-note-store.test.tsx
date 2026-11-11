@@ -13,7 +13,7 @@ import { act, create } from "react-test-renderer";
 
 
 
-import { MemoryInkChunkStore, type InkStoredPage } from "../application/ink-chunk-store";
+import { MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
 import { awaitInkWrites } from "../application/parts";
 import { INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
 import { useInkWorkerRpc, type InkSave } from "../ui/use-ink-worker-rpc";

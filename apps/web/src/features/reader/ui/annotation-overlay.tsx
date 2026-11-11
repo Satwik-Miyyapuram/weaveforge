@@ -7,7 +7,7 @@ import {
   type ReaderAnnotation,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { INK_SELECTION_HALO_PX } from "@/features/ink/render/ink-renderer";
+import { INK_SELECTION_HALO_PX } from "@/features/ink/render/parts-1";
 import { InkFigureEditor, InkFigures, InkStrokes } from "@/features/ink";
 import { isCommitEnter } from "@/lib/parts";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";

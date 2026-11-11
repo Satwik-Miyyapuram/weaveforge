@@ -4,7 +4,7 @@ import {
   githubRemotePdfSources,
   paperToPdfSourcePaper,
   resolvePaperPdfSource,
-} from "../application/resolve-paper-pdf-source.js";
+} from "../application/parts-3.js";
 
 test("paperToPdfSourcePaper maps domain fields onto the ladder shape", () => {
   const paper = paperToPdfSourcePaper({

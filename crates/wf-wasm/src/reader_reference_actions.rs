@@ -1,4 +1,4 @@
-//! Reference popover rules for JavaScript (`apps/web/src/features/reader/application/reference-actions.ts`).
+//! Reference popover rules for JavaScript (`apps/web/src/features/reader/application/parts-2.ts`).
 //! Wraps `wf_core::reader::reference_actions`.
 
 use wasm_bindgen::JsValue;

@@ -1,0 +1,486 @@
+import { readyCore, type RustCore } from "@/lib/rust-core";
+import type {
+  GraphDensity,
+  IWorkspaceSearchIndex,
+  SearchDoc,
+  SearchKind,
+  WikiGraph,
+} from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
+import type { IEmbedder } from "./parts";
+
+// --- search-index-state ---
+// Which kinds a write can change is the Rust table `search_index_state`
+// (`kindsForResource`). Narrow on purpose: a note edit cannot change a milestone,
+// and an unmapped resource type falls back to a full rebuild rather than a guess.
+// `pdf` is in no entry: page documents come from extracted text, refreshed by `indexPdf`.
+
+/**
+ * The state of a built index: the index itself, and what it was built from.
+ *
+ * These seven fields lived directly on `WorkspaceSearch` and were read and
+ * written from nine methods, which is how the one real bug in that class stayed
+ * invisible: `refreshStale` cleared the staleness set *before* awaiting the
+ * snapshot, so a read that rejected lost the kinds for good — the index went on
+ * serving the rows it had, nothing was marked stale any more, and no later
+ * `ensure()` had any reason to look again.
+ *
+ * Gathering them here makes the invariant sayable: **a kind stays marked until a
+ * refresh that read successfully has replaced its documents.** `pendingStale`
+ * and `settleStale` are separate calls for exactly that reason, and
+ * `SearchIndexState` is where the pair can be tested without a snapshot, a
+ * worker, IndexedDB or MiniSearch.
+ *
+ * Deliberately not a general-purpose state machine: it is the fields, the
+ * transitions that have invariants, and nothing else. `graph`, `density`,
+ * `documentCount`, `pdfPageCounts` and `pdfTexts` are public because their
+ * readers want a value, not a method.
+ */
+export class SearchIndexState {
+  index: IWorkspaceSearchIndex | null = null;
+  graph: WikiGraph | null = null;
+  density: GraphDensity | null = null;
+  /** Documents the index holds, for the size warning. */
+  documentCount = 0;
+  /** Pages held per paper, so a re-extraction knows what to retract. */
+  pdfPageCounts = new Map<string, number>();
+  /** Extracted PDF text for the live papers, read once per build. */
+  pdfTexts: readonly PdfIndexSource[] = [];
+
+  private readonly stale = new Set<SearchKind>();
+
+  get ready(): boolean {
+    return this.index !== null;
+  }
+
+  /** Adopt a built or rehydrated index. */
+  adopt(index: IWorkspaceSearchIndex, documentCount: number): void {
+    this.index = index;
+    this.documentCount = documentCount;
+  }
+
+  /**
+   * Note which kinds a write can have changed.
+   *
+   * Returns whether the whole index was distrusted, which is what an unmapped
+   * resource type means — the caller has nothing left to refresh selectively.
+   * Marking rather than rebuilding: a save should not pay for re-tokenizing the
+   * corpus while the user waits, and a burst of writes should cost one refresh
+   * rather than one each.
+   */
+  markStale(resourceType: string | undefined): boolean {
+    if (!this.ready) return false;
+    const kinds = readyCore().kindsForResource(resourceType ?? "");
+    if (!kinds) {
+      this.forget();
+      return true;
+    }
+    for (const kind of kinds) this.stale.add(kind);
+    return false;
+  }
+
+  /** The kinds waiting to be refreshed. Taking does not clear them. */
+  pendingStale(): SearchKind[] {
+    return [...this.stale];
+  }
+
+  /**
+   * Forget the kinds a completed refresh replaced.
+   *
+   * Called only after the snapshot was read and the index updated. Clearing up
+   * front — where this used to happen — means a failed read loses them
+   * permanently. Removing per kind rather than clearing the set also keeps a
+   * write that lands *during* the refresh marked, so the next one picks it up.
+   */
+  settleStale(kinds: readonly SearchKind[]): void {
+    for (const kind of kinds) this.stale.delete(kind);
+  }
+
+  /** Nothing is indexed any more; the next `ensure()` rebuilds from scratch. */
+  forget(): void {
+    this.index = null;
+    this.graph = null;
+    this.density = null;
+    this.documentCount = 0;
+    this.pdfPageCounts = new Map();
+    this.stale.clear();
+  }
+}
+
+// --- semantic-index ---
+/** A nearest-neighbour hit: a passage or document id and its cosine. */
+export interface VectorHit {
+  id: string;
+  score: number;
+}
+
+/** The Rust `VectorIndex` handle, as the wasm factory returns it. */
+type VectorIndexHandle = ReturnType<RustCore["createVectorIndex"]>;
+
+/**
+ * Hits below this cosine are noise. The floor the TS index applied by default,
+ * now passed explicitly because the Rust search takes it as a required argument.
+ */
+const MIN_SCORE = 0.2;
+
+/** Flatten equal-width vectors into the one buffer the wasm `add` takes. */
+function flatten(vectors: readonly Float32Array[]): Float32Array {
+  const out = new Float32Array(vectors.reduce((n, vector) => n + vector.length, 0));
+  let at = 0;
+  for (const vector of vectors) {
+    out.set(vector, at);
+    at += vector.length;
+  }
+  return out;
+}
+
+/**
+ * The semantic half of search.
+ *
+ * Separate from `WorkspaceSearch` on purpose: the keyword index is always
+ * there, and this is optional, expensive to build, and allowed to fail. Keeping
+ * them apart means a browser that cannot run the encoder — or a user who never
+ * turns it on — takes no code path through here at all.
+ *
+ * Documents are embedded as passages, not whole. A note longer than the
+ * encoder's window would otherwise be represented by its first paragraph, which
+ * looks indexed and is not. Passage ids carry their parent so hits collapse
+ * back to documents.
+ */
+
+/** Passages embedded per forward pass. Larger batches amortize, up to memory. */
+const BATCH = 16;
+
+/** Above this a document is worth splitting; below it the whole thing is one passage. */
+const CHUNK_CHARS = 1_000;
+
+export interface EmbedProgress {
+  done: number;
+  total: number;
+  /** Bytes of model weights fetched, before any passage is embedded. */
+  download?: { loaded: number; total: number };
+}
+
+export interface SemanticBuildOptions {
+  onProgress?(progress: EmbedProgress): void;
+  /** Now and then mid-build, the finished documents so far; storing them makes the build resumable. */
+  onCheckpoint?(partial: PackedIndex): void;
+  signal?: AbortSignal;
+}
+
+export type SyncOptions = Pick<SemanticBuildOptions, "onProgress" | "onCheckpoint">;
+
+const CHECKPOINT_MS = 30_000;
+
+export interface PackedIndex {
+  model: string;
+  dimensions: number;
+  /** The Rust index's own blob: width, ids and vectors in one self-describing buffer. */
+  bytes: Uint8Array;
+  hashes: Record<string, string>;
+}
+
+function pack(model: string, index: VectorIndexHandle, embedded: Map<string, string>): PackedIndex {
+  return { model, dimensions: index.dimensions, bytes: index.toBytes(), hashes: Object.fromEntries(embedded) };
+}
+
+/** `note:n1` → `note:n1#2` for its third passage. */
+function passageId(docId: string, index: number): string {
+  return `${docId}#${index}`;
+}
+
+/** Passage ids carry their document: `note:n1#2` belongs to `note:n1` (Rust `document_id_of`). */
+const documentIdOf = (passage: string): string => readyCore().documentIdOf(passage);
+
+/** Text worth embedding for a document (Rust `embeddable_text`: title repeated into the first passage). */
+const embeddableText = (doc: SearchDoc): string => readyCore().embeddableText(doc.title, doc.aliases, doc.body);
+
+/**
+ * Fingerprint of what a document was embedded from (Rust `text_hash`). Stored beside the vectors so a
+ * reload re-embeds only the documents that changed while the app was closed.
+ */
+const hashOf = (doc: SearchDoc): string => readyCore().textHash(embeddableText(doc));
+
+export class SemanticIndex {
+  private index: VectorIndexHandle | null = null;
+  private embedderId = "";
+  /**
+   * A hash of the text each document was embedded from, by document id.
+   *
+   * What lets `sync` re-embed only what changed. Without it, the only way to
+   * keep the arm current after an edit was a full rebuild, so nothing did it:
+   * a note written after the index was built could never be found by meaning.
+   */
+  private embedded = new Map<string, string>();
+
+  constructor(private readonly embedder: IEmbedder) {}
+
+  get ready(): boolean {
+    return this.index !== null;
+  }
+
+  /** The encoder's own noise floor, if it declares one. */
+  get minScore(): number | undefined {
+    return this.embedder.minScore;
+  }
+
+  get size(): number {
+    return this.index?.size ?? 0;
+  }
+
+  /**
+   * Embed a corpus, replacing whatever was held.
+   *
+   * Progress is reported per batch rather than per passage: the callback drives
+   * a progress bar, and a re-render per document would cost more than the
+   * embedding.
+   */
+  async build(docs: readonly SearchDoc[], options: SemanticBuildOptions = {}): Promise<void> {
+    const passages: { id: string; text: string }[] = [];
+    // Where each document's passages end: it counts as embedded only once all are in.
+    const ends: { end: number; doc: SearchDoc }[] = [];
+    for (const doc of docs) {
+      const chunks = readyCore().chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS });
+      chunks.forEach((chunk, position) => {
+        passages.push({ id: passageId(doc.id, position), text: chunk.text });
+      });
+      ends.push({ end: passages.length, doc });
+    }
+
+    if (passages.length === 0) {
+      this.index = null;
+      this.embedded.clear();
+      return;
+    }
+
+    const index = readyCore().createVectorIndex(this.embedder.dimensions || 384);
+    const embedded = new Map<string, string>();
+    let finished = 0;
+    let lastCheckpoint = Date.now();
+    for (let start = 0; start < passages.length; start += BATCH) {
+      if (options.signal?.aborted) throw new Error("Indexing was cancelled.");
+      const batch = passages.slice(start, start + BATCH);
+      const vectors = await this.embedder.embed({
+        texts: batch.map((passage) => passage.text),
+        kind: "passage",
+        signal: options.signal,
+      });
+      index.add(
+        batch.map((passage) => passage.id),
+        flatten(vectors),
+      );
+      const done = Math.min(start + BATCH, passages.length);
+      while (finished < ends.length && ends[finished]!.end <= done) {
+        const { doc } = ends[finished++]!;
+        embedded.set(doc.id, hashOf(doc));
+      }
+      options.onProgress?.({ done, total: passages.length });
+      if (options.onCheckpoint && done < passages.length && Date.now() - lastCheckpoint > CHECKPOINT_MS) {
+        lastCheckpoint = Date.now();
+        options.onCheckpoint(pack(this.embedder.id, index, embedded));
+      }
+    }
+
+    this.index = index;
+    this.embedderId = this.embedder.id;
+    this.embedded = embedded;
+  }
+
+  /**
+   * Nearest documents to a query.
+   *
+   * Passage hits collapse to their document, keeping the best score: a note
+   * whose third paragraph answers the question should appear once, ranked by
+   * that paragraph, not three times for three near-misses.
+   */
+  async search(query: string, limit = 10): Promise<VectorHit[]> {
+    const index = this.index;
+    if (!index || query.trim() === "") return [];
+
+    const [vector] = await this.embedder.embed({ texts: [query], kind: "query" });
+    if (!vector) return [];
+
+    const best = new Map<string, number>();
+    // Over-fetch: several passages of one document can crowd out the runner-up,
+    // so the collapse needs more candidates than the caller asked for.
+    for (const hit of index.search(vector, limit * 4, MIN_SCORE)) {
+      const docId = documentIdOf(hit.id);
+      const current = best.get(docId);
+      if (current === undefined || hit.score > current) best.set(docId, hit.score);
+    }
+
+    return [...best.entries()]
+      .map(([id, score]) => ({ id, score }))
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+      .slice(0, limit);
+  }
+
+  /**
+   * Documents nearest to one already indexed, by its own passages rather than
+   * its title — a note titled "Tuesday" about attention heads should find
+   * papers on attention. No forward pass: the vectors are already here.
+   */
+  nearestTo(docId: string, limit = 10): VectorHit[] {
+    const index = this.index;
+    if (!index) return [];
+    const best = new Map<string, number>();
+    for (let i = 0; ; i += 1) {
+      const vector = index.vectorOf(passageId(docId, i));
+      // Absent passages come back empty: the wasm side has no null.
+      if (vector.length === 0) break;
+      for (const hit of index.search(vector, limit * 4, MIN_SCORE)) {
+        const id = documentIdOf(hit.id);
+        if (id === docId) continue;
+        const current = best.get(id);
+        if (current === undefined || hit.score > current) best.set(id, hit.score);
+      }
+      // Long documents: the opening passages are what the document is about.
+      if (i >= 3) break;
+    }
+    return [...best.entries()]
+      .map(([id, score]) => ({ id, score }))
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+      .slice(0, limit);
+  }
+
+  /** Re-embed one document's passages, leaving the rest of the index alone. */
+  async update(docs: readonly SearchDoc[], options: SyncOptions = {}): Promise<void> {
+    const index = this.index;
+    if (!index) return;
+
+    // Passage counts change with the text, so old ones are retracted by
+    // prefix rather than by position — a shortened note must not leave its
+    // former tail behind. Their hashes go too, so a checkpoint never claims them.
+    const updating = new Set(docs.map((doc) => doc.id));
+    index.remove(index.allIds().filter((id) => updating.has(documentIdOf(id))));
+    for (const id of updating) this.embedded.delete(id);
+
+    const pieces = docs.map((doc) => ({
+      doc,
+      texts: readyCore().chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS }).map((chunk) => chunk.text),
+    }));
+    // Progress counts the whole index, so a resumed build carries on from where it was, not from 0.
+    const total = index.size + pieces.reduce((sum, piece) => sum + piece.texts.length, 0);
+    let lastCheckpoint = Date.now();
+
+    // Documents are grouped into full batches: one forward pass per short note made a resumed build crawl.
+    let group: typeof pieces = [];
+    let pending = 0;
+    const flush = async () => {
+      const texts = group.flatMap((entry) => entry.texts);
+      // A long paper alone can be hundreds of passages; one pass over all of them exhausts the WASM heap (std::bad_alloc).
+      const vectors: Float32Array[] = [];
+      for (let start = 0; start < texts.length; start += BATCH) {
+        vectors.push(...(await this.embedder.embed({ texts: texts.slice(start, start + BATCH), kind: "passage" })));
+      }
+      let at = 0;
+      for (const { doc, texts: own } of group) {
+        index.add(
+          own.map((_, i) => passageId(doc.id, i)),
+          flatten(vectors.slice(at, at + own.length)),
+        );
+        at += own.length;
+        this.embedded.set(doc.id, hashOf(doc));
+      }
+      group = [];
+      pending = 0;
+      options.onProgress?.({ done: index.size, total });
+      if (options.onCheckpoint && index.size < total && Date.now() - lastCheckpoint > CHECKPOINT_MS) {
+        lastCheckpoint = Date.now();
+        options.onCheckpoint(pack(this.embedderId, index, this.embedded));
+      }
+    };
+    for (const piece of pieces) {
+      group.push(piece);
+      pending += piece.texts.length;
+      if (pending >= BATCH) await flush();
+    }
+    if (group.length > 0) await flush();
+  }
+
+  /**
+   * Bring one slice of the corpus in line with `docs`.
+   *
+   * `owns` says which ids the slice covers (a kind, or one paper's pages): any
+   * of those not in `docs` was deleted and is dropped; any whose text differs
+   * from what was embedded is re-embedded. Unchanged documents cost nothing,
+   * which is what makes calling this on every refresh affordable.
+   *
+   * Returns whether anything changed, so the caller knows to persist.
+   */
+  async sync(
+    docs: readonly SearchDoc[],
+    owns: (docId: string) => boolean,
+    options: SyncOptions = {},
+  ): Promise<boolean> {
+    const index = this.index;
+    if (!index) return false;
+
+    const present = new Set(docs.map((doc) => doc.id));
+    const gone = [...new Set(index.allIds().map(documentIdOf))].filter((id) => owns(id) && !present.has(id));
+    if (gone.length > 0) this.removeDocuments(gone);
+
+    const changed = docs.filter((doc) => this.embedded.get(doc.id) !== hashOf(doc));
+    if (changed.length > 0) await this.update(changed, options);
+    return gone.length > 0 || changed.length > 0;
+  }
+
+  /** Drop documents entirely — a deletion, or a kind being re-projected. */
+  removeDocuments(docIds: readonly string[]): void {
+    const index = this.index;
+    if (!index) return;
+    const dropping = new Set(docIds);
+    index.remove(index.allIds().filter((id) => dropping.has(documentIdOf(id))));
+    for (const id of docIds) this.embedded.delete(id);
+  }
+
+  /**
+   * Pack for storage, tagged with the model that produced it.
+   *
+   * Vectors from one encoder are meaningless to another — the tag is what stops
+   * a model change from silently returning nonsense instead of re-embedding.
+   */
+  serialize(): PackedIndex | null {
+    return this.index ? pack(this.embedderId, this.index, this.embedded) : null;
+  }
+
+  /**
+   * Restore stored vectors.
+   *
+   * `hashes` says what each document was embedded from, so a following `sync`
+   * re-embeds exactly what changed while the app was closed. Older stores have
+   * none; then `docs` — which the caller has matched to the vectors by corpus
+   * revision — seeds the comparison instead.
+   */
+  load(
+    stored: {
+      model: string;
+      dimensions: number;
+      bytes: Uint8Array;
+      hashes?: Record<string, string>;
+    },
+    docs: readonly SearchDoc[] = [],
+  ): boolean {
+    if (stored.model !== this.embedder.id) return false;
+    try {
+      // Records written before the blob format have no `bytes`: this throws, and the caller rebuilds.
+      const index = readyCore().vectorIndexFromBytes(stored.bytes);
+      // The width must match what was stored and, once the encoder is up, what it produces.
+      if (index.dimensions !== stored.dimensions) return false;
+      if (this.embedder.dimensions && index.dimensions !== this.embedder.dimensions) return false;
+      this.index = index;
+      this.embedderId = stored.model;
+      this.embedded = stored.hashes
+        ? new Map(Object.entries(stored.hashes))
+        : new Map(docs.map((doc) => [doc.id, hashOf(doc)]));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  clear(): void {
+    this.index = null;
+    this.embedded.clear();
+  }
+}

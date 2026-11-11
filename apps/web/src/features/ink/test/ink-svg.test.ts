@@ -15,9 +15,13 @@ import { before, test } from "node:test";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_PACK_TOLERANCE, type InkPage } from "@weaveforge/core";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
+import {
+  INK_RENDER_COLOURS,
+  INK_SEGMENT_SUBDIVISIONS,
+  type InkPalette,
+  strokeCurveAt,
+} from "../render/parts-1";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
-import { INK_SEGMENT_SUBDIVISIONS, strokeCurveAt } from "../render/ink-renderer";
 import { readyCore, toWasmInkPage, typedCore, type WasmInkSvgPage } from "@/lib/rust-core";
 
 before(loadTestCore);

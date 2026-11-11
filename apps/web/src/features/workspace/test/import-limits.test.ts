@@ -9,7 +9,7 @@ import {
   SKIP_UNSAFE_NAME,
   stripArchiveRoot,
   unzipWithinLimits,
-} from "../application/import-limits";
+} from "../application/parts-2";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

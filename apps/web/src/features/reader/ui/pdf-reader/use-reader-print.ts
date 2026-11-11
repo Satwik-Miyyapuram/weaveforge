@@ -5,7 +5,7 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import type { ReaderPrintNote, ReaderPrintPage } from "@weaveforge/wasm";
 
 import { readyCore } from "@/lib/rust-core";
-import { layoutMarginNotes } from "../../application/margin-notes";
+import { layoutMarginNotes } from "../../application/parts-2";
 import { projectPageAnnotationGeometry } from "@weaveforge/wasm";
 import type { PdfDocument } from "./types";
 

@@ -1,6 +1,6 @@
 //! Folder layout and ink metadata helpers for JavaScript (wf-core `sync::folder_layout` and
-//! `sync::ink_note`). The JS names match `packages/core/src/workspace/folder-layout.ts` and
-//! `packages/core/src/ink/ink-note.ts`. Enums cross as their serde string form.
+//! `sync::ink_note`). The JS names match `packages/core/src/workspace/parts-1.ts` and
+//! `packages/core/src/ink/parts-2.ts`. Enums cross as their serde string form.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;

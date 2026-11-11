@@ -1,13 +1,13 @@
 import type {
   ImportLocalZoteroUseCase,
-} from "@/features/papers/application/import-local-zotero.use-case";
+} from "@/features/papers/application/parts-1";
 import type {
   ZoteroCredentialsProvider,
-} from "@/features/papers/infrastructure/zotero-metadata-source";
+} from "@/features/papers/infrastructure/parts-2";
 import type {
   ZoteroAnnotationPusher,
   ZoteroAnnotationWriteBackSummary,
-} from "@/features/reader/application/write-back-zotero-annotations";
+} from "@/features/reader/application/parts-3";
 import { readyCore } from "@/lib/rust-core";
 import type {
   IBibliographyIntegration,
@@ -118,7 +118,7 @@ export class ZoteroFacade {
     const creds = await this.deps.zoteroCredentials();
     if (!creds.apiKey || !creds.library) return null;
     const [{ writeBackZoteroAnnotations }, { ZOTERO_ATTACHMENT_KEY }] = await Promise.all([
-      import("@/features/reader/application/write-back-zotero-annotations"),
+      import("@/features/reader/application/parts-3"),
       import("@/integrations/providers/zotero/apply-bibliography-annotations"),
     ]);
     const pusher = await this.pusher();
@@ -137,7 +137,7 @@ export class ZoteroFacade {
   private async pusher(): Promise<ZoteroAnnotationPusher> {
     if (this.deps.annotationPusher) return this.deps.annotationPusher();
     const { ZoteroApiAnnotationWriteBack } = await import(
-      "@/features/reader/infrastructure/zotero-annotation-write-back"
+      "@/features/reader/infrastructure/parts-2"
     );
     return new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
   }

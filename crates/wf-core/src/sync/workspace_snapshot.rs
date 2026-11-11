@@ -1,5 +1,5 @@
 //! Port of the types and `workspaceSnapshotCounts` from
-//! `packages/core/src/workspace/workspace-snapshot.ts`. Only the fields the
+//! `packages/core/src/workspace/parts-2.ts`. Only the fields the
 //! serializer reads are kept; `collectWorkspaceSnapshot` (store I/O) is not ported.
 
 use serde::{Deserialize, Deserializer, Serialize};

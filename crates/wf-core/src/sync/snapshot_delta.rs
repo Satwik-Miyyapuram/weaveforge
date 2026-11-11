@@ -1,4 +1,4 @@
-//! Ports `packages/core/src/workspace/snapshot-delta.ts`: `planDelta` and
+//! Ports `packages/core/src/workspace/parts-2.ts`: `planDelta` and
 //! `applyDelta` only. The async `readWithDelta` is I/O and stays in the shell.
 //! Ids are compared, not timestamps, so a deleted row is noticed.
 

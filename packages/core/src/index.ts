@@ -30,12 +30,12 @@ export * from "./features/papers/domain/parts.js";
 export * from "./features/papers/domain/parts.js";
 export * from "./features/papers/domain/parts.js";
 export * from "./features/papers/domain/parts.js";
-export * from "./features/papers/application/metadata-source.js";
-export * from "./features/papers/application/add-paper.use-case.js";
+export * from "./features/papers/application/parts-1.js";
+export * from "./features/papers/application/parts-1.js";
 export * from "./features/papers/application/update-paper.use-case.js";
-export * from "./features/papers/application/manage-paper-fields.use-case.js";
-export * from "./features/papers/application/push-paper-to-zotero.use-case.js";
-export * from "./features/papers/application/open-access.js";
+export * from "./features/papers/application/parts-1.js";
+export * from "./features/papers/application/parts-1.js";
+export * from "./features/papers/application/parts-1.js";
 // features/logbook
 export * from "./features/logbook/domain/parts.js";
 export * from "./features/logbook/domain/parts.js";
@@ -219,7 +219,7 @@ export { INK_ZOOM_MIN, INK_ZOOM_MAX, INK_ZOOM_STEP } from "./ink/parts.js";
 
 export { INK_SMOOTH_SPACING, INK_SMOOTH_PASSES, type SmoothedInkStroke } from "./ink/parts.js";
 
-export { INK_TOOLS, INK_COLOURS, INK_MARKER_COLOURS, INK_THEME_COLOURS, INK_PAPERS, INK_SHAPES, INK_HANDS, INK_A4_WIDTH, INK_A4_HEIGHT, INK_COORD_LIMIT, INK_STROKE_MAX_POINTS, INK_PAGE_STROKE_BUDGET, INK_NOTE_MAX_PAGES, INK_PACK_TOLERANCE, INK_PACK_PRESSURE_TOLERANCE, INK_NOTE_TYPE, INK_KEYS, INK_SIDECAR_DIR, INK_CHUNK_EXT, INK_BODY_HEADER, INK_BACKGROUND_ALT, type InkTool, type InkColour, type InkPaper, type InkShape, type InkHand, type InkStroke, type InkLineRecord, type InkPage, type InkNoteMeta, type PackedInkStroke } from "./ink/ink-note.js";
+export { INK_TOOLS, INK_COLOURS, INK_MARKER_COLOURS, INK_THEME_COLOURS, INK_PAPERS, INK_SHAPES, INK_HANDS, INK_A4_WIDTH, INK_A4_HEIGHT, INK_COORD_LIMIT, INK_STROKE_MAX_POINTS, INK_PAGE_STROKE_BUDGET, INK_NOTE_MAX_PAGES, INK_PACK_TOLERANCE, INK_PACK_PRESSURE_TOLERANCE, INK_NOTE_TYPE, INK_KEYS, INK_SIDECAR_DIR, INK_CHUNK_EXT, INK_BODY_HEADER, INK_BACKGROUND_ALT, type InkTool, type InkColour, type InkPaper, type InkShape, type InkHand, type InkStroke, type InkLineRecord, type InkPage, type InkNoteMeta, type PackedInkStroke } from "./ink/parts-2.js";
 
 export type { InkStrokePackerOptions, LiveInkStrokePacker } from "./ink/parts.js";
 
@@ -245,7 +245,7 @@ export {
   type InkChunkCodec,
   type InkChunkView,
   type InkChunkHeader,
-} from "./ink/ink-binary.js";
+} from "./ink/parts-1.js";
 
 export {
   chunkStrokePoints,
@@ -254,7 +254,7 @@ export {
   chunkLine,
   pageFromChunk,
   pageFromChunkBytes,
-} from "./ink/ink-chunk-read.js";
+} from "./ink/parts-1.js";
 
 export { INK_GROUP_WINDOW_MS, INK_LINE_BAND_RATIO, type InkSegmentation, type RecognisedLineText } from "./ink/parts.js";
 
@@ -272,20 +272,20 @@ export {
   type RecognisedLine,
   type InkRecognitionHints,
   type InkRecogniser,
-} from "./ink/recognise.js";
+} from "./ink/parts-2.js";
 
 export { INK_ENGINE_MAX_CONFIDENCE, type InkWordReadings } from "./ink/parts.js";
 // workspace
-export * from "./workspace/workspace-snapshot.js";
-export * from "./workspace/fs-port.js";
+export * from "./workspace/parts-2.js";
+export * from "./workspace/parts-1.js";
 export * from "./workspace/parts.js";
-export * from "./workspace/folder-layout.js";
-export * from "./workspace/snapshot-delta.js";
-export * from "./workspace/git-port.js";
+export * from "./workspace/parts-1.js";
+export * from "./workspace/parts-2.js";
+export * from "./workspace/parts-1.js";
 export * from "./workspace/parts.js";
-export * from "./workspace/folder-mirror.js";
+export * from "./workspace/parts-1.js";
 export * from "./workspace/parts.js";
-export * from "./workspace/git-remote.js";
+export * from "./workspace/parts-2.js";
 // search
 export * from "./search/parts.js";
 export * from "./search/parts.js";

@@ -1,5 +1,5 @@
 //! The ink chunk container for JavaScript (wf-core `ink::chunk`). The JS names
-//! match `packages/core/src/ink/ink-binary.ts`, which keeps the typed-array
+//! match `packages/core/src/ink/parts-1.ts`, which keeps the typed-array
 //! views and the async compression around these.
 
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};

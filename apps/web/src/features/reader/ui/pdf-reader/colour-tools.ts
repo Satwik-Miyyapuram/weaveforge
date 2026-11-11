@@ -3,7 +3,7 @@
  * from. Pure, so the mapping is pinned without a page.
  */
 
-import type { InkPalette } from "@/features/ink/render/ink-palette";
+import type { InkPalette } from "@/features/ink/render/parts-1";
 import { setToolColour, type ToolColourId } from "@/features/ink";
 import { readyCore } from "@/lib/rust-core";
 

@@ -1,5 +1,4 @@
-import { clearBlobFetchCache } from "@/lib/cache/blob-fetch-cache";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { clearBlobFetchCache, invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { clearLocalDeviceData } from "@/lib/desktop/clear-local-device-data";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";

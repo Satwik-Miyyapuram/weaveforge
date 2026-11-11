@@ -4,8 +4,11 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseWorkspaceFile } from "../../src/workspace/deserialize-workspace.js";
-import { ENTITY_DIRS, type WorkspaceEntityType } from "../../src/workspace/folder-layout.js";
+import {
+  ENTITY_DIRS,
+  parseWorkspaceFile,
+  type WorkspaceEntityType,
+} from "../../src/workspace/parts-1.js";
 
 const types = Object.keys(ENTITY_DIRS) as WorkspaceEntityType[];
 // An ink note is folded into the note it is stored as.

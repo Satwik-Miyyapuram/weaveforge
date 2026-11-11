@@ -1,5 +1,5 @@
 //! Jump-list recents for JavaScript (wf-core `recent_targets`). The JS names match
-//! `apps/web/src/lib/recent-targets.ts`.
+//! `apps/web/src/lib/parts-2.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::recent_targets::{TargetKey, is_recent_target, pin_recent_targets};

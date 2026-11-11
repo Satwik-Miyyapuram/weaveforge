@@ -3,8 +3,8 @@
 import { FileDropZone } from "@/components/file-drop-zone";
 import { showToast } from "@/lib/toast/index";
 import { formatError } from "@/lib/format-error";
-import type { PdfDropOutcome } from "../application/paper-from-pdf";
-import { splitPaperDrop, type BibImportOutcome } from "../application/paper-from-bib";
+import type { PdfDropOutcome } from "../application/parts-2";
+import { splitPaperDrop, type BibImportOutcome } from "../application/parts-2";
 import { addBibFile } from "./bib-import";
 import { addPdfFiles } from "./pdf-drop";
 

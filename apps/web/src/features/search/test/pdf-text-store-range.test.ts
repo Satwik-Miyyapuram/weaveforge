@@ -1,8 +1,8 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { clearPdfTexts, loadPdfTexts } from "../infrastructure/pdf-text-store";
-import { closeAppDb } from "@/lib/cache/app-idb";
+import { clearPdfTexts, loadPdfTexts } from "../infrastructure/parts-2";
+import { closeAppDb } from "@/lib/cache/parts-1";
 
 interface Range {
   lower: string;

@@ -12,7 +12,7 @@ import {
   forgetRemoteToken,
   pullThenPush,
   saveRemoteSyncSettings,
-} from "@/features/workspace/application/folder-remote-sync";
+} from "@/features/workspace/application/parts-2";
 
 type Choice = "keep-mine" | "take-remote" | "keep-both";
 

@@ -15,7 +15,7 @@ import {
   trailStyle,
   updateTrail,
   type InkPresenterLike,
-} from "../application/ink-trail";
+} from "../application/parts-1";
 import {
   INK_PEN_ONLY_STORAGE_KEY,
   PenCaptureSession,
@@ -23,8 +23,8 @@ import {
   writeStoredPenOnly,
   type PenPointerEvent,
 } from "../application/use-pen-capture";
-import { InkPenGate } from "../application/pen-gate";
-import { NibFilter } from "../application/one-euro-filter";
+import { InkPenGate } from "../application/parts-4";
+import { NibFilter } from "../application/parts-2";
 import {
   InkSamplePool,
   InkSampleWriter,

@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { layoutMarginNotes } from "../margin-notes";
+import { layoutMarginNotes } from "../parts-2";
 
 before(loadTestCore);
 

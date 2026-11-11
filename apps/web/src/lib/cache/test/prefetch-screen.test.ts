@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { AppContainer } from "@/container/facades";
-import { warmScreen } from "@/lib/cache/prefetch-screen";
+import { warmScreen } from "@/lib/cache/parts-1";
 
 /**
  * Hovering a nav item warms that screen's data. The warm-up is a guess, so a
@@ -51,7 +51,8 @@ test("a failed warm-up reaches the caller instead of escaping unhandled", async 
 });
 
 test("the hover handler swallows a failed warm-up", () => {
-  const source = readFileSync(fileURLToPath(new URL("../prefetch-screen.ts", import.meta.url)), "utf8");
+  const chunk = readFileSync(fileURLToPath(new URL("../parts-1.ts", import.meta.url)), "utf8");
+  const source = chunk.slice(chunk.indexOf("// --- prefetch-screen ---")).split(/\n\/\/ --- /)[0]!;
   assert.doesNotMatch(source, /void c\./, "no load is started without a handler");
   assert.match(source, /warmScreen\(c, screen\)\)\s*\.catch\(/);
 });

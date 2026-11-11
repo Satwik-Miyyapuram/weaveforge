@@ -1,6 +1,6 @@
 import { getAppConfig } from "@/deployment/app-config";
 import type { IGitClient, IIntegrationsStore, Integration } from "@/features/sync/domain/parts";
-import type { ProjectContext } from "@/lib/project-context";
+import type { ProjectContext } from "@/lib/parts-2";
 import type {
   AddPaperUseCase,
   BibliographyAnnotationPull,

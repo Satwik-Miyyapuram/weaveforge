@@ -1,6 +1,6 @@
 //! The base and local sides a conflict opens on, from the ops a device still owes for a row.
 //! Ports the selection in `ConflictStore.openFor`, `openDeletedRemote` and `openDeletedLocal`
-//! in `apps/web/src/features/offline-sync/domain/conflicts.ts`. The SQL reads of
+//! in `apps/web/src/features/offline-sync/domain/parts-1.ts`. The SQL reads of
 //! `sync_outbox` stay in TypeScript; this module only picks the sides.
 
 #[cfg(feature = "specta")]

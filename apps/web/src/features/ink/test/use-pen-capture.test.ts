@@ -9,7 +9,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { CSS_PX_PER_MM, InkPenGate, PALM_CONTACT_AREA_MM2, PALM_SECOND_TOUCH_MS, contactAreaMm2 } from "../application/pen-gate";
+import { CSS_PX_PER_MM, InkPenGate, PALM_CONTACT_AREA_MM2, PALM_SECOND_TOUCH_MS, contactAreaMm2 } from "../application/parts-4";
 import { type PenPointerEvent } from "../application/use-pen-capture";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

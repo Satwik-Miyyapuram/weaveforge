@@ -6,7 +6,7 @@ import {
 } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 import type { RustCore } from "@/lib/rust-core";
-import { mirrorWorkspace } from "@/features/workspace/application/folder-mirror";
+import { mirrorWorkspace } from "@/features/workspace/application/parts-2";
 import { loadTestCore } from "./load-test-core";
 
 // The web's mirror (Rust plan, JS I/O) must leave the same result and the same folder as the TS one.

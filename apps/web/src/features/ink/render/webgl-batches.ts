@@ -14,8 +14,8 @@ import type { InkColour } from "@weaveforge/core";
 
 import {
   INK_INSTANCE_FLOATS,
-} from "./ink-renderer";
-import type { InkPalette, InkRgb } from "./ink-palette";
+} from "./parts-1";
+import type { InkPalette, InkRgb } from "./parts-1";
 
 /** One colour's geometry, resident in its own buffers so a draw is one call. */
 export interface Batch {

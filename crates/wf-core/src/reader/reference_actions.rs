@@ -1,7 +1,7 @@
 //! The popover's pure rules for a bibliography entry: which paper reference to
 //! resolve, and which fields a manual add can fill without inventing any.
 //! Ports of `referenceRef` and `manualInputFromReference` in
-//! apps/web/src/features/reader/application/reference-actions.ts. The adds
+//! apps/web/src/features/reader/application/parts-2.ts. The adds
 //! themselves stay in TS.
 
 use serde::Serialize;

@@ -50,7 +50,7 @@ export function useBlobObjectUrls(
       // The cache first: it batches through fetchMany itself, and checking the
       // batch fetcher first sent every multi-image note around the cache.
       if (cacheBucket) {
-        const { fetchBlobsCached } = await import("@/lib/cache/blob-fetch-cache");
+        const { fetchBlobsCached } = await import("@/lib/cache/parts-1");
         blobs = await fetchBlobsCached(
           cacheBucket,
           paths,

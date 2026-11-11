@@ -30,9 +30,9 @@ import {
   boundsUnion,
   fromGeometry,
   type InkBounds,
-} from "../application/page-buffer";
+} from "../application/parts-3";
 import { ERASER_RADIUS, InkStrokeIndex } from "../application/stroke-index";
-import type { InkRenderer } from "../render/ink-renderer";
+import type { InkRenderer } from "../render/parts-1";
 import { readyCore } from "@/lib/rust-core";
 
 /** One undoable step. `indices` are buffer indices; a move also carries its delta. */

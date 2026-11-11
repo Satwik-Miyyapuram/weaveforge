@@ -5,8 +5,12 @@ import type {
 } from "@weaveforge/core";
 import type { AnnotationQuotationTypeRow } from "@weaveforge/wasm";
 import { readyCore, typedCore } from "@/lib/rust-core";
-import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import {
+  oneRow,
+  ProjectScopedPostgrestRepository,
+  rows,
+  run,
+} from "@/backend/providers/postgrest/parts-1";
 
 // Row mapping runs in the Rust core (wf-core `papers::annotation_quotation_type_row`).
 const toDomain = (row: AnnotationQuotationTypeRow) => typedCore().annotationQuotationTypeRowToDomain(row);

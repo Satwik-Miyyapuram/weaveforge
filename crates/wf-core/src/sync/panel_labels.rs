@@ -2,7 +2,7 @@
 //! adoption label that avoids a clash. Ports the helpers in
 //! `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx` (`groupHunks`,
 //! `isSettled`, `deviceMarkers`, `kindOf`, `nameOf`, `humanize`, `plural`) and
-//! `apps/web/src/features/offline-sync/domain/adoption.ts` (`uniqueName`).
+//! `apps/web/src/features/offline-sync/domain/parts-1.ts` (`uniqueName`).
 
 use std::collections::BTreeMap;
 

@@ -1,9 +1,9 @@
 import { TAG_SOURCES, type ManageTagsUseCase, type Paper } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, isNetworkFailure } from "@/lib/format-error";
+import { readyCore } from "@/lib/rust-core";
 import { readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
 import { registerSessionReset } from "@/lib/cache/parts";
-import { readyCore } from "@/lib/rust-core";
 
 /**
  * Tags live in the note markdown as `#hashtags`. These helpers keep that the

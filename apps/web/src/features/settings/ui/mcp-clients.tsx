@@ -1,8 +1,8 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
-import { useState, type KeyboardEvent } from "react";
 import { formatError } from "@/lib/format-error";
+import { formatDate } from "@/lib/parts-1";
+import { useState, type KeyboardEvent } from "react";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { copyText } from "@/lib/parts";

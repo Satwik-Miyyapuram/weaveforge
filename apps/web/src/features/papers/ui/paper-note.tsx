@@ -31,9 +31,8 @@ import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 
 import { PaperExternalLink } from "./paper-external-link";
-import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
+import { highlightsDigest, reRenderPaperSourceNote } from "../application/parts-2";
 import { PaperAnnotations } from "./paper-annotations";
-import { highlightsDigest } from "../application/reading-digest";
 import { showToast } from "@/lib/toast/index";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage, usePaperPreview } from "./paper-first-page";

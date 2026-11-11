@@ -16,7 +16,7 @@ import { act, create } from "react-test-renderer";
 import { type FigureGeometry } from "@weaveforge/core";
 
 import { InkPageStatic } from "../ui/ink-page-static";
-import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { typedCore } from "@/lib/rust-core";
 

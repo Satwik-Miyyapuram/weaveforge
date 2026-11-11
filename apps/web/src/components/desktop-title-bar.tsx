@@ -4,7 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { openSearchPalette } from "./jump-to-palette";
-import { requestShortcuts } from "@/lib/palette-actions";
+import { readyCore } from "@/lib/rust-core";
+import { requestShortcuts } from "@/lib/parts-2";
 import { goToRoute } from "@/lib/parts";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
@@ -13,7 +14,6 @@ import { describeRejection } from "@/lib/format-error";
 import { MenuItemButton } from "./controls";
 import { IconButton } from "./button";
 import { runEditCommand } from "@/lib/desktop/menu-edit";
-import { readyCore } from "@/lib/rust-core";
 import { showToast } from "@/lib/toast/index";
 
 /**

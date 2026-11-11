@@ -12,7 +12,7 @@ import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 import {
   MemoryInkChunkStore,
   loadInkPages,
-} from "../application/ink-chunk-store";
+} from "../application/parts-1";
 import { BlobInkChunkStore, FsInkChunkStore } from "../infrastructure/parts";
 import { RoutedInkChunkStore } from "../../../container/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";

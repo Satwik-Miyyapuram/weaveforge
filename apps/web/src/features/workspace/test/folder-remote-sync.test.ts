@@ -12,7 +12,7 @@ import {
   pullThenPush,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
-} from "../application/folder-remote-sync";
+} from "../application/parts-2";
 
 before(async () => {
   await loadTestCore();

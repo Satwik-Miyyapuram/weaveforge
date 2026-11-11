@@ -1,8 +1,14 @@
 import { type IVaultPageRepository, type VaultPage, type VaultPageFilter, type VaultPageTreeNode } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
 import type { VaultPageRow, VaultPageWriteRow } from "@weaveforge/wasm";
-import { inChunks, one, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
-import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import {
+  inChunks,
+  one,
+  ProjectRepository,
+  rows,
+  run,
+  timestampsAsText,
+} from "@/backend/providers/postgrest/parts-1";
 import { typedCore } from "@/lib/rust-core";
 
 // Row mapping runs in the Rust core (wf-core `vault::page_row`).

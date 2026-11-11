@@ -7,9 +7,8 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cacheRepo } from "@/lib/cache/cache-repo";
 import { SCREEN_REVALIDATE_AFTER_MS } from "@/lib/cache/cache-policy";
-import { invalidateAllRepoCaches, invalidateForWrite } from "@/lib/cache/project-lww-invalidator";
+import { cacheRepo, invalidateAllRepoCaches, invalidateForWrite } from "@/lib/cache/parts-1";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

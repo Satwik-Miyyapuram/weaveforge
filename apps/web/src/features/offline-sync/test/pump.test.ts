@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/outbox";
-import { OutboxPump } from "../domain/pump";
-import { ConflictStore } from "../domain/conflicts";
-import type { OutboxEntry } from "../domain/outbox";
+import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/parts-2";
+import { OutboxPump } from "../domain/parts-3";
+import { ConflictStore } from "../domain/parts-1";
+import type { OutboxEntry } from "../domain/parts-2";
 import type { SendOutcome, SyncTransport } from "../domain/parts";
 import { localSqlDb, type LocalSqlDb } from "./local-sql";
 

@@ -17,7 +17,7 @@ Phase 5 (server) is only a decision, made after phase 3: write the recommendatio
 ## Where to work
 
 - Work in a worktree on `feat/rust-port`. Ask the user once before creating it (`git worktree add` was denied before); if an existing worktree already has the branch checked out, reuse it.
-- The main checkout stays on `fix/B08-blob-view-secret` with three dirty files that must never be committed: `apps/web/next-env.d.ts`, `apps/web/src/deployment/generated-registry.ts`, `apps/web/src/features/papers/infrastructure/zotero-web-api.ts`.
+- The main checkout stays on `fix/B08-blob-view-secret` with three dirty files that must never be committed: `apps/web/next-env.d.ts`, `apps/web/src/deployment/generated-registry.ts`, the papers `zotero-web-api.ts` (folded on this branch, still a file on main).
 - Pre-push hook in a worktree needs:
   - `export TSX_TSCONFIG_PATH="$(cygpath -w $PWD/apps/desktop)\\tsconfig.json"` (absolute Windows path)
   - `npm run build -w packages/core` first

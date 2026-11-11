@@ -6,7 +6,7 @@ import type {
   IAiProposalStore,
   ICurrentUserProvider,
 } from "@weaveforge/core";
-import { run } from "@/backend/providers/postgrest/row-access";
+import { run } from "@/backend/providers/postgrest/parts-1";
 
 type ProposalRow = {
   id: string;

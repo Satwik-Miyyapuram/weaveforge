@@ -11,8 +11,8 @@ import {
   NativeEmbedder,
   nativeEmbedBridge,
   type NativeEmbedBridge,
-} from "../infrastructure/native-embedder";
-import { DEFAULT_EMBEDDING_MODEL, embeddingProfile } from "../infrastructure/embedding-models";
+} from "../infrastructure/parts-2";
+import { DEFAULT_EMBEDDING_MODEL, embeddingProfile } from "../infrastructure/parts-1";
 
 const MODEL = "Xenova/all-MiniLM-L6-v2";
 

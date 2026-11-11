@@ -7,7 +7,7 @@ import {
   LinkCitationsUseCase,
 } from "../../../src/features/relations/application/parts.js";
 import type { ICitationSource } from "../../../src/features/relations/application/parts.js";
-import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
+import type { PaperRef } from "../../../src/features/papers/application/parts-1.js";
 import { createPaper } from "../../../src/features/papers/domain/parts.js";
 import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 

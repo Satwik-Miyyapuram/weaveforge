@@ -7,7 +7,7 @@ import {
   type UpdatePaperUseCase,
 } from "@weaveforge/core";
 import type { DuplicateGroup, TitleFix } from "@weaveforge/wasm";
-import type { MergePapersUseCase } from "@/features/papers/application/merge-papers.use-case";
+import type { MergePapersUseCase } from "@/features/papers/application/parts-1";
 
 /** A duplicate group as the screen shows it. */
 export interface TidyDuplicateGroup extends DuplicateGroup {
