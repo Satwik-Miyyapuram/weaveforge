@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { CrdtSnapshotStore } from "@/features/collab/infrastructure/parts";
+import { rustCrdtSnapshotStore } from "@/features/collab/infrastructure/parts";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "./pg-test-db";
 
@@ -17,7 +17,7 @@ async function ownerAndPage() {
     "insert into vault_pages (user_id, title) values ($1, $2) returning id",
     [owner, "Collaborative note"],
   );
-  const store = new CrdtSnapshotStore(
+  const store = rustCrdtSnapshotStore(
     createLocalClient(db.as(owner).sql as LocalQuery) as unknown as SupabaseClient,
   );
   return { db, owner, pageId: page!.id, store };

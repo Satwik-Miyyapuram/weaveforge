@@ -11,8 +11,8 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
-import { PostgrestExperimentRepository } from "@/features/experiments/infrastructure/parts";
-import { PostgrestReadingListRepository } from "@/features/reading-lists/infrastructure/parts";
+import { rustExperimentRepository } from "@/features/experiments/infrastructure/parts";
+import { rustReadingListRepository } from "@/features/reading-lists/infrastructure/parts";
 
 function recorder() {
   const sql: string[] = [];
@@ -28,8 +28,8 @@ const ctx = { projectId: "p1" };
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `id-${i}`);
 
 for (const [name, make] of [
-  ["experiments", (db: SupabaseClient) => new PostgrestExperimentRepository(db, ctx)],
-  ["reading lists", (db: SupabaseClient) => new PostgrestReadingListRepository(db, ctx)],
+  ["experiments", (db: SupabaseClient) => rustExperimentRepository(db, ctx)],
+  ["reading lists", (db: SupabaseClient) => rustReadingListRepository(db, ctx)],
 ] as const) {
   test(`${name}: the batch read filters as the single read does`, async () => {
     const single = recorder();

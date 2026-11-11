@@ -11,7 +11,7 @@ import type {
   VaultPage,
 } from "@weaveforge/core";
 import type { RepoCtx, RepoQuery } from "@weaveforge/wasm";
-import { type Resolved, timestampsAsText } from "./parts-1";
+import type { Resolved } from "./parts-1";
 
 // --- rust-repository ---
 /*
@@ -41,11 +41,17 @@ function argForRust(value: unknown): unknown {
   return value;
 }
 
-/** Local PGlite rows carry `Date`s; Rust reads timestamps as text. */
+/**
+ * Local PGlite rows carry `Date`s and bytea as `Uint8Array`; Rust reads them as
+ * PostgREST sends them: timestamps as ISO text, bytea as `\x` hex.
+ */
 function replyAsText(data: unknown): unknown {
   if (data instanceof Date) return data.toISOString();
+  if (data instanceof Uint8Array) return `\\x${Array.from(data, (b) => b.toString(16).padStart(2, "0")).join("")}`;
   if (Array.isArray(data)) return data.map(replyAsText);
-  if (data !== null && typeof data === "object") return timestampsAsText(data);
+  if (data !== null && typeof data === "object") {
+    return Object.fromEntries(Object.entries(data).map(([k, v]) => [k, replyAsText(v)]));
+  }
   return data;
 }
 

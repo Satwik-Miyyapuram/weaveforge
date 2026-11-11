@@ -256,7 +256,7 @@ fn js_slice_start(s: &str, n: usize) -> String {
 /// `YYYY-MM-DDTHH:MM[:SS[.fff]]` ending in `Z` or `+HH:MM` / `-HH:MM`. Postgres timestamps
 /// come as the latter. A date-time with no zone is local time in JS, which Rust cannot know,
 /// so it is `None` here, as is anything else.
-fn parse_iso_utc_ms(s: &str) -> Option<f64> {
+pub(crate) fn parse_iso_utc_ms(s: &str) -> Option<f64> {
     let b = s.as_bytes();
     let y = digits(b, 0, 4)?;
     if b.get(4) != Some(&b'-') || b.get(7) != Some(&b'-') {

@@ -2,17 +2,27 @@
 
 pub mod ai_audit;
 pub mod ai_proposals;
+pub mod annotation_pins;
 pub mod annotation_quotation_types;
 pub mod citation_alert_tracks;
 pub mod comments;
+pub mod crdt_updates;
+pub mod experiment_metrics;
+pub mod experiments;
 pub mod lab_snapshots;
 pub mod library_pins;
 pub mod log_entries;
 pub mod members;
 pub mod org;
+pub mod paper_fields;
 pub mod paper_relations;
 pub mod paper_tags;
+pub mod papers;
+pub mod reader_annotations;
+pub mod reading_list_items;
+pub mod reading_lists;
 pub mod report_sections;
+pub mod screening_decisions;
 pub mod share_links;
 pub mod shares;
 pub mod supervision;
