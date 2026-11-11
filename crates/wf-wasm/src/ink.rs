@@ -385,8 +385,11 @@ pub fn capped_engine_confidence_js(conf: f64) -> f64 {
 /// # Errors
 ///
 /// Fails if `lines` is not an array of `{ text: string, conf: number }`.
-#[wasm_bindgen(js_name = inkPageSummary)]
-pub fn ink_page_summary_js(lines: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = inkPageSummary, unchecked_return_type = "{ text: string; confidence: number; unsure: number }")]
+pub fn ink_page_summary_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly { text: string; conf: number }[]")]
+    lines: JsValue,
+) -> JsResult<JsValue> {
     let lines: Vec<RecognisedLine> = serde_wasm_bindgen::from_value(lines)?;
     to_js(&ink_page_summary(&lines))
 }
@@ -414,14 +417,17 @@ pub fn ink_vocabulary_hints_js(
 /// # Errors
 ///
 /// Fails if `words` or `vocabulary` is not such an array.
-#[wasm_bindgen(js_name = decodeInkWords)]
+#[wasm_bindgen(js_name = decodeInkWords, unchecked_return_type = "{ text: string; conf: number; alternatives?: string[] }")]
 #[allow(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes optional strings by value"
 )]
 pub fn decode_ink_words_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { candidates: readonly string[]; known?: readonly boolean[] | null; join?: string | null }[]"
+    )]
     words: JsValue,
-    vocabulary: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] vocabulary: JsValue,
     engine_text: Option<String>,
 ) -> JsResult<JsValue> {
     let words: Vec<InkWordReadings> = serde_wasm_bindgen::from_value(words)?;

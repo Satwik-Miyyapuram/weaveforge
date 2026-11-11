@@ -298,8 +298,12 @@ pub fn owned_asset_folder_paths_js(bodies: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when either argument is not an array of the expected element type.
-#[wasm_bindgen(js_name = workspaceBodies)]
-pub fn workspace_bodies_js(vault_bodies: JsValue, paper_summaries: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = workspaceBodies, unchecked_return_type = "string[]")]
+pub fn workspace_bodies_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] vault_bodies: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly (string | null | undefined)[]")]
+    paper_summaries: JsValue,
+) -> JsResult<JsValue> {
     let vault_bodies: Vec<String> = serde_wasm_bindgen::from_value(vault_bodies)?;
     let paper_summaries: Vec<Option<String>> = serde_wasm_bindgen::from_value(paper_summaries)?;
     to_js(&workspace_bodies(&vault_bodies, &paper_summaries))

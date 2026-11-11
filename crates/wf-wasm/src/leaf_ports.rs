@@ -133,7 +133,7 @@ pub fn should_persist_body_js(ready: bool, next: &str, last_saved: &str) -> bool
 }
 
 /// [`compact_skip_reason`](collab::compact_skip_reason): `undefined` when the request should be sent.
-#[wasm_bindgen(js_name = compactSkipReason)]
+#[wasm_bindgen(js_name = compactSkipReason, unchecked_return_type = "\"nothing-to-do\" | \"stale\" | undefined")]
 #[must_use]
 pub fn compact_skip_reason_js(snapshot_upto_id: f64, current_upto: Option<f64>) -> Option<String> {
     collab::compact_skip_reason(snapshot_upto_id, current_upto).map(str::to_owned)

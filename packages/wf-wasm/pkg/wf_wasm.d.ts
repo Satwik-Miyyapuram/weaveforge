@@ -1346,7 +1346,7 @@ export function cleanUrlsWithRules(text: string, rules: readonly string[]): B.Ur
  *
  * Fails if `value` cannot be read as JSON, or the result cannot be converted to JS.
  */
-export function cleanWidgetPalette(value: any): any;
+export function cleanWidgetPalette(value: unknown): Record<string, string> | null;
 
 /**
  * [`clean_wrapped_text`] for JS, as `{ text, changed }`.
@@ -1539,7 +1539,7 @@ export function compactInkPath(path: Float64Array, options: any): Float64Array;
 /**
  * [`compact_skip_reason`](collab::compact_skip_reason): `undefined` when the request should be sent.
  */
-export function compactSkipReason(snapshot_upto_id: number, current_upto?: number | null): string | undefined;
+export function compactSkipReason(snapshot_upto_id: number, current_upto?: number | null): "nothing-to-do" | "stale" | undefined;
 
 /**
  * [`compose_spacing_accents`](analysis_text::compose_spacing_accents) (TS `composeSpacingAccents`).
@@ -2099,7 +2099,7 @@ export function decodeHtmlEntities(value: string): string;
  *
  * Fails if `words` or `vocabulary` is not such an array.
  */
-export function decodeInkWords(words: any, vocabulary: any, engine_text?: string | null): any;
+export function decodeInkWords(words: readonly { candidates: readonly string[]; known?: readonly boolean[] | null; join?: string | null }[], vocabulary: readonly string[], engine_text?: string | null): { text: string; conf: number; alternatives?: string[] };
 
 /**
  * [`decode_locus_value`] as a locus object, or `null` when malformed.
@@ -4266,7 +4266,7 @@ export function inkPageScissor(scale: number, offset_x: number, offset_y: number
  *
  * Fails if `lines` is not an array of `{ text: string, conf: number }`.
  */
-export function inkPageSummary(lines: any): any;
+export function inkPageSummary(lines: readonly { text: string; conf: number }[]): { text: string; confidence: number; unsure: number };
 
 /**
  * [`ink_page_svg`]: `page` is an `InkSvgPage`, `options` an `InkSvgOptions` (may be `{}`).
@@ -10898,7 +10898,7 @@ export function withoutGroup(tab: B.TabRef): B.TabRef;
  *
  * Fails when either argument is not an array of the expected element type.
  */
-export function workspaceBodies(vault_bodies: any, paper_summaries: any): any;
+export function workspaceBodies(vault_bodies: readonly string[], paper_summaries: readonly (string | null | undefined)[]): string[];
 
 /**
  * [`wf_core::sync::workspace_snapshot::workspace_snapshot_counts`] for JS.

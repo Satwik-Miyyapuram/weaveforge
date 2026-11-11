@@ -3260,8 +3260,8 @@ export function cleanUrlsWithRules(text, rules) {
  * # Errors
  *
  * Fails if `value` cannot be read as JSON, or the result cannot be converted to JS.
- * @param {any} value
- * @returns {any}
+ * @param {unknown} value
+ * @returns {Record<string, string> | null}
  */
 export function cleanWidgetPalette(value) {
     const ret = wasm.cleanWidgetPalette(value);
@@ -3708,7 +3708,7 @@ export function compactInkPath(path, options) {
  * [`compact_skip_reason`](collab::compact_skip_reason): `undefined` when the request should be sent.
  * @param {number} snapshot_upto_id
  * @param {number | null} [current_upto]
- * @returns {string | undefined}
+ * @returns {"nothing-to-do" | "stale" | undefined}
  */
 export function compactSkipReason(snapshot_upto_id, current_upto) {
     const ret = wasm.compactSkipReason(snapshot_upto_id, !isLikeNone(current_upto), isLikeNone(current_upto) ? 0 : current_upto);
@@ -4993,10 +4993,10 @@ export function decodeHtmlEntities(value) {
  * # Errors
  *
  * Fails if `words` or `vocabulary` is not such an array.
- * @param {any} words
- * @param {any} vocabulary
+ * @param {readonly { candidates: readonly string[]; known?: readonly boolean[] | null; join?: string | null }[]} words
+ * @param {readonly string[]} vocabulary
  * @param {string | null} [engine_text]
- * @returns {any}
+ * @returns {{ text: string; conf: number; alternatives?: string[] }}
  */
 export function decodeInkWords(words, vocabulary, engine_text) {
     var ptr0 = isLikeNone(engine_text) ? 0 : passStringToWasm0(engine_text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -10433,8 +10433,8 @@ export function inkPageScissor(scale, offset_x, offset_y, dpr, page_width, page_
  * # Errors
  *
  * Fails if `lines` is not an array of `{ text: string, conf: number }`.
- * @param {any} lines
- * @returns {any}
+ * @param {readonly { text: string; conf: number }[]} lines
+ * @returns {{ text: string; confidence: number; unsure: number }}
  */
 export function inkPageSummary(lines) {
     const ret = wasm.inkPageSummary(lines);
@@ -26728,9 +26728,9 @@ export function withoutGroup(tab) {
  * # Errors
  *
  * Fails when either argument is not an array of the expected element type.
- * @param {any} vault_bodies
- * @param {any} paper_summaries
- * @returns {any}
+ * @param {readonly string[]} vault_bodies
+ * @param {readonly (string | null | undefined)[]} paper_summaries
+ * @returns {string[]}
  */
 export function workspaceBodies(vault_bodies, paper_summaries) {
     const ret = wasm.workspaceBodies(vault_bodies, paper_summaries);

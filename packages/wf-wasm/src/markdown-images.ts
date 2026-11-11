@@ -2,10 +2,8 @@
  * Markdown image and blob link helpers (Rust `markdown_images`), re-exported from index.ts.
  */
 import {
-  imageAltFromFilename as rawImageAltFromFilename,
   ownedAssetFolderPaths as rawOwnedAssetFolderPaths,
   setImagePlacement as rawSetImagePlacement,
-  workspaceBodies as rawWorkspaceBodies,
 } from "../pkg/wf_wasm.js";
 import type {
   FoundImageRef,
@@ -16,6 +14,7 @@ import { checkIndexText } from "./text-check.js";
 export {
   findImageRefs,
   fromRelativeBlobLinks,
+  imageAltFromFilename,
   imageExtensionForMime,
   imagePathsInBody,
   markdownImage,
@@ -27,30 +26,15 @@ export {
   toRelativeBlobLinks,
   withImageWidth,
   withMdImageAlt,
+  workspaceBodies,
 } from "../pkg/wf_wasm.js";
 
 export type { FoundImageRef };
-
-/** Alt text from a file name (Rust `image_alt_from_filename`). */
-export function imageAltFromFilename(name?: string | null): string {
-  return rawImageAltFromFilename(name ?? undefined);
-}
 
 /** The folder paths the bodies already point at (Rust `owned_asset_folder_paths`). */
 export function ownedAssetFolderPaths(bodies: readonly string[]): string[] {
   for (const body of bodies) checkIndexText(body);
   return rawOwnedAssetFolderPaths(bodies) as string[];
-}
-
-/**
- * Every body that can carry an image reference (Rust `workspace_bodies`): vault page bodies,
- * then paper summaries, a missing summary as an empty body.
- */
-export function workspaceBodies(
-  vaultBodies: readonly string[],
-  paperSummaries: readonly (string | null | undefined)[],
-): string[] {
-  return rawWorkspaceBodies(vaultBodies, paperSummaries) as string[];
 }
 
 /** Rewrite the `ordinal`-th image whose alt is `alt` to the patched placement (Rust `set_image_placement`). */

@@ -9,9 +9,7 @@ import {
   inkLineRecords as rawInkLineRecords,
   isUnsureConfidence as rawIsUnsureConfidence,
   inkPageConfidence as rawInkPageConfidence,
-  decodeInkWords as rawDecodeInkWords,
   bandsCoincide as rawBandsCoincide,
-  inkPageSummary as rawInkPageSummary,
   inkBandUnion as rawInkBandUnion,
 } from "../pkg/wf_wasm.js";
 import type {
@@ -20,6 +18,8 @@ import type {
 
 export {
   cappedEngineConfidence,
+  decodeInkWords,
+  inkPageSummary,
   inkUnsureConfidence,
   inkVocabularyHints,
   isUnsureConfidence,
@@ -107,29 +107,7 @@ export function inkBandUnion(bands: Float64Array): [number, number] | null {
   return united.length === 2 ? [united[0]!, united[1]!] : null;
 }
 
-/**
- * The page summary: the trimmed non-empty line texts joined by newlines, the page's
- * confidence, and the count of unsure lines (Rust `ink_page_summary`).
- */
-export function inkPageSummary(
-  lines: readonly { text: string; conf: number }[],
-): { text: string; confidence: number; unsure: number } {
-  return rawInkPageSummary(lines) as ReturnType<typeof inkPageSummary>;
-}
-
 /** A page's mean line confidence, corrected lines counting as 1 (Rust `ink_page_confidence`). */
 export function inkPageConfidence(lines: readonly { conf: number }[]): number {
   return rawInkPageConfidence(Float64Array.from(lines, (line) => line.conf));
-}
-
-/**
- * One line from its words' readings: the chosen text, a confidence under
- * `INK_ENGINE_MAX_CONFIDENCE`, and whole-line alternatives (Rust `decode_ink_words`).
- */
-export function decodeInkWords(
-  words: readonly { candidates: readonly string[]; known?: readonly boolean[] | null; join?: string | null }[],
-  vocabulary: readonly string[],
-  engineText?: string,
-): { text: string; conf: number; alternatives?: string[] } {
-  return rawDecodeInkWords(words, vocabulary, engineText) as ReturnType<typeof decodeInkWords>;
 }
