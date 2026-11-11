@@ -22,6 +22,7 @@ export {
   cappedEngineConfidence,
   inkUnsureConfidence,
   inkVocabularyHints,
+  isUnsureConfidence,
   mapInkConfidence,
 } from "../pkg/wf_wasm.js";
 
@@ -89,12 +90,7 @@ export function inkLineRecords(
 
 /** Whether a line's confidence is too low, or missing, to trust (Rust `is_unsure_confidence`). */
 export function isUnsureLine(line: { conf: number }): boolean {
-  return isUnsureConfidence(line.conf);
-}
-
-/** Whether a confidence is too low, or missing (NaN), to trust (Rust `is_unsure_confidence`). */
-export function isUnsureConfidence(conf: number): boolean {
-  return rawIsUnsureConfidence(conf);
+  return rawIsUnsureConfidence(line.conf);
 }
 
 /** Whether two y-bands overlap by at least half of the smaller one (Rust `bands_coincide`). */

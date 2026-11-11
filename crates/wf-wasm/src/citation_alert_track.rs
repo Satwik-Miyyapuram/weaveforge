@@ -14,8 +14,13 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `row` has the wrong shape.
-#[wasm_bindgen(js_name = citationAlertTrackFromRow)]
-pub fn citation_alert_track_from_row_js(row: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(
+    js_name = citationAlertTrackFromRow,
+    unchecked_return_type = "B.CitationAlertTrack"
+)]
+pub fn citation_alert_track_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CitationAlertTrackRow")] row: JsValue,
+) -> Result<JsValue, JsValue> {
     let row: CitationAlertTrackRow = serde_wasm_bindgen::from_value(row)?;
     Ok(to_js(
         &citation_alert_track::citation_alert_track_from_row(row),

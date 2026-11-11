@@ -100,8 +100,10 @@ pub fn format_metric_cell_js(metric: &str, value: JsValue) -> JsResult<String> {
 /// # Errors
 ///
 /// Fails if `experiments` is not an array of run objects.
-#[wasm_bindgen(js_name = metricKeys)]
-pub fn metric_keys_js(experiments: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = metricKeys, unchecked_return_type = "string[]")]
+pub fn metric_keys_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Experiment[]")] experiments: JsValue,
+) -> JsResult<JsValue> {
     let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
     to_js(&experiment_status::metric_keys(&experiments))
 }
