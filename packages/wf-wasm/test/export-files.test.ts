@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { exportAssetPath, exportManifestJson, exportReadme } from "../src/export-files.js";
+import { exportAssetPath, exportManifestJson, exportReadme } from "../src/index.js";
 import type { ExportStats } from "../src/bindings.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);

@@ -2,15 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { createdPageIndex } from "../src/proposal-created-page.js";
+import { createdPageIndex } from "../src/index.js";
 import { groupProposals } from "../src/proposal-groups.js";
 import {
   shouldMountShellChildren,
   shouldShowWorkspaceLoader,
 } from "../src/privacy-disclaimer-readiness.js";
-import { railGroupText } from "../src/rail-group-text.js";
-import { semanticStatusText } from "../src/semantic-status-text.js";
-import { conflictRoute } from "../src/sync-conflict-route.js";
+import { railGroupText } from "../src/index.js";
+import { semanticStatusText } from "../src/index.js";
+import { conflictRoute } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });

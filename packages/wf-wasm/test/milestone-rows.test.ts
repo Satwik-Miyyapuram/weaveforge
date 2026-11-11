@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { milestoneFromRow, milestoneToRow } from "../src/milestone-rows.js";
-import type { MilestoneRowInput } from "../src/milestone-rows.js";
+import { milestoneFromRow, milestoneToRow } from "../src/index.js";
+import type { MilestoneRowInput } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });

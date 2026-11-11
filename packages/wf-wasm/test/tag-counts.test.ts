@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { paperCountsForTags } from "../src/tag-counts.js";
+import { paperCountsForTags } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 

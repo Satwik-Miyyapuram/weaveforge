@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { documentIdOf, embeddableText, textHash } from "../src/semantic-fingerprint.js";
+import { documentIdOf, embeddableText, textHash } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 

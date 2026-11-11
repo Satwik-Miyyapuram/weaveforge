@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { paperTagFromRow, tagFromRow } from "../src/tag-rows.js";
-import type { PaperTagRowInput, TagRowInput } from "../src/tag-rows.js";
+import { paperTagFromRow, tagFromRow } from "../src/index.js";
+import type { PaperTagRowInput, TagRowInput } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });

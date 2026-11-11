@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { experimentRowToDomain, experimentToRow } from "../src/experiment-rows.js";
+import { experimentRowToDomain, experimentToRow } from "../src/index.js";
 import type { Experiment, ExperimentRow } from "../src/bindings.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);

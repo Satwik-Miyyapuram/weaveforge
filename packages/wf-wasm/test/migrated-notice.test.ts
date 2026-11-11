@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { migratedNotice } from "../src/migrated-notice.js";
+import { migratedNotice } from "../src/index.js";
 import { initSync } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
