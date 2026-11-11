@@ -4928,7 +4928,7 @@ export function declaredCharset(content_type, bytes) {
  * # Errors
  * Throws when the text is not base64.
  * @param {string} text
- * @returns {Uint8Array}
+ * @returns {Uint8Array<ArrayBuffer>}
  */
 export function decodeBase64(text) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -10483,8 +10483,8 @@ export function inkPathJsonSize(path) {
 
 /**
  * [`ink_paths_bounds`]; `[x1, y1, x2, y2]` or `null`.
- * @param {any} paths
- * @returns {any}
+ * @param {readonly (readonly number[])[]} paths
+ * @returns {[number, number, number, number] | null}
  */
 export function inkPathsBounds(paths) {
     const ret = wasm.inkPathsBounds(paths);
@@ -10496,7 +10496,7 @@ export function inkPathsBounds(paths) {
 
 /**
  * [`ink_paths_hit_test`]; `paths` is an array of number arrays.
- * @param {any} paths
+ * @param {readonly (readonly number[])[]} paths
  * @param {number} x
  * @param {number} y
  * @param {number} radius
@@ -22744,7 +22744,7 @@ export function serializeWorkspace(snapshot_json, project_id, project_name) {
  * [`session_action`] for JS (TS `sessionAction`): `"idle"`, `"adopt"`, `"drive"` or `"foreign"`.
  * @param {string | null} [signed_in_user_id]
  * @param {string | null} [adopted_account_id]
- * @returns {string}
+ * @returns {"idle" | "adopt" | "drive" | "foreign"}
  */
 export function sessionAction(signed_in_user_id, adopted_account_id) {
     let deferred3_0;
@@ -25375,11 +25375,11 @@ export function transitionsOn(motion, theme, reduced_motion, supported) {
 
 /**
  * [`translate_ink_paths`]; `decimals` defaults to 2. Returns an array of number arrays.
- * @param {any} paths
+ * @param {readonly (readonly number[])[]} paths
  * @param {number} dx
  * @param {number} dy
  * @param {number | null} [decimals]
- * @returns {any}
+ * @returns {number[][]}
  */
 export function translateInkPaths(paths, dx, dy, decimals) {
     const ret = wasm.translateInkPaths(paths, dx, dy, !isLikeNone(decimals), isLikeNone(decimals) ? 0 : decimals);

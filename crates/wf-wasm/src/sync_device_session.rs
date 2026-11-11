@@ -16,7 +16,7 @@ pub fn may_drive_device_js(
 }
 
 /// [`session_action`] for JS (TS `sessionAction`): `"idle"`, `"adopt"`, `"drive"` or `"foreign"`.
-#[wasm_bindgen(js_name = sessionAction)]
+#[wasm_bindgen(js_name = sessionAction, unchecked_return_type = "\"idle\" | \"adopt\" | \"drive\" | \"foreign\"")]
 #[must_use]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn session_action_js(

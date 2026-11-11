@@ -7,9 +7,6 @@ import {
   simplifyInkPath as rawSimplifyInkPath,
   quantizeInkPath as rawQuantizeInkPath,
   compactInkPath as rawCompactInkPath,
-  inkPathsHitTest as rawInkPathsHitTest,
-  translateInkPaths as rawTranslateInkPaths,
-  inkPathsBounds as rawInkPathsBounds,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -17,11 +14,14 @@ export {
   clampInkWidth,
   inkNoteWidthToPdfPoints,
   inkPathJsonSize,
+  inkPathsBounds,
+  inkPathsHitTest,
   inkWidthForPressure,
   isHighlighterInk,
   meanPressure,
   shouldAppendInkPoint,
   simplifyPathIndices,
+  translateInkPaths,
 } from "../pkg/wf_wasm.js";
 
 export function simplifyInkPath(path: readonly number[], tolerance?: number): number[] {
@@ -37,28 +37,4 @@ export function compactInkPath(
   options?: { tolerance?: number; maxPoints?: number; decimals?: number },
 ): number[] {
   return Array.from(rawCompactInkPath(Float64Array.from(path), options));
-}
-
-export function inkPathsHitTest(
-  paths: readonly (readonly number[])[],
-  x: number,
-  y: number,
-  radius: number,
-): boolean {
-  return rawInkPathsHitTest(paths, x, y, radius);
-}
-
-export function translateInkPaths(
-  paths: readonly (readonly number[])[],
-  dx: number,
-  dy: number,
-  decimals?: number,
-): number[][] {
-  return rawTranslateInkPaths(paths, dx, dy, decimals);
-}
-
-export function inkPathsBounds(
-  paths: readonly (readonly number[])[],
-): [number, number, number, number] | null {
-  return rawInkPathsBounds(paths);
 }

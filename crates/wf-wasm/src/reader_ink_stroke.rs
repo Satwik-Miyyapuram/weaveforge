@@ -138,15 +138,20 @@ pub fn can_join_ink_group_js(
 
 /// [`ink_paths_hit_test`]; `paths` is an array of number arrays.
 #[wasm_bindgen(js_name = inkPathsHitTest)]
-pub fn ink_paths_hit_test_js(paths: JsValue, x: f64, y: f64, radius: f64) -> JsResult<bool> {
+pub fn ink_paths_hit_test_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly number[])[]")] paths: JsValue,
+    x: f64,
+    y: f64,
+    radius: f64,
+) -> JsResult<bool> {
     let paths: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(paths)?;
     Ok(ink_paths_hit_test(&paths, x, y, radius))
 }
 
 /// [`translate_ink_paths`]; `decimals` defaults to 2. Returns an array of number arrays.
-#[wasm_bindgen(js_name = translateInkPaths)]
+#[wasm_bindgen(js_name = translateInkPaths, unchecked_return_type = "number[][]")]
 pub fn translate_ink_paths_js(
-    paths: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly number[])[]")] paths: JsValue,
     dx: f64,
     dy: f64,
     decimals: Option<f64>,
@@ -161,8 +166,13 @@ pub fn translate_ink_paths_js(
 }
 
 /// [`ink_paths_bounds`]; `[x1, y1, x2, y2]` or `null`.
-#[wasm_bindgen(js_name = inkPathsBounds)]
-pub fn ink_paths_bounds_js(paths: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = inkPathsBounds,
+    unchecked_return_type = "[number, number, number, number] | null"
+)]
+pub fn ink_paths_bounds_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly number[])[]")] paths: JsValue,
+) -> JsResult<JsValue> {
     let paths: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(paths)?;
     to_js(&ink_paths_bounds(&paths))
 }
