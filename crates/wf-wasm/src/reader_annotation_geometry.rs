@@ -1,4 +1,4 @@
-//! Annotation geometry per page (`apps/web/src/features/reader/application/project-annotation-geometry.ts`).
+//! Annotation geometry per page (the removed TS `project-annotation-geometry`).
 //! Wraps `wf_core::reader::annotation_geometry`.
 
 use wasm_bindgen::JsValue;

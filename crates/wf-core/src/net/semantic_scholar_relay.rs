@@ -1,5 +1,5 @@
 //! Semantic Scholar relay target: the upstream address for a relay path (TS
-//! `apps/web/src/lib/semantic-scholar-relay.ts` `semanticScholarTarget`). The browser
+//! `apps/desktop/src/semantic-scholar-proxy.ts` `semanticScholarTarget`). The browser
 //! path prefix and the upstream host are shared by the hosted route and the desktop shell.
 
 /// The path the browser calls.

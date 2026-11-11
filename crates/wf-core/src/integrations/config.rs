@@ -1,5 +1,5 @@
 //! Integration provider selection from env, ported from
-//! `apps/web/src/integrations/config-resolver.ts`. Pure: the caller passes the
+//! `apps/web/src/integrations/config.ts`. Pure: the caller passes the
 //! env values and the registered provider ids (from the TS manifest registry).
 
 use serde::{Deserialize, Serialize};

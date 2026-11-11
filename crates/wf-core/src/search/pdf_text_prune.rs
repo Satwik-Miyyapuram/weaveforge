@@ -1,6 +1,6 @@
 //! Which stored PDF texts still belong to a paper in the workspace, and which are orphans to delete.
 //! Ports the pure part of `pruneMissingPaperTexts` in
-//! `apps/web/src/features/search/application/pdf-text-pruning.ts`. The reconcile, load and delete
+//! `apps/web/src/features/search/application/workspace-search.ts`. The reconcile, load and delete
 //! I/O stays in TS.
 
 use std::collections::{BTreeMap, HashSet};
