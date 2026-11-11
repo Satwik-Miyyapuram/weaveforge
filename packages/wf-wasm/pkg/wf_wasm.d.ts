@@ -415,7 +415,7 @@ export function analyzePdfDocument(pages: any, outline: any): any;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function anchorAt(text: string, start: number, end: number): any;
+export function anchorAt(text: string, start: number, end: number): B.CommentAnchor | null;
 
 /**
  * [`annotation_doc_id`](search_document::annotation_doc_id).
@@ -1182,13 +1182,13 @@ export function citationExternalIdRef(ids: any): any;
 export function citationFormatStorageKey(project_id?: string | null): string;
 
 /**
- * [`intent_label`](citation_alerts::intent_label) of one candidate, or `undefined` when it has no intents.
+ * [`intent_label`](citation_alerts::intent_label) of one candidate, or `null` when it has no intents.
  *
  * # Errors
  *
  * Fails if `candidate` has the wrong shape.
  */
-export function citationIntentLabel(candidate: any): string | undefined;
+export function citationIntentLabel(candidate: B.CitationSignals): string | null;
 
 /**
  * [`citation_intents`](semantic_scholar_citation::citation_intents): the known intents, or
@@ -4075,9 +4075,9 @@ export function inkChunkHeaderBytes(body_size: number, payload_size: number, com
 
 /**
  * [`chunk_id_of_file_name`](ink_paths::chunk_id_of_file_name): the chunk id a filename
- * names, or `undefined` when it is not `<chunk id>.inkb`.
+ * names, or `null` when it is not `<chunk id>.inkb`.
  */
-export function inkChunkIdOfFileName(name: string): string | undefined;
+export function inkChunkIdOfFileName(name: string): string | null;
 
 /**
  * [`ink_chunk_path`](ink_paths::ink_chunk_path).
@@ -5432,7 +5432,7 @@ export function localSubgraph(seed: string | null | undefined, depth: number, ne
  *
  * Fails when `anchor` is not a comment anchor.
  */
-export function locateAnchor(text: string, anchor: any): any;
+export function locateAnchor(text: string, anchor: B.CommentAnchor): { start: number; end: number } | null;
 
 /**
  * [`locate_mention`]: the rects and bounds a mention covers on its page.
@@ -5615,13 +5615,13 @@ export function matchVocabulary(text: string, vocabulary: readonly string[]): B.
 export function matchingPageIndices(labels: readonly string[], query: string): number[];
 
 /**
- * [`mattermost_channel_for`](options::mattermost_channel_for); `undefined` when the event is off.
+ * [`mattermost_channel_for`](options::mattermost_channel_for); `null` when the event is off.
  *
  * # Errors
  *
  * Fails if `integration` or `event` has the wrong shape.
  */
-export function mattermostChannelFor(integration: any, event: any): string | undefined;
+export function mattermostChannelFor(integration: B.Integration, event: B.MattermostEvent): string | null;
 
 /**
  * [`mattermost_connection`](fields::mattermost_connection).
@@ -6614,9 +6614,9 @@ export function openingTab(kind: string, id: string, body?: string | null): B.Ta
 export function optimisticAnnotationFromDraft(draft: B.NewReaderAnnotation, id: string, now: string): B.ReaderAnnotation;
 
 /**
- * [`origin_of`](ipc_origin::origin_of): the origin of `url`, or `undefined` when it does not parse.
+ * [`origin_of`](ipc_origin::origin_of): the origin of `url`, or `null` when it does not parse.
  */
-export function originOf(url: string): string | undefined;
+export function originOf(url: string): string | null;
 
 /**
  * [`original_range`](analysis_text::original_range) as `[start, end]` (TS `originalRange`).
@@ -7096,7 +7096,7 @@ export function parseFigureTokens(alt: string): any;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function parseFolderDraft(raw: string): any;
+export function parseFolderDraft(raw: string): { kind: string; tool: string; resourceId: string; resourceType?: string; content: string; payload?: Record<string, unknown>; sourceLinks?: string[]; expectedRevision?: string; createdAt?: string; projectId?: string } | null;
 
 /**
  * [`parse_graph_persisted_state`](graph_settings::parse_graph_persisted_state); `null` when absent.
@@ -7460,7 +7460,7 @@ export function pdfSourceResolverOrder(has_cache: boolean, has_github: boolean):
  *
  * Fails when `users` is not a list of pairs.
  */
-export function peersFromUsers(users: any, self_client_id: number, self_author_id: string): any;
+export function peersFromUsers(users: readonly (readonly [number, unknown])[], self_client_id: number, self_author_id: string): B.Peer[];
 
 /**
  * [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
@@ -8325,7 +8325,7 @@ export function readInkChunkHeader(bytes: Uint8Array): B.InkChunkHeader;
  *
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
-export function readInkNoteBody(body: string): any;
+export function readInkNoteBody(body: string): { meta: B.InkNoteMeta; text: string };
 
 /**
  * [`read_ink_note_meta`](wf_core::sync::ink_note::read_ink_note_meta) of a frontmatter
@@ -10689,9 +10689,9 @@ export function verdictFor(decisions: any, item_id: string, stage: any): any;
 export function verdictsFor(items: any, decisions: any): any;
 
 /**
- * [`viewable_artifact_url`](experiment_artifacts::viewable_artifact_url); `undefined` when refused.
+ * [`viewable_artifact_url`](experiment_artifacts::viewable_artifact_url); `null` when refused.
  */
-export function viewableArtifactUrl(entry: string, in_shell: boolean): string | undefined;
+export function viewableArtifactUrl(entry: string, in_shell: boolean): string | null;
 
 /**
  * [`visible_rows`](tree::visible_rows). `expanded` is an array of keys.
@@ -11268,7 +11268,7 @@ export interface InitOutput {
     readonly citationContexts: (a: any) => [number, number, number];
     readonly citationExternalIdRef: (a: any) => [number, number, number];
     readonly citationFormatStorageKey: (a: number, b: number) => [number, number];
-    readonly citationIntentLabel: (a: any) => [number, number, number, number];
+    readonly citationIntentLabel: (a: any) => [number, number, number];
     readonly citationIntents: (a: any) => [number, number, number];
     readonly citationItemToRect: (a: any, b: number, c: number) => [number, number, number];
     readonly citeKeyOf: (a: any) => [number, number, number];
@@ -11641,7 +11641,7 @@ export interface InitOutput {
     readonly inkBoundsUnion: (a: number, b: number, c: number, d: number) => [number, number];
     readonly inkChunkBodySize: (a: any) => [number, number, number];
     readonly inkChunkHeaderBytes: (a: number, b: number, c: number) => [number, number];
-    readonly inkChunkIdOfFileName: (a: number, b: number) => [number, number];
+    readonly inkChunkIdOfFileName: (a: number, b: number) => any;
     readonly inkChunkPath: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly inkChunkRawThreshold: () => number;
     readonly inkChunkShouldTryCompress: (a: number) => number;
@@ -11870,7 +11870,7 @@ export interface InitOutput {
     readonly matchPageCitations: (a: any, b: any, c: any) => [number, number, number];
     readonly matchVocabulary: (a: number, b: number, c: any) => [number, number, number];
     readonly matchingPageIndices: (a: any, b: any) => [number, number, number];
-    readonly mattermostChannelFor: (a: any, b: any) => [number, number, number, number];
+    readonly mattermostChannelFor: (a: any, b: any) => [number, number, number];
     readonly mattermostConnection: (a: any) => [number, number, number];
     readonly mattermostConnectionReady: (a: any) => [number, number, number];
     readonly mattermostEvents: () => [number, number, number];
@@ -12011,7 +12011,7 @@ export interface InitOutput {
     readonly openTabKeys: (a: any) => [number, number, number];
     readonly openingTab: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly optimisticAnnotationFromDraft: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
-    readonly originOf: (a: number, b: number) => [number, number];
+    readonly originOf: (a: number, b: number) => any;
     readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
     readonly outlineFromText: (a: any) => [number, number, number];
     readonly outlineIsPlausible: (a: any, b: number) => [number, number, number];
@@ -12555,7 +12555,7 @@ export interface InitOutput {
     readonly vectorindex_vectorOf: (a: number, b: number, c: number) => [number, number];
     readonly verdictFor: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly verdictsFor: (a: any, b: any) => [number, number, number];
-    readonly viewableArtifactUrl: (a: number, b: number, c: number) => [number, number];
+    readonly viewableArtifactUrl: (a: number, b: number, c: number) => any;
     readonly visibleRows: (a: any, b: any) => [number, number, number];
     readonly visualPageSize: (a: any, b: number) => [number, number, number];
     readonly vscodeJson: (a: any) => [number, number, number, number];

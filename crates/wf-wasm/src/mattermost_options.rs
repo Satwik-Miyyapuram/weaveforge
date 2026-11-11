@@ -30,17 +30,18 @@ pub fn mattermost_options_js(
     to_js(&options::mattermost_options(&integration))
 }
 
-/// [`mattermost_channel_for`](options::mattermost_channel_for); `undefined` when the event is off.
+/// [`mattermost_channel_for`](options::mattermost_channel_for); `null` when the event is off.
 ///
 /// # Errors
 ///
 /// Fails if `integration` or `event` has the wrong shape.
-#[wasm_bindgen(js_name = mattermostChannelFor)]
+#[wasm_bindgen(js_name = mattermostChannelFor, unchecked_return_type = "string | null")]
 pub fn mattermost_channel_for_js(
-    integration: JsValue,
-    event: JsValue,
-) -> Result<Option<String>, serde_wasm_bindgen::Error> {
+    #[wasm_bindgen(unchecked_param_type = "B.Integration")] integration: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.MattermostEvent")] event: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let integration: Integration = serde_wasm_bindgen::from_value(integration)?;
     let event: MattermostEvent = serde_wasm_bindgen::from_value(event)?;
-    Ok(options::mattermost_channel_for(&integration, event))
+    let channel = options::mattermost_channel_for(&integration, event);
+    Ok(channel.map_or(JsValue::NULL, JsValue::from))
 }

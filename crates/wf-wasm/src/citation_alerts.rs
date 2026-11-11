@@ -20,15 +20,18 @@ pub fn citation_alert_scores_js(candidates: JsValue) -> JsResult<Vec<f64>> {
         .collect())
 }
 
-/// [`intent_label`](citation_alerts::intent_label) of one candidate, or `undefined` when it has no intents.
+/// [`intent_label`](citation_alerts::intent_label) of one candidate, or `null` when it has no intents.
 ///
 /// # Errors
 ///
 /// Fails if `candidate` has the wrong shape.
-#[wasm_bindgen(js_name = citationIntentLabel)]
-pub fn citation_intent_label_js(candidate: JsValue) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = citationIntentLabel, unchecked_return_type = "string | null")]
+pub fn citation_intent_label_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CitationSignals")] candidate: JsValue,
+) -> JsResult<JsValue> {
     let candidate: CitationSignals = serde_wasm_bindgen::from_value(candidate)?;
-    Ok(citation_alerts::intent_label(&candidate))
+    let value = citation_alerts::intent_label(&candidate);
+    Ok(value.map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`merge_seen_ids`](citation_alerts::merge_seen_ids): prior ids, then new ones, each once.
