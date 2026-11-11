@@ -36,12 +36,12 @@ fn pdf_request(query: &[(&str, &str)]) -> Url {
 }
 
 #[test]
-fn allowlist_matches_the_ts_list() {
-    // The TS set is the source of truth: read it and compare every host, in order.
-    let ts = include_str!("../../../web/src/features/reader/application/sanitize-reader-url.ts");
-    let start = ts.find("PDF_PROXY_ALLOWED_HOSTS = new Set([").unwrap();
-    let block = &ts[start..];
-    let block = &block[..block.find("]);").unwrap()];
+fn allowlist_matches_the_core_list() {
+    // The wf-core list (the reader's allowlist) is the source of truth: compare every host, in order.
+    let core = include_str!("../../../../crates/wf-core/src/reader/sanitize_reader_url.rs");
+    let start = core.find("PDF_PROXY_ALLOWED_HOSTS: &[&str] = &[").unwrap();
+    let block = &core[start..];
+    let block = &block[..block.find("];").unwrap()];
     let ts_hosts: Vec<&str> = block
         .lines()
         .map(str::trim)
