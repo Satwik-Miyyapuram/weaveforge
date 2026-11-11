@@ -5,18 +5,14 @@
  * and apps/web {papers/domain/reference-text,collab/domain/presence}.ts.
  */
 import {
-  anchorAt as rawAnchorAt,
   compactSkipReason as rawCompactSkipReason,
   formatReference as rawFormatReference,
-  locateAnchor as rawLocateAnchor,
   mergeExtractions as rawMergeExtractions,
-  parseFolderDraft as rawParseFolderDraft,
   peersFromUsers as rawPeersFromUsers,
   spanPoints as rawSpanPoints,
   withoutExisting as rawWithoutExisting,
 } from "../pkg/wf_wasm.js";
 import type {
-  CommentAnchor,
   ExtractionResult,
   Peer,
   ReferencePaper,
@@ -25,6 +21,10 @@ import type {
 } from "./bindings.js";
 
 export {
+  anchorAt,
+  locateAnchor,
+  parseFolderDraft,
+  peersFromUsers,
   samePeers,
 } from "../pkg/wf_wasm.js";
 
@@ -43,22 +43,6 @@ export function withoutExisting<R extends ExtractionResult>(result: R, existing:
   return rawWithoutExisting(result, [...existing]) as R;
 }
 
-/** A local-MCP draft file's parsed form (core `FolderDraft`), or null when it is not one. */
-export function parseFolderDraft(raw: string): {
-  kind: string;
-  tool: string;
-  resourceId: string;
-  resourceType?: string;
-  content: string;
-  payload?: Record<string, unknown>;
-  sourceLinks?: string[];
-  expectedRevision?: string;
-  createdAt?: string;
-  projectId?: string;
-} | null {
-  return rawParseFolderDraft(raw) ?? null;
-}
-
 /** A paper as an APA reference ready to paste. */
 export function formatReference(paper: Omit<ReferencePaper, "authors"> & { authors: readonly string[] }): string {
   const { title, authors, year, venue, doi, arxivId, url } = paper;
@@ -70,23 +54,8 @@ export function peersFromStates(
   states: ReadonlyMap<number, unknown>,
   self: { clientId: number; authorId: string },
 ): Peer[] {
-  const users = Array.from(states, ([id, s]) => [id, (s as { user?: unknown } | null)?.user ?? null]);
-  return rawPeersFromUsers(users, self.clientId, self.authorId) as Peer[];
-}
-
-/** The anchor for `text.slice(start, end)`, or null for an empty or blank span. */
-export function anchorAt(text: string, start: number, end: number): CommentAnchor | null {
-  return (rawAnchorAt(text, start, end) as CommentAnchor | null) ?? null;
-}
-
-/** Where `anchor` is in `text` now (UTF-16 offsets), or null when its quote no longer occurs. */
-export function locateAnchor(text: string, anchor: CommentAnchor): { start: number; end: number } | null {
-  return (rawLocateAnchor(text, anchor) as { start: number; end: number } | null) ?? null;
-}
-
-/** `[clientId, user]` pairs → one entry per other person (Rust `peers_from_users`). */
-export function peersFromUsers(users: readonly (readonly [number, unknown])[], selfClientId: number, selfAuthorId: string): Peer[] {
-  return rawPeersFromUsers(users, selfClientId, selfAuthorId) as Peer[];
+  const users = Array.from(states, ([id, s]): [number, unknown] => [id, (s as { user?: unknown } | null)?.user ?? null]);
+  return rawPeersFromUsers(users, self.clientId, self.authorId);
 }
 
 /** Why a CRDT compaction is a no-op (`nothing-to-do` or `stale`), or undefined to send it (Rust `compact_skip_reason`). */

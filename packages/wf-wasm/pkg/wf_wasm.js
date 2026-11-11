@@ -994,7 +994,7 @@ export function analyzePdfDocument(pages, outline) {
  * @param {string} text
  * @param {number} start
  * @param {number} end
- * @returns {any}
+ * @returns {B.CommentAnchor | null}
  */
 export function anchorAt(text, start, end) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -2913,25 +2913,20 @@ export function citationFormatStorageKey(project_id) {
 }
 
 /**
- * [`intent_label`](citation_alerts::intent_label) of one candidate, or `undefined` when it has no intents.
+ * [`intent_label`](citation_alerts::intent_label) of one candidate, or `null` when it has no intents.
  *
  * # Errors
  *
  * Fails if `candidate` has the wrong shape.
- * @param {any} candidate
- * @returns {string | undefined}
+ * @param {B.CitationSignals} candidate
+ * @returns {string | null}
  */
 export function citationIntentLabel(candidate) {
     const ret = wasm.citationIntentLabel(candidate);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -9988,20 +9983,15 @@ export function inkChunkHeaderBytes(body_size, payload_size, compressed) {
 
 /**
  * [`chunk_id_of_file_name`](ink_paths::chunk_id_of_file_name): the chunk id a filename
- * names, or `undefined` when it is not `<chunk id>.inkb`.
+ * names, or `null` when it is not `<chunk id>.inkb`.
  * @param {string} name
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function inkChunkIdOfFileName(name) {
     const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.inkChunkIdOfFileName(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -13209,8 +13199,8 @@ export function localSubgraph(seed, depth, neighbors) {
  *
  * Fails when `anchor` is not a comment anchor.
  * @param {string} text
- * @param {any} anchor
- * @returns {any}
+ * @param {B.CommentAnchor} anchor
+ * @returns {{ start: number; end: number } | null}
  */
 export function locateAnchor(text, anchor) {
     const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -13684,26 +13674,21 @@ export function matchingPageIndices(labels, query) {
 }
 
 /**
- * [`mattermost_channel_for`](options::mattermost_channel_for); `undefined` when the event is off.
+ * [`mattermost_channel_for`](options::mattermost_channel_for); `null` when the event is off.
  *
  * # Errors
  *
  * Fails if `integration` or `event` has the wrong shape.
- * @param {any} integration
- * @param {any} event
- * @returns {string | undefined}
+ * @param {B.Integration} integration
+ * @param {B.MattermostEvent} event
+ * @returns {string | null}
  */
 export function mattermostChannelFor(integration, event) {
     const ret = wasm.mattermostChannelFor(integration, event);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
     }
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -16085,20 +16070,15 @@ export function optimisticAnnotationFromDraft(draft, id, now) {
 }
 
 /**
- * [`origin_of`](ipc_origin::origin_of): the origin of `url`, or `undefined` when it does not parse.
+ * [`origin_of`](ipc_origin::origin_of): the origin of `url`, or `null` when it does not parse.
  * @param {string} url
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function originOf(url) {
     const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.originOf(ptr0, len0);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**
@@ -17266,7 +17246,7 @@ export function parseFigureTokens(alt) {
  *
  * Fails only if the result cannot be converted to a JS value.
  * @param {string} raw
- * @returns {any}
+ * @returns {{ kind: string; tool: string; resourceId: string; resourceType?: string; content: string; payload?: Record<string, unknown>; sourceLinks?: string[]; expectedRevision?: string; createdAt?: string; projectId?: string } | null}
  */
 export function parseFolderDraft(raw) {
     const ptr0 = passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -18070,10 +18050,10 @@ export function pdfSourceResolverOrder(has_cache, has_github) {
  * # Errors
  *
  * Fails when `users` is not a list of pairs.
- * @param {any} users
+ * @param {readonly (readonly [number, unknown])[]} users
  * @param {number} self_client_id
  * @param {string} self_author_id
- * @returns {any}
+ * @returns {B.Peer[]}
  */
 export function peersFromUsers(users, self_client_id, self_author_id) {
     const ptr0 = passStringToWasm0(self_author_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -20232,7 +20212,7 @@ export function readInkChunkHeader(bytes) {
  *
  * Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} body
- * @returns {any}
+ * @returns {{ meta: B.InkNoteMeta; text: string }}
  */
 export function readInkNoteBody(body) {
     const ret = wasm.readInkNoteBody(body);
@@ -26323,21 +26303,16 @@ export function verdictsFor(items, decisions) {
 }
 
 /**
- * [`viewable_artifact_url`](experiment_artifacts::viewable_artifact_url); `undefined` when refused.
+ * [`viewable_artifact_url`](experiment_artifacts::viewable_artifact_url); `null` when refused.
  * @param {string} entry
  * @param {boolean} in_shell
- * @returns {string | undefined}
+ * @returns {string | null}
  */
 export function viewableArtifactUrl(entry, in_shell) {
     const ptr0 = passStringToWasm0(entry, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.viewableArtifactUrl(ptr0, len0, in_shell);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
+    return ret;
 }
 
 /**

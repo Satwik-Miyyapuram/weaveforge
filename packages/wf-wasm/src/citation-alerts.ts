@@ -5,19 +5,17 @@
  */
 import {
   citationAlertScores as rawCitationAlertScores,
-  citationIntentLabel as rawCitationIntentLabel,
   mergeSeenIds as rawMergeSeenIds,
 } from "../pkg/wf_wasm.js";
 import type { CitationSignals } from "./bindings.js";
 
+export {
+  citationIntentLabel,
+} from "../pkg/wf_wasm.js";
+
 /** The "should I read this?" score of each candidate, in order. */
 export function citationAlertScores(candidates: readonly CitationSignals[]): number[] {
   return Array.from(rawCitationAlertScores(candidates));
-}
-
-/** The intent label on an alert line, or null when the citing paper has no intents. */
-export function citationIntentLabel(candidate: CitationSignals): string | null {
-  return rawCitationIntentLabel(candidate) ?? null;
 }
 
 /** Prior seen ids, then each new id once, in first-seen order. Prior ids always survive. */

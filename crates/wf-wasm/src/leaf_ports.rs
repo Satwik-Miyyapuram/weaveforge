@@ -51,9 +51,9 @@ pub fn without_existing_js(result: JsValue, existing: Vec<String>) -> JsResult<J
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = parseFolderDraft)]
+#[wasm_bindgen(js_name = parseFolderDraft, unchecked_return_type = "{ kind: string; tool: string; resourceId: string; resourceType?: string; content: string; payload?: Record<string, unknown>; sourceLinks?: string[]; expectedRevision?: string; createdAt?: string; projectId?: string } | null")]
 pub fn parse_folder_draft_js(raw: &str) -> JsResult<JsValue> {
-    to_js(&folder_draft::parse_folder_draft(raw))
+    folder_draft::parse_folder_draft(raw).map_or(Ok(JsValue::NULL), |draft| to_js(&draft))
 }
 
 /// [`format_reference`](reference_text::format_reference).
@@ -72,8 +72,9 @@ pub fn format_reference_js(paper: JsValue) -> JsResult<String> {
 /// # Errors
 ///
 /// Fails when `users` is not a list of pairs.
-#[wasm_bindgen(js_name = peersFromUsers)]
+#[wasm_bindgen(js_name = peersFromUsers, unchecked_return_type = "B.Peer[]")]
 pub fn peers_from_users_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly [number, unknown])[]")]
     users: JsValue,
     self_client_id: f64,
     self_author_id: &str,
@@ -106,9 +107,9 @@ pub fn same_peers_js(
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = anchorAt)]
+#[wasm_bindgen(js_name = anchorAt, unchecked_return_type = "B.CommentAnchor | null")]
 pub fn anchor_at_js(text: &str, start: f64, end: f64) -> JsResult<JsValue> {
-    to_js(&text_anchor::anchor_at(text, start, end))
+    text_anchor::anchor_at(text, start, end).map_or(Ok(JsValue::NULL), |anchor| to_js(&anchor))
 }
 
 /// [`locate_anchor`](text_anchor::locate_anchor): `{ start, end }`, or `null`.
@@ -116,10 +117,13 @@ pub fn anchor_at_js(text: &str, start: f64, end: f64) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `anchor` is not a comment anchor.
-#[wasm_bindgen(js_name = locateAnchor)]
-pub fn locate_anchor_js(text: &str, anchor: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = locateAnchor, unchecked_return_type = "{ start: number; end: number } | null")]
+pub fn locate_anchor_js(
+    text: &str,
+    #[wasm_bindgen(unchecked_param_type = "B.CommentAnchor")] anchor: JsValue,
+) -> JsResult<JsValue> {
     let anchor: CommentAnchor = serde_wasm_bindgen::from_value(anchor)?;
-    to_js(&text_anchor::locate_anchor(text, &anchor))
+    text_anchor::locate_anchor(text, &anchor).map_or(Ok(JsValue::NULL), |span| to_js(&span))
 }
 
 /// [`should_persist_body`](collab::should_persist_body).

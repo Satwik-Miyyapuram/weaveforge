@@ -89,7 +89,7 @@ pub fn is_ink_note_body_js(body: js_sys::JsString) -> JsResult<bool> {
 /// # Errors
 ///
 /// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = readInkNoteBody)]
+#[wasm_bindgen(js_name = readInkNoteBody, unchecked_return_type = "{ meta: B.InkNoteMeta; text: string }")]
 pub fn read_ink_note_body_js(body: js_sys::JsString) -> JsResult<JsValue> {
     let body = &crate::guarded_text(&body)?;
     let (meta, text) = read_ink_note_body(body);
