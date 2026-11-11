@@ -15,15 +15,13 @@ import {
   type RecentTargetKind,
 } from "@/lib/recent-targets";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
-import { createNoteFromQuery } from "@/lib/create-note-from-query";
+import { createNoteFromQuery, goToRoute, isMacPlatform } from "@/lib/parts";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
 import { AskLibraryRow } from "@/components/ask-library-row";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { useModuleRegistry } from "@/lib/hooks/parts";
 import { useTheme } from "@/lib/hooks/use-theme";
-import { isMacPlatform } from "@/lib/shortcut-label";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { goToRoute } from "@/lib/go-to-route";
 import { DOCS_URL, menuPaletteActions, requestShortcuts, settingsPaletteActions, type MenuPaletteAction } from "@/lib/palette-actions";
 import { shortcutTable } from "@/features/editor-workspace/application/keybindings";
 import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";

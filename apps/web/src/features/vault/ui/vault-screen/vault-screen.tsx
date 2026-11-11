@@ -14,9 +14,9 @@ import { createNoteFromLink as createOrReuseNote } from "../../application/creat
 import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
+import { emptyArray, emptyMap, emptySet } from "@/lib/parts";
 import { useProject } from "@/features/projects";
-import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";

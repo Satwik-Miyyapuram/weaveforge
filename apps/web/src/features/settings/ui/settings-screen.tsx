@@ -32,7 +32,7 @@ import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { FormError } from "@/components/form-error";

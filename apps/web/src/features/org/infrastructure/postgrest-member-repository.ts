@@ -1,5 +1,5 @@
 import { one } from "@/backend/providers/postgrest/row-access";
-import { singleFlight } from "@/lib/cache/single-flight";
+import { singleFlight } from "@/lib/cache/parts";
 import { readyCore, type RustCore, typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider, IMemberRepository, Member, Role } from "@weaveforge/core";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { rust } from "../../../src/shared/rust.js";
 
-import { FOLDER_DRAFTS_DIR } from "../../../src/features/ai-assistant/index.js";
+import { FOLDER_DRAFTS_DIR } from "../../../src/index.js";
 
 const valid = {
   kind: "edit_vault_note",

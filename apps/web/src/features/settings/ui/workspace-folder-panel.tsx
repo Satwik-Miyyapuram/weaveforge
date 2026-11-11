@@ -43,7 +43,7 @@ import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { SkippedFiles } from "./skipped-files";
 import type { SkippedFile } from "@/features/workspace/application/import-limits";
-import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/folder-watch-lost";
+import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),

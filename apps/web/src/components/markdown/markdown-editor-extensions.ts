@@ -31,7 +31,7 @@ import { markdownContextMenu } from "@/components/markdown/markdown-context-menu
 import { spellcheck } from "@/components/markdown/spellcheck";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import type { EditorCitationFormat } from "@/lib/parts";
 import { type Paper } from "@weaveforge/core";
 import type { PasteSettings } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";

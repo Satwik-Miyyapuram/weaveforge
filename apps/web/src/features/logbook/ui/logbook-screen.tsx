@@ -18,7 +18,7 @@ import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { CollabBodyHost } from "@/features/collab";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray } from "@/lib/empty";
+import { emptyArray } from "@/lib/parts";
 import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";

@@ -9,9 +9,9 @@ import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { useAuth } from "@/features/auth";
 import { formatError } from "@/lib/format-error";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import type { ApiTokenRecord } from "@/container/facades";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import { Button } from "@/components/button";
 
 const EXPIRY_OPTIONS = [

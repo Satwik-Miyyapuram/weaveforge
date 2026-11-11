@@ -24,7 +24,7 @@ import { relationKey } from "./remove-relation";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";

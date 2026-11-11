@@ -8,7 +8,7 @@ import { Outbox } from "../domain/outbox";
 import { ConflictStore } from "../domain/conflicts";
 import { readyCore } from "@/lib/rust-core";
 import { SyncStateStore } from "../domain/sync-state";
-import type { RemoteChange, SyncTransport } from "../domain/sync-ports";
+import type { RemoteChange, SyncTransport } from "../domain/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

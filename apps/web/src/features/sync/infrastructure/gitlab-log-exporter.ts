@@ -1,5 +1,5 @@
 import type { LogEntry } from "@weaveforge/core";
-import type { Integration } from "../domain/integration";
+import type { Integration } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /**

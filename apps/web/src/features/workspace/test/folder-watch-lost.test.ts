@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { folderWatchLost, onFolderWatchLost, watchForLoss } from "../application/folder-watch-lost";
+import { folderWatchLost, onFolderWatchLost, watchForLoss } from "../application/parts";
 
 /** A shell whose watch can be made to say it lost the folder. */
 function fakeShell() {

@@ -21,7 +21,7 @@ repository port, and the thin use case.
 `VaultPage`, `NewVaultPageInput`, `VaultPageSummary`, `VaultPageFilter`,
 `VaultPageTreeNode`, `WikilinkRef` and `ParsedFrontmatter` are declared by hand
 in `core-contract.ts`. They mirror the Rust and bindings shapes. The barrel
-`packages/core/src/features/vault/index.ts` re-exports them, so importers of
+`packages/core/src/index.ts` re-exports them, so importers of
 `@weaveforge/core` are unchanged.
 
 ## Constants

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
-import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
+import { awaitInkWrites, trackInkWrite } from "../application/parts";
 import type { InkSave } from "./use-ink-worker-rpc";
 import { type InkNoteMeta } from "@weaveforge/core";
 

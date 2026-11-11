@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readyCore } from "@/lib/rust-core";
 const peersFromStates: ReturnType<typeof readyCore>["peersFromStates"] = (...a) => readyCore().peersFromStates(...a);
 const samePeers: ReturnType<typeof readyCore>["samePeers"] = (...a) => readyCore().samePeers(...a);
-import { peersFor, publishPeers, subscribePeers } from "../application/presence-store";
+import { peersFor, publishPeers, subscribePeers } from "../application/parts";
 
 const user = (id: string | undefined, name: string, color = "#000") => ({ user: { id, name, color } });
 

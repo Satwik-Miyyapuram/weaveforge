@@ -1,4 +1,4 @@
-import { type IReaderAnnotationSink, type IReaderAnnotationSource, type IReaderAnnotationSyncRecorder, type NewReaderAnnotation, type ReaderAnnotation, type ReaderAnnotationPatch, type ReaderAnnotationSyncRecord } from "../reader/index.js";
+import { type IReaderAnnotationSink, type IReaderAnnotationSource, type IReaderAnnotationSyncRecorder, type NewReaderAnnotation, type ReaderAnnotation, type ReaderAnnotationPatch, type ReaderAnnotationSyncRecord } from "../index.js";
 import { ConflictError, NotFoundError } from "../shared/errors.js";
 import { rust } from "../shared/rust.js";
 

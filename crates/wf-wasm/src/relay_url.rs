@@ -1,5 +1,5 @@
 //! Relay route URLs for JavaScript (wf-core `relay_url`). The JS names match
-//! `apps/web/src/lib/relay-url.ts`; the base is read from the environment in TS.
+//! `apps/web/src/lib/parts.ts`; the base is read from the environment in TS.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::relay_url::{relay_path, relay_url};

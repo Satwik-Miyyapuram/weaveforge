@@ -14,7 +14,7 @@ import type { AppContainer } from "@/bootstrap";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { logToApp } from "@/lib/error-report/app-log";
-import { singleFlight } from "@/lib/cache/single-flight";
+import { singleFlight } from "@/lib/cache/parts";
 import { formatError } from "@/lib/format-error";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { loggedFallback } from "./logged-fallback";

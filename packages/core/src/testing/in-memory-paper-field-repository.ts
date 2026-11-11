@@ -3,7 +3,7 @@ import type {
   PaperFieldDef,
   PaperFieldValue,
   SetPaperFieldValueInput,
-} from "../features/papers/index.js";
+} from "../index.js";
 
 export class InMemoryPaperFieldRepository implements IPaperFieldRepository {
   private readonly defs = new Map<string, PaperFieldDef>();

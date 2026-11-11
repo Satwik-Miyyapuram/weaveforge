@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 
 async function withNavigator<T>(value: unknown, run: () => Promise<T>): Promise<T> {
   const saved = Object.getOwnPropertyDescriptor(globalThis, "navigator");

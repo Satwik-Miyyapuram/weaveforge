@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DocumentPageText, DocumentSearchMatch } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { Button, CloseButton, IconButton } from "@/components/button";
 
 interface ReaderSearchBarProps {

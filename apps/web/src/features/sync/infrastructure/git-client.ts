@@ -1,4 +1,4 @@
-import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
+import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/parts";
 import type { GhCommit, GitCommit, GlCommit } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 

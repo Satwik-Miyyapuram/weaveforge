@@ -4,10 +4,9 @@ import type { LogEntry, Milestone } from "@weaveforge/core";
 import { MattermostNotifier } from "../infrastructure/mattermost-notifier";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import type { Integration } from "../domain/integration";
+import type { IIntegrationsStore, Integration } from "../domain/parts";
 
 before(loadTestCore);
-import type { IIntegrationsStore } from "../domain/sync-ports";
 import { MattermostNotificationIntegration } from "@/integrations/manifests/mattermost";
 
 const base: Integration = { provider: "mattermost", enabled: true, token: "t", repo: "https://chat.example.com", branch: "main-ch" };

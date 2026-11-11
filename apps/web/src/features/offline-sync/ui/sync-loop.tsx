@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import { readBackendConfig } from "@/backend/config";
 import { createDataClient } from "@/backend/providers/postgrest/client";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
@@ -60,7 +60,7 @@ import { syncEngine } from "./use-sync";
  * stops the loop; a window signed in as another account never drives it.
  */
 
-import { onWorkspaceChange } from "@/lib/workspace-changes";
+import { onWorkspaceChange } from "@/lib/parts";
 import { setLiveSyncState, registerSyncTrigger, type LiveSyncState } from "../domain/live-sync";
 import { ConflictStore } from "../domain/conflicts";
 

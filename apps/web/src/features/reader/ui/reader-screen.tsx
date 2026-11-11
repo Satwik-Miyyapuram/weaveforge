@@ -12,7 +12,7 @@ import { PaperPdfPane } from "./paper-pdf-pane";
 import {
   appendActivityLog,
   type ActivityLogEntry,
-} from "../application/batch-annotation-ops";
+} from "../application/parts";
 import { ActivityCenter, ReaderSplitPanel } from "./reader-loop-panels";
 import { Button } from "@/components/button";
 

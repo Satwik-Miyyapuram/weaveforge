@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { AiEvidence, AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
+import { announceAiProposalsChanged } from "@/lib/parts";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";

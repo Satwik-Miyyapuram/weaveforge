@@ -46,7 +46,7 @@ import {
   withActive as rawWithActive,
   withMissingFigures as rawWithMissingFigures,
 } from "../pkg/wf_wasm.js";
-import type { OrgInviteRole, Role } from "@weaveforge/core";
+import type { OrgInviteRole, Role } from "../../core/src/index.js";
 import type {
   AlignedChart,
   ChartSeries,

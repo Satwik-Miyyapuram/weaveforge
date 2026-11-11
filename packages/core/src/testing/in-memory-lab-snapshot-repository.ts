@@ -2,7 +2,7 @@ import type {
   ILabSnapshotRepository,
   LabSnapshot,
   PublishLabSnapshotInput,
-} from "../features/org/index.js";
+} from "../index.js";
 
 export class InMemoryLabSnapshotRepository implements ILabSnapshotRepository {
   private readonly items = new Map<string, LabSnapshot & { ownerId: string }>();

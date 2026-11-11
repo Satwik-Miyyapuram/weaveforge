@@ -7,7 +7,7 @@ import type { InkPalette } from "@/features/ink/render/ink-palette";
 import { setToolColour, type ToolColourId } from "@/features/ink";
 import { readyCore } from "@/lib/rust-core";
 
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/parts";
 import type { PenTool } from "./use-pen-prefs";
 
 /**

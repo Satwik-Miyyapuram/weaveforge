@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findOpenAccessCopies, type OpenAccessHttp } from "../../../src/features/papers/index.js";
+import { findOpenAccessCopies, type OpenAccessHttp } from "../../../src/index.js";
 
 // The parsers, id cleaning and ranking are tested in Rust (crates/wf-core/src/papers/open_access.rs).
 

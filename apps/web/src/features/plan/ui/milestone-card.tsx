@@ -16,7 +16,7 @@ import { localIsoDay } from "@/features/plan/application/local-day";
 import { formatDate } from "@/lib/format-date";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { runReported } from "@/lib/run-reported";
+import { runReported } from "@/lib/parts";
 import { statusLabel } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";

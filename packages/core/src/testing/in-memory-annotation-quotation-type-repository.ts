@@ -2,7 +2,7 @@ import type {
   AnnotationQuotationType,
   IAnnotationQuotationTypeRepository,
   SaveAnnotationQuotationTypeInput,
-} from "../features/papers/index.js";
+} from "../index.js";
 
 export class InMemoryAnnotationQuotationTypeRepository
   implements IAnnotationQuotationTypeRepository

@@ -43,9 +43,11 @@ import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openale
 import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
 import { createReferenceActions } from "@/features/reader/application/reference-actions";
 import { IdbReferenceLookupCache } from "@/features/reader/infrastructure/reference-lookup-cache";
-import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
-import { localZoteroCollection } from "@/features/papers/infrastructure/zotero-collection";
-import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
+import {
+  ArxivMetadataSource,
+  CrossrefMetadataSource,
+  localZoteroCollection,
+} from "@/features/papers/infrastructure/parts";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
 import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
@@ -105,7 +107,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "@/lib/rust-core";
 import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
 import type { ProjectContext } from "@/lib/project-context";
-import { randomBytes, systemClock, uuidIds } from "@/lib/system";
+import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
 import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
 import { createContainerLifecycle } from "@/container/lifecycle";
 import { createLibraryTidy } from "@/container/library-tidy";
@@ -115,11 +117,9 @@ import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-sto
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
 import { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
 import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/experiment-artifact-store";
-import { createCredentialReader } from "@/integrations/credentials";
+import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
-import { relayUrl } from "@/lib/relay-url";
-import { readInkHapticsOn } from "@/lib/ink-haptics-preference";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -146,7 +146,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     { CrdtSnapshotStore },
   ] = await Promise.all([
     import("@/integrations/wire-integrations"),
-    import("@/integrations/wire-citations"),
+    import("@/integrations/parts"),
     import("@/deployment/generated-registry"),
     import("@/features/ai-assistant/infrastructure/postgrest-ai-proposal-store"),
     import("@/features/collab/infrastructure/postgrest-crdt-update-store"),

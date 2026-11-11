@@ -18,7 +18,7 @@ import { paperLabel } from "./ink-bar-glyphs";
 import { InsertItems, hasInsertItems, type InsertMenuProps } from "./ink-bar-view";
 import { BarMenuList, useBarMenu, type InkMenuSection } from "./ink-bar-menus";
 import { readyCore } from "@/lib/rust-core";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { MenuItemButton, ToolButton } from "@/components/controls";
 
 /** How much desk shows between two pages of a note. */

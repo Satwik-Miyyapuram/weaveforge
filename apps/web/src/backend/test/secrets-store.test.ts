@@ -17,7 +17,7 @@ import { describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { RouteSecretsStore } from "@/features/settings/infrastructure/postgrest-settings-repository";
-import { DeviceSecretsStore } from "../providers/local/device-secrets-store";
+import { DeviceSecretsStore } from "../providers/local/parts";
 import { secretsStoreFor } from "../providers/secrets-store";
 
 /** A client that can answer the only thing the route store asks it. */

@@ -13,7 +13,7 @@ import {
   WorkerEmbedder,
   type WorkerEmbedderOptions,
 } from "../infrastructure/worker-embedder";
-import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
+import { SEMANTIC_CHANGED_EVENT } from "./parts";
 import { type EmbedProgress, SemanticIndex } from "./semantic-index";
 
 // --- load-with-fallback ---

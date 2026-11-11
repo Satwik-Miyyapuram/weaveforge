@@ -33,14 +33,14 @@ import {
   resolvePaperPdfSourceForReader,
 } from "../application/resolve-paper-pdf-for-reader";
 import {
+  linkPdfSource,
   pdfDownloadNeedsConsent,
   pdfDownloadRemembered,
   rememberPdfDownload,
-} from "../application/pdf-download-consent";
+} from "../application/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
-import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 

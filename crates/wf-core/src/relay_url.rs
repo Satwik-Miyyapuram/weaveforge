@@ -1,4 +1,4 @@
-//! Ports `relayUrl` and `relayPath` in `apps/web/src/lib/relay-url.ts`. The
+//! Ports `relayUrl` and `relayPath` in `apps/web/src/lib/parts.ts`. The
 //! environment read and the desktop check stay in TS, which passes the usable
 //! base in (`None` when relay routing is off).
 

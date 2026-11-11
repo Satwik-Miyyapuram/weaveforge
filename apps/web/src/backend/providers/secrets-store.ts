@@ -4,7 +4,7 @@ import {
   type SecretsStore,
 } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { DeviceSecretsStore } from "./local/device-secrets-store";
+import { DeviceSecretsStore } from "./local/parts";
 
 /**
  * Where integration credentials live for the build this window came from.

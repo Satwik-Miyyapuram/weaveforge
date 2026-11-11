@@ -6,7 +6,7 @@ import {
 import type { ImportDiff } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { loadCore, readyCore } from "@/lib/rust-core";
-import { ownedAssetFolderPaths, workspaceBodies } from "./asset-reanchor";
+import { ownedAssetFolderPaths, workspaceBodies } from "./parts";
 import { jsonDiff } from "./folder-json-import";
 import { setPendingAssets, storedDigest } from "./folder-import-apply";
 import { mergeBothChanged } from "./folder-merge";

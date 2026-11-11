@@ -1,7 +1,7 @@
 import { clearPersistedMcpSessions } from "@/features/ai-assistant/infrastructure/mcp-session-store";
 import { stopAllRelays } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
 import { closeAppDb } from "@/lib/cache/app-idb";
-import { clearCacheStorage } from "@/lib/cache-storage";
+import { clearCacheStorage } from "@/lib/parts";
 import { idbClearScreenCaches } from "@/lib/cache/screen-cache-idb";
 import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
 import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";

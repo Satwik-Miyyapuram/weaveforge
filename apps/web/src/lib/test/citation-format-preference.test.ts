@@ -5,7 +5,7 @@ import {
   EDITOR_CITATION_FORMATS,
   citationFormatStorageKey,
   parseEditorCitationFormat,
-} from "../citation-format-preference";
+} from "../parts";
 
 before(loadTestCore);
 

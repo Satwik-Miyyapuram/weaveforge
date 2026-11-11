@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { getContainer } from "@/bootstrap";
-import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
+import { announceAiProposalsChanged } from "@/lib/parts";
 import { showToast } from "@/lib/toast/index";
 import { useProject } from "@/features/projects";
 import {

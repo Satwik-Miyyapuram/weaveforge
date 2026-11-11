@@ -9,7 +9,7 @@
  * module keeps the browser parts: `location` and the relay path.
  */
 
-import { relayPath, relayUrl } from "@/lib/relay-url";
+import { relayPath, relayUrl } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /** Hard stream cap for proxied PDFs (also enforced when Content-Length is absent). */

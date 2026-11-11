@@ -4,7 +4,7 @@
  * bundle is fetched once on either feature's first use.
  */
 
-import { loadPdfLib } from "@/lib/pdf-lib";
+import { loadPdfLib } from "@/lib/parts";
 
 export interface RasterisedPdfPage {
   blob: Blob;

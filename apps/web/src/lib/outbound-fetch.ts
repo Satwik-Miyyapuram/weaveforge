@@ -2,7 +2,7 @@
 
 import { authHeaders } from "@/lib/auth-headers";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 
 /**
  * Fetching something from a third-party site on the reader's behalf.

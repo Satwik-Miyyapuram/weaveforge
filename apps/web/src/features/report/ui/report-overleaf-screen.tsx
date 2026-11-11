@@ -5,7 +5,7 @@ import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray } from "@/lib/empty";
+import { emptyArray } from "@/lib/parts";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { OverleafWorkspace } from "./overleaf-workspace";

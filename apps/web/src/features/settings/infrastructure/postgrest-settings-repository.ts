@@ -5,7 +5,7 @@ import type {
   UserAppearance,
   UserSettings,
 } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { typedCore } from "@/lib/rust-core";
 import { run } from "@/backend/providers/postgrest/row-access";

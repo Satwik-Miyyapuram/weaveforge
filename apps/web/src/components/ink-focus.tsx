@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "./focus-glyph";
 import { readyCore } from "@/lib/rust-core";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { IconButton } from "./button";
 
 /**

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SCREEN_IDS } from "@/lib/screens";
+import { SCREEN_IDS } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /** The invalidation plans, computed in Rust. */

@@ -14,7 +14,7 @@ import type {
   WorkspaceAnnotation,
 } from "@weaveforge/core";
 import type { CombinedPdfAnchor } from "@weaveforge/wasm";
-import { DEFAULT_ANNOTATION_COLOR } from "../application/reader-annotation-helpers";
+import { DEFAULT_ANNOTATION_COLOR } from "../application/parts";
 
 // --- reader-annotation-rows ---
 /**

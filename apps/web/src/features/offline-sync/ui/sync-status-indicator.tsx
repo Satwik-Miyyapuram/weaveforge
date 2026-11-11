@@ -5,7 +5,7 @@ import { useLiveSync } from "./use-live-sync";
 import { setLiveSyncState } from "../domain/live-sync";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { Chip } from "@/components/controls";
-import { syncStatus } from "../domain/sync-status";
+import { syncStatus } from "../domain/parts";
 
 const DOT = { synced: "green", offline: "muted", conflict: "amber", syncing: "", error: "amber" } as const;
 

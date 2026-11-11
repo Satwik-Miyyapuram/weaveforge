@@ -13,7 +13,7 @@ import type { EditorHandle } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
-import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
+import { useCitationFormatPreference } from "@/lib/hooks/parts";
 import type { SectionProgress } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";

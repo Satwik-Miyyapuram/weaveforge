@@ -1,6 +1,6 @@
 /** Browser-side call to POST /api/overleaf/workshop/pdf. Pure: every side effect is injected. */
 
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 
 export const WORKSHOP_PDF_PATH = "/api/overleaf/workshop/pdf";
 

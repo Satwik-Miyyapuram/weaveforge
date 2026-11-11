@@ -21,7 +21,7 @@ import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
-import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
+import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/open-notes";
 import { NoteTagEditor } from "./note-tag-editor";

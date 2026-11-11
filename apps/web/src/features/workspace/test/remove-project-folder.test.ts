@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
-import { removeProjectFolder } from "../application/remove-project-folder";
+import { removeProjectFolder } from "../application/parts";
 
 const project = { id: "ac0e9a12-0000-4000-8000-000000000000", name: "ZZ verify 082" };
 

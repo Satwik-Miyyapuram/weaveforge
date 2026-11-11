@@ -1,5 +1,5 @@
 import { VECTOR_STORE, openAppDb } from "@/lib/cache/app-idb";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 
 /**
  * Persisted passage vectors.

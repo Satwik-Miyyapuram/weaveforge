@@ -1,5 +1,5 @@
 import type { IAccountProvisioner, Member, NewMemberInput } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 import type { IAuthService } from "@/features/auth/domain/auth";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { responseError } from "@/lib/format-error";

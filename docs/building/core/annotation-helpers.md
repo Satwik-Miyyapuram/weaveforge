@@ -17,7 +17,7 @@ list the Annotations sidebar shows.
 | `listedAnnotations(annotations)` | `listed_annotations` | Ink marks left out. |
 
 `PENDING_ANNOTATION_PREFIX` (`"pending:"`) stays in
-`apps/web/src/features/reader/application/reader-annotation-helpers.ts` with the
+`apps/web/src/features/reader/application/parts.ts` with the
 UI-side constants and tool predicates.
 
 ## Design change

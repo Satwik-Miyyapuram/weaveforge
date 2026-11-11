@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { useModuleRegistry } from "@/lib/hooks/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /**

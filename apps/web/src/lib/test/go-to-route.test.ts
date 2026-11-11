@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { goToRoute } from "../go-to-route";
+import { goToRoute } from "../parts";
 
 function run(route: string, pathname: string) {
   const pushed: string[] = [];

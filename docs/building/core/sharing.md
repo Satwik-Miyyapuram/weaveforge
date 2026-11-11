@@ -59,7 +59,7 @@ class name at the wrapper boundary (`asError` in `packages/wf-wasm/src/wrappers-
 
 ## Public surface
 
-`packages/core/src/features/sharing/index.ts` re-exports the types from
+`packages/core/src/index.ts` re-exports the types from
 `core-contract.ts`, the two repository modules, and the six use-case modules.
 It no longer exports the old domain classes or the removed constants.
 

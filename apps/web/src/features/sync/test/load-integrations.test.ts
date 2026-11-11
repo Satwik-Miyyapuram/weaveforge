@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { type Integration, type SyncProvider } from "../domain/integration";
+import { type Integration, type SyncProvider } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { loadIntegrations } from "../ui/load-integrations";

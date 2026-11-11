@@ -1,5 +1,5 @@
 //! Page body fallbacks for list and search rows (TS `noteBodyText` and `isHydratedPage` in
-//! `apps/web/src/lib/page-text.ts`).
+//! `apps/web/src/lib/parts.ts`).
 
 /// The full body when it is non-empty, else the preview, else empty.
 #[must_use]

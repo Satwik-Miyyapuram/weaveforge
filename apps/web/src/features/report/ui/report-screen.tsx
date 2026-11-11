@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { SectionNote } from "./section-note";

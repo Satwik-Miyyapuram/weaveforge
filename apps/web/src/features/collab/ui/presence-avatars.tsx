@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { Peer } from "../domain/presence";
-import { peersFor, subscribePeers } from "../application/presence-store";
+import { peersFor, subscribePeers } from "../application/parts";
 
 const SHOWN = 4;
 

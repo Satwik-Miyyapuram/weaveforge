@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { notifyEach } from "../notify-each";
+import { notifyEach } from "../parts";
 
 // xlog-07: a listener's failure stays its own, but it is no longer silent.
 test("every listener hears, in order, with the arguments", (t) => {

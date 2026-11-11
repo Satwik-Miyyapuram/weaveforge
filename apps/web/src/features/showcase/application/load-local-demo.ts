@@ -1,4 +1,4 @@
-import { localBackendParts } from "@/backend/providers/local/wire-local-backend";
+import { localBackendParts } from "@/backend/providers/local/parts";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { seedShowcase, type SeedShowcaseResult } from "../infrastructure/seed-showcase";
 

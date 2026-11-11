@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SearchHit, SearchQueryOptions } from "@weaveforge/core";
 import { getContainer, type AppContainer } from "@/bootstrap";
-import { SEMANTIC_CHANGED_EVENT } from "@/features/search/application/semantic-events";
+import { SEMANTIC_CHANGED_EVENT } from "@/features/search/application/parts";
 
 export type WorkspaceSearchFn = (query: string, options?: SearchQueryOptions) => readonly SearchHit[];
 

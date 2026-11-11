@@ -1,6 +1,6 @@
 import type { SearchDoc } from "@weaveforge/core";
 import { readyCore, type RustCore } from "@/lib/rust-core";
-import type { IEmbedder } from "./embedder";
+import type { IEmbedder } from "./parts";
 
 /** A nearest-neighbour hit: a passage or document id and its cosine. */
 export interface VectorHit {

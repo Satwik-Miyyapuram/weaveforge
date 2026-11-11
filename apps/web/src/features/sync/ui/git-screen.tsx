@@ -4,7 +4,7 @@ import { formatRelative } from "@/lib/format-date";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
-import type { Integration, SyncProvider } from "../domain/integration";
+import type { Integration, SyncProvider } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import { ScreenHead } from "@/components/screen-head";

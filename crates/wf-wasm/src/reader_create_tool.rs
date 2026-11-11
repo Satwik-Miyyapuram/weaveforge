@@ -1,4 +1,4 @@
-//! Create-tool rules (`apps/web/src/features/reader/application/reader-annotation-helpers.ts`
+//! Create-tool rules (`apps/web/src/features/reader/application/parts.ts`
 //! and `ui/pdf-reader/colour-tools.ts`). Wraps `wf_core::reader::create_tool`.
 
 use wasm_bindgen::JsValue;

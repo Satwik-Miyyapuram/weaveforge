@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import { Modal } from "@/components/modal";
 import { NavIcon } from "@/app/nav-icon";
-import { isCommitEnter as isPickEnter } from "@/lib/commit-enter";
+import { isCommitEnter as isPickEnter } from "@/lib/parts";
 import {
   groupResults,
   kindIcon,

@@ -7,7 +7,7 @@ import type { SharedItemDetail } from "@/features/sharing/application/load-share
 import { readyCore } from "@/lib/rust-core";
 import { SharedItemRenderer } from "@/features/sharing/ui/shared-item-renderer";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";

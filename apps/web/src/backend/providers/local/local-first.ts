@@ -8,7 +8,7 @@ import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
-import { notifyWorkspaceChange } from "@/lib/workspace-changes";
+import { notifyWorkspaceChange } from "@/lib/parts";
 import { wireStorage } from "@/storage/wire-storage";
 import { createDataClient } from "../postgrest/client";
 import { watchWrites } from "../postgrest/watch-writes";
@@ -18,7 +18,7 @@ import type { LocalFirstAccount } from "./local-first-marker";
 import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
 import { ExperimentPush, keepPushing } from "./local-first-experiment-push";
 import { LocalSessionProvider } from "./local-identity";
-import { localRunnerQuery } from "./local-runner";
+import { localRunnerQuery } from "./parts";
 
 /**
  * Local-first: a signed-in desktop works on its own database and syncs it.

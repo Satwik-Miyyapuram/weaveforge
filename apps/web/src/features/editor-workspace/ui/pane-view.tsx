@@ -23,7 +23,7 @@ import { Breadcrumbs } from "./breadcrumbs";
 import { PaneModeSwitch, WorkspaceToolbar } from "./workspace-toolbar";
 import { kindIcon, kindSuffix, kindTintClass } from "@weaveforge/wasm";
 import { followPointer } from "./follow-pointer";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { TabButton } from "@/components/controls";
 import { CloseButton } from "@/components/button";
 import { DocumentPresence } from "@/features/collab";

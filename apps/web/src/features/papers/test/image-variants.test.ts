@@ -6,7 +6,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/image-variants";
+import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/parts";
 
 before(async () => { await loadTestCore(); });
 

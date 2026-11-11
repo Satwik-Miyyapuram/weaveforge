@@ -2,7 +2,7 @@ import type {
   AnnotationPin,
   IAnnotationPinRepository,
   SaveAnnotationPinInput,
-} from "../features/papers/index.js";
+} from "../index.js";
 
 export class InMemoryAnnotationPinRepository implements IAnnotationPinRepository {
   private readonly items = new Map<string, AnnotationPin>();

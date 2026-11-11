@@ -10,7 +10,7 @@
  */
 
 import { SEARCH_STORE, openAppDb as openDb } from "@/lib/cache/app-idb";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 
 function searchCacheKey(projectId: string | null): string {
   return `${projectId ?? "-"}|index`;

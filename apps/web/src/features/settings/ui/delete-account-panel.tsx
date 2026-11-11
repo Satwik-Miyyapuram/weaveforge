@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 import { useAuth } from "@/features/auth";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";

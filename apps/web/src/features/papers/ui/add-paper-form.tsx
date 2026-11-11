@@ -7,7 +7,7 @@ import { loadCore, readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { formatError } from "@/lib/format-error";

@@ -1,7 +1,7 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { getContainer } from "@/bootstrap";
 import { readStored, readStoredJson, writeStored, writeStoredJson } from "@/lib/safe-storage";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { registerSessionReset } from "@/lib/cache/parts";
 import { readyCore } from "@/lib/rust-core";
 import {
   indexLibraryPdfs,

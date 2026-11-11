@@ -16,7 +16,7 @@ import { useEffect, useState, type ReactNode, type RefObject } from "react";
 
 import { MenuItemButton } from "@/components/controls";
 import { readyCore } from "@/lib/rust-core";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 
 export const FOLD_STAGES = [
   "zoom",

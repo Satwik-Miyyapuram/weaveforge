@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { openSearchPalette } from "./jump-to-palette";
 import { requestShortcuts } from "@/lib/palette-actions";
-import { goToRoute } from "@/lib/go-to-route";
+import { goToRoute } from "@/lib/parts";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";

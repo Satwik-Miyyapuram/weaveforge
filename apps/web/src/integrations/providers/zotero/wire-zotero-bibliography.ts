@@ -13,7 +13,7 @@ import { ZoteroSync } from "@/features/papers/infrastructure/zotero-sync";
 import { ZoteroAnnotations } from "@/features/papers/infrastructure/zotero-annotations";
 import type { ProjectContext } from "@/lib/project-context";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { createCredentialReader } from "../../credentials";
+import { createCredentialReader } from "../../parts";
 import { ZoteroBibliographyIntegration } from "./bibliography-integration";
 
 /**

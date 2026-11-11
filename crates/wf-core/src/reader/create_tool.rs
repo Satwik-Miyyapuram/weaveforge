@@ -1,5 +1,5 @@
 //! Create-tool rules (`reader::create_tool`). Ports of
-//! `apps/web/src/features/reader/application/reader-annotation-helpers.ts`
+//! `apps/web/src/features/reader/application/parts.ts`
 //! (`isInkTool`, `toolOwnsThePage`, `isDismissTap`) and
 //! `apps/web/src/features/reader/ui/pdf-reader/colour-tools.ts`
 //! (`colourToolFor`, `markColourTool`). Tools are plain tool names, as the app sends them.

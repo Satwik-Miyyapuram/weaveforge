@@ -1,6 +1,6 @@
 "use client";
 
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { typedCore } from "@/lib/rust-core";
 import type { LatexSectionTree } from "@weaveforge/wasm";

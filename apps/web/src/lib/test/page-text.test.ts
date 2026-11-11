@@ -8,7 +8,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { isHydratedPage, noteBodyText } from "../page-text";
+import { isHydratedPage, noteBodyText } from "../parts";
 
 before(loadTestCore);
 

@@ -6,10 +6,10 @@ import {
   clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, readPersistedScreen, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
 import { idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
 import { clearRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
+import { perfNow, recordPerf, recordPerfSince } from "@/lib/parts";
 import { formatError, isNetworkFailure } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
-import type { ScreenId } from "@/lib/screens";
+import type { ScreenId } from "@/lib/parts";
 
 /** A PostgREST error body: the request log has it already. */
 function isPostgrestError(err: unknown): boolean {

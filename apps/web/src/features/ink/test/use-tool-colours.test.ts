@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
+import { READER_ANNOTATION_COLORS } from "@/features/reader/application/parts";
 
 import {
   DEFAULT_TOOL_COLOURS,

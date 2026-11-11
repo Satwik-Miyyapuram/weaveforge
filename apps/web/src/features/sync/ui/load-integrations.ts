@@ -1,6 +1,6 @@
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
-import { type Integration, type SyncProvider } from "../domain/integration";
+import { type Integration, type SyncProvider } from "../domain/parts";
 
 /**
  * The project's connections, one per provider, or none with a reason.

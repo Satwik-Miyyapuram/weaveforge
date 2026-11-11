@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { FolderIcon } from "@/components/view-icons";
-import { isCommitEnter } from "@/lib/commit-enter";
+import { isCommitEnter } from "@/lib/parts";
 import { NavIcon } from "@/app/nav-icon";
 
 import { draftIcon, type CreateKind } from "@weaveforge/wasm";

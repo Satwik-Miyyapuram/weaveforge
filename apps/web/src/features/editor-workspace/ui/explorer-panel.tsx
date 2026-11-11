@@ -40,7 +40,7 @@ import {
   InlineTitle,
   RefreshGlyph,
 } from "./explorer-glyphs";
-import { isMacPlatform } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { FoldButton } from "@/components/controls";
 import { Button, CloseButton, IconButton } from "@/components/button";
 

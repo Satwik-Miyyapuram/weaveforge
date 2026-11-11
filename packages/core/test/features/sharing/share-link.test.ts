@@ -5,7 +5,7 @@ import {
   CreateShareLinkUseCase,
   RedeemShareLinkUseCase,
   RevokeShareLinkUseCase,
-} from "../../../src/features/sharing/index.js";
+} from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
 const encodeShareLinkToken = (token: Uint8Array): string => rust().encodeShareLinkToken(token);

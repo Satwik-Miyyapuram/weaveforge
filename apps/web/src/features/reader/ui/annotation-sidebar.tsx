@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { type QuotationType, type ReaderAnnotation } from "@weaveforge/core";
-import { QUOTATION_TYPE_LABELS } from "@/lib/quotation-types";
+import { QUOTATION_TYPE_LABELS } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
-import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
+import { READER_ANNOTATION_COLORS } from "../application/parts";
 import { annotationPinKey, type AnnotationBacklinkTarget } from "@weaveforge/wasm";
 import { Select } from "@/components/select";
 import { Button } from "@/components/button";

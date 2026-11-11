@@ -1,5 +1,5 @@
 //! Signed-out refusal check for JavaScript (wf-core `signed_out`). The JS name matches
-//! `isSignedOutRefusal` in `apps/web/src/lib/session-lost.ts`.
+//! `isSignedOutRefusal` in `apps/web/src/lib/parts.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::signed_out::is_signed_out_refusal;

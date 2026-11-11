@@ -1,6 +1,6 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { ArxivMetadataSource } from "../infrastructure/arxiv-metadata-source";
+import { ArxivMetadataSource } from "../infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

@@ -1,5 +1,5 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { relayPath, relayUrl } from "@/lib/relay-url";
+import { relayPath, relayUrl } from "@/lib/parts";
 
 /**
  * Where Semantic Scholar is reached from: always our own relay.

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { INK_HIGHLIGHTER_WIDTH, INK_PEN_WIDTHS } from "@weaveforge/core";
 
-import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
+import { READER_ANNOTATION_COLORS } from "../application/parts";
 import { DEFAULT_PEN_PREFS, persistPenPrefs } from "../ui/pdf-reader/use-pen-prefs";
 
 import { DEFAULT_TOOL_COLOURS, readToolColours, resetToolColoursCacheForTests, setToolQuickSlot, subscribeToolColours } from "@/features/ink";

@@ -1,5 +1,5 @@
 import type { LatexSectionNode } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
+import { relayUrl } from "@/lib/parts";
 import { authHeaders } from "@/lib/auth-headers";
 import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
 import { getContainer } from "@/bootstrap";

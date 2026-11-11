@@ -7,7 +7,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import { FIT_MAX_HEIGHTS, getCardDef, isStatCard } from "../application/card-registry";
-import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
+import { DESKTOP_BREAKPOINT_PX } from "@/lib/parts";
 import { getRglBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import type { DashboardLayout, DashboardLayoutItem, Member } from "@weaveforge/core";
 import {

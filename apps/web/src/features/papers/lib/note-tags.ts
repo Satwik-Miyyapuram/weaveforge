@@ -2,7 +2,7 @@ import { TAG_SOURCES, type ManageTagsUseCase, type Paper } from "@weaveforge/cor
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, isNetworkFailure } from "@/lib/format-error";
 import { readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { registerSessionReset } from "@/lib/cache/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /**

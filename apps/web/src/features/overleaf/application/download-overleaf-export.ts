@@ -8,7 +8,7 @@ import {
   type OverleafExportImage,
   type OverleafExportOptions,
 } from "./build-overleaf-export";
-import { downloadBlob, zipToBlob } from "@/lib/blob-output";
+import { downloadBlob, zipToBlob } from "@/lib/parts";
 
 /** Build the Overleaf package and download it as a ZIP (browser-local). */
 export async function downloadOverleafExportPackage(

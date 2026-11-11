@@ -8,7 +8,7 @@
  * client.
  */
 import { errorMessage } from "@weaveforge/core";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { registerSessionReset } from "@/lib/cache/parts";
 import { readyCore } from "@/lib/rust-core";
 
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;

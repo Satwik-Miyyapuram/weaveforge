@@ -5,7 +5,7 @@
 
 import type { IPdfByteCache, PdfSourceResolution } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { activeProjectRoot } from "@/features/workspace/application/active-project";
+import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { readyCore } from "@/lib/rust-core";
 import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
@@ -20,9 +20,9 @@ import {
 } from "./resolve-paper-pdf-source";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { pdfProxyNeedsToken } from "./pdf-download-consent";
+import { pdfProxyNeedsToken } from "./parts";
 import { proxiedPdfUrl } from "./sanitize-reader-url";
-import { relayPath, relayUrl } from "@/lib/relay-url";
+import { relayPath, relayUrl } from "@/lib/parts";
 
 const CACHE_CAP = 64;
 let sharedCache: IPdfByteCache | null = null;

@@ -2,7 +2,7 @@
 
 import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useRef, useState } from "react";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { useModuleRegistry } from "@/lib/hooks/parts";
 import { activeNavItem, type NavGroup } from "@/registry";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/hooks/use-layout-breakpoint";

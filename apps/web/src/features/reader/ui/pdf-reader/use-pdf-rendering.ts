@@ -12,8 +12,7 @@ import { getContainer } from "@/bootstrap";
 import { perfEnd, perfStart } from "@/lib/perf-marks";
 import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
 import { originalUrlFromProxy, isReaderObjectUrl } from "../../application/sanitize-reader-url";
-import { pdfProxyNeedsToken } from "../../application/pdf-download-consent";
-import { pdfObjectUrlBytes } from "../../application/object-url-bytes";
+import { pdfObjectUrlBytes, pdfProxyNeedsToken } from "../../application/parts";
 import {
   isCachePdfUrl,
   readStoredPdfBytes,
@@ -27,7 +26,7 @@ import {
   mapOutline,
   textItemsFromContent,
 } from "./pdf-document";
-import { relayPath } from "@/lib/relay-url";
+import { relayPath } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 
 export interface PdfRenderingDeps {
