@@ -2,7 +2,7 @@ import { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runPaperRepositoryContract } from "@weaveforge/core/testing";
 
-import { PostgrestPaperRepository } from "../postgrest-paper-repository";
+import { rustPaperRepository } from "../postgrest-paper-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "@/backend/test/pg-test-db";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -15,7 +15,7 @@ before(async () => {
  * The shared paper contract, run against the adapter the app uses.
  *
  * The suite only ever ran against the in-memory repository, so it proved the
- * fake agreed with itself. Here it runs against `PostgrestPaperRepository` over
+ * fake agreed with itself. Here it runs against `rustPaperRepository` over
  * the real migrations (PGlite), through the local client the desktop app sends
  * its queries with, as a signed-in user with RLS on.
  *
@@ -29,7 +29,7 @@ runPaperRepositoryContract("PostgREST over PGlite", async () => {
     "insert into projects (user_id, name) values ($1, 'Contract') returning id",
     [user],
   );
-  return new PostgrestPaperRepository(
+  return rustPaperRepository(
     createLocalClient(asDesktopRows(sql as LocalQuery)) as unknown as SupabaseClient,
     { projectId: project!.id },
   );

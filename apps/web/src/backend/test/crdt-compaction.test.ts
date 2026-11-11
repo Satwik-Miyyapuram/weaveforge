@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ICrdtUpdateStore } from "@weaveforge/core";
 
-import { PostgrestCrdtUpdateStore } from "@/features/collab/infrastructure/parts";
+import { rustCrdtUpdateStore } from "@/features/collab/infrastructure/parts";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "./pg-test-db";
 
@@ -38,14 +39,14 @@ async function pageOwnedBy(ownerId: string) {
 }
 
 function storeFor(db: Awaited<ReturnType<typeof testDb>>, as: string) {
-  return new PostgrestCrdtUpdateStore(
+  return rustCrdtUpdateStore(
     createLocalClient(db.as(as).sql as LocalQuery) as unknown as SupabaseClient,
   );
 }
 
 /** Append `count` update rows, so there is something to sweep. */
 async function appendUpdates(
-  store: PostgrestCrdtUpdateStore,
+  store: ICrdtUpdateStore,
   pageId: string,
   count: number,
   authorId: string,

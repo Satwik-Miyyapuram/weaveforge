@@ -134,13 +134,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     { wireIntegrations },
     { wireCitationSources },
     { GENERATED_MCP_ENABLED, GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
-    { PostgrestCrdtUpdateStore },
-    { CrdtSnapshotStore },
+    { rustCrdtUpdateStore, rustCrdtSnapshotStore },
   ] = await Promise.all([
     import("@/integrations/wire-integrations"),
     import("@/integrations/parts"),
     import("@/deployment/generated-registry"),
-    import("@/features/collab/infrastructure/parts"),
     import("@/features/collab/infrastructure/parts"),
   ]);
 
@@ -163,8 +161,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.watch(backend.db, pid());
   }
 
-  const crdtUpdateStore = new PostgrestCrdtUpdateStore(backend.db);
-  const crdtSnapshotStore = new CrdtSnapshotStore(backend.db);
+  const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
+  const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
   const compactCrdtLog = new CompactCrdtLogUseCase({ crdtStore: crdtUpdateStore });
 
   const vaultPageRepository = backend.rawVaultPageRepository;

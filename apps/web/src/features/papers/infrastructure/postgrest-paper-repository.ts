@@ -1,307 +1,41 @@
-import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
-import { type IPaperRepository, type Paper, type PaperFilter, type PaperIdentity, type PaperSummary } from "@weaveforge/core";
-import type { EntityStamp } from "@weaveforge/core";
-import type { PaperRow } from "@weaveforge/wasm";
-import { inChunks, one, ProjectRepository, rows, run } from "@/backend/providers/postgrest/parts-1";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
+import type { ProjectContext } from "@/lib/parts-2";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { EntityStamp, IPaperRepository, Paper } from "@weaveforge/core";
 
 /**
- * PostgREST implementation of IPaperRepository.
+ * The paper repository, plus the stamp and by-id reads the cache and sharing use.
  *
- * The ONLY job of this class is persistence against the `papers` table,
- * including the snake_case <-> camelCase mapping. No business rules live here.
- * It must pass the same contract test suite as the in-memory repository
- * (run `runPaperRepositoryContract` against an instance pointed at a test DB).
- *
- * Every read goes through `this.scoped(...)`. Two of them did not, and the
- * omission is invisible on the hosted path because RLS is what actually filters
- * there — it shows up on a self-hosted Postgres or the local backend, where the
- * same call returns another project's rows into this project's sync, search
- * index and prefetch.
- *
- * Queries are built in single steps (`query = query.eq(...)`) rather than as
- * chained expressions. That is not style: writing the chain inline makes
- * TypeScript instantiate the whole Postgrest builder type at each call, and
- * several of these methods then fail to compile with TS2589 ("type
- * instantiation is excessively deep").
+ * Persistence against `papers` runs through the Rust step engine
+ * (`crates/wf-core/src/repos/papers.rs`): Rust plans every query, scopes it to the
+ * open project, normalizes DOIs and maps the rows. No business rules live here.
  */
-
-const TABLE = "papers";
-
-/** Full list projection for sync/search consumers that need abstracts/bibtex. */
-const PAPER_LIST_COLUMNS =
-  "id,title,authors,status,year,read_at,pdf_path,tags,created_at,updated_at,doi_bidx,arxiv_bidx,venue,abstract,summary,doi,arxiv_id,url,bibtex,metadata,rating,project_id";
-
-/** Card / screen projection — fields the papers grid paints (no abstract/bibtex/metadata). */
-const PAPER_SUMMARY_COLUMNS =
-  "id,title,authors,status,year,read_at,pdf_path,tags,created_at,updated_at,project_id,summary,doi,arxiv_id,url";
-
-/** What a delta read needs: the id it keys on, and the two version columns. */
-const PAPER_STAMP_COLUMNS = "id,updated_at,created_at";
-
-/**
- * What a citation link reads, and nothing else.
- *
- * The narrowest projection here, and the only one whose type agrees with it: see
- * `IPaperIdentityLookup`. `status` is in it because the reference popover says
- * whether the reader has read the paper it linked to.
- */
-const PAPER_IDENTITY_COLUMNS = "id,title,status";
-
-// Row mapping runs in the Rust core (wf-core `papers::paper_row`).
-/** Bindings type absent fields as `null`; the domain uses `undefined`. */
-const orUndef = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
-
-const toDomain = (row: PaperRow): Paper => {
-  const p = typedCore().paperRowToDomain(row);
-  return {
-    ...p,
-    title: p.title ?? "",
-    authors: p.authors ?? [],
-    year: orUndef(p.year),
-    venue: orUndef(p.venue),
-    doi: orUndef(p.doi),
-    arxivId: orUndef(p.arxivId),
-    url: orUndef(p.url),
-    pdfPath: orUndef(p.pdfPath),
-    abstract: orUndef(p.abstract),
-    summary: orUndef(p.summary),
-    rating: orUndef(p.rating),
-    readAt: orUndef(p.readAt),
-    bibtex: orUndef(p.bibtex),
-    tags: p.tags ?? [],
-    metadata: (p.metadata ?? {}) as Record<string, unknown>,
-  };
+export type RustPaperRepository = IPaperRepository & {
+  listStamps(): Promise<EntityStamp[]>;
+  listByIds(ids: readonly string[]): Promise<Paper[]>;
 };
-const toSummary = (row: PaperRow): PaperSummary => {
-  const p = typedCore().paperRowToSummary(row);
-  return {
-    ...p,
-    year: orUndef(p.year),
-    readAt: orUndef(p.readAt),
-    pdfPath: orUndef(p.pdfPath),
-    doi: orUndef(p.doi),
-    arxivId: orUndef(p.arxivId),
-    url: orUndef(p.url),
-    summary: orUndef(p.summary),
-    tags: p.tags ?? [],
-  };
-};
-const toRow = (paper: Paper) => typedCore().paperToRow(paper);
-const emptyToNull = (value: string | null | undefined) => typedCore().emptyToNull(value);
 
-export class PostgrestPaperRepository extends ProjectRepository implements IPaperRepository {
-
-  async getById(id: string): Promise<Paper | null> {
-    let query = this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS));
-    query = query.eq("id", id);
-    const row = await one<PaperRow>(query.maybeSingle());
-    return row ? toDomain(row) : null;
-  }
-
-  /**
-   * Ids and versions only — the cheap first half of a delta read.
-   *
-   * Two columns over the whole table is a fraction of a percent of what the
-   * rows themselves weigh, and it is what lets the caller ask for the handful
-   * that actually changed.
-   *
-   * Deliberately not "changed since T": a deletion reports no row at all, so a
-   * snapshot built from a time window accumulates entities the database no
-   * longer has. The complete stamp set is what lets the caller compute the
-   * drops.
-   */
-  async listStamps(): Promise<EntityStamp[]> {
-    let query = this.scoped(this.db.from(TABLE).select(PAPER_STAMP_COLUMNS));
-    query = query.order("created_at", { ascending: false });
-    query = query.order("id", { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as { id: string; updated_at: string | null; created_at: string }[]).map((row) => ({
-      id: row.id,
-      updatedAt: row.updated_at ?? row.created_at,
-    }));
-  }
-
-  /**
-   * Papers by id, project-scoped, in chunks requested together.
-   *
-   * Chunked because an `in` list travels in the URL and a few thousand ids pass
-   * the server's line-length limit; issued concurrently because ten sequential
-   * round trips for a 2 000-id delta read is nine round trips nobody asked for.
-   * The order is by `id`, not the order the ids were asked for, which is what
-   * makes it deterministic — a caller that pairs rows against its own id list
-   * should build a Map from the result.
-   */
-  async listByIds(ids: readonly string[]): Promise<Paper[]> {
-    const found = await inChunks(ids, (chunk) =>
-      rows<PaperRow>(
-        this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS))
-          .in("id", chunk)
-          .order("id", { ascending: true }),
-      ),
-    );
-    return found.map(toDomain);
-  }
-
-  async list(filter?: PaperFilter): Promise<Paper[]> {
-    let query = this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS));
-    if (filter?.status) query = query.eq("status", filter.status);
-    if (filter?.arxivId) query = query.eq("arxiv_id", filter.arxivId);
-    if (filter?.doi) {
-      // `normalizeDoi` returns undefined for anything that is not a DOI, and
-      // asserting it non-null turned "this filter is not a DOI" into a filter on
-      // `undefined` — either a request error or a match on nothing, depending on
-      // the client version, with nothing to tell the caller which. A DOI that
-      // cannot be normalised is not a DOI this library holds.
-      const doi = readyCore().normalizeDoi(filter.doi);
-      if (doi) query = query.eq("doi", doi);
-    }
-    if (filter?.titleContains) {
-      query = query.ilike("title", `%${filter.titleContains}%`);
-    }
-    // `created_at` alone is not a total order: papers imported together share a
-    // timestamp, and Postgres is then free to return those rows in any order.
-    // The card grid deals items into real columns by position, so a reshuffled
-    // tie moves cards between columns — remounting them, and closing whatever
-    // dialog one of them had open. `id` makes the order total.
-    query = query.order("created_at", { ascending: false });
-    query = query.order("id", { ascending: true });
-    return (await rows<PaperRow>(query)).map(toDomain);
-  }
-
-  /**
-   * The card projection. Typed as a summary because that is what it is.
-   *
-   * It said `Paper[]` while selecting summary columns, which is the review-2 F6
-   * mistake at the repository boundary: the compiler believed every element had
-   * an abstract and a metadata bag, and any path that read one and wrote the
-   * entity back persisted `undefined` over real data. A `Paper` still satisfies
-   * `PaperSummary`, so an implementation with the whole row may return it — but
-   * a caller may only rely on the summary fields, and now cannot rely on more.
-   */
-  async listSummaries(): Promise<PaperSummary[]> {
-    let query = this.scoped(this.db.from(TABLE).select(PAPER_SUMMARY_COLUMNS));
-    query = query.order("created_at", { ascending: false });
-    query = query.order("id", { ascending: true });
-    return (await rows<PaperRow>(query)).map(toSummary);
-  }
-
-  async save(entity: Paper): Promise<void> {
-    const row = { ...toRow(entity), ...(this.pid ? { project_id: this.pid } : {}) };
-    await run(this.db.from(TABLE).upsert(row, { onConflict: "id" }));
-  }
-
-  async setTags(id: string, tags: string[], updatedAt: string): Promise<void> {
-    let query = this.scoped(this.db.from(TABLE).update({ tags, updated_at: updatedAt }));
-    query = query.eq("id", id);
-    await run(query);
-  }
-
-  /**
-   * A compare-and-set on the summary: the update matches only while the column
-   * still holds `expected`, and the returned ids say whether it did.
-   */
-  async replaceSummary(
-    id: string,
-    expected: string | undefined,
-    next: string,
-    updatedAt: string,
-  ): Promise<boolean> {
-    let query = this.scoped(
-      this.db.from(TABLE).update({ summary: emptyToNull(next), updated_at: updatedAt }),
-    );
-    query = query.eq("id", id);
-    const was = emptyToNull(expected);
-    query = was === null ? query.is("summary", null) : query.eq("summary", was);
-    return (await rows<{ id: string }>(query.select("id"))).length > 0;
-  }
-
-  /**
-   * The paper with this title key, reading titles only.
-   *
-   * The key is lower-case ASCII-ish text, so it cannot be compared in SQL; the
-   * request narrows to titles containing one of its longer words, and
-   * `titleKey` decides. Any word, not one: a word written with an accent in the
-   * stored title ("Über") is spelled without it in the key, and would miss. A
-   * key with no word of four letters reads every title, which is still two
-   * columns and not the whole library.
-   */
-  async findByTitleKey(key: string): Promise<Paper | null> {
-    let query = this.scoped(this.db.from(TABLE).select("id,title"));
-    const words = [...new Set(key.split(" ").filter((w) => /^[a-z0-9]{4,}$/.test(w)))];
-    if (words.length > 0) query = query.or(words.map((w) => `title.ilike.%${w}%`).join(","));
-    query = query.order("created_at", { ascending: false });
-    query = query.order("id", { ascending: true });
-    const core = await loadCore();
-    const hit = (await rows<{ id: string; title: string }>(query)).find((row) => core.titleKey(row.title) === key);
-    return hit ? this.getById(hit.id) : null;
-  }
-
-  async delete(id: string): Promise<void> {
-    let query = this.scoped(this.db.from(TABLE).delete());
-    query = query.eq("id", id);
-    await run(query);
-  }
-
-  /**
-   * One row by a unique-ish column, scoped to the project.
-   *
-   * Four copies of this existed, differing only in the column literal — and the
-   * project guard had been added to the other methods and to these four
-   * individually, which is exactly how one of them came to be missing it.
-   *
-   * The projection is the full list one rather than the three columns a dedupe
-   * check strictly needs: the port promises a `Paper`, and a dedupe hit is
-   * handed straight back to the caller as the paper it found. Narrowing the
-   * columns without narrowing the type would be the same lie `listSummaries`
-   * used to tell. A caller that only needs identity wants a narrower port, not
-   * fewer columns behind this one.
-   */
-  private async findBy(
-    column: "arxiv_id" | "doi",
-    value: string,
-  ): Promise<Paper | null> {
-    let query = this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS));
-    query = query.eq(column, value);
-    const row = await one<PaperRow>(query.maybeSingle());
-    return row ? toDomain(row) : null;
-  }
-
-  async findByArxivId(arxivId: string): Promise<Paper | null> {
-    return this.findBy("arxiv_id", arxivId);
-  }
-
-  async findByDoi(doi: string): Promise<Paper | null> {
-    const normalized = readyCore().normalizeDoi(doi);
-    return normalized ? this.findBy("doi", normalized) : null;
-  }
-
-  /**
-   * The three columns a citation link reads, and nothing else.
-   *
-   * This is the narrower port the comment above asks for: a citation naming a
-   * DOI wants to know whether the library has it, what it is called and whether
-   * it has been read. Answering with a whole `Paper` transferred the abstract,
-   * the bibtex and the metadata bag of every reference matched, on a path that
-   * walks a bibliography.
-   */
-  async findIdentityByArxivId(arxivId: string): Promise<PaperIdentity | null> {
-    return this.findIdentity("arxiv_id", arxivId);
-  }
-
-  async findIdentityByDoi(doi: string): Promise<PaperIdentity | null> {
-    const normalized = readyCore().normalizeDoi(doi);
-    return normalized ? this.findIdentity("doi", normalized) : null;
-  }
-
-  private async findIdentity(
-    column: "arxiv_id" | "doi",
-    value: string,
-  ): Promise<PaperIdentity | null> {
-    let query = this.scoped(this.db.from(TABLE).select(PAPER_IDENTITY_COLUMNS));
-    query = query.eq(column, value);
-    const row = await one<Pick<PaperRow, "id" | "title" | "status">>(query.maybeSingle());
-    if (!row) return null;
-    return { id: row.id, title: row.title, status: row.status as PaperIdentity["status"] };
-  }
+/** `papers`, scoped to the open project. */
+export function rustPaperRepository(db: SupabaseClient, project: ProjectContext): RustPaperRepository {
+  return rustRepository<RustPaperRepository>(
+    db,
+    "papers",
+    [
+      "getById",
+      "listStamps",
+      "listByIds",
+      "list",
+      "listSummaries",
+      "save",
+      "setTags",
+      "replaceSummary",
+      "findByTitleKey",
+      "delete",
+      "findByArxivId",
+      "findByDoi",
+      "findIdentityByArxivId",
+      "findIdentityByDoi",
+    ],
+    projectUserCtx(project),
+  );
 }

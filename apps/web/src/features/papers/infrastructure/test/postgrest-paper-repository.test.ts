@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestPaperRepository } from "../postgrest-paper-repository";
+import { rustPaperRepository, type RustPaperRepository } from "../postgrest-paper-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import type { ProjectContext } from "@/lib/parts-2";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -55,9 +55,9 @@ function recorder(rows: unknown[] = []): Recorder {
 function repo(
   rec: Recorder,
   projectId: string | null = "p1",
-): PostgrestPaperRepository {
+): RustPaperRepository {
   const ctx: ProjectContext = { projectId };
-  return new PostgrestPaperRepository(
+  return rustPaperRepository(
     createLocalClient(rec.run) as unknown as SupabaseClient,
     ctx,
   );

@@ -463,6 +463,17 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "tags" => crate::repos::tags::step(method, call),
         "user_settings" => crate::repos::user_settings::step(method, call),
         "vault_pages" => crate::repos::vault_pages::step(method, call),
+        "annotation_pins" => crate::repos::annotation_pins::step(method, call),
+        "crdt_updates" => crate::repos::crdt_updates::step(method, call),
+        "experiment_metrics" => crate::repos::experiment_metrics::step(method, call),
+        "experiments" => crate::repos::experiments::step(method, call),
+        "paper_fields" => crate::repos::paper_fields::step(method, call),
+        "papers" => crate::repos::papers::step(method, call),
+        "reader_annotations" => crate::repos::reader_annotations::step(method, call),
+        "reading_list_items" => crate::repos::reading_list_items::step(method, call),
+        "reading_lists" => crate::repos::reading_lists::step(method, call),
+        "screening_decisions" => crate::repos::screening_decisions::step(method, call),
+        "crdt_snapshots" => crate::repos::crdt_updates::snapshot_step(method, call),
         _ => return RepoStep::fail(format!("No Rust repository named {repo}")),
     };
     step.unwrap_or_else(|| RepoStep::fail(format!("No method {method} on Rust repository {repo}")))
