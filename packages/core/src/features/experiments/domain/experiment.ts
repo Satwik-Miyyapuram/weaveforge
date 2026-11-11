@@ -1,6 +1,5 @@
 /** Types for experiment. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export type ExperimentStatus =
@@ -92,51 +91,3 @@ export const TERMINAL_EXPERIMENT_STATUSES: readonly ExperimentStatus[] = [
 /** Running experiments with no finish and no activity this long are treated as dead. */
 export const STALE_RUNNING_MS = 2 * 60 * 1000;
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ExperimentFns {
-  createExperiment(input: NewExperimentInput, deps: { clock: Clock; ids: IdGenerator }): Experiment;
-  /**
- * The status-related fields for a run moving to `status` at `now`.
- *
- * One function rather than the same three ternaries copied into every caller,
- * because the transition has an invariant to keep: `finishedAt` is set exactly
- * when the run is terminal. Entering a terminal status stamps it; *leaving* one
- * clears it. Clearing is the half that used to be missing — a run moved from
- * `failed` back to `running` kept the old end time, so the dashboard showed a
- * live run with a finish timestamp, and any reader that prefers `finishedAt`
- * over `startedAt` (the search index does) dated the run to a finish that had
- * been undone.
- */
-  statusPatchForExperiment(experiment: Experiment, status: ExperimentStatus, now: string): Pick<Experiment, "status" | "startedAt" | "finishedAt">;
-  /** Short display form of a commit SHA. */
-  shortSha(sha?: string): string | undefined;
-  experimentActivityAt(exp: Experiment): number;
-  /** SDK / process died without updating status — still marked running in the DB. */
-  isStaleRunningExperiment(exp: Experiment, nowMs?: number, staleMs?: number, lastMetricAtMs?: number): boolean;
-  /** Format a numeric metric value for tables and chart axes (name-agnostic). */
-  formatMetricValue(_metric: string, value: number): string;
-  /**
- * One metric's value as text, for a chip or a table cell.
- *
- * Here rather than in the web app because it is the *general* case of
- * {@link formatMetricValue}: the same rule for every surface that shows a metric
- * value, and no React in sight, so it can be tested without a DOM — the version
- * of this that lived in `metric-chart.tsx` could not be, because importing that
- * module pulls in uPlot's stylesheet.
- *
- * A number (or a numeric string) goes through `formatMetricValue`, which is what
- * gives the chips their consistent precision. Anything else is *shown*, not
- * stringified blindly — and that distinction is a bug that shipped: the fallback
- * was `String(value ?? "—")`, and `String` on any object produces the literal
- * `[object Object]`, which is what a run whose metric was an object displayed on
- * its experiment page. `Number(anObject)` is always `NaN`, so every non-numeric
- * value reached that fallback; that is why the symptom was this exact text
- * rather than a blank or a crash.
- *
- * An object is therefore shown as compact JSON, a boolean is spelled (it used to
- * render as `0.00000`, because `Number(false)` is a finite 0 — a different claim
- * from `false`), and a value that cannot be serialised at all, such as a cycle,
- * degrades to "—" rather than throwing inside a render.
- */
-  formatMetricCell(_metric: string, value: unknown): string;
-}

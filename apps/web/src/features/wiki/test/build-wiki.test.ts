@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LexicalConceptExtractor, planWikiPages } from "@weaveforge/core";
+import { LexicalConceptExtractor, planWikiPages, type FixStep, type LintReport } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 
 /**
@@ -82,7 +82,7 @@ test("generated pages are linted like any other page", () => {
     "- [[Method]]",
   ].join("\n");
 
-  const report = typedCore().lintWiki([
+  const report = typedCore().lintWiki<LintReport>([
     { id: "w1", title: "GAN", body: generated },
     { id: "w2", title: "Method", body: "Real prose describing the method at some length." },
   ]);
@@ -91,18 +91,18 @@ test("generated pages are linted like any other page", () => {
 });
 
 test("lint orders duplicate merges before link repair", () => {
-  const report = typedCore().lintWiki([
+  const report = typedCore().lintWiki<LintReport>([
     { id: "a", title: "GAN", body: "One." },
     { id: "b", title: "gan", body: "Two." },
     { id: "c", title: "Method", body: "Links to [[Missing]] in a sentence of some length." },
   ]);
 
-  const order = typedCore().planFixOrder(report).map((step) => step.kind);
+  const order = typedCore().planFixOrder<FixStep>(report).map((step) => step.kind);
   assert.ok(order.indexOf("duplicate") < order.indexOf("dead-link"));
 });
 
 test("an empty wiki produces no findings and no plans", async () => {
-  assert.deepEqual(typedCore().lintWiki([]).findings, []);
+  assert.deepEqual(typedCore().lintWiki<LintReport>([]).findings, []);
   const extraction = await extractor.extract({ documents: [] });
   assert.deepEqual(planWikiPages({ extraction, existingTitles: [] }), []);
 });
@@ -126,7 +126,7 @@ test("the index the screen rebuilds reflects the pages lint sees", async () => {
 });
 
 test("dead links name the target the screen queues a page for", () => {
-  const report = typedCore().lintWiki([
+  const report = typedCore().lintWiki<LintReport>([
     { id: "w1", title: "GAN", body: "Compare with [[Diffusion Model]] and [[Diffusion Model]]." },
   ]);
 

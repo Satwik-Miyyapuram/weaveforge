@@ -70,12 +70,3 @@ export interface IConceptExtractor {
 
 export const EMPTY_EXTRACTION: ExtractionResult = { concepts: [], mentions: [] };
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm, crates/wf-core/src/ai/extraction.rs). */
-export interface AiExtractionFns {
-  /** Normalized key for comparing concept names across casing and spacing. */
-  conceptKey(name: string): string;
-  /** Merge results, summing mention counts and unioning aliases; most-mentioned first. */
-  mergeExtractions(results: readonly ExtractionResult[]): ExtractionResult;
-  /** Drop concepts (by name or alias) that already exist in the wiki, and their mentions. */
-  withoutExisting(result: ExtractionResult, existing: readonly string[]): ExtractionResult;
-}

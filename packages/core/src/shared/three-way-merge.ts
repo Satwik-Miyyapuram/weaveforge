@@ -15,8 +15,3 @@ export interface FieldMergeResult {
   conflicts: FieldConflict[];
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ThreeWayMergeFns {
-  mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult;
-  sameValue(a: unknown, b: unknown): boolean;
-}

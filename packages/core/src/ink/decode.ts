@@ -1,5 +1,4 @@
 /** Types for decode. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { RecognisedLine } from "./recognise.js";
 
 /** One word as the engine read it: readings best-first, and the dictionary's verdict on each. */
 export interface InkWordReadings {
@@ -33,17 +32,3 @@ interface Chosen {
   others: string[];
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface DecodeFns {
-  /** Every word of every vocabulary entry, folded — hyphenated terms both whole and in parts. */
-  inkVocabularyWords(vocabulary: readonly string[]): Set<string>;
-  /**
- * One line from its words' readings: the chosen text, a confidence under
- * {@link INK_ENGINE_MAX_CONFIDENCE}, and whole-line alternatives.
- *
- * `engineText` is what the engine itself said for the line; when the choice
- * above changed a word, it is offered back first, so a wrong preference is one
- * click to undo.
- */
-  decodeInkWords(words: readonly InkWordReadings[], vocabulary: readonly string[], engineText?: string): RecognisedLine;
-}

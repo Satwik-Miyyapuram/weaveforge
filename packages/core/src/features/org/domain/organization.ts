@@ -54,10 +54,4 @@ export class OrgPermissionError extends PermissionError {
   }
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface OrganizationFns {
-  /** True when the user explicitly created or joined a lab (not migration backfill). */
-  isExplicitLabMembership(m: OrgMembershipView): boolean;
-  /** Active lab context: selected org must be set and explicitly joined (or owned). */
-  hasActiveLab(activeOrgId: string | null | undefined, memberships: readonly OrgMembershipView[], ownsActiveOrg?: boolean): boolean;
-}
+

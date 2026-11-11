@@ -3,10 +3,9 @@ import assert from "node:assert/strict";
 import { type InkUndoState } from "../../src/shared/core-contract.js";
 import type { ReaderAnnotation } from "../../src/reader/reader-annotation.js";
 import * as wasm from "../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../src/index.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { EMPTY_INK_UNDO, INK_UNDO_LIMIT, pushInkUndo, refreshInkUndoAnnotation, renameInkUndoId, takeInkRedo, takeInkUndo } = wasm as unknown as CoreContract;
+const { EMPTY_INK_UNDO, INK_UNDO_LIMIT, pushInkUndo, refreshInkUndoAnnotation, renameInkUndoId, takeInkRedo, takeInkUndo } = wasm;
 
 function ink(id: string, paths: number[][] = [[0, 0, 10, 10]]): ReaderAnnotation {
   return {

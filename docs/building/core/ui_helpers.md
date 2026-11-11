@@ -18,4 +18,4 @@ Rules:
 
 Not in Rust: storage, `LIMIT`, `setSessionLost`, `startFn`, `navTransition`, `relayBase()` (env and desktop check).
 
-Status: ported without a build or test run. The `RustCoreFns` entries in `packages/core/src/shared/rust.ts` are not added, because `packages/core` does not call these functions yet.
+Status: ported without a build or test run. Callers reach them through the generated wasm declarations.

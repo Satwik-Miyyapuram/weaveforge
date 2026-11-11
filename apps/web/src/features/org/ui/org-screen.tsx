@@ -65,7 +65,7 @@ export function OrgPanel() {
     };
   }, [profile?.id, profile?.role]);
 
-  const allowedRoles = profile ? typedCore().creatableRoles(profile.role) : [];
+  const allowedRoles = (profile ? typedCore().creatableRoles(profile.role) : []) as Role[];
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleLeaveOrg() {

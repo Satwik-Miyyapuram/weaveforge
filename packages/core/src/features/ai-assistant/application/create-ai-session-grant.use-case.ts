@@ -37,6 +37,6 @@ export interface CreateAiSessionGrantInput {
  */
 export class CreateAiSessionGrantUseCase {
   execute(input: CreateAiSessionGrantInput): AiActiveSession {
-    return rust().startAiSession(input);
+    return rust().startAiSession(input as never) as AiActiveSession;
   }
 }

@@ -66,7 +66,7 @@ export class ScreenItemsUseCase {
 
   async summarize(items: readonly ScreeningItem[]): Promise<ScreenSummary> {
     const decisions = await this.deps.screening.listForItems(items.map((item) => item.id));
-    const verdicts = rust().verdictsFor(items, decisions);
+    const verdicts = rust().verdictsFor(items, decisions) as ItemVerdict[];
     return {
       decisions,
       counts: rust().prismaCounts(items, decisions),

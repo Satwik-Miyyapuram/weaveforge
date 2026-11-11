@@ -4,7 +4,7 @@ import { rust } from "../shared/rust.js";
 
 /** In-memory settings store for contract tests. Copies deeply, like a real store. */
 export class InMemorySettingsRepository implements ISettingsRepository {
-  private settings: UserSettings = structuredClone(rust().EMPTY_SETTINGS);
+  private settings: UserSettings = structuredClone(rust().EMPTY_SETTINGS) as UserSettings;
 
   async get(): Promise<UserSettings> {
     return structuredClone(this.settings);

@@ -30,7 +30,7 @@ export class ManageReadingListUseCase {
     const list = rust().createReadingList(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
-    });
+    }) as ReadingList;
     await this.deps.lists.save(list);
     return list;
   }

@@ -8,7 +8,7 @@ import {
 } from "./member-rows";
 import { one } from "@/backend/providers/postgrest/row-access";
 import { readyCore, typedCore } from "@/lib/rust-core";
-import type { CoreContract } from "@weaveforge/core";
+import type { RustCore } from "@/lib/rust-core";
 
 /**
  * PostgREST implementation of IMemberRepository. Reads the `profiles` table (the
@@ -75,7 +75,7 @@ export class PostgrestMemberRepository implements IMemberRepository {
   }
 
   private async listMembers(
-    filter: CoreContract["filterTeamMembers"],
+    filter: RustCore["filterTeamMembers"],
   ): Promise<Member[]> {
     const uid = await this.session.getCurrentUserId();
     if (!uid) return [];

@@ -140,7 +140,7 @@ export class LinkCitationsUseCase {
     const refs = library.map((p) => rust().primaryPaperRef(p.arxivId, p.doi));
     const resolvable = refs
       .map((r, i) => ({ r, i }))
-      .filter((x): x is { r: PaperRef; i: number } => !!x.r);
+      .filter((x) => !!x.r) as { r: PaperRef; i: number }[];
     const source = this.sources.find((s) => resolvable.some((x) => s.supports(x.r)));
     if (!source) return { created: [], unmatched: 0, failed: 0 };
     const supported = resolvable.filter((x) => source.supports(x.r));

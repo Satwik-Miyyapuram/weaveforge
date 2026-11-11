@@ -54,9 +54,9 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `readyCore()` throws until `loadCore()` has resolved, so call it only after
 the core has loaded. The app must not import these names from `@weaveforge/core`
 (the `rust-owned-imports` test enforces this for non-test files). The typed
-surface is `CoreContract` in `packages/core/src/shared/core-contract.ts`, which
-includes the access policy, evidence, retrieval, MCP result, untrusted context
-and wiki merge interfaces. Examples: `readyCore().AiAccessPolicy`,
+surface is the wasm package's generated declarations (`typeof import("@weaveforge/wasm")`),
+which cover the access policy, evidence, retrieval, MCP result, untrusted context
+and wiki merge functions. Examples: `readyCore().AiAccessPolicy`,
 `readyCore().highlightWithinExcerpt(...)`, `readyCore().retrieveAiExcerpts(...)`,
 `typedCore().mergeWikiPages(...)`.
 
@@ -79,8 +79,7 @@ are being removed.
 - **Type contracts.** The TypeScript types that describe the wasm inputs and
   outputs stay in TypeScript, because they are the boundary the app
   type-checks against. They now sit in `ai-types.ts` (data types and the
-  `UNTRUSTED_CONTEXT_RULE` const) and `core-contract.ts` (the `*Fns` interfaces
-  that `CoreContract` extends). The wf-wasm wrappers keep only the runtime
+  `UNTRUSTED_CONTEXT_RULE` const) and `core-contract.ts` (data shapes the bindings do not cover yet). The wf-wasm wrappers keep only the runtime
   forwarding.
 - **Proposal grouping.** `apps/web/src/features/ai-assistant/application/proposal-groups.ts`
   is UI-side grouping and bulk-run logic. It stays in TypeScript for now.

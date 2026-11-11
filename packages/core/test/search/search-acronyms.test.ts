@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as wasm from "../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../src/index.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { acronymsForTitle } = wasm as unknown as CoreContract;
+const { acronymsForTitle } = wasm;
 
 const has = (title: string, acronym: string) =>
   acronymsForTitle(title).includes(acronym);

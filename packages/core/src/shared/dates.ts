@@ -8,12 +8,3 @@ export function localIsoDate(now: Date = new Date()): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface DatesFns {
-  /**
-   * Add calendar days to an ISO date string (YYYY-MM-DD). Pure calendar
-   * arithmetic, so no time zone or clock change can move the answer by a day.
-   * Throws on a string that is not a real date.
-   */
-  addDays(iso: string, days: number): string;
-}

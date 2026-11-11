@@ -1,6 +1,6 @@
 "use client";
 
-import { ROLE_LABELS } from "@weaveforge/core";
+import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
@@ -103,7 +103,7 @@ export function AccountInfoPanel() {
       ? [
           {
             label: "Role",
-            value: loading ? "Loading…" : ROLE_LABELS[displayRole] ?? displayRole,
+            value: loading ? "Loading…" : ROLE_LABELS[displayRole as Role] ?? displayRole,
           },
           {
             label: "Organization",

@@ -30,10 +30,3 @@ export interface RelatedResult {
   similarity?: number;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface RelatedFns {
-  /** Below this the seed has too little neighbourhood for a walk to say anything. */
-  readonly MIN_SEED_DEGREE_FOR_PPR: 3;
-  /** Human-readable reason, so a thin result set is explained rather than puzzling. */
-  explainArm(arm: RelatedArm): string;
-}

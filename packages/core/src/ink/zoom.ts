@@ -14,12 +14,3 @@ export const INK_ZOOM_MAX = 4;
 /** One zoom-in or zoom-out step, as a factor. */
 export const INK_ZOOM_STEP = 1.25;
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ZoomFns {
-  /** `zoom` kept within the limits; anything not a positive finite number resets to 1. */
-  clampInkZoom(zoom: number): number;
-  /** One step in, stopping at the maximum. */
-  inkZoomIn(zoom: number): number;
-  /** One step out, stopping at the minimum. */
-  inkZoomOut(zoom: number): number;
-}

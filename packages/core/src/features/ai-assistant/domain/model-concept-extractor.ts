@@ -45,12 +45,6 @@ export interface RawConcept {
   evidence?: unknown;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-core `ai::model_concepts`). */
-export interface ModelConceptFns {
-  parseExtractionJson(text: string): RawConcept[];
-  toExtractionResult(raw: readonly RawConcept[], batchIds: readonly string[]): ExtractionResult;
-}
-
 /**
  * Turn a parsed reply into an extraction result.
  *
@@ -101,10 +95,10 @@ export class ModelConceptExtractor implements IConceptExtractor {
     if (results.length === 0) throw lastError;
 
     return rust().modelFinalizeExtraction(
-      results,
+      results as never,
       request.existingConcepts ?? [],
       request.maxConcepts,
-    );
+    ) as ExtractionResult;
   }
 
   private async extractBatch(

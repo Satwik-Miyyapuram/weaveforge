@@ -29,7 +29,9 @@ export function normalizeUserSettings(settings: UserSettings): UserSettings {
 }
 
 /** Whether the user must accept the disclaimer again (no acceptance, or an older version). */
-export function needsDisclaimerAcceptance(settings: UserSettings): boolean {
+export function needsDisclaimerAcceptance(
+  settings: Pick<UserSettings, "disclaimerAcceptedAt" | "disclaimerVersion">,
+): boolean {
   return rawNeedsDisclaimerAcceptance(plain(settings));
 }
 

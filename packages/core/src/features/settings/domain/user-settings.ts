@@ -30,11 +30,3 @@ export interface UserSettings {
   search?: SearchSettings;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface UserSettingsFns {
-  readonly EMPTY_SETTINGS: UserSettings;
-  /** Merge integrations bag from legacy columns when loading from persistence. */
-  hydrateUserSettings(settings: UserSettings): UserSettings;
-  /** Trim strings and drop empties before persistence. */
-  normalizeUserSettings(settings: UserSettings): UserSettings;
-}

@@ -10,13 +10,8 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import {
-  type InkUndoEntry,
-  type InkUndoPatch,
-  type InkUndoState,
-  type NewReaderAnnotation,
-  type ReaderAnnotation,
-} from "@weaveforge/core";
+import type { NewReaderAnnotation, ReaderAnnotation } from "@weaveforge/core";
+import type { InkUndoEntry, InkUndoPatch, InkUndoState } from "@weaveforge/wasm";
 
 import type { AnnotationActions } from "./use-annotation-actions";
 import { typedCore } from "@/lib/rust-core";
@@ -53,7 +48,7 @@ function draftFromAnnotation(ann: ReaderAnnotation): NewReaderAnnotation {
 /** The current values of the fields `patch` sets, so undo can put them back. */
 function patchBefore(ann: ReaderAnnotation, patch: InkUndoPatch): InkUndoPatch {
   const before: InkUndoPatch = {};
-  for (const key of Object.keys(patch) as (keyof InkUndoPatch)[]) {
+  for (const key of Object.keys(patch) as (keyof InkUndoPatch & keyof ReaderAnnotation)[]) {
     (before as Record<string, unknown>)[key] = ann[key];
   }
   return before;
@@ -170,11 +165,11 @@ export function useInkUndo(
     const remove = (ann: ReaderAnnotation) => raw.removeLocal(ann.id);
     switch (entry.kind) {
       case "create":
-        return direction === "undo" ? remove(entry.annotation) : recreate(entry.annotation);
+        return direction === "undo" ? remove(entry.annotation as ReaderAnnotation) : recreate(entry.annotation as ReaderAnnotation);
       case "remove":
-        return direction === "undo" ? recreate(entry.annotation) : remove(entry.annotation);
+        return direction === "undo" ? recreate(entry.annotation as ReaderAnnotation) : remove(entry.annotation as ReaderAnnotation);
       case "removeMany":
-        for (const ann of entry.annotations) {
+        for (const ann of entry.annotations as ReaderAnnotation[]) {
           if (direction === "undo") await recreate(ann);
           else await remove(ann);
         }
@@ -183,7 +178,7 @@ export function useInkUndo(
         const target = annotationsRef.current.find((a) => a.id === entry.id);
         if (!target) return;
         const anchor = direction === "undo" ? entry.before : entry.after;
-        await raw.saveAnchor(target, anchor);
+        await raw.saveAnchor(target, anchor as ReaderAnnotation["anchor"]);
         setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, anchor }));
         return;
       }

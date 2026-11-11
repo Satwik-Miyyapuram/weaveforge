@@ -20,7 +20,7 @@ stay in TypeScript.
 
 - `wf-wasm` exports `urlMetaShellTarget` and `urlMetaReadFailureMessage`
   (`crates/wf-wasm/src/url_meta.rs`). The prefix avoids name collisions.
-- `packages/wf-wasm/src/url-meta.ts` wraps them, re-exported from `modules.ts`
+- `packages/wf-wasm/src/rust-exports-3.ts` wraps them, re-exported from `modules.ts`
   and `feature-wrappers.ts`.
 - `apps/web/src/features/papers/infrastructure/url-metadata-source.ts`
   (`readInShell`) calls `loadCore()` and uses both functions. The relay's `error`

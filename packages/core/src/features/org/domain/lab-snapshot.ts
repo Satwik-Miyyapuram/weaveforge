@@ -2,10 +2,8 @@
 import type { Identifiable } from "../../../shared/repository.js";
 import type { LogKind } from "../../logbook/domain/log-entry.js";
 import type { MilestoneStatus } from "../../plan/domain/milestone.js";
-import type { Experiment, ExperimentStatus } from "../../experiments/domain/experiment.js";
-import type { ReportSection, ReportStatus } from "../../report/domain/report-section.js";
-import type { LogEntry } from "../../logbook/domain/log-entry.js";
-import type { Milestone } from "../../plan/domain/milestone.js";
+import type { ExperimentStatus } from "../../experiments/domain/experiment.js";
+import type { ReportStatus } from "../../report/domain/report-section.js";
 
 /** Frozen milestone fields included in a lab snapshot payload. */
 export interface LabSnapshotMilestone {
@@ -67,14 +65,3 @@ export interface PublishLabSnapshotInput {
   content: LabSnapshotContent;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface LabSnapshotFns {
-  /** Freeze live records into snapshot content, keeping only what a supervisor reads. */
-  buildLabSnapshotContent(input: {
-  milestones: Milestone[];
-  logs: LogEntry[];
-  experiments: Experiment[];
-  report: ReportSection[];
-  aiAssisted?: number;
-}): LabSnapshotContent;
-}

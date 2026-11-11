@@ -21,7 +21,7 @@ the TypeScript cases, plus `max_concepts_follows_js_slice_for_odd_values`.
 ## How the app calls it
 
 The wasm export is `extractLexical` in `crates/wf-wasm/src/ai_lexical_concepts.rs`.
-The wrapper `packages/wf-wasm/src/ai-lexical-concepts.ts` exports `extractLexical`
+The wrapper `packages/wf-wasm/src/rust-exports-1.ts` exports `extractLexical`
 with types from `./bindings.js`. The TypeScript `LexicalConceptExtractor` in
 `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts` is a
 thin shim that calls `rust().extractLexical`.

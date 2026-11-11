@@ -3,10 +3,9 @@ import test from "node:test";
 
 import { type BibFinding, type BibFindingKind } from "../../../src/features/report/domain/bibliography-report.js";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../../src/index.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { parseBibEntries, checkBibliography } = wasm as unknown as CoreContract;
+const { parseBibEntries, checkBibliography } = wasm;
 
 function report(files: { path: string; content: string }[]) {
   return checkBibliography({ sources: files, bibliography: parseBibEntries(files) });

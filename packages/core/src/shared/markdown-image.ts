@@ -15,11 +15,6 @@ import { rust } from "./rust.js";
 /** One `![alt](head rest)` ref, with `text` the whole match (Rust `FoundImageRef`). */
 export type FoundImageRef = { alt: string; head: string; rest: string; text: string };
 
-/** The image-ref scan this file needs from the Rust core. */
-export interface MarkdownImageFns {
-  findImageRefs(body: string, head: string, allowSpace: boolean): FoundImageRef[];
-}
-
 /** The body with its blob refs rewritten, and why any upload failed. */
 export type MaterializedBody = { body: string; uploadError?: Error };
 

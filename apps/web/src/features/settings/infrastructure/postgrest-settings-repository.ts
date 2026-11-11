@@ -1,7 +1,7 @@
 import type { ICurrentUserProvider } from "@weaveforge/core";
 import { relayUrl } from "@/lib/relay-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SettingsMetadata, ISettingsRepository, UserSettings } from "@weaveforge/core";
+import type { SettingsMetadata, ISettingsRepository, UserAppearance, UserSettings } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { run } from "@/backend/providers/postgrest/row-access";
 
@@ -160,7 +160,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
 
   private async readSettings(): Promise<UserSettings> {
     const row = await this.readRow();
-    if (!row) return { ...typedCore().EMPTY_SETTINGS };
+    if (!row) return { ...typedCore().EMPTY_SETTINGS } as UserSettings;
     return this.fromRow(row, await this.secrets.load());
   }
 
@@ -192,7 +192,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
             autoIncludeNewSourceCategories: ai.autoIncludeNewSourceCategories ?? undefined,
           }
         : undefined,
-    });
+    }) as UserSettings;
   }
 
   async getMetadata(): Promise<SettingsMetadata> {
@@ -219,7 +219,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     return {
       disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
       disclaimerVersion: row.disclaimer_version ?? undefined,
-      appearance: typedCore().normalizeAppearance(row.appearance),
+      appearance: typedCore().normalizeAppearance(row.appearance) as UserAppearance | undefined,
     };
   }
 

@@ -1,22 +1,5 @@
 /** Public API of the sharing module (core half). */
-export type {
-  Comment,
-  CommentAnchor,
-  CommentFns,
-  NewCommentInput,
-  NewShareInput,
-  ResolvedShareLink,
-  Share,
-  ShareAccess,
-  ShareableType,
-  ShareFns,
-  ShareLink,
-  ShareLinkSaveInput,
-  ShareLinkTokenFns,
-  IShareLinkRepository,
-  IShareLinkTokenHasher,
-  SharingConstantsFns,
-} from "../../shared/core-contract.js";
+export type { Comment, CommentAnchor, NewCommentInput, NewShareInput, ResolvedShareLink, Share, ShareAccess, ShareableType, ShareLink, ShareLinkSaveInput, IShareLinkRepository, IShareLinkTokenHasher } from "../../shared/core-contract.js";
 export * from "./domain/share-repository.js";
 export * from "./domain/comment-repository.js";
 export * from "./application/manage-sharing.use-case.js";

@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { type WorkspaceSnapshot } from "../../src/index.js";
 import * as wasm from "../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../src/index.js";
 import { rust } from "../../src/shared/rust.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { explainArm, personalizedPageRank, relatedByPpr } = wasm as unknown as CoreContract;
+const { explainArm, personalizedPageRank, relatedByPpr } = wasm;
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {

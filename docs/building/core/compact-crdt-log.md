@@ -12,7 +12,7 @@ in one transaction.
 | No-op rules (`nothing-to-do`, `stale`) | Rust | `crates/wf-core/src/collab.rs` (`compact_skip_reason`) |
 | Wasm export `compactSkipReason` | Rust | `crates/wf-wasm/src/leaf_ports.rs` |
 | Typed wasm wrapper | TS | `packages/wf-wasm/src/leaf-ports.ts` |
-| Contract entry on `RustCoreFns` | TS | `packages/core/src/shared/rust.ts` |
+| Typed through `rust()` (generated wasm declarations) | TS | `packages/core/src/shared/rust.ts` |
 | Use case (thin shell) | TS | `packages/core/src/features/collab/application/compact-crdt-log.use-case.ts` |
 | Store port and `CompactOutcome` | TS | `packages/core/src/features/collab/domain/crdt-update-store.ts` |
 | Watermark move and sweep | Database | `db/migrations/0132_compact_crdt_log_rpc.sql` |

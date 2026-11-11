@@ -1,6 +1,5 @@
 /** Types for log-entry. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export type LogKind = "daily" | "weekly";
@@ -50,11 +49,3 @@ export class LogEntryValidationError extends ValidationError {
   }
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface LogEntryFns {
-  /**
- * Build a valid LogEntry from partial input, applying defaults and invariants.
- * Throwing here keeps invalid entities from ever reaching a repository.
- */
-  createLogEntry(input: NewLogEntryInput, deps: { clock: Clock; ids: IdGenerator }): LogEntry;
-}

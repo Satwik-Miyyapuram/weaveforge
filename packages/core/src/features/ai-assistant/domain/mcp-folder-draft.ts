@@ -18,8 +18,3 @@ export interface FolderDraft {
   projectId?: string;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm, crates/wf-core/src/ai/folder_draft.rs). */
-export interface McpFolderDraftFns {
-  /** A draft file's JSON, or null when it is not one; the file is agent-written, so nothing is trusted. */
-  parseFolderDraft(raw: string): FolderDraft | null;
-}

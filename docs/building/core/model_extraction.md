@@ -22,7 +22,7 @@ cases, plus `the_cap_follows_js_slice_for_odd_values`.
 ## How the app calls it
 
 The wasm exports are in `crates/wf-wasm/src/ai_model_extraction.rs`. The wrapper
-`packages/wf-wasm/src/ai-model-extraction.ts` exports `modelExtractionLimits`,
+`packages/wf-wasm/src/rust-exports-1.ts` exports `modelExtractionLimits`,
 `modelBuildBatchRequest` and `modelFinalizeExtraction`. It passes `[...existing]`
 copies and maps an absent `maxConcepts` to `undefined`.
 

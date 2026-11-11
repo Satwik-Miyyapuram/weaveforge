@@ -1,6 +1,5 @@
 /** Types for milestone. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export type MilestoneStatus = "planned" | "in_progress" | "done" | "blocked";
@@ -90,13 +89,3 @@ export class MilestoneValidationError extends ValidationError {
   }
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface MilestoneFns {
-  /** True for a `yyyy-mm-dd` day that is on the calendar: not 2026-02-31. */
-  isIsoDay(value: string): boolean;
-  /** Validate a dependency list; throws on structurally invalid entries. */
-  validateDependencies(deps: MilestoneDependency[]): void;
-  /** Validate compute needs; throws on invalid entries. */
-  validateCompute(compute: ComputeNeed[]): void;
-  createMilestone(input: NewMilestoneInput, deps: { clock: Clock; ids: IdGenerator }): Milestone;
-}

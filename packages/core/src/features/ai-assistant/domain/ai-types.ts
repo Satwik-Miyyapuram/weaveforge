@@ -282,8 +282,3 @@ export interface MergeResult {
   contradictions: Contradiction[];
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface AiTypesFns {
-  /** Pre-rename `propose_*` names still resolve; they are accepted, never listed. */
-  canonicalAiToolName(name: string): string;
-}

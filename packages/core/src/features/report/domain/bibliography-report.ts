@@ -46,13 +46,3 @@ interface Citation {
   line: number;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface BibliographyReportFns {
-  /**
- * Check one project's citations against its bibliography.
- *
- * Pure: give it the files and the parsed entries, and it answers the same way
- * every time.
- */
-  checkBibliography(input: BibliographyInput): BibliographyReport;
-}

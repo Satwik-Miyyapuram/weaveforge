@@ -54,14 +54,3 @@ export interface DownsampleDecision<T> {
   supersededTipStep: number | null;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm, crates/wf-core/src/experiments.rs). */
-export interface DownsampleMetricsFns {
-  /** The sampling interval in force at `step`. */
-  strideForStep(step: number): number;
-  /** Whether a point at this step sits on the sampling grid. */
-  isOnSamplingGrid(step: number): boolean;
-  /** What to store for one series, given the arriving points and the highest stored step. */
-  planSeriesIngest<T extends { step: number }>(points: readonly T[], previousMaxStep: number | null): DownsampleDecision<T>;
-  /** Steps to delete from an already-stored series: off-grid steps, except the newest. */
-  stepsToPrune(storedSteps: readonly number[]): number[];
-}
