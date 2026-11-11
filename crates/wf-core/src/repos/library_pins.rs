@@ -133,8 +133,8 @@ fn is_pinned(call: &RepoCall) -> RepoStep {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
     use crate::repo_query::{RepoAction, RepoCtx, RepoSingle};
+    use serde_json::Value;
 
     fn call(args: Vec<Value>, replies: Vec<Value>, project: bool, user: bool) -> RepoCall {
         RepoCall {
