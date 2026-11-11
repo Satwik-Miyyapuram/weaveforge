@@ -10,7 +10,6 @@ import {
   vaultBodyPreview as rawBodyPreview,
   vaultBodyPreviewChars as rawBodyPreviewChars,
   extractWikilinks as rawExtractWikilinks,
-  vaultImageMarkdown as rawImageMarkdown,
   normalizeTitleKey as rawNormalizeTitleKey,
   noteBacklinks as rawNoteBacklinks,
   scopeNoteIndices as rawScopeNoteIndices,
@@ -33,6 +32,7 @@ export {
   parseWikilinkInner,
   stripFrontmatter,
   vaultAssetPathsInBody,
+  vaultImageMarkdown,
   vaultImagePrefix,
   vaultTitleLikePattern,
 } from "../pkg/wf_wasm.js";
@@ -59,10 +59,6 @@ export function uniqueTitle(base: string, used: Set<string>): string {
   const title = rawUniqueTitle(base, [...used]);
   used.add(rawNormalizeTitleKey(title));
   return title;
-}
-
-export function vaultImageMarkdown(path: string, alt = "image"): string {
-  return rawImageMarkdown(path, alt);
 }
 
 export function vaultBodyPreview(body: string, max = vaultBodyPreviewChars()): string {

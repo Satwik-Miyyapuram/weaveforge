@@ -5,11 +5,9 @@ import {
   treePathPairs as rawTreePathPairs,
   diffJsonData as rawDiffJsonData,
   diffWorkspace as rawDiffWorkspace,
-  entityDir as rawEntityDir,
   parseWorkspaceFolder as rawParseWorkspaceFolder,
   planMirror as rawPlanMirror,
   projectDir as rawProjectDir,
-  projectMetaDir as rawProjectMetaDir,
   serializeWorkspace as rawSerializeWorkspace,
   workspaceSnapshotCounts as rawWorkspaceSnapshotCounts,
 } from "../pkg/wf_wasm.js";
@@ -29,9 +27,11 @@ import type {
 
 export {
   countJsonActions,
+  entityDir,
   idSuffix,
   isAppOwnedPath,
   jsonDataPath,
+  projectMetaDir,
   stripKindSuffix,
 } from "../pkg/wf_wasm.js";
 
@@ -49,18 +49,6 @@ export {
 export function projectDir(project: { id: string; name: string }): string {
   return rawProjectDir(project.id, project.name);
 }
-
-/** The folder for one entity type under `projectRoot` (Rust `entity_dir`). */
-export function entityDir(type: WorkspaceEntityType, projectRoot = ""): string {
-  return rawEntityDir(type, projectRoot);
-}
-
-/** The metadata folder under `projectRoot` (Rust `project_meta_dir`). */
-export function projectMetaDir(projectRoot = ""): string {
-  return rawProjectMetaDir(projectRoot);
-}
-
-/** The short suffix that makes a folder name unique to its id (Rust `id_suffix`). */
 
 /** The project's folder-mirror files for a snapshot (Rust `serialize_workspace`). */
 export function serializeWorkspace(

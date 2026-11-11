@@ -2269,7 +2269,7 @@ export function describeChanges(status: readonly { state: "added" | "modified" |
  *
  * Fails if `outcome` does not have the expected shape.
  */
-export function describeFreeCopyFailure(outcome: any, web_article: boolean): string;
+export function describeFreeCopyFailure(outcome: { kind?: "none"; listed: number; attempts: ReadonlyArray<{ url: string; format: string; reason: "not-pdf" | "not-html" | "blocked" | "failed" | "abstract-only" | "no-storage" }>; unreachable: readonly string[]; asked: readonly string[] }, web_article?: boolean | null): string;
 
 /**
  * [`describe_overleaf_status`](sync_status::describe_overleaf_status): the one-line status, or `""`
@@ -2714,7 +2714,7 @@ export function engineStartParams(defaults: readonly string[]): string[];
  * Fails when `entity` is not a workspace entity type, or `project_root` is
  * over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
-export function entityDir(entity: string, project_root: string): string;
+export function entityDir(entity: string, project_root?: string | null): string;
 
 /**
  * [`entry_file_error`](overleaf::entry_file_error).
@@ -4021,7 +4021,7 @@ export function initialPhase(online: boolean): "idle" | "offline" | "error";
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function initialReaderViewport(page: number): any;
+export function initialReaderViewport(page?: number | null): { scale: number; fit: B.ReaderFitMode; rotation: 0 | 90 | 180 | 270; page: number };
 
 /**
  * [`ink_attachment_index`](ink_page::ink_attachment_index): the attachment index of `path`, or `0`.
@@ -5114,7 +5114,7 @@ export function kindIcon(kind: string): string;
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function kindIconClass(kind: string, open?: boolean | null): any;
+export function kindIconClass(kind: string, open?: boolean | null): string | null;
 
 /**
  * [`kind_multiplier`](search_settings::kind_multiplier); an unknown `kind` reads as `1`.
@@ -5286,7 +5286,7 @@ export function leaves(node: B.PaneNode): B.PaneLeaf[];
 /**
  * [`levenshtein`](analysis_outline::levenshtein) (TS `levenshtein`).
  */
-export function levenshtein(a: string, b: string, limit: number): number;
+export function levenshtein(a: string, b: string, limit?: number | null): number;
 
 /**
  * [`library_bibtex`](bibtex::library_bibtex): the whole library as one `.bib`.
@@ -6670,7 +6670,7 @@ export function outlineItemsFor(pages: any): any;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function outlineOf(body: string, max_level: number): any;
+export function outlineOf(body: string, max_level?: number | null): B.OutlineHeading[];
 
 /**
  * [`outline_progress`](section_progress::outline_progress) (TS `outlineProgress`).
@@ -7996,7 +7996,7 @@ export function projectGateOpen(config: Omit<B.IntegrationConfig, "gitRead"> & {
  *
  * Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
-export function projectMetaDir(project_root: string): string;
+export function projectMetaDir(project_root?: string | null): string;
 
 /**
  * [`project_name`](project_name): the trimmed name, or `undefined` when blank.
@@ -9292,7 +9292,7 @@ export function serialiseArtifactRef(artifact_ref: B.ArtifactRef): string;
  *
  * Fails if `experiment_ids` is not a list of strings.
  */
-export function serialiseResultsTableRef(experiment_ids: any, caption: string): string;
+export function serialiseResultsTableRef(experiment_ids: readonly string[], caption?: string | null): string;
 
 /**
  * [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
@@ -10603,7 +10603,7 @@ export function vaultBodyPreviewChars(): number;
 /**
  * [`vault_image_markdown`](page::vault_image_markdown) (TS `vaultImageMarkdown`).
  */
-export function vaultImageMarkdown(path: string, alt: string): string;
+export function vaultImageMarkdown(path: string, alt?: string | null): string;
 
 /**
  * [`VAULT_IMAGE_PREFIX`](page::VAULT_IMAGE_PREFIX) (TS `vaultImagePrefix()`).
@@ -11455,7 +11455,7 @@ export interface InitOutput {
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly encodeShareLinkToken: (a: number, b: number) => [number, number];
     readonly engineStartParams: (a: any) => [number, number, number];
-    readonly entityDir: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly entityDir: (a: number, b: number, c: number) => [number, number, number, number];
     readonly entryFileError: (a: number, b: number) => [number, number];
     readonly enumLabel: (a: number, b: number, c: number, d: number) => [number, number];
     readonly enumOptions: (a: number, b: number) => [number, number, number];
@@ -11631,7 +11631,7 @@ export interface InitOutput {
     readonly indexTerms: (a: any, b: any) => [number, number, number];
     readonly indexTermsOf: (a: number, b: number) => [number, number];
     readonly initialPhase: (a: number) => [number, number, number];
-    readonly initialReaderViewport: (a: number) => [number, number, number];
+    readonly initialReaderViewport: (a: number, b: number) => [number, number, number];
     readonly inkAttachmentIndex: (a: number, b: number, c: number, d: number) => number;
     readonly inkBackingRatio: (a: number, b: number, c: number) => number;
     readonly inkBandUnion: (a: number, b: number) => [number, number];
@@ -11828,7 +11828,7 @@ export interface InitOutput {
     readonly layoutFromRecord: (a: number, b: number) => [number, number, number];
     readonly layoutMarginNotes: (a: any, b: any, c: number) => [number, number, number];
     readonly leaves: (a: any) => [number, number, number];
-    readonly levenshtein: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly levenshtein: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly libraryBibtex: (a: any) => [number, number, number, number];
     readonly libraryPinRowToDomain: (a: any) => [number, number, number];
     readonly linkCitationMentions: (a: any, b: any, c: any) => [number, number, number];
@@ -12182,7 +12182,7 @@ export interface InitOutput {
     readonly projectFolderName: (a: number, b: number) => [number, number];
     readonly projectFromRow: (a: any) => [number, number, number];
     readonly projectGateOpen: (a: any, b: any) => [number, number, number];
-    readonly projectMetaDir: (a: any) => [number, number, number, number];
+    readonly projectMetaDir: (a: number) => [number, number, number, number];
     readonly projectName: (a: number, b: number) => [number, number];
     readonly projectPageAnnotationGeometry: (a: any) => [number, number, number];
     readonly projectSearchDocuments: (a: any, b: any, c: any) => [number, number, number];

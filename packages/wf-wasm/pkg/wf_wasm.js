@@ -5357,15 +5357,15 @@ export function describeChanges(status) {
  * # Errors
  *
  * Fails if `outcome` does not have the expected shape.
- * @param {any} outcome
- * @param {boolean} web_article
+ * @param {{ kind?: "none"; listed: number; attempts: ReadonlyArray<{ url: string; format: string; reason: "not-pdf" | "not-html" | "blocked" | "failed" | "abstract-only" | "no-storage" }>; unreachable: readonly string[]; asked: readonly string[] }} outcome
+ * @param {boolean | null} [web_article]
  * @returns {string}
  */
 export function describeFreeCopyFailure(outcome, web_article) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ret = wasm.describeFreeCopyFailure(outcome, web_article);
+        const ret = wasm.describeFreeCopyFailure(outcome, isLikeNone(web_article) ? 0xFFFFFF : web_article ? 1 : 0);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -6468,7 +6468,7 @@ export function engineStartParams(defaults) {
  * Fails when `entity` is not a workspace entity type, or `project_root` is
  * over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} entity
- * @param {string} project_root
+ * @param {string | null} [project_root]
  * @returns {string}
  */
 export function entityDir(entity, project_root) {
@@ -6477,7 +6477,7 @@ export function entityDir(entity, project_root) {
     try {
         const ptr0 = passStringToWasm0(entity, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.entityDir(ptr0, len0, project_root);
+        const ret = wasm.entityDir(ptr0, len0, isLikeNone(project_root) ? 0 : addToExternrefTable0(project_root));
         var ptr2 = ret[0];
         var len2 = ret[1];
         if (ret[3]) {
@@ -9827,11 +9827,11 @@ export function initialPhase(online) {
  * # Errors
  *
  * Fails only if the value cannot be converted to a JS value.
- * @param {number} page
- * @returns {any}
+ * @param {number | null} [page]
+ * @returns {{ scale: number; fit: B.ReaderFitMode; rotation: 0 | 90 | 180 | 270; page: number }}
  */
 export function initialReaderViewport(page) {
-    const ret = wasm.initialReaderViewport(page);
+    const ret = wasm.initialReaderViewport(!isLikeNone(page), isLikeNone(page) ? 0 : page);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -12471,7 +12471,7 @@ export function kindIcon(kind) {
  * Fails only if the value cannot be converted to a JS value.
  * @param {string} kind
  * @param {boolean | null} [open]
- * @returns {any}
+ * @returns {string | null}
  */
 export function kindIconClass(kind, open) {
     const ptr0 = passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -12853,7 +12853,7 @@ export function leaves(node) {
  * [`levenshtein`](analysis_outline::levenshtein) (TS `levenshtein`).
  * @param {string} a
  * @param {string} b
- * @param {number} limit
+ * @param {number | null} [limit]
  * @returns {number}
  */
 export function levenshtein(a, b, limit) {
@@ -12861,7 +12861,7 @@ export function levenshtein(a, b, limit) {
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passStringToWasm0(b, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.levenshtein(ptr0, len0, ptr1, len1, limit);
+    const ret = wasm.levenshtein(ptr0, len0, ptr1, len1, !isLikeNone(limit), isLikeNone(limit) ? 0 : limit);
     return ret;
 }
 
@@ -16157,13 +16157,13 @@ export function outlineItemsFor(pages) {
  *
  * Fails only if the result cannot be converted to a JS value.
  * @param {string} body
- * @param {number} max_level
- * @returns {any}
+ * @param {number | null} [max_level]
+ * @returns {B.OutlineHeading[]}
  */
 export function outlineOf(body, max_level) {
     const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.outlineOf(ptr0, len0, max_level);
+    const ret = wasm.outlineOf(ptr0, len0, isLikeNone(max_level) ? Number.MAX_SAFE_INTEGER : (max_level) >>> 0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -19328,14 +19328,14 @@ export function projectGateOpen(config, gate) {
  * # Errors
  *
  * Fails when `project_root` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
- * @param {string} project_root
+ * @param {string | null} [project_root]
  * @returns {string}
  */
 export function projectMetaDir(project_root) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ret = wasm.projectMetaDir(project_root);
+        const ret = wasm.projectMetaDir(isLikeNone(project_root) ? 0 : addToExternrefTable0(project_root));
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -22689,16 +22689,16 @@ export function serialiseArtifactRef(artifact_ref) {
  * # Errors
  *
  * Fails if `experiment_ids` is not a list of strings.
- * @param {any} experiment_ids
- * @param {string} caption
+ * @param {readonly string[]} experiment_ids
+ * @param {string | null} [caption]
  * @returns {string}
  */
 export function serialiseResultsTableRef(experiment_ids, caption) {
     let deferred3_0;
     let deferred3_1;
     try {
-        const ptr0 = passStringToWasm0(caption, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
+        var ptr0 = isLikeNone(caption) ? 0 : passStringToWasm0(caption, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
         const ret = wasm.serialiseResultsTableRef(experiment_ids, ptr0, len0);
         var ptr2 = ret[0];
         var len2 = ret[1];
@@ -25992,7 +25992,7 @@ export function vaultBodyPreviewChars() {
 /**
  * [`vault_image_markdown`](page::vault_image_markdown) (TS `vaultImageMarkdown`).
  * @param {string} path
- * @param {string} alt
+ * @param {string | null} [alt]
  * @returns {string}
  */
 export function vaultImageMarkdown(path, alt) {
@@ -26001,8 +26001,8 @@ export function vaultImageMarkdown(path, alt) {
     try {
         const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(alt) ? 0 : passStringToWasm0(alt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
         const ret = wasm.vaultImageMarkdown(ptr0, len0, ptr1, len1);
         deferred3_0 = ret[0];
         deferred3_1 = ret[1];

@@ -99,7 +99,7 @@ pub fn kind_tint_class_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Err
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = kindIconClass)]
+#[wasm_bindgen(js_name = kindIconClass, unchecked_return_type = "string | null")]
 pub fn kind_icon_class_js(
     kind: &str,
     open: Option<bool>,
