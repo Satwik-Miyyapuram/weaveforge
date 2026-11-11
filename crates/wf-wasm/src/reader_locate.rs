@@ -16,7 +16,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// [`point_in_polygon`]: is `(x, y)` inside the flat `x, y` polygon.
 #[wasm_bindgen(js_name = pointInPolygon)]
 #[must_use]
-pub fn point_in_polygon_js(polygon: &[f64], x: f64, y: f64) -> bool {
+pub fn point_in_polygon_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] polygon: &[f64],
+    x: f64,
+    y: f64,
+) -> bool {
     point_in_polygon(polygon, x, y)
 }
 
@@ -47,8 +51,11 @@ pub fn ink_paths_in_polygon_js(
 /// # Errors
 ///
 /// Fails if `pages` is not an array of `{ pageIndex, text }` objects.
-#[wasm_bindgen(js_name = findDocumentMatches)]
-pub fn find_document_matches_js(pages: JsValue, query: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = findDocumentMatches, unchecked_return_type = "{ pageIndex: number; start: number; end: number }[]")]
+pub fn find_document_matches_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly { pageIndex: number; text: string }[]")] pages: JsValue,
+    query: &str,
+) -> JsResult<JsValue> {
     let pages: Vec<DocumentPageText> = serde_wasm_bindgen::from_value(pages)?;
     to_js(&find_document_matches(&pages, query))
 }

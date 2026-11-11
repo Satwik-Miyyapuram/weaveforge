@@ -102,7 +102,9 @@ pub fn absolute_point_triples_js(body: &[u8]) -> Result<Vec<i16>, JsError> {
 /// [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
 #[must_use]
 #[wasm_bindgen(js_name = fitsInkNoteBudget)]
-pub fn fits_ink_note_budget_js(sizes: &[f64]) -> bool {
+pub fn fits_ink_note_budget_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] sizes: &[f64],
+) -> bool {
     chunk::fits_ink_note_budget(sizes)
 }
 

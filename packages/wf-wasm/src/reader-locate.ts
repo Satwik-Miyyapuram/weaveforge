@@ -5,22 +5,17 @@
  * `decodeLocus` live in `reader-locus.ts` (Rust).
  */
 import {
-  pointInPolygon as rawPointInPolygon,
   inkPathsInPolygon as rawInkPathsInPolygon,
-  findDocumentMatches as rawFindDocumentMatches,
 } from "../pkg/wf_wasm.js";
 
 export {
+  findDocumentMatches,
   nextMatchIndex,
+  pointInPolygon,
 } from "../pkg/wf_wasm.js";
 
 /** Rust `LASSO_CAUGHT_SHARE`; kept in step with it. */
 const LASSO_CAUGHT_SHARE = 0.6;
-
-/** Whether a point is inside a closed polygon, by the even-odd rule (Rust `point_in_polygon`). */
-export function pointInPolygon(polygon: readonly number[], x: number, y: number): boolean {
-  return rawPointInPolygon(Float64Array.from(polygon), x, y);
-}
 
 /**
  * Whether a loop has caught a stroke: at least `share` of its points inside (Rust `ink_paths_in_polygon`).
@@ -35,14 +30,4 @@ export function inkPathsInPolygon(
   return rawInkPathsInPolygon(flat, lengths, Float64Array.from(polygon), share);
 }
 
-/**
- * Case-insensitive full-document search over extracted page texts (Rust `find_document_matches`).
- * Empty / whitespace-only queries return no matches.
- */
-export function findDocumentMatches(
-  pages: readonly { pageIndex: number; text: string }[],
-  query: string,
-): { pageIndex: number; start: number; end: number }[] {
-  return rawFindDocumentMatches(pages, query) as { pageIndex: number; start: number; end: number }[];
-}
 

@@ -6,37 +6,20 @@
  * wrapper maps them back to the caller's objects.
  */
 import {
-  isRotatedText as rawIsRotatedText,
-  outlineTextLines as rawOutlineTextLines,
-  bodyFontSize as rawBodyFontSize,
   levenshtein as rawLevenshtein,
   groupRecurringLines as rawGroupRecurringLines,
-  outlineFromText as rawOutlineFromText,
 } from "../pkg/wf_wasm.js";
 import type {
-  OutlineTextItem,
-  OutlineReaderItem,
   OutlineRecurringGroupIndices,
 } from "./bindings.js";
 
 export {
+  bodyFontSize,
+  isRotatedText,
+  outlineFromText,
   outlineIsPlausible,
+  outlineTextLines,
 } from "../pkg/wf_wasm.js";
-
-/** True when a pdf.js text matrix `[a, b, c, d, e, f]` sets its run rotated or mirrored. */
-export function isRotatedText(transform: readonly number[]): boolean {
-  return rawIsRotatedText(Float64Array.from(transform));
-}
-
-/** Consecutive text runs on a baseline, per page, joined in reading order. */
-export function outlineTextLines(pages: readonly (readonly OutlineTextItem[])[]): OutlineTextItem[] {
-  return rawOutlineTextLines(pages) as OutlineTextItem[];
-}
-
-/** The most common font size, rounded to a half point; 0 when there is none. */
-export function bodyFontSize(pages: readonly (readonly OutlineTextItem[])[]): number {
-  return rawBodyFontSize(pages);
-}
 
 /** Edit distance, capped at `limit` so the running-head test stays cheap on long lines. */
 export function levenshtein(a: string, b: string, limit = Number.POSITIVE_INFINITY): number {
@@ -59,10 +42,5 @@ export function groupRecurringLines<T>(
     pages: new Set(group.pages as number[]),
     members: (group.members as number[]).map((index) => lines[index]!),
   }));
-}
-
-/** Infer an outline only when a document supplies no bookmarks. No pdf.js dependency. */
-export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[]): OutlineReaderItem[] {
-  return rawOutlineFromText(allPages) as OutlineReaderItem[];
 }
 

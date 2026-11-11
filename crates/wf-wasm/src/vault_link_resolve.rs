@@ -14,7 +14,10 @@ use wf_core::vault::link_resolve;
 )]
 #[wasm_bindgen(js_name = findTitleMatch)]
 #[must_use]
-pub fn find_title_match_js(existing_titles: Vec<String>, title: &str) -> Option<usize> {
+pub fn find_title_match_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] existing_titles: Vec<String>,
+    title: &str,
+) -> Option<usize> {
     link_resolve::find_title_match(&existing_titles, title)
 }
 
@@ -26,6 +29,8 @@ pub fn find_title_match_js(existing_titles: Vec<String>, title: &str) -> Option<
 )]
 #[wasm_bindgen(js_name = linkTargetsError)]
 #[must_use]
-pub fn link_targets_error_js(failed: Vec<String>) -> Option<String> {
+pub fn link_targets_error_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] failed: Vec<String>,
+) -> Option<String> {
     link_resolve::link_targets_error(&failed)
 }

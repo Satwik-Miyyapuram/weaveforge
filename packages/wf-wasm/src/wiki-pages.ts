@@ -4,29 +4,22 @@
  * adapter in `apps/web/.../wiki/application/wiki-build.ts` does the reads and proposals.
  */
 import {
-  findWikiRoot as rawFindWikiRoot,
   wikiPageRefs as rawWikiPageRefs,
   wikiSourceDocuments as rawWikiSourceDocuments,
-  missingPagePlans as rawMissingPagePlans,
 } from "../pkg/wf_wasm.js";
 import type {
-  RecentWikiPage,
   WikiNote,
-  WikiPagePlanRecord,
   WikiPaper,
   WikiSourceDocument,
 } from "./bindings.js";
 
 export {
+  findWikiRoot,
+  missingPagePlans,
   recentlyApprovedWikiPages,
 } from "../pkg/wf_wasm.js";
 
 export type { RecentWikiPage, WikiNote, WikiPagePlanRecord, WikiPaper, WikiSourceDocument } from "./bindings.js";
-
-/** The note titled `Wiki`, when there is one. */
-export function findWikiRoot(pages: readonly WikiNote[]): WikiNote | null {
-  return (rawFindWikiRoot(pages) as WikiNote | null | undefined) ?? null;
-}
 
 /**
  * The wiki's pages (children of the root) as `{ id, title, body, aliases? }`.
@@ -48,10 +41,5 @@ export function wikiSourceDocuments(
   sourceIds?: readonly string[],
 ): WikiSourceDocument[] {
   return rawWikiSourceDocuments(pages, papers, sourceIds ? [...sourceIds] : undefined) as WikiSourceDocument[];
-}
-
-/** One placeholder plan per distinct, non-blank dead-link target. */
-export function missingPagePlans(targets: readonly string[]): WikiPagePlanRecord[] {
-  return rawMissingPagePlans([...targets]) as WikiPagePlanRecord[];
 }
 

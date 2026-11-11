@@ -4,7 +4,6 @@
  */
 import {
   rewriteWikilinks as rawRewriteWikilinks,
-  withTagLine as rawWithTagLine,
   planImportTitles as rawPlanImportTitles,
 } from "../pkg/wf_wasm.js";
 
@@ -13,6 +12,7 @@ export {
   isMarkdownFile,
   isNoteImportFile,
   isZipFile,
+  withTagLine,
 } from "../pkg/wf_wasm.js";
 
 /** The titles an import gives its folders and notes, and the renames it made. */
@@ -40,14 +40,6 @@ export function planImportTitles(
     renamed: raw.renamed,
     renameMap: new Map(Object.entries(raw.renameMap)),
   };
-}
-
-/**
- * The body with its frontmatter tags written as a hashtag line, as the import writes it.
- * No tags leaves the body as it is.
- */
-export function withTagLine(body: string, tags: readonly string[]): string {
-  return rawWithTagLine(body, [...tags]);
 }
 
 /**

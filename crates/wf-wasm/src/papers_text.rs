@@ -41,8 +41,10 @@ pub fn metadata_title_js(raw: Option<String>) -> Option<String> {
 /// # Errors
 ///
 /// Fails if `names` is not an array of strings, or the result cannot be converted.
-#[wasm_bindgen(js_name = splitPaperDrop)]
-pub fn split_paper_drop_js(names: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = splitPaperDrop, unchecked_return_type = "{ pdfIndices: number[]; bibIndices: number[] }")]
+pub fn split_paper_drop_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] names: JsValue,
+) -> JsResult<JsValue> {
     let names: Vec<String> = serde_wasm_bindgen::from_value(names)?;
     to_js(&paper_drop::split_paper_drop(&names))
 }
@@ -58,8 +60,10 @@ pub fn bib_import_message_js(added: u32, skipped: u32, problems: u32) -> String 
 /// # Errors
 ///
 /// Fails if `entries` is not an array of drop entries, or the result cannot be converted.
-#[wasm_bindgen(js_name = summarizePdfDrop)]
-pub fn summarize_pdf_drop_js(entries: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = summarizePdfDrop, unchecked_return_type = "B.PdfDropSummary")]
+pub fn summarize_pdf_drop_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.DropEntry[]")] entries: JsValue,
+) -> JsResult<JsValue> {
     let entries: Vec<paper_drop::DropEntry> = serde_wasm_bindgen::from_value(entries)?;
     to_js(&paper_drop::summarize_pdf_drop(&entries))
 }

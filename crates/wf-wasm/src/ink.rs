@@ -78,10 +78,10 @@ pub fn ink_curve_at_js(xs: &[f64], ys: &[f64], i: u32, u: f64) -> Vec<f64> {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = resampleInkStroke)]
+#[wasm_bindgen(js_name = resampleInkStroke, unchecked_return_type = "B.PackedInkStroke")]
 pub fn resample_ink_stroke_js(
-    points: &[f64],
-    pressures: &[f64],
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] points: &[f64],
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] pressures: &[f64],
     spacing: Option<f64>,
 ) -> JsResult<JsValue> {
     let (points, pressures) =
@@ -174,7 +174,10 @@ pub fn ink_velocity_between_js(x0: f64, y0: f64, t0: f64, x1: f64, y1: f64, t1: 
 /// [`stroke_base_width`].
 #[wasm_bindgen(js_name = strokeBaseWidth)]
 #[must_use]
-pub fn stroke_base_width_js(samples: &[f64], base: f64) -> f64 {
+pub fn stroke_base_width_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] samples: &[f64],
+    base: f64,
+) -> f64 {
     stroke_base_width(samples, base)
 }
 
@@ -453,7 +456,9 @@ pub fn ink_stroke_band_js(points: &[f64]) -> Option<Vec<f64>> {
 
 /// Fit a line, rect, ellipse or arrow to a finished mark (Rust `snap_ink_shape`).
 /// `null` when the recogniser abstains.
-#[wasm_bindgen(js_name = snapInkShape)]
-pub fn snap_ink_shape_js(points: &[f64]) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = snapInkShape, unchecked_return_type = "{ points: number[]; shape: Exclude<B.InkShape, \"none\"> } | null")]
+pub fn snap_ink_shape_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] points: &[f64],
+) -> JsResult<JsValue> {
     snap_ink_shape(points).map_or(Ok(JsValue::NULL), |snapped| to_js(&snapped))
 }

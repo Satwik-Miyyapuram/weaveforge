@@ -20,7 +20,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// [`is_rotated_text`](analysis_outline::is_rotated_text) (TS `isRotatedText`).
 #[wasm_bindgen(js_name = isRotatedText)]
 #[must_use]
-pub fn is_rotated_text_js(transform: &[f64]) -> bool {
+pub fn is_rotated_text_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] transform: &[f64],
+) -> bool {
     analysis_outline::is_rotated_text(transform)
 }
 
@@ -29,8 +31,11 @@ pub fn is_rotated_text_js(transform: &[f64]) -> bool {
 /// # Errors
 ///
 /// Fails if `pages` is not an array of arrays of text items.
-#[wasm_bindgen(js_name = outlineTextLines)]
-pub fn outline_text_lines_js(pages: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = outlineTextLines, unchecked_return_type = "B.OutlineTextItem[]")]
+pub fn outline_text_lines_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly B.OutlineTextItem[])[]")]
+    pages: JsValue,
+) -> JsResult<JsValue> {
     let pages: Vec<Vec<OutlineTextItem>> = serde_wasm_bindgen::from_value(pages)?;
     to_js(&analysis_outline::outline_text_lines(&pages))
 }
@@ -41,7 +46,10 @@ pub fn outline_text_lines_js(pages: JsValue) -> JsResult<JsValue> {
 ///
 /// Fails if `pages` is not an array of arrays of text items.
 #[wasm_bindgen(js_name = bodyFontSize)]
-pub fn body_font_size_js(pages: JsValue) -> JsResult<f64> {
+pub fn body_font_size_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly B.OutlineTextItem[])[]")]
+    pages: JsValue,
+) -> JsResult<f64> {
     let pages: Vec<Vec<OutlineTextItem>> = serde_wasm_bindgen::from_value(pages)?;
     Ok(analysis_outline::body_font_size(&pages))
 }
@@ -86,8 +94,11 @@ pub fn group_recurring_lines_js(texts: JsValue, pages: JsValue) -> JsResult<JsVa
 /// # Errors
 ///
 /// Fails if `allPages` is not an array of arrays of text items.
-#[wasm_bindgen(js_name = outlineFromText)]
-pub fn outline_from_text_js(all_pages: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = outlineFromText, unchecked_return_type = "B.OutlineReaderItem[]")]
+pub fn outline_from_text_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly B.OutlineTextItem[])[]")]
+    all_pages: JsValue,
+) -> JsResult<JsValue> {
     let all_pages: Vec<Vec<OutlineTextItem>> = serde_wasm_bindgen::from_value(all_pages)?;
     to_js(&analysis_outline::outline_from_text(&all_pages))
 }

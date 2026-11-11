@@ -56,8 +56,11 @@ pub fn git_nul_list_js(stdout: &str) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails when `paths` is not an array of strings, or when the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = gitPathChunks)]
-pub fn git_path_chunks_js(paths: JsValue, max_units: Option<u32>) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = gitPathChunks, unchecked_return_type = "string[][]")]
+pub fn git_path_chunks_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paths: JsValue,
+    max_units: Option<u32>,
+) -> Result<JsValue, JsError> {
     let paths: Vec<String> =
         serde_wasm_bindgen::from_value(paths).map_err(|error| JsError::new(&error.to_string()))?;
     let limit = max_units.map_or(PATH_CHUNK_MAX_UNITS, |units| units as usize);

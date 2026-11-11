@@ -32,18 +32,32 @@ pub fn collect_list_ids_js(
     to_js(&collect_list_ids(&tree)).map_err(js_error)
 }
 
-/// [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `undefined`.
-#[wasm_bindgen(js_name = reorderedIds)]
-pub fn reordered_ids_js(ids: JsValue, drag_id: &str, target_id: &str) -> Result<JsValue, JsError> {
+/// [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `null`.
+#[wasm_bindgen(js_name = reorderedIds, unchecked_return_type = "string[] | null")]
+pub fn reordered_ids_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
+    drag_id: &str,
+    target_id: &str,
+) -> Result<JsValue, JsError> {
     let ids: Vec<String> = parse(ids)?;
-    to_js(&reordered_ids(&ids, drag_id, target_id)).map_err(js_error)
+    let moved = reordered_ids(&ids, drag_id, target_id);
+    moved
+        .map_or(Ok(JsValue::NULL), |v| to_js(&v))
+        .map_err(js_error)
 }
 
-/// [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `undefined` at either end.
-#[wasm_bindgen(js_name = movedIds)]
-pub fn moved_ids_js(ids: JsValue, id: &str, step: i32) -> Result<JsValue, JsError> {
+/// [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `null` at either end.
+#[wasm_bindgen(js_name = movedIds, unchecked_return_type = "string[] | null")]
+pub fn moved_ids_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
+    id: &str,
+    step: i32,
+) -> Result<JsValue, JsError> {
     let ids: Vec<String> = parse(ids)?;
-    to_js(&moved_ids(&ids, id, step)).map_err(js_error)
+    let moved = moved_ids(&ids, id, step);
+    moved
+        .map_or(Ok(JsValue::NULL), |v| to_js(&v))
+        .map_err(js_error)
 }
 
 /// [`subtree_ids`]: the id of `node` and of every list below it.
@@ -71,11 +85,11 @@ pub fn group_subtree_items_js(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes arrays by value"
 )]
-#[wasm_bindgen(js_name = planItemOrder)]
+#[wasm_bindgen(js_name = planItemOrder, unchecked_return_type = "B.ItemOrderPlan")]
 pub fn plan_item_order_js(
     list_id: &str,
-    items: JsValue,
-    ordered_ids: Vec<String>,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingListItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ordered_ids: Vec<String>,
 ) -> Result<JsValue, JsError> {
     let items: Vec<ReadingListItem> = parse(items)?;
     to_js(&plan_item_order(list_id, &items, &ordered_ids)).map_err(js_error)
@@ -86,11 +100,11 @@ pub fn plan_item_order_js(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes arrays by value"
 )]
-#[wasm_bindgen(js_name = itemIdsForPapers)]
+#[wasm_bindgen(js_name = itemIdsForPapers, unchecked_return_type = "B.ItemIdsPlan")]
 pub fn item_ids_for_papers_js(
     list_id: &str,
-    items: JsValue,
-    paper_ids: Vec<String>,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReadingListItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paper_ids: Vec<String>,
 ) -> Result<JsValue, JsError> {
     let items: Vec<ReadingListItem> = parse(items)?;
     to_js(&item_ids_for_papers(list_id, &items, &paper_ids)).map_err(js_error)
@@ -107,6 +121,8 @@ pub fn next_sort_order_js(
 
 /// [`is_inherited_link_code`]: whether a database error code means only the inherited link failed.
 #[wasm_bindgen(js_name = isInheritedLinkCode)]
-pub fn is_inherited_link_code_js(code: Option<String>) -> bool {
+pub fn is_inherited_link_code_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] code: Option<String>,
+) -> bool {
     is_inherited_link_code(code.as_deref())
 }

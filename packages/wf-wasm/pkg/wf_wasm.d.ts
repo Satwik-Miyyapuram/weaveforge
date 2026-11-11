@@ -529,7 +529,7 @@ export function appendPaperNote(existing: string | null | undefined, addition: s
  *
  * Fails if `tag_names` is not an array of strings.
  */
-export function appendTagHashtags(body: string, tag_names: any): string;
+export function appendTagHashtags(body: string, tag_names: readonly string[]): string;
 
 /**
  * [`apply_annotation_patch`]: the full annotation after an edit.
@@ -719,7 +719,7 @@ export function bibImportMessage(added: number, skipped: number, problems: numbe
  *
  * Fails if `entry` cannot be read as a planned `.bib` entry.
  */
-export function bibPaperInput(entry: any): any;
+export function bibPaperInput(entry: B.BibImportPaper): { title: string; authors: string[]; year?: number; venue?: string; doi?: string; arxivId?: string; url?: string; abstract?: string; bibtex: string; metadata: { citeKey: string } };
 
 /**
  * [`binomial_smooth`].
@@ -756,7 +756,7 @@ export function blobStorageBuckets(): any;
  *
  * Fails if `pages` is not an array of arrays of text items.
  */
-export function bodyFontSize(pages: any): number;
+export function bodyFontSize(pages: readonly (readonly B.OutlineTextItem[])[]): number;
 
 /**
  * [`body_links_to`](page::body_links_to) (TS `bodyLinksTo`).
@@ -1054,7 +1054,7 @@ export function checkBibliography(input: any): any;
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function checkGitRemoteUrl(raw: any): any;
+export function checkGitRemoteUrl(raw: unknown): { ok: true; url: string } | { ok: false; reason: string };
 
 /**
  * [`check_ink_chunk_body`](chunk::check_ink_chunk_body): the layout and page header of a body
@@ -1250,7 +1250,7 @@ export function clampInkNoteWidth(width: number, fallback?: number | null): numb
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function clampInkPageSize(width: number, height: number): any;
+export function clampInkPageSize(width: number, height: number): { width: number; height: number };
 
 /**
  * [`clamp_ink_width`].
@@ -1602,7 +1602,7 @@ export function containerResize(last: B.BoxSize, next: B.BoxSize): string;
  * [`context_nonce_from`](ai_tool_name::context_nonce_from): the caller passes the
  * `Math.random()` values.
  */
-export function contextNonceFrom(randoms: Float64Array): string;
+export function contextNonceFrom(randoms: readonly number[]): string;
 
 /**
  * [`continue_push_round`] for JS (TS `continuePushRound`).
@@ -1625,7 +1625,7 @@ export function coreInfo(): B.CoreInfo;
  *
  * Fails when `actions` is not a list of import actions.
  */
-export function countActionList(actions: any): any;
+export function countActionList(actions: readonly B.ImportAction[]): B.ActionCounts;
 
 /**
  * [`count_actions`](folder_merge::count_actions).
@@ -1634,7 +1634,7 @@ export function countActionList(actions: any): any;
  *
  * Fails when `entries` is not a list of import entries.
  */
-export function countActions(entries: any): any;
+export function countActions(entries: readonly B.ImportDiffEntry[]): B.ActionCounts;
 
 /**
  * [`wf_core::sync::json_entities::count_json_actions`] for JS.
@@ -2145,7 +2145,7 @@ export function deepestFirstListIds(list_id: string, lists: readonly B.ReadingLi
  *
  * Fails if the argument is not an array of strings, or the result cannot be serialised.
  */
-export function defaultExpanded(roots: any): any;
+export function defaultExpanded(roots: readonly string[]): readonly string[];
 
 /**
  * [`default_graph_settings`](graph_settings::default_graph_settings).
@@ -2615,7 +2615,7 @@ export function embedTitles(body: string): string[];
 /**
  * [`embeddable_text`](semantic_fingerprint::embeddable_text): the text a document is embedded from.
  */
-export function embeddableText(title: string, aliases: string[], body: string): string;
+export function embeddableText(title: string, aliases: readonly string[], body: string): string;
 
 /**
  * [`empty_cell_paper_ids`]: the papers whose cell for `field_id` is empty and not pending.
@@ -3068,7 +3068,7 @@ export function findCitationCandidates(items: any): any;
  *
  * Fails if `pages` is not an array of `{ pageIndex, text }` objects.
  */
-export function findDocumentMatches(pages: any, query: string): any;
+export function findDocumentMatches(pages: readonly { pageIndex: number; text: string }[], query: string): { pageIndex: number; start: number; end: number }[];
 
 /**
  * [`find_duplicate_groups`] (TS `findDuplicateGroups`). Groups of two or more papers.
@@ -3159,12 +3159,12 @@ export function findRelated(graph: any, seed: string, limit: number, options: an
  * [`find_title_match`](link_resolve::find_title_match). Returns the index of the match, or
  * `undefined` in JS when none matches.
  */
-export function findTitleMatch(existing_titles: string[], title: string): number | undefined;
+export function findTitleMatch(existing_titles: readonly string[], title: string): number | undefined;
 
 /**
  * [`find_wiki_root`]: the note titled `Wiki`, or nothing.
  */
-export function findWikiRoot(pages: any): any;
+export function findWikiRoot(pages: readonly B.WikiNote[]): B.WikiNote | null;
 
 /**
  * [`fit_cols`](plot_size::fit_cols).
@@ -3189,7 +3189,7 @@ export function fitScale(container_width: number, page_width: number): number;
 /**
  * [`fits_ink_note_budget`](chunk::fits_ink_note_budget): whether these chunk sizes fit a note.
  */
-export function fitsInkNoteBudget(sizes: Float64Array): boolean;
+export function fitsInkNoteBudget(sizes: readonly number[]): boolean;
 
 /**
  * [`flat_path`](folder_layout::flat_path). `entity` is a `WorkspaceEntityType` string.
@@ -3272,7 +3272,7 @@ export function folderKey(relative_path: string): string;
  * [`folder_keys`](folder_layout::folder_keys) (TS `folderKeys`): every folder the picked files
  * lead to, shallowest first.
  */
-export function folderKeys(relative_paths: string[]): string[];
+export function folderKeys(relative_paths: readonly string[]): string[];
 
 /**
  * [`folder_title_from_path`](folder_layout::folder_title_from_path).
@@ -3291,7 +3291,7 @@ export function fontSizeOf(item: B.AnalysisPdfItem): number;
 /**
  * [`forget_search_query`](search_history::forget_search_query).
  */
-export function forgetSearchQuery(history: string[], query: string): string[];
+export function forgetSearchQuery(history: readonly string[], query: string): string[];
 
 /**
  * [`format_citation`](cite_key::format_citation) (TS `formatCitation`).
@@ -3535,7 +3535,7 @@ export function gitParseStatus(stdout: string): { path: string; state: "deleted"
  *
  * Fails when `paths` is not an array of strings, or when the result cannot be converted to a JS value.
  */
-export function gitPathChunks(paths: any, max_units?: number | null): any;
+export function gitPathChunks(paths: readonly string[], max_units?: number | null): string[][];
 
 /**
  * [`git_read_failure_message`] for JS (TS `gitReadFailureMessage`).
@@ -4026,7 +4026,7 @@ export function initialReaderViewport(page: number): any;
 /**
  * [`ink_attachment_index`](ink_page::ink_attachment_index): the attachment index of `path`, or `0`.
  */
-export function inkAttachmentIndex(body: string, path?: string | null): number;
+export function inkAttachmentIndex(body: string, path: string | null | undefined): number;
 
 /**
  * [`backing_ratio`]: the pixel ratio a canvas of the given CSS size is given.
@@ -4146,7 +4146,7 @@ export function inkEngineRank(id: string): number;
  *
  * Fails if `values` is not an array of strings.
  */
-export function inkEnumIndex(values: any, value: string): number;
+export function inkEnumIndex(values: readonly string[], value: string): number;
 
 /**
  * [`ink_enum_value`](ink_page::ink_enum_value): the name at `index`, or the first entry
@@ -4216,7 +4216,7 @@ export function inkNoteWidthToPdfPoints(tenths: number): number;
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function inkPageBackground(text: string): any;
+export function inkPageBackground(text: string): string | null;
 
 /**
  * [`page_bounds`](page_buffer::page_bounds): the page's box. `boxes` is four numbers per
@@ -4276,7 +4276,7 @@ export function inkPageSvg(page: any, options: any): string;
 /**
  * [`ink_path_json_size`].
  */
-export function inkPathJsonSize(path: Float64Array): number;
+export function inkPathJsonSize(path: readonly number[]): number;
 
 /**
  * [`ink_paths_bounds`]; `[x1, y1, x2, y2]` or `null`.
@@ -4515,12 +4515,12 @@ export function isBibFile(name: string): boolean;
  *
  * Fails if `hints` or `candidate` is not an object of the expected shape.
  */
-export function isBibliographicMatch(hints: any, candidate: any): boolean;
+export function isBibliographicMatch(hints: { title?: string | null; year?: number | null }, candidate: { title: string; year?: number | null }): boolean;
 
 /**
  * [`is_blanket_share`](sharing::is_blanket_share); `null` or `undefined` means every resource.
  */
-export function isBlanketShare(resource_id?: string | null): boolean;
+export function isBlanketShare(resource_id: string | null | undefined): boolean;
 
 /**
  * [`is_bold_font`]; `fontName` may be undefined.
@@ -4642,7 +4642,7 @@ export function isHydratedPage(body?: string | null, body_preview?: string | nul
 /**
  * [`is_inherited_link_code`]: whether a database error code means only the inherited link failed.
  */
-export function isInheritedLinkCode(code?: string | null): boolean;
+export function isInheritedLinkCode(code: string | null | undefined): boolean;
 
 /**
  * [`wf_core::sync::ink_note::is_ink_chunk_id`] for JS.
@@ -4865,7 +4865,7 @@ export function isRecentTarget(value: unknown): boolean;
 /**
  * [`is_rotated_text`](analysis_outline::is_rotated_text) (TS `isRotatedText`).
  */
-export function isRotatedText(transform: Float64Array): boolean;
+export function isRotatedText(transform: readonly number[]): boolean;
 
 /**
  * [`wf_core::workspace::is_safe_workspace_path`] for JS.
@@ -5013,7 +5013,7 @@ export function isoDayFromParts(year: number, month: number, day: number): strin
 /**
  * [`item_ids_for_papers`]: the item id of each paper in order, or the message that refuses it.
  */
-export function itemIdsForPapers(list_id: string, items: any, paper_ids: string[]): any;
+export function itemIdsForPapers(list_id: string, items: readonly B.ReadingListItem[], paper_ids: readonly string[]): B.ItemIdsPlan;
 
 /**
  * [`item_to_rect`] as `[x1, y1, x2, y2]`, or `null`. Omitted bounds take the TS defaults (`0` and `Infinity`).
@@ -5040,7 +5040,7 @@ export function joinBibtex(entries: any): string;
  *
  * Fails if `pages` is not an array of strings.
  */
-export function joinInkTextLayer(pages: any): string;
+export function joinInkTextLayer(pages: readonly string[]): string;
 
 /**
  * [`wf_core::sync::json_entities::json_data_path`] for JS.
@@ -5062,13 +5062,13 @@ export function jsonDataPath(project_root: string, kind: B.WorkspaceJsonKind): s
 export function jsonEditSince(base: Readonly<Record<string, string>>, path: string, text: string): boolean;
 
 /**
- * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
+ * [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `null` for none.
  *
  * # Errors
  *
  * Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  */
-export function jsonKindOfPath(path: string): string | undefined;
+export function jsonKindOfPath(path: string): B.WorkspaceJsonKind | null;
 
 /**
  * [`keep_all_picks`]: the field picks a "keep all" makes on one side.
@@ -5344,7 +5344,7 @@ export function linkNodeId(source: string | { id: string }): string;
  * [`link_targets_error`](link_resolve::link_targets_error). Returns the message, or `undefined`
  * when no target failed.
  */
-export function linkTargetsError(failed: string[]): string | undefined;
+export function linkTargetsError(failed: readonly string[]): string | undefined;
 
 /**
  * [`lint_wiki`](wiki_lint::lint_wiki). A missing `otherTitles` means none, as in the TS default.
@@ -5753,7 +5753,7 @@ export function mcpServersJson(launch: B.McpLaunchLine): string;
 /**
  * [`mean_pressure`]; `undefined` when no sample reports pressure.
  */
-export function meanPressure(samples: Float64Array): number | undefined;
+export function meanPressure(samples: readonly number[]): number | undefined;
 
 /**
  * [`media_type_essence`]: the media type without parameters, lowercased.
@@ -6018,7 +6018,7 @@ export function minPaperTextChars(): number;
  * Fails if `cfg` is not an object of optional strings, `required` is not an array of
  * known field names, or the result cannot be converted to JS.
  */
-export function missingConfigMessage(cfg: any, required: any): any;
+export function missingConfigMessage(cfg: B.BackendConfigFields, required: readonly B.BackendConfigField[]): string | null;
 
 /**
  * [`missing_figure_warning`](export_path::missing_figure_warning).
@@ -6037,7 +6037,7 @@ export function missingIds(chunk: readonly string[], held: readonly string[], to
 /**
  * [`missing_page_plans`]: one placeholder plan per distinct, non-blank dead-link target.
  */
-export function missingPagePlans(targets: any): any;
+export function missingPagePlans(targets: readonly string[]): B.WikiPagePlanRecord[];
 
 /**
  * [`missing_r2_config_message`]: names the unset R2 env vars, never values.
@@ -6057,7 +6057,7 @@ export function missingR2ConfigMessage(fields: B.R2Fields): string;
  *
  * Fails if `batch` is not a list of documents.
  */
-export function modelBuildBatchRequest(batch: any, existing: string[], model: string | null | undefined, max_chars: number, nonce: string): any;
+export function modelBuildBatchRequest(batch: readonly B.ModelDocument[], existing: readonly string[], model: string | null | undefined, max_chars: number, nonce: string): B.ModelRequest;
 
 /**
  * [`try_model_cache_url`](model_cache::try_model_cache_url): the cache URL a request names, or
@@ -6087,7 +6087,7 @@ export function modelExtractionLimits(): B.ModelExtractionLimits;
  *
  * Fails if `results` is not a list of extraction results.
  */
-export function modelFinalizeExtraction(results: any, existing: string[], max_concepts?: number | null): any;
+export function modelFinalizeExtraction(results: readonly B.ExtractionResult[], existing: readonly string[], max_concepts: number | null | undefined): B.ExtractionResult;
 
 /**
  * [`rules::modes_for`].
@@ -6113,9 +6113,9 @@ export function motionTier(motion: string | null | undefined, theme: string | nu
 export function moveTab(layout: any, from_pane_id: string, from_index: number, to_pane_id: string, to_index?: number | null): any;
 
 /**
- * [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `undefined` at either end.
+ * [`moved_ids`]: `ids` with `id` moved one step (`-1` or `1`), or `null` at either end.
  */
-export function movedIds(ids: any, id: string, step: number): any;
+export function movedIds(ids: readonly string[], id: string, step: number): string[] | null;
 
 /**
  * [`moved_path`](folder_mirror::moved_path): `path` after the project folder `old` moved to `root`.
@@ -6634,7 +6634,7 @@ export function originalRange(view: B.AnalysisSearchText, start: number, end: nu
  *
  * Fails if `allPages` is not an array of arrays of text items.
  */
-export function outlineFromText(all_pages: any): any;
+export function outlineFromText(all_pages: readonly (readonly B.OutlineTextItem[])[]): B.OutlineReaderItem[];
 
 /**
  * [`outline_is_plausible`](analysis_outline::outline_is_plausible) (TS `outlineIsPlausible`).
@@ -6688,7 +6688,7 @@ export function outlineProgress(roots: any): any;
  *
  * Fails if `pages` is not an array of arrays of text items.
  */
-export function outlineTextLines(pages: any): any;
+export function outlineTextLines(pages: readonly (readonly B.OutlineTextItem[])[]): B.OutlineTextItem[];
 
 /**
  * [`external_url`](overleaf::external_url).
@@ -7129,7 +7129,7 @@ export function parseInkChunkPath(path: string): any;
  * Fails when `path` or `content` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `kind` is
  * not a known kind.
  */
-export function parseJsonData(path: string, content: string, kind: any): any;
+export function parseJsonData(path: string, content: string, kind: B.WorkspaceJsonKind): B.ParsedJsonData | null;
 
 /**
  * [`parse_kind_suffix`](folder_layout::parse_kind_suffix): the entity type, or `null`.
@@ -7306,7 +7306,7 @@ export function parseSemanticScholar(body: unknown): B.OpenAccessCandidate[];
  *
  * Fails when `argv` is not an array of strings, or when the result cannot be converted to a JS value.
  */
-export function parseSidecarArgs(argv: any): any;
+export function parseSidecarArgs(argv: readonly string[]): { kind: "ok"; dataDir: string; migrations: string[]; backupsDir: string; migrateFrom: string | null; artifacts: string | null; bridge: string | null; appVersion: string | null; homeVariant: string | null; noLocalApi: boolean } | { kind: "error"; message: string };
 
 /**
  * [`parse_stored_provider`](wf_core::ai::provider_descriptor::parse_stored_provider): the provider, or `null` when the blob does not match.
@@ -7528,7 +7528,7 @@ export function pickProject(projects: any, needle?: string | null): number;
 /**
  * [`pick_project_folder`](folder_layout::pick_project_folder). `undefined` when no folder fits.
  */
-export function pickProjectFolder(dirs: string[], exact: string, tail: string): string | undefined;
+export function pickProjectFolder(dirs: readonly string[], exact: string, tail: string): string | undefined;
 
 /**
  * [`picture_comment`]: the comment text that stores a picture's crop and stacking order.
@@ -7653,7 +7653,7 @@ export function planAssetReanchor(body: string, owned: readonly string[], availa
  *
  * Fails only if the result cannot be converted to a JS value.
  */
-export function planBibImport(file_name: string, text: string, existing_dois: string[], existing_keys: string[]): any;
+export function planBibImport(file_name: string, text: string, existing_dois: readonly string[], existing_keys: readonly string[]): B.BibImportPlan;
 
 /**
  * [`plan_bibliography_annotations`]. `papers` is an array of paper snapshots,
@@ -7672,7 +7672,7 @@ export function planBibliographyAnnotations(papers: readonly B.BibliographyPaper
  *
  * Fails if `dep` or `milestones` has the wrong shape, or the result cannot be serialised.
  */
-export function planChipTarget(dep: any, known: any, milestones: any, is_offline_build: boolean): any;
+export function planChipTarget(dep: B.MilestoneDependency, known: readonly string[], milestones: readonly B.ChipMilestone[], is_offline_build: boolean): B.ChipTarget;
 
 /**
  * [`plan_citation_segments`]: each run split at the mention boundaries inside it.
@@ -7747,7 +7747,7 @@ export function planImportTitles(folder_keys: string[], note_names: string[], ex
 /**
  * [`plan_item_order`]: the writes for a new item order, or the message that refuses it.
  */
-export function planItemOrder(list_id: string, items: any, ordered_ids: string[]): any;
+export function planItemOrder(list_id: string, items: readonly B.ReadingListItem[], ordered_ids: readonly string[]): B.ItemOrderPlan;
 
 /**
  * [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
@@ -7845,7 +7845,7 @@ export function pointInArea(area: B.DrawArea, x: number, y: number): boolean;
 /**
  * [`point_in_polygon`]: is `(x, y)` inside the flat `x, y` polygon.
  */
-export function pointInPolygon(polygon: Float64Array, x: number, y: number): boolean;
+export function pointInPolygon(polygon: readonly number[], x: number, y: number): boolean;
 
 /**
  * [`error_info`] for JS (TS `postgrestErrorInfo`): `{ code, firstLine }` of an error body.
@@ -8111,7 +8111,7 @@ export function proposalPaperAnnotation(payload: unknown): B.PaperAnnotationInpu
  *
  * Throws for an unknown field, a non-fillable kind, a refused value, or an option not allowed.
  */
-export function proposalPaperFieldFill(payload: any, defs: any): any;
+export function proposalPaperFieldFill(payload: unknown, defs: readonly B.PaperFieldDefInput[]): B.PaperFieldFillInput;
 
 /**
  * [`paper_field_id`](proposal_inputs::paper_field_id): the `fieldId`, read before the field list.
@@ -8470,7 +8470,7 @@ export function reconstructLines(page: number, items: any, keep: any): any;
 /**
  * [`rectangles_overlap`](analysis_text::rectangles_overlap) (TS `rectanglesOverlap`).
  */
-export function rectanglesOverlap(a: Float64Array, b: Float64Array): boolean;
+export function rectanglesOverlap(a: readonly number[], b: readonly number[]): boolean;
 
 /**
  * [`redact_error_text`](error_redact::redact_error_text): the token and URL credentials removed,
@@ -8640,9 +8640,9 @@ export function renderTemplate(template: string, context_value: Record<string, u
 export function reorderFigureIndices(len: number, index: number, step: any): Uint32Array;
 
 /**
- * [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `undefined`.
+ * [`reordered_ids`]: `ids` with `dragId` moved into `targetId`'s place, or `null`.
  */
-export function reorderedIds(ids: any, drag_id: string, target_id: string): any;
+export function reorderedIds(ids: readonly string[], drag_id: string, target_id: string): string[] | null;
 
 /**
  * [`replace_vault_asset_paths`](page::replace_vault_asset_paths): `old_paths[i]` becomes `new_paths[i]`.
@@ -8686,7 +8686,7 @@ export function reportSectionInputError(input: B.NewReportSectionInput): string 
  *
  * Fails only if the value cannot be converted to a JS value.
  */
-export function resampleInkStroke(points: Float64Array, pressures: Float64Array, spacing?: number | null): any;
+export function resampleInkStroke(points: readonly number[], pressures: readonly number[], spacing?: number | null): B.PackedInkStroke;
 
 /**
  * [`resize_figure_box`](figure::resize_figure_box): a box resized by dragging `handle`.
@@ -8742,7 +8742,7 @@ export function resolveDisplayRole(role: string, in_lab: boolean, owns_org: bool
  *
  * Fails if either list is not an array of strings.
  */
-export function resolveInkPageOrder(declared: any, present: any): any;
+export function resolveInkPageOrder(declared: readonly string[], present: readonly string[]): string[];
 
 /**
  * [`resolve_integration_config`]. `env` is the five `NEXT_PUBLIC_*` provider values, `ids`
@@ -9428,7 +9428,7 @@ export function shareLinkDefaultTtlDays(): number;
  *
  * Fails if `row` does not have the `share_links` columns.
  */
-export function shareLinkFromRow(row: any): any;
+export function shareLinkFromRow(row: B.ShareLinkRow): Omit<B.ShareLink, "access"> & { access: "view" };
 
 /**
  * [`share_supports_edit_access`](sharing::share_supports_edit_access).
@@ -9437,7 +9437,7 @@ export function shareLinkFromRow(row: any): any;
  *
  * Fails if `resource_type` is not a shareable type.
  */
-export function shareSupportsEditAccess(resource_type: any, resource_id?: string | null): boolean;
+export function shareSupportsEditAccess(resource_type: B.ShareableType, resource_id: string | null | undefined): boolean;
 
 /**
  * [`share_targets`](sharing::share_targets): the ids and blanket owners of one type in a grant list.
@@ -9446,7 +9446,7 @@ export function shareSupportsEditAccess(resource_type: any, resource_id?: string
  *
  * Fails if `kind` is not a shareable type or `shares` is not a list of shares.
  */
-export function shareTargets(shares: any, kind: any): any;
+export function shareTargets(shares: readonly B.Share[], kind: B.ShareableType): B.ShareTargets;
 
 /**
  * [`SHAREABLE_TYPES`](sharing::SHAREABLE_TYPES): every type a share can cover.
@@ -9455,7 +9455,7 @@ export function shareTargets(shares: any, kind: any): any;
  *
  * Fails if the list cannot be converted to a JS value.
  */
-export function shareableTypes(): any;
+export function shareableTypes(): readonly B.ShareableType[];
 
 /**
  * [`shared_item`](sharing::shared_item): one table row as a `SharedItem`.
@@ -9511,7 +9511,7 @@ export function sharedProviderHint(descriptor: any, all: any): any;
  *
  * Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
  */
-export function sharedReadPlan(kind: any, ids: any, owners: any): any;
+export function sharedReadPlan(kind: B.ShareableType, ids: readonly string[], owners: readonly string[]): B.SharedReadPlan | null;
 
 /**
  * [`shared_resource_href`](sharing::shared_resource_href).
@@ -9535,7 +9535,7 @@ export function shortcutLabel(chord: string, mac: boolean): string;
 /**
  * [`should_append_ink_point`]; `minDistance` defaults to 0.75.
  */
-export function shouldAppendInkPoint(path: Float64Array, x: number, y: number, min_distance?: number | null): boolean;
+export function shouldAppendInkPoint(path: readonly number[], x: number, y: number, min_distance?: number | null): boolean;
 
 /**
  * [`should_fetch_next_page`] for JS (TS `shouldFetchNextPage`).
@@ -9620,7 +9620,7 @@ export function simplifyInkPath(path: Float64Array, tolerance?: number | null): 
 /**
  * [`simplify_path_indices`]; `tolerance` defaults to 0.35. Returns a JS array of indices.
  */
-export function simplifyPathIndices(path: Float64Array, tolerance?: number | null): any;
+export function simplifyPathIndices(path: readonly number[], tolerance?: number | null): number[];
 
 /**
  * [`site_of`](paper_preview::site_of) (TS `siteOf`).
@@ -9652,7 +9652,7 @@ export function smoothInkStroke(points: Float64Array, pressures: Float64Array, o
  * Fit a line, rect, ellipse or arrow to a finished mark (Rust `snap_ink_shape`).
  * `null` when the recogniser abstains.
  */
-export function snapInkShape(points: Float64Array): any;
+export function snapInkShape(points: readonly number[]): { points: number[]; shape: Exclude<B.InkShape, "none"> } | null;
 
 /**
  * [`snap_to_text`]: `runs` is `{ left, top, right, bottom }[]` (plain boxes, not DOMRects).
@@ -9809,7 +9809,7 @@ export function splitPane(layout: any, pane_id: string, direction: any, new_pane
  *
  * Fails if `names` is not an array of strings, or the result cannot be converted.
  */
-export function splitPaperDrop(names: any): any;
+export function splitPaperDrop(names: readonly string[]): { pdfIndices: number[]; bibIndices: number[] };
 
 /**
  * [`split_proposal_content`](preview::split_proposal_content).
@@ -9941,7 +9941,7 @@ export function stripUnresolvedImageRefs(body: string, prefix: string, paths: re
 /**
  * [`stroke_base_width`].
  */
-export function strokeBaseWidth(samples: Float64Array, base: number): number;
+export function strokeBaseWidth(samples: readonly number[], base: number): number;
 
 /**
  * [`stroke_clip_text`]: the clipboard text for a set of `InkStroke`s.
@@ -9949,9 +9949,9 @@ export function strokeBaseWidth(samples: Float64Array, base: number): number;
 export function strokeClipText(strokes: readonly B.InkStroke[]): string;
 
 /**
- * [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `undefined` for fewer than two numbers.
+ * [`stroke_path`] over a flat `[x0, y0, x1, y1, ...]` array; `null` for fewer than two numbers.
  */
-export function strokePath(points: Float64Array): string | undefined;
+export function strokePath(points: readonly number[]): string | null;
 
 /**
  * [`stroke_point_triples`](chunk_read::stroke_point_triples): one stroke's `x, y, pressure` triples.
@@ -9992,7 +9992,7 @@ export function subtreeIds(node: B.ReadingListTreeNode): string[];
  *
  * Fails if `entries` is not an array of drop entries, or the result cannot be converted.
  */
-export function summarizePdfDrop(entries: any): any;
+export function summarizePdfDrop(entries: readonly B.DropEntry[]): B.PdfDropSummary;
 
 /**
  * [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
@@ -10461,7 +10461,7 @@ export function uniqueDeviceName(name: string, device_label: string, taken: read
  *
  * Fails if `used` is not an array of strings.
  */
-export function uniqueFigureNameIn(raw: string, used: any): string;
+export function uniqueFigureNameIn(raw: string, used: readonly string[]): string;
 
 /**
  * [`unique_title`](page::unique_title) (TS `uniqueTitle`). `used` holds normalized keys.
@@ -10827,7 +10827,7 @@ export function withImageWidth(alt: string, width?: string | null): string;
  * [`with_ink_page_background`](ink_page::with_ink_page_background): the text with its
  * background line set to `path`, or removed for `null`.
  */
-export function withInkPageBackground(text: string, path?: string | null): string;
+export function withInkPageBackground(text: string, path: string | null | undefined): string;
 
 /**
  * [`with_ink_page_figures`](figure::with_ink_page_figures): a page's text with its figure block set.
@@ -10869,7 +10869,7 @@ export function withStoredHeights(ids: any, heights: any, stored: any): any;
  *
  * Fails if `tags` is not an array of strings.
  */
-export function withTagLine(body: string, tags: any): string;
+export function withTagLine(body: string, tags: readonly string[]): string;
 
 /**
  * [`without_existing`](extraction::without_existing).
@@ -11802,7 +11802,7 @@ export interface InitOutput {
     readonly joinInkTextLayer: (a: any) => [number, number, number, number];
     readonly jsonDataPath: (a: any, b: any) => [number, number, number, number];
     readonly jsonEditSince: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
-    readonly jsonKindOfPath: (a: any) => [number, number, number, number];
+    readonly jsonKindOfPath: (a: any) => [number, number, number];
     readonly keepAllPicks: (a: any, b: any) => [number, number, number];
     readonly keepBothTitle: (a: number, b: number) => [number, number];
     readonly keepFigureOnPage: (a: any, b: number, c: number) => [number, number, number, number];
@@ -12437,7 +12437,7 @@ export interface InitOutput {
     readonly stripUnresolvedImageRefs: (a: any, b: number, c: number, d: any, e: any) => [number, number, number, number];
     readonly strokeBaseWidth: (a: number, b: number, c: number) => number;
     readonly strokeClipText: (a: any) => [number, number, number, number];
-    readonly strokePath: (a: number, b: number) => [number, number];
+    readonly strokePath: (a: number, b: number) => any;
     readonly strokePointTriples: (a: number, b: number, c: number) => [number, number, number, number];
     readonly strokeedgesplit_begin: (a: number, b: number, c: number) => void;
     readonly strokeedgesplit_end: (a: number) => number;

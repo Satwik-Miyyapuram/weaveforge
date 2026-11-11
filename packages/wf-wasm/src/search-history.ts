@@ -3,9 +3,12 @@
  * Keeps the signatures of packages/core/src/search/search-history.ts.
  */
 import {
-  forgetSearchQuery as rawForgetSearchQuery,
   normalizeSearchHistory as rawNormalizeSearchHistory,
   rememberSearchQuery as rawRememberSearchQuery,
+} from "../pkg/wf_wasm.js";
+
+export {
+  forgetSearchQuery,
 } from "../pkg/wf_wasm.js";
 
 export const MAX_SEARCH_HISTORY = 12;
@@ -17,10 +20,6 @@ export function rememberSearchQuery(
   max = MAX_SEARCH_HISTORY,
 ): string[] {
   return rawRememberSearchQuery([...history], query, max);
-}
-
-export function forgetSearchQuery(history: readonly string[], query: string): string[] {
-  return rawForgetSearchQuery([...history], query);
 }
 
 /** Drop anything that is not a usable query string. Non-array input yields []. */

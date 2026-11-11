@@ -91,7 +91,9 @@ pub fn folder_key_js(relative_path: &str) -> String {
 )]
 #[wasm_bindgen(js_name = folderKeys)]
 #[must_use]
-pub fn folder_keys_js(relative_paths: Vec<String>) -> Vec<String> {
+pub fn folder_keys_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] relative_paths: Vec<String>,
+) -> Vec<String> {
     folder_layout::folder_keys(&relative_paths)
 }
 

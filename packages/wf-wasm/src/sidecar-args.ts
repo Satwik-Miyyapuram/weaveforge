@@ -2,7 +2,7 @@
  * Sidecar command-line parsing (Rust `sidecar_args`), re-exported from feature-wrappers.ts.
  * Reading `process.argv` and resolving paths stay in apps/shell/sidecar/src/main.ts.
  */
-import { parseSidecarArgs as rawParseSidecarArgs } from "../pkg/wf_wasm.js";
+export { parseSidecarArgs } from "../pkg/wf_wasm.js";
 
 /** A successful parse. Paths are as given on the command line; absent options are `null`. */
 export interface SidecarArgsPlan {
@@ -34,8 +34,3 @@ export interface SidecarArgsError {
 }
 
 export type SidecarArgsReply = SidecarArgsPlan | SidecarArgsError;
-
-/** Parses argv (without the program name). The Rust rules are in `wf_core::sidecar_args`. */
-export function parseSidecarArgs(argv: readonly string[]): SidecarArgsReply {
-  return rawParseSidecarArgs([...argv]) as SidecarArgsReply;
-}

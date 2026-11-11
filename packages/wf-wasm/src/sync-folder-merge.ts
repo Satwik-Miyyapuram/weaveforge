@@ -4,25 +4,20 @@
  * of apps/web workspace/application/{folder-merge,mirror-manifest,folder-import-apply,remove-project-folder}.ts.
  */
 import {
-  countActionList as rawCountActionList,
-  countActions as rawCountActions,
   mergeBothChanged as rawMergeBothChanged,
   nextManifest as rawNextManifest,
-  pickProjectFolder as rawPickProjectFolder,
 } from "../pkg/wf_wasm.js";
-import type {
-  ActionCounts,
-  ImportAction,
-  ImportDiffEntry,
-  VaultPageBase,
-} from "./bindings.js";
+import type { ImportDiffEntry, VaultPageBase } from "./bindings.js";
 
 export {
   claimDigest,
+  countActionList,
+  countActions,
   folderTitleFromPath,
   jsonEditSince,
   keepBothTitle,
   movedPath,
+  pickProjectFolder,
   readMirrorBase,
   readMirrorBases,
   rekeyManifestText,
@@ -39,30 +34,11 @@ export function mergeBothChanged(
   return rawMergeBothChanged(entry, base ?? null, workspaceContent) as ImportDiffEntry;
 }
 
-/** Tally of entries by action (created, updated, unchanged, conflict, removed). */
-export function countActions(entries: readonly ImportDiffEntry[]): ActionCounts {
-  return rawCountActions([...entries]) as ActionCounts;
-}
-
-/** Tally of bare actions (created, updated, unchanged, conflict, removed). */
-export function countActionList(actions: readonly ImportAction[]): ActionCounts {
-  return rawCountActionList([...actions]) as ActionCounts;
-}
-
 /** Previous manifest minus removed paths, plus written paths, deduped in first-seen order. */
 export function nextManifest(
   previous: readonly string[],
   run: { written: readonly string[]; removed: readonly string[] },
 ): string[] {
   return rawNextManifest([...previous], [...run.written], [...run.removed]);
-}
-
-/** The folder a deleted project lives in: `exact` when listed, else the single folder ending in `tail`. */
-export function pickProjectFolder(
-  dirs: readonly string[],
-  exact: string,
-  tail: string,
-): string | undefined {
-  return rawPickProjectFolder([...dirs], exact, tail);
 }
 

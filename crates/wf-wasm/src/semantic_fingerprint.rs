@@ -21,7 +21,11 @@ pub fn document_id_of_js(passage: &str) -> String {
 #[wasm_bindgen(js_name = embeddableText)]
 #[must_use]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Vec<String>.
-pub fn embeddable_text_js(title: &str, aliases: Vec<String>, body: &str) -> String {
+pub fn embeddable_text_js(
+    title: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] aliases: Vec<String>,
+    body: &str,
+) -> String {
     semantic_fingerprint::embeddable_text(title, &aliases, body)
 }
 

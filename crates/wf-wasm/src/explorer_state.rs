@@ -12,8 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if the argument is not an array of strings, or the result cannot be serialised.
-#[wasm_bindgen(js_name = defaultExpanded)]
-pub fn default_expanded_js(roots: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = defaultExpanded, unchecked_return_type = "readonly string[]")]
+pub fn default_expanded_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] roots: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let roots: Vec<String> = serde_wasm_bindgen::from_value(roots)?;
     to_js(&state::default_expanded(&roots))
 }

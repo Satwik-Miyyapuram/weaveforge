@@ -18,7 +18,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-pub fn is_blanket_share_js(resource_id: Option<String>) -> bool {
+pub fn is_blanket_share_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] resource_id: Option<String>,
+) -> bool {
     sharing::is_blanket_share(resource_id.as_deref())
 }
 
@@ -33,8 +35,8 @@ pub fn is_blanket_share_js(resource_id: Option<String>) -> bool {
     reason = "wasm_bindgen takes strings by value"
 )]
 pub fn share_supports_edit_access_js(
-    resource_type: JsValue,
-    resource_id: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] resource_type: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] resource_id: Option<String>,
 ) -> JsResult<bool> {
     let resource_type: ShareableType = serde_wasm_bindgen::from_value(resource_type)?;
     Ok(sharing::share_supports_edit_access(
@@ -282,8 +284,13 @@ pub fn default_share_link_expires_at_js(now_ms: f64) -> String {
 /// # Errors
 ///
 /// Fails if `row` does not have the `share_links` columns.
-#[wasm_bindgen(js_name = shareLinkFromRow)]
-pub fn share_link_from_row_js(row: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = shareLinkFromRow,
+    unchecked_return_type = "Omit<B.ShareLink, \"access\"> & { access: \"view\" }"
+)]
+pub fn share_link_from_row_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ShareLinkRow")] row: JsValue,
+) -> JsResult<JsValue> {
     let row: sharing::ShareLinkRow = serde_wasm_bindgen::from_value(row)?;
     to_js(&sharing::share_link_from_row(&row))
 }
@@ -294,8 +301,12 @@ pub fn share_link_from_row_js(row: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
-#[wasm_bindgen(js_name = sharedReadPlan)]
-pub fn shared_read_plan_js(kind: JsValue, ids: JsValue, owners: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = sharedReadPlan, unchecked_return_type = "B.SharedReadPlan | null")]
+pub fn shared_read_plan_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] owners: JsValue,
+) -> JsResult<JsValue> {
     let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
     let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;
     let owners: Vec<String> = serde_wasm_bindgen::from_value(owners)?;
@@ -307,8 +318,11 @@ pub fn shared_read_plan_js(kind: JsValue, ids: JsValue, owners: JsValue) -> JsRe
 /// # Errors
 ///
 /// Fails if `kind` is not a shareable type or `shares` is not a list of shares.
-#[wasm_bindgen(js_name = shareTargets)]
-pub fn share_targets_js(shares: JsValue, kind: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = shareTargets, unchecked_return_type = "B.ShareTargets")]
+pub fn share_targets_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Share[]")] shares: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
+) -> JsResult<JsValue> {
     let shares: Vec<sharing::Share> = serde_wasm_bindgen::from_value(shares)?;
     let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
     to_js(&sharing::share_targets(&shares, kind))
@@ -319,7 +333,7 @@ pub fn share_targets_js(shares: JsValue, kind: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if the list cannot be converted to a JS value.
-#[wasm_bindgen(js_name = shareableTypes)]
+#[wasm_bindgen(js_name = shareableTypes, unchecked_return_type = "readonly B.ShareableType[]")]
 pub fn shareable_types_js() -> JsResult<JsValue> {
     to_js(&sharing::SHAREABLE_TYPES)
 }

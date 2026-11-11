@@ -72,8 +72,11 @@ pub fn proposal_paper_field_id(
 /// # Errors
 ///
 /// Throws for an unknown field, a non-fillable kind, a refused value, or an option not allowed.
-#[wasm_bindgen(js_name = proposalPaperFieldFill)]
-pub fn proposal_paper_field_fill(payload: JsValue, defs: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = proposalPaperFieldFill, unchecked_return_type = "B.PaperFieldFillInput")]
+pub fn proposal_paper_field_fill(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] payload: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.PaperFieldDefInput[]")] defs: JsValue,
+) -> JsResult<JsValue> {
     let defs: Vec<PaperFieldDefInput> =
         serde_wasm_bindgen::from_value(defs).map_err(|e| JsError::new(&e.to_string()))?;
     finish(proposal_inputs::paper_field_fill(

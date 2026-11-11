@@ -400,8 +400,13 @@ struct UrlCheck {
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = checkGitRemoteUrl)]
-pub fn check_git_remote_url_js(raw: &JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = checkGitRemoteUrl,
+    unchecked_return_type = "{ ok: true; url: string } | { ok: false; reason: string }"
+)]
+pub fn check_git_remote_url_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: &JsValue,
+) -> JsResult<JsValue> {
     use wf_core::sync::git_remote::{GitRemoteUrlCheck, check_git_remote_url};
     let check = match check_git_remote_url(raw.as_string().as_deref()) {
         GitRemoteUrlCheck::Accepted { url } => UrlCheck {

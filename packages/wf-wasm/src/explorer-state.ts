@@ -3,7 +3,6 @@
  * The Rust side takes arrays; these wrappers keep the `Set` signatures the panel uses.
  */
 import {
-  defaultExpanded as rawDefaultExpanded,
   isSectionOpen as rawIsSectionOpen,
   migratedExpanded as rawMigratedExpanded,
   toggleExpanded as rawToggleExpanded,
@@ -11,6 +10,7 @@ import {
 } from "../pkg/wf_wasm.js";
 
 export {
+  defaultExpanded,
   defaultOpenSections,
   parseExplorerKeys,
 } from "../pkg/wf_wasm.js";
@@ -18,11 +18,6 @@ export {
 /** Which sections are open. Anything not in the set is closed. */
 export interface SectionState {
   open: ReadonlySet<string>;
-}
-
-/** The rows that start open: every root the tree has. */
-export function defaultExpanded(roots: readonly string[]): readonly string[] {
-  return rawDefaultExpanded([...roots]);
 }
 
 /** The saved keys plus any root the record never mentioned. Saved keys win. */

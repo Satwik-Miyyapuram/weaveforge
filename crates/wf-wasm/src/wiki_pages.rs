@@ -16,10 +16,14 @@ fn parse<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
 }
 
 /// [`find_wiki_root`]: the note titled `Wiki`, or nothing.
-#[wasm_bindgen(js_name = findWikiRoot)]
-pub fn find_wiki_root_js(pages: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = findWikiRoot, unchecked_return_type = "B.WikiNote | null")]
+pub fn find_wiki_root_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WikiNote[]")] pages: JsValue,
+) -> Result<JsValue, JsError> {
     let pages: Vec<WikiNote> = parse(pages)?;
-    to_js(&find_wiki_root(&pages)).map_err(|error| JsError::new(&error.to_string()))
+    find_wiki_root(&pages)
+        .map_or(Ok(JsValue::NULL), |root| to_js(&root))
+        .map_err(|error| JsError::new(&error.to_string()))
 }
 
 /// [`wiki_page_refs`]: the wiki's pages as `{ id, title, body }`.
@@ -45,8 +49,10 @@ pub fn wiki_source_documents_js(
 }
 
 /// [`missing_page_plans`]: one placeholder plan per distinct, non-blank dead-link target.
-#[wasm_bindgen(js_name = missingPagePlans)]
-pub fn missing_page_plans_js(targets: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = missingPagePlans, unchecked_return_type = "B.WikiPagePlanRecord[]")]
+pub fn missing_page_plans_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] targets: JsValue,
+) -> Result<JsValue, JsError> {
     let targets: Vec<String> = parse(targets)?;
     to_js(&missing_page_plans(&targets)).map_err(|error| JsError::new(&error.to_string()))
 }

@@ -419,15 +419,17 @@ const fn json_kind_name(kind: WorkspaceJsonKind) -> &'static str {
     }
 }
 
-/// [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `undefined` for none.
+/// [`wf_core::sync::json_entities::json_kind_of_path`] for JS; `null` for none.
 ///
 /// # Errors
 ///
 /// Fails when `path` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = jsonKindOfPath)]
-pub fn json_kind_of_path_js(path: js_sys::JsString) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = jsonKindOfPath, unchecked_return_type = "B.WorkspaceJsonKind | null")]
+pub fn json_kind_of_path_js(path: js_sys::JsString) -> JsResult<JsValue> {
     let path = &crate::guarded_text(&path)?;
-    Ok(json_kind_of_path(path).map(|kind| json_kind_name(kind).to_owned()))
+    Ok(json_kind_of_path(path).map_or(JsValue::NULL, |kind| {
+        JsValue::from(json_kind_name(kind).to_owned())
+    }))
 }
 
 /// [`wf_core::sync::json_entities::is_app_owned_path`] for JS.

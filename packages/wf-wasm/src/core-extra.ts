@@ -17,8 +17,7 @@ import {
   memberRoleLabelOf as rawMemberRoleLabelOf,
   lintWiki as rawLintWiki,
   planFixOrder as rawPlanFixOrder,
-  canonicalAiToolName as rawCanonicalAiToolName,
-  contextNonceFrom as rawContextNonceFrom,
+  contextNonceFrom,
   createReadingListWith as rawCreateReadingListWith,
   verdictsFor as rawVerdictsFor,
   inkSidecarDir as rawInkSidecarDir,
@@ -28,21 +27,23 @@ import {
   inkEngineInfo as rawInkEngineInfo,
   inkLineStrokes as rawInkLineStrokes,
   extractPageTitle as rawExtractPageTitle,
-  inkEnumIndex as rawInkEnumIndex,
   inkEnumValue as rawInkEnumValue,
   makeInkStroke as rawMakeInkStroke,
   blankInkPage as rawBlankInkPage,
-  clampInkPageSize as rawClampInkPageSize,
-  joinInkTextLayer as rawJoinInkTextLayer,
-  inkPageBackground as rawInkPageBackground,
-  withInkPageBackground as rawWithInkPageBackground,
-  inkAttachmentIndex as rawInkAttachmentIndex,
-  resolveInkPageOrder as rawResolveInkPageOrder,
 } from "../pkg/wf_wasm.js";
 
 export {
+  canonicalAiToolName,
+  clampInkPageSize,
+  contextNonceFrom,
+  inkAttachmentIndex,
+  inkEnumIndex,
+  inkPageBackground,
   inkPageOverBudget,
+  joinInkTextLayer,
   memberRoleLabelOf,
+  resolveInkPageOrder,
+  withInkPageBackground,
 } from "../pkg/wf_wasm.js";
 
 export {
@@ -136,16 +137,6 @@ export function memberRoleLabel(member: { role: string }, opts: { inLab: boolean
 
 /* AI ----------------------------------------------------------------------- */
 
-/** The current name of an AI tool (`propose_*` became `suggest_*`). */
-export function canonicalAiToolName(name: string): string {
-  return rawCanonicalAiToolName(name);
-}
-
-/** A 16-character nonce from 16 values in [0, 1). */
-export function contextNonceFrom(randoms: readonly number[]): string {
-  return rawContextNonceFrom(Float64Array.from(randoms));
-}
-
 /** A 16-character nonce for fencing untrusted context, from `random`. */
 export function contextNonce(random: () => number = Math.random): string {
   return contextNonceFrom(Array.from({ length: 16 }, () => random()));
@@ -163,11 +154,6 @@ export function planFixOrder<S>(report: unknown): S[] {
 
 /* Ink pages ---------------------------------------------------------------- */
 
-/** The index of `value` in `values`, or 0 when absent. */
-export function inkEnumIndex(values: readonly string[], value: string): number {
-  return rawInkEnumIndex([...values], value);
-}
-
 /** The value at `index`, or the first value when out of range. */
 export function inkEnumValue<T extends string>(values: readonly T[], index: number): T {
   return rawInkEnumValue([...values], index) as T;
@@ -181,36 +167,6 @@ export function makeInkStroke<S>(input: { points: readonly number[] }): S {
 /** An empty A4 page on `paper`. */
 export function blankInkPage<P>(paper = "blank"): P {
   return rawBlankInkPage(paper) as P;
-}
-
-/** A page size rounded and within the coordinate limit, A4 for unusable values. */
-export function clampInkPageSize(width: number, height: number): { width: number; height: number } {
-  return rawClampInkPageSize(width, height) as { width: number; height: number };
-}
-
-/** The recognised text of every page joined with page markers. */
-export function joinInkTextLayer(pages: readonly string[]): string {
-  return rawJoinInkTextLayer([...pages]);
-}
-
-/** The background image path a page's text names, or null. */
-export function inkPageBackground(text: string): string | null {
-  return (rawInkPageBackground(text) as string | null | undefined) ?? null;
-}
-
-/** The page text with its background line set to `path`, or removed for null. */
-export function withInkPageBackground(text: string, path: string | null): string {
-  return rawWithInkPageBackground(text, path ?? undefined);
-}
-
-/** The 1-based index of `path` among the body's vault attachments, 0 when absent. */
-export function inkAttachmentIndex(body: string, path: string | null): number {
-  return rawInkAttachmentIndex(body, path ?? undefined);
-}
-
-/** The page order: declared chunks that exist, then the rest in id order. */
-export function resolveInkPageOrder(declared: readonly string[], present: readonly string[]): string[] {
-  return rawResolveInkPageOrder([...declared], [...present]) as string[];
 }
 
 /** The strokes of one recognised line. */
