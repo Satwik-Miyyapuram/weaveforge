@@ -11,7 +11,7 @@ import { PinnedPaperBadge } from "@/features/sharing";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
-import { editedLabel } from "../lib/edited-label";
+import { editedLabel } from "../lib/parts";
 import type { SectionProgress } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { Markdown } from "@/components/markdown/markdown";

@@ -1,5 +1,5 @@
 //! Per-kind readers for AI write proposals (TS `createAiProposalExecutors` in
-//! `apps/web/src/features/ai-assistant/application/proposal-executors.ts`).
+//! `apps/web/src/features/ai-assistant/application/parts.ts`).
 //!
 //! Each reader checks a payload and returns the input the host use case takes, or the TS
 //! error message. Conflict checks, the database, dispatch and the ink-note check stay in TS.

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ReportSection } from "@weaveforge/core";
 
-import { toasts } from "@/lib/toast/toast-store";
+import { toasts } from "@/lib/toast/parts";
 import { removeSectionLater, sectionKey } from "../ui/remove-section";
 
 const section = { id: "s1", title: "Methods" } as ReportSection;

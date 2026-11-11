@@ -4,7 +4,7 @@ import {
   summarizeSupervisee,
   teamAttentionItems,
   buildSupervisionStats,
-} from "../application/build-supervision-stats";
+} from "../application/parts";
 import type { Member, Milestone, LogEntry } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

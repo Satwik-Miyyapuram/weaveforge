@@ -11,7 +11,7 @@ const MOVED: Record<string, string[]> = {
   "../features/plan/ui/milestone-card": ["MilestoneCard"],
   "../features/settings/ui/library-pdf-indexing": ["LibraryPdfIndexing"],
   "../features/settings/ui/appearance-panel": ["AppearancePanel"],
-  "../features/dashboard/application/dashboard-layout-packing": [
+  "../features/dashboard/application/parts": [
     "compactLayoutVertical",
     "layoutFloors",
     "normalizeLayoutItem",
@@ -19,7 +19,7 @@ const MOVED: Record<string, string[]> = {
     "packSmLayout",
     "closeLayoutGaps",
   ],
-  "../features/auth/domain/auth-transition": ["nextAuthStep"],
+  "../features/auth/domain/parts": ["nextAuthStep"],
   "../features/experiments/ui/metric-chart-data": ["alignSeries", "emaSmooth", "readPrefs", "writePrefs"],
   "../features/experiments/ui/add-experiment-form": ["AddExperimentForm"],
   "../features/report/ui/section-card": ["SectionCard"],
@@ -40,8 +40,8 @@ test("the old homes still load after the moves (B69)", async () => {
   for (const path of [
     "../features/plan/ui/plan-screen",
     "../features/settings/ui/settings-screen",
-    "../features/overleaf/application/build-overleaf-export",
-    "../features/dashboard/application/dashboard-layout",
+    "../features/overleaf/application/parts",
+    "../features/dashboard/application/parts",
     "../features/auth/ui/auth-provider",
     "../features/report/ui/report-screen",
     "../features/report/ui/overleaf-workspace",

@@ -1,5 +1,5 @@
 //! Dashboard stats rules. Port of the pure parts of
-//! `apps/web/src/features/dashboard/application/build-dashboard-stats.ts` and
+//! `apps/web/src/features/dashboard/application/parts.ts` and
 //! `build-supervision-stats.ts`: attention lines, top tags, supervisee counts and team
 //! attention. Dates are `yyyy-mm-dd` strings and `today` is an argument, so nothing reads
 //! the clock.

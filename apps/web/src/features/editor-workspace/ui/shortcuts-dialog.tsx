@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal } from "@/components/modal";
-import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
+import { shortcutTable, type WorkspaceCommand } from "../application/parts";
 import { ShortcutGrid } from "./pane-view";
 
 /** Every command, with `⌘2`–`⌘8` left out: `⌘1` and `⌘9` show the pattern. */

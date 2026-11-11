@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { linkOverleafReport } from "../application/link-overleaf-report";
+import { linkOverleafReport } from "../application/parts";
 
 function steps() {
   const calls: string[] = [];

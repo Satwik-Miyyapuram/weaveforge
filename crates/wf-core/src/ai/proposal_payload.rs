@@ -1,6 +1,6 @@
 //! Field readers for an AI proposal payload (TS `object`, `text`, `optionalText`,
 //! `optionalNumber`, `record`, `stringArray`, `enumValue` and `optionalYear` in
-//! `apps/web/src/features/ai-assistant/application/proposal-executors.ts`).
+//! `apps/web/src/features/ai-assistant/application/parts.ts`).
 //!
 //! Each reader returns the TS error message verbatim when it refuses a value.
 

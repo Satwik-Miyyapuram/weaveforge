@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { TOAST_MS, MAX_TOASTS, ToastStore, type ToastClock } from "../toast-store";
+import { TOAST_MS, MAX_TOASTS, ToastStore, type ToastClock } from "../parts";
 
 /** A clock the test drives by hand. */
 function fakeClock() {

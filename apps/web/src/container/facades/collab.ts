@@ -10,7 +10,7 @@ export class CollabFacade {
   constructor(
     private readonly inner: {
       crdtStore: ICrdtUpdateStore;
-      crdtSnapshotStore: import("@/features/collab/infrastructure/crdt-snapshot-store").CrdtSnapshotStore;
+      crdtSnapshotStore: import("@/features/collab/infrastructure/parts").CrdtSnapshotStore;
       compactCrdtLog: CompactCrdtLogUseCase;
       db: SupabaseClient;
       session: ICurrentUserProvider;

@@ -6,7 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import type { Integration, SyncProvider } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
-import type { GitBranch, GitCommit } from "../infrastructure/git-client";
+import type { GitBranch, GitCommit } from "../infrastructure/parts";
 import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";

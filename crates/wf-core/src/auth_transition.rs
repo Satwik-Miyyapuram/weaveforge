@@ -1,4 +1,4 @@
-//! Ports `nextAuthStep` in `apps/web/src/features/auth/domain/auth-transition.ts`:
+//! Ports `nextAuthStep` in `apps/web/src/features/auth/domain/parts.ts`:
 //! what a session change means for the app. Only ids and flags are decided
 //! here; the caller builds the user object for the step it gets back.
 

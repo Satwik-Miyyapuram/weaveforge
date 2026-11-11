@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { removeExperiment } from "../application/remove-experiment";
+import { removeExperiment } from "../application/parts";
 
 test("the experiment is deleted first, then its local files", async () => {
   const calls: string[] = [];

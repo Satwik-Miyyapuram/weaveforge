@@ -7,7 +7,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { BodySaver } from "../application/body-saver";
+import { BodySaver } from "../application/parts";
 
 before(async () => {
   await loadTestCore();

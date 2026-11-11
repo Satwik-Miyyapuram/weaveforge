@@ -6,21 +6,22 @@ import { Responsive } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { FIT_MAX_HEIGHTS, getCardDef, isStatCard } from "../application/card-registry";
+import {
+  CARD_LIMITS,
+  compactLayoutVertical,
+  FIT_MAX_HEIGHTS,
+  getCardDef,
+  isStatCard,
+  layoutFloors,
+  normalizeLayoutItem,
+  normalizeSmLayout,
+} from "../application/parts";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/parts";
 import { getRglBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import type { DashboardLayout, DashboardLayoutItem, Member } from "@weaveforge/core";
-import {
-  normalizeSmLayout,
-  compactLayoutVertical,
-  normalizeLayoutItem,
-  layoutFloors,
-} from "../application/dashboard-layout";
-import { CARD_LIMITS } from "../application/dashboard-layout-packing";
 import { readyCore } from "@/lib/rust-core";
 import { DashboardCardBody } from "./cards/dashboard-card-body";
-import type { DashboardStats } from "../application/build-dashboard-stats";
-import type { SupervisionStats } from "../application/build-supervision-stats";
+import type { DashboardStats, SupervisionStats } from "../application/parts";
 import { GripIcon } from "@/components/view-icons";
 import { CloseButton } from "@/components/button";
 

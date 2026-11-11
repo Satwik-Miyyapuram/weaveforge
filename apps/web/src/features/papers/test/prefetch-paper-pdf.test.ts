@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import type { IPaperRepository, NewPaperInput, Paper } from "@weaveforge/core";
 
-import { PrefetchingAddPaperUseCase } from "../../../container/app-parts";
+import { PrefetchingAddPaperUseCase } from "../../../container/parts";
 
 /** A repository that keeps what it is handed and finds no duplicates. */
 function repository() {

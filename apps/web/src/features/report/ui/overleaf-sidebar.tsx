@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { listWorkshopProjects } from "@/features/overleaf/infrastructure/workshop-session-client";
-import { isTauriShell } from "@/features/experiments/infrastructure/experiment-artifact-store";
+import { isTauriShell } from "@/features/experiments/infrastructure/parts";
 import { useProject } from "@/features/projects";
-import { loadOverleafTreeRows, type OverleafTreeRow } from "../lib/overleaf-tree-rows";
+import { loadOverleafTreeRows, type OverleafTreeRow } from "../lib/parts";
 import { OverleafWorkspace } from "./overleaf-workspace";
 import { browserPicksStore } from "./overleaf-project-picks";
 import { linkedReportsGateway } from "./use-linked-reports";

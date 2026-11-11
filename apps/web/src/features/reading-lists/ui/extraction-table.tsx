@@ -9,7 +9,7 @@ import { AI_PROPOSALS_CHANGED_EVENT, latestGate } from "@/lib/parts";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
-import { buildProposeFillPrompt, emptyCellPaperIds, extractionCsv, extractionMarkdown, flattenPaperRows, relationTitles, type ExtractionColumnId, type ExtractionRow, type PendingFieldFill } from "../application/extraction-rows";
+import { buildProposeFillPrompt, emptyCellPaperIds, extractionCsv, extractionMarkdown, flattenPaperRows, relationTitles, type ExtractionColumnId, type ExtractionRow, type PendingFieldFill } from "../application/parts";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { Table } from "@/components/table";

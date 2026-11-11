@@ -4,7 +4,7 @@ import test, { before } from "node:test";
 import type { PaneLayout, PaneLeaf, TabRef } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { readLayout, writeLayout } from "../application/layout-storage";
+import { readLayout, writeLayout } from "../application/parts";
 
 before(loadTestCore);
 

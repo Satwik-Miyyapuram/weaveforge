@@ -1,5 +1,5 @@
 //! AI write-proposal payload readers for JavaScript (wf-core `ai::proposal_inputs`). The JS names
-//! match `apps/web/src/features/ai-assistant/application/proposal-executors.ts`. A refused payload
+//! match `apps/web/src/features/ai-assistant/application/parts.ts`. A refused payload
 //! throws a `JsError` with the TS message verbatim.
 
 use serde::Serialize;

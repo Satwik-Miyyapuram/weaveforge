@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toasts } from "@/lib/toast/toast-store";
+import { toasts } from "@/lib/toast/parts";
 import { removePaper, type PaperRemover } from "../remove-paper";
 
 const summary = { id: "p1", title: "Attention is all you need", authors: [] } as never;

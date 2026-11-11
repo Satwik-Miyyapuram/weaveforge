@@ -20,7 +20,7 @@ import { mattermostNotificationManifest } from "@/integrations/manifests/matterm
 import { gitlabLogSyncManifest } from "@/integrations/manifests/gitlab-log";
 import { githubGitReadManifest } from "@/integrations/manifests/git-read";
 import { gitlabGitReadManifest } from "@/integrations/manifests/git-read";
-import { createAiProposalExecutors } from "@/features/ai-assistant/application/proposal-executors";
+import { createAiProposalExecutors } from "@/features/ai-assistant/application/parts";
 
 export const GENERATED_BUILTIN_FEATURE_IDS = ["dashboard", "papers", "vault", "wiki", "editor-workspace", "graph", "reading-lists", "experiments", "git", "plan", "logbook", "report", "settings", "sharing", "org"] as const;
 export const GENERATED_BUILTIN_INTEGRATION_IDS = ["zotero", "semantic-scholar", "mattermost", "gitlab-log-sync", "github", "gitlab"] as const;

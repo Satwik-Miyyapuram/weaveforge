@@ -1,5 +1,5 @@
 //! Folder-draft import rules for JavaScript (wf-core `ai::folder_draft`). The JS names match
-//! `apps/web/src/features/ai-assistant/application/import-folder-drafts.ts`.
+//! `apps/web/src/features/ai-assistant/application/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};

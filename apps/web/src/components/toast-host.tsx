@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 
 import { Button, CloseButton } from "./button";
 import { typedCore } from "@/lib/rust-core";
-import { toasts, type Toast, type ToastStore } from "@/lib/toast/toast-store";
+import { toasts, type Toast, type ToastStore } from "@/lib/toast/parts";
 
 /** Ctrl+Z / Cmd+Z, not in a text field (which has its own undo). */
 export function isUndoKey(event: KeyboardEvent): boolean {

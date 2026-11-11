@@ -1,10 +1,10 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BackendConfig } from "@/backend/config";
+import type { BackendConfig } from "@/backend/parts";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
+import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";

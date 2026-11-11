@@ -1,7 +1,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { editedLabel } from "../lib/edited-label";
+import { editedLabel } from "../lib/parts";
 
 before(async () => {
   await loadTestCore();

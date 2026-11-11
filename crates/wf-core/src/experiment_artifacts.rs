@@ -1,5 +1,5 @@
 //! Experiment artifact names and view URLs. Port of `safeName` and `viewableArtifactUrl` in
-//! apps/web/src/features/experiments/infrastructure/experiment-artifact-store.ts. Pure.
+//! apps/web/src/features/experiments/infrastructure/parts.ts. Pure.
 
 /// The desktop-local artifact scheme recorded by the Electron shell.
 const LOCAL_ARTIFACT_PREFIX: &str = "app://artifacts/";

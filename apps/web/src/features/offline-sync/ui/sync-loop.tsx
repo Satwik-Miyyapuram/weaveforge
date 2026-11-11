@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { readBackendConfig } from "@/backend/config";
+import { readBackendConfig } from "@/backend/parts";
 import { createDataClient } from "@/backend/providers/postgrest/client";
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";

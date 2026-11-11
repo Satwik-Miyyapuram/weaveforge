@@ -6,7 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray } from "@/lib/parts";
-import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
+import type { ReportScreenData } from "@/features/report/application/parts";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { OverleafWorkspace } from "./overleaf-workspace";
 import { canShowWorkshop } from "./use-workshop-session";
@@ -15,7 +15,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
 import { Button } from "@/components/button";
-import { isTauriShell } from "@/features/experiments/infrastructure/experiment-artifact-store";
+import { isTauriShell } from "@/features/experiments/infrastructure/parts";
 
 /**
  * Overleaf tab — one list of Overleaf projects (Write, PDF, Outline) + ZIP export.

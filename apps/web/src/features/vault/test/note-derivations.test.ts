@@ -4,7 +4,7 @@ import type { VaultPageSummary } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { readyCore } from "@/lib/rust-core";
-import { noteBacklinks, scopeNotes } from "../application/note-derivations";
+import { noteBacklinks, scopeNotes } from "../application/parts";
 
 before(async () => {
   await loadTestCore();

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { LinkedReport } from "../ui/linked-overleaf-api";
-import { filterOverleafProjects, mergeOverleafProjects } from "../lib/overleaf-project-list";
+import { filterOverleafProjects, mergeOverleafProjects } from "../lib/parts";
 
 const report = (id: string, overleafId: string, title: string): LinkedReport => ({
   id, project_id: "wf1", title, connection_id: "c1", overleaf_project_id: overleafId,

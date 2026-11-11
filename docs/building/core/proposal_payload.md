@@ -2,7 +2,7 @@
 
 The `proposal_payload` module checks and shapes the payloads of AI write proposals
 before the browser applies them. It does no I/O. The executors in
-`apps/web/src/features/ai-assistant/application/proposal-executors.ts` call these
+`apps/web/src/features/ai-assistant/application/parts.ts` call these
 functions and keep the host work.
 
 ## What lives in Rust

@@ -2,8 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { copyText } from "../copy-text";
-import { toasts } from "../toast-store";
+import { copyText, toasts } from "../parts";
 
 test("a copy shows a confirming toast", async () => {
   const written: string[] = [];

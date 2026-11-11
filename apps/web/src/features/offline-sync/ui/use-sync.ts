@@ -9,7 +9,7 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncEngine } from "../domain/sync-engine";
 import { PostgrestTransport } from "../infra/postgrest-transport";
 import { SyncStateStore } from "../domain/sync-state";
-import { readBackendConfig } from "@/backend/config";
+import { readBackendConfig } from "@/backend/parts";
 
 /**
  * Sync, as the settings screen sees it.

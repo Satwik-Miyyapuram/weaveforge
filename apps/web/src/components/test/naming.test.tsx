@@ -84,7 +84,7 @@ test("a master's student is spelled with the apostrophe (DA-77)", () => {
 });
 
 test("the supervision card never says 'supervisee' (D-05)", () => {
-  assert.doesNotMatch(src("features/dashboard/application/card-registry.ts"), /label: "Supervisee/);
+  assert.doesNotMatch(src("features/dashboard/application/parts.ts"), /label: "Supervisee/);
 });
 
 test("list colour swatches have names, not hex (DA-78)", () => {
@@ -106,5 +106,5 @@ test("dates go through one formatter (D-01)", () => {
     .filter((f) => /new Date\([^)]*\)\.toLocale(Date)?String\(|toLocaleDateString\(|dateStyle:/.test(readFileSync(f, "utf8")))
     .map((f) => relative(root, f).replace(/\\/g, "/"));
   // Calendar headers name a weekday or month on its own; "edited 3 Jul" is a short label.
-  assert.deepEqual(offenders.filter((f) => !/logbook-screen|edited-label/.test(f)), []);
+  assert.deepEqual(offenders.filter((f) => !/logbook-screen|report\/lib\/parts/.test(f)), []);
 });

@@ -26,11 +26,11 @@ import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
+import type { ReadingListsScreenData } from "@/features/reading-lists/application/parts";
 import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
-import { loadSubtreeItems } from "@/features/reading-lists/application/subtree-items";
+import { loadSubtreeItems } from "@/features/reading-lists/application/parts";
 import { Button } from "@/components/button";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };

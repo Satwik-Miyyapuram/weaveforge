@@ -9,7 +9,7 @@ import {
   describeOverleafSync,
   overleafSync,
   saveOverleafToken,
-} from "@/features/overleaf/application/overleaf-folder-sync";
+} from "@/features/overleaf/application/parts";
 
 type Link = DesktopOverleafSync["links"][number];
 

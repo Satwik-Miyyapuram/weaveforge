@@ -1,5 +1,5 @@
 import type { Paper, PaperSummary } from "@weaveforge/core";
-import { copyText } from "@/lib/toast/copy-text";
+import { copyText } from "@/lib/toast/parts";
 import { showToast } from "@/lib/toast/index";
 import { readyCore, typedCore } from "@/lib/rust-core";
 

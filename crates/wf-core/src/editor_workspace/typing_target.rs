@@ -1,5 +1,5 @@
 //! Whether a key press belongs to a text field (wf-core `editor_workspace::typing_target`). Parity
-//! with `isTypingTarget` in `apps/web/src/features/editor-workspace/application/keybindings.ts`.
+//! with `isTypingTarget` in `apps/web/src/features/editor-workspace/application/parts.ts`.
 //! The DOM target is read by the shell; this is the rule on its tag name and editability.
 
 /// Whether a key press should be left to the field it is typed into: an `input`, `textarea` or

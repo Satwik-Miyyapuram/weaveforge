@@ -39,33 +39,39 @@ import {
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
 import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
-import { createLibraryTidy, HttpAccountProvisioner, IdbReferenceLookupCache, OpenAlexMetadataSource } from "@/container/app-parts";
-import { PrefetchingAddPaperUseCase, reportCitationAlertError, RoutedInkChunkStore, VaultAssetStore } from "@/container/app-parts";
-import { WebCryptoShareLinkTokenHasher, wireBackend } from "@/container/app-parts";
+import {
+  createContainerLifecycle,
+  createLibraryTidy,
+  HttpAccountProvisioner,
+  IdbReferenceLookupCache,
+  OpenAlexMetadataSource,
+  PrefetchingAddPaperUseCase,
+  reportCitationAlertError,
+  RoutedInkChunkStore,
+  VaultAssetStore,
+  WebCryptoShareLinkTokenHasher,
+  wireBackend,
+} from "@/container/parts";
 import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
 import { createReferenceActions } from "@/features/reader/application/reference-actions";
-import {
-  ArxivMetadataSource,
-  CrossrefMetadataSource,
-  localZoteroCollection,
-} from "@/features/papers/infrastructure/parts";
+import { ArxivMetadataSource, CrossrefMetadataSource, localZoteroCollection } from "@/features/papers/infrastructure/parts";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
 import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
 import { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
-import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/load-experiments-screen.use-case";
-import { LoadVaultScreenUseCase } from "@/features/vault/application/load-vault-screen.use-case";
-import { LoadReportScreenUseCase } from "@/features/report/application/load-report-screen.use-case";
-import { LoadPlanScreenUseCase } from "@/features/plan/application/load-plan-screen.use-case";
+import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/parts";
+import { LoadVaultScreenUseCase } from "@/features/vault/application/parts";
+import { LoadReportScreenUseCase } from "@/features/report/application/parts";
+import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
 import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
-import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
+import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
-import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
+import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
 import { PostgrestShareLinkRepository } from "@/features/sharing/infrastructure/postgrest-share-link-repository";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
-import { readBackendConfig } from "@/backend/config";
+import { readBackendConfig } from "@/backend/parts";
 import {
   PapersFacade,
   PaperFieldsFacade,
@@ -92,8 +98,7 @@ import {
   InkFacade,
   type AppContainer,
 } from "@/container/facades";
-import { BlobInkChunkStore } from "@/features/ink/infrastructure/blob-ink-chunk-store";
-import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-store";
+import { BlobInkChunkStore, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
 import {
   activeWorkspaceFs,
   closeFolder,
@@ -104,15 +109,14 @@ import { loadCore } from "@/lib/rust-core";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
 import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
-import { createContainerLifecycle } from "@/container/lifecycle";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
-import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
-import { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
-import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/experiment-artifact-store";
+import { ReportImageStore } from "@/features/report/infrastructure/parts";
+import { LogImageStore } from "@/features/logbook/infrastructure/parts";
+import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/parts";
 import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
-import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
+import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -142,8 +146,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     import("@/integrations/parts"),
     import("@/deployment/generated-registry"),
     import("@/features/ai-assistant/infrastructure/postgrest-ai-proposal-store"),
-    import("@/features/collab/infrastructure/postgrest-crdt-update-store"),
-    import("@/features/collab/infrastructure/crdt-snapshot-store"),
+    import("@/features/collab/infrastructure/parts"),
+    import("@/features/collab/infrastructure/parts"),
   ]);
 
   const projectContext: ProjectContext = { projectId: null };

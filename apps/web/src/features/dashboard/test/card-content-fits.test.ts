@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { getCardDef } from "../application/card-registry";
+import { getCardDef } from "../application/parts";
 
 const css = readFileSync(fileURLToPath(new URL("../../../app/styles/dashboard.css", import.meta.url)), "utf8");
 const rule = (selector: string) => {

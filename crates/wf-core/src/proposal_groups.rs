@@ -1,5 +1,5 @@
 //! Groups the AI review queue's pending proposals, ported from
-//! `apps/web/src/features/ai-assistant/application/proposal-groups.ts`. Pure: no I/O.
+//! `apps/web/src/features/ai-assistant/application/parts.ts`. Pure: no I/O.
 //!
 //! Groups come back as indices into the input, so the caller keeps its own item objects.
 

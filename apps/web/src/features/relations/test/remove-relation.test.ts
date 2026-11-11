@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toasts } from "@/lib/toast/toast-store";
+import { toasts } from "@/lib/toast/parts";
 import { relationKey, removeRelationLater } from "../ui/remove-relation";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));

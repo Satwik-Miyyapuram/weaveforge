@@ -1,6 +1,6 @@
 //! Dashboard grid layout rules. The parse check is a port of
 //! `packages/core/src/features/dashboard/domain/parse-dashboard-layout.ts`. The rest are the
-//! pure parts of `apps/web/src/features/dashboard/application/dashboard-layout.ts`: presets,
+//! pure parts of `apps/web/src/features/dashboard/application/parts.ts`: presets,
 //! appending and syncing cards, id-keyed merges and repair checks. Card ids are passed in,
 //! never minted here, and card size limits are passed as data from the TS card registry.
 

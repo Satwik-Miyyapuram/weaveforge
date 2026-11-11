@@ -8,7 +8,7 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
-import { copyText } from "@/lib/toast/copy-text";
+import { copyText } from "@/lib/toast/parts";
 
 function formatExpiry(iso: string): string {
   return formatDate(iso);

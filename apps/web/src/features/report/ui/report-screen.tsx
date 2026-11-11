@@ -17,7 +17,7 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
+import type { ReportScreenData } from "@/features/report/application/parts";
 import { SectionNote } from "./section-note";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { ScreenHead } from "@/components/screen-head";

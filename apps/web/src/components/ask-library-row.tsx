@@ -4,7 +4,7 @@ import {
   activeProviderLabel,
   modelConversation,
   onProviderChange,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import { askLibrary, type AskResult } from "@/features/search/application/ask-library";
 import { Chip, RowButton } from "./controls";
 

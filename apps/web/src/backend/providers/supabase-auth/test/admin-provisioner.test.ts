@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { SupabaseAdminUserProvisioner } from "../admin-provisioner";
+import { SupabaseAdminUserProvisioner } from "../parts";
 
 function provisionerWith(profile: { data: unknown; error: unknown }) {
   const client = {

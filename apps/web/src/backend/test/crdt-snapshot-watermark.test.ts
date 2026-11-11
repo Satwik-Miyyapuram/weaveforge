@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { CrdtSnapshotStore } from "@/features/collab/infrastructure/crdt-snapshot-store";
+import { CrdtSnapshotStore } from "@/features/collab/infrastructure/parts";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "./pg-test-db";
 

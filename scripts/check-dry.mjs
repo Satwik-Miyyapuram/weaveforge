@@ -82,7 +82,7 @@ function report(lines, heading, footer) {
  */
 const MEMBER_LABEL_ALLOWED = new Map([
   [
-    "apps/web/src/features/sharing/application/load-pinned-owner-names.ts",
+    "apps/web/src/features/sharing/application/parts.ts",
     "memberNameMap(dir)",
   ],
   [

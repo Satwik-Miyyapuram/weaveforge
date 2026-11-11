@@ -9,10 +9,12 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach, onWorkspaceChange } from "@/lib/parts";
 import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
-import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
-import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
+import {
+  BrowserWorkspaceFs,
+  DesktopWorkspaceFs,
+  IsomorphicWorkspaceGit,
+} from "../infrastructure/parts";
 import { gitFileHistory, shellFileHistory, type FileHistorySource } from "./folder-file-history";
-import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 import { jsonEditSince, createCoalescer, followProjectRename, readMirrorBase, readMirrorBases, writeMirrorManifest, type Coalescer } from "./mirror-manifest";
 import { activeProject, activeProjectOrNull, watchForLoss } from "./parts";
 import { mirrorWorkspace } from "./folder-mirror";

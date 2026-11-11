@@ -44,7 +44,7 @@ core has loaded.
 
 - **Database access.** Reading and writing lists, items and screening records
   stays in `apps/web` infrastructure. For example,
-  `apps/web/src/features/reading-lists/infrastructure/postgrest-screening-repository.ts`
+  `apps/web/src/features/reading-lists/infrastructure/parts.ts`
   talks to PostgREST. Rust maps rows; it does not query them.
 - **Model calls.** The request that fills an extraction cell is sent from
   TypeScript. Rust builds the prompt text (`buildProposeFillPrompt`) and reads the

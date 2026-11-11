@@ -8,7 +8,7 @@ import type { LogEntry } from "@weaveforge/core";
 import { DEFAULT_GIT_BRANCH } from "../domain/parts";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { GitLabLogExporter } from "../infrastructure/gitlab-log-exporter";
+import { GitLabLogExporter } from "../infrastructure/parts";
 
 before(async () => {
   await loadTestCore();

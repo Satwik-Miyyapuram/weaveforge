@@ -5,8 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { DashboardCardType, DashboardLayoutItem, Member } from "@weaveforge/core";
 import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import type { DashboardStats } from "../../application/build-dashboard-stats";
-import type { SupervisionStats } from "../../application/build-supervision-stats";
+import type { DashboardStats, SupervisionStats } from "../../application/parts";
 import { Button } from "@/components/button";
 
 export interface CardRenderProps {

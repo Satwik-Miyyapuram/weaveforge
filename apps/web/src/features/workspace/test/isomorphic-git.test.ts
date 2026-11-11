@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { IsomorphicWorkspaceGit, type IsomorphicWorkspaceGitOptions } from "../infrastructure/isomorphic-workspace-git";
-import { isomorphicFsFrom } from "../infrastructure/isomorphic-fs-adapter";
+import {
+  isomorphicFsFrom,
+  IsomorphicWorkspaceGit,
+  type IsomorphicWorkspaceGitOptions,
+} from "../infrastructure/parts";
 
 before(async () => {
   await loadTestCore();

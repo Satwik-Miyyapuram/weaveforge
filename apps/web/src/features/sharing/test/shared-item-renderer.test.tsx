@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
-import type { SharedItemDetail } from "../application/load-shared-details";
+import type { SharedItemDetail } from "../application/parts";
 import { SharedItemRenderer } from "../ui/shared-item-renderer";
 
 /**

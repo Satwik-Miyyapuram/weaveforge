@@ -1,5 +1,5 @@
 //! Git repo web links for JavaScript (wf-core `sync::repo_web_url`). The JS names
-//! match `apps/web/src/features/sync/infrastructure/git-client.ts`.
+//! match `apps/web/src/features/sync/infrastructure/parts.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::repo_web_url;

@@ -5,7 +5,7 @@ import {
   invalidateAllRepoCaches,
   registerRepoCacheEntry,
 } from "@/lib/cache/project-lww-invalidator";
-import { continueStandalone } from "../infrastructure/org-api";
+import { continueStandalone } from "../infrastructure/parts";
 import { stubFetch } from "@/lib/test/stub-fetch";
 import type { Member } from "@weaveforge/core";
 

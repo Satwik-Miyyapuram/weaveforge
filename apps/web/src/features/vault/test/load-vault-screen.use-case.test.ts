@@ -11,7 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { LoadVaultScreenUseCase } from "../application/load-vault-screen.use-case";
+import { LoadVaultScreenUseCase } from "../application/parts";
 
 const summary = (id: string, title: string) => ({
   id,

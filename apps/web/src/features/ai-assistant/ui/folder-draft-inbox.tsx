@@ -10,7 +10,7 @@ import {
   onFolderConnected,
   onFolderDraftsChanged,
 } from "@/features/workspace/application/workspace-folder";
-import { importFolderDraftsOnce } from "../application/import-folder-drafts";
+import { importFolderDraftsOnce } from "../application/parts";
 
 /**
  * Pull the local MCP's suggestions into the review queue.

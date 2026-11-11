@@ -28,7 +28,7 @@ import {
   writeExpanded,
   writeSections,
   type ExplorerSection,
-} from "../application/explorer-state";
+} from "../application/parts";
 import { EXPLORER_ROW_METRICS, EXPLORER_ROW_PX } from "./explorer-window-constants";
 import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";

@@ -434,7 +434,7 @@ export function groupProposals(
 // --- proposal-inputs ---
 /**
  * AI write-proposal payload readers (Rust `ai::proposal_inputs`), re-exported from index.ts.
- * Keeps the messages of apps/web/src/features/ai-assistant/application/proposal-executors.ts.
+ * Keeps the messages of apps/web/src/features/ai-assistant/application/parts.ts.
  * A refused payload throws an Error with that message.
  */
 /**

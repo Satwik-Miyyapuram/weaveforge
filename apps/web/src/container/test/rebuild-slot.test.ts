@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRebuildSlot } from "../rebuild-slot";
+import { createRebuildSlot } from "../parts";
 
 type Built = { key: string; n: number; disposed: boolean; dispose: () => void };
 

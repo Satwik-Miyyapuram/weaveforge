@@ -12,7 +12,7 @@ import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { localIsoDay } from "@/features/plan/application/local-day";
+import { localIsoDay } from "@/features/plan/application/parts";
 import { formatDate } from "@/lib/format-date";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";

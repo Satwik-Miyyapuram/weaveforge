@@ -1,5 +1,5 @@
 //! The relative part of the "edited 3h ago" label on a section's meta line. Port of the relative
-//! branch of `apps/web/src/features/report/lib/edited-label.ts`. The date fallback for an edit a
+//! branch of `apps/web/src/features/report/lib/parts.ts`. The date fallback for an edit a
 //! week or older stays in TS, because it depends on the reader's locale.
 
 /// "edited just now", "edited 5m ago", "edited 3h ago" or "edited 2d ago" for an age in seconds.

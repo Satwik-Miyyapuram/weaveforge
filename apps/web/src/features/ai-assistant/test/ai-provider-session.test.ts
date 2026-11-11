@@ -10,7 +10,7 @@ import {
   rememberActiveProvider,
   restoreActiveProvider,
   setActiveProvider,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import type { ProviderDescriptor } from "@/features/ai-assistant/infrastructure/byok-model-conversation";
 
 const DESCRIPTOR: ProviderDescriptor = {

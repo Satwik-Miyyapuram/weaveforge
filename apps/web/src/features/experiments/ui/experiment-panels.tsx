@@ -10,7 +10,7 @@ import { getContainer } from "@/bootstrap";
 import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
-import { isTauriShell } from "../infrastructure/experiment-artifact-store";
+import { isTauriShell } from "../infrastructure/parts";
 import { FormError } from "@/components/form-error";
 import { Chip } from "@/components/controls";
 import { Modal } from "@/components/modal";

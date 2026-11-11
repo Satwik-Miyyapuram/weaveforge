@@ -2,7 +2,7 @@ import { before, describe, it, test } from "node:test";
 import assert from "node:assert/strict";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { readBackendConfig } from "../config";
+import { readBackendConfig } from "../parts";
 
 before(async () => {
   await loadTestCore();

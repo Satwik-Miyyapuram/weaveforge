@@ -9,8 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
-import type { AuthUser } from "../domain/auth";
-import { nextAuthStep } from "../domain/auth-transition";
+import type { AuthUser } from "../domain/parts";
+import { nextAuthStep } from "../domain/parts";
 import { clearSessionCaches } from "@/lib/cache/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";

@@ -1,6 +1,6 @@
 import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildDashboardStats } from "../application/build-dashboard-stats";
+import { buildDashboardStats } from "../application/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Paper, PaperRelation, ReportSection, Milestone, Experiment, LogEntry, TagWithPaperCount } from "@weaveforge/core";
 

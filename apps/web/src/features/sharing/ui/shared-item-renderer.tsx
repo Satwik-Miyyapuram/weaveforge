@@ -12,7 +12,7 @@ import { sharedItemHref, sharedItemTypeLabel } from "@/features/sharing/ui/share
 import { OpenIcon } from "@/components/view-icons";
 import { IconLink } from "@/components/button";
 import { Chip } from "@/components/controls";
-import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
+import type { SharedItemDetail } from "@/features/sharing/application/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */

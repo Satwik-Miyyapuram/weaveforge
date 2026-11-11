@@ -1,4 +1,4 @@
-import type { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
+import type { LogImageStore } from "@/features/logbook/infrastructure/parts";
 import type { AddLogEntryUseCase, ILogSyncIntegration, IReaderAnnotationProjectSource, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
 
 export class LogbookFacade {

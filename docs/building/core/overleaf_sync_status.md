@@ -15,6 +15,6 @@ Source: `crates/wf-core/src/overleaf/sync_status.rs`. Wasm: `crates/wf-wasm/src/
 
 ## What stays in TypeScript
 
-`apps/web/src/features/overleaf/application/overleaf-folder-sync.ts` keeps the desktop shell
+`apps/web/src/features/overleaf/application/parts.ts` keeps the desktop shell
 calls and token storage. The pull and push lines still come from `describePull` and
 `describePush` in `git_remote`.

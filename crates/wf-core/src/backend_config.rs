@@ -1,5 +1,5 @@
 //! Names the absent backend env vars for the server config message, ported from
-//! `apps/web/src/backend/config.ts` (`missingConfig` and `missingConfigMessage`).
+//! `apps/web/src/backend/parts.ts` (`missingConfig` and `missingConfigMessage`).
 //! Pure: names only, never values. The env reads stay in TypeScript.
 
 use serde::{Deserialize, Serialize};

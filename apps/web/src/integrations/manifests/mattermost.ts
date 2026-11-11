@@ -1,5 +1,5 @@
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
-import type { MattermostNotifier } from "@/features/sync/infrastructure/mattermost-notifier";
+import type { MattermostNotifier } from "@/features/sync/infrastructure/parts";
 import type {
   CitationCandidate,
   INotificationIntegration,
@@ -12,10 +12,10 @@ import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { NotificationIntegrationManifest } from "./types";
 
 // --- notification-integration ---
-type Notifier = typeof import("@/features/sync/infrastructure/mattermost-notifier");
+type Notifier = typeof import("@/features/sync/infrastructure/parts");
 
 /** Loaded on first post: the layout wires this integration, the notifier is not needed to paint. */
-const loadNotifier = (): Promise<Notifier> => import("@/features/sync/infrastructure/mattermost-notifier");
+const loadNotifier = (): Promise<Notifier> => import("@/features/sync/infrastructure/parts");
 
 export class MattermostNotificationIntegration implements INotificationIntegration {
   readonly providerId = "mattermost";

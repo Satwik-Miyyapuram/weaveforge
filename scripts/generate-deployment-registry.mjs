@@ -92,7 +92,7 @@ for (const [, source, name] of [...selectedFeatures, ...selectedIntegrations]) {
 
 const importLines = imports.map(({ source, name }) => `import { ${name} } from "${source}";`).join("\n");
 const mcpImport = mcpEnabled
-  ? `import { createAiProposalExecutors } from "@/features/ai-assistant/application/proposal-executors";`
+  ? `import { createAiProposalExecutors } from "@/features/ai-assistant/application/parts";`
   : "";
 const mainNames = selectedFeatures.filter((entry) => !entry[3]).map((entry) => entry[2]);
 const shellNames = selectedFeatures.filter((entry) => entry[3]).map((entry) => entry[2]);

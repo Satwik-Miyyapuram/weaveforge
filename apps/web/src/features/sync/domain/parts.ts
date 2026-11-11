@@ -1,4 +1,4 @@
-import type { GitBranch, GitCommit } from "../infrastructure/git-client";
+import type { GitBranch, GitCommit } from "../infrastructure/parts";
 
 // --- integration ---
 /**

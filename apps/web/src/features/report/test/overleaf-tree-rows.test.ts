@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { loadOverleafTreeRows, SIGN_IN_ROW, type OverleafTreeDeps } from "../lib/overleaf-tree-rows";
+import { loadOverleafTreeRows, SIGN_IN_ROW, type OverleafTreeDeps } from "../lib/parts";
 import type { LinkedReport } from "../ui/linked-overleaf-api";
 
 function linked(overleafId: string, title: string): LinkedReport {

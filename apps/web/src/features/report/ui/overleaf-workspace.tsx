@@ -6,14 +6,14 @@ import { FormError } from "@/components/form-error";
 import { Menu, type MenuItem } from "@/components/menu";
 import { Popover } from "@/components/popover";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
+import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import {
   filterOverleafProjects,
   mergeOverleafProjects,
   pickedOverleafProjects,
   type OverleafProjectRow,
-} from "../lib/overleaf-project-list";
+} from "../lib/parts";
 import { local } from "./linked-overleaf-api";
 import { OverleafConnect } from "./overleaf-connect";
 import { OverleafProjectCard } from "./overleaf-project-card";

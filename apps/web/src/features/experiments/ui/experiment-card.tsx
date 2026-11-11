@@ -20,7 +20,7 @@ import {
   ExpMetricChips,
 } from "./experiment-panels";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { removeExperiment } from "../application/remove-experiment";
+import { removeExperiment } from "../application/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";

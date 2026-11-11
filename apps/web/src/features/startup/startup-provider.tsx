@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
-import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
+import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/parts";

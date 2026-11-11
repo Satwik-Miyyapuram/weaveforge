@@ -743,8 +743,8 @@ Every finding below follows one shape: problem, how it was discovered, why it ha
 - `apps/web/src/bootstrap.ts` — Container lifecycle, lazy loading
 - `apps/web/src/container/facades/papers.ts` — Papers facade (35 methods)
 - `apps/web/src/features/papers/application/load-papers-screen.use-case.ts` — Papers screen load + merge
-- `apps/web/src/features/vault/application/load-vault-screen.use-case.ts` — Vault screen load + tree build
-- `apps/web/src/features/experiments/application/load-experiments-screen.use-case.ts` — Experiments screen load + merge
+- `apps/web/src/features/vault/application/parts.ts` — Vault screen load + tree build
+- `apps/web/src/features/experiments/application/parts.ts` — Experiments screen load + merge
 - `apps/web/src/features/search/application/workspace-search.ts` — Search index lifecycle, staleness, hybrid query
 - `apps/web/src/features/offline-sync/infra/postgrest-transport.ts` — Outbox transport, version guards
 
@@ -795,7 +795,7 @@ Every finding below follows one shape: problem, how it was discovered, why it ha
 
 **category:** Bugs & correctness · **area:** apps/web · vault screen · **effort:** S
 
-**files:** `apps/web/src/features/vault/application/load-vault-screen.use-case.ts`, `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`
+**files:** `apps/web/src/features/vault/application/parts.ts`, `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`
 
 **problem:**
 
@@ -2438,7 +2438,7 @@ export function closeAppDb(): void {
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · screen use-cases · **effort:** M
 
-**files:** `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`, `apps/web/src/features/vault/application/load-vault-screen.use-case.ts`, `apps/web/src/features/experiments/application/load-experiments-screen.use-case.ts`, `apps/web/src/features/{report,plan,reading-lists}/application/load-*-screen.use-case.ts`
+**files:** `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`, `apps/web/src/features/vault/application/parts.ts`, `apps/web/src/features/experiments/application/parts.ts`, `apps/web/src/features/{report,plan,reading-lists}/application/load-*-screen.use-case.ts`
 
 **problem:**
 
@@ -2478,7 +2478,7 @@ Each `Load*ScreenUseCase` then becomes a projection over that result, and the co
 
 **category:** SOLID / DRY / clean code · **area:** packages/core · repository contracts · **effort:** M
 
-**files:** `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`, `apps/web/src/features/vault/application/load-vault-screen.use-case.ts`, `apps/web/src/create-app-container.ts`
+**files:** `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`, `apps/web/src/features/vault/application/parts.ts`, `apps/web/src/create-app-container.ts`
 
 **problem:**
 
@@ -2553,7 +2553,7 @@ The container keeps `papers: papersModule(deps)` so no call site changes its imp
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · facades and use-cases · **effort:** S
 
-**files:** `apps/web/src/container/facades/papers.ts`, `apps/web/src/container/facades/experiments.ts`, `apps/web/src/features/experiments/application/load-experiments-screen.use-case.ts`, `apps/web/src/features/search/application/workspace-search.ts`
+**files:** `apps/web/src/container/facades/papers.ts`, `apps/web/src/container/facades/experiments.ts`, `apps/web/src/features/experiments/application/parts.ts`, `apps/web/src/features/search/application/workspace-search.ts`
 
 **problem:**
 

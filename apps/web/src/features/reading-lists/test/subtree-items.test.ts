@@ -3,7 +3,7 @@ import test, { before } from "node:test";
 
 import type { ReadingList, ReadingListItem, ReadingListTreeNode } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { loadSubtreeItems } from "../application/subtree-items";
+import { loadSubtreeItems } from "../application/parts";
 
 before(async () => {
   await loadTestCore();

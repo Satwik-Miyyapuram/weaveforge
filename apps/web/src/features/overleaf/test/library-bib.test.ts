@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { buildOverleafExportPackage } from "../application/build-overleaf-export";
+import { buildOverleafExportPackage } from "../application/parts";
 import { readyCore } from "@/lib/rust-core";
 
 before(async () => {

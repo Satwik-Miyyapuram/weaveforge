@@ -26,7 +26,7 @@ The wasm exports live in `crates/wf-wasm/src/experiment_artifacts.rs`
 (`safeName`, `viewableArtifactUrl`, `isAbsoluteUrl`, `isAbsoluteEntry`, `artifactKind`). The TypeScript
 wrapper is `packages/wf-wasm/src/wrappers-2.ts`.
 
-`apps/web/src/features/experiments/infrastructure/experiment-artifact-store.ts`
+`apps/web/src/features/experiments/infrastructure/parts.ts`
 calls `readyCore()` for `isAbsoluteUrl`, `viewableArtifactUrl` and `safeName`.
 `apps/web/src/features/experiments/ui/artifact-items.ts` calls `readyCore()` for
 `artifactKind`, `isAbsoluteEntry` and `figureLabel`.

@@ -1,5 +1,5 @@
 //! Overleaf sync status line for JavaScript (wf-core `overleaf::sync_status`). The JS name matches
-//! `apps/web/src/features/overleaf/application/overleaf-folder-sync.ts`.
+//! `apps/web/src/features/overleaf/application/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};

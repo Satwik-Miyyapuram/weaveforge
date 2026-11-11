@@ -13,9 +13,8 @@ import {
   MemoryInkChunkStore,
   loadInkPages,
 } from "../application/ink-chunk-store";
-import { BlobInkChunkStore } from "../infrastructure/blob-ink-chunk-store";
-import { FsInkChunkStore } from "../infrastructure/fs-ink-chunk-store";
-import { RoutedInkChunkStore } from "../../../container/app-parts";
+import { BlobInkChunkStore, FsInkChunkStore } from "../infrastructure/parts";
+import { RoutedInkChunkStore } from "../../../container/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

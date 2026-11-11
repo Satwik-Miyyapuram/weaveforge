@@ -3,12 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
-import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
+import type {
+  LoadSharedWithMeScreenData,
+  SharedItemDetail,
+} from "@/features/sharing/application/parts";
 import { readyCore } from "@/lib/rust-core";
 import { SharedItemRenderer } from "@/features/sharing/ui/shared-item-renderer";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/parts";
-import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";

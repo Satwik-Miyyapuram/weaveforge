@@ -1,7 +1,7 @@
 import type {
   ExperimentsScreenData,
   LoadExperimentsScreenUseCase,
-} from "@/features/experiments/application/load-experiments-screen.use-case";
+} from "@/features/experiments/application/parts";
 import { typedCore } from "@/lib/rust-core";
 import {
   type IExperimentActivityReader,
@@ -99,7 +99,7 @@ export class ExperimentsFacade {
       // read on an interface shaped like a row store.
       metrics: IMetricHistoryReader & IExperimentActivityReader;
       manageExperiment: ManageExperimentUseCase;
-      artifacts: import("@/features/experiments/infrastructure/experiment-artifact-store").ExperimentArtifactStore;
+      artifacts: import("@/features/experiments/infrastructure/parts").ExperimentArtifactStore;
     },
   ) {}
 
