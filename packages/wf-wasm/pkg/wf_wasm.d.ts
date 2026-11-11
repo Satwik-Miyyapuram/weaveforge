@@ -5749,11 +5749,6 @@ export function memberRank(kind: string): number;
 export function memberRoleLabelOf(member: { role: string }, in_lab: boolean, owns_org: boolean): string | undefined;
 
 /**
- * [`to_view`]: an `org_memberships` row with its embedded organisation as a membership view.
- */
-export function membershipViewFromRow(row: any): any;
-
-/**
  * [`mention_item_ranges`]: where a mention's offsets fall in each run it covers.
  *
  * # Errors
@@ -11771,7 +11766,6 @@ export interface InitOutput {
     readonly memberNameMap: (a: any) => [number, number, number];
     readonly memberRank: (a: number, b: number) => number;
     readonly memberRoleLabelOf: (a: any, b: number, c: number) => [number, number, number, number];
-    readonly membershipViewFromRow: (a: any) => [number, number, number];
     readonly mentionItemRanges: (a: any, b: number, c: number) => [number, number, number];
     readonly mentionRects: (a: any, b: number, c: number) => [number, number, number];
     readonly menuPaletteActions: (a: any) => [number, number, number];

@@ -13970,19 +13970,6 @@ export function memberRoleLabelOf(member, in_lab, owns_org) {
 }
 
 /**
- * [`to_view`]: an `org_memberships` row with its embedded organisation as a membership view.
- * @param {any} row
- * @returns {any}
- */
-export function membershipViewFromRow(row) {
-    const ret = wasm.membershipViewFromRow(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`mention_item_ranges`]: where a mention's offsets fall in each run it covers.
  *
  * # Errors
