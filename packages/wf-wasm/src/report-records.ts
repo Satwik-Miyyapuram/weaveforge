@@ -5,7 +5,6 @@
  */
 import {
   checkBibliography as rawCheckBibliography,
-  countSectionSources as rawCountSectionSources,
   createReportSectionWith as rawCreateReportSectionWith,
   outlineProgress as rawOutlineProgress,
   prismaFigureTex as rawPrismaFigureTex,
@@ -28,6 +27,7 @@ import type {
 
 export {
   buildSectionTree,
+  countSectionSources,
   createReportSectionWith,
   editedRelativeLabel,
   normalizeProjectPath,
@@ -41,11 +41,6 @@ export function prismaFigureTex(
   options: Omit<PrismaFigureOptions, "reasons"> & { reasons?: readonly ExclusionReasonCount[] | null } = {},
 ): string {
   return rawPrismaFigureTex(counts, options);
-}
-
-/** Distinct sources a section draft cites: `[[wikilinks]]` plus `@citekeys`. An absent or empty body counts 0. */
-export function countSectionSources(body?: string): number {
-  return rawCountSectionSources(body);
 }
 
 /** Every citation and bibliography finding in the project's sources. Entries carry their fields as a record, as in core. */

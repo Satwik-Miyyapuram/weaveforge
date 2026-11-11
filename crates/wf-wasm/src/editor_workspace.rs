@@ -152,7 +152,9 @@ pub fn preview_tab_js() -> JsResult<JsValue> {
 ///
 /// Fails if `tab` has the wrong shape.
 #[wasm_bindgen(js_name = tabKey)]
-pub fn tab_key_js(tab: JsValue) -> JsResult<String> {
+pub fn tab_key_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef")] tab: JsValue,
+) -> JsResult<String> {
     let tab: TabRef = serde_wasm_bindgen::from_value(tab)?;
     Ok(pane::tab_key(&tab))
 }

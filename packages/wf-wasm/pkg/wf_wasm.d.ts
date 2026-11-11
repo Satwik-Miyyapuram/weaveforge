@@ -990,7 +990,7 @@ export function canDrop(source: B.WorkspaceTreeNode, target: B.WorkspaceTreeNode
 /**
  * [`can_join_ink_group`]; `group` may be `null`, `windowMs` defaults to 2000.
  */
-export function canJoinInkGroup(group: any, next: any, window_ms?: number | null): boolean;
+export function canJoinInkGroup(group: { pageIndex: number; color: string; width: number; pathCount: number; lastAt: number } | null, next: { pageIndex: number; color: string; width: number; at: number }, window_ms?: number | null): boolean;
 
 /**
  * [`can_rename`](edit::can_rename).
@@ -3050,7 +3050,7 @@ export function filterTeamMembers(viewer_id: string, members: any, options: any)
  *
  * Fails if `input` lacks the `annotations`, `pins`, `sections` or `vaultPages` arrays.
  */
-export function findAnnotationBacklinks(input: any): any;
+export function findAnnotationBacklinks(input: { annotations: readonly { id: string; zoteroKey?: string | null; text: string }[]; pins: readonly { annotationKey: string; reportSectionId: string }[]; sections: readonly { id: string; title: string }[]; vaultPages: readonly { id: string; title: string; body?: string | null }[] }): B.AnnotationBacklinkHit[];
 
 /**
  * [`find_citation_candidates`](analysis_citations::find_citation_candidates) (TS `findCitationCandidates`).
@@ -6799,7 +6799,7 @@ export function pageTextAfterRecognition(was: string, prior: string, recognised:
  *
  * Fails if `items` is not an array of run objects.
  */
-export function pageTextFromItems(items: any): string;
+export function pageTextFromItems(items: readonly { str: string; hasEOL?: boolean }[]): string;
 
 /**
  * [`PAGE_TITLE_SCAN_CHARS`](page_title::PAGE_TITLE_SCAN_CHARS): how much of a page body the
@@ -10043,7 +10043,7 @@ export function tabAt(layout: any, pane_id: string, index: number): any;
  *
  * Fails if `tab` has the wrong shape.
  */
-export function tabKey(tab: any): string;
+export function tabKey(tab: B.TabRef): string;
 
 /**
  * [`tab_mode`](pane::tab_mode). Returns `"edit"`, `"read"` or `"ink"`.

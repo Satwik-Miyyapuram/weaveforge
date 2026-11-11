@@ -7,13 +7,13 @@ import {
   simplifyInkPath as rawSimplifyInkPath,
   quantizeInkPath as rawQuantizeInkPath,
   compactInkPath as rawCompactInkPath,
-  canJoinInkGroup as rawCanJoinInkGroup,
   inkPathsHitTest as rawInkPathsHitTest,
   translateInkPaths as rawTranslateInkPaths,
   inkPathsBounds as rawInkPathsBounds,
 } from "../pkg/wf_wasm.js";
 
 export {
+  canJoinInkGroup,
   clampInkWidth,
   inkNoteWidthToPdfPoints,
   inkPathJsonSize,
@@ -37,20 +37,6 @@ export function compactInkPath(
   options?: { tolerance?: number; maxPoints?: number; decimals?: number },
 ): number[] {
   return Array.from(rawCompactInkPath(Float64Array.from(path), options));
-}
-
-export function canJoinInkGroup(
-  group: {
-    pageIndex: number;
-    color: string;
-    width: number;
-    pathCount: number;
-    lastAt: number;
-  } | null,
-  next: { pageIndex: number; color: string; width: number; at: number },
-  windowMs?: number,
-): boolean {
-  return rawCanJoinInkGroup(group, next, windowMs);
 }
 
 export function inkPathsHitTest(

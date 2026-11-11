@@ -6,7 +6,6 @@
  * per-run verdicts cross to Rust as flags.
  */
 import {
-  pageTextFromItems as rawPageTextFromItems,
   reconstructLines as rawReconstructLines,
   sortByReadingOrder as rawSortByReadingOrderIndices,
 } from "../pkg/wf_wasm.js";
@@ -23,10 +22,9 @@ export {
   isBoldFont,
 } from "../pkg/wf_wasm.js";
 
-/** Items concatenated, `\n` after each `hasEOL` item (Rust `page_text_from_items`). */
-export function pageTextFromItems(items: readonly { str: string; hasEOL?: boolean }[]): string {
-  return rawPageTextFromItems(items) as string;
-}
+export {
+  pageTextFromItems,
+} from "../pkg/wf_wasm.js";
 
 /**
  * One page's runs as lines, in the page's own order (Rust `reconstruct_lines`).
