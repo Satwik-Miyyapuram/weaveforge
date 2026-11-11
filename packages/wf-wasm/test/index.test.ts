@@ -91,7 +91,7 @@ import {
   folderKeys as rawFolderKeys,
   fuseRankings as rawFuseRankings,
 } from "../pkg/wf_wasm.js";
-import { parsePaperFieldValue } from "../src/papers-field-value.js";
+import { parsePaperFieldValue } from "../src/index.js";
 import { computeRollupsForPapers } from "../src/papers-compute-rollup.js";
 import {
   findDuplicateGroups,
@@ -99,7 +99,7 @@ import {
   pickKeeper,
   titleFixes,
   type TidyPaper,
-} from "../src/papers-library-tidy.js";
+} from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });

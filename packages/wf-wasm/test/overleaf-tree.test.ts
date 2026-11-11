@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { flattenOverleafDocs, flattenOverleafFiles } from "../src/overleaf-tree.js";
+import { flattenOverleafDocs, flattenOverleafFiles } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });

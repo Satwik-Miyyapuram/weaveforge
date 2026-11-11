@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { gitReason } from "../src/git-reason.js";
+import { gitReason } from "../src/index.js";
 import { initSync } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
