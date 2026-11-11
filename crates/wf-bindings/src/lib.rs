@@ -34,10 +34,10 @@ pub enum BindingsError {
     reason = "flat list of exported types, one per line"
 )]
 pub fn types() -> Types {
-    batch_types(leaf_port_types(port_types_2(port_types_1(
-        settings_lab_types(writing_types(analysis_types(
+    batch_types(sharing_repo_types(leaf_port_types(port_types_2(
+        port_types_1(settings_lab_types(writing_types(analysis_types(
             reader_types(Types::default()),
-        ))),
+        )))),
     ))))
     .register::<wf_core::CoreInfo>()
     .register::<wf_core::search::tokenizer::TokenizerOptions>()
@@ -589,15 +589,6 @@ fn leaf_port_types(types: Types) -> Types {
         .register::<wf_core::reader::pdf_cache_eviction::CachedPdfAge>()
         .register::<wf_core::reader::split::ReaderSplitPane>()
         .register::<wf_core::report::section_progress::SectionProgress>()
-        .register::<wf_core::sharing::Share>()
-        .register::<wf_core::sharing::Comment>()
-        .register::<wf_core::sharing::ShareRow>()
-        .register::<wf_core::sharing::CommentRow>()
-        .register::<wf_core::repo_query::RepoQuery>()
-        .register::<wf_core::repo_query::RepoStep>()
-        .register::<wf_core::repo_query::RepoCtx>()
-        .register::<wf_core::sharing::SharedSource>()
-        .register::<wf_core::sharing::SharedItem>()
         .register::<wf_core::storage::config::StorageConfig>()
         .register::<wf_core::storage::config::BlobRuntime>()
         .register::<wf_core::storage::config::BlobProviderId>()
@@ -610,6 +601,20 @@ fn leaf_port_types(types: Types) -> Types {
         .register::<wf_core::ink::vocab_match::VocabMatch>()
         .register::<wf_core::ink::vocab_match::VocabMatchResult>()
         .register::<wf_core::workspace::sync_report::SyncReport>()
+}
+
+/// Rust port types, part 4 (sharing rows and Rust-planned repository I/O).
+fn sharing_repo_types(types: Types) -> Types {
+    types
+        .register::<wf_core::sharing::Share>()
+        .register::<wf_core::sharing::Comment>()
+        .register::<wf_core::sharing::ShareRow>()
+        .register::<wf_core::sharing::CommentRow>()
+        .register::<wf_core::repo_query::RepoQuery>()
+        .register::<wf_core::repo_query::RepoStep>()
+        .register::<wf_core::repo_query::RepoCtx>()
+        .register::<wf_core::sharing::SharedSource>()
+        .register::<wf_core::sharing::SharedItem>()
 }
 
 /// Render the full bindings file.
