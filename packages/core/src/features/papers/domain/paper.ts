@@ -6,8 +6,7 @@
  * reason to change: the rules of what a Paper *is* (Single Responsibility).
  */
 
-import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { Clock, Identifiable, IdGenerator } from "../../../shared/parts.js";
 import { ValidationError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";
 

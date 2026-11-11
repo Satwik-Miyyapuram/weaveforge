@@ -1,6 +1,6 @@
 //! Which workspace paths may enter folder history, and whether a folder may be committed to.
 //!
-//! Ported from `packages/core/src/workspace/git-sync-policy.ts` and `git-gate.ts`; the
+//! Ported from `packages/core/src/workspace/parts.ts` and `git-gate.ts`; the
 //! TypeScript stays the reference until the port lands. `describe_changes` is in wf-core.
 
 use wf_core::workspace::WORKSPACE_META_DIR;

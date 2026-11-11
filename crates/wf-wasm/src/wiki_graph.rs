@@ -1,5 +1,5 @@
 //! Wiki-link graph helpers for JavaScript (wf-core `search::wiki_graph`). The JS names match
-//! `packages/core/src/search/wiki-graph.ts`.
+//! `packages/core/src/search/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

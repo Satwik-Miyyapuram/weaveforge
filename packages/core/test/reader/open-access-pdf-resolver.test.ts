@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { OpenAccessPdfResolver } from "../../src/reader/open-access-pdf-resolver.js";
+import { OpenAccessPdfResolver } from "../../src/reader/parts.js";
 import { resolvePdfSource } from "../../src/reader/pdf-source-ladder.js";
 
 test("OpenAccessPdfResolver supports papers with arxiv, url, or doi", () => {

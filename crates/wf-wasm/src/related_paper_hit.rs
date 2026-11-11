@@ -1,5 +1,5 @@
 //! Related-paper hit mappers for JavaScript (wf-core `papers::related_paper_hit`).
-//! The JS names match `packages/wf-wasm/src/related-paper-hit.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-8.ts`.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;

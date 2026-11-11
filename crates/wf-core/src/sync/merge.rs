@@ -1,4 +1,4 @@
-//! Port of `packages/core/src/shared/three-way-merge.ts`: a per-field three-way
+//! Port of `packages/core/src/shared/parts.ts`: a per-field three-way
 //! merge of rows. Missing keys read as JS `undefined`, which is `null` in
 //! conflicts and absent from the merged row.
 

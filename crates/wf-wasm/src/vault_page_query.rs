@@ -1,5 +1,5 @@
 //! Vault-page query text for PostgREST reads (wf-core `vault::page_query`). The TS wrappers in
-//! `packages/wf-wasm/src/vault-page.ts` name these for the repository.
+//! `packages/wf-wasm/src/wrappers-11.ts` name these for the repository.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::vault::page_query;

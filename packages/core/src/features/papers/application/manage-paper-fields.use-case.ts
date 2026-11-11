@@ -4,9 +4,9 @@
  * Rename only changes the definition name — values stay keyed by field id.
  */
 
-import type { IdGenerator } from "../../../shared/clock.js";
+import type { IdGenerator } from "../../../shared/parts.js";
 import { PaperFieldValidationError, type NewPaperFieldDefInput, type PaperFieldDef, type PaperFieldKind, type PaperFieldValue, type PaperFieldValueData } from "../domain/paper-field.js";
-import type { IPaperFieldRepository } from "../domain/paper-field-repository.js";
+import type { IPaperFieldRepository } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface ManagePaperFieldsDeps {

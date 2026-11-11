@@ -14,7 +14,7 @@ import type {
 import type {
   IReadingListItemRepository,
   IReadingListRepository,
-} from "../features/reading-lists/domain/reading-list-repository.js";
+} from "../features/reading-lists/domain/parts.js";
 
 function sampleList(overrides: Partial<ReadingList> = {}): ReadingList {
   return {

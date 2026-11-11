@@ -155,8 +155,8 @@ Steps 3–5 need a CORS-safe fetch path; where the origin blocks it, proxy throu
 
 Reuse what exists rather than building new storage:
 
-- `packages/core/src/storage/blob-ports.ts` — `IBlobStore`
-- `packages/core/src/storage/blob-registry-ports.ts` — `BlobTier`, `IBlobRegistry`
+- `packages/core/src/storage/parts.ts` — `IBlobStore`
+- `packages/core/src/storage/parts.ts` — `BlobTier`, `IBlobRegistry`
 - `packages/core/src/storage/blob-tiering.ts` — `computeBlobEvictionScore`, `rankForEviction`, `DEFAULT_BLOB_TIERING_WEIGHTS`
 - `apps/web/src/storage/providers/tiered/tiered-blob-store.ts`
 

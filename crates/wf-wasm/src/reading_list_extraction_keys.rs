@@ -1,5 +1,5 @@
 //! Extraction-table cell keys and relation labels for JavaScript (wf-core
-//! `reading_lists::extraction_keys`). The JS names match `packages/wf-wasm/src/reading-list.ts`.
+//! `reading_lists::extraction_keys`). The JS names match `packages/wf-wasm/src/wrappers-8.ts`.
 
 use std::collections::HashMap;
 

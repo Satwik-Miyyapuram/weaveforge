@@ -135,7 +135,7 @@ features/<name>/
 
 ### `FeatureModule` contract
 
-Defined in `packages/core/src/shared/module.ts`:
+Defined in `packages/core/src/shared/parts.ts`:
 
 ```ts
 export interface FeatureModule {

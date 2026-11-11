@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_ENGINE_MAX_CONFIDENCE, type InkWordReadings } from "../../src/ink/decode.js";
+import { INK_ENGINE_MAX_CONFIDENCE, type InkWordReadings } from "../../src/ink/parts.js";
 import { inkUnsureConfidence, isUnsureLine } from "../../src/ink/recognise.js";
 import { rust } from "../../src/shared/rust.js";
 

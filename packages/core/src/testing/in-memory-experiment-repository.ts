@@ -2,7 +2,7 @@ import type {
   Experiment,
   ExperimentFilter,
 } from "../features/experiments/domain/experiment.js";
-import type { ExperimentPatch, IExperimentRepository } from "../features/experiments/domain/experiment-repository.js";
+import type { ExperimentPatch, IExperimentRepository } from "../features/experiments/domain/parts.js";
 
 export class InMemoryExperimentRepository implements IExperimentRepository {
   private readonly store = new Map<string, Experiment>();

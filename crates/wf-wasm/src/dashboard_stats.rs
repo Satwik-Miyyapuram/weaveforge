@@ -1,5 +1,5 @@
 //! Dashboard stats for JavaScript (wf-core `dashboard::stats`). The JS names match the
-//! wrappers in `packages/core/src/features/dashboard/domain/dashboard-stats.ts`.
+//! wrappers in `packages/core/src/features/dashboard/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

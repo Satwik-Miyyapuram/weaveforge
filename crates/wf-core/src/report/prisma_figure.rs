@@ -1,5 +1,5 @@
 //! The PRISMA flow diagram as a `LaTeX` figure a report can `\input`. Port of
-//! `packages/core/src/features/report/domain/prisma-figure.ts`: `TikZ` rather than
+//! `packages/core/src/features/report/domain/parts.ts`: `TikZ` rather than
 //! an image, so the figure recompiles at the report's own font and column width.
 
 use crate::reader_analysis::lines::js_trim;

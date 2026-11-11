@@ -1,7 +1,7 @@
 /** Types for member. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { Identifiable } from "../../../shared/repository.js";
+import type { Identifiable } from "../../../shared/parts.js";
 import { PermissionError, ValidationError } from "../../../shared/errors.js";
-import { ORG_INVITE_ROLES } from "./invite-code.js";
+import { ORG_INVITE_ROLES } from "./parts.js";
 
 /** Academic roles, ordered by rank in {@link ROLE_RANK}. */
 export type Role = "professor" | "phd" | "masters" | "standalone";

@@ -1,5 +1,5 @@
 //! Embedding-encoder start plan for JavaScript (wf-core `embedding_models`).
-//! The JS name matches `packages/wf-wasm/src/embedding-models.ts`.
+//! The JS name matches `packages/wf-wasm/src/wrappers-2.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

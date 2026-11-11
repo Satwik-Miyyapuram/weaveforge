@@ -1,5 +1,5 @@
 /** Types for ai-types. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { AnchorConfidence, PdfLocus } from "../../../reader/anchor-shapes.js";
+import type { AnchorConfidence, PdfLocus } from "../../../reader/parts.js";
 
 /** Privacy and capability contracts shared by the in-app assistant and future MCP adapter. */
 

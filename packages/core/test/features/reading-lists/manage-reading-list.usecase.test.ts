@@ -5,7 +5,7 @@ import {
   InMemoryReadingListRepository,
 } from "../../../src/testing/in-memory-reading-list-repository.js";
 import { ManageReadingListUseCase } from "../../../src/features/reading-lists/application/manage-reading-list.use-case.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

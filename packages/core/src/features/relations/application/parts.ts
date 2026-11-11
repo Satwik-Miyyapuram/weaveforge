@@ -1,0 +1,64 @@
+import type { PaperRef } from "../../papers/application/metadata-source.js";
+import type { IPaperRelationRepository } from "../domain/parts.js";
+
+// --- citation-source ---
+/**
+ * Citation-source contract (for automatic edge discovery).
+ *
+ * Given a paper reference, a source returns the references it cites as a list
+ * of `PaperRef`s. Each external provider (Semantic Scholar, OpenCitations,
+ * Crossref) implements this interface; adding one is a new class, never an edit
+ * to the linking use-case (Open/Closed Principle).
+ */
+/** Semantic Scholar citation-intent labels (when full text is available). */
+export type CitationIntent = "background" | "method" | "result";
+
+export interface CitationCandidate {
+  /** Stable provider paper id used for deduplication. */
+  id: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  url?: string;
+  /** How many times this citing paper is itself cited, when the source provides it. */
+  citationCount?: number;
+  /**
+   * Citing-text snippets from the provider. Absent when the source has no full
+   * text for the citing paper — that is the normal case, not an error.
+   */
+  contexts?: string[];
+  /**
+   * Classified citation intents when the provider supplies them. Empty/absent
+   * when full text is unavailable.
+   */
+  intents?: CitationIntent[];
+  /** Provider flag for highly influential citations. */
+  isInfluential?: boolean;
+}
+
+export interface ICitationSource {
+  /** Stable id, e.g. "semantic-scholar". */
+  readonly id: string;
+  /** Whether this source can resolve citations for the given reference. */
+  supports(ref: PaperRef): boolean;
+  /** The references (outgoing citations) of the given paper. */
+  references(ref: PaperRef): Promise<PaperRef[]>;
+  /**
+   * Optional batch variant: resolve references for many papers in one call.
+   * Returns one entry per input ref (same order); `null` for papers the source
+   * couldn't resolve. Sources that support it (e.g. Semantic Scholar's
+   * `/paper/batch`) let the linker avoid N sequential, rate-limited requests.
+   */
+  referencesBatch?(refs: PaperRef[]): Promise<(PaperRef[] | null)[]>;
+  /** Incoming papers that cite this paper, used by saved citation alerts. */
+  citations?(ref: PaperRef): Promise<CitationCandidate[]>;
+}
+
+// --- remove-relation.use-case ---
+export class RemoveRelationUseCase {
+  constructor(private readonly repository: IPaperRelationRepository) {}
+
+  async execute(relationId: string): Promise<void> {
+    await this.repository.delete(relationId);
+  }
+}

@@ -13,8 +13,8 @@ import {
   visualPageSize,
   zoomIn,
   zoomOut,
-} from "../src/reader-viewport.js";
-import { READER_MAX_SCALE, READER_MIN_SCALE } from "../src/reader-types.js";
+} from "../src/wrappers-8.js";
+import { READER_MAX_SCALE, READER_MIN_SCALE } from "../src/wrappers-9.js";
 import { initSync } from "../src/index.js";
 
 // Moved from packages/core/test/reader/reader-viewport.test.ts when reader-viewport.ts was removed.

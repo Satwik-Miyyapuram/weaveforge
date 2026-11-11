@@ -1,5 +1,5 @@
 //! Builds a forest from a flat list of items that name their parent. Port of
-//! `buildTree` in `packages/core/src/shared/tree.ts`. Pure.
+//! `buildTree` in `packages/core/src/shared/parts.ts`. Pure.
 
 use std::cmp::Ordering;
 use std::collections::HashMap;

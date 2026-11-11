@@ -1,8 +1,10 @@
-import { type UserAppearance, type UserSettings } from "../domain/user-settings.js";
-import type { SettingsMetadata } from "../domain/settings-repository.js";
-import { CURRENT_DISCLAIMER_VERSION } from "../domain/privacy-disclaimer.js";
-import type { ISettingsRepository } from "../domain/settings-repository.js";
-import type { Clock } from "../../../shared/clock.js";
+import {
+  CURRENT_DISCLAIMER_VERSION,
+  type UserAppearance,
+  type UserSettings,
+} from "../domain/parts.js";
+import type { ISettingsRepository, SettingsMetadata } from "../domain/parts.js";
+import type { Clock } from "../../../shared/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface ManageSettingsDeps {

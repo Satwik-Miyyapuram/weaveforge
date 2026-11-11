@@ -1,3 +1,3 @@
-export type { AuthUser, AuthChangeCallback, IAuthService } from "./auth-ports.js";
-export type { ICurrentUserProvider } from "./session-ports.js";
-export type { IAdminUserProvisioner, ProvisionUserInput } from "./admin-provisioner.js";
+export type { AuthUser, AuthChangeCallback, IAuthService } from "./parts.js";
+export type { ICurrentUserProvider } from "./parts.js";
+export type { IAdminUserProvisioner, ProvisionUserInput } from "./parts.js";

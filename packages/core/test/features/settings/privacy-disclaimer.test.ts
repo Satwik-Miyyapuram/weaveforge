@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CURRENT_DISCLAIMER_VERSION } from "../../../src/features/settings/domain/privacy-disclaimer.js";
+import { CURRENT_DISCLAIMER_VERSION } from "../../../src/features/settings/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 test("needsDisclaimerAcceptance requires first accept", () => {

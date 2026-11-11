@@ -6,8 +6,8 @@ import {
   parseResultsTableRefs,
   resolveResultsTables,
   serialiseResultsTableRef,
-} from "../src/report-results-tables.js";
-import type { ResultsTableExperiment } from "../src/report-results-tables.js";
+} from "../src/wrappers-8.js";
+import type { ResultsTableExperiment } from "../src/wrappers-8.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 

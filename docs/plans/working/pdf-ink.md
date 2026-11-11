@@ -31,7 +31,7 @@ stays a Zotero annotation.
   inward only, no SDK/HTTP/DOM in `packages/core`.
 - Read before writing:
   `packages/core/src/reader/reader-annotation.ts` (the annotation model, the
-  sink port), `packages/core/src/reader/ink-stroke.ts` (`clampInkWidth`,
+  sink port), `packages/core/src/reader/parts.ts` (`clampInkWidth`,
   `inkWidthForPressure`, `INK_DEFAULT_WIDTH`, point caps),
   `crates/wf-core/src/reader/zotero_sync.rs` (what R5 syncs — ink is in),
   `apps/web/src/features/reader/ui/pdf-reader/pdf-reader.tsx` (`createTool`,
@@ -44,7 +44,7 @@ stays a Zotero annotation.
   `apps/web/src/features/reader/ui/paper-pdf-pane.tsx` (`onAnnotationsChange`,
   the `aside` slot), `apps/web/src/features/ink/ui/ink-bar.tsx` (the ink
   note's tool bar: `INK_BAR_TOOLS`, `nibForTool`, `InkBar`),
-  `packages/core/src/ink/width.ts` (the ink note's nib set),
+  `packages/core/src/ink/parts.ts` (the ink note's nib set),
   `crates/wf-core/src/editor_workspace/pane_tree.rs`
   (`splitPane`, `openTab`, `setTabMode`, `DocumentMode`) and
   `crates/wf-core/src/editor_workspace/kind.rs`.
@@ -130,10 +130,10 @@ through `onAnnotationsChange` → `IReaderAnnotationSink`, so it:
 What the rail adds is state around creation, not a new record:
 
 - **Nib set** — four widths in PDF points. Match the ink note's feel
-  (`packages/core/src/ink/width.ts` is 0.1 / 0.3 / 0.5 / 0.7 mm): in points
+  (`packages/core/src/ink/parts.ts` is 0.1 / 0.3 / 0.5 / 0.7 mm): in points
   that is 0.28 / 0.85 / 1.42 / 1.98, default 1.42. Add
   `INK_NIB_WIDTHS_PT` next to `clampInkWidth` in
-  `packages/core/src/reader/ink-stroke.ts` and derive it from the ink set
+  `packages/core/src/reader/parts.ts` and derive it from the ink set
   (`mm × 72 / 25.4`), tested, so the two never drift. Highlighter keeps its
   own nib as `ink-bar.tsx` does (`HIGHLIGHTER_NIB`).
 - **Undo / redo** — a stack of `{created: id}` / `{removed: annotation}` over

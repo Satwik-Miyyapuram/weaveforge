@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { InMemoryLogEntryRepository } from "../../../src/testing/in-memory-log-entry-repository.js";
 import { AddLogEntryUseCase } from "../../../src/features/logbook/application/add-log-entry.use-case.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

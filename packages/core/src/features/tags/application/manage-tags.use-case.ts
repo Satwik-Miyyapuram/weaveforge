@@ -4,10 +4,10 @@
  */
 
 import type { Paper } from "../../papers/domain/paper.js";
-import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
-import { normalizeTagName, type PaperTag, type Tag, type TagSource } from "../domain/tag.js";
-import type { ITagRepository, IPaperTagRepository } from "../domain/tag-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { IPaperRepository } from "../../papers/domain/parts.js";
+import { normalizeTagName, type PaperTag, type Tag, type TagSource } from "../domain/parts.js";
+import type { ITagRepository, IPaperTagRepository } from "../domain/parts.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";
 

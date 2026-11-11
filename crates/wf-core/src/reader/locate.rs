@@ -1,4 +1,4 @@
-//! Lasso hit-testing, in-document text search and next/prev match stepping. A faithful port of packages/core/src/reader/ink-lasso.ts, document-search.ts.
+//! Lasso hit-testing, in-document text search and next/prev match stepping. A faithful port of packages/core/src/reader/parts.ts, document-search.ts.
 //!
 //! Formerly TS: `encodeLocus` / `decodeLocus` (locus-link.ts, now Rust in `reader::locus`). Their clamp slices UTF-16 units (lone surrogates), they pass unknown fields through, and decode falls back to `decodeURIComponent`, which Rust strings cannot match exactly. Also stays in TS: the pointer and DOM glue in use-page-pointer.ts.
 

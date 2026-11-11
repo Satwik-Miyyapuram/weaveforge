@@ -1,7 +1,7 @@
 //! Vault page helpers for JavaScript (wf-core `vault::page`): wikilinks, frontmatter, titles
 //! and note previews. The markdown image helpers are exported from `workspace.rs`.
 //!
-//! The TS wrappers in `packages/wf-wasm/src/vault-page.ts` apply the `undefined` handling and
+//! The TS wrappers in `packages/wf-wasm/src/wrappers-11.ts` apply the `undefined` handling and
 //! the defaults.
 
 use std::collections::{HashMap, HashSet};

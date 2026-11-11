@@ -1,5 +1,5 @@
 //! SQL-text helpers for the local PGlite client (wf-core `sync::pglite_sql`). The JS names
-//! match `packages/wf-wasm/src/sync-pglite-sql.ts`.
+//! match `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
 use wf_core::sync::pglite_sql;

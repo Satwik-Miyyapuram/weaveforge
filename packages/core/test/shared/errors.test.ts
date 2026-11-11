@@ -69,7 +69,7 @@ import {
   InMemoryTagRepository,
 } from "../../src/testing/index.js";
 import { InMemoryVaultPageRepository } from "../../src/testing/in-memory-vault-page-repository.js";
-import { fixedClock, seqIds } from "../../src/testing/fakes.js";
+import { fixedClock, seqIds } from "../../src/testing/parts.js";
 
 const clock = fixedClock();
 

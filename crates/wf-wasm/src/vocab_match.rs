@@ -1,5 +1,5 @@
 //! Near-miss vocabulary matching for recognised ink (wf-core `ink::vocab_match`),
-//! re-exported from `packages/wf-wasm/src/vocab-match.ts`.
+//! re-exported from `packages/wf-wasm/src/wrappers-11.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::ink::vocab_match;

@@ -1,5 +1,5 @@
 //! PostgREST table specs for JavaScript (wf-core `postgrest_spec`). The TS wrapper in
-//! `packages/wf-wasm/src/postgrest-spec.ts` applies the types.
+//! `packages/wf-wasm/src/wrappers-6.ts` applies the types.
 
 use wasm_bindgen::JsError;
 use wasm_bindgen::prelude::wasm_bindgen;

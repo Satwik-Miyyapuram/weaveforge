@@ -1,4 +1,4 @@
-//! Ink geometry: capture filtering, simplification, and stroke width. A faithful port of packages/core/src/reader/ink-stroke.ts.
+//! Ink geometry: capture filtering, simplification, and stroke width. A faithful port of packages/core/src/reader/parts.ts.
 //!
 //! Stays in TS: none of this module's functions touch the DOM or async code; the TS-only
 //! `InkGroupCandidate` interface is mirrored by `ReaderInkGroupCandidate` and the options

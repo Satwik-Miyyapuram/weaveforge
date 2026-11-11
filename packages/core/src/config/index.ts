@@ -1,2 +1,2 @@
-export * from "./define-config.js";
-export * from "./plugin.js";
+export * from "./parts.js";
+export * from "./parts.js";

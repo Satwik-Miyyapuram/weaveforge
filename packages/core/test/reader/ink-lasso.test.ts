@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { LASSO_CAUGHT_SHARE } from "../../src/reader/ink-lasso.js";
+import { LASSO_CAUGHT_SHARE } from "../../src/reader/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 /** A square loop, 100 wide, from (0,0) to (100,100). */

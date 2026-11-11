@@ -1,6 +1,6 @@
 //! `.bib` import for JavaScript (wf-core `papers::bib_import`).
 //!
-//! The TS wrapper in `packages/wf-wasm/src/papers-bib-import.ts` gives the result its type.
+//! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` gives the result its type.
 
 use serde_json::Value;
 use wasm_bindgen::JsValue;

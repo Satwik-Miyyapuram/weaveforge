@@ -1,6 +1,6 @@
 //! Paper, paper field and annotation quotation type row mapping for JavaScript (wf-core
 //! `papers::{paper_row, paper_field_row, annotation_quotation_type_row}`). The TS wrappers in
-//! `packages/wf-wasm/src/paper-rows.ts` apply the types.
+//! `packages/wf-wasm/src/wrappers-5.ts` apply the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;

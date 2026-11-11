@@ -1,5 +1,5 @@
 //! Semantic Scholar citation field rules for JavaScript (wf-core `relations::semantic_scholar_citation`).
-//! The JS names match `packages/wf-wasm/src/semantic-scholar-citation.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-10.ts`.
 
 use serde::Deserialize;
 use serde_json::Value;

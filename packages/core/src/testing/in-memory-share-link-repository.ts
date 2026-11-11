@@ -1,10 +1,10 @@
 import type {
   IShareLinkRepository,
   ResolvedShareLink,
+  ShareableType,
   ShareLink,
   ShareLinkSaveInput,
 } from "../shared/core-contract.js";
-import type { ShareableType } from "../shared/core-contract.js";
 
 export class InMemoryShareLinkRepository implements IShareLinkRepository {
   private readonly rows = new Map<string, ShareLinkSaveInput & { createdAt: string }>();

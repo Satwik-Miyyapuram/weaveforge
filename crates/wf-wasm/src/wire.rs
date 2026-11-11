@@ -1,5 +1,5 @@
 //! Sidecar wire rules for JavaScript (wf-core `wire`). The JS names match
-//! `packages/wf-wasm/src/wire.ts`.
+//! `packages/wf-wasm/src/wrappers-11.ts`.
 
 use serde_json::{Value, json};
 use wasm_bindgen::JsValue;

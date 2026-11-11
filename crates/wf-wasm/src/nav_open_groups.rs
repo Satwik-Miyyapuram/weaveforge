@@ -1,4 +1,4 @@
-//! wasm exports for `nav_open_groups` (TS: `packages/wf-wasm/src/nav-open-groups.ts`).
+//! wasm exports for `nav_open_groups` (TS: `packages/wf-wasm/src/wrappers-4.ts`).
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

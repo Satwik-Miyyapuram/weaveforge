@@ -104,3 +104,20 @@ Update after every merged PR. A phase is done only when its **done when** is met
 - The `shell` CI job is not a required check: check every job before merging.
 - Branch protection approval rule.
 - Production write (deferred): Tauri origins in Caddy.
+
+## Standing user requests (do not drop across compaction)
+
+- Docs alongside every port or removal, written by the lane that read the Rust:
+  `docs/building/core/<module>.md` (one page per wf-core module, docs-style.md
+  outline), plus a row in `docs/building/core/README.md`. Reject a hand-back
+  without its doc section.
+- Status replies use a `# | Step | State` table with a TS-removal row.
+- Lanes: persistent Haiku agents, reused via SendMessage, whole feature sets.
+- Remaining after batch 6 sort (2026-11-10): 891 non-UI TS files; PORT 112
+  (8 are showcase sample data), DELETE 66, KEEP 713. List:
+  scratchpad `remaining-merged.tsv`.
+- Gotcha: `js_regex::compile` expands `\s` to a class, so `\s` inside `[...]`
+  makes a nested class that fails to compile and `.ok()` hides it. Use
+  `space_class()` inside hand-written classes.
+- Gotcha: Specta types Rust `f64` as `number | null`; wrappers map null to
+  `Number.NaN` for parity.

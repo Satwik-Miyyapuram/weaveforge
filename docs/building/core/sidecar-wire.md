@@ -4,7 +4,7 @@ Rust port of the pure parts of `apps/shell/sidecar/src/wire.ts`.
 
 - Rust: `crates/wf-core/src/wire.rs`. Tests: `crates/wf-core/tests/sidecar_wire.rs`.
 - wasm: `crates/wf-wasm/src/wire.rs` exports `wireRoute`, `wireParseRequest`, `wireTag`, `wireErrorReply`, `wireOkReplyHead`.
-- TS wrappers: `packages/wf-wasm/src/wire.ts`, typed by the wasm package's generated declarations (`rust()` in `packages/core/src/shared/rust.ts`).
+- TS wrappers: `packages/wf-wasm/src/wrappers-11.ts`, typed by the wasm package's generated declarations (`rust()` in `packages/core/src/shared/rust.ts`).
 - Shim: `apps/shell/sidecar/src/wire.ts` keeps readline, the handler table, ask timers, `createPeer`, `serve` and the JS-side tag conversion.
 
 ## What Rust decides

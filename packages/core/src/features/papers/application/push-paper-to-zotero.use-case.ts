@@ -1,6 +1,6 @@
-import type { IBibliographyIntegration } from "../../integrations/domain/integration-ports.js";
+import type { IBibliographyIntegration } from "../../integrations/domain/parts.js";
 import type { Paper } from "../domain/paper.js";
-import type { IPaperRepository } from "../domain/paper-repository.js";
+import type { IPaperRepository } from "../domain/parts.js";
 
 /**
  * What came of trying to put a paper into the user's bibliography manager.

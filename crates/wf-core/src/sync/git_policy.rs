@@ -1,4 +1,4 @@
-//! Port of `packages/core/src/workspace/git-sync-policy.ts`: which workspace
+//! Port of `packages/core/src/workspace/parts.ts`: which workspace
 //! paths may enter the git history of the workspace folder.
 
 use serde::{Deserialize, Serialize};

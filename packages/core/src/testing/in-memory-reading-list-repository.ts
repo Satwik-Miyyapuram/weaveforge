@@ -8,7 +8,7 @@ import { type ReadingList, type ReadingListFilter, type ReadingListItem, type Re
 import type {
   IReadingListItemRepository,
   IReadingListRepository,
-} from "../features/reading-lists/domain/reading-list-repository.js";
+} from "../features/reading-lists/domain/parts.js";
 import { ConflictError } from "../shared/errors.js";
 import { rust } from "../shared/rust.js";
 

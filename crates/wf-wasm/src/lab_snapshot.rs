@@ -1,5 +1,5 @@
 //! Lab snapshot content for JavaScript (wf-core `lab_snapshot`). The JS name
-//! matches `packages/core/src/features/org/domain/lab-snapshot.ts`.
+//! matches `packages/core/src/features/org/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -83,7 +83,7 @@ are being removed.
   forwarding.
 - **Proposal grouping.** `apps/web/src/features/ai-assistant/application/proposal-groups.ts`
   is UI-side grouping and bulk-run logic. It stays in TypeScript for now.
-- **Thin wrappers.** `packages/wf-wasm/src/proposal-apply.ts` only forwards to
+- **Thin wrappers.** `packages/wf-wasm/src/wrappers-6.ts` only forwards to
   the raw `proposalApplies` export. It keeps no logic of its own.
 
 ## Related

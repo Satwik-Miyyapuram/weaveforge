@@ -11,7 +11,7 @@ import type {
   IMetricRepository,
   MetricBudget,
   MetricPoint,
-} from "../features/experiments/domain/metric-point.js";
+} from "../features/experiments/domain/parts.js";
 
 function pt(overrides: Partial<MetricPoint> = {}): MetricPoint {
   return {

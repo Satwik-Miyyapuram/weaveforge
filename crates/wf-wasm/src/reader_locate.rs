@@ -1,4 +1,4 @@
-//! Lasso, document-search and match-stepping helpers for JavaScript (packages/core/src/reader/ink-lasso.ts, document-search.ts). Each export wraps a `wf_core::reader::locate` function.
+//! Lasso, document-search and match-stepping helpers for JavaScript (packages/core/src/reader/parts.ts, document-search.ts). Each export wraps a `wf_core::reader::locate` function.
 //!
 //! Point and polygon arrays cross as `Float64Array`s (flat x,y pairs). Paths cross as one flat array plus each path's length.
 

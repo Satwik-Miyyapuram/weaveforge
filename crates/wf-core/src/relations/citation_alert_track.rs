@@ -1,4 +1,4 @@
-//! Port of `packages/core/src/features/relations/domain/citation-alert-track.ts` (the row
+//! Port of `packages/core/src/features/relations/domain/parts.ts` (the row
 //! mapping in `apps/web/.../citation-alert-track-rows.ts`). Pure: rows in, domain out.
 
 /// A paper watched for new citing papers (TS `CitationAlertTrack`).

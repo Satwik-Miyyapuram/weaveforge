@@ -1,6 +1,6 @@
 /** Test doubles and Liskov contract suites — import via `@weaveforge/core/testing` only. */
-export { InMemoryDashboardLayoutRepository } from "./in-memory-dashboard-layout-repository.js";
-export { InMemoryGraphSettingsRepository } from "./in-memory-graph-settings-repository.js";
+export { InMemoryDashboardLayoutRepository } from "./parts.js";
+export { InMemoryGraphSettingsRepository } from "./parts.js";
 export { InMemoryPaperRepository } from "./in-memory-paper-repository.js";
 export { InMemoryTagRepository, InMemoryPaperTagRepository } from "./in-memory-tag-repository.js";
 export { InMemoryLogEntryRepository } from "./in-memory-log-entry-repository.js";
@@ -10,12 +10,12 @@ export {
   InMemoryReadingListItemRepository,
 } from "./in-memory-reading-list-repository.js";
 export { InMemoryPaperRelationRepository } from "./in-memory-paper-relation-repository.js";
-export { InMemoryProjectRepository } from "./in-memory-project-repository.js";
+export { InMemoryProjectRepository } from "./parts.js";
 export { InMemoryExperimentRepository } from "./in-memory-experiment-repository.js";
 export { InMemoryMetricRepository } from "./in-memory-metric-repository.js";
-export { InMemoryMilestoneRepository } from "./in-memory-milestone-repository.js";
+export { InMemoryMilestoneRepository } from "./parts.js";
 export { InMemoryMemberRepository } from "./in-memory-member-repository.js";
-export { InMemoryAccountProvisioner } from "./in-memory-account-provisioner.js";
+export { InMemoryAccountProvisioner } from "./parts.js";
 export { InMemoryShareRepository } from "./in-memory-share-repository.js";
 export { InMemoryCommentRepository } from "./in-memory-comment-repository.js";
 export { InMemoryShareLinkRepository } from "./in-memory-share-link-repository.js";
@@ -27,7 +27,7 @@ export { InMemoryAnnotationQuotationTypeRepository } from "./in-memory-annotatio
 export { InMemoryLabSnapshotRepository } from "./in-memory-lab-snapshot-repository.js";
 export { InMemoryReaderAnnotationRepository } from "./in-memory-reader-annotation-repository.js";
 export { InMemoryPaperFieldRepository } from "./in-memory-paper-field-repository.js";
-export { InMemorySettingsRepository } from "./in-memory-settings-repository.js";
+export { InMemorySettingsRepository } from "./parts.js";
 export { InMemoryBlobRegistry } from "./in-memory-blob-registry.js";
 export { runDashboardLayoutRepositoryContract } from "./dashboard-layout-repository-contract.js";
 export { runGraphSettingsRepositoryContract } from "./graph-settings-repository-contract.js";
@@ -55,4 +55,4 @@ export { runMilestoneRepositoryContract } from "./milestone-repository-contract.
 export { runMemberRepositoryContract } from "./member-repository-contract.js";
 export { runVaultPageRepositoryContract } from "./vault-page-repository-contract.js";
 export { MemoryWorkspaceFs } from "./memory-workspace-fs.js";
-export { emptyWorkspaceSnapshot } from "./workspace-snapshot-fixture.js";
+export { emptyWorkspaceSnapshot } from "./parts.js";

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { findDocumentMatches, nextMatchIndex } from "../src/reader-locate.js";
+import { findDocumentMatches, nextMatchIndex } from "../src/wrappers-7.js";
 import { initSync } from "../src/index.js";
 
 // Moved from packages/core/test/reader/document-search.test.ts when document-search.ts was removed.

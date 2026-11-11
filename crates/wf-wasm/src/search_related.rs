@@ -1,5 +1,5 @@
 //! Related-document helpers for JavaScript (wf-core `search::related`). The JS names match
-//! `packages/core/src/search/related.ts`.
+//! `packages/core/src/search/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -18,7 +18,7 @@ Each file below owns one part:
 - `eraser_sweep`: the state of one erase sweep (who sweeps, whether the back tip made it, the sticky hover). It returns the cursor action (`none`, `show`, `keep`, `restore`); the DOM target and its saved cursor stay in TypeScript (`application/eraser-tip.ts`), so this is a THIN port.
 - `figure`: figures placed on a page, written as image refs in the page text.
 - `hit_test`: point and segment tests for lasso selection and erasing. `polygon_bounds` (wasm `inkPolygonBounds`) gives the box round a lasso loop.
-- `ink_constants`: the tuning numbers of width, zoom, smooth, segment, decode and figure, read from Rust through `inkConstants()` (`packages/wf-wasm/src/ink-constants.ts`). The core TS modules still hold these as their own constants, so this is a DATA row only; the export-shape change is deferred.
+- `ink_constants`: the tuning numbers of width, zoom, smooth, segment, decode and figure, read from Rust through `inkConstants()` (`packages/wf-wasm/src/wrappers-3.ts`). The core TS modules still hold these as their own constants, so this is a DATA row only; the export-shape change is deferred.
 - `ink_engine`: facts about the ink engines this build knows.
 - `ink_page`: the page model and text-layer helpers.
 - `ink_paths`: sidecar paths and chunk ids for ink notes. `chunk_id_of_file_name` (wasm `inkChunkIdOfFileName`, called through `readyCore()`) gives the id a file name carries, only for a valid `<ulid>.inkb`.
@@ -63,9 +63,9 @@ Examples of exports:
 - Hit tests: `inkPointInPolygon`, `pointInArea`, `clipSegmentToArea`.
 - Clipboard: `figureClipText`, `parseFigureClip`, `pastedFigurePlace`, `strokeClipText`, `parseStrokeClip`, `pastedStrokesPlace`.
 - Print and SVG: `inkPrintDocument`, `inkPageSvg`.
-- Palette: `paletteCss`, `paletteHex`, `paletteName`, `parseCssColour`, `samePalette`, from `ink_palette.rs`. The TypeScript wrappers are `packages/wf-wasm/src/ink-palette.ts`.
+- Palette: `paletteCss`, `paletteHex`, `paletteName`, `parseCssColour`, `samePalette`, from `ink_palette.rs`. The TypeScript wrappers are `packages/wf-wasm/src/wrappers-3.ts`.
 - Palm rule: `contactAreaMm2`, from `ink_palette.rs`. Its wrapper takes a `{ width, height }` pointer event.
-- Render instances: `inkStrokeInstanceCount`, `packInkStrokeInstances`, `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. The TypeScript wrappers are `packages/wf-wasm/src/ink-render-instances.ts`. `packInkStrokeInstances` returns a `Float64Array`; `ink-renderer.ts` narrows it into the `Float32Array` the GL buffer takes. `strokeInstanceCount`, `backingRatio`, `usesHighlighterPass` and `packStrokeInstances` in `ink-renderer.ts` call these through `readyCore()`, so the core must be loaded before the WebGL renderer or the layout hook runs. Tests preload it with `before(loadTestCore)`.
+- Render instances: `inkStrokeInstanceCount`, `packInkStrokeInstances`, `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. The TypeScript wrappers are `packages/wf-wasm/src/wrappers-3.ts`. `packInkStrokeInstances` returns a `Float64Array`; `ink-renderer.ts` narrows it into the `Float32Array` the GL buffer takes. `strokeInstanceCount`, `backingRatio`, `usesHighlighterPass` and `packStrokeInstances` in `ink-renderer.ts` call these through `readyCore()`, so the core must be loaded before the WebGL renderer or the layout hook runs. Tests preload it with `before(loadTestCore)`.
 
 The palette functions take the palette as an object of colour name to `[r, g, b]`. The wrapper turns it into ordered pairs for the wasm side, so a name that appears twice resolves as the JavaScript object does. `ink-palette.ts` and `pen-gate.ts` call these through `readyCore()`, so they need the core loaded first.
 

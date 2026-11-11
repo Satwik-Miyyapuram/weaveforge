@@ -1,5 +1,5 @@
 //! Extraction-table rules for JavaScript (wf-core `reading_lists::extraction_table`). The TS
-//! wrappers in `packages/wf-wasm/src/reading-lists-extraction.ts` apply the types.
+//! wrappers in `packages/wf-wasm/src/wrappers-8.ts` apply the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;

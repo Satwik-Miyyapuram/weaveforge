@@ -1,5 +1,5 @@
 //! Sync phase rules for JavaScript (wf-core `sync::sync_phase`). The JS names match
-//! `packages/wf-wasm/src/sync-phase.ts`.
+//! `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

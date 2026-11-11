@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ANIMATION_SPEEDS, CARD_TINTS, CONTROL_SIZES } from "../../../src/features/settings/domain/user-appearance.js";
+import { ANIMATION_SPEEDS, CARD_TINTS, CONTROL_SIZES } from "../../../src/features/settings/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 test("normalizeAppearance returns undefined for absent payloads", () => {

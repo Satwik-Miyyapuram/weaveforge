@@ -1,4 +1,4 @@
-//! Port of packages/core/src/features/org/domain/lab-snapshot.ts. Pure.
+//! Port of packages/core/src/features/org/domain/parts.ts. Pure.
 
 use crate::experiment_status::ExperimentStatus;
 use crate::report::report_section::ReportStatus;

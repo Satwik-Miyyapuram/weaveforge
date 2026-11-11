@@ -1,5 +1,5 @@
 //! What a paper is called in a bibliography. A faithful port of
-//! packages/core/src/features/report/domain/cite-key.ts.
+//! packages/core/src/features/report/domain/parts.ts.
 //!
 //! Precedence: a hand-set key, then the BibTeX key, then Better BibTeX's `Citation Key:` line in
 //! `extra`, then a key synthesised from the DOI, the arXiv id or the paper id.

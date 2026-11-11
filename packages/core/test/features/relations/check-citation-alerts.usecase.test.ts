@@ -5,8 +5,8 @@ import { CheckCitationAlertsUseCase } from "../../../src/features/relations/appl
 import type {
   CitationCandidate,
   ICitationSource,
-} from "../../../src/features/relations/application/citation-source.js";
-import type { INotificationIntegration } from "../../../src/features/integrations/domain/integration-ports.js";
+} from "../../../src/features/relations/application/parts.js";
+import type { INotificationIntegration } from "../../../src/features/integrations/domain/parts.js";
 import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
 import type { Milestone } from "../../../src/features/plan/domain/milestone.js";
 import type { Paper } from "../../../src/features/papers/domain/paper.js";

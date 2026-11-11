@@ -1,8 +1,8 @@
-import type { ICitationAlertTrackRepository } from "../features/relations/domain/citation-alert-track-repository.js";
 import type {
   CitationAlertTrack,
+  ICitationAlertTrackRepository,
   NewCitationAlertTrackInput,
-} from "../features/relations/domain/citation-alert-track.js";
+} from "../features/relations/domain/parts.js";
 
 /**
  * In-memory citation-alert tracks. Scoped to one user + project like the

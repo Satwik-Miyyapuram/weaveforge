@@ -1,4 +1,4 @@
-//! Port of `packages/core/src/workspace/git-gate.ts`: whether the workspace
+//! Port of `packages/core/src/workspace/parts.ts`: whether the workspace
 //! folder may be committed to. Pure decision; no process runs `git` here.
 
 /// Refusal reason while folder history is switched off.

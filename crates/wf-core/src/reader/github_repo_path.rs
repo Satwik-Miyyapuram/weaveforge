@@ -1,5 +1,5 @@
 //! Where a paper's PDF sits in the workspace's GitHub repo (TS `repoPathOf` and
-//! `isSafeRepoPath` in `packages/core/src/reader/github-repo-pdf-resolver.ts`).
+//! `isSafeRepoPath` in `packages/core/src/reader/parts.ts`).
 
 use crate::search::js_text::is_js_whitespace;
 

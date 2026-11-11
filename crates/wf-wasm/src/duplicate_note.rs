@@ -1,5 +1,5 @@
 //! The plan for a duplicate note (wf-core `editor_workspace::duplicate_note`),
-//! re-exported from `packages/wf-wasm/src/duplicate-note.ts`.
+//! re-exported from `packages/wf-wasm/src/wrappers-2.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::editor_workspace::duplicate_note::{self as duplicate, DuplicateSource};

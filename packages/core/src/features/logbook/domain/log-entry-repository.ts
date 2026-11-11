@@ -10,7 +10,7 @@
 import type {
   IReadableRepository,
   IWritableRepository,
-} from "../../../shared/repository.js";
+} from "../../../shared/parts.js";
 import type { LogEntry, LogEntryFilter } from "./log-entry.js";
 
 export interface ILogEntryRepository

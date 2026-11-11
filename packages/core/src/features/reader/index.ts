@@ -1,4 +1,4 @@
-export type { OutlineTextItem, ReaderOutlineItem } from "./outline-types.js";
+export type { OutlineTextItem, ReaderOutlineItem } from "./parts.js";
 
 export * from "./analysis/analysis-types.js";
 export { type TextLine } from "./analysis/line-reconstruction.js";

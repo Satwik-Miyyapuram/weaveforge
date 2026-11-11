@@ -2,7 +2,7 @@
 //! `report::bibliography_report` and `report::report_section`). The JS names match the TS files
 //! of the same name in `packages/core/src/features/report/domain`.
 //!
-//! The TS wrappers in `packages/wf-wasm/src/report-records.ts` convert `.bib` field records,
+//! The TS wrappers in `packages/wf-wasm/src/wrappers-8.ts` convert `.bib` field records,
 //! draw the section id and time, and apply the `null` handling.
 
 use wasm_bindgen::JsValue;

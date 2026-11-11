@@ -6,10 +6,10 @@ import {
   AddRelationUseCase,
   LinkCitationsUseCase,
 } from "../../../src/features/relations/application/manage-relations.use-case.js";
-import type { ICitationSource } from "../../../src/features/relations/application/citation-source.js";
+import type { ICitationSource } from "../../../src/features/relations/application/parts.js";
 import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
 import { createPaper } from "../../../src/features/papers/domain/paper.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

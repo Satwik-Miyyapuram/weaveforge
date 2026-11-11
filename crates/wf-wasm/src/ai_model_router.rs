@@ -1,5 +1,5 @@
 //! AI provider selection for JavaScript (wf-core `ai::model_router`). The JS name matches
-//! `AiModelRouter` in `packages/core/src/features/ai-assistant/domain/ai-model-router.ts`.
+//! `AiModelRouter` in `packages/core/src/features/ai-assistant/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

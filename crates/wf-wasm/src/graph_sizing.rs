@@ -1,5 +1,5 @@
 //! Graph node and label sizes at a zoom (wf-core `relations::graph_sizing`). The TS wrappers in
-//! `packages/wf-wasm/src/graph-sizing.ts` keep the `kind` argument and map it to the tag flag.
+//! `packages/wf-wasm/src/wrappers-2.ts` keep the `kind` argument and map it to the tag flag.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

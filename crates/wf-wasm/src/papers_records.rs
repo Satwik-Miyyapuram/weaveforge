@@ -2,7 +2,7 @@
 //! `papers::annotation_quotation_type`). The JS names match the TS files of the same name in
 //! `packages/core/src/features/papers/domain`.
 //!
-//! The TS wrappers in `packages/wf-wasm/src/papers-records.ts` apply the `null` and `undefined` handling.
+//! The TS wrappers in `packages/wf-wasm/src/wrappers-5.ts` apply the `null` and `undefined` handling.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::wasm_bindgen;

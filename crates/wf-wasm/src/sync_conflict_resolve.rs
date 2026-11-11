@@ -1,6 +1,6 @@
 //! Settling a conflict the reader chose on, for JavaScript (wf-core `sync::conflict_resolve`).
 //! The JS names match `resolveWithRow` and `deletionAction` in
-//! `packages/wf-wasm/src/sync-conflict-resolve.ts`.
+//! `packages/wf-wasm/src/wrappers-10.ts`.
 
 use std::collections::HashMap;
 

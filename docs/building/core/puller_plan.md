@@ -22,7 +22,7 @@ step that comes back.
 - `is_unique_clash` (wasm `isUniqueClash`) and `unique_constraint_name`
   (wasm `uniqueConstraintName`): read a unique-constraint error message.
 
-The TypeScript wrapper is `packages/wf-wasm/src/sync-puller-plan.ts`. Its
+The TypeScript wrapper is `packages/wf-wasm/src/wrappers-11.ts`. Its
 types come from `packages/wf-wasm/src/bindings.ts`, which was hand-edited for
 the new types and needs regeneration.
 

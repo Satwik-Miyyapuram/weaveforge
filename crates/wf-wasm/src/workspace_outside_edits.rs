@@ -1,5 +1,5 @@
 //! Outside-edit triage for JavaScript (wf-core `workspace::outside_edits`).
-//! The JS names match `packages/wf-wasm/src/workspace-outside-edits.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-12.ts`.
 
 use std::collections::BTreeMap;
 

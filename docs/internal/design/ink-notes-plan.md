@@ -25,7 +25,7 @@ class, not a proxy for it.
 WeaveForge already has a working pen: the PDF reader captures pressure-aware
 ink, groups strokes, simplifies them to a byte budget, erases, paints a
 highlighter, and rejects palms without a device API
-(`packages/core/src/reader/ink-stroke.ts`,
+(`packages/core/src/reader/parts.ts`,
 `apps/web/src/features/reader/ui/pdf-reader/use-page-pointer.ts`). Ink notes
 point that pen at a blank page instead of a PDF. One note is one `.md` whose
 body is a **recognised text layer** — searchable, `[[linkable]]`, lintable,
@@ -730,7 +730,7 @@ missing or broken helper degrades to a slower recogniser rather than to nothing.
 
 ### 5.4 Segmentation and hints — the parts that make a bad hand work
 
-- **Line segmentation** (`packages/core/src/ink/segment.ts`): sort strokes by
+- **Line segmentation** (`packages/core/src/ink/parts.ts`): sort strokes by
   first-point time; a stroke joins the current line if its y-centre is within
   0.6 × the running median stroke height of the line's y-band and it started
   within `INK_GROUP_WINDOW_MS` (2 s); else it starts a new line. Highlighter
@@ -1315,7 +1315,7 @@ worker in a production build rather than only in dev.
 > 2.4 mm, thinner than the pen's maximum. `HIGHLIGHTER_MIN_WIDTH = 8` and
 > `HIGHLIGHTER_WIDTH = 14` are also PDF units; against 0.1 mm a 0.9 mm pen is
 > classified as a highlighter and a 0.6 mm pen is not. **Write one
-> `packages/core/src/ink/width.ts` in 0.1 mm with its own constants and leave
+> `packages/core/src/ink/parts.ts` in 0.1 mm with its own constants and leave
 > `ink-stroke.ts` alone.** Reuse the *geometry* (`shouldAppendInkPoint`,
 > `simplifyInkPath`, `inkPathsHitTest`, `inkPathsBounds`) — that part is
 > genuinely shared.
@@ -1724,7 +1724,7 @@ RenderDoc capture — not with `performance.now()` around GL calls.
 - **Electron:** [command line switches](https://www.electronjs.org/docs/latest/api/command-line-switches), [native Node addons](https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules)
 - **Stroke geometry:** [perfect-freehand](https://github.com/steveruizok/perfect-freehand), [Excalidraw freedraw PR](https://github.com/excalidraw/excalidraw/pull/3512)
 - **App survey / formats:** [GoodNotes vs Notability](https://paperlike.com/blogs/paperlikers-insights/app-review-goodnotes-vs-notability), [Best iPad note apps](https://paperlike.com/blogs/paperlikers-insights/best-note-taking-apps-ipad), [noteapps.info](https://noteapps.info/best_note_taking_apps_2026), [InkedMark](https://community.obsidian.md/plugins/inkedmark), [Excalidraw plugin](https://github.com/zsviczian/obsidian-excalidraw-plugin)
-- **In-repo:** `packages/core/src/reader/ink-stroke.ts`, `apps/web/src/features/reader/ui/pdf-reader/use-page-pointer.ts`, `apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx`, `apps/web/src/features/collab/domain/seed-document.ts`, `apps/web/src/features/search/infrastructure/embedding-worker.ts`, `apps/desktop/src/model-cache.ts`, `docs/internal/design/editor-workspace-redesign.md` §3.3
+- **In-repo:** `packages/core/src/reader/parts.ts`, `apps/web/src/features/reader/ui/pdf-reader/use-page-pointer.ts`, `apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx`, `apps/web/src/features/collab/domain/seed-document.ts`, `apps/web/src/features/search/infrastructure/embedding-worker.ts`, `apps/desktop/src/model-cache.ts`, `docs/internal/design/editor-workspace-redesign.md` §3.3
 
 ### 12.2 Harnesses
 

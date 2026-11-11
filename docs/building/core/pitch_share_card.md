@@ -23,7 +23,7 @@ cases from the TypeScript tests.
 
 The wasm exports live in `crates/wf-wasm/src/pitch_share_card.rs`:
 `appOriginFrom`, `pitchShareConstants` and `pitchShareCard`. The TypeScript wrappers
-in `packages/wf-wasm/src/pitch-share-card.ts` import the raw names from
+in `packages/wf-wasm/src/wrappers-6.ts` import the raw names from
 `../pkg/wf_wasm.js` and export typed versions with the `PitchShareCard`,
 `PitchShareImage` and `PitchShareConstants` types.
 

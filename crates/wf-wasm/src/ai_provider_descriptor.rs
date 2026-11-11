@@ -1,5 +1,5 @@
 //! Stored AI provider parsing for JavaScript (wf-core `ai::provider_descriptor`). The JS name matches
-//! `packages/wf-wasm/src/ai-provider-descriptor.ts`.
+//! `packages/wf-wasm/src/wrappers-1.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};

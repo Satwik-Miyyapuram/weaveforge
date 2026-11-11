@@ -171,7 +171,7 @@ async append(points: MetricPoint[]): Promise<void> {
     severity: "Medium",
     score: 5.4,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "`harvestGuessed` already knows exactly where each match is — it is inside `while ((match = CANDIDATE.exec(doc.plain)) !== null)` with `match.index` in hand — and then throws the position away for the inner acronym loop: `record(token, match.index + phrase.indexOf(token), token.length)`. `String.prototype.indexOf` returns the first *textual* occurrence anywhere in the phrase, not the occurrence inside this match. For the phrase `\"MAGAN GAN Models\"` the token `GAN` is found at offset 5, inside `MAGAN`, so `snippetAt` quotes the wrong neighbourhood and the evidence shown on a wiki page points at the wrong sentence.",
     discovered:
@@ -200,7 +200,7 @@ for (const token of phrase.split(/[^A-Za-z0-9]+/)) {
     severity: "Medium",
     score: 5.0,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "The tie-break in `rankAndLimit` is `a.name.localeCompare(b.name)`. `localeCompare` with no locale argument resolves to the host's default locale and its ICU collation. The same corpus extracted on a Node server in `en_US` and in a browser in `de_DE` orders `\"AUC\"` / `\"Ärger\"` / `\"Adam\"` differently, and `String.prototype.localeCompare` is also 10–100× slower than a codepoint comparison. Since this is a tie-break at the `maxConcepts` cut, two environments can keep *different concepts* — not merely present them in a different order — which means the generated wiki can have a page on one machine and not on another for the same vault.",
     discovered:
@@ -327,7 +327,7 @@ for (const token of phrase.split(/[^A-Za-z0-9]+/)) {
     severity: "Low",
     score: 3.2,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "`const CANDIDATE = /\\b([A-Z][\\w-]*(?:\\s+[A-Z][\\w-]*){0,3})\\b/g` is module-level with the `g` flag, and `harvestGuessed` begins with `CANDIDATE.lastIndex = 0`. That is correct for a single synchronous scan and fragile the moment two `extract()` calls interleave — `extract` is `async`, and any future `await` inserted between `prepare` and `harvestGuessed` (a progress callback, an `AbortSignal` check, a chunked scheduler for large corpora) makes two documents share one cursor and silently drop matches from both.",
     discovered:
@@ -370,7 +370,7 @@ const speed: Finding[] = [
     severity: "Critical",
     score: 8.2,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "`prepare(document)` returns `{ id, raw, plain, plainLower, rawLower }`, and `extract()` does `const documents = request.documents.map(prepare)` — so **all** documents are prepared up front and all four strings stay reachable for the whole extraction. Four full text copies of the corpus, simultaneously: `raw`, `stripMarkdown(raw)`, `plain.toLowerCase()`, `raw.toLowerCase()`. A 2 000-page vault with 8 KB average notes is 16 MB of source text becoming ~64 MB of live strings, plus V8's two-byte rope overhead, on the same tab that is rendering the wiki preview.",
     discovered:
@@ -418,7 +418,7 @@ const speed: Finding[] = [
     severity: "Medium",
     score: 5.2,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "`harvestGuessed` is now fully position-carrying and calls `snippetAt` directly — WF-P04's main clause is genuinely fixed. `harvestStated` is not: `record(name)` calls `evidenceFor(doc, name)`, which does `doc.plainLower.indexOf(lower)` and then, on a miss, `doc.rawLower.indexOf(lower)`. Two full scans of the document per hashtag and per wikilink target, and the second scan only exists because `stripMarkdown` moved the text. A note with 80 tags costs 160 document scans.",
     discovered:
@@ -436,7 +436,7 @@ const speed: Finding[] = [
     severity: "Medium",
     score: 4.9,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "`prepare` runs `stripMarkdown`, which chains five `String.replace` calls over the full raw text (fenced code, inline code, images, wikilinks, headings). `harvestStated` then runs `withoutWikilinks(doc.raw)` — a sixth pass, re-blanking something `stripMarkdown` already handled — and feeds the result to `extractHashtags`, a seventh. Each `replace` allocates a new full-size string. Eight allocations and seven scans per document before the single `CANDIDATE` scan that produces the output.",
     discovered:
@@ -476,7 +476,7 @@ const speed: Finding[] = [
     severity: "Low",
     score: 3.0,
     area: "packages/core · ai-assistant · lexical extractor",
-    files: ["packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts"],
+    files: ["packages/core/src/features/ai-assistant/domain/parts.ts"],
     problem:
       "`prepare` computes `rawLower: raw.toLowerCase()` eagerly. It is read in exactly one place — the second `indexOf` inside `evidenceFor` — and only when the plain-text lookup misses, which happens only for a hashtag inside a code span or a wikilink target that `stripMarkdown` removed. Most documents pay a full extra string allocation and scan for a branch they never take.",
     discovered:

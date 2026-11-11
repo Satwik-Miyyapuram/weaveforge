@@ -1,4 +1,4 @@
-//! Port of packages/core/src/search/search-settings.ts. Pure.
+//! Port of packages/core/src/search/parts.ts. Pure.
 
 use serde_json::{Map, Value};
 

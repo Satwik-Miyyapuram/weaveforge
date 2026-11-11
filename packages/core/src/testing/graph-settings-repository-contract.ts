@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { GraphPersistedState } from "../features/relations/domain/graph-persisted-state.js";
-import { DEFAULT_GRAPH_PERSISTED_STATE } from "../features/relations/domain/graph-persisted-state.js";
-import type { IGraphSettingsRepository } from "../features/relations/domain/graph-settings-repository.js";
+import type {
+  GraphPersistedState,
+  IGraphSettingsRepository,
+} from "../features/relations/domain/parts.js";
+import { DEFAULT_GRAPH_PERSISTED_STATE } from "../features/relations/domain/parts.js";
 
 const sampleState = (): GraphPersistedState => ({
   ...DEFAULT_GRAPH_PERSISTED_STATE,

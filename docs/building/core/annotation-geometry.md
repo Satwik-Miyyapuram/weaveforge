@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/annotation_geometry.rs` (20 tests).
 Wasm: `crates/wf-wasm/src/reader_annotation_geometry.rs`.
-TS wrapper: `packages/wf-wasm/src/reader-annotation-geometry.ts` (re-exported from `index.ts`).
+TS wrapper: `packages/wf-wasm/src/wrappers-6.ts` (re-exported from `index.ts`).
 
 Groups annotations by the page they paint on, and projects one page's annotations
 to CSS-pixel boxes and strokes.

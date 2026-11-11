@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { highlightWithinExcerpt } from "../../../../wf-wasm/src/index.ts";
-import type { PdfLocus } from "../../../src/reader/anchor-shapes.js";
+import type { PdfLocus } from "../../../src/reader/parts.js";
 
 const excerpt =
   "Prior work established the baseline. We show attention is all you need. Later sections expand on this.";

@@ -1,5 +1,5 @@
 //! Merging a duplicate paper into the copy kept (wf-core `papers::paper_merge`). The TS
-//! wrapper in `packages/wf-wasm/src/papers-merge.ts` re-exports the generated types.
+//! wrapper in `packages/wf-wasm/src/wrappers-5.ts` re-exports the generated types.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -5,8 +5,7 @@
  * re-enforces the same rules authoritatively — this is never the only gate.
  */
 import { MemberPermissionError, type Member, type NewMemberInput, type Role } from "../domain/member.js";
-import type { IMemberRepository } from "../domain/member-repository.js";
-import type { IAccountProvisioner } from "../domain/account-provisioner.js";
+import type { IAccountProvisioner, IMemberRepository } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface CreateMemberDeps {

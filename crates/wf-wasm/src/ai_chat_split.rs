@@ -1,5 +1,5 @@
 //! Chat system-prompt split for JavaScript (wf-core `ai::chat_split`). The JS name matches
-//! `packages/wf-wasm/src/ai-chat-split.ts`.
+//! `packages/wf-wasm/src/wrappers-1.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};

@@ -3,8 +3,8 @@
  * (stamping started/finished timestamps), and record metrics.
  */
 import { type Experiment, type ExperimentStatus, type NewExperimentInput } from "../domain/experiment.js";
-import type { ExperimentPatch, IExperimentRepository } from "../domain/experiment-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { ExperimentPatch, IExperimentRepository } from "../domain/parts.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";
 

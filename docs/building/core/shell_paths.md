@@ -11,7 +11,7 @@ Rust home: `crates/wf-core/src/shell_paths.rs`, plus `mcp_client_configs` in `cr
 ## Where it is called
 
 - wasm exports `homeConfigPath` and `mcpClientConfigs` in `crates/wf-wasm/src/shell_paths.rs`.
-- Wrapper `packages/wf-wasm/src/shell-paths.ts`, typed through `rust()` in `packages/core/src/shared/rust.ts`.
+- Wrapper `packages/wf-wasm/src/wrappers-10.ts`, typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - `apps/shell/sidecar/src/home-config.ts` passes `path.sep`. `apps/shell/sidecar/src/mcp-rewrite.ts` passes `path.sep` and the platform. The exported TS names and signatures are unchanged.
 
 ## What stays in TS

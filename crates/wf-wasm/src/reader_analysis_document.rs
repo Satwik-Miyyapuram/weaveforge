@@ -2,7 +2,7 @@
 //! The JS name and shapes match `packages/core/src/features/reader/analysis/document-analysis.ts`.
 //!
 //! Pages and the outline cross as plain JS objects through serde. The TS wrapper in
-//! `packages/wf-wasm/src/reader-analysis-document.ts` applies the `outline = []` default.
+//! `packages/wf-wasm/src/wrappers-6.ts` applies the `outline = []` default.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

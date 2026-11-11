@@ -1,4 +1,4 @@
-//! wasm exports for `pitch_share_card` (TS: `packages/wf-wasm/src/pitch-share-card.ts`).
+//! wasm exports for `pitch_share_card` (TS: `packages/wf-wasm/src/wrappers-6.ts`).
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

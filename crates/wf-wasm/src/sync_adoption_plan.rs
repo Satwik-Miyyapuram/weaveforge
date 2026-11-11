@@ -1,5 +1,5 @@
 //! Adoption rename plan for JavaScript (wf-core `sync::adoption_plan`). The JS name
-//! matches `packages/wf-wasm/src/sync-adoption-plan.ts`.
+//! matches `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

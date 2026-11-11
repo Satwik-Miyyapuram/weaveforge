@@ -1,5 +1,5 @@
 //! Overleaf export package steps for JavaScript (wf-core `overleaf_export_package`). The TS
-//! wrapper in `packages/wf-wasm/src/overleaf-export-package.ts` applies the types.
+//! wrapper in `packages/wf-wasm/src/wrappers-4.ts` applies the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;

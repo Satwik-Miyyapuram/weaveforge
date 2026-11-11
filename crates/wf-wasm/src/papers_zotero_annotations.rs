@@ -1,5 +1,5 @@
 //! Zotero annotation and note rows (wf-core `papers::zotero_annotations`). The TS wrapper
-//! in `packages/wf-wasm/src/papers-zotero-annotations.ts` is what callers import.
+//! in `packages/wf-wasm/src/wrappers-5.ts` is what callers import.
 
 #![allow(
     clippy::needless_pass_by_value,

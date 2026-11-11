@@ -2,7 +2,7 @@
 // Run from the repo root on Node 24 with TZ=UTC (offsetless timestamps are local time in JS):
 //   TZ=UTC node crates/wf-core/tests/goldens/sync-merge.mjs
 import { writeFileSync } from "node:fs";
-import { mergeRows, sameValue } from "../../../../packages/core/src/shared/three-way-merge.ts";
+import { mergeRows, sameValue } from "../../../../packages/core/src/shared/parts.ts";
 
 const instants = [
   "2026-01-01T10:00:00Z", "2026-01-01T10:00:00.000Z", "2026-01-01 10:00:00+00", "2026-01-01 10:00:00+00:00",

@@ -1,5 +1,5 @@
 //! Appearance preferences for JavaScript (wf-core `settings::user_appearance`). JS names
-//! match `packages/core/src/features/settings/domain/user-appearance.ts`.
+//! match `packages/core/src/features/settings/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

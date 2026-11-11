@@ -1,6 +1,6 @@
 //! Reader ink stroke geometry for JavaScript: capture filtering, simplification, widths,
 //! grouping, hit-testing. Each export wraps a `wf_core::reader::ink_stroke` function; the JS
-//! shapes match `packages/core/src/reader/ink-stroke.ts`.
+//! shapes match `packages/core/src/reader/parts.ts`.
 //!
 //! Flat point arrays cross as `Float64Array`s; nested paths and option objects cross through serde.
 

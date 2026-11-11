@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { KEEP_ALL_BELOW_STEP } from "../../../src/features/experiments/domain/downsample-metrics.js";
+import { KEEP_ALL_BELOW_STEP } from "../../../src/features/experiments/domain/parts.js";
 import { isOnSamplingGrid, planSeriesIngest, stepsToPrune, strideForStep } from "../../../../wf-wasm/src/index.ts";
 
 test("nothing is pruned from an empty series", () => {

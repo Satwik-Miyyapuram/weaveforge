@@ -4,7 +4,7 @@ Rust port of the pure rules in `apps/shell/sidecar/src/app-protocol.ts`.
 
 - Rust: `crates/wf-core/src/app_protocol.rs`. Tests: `crates/wf-core/tests/app_protocol.rs`.
 - wasm: `crates/wf-wasm/src/app_protocol.rs` exports `appFileCandidates`, `appCanonicalUrl`, `appIsPageRequest`, `appHeaders`, `appContentTypeFor`.
-- TS wrapper: `packages/wf-wasm/src/rust-exports-1.ts`, typed by the wasm package's generated declarations (`rust()` in `packages/core/src/shared/rust.ts`).
+- TS wrapper: `packages/wf-wasm/src/wrappers-9.ts`, typed by the wasm package's generated declarations (`rust()` in `packages/core/src/shared/rust.ts`).
 - Shim: `apps/shell/sidecar/src/app-protocol.ts`. It keeps the `APP_SCHEME`, `APP_HOST` and `APP_ORIGIN` constants, and checks each candidate on disk with `isFile`.
 
 ## What Rust decides

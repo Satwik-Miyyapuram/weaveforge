@@ -8,8 +8,8 @@
  */
 
 import { createPaper, type NewPaperInput, type Paper, type PaperStatus } from "../domain/paper.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import type { IPaperRepository } from "../domain/paper-repository.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
+import type { IPaperRepository } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 import {
   MetadataResolver,

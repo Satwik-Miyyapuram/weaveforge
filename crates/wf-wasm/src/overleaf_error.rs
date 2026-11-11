@@ -1,5 +1,5 @@
 //! Overleaf error text redaction (wf-core `overleaf::error_redact`). The TS wrapper
-//! `packages/wf-wasm/src/overleaf-error.ts` formats the thrown value before this runs.
+//! `packages/wf-wasm/src/wrappers-4.ts` formats the thrown value before this runs.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::overleaf::error_redact;

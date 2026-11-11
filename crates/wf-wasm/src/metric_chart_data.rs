@@ -1,5 +1,5 @@
 //! Metric chart data for JavaScript (wf-core `metric_chart_data`). The TS wrapper in
-//! `packages/wf-wasm/src/metric-chart-data.ts` applies the types.
+//! `packages/wf-wasm/src/wrappers-4.ts` applies the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;

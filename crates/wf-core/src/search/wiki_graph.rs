@@ -1,4 +1,4 @@
-//! Port of packages/core/src/search/wiki-graph.ts. Pure.
+//! Port of packages/core/src/search/parts.ts. Pure.
 //!
 //! Nodes are `kind:id`, so they line up with search document ids. Edges come from wikilinks,
 //! explicit paper relations and shared tags. Output follows insertion order, as the JS `Map`

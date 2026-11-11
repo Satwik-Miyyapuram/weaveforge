@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { alignSeries, emaSmooth, tickFormat } from "../src/metric-chart-data.js";
+import { alignSeries, emaSmooth, tickFormat } from "../src/wrappers-4.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });

@@ -5,7 +5,7 @@ import { writeFileSync } from "node:fs";
 import { diffBody, mergeHunks, writeConflictMarkers, hasConflictMarkers } from "../../../../packages/core/src/workspace/text-diff.ts";
 import { digestText, changedSide } from "../../../../packages/core/src/workspace/change-origin.ts";
 import { planDelta, applyDelta } from "../../../../packages/core/src/workspace/snapshot-delta.ts";
-import { writeFrontmatter, readFrontmatter, frontmatterString, frontmatterList } from "../../../../packages/core/src/workspace/frontmatter.ts";
+import { writeFrontmatter, readFrontmatter, frontmatterString, frontmatterList } from "../../../../packages/core/src/workspace/parts.ts";
 import * as L from "../../../../packages/core/src/workspace/folder-layout.ts";
 
 const pairs = [

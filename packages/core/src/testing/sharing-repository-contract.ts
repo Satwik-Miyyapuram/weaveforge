@@ -6,8 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { IShareRepository } from "../features/sharing/domain/share-repository.js";
-import type { ICommentRepository } from "../features/sharing/domain/comment-repository.js";
+import type { ICommentRepository, IShareRepository } from "../features/sharing/domain/parts.js";
 
 export function runShareRepositoryContract(
   label: string,

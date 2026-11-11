@@ -3,11 +3,10 @@
  */
 
 import type { NewVaultPageInput, VaultPage } from "../../../shared/core-contract.js";
-import { VaultPageValidationError } from "../../../shared/errors.js";
+import { NotFoundError, VaultPageValidationError } from "../../../shared/errors.js";
 import type { IVaultPageRepository } from "../domain/vault-page-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import { NotFoundError } from "../../../shared/errors.js";
-import { assertNotUnder } from "../../../shared/tree.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
+import { assertNotUnder } from "../../../shared/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface EditVaultPageInput {

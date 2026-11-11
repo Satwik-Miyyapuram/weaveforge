@@ -7,7 +7,7 @@
 // dictionaries of every language the user has installed. The helper asks it
 // one question per reading — is this a word? — and hands the answers to the
 // client, which picks among the readings and derives a confidence from them
-// (packages/core/src/ink/decode.ts). Nothing is decided here.
+// (packages/core/src/ink/parts.ts). Nothing is decided here.
 //
 // Source-generated COM (`GeneratedComInterface`) rather than `[ComImport]`:
 // `PublishTrimmed` switches the runtime's built-in COM interop off, and the

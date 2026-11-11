@@ -1,5 +1,5 @@
 //! Notes import helpers (wf-core `vault::import_links`). The TS wrappers in
-//! `packages/wf-wasm/src/vault-import-links.ts` build the rename map from normalised titles.
+//! `packages/wf-wasm/src/wrappers-11.ts` build the rename map from normalised titles.
 
 use std::collections::BTreeMap;
 

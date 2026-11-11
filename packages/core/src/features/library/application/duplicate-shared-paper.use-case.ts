@@ -1,9 +1,9 @@
-import type { IShareRepository } from "../../sharing/domain/share-repository.js";
+import type { IShareRepository } from "../../sharing/domain/parts.js";
 
 import type { AddPaperUseCase } from "../../papers/application/add-paper.use-case.js";
-import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
+import type { IPaperRepository } from "../../papers/domain/parts.js";
 import type { Paper } from "../../papers/domain/paper.js";
-import { LibraryPinError } from "../domain/library-pin.js";
+import { LibraryPinError } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface DuplicateSharedPaperDeps {

@@ -5,7 +5,7 @@ import { InMemoryTagRepository, InMemoryPaperTagRepository } from "../../../src/
 import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
 import { UpdatePaperUseCase } from "../../../src/features/papers/application/update-paper.use-case.js";
 import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 import { NotFoundError } from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 

@@ -1,4 +1,4 @@
-//! Port of the ranking rules in packages/core/src/search/search-tuning.ts. Pure: the
+//! Port of the ranking rules in packages/core/src/search/parts.ts. Pure: the
 //! reference time for recency is passed in, not read from the clock.
 
 use crate::sync::instant::parse_instant;

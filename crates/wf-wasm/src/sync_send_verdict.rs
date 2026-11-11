@@ -1,5 +1,5 @@
 //! Send verdict and missing-id rules for JavaScript (wf-core `sync::send_verdict`).
-//! The JS names match `packages/wf-wasm/src/sync-send-verdict.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-11.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

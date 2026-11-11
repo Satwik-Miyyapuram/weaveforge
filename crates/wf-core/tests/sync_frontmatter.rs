@@ -1,5 +1,5 @@
 //! Golden, ported and property tests for the frontmatter writer and reader.
-//! Goldens were printed by `packages/core/src/workspace/frontmatter.ts` through
+//! Goldens were printed by `packages/core/src/workspace/parts.ts` through
 //! `node crates/wf-core/tests/goldens/sync-text.mjs`; ported cases come from
 //! `packages/core/test/workspace/workspace-roundtrip.test.ts` and
 //! `packages/core/test/workspace/obsidian-interop.test.ts`.

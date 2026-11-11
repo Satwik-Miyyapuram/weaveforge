@@ -1,5 +1,5 @@
 //! Citation-alert short form for JavaScript (wf-core `logbook::collapse_alert`). The TS
-//! wrapper in `packages/wf-wasm/src/logbook-collapse-alert.ts` applies the types.
+//! wrapper in `packages/wf-wasm/src/wrappers-3.ts` applies the types.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -1,5 +1,5 @@
 //! The ink pointer gesture (wf-core `ink::gesture`), re-exported from
-//! `packages/wf-wasm/src/ink-gesture.ts`. The route picker returns each step as a
+//! `packages/wf-wasm/src/wrappers-3.ts`. The route picker returns each step as a
 //! string: `"ask:<question>"` or `"route:<route>"`, with `"route:none"` leaving the
 //! down to the caller. The DOM, pointer events and the eraser cursor stay in
 //! `apps/web/src/features/ink/application/ink-gesture.ts`.

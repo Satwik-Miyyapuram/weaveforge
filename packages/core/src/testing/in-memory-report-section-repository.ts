@@ -5,7 +5,7 @@
  */
 
 import { type ReportSection, type ReportSectionFilter, type ReportSectionTreeNode } from "../features/report/domain/report-section.js";
-import type { IReportSectionRepository } from "../features/report/domain/report-section-repository.js";
+import type { IReportSectionRepository } from "../features/report/domain/parts.js";
 import { rust } from "../shared/rust.js";
 
 export class InMemoryReportSectionRepository

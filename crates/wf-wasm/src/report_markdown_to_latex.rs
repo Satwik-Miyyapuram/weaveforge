@@ -1,8 +1,8 @@
 //! Report Markdown to LaTeX for JavaScript (wf-core `report::markdown_to_latex`). The JS names
-//! and shapes match `packages/core/src/features/report/domain/markdown-to-latex.ts`.
+//! and shapes match `packages/core/src/features/report/domain/parts.ts`.
 //!
 //! The options cross as a plain JS object through serde. The TS wrapper in
-//! `packages/wf-wasm/src/report-markdown-to-latex.ts` turns the `citeByTitle` map into an object.
+//! `packages/wf-wasm/src/wrappers-8.ts` turns the `citeByTitle` map into an object.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

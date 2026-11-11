@@ -17,7 +17,7 @@ The use case `create-ai-session-grant.use-case.ts` calls it through `rust().star
 - Expiry, `requiresConfirmationForWrites: true` and the `startedAt` timestamp.
 
 Source: `crates/wf-core/src/ai/session_grant.rs`. Wasm: `crates/wf-wasm/src/ai_session_grant.rs`
-(`startAiSession`). Wrapper: `packages/wf-wasm/src/ai-session-grant.ts`.
+(`startAiSession`). Wrapper: `packages/wf-wasm/src/wrappers-1.ts`.
 
 ## What stays in TypeScript
 

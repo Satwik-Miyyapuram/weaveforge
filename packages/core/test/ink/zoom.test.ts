@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_ZOOM_MAX, INK_ZOOM_MIN, INK_ZOOM_STEP } from "../../src/ink/zoom.js";
+import { INK_ZOOM_MAX, INK_ZOOM_MIN, INK_ZOOM_STEP } from "../../src/ink/parts.js";
 import * as ink from "../../src/ink/index.js";
 import { rust } from "../../src/shared/rust.js";
 

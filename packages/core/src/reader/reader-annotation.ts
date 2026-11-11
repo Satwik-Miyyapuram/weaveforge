@@ -1,6 +1,6 @@
 /** Types for reader-annotation. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { WorkspaceAnnotation } from "../workspace/workspace-snapshot.js";
-import type { CombinedPdfAnchor } from "./anchor-shapes.js";
+import type { CombinedPdfAnchor } from "./parts.js";
 
 /** Provenance of an annotation shown in the reader. */
 export type AnnotationOrigin = "zotero" | "local";

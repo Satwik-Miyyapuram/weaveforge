@@ -1,5 +1,5 @@
 //! Metric row mapping for JavaScript (wf-core `metric_rows`). The TS wrapper in
-//! `packages/wf-wasm/src/metric-rows.ts` applies the types.
+//! `packages/wf-wasm/src/wrappers-4.ts` applies the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;

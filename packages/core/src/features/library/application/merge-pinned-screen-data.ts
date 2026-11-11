@@ -1,5 +1,5 @@
 import type { Share, ShareableType } from "../../../shared/core-contract.js";
-import type { LibraryPin } from "../domain/library-pin.js";
+import type { LibraryPin } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface PinnedScreenMerge<TSummary extends { id: string }> {

@@ -62,14 +62,14 @@ chosen.
 
 **What to build.**
 
-1. A new `packages/core/src/features/report/domain/cite-key.ts`, which moves
+1. A new `packages/core/src/features/report/domain/parts.ts`, which moves
    `resolveCiteKey` and the dedupe wrapper out of `apps/web`. Pure, and `apps/web`
    imports it back. Net lines: roughly zero, and one duplication fewer for
    `check:dry` to worry about.
-2. A new `packages/core/src/features/report/domain/bib-entries.ts`: a small BibTeX
+2. A new `packages/core/src/features/report/domain/parts.ts`: a small BibTeX
    reader: entry type, key, fields, brace balance. Not a full parser; the job is
    to answer questions about entries, not to re-render them.
-3. A new `packages/core/src/features/report/domain/bibliography-report.ts` — the
+3. A new `packages/core/src/features/report/domain/parts.ts` — the
    actual check, a pure function from `{ sources, entries }` to findings:
    - `\cite` keys with no entry (**the one Overleaf cannot answer**)
    - entries the draft never cites (**the other one**)

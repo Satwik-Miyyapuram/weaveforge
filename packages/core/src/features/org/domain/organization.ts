@@ -1,5 +1,5 @@
 /** Types for organization. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { OrgInviteRole } from "./invite-code.js";
+import type { OrgInviteRole } from "./parts.js";
 import { NotFoundError, PermissionError, ValidationError } from "../../../shared/errors.js";
 
 export interface Organization {

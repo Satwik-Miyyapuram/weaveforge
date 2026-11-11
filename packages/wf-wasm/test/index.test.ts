@@ -92,7 +92,7 @@ import {
   fuseRankings as rawFuseRankings,
 } from "../pkg/wf_wasm.js";
 import { parsePaperFieldValue } from "../src/index.js";
-import { computeRollupsForPapers } from "../src/papers-compute-rollup.js";
+import { computeRollupsForPapers } from "../src/wrappers-5.js";
 import {
   findDuplicateGroups,
   isConferenceCopy,
