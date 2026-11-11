@@ -7,7 +7,6 @@
  */
 import {
   agreementBetween as rawAgreementBetween,
-  annotationRowToDomain as rawAnnotationRowToDomain,
   checkBibliography as rawCheckBibliography,
   cloneLinks as rawCloneLinks,
   commitUrl as rawCommitUrl,
@@ -168,20 +167,6 @@ export type {
   RelatedPaperKeys,
   ScreeningDecisionRow,
 } from "./bindings.js";
-
-// --- reader-annotation-rows ---
-/**
- * Stored reader annotation row to domain annotation (Rust `reader::annotation_rows`), re-exported
- * from index.ts.
- */
-/**
- * The row as a `ReaderAnnotation`.
- *
- * @throws `Error` (`Invalid annotation type in store: <type>`) when the row's type is unknown.
- */
-export function annotationRowToDomain(row: ReaderAnnotationRow): ReaderAnnotation {
-  return rawAnnotationRowToDomain(row) as ReaderAnnotation;
-}
 
 // --- reader-selection ---
 /**
