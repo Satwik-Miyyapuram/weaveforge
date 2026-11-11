@@ -1,7 +1,7 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { sectionOr } from "../application/section-fallback";
+import { sectionOr } from "../application/workspace-load";
 
 interface Log {
   level: string;

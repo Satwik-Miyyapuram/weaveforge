@@ -1,12 +1,11 @@
 import { errorMessage, type Paper } from "@weaveforge/core";
-import type { DocumentPageText } from "@weaveforge/wasm";
+import type { DocumentPageText, PaperHtmlPage } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import {
   pdfBytesForSource,
   resolvePaperPdfSourceForReader,
 } from "@/features/reader/application/resolve-paper-pdf-for-reader";
-import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { savePdfTextDurably } from "./pdf-text-folder";
 
 /**

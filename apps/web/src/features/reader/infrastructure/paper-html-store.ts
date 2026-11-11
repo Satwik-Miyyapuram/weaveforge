@@ -8,13 +8,12 @@
  */
 
 import { type IWorkspaceFs } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, typedCore } from "@/lib/rust-core";
 import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { PAPER_HTML_DB_NAME } from "./local-cache-names";
 import { sanitizePaperHtml } from "./sanitize-paper-html";
-import { typedCore } from "@/lib/rust-core";
 
 export interface PaperHtmlStore {
   get(paperId: string): Promise<PaperHtmlPage | null>;

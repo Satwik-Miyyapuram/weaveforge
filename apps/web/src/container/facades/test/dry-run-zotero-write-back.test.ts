@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DryRunZoteroAnnotationWriteBack } from "../dry-run-zotero-write-back";
+import { DryRunZoteroAnnotationWriteBack } from "../zotero";
 
 test("DryRunZoteroAnnotationWriteBack: live push throws before any core call", async () => {
   const dryRun = new DryRunZoteroAnnotationWriteBack();

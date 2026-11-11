@@ -11,14 +11,14 @@ import assert from "node:assert/strict";
 
 import { InkPenGate } from "../application/pen-gate";
 import { PenCaptureSession, type PenPointerEvent } from "../application/use-pen-capture";
-import { type InkStrokeHeader } from "../application/capture-protocol";
-import { NibFilter } from "../application/one-euro-filter";
 import {
   InkSamplePool,
   InkSampleWriter,
+  type InkStrokeHeader,
   type InkWorkerMessage,
   readInkSamples,
 } from "../application/capture-protocol";
+import { NibFilter } from "../application/one-euro-filter";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

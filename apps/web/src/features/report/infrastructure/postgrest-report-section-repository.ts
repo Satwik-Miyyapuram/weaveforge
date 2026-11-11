@@ -1,9 +1,74 @@
-import { type IReportSectionRepository, type ReportSection, type ReportSectionFilter, type ReportSectionTreeNode } from "@weaveforge/core";
-import { reportSectionToDomain, reportSectionToRow, type ReportSectionRow } from "./report-section-rows";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { typedCore } from "@/lib/rust-core";
+import type {
+  IReportSectionRepository,
+  ReportSection,
+  ReportSectionFilter,
+  ReportSectionTreeNode,
+  ReportStatus,
+} from "@weaveforge/core";
 
+// --- report-section-rows ---
+/**
+ * How report section rows are stored, and how they map to the domain type.
+ *
+ * Shared by both backend providers, which talk to the same table through
+ * different clients.
+ */
+
+export interface ReportSectionRow {
+  id: string;
+  title: string;
+  section_no: string | null;
+  parent_id: string | null;
+  status: ReportStatus;
+  word_count: number;
+  target_words: number | null;
+  deadline: string | null;
+  draft_url: string | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export function reportSectionToDomain(row: ReportSectionRow): ReportSection {
+  return {
+    id: row.id,
+    title: row.title,
+    sectionNo: row.section_no ?? undefined,
+    parentId: row.parent_id ?? undefined,
+    status: row.status,
+    wordCount: row.word_count,
+    targetWords: row.target_words ?? undefined,
+    deadline: row.deadline ?? undefined,
+    draftUrl: row.draft_url ?? undefined,
+    notes: row.notes ?? undefined,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+export function reportSectionToRow(s: ReportSection): Record<string, unknown> {
+  return {
+    id: s.id,
+    title: s.title,
+    section_no: s.sectionNo ?? null,
+    parent_id: s.parentId ?? null,
+    status: s.status,
+    word_count: s.wordCount,
+    target_words: s.targetWords ?? null,
+    deadline: s.deadline ?? null,
+    draft_url: s.draftUrl ?? null,
+    notes: s.notes ?? null,
+    sort_order: s.sortOrder,
+    created_at: s.createdAt,
+  };
+}
+
+// --- postgrest-report-section-repository ---
 /**
  * PostgREST implementation of IReportSectionRepository.
  *
@@ -69,4 +134,3 @@ export class PostgrestReportSectionRepository extends ProjectRepository
     await deleteRowById(this.db, TABLE, id);
   }
 }
-

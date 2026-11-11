@@ -10,9 +10,10 @@
 import { app, dialog } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import v8 from "node:v8";
+import vm from "node:vm";
 import { rust, WORKSPACE_META_DIR } from "@weaveforge/core";
 import { CHANNELS } from "../../shell/sidecar/src/channels";
-import { collectGarbage } from "./collect-garbage";
 import type { IpcSurface } from "../../shell/sidecar/src/ipc-guard";
 import type { LocalClient } from "../../shell/sidecar/src/local-db";
 import { LocalDbBackups, readBackup } from "../../shell/sidecar/src/local-db-backup";
@@ -363,4 +364,38 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   deps.ipc.handle(CHANNELS.dbReset, () => localDb.reset());
 
   return { localDb, shutDownLocalDb };
+}
+
+// --- collect-garbage ---
+/**
+ * Two full garbage collections, one tick apart.
+ *
+ * Main has no `gc` global, and `--js-flags` cannot give it one: Electron reads
+ * that switch for renderers. The flag is switched on just long enough for a
+ * fresh context to hand over its `gc`, then off again, so nothing else in
+ * main ever sees one.
+ *
+ * Two passes because one is not enough in Electron main: the first runs the
+ * weak callbacks that let go of the boot's external buffers, and only the
+ * second, after those callbacks have run, frees them (measured: 39 -> 39 MB
+ * external after one pass, 21 MB after two). Resolves to whether both ran.
+ */
+export async function collectGarbage(): Promise<boolean> {
+  let gc: () => void;
+  try {
+    v8.setFlagsFromString("--expose-gc");
+    gc = vm.runInNewContext("gc") as () => void;
+  } catch {
+    return false;
+  } finally {
+    v8.setFlagsFromString("--no-expose-gc");
+  }
+  try {
+    gc();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    gc();
+    return true;
+  } catch {
+    return false;
+  }
 }

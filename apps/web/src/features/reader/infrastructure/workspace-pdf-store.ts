@@ -10,8 +10,7 @@
  */
 
 import { type IPdfByteCache, type IWorkspaceFs } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { loadCore, typedCore } from "@/lib/rust-core";
 
 export class WorkspacePdfStore implements IPdfByteCache {
   /**

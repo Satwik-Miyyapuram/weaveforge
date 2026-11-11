@@ -8,7 +8,7 @@ import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { Field } from "@/components/field";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { linkSentence, sortPapersByTitle } from "./relation-phrase";
 import { readyCore } from "@/lib/rust-core";
 

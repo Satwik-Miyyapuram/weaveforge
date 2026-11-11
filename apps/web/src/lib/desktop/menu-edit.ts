@@ -4,7 +4,7 @@
  * them on whatever has focus, because a webview has no native edit roles.
  */
 
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 
 /** The part of `document` the edit commands use. */
 export interface EditDocument {

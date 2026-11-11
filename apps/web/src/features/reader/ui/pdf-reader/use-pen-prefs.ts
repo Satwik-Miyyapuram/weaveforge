@@ -23,9 +23,13 @@ import {
   INK_PEN_WIDTH,
   INK_PEN_WIDTHS,
 } from "@weaveforge/core";
-import { INK_TOOL_CURSORS, inkToolCursor, type InkCursorInk } from "@/features/ink";
-import { readToolColours } from "@/features/ink";
-import { type InkBarTool } from "@/features/ink";
+import {
+  INK_TOOL_CURSORS,
+  type InkBarTool,
+  type InkCursorInk,
+  inkToolCursor,
+  readToolColours,
+} from "@/features/ink";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 

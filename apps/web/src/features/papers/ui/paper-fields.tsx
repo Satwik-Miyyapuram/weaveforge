@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
+import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast/index";
 import {
   PAPER_FIELD_KINDS,
   type PaperSummary,

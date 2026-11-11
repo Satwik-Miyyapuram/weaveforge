@@ -34,7 +34,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PromptDialog } from "@/components/prompt-dialog";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkHand, type InkPaper, type InkNoteMeta, type RecognisedLine } from "@weaveforge/core";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 import {
   INK_RENDER_COLOURS,
@@ -79,7 +79,6 @@ import { usePageExport } from "./use-page-export";
 import { pageGapPx } from "./ink-bar-more";
 import { usePageGap } from "./use-page-gap";
 import type { InkHostProps } from "./ink-host-types";
-import { typedCore } from "@/lib/rust-core";
 
 export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 

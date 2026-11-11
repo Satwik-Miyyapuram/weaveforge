@@ -11,7 +11,7 @@ import { Button } from "@/components/button";
 import { MarkdownField } from "@/components/markdown-field";
 import { logImageUpload } from "./log-image-upload";
 import { readyCore } from "@/lib/rust-core";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { formatError } from "@/lib/format-error";
 
 /**

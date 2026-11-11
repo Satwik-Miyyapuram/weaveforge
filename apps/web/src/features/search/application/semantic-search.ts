@@ -1,18 +1,68 @@
+import { getContainer } from "@/bootstrap";
+import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import { errorMessage, type SearchDoc } from "@weaveforge/core";
 import type { SemanticStatus as SemanticStatusInput } from "@weaveforge/wasm";
-import { getContainer } from "@/bootstrap";
-import { readyCore } from "@/lib/rust-core";
-import { SemanticIndex, type EmbedProgress } from "./semantic-index";
-import { WorkerEmbedder, supportsLocalEmbedding, type WorkerEmbedderOptions } from "../infrastructure/worker-embedder";
-import { NativeEmbedder, nativeEmbedBridge } from "../infrastructure/native-embedder";
-import { loadWithFallback } from "../infrastructure/load-with-fallback";
-import { vectorStore } from "../infrastructure/vector-store";
 import { targetEmbeddingModel } from "../infrastructure/embedding-models";
-import { desktop } from "@/lib/desktop/desktop-bridge";
-import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
-import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
+import { nativeEmbedBridge, NativeEmbedder } from "../infrastructure/native-embedder";
+import { vectorStore } from "../infrastructure/vector-store";
+import {
+  supportsLocalEmbedding,
+  WorkerEmbedder,
+  type WorkerEmbedderOptions,
+} from "../infrastructure/worker-embedder";
 import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
+import { type EmbedProgress, SemanticIndex } from "./semantic-index";
 
+// --- load-with-fallback ---
+/** Something that loads before use and can be released. */
+export interface Loadable {
+  load(): Promise<void>;
+  dispose(): void;
+}
+
+/**
+ * Load `primary`; when it fails and there is a `fallback`, release `primary`
+ * and load the fallback instead. Without one, the failure is rethrown and
+ * `primary` stays the caller's to release. A fallback that fails is released
+ * here, since nothing else holds it.
+ *
+ * Once `signal` aborts, no fallback is built (the primary stays the caller's),
+ * and a fallback that finishes loading after it is released; both reject with
+ * the signal's reason.
+ *
+ * The desktop shell uses this to fall back from its native encoder to the
+ * web worker, so a broken native runtime never turns semantic search off.
+ */
+export async function loadWithFallback<T extends Loadable>(
+  primary: T,
+  fallback: (() => T) | null,
+  onFallback: (error: unknown) => void = () => {},
+  signal?: AbortSignal,
+): Promise<T> {
+  try {
+    await primary.load();
+    return primary;
+  } catch (error) {
+    if (!fallback) throw error;
+    signal?.throwIfAborted();
+    onFallback(error);
+    primary.dispose();
+    const next = fallback();
+    try {
+      await next.load();
+      signal?.throwIfAborted();
+    } catch (fallbackError) {
+      next.dispose();
+      throw fallbackError;
+    }
+    return next;
+  }
+}
+
+// --- semantic-search ---
 /**
  * Turning semantic search on and off.
  *

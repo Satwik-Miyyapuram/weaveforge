@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isAccountProxyRequest, proxyAccount } from "../src/account-proxy";
-import { answerRelay } from "../src/app-relays";
+import { isAccountProxyRequest, proxyAccount } from "../src/main-setup";
+import { answerRelay } from "../src/main-setup";
 import { BLOB_UPSTREAM } from "../src/blob-proxy";
 import type { ProxyFetch } from "../src/proxy-shared";
 

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { VaultFacade } from "../facades/vault";
+import { VaultFacade } from "../facades/index";
 
 type Deps = ConstructorParameters<typeof VaultFacade>[0];
 

@@ -1,4 +1,4 @@
-//! Picks the relay for an `app://` request, in the TS order. Ported from apps/desktop/src/app-relays.ts.
+//! Picks the relay for an `app://` request, in the TS order. Ported from apps/desktop/src/main-setup.ts.
 
 use std::time::Duration;
 

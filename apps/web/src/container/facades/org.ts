@@ -6,9 +6,9 @@ import type {
   IMemberRepository,
   IMilestoneRepository,
   IReportSectionRepository,
+  ISupervisionRepository,
   Member,
 } from "@weaveforge/core";
-import type { ISupervisionRepository } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 
 export class OrgFacade {

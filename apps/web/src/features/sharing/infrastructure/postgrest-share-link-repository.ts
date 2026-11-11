@@ -2,10 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   IShareLinkRepository,
   ResolvedShareLink,
+  ShareableType,
   ShareLink,
   ShareLinkSaveInput,
 } from "@weaveforge/core";
-import type { ShareableType } from "@weaveforge/core";
 
 import { readyCore } from "@/lib/rust-core";
 

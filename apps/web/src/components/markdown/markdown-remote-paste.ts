@@ -6,8 +6,7 @@ import type { PasteSettings } from "@weaveforge/wasm";
 import { outboundFetch } from "@/lib/outbound-fetch";
 import { insertPending, resolvePending, trackPending } from "@/components/markdown/markdown-pending-insert";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * What happens after a URL has been pasted.

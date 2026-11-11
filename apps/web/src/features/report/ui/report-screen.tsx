@@ -26,7 +26,7 @@ import { navTransition } from "@/lib/view-transition";
 import { SectionRow, SectionCard } from "./section-card";
 import { progressOf, collectSectionIds, patchSectionInTree, flattenParentOptions, sectionsEyebrow } from "./report-section-tree";
 import { Button } from "@/components/button";
-import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { deferDelete, useHiddenKeys } from "@/lib/toast/index";
 import { sectionKey } from "./remove-section";
 
 type ReportViewData = ReportScreenData & {

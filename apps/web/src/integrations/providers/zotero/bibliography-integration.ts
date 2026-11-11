@@ -1,14 +1,15 @@
-import type { IPaperRepository, ManageTagsUseCase } from "@weaveforge/core";
-import { relayUrl } from "@/lib/relay-url";
-import type { Paper } from "@weaveforge/core";
 import type {
   BibliographyAnnotationPull,
   BibliographyCredentials,
   IBibliographyIntegration,
+  IPaperRepository,
+  ISettingsRepository,
+  ManageTagsUseCase,
+  Paper,
 } from "@weaveforge/core";
+import { relayUrl } from "@/lib/relay-url";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
 import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";
-import type { ISettingsRepository } from "@weaveforge/core";
 import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
 import { getDataClient } from "@/lib/data-client";
 import { typedCore } from "@/lib/rust-core";

@@ -13,13 +13,29 @@ import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import { loadWorkspace, type Document } from "../application/workspace-load";
-import { breadcrumbs, duplicatePlan, outlineOf } from "@weaveforge/wasm";
+import {
+  breadcrumbs,
+  creationKindFor,
+  creationTarget,
+  type Draft,
+  draftMakes,
+  duplicatePlan,
+  hasInkView,
+  hasLazyBody,
+  isCreatableKind,
+  isDocumentKind,
+  kindOwner,
+  linkGroupOf,
+  openingTab,
+  openModeFor,
+  outlineOf,
+  segmentsFor,
+} from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
-import { creationKindFor, creationTarget, draftMakes, type Draft } from "@weaveforge/wasm";
 import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/open-notes";
@@ -27,7 +43,6 @@ import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { requestShortcuts } from "@/lib/palette-actions";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "@weaveforge/wasm";
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { isMacPlatform } from "@/lib/shortcut-label";

@@ -17,7 +17,7 @@ import { readyCore } from "@/lib/rust-core";
 import { Markdown } from "@/components/markdown/markdown";
 import { StatusSelect } from "@/components/status-select";
 import { runReported } from "@/lib/run-reported";
-import { useHiddenKeys } from "@/lib/toast";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { removeSectionLater, sectionKey } from "./remove-section";
 import { useRef, useState } from "react";
 import { IconButton } from "@/components/button";

@@ -6,7 +6,7 @@ import { proxyHtml } from "../src/html-proxy";
 import { proxyPdf } from "../src/pdf-proxy";
 import { proxySemanticScholar } from "../src/semantic-scholar-proxy";
 import { proxyBlob } from "../src/blob-proxy";
-import { proxyAccount } from "../src/account-proxy";
+import { proxyAccount } from "../src/main-setup";
 
 /**
  * Every shell proxy refuses the same way, through one `refuse` (37-13, 38-13):

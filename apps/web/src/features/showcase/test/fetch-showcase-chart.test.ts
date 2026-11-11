@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fetchShowcaseChart } from "../application/fetch-showcase-chart";
+import { fetchShowcaseChart } from "../application/load-local-demo";
 
 const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
 

@@ -1,4 +1,4 @@
-//! Tests for the relay router (ported from apps/desktop/src/app-relays.ts, answerRelay).
+//! Tests for the relay router (ported from apps/desktop/src/main-setup.ts, answerRelay).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 #[path = "common/upstream.rs"]

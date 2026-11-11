@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { removeLater, useHiddenKeys } from "@/lib/toast";
+import { removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { Modal } from "@/components/modal";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";

@@ -11,7 +11,7 @@ import { test } from "node:test";
 import type { Paper } from "@weaveforge/core";
 import { InMemoryPaperRepository } from "@weaveforge/core/testing";
 
-import { cachePaperRepository } from "../cached-paper-repository";
+import { cachePaperRepository } from "../../../../backend/providers/postgrest/wire-postgrest-backend";
 
 const paper: Paper = {
   id: "p1",

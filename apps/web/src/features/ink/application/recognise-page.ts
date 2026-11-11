@@ -19,8 +19,7 @@
 import { type InkLine, type InkLineRecord, type InkPage, type InkRecogniser, type InkRecognitionHints, type InkSegmentation, type RecognisedLine } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export interface RecognisePageInput {
   page: InkPage;

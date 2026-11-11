@@ -8,13 +8,12 @@ import { FormError } from "@/components/form-error";
 import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import type { TextSpan } from "@weaveforge/wasm";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
 import { CommentsBadge } from "./comments-badge";
 import { Button, IconButton } from "@/components/button";
-import { deferDelete, useHiddenKeys } from "@/lib/toast";
-import { typedCore } from "@/lib/rust-core";
+import { deferDelete, useHiddenKeys } from "@/lib/toast/index";
 import { FoldButton } from "@/components/controls";
 
 const commentKey = (id: string) => `comment:${id}`;

@@ -1,4 +1,4 @@
-//! Account deletion relay to the hosted app. Ported from apps/desktop/src/account-proxy.ts.
+//! Account deletion relay to the hosted app. Ported from apps/desktop/src/main-setup.ts.
 
 use std::time::Duration;
 

@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PostgrestSelfProvisioner,
   resetSelfProvisioningMemoForTests,
-} from "../infrastructure/postgrest-self-provisioner";
+} from "../../../backend/wire-light-backend";
 
 function stubClient(opts: { userId?: string | null; error?: unknown } = {}) {
   const calls: string[] = [];

@@ -1,13 +1,18 @@
-import type { Member } from "@weaveforge/core";
+import type {
+  IExperimentRepository,
+  IMemberRepository,
+  IPaperRepository,
+  IReadingListRepository,
+  IVaultPageRepository,
+  ManageSharingUseCase,
+  Member,
+} from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import type { ManageSharingUseCase } from "@weaveforge/core";
-import type { IMemberRepository } from "@weaveforge/core";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import {
   loadSharedItemDetails,
   type SharedItemDetail,
 } from "@/features/sharing/application/load-shared-details";
-import type { IPaperRepository, IExperimentRepository, IVaultPageRepository, IReadingListRepository } from "@weaveforge/core";
 
 export interface LoadSharedWithMeScreenData {
   items: SharedItemDetail[];

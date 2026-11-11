@@ -5,9 +5,17 @@ import { Fragment, useState, type ReactNode } from "react";
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
 import { ToolbarSlotContext } from "@/components/toolbar-slot";
-import type { Crumb } from "@weaveforge/wasm";
+import type {
+  Crumb,
+  DocumentMode,
+  PaneLayout,
+  PaneLeaf,
+  PaneNode,
+  PaneSplit,
+  TabMenuCommand,
+  TabRef,
+} from "@weaveforge/wasm";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
-import type { DocumentMode, PaneLayout, PaneLeaf, PaneNode, PaneSplit, TabMenuCommand, TabRef } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";

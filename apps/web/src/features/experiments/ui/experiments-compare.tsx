@@ -15,8 +15,7 @@ import { usePolledLoad } from "./use-polled-load";
 import {
   ExperimentTitleLink,
 } from "./experiment-panels";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 const PALETTE = [
   "#3e5a78", "#c2410c", "#0f766e", "#7c3aed",

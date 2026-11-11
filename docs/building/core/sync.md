@@ -39,7 +39,7 @@ results in.
 - `integration_store.rs`: `branchRead` and `branchSave` give the branch an
   integration reads back from its row and the value it writes. Mattermost keeps
   a blank channel blank; git falls back to `main`. The row reads and the upsert
-  stay in `apps/web/src/features/sync/infrastructure/postgrest-integrations-store.ts`.
+  stay in `apps/web/src/backend/providers/postgrest/wire-postgrest-backend.ts`.
 - `git_api.rs`: `gitReadPlan` gives the provider request URL, or the
   not-connected message. `githubCommits`, `gitlabCommits` and
   `gitReadFailureMessage` normalise commits and failure text. The fetch and the

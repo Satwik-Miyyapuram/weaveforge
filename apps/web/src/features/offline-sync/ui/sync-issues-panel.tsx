@@ -8,7 +8,7 @@ import { FormError } from "@/components/form-error";
 import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
 import { Button } from "@/components/button";
-import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { deferDelete, useHiddenKeys } from "@/lib/toast/index";
 import { RadioButton } from "@/components/controls";
 import { SegmentedControl } from "@/components/segmented-control";
 

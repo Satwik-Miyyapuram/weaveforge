@@ -12,15 +12,20 @@ import {
 import { errorMessage, type ReaderAnnotationType, type FigureTarget } from "@weaveforge/core";
 import type { DocumentSearchMatch, ReaderPageSize, TextSelectionRange, AnchorConfidence } from "@weaveforge/wasm";
 import { readyCore, typedCore } from "@/lib/rust-core";
-import type { InkColour } from "@weaveforge/core";
+import type { InkColour, ReaderAnnotation } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
-import { InkBar } from "@/features/ink";
+import {
+  InkBar,
+  InkPrintPreview,
+  InkSelectionChip,
+  setToolColour,
+  setToolQuickSlot,
+  type ToolColourId,
+  useToolColours,
+} from "@/features/ink";
 import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
-import { InkSelectionChip } from "@/features/ink";
 import { readThemePalette, type InkPalette } from "@/features/ink/render/ink-palette";
-import { setToolColour, setToolQuickSlot, useToolColours, type ToolColourId } from "@/features/ink";
-import { InkPrintPreview } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import {
@@ -47,7 +52,6 @@ import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
 import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import { MarkPopover } from "../mark-popover";
-import type { ReaderAnnotation } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";

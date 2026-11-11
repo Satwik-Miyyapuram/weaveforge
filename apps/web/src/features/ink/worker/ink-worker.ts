@@ -1,3 +1,157 @@
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
+import {
+  errorMessage,
+  INK_A4_HEIGHT,
+  INK_A4_WIDTH,
+  INK_PACK_TOLERANCE,
+  type InkChunkCodec,
+  type InkShape,
+  type InkStroke,
+  type LiveInkStrokePacker,
+  type PackedInkStroke,
+} from "@weaveforge/core";
+import {
+  eachInkSample,
+  type InkSamplePayload,
+  type InkStrokeHeader,
+  type InkTransferMode,
+  type InkWorkerEvent,
+  type InkWorkerMessage,
+} from "../application/capture-protocol";
+import { inkChunkCodec } from "../application/ink-chunk-codec";
+import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/page-buffer";
+import { InkStrokeIndex } from "../application/stroke-index";
+import { CanvasInkRenderer } from "../render/canvas-renderer";
+import type { InkPalette } from "../render/ink-palette";
+import type { InkLiveStroke, InkRenderer } from "../render/ink-renderer";
+import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
+import {
+  clearSelection,
+  deleteSelection,
+  dragSelection,
+  erase,
+  type HistoryStep,
+  type InkPageState,
+  installPage,
+  lasso,
+  loadPage,
+  moveSelection,
+  redo,
+  reportHistory,
+  reportState,
+  savePage,
+  undo,
+} from "./ink-page-logic";
+
+// --- ink-background ---
+/// <reference lib="webworker" />
+
+/**
+ * Background compositing for the ink worker (§4.8).
+ *
+ * Extracted from `ink-worker.ts` so background installation stays apart
+ * from the worker's message pump.
+ */
+
+
+export interface InkBackgroundState {
+  background: ImageBitmap | null;
+  renderer: InkRenderer | null;
+  buffer: InkPageBuffer;
+}
+
+/** Install a new background image onto the worker's state and renderer. */
+export function setBackground(
+  state: InkBackgroundState,
+  image: ImageBitmap | null,
+  index?: number,
+): void {
+  state.background?.close?.();
+  state.background = image;
+  state.renderer?.setBackground(image);
+  // The image is the *rendering* of §4.8; the buffer carries the
+  // attachment index the chunk header mirrors, so a later save — a
+  // stroke drawn over the image, say — writes it back rather than
+  // clearing it.
+  if (typeof index === "number") {
+    state.buffer.setBackgroundIndex(index);
+  }
+}
+
+// --- ink-export ---
+/// <reference lib="webworker" />
+
+/**
+ * Page export for the ink worker: render to PNG (or transparent PNG) via the
+ * renderer, or reply with null if no renderer is active.
+ *
+ * Extracted from `ink-worker.ts` so the export path stays apart from the
+ * worker's message pump.
+ */
+
+
+/** Export a rendered page to PNG (or transparent PNG) via the renderer. */
+export async function exportPage(
+  renderer: InkRenderer | null,
+  requestId: number,
+  scale: number,
+  transparent: boolean,
+  post: (event: InkWorkerEvent) => void,
+): Promise<void> {
+  // A worker with no renderer still has to answer: the host is holding a
+  // promise on this request id, and silence would hang the print and PNG
+  // buttons for the rest of the session rather than reporting that there
+  // is nothing to draw with.
+  if (!renderer) {
+    post({ type: "exported", requestId, png: null });
+    return;
+  }
+  void renderer
+    .capture(scale, transparent)
+    .then((png) =>
+      post({ type: "exported", requestId, png }),
+    )
+    .catch((error: unknown) => {
+      // Said out loud rather than swallowed: a null PNG with no reason is
+      // a button that does nothing.
+      console.error(
+        `ink: the export failed — ${errorMessage(error)}`,
+      );
+      post({ type: "exported", requestId, png: null });
+    });
+}
+
+// --- ink-paste ---
+/** Add pasted strokes as one undoable draw, and select them so they can be moved. */
+export function addStrokes(
+  state: InkPageState,
+  strokes: readonly InkStroke[],
+  post: (event: InkWorkerEvent) => void,
+  ensureLoop: () => void,
+): void {
+  const added: number[] = [];
+  let bounds: InkBounds | null = null;
+  for (const stroke of strokes) {
+    const index = state.buffer.append(stroke);
+    const geometry = state.buffer.stroke(index);
+    if (!geometry) continue;
+    state.renderer?.appendStroke(geometry, index);
+    added.push(index);
+    bounds = boundsUnion(bounds, geometry.bounds);
+  }
+  if (added.length === 0) return;
+  state.index?.invalidate();
+  state.history.push({ kind: "draw", indices: added });
+  state.redone = [];
+  state.selection = added;
+  state.renderer?.setSelection(added, { x: 0, y: 0 });
+  ensureLoop();
+  reportState(state, post);
+  reportHistory(state, post);
+  post({ type: "selected", indices: added, bounds });
+}
+
+// --- ink-worker ---
 /// <reference lib="webworker" />
 
 /**
@@ -30,54 +184,9 @@
  * to recreate the canvas rather than flip an attribute.
  */
 
-import {
-  errorMessage,
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  INK_PACK_TOLERANCE,
-  type InkChunkCodec,
-  type InkShape,
-  type LiveInkStrokePacker,
-  type PackedInkStroke,
-} from "@weaveforge/core";
 
-import {
-  eachInkSample,
-  type InkSamplePayload,
-  type InkStrokeHeader,
-  type InkTransferMode,
-  type InkWorkerEvent,
-  type InkWorkerMessage,
-} from "../application/capture-protocol";
 // The codec lives with the rest of the chunk plumbing rather than here: the
 // host writes a page's chunk too, when its background changes (§4.8).
-import { inkChunkCodec } from "../application/ink-chunk-codec";
-import { InkPageBuffer } from "../application/page-buffer";
-import type { InkPalette } from "../render/ink-palette";
-import { InkStrokeIndex } from "../application/stroke-index";
-import { CanvasInkRenderer } from "../render/canvas-renderer";
-import { WebglInkRenderer, supportsWebglInk } from "../render/webgl-renderer";
-import type { InkLiveStroke, InkRenderer } from "../render/ink-renderer";
-import {
-  clearSelection,
-  deleteSelection,
-  dragSelection,
-  erase,
-  installPage,
-  lasso,
-  loadPage,
-  moveSelection,
-  redo,
-  reportHistory,
-  reportState,
-  savePage,
-  undo,
-  type HistoryStep,
-} from "./ink-page-logic";
-import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
-import { exportPage } from "./ink-export";
-import { addStrokes } from "./ink-paste";
-import { setBackground } from "./ink-background";
 
 /** The stroke being drawn: raw samples, with its predicted tail marked off. */
 export interface LiveStroke {

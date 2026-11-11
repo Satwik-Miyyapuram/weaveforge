@@ -27,7 +27,7 @@ import { CardPickerSheet } from "./card-picker-sheet";
 import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 // Kept beside the repository memo on purpose (xapi-11): this holds the

@@ -10,9 +10,8 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { readyCore } from "@/lib/rust-core";
-import { wireStorage } from "../wire-storage";
+import { SupabaseBlobStore, wireStorage } from "../wire-storage";
 import { HttpBlobStore } from "../providers/http/http-blob-store";
-import { SupabaseBlobStore } from "../providers/supabase/blob-store";
 import type { BlobProviderId, StorageConfig } from "../config";
 
 const SRC = path.resolve(__dirname, "../..");
@@ -60,7 +59,7 @@ test("the browser storage wiring loads no AWS SDK (10-03)", () => {
 });
 
 test("the scan does see the SDK where it is imported, so the check above means something", () => {
-  const packages = runtimePackages(path.join(SRC, "storage/build-tiered-blob-store.ts"));
+  const packages = runtimePackages(path.join(SRC, "backend/account/purge-user-blobs.ts"));
   assert.ok([...packages.keys()].some((name) => name.startsWith("@aws-sdk/")));
 });
 

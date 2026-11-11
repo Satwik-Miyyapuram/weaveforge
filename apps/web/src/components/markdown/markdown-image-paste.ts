@@ -9,8 +9,7 @@ import {
   resolvePending,
 } from "@/components/markdown/markdown-pending-insert";
 import { insertRemoteImage } from "@/components/markdown/markdown-remote-paste";
-import { readyCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * Pasting and dropping images into a note.

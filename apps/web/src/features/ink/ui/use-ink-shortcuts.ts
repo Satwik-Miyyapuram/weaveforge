@@ -12,8 +12,7 @@
 import { useEffect } from "react";
 import type { InkColour } from "@weaveforge/core";
 
-import { typedCore } from "@/lib/rust-core";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkBarTool } from "./ink-bar";

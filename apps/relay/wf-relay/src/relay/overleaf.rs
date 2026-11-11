@@ -1,4 +1,4 @@
-//! Overleaf Workshop relay: the four `/api/overleaf/workshop/*` routes, sent to the hosted app. Ported from apps/desktop/src/overleaf-proxy.ts.
+//! Overleaf Workshop relay: the four `/api/overleaf/workshop/*` routes, sent to the hosted app. Ported from apps/desktop/src/main-setup.ts.
 
 use std::time::Duration;
 

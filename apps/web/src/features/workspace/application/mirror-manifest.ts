@@ -1,6 +1,5 @@
 import { WORKSPACE_META_DIR, type IWorkspaceFs, type VaultPageBase, type WorkspaceProject } from "@weaveforge/core";
-import { loadCore } from "@/lib/rust-core";
-import { readyCore, typedCore } from "@/lib/rust-core";
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * What the last sync wrote, and how the next one is paced.

@@ -6,8 +6,7 @@ import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { MIRROR_MANIFEST_PATH, jsonEditSince, mirrorManifestPath, claimImportedFile, createCoalescer, followProjectRename, readMirrorBase, writeMirrorManifest } from "../application/mirror-manifest";
-import { typedCore } from "@/lib/rust-core";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();

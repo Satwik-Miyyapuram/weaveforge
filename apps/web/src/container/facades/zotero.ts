@@ -1,18 +1,54 @@
 import type {
-  IBibliographyIntegration,
-  IPaperRepository,
-  IReaderAnnotationSource,
-  IReaderAnnotationSyncRecorder,
-  ManageTagsUseCase,
-  PushPaperToZoteroUseCase,
-} from "@weaveforge/core";
+  ImportLocalZoteroUseCase,
+} from "@/features/papers/application/import-local-zotero.use-case";
+import type {
+  ZoteroCredentialsProvider,
+} from "@/features/papers/infrastructure/zotero-metadata-source";
 import type {
   ZoteroAnnotationPusher,
   ZoteroAnnotationWriteBackSummary,
 } from "@/features/reader/application/write-back-zotero-annotations";
-import type { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
-import type { ZoteroCredentialsProvider } from "@/features/papers/infrastructure/zotero-metadata-source";
+import { readyCore } from "@/lib/rust-core";
+import type {
+  IBibliographyIntegration,
+  IPaperRepository,
+  IReaderAnnotationSource,
+  IReaderAnnotationSyncRecorder,
+  IZoteroAnnotationWriteBack,
+  ManageTagsUseCase,
+  PushPaperToZoteroUseCase,
+  ReaderAnnotation,
+  ZoteroAnnotationWritePayload,
+} from "@weaveforge/core";
 
+// --- dry-run-zotero-write-back ---
+/**
+ * Records what a live Zotero push would send, without sending it. Live
+ * write-back needs human-supervised credentials, so `{ live: true }` throws.
+ * The payloads come from the Rust core.
+ */
+export class DryRunZoteroAnnotationWriteBack implements IZoteroAnnotationWriteBack {
+  async push(
+    parentItemKey: string,
+    annotations: readonly ReaderAnnotation[],
+    options?: { live?: boolean },
+  ): Promise<{ dryRun: boolean; payloads: ZoteroAnnotationWritePayload[] }> {
+    if (options?.live) {
+      throw new Error(
+        "Live Zotero write-back is disabled in DryRunZoteroAnnotationWriteBack — needs human-supervised credentials (R5).",
+      );
+    }
+    const core = readyCore();
+    return {
+      dryRun: true,
+      payloads: core
+        .zoteroWriteBackAnnotations(annotations)
+        .map((a: ReaderAnnotation) => core.toZoteroWritePayload(a, parentItemKey) as ZoteroAnnotationWritePayload),
+    };
+  }
+}
+
+// --- zotero ---
 /**
  * Zotero: the cloud library, the copy running on this computer, and the
  * annotation write-back.
@@ -127,7 +163,7 @@ export class ZoteroFacade {
    * mistyped argument away from actually writing.
    */
   async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
-    const { DryRunZoteroAnnotationWriteBack } = await import("./dry-run-zotero-write-back");
+    const { DryRunZoteroAnnotationWriteBack } = await import("./zotero");
     const annotations = await this.deps.readerAnnotations.list(paperId);
     return new DryRunZoteroAnnotationWriteBack().push(parentItemKey, annotations);
   }

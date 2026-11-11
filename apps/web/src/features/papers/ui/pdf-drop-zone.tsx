@@ -1,7 +1,7 @@
 "use client";
 
 import { FileDropZone } from "@/components/file-drop-zone";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { formatError } from "@/lib/format-error";
 import type { PdfDropOutcome } from "../application/paper-from-pdf";
 import { splitPaperDrop, type BibImportOutcome } from "../application/paper-from-bib";

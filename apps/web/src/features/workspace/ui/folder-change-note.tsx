@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { onOutsideEditsTakenIn } from "../application/workspace-folder";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 
 /** The note for edits taken in from the folder with no click. */
 export function folderChangedMessage(count: number): string {

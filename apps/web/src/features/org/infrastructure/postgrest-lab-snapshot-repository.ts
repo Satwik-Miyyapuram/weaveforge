@@ -1,13 +1,35 @@
+import {
+  ProjectScopedPostgrestRepository,
+} from "@/backend/providers/postgrest/project-scoped-repository";
+import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { readyCore } from "@/lib/rust-core";
 import type {
   ILabSnapshotRepository,
   LabSnapshot,
+  LabSnapshotContent,
   PublishLabSnapshotInput,
 } from "@weaveforge/core";
-import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import type { LabSnapshotRow } from "./lab-snapshot-rows";
-import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
-import { readyCore } from "@/lib/rust-core";
 
+// --- lab-snapshot-rows ---
+/**
+ * How lab snapshot rows are stored. The mapping to the domain type is in Rust (wf-core).
+ *
+ * Shared by both backend providers. They talk to the *same* table — one through
+ * supabase-js, the other through `pg` — so the column shape and the mapping are
+ * not per-provider facts, and holding two copies of them is how they drift.
+ */
+
+export interface LabSnapshotRow {
+  id: string;
+  project_id: string;
+  title: string;
+  note: string | null;
+  content: LabSnapshotContent;
+  published_at: string;
+  created_at: string;
+}
+
+// --- postgrest-lab-snapshot-repository ---
 /**
  * The columns a LabSnapshotRow is read as, named rather than starred.
  *
@@ -117,4 +139,3 @@ export class PostgrestLabSnapshotRepository extends ProjectScopedPostgrestReposi
     return row ? toDomain(row) : null;
   }
 }
-

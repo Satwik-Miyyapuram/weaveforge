@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { loadWithFallback, type Loadable } from "../infrastructure/load-with-fallback";
+import { loadWithFallback, type Loadable } from "../application/semantic-search";
 
 /** A loadable that records its loads and disposes, failing with `error` if given. */
 function fake(name: string, log: string[], error?: Error): Loadable & { name: string } {

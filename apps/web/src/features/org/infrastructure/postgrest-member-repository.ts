@@ -1,15 +1,37 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { type ICurrentUserProvider, type IMemberRepository, type Member, type Role } from "@weaveforge/core";
-import { singleFlight } from "@/lib/cache/single-flight";
-import {
-  PROFILE_COLUMNS,
-  type ProfileRow,
-  byName,
-} from "./member-rows";
 import { one } from "@/backend/providers/postgrest/row-access";
-import { readyCore, typedCore } from "@/lib/rust-core";
-import type { RustCore } from "@/lib/rust-core";
+import { singleFlight } from "@/lib/cache/single-flight";
+import { readyCore, type RustCore, typedCore } from "@/lib/rust-core";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ICurrentUserProvider, IMemberRepository, Member, Role } from "@weaveforge/core";
 
+// --- member-rows ---
+/**
+ * How member rows are stored. The mapping to the domain type is in Rust (wf-core).
+ *
+ * Shared by both backend providers. They talk to the *same* table — one through
+ * supabase-js, the other through `pg` — so the column shape and the mapping are
+ * not per-provider facts, and holding two copies of them is how they drift.
+ */
+
+export interface ProfileRow {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  role: Role;
+  supervisor_id: string | null;
+  org_setup_complete: boolean | null;
+  active_org_id: string | null;
+}
+
+/** The columns a ProfileRow is read as: exactly its fields, named rather than starred. */
+export const PROFILE_COLUMNS =
+  "user_id, email, full_name, role, supervisor_id, org_setup_complete, active_org_id";
+
+export function byName(a: Member, b: Member): number {
+  return (a.fullName ?? a.email ?? "").localeCompare(b.fullName ?? b.email ?? "");
+}
+
+// --- postgrest-member-repository ---
 /**
  * PostgREST implementation of IMemberRepository. Reads the `profiles` table (the
  * ONLY place it's queried from the client). Since migration 0018 widened the
@@ -142,4 +164,3 @@ export class PostgrestMemberRepository implements IMemberRepository {
     });
   }
 }
-

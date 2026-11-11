@@ -6,8 +6,7 @@ import {
   type DesktopVaultSync,
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
-import { loadCore } from "@/lib/rust-core";
-import { typedCore } from "@/lib/rust-core";
+import { loadCore, typedCore } from "@/lib/rust-core";
 
 /**
  * Pushing and pulling the workspace folder to a git remote (Settings → Workspace folder).

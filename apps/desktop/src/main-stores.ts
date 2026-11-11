@@ -1,9 +1,8 @@
 import { app, safeStorage } from "electron";
-import { rename, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { PreferenceStore, pagePreferences } from "../../shell/sidecar/src/preference-store";
-import { readIfPresent } from "./read-if-present";
 import { SecretStore, pageSecrets } from "../../shell/sidecar/src/secret-store";
 import { parseLinks, type OverleafLink, type OverleafSyncDeps } from "./overleaf-sync";
 import type { VaultSyncSettings } from "../../shell/sidecar/src/vault-git";
@@ -119,4 +118,22 @@ export async function readVaultSyncSettings(): Promise<VaultSyncSettings> {
     url: url.ok && typeof url.value === "string" ? url.value : null,
     token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
   };
+}
+
+// --- read-if-present ---
+/**
+ * A whole small file, or `null` when there is none.
+ *
+ * Only a missing file is "nothing". A file that is there but cannot be read
+ * right now — locked by an antivirus scan, busy, denied — throws, because a
+ * store that read it as empty would write back a copy holding only its own
+ * change and lose everything else in it.
+ */
+export async function readIfPresent(file: string): Promise<string | null> {
+  try {
+    return await readFile(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
 }

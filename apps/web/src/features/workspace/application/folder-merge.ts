@@ -6,11 +6,10 @@
  */
 
 import type { IWorkspaceFs, VaultPageBase } from "@weaveforge/core";
-import type { ImportDiffEntry } from "@weaveforge/wasm";
+import type { ConflictResolution, ImportDiffEntry } from "@weaveforge/wasm";
 import type { RustCore } from "@/lib/rust-core";
 
 export type { ConflictPicks, ConflictResolution } from "@weaveforge/wasm";
-import type { ConflictResolution } from "@weaveforge/wasm";
 
 /**
  * Settle a both-changed file per field, or say what is actually in dispute.

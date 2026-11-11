@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { logToApp } from "@/lib/error-report/app-log";
-import { readyCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
 import type { InkSave } from "./use-ink-worker-rpc";
@@ -27,7 +27,6 @@ import {
   type InkChunkStore,
   type InkStoredPage,
 } from "../application/ink-chunk-store";
-import { typedCore } from "@/lib/rust-core";
 
 /** What the saves need from the host. */
 export interface InkNoteStoreDeps {
