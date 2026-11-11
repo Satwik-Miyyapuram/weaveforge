@@ -70,14 +70,16 @@ pub fn resolve_artifact_refs_markdown_js(
 #[wasm_bindgen(js_name = safeArtifactCaption)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
 #[must_use]
-pub fn safe_artifact_caption_js(alt: Option<String>) -> String {
+pub fn safe_artifact_caption_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] alt: Option<String>,
+) -> String {
     artifact_markdown::safe_artifact_caption(alt.as_deref())
 }
 
 /// [`safe_image_destination`](artifact_markdown::safe_image_destination) (TS `safeImageDestination`).
-/// `undefined` when the URL is not allowed.
-#[wasm_bindgen(js_name = safeImageDestination)]
+/// `null` when the URL is not allowed.
+#[wasm_bindgen(js_name = safeImageDestination, unchecked_return_type = "string | null")]
 #[must_use]
-pub fn safe_image_destination_js(url: &str) -> Option<String> {
-    artifact_markdown::safe_image_destination(url)
+pub fn safe_image_destination_js(url: &str) -> JsValue {
+    artifact_markdown::safe_image_destination(url).map_or(JsValue::NULL, JsValue::from)
 }

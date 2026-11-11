@@ -2,7 +2,6 @@
  * Paste and text clean-up (Rust `paste`), re-exported from index.ts.
  */
 import {
-  linkLabel as rawLinkLabel,
   normalizePasteSettings as rawNormalizePasteSettings,
   pasteLandsInVerbatimContext as rawPasteLandsInVerbatimContext,
 } from "../pkg/wf_wasm.js";
@@ -18,6 +17,7 @@ export {
   cleanWrappedText,
   escapeLinkLabel,
   isBareUrl,
+  linkLabel,
   markdownLink,
   parseLinkRemovalText,
   tabSeparatedToMarkdownTable,
@@ -36,9 +36,4 @@ export function pasteLandsInVerbatimContext(document: string, offset: number): b
 export function normalizePasteSettings(raw: unknown): PasteSettings {
   const json = JSON.stringify(raw) ?? "null";
   return rawNormalizePasteSettings(json) as PasteSettings;
-}
-
-/** The escaped label for a single-line selection, or `null` when it cannot be a label (Rust `link_label`). */
-export function linkLabel(selected: string): string | null {
-  return rawLinkLabel(selected) ?? null;
 }

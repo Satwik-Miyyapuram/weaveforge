@@ -16,25 +16,31 @@ pub fn is_allowed_pdf_proxy_url_js(raw: &str) -> bool {
     is_allowed_pdf_proxy_url(raw)
 }
 
-/// [`sanitize_pdf_url`]: `None` (`undefined` in JS) when the URL is refused.
-#[wasm_bindgen(js_name = sanitizePdfUrl)]
+/// [`sanitize_pdf_url`]: `null` when the URL is refused.
+#[wasm_bindgen(js_name = sanitizePdfUrl, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn sanitize_pdf_url_js(raw: Option<String>) -> Option<String> {
-    sanitize_pdf_url(raw.as_deref())
+pub fn sanitize_pdf_url_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] raw: Option<String>,
+) -> JsValue {
+    sanitize_pdf_url(raw.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`sanitize_reader_href`]: a same-origin `/reader` path, or `None`.
-#[wasm_bindgen(js_name = sanitizeReaderHref)]
+#[wasm_bindgen(js_name = sanitizeReaderHref, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn sanitize_reader_href_js(raw: Option<String>) -> Option<String> {
-    sanitize_reader_href(raw.as_deref())
+pub fn sanitize_reader_href_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] raw: Option<String>,
+) -> JsValue {
+    sanitize_reader_href(raw.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`sanitize_app_href`]: a same-origin app path on a known root, or `None`.
-#[wasm_bindgen(js_name = sanitizeAppHref)]
+#[wasm_bindgen(js_name = sanitizeAppHref, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn sanitize_app_href_js(raw: Option<String>) -> Option<String> {
-    sanitize_app_href(raw.as_deref())
+pub fn sanitize_app_href_js(
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] raw: Option<String>,
+) -> JsValue {
+    sanitize_app_href(raw.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`looks_like_pdf_url`]: `true` for a direct PDF path, `false` for an HTML landing page.
