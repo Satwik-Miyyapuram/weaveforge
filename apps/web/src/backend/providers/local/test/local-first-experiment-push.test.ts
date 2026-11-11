@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, it } from "node:test";
+import { before, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,6 +10,9 @@ import type { IBlobStore } from "@weaveforge/core";
 import { ExperimentPush, keepPushing, LocalFirstBlobStore } from "../parts-1";
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
 import type { LocalQuery } from "../pglite-client";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
 const EXP = "11111111-1111-1111-1111-111111111111";

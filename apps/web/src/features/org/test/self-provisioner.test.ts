@@ -1,4 +1,4 @@
-import { describe, it, beforeEach } from "node:test";
+import { before, describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -6,6 +6,9 @@ import {
   PostgrestSelfProvisioner,
   resetSelfProvisioningMemoForTests,
 } from "../../../backend/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 function stubClient(opts: { userId?: string | null; error?: unknown } = {}) {
   const calls: string[] = [];

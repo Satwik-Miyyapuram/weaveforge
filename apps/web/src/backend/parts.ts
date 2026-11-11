@@ -15,6 +15,7 @@ import type { BackendConfigField } from "@weaveforge/wasm";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/parts";
 import { createDataClient } from "./providers/postgrest/parts-1";
+import { rustRepository } from "./providers/postgrest/rust-repository";
 import { secretsStoreFor } from "./providers/secrets-store";
 import { SupabaseSessionProvider } from "./providers/supabase-auth/parts";
 
@@ -143,8 +144,11 @@ export class PostgrestSelfProvisioner implements ISelfProvisioner {
     // No session means nothing to provision; the caller is on the login screen.
     if (!userId || (!force && provisioned.has(userId))) return;
 
-    const { error } = await this.db.rpc("ensure_user_provisioned");
-    if (error) throw new Error(`Could not set up your account: ${formatError(error)}`);
+    try {
+      await rustRepository<{ ensureProvisioned(): Promise<void> }>(this.db, "account", ["ensureProvisioned"]).ensureProvisioned();
+    } catch (error) {
+      throw new Error(`Could not set up your account: ${formatError(error)}`);
+    }
     provisioned.add(userId);
   }
 }
