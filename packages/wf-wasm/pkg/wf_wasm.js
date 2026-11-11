@@ -13983,19 +13983,6 @@ export function memberRoleLabelOf(member, in_lab, owns_org) {
 }
 
 /**
- * [`to_domain`]: a `profiles` row as a lab member.
- * @param {any} row
- * @returns {any}
- */
-export function memberRowToDomain(row) {
-    const ret = wasm.memberRowToDomain(row);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`to_view`]: an `org_memberships` row with its embedded organisation as a membership view.
  * @param {any} row
  * @returns {any}

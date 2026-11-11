@@ -13,9 +13,7 @@ import {
   PostgrestLabSnapshotRepository,
   PostgrestSupervisionRepository,
 } from "@/features/org/infrastructure/parts";
-import {
-  PostgrestMemberRepository,
-} from "@/features/org/infrastructure/postgrest-member-repository";
+import { memberRepository as rustMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
 import {
   PostgrestAnnotationPinRepository,
   PostgrestPaperFieldRepository,
@@ -591,7 +589,7 @@ export function wirePostgrestBackend(
   // Membership rarely changes during a session, so it caches like the rest; the
   // org calls that change it (create, join, roles, new accounts) clear every memo.
   const memberRepository = cacheRepo(
-    new PostgrestMemberRepository(db, session),
+    rustMemberRepository(db, session),
     ["getMine", "listTeam", "listDirectory", "listLab"],
     [],
     pid,

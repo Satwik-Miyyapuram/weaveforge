@@ -599,7 +599,6 @@ mod logbook_collapse_alert;
 mod logbook_view;
 mod mcp_client_config;
 mod mcp_config_rewrite;
-mod member_rows;
 mod membership_row;
 mod metric_chart_data;
 mod metric_rows;
