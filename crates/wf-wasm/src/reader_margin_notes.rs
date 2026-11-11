@@ -1,4 +1,4 @@
-//! Margin comment card stacking (`apps/web/src/features/reader/application/margin-notes.ts`).
+//! Margin comment card stacking (`apps/web/src/features/reader/application/parts-2.ts`).
 //! Wraps `wf_core::reader::margin_notes`.
 
 use wasm_bindgen::JsValue;

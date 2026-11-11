@@ -12,6 +12,7 @@ import {
 import { errorMessage, type ReaderAnnotationType, type FigureTarget } from "@weaveforge/core";
 import type { DocumentSearchMatch, ReaderPageSize, TextSelectionRange, AnchorConfidence } from "@weaveforge/wasm";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import type { InkColour, ReaderAnnotation } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
@@ -25,7 +26,7 @@ import {
   useToolColours,
 } from "@/features/ink";
 import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
-import { readThemePalette, type InkPalette } from "@/features/ink/render/ink-palette";
+import { readThemePalette, type InkPalette } from "@/features/ink/render/parts-1";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import {
@@ -33,7 +34,7 @@ import {
   selectionRangeFromDom,
   startOffsetInTextLayer,
   textSelectionFromOffsets,
-} from "../../application/dom-selection-range";
+} from "../../application/parts-1";
 import {
   bucketAnnotationsByPage,
   draftFromTextSelection,
@@ -57,7 +58,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
-import { layoutMarginNotes } from "../../application/margin-notes";
+import { layoutMarginNotes } from "../../application/parts-2";
 import { useAnnotationContext } from "./use-annotation-context";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
@@ -89,7 +90,6 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
-import { readStored, writeStored } from "@/lib/safe-storage";
 import { isMacPlatform } from "@/lib/parts";
 import { Button, IconButton } from "@/components/button";
 import { RowButton, Swatch, ToolButton } from "@/components/controls";

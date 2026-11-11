@@ -1,5 +1,5 @@
 //! Where each entity lives in the workspace folder. Port of
-//! `packages/core/src/workspace/folder-layout.ts`. Slug and id lengths count
+//! `packages/core/src/workspace/parts-1.ts`. Slug and id lengths count
 //! UTF-16 units, as the TypeScript does.
 
 use std::collections::{HashMap, HashSet};

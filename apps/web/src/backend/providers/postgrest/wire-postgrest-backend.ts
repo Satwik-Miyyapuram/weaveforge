@@ -1,5 +1,5 @@
 import type { BackendConfig } from "@/backend/parts";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
+import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/parts-1";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import {
@@ -21,13 +21,11 @@ import {
 } from "@/features/org/infrastructure/postgrest-member-repository";
 import {
   PostgrestAnnotationPinRepository,
-} from "@/features/papers/infrastructure/postgrest-annotation-pin-repository";
+  PostgrestPaperFieldRepository,
+} from "@/features/papers/infrastructure/parts-1";
 import {
   PostgrestAnnotationQuotationTypeRepository,
 } from "@/features/papers/infrastructure/postgrest-annotation-quotation-type-repository";
-import {
-  PostgrestPaperFieldRepository,
-} from "@/features/papers/infrastructure/postgrest-paper-field-repository";
 import {
   PostgrestPaperRepository,
 } from "@/features/papers/infrastructure/postgrest-paper-repository";
@@ -37,7 +35,7 @@ import {
 } from "@/features/plan/infrastructure/milestone-rows";
 import {
   PostgrestReaderAnnotationRepository,
-} from "@/features/reader/infrastructure/postgrest-reader-annotation-repository";
+} from "@/features/reader/infrastructure/parts-1";
 import {
   PostgrestReadingListItemRepository,
   PostgrestReadingListRepository,
@@ -69,8 +67,8 @@ import {
 import {
   PostgrestVaultPageRepository,
 } from "@/features/vault/infrastructure/postgrest-vault-page-repository";
-import { cacheRepo } from "@/lib/cache/cache-repo";
-import type { ProjectContext } from "@/lib/project-context";
+import { cacheRepo } from "@/lib/cache/parts-1";
+import type { ProjectContext } from "@/lib/parts-2";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { notifyWorkspaceChange, systemClock } from "@/lib/parts";
 import { wireStorage } from "@/storage/wire-storage";
@@ -124,8 +122,7 @@ import {
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
-import { createDataClient } from "./client";
-import { KeyedColumnRepository, SpecRepository } from "./spec-repository";
+import { createDataClient, KeyedColumnRepository, SpecRepository } from "./parts-1";
 import { watchWrites } from "./watch-writes";
 
 export type { SharedItem } from "../../../features/sharing/domain/shared-reader";

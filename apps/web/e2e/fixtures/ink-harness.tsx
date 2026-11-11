@@ -30,8 +30,7 @@ import {
   writeInkNoteBody,
 } from "@weaveforge/core";
 
-import { availableInkChunkCodec } from "@/features/ink/application/ink-chunk-codec";
-import { MemoryInkChunkStore } from "@/features/ink/application/ink-chunk-store";
+import { availableInkChunkCodec, MemoryInkChunkStore } from "@/features/ink/application/parts-1";
 import { InkHost } from "@/features/ink/ui/ink-host";
 import { typedCore } from "@/lib/rust-core";
 

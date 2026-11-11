@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type InkColour, type InkHand } from "@weaveforge/core";
 
-import { NibFilter, type FilteredNibSample } from "./one-euro-filter";
+import { NibFilter, type FilteredNibSample } from "./parts-2";
 import {
   InkSamplePool,
   InkSampleWriter,
@@ -44,7 +44,7 @@ import {
   InkPenGate,
   TOUCH_DEFER_MS,
   type PenGateEvent,
-} from "./pen-gate";
+} from "./parts-4";
 import {
   PenCaptureSession,
   PenPointerEvent,
@@ -54,7 +54,7 @@ import {
   updateTrail,
   type InkPresenterLike,
   type InkTrailStyle,
-} from "./ink-trail";
+} from "./parts-1";
 
 /**
  * The session's names, still found here: `use-pen-capture` is the door the

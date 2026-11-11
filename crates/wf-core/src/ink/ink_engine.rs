@@ -1,5 +1,5 @@
 //! Declared facts about the ink engines this build knows, and the line-stroke slice
-//! (`packages/core/src/ink/recognise.ts` data, `packages/core/src/ink/parts.ts`
+//! (`packages/core/src/ink/parts-2.ts` data, `packages/core/src/ink/parts.ts`
 //! `inkLineStrokes`). Engines themselves stay in the shells: no JS functions here.
 
 use serde::Serialize;

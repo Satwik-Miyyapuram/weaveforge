@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Paper } from "@weaveforge/core";
 
-import { autoIndexStatus, startAutoIndex, stopAutoIndex, type AutoIndexDeps } from "../application/auto-index-library";
-import type { LibraryIndexResult } from "../application/index-library-pdfs";
+import { autoIndexStatus, startAutoIndex, stopAutoIndex, type AutoIndexDeps } from "../application/parts-1";
+import type { LibraryIndexResult } from "../application/parts-1";
 import { clearSessionCaches } from "@/lib/cache/parts";
 
 const store = new Map<string, string>([["thesis.search.pdf-auto", "1"]]);

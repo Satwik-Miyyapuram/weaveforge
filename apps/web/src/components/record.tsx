@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
+import { formatDate } from "@/lib/parts-1";
 import type { ReactNode } from "react";
 
 /*

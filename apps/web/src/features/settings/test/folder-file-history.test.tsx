@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
-import type { FileHistorySource } from "@/features/workspace/application/folder-file-history";
+import type { FileHistorySource } from "@/features/workspace/application/parts-1";
 import { FolderFileHistory } from "../ui/folder-file-history";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

@@ -4,7 +4,7 @@ import {
   isInstalledApp,
   persistSearchIndex,
   shouldPersistIndex,
-} from "@/features/search/infrastructure/index-cache-policy";
+} from "@/features/search/infrastructure/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

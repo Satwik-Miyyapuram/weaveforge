@@ -1,4 +1,4 @@
-//! Port of the decision in `apps/web/src/features/search/infrastructure/index-cache-policy.ts`.
+//! Port of the decision in `apps/web/src/features/search/infrastructure/parts-1.ts`.
 //! Platform detection (`isInstalledApp`) and IndexedDB writes stay in TS; this is only the rule.
 
 /// Documents past which a browser tab stops persisting its index. Single source for the web app

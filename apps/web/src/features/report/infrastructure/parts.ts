@@ -1,6 +1,11 @@
-import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
-import { BucketAssetStore } from "@/lib/bucket-asset-store";
+import {
+  deleteRowById,
+  ProjectRepository,
+  rowById,
+  rows,
+  run,
+} from "@/backend/providers/postgrest/parts-1";
+import { BucketAssetStore } from "@/lib/parts-1";
 import { typedCore } from "@/lib/rust-core";
 import type {
   IBlobFetcher,

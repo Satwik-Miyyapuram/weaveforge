@@ -1,5 +1,5 @@
 //! Fingerprints and passage ids for the semantic index. Port of `textHash`, `documentIdOf` and
-//! `embeddableText` in `apps/web/src/features/search/application/semantic-index.ts`.
+//! `embeddableText` in `apps/web/src/features/search/application/parts-2.ts`.
 //!
 //! The text hash is persisted beside the vectors, so it must stay bit-identical to the TypeScript
 //! it replaces: FNV-1a over UTF-16 code units, written in base 36 with the length.

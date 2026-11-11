@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Paper } from "@weaveforge/core";
-import { paperSourceNoteScaffold, scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
+import { paperSourceNoteScaffold, scaffoldNewPaperNote } from "../application/parts-2";
 import { NO_SUMMARY as EMPTY_PAPER_SUMMARY } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 

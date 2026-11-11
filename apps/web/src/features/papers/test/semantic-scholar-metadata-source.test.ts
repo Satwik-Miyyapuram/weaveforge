@@ -1,6 +1,6 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { SemanticScholarMetadataSource } from "../infrastructure/semantic-scholar-metadata-source";
+import { SemanticScholarMetadataSource } from "../infrastructure/parts-2";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

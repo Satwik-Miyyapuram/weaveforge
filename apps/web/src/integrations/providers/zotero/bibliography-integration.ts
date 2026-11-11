@@ -10,7 +10,7 @@ import type {
 import { getDataClient, relayUrl } from "@/lib/parts";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
 import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";
-import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
+import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/parts-3";
 import { typedCore } from "@/lib/rust-core";
 
 export class ZoteroBibliographyIntegration implements IBibliographyIntegration {

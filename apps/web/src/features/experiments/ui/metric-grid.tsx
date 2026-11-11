@@ -2,9 +2,9 @@
 
 import { Children, useEffect, useRef, useState, type ReactNode, type WheelEvent } from "react";
 
+import { readyCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 
-import { readyCore } from "@/lib/rust-core";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
 import { IconButton } from "@/components/button";
 

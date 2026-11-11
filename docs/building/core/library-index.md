@@ -18,9 +18,9 @@ background PDF indexer. The IO (IndexedDB, the network, pdf.js) stays in TypeScr
   (`crates/wf-wasm/src/library_index.rs`).
 - `packages/wf-wasm/src/wrappers-9.ts` wraps them, re-exported from
   `modules.ts` and `feature-wrappers.ts`.
-- `apps/web/src/features/search/application/auto-index-library.ts` calls
+- `apps/web/src/features/search/application/parts-1.ts` calls
   `readyCore().recentFailureIds` in `recentFailures()`.
-- `apps/web/src/features/search/application/index-library-pdfs.ts` calls
+- `apps/web/src/features/search/application/parts-1.ts` calls
   `readyCore().courtesyPauseDue` before each fetch.
 
 ## Parity notes

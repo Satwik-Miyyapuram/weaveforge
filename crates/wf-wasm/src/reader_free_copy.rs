@@ -1,4 +1,4 @@
-//! "Find a free copy" messages and ids (`apps/web/src/features/reader/application/find-free-copy.ts`).
+//! "Find a free copy" messages and ids (`apps/web/src/features/reader/application/parts-1.ts`).
 //! Wraps `wf_core::reader::free_copy`.
 
 use wasm_bindgen::prelude::wasm_bindgen;

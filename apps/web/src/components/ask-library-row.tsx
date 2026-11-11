@@ -5,7 +5,7 @@ import {
   modelConversation,
   onProviderChange,
 } from "@/features/ai-assistant/application/parts";
-import { askLibrary, type AskResult } from "@/features/search/application/ask-library";
+import { askLibrary, type AskResult } from "@/features/search/application/parts-1";
 import { Chip, RowButton } from "./controls";
 
 /**

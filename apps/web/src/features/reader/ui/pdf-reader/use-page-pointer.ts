@@ -8,15 +8,15 @@ import { readyCore } from "@/lib/rust-core";
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
 import { ERASER_CURSOR, ERASER_SCREEN_RADIUS } from "@/features/ink";
-import { InkGesture, StrokeEdgeSplit, type InkToolKind } from "@/features/ink/application/ink-gesture";
-import { InkPenGate } from "@/features/ink/application/pen-gate";
+import { InkGesture, StrokeEdgeSplit, type InkToolKind } from "@/features/ink/application/parts-1";
+import { InkPenGate } from "@/features/ink/application/parts-4";
 import {
   appendInkStroke,
   draftImageRegion,
   eraseInkPaths,
   draftInkAnnotation,
 } from "@weaveforge/wasm";
-import { PdfInkSampler, coalescedSamples } from "../../application/pdf-ink-sampler";
+import { PdfInkSampler, coalescedSamples } from "../../application/parts-2";
 import type { ReaderCreateTool } from "../../application/parts";
 import {
   EMPTY_ANNOTATIONS,

@@ -1,7 +1,7 @@
 /** Report outline, vault notes, custom fields, citation alerts, pins and the supervisee. */
 
 import { SHOWCASE_TITLES as T } from "./papers";
-import type { ShowcaseLogEntry, ShowcaseMilestone } from "./plan";
+import type { ShowcaseLogEntry, ShowcaseMilestone } from "./parts-1";
 
 export interface ShowcaseReportSection {
   section_no: string;

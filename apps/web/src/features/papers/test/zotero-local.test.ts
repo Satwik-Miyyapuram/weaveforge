@@ -9,7 +9,7 @@ import {
   localZoteroAnnotations,
   localZoteroLibrary,
   zoteroLocalFetch,
-} from "../infrastructure/zotero-local";
+} from "../infrastructure/parts-2";
 
 before(async () => {
   await loadTestCore();

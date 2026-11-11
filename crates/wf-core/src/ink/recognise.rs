@@ -1,6 +1,6 @@
 //! The pure parts of handwriting recognition: confidence mapping and the
 //! vocabulary hint list. A port of the helpers in
-//! `packages/core/src/ink/recognise.ts`; choosing an engine stays in TS
+//! `packages/core/src/ink/parts-2.ts`; choosing an engine stays in TS
 //! because it awaits each engine's probe.
 
 use std::collections::HashSet;

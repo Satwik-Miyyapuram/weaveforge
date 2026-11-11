@@ -5,8 +5,12 @@
 import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { loadCore } from "@/lib/rust-core";
-import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { importBibFile, type BibFileLike, type BibImportOutcome } from "../application/paper-from-bib";
+import {
+  type BibFileLike,
+  type BibImportOutcome,
+  importBibFile,
+  scaffoldNewPaperNote,
+} from "../application/parts-2";
 
 /** Adds the new entries of a `.bib` file to the library. */
 export async function addBibFile(file: BibFileLike): Promise<BibImportOutcome> {

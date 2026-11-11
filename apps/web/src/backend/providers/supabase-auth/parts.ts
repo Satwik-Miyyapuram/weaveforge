@@ -6,7 +6,7 @@ import type {
   ProvisionUserInput,
   Role,
 } from "@weaveforge/core";
-import { createRestClient } from "../postgrest/client";
+import { createRestClient } from "../postgrest/parts-1";
 
 // --- admin-provisioner ---
 interface ProfileRow {

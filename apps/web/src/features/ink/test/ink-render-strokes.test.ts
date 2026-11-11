@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import type { InkStroke } from "@weaveforge/core";
 
 import { readyCore } from "@/lib/rust-core";
-import { INK_RENDER_COLOURS } from "../render/ink-palette";
+import { INK_RENDER_COLOURS } from "../render/parts-1";
 
 const stroke = (colour: string, tool: string): InkStroke =>
   ({ points: [0, 0, 0.5], width: 4, colour, tool }) as unknown as InkStroke;

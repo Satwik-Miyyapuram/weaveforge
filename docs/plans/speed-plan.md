@@ -53,7 +53,7 @@ the module loads, so reload after setting it.
 | `ink:decode` (detail = bytes) | `apps/web/src/features/ink/ui/use-decoded-strokes.ts` |
 | `ink:note-paint` (detail = pages) | Same file: note open to the paint after every page is decoded |
 
-The helpers are in `apps/web/src/lib/perf-marks.ts`.
+The helpers are in `apps/web/src/lib/parts-2.ts`.
 
 ### Scripts (`scripts/perf/`)
 

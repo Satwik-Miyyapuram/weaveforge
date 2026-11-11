@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { PostgrestExperimentRepository } from "../parts";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
-import type { ProjectContext } from "@/lib/project-context";
+import type { ProjectContext } from "@/lib/parts-2";
 
 /**
  * What an experiment edit sends (02-12).

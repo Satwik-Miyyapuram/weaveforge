@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 
 import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkPage } from "@weaveforge/core";
 
-import { InkPageBuffer } from "../application/page-buffer";
+import { InkPageBuffer } from "../application/parts-3";
 import {
   ERASER_RADIUS,
   InkStrokeIndex,

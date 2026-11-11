@@ -37,23 +37,25 @@
 
 import type { InkColour } from "@weaveforge/core";
 
-import type { InkStrokeGeometry } from "../application/page-buffer";
+import type { InkStrokeGeometry } from "../application/parts-3";
 import {
   INK_AA_MARGIN_PX,
-  INK_SELECTION_HALO_PX,
   INK_INSTANCE_FLOATS,
+  INK_RENDER_COLOURS,
   INK_SEGMENT_SUBDIVISIONS,
+  INK_SELECTION_HALO_PX,
+  type InkBackend,
+  type InkBackgroundImage,
+  type InkLiveStroke,
+  type InkPalette,
+  type InkRenderer,
+  type InkRenderStats,
+  type InkShift,
+  type InkViewTransform,
   packStrokeInstances,
   strokeInstanceCount,
   usesHighlighterPass,
-  type InkBackend,
-  type InkLiveStroke,
-  type InkRenderStats,
-  type InkRenderer,
-  type InkViewTransform,
-  type InkShift,
-  type InkBackgroundImage,
-} from "./ink-renderer";
+} from "./parts-1";
 import {
   BACKGROUND_FRAGMENT_SHADER,
   BACKGROUND_VERTEX_SHADER,
@@ -64,8 +66,7 @@ import {
 import { ensureCaptureTarget, releaseCaptureTarget, type CaptureTarget } from "./webgl-offscreen";
 import { InkBatches, type Batch } from "./webgl-batches";
 import { linkProgram, pageScissor } from "./webgl-support";
-import { INK_RENDER_COLOURS, type InkPalette } from "./ink-palette";
-export { INK_RENDER_COLOURS } from "./ink-palette";
+export { INK_RENDER_COLOURS } from "./parts-1";
 
 /**
  * The shaders and the capability probe, still found here: `webgl-renderer`

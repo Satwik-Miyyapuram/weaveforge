@@ -8,7 +8,7 @@
  * hygiene ceiling. Nothing here knows about strokes.
  */
 
-import type { InkViewTransform } from "./ink-renderer";
+import type { InkViewTransform } from "./parts-1";
 import { readyCore } from "@/lib/rust-core";
 
 /** Compile and link a program, or throw with the driver's own log. */

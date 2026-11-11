@@ -13,10 +13,15 @@ import { setContainerForTests } from "@/bootstrap";
 import type { IWorkspaceFs } from "@weaveforge/core";
 import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { applyEntries, keepWorkspaceCopy, storedDigest, titleFromFileName } from "../application/folder-import-apply";
+import {
+  applyEntries,
+  keepWorkspaceCopy,
+  refreshMirrorBase,
+  storedDigest,
+  titleFromFileName,
+} from "../application/parts-1";
 import { readyCore } from "@/lib/rust-core";
-import { refreshMirrorBase } from "../application/folder-json-import";
-import { readMirrorBase } from "../application/mirror-manifest";
+import { readMirrorBase } from "../application/parts-3";
 
 /** An in-memory folder; `failWrites` paths throw on write until removed. */
 function memoryFs(files: Record<string, string>) {

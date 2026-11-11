@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchBlobsCached } from "@/lib/cache/blob-fetch-cache";
+import { fetchBlobsCached } from "@/lib/cache/parts-1";
 import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/parts";
 import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "@/lib/mermaid-render";
 

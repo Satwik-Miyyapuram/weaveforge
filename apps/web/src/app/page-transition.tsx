@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { perfNavEnd, perfNavStart } from "@/lib/perf-marks";
+import { perfNavEnd, perfNavStart } from "@/lib/parts-2";
 import { canTransition, isPlainClick, navTransition } from "@/lib/view-transition";
 
 /**

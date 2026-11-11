@@ -18,8 +18,7 @@ import { zoteroBibliographyManifest } from "@/integrations/manifests/zotero";
 import { semanticScholarCitationManifest } from "@/integrations/manifests/semantic-scholar";
 import { mattermostNotificationManifest } from "@/integrations/manifests/mattermost";
 import { gitlabLogSyncManifest } from "@/integrations/manifests/gitlab-log";
-import { githubGitReadManifest } from "@/integrations/manifests/git-read";
-import { gitlabGitReadManifest } from "@/integrations/manifests/git-read";
+import { githubGitReadManifest, gitlabGitReadManifest } from "@/integrations/manifests/git-read";
 import { createAiProposalExecutors } from "@/features/ai-assistant/application/parts";
 
 export const GENERATED_BUILTIN_FEATURE_IDS = ["dashboard", "papers", "vault", "wiki", "editor-workspace", "graph", "reading-lists", "experiments", "git", "plan", "logbook", "report", "settings", "sharing", "org"] as const;

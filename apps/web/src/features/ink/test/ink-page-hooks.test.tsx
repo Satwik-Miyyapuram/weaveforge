@@ -15,7 +15,7 @@ import { act, create } from "react-test-renderer";
 import { type InkPage, type InkRecogniser } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 import { useInkPageLifecycle } from "../ui/use-ink-page-lifecycle";
 import { useInkRecognition } from "../ui/use-ink-recognition";
 import { typedCore } from "@/lib/rust-core";

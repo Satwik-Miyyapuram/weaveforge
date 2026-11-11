@@ -1,6 +1,6 @@
 import type { Share, ShareableType } from "../../../shared/core-contract.js";
 import { rust } from "../../../shared/rust.js";
-import type { AddPaperUseCase } from "../../papers/application/add-paper.use-case.js";
+import type { AddPaperUseCase } from "../../papers/application/parts-1.js";
 import type { IPaperRepository, Paper } from "../../papers/domain/parts.js";
 import type { IShareRepository } from "../../sharing/domain/parts.js";
 import {

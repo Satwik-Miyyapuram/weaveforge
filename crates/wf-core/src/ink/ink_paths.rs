@@ -1,5 +1,5 @@
 //! Ink note sidecar paths and chunk ids. Port of the path and id half of
-//! `packages/core/src/ink/ink-note.ts` (`isInkNoteId` to `newInkChunkId`).
+//! `packages/core/src/ink/parts-2.ts` (`isInkNoteId` to `newInkChunkId`).
 
 use serde::Serialize;
 

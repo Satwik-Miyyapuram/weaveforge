@@ -152,7 +152,7 @@ async append(points: MetricPoint[]): Promise<void> {
     area: "apps/web · lib/hooks · screen cache",
     files: [
       "apps/web/src/lib/hooks/use-screen-data.ts",
-      "apps/web/src/lib/cache/screen-cache-idb.ts",
+      "apps/web/src/lib/cache/parts-2.ts",
     ],
     problem:
       "Two separate robustness holes on the same line group. (1) `void idbSetScreenCache(cacheKey, fresh)` discards the promise: a QuotaExceededError or a blocked IndexedDB transaction becomes an unhandled rejection, which in a strict root config is a hard error and otherwise is a silent hole in the offline restore this hook exists to provide. (2) `loadRef.current()` is called with no `AbortSignal`, so a slow load continues after unmount or after a project switch and then writes `setData`/`setLoading` on a dead hook — React 18 tolerates it but the request keeps consuming bandwidth and a socket on a mobile device. The `requestSeq` guard protects *which* answer is written; it does not stop the work.",

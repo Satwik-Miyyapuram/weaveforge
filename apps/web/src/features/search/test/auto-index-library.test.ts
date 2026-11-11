@@ -16,8 +16,8 @@ import {
   setAutoIndexEnabled,
   startAutoIndex,
   type AutoIndexDeps,
-} from "../application/auto-index-library";
-import type { LibraryIndexResult } from "../application/index-library-pdfs";
+} from "../application/parts-1";
+import type { LibraryIndexResult } from "../application/parts-1";
 
 before(loadTestCore);
 

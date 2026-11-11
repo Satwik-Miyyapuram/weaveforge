@@ -7,9 +7,8 @@ import type {
   TagSource,
   TagWithPaperCount,
 } from "@weaveforge/core";
-import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { one, ProjectRepository, rows, run } from "@/backend/providers/postgrest/parts-1";
 import { readyCore } from "@/lib/rust-core";
-import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /** Row shapes as stored in the tags and paper_tags tables. */
 interface TagRow {

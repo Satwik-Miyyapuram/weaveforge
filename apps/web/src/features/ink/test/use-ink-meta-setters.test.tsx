@@ -8,7 +8,7 @@ import test from "node:test";
 import type { InkHand, InkNoteMeta, InkPaper } from "@weaveforge/core";
 
 import { renderHook } from "@/lib/test/react-harness";
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 import { useInkMetaSetters } from "../ui/use-ink-meta-setters";
 
 function setup() {

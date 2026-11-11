@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DOCS_URL } from "@/lib/palette-actions";
+import { DOCS_URL } from "@/lib/parts-2";
 import { RouteNotFound } from "./route-not-found";
 import { Button } from "@/components/button";
 

@@ -1,5 +1,5 @@
 //! Ports `ImportAction`, `ConflictKind` and the `Record<ImportAction, number>`
-//! counts from `packages/core/src/workspace/deserialize-workspace.ts`.
+//! counts from `packages/core/src/workspace/parts-1.ts`.
 
 use serde::{Deserialize, Serialize};
 

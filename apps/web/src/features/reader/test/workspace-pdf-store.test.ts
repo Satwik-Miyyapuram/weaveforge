@@ -13,7 +13,7 @@ import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 import {
   RoutedPdfByteCache,
   WorkspacePdfStore,
-} from "../infrastructure/workspace-pdf-store";
+} from "../infrastructure/parts-2";
 import { typedCore } from "@/lib/rust-core";
 
 const bytes = (...values: number[]) => new Uint8Array(values).buffer;

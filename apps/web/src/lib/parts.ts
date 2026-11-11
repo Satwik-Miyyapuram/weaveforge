@@ -1,9 +1,9 @@
 import { readBackendConfig } from "@/backend/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { localBackendParts } from "@/backend/providers/local/parts";
-import { createDataClient } from "@/backend/providers/postgrest/client";
+import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";
-import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/screen-cache";
+import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/parts-2";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";

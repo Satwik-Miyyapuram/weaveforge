@@ -3,7 +3,7 @@ import type {
   ImportDiff,
 } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
-import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-library-pdfs";
+import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
@@ -14,29 +14,46 @@ import {
   DesktopWorkspaceFs,
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
-import { gitFileHistory, shellFileHistory, type FileHistorySource } from "./folder-file-history";
-import { jsonEditSince, createCoalescer, followProjectRename, readMirrorBase, readMirrorBases, writeMirrorManifest, type Coalescer } from "./mirror-manifest";
-import { activeProject, activeProjectOrNull, watchForLoss } from "./parts";
-import { mirrorWorkspace } from "./folder-mirror";
-import { readPreviewFolder } from "./folder-preview-read";
-import { applyFolderImport, clearPendingAssets, keepWorkspaceCopy } from "./folder-import-apply";
-import { isNoteOpen, onNoteClosed } from "./open-notes";
-import { diffAgainstWorkspace } from "./folder-diff";
+import {
+  applyFolderImport,
+  clearPendingAssets,
+  type ConflictPicks,
+  type ConflictResolution,
+  diffAgainstWorkspace,
+  type FileHistorySource,
+  gitFileHistory,
+  keepWorkspaceCopy,
+  mergeBothChanged,
+  settleConflict,
+  shellFileHistory,
+} from "./parts-1";
 import {
   applyOutsideEdits,
-  renamedPaths,
-  splitOutsideEdits,
+  type Coalescer,
+  createCoalescer,
   type FolderDiff,
+  followProjectRename,
   type HeldReason,
   type HeldReasons,
-} from "./outside-edits";
+  isNoteOpen,
+  jsonEditSince,
+  onNoteClosed,
+  readMirrorBase,
+  readMirrorBases,
+  renamedPaths,
+  splitOutsideEdits,
+  writeMirrorManifest,
+} from "./parts-3";
+import { activeProject, activeProjectOrNull, watchForLoss } from "./parts";
 import {
+  mirrorWorkspace,
+  readPreviewFolder,
   sanitizeArchiveEntries,
   SKIP_TOO_BIG,
-  stripArchiveRoot,
   type SkippedFile,
+  stripArchiveRoot,
   unzipWithinLimits,
-} from "./import-limits";
+} from "./parts-2";
 
 /**
  * The workspace folder as the app uses it.
@@ -741,12 +758,6 @@ export async function previewArchiveImport(
 }
 
 
-import {
-  mergeBothChanged,
-  settleConflict,
-  type ConflictPicks,
-  type ConflictResolution,
-} from "./folder-merge";
 
 export {
   mergeBothChanged,
@@ -755,6 +766,6 @@ export {
   type ConflictResolution,
 };
 
-export { applyFolderImport, writeMarkersFor } from "./folder-import-apply";
+export { applyFolderImport, writeMarkersFor } from "./parts-1";
 
 

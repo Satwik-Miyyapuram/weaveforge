@@ -14,12 +14,12 @@ import assert from "node:assert/strict";
 
 import { INK_A4_HEIGHT, INK_A4_WIDTH, decodeInkChunk, encodeInkChunk, pageFromChunk, readInkChunkHeader, type InkPage } from "@weaveforge/core";
 
-import { inkChunkCodec } from "../application/ink-chunk-codec";
-import { InkPageBuffer } from "../application/page-buffer";
+import { inkChunkCodec } from "../application/parts-1";
+import { InkPageBuffer } from "../application/parts-3";
 import {
   imageFileFromClipboard,
   pageChunkWithBackground,
-} from "../application/page-background";
+} from "../application/parts-2";
 import { typedCore } from "@/lib/rust-core";
 
 /** The codec the app stores with, as the host and the worker both ask for it. */

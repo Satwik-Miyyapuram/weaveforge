@@ -13,8 +13,8 @@ import type { AuthUser } from "../domain/parts";
 import { nextAuthStep } from "../domain/parts";
 import { clearSessionCaches } from "@/lib/cache/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
+import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { setSessionLost } from "@/lib/parts";
 import { localFirstActive, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
 

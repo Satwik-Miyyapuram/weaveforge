@@ -1,5 +1,5 @@
 //! URL metadata rules for the paper link import. Port of `readInShell` in
-//! apps/web/src/features/papers/infrastructure/url-metadata-source.ts: the address the desktop
+//! apps/web/src/features/papers/infrastructure/parts-2.ts: the address the desktop
 //! relay is asked for, and the message shown when the relay refuses it. Pure: the caller fetches
 //! the page and reads the relay's `error` text.
 

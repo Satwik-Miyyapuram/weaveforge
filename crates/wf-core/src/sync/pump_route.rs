@@ -1,5 +1,5 @@
 //! What the outbox pump does with one send outcome (wf-core `sync::pump_route`). Ports the
-//! branching in `OutboxPump.run` in `apps/web/src/features/offline-sync/domain/pump.ts`:
+//! branching in `OutboxPump.run` in `apps/web/src/features/offline-sync/domain/parts-3.ts`:
 //! stop on offline, settle an accepted op (and ack its version), hand a conflict to the
 //! conflict route, and otherwise wait for a parent or fail. The outbox writes, the
 //! conflict store calls, the skip loop and the `stalled` set stay in TypeScript.

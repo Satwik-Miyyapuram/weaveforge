@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { watchWrites } from "../postgrest/watch-writes";
 import type { BackendParts } from "../postgrest/wire-postgrest-backend";
-import { LocalBlobStore, localFiles } from "./local-blob-store";
+import { LocalBlobStore, localFiles } from "./parts-1";
 import { deviceUserId, LocalAuthService, LocalSessionProvider } from "./local-identity";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 

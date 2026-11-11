@@ -1,7 +1,7 @@
 //! The erase sweep's state for JavaScript (wf-core `ink::eraser_sweep`). Each
 //! transition returns the cursor action as a string: `"none"`, `"show"`, `"keep"`
 //! or `"restore"`. The DOM surface and its saved cursor stay in
-//! `apps/web/src/features/ink/application/eraser-tip.ts`.
+//! `apps/web/src/features/ink/application/parts-1.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::eraser_sweep::{CursorAction, EraserSweepState as Core};

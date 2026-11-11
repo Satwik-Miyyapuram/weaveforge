@@ -1,6 +1,6 @@
 import { formatError } from "@/lib/format-error";
-import { readCapped as readBody } from "@/lib/read-capped";
 import { typedCore } from "@/lib/rust-core";
+import { readCapped as readBody } from "@/lib/read-capped";
 import type { OutboundFetchLimits } from "@weaveforge/core";
 import { lookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";

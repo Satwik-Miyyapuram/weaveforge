@@ -309,7 +309,7 @@ export function inkConstants(): InkConstants {
  * stroke's cut at the paper's edge. The picker asks each question in turn; the
  * caller answers it and feeds the answer back, so a callback runs only when the
  * route needs it. The DOM and pointer events stay in
- * `apps/web/src/features/ink/application/ink-gesture.ts`.
+ * `apps/web/src/features/ink/application/parts-1.ts`.
  */
 /** The armed tool, by name. */
 export type InkToolName = "draw" | "eraser" | "lasso" | "region" | "none";

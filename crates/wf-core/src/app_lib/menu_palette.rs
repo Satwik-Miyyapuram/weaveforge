@@ -1,5 +1,5 @@
 //! Command palette rows that the desktop shell's menu and Settings back (TS `menuPaletteActions`
-//! and `settingsPaletteActions` in `apps/web/src/lib/palette-actions.ts`).
+//! and `settingsPaletteActions` in `apps/web/src/lib/parts-2.ts`).
 
 use serde::{Deserialize, Serialize};
 

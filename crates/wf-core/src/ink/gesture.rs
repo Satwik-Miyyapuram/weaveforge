@@ -1,6 +1,6 @@
 //! The pointer gesture's route choice and the stroke's cut at the paper's edge
 //! (wf-core `ink::gesture`). A port of `InkGesture.pick` and `StrokeEdgeSplit`
-//! in `apps/web/src/features/ink/application/ink-gesture.ts`.
+//! in `apps/web/src/features/ink/application/parts-1.ts`.
 //!
 //! The route is picked by asking the caller questions. Each question has side
 //! effects or costs on the caller's side (a sweep begins, a callback runs), so

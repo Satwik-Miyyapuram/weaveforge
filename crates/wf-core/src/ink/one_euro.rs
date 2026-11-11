@@ -1,4 +1,4 @@
-//! The 1-Euro pen filter. A port of `apps/web/src/features/ink/application/one-euro-filter.ts`:
+//! The 1-Euro pen filter. A port of `apps/web/src/features/ink/application/parts-2.ts`:
 //! the smoothing factor, the one-channel [`OneEuroFilter`] and the pen-level [`NibFilter`].
 //! Float operations are kept in the TS order so the two agree bit for bit.
 

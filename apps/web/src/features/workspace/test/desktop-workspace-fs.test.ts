@@ -10,7 +10,7 @@ import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
 } from "../infrastructure/parts";
-import { followProjectRename } from "../application/mirror-manifest";
+import { followProjectRename } from "../application/parts-3";
 import { typedCore } from "@/lib/rust-core";
 
 before(async () => {

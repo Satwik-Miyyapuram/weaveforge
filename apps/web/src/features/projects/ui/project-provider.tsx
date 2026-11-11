@@ -12,7 +12,7 @@ import {
 import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/parts";
-import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
@@ -98,7 +98,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const apply = useCallback((id: string | null) => {
     // The background PDF run belongs to the project it started in (xstate-03).
     if (getContainer().projects.context.projectId !== id) {
-      void import("@/features/search/application/auto-index-library").then((m) => m.stopAutoIndex());
+      void import("@/features/search/application/parts-1").then((m) => m.stopAutoIndex());
     }
     clearAllScreenCaches();
     getContainer().projects.context.projectId = id;

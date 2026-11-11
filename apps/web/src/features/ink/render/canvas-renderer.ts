@@ -26,23 +26,21 @@
 
 import type { InkColour } from "@weaveforge/core";
 
-import type { InkStrokeGeometry } from "../application/page-buffer";
-import {
-  INK_SEGMENT_SUBDIVISIONS,
-  INK_SELECTION_HALO_PX,
-  radiusAt,
-  strokeCurveAt,
-  type InkLiveStroke,
-  type InkRenderStats,
-  type InkRenderer,
-  type InkShift,
-  type InkViewTransform,
-  type InkBackgroundImage,
-} from "./ink-renderer";
+import type { InkStrokeGeometry } from "../application/parts-3";
 import {
   INK_RENDER_COLOURS,
+  INK_SEGMENT_SUBDIVISIONS,
+  INK_SELECTION_HALO_PX,
+  type InkBackgroundImage,
+  type InkLiveStroke,
   type InkPalette,
-} from "./ink-palette";
+  type InkRenderer,
+  type InkRenderStats,
+  type InkShift,
+  type InkViewTransform,
+  radiusAt,
+  strokeCurveAt,
+} from "./parts-1";
 import { readyCore } from "@/lib/rust-core";
 
 /** The 2D context, whichever canvas it came from. */

@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { inChunks } from "../row-access";
+import { inChunks } from "../parts-1";
 
 function recorder() {
   const asked: string[][] = [];

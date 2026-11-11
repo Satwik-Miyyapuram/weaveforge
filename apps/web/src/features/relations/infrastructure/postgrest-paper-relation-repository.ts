@@ -6,8 +6,14 @@ import type {
 } from "@weaveforge/core";
 import type { PaperRelationRow } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { deleteRowById, one, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
-import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import {
+  deleteRowById,
+  one,
+  ProjectRepository,
+  rowById,
+  rows,
+  run,
+} from "@/backend/providers/postgrest/parts-1";
 
 /**
  * PostgREST implementation of IPaperRelationRepository.

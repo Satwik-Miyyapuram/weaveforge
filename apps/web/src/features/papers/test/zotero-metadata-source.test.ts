@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import assert from "node:assert/strict";
-import { ZoteroMetadataSource } from "../infrastructure/zotero-metadata-source";
+import { ZoteroMetadataSource } from "../infrastructure/parts-2";
 
 before(async () => {
   await loadTestCore();

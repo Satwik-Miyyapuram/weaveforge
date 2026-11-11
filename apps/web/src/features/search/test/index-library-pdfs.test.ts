@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { readFailureReason } from "../application/index-library-pdfs";
+import { readFailureReason } from "../application/parts-1";
 
 before(async () => {
   await loadTestCore();
@@ -61,7 +61,7 @@ test("a thrown non-Error still yields something printable", () => {
  * to the first word of the next.
  */
 test("words at line ends stay separate, as the reader writes them", async () => {
-  const { pdfPageText } = await import("../application/index-library-pdfs");
+  const { pdfPageText } = await import("../application/parts-1");
   const items = [
     { str: "the end of", hasEOL: true },
     { type: "beginMarkedContent" },
@@ -72,7 +72,7 @@ test("words at line ends stay separate, as the reader writes them", async () => 
 });
 
 test("a page with no text runs is empty", async () => {
-  const { pdfPageText } = await import("../application/index-library-pdfs");
+  const { pdfPageText } = await import("../application/parts-1");
   assert.equal(pdfPageText([]), "");
   assert.equal(pdfPageText([{ type: "beginMarkedContent" }]), "");
 });

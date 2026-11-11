@@ -29,7 +29,7 @@ import {
   strokeCurveAt,
   strokeTangentAt,
   strokeInstanceCount,
-} from "../render/ink-renderer";
+} from "../render/parts-1";
 
 before(loadTestCore);
 

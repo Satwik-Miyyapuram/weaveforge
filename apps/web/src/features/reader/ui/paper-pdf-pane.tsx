@@ -24,14 +24,7 @@ import { describeRejection, formatError } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
 import { proxiedPdfUrl } from "../application/sanitize-reader-url";
-import {
-  downloadPaperPdfToCache,
-  fetchTypedPdfToCache,
-  isStoredPdfUrl,
-  evictReaderPdfCache,
-  getReaderPdfByteCache,
-  resolvePaperPdfSourceForReader,
-} from "../application/resolve-paper-pdf-for-reader";
+import { downloadPaperPdfToCache, evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, isStoredPdfUrl, resolvePaperPdfSourceForReader } from "../application/parts-3";
 import {
   linkPdfSource,
   pdfDownloadNeedsConsent,
@@ -386,7 +379,7 @@ export function PaperPdfPane({
       error: false,
     });
     try {
-      const { findFreeCopyInBrowser } = await import("../application/free-copy-browser");
+      const { findFreeCopyInBrowser } = await import("../application/parts-2");
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
       if (outcome.kind === "pdf") {
         const host = new URL(outcome.candidate.url).hostname;
@@ -412,7 +405,7 @@ export function PaperPdfPane({
         setError(null);
         setHtmlPage(outcome.page);
         // Searchable like a PDF's text. Best effort: the page is kept either way.
-        void import("@/features/search/application/index-library-pdfs")
+        void import("@/features/search/application/parts-1")
           .then(({ indexPaperHtmlPage }) => indexPaperHtmlPage(outcome.page, paperTitle ?? undefined))
           .catch(() => undefined);
       } else {
@@ -435,7 +428,7 @@ export function PaperPdfPane({
       await paperHtmlStore()?.remove(paperId);
       // The page was this paper's only text, so its search text goes with it.
       try {
-        const { removePdfTextsDurably } = await import("@/features/search/application/pdf-text-folder");
+        const { removePdfTextsDurably } = await import("@/features/search/application/parts-1");
         const container = getContainer();
         await removePdfTextsDurably(container.projects.context.projectId, [paperId]);
         container.search.invalidate();

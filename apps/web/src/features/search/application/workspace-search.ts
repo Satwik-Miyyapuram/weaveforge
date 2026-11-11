@@ -12,18 +12,21 @@ import type {
   WorkspaceSnapshot,
 } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
-import { buildIndexInWorker, supportsIndexWorker } from "../infrastructure/index-builder";
-import { persistSearchIndex } from "../infrastructure/index-cache-policy";
+import {
+  buildIndexInWorker,
+  persistSearchIndex,
+  supportsIndexWorker,
+} from "../infrastructure/parts-1";
 import {
   applySearchSettings,
   buildSearchIndex,
   createMiniSearchIndexFactory,
 } from "../infrastructure/minisearch-index";
-import { loadPdfTexts } from "../infrastructure/pdf-text-store";
-import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
-import { reconcilePdfTextFolder, removePdfTextsDurably } from "./pdf-text-folder";
-import { SearchIndexState } from "./search-index-state";
-import type { SemanticIndex } from "./semantic-index";
+import { loadPdfTexts } from "../infrastructure/parts-2";
+import { idbGetSearchIndex } from "../infrastructure/parts-3";
+import { reconcilePdfTextFolder, removePdfTextsDurably } from "./parts-1";
+import { SearchIndexState } from "./parts-2";
+import type { SemanticIndex } from "./parts-2";
 
 // --- pdf-text-pruning ---
 /**

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import {
   nativeInkBridge,
   nativeStrokeEvents,
-} from "../application/native-bridge";
+} from "../application/parts-2";
 
 test("a flat native stroke becomes pen events in CSS pixels", () => {
   const events = nativeStrokeEvents([200, 400, 0.5, 10, 220, 420, 0.7, 18], 2);

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { IWorkspaceGit, WorkspaceCommit } from "@weaveforge/core";
 
-import { gitFileHistory, shellFileHistory } from "../application/folder-file-history";
+import { gitFileHistory, shellFileHistory } from "../application/parts-1";
 
 const commit = (oid: string): WorkspaceCommit => ({
   oid,

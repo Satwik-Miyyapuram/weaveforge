@@ -21,9 +21,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fromWasmFigure, readyCore, typedCore } from "@/lib/rust-core";
 import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
 
-import { availableInkChunkCodec } from "../application/ink-chunk-codec";
-import type { InkStoredPage } from "../application/ink-chunk-store";
-import { pdfPageCount } from "../application/pdf-page-raster";
+import { availableInkChunkCodec } from "../application/parts-1";
+import type { InkStoredPage } from "../application/parts-1";
+import { pdfPageCount } from "../application/parts-3";
 import {
   figureImageFromFile,
   imageFileFromClipboard,
@@ -33,7 +33,7 @@ import {
   pageBackgroundFromFile,
   pageChunkWithBackground,
   pdfPageBackgrounds,
-} from "../application/page-background";
+} from "../application/parts-2";
 import { figureBoxForImage } from "./ink-figures";
 
 /** How a page's media gets written; the host owns the sidecar and the saves. */

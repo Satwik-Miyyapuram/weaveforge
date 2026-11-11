@@ -1,9 +1,4 @@
-import {
-  decodeHtmlBytes,
-  HTML_PROXY_MAX_BYTES,
-  HTML_PROXY_PATH,
-  htmlRelayResponse,
-} from "@/features/reader/application/paper-html-rules";
+import { decodeHtmlBytes, HTML_PROXY_MAX_BYTES, HTML_PROXY_PATH, htmlRelayResponse } from "@/features/reader/application/paper-html-rules";
 import { readCapped } from "@/lib/read-capped";
 import { readyCore } from "@/lib/rust-core";
 import { fetchCheckedHops, isPublicHttpsUrl, refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";

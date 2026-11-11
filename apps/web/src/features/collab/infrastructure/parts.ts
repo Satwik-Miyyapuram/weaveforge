@@ -1,4 +1,4 @@
-import { oneRow, run } from "@/backend/providers/postgrest/row-access";
+import { oneRow, run } from "@/backend/providers/postgrest/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompactOutcome, CrdtUpdateRecord, ICrdtUpdateStore } from "@weaveforge/core";

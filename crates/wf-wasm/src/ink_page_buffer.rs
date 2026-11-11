@@ -1,5 +1,5 @@
 //! The pure page-buffer helpers for JavaScript (wf-core `ink::page_buffer`). The JS
-//! names match `apps/web/src/features/ink/application/page-buffer.ts`, which keeps
+//! names match `apps/web/src/features/ink/application/parts-3.ts`, which keeps
 //! the typed-array buffer and its renderer hooks.
 //!
 //! A box crosses the boundary as four numbers `[minX, minY, maxX, maxY]`; an empty

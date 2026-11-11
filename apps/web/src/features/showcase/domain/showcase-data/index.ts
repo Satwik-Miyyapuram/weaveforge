@@ -15,9 +15,9 @@
  */
 
 export * from "./papers";
-export * from "./annotations";
-export * from "./reading";
-export * from "./plan";
-export * from "./experiments";
+export * from "./parts-1";
+export * from "./parts-1";
+export * from "./parts-1";
+export * from "./parts-1";
 export * from "./report";
-export * from "./collab";
+export * from "./parts-1";

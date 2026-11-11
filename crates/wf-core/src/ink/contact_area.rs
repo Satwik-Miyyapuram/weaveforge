@@ -1,7 +1,7 @@
 //! The area a touch covers, in mm², from the CSS pixels a `PointerEvent`
 //! reports. The palm rule compares it with a threshold.
 //!
-//! A port of `contactAreaMm2` in `apps/web/src/features/ink/application/pen-gate.ts`.
+//! A port of `contactAreaMm2` in `apps/web/src/features/ink/application/parts-4.ts`.
 //! The gate's state machine and its constants stay in TypeScript.
 
 /// CSS pixels per millimetre: 96 px to the inch, 25.4 mm to the inch.

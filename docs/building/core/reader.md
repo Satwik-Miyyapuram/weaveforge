@@ -87,7 +87,7 @@ KEEP decision, not a gap.
   It needs a `ReaderAnnotation` type in Rust before it can move. Until that type
   exists, the helpers stay in TS.
 - `crates/wf-core/src/reader/reference_actions.rs` (wasm `reader_reference_actions.rs`):
-  the reference-action rules that `apps/web/src/features/reader/application/reference-actions.ts`
+  the reference-action rules that `apps/web/src/features/reader/application/parts-2.ts`
   calls. The TS file keeps the clipboard and navigation calls.
 - `crates/wf-core/src/reader/zotero_write_back_message.rs` (wasm `reader_zotero_sync.rs`):
   the Zotero annotation write-back message rules. `write-back-zotero-annotations.ts` keeps

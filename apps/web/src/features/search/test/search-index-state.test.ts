@@ -3,7 +3,7 @@ import test, { before } from "node:test";
 
 import type { IWorkspaceSearchIndex, SearchDoc, WorkspaceSnapshot } from "@weaveforge/core";
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
-import { SearchIndexState } from "../application/search-index-state";
+import { SearchIndexState } from "../application/parts-2";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

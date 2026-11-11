@@ -1,6 +1,7 @@
 "use client";
 
-import { formatRelative } from "@/lib/format-date";
+import { formatError } from "@/lib/format-error";
+import { formatRelative } from "@/lib/parts-1";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
@@ -12,7 +13,6 @@ import { EmptyState } from "@/components/empty-state";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
 

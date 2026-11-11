@@ -1,5 +1,5 @@
 //! Margin comment cards down the page margin. A port of `layoutMarginNotes` in
-//! `apps/web/src/features/reader/application/margin-notes.ts`.
+//! `apps/web/src/features/reader/application/parts-2.ts`.
 //!
 //! TS reads each annotation's fields into a [`MarginMark`]. Which marks get a card, where
 //! each mark starts on screen, and the stacking all live here.

@@ -18,7 +18,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { InkGesture, StrokeEdgeSplit } from "../application/ink-gesture";
+import { InkGesture, StrokeEdgeSplit } from "../application/parts-1";
 import {
   claimPointer,
   ERASER_CURSOR,

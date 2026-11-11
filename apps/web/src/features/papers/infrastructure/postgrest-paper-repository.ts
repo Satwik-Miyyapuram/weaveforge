@@ -2,8 +2,7 @@ import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import { type IPaperRepository, type Paper, type PaperFilter, type PaperIdentity, type PaperSummary } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
 import type { PaperRow } from "@weaveforge/wasm";
-import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
-import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { inChunks, one, ProjectRepository, rows, run } from "@/backend/providers/postgrest/parts-1";
 
 /**
  * PostgREST implementation of IPaperRepository.

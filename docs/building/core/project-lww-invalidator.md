@@ -3,7 +3,7 @@
 Rust: `crates/wf-core/src/cache_invalidation.rs` (`write_scope`, `lww_clear_target`, `lww_notify_resource`).
 Wasm: `crates/wf-wasm/src/cache_invalidation.rs` (`writeScope`, `lwwClearTarget`, `lwwNotifyResource`).
 TS wrapper: `packages/wf-wasm/src/index.ts` (wrapper functions next to `invalidationMap`).
-TS shim: `apps/web/src/lib/cache/project-lww-invalidator.ts` (kept; many importers).
+TS shim: `apps/web/src/lib/cache/parts-1.ts` (kept; many importers).
 
 ## Exports
 

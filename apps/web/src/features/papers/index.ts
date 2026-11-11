@@ -10,4 +10,4 @@ export { PapersScreen } from "./ui/papers-list";
  */
 export { PaperMarkdown } from "./ui/paper-markdown";
 export { paperImageMarkdown } from "./lib/parts";
-export { draftReadingLog } from "./application/reading-digest";
+export { draftReadingLog } from "./application/parts-2";

@@ -1,4 +1,4 @@
-import type { InkLine } from "./recognise.js";
+import type { InkLine } from "./parts-2.js";
 
 // --- decode ---
 /** Types for decode. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */

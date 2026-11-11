@@ -9,7 +9,7 @@ import {
   annotationsOwedToZotero,
   writeBackZoteroAnnotations,
   type ZoteroAnnotationPusher,
-} from "../application/write-back-zotero-annotations";
+} from "../application/parts-3";
 
 before(async () => {
   await loadTestCore();

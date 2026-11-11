@@ -1,4 +1,4 @@
-//! The decisions `Puller` makes for one pull (`apps/web/src/features/offline-sync/domain/puller.ts`):
+//! The decisions `Puller` makes for one pull (`apps/web/src/features/offline-sync/domain/parts-2.ts`):
 //! the page summary, what a change does to its local row, what a tombstone does, and how a
 //! unique-constraint clash is named. The SQL, the writes, the conflict store calls and the retry
 //! loop stay in TypeScript; this module only picks the step.

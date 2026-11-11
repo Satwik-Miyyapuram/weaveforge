@@ -10,13 +10,12 @@ import { describeRejection } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
 import { notifyWorkspaceChange } from "@/lib/parts";
 import { wireStorage } from "@/storage/wire-storage";
-import { createDataClient } from "../postgrest/client";
+import { createDataClient } from "../postgrest/parts-1";
 import { watchWrites } from "../postgrest/watch-writes";
 import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import type { LocalFirstAccount } from "./local-first-marker";
-import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
-import { ExperimentPush, keepPushing } from "./local-first-experiment-push";
+import { ExperimentPush, keepFlushing, keepPushing, LocalFirstBlobStore } from "./parts-1";
 import { LocalSessionProvider } from "./local-identity";
 import { localRunnerQuery } from "./parts";
 

@@ -1,6 +1,6 @@
 //! Deciding how an open conflict settles when the server's row arrives (`ConflictStore.settle`),
 //! and the row-equality check `write` uses. Ports the decision in
-//! `apps/web/src/features/offline-sync/domain/conflicts.ts`. The SQL that stores each outcome
+//! `apps/web/src/features/offline-sync/domain/parts-1.ts`. The SQL that stores each outcome
 //! stays in TypeScript.
 
 use serde::{Deserialize, Serialize};

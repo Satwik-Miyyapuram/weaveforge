@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { __test } from "../screen-cache-idb";
-import { isScreenCacheFresh, setScreenCache } from "../screen-cache";
+import { __test, isScreenCacheFresh, setScreenCache } from "../parts-2";
 
 const { unwrap, ENVELOPE_VERSION, MAX_AGE_MS } = __test;
 const NOW = 1_700_000_000_000;

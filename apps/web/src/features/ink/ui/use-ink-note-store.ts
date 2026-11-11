@@ -26,7 +26,7 @@ import {
   loadInkPages,
   type InkChunkStore,
   type InkStoredPage,
-} from "../application/ink-chunk-store";
+} from "../application/parts-1";
 
 /** What the saves need from the host. */
 export interface InkNoteStoreDeps {

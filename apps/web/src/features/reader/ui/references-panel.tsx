@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { ParsedReference, ReaderAnnotation } from "@weaveforge/core";
-import type { ResolvedReference } from "../application/reference-lookup";
+import type { ResolvedReference } from "../application/parts-2";
 import { Button } from "@/components/button";
 
 export interface ReferencesPanelProps {

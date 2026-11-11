@@ -5,7 +5,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { InkGesture, StrokeEdgeSplit, type InkDownContext } from "../application/ink-gesture";
+import { InkGesture, StrokeEdgeSplit, type InkDownContext } from "../application/parts-1";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

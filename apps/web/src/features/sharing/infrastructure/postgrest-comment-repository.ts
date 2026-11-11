@@ -3,7 +3,7 @@ import type { Comment, ICommentRepository, NewCommentInput } from "@weaveforge/c
 // The `comments` row type is generated from Rust; Rust reads a null column as absent.
 import type { CommentRowInput as CommentRow } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
-import { oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/row-access";
+import { oneRow, rows, run, timestampsAsText } from "@/backend/providers/postgrest/parts-1";
 
 /**
  * PostgREST adapter for comments (migration 0018). `author_id` defaults to

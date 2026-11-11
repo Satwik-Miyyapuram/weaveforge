@@ -9,7 +9,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { InkPenGate } from "../application/pen-gate";
+import { InkPenGate } from "../application/parts-4";
 import { PenCaptureSession, type PenPointerEvent } from "../application/use-pen-capture";
 import {
   InkSamplePool,
@@ -18,7 +18,7 @@ import {
   type InkWorkerMessage,
   readInkSamples,
 } from "../application/capture-protocol";
-import { NibFilter } from "../application/one-euro-filter";
+import { NibFilter } from "../application/parts-2";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

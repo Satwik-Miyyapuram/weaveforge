@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
-import { INK_RENDER_COLOURS } from "@/features/ink/render/ink-palette";
+import { INK_RENDER_COLOURS } from "@/features/ink/render/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import { readToolColours, resetToolColoursCacheForTests } from "@/features/ink";
 import { loadTestCore } from "@/lib/test/load-test-core";

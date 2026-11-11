@@ -1,4 +1,4 @@
-//! Port of the prompt text in `apps/web/src/features/search/application/ask-library.ts`. Pure:
+//! Port of the prompt text in `apps/web/src/features/search/application/parts-1.ts`. Pure:
 //! the search, the model call and the nonce stay in the app.
 
 use crate::ai::untrusted_context::{UNTRUSTED_CONTEXT_RULE, UntrustedItem, fence_untrusted};

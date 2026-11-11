@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PostgrestReaderAnnotationRepository } from "../infrastructure/postgrest-reader-annotation-repository";
+import { PostgrestReaderAnnotationRepository } from "../infrastructure/parts-1";
 
 const UID = "user-1";
 const PROJECT = "project-1";

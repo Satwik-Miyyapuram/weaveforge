@@ -1,6 +1,6 @@
 //! "Find a free copy": the words for a search that opened nothing, and the open-access ids a
 //! paper offers the indexes. A port of the pure parts of
-//! `apps/web/src/features/reader/application/find-free-copy.ts`. The lookup, the fetches and the
+//! `apps/web/src/features/reader/application/parts-1.ts`. The lookup, the fetches and the
 //! save stay in TypeScript.
 
 use std::sync::LazyLock;

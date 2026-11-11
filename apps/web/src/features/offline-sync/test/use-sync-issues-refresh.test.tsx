@@ -10,7 +10,7 @@ import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 
 import { useSyncIssues, type SyncIssues } from "../ui/use-sync-issues";
-import { setLiveSyncState } from "../domain/live-sync";
+import { setLiveSyncState } from "../domain/parts-1";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

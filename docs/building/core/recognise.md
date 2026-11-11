@@ -11,8 +11,8 @@ The wasm exports are in `crates/wf-wasm/src/ink.rs` and `ink_engine_title.rs`: `
 
 ## What stays in TypeScript
 
-- `selectInkRecogniser` in `packages/core/src/ink/recognise.ts` still awaits each engine's `available()` probe. Only the ranking moved, through `rust().inkEngineRank`.
-- `recognisePage`, `recogniseLine` and `acceptedLines` in `apps/web/src/features/ink/application/recognise-page.ts` stay as shims. They drive the engine and the line loop, and they call `readyCore()` for the pure parts.
+- `selectInkRecogniser` in `packages/core/src/ink/parts-2.ts` still awaits each engine's `available()` probe. Only the ranking moved, through `rust().inkEngineRank`.
+- `recognisePage`, `recogniseLine` and `acceptedLines` in `apps/web/src/features/ink/application/parts-4.ts` stay as shims. They drive the engine and the line loop, and they call `readyCore()` for the pure parts.
 
 ## Wrappers
 

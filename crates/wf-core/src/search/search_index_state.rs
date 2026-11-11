@@ -1,4 +1,4 @@
-//! Port of the pure part of `apps/web/src/features/search/application/search-index-state.ts`:
+//! Port of the pure part of `apps/web/src/features/search/application/parts-2.ts`:
 //! which search kinds a write to a resource type can change. The stale set and its
 //! transitions stay in the TS class, because they hold the live index.
 

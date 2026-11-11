@@ -337,7 +337,7 @@ function fakeSemantic(ranking: readonly string[]) {
     async search(_query: string, _limit: number) {
       return ranking.map((id, i) => ({ id, score: 1 - i * 0.1 }));
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex;
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex;
 }
 
 test("without a semantic arm, hybrid search is exactly the keyword ranking", async () => {
@@ -402,7 +402,7 @@ test("an encoder failure falls back to keywords rather than to nothing", async (
     async search() {
       throw new Error("the model died");
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const hybrid = await search.searchHybrid("attention", { limit: 10 });
   assert.equal(hybrid.length, 1, "the arm that always works still answers");
@@ -567,7 +567,7 @@ test("a vector hit below the noise floor does not become a match", async () => {
     async search() {
       return [{ id: "note:n2", score: 0.21 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const hybrid = await search.searchHybrid("attention", { limit: 10 });
   assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
@@ -586,7 +586,7 @@ test("the noise floor is the encoder's own, not a fixed number", async () => {
     async search() {
       return [{ id: "note:n2", score: 0.45 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const hybrid = await search.searchHybrid("attention", { limit: 10 });
   assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
@@ -606,7 +606,7 @@ test("a keyword hit on one function word of a question is not fused in", async (
     async search() {
       return [{ id: "note:n1", score: 0.5 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   // "how" and "for" match the cooking note; neither is about anything.
   const hybrid = await search.searchHybrid("how to train very deep networks", { limit: 10 });
@@ -625,7 +625,7 @@ test("an off-topic question returns nothing once both arms are strict", async ()
     async search() {
       return [{ id: "note:n1", score: 0.12 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   assert.deepEqual(await search.searchHybrid("how to cook pasta for dinner", { limit: 10 }), []);
 });
@@ -641,7 +641,7 @@ test("related falls back to meaning when the graph has nothing, and says so", as
     async search() {
       return [];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const related = await search.relatedHybrid("note:n1", 5);
   assert.equal(related[0]?.id, "note:n2");
@@ -668,7 +668,7 @@ test("related adds what is close in meaning to what wording found, and says whic
     async search() {
       return [];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const related = await search.relatedHybrid("note:n1", 5);
   const byId = new Map(related.map((hit) => [hit.id, hit]));
@@ -691,7 +691,7 @@ test("a refreshed note is handed to the semantic arm to re-embed", async () => {
       synced.push(docs.map((d) => d.id));
       return true;
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
   let changed = 0;
   search.onSemanticChanged = () => {
     changed += 1;

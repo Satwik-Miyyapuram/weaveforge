@@ -60,7 +60,7 @@ The folder-mirror helpers used by the import and manifest code (`jsonEditSince`,
 - **Reading and writing folder files.** Browser file handles and desktop file
   APIs are I/O. Rust sees names, sizes and digests, and the caller keeps the
   bytes.
-- **The outside-edit flow.** `apps/web/src/features/workspace/application/outside-edits.ts`
+- **The outside-edit flow.** `apps/web/src/features/workspace/application/parts-3.ts`
   runs the triage, shows the review list and applies the choices. The rules
   come from Rust; the orchestration and its dialogs stay in TypeScript.
 - **Keep-both titles and import limits in the app.** The title helper for a

@@ -5,7 +5,7 @@
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { PreviewCache } from "../application/paper-preview";
+import { PreviewCache } from "../application/parts-2";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

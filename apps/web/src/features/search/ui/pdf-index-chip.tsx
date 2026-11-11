@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Chip } from "@/components/controls";
-import { autoIndexStatus, cancelLibraryIndex, subscribeAutoIndex } from "../application/auto-index-library";
+import { autoIndexStatus, cancelLibraryIndex, subscribeAutoIndex } from "../application/parts-1";
 
 /**
  * A PDF indexing run, shown in the nav while it goes, with × to stop it.

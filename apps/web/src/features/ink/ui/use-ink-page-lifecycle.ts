@@ -15,7 +15,7 @@ import { useEffect } from "react";
 import { type InkNoteMeta } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 import { decodedStrokeCount } from "./use-decoded-strokes";
 import type { FigureGeometry, InkPage } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";

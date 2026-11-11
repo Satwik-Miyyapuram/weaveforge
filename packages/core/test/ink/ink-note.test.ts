@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 
 import { rust } from "../../src/shared/rust.js";
-import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_SIDECAR_DIR, INK_STROKE_MAX_POINTS } from "../../src/ink/ink-note.js";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_SIDECAR_DIR, INK_STROKE_MAX_POINTS } from "../../src/ink/parts-2.js";
 
 /** Chunk ids that are valid by construction (26 Crockford characters). */
 const CHUNK_A = "01JABC0DEF0GH0JK0MN0PQ0RST";
@@ -236,7 +236,7 @@ test("a page size that could not fit an Int16 coordinate is clamped", () => {
  * ---------------------------------------------------------------------- */
 
 
-import { parseWorkspaceFile } from "../../src/workspace/deserialize-workspace.js";
+import { parseWorkspaceFile } from "../../src/workspace/parts-1.js";
 
 test("the body header round-trips the ink metadata and leaves the text layer alone", () => {
   const meta = {

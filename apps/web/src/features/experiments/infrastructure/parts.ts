@@ -1,11 +1,11 @@
-import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 import {
   deleteRowById,
   inChunks,
+  ProjectRepository,
   rowById,
   rows,
   run,
-} from "@/backend/providers/postgrest/row-access";
+} from "@/backend/providers/postgrest/parts-1";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {

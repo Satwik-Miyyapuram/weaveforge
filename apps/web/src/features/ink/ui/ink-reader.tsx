@@ -12,9 +12,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_COLOURS, INK_PEN_WIDTHS } from "@weaveforge/core";
-import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
+import { loadInkPages, type InkStoredPage } from "../application/parts-1";
 import { awaitInkWrites } from "../application/parts";
-import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/ink-palette";
+import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/parts-1";
 import type { InkHostDeps } from "./ink-host-types";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";

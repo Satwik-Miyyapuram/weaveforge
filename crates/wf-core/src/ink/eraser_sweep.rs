@@ -1,7 +1,7 @@
 //! The state of one erase sweep, down to up: which pointer sweeps, whether the
 //! pen's back tip made it, and which pointer keeps the eraser cursor after a
 //! back-tip lift. A port of `EraserSweep` in
-//! `apps/web/src/features/ink/application/eraser-tip.ts`.
+//! `apps/web/src/features/ink/application/parts-1.ts`.
 //!
 //! The state machine lives here. The cursor itself does not: it is a DOM style on
 //! a surface the caller holds, so each method returns a [`CursorAction`] and the

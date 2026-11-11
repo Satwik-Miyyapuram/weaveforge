@@ -4,7 +4,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import type { FigureGeometry, InkStroke } from "@weaveforge/core";
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/parts-1";
 import type { WikilinkResolver } from "@/components/markdown/markdown";
 import { InkFigures } from "./ink-figures";
 import { InkPageCanvas } from "./ink-page-canvas";

@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { DesktopMenuGroup, DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { DOCS_URL, menuPaletteActions, nextShortcutsOpen, settingsPaletteActions } from "../palette-actions";
+import { DOCS_URL, menuPaletteActions, nextShortcutsOpen, settingsPaletteActions } from "../parts-2";
 
 before(loadTestCore);
 

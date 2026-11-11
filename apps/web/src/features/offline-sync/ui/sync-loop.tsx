@@ -3,19 +3,19 @@
 import { useEffect } from "react";
 
 import { readBackendConfig } from "@/backend/parts";
-import { createDataClient } from "@/backend/providers/postgrest/client";
+import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
+import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { logToApp, type AppLogInput } from "@/lib/error-report/app-log";
 import { alreadyRecorded } from "@/lib/error-report/log-buffer";
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { SyncStateStore } from "../domain/sync-state";
-import type { CycleResult } from "../domain/sync-engine";
+import { SyncStateStore } from "../domain/parts-3";
+import type { CycleResult } from "../domain/parts-3";
 import { enableSync, liveAccessToken } from "./enable-sync";
 import { syncEngine } from "./use-sync";
 
@@ -61,8 +61,12 @@ import { syncEngine } from "./use-sync";
  */
 
 import { onWorkspaceChange } from "@/lib/parts";
-import { setLiveSyncState, registerSyncTrigger, type LiveSyncState } from "../domain/live-sync";
-import { ConflictStore } from "../domain/conflicts";
+import {
+  ConflictStore,
+  type LiveSyncState,
+  registerSyncTrigger,
+  setLiveSyncState,
+} from "../domain/parts-1";
 
 const CYCLE_MS = 45 * 1000;
 const FOCUS_MS = 15 * 1000;

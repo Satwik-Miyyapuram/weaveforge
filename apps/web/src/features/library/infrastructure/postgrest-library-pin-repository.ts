@@ -4,8 +4,12 @@ import type {
   NewLibraryPinInput,
   ShareableType,
 } from "@weaveforge/core";
-import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
-import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import {
+  oneRow,
+  ProjectScopedPostgrestRepository,
+  rows,
+  run,
+} from "@/backend/providers/postgrest/parts-1";
 import { typedCore } from "@/lib/rust-core";
 
 /** A `library_pins` row as PostgREST returns it (snake_case columns). */

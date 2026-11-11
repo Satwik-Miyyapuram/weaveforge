@@ -1,4 +1,4 @@
-//! Citation underline planning for JavaScript (`apps/web/src/features/reader/application/citation-spans.ts`).
+//! Citation underline planning for JavaScript (`apps/web/src/features/reader/application/parts-1.ts`).
 //! Wraps `wf_core::reader::citation_spans`.
 
 use wasm_bindgen::JsValue;

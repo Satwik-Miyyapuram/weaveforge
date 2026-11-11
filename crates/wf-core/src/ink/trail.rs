@@ -1,5 +1,5 @@
 //! The delegated ink trail's diameter. A port of the pure part of
-//! `apps/web/src/features/ink/application/ink-trail.ts`; the presenter and the
+//! `apps/web/src/features/ink/application/parts-1.ts`; the presenter and the
 //! colour stay in TS.
 
 use super::ink_page::INK_A4_WIDTH;

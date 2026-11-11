@@ -6,14 +6,13 @@ import type { PaperRef as WasmPaperRef } from "@weaveforge/wasm";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
+import { scaffoldNewPaperNote } from "../application/parts-2";
 import { useSubmit } from "@/lib/hooks/parts";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { formatError } from "@/lib/format-error";
-import type { PdfDropOutcome } from "../application/paper-from-pdf";
+import type { BibImportOutcome, PdfDropOutcome } from "../application/parts-2";
 import { addPdfFiles } from "./pdf-drop";
-import type { BibImportOutcome } from "../application/paper-from-bib";
 import { addBibFile } from "./bib-import";
 
 

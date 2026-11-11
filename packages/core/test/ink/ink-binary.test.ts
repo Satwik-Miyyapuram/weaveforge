@@ -14,28 +14,26 @@ import assert from "node:assert/strict";
 import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 
 import {
-  INK_CHUNK_FLAG_COMPRESSED,
-  INK_CHUNK_HEADER_BYTES,
-  INK_CHUNK_MAGIC,
-  InkChunkError,
+  chunkLine,
+  chunkLineText,
+  chunkStroke,
+  chunkStrokePoints,
   decodeInkChunk,
   decodeInkChunkBody,
   encodeInkChunk,
   encodeInkChunkBody,
   identityInkChunkCodec,
   inflateInkChunk,
+  INK_CHUNK_FLAG_COMPRESSED,
+  INK_CHUNK_HEADER_BYTES,
+  INK_CHUNK_MAGIC,
   inkChunkBodySize,
-  readInkChunkHeader,
   type InkChunkCodec,
-} from "../../src/ink/ink-binary.js";
-import {
-  chunkLine,
-  chunkLineText,
-  chunkStroke,
-  chunkStrokePoints,
+  InkChunkError,
   pageFromChunk,
-} from "../../src/ink/ink-chunk-read.js";
-import { INK_PAPERS, type InkPage } from "../../src/ink/ink-note.js";
+  readInkChunkHeader,
+} from "../../src/ink/parts-1.js";
+import { INK_PAPERS, type InkPage } from "../../src/ink/parts-2.js";
 import { rust } from "../../src/shared/rust.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */

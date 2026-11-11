@@ -8,7 +8,7 @@ import test, { before } from "node:test";
 import { UNTRUSTED_CONTEXT_RULE, type AiModelRequest, type SearchHit } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { askLibrary, buildAskRequest, citedSources } from "../application/ask-library";
+import { askLibrary, buildAskRequest, citedSources } from "../application/parts-1";
 
 before(async () => {
   await loadTestCore();

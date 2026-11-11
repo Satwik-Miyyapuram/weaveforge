@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_ENGINE_MAX_CONFIDENCE, type InkWordReadings } from "../../src/ink/parts.js";
-import { inkUnsureConfidence, isUnsureLine } from "../../src/ink/recognise.js";
+import { inkUnsureConfidence, isUnsureLine } from "../../src/ink/parts-2.js";
 import { rust } from "../../src/shared/rust.js";
 
 const w = (candidates: string[], known?: boolean[] | null, join?: string): InkWordReadings => ({

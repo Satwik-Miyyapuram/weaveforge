@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { readyCore } from "@/lib/rust-core";
-import { ConflictStore, type OpenConflict } from "../domain/conflicts";
-import { Outbox, type OutboxEntry } from "../domain/outbox";
+import { ConflictStore, type OpenConflict } from "../domain/parts-1";
+import { Outbox, type OutboxEntry } from "../domain/parts-2";
 import { useLiveSync } from "./use-live-sync";
 
 /**

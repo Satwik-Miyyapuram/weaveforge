@@ -74,17 +74,17 @@ Two real call sites:
 - `apps/web/src/features/ink/ui/use-ink-selection.ts` calls `readyCore().pastedStrokesPlace(...)`.
 - `apps/web/src/features/ink/ui/use-ink-page-media.ts` calls `readyCore().pastedFigurePlace(...)`.
 
-The pen filter is loaded lazily. `apps/web/src/features/ink/application/one-euro-filter.ts` reads `readyCore().NibFilter` and `readyCore().OneEuroFilter` on first use.
+The pen filter is loaded lazily. `apps/web/src/features/ink/application/parts-2.ts` reads `readyCore().NibFilter` and `readyCore().OneEuroFilter` on first use.
 
 ## What stays in TypeScript, and why
 
 The pen capture, haptics and React state stay in TypeScript. They depend on browser pointer events and component lifecycles, which Rust cannot see.
 
-The filter wrapper stays too. `apps/web/src/features/ink/application/one-euro-filter.ts` exports `inkPositionOptions()`, `inkPressureOptions()`, `OneEuroFilter` and `NibFilter`. `NibFilter` is a TypeScript class over the wasm handle, so callers keep the same shape. Pen capture, `pen-capture-session.ts`, `pen-haptics.ts` and `pdf-ink-sampler.ts` import it from there.
+The filter wrapper stays too. `apps/web/src/features/ink/application/parts-2.ts` exports `inkPositionOptions()`, `inkPressureOptions()`, `OneEuroFilter` and `NibFilter`. `NibFilter` is a TypeScript class over the wasm handle, so callers keep the same shape. Pen capture, `pen-capture-session.ts`, `pen-haptics.ts` and `pdf-ink-sampler.ts` import it from there.
 
 The Rust `one_euro` module ports the maths only. The wrapper owns the lazy load and the two shared instances.
 
-The palette keeps its data and its DOM read in TypeScript. `apps/web/src/features/ink/render/ink-palette.ts` keeps `INK_RENDER_COLOURS`, `INK_COLOUR_TOKENS`, the `InkPalette` types and `readThemePalette`, which reads the live theme off a probe element. The colour maths moved to Rust. The `InkPenGate` state machine and its constants (`PALM_CONTACT_AREA_MM2`, the timing windows) stay in `pen-gate.ts`, which only delegates `contactAreaMm2`.
+The palette keeps its data and its DOM read in TypeScript. `apps/web/src/features/ink/render/parts-1.ts` keeps `INK_RENDER_COLOURS`, `INK_COLOUR_TOKENS`, the `InkPalette` types and `readThemePalette`, which reads the live theme off a probe element. The colour maths moved to Rust. The `InkPenGate` state machine and its constants (`PALM_CONTACT_AREA_MM2`, the timing windows) stay in `pen-gate.ts`, which only delegates `contactAreaMm2`.
 
 The app's ink worker, renderers and storage are in TypeScript too. These files touch a browser or device API, or keep state that lives in JavaScript:
 

@@ -1,4 +1,4 @@
-import { run } from "@/backend/providers/postgrest/row-access";
+import { run } from "@/backend/providers/postgrest/parts-1";
 import { relayUrl } from "@/lib/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";

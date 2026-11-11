@@ -1,4 +1,4 @@
-//! Ports `Adoption.rename` in `apps/web/src/features/offline-sync/domain/adoption.ts`:
+//! Ports `Adoption.rename` in `apps/web/src/features/offline-sync/domain/parts-1.ts`:
 //! which local projects collide with names the account already holds, and what
 //! each one is renamed to. The SQL that reads the rows and applies the renames
 //! stays in TS, and the caller must pass the local projects in the order the

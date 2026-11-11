@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { decorateCitationSpans, setActiveCitation } from "../../application/citation-spans";
+import { decorateCitationSpans, setActiveCitation } from "../../application/parts-1";
 import type { MentionHit, PageTextItem } from "@weaveforge/wasm";
 
 export type { MentionHit };

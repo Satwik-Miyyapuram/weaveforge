@@ -9,7 +9,7 @@ import {
   type FreeCopyOutcome,
   type HtmlFetchResult,
   type PdfAttempt,
-} from "../application/find-free-copy";
+} from "../application/parts-1";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore } from "@/lib/rust-core";

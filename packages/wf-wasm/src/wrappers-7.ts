@@ -219,7 +219,7 @@ export function listedAnnotations(annotations: readonly ReaderAnnotation[]): Rea
 // --- reader-citation-spans ---
 /**
  * Citation underline planning (Rust `reader_citation_spans`), re-exported from index.ts. Keeps the
- * signatures of apps/web/src/features/reader/application/citation-spans.ts. DOM decoration stays in TS.
+ * signatures of apps/web/src/features/reader/application/parts-1.ts. DOM decoration stays in TS.
  */
 /** The part of a mention the planner needs. (Narrowing: `kind` is a TS literal union; Rust field is Option<String>.) */
 export interface CiteSpan {
@@ -284,7 +284,7 @@ export function findMarks(
 // --- reader-free-copy ---
 /**
  * "Find a free copy" messages and ids (Rust `reader::free_copy`). Keeps the
- * signatures of apps/web/src/features/reader/application/find-free-copy.ts.
+ * signatures of apps/web/src/features/reader/application/parts-1.ts.
  */
 /** The ids a paper offers the open-access indexes, and its own link split into a PDF or a page. */
 export interface FreeCopyIds {
@@ -412,7 +412,7 @@ export function decodeLocus(raw: string | null | undefined): AnchorPdfLocus | nu
 // --- reader-margin-notes ---
 /**
  * Margin comment card stacking (Rust `reader_margin_notes`). Keeps the stacking
- * step of apps/web/src/features/reader/application/margin-notes.ts.
+ * step of apps/web/src/features/reader/application/parts-2.ts.
  */
 /** One annotation as margin layout reads it: its comment and picture state, and its mark's geometry. */
 export interface MarginMark {
@@ -681,7 +681,7 @@ export function unionRect(rects: readonly PdfRect[]): PdfRect | null {
 // --- reader-sanitize-reader-url ---
 /**
  * Reader URL allowlists (Rust `reader_sanitize_reader_url`). Keeps the pure rules of
- * apps/web/src/features/reader/application/sanitize-reader-url.ts.
+ * apps/web/src/features/reader/application/parts-3.ts.
  */
 /** The paper fields a PDF URL is derived from. `pdfPath` is ignored and not passed. */
 export interface PaperPdfSource {

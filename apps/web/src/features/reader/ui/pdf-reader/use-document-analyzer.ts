@@ -5,11 +5,7 @@ import { type DocumentAnalysis, type ParsedReference, type PdfLink, type ReaderO
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import type { PageTextItem, ReaderReferenceIndex } from "@weaveforge/wasm";
-import type {
-  AnalysisRequest,
-  AnalysisResponse,
-  AnalysisWorkerPage,
-} from "../../infrastructure/analysis.worker";
+import type { AnalysisRequest, AnalysisResponse, AnalysisWorkerPage } from "../../infrastructure/analysis.worker";
 import { readyCore } from "@/lib/rust-core";
 
 /** The page the reader hands the analyzer: its text items and `/Link` annotations. */

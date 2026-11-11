@@ -5,7 +5,7 @@ import {   type PageProjection } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
-import type { MarginNote } from "../../application/margin-notes";
+import type { MarginNote } from "../../application/parts-2";
 import { RowButton } from "@/components/controls";
 import { Button } from "@/components/button";
 

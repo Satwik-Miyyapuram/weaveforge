@@ -6,8 +6,8 @@ import {
   type ThemeConfig,
 } from "@weaveforge/core";
 
-import { readStored, removeStored } from "@/lib/safe-storage";
 import { typedCore } from "@/lib/rust-core";
+import { readStored, removeStored } from "@/lib/safe-storage";
 
 export type { SurfaceStyle, ThemeConfig };
 

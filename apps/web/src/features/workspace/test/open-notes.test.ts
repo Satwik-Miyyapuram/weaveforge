@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { holdOpenNotes, isNoteOpen, onNoteClosed } from "../application/open-notes";
+import { holdOpenNotes, isNoteOpen, onNoteClosed } from "../application/parts-3";
 
 test("an unknown note is not open", () => {
   assert.equal(isNoteOpen("unknown"), false);

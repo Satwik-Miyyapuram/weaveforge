@@ -6,7 +6,7 @@ import {
   PEN_ERASER_BUTTON,
   EraserSweep,
   isPenEraserPointer,
-} from "../application/eraser-tip";
+} from "../application/parts-1";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);

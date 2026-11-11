@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getRealtimeClient, resetDataClientForTests } from "../client";
+import { getRealtimeClient, resetDataClientForTests } from "../parts-1";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 

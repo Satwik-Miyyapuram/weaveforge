@@ -5,7 +5,7 @@
 //! * **Show it at all?** Past `show_max_age_ms` the payload counts as absent.
 //!
 //! Both ages are measured from when the payload was fetched, not from when it was read back.
-//! The TS constants stay in `apps/web/src/lib/cache/cache-policy.ts`, because `cache-repo.ts`
+//! The TS constants stay in `apps/web/src/lib/cache/parts-1.ts`, because `cache-repo.ts`
 //! reads them at module evaluation, before the wasm core is initialised.
 
 use serde::Serialize;

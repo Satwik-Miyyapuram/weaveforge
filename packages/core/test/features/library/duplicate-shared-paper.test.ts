@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DuplicateSharedPaperUseCase } from "../../../src/features/library/application/parts.js";
-import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
+import { AddPaperUseCase } from "../../../src/features/papers/application/parts-1.js";
 import { LibraryPinError } from "../../../src/features/library/domain/parts.js";
 import {
   InMemoryPaperRepository,

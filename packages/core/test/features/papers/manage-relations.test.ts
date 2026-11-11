@@ -9,7 +9,7 @@ import {
   type IPaperRelationRepository,
   type ICitationSource,
 } from "../../../src/index.js";
-import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
+import type { PaperRef } from "../../../src/features/papers/application/parts-1.js";
 import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 
 class InMemoryRelationRepo implements IPaperRelationRepository {

@@ -1,7 +1,10 @@
 import {
+  one,
+  oneRow,
   ProjectScopedPostgrestRepository,
-} from "@/backend/providers/postgrest/project-scoped-repository";
-import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+  rows,
+  run,
+} from "@/backend/providers/postgrest/parts-1";
 import {
   milestoneColumns,
   type MilestoneRow,
@@ -9,7 +12,7 @@ import {
 } from "@/features/plan/infrastructure/milestone-rows";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/parts";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { readJsonBody, responseError } from "@/lib/format-error";
 import { getDataClient, relayUrl } from "@/lib/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";

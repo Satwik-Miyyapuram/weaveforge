@@ -4,7 +4,7 @@ import {
   pageNumberFromSelection,
   pageSpanFromSelection,
   textSelectionFromOffsets,
-} from "../application/dom-selection-range.js";
+} from "../application/parts-1.js";
 
 test("textSelectionFromOffsets builds a range", () => {
   assert.deepEqual(textSelectionFromOffsets({ itemIndex: 0, offset: 1 }, { itemIndex: 2, offset: 4 }), {

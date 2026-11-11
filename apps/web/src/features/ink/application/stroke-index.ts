@@ -31,7 +31,7 @@ import {
   boundsContain,
   type InkBounds,
   type InkPageBuffer,
-} from "./page-buffer";
+} from "./parts-3";
 
 /**
  * The eraser's fallback radius, in 0.1 mm: 3 mm either side of the nib. The

@@ -13,7 +13,7 @@
 
 import { INK_COLOURS } from "@weaveforge/core";
 import { Swatch } from "@/components/controls";
-import { INK_COLOUR_TOKENS } from "../render/ink-palette";
+import { INK_COLOUR_TOKENS } from "../render/parts-1";
 
 type InkColour = (typeof INK_COLOURS)[number];
 

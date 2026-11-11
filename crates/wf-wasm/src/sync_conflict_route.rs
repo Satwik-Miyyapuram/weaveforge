@@ -1,5 +1,5 @@
 //! Conflict routing for the outbox pump, for JavaScript (wf-core `sync::conflict_route`).
-//! The JS name is `conflictRoute`, called from `apps/web/src/features/offline-sync/domain/pump.ts`.
+//! The JS name is `conflictRoute`, called from `apps/web/src/features/offline-sync/domain/parts-3.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

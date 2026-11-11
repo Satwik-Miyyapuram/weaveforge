@@ -5,7 +5,7 @@ import type { FigureTarget, Paper, PaperMetadata, ParsedReference, PdfLink, Read
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, formatError } from "@/lib/format-error";
-import type { ResolvedReference } from "../../application/reference-lookup";
+import type { ResolvedReference } from "../../application/parts-2";
 import type { MentionHit, ReferenceNotice, PageTextItem } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 import type { AnchorBox } from "../reference-popover-layer";

@@ -1,5 +1,5 @@
 //! The pen's eraser end and barrel button, read from a pointer event. A port of
-//! the decisions in `apps/web/src/features/ink/application/eraser-tip.ts`.
+//! the decisions in `apps/web/src/features/ink/application/parts-1.ts`.
 //!
 //! `button` and `buttons` are JS numbers that may be absent (`-1` is "no
 //! button"), so both arrive as `Option<f64>`.

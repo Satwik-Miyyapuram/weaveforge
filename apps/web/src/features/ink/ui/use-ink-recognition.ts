@@ -26,7 +26,7 @@ import {
   recognisePage,
   recognisedPageFromModel,
   type RecognisedPage,
-} from "../application/recognise-page";
+} from "../application/parts-4";
 import { readyCore } from "@/lib/rust-core";
 
 /** What the flow needs from the host; the host owns the worker and the saves. */

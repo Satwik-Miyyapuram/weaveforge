@@ -1,6 +1,7 @@
 "use client";
 
-import { formatDateTime } from "@/lib/format-date";
+import { formatError } from "@/lib/format-error";
+import { formatDateTime } from "@/lib/parts-1";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { AiEvidence, AiWriteProposal } from "@weaveforge/core";
@@ -13,7 +14,6 @@ import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
 import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/parts";
 import { useUndoWindow } from "./use-undo-window";

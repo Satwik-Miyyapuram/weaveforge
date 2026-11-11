@@ -23,7 +23,7 @@ import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
-import { holdOpenNotes } from "@/features/workspace/application/open-notes";
+import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";

@@ -22,7 +22,8 @@ import { emptyArray, emptyMap, emptySet } from "@/lib/parts";
 import { useProject } from "@/features/projects";
 import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { formatError } from "@/lib/format-error";
-import { rememberRecentTarget } from "@/lib/recent-targets";
+import { readyCore } from "@/lib/rust-core";
+import { rememberRecentTarget } from "@/lib/parts-2";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { noteBodyText, isHydratedPage } from "./note-card";
 import { NoteCardGrid } from "./note-card-grid";
@@ -38,7 +39,6 @@ import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
-import { readyCore } from "@/lib/rust-core";
 
 export function VaultScreen() {
   const router = useRouter();

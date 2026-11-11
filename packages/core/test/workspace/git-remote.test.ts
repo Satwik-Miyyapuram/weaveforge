@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { rust } from "../../src/shared/rust.js";
-import { NoOpWorkspaceGit } from "../../src/workspace/git-port.js";
-import { SYNC_AUTHOR } from "../../src/workspace/git-remote.js";
+import { NoOpWorkspaceGit } from "../../src/workspace/parts-1.js";
+import { SYNC_AUTHOR } from "../../src/workspace/parts-2.js";
 
 test("an https remote URL is accepted and normalised", () => {
   assert.deepEqual(rust().checkGitRemoteUrl("  https://github.com/me/notes.git "), {

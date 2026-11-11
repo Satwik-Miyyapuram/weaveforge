@@ -3,7 +3,7 @@ import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { rust } from "../../../shared/rust.js";
 import type { INotificationIntegration } from "../../integrations/domain/parts.js";
 import type { AddLogEntryUseCase } from "../../logbook/application/add-log-entry.use-case.js";
-import type { PaperRef } from "../../papers/application/metadata-source.js";
+import type { PaperRef } from "../../papers/application/parts-1.js";
 import type {
   IPaperIdentityLookup,
   IPaperRepository,

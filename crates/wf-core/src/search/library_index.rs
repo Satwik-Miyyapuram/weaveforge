@@ -1,6 +1,6 @@
 //! Library index rules for the background PDF indexer. Port of the retry-window filter in
-//! apps/web/src/features/search/application/auto-index-library.ts and the courtesy-pause
-//! decision in apps/web/src/features/search/application/index-library-pdfs.ts. Pure: the caller
+//! apps/web/src/features/search/application/parts-1.ts and the courtesy-pause
+//! decision in apps/web/src/features/search/application/parts-1.ts. Pure: the caller
 //! reads storage, reads the clock and waits.
 
 /// How long a paper that could not be read is held back before it is tried again: seven days, in

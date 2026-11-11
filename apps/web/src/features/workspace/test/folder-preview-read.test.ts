@@ -10,8 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
-import { readPreviewFolder } from "../application/folder-preview-read";
-import { IMPORT_LIMITS, SKIP_TOO_BIG } from "../application/import-limits";
+import { IMPORT_LIMITS, readPreviewFolder, SKIP_TOO_BIG } from "../application/parts-2";
 
 const ROOT = "thesis--abc123";
 

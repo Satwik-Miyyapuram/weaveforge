@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { SHORTCUTS_EVENT, nextShortcutsOpen } from "@/lib/palette-actions";
+import { SHORTCUTS_EVENT, nextShortcutsOpen } from "@/lib/parts-2";
 
 // Loaded on first open: the sheet reuses the workspace's pane view, and a
 // static import here shipped that to every page (WF-P07).

@@ -2,7 +2,7 @@
 //! hex, the palette name a hex came from, the parse of a computed CSS colour,
 //! and whether two palettes draw alike.
 //!
-//! A port of the pure parts of `apps/web/src/features/ink/render/ink-palette.ts`.
+//! A port of the pure parts of `apps/web/src/features/ink/render/parts-1.ts`.
 //! The palette values and the DOM probe that reads them stay in TypeScript. A
 //! palette is the ordered `(name, [r, g, b])` list the JS object gave, each
 //! channel 0..1, so a name that appears twice resolves as the JS object does.

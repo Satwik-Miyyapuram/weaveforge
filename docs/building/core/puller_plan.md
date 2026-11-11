@@ -1,7 +1,7 @@
 # Puller plan core module
 
 `puller_plan.rs` holds the pure decisions of the offline-sync `Puller`
-(`apps/web/src/features/offline-sync/domain/puller.ts`). The Puller still does
+(`apps/web/src/features/offline-sync/domain/parts-2.ts`). The Puller still does
 the reads, writes, transport calls and timers. It passes facts in and runs the
 step that comes back.
 

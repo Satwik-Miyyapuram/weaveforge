@@ -16,11 +16,11 @@ import {
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
-import type { InkChunkStore } from "@/features/ink/application/ink-chunk-store";
+import type { InkChunkStore } from "@/features/ink/application/parts-1";
 import {
   createPenHaptics,
   type PenHaptics,
-} from "@/features/ink/application/pen-haptics";
+} from "@/features/ink/application/parts-4";
 import { inkRecogniserCandidates } from "@/features/ink/application/recognisers";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 

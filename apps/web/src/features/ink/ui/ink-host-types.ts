@@ -8,8 +8,8 @@
 
 import type { InkRecogniser, InkRecognitionHints } from "@weaveforge/core";
 
-import type { PenHaptics } from "../application/pen-haptics";
-import type { InkChunkStore, InkStoredPage } from "../application/ink-chunk-store";
+import type { PenHaptics } from "../application/parts-4";
+import type { InkChunkStore, InkStoredPage } from "../application/parts-1";
 
 /** A page as the host holds it: the sidecar's view of it. */
 export type InkHostPage = InkStoredPage;

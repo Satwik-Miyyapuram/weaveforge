@@ -3,14 +3,12 @@ import assert from "node:assert/strict";
 import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 import {
   AddPaperUseCase,
+  type IMetadataSource,
   ImportPaperUseCase,
-} from "../../../src/features/papers/application/add-paper.use-case.js";
-import {
   MetadataResolutionError,
   MetadataResolver,
-  type IMetadataSource,
   type PaperRef,
-} from "../../../src/features/papers/application/metadata-source.js";
+} from "../../../src/features/papers/application/parts-1.js";
 import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");

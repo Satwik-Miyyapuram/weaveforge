@@ -26,7 +26,7 @@
 
 import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { InkStroke } from "@weaveforge/core";
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/parts-1";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";

@@ -4,10 +4,16 @@
 
 import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { getReaderPdfByteCache } from "@/features/reader/application/resolve-paper-pdf-for-reader";
-import { pdfPageText } from "@/features/search/application/index-library-pdfs";
-import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { addPaperFromPdf, type PdfDropDeps, type PdfDropOutcome, type PdfFileLike, type PdfText } from "../application/paper-from-pdf";
+import { getReaderPdfByteCache } from "@/features/reader/application/parts-3";
+import { pdfPageText } from "@/features/search/application/parts-1";
+import {
+  addPaperFromPdf,
+  type PdfDropDeps,
+  type PdfDropOutcome,
+  type PdfFileLike,
+  type PdfText,
+  scaffoldNewPaperNote,
+} from "../application/parts-2";
 
 async function readPdf(bytes: ArrayBuffer): Promise<PdfText> {
   const lib = await import("pdfjs-dist");

@@ -1,6 +1,6 @@
 //! Ink engine registry, line strokes and page titles for JavaScript (wf-core
 //! `ink::ink_engine` and `net::page_title`). The JS names match
-//! `packages/core/src/ink/recognise.ts`, `ink/segment.ts` and `net/page-title.ts`.
+//! `packages/core/src/ink/parts-2.ts`, `ink/segment.ts` and `net/page-title.ts`.
 
 use serde::Deserialize;
 use serde_json::Value;

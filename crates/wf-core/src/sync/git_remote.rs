@@ -1,4 +1,4 @@
-//! Port of the pure parts of `packages/core/src/workspace/git-remote.ts`: the
+//! Port of the pure parts of `packages/core/src/workspace/parts-2.ts`: the
 //! sync branch and author, pull and push outcomes, remote URL checks and token
 //! redaction. The async `IWorkspaceGitRemote` port is not here.
 

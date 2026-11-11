@@ -1,5 +1,5 @@
 //! Ink note sidecar paths and chunk ids for JavaScript (wf-core `ink::ink_paths`). The JS names
-//! match `packages/core/src/ink/ink-note.ts`.
+//! match `packages/core/src/ink/parts-2.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

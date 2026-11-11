@@ -1,5 +1,5 @@
 //! Ink note frontmatter and stored-body header. Ports the frontmatter and
-//! body-header subset (lines 1-381) of `packages/core/src/ink/ink-note.ts`; the
+//! body-header subset (lines 1-381) of `packages/core/src/ink/parts-2.ts`; the
 //! stroke model, packing, pages and sidecar paths are not ported here.
 
 use serde::{Deserialize, Serialize};

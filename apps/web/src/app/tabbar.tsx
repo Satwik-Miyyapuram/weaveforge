@@ -4,7 +4,7 @@ import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useRef, useState } from "react";
 import { useModuleRegistry } from "@/lib/hooks/parts";
 import { activeNavItem, type NavGroup } from "@/registry";
-import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
+import { prefetchScreenForPath } from "@/lib/cache/parts-1";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/hooks/use-layout-breakpoint";
 import { NavIcon } from "./nav-icon";
 import { ChevronIcon } from "@/components/chevron-icon";

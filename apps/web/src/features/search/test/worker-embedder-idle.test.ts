@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
 
-import { IDLE_EVICT_MS, WorkerEmbedder } from "../infrastructure/worker-embedder";
+import { IDLE_EVICT_MS, WorkerEmbedder } from "../infrastructure/parts-3";
 
 type Msg = { id: number; type: string; texts?: string[] };
 type Listener = (event: { data: unknown }) => void;

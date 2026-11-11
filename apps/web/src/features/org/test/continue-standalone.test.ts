@@ -1,10 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cacheRepo } from "@/lib/cache/cache-repo";
-import {
-  invalidateAllRepoCaches,
-  registerRepoCacheEntry,
-} from "@/lib/cache/project-lww-invalidator";
+import { cacheRepo, invalidateAllRepoCaches, registerRepoCacheEntry } from "@/lib/cache/parts-1";
 import { continueStandalone } from "../infrastructure/parts";
 import { stubFetch } from "@/lib/test/stub-fetch";
 import type { Member } from "@weaveforge/core";

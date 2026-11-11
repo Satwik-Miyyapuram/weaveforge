@@ -2,7 +2,7 @@ import {
   safeWorkspacePath,
   type IWorkspaceFs,
   type WorkspaceStat,
-} from "../workspace/fs-port.js";
+} from "../workspace/parts-1.js";
 
 /**
  * Map-backed `IWorkspaceFs`. Exists so the serializer and importer can be

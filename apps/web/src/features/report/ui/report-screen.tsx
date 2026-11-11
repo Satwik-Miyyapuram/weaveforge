@@ -19,7 +19,7 @@ import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReportScreenData } from "@/features/report/application/parts";
 import { SectionNote } from "./section-note";
-import { rememberRecentTarget } from "@/lib/recent-targets";
+import { rememberRecentTarget } from "@/lib/parts-2";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { navTransition } from "@/lib/view-transition";

@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 
-import type { LocalFiles } from "@/backend/providers/local/local-blob-store";
+import type { LocalFiles } from "@/backend/providers/local/parts-1";
 import { localVectorStore } from "@/features/search/infrastructure/vector-store";
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../db/migrations-local");

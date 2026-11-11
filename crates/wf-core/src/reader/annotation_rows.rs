@@ -1,5 +1,5 @@
 //! Stored reader annotation row to the app's domain type (TS `toDomain`).
-//! Port of `apps/web/src/features/reader/infrastructure/postgrest-reader-annotation-repository.ts`.
+//! Port of `apps/web/src/features/reader/infrastructure/parts-1.ts`.
 //!
 //! The row is the snake_case shape both backends read from the same table. The mapping keeps the
 //! TS defaults: a null `tags` becomes `[]`, a null `anchor` becomes `{}`, an unknown or missing

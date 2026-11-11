@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import type { ParsedReference } from "@weaveforge/core";
 
-import type { ResolvedReference } from "../application/reference-lookup";
+import type { ResolvedReference } from "../application/parts-2";
 import { useReaderReferences } from "../ui/pdf-reader/use-reader-references";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { PageTextItem } from "@weaveforge/wasm";
