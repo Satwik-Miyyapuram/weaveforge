@@ -53,8 +53,13 @@ pub fn in_reference_list_js(
 /// # Errors
 ///
 /// Fails if `items` is not an array of text items.
-#[wasm_bindgen(js_name = findCitationCandidates)]
-pub fn find_citation_candidates_js(items: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = findCitationCandidates,
+    unchecked_return_type = "B.CitationCandidate[]"
+)]
+pub fn find_citation_candidates_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfItem[]")] items: JsValue,
+) -> JsResult<JsValue> {
     let items: Vec<AnalysisPdfItem> = serde_wasm_bindgen::from_value(items)?;
     to_js(&analysis_citations::find_citation_candidates(&items))
 }

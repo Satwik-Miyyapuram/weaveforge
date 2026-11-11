@@ -33,16 +33,16 @@ pub fn clamp_scale_js(scale: f64) -> f64 {
 /// Fails if `page` or `container` is not an object with `width` and `height`.
 #[wasm_bindgen(js_name = computeFitWidthScale)]
 pub fn compute_fit_width_scale_js(
-    page: JsValue,
-    container: JsValue,
-    rotation: f64,
-    gutter_px: f64,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageSize")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderContainerSize")] container: JsValue,
+    rotation: Option<f64>,
+    gutter_px: Option<f64>,
 ) -> JsResult<f64> {
     Ok(compute_fit_width_scale(
         serde_wasm_bindgen::from_value::<ReaderPageSize>(page)?,
         serde_wasm_bindgen::from_value::<ReaderContainerSize>(container)?,
-        rotation,
-        gutter_px,
+        rotation.unwrap_or(0.0),
+        gutter_px.unwrap_or(24.0),
     ))
 }
 
@@ -53,16 +53,16 @@ pub fn compute_fit_width_scale_js(
 /// Fails if `page` or `container` is not an object with `width` and `height`.
 #[wasm_bindgen(js_name = computeFitPageScale)]
 pub fn compute_fit_page_scale_js(
-    page: JsValue,
-    container: JsValue,
-    rotation: f64,
-    gutter_px: f64,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageSize")] page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderContainerSize")] container: JsValue,
+    rotation: Option<f64>,
+    gutter_px: Option<f64>,
 ) -> JsResult<f64> {
     Ok(compute_fit_page_scale(
         serde_wasm_bindgen::from_value::<ReaderPageSize>(page)?,
         serde_wasm_bindgen::from_value::<ReaderContainerSize>(container)?,
-        rotation,
-        gutter_px,
+        rotation.unwrap_or(0.0),
+        gutter_px.unwrap_or(24.0),
     ))
 }
 
@@ -87,25 +87,25 @@ pub fn clamp_zoom_factor_js(factor: f64, base_scale: f64) -> f64 {
     clamp_zoom_factor(factor, base_scale)
 }
 
-/// [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
+/// [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25.
 #[wasm_bindgen(js_name = zoomIn)]
 #[must_use]
-pub fn zoom_in_js(scale: f64, step: f64) -> f64 {
-    zoom_in(scale, step)
+pub fn zoom_in_js(scale: f64, step: Option<f64>) -> f64 {
+    zoom_in(scale, step.unwrap_or(1.25))
 }
 
-/// [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25 in the TS wrapper.
+/// [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25.
 #[wasm_bindgen(js_name = zoomOut)]
 #[must_use]
-pub fn zoom_out_js(scale: f64, step: f64) -> f64 {
-    zoom_out(scale, step)
+pub fn zoom_out_js(scale: f64, step: Option<f64>) -> f64 {
+    zoom_out(scale, step.unwrap_or(1.25))
 }
 
-/// [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90 in the TS wrapper.
-#[wasm_bindgen(js_name = nextRotation)]
+/// [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90.
+#[wasm_bindgen(js_name = nextRotation, unchecked_return_type = "0 | 90 | 180 | 270")]
 #[must_use]
-pub fn next_rotation_js(current: f64, delta: f64) -> f64 {
-    next_rotation(current, delta)
+pub fn next_rotation_js(current: f64, delta: Option<f64>) -> f64 {
+    next_rotation(current, delta.unwrap_or(90.0))
 }
 
 /// [`clamp_page`] (TS `clampPage`).

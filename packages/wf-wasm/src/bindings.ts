@@ -5172,7 +5172,7 @@ export type NewPaperRelationInput = {
 /**  A local annotation before it is stored (TS `NewReaderAnnotation`, the fields the drafts set). */
 export type NewReaderAnnotation = {
 	/**  Annotation kind: `highlight`, `underline`, `note`, `ink`, `image` or `text`. */
-	type: string,
+	type: ZoteroAnnotationType,
 	/**  Colour as CSS text. */
 	color: string,
 	/**  Quoted or typed text; empty for ink and images, and when absent. */
@@ -7095,11 +7095,11 @@ export type ReaderAnnotation = {
 	/**  Annotation id. */
 	id: string,
 	/**  `local` for a mark made in this app, otherwise where it came from. */
-	origin: string,
+	origin: ZoteroAnnotationOrigin,
 	/**  The Zotero item key, when the mark has been synced to Zotero. */
 	zoteroKey: string | null,
 	/**  Annotation kind: `highlight`, `underline`, `note`, `ink`, `image` or `text`. */
-	type: string,
+	type: ZoteroAnnotationType,
 	/**  Mark colour, as a CSS colour string. */
 	color: string,
 	/**  Quoted text, or the words of a text box. */

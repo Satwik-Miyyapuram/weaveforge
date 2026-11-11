@@ -29,7 +29,8 @@ if (files.length === 0) {
 
 const result = spawnSync(
   process.execPath,
-  ["--import", "tsx", "--test", ...files],
+  // Loads the Rust core before any test, as run-tests.mjs does.
+  ["--import", "tsx", "--import", "./src/lib/test/preload-core.mts", "--test", ...files],
   { stdio: "inherit" },
 );
 process.exit(result.status ?? 1);

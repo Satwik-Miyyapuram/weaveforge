@@ -53,7 +53,7 @@ pub fn resolve_results_tables_js(
         unchecked_param_type = "readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[]"
     )]
     experiments: JsValue,
-    format: &str,
+    #[wasm_bindgen(unchecked_param_type = "\"latex\" | \"markdown\"")] format: &str,
 ) -> JsResult<String> {
     let experiments: Vec<Value> = serde_wasm_bindgen::from_value(experiments)?;
     Ok(results_table_refs::resolve_results_tables(

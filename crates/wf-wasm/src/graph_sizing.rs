@@ -12,13 +12,17 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = nodeSize)]
+#[wasm_bindgen(js_name = nodeSize, unchecked_return_type = "B.NodeSize")]
 pub fn node_size_js(
     base_r: f64,
     zoom: f64,
-    bounded: bool,
+    bounded: Option<bool>,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    to_js(&graph_sizing::node_size(base_r, zoom, bounded))
+    to_js(&graph_sizing::node_size(
+        base_r,
+        zoom,
+        bounded.unwrap_or(true),
+    ))
 }
 
 /// [`label_size`](graph_sizing::label_size) as `{ font, line, gap }`.

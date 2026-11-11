@@ -25,6 +25,10 @@ pub const PDF_INK_SAVE_TOLERANCE: f64 = 0.1;
 pub struct NewReaderAnnotation {
     /// Annotation kind: `highlight`, `underline`, `note`, `ink`, `image` or `text`.
     #[serde(rename = "type")]
+    #[cfg_attr(
+        feature = "specta",
+        specta(type = crate::reader::zotero_sync::ZoteroAnnotationType)
+    )]
     pub kind: String,
     /// Colour as CSS text.
     pub color: String,

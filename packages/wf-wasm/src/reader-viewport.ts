@@ -5,21 +5,14 @@
  * page-projection.ts and sort-index.ts. Object shapes come from ./bindings.ts.
  */
 import {
-  computeFitWidthScale as rawComputeFitWidthScale,
-  computeFitPageScale as rawComputeFitPageScale,
-  zoomIn as rawZoomIn,
-  zoomOut as rawZoomOut,
-  nextRotation as rawNextRotation,
   initialReaderViewport as rawInitialReaderViewport,
   pdfPointToScreen as rawPdfPointToScreen,
   screenPointToPdf as rawScreenPointToPdf,
   pdfRectToScreenBox as rawPdfRectToScreenBox,
 } from "../pkg/wf_wasm.js";
 import type {
-  ReaderContainerSize,
   ReaderFitMode,
   ReaderPageProjection,
-  ReaderPageSize,
 } from "./bindings.js";
 
 export {
@@ -31,45 +24,15 @@ export {
   clampPage,
   clampScale,
   clampZoomFactor,
+  computeFitPageScale,
+  computeFitWidthScale,
+  nextRotation,
   normalisePageRotation,
   projectedPageSize,
   visualPageSize,
+  zoomIn,
+  zoomOut,
 } from "../pkg/wf_wasm.js";
-
-/** Scale so the page width fills the container, with a `gutterPx` gutter. */
-export function computeFitWidthScale(
-  page: ReaderPageSize,
-  container: ReaderContainerSize,
-  rotation: 0 | 90 | 180 | 270 = 0,
-  gutterPx = 24,
-): number {
-  return rawComputeFitWidthScale(page, container, rotation, gutterPx);
-}
-
-/** Scale so the whole page fits inside the container (letterbox). */
-export function computeFitPageScale(
-  page: ReaderPageSize,
-  container: ReaderContainerSize,
-  rotation: 0 | 90 | 180 | 270 = 0,
-  gutterPx = 24,
-): number {
-  return rawComputeFitPageScale(page, container, rotation, gutterPx);
-}
-
-/** Zoom in by `step`, clamped to the zoom range. */
-export function zoomIn(scale: number, step = 1.25): number {
-  return rawZoomIn(scale, step);
-}
-
-/** Zoom out by `step`, clamped to the zoom range. */
-export function zoomOut(scale: number, step = 1.25): number {
-  return rawZoomOut(scale, step);
-}
-
-/** The rotation after turning by `delta` degrees, wrapped into [0, 360). */
-export function nextRotation(current: 0 | 90 | 180 | 270, delta: 90 | -90 = 90): 0 | 90 | 180 | 270 {
-  return rawNextRotation(current, delta) as 0 | 90 | 180 | 270;
-}
 
 /** The starting viewport: fit-width, rotation 0, scale 1, on the clamped page. */
 export function initialReaderViewport(page = 1): { scale: number; fit: ReaderFitMode; rotation: 0 | 90 | 180 | 270; page: number } {

@@ -5,7 +5,6 @@
  */
 import {
   tabKey as rawTabKey,
-  emptyLayout as rawEmptyLayout,
   leaves as rawLeaves,
   openTab as rawOpenTab,
   splitPane as rawSplitPane,
@@ -38,6 +37,7 @@ export {
   activateTab,
   closeTab,
   closedTabs,
+  emptyLayout,
   focusPane,
   focusedTabCount,
   layoutFromRecord,
@@ -66,10 +66,6 @@ export function isPreviewTab(tab?: TabRef): boolean {
 
 export function tabKey(tab: TabRef): string {
   return rawTabKey(tab);
-}
-
-export function emptyLayout(paneId = "pane-1"): PaneLayout {
-  return rawEmptyLayout(paneId) as PaneLayout;
 }
 
 export function openTab(layout: PaneLayout, tab: TabRef, paneId = layout.focusedPaneId): PaneLayout {

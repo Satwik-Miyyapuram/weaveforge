@@ -11,8 +11,8 @@ use wf_core::card_snippet;
 #[wasm_bindgen(js_name = cardSnippet)]
 pub fn card_snippet_js(
     body: js_sys::JsString,
-    max: usize,
+    max: Option<usize>,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let body = &crate::guarded_text(&body)?;
-    Ok(card_snippet::card_snippet(body, max))
+    Ok(card_snippet::card_snippet(body, max.unwrap_or(180)))
 }

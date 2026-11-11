@@ -9,10 +9,6 @@ import {
   createVaultPageWith as rawCreateVaultPageWith,
   buildPageTree as rawBuildPageTree,
   parseKindSuffix as rawParseKindSuffix,
-  flatPath as rawFlatPath,
-  logPath as rawLogPath,
-  paperPdfPath as rawPaperPdfPath,
-  paperHtmlPath as rawPaperHtmlPath,
   createExperimentWith as rawCreateExperimentWith,
   memberRoleLabelOf as rawMemberRoleLabelOf,
   lintWiki as rawLintWiki,
@@ -36,12 +32,16 @@ export {
   canonicalAiToolName,
   clampInkPageSize,
   contextNonceFrom,
+  flatPath,
   inkAttachmentIndex,
   inkEnumIndex,
   inkPageBackground,
   inkPageOverBudget,
   joinInkTextLayer,
+  logPath,
   memberRoleLabelOf,
+  paperHtmlPath,
+  paperPdfPath,
   resolveInkPageOrder,
   withInkPageBackground,
 } from "../pkg/wf_wasm.js";
@@ -229,26 +229,6 @@ export function extractPageTitle(html: string): { title: string; suspect: boolea
 /** The entity type a file's `.kind.md` suffix names, or null. */
 export function parseKindSuffix<T extends string>(path: string): T | null {
   return (rawParseKindSuffix(path) as T | null | undefined) ?? null;
-}
-
-/** The flat path of an entity file. */
-export function flatPath(type: string, id: string, title: string, projectRoot = ""): string {
-  return rawFlatPath(type, id, title, projectRoot);
-}
-
-/** The path of a log entry, filed by year and month. */
-export function logPath(id: string, entryDate: string, projectRoot = ""): string {
-  return rawLogPath(id, entryDate, projectRoot);
-}
-
-/** Where a paper's PDF is kept. */
-export function paperPdfPath(paperId: string, projectRoot = ""): string {
-  return rawPaperPdfPath(paperId, projectRoot);
-}
-
-/** Where a paper's full-text web page is kept. */
-export function paperHtmlPath(paperId: string, projectRoot = ""): string {
-  return rawPaperHtmlPath(paperId, projectRoot);
 }
 
 /** A new experiment with the given id and time (Rust `create_experiment`); throws a Rust error string. */

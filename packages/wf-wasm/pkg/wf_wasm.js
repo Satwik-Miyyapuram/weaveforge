@@ -2532,14 +2532,14 @@ export function cappedEngineConfidence(conf) {
  *
  * Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
  * @param {string} body
- * @param {number} max
+ * @param {number | null} [max]
  * @returns {string}
  */
 export function cardSnippet(body, max) {
     let deferred2_0;
     let deferred2_1;
     try {
-        const ret = wasm.cardSnippet(body, max);
+        const ret = wasm.cardSnippet(body, isLikeNone(max) ? Number.MAX_SAFE_INTEGER : (max) >>> 0);
         var ptr1 = ret[0];
         var len1 = ret[1];
         if (ret[3]) {
@@ -3674,9 +3674,9 @@ export function commitUrl(repo_url, sha) {
  * # Errors
  *
  * Fails if `ids` or `edges` has the wrong shape.
- * @param {any} ids
- * @param {any} edges
- * @returns {any}
+ * @param {readonly string[]} ids
+ * @param {readonly (readonly [string, string])[]} edges
+ * @returns {[string, number][]}
  */
 export function communities(ids, edges) {
     const ret = wasm.communities(ids, edges);
@@ -3746,14 +3746,14 @@ export function composeSpacingAccents(text) {
  * # Errors
  *
  * Fails if `page` or `container` is not an object with `width` and `height`.
- * @param {any} page
- * @param {any} container
- * @param {number} rotation
- * @param {number} gutter_px
+ * @param {B.ReaderPageSize} page
+ * @param {B.ReaderContainerSize} container
+ * @param {number | null} [rotation]
+ * @param {number | null} [gutter_px]
  * @returns {number}
  */
 export function computeFitPageScale(page, container, rotation, gutter_px) {
-    const ret = wasm.computeFitPageScale(page, container, rotation, gutter_px);
+    const ret = wasm.computeFitPageScale(page, container, !isLikeNone(rotation), isLikeNone(rotation) ? 0 : rotation, !isLikeNone(gutter_px), isLikeNone(gutter_px) ? 0 : gutter_px);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -3766,14 +3766,14 @@ export function computeFitPageScale(page, container, rotation, gutter_px) {
  * # Errors
  *
  * Fails if `page` or `container` is not an object with `width` and `height`.
- * @param {any} page
- * @param {any} container
- * @param {number} rotation
- * @param {number} gutter_px
+ * @param {B.ReaderPageSize} page
+ * @param {B.ReaderContainerSize} container
+ * @param {number | null} [rotation]
+ * @param {number | null} [gutter_px]
  * @returns {number}
  */
 export function computeFitWidthScale(page, container, rotation, gutter_px) {
-    const ret = wasm.computeFitWidthScale(page, container, rotation, gutter_px);
+    const ret = wasm.computeFitWidthScale(page, container, !isLikeNone(rotation), isLikeNone(rotation) ? 0 : rotation, !isLikeNone(gutter_px), isLikeNone(gutter_px) ? 0 : gutter_px);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -5233,8 +5233,8 @@ export function defaultSourceNoteTemplate() {
  * # Errors
  *
  * Fails if `degree` is not an array of `[id, number]` pairs.
- * @param {any} degree
- * @returns {any}
+ * @param {readonly (readonly [string, number])[]} degree
+ * @returns {[string, string][]}
  */
 export function degreeColours(degree) {
     const ret = wasm.degreeColours(degree);
@@ -6253,12 +6253,12 @@ export function emptyIntegration(provider) {
  * # Errors
  *
  * Never fails in practice; returns the serializer's result type.
- * @param {string} pane_id
- * @returns {any}
+ * @param {string | null} [pane_id]
+ * @returns {B.PaneLayout}
  */
 export function emptyLayout(pane_id) {
-    const ptr0 = passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
+    var ptr0 = isLikeNone(pane_id) ? 0 : passStringToWasm0(pane_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
     const ret = wasm.emptyLayout(ptr0, len0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
@@ -7418,8 +7418,8 @@ export function findAnnotationBacklinks(input) {
  * # Errors
  *
  * Fails if `items` is not an array of text items.
- * @param {any} items
- * @returns {any}
+ * @param {readonly B.AnalysisPdfItem[]} items
+ * @returns {B.CitationCandidate[]}
  */
 export function findCitationCandidates(items) {
     const ret = wasm.findCitationCandidates(items);
@@ -7719,10 +7719,10 @@ export function fitsInkNoteBudget(sizes) {
  * # Errors
  *
  * Fails if `entity` is not a known entity type.
- * @param {any} entity
+ * @param {string} entity
  * @param {string} id
  * @param {string} title
- * @param {string} project_root
+ * @param {string | null} [project_root]
  * @returns {string}
  */
 export function flatPath(entity, id, title, project_root) {
@@ -7733,8 +7733,8 @@ export function flatPath(entity, id, title, project_root) {
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(project_root) ? 0 : passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
         const ret = wasm.flatPath(entity, ptr0, len0, ptr1, len1, ptr2, len2);
         var ptr4 = ret[0];
         var len4 = ret[1];
@@ -7779,11 +7779,11 @@ export function flattenOverleafFiles(root_folder) {
 /**
  * [`flatten_paper_rows`]: the listed papers that exist, each with its index in `known_ids` and
  * its stored and rollup values, in list order.
- * @param {any} known_ids
- * @param {any} paper_ids
- * @param {any} values
- * @param {any} defs
- * @returns {any}
+ * @param {readonly string[]} known_ids
+ * @param {readonly string[]} paper_ids
+ * @param {readonly B.RollupValue[]} values
+ * @param {readonly B.ExtractionFieldDef[]} defs
+ * @returns {{ paperIndex: number; values: B.ExtractionValues["values"] }[]}
  */
 export function flattenPaperRows(known_ids, paper_ids, values, defs) {
     const ret = wasm.flattenPaperRows(known_ids, paper_ids, values, defs);
@@ -10801,9 +10801,9 @@ export function inkVelocityFactor(velocity, full_taper) {
  * # Errors
  *
  * Fails if `sources` is not an array of string arrays.
- * @param {any} sources
+ * @param {readonly (readonly string[])[]} sources
  * @param {number | null} [limit]
- * @returns {any}
+ * @returns {string[]}
  */
 export function inkVocabularyHints(sources, limit) {
     const ret = wasm.inkVocabularyHints(sources, !isLikeNone(limit), isLikeNone(limit) ? 0 : limit);
@@ -13316,7 +13316,7 @@ export function logEyebrow(entry_dates, today) {
  * [`log_path`](folder_layout::log_path).
  * @param {string} id
  * @param {string} entry_date
- * @param {string} project_root
+ * @param {string | null} [project_root]
  * @returns {string}
  */
 export function logPath(id, entry_date, project_root) {
@@ -13327,8 +13327,8 @@ export function logPath(id, entry_date, project_root) {
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(entry_date, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(project_root) ? 0 : passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
         const ret = wasm.logPath(ptr0, len0, ptr1, len1, ptr2, len2);
         deferred4_0 = ret[0];
         deferred4_1 = ret[1];
@@ -15207,13 +15207,13 @@ export function nextMatchIndex(current, total, direction) {
 }
 
 /**
- * [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90 in the TS wrapper.
+ * [`next_rotation`] (TS `nextRotation`); `delta` defaults to 90.
  * @param {number} current
- * @param {number} delta
- * @returns {number}
+ * @param {number | null} [delta]
+ * @returns {0 | 90 | 180 | 270}
  */
 export function nextRotation(current, delta) {
-    const ret = wasm.nextRotation(current, delta);
+    const ret = wasm.nextRotation(current, !isLikeNone(delta), isLikeNone(delta) ? 0 : delta);
     return ret;
 }
 
@@ -15264,11 +15264,11 @@ export function nibWidth(base, pressure, velocity, full_taper) {
  * Fails only if the result cannot be serialised.
  * @param {number} base_r
  * @param {number} zoom
- * @param {boolean} bounded
- * @returns {any}
+ * @param {boolean | null} [bounded]
+ * @returns {B.NodeSize}
  */
 export function nodeSize(base_r, zoom, bounded) {
-    const ret = wasm.nodeSize(base_r, zoom, bounded);
+    const ret = wasm.nodeSize(base_r, zoom, isLikeNone(bounded) ? 0xFFFFFF : bounded ? 1 : 0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -16718,7 +16718,7 @@ export function paperHtmlCsp() {
 /**
  * [`paper_html_path`](folder_layout::paper_html_path).
  * @param {string} paper_id
- * @param {string} project_root
+ * @param {string | null} [project_root]
  * @returns {string}
  */
 export function paperHtmlPath(paper_id, project_root) {
@@ -16727,8 +16727,8 @@ export function paperHtmlPath(paper_id, project_root) {
     try {
         const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(project_root) ? 0 : passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
         const ret = wasm.paperHtmlPath(ptr0, len0, ptr1, len1);
         deferred3_0 = ret[0];
         deferred3_1 = ret[1];
@@ -16761,7 +16761,7 @@ export function paperImageThumbnailPath(path) {
 /**
  * [`paper_pdf_path`](folder_layout::paper_pdf_path).
  * @param {string} paper_id
- * @param {string} project_root
+ * @param {string | null} [project_root]
  * @returns {string}
  */
 export function paperPdfPath(paper_id, project_root) {
@@ -16770,8 +16770,8 @@ export function paperPdfPath(paper_id, project_root) {
     try {
         const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(project_root) ? 0 : passStringToWasm0(project_root, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
         const ret = wasm.paperPdfPath(ptr0, len0, ptr1, len1);
         deferred3_0 = ret[0];
         deferred3_1 = ret[1];
@@ -16985,12 +16985,12 @@ export function parseBibEntries(files) {
  * # Errors
  *
  * Returns an error when `lines` does not deserialize as text lines, or the result fails to convert.
- * @param {any} lines
- * @param {boolean} with_offsets
- * @returns {any}
+ * @param {readonly B.AnalysisTextLine[]} lines
+ * @param {boolean | null} [with_offsets]
+ * @returns {B.AnalysisParsedReference[]}
  */
 export function parseBibliography(lines, with_offsets) {
-    const ret = wasm.parseBibliography(lines, with_offsets);
+    const ret = wasm.parseBibliography(lines, isLikeNone(with_offsets) ? 0xFFFFFF : with_offsets ? 1 : 0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -17003,13 +17003,13 @@ export function parseBibliography(lines, with_offsets) {
  * # Errors
  *
  * Returns an error when `lines` is empty or does not deserialize as text lines, or the result fails to convert.
- * @param {any} lines
+ * @param {readonly B.AnalysisTextLine[]} lines
  * @param {number} index
- * @param {boolean} with_offsets
- * @returns {any}
+ * @param {boolean | null} [with_offsets]
+ * @returns {B.AnalysisParsedReference}
  */
 export function parseBibliographyEntry(lines, index, with_offsets) {
-    const ret = wasm.parseBibliographyEntry(lines, index, with_offsets);
+    const ret = wasm.parseBibliographyEntry(lines, index, isLikeNone(with_offsets) ? 0xFFFFFF : with_offsets ? 1 : 0);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -18042,9 +18042,9 @@ export function peersFromUsers(users, self_client_id, self_author_id) {
 
 /**
  * [`pending_field_fills`]: the pending `paper_field_value` proposals, optionally for one field.
- * @param {any} proposals
+ * @param {readonly B.ExtractionProposal[]} proposals
  * @param {string | null} [field_id]
- * @returns {any}
+ * @returns {B.ExtractionPendingFill[]}
  */
 export function pendingFieldFills(proposals, field_id) {
     var ptr0 = isLikeNone(field_id) ? 0 : passStringToWasm0(field_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -21460,7 +21460,7 @@ export function resolveRelatedPaperUrl(url, doi, arxiv_id) {
  * Fails if `experiments` is not a list of experiment objects.
  * @param {string} body
  * @param {readonly { id: string; name: string; metrics?: Record<string, unknown> | null }[]} experiments
- * @param {string} format
+ * @param {"latex" | "markdown"} format
  * @returns {string}
  */
 export function resolveResultsTables(body, experiments, format) {
@@ -26926,8 +26926,8 @@ export function writeScope(resource_type) {
  * # Errors
  *
  * Fails if `years` is not an array of `[id, number]` pairs.
- * @param {any} years
- * @returns {any}
+ * @param {readonly (readonly [string, number])[]} years
+ * @returns {[string, string][]}
  */
 export function yearColours(years) {
     const ret = wasm.yearColours(years);
@@ -26964,24 +26964,24 @@ export function zenodoRecordId(doi) {
 }
 
 /**
- * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25 in the TS wrapper.
+ * [`zoom_in`] (TS `zoomIn`); `step` defaults to 1.25.
  * @param {number} scale
- * @param {number} step
+ * @param {number | null} [step]
  * @returns {number}
  */
 export function zoomIn(scale, step) {
-    const ret = wasm.zoomIn(scale, step);
+    const ret = wasm.zoomIn(scale, !isLikeNone(step), isLikeNone(step) ? 0 : step);
     return ret;
 }
 
 /**
- * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25 in the TS wrapper.
+ * [`zoom_out`] (TS `zoomOut`); `step` defaults to 1.25.
  * @param {number} scale
- * @param {number} step
+ * @param {number | null} [step]
  * @returns {number}
  */
 export function zoomOut(scale, step) {
-    const ret = wasm.zoomOut(scale, step);
+    const ret = wasm.zoomOut(scale, !isLikeNone(step), isLikeNone(step) ? 0 : step);
     return ret;
 }
 

@@ -2,7 +2,6 @@
  * Workspace folder mirror: paths, serializing, parsing and diffs (Rust `workspace_folder`), re-exported from index.ts.
  */
 import {
-  slugFor as rawSlugFor,
   treePathPairs as rawTreePathPairs,
   diffJsonData as rawDiffJsonData,
   diffWorkspace as rawDiffWorkspace,
@@ -43,6 +42,7 @@ export {
   folderKeys,
   jsonKindOfPath,
   parseJsonData,
+  slugFor,
 } from "../pkg/wf_wasm.js";
 
 /** The folder of a project, named from its id and name (Rust `project_dir`). */
@@ -123,11 +123,6 @@ export function planMirror(
     base,
     disk,
   ) as MirrorResult;
-}
-
-/** A lowercase, file-safe slug of a title, or `fallback` when nothing is left. */
-export function slugFor(title: string, fallback = "untitled"): string {
-  return rawSlugFor(title, fallback);
 }
 
 /** The folder path of each node in a tree, keyed by id. */
