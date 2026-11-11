@@ -14,26 +14,9 @@ export * from "./shared/module.js";
 export * from "./shared/markdown-image.js";
 export * from "./shared/map-limit.js";
 export * from "./shared/tree.js";
-export {
-  JSON_KINDS,
-  rust,
-  setRustCore,
-  type JsonDiff,
-  type JsonDiffEntry,
-  type JsonRow,
-  type ParsedJsonData,
-  type RustCoreFns,
-  type VaultPageBase,
-  type WorkspaceJsonKind,
-} from "./shared/rust.js";
+export { JSON_KINDS, rust, setRustCore, type JsonDiff, type JsonDiffEntry, type JsonRow, type ParsedJsonData, type VaultPageBase, type WorkspaceJsonKind } from "./shared/rust.js";
 export * from "./shared/three-way-merge.js";
-export type {
-  CoreContract,
-  OutboundFetchLimits,
-  PageTitle,
-  UrlCheck,
-  UrlRejection,
-} from "./shared/core-contract.js";
+export type { OutboundFetchLimits, PageTitle, UrlCheck, UrlRejection } from "./shared/core-contract.js";
 export * from "./config/index.js";
 export * from "./features/papers/index.js";
 export * from "./features/logbook/index.js";

@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { type WikiPageRef } from "../../../src/index.js";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../../src/index.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { INDEX_MARKER_END, INDEX_MARKER_START, buildWikiIndex, replaceWikiIndex } = wasm as unknown as CoreContract;
+const { INDEX_MARKER_END, INDEX_MARKER_START, buildWikiIndex, replaceWikiIndex } = wasm;
 
 const now = () => "2026-08-05T00:00:00.000Z";
 const page = (id: string, title: string, aliases?: string[]): WikiPageRef => ({

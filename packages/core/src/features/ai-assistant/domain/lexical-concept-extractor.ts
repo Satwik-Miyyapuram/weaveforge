@@ -23,6 +23,6 @@ export class LexicalConceptExtractor implements IConceptExtractor {
         ...(doc.text === undefined ? {} : { text: doc.text }),
       })),
       ...(request.maxConcepts === undefined ? {} : { maxConcepts: request.maxConcepts }),
-    });
+    }) as ExtractionResult;
   }
 }

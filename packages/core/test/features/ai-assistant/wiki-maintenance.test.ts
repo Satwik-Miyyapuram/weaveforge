@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { WikiPageRef } from "../../../src/index.js";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { mergeWikiPages } = wasm as unknown as CoreContract;
+const { mergeWikiPages } = wasm;
 
 const page = (id: string, title: string, body = "Some real content that is long enough to count."): WikiPageRef =>
   ({ id, title, body });

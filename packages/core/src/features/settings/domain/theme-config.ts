@@ -148,35 +148,3 @@ const MAX_NAME_LENGTH = 60;
 
 const MAX_ENTRIES_PER_SECTION = 64;
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ThemeConfigFns {
-  /** Colors: hex, numeric-argument rgb/hsl, or one of four keywords. */
-  normalizeColorValue(raw: unknown): string | null;
-  /**
- * Font stacks: up to five families, each either a generic keyword or a name
- * matching {@link FONT_FAMILY_NAME}. The returned stack is rebuilt from the
- * accepted names — names containing a space are re-quoted here rather than
- * trusting whatever quoting the file used.
- */
-  normalizeFontStack(raw: unknown): string | null;
-  /**
- * Lengths for radii. A unitless value is read as px. Ranges are clamped by
- * rejection rather than silent clamping so the user learns the limit.
- */
-  normalizeLengthValue(raw: unknown, maxPx?: number): string | null;
-  /**
- * Parse and validate an uploaded theme file.
- *
- * Returns `{ config: null, errors }` on any problem — a partially applied
- * theme is worse than a rejected one, because half a palette is unreadable.
- */
-  parseThemeConfig(text: string): ThemeConfigParseResult;
-  /**
- * Re-validate a config that came back from persistence. The stored row is
- * writable by whoever owns the account, so it gets the same treatment as the
- * original upload rather than being trusted because it "already passed once".
- */
-  normalizeThemeConfig(raw: unknown): ThemeConfig | null;
-  /** A documented starter file, offered as a download from settings. */
-  themeConfigTemplate(): string;
-}

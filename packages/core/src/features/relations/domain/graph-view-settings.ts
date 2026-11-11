@@ -131,12 +131,3 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
 /** Enough rules to be useful, few enough that the legend still fits. */
 export const MAX_COLOR_GROUPS = 12;
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface GraphViewSettingsFns {
-  /** Merge partial settings with defaults and sanitize enum/number fields. */
-  normalizeGraphViewSettings(raw: unknown): GraphViewSettings;
-  effectiveRelationTypes(settings: GraphViewSettings): RelationType[];
-  showRelationEdges(settings: GraphViewSettings): boolean;
-  showConceptEdges(settings: GraphViewSettings): boolean;
-  graphFilterCount(selectedTags: string[], selectedLists: string[], settings: GraphViewSettings): number;
-}

@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/pdf_source_ladder.rs` (`default_resolver_order`, `PdfSourceKind`).
 Wasm: `crates/wf-wasm/src/reader_pdf_source_ladder.rs` (`pdfSourceResolverOrder`).
-TS wrapper: `packages/wf-wasm/src/reader-pdf-source-ladder.ts` (re-exported from `index.ts`).
+TS wrapper: `packages/wf-wasm/src/rust-exports-2.ts` (star-exported from `index.ts`).
 TS shim: `apps/web/src/features/reader/application/resolve-paper-pdf-source.ts` (kept; importers `download-library-pdfs.ts` and `resolve-paper-pdf-for-reader.ts`).
 
 ## Exports

@@ -71,34 +71,3 @@ export interface TeamVisibilityOptions {
   orgMemberIds?: ReadonlySet<string> | null;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface MemberFns {
-  /** Roles a member of the given role is allowed to create (strictly lower rank). */
-  creatableRoles(creator: Role): Role[];
-  /** Whether `creator` may provision an account with role `target`. */
-  canCreateRole(creator: Role, target: Role): boolean;
-  /** New members are always supervised by whoever created them. */
-  resolveSupervisorId(creatorId: string): string;
-  /** Validate + normalize a new-member request. Throws on invalid input. */
-  validateNewMember(input: NewMemberInput): NewMemberInput;
-  /**
- * Subtree visibility: viewer plus all supervisees (transitively). Used for
- * supervision dashboards — not the org chart (see filterLabMembers).
- *
- * Standalone users (no lab) see only themselves — not every profile the DB
- * policy may expose via legacy lab_root.
- */
-  filterTeamMembers(viewerId: string, members: readonly Member[], options: TeamVisibilityOptions): Member[];
-  /**
- * Full lab roster for the org chart: everyone in the active lab, including
- * supervisors and peers above the viewer in the hierarchy.
- */
-  filterLabMembers(viewerId: string, members: readonly Member[], options: TeamVisibilityOptions): Member[];
-  /** Whether the role can supervise others (rank above masters). */
-  isSupervisorRole(role: Role | null | undefined): boolean;
-  /** Role label context — standalone users are not masters/phd in the UI. */
-  resolveDisplayRole(role: Role, opts: { inLab: boolean; ownsOrg?: boolean }): Role;
-  memberRoleLabel(member: Pick<Member, "role">, opts: { inLab: boolean; ownsOrg?: boolean }): string;
-  /** True when profiles.role should be persisted as standalone (stale lab role). */
-  needsStandaloneRoleSync(profile: Pick<Member, "role" | "orgSetupComplete"> | null, memberships: readonly { joinSource?: string }[], inLab: boolean): boolean;
-}

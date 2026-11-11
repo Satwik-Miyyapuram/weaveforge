@@ -3,10 +3,9 @@ import assert from "node:assert/strict";
 import { type ParsedReference, type PdfLink } from "../../../src/features/reader/index.js";
 import type { PageTextItem } from "../../../src/features/reader/page-text-item.js";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../../src/index.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { linkCitationMentions, referenceForDestination } = wasm as unknown as CoreContract;
+const { linkCitationMentions, referenceForDestination } = wasm;
 
 /** Entry `index` on page 3 at x 40, one 15-point line per entry below a heading at y 700. */
 function entry(index: number): ParsedReference {

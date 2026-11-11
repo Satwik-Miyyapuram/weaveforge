@@ -55,7 +55,7 @@ export function chunkLineText(view: InkChunkView, lineIndex: number): string {
  * views directly. Nothing on the pen path calls it.
  */
 export function pageFromChunk(view: InkChunkView): InkPage {
-  return rust().pageFromChunkBody(view.body);
+  return rust().pageFromChunkBody(view.body) as InkPage;
 }
 
 /** One stroke as the model holds it: absolute points, names, real numbers. */

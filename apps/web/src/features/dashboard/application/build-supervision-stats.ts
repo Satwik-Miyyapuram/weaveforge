@@ -30,7 +30,10 @@ export function summarizeSupervisee(
   logs: readonly LogEntry[],
   today = localIsoDate(),
 ): SuperviseeSummary {
-  return { member, ...typedCore().dashboardSuperviseeCounts(milestones, logs, today) };
+  return {
+    member,
+    ...typedCore().dashboardSuperviseeCounts<Omit<SuperviseeSummary, "member">>(milestones, logs, today),
+  };
 }
 
 export function teamAttentionItems(
@@ -42,7 +45,7 @@ export function teamAttentionItems(
     member: s.member,
     milestones: milestonesByMember.get(s.member.id) ?? [],
   }));
-  return [...typedCore().dashboardTeamAttention(supervisees, today)];
+  return typedCore().dashboardTeamAttention<TeamAttentionItem>(supervisees, today);
 }
 
 export function buildSupervisionStats(

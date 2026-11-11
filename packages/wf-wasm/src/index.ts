@@ -528,4 +528,4 @@ export function lwwNotifyResource(resourceType: string | null | undefined): stri
   if (resourceType) checkIndexText(resourceType);
   return rawLwwNotifyResource(resourceType ?? undefined) ?? null;
 }
-
+export type { InkUndoEntry, InkUndoPatch, InkUndoState, LatexSectionTree } from "./bindings.js";

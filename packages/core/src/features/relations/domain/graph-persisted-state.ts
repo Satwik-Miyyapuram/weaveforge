@@ -18,9 +18,3 @@ export interface GraphPersistedState {
 
 export { DEFAULT_GRAPH_PERSISTED_STATE } from "./graph-persisted-defaults.js";
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface GraphPersistedStateFns {
-  /** Parse graph state JSON from persistence; returns null when payload is absent. */
-  parseGraphPersistedState(raw: unknown): GraphPersistedState | null;
-  mergeGraphPersistedState(stored: GraphPersistedState | null): GraphPersistedState;
-}

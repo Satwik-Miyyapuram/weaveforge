@@ -66,22 +66,11 @@ export function readyCore(): RustCore {
   return ready;
 }
 
-type CoreModule = typeof import("@weaveforge/core");
-type Contract = import("@weaveforge/core").CoreContract;
-
-/**
- * The loaded core under the app's core signatures, limited to names the Rust
- * core exports. The generated binding types are looser in places (mutable
- * arrays, `null` for absent numbers), so callers use the TypeScript core's
- * signatures, or `CoreContract` for functions whose TypeScript was removed.
- * Other names keep their generated binding types.
- */
-export type TypedCore = Pick<CoreModule, keyof CoreModule & keyof RustCore> &
-  Pick<Contract, keyof Contract & keyof RustCore> &
-  Omit<RustCore, keyof CoreModule | keyof Contract>;
+/** The loaded core. Kept as an alias while callers move to `readyCore()`. */
+export type TypedCore = RustCore;
 
 export function typedCore(): TypedCore {
-  return readyCore() as unknown as TypedCore;
+  return readyCore();
 }
 
 /** A stroke as the generated Rust bindings name it. */

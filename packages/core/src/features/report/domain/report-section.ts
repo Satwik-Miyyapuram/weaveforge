@@ -1,6 +1,5 @@
 /** Types for report-section. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 /** A section's writing status, in workflow order. */
@@ -63,13 +62,3 @@ export class ReportSectionValidationError extends ValidationError {
   }
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ReportSectionFns {
-  createReportSection(input: NewReportSectionInput, deps: { clock: Clock; ids: IdGenerator }): ReportSection;
-  /**
- * Build the outline tree from a flat list of sections (pure). Shared by every
- * repository implementation so `getTree()` behaves identically (Liskov).
- * Siblings are ordered by `sortOrder`, then `sectionNo`, then `title`.
- */
-  buildSectionTree(sections: readonly ReportSection[]): ReportSectionTreeNode[];
-}

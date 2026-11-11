@@ -15,7 +15,7 @@ export class ManageCommentsUseCase {
   }
 
   async add(input: NewCommentInput): Promise<Comment> {
-    return this.deps.repository.add(rust().normalizeCommentInput(input));
+    return this.deps.repository.add(rust().normalizeCommentInput(input as never));
   }
 
   async remove(id: string): Promise<void> {

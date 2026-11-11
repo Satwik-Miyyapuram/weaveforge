@@ -23,15 +23,3 @@ export interface MarkdownToLatexResult {
   citedKeys: string[];
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface MarkdownToLatexFns {
-  escapeLatexText(s: string): string;
-  /**
- * A figure file name safe in a LaTeX project and unique within `used`: unsafe
- * runs become `_`, and a repeat gets `_2`, `_3`, ... before its extension.
- * The Overleaf export names its zip entries with this too.
- */
-  uniqueFigureName(raw: string, used: Set<string>): string;
-  /** Convert a limited Markdown subset to LaTeX body (no document wrapper). */
-  markdownToLatex(md: string, opts?: MarkdownToLatexOptions): MarkdownToLatexResult;
-}

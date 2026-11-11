@@ -58,7 +58,3 @@ export interface UserAppearance {
   customTheme?: ThemeConfig | null;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface UserAppearanceFns {
-  normalizeAppearance(raw: unknown): UserAppearance | undefined;
-}

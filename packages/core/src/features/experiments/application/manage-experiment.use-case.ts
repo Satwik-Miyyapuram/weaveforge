@@ -18,7 +18,7 @@ export class ManageExperimentUseCase {
   constructor(private readonly deps: ManageExperimentDeps) {}
 
   async add(input: NewExperimentInput): Promise<Experiment> {
-    const exp = rust().createExperiment(input, { clock: this.deps.clock, ids: this.deps.ids });
+    const exp = rust().createExperiment(input, { clock: this.deps.clock, ids: this.deps.ids }) as Experiment;
     await this.deps.repository.save(exp);
     return exp;
   }

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { type SearchDoc } from "../../src/index.js";
 import { rust } from "../../src/shared/rust.js";
-import type { CoreContract } from "../../src/shared/core-contract.js";
 
 const NOW = Date.parse("2026-08-05T00:00:00.000Z");
 
@@ -38,7 +37,7 @@ test("prefix matching needs at least three characters", () => {
 });
 
 test("title outranks every other field", () => {
-  const others = (Object.keys(rust().FIELD_BOOSTS) as (keyof CoreContract["FIELD_BOOSTS"])[]).filter(
+  const others = (Object.keys(rust().FIELD_BOOSTS) as (keyof ReturnType<typeof rust>["FIELD_BOOSTS"])[]).filter(
     (f) => f !== "title",
   );
   for (const field of others) {

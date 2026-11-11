@@ -59,7 +59,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   const type =
     declared && KNOWN_TYPES.has(declared)
       ? (declared as WorkspaceEntityType)
-      : (fromDir ?? rust().parseKindSuffix(path));
+      : (fromDir ?? (rust().parseKindSuffix(path) as WorkspaceEntityType | undefined));
   if (!type) return null;
 
   const fileName = path.split("/").pop() ?? path;
@@ -72,7 +72,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   const fields: ParsedEntity["fields"] = {};
   for (const [key, value] of Object.entries(frontmatter)) {
     if (key === "weaveforge-id" || key === "weaveforge-type" || key === "title") continue;
-    fields[key] = value;
+    fields[key] = value as ParsedEntity["fields"][string];
   }
 
   // An ink note is stored as a note whose body starts with the ink header (see

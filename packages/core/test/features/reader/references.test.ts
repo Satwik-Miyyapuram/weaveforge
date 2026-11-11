@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../../src/index.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { isBibliographicMatch, titleSimilarity } = wasm as unknown as CoreContract;
+const { isBibliographicMatch, titleSimilarity } = wasm;
 
 test("title scorer enforces title and year thresholds", () => {
   assert.equal(titleSimilarity("Müller: A method", "a method muller"), 1);

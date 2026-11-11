@@ -106,8 +106,3 @@ export interface IReaderAnnotationSink {
   remove(id: string): Promise<void>;
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ReaderAnnotationFns {
-  isReaderAnnotationType(value: string): value is ReaderAnnotationType;
-  isAnnotationSyncState(value: string): value is AnnotationSyncState;
-}

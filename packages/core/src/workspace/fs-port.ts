@@ -55,14 +55,6 @@ export async function* walkByList(
   }
 }
 
-/** Signatures of the path checks that moved to the Rust core (wf-wasm). */
-export interface WorkspacePathFns {
-  /** Normalized path; throws when it is empty, absolute or climbs out with `..`. */
-  safeWorkspacePath(path: string): string;
-  /** True when `safeWorkspacePath` accepts the path. */
-  isSafeWorkspacePath(path: string): boolean;
-}
-
 /**
  * Normalize a path and refuse anything that leaves the root (Rust check).
  *

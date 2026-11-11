@@ -1,6 +1,5 @@
 /** Types for reading-list. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export interface ReadingList extends Identifiable {
@@ -56,13 +55,3 @@ export class ReadingListValidationError extends ValidationError {
   }
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface ReadingListFns {
-  createReadingList(input: NewReadingListInput, deps: { clock: Clock; ids: IdGenerator }): ReadingList;
-  /**
- * Build the nested list tree from a flat array (pure). Shared by every
- * repository so `getTree()` is identical across implementations (Liskov).
- * Siblings ordered by `sortOrder`, then `name`.
- */
-  buildListTree(lists: readonly ReadingList[]): ReadingListTreeNode[];
-}

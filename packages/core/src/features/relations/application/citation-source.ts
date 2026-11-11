@@ -35,7 +35,6 @@ export interface CitationCandidate {
   isInfluential?: boolean;
 }
 
-
 export interface ICitationSource {
   /** Stable id, e.g. "semantic-scholar". */
   readonly id: string;

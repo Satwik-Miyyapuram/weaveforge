@@ -157,7 +157,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
 
     const run = (fuzzyFor: (term: string) => number) =>
       this.engine.search(parsed.text, {
-        boost: typedCore().effectiveFieldBoosts(this.settings),
+        boost: typedCore().effectiveFieldBoosts(this.settings ?? {}),
         prefix: (term) => (options.prefix === false ? false : term.length >= typedCore().MIN_PREFIX_LENGTH),
         fuzzy: fuzzyFor,
         // Document-level signal: link degree first, recency only as a tiebreak.
@@ -165,7 +165,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
           const fields = (storedFields ?? this.stored.get(String(id))) as StoredFields | undefined;
           if (!fields) return 1;
           return typedCore().documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-            kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings),
+            kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings ?? {}),
             recency: this.settings?.recencyBoost,
           });
         },
@@ -272,7 +272,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         href: fields.href,
         // No term scoring to report; order by the document signal alone.
         score: typedCore().documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-          kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings),
+          kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings ?? {}),
           recency: this.settings?.recencyBoost,
         }),
         ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),

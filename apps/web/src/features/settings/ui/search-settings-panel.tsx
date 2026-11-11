@@ -55,7 +55,7 @@ export function SearchSettingsPanel({
   value: SearchSettings | undefined;
   onChange: (next: SearchSettings) => void;
 }) {
-  const boosts = typedCore().effectiveFieldBoosts(value);
+  const boosts = typedCore().effectiveFieldBoosts(value ?? {});
 
   const setWeight = (field: SearchField, weight: number) => {
     onChange({ ...value, weights: { ...(value?.weights ?? {}), [field]: weight } });

@@ -17,21 +17,3 @@
 /** The share of a stroke's points a loop must hold for it to be caught. */
 export const LASSO_CAUGHT_SHARE = 0.6;
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface InkLassoFns {
-  /**
- * Whether a point is inside a closed polygon, by the even-odd rule.
- *
- * `polygon` is flat `x, y` pairs, open or closed (the closing edge is implied),
- * which is how both surfaces carry a drawn path. The half-open `>`/`>=` pair is
- * what stops a point exactly level with a vertex being counted twice.
- */
-  pointInPolygon(polygon: readonly number[], x: number, y: number): boolean;
-  /**
- * Whether a loop has caught a stroke: at least `share` of its points inside.
- *
- * Counted over the stroke's stored points rather than its length: the samples
- * are dense enough that the two agree, and this needs no geometry.
- */
-  inkPathsInPolygon(paths: readonly (readonly number[])[], polygon: readonly number[], share?: number): boolean;
-}

@@ -305,17 +305,6 @@ export interface InkChunkBodyInfo {
   background: number;
 }
 
-/** Signatures of the chunk functions that moved to the Rust core (wf-wasm). */
-export interface InkChunkFns {
-  encodeInkChunkBody(page: InkPage): Uint8Array;
-  inkChunkBodySize(page: InkPage): number;
-  readInkChunkHeader(bytes: Uint8Array): InkChunkHeader;
-  inkChunkHeaderBytes(bodySize: number, payloadSize: number, compressed: boolean): Uint8Array;
-  checkInkChunkBody(body: Uint8Array): InkChunkBodyInfo;
-  fitsInkNoteBudget(sizes: readonly number[]): boolean;
-  pageFromChunkBody(body: Uint8Array): InkPage;
-}
-
 /**
  * Read the 16-byte header (Rust `read_ink_chunk_header`).
  *

@@ -32,7 +32,7 @@ export class ManageVaultPageUseCase {
     const page = rust().createVaultPage(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
-    });
+    }) as VaultPage;
     await this.assertTitleUnique(page.title);
     await this.deps.repository.save(page);
     return page;

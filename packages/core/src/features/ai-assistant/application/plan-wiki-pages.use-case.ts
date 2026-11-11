@@ -55,10 +55,10 @@ export function planWikiPages(input: PlanWikiPagesInput): WikiPagePlan[] {
     if (title !== undefined) titles[mention.documentId] = title;
   }
   return rust().planWikiPages({
-    extraction: input.extraction,
-    existingTitles: input.existingTitles,
+    extraction: input.extraction as never,
+    existingTitles: [...input.existingTitles],
     minMentions: input.minMentions,
     maxPages: input.maxPages,
     titles,
-  });
+  }) as WikiPagePlan[];
 }

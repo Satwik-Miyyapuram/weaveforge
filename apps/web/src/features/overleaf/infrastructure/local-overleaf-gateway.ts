@@ -3,6 +3,7 @@
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { typedCore } from "@/lib/rust-core";
+import type { LatexSectionTree } from "@weaveforge/wasm";
 
 /**
  * The Overleaf link, for a copy working on this computer with no account.
@@ -186,7 +187,7 @@ export class LocalOverleafGateway {
     return {
       files: source.files,
       entryFile: source.entryFile,
-      sectionTree: typedCore().parseLatexSectionTree(source.files, source.entryFile),
+      sectionTree: typedCore().parseLatexSectionTree(source.files, source.entryFile) as LatexSectionTree,
       overleafUrl: source.overleafUrl,
     };
   }

@@ -15,7 +15,7 @@ export class ManageSettingsUseCase {
   constructor(private readonly deps: ManageSettingsDeps) {}
 
   async get(): Promise<UserSettings> {
-    return rust().hydrateUserSettings(await this.deps.repository.get());
+    return rust().hydrateUserSettings(await this.deps.repository.get() as never) as UserSettings;
   }
 
   async getMetadata(): Promise<SettingsMetadata> {
@@ -23,14 +23,14 @@ export class ManageSettingsUseCase {
   }
 
   async save(settings: UserSettings): Promise<void> {
-    await this.deps.repository.save(rust().normalizeUserSettings(settings));
+    await this.deps.repository.save(rust().normalizeUserSettings(settings as never) as UserSettings);
   }
 
   async saveAppearance(appearance: UserAppearance): Promise<void> {
     const current = await this.get();
     await this.save({
       ...current,
-      appearance: rust().normalizeAppearance({ ...current.appearance, ...appearance }),
+      appearance: rust().normalizeAppearance({ ...current.appearance, ...appearance }) as UserAppearance | undefined,
     });
   }
 

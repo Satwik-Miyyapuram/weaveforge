@@ -27,6 +27,7 @@ import {
   makeInkStroke as rawMakeInkStroke,
   blankInkPage as rawBlankInkPage,
 } from "../pkg/wf_wasm.js";
+import type { InkColour, InkPage, InkPaper, InkShape, InkStroke, InkTool } from "./bindings.js";
 
 export {
   canonicalAiToolName,
@@ -160,13 +161,22 @@ export function inkEnumValue<T extends string>(values: readonly T[], index: numb
 }
 
 /** A stroke with defaults filled and widths clamped. */
-export function makeInkStroke<S>(input: { points: readonly number[] }): S {
-  return rawMakeInkStroke(input) as S;
+export function makeInkStroke(input: {
+  readonly points: readonly number[];
+  readonly pressures?: readonly number[];
+  readonly width?: number;
+  readonly tool?: InkTool;
+  readonly colour?: InkColour;
+  readonly t0?: number;
+  readonly shape?: InkShape;
+  readonly lineIndex?: number;
+}): InkStroke {
+  return rawMakeInkStroke(input) as InkStroke;
 }
 
 /** An empty A4 page on `paper`. */
-export function blankInkPage<P>(paper = "blank"): P {
-  return rawBlankInkPage(paper) as P;
+export function blankInkPage(paper: InkPaper = "blank"): InkPage {
+  return rawBlankInkPage(paper) as InkPage;
 }
 
 /** The strokes of one recognised line. */

@@ -44,19 +44,3 @@ export interface FixStep {
   findings: LintFinding[];
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface WikiLintFns {
-  /**
- * `otherTitles` are notes and papers that exist outside the wiki. A link to
- * one is not dead; it is just not a wiki page (E39).
- */
-  lintWiki(pages: readonly WikiPageRef[], otherTitles?: readonly string[]): LintReport;
-  /**
- * Order fixes so earlier steps do not invalidate later ones.
- *
- * Merging duplicates first is not cosmetic: it removes pages, which resolves
- * some dead links and creates others. Running dead-link repair first would fix
- * links into a page that is about to disappear.
- */
-  planFixOrder(report: LintReport): FixStep[];
-}

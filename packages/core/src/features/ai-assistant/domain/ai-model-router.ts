@@ -1,7 +1,6 @@
 import type { AiModelRequest, AiModelResponse, IModelConversation, AiModelProviderId } from "./ai-types.js";
 import { rust } from "../../../shared/rust.js";
 
-
 export interface AiModelAdapter extends IModelConversation {
   readonly available: boolean;
 }

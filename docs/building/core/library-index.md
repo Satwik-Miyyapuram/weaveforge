@@ -16,7 +16,7 @@ background PDF indexer. The IO (IndexedDB, the network, pdf.js) stays in TypeScr
 
 - `wf-wasm` exports `recentFailureIds` and `courtesyPauseDue`
   (`crates/wf-wasm/src/library_index.rs`).
-- `packages/wf-wasm/src/library-index.ts` wraps them, re-exported from
+- `packages/wf-wasm/src/rust-exports-1.ts` wraps them, re-exported from
   `modules.ts` and `feature-wrappers.ts`.
 - `apps/web/src/features/search/application/auto-index-library.ts` calls
   `readyCore().recentFailureIds` in `recentFailures()`.

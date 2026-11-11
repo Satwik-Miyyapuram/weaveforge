@@ -21,7 +21,7 @@ Every raw export has a typed wrapper in `packages/wf-wasm/src`, imported as `raw
 - `ink-lines.ts`: `inkUnsureConfidence`, `bandsCoincide`, `inkPageSummary`.
 - `core-extra.ts`: `inkEngineRank`.
 
-The eight recognition names are declared on `RustCoreFns` in `packages/core/src/shared/rust.ts`. The former `RecogniseFns` interface is gone, so `rust()` types them directly.
+The eight recognition names are typed by the wasm package's generated declarations, through `rust()` in `packages/core/src/shared/rust.ts`. The former `RecogniseFns` interface is gone, so `rust()` types them directly.
 
 ## Behaviour notes
 

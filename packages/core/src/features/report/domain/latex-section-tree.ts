@@ -23,13 +23,3 @@ export interface LatexSectionTreeResult {
   warnings: string[];
 }
 
-export interface LatexSectionTreeFns {
-  /**
-   * Builds a best-effort, provenance-preserving tree from a LaTeX source graph, starting at
-   * `entryFile` (default `main.tex`). It does not compile TeX; unresolved includes become warnings.
-   */
-  parseLatexSectionTree(
-    sources: readonly LatexSourceFile[],
-    entryFile?: string,
-  ): LatexSectionTreeResult;
-}

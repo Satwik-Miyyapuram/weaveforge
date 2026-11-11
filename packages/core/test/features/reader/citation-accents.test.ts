@@ -3,11 +3,10 @@ import assert from "node:assert/strict";
 import { type ParsedReference } from "../../../src/features/reader/index.js";
 import type { PageTextItem } from "../../../src/features/reader/page-text-item.js";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
-import type { CoreContract } from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { matchAuthorYearText } = wasm as unknown as CoreContract;
+const { matchAuthorYearText } = wasm;
 
 function item(str: string, x: number, width: number, hasEOL = false): PageTextItem {
   return { str, dir: "ltr", width, height: 10, transform: [10, 0, 0, 10, x, 700], fontName: "f", hasEOL } as PageTextItem;

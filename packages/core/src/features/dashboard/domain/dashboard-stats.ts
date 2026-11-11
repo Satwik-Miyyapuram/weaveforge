@@ -35,28 +35,3 @@ export interface DashboardTeamAttentionItem {
   href: string;
 }
 
-/**
- * Signatures of the dashboard stats functions that moved to the Rust core (wf-core
- * `dashboard::stats`). Callers reach them through the core contract (typedCore()).
- */
-export interface DashboardStatsFns {
-  dashboardNeedsAttention(
-    papers: readonly { status: string }[],
-    milestones: readonly DashboardMilestoneInput[],
-    experiments: readonly { status: string }[],
-    today: string,
-  ): readonly DashboardAttentionItem[];
-  dashboardTopTags(
-    tags: readonly { name: string; paperCount: number }[],
-    limit: number,
-  ): readonly DashboardTopTag[];
-  dashboardSuperviseeCounts(
-    milestones: readonly DashboardMilestoneInput[],
-    logs: readonly { entryDate: string }[],
-    today: string,
-  ): DashboardSuperviseeCounts;
-  dashboardTeamAttention(
-    supervisees: readonly DashboardSuperviseeInput[],
-    today: string,
-  ): readonly DashboardTeamAttentionItem[];
-}

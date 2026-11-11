@@ -1,6 +1,5 @@
 /** Types for paper-relation. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 import type { Identifiable } from "../../../shared/repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 export type RelationType =
@@ -52,7 +51,3 @@ export class PaperRelationValidationError extends ValidationError {
   }
 }
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface PaperRelationFns {
-  createPaperRelation(input: NewPaperRelationInput, deps: { clock: Clock; ids: IdGenerator }): PaperRelation;
-}

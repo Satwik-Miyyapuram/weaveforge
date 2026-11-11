@@ -55,15 +55,3 @@ export const SYNC_AUTHOR: GitAuthor = { name: "WeaveForge", email: "sync@weavefo
 
 export type GitRemoteUrlCheck = { ok: true; url: string } | { ok: false; reason: string };
 
-/** Signatures of the functions that moved to the Rust core (wf-wasm). */
-export interface GitRemoteFns {
-  /**
- * Accepts only `https://host/...` with no user or password in it. A token in
- * the URL would be written to `.git/config` in plain text and echoed by git in
- * error messages, so it is refused here and passed separately instead.
- */
-  checkGitRemoteUrl(raw: unknown): GitRemoteUrlCheck;
-  /** One line for the Settings panel. */
-  describePull(result: GitPullResult): string;
-  describePush(result: GitPushResult): string;
-}
