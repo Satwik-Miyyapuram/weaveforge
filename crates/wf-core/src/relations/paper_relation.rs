@@ -1,4 +1,4 @@
-//! Port of `packages/core/src/features/relations/domain/paper-relation.ts`. Pure: the id and
+//! Port of `packages/core/src/features/relations/domain/parts.ts`. Pure: the id and
 //! time are supplied by the caller, as the TS `IdGenerator` and `Clock` are injected.
 
 use super::graph_settings::RelationType;

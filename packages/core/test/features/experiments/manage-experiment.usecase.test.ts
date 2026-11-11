@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryExperimentRepository } from "../../../src/testing/in-memory-experiment-repository.js";
+import { InMemoryExperimentRepository } from "../../../src/testing/in-memory-a.js";
 import { ManageExperimentUseCase } from "../../../src/features/experiments/application/manage-experiment.use-case.js";
 
 import type {IdGenerator} from "../../../src/shared/parts.js";

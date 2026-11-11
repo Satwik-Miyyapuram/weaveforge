@@ -1,4 +1,4 @@
-import type { Member, Role } from "../features/org/domain/member.js";
+import type { Member, Role } from "../features/org/domain/parts.js";
 
 // --- admin-provisioner ---
 export interface ProvisionUserInput {

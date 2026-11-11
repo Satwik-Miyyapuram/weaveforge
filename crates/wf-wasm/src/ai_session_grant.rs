@@ -1,5 +1,5 @@
 //! AI session start for JavaScript (wf-core `ai::session_grant`). The JS name matches
-//! `packages/core/src/features/ai-assistant/application/create-ai-session-grant.use-case.ts`.
+//! `packages/core/src/features/ai-assistant/application/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};

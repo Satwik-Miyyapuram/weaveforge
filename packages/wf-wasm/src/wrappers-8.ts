@@ -288,7 +288,7 @@ export function zoteroWriteBackMessage(summary: ZoteroWriteBackSummary | null): 
 // --- reading-list ---
 /**
  * Reading-list tree helper (Rust `reading_lists::reading_list`), re-exported from index.ts.
- * Keeps the signature of packages/core/src/features/reading-lists/domain/reading-list.ts.
+ * Keeps the signature of packages/core/src/features/reading-lists/domain/parts.ts.
  */
 /** The reading list shapes callers type their state with. */
 
@@ -671,7 +671,7 @@ export interface ResultsTableExperiment {
 // --- screening-records ---
 /**
  * Screening rules (Rust `reading_lists::screening`), re-exported from index.ts. Each function
- * keeps the signature of packages/core/src/features/reading-lists/domain/screening.ts.
+ * keeps the signature of packages/core/src/features/reading-lists/domain/parts.ts.
  * Decision lists cross as JSON text: one copy, not a boundary call per field.
  */
 /** Throws `ScreeningError` when `next` may not be recorded after `existing`. */

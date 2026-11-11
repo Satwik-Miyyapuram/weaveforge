@@ -7,8 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { ReportSection } from "../features/report/domain/report-section.js";
-import type { IReportSectionRepository } from "../features/report/domain/parts.js";
+import type { IReportSectionRepository, ReportSection } from "../features/report/domain/parts.js";
 
 function sampleSection(overrides: Partial<ReportSection> = {}): ReportSection {
   const now = "2026-06-24T00:00:00.000Z";

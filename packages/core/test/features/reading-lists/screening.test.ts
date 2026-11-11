@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ScreeningError, type ScreeningDecision, type ScreeningStage, type ScreeningState } from "../../../src/features/reading-lists/domain/screening.js";
+import { ScreeningError, type ScreeningDecision, type ScreeningStage, type ScreeningState } from "../../../src/features/reading-lists/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 let serial = 0;

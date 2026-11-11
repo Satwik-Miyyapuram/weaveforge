@@ -1,7 +1,12 @@
-/** Types for milestone. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { Identifiable } from "../../../shared/parts.js";
 import { ValidationError } from "../../../shared/errors.js";
+import type {
+  Identifiable,
+  IReadableRepository,
+  IWritableRepository,
+} from "../../../shared/parts.js";
 
+// --- milestone ---
+/** Types for milestone. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 export type MilestoneStatus = "planned" | "in_progress" | "done" | "blocked";
 
 export const MILESTONE_STATUSES: readonly MilestoneStatus[] = [
@@ -89,3 +94,8 @@ export class MilestoneValidationError extends ValidationError {
   }
 }
 
+// --- milestone-repository ---
+/** Repository contract for plan milestones (DIP). */
+export interface IMilestoneRepository
+  extends IReadableRepository<Milestone, MilestoneFilter>,
+    IWritableRepository<Milestone> {}

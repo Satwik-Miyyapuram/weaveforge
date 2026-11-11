@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryAnnotationQuotationTypeRepository } from "../../../src/testing/in-memory-annotation-quotation-type-repository.js";
+import { InMemoryAnnotationQuotationTypeRepository } from "../../../src/testing/in-memory-a.js";
 
 test("upserts one quotation type per paper annotation", async () => {
   const repository = new InMemoryAnnotationQuotationTypeRepository();

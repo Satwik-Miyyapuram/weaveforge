@@ -8,16 +8,16 @@
  * the readers; the in-memory test repositories satisfy them as-is.
  */
 
-import type { Paper } from "../features/papers/domain/paper.js";
-import type { PaperRelation } from "../features/relations/domain/paper-relation.js";
+import type { Paper } from "../features/papers/domain/parts.js";
+import type { PaperRelation } from "../features/relations/domain/parts.js";
 import type { VaultPage } from "../shared/core-contract.js";
-import type { ReadingList, ReadingListItem } from "../features/reading-lists/domain/reading-list.js";
-import type { ReportSection } from "../features/report/domain/report-section.js";
-import type { Experiment } from "../features/experiments/domain/experiment.js";
-import type { Milestone } from "../features/plan/domain/milestone.js";
-import type { LogEntry } from "../features/logbook/domain/log-entry.js";
+import type { ReadingList, ReadingListItem } from "../features/reading-lists/domain/parts.js";
+import type { ReportSection } from "../features/report/domain/parts.js";
+import type { Experiment } from "../features/experiments/domain/parts.js";
+import type { Milestone } from "../features/plan/domain/parts.js";
+import type { LogEntry } from "../features/logbook/domain/parts.js";
 import type { Tag } from "../features/tags/domain/parts.js";
-import type { ReaderAnnotation } from "../reader/reader-annotation.js";
+import type { ReaderAnnotation } from "../reader/parts.js";
 import { readWithDelta, type DeltaLister } from "./snapshot-delta.js";
 
 /**

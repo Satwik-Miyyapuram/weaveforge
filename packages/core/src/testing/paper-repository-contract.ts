@@ -14,8 +14,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Paper } from "../features/papers/domain/paper.js";
-import type { IPaperRepository } from "../features/papers/domain/parts.js";
+import type { IPaperRepository, Paper } from "../features/papers/domain/parts.js";
 import { rust } from "../shared/rust.js";
 
 /**

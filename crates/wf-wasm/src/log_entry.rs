@@ -1,5 +1,5 @@
 //! Log entry construction for JavaScript (wf-core `logbook::log_entry`). The JS names match
-//! `packages/core/src/features/logbook/domain/log-entry.ts`.
+//! `packages/core/src/features/logbook/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

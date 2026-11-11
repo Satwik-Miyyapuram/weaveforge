@@ -6,7 +6,7 @@
  * each class has a single reason to change (SRP).
  */
 
-import { PaperValidationError, PAPER_STATUSES, type Paper, type PaperStatus } from "../domain/paper.js";
+import { PaperValidationError, PAPER_STATUSES, type Paper, type PaperStatus } from "../domain/parts.js";
 import type { IPaperRepository } from "../domain/parts.js";
 import type { TagSource } from "../../tags/domain/parts.js";
 import type { ManageTagsUseCase } from "../../tags/application/manage-tags.use-case.js";

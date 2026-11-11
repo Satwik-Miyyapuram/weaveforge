@@ -1,5 +1,5 @@
 //! Proposal-apply check for JavaScript (wf-core `ai::proposal_apply`). The JS name matches
-//! `proposalApplies` in `packages/core/src/features/ai-assistant/application/append-paper-note.use-case.ts`.
+//! `proposalApplies` in `packages/core/src/features/ai-assistant/application/parts.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ai::proposal_apply;

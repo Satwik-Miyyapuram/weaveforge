@@ -1,5 +1,5 @@
 //! PDF source-ladder order: which resolvers to try, and in what order. A port of the ordering in
-//! `packages/core/src/reader/pdf-source-ladder.ts` (`resolvePdfSource`).
+//! `packages/core/src/reader/parts.ts` (`resolvePdfSource`).
 //!
 //! Stays in TS: calling each resolver's async `resolve`, trimming the hit, and treating a throw or
 //! a miss as "try the next one". The order never changes: callers register cost-bearing sources

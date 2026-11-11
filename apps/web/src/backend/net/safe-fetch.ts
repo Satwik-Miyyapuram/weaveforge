@@ -1,12 +1,13 @@
+import { formatError } from "@/lib/format-error";
+import { readCapped as readBody } from "@/lib/read-capped";
+import { typedCore } from "@/lib/rust-core";
+import type { OutboundFetchLimits } from "@weaveforge/core";
 import { lookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
-import type { OutboundFetchLimits } from "@weaveforge/core";
-import { formatError } from "@/lib/format-error";
-import { readCapped as readBody } from "@/lib/read-capped";
-import { typedCore } from "@/lib/rust-core";
 
+// --- safe-fetch ---
 /**
  * Fetching a URL a visitor chose, from the server, without becoming a way into
  * the network.

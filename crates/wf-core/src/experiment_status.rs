@@ -1,4 +1,4 @@
-//! Port of the experiment status and metric display helpers in packages/core/src/features/experiments/domain/experiment.ts. Pure.
+//! Port of the experiment status and metric display helpers in packages/core/src/features/experiments/domain/parts.ts. Pure.
 
 use std::num::FpCategory;
 

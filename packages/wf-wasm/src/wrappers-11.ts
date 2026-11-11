@@ -292,7 +292,7 @@ export function chunkForEmbedding(text: string, options: ChunkOptions = {}): Tex
 // --- theme-config ---
 /**
  * Theme config parsing (Rust `settings::theme_config`), re-exported from index.ts. Keeps the
- * signatures of packages/core/src/features/settings/domain/theme-config.ts.
+ * signatures of packages/core/src/features/settings/domain/parts.ts.
  * Types come from ./bindings.ts.
  */
 /** Lengths such as `12px`, `0.5rem` or a px number, limited to `maxPx`; null otherwise. */

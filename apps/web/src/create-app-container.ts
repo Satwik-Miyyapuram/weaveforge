@@ -39,10 +39,11 @@ import {
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
 import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
-import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openalex-metadata-source";
+import { createLibraryTidy, HttpAccountProvisioner, IdbReferenceLookupCache, OpenAlexMetadataSource } from "@/container/app-parts";
+import { PrefetchingAddPaperUseCase, reportCitationAlertError, RoutedInkChunkStore, VaultAssetStore } from "@/container/app-parts";
+import { WebCryptoShareLinkTokenHasher, wireBackend } from "@/container/app-parts";
 import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
 import { createReferenceActions } from "@/features/reader/application/reference-actions";
-import { IdbReferenceLookupCache } from "@/features/reader/infrastructure/reference-lookup-cache";
 import {
   ArxivMetadataSource,
   CrossrefMetadataSource,
@@ -53,7 +54,6 @@ import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.u
 import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
-import { PrefetchingAddPaperUseCase } from "@/features/papers/application/prefetch-paper-pdf.use-case";
 import { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
 import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { LoadVaultScreenUseCase } from "@/features/vault/application/load-vault-screen.use-case";
@@ -64,10 +64,7 @@ import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/applicat
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 import { PostgrestShareLinkRepository } from "@/features/sharing/infrastructure/postgrest-share-link-repository";
-import { WebCryptoShareLinkTokenHasher } from "@/features/sharing/infrastructure/web-crypto-token-hasher";
-import { HttpAccountProvisioner } from "@/features/org/infrastructure/http-account-provisioner";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
-import { wireBackend } from "@/backend/wire-backend";
 import { readBackendConfig } from "@/backend/config";
 import {
   PapersFacade,
@@ -97,7 +94,6 @@ import {
 } from "@/container/facades";
 import { BlobInkChunkStore } from "@/features/ink/infrastructure/blob-ink-chunk-store";
 import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-store";
-import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
 import {
   activeWorkspaceFs,
   closeFolder,
@@ -105,15 +101,12 @@ import {
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "@/lib/rust-core";
-import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
 import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
 import { createContainerLifecycle } from "@/container/lifecycle";
-import { createLibraryTidy } from "@/container/library-tidy";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
-import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
 import { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
 import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/experiment-artifact-store";

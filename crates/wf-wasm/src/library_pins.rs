@@ -1,5 +1,5 @@
 //! Pinned-screen index for JavaScript (wf-core `library_pins`). JS names match
-//! `packages/core/src/features/library/application/merge-pinned-screen-data.ts`.
+//! `packages/core/src/features/library/application/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

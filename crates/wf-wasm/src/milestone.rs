@@ -1,5 +1,5 @@
 //! Milestone domain rules for JavaScript (wf-core `plan::milestone`). The JS names match
-//! `packages/core/src/features/plan/domain/milestone.ts`.
+//! `packages/core/src/features/plan/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

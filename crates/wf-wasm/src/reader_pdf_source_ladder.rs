@@ -1,5 +1,5 @@
 //! PDF source-ladder order for JavaScript (wf-core `reader::pdf_source_ladder`). The JS name
-//! matches `resolvePdfSource` in `packages/core/src/reader/pdf-source-ladder.ts`, which calls
+//! matches `resolvePdfSource` in `packages/core/src/reader/parts.ts`, which calls
 //! `ladderOrder` and keeps the fetching in TS.
 
 use wasm_bindgen::JsValue;

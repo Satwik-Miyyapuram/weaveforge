@@ -263,7 +263,7 @@ export function mcpReadResult(
 // --- ai-model-concepts ---
 /**
  * Model concept-extraction reply parsing (Rust `ai::model_concepts`), re-exported from index.ts.
- * Keeps the signatures of packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts.
+ * Keeps the signatures of packages/core/src/features/ai-assistant/domain/parts.ts.
  */
 /** The reply's `concepts` list as parsed objects, or `[]`. Generic until the Rust types carry specta bindings. */
 export function parseExtractionJson<Concept>(text: string): Concept[] {

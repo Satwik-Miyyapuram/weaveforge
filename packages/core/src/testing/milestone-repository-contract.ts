@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Milestone } from "../features/plan/domain/milestone.js";
-import type { IMilestoneRepository } from "../features/plan/domain/milestone-repository.js";
+import type { IMilestoneRepository, Milestone } from "../features/plan/domain/parts.js";
 
 function sampleMilestone(overrides: Partial<Milestone> = {}): Milestone {
   return {

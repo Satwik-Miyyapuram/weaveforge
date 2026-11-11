@@ -1,34 +1,34 @@
 /** Test doubles and Liskov contract suites — import via `@weaveforge/core/testing` only. */
 export { InMemoryDashboardLayoutRepository } from "./parts.js";
 export { InMemoryGraphSettingsRepository } from "./parts.js";
-export { InMemoryPaperRepository } from "./in-memory-paper-repository.js";
-export { InMemoryTagRepository, InMemoryPaperTagRepository } from "./in-memory-tag-repository.js";
-export { InMemoryLogEntryRepository } from "./in-memory-log-entry-repository.js";
-export { InMemoryReportSectionRepository } from "./in-memory-report-section-repository.js";
+export { InMemoryPaperRepository } from "./in-memory-b.js";
+export { InMemoryTagRepository, InMemoryPaperTagRepository } from "./in-memory-b.js";
+export { InMemoryLogEntryRepository } from "./in-memory-a.js";
+export { InMemoryReportSectionRepository } from "./in-memory-b.js";
 export {
   InMemoryReadingListRepository,
   InMemoryReadingListItemRepository,
-} from "./in-memory-reading-list-repository.js";
-export { InMemoryPaperRelationRepository } from "./in-memory-paper-relation-repository.js";
+} from "./in-memory-b.js";
+export { InMemoryPaperRelationRepository } from "./in-memory-a.js";
 export { InMemoryProjectRepository } from "./parts.js";
-export { InMemoryExperimentRepository } from "./in-memory-experiment-repository.js";
-export { InMemoryMetricRepository } from "./in-memory-metric-repository.js";
+export { InMemoryExperimentRepository } from "./in-memory-a.js";
+export { InMemoryMetricRepository } from "./in-memory-a.js";
 export { InMemoryMilestoneRepository } from "./parts.js";
-export { InMemoryMemberRepository } from "./in-memory-member-repository.js";
+export { InMemoryMemberRepository } from "./in-memory-a.js";
 export { InMemoryAccountProvisioner } from "./parts.js";
-export { InMemoryShareRepository } from "./in-memory-share-repository.js";
-export { InMemoryCommentRepository } from "./in-memory-comment-repository.js";
-export { InMemoryShareLinkRepository } from "./in-memory-share-link-repository.js";
-export { InMemoryVaultPageRepository } from "./in-memory-vault-page-repository.js";
-export { InMemoryLibraryPinRepository } from "./in-memory-library-pin-repository.js";
-export { InMemoryCitationAlertTrackRepository } from "./in-memory-citation-alert-track-repository.js";
-export { InMemoryAnnotationPinRepository } from "./in-memory-annotation-pin-repository.js";
-export { InMemoryAnnotationQuotationTypeRepository } from "./in-memory-annotation-quotation-type-repository.js";
-export { InMemoryLabSnapshotRepository } from "./in-memory-lab-snapshot-repository.js";
-export { InMemoryReaderAnnotationRepository } from "./in-memory-reader-annotation-repository.js";
-export { InMemoryPaperFieldRepository } from "./in-memory-paper-field-repository.js";
+export { InMemoryShareRepository } from "./in-memory-b.js";
+export { InMemoryCommentRepository } from "./in-memory-a.js";
+export { InMemoryShareLinkRepository } from "./in-memory-b.js";
+export { InMemoryVaultPageRepository } from "./in-memory-b.js";
+export { InMemoryLibraryPinRepository } from "./in-memory-a.js";
+export { InMemoryCitationAlertTrackRepository } from "./in-memory-a.js";
+export { InMemoryAnnotationPinRepository } from "./in-memory-a.js";
+export { InMemoryAnnotationQuotationTypeRepository } from "./in-memory-a.js";
+export { InMemoryLabSnapshotRepository } from "./in-memory-a.js";
+export { InMemoryReaderAnnotationRepository } from "./in-memory-b.js";
+export { InMemoryPaperFieldRepository } from "./in-memory-a.js";
 export { InMemorySettingsRepository } from "./parts.js";
-export { InMemoryBlobRegistry } from "./in-memory-blob-registry.js";
+export { InMemoryBlobRegistry } from "./in-memory-a.js";
 export { runDashboardLayoutRepositoryContract } from "./dashboard-layout-repository-contract.js";
 export { runGraphSettingsRepositoryContract } from "./graph-settings-repository-contract.js";
 export { runSettingsRepositoryContract } from "./settings-repository-contract.js";

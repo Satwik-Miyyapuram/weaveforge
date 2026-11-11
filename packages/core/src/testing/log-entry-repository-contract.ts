@@ -14,8 +14,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { LogEntry } from "../features/logbook/domain/log-entry.js";
-import type { ILogEntryRepository } from "../features/logbook/domain/log-entry-repository.js";
+import type { ILogEntryRepository, LogEntry } from "../features/logbook/domain/parts.js";
 
 function sampleEntry(overrides: Partial<LogEntry> = {}): LogEntry {
   const now = "2026-06-24T00:00:00.000Z";

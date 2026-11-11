@@ -10,7 +10,7 @@ import {
   type ICitationSource,
 } from "../../../src/index.js";
 import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 
 class InMemoryRelationRepo implements IPaperRelationRepository {
   readonly rows = new Map<string, PaperRelation>();

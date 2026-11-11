@@ -16,9 +16,9 @@ use crate::papers::paper_field::{
     parse_paper_field_value,
 };
 
-/// Milestone statuses (TS `MILESTONE_STATUSES`, `packages/core/src/features/plan/domain/milestone.ts`).
+/// Milestone statuses (TS `MILESTONE_STATUSES`, `packages/core/src/features/plan/domain/parts.ts`).
 pub const MILESTONE_STATUSES: &[&str] = &["planned", "in_progress", "done", "blocked"];
-/// Experiment statuses (TS `EXPERIMENT_STATUSES`, `packages/core/src/features/experiments/domain/experiment.ts`).
+/// Experiment statuses (TS `EXPERIMENT_STATUSES`, `packages/core/src/features/experiments/domain/parts.ts`).
 pub const EXPERIMENT_STATUSES: &[&str] = &["planned", "running", "done", "failed", "abandoned"];
 const PAPER_STATUSES: &[&str] = &["to_read", "reading", "read", "skimmed"];
 const RELATIONS: &[&str] = &[

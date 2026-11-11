@@ -1,5 +1,5 @@
 //! The pure index behind merging pinned shared resources into a screen's own list. Pure.
-//! Port of the non-async half of `packages/core/src/features/library/application/merge-pinned-screen-data.ts`.
+//! Port of the non-async half of `packages/core/src/features/library/application/parts.ts`.
 //! The `loadById` shell stays in TS; it loads the extra rows this index names.
 
 use std::collections::{HashMap, HashSet};

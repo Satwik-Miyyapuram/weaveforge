@@ -1,5 +1,5 @@
 //! Theme config parsing for JavaScript (wf-core `settings::theme_config`). JS names match
-//! `packages/core/src/features/settings/domain/theme-config.ts`.
+//! `packages/core/src/features/settings/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

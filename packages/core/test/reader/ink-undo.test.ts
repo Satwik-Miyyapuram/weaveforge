@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { type InkUndoState } from "../../src/shared/core-contract.js";
-import type { ReaderAnnotation } from "../../src/reader/reader-annotation.js";
+import type { ReaderAnnotation } from "../../src/reader/parts.js";
 import * as wasm from "../../../wf-wasm/src/index.ts";
 
 // Their TypeScript was removed; the Rust core is the implementation.

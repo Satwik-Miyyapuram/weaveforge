@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { READER_ANNOTATION_TYPES } from "../../src/reader/reader-annotation.js";
+import { READER_ANNOTATION_TYPES } from "../../src/reader/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 test("READER_ANNOTATION_TYPES is Zotero's six — no strikeout", () => {

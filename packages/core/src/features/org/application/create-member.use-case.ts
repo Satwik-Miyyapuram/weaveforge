@@ -4,7 +4,7 @@
  * delegates the actual account creation to the injected provisioner. The server
  * re-enforces the same rules authoritatively — this is never the only gate.
  */
-import { MemberPermissionError, type Member, type NewMemberInput, type Role } from "../domain/member.js";
+import { MemberPermissionError, type Member, type NewMemberInput, type Role } from "../domain/parts.js";
 import type { IAccountProvisioner, IMemberRepository } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryReportSectionRepository } from "../../../src/testing/in-memory-report-section-repository.js";
+import { InMemoryReportSectionRepository } from "../../../src/testing/in-memory-b.js";
 import { ManageReportSectionUseCase } from "../../../src/features/report/application/manage-report-section.use-case.js";
 import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 

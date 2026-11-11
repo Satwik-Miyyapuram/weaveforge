@@ -1,5 +1,5 @@
 //! Model concept-extraction reply parsing for JavaScript (wf-core `ai::model_concepts`). The JS
-//! names match `packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts`.
+//! names match `packages/core/src/features/ai-assistant/domain/parts.ts`.
 
 use serde_json::Value;
 use wasm_bindgen::JsValue;

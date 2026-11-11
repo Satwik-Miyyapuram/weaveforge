@@ -1,6 +1,6 @@
 /** Data shapes the Rust core takes and returns that the generated bindings do not cover yet. */
 import type { Identifiable } from "./parts.js";
-import type { ReaderAnnotation } from "../reader/reader-annotation.js";
+import type { ReaderAnnotation } from "../reader/parts.js";
 import type { PageTextItem } from "../features/reader/parts.js";
 import type { PdfLink } from "../features/reader/analysis/analysis-types.js";
 

@@ -8,12 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type {
-  ReadingList,
-  ReadingListItem,
-} from "../features/reading-lists/domain/reading-list.js";
-import type {
   IReadingListItemRepository,
   IReadingListRepository,
+  ReadingList,
+  ReadingListItem,
 } from "../features/reading-lists/domain/parts.js";
 
 function sampleList(overrides: Partial<ReadingList> = {}): ReadingList {

@@ -1,5 +1,5 @@
 //! Experiment status and metric helpers for JavaScript (wf-core `experiment_status`). The JS names
-//! match `packages/core/src/features/experiments/domain/experiment.ts`.
+//! match `packages/core/src/features/experiments/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

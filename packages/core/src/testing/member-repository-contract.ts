@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Member } from "../features/org/domain/member.js";
-import type { IMemberRepository } from "../features/org/domain/parts.js";
+import type { IMemberRepository, Member } from "../features/org/domain/parts.js";
 
 export function runMemberRepositoryContract(
   label: string,

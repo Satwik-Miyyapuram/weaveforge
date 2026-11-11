@@ -11,7 +11,7 @@ import { rust } from "../../../src/shared/rust.js";
 const encodeShareLinkToken = (token: Uint8Array): string => rust().encodeShareLinkToken(token);
 const decodeShareLinkToken = (encoded: string): Uint8Array => rust().decodeShareLinkToken(encoded);
 import type { IShareLinkTokenHasher } from "../../../src/shared/core-contract.js";
-import { InMemoryShareLinkRepository } from "../../../src/testing/in-memory-share-link-repository.js";
+import { InMemoryShareLinkRepository } from "../../../src/testing/in-memory-b.js";
 
 const shareLinks = new InMemoryShareLinkRepository();
 

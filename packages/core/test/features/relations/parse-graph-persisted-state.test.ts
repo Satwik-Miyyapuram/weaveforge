@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_GRAPH_SETTINGS } from "../../../src/features/relations/domain/graph-view-settings.js";
+import { DEFAULT_GRAPH_SETTINGS } from "../../../src/features/relations/domain/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 test("parseGraphPersistedState returns null for absent payloads", () => {

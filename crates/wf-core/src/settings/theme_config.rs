@@ -1,5 +1,5 @@
 //! User-uploadable theme config (`config.json`) and its parser. Port of
-//! `packages/core/src/features/settings/domain/theme-config.ts`. Pure.
+//! `packages/core/src/features/settings/domain/parts.ts`. Pure.
 //!
 //! The file is untrusted input. The parser returns CSS custom properties whose
 //! names come from the allowlists here and whose values are rebuilt from parsed

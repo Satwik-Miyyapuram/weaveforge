@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryReaderAnnotationRepository } from "../../src/testing/in-memory-reader-annotation-repository.js";
+import { InMemoryReaderAnnotationRepository } from "../../src/testing/in-memory-b.js";
 import { ConflictError } from "../../src/shared/errors.js";
 
 test("InMemoryReaderAnnotationRepository creates, lists, updates, removes", async () => {

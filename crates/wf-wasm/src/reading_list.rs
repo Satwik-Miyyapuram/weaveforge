@@ -1,5 +1,5 @@
 //! Reading-list tree for JavaScript (wf-core `reading_lists::reading_list`). The JS names
-//! match `packages/core/src/features/reading-lists/domain/reading-list.ts`.
+//! match `packages/core/src/features/reading-lists/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

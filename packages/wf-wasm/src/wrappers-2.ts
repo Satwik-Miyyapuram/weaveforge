@@ -330,7 +330,7 @@ export type ArtifactKind = "image" | "pdf" | "link";
 // --- experiment-status ---
 /**
  * Experiment status and metric display helpers (Rust `experiment_status`), re-exported from index.ts.
- * Each function keeps the signature of packages/core/src/features/experiments/domain/experiment.ts.
+ * Each function keeps the signature of packages/core/src/features/experiments/domain/parts.ts.
  */
 /** The statuses that end a run (TS `TERMINAL_EXPERIMENT_STATUSES`). */
 export const TERMINAL_EXPERIMENT_STATUSES: readonly ExperimentStatus[] = ["done", "failed", "abandoned"];

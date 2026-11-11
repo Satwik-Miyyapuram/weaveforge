@@ -1,7 +1,12 @@
-/** Types for log-entry. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { Identifiable } from "../../../shared/parts.js";
 import { ValidationError } from "../../../shared/errors.js";
+import type {
+  Identifiable,
+  IReadableRepository,
+  IWritableRepository,
+} from "../../../shared/parts.js";
 
+// --- log-entry ---
+/** Types for log-entry. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
 export type LogKind = "daily" | "weekly";
 
 export const LOG_KINDS: readonly LogKind[] = ["daily", "weekly"];
@@ -49,3 +54,15 @@ export class LogEntryValidationError extends ValidationError {
   }
 }
 
+// --- log-entry-repository ---
+/**
+ * Repository contract for log entries.
+ *
+ * Defined in the domain layer (Dependency Inversion): application code depends
+ * on this interface; infrastructure provides PostgREST / in-memory / SQLite
+ * implementations. Any implementation must be substitutable (Liskov) and is
+ * verified by the shared contract test suite.
+ */
+export interface ILogEntryRepository
+  extends IReadableRepository<LogEntry, LogEntryFilter>,
+    IWritableRepository<LogEntry> {}

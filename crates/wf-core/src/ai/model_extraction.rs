@@ -1,4 +1,4 @@
-//! Port of the pure parts of packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts.
+//! Port of the pure parts of packages/core/src/features/ai-assistant/domain/parts.ts.
 //!
 //! The batch loop, the model call and the error policy stay in the TS shim.
 //! This module builds each batch's request, and merges batch results after the shim has collected them.

@@ -1,6 +1,6 @@
 //! Model concept-extraction request building and result merging for JavaScript (wf-core
 //! `ai::model_extraction`). The JS names match
-//! `packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts`. The host keeps the
+//! `packages/core/src/features/ai-assistant/domain/parts.ts`. The host keeps the
 //! batch loop and the model call.
 
 use wasm_bindgen::JsValue;

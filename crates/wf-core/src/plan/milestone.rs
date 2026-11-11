@@ -1,4 +1,4 @@
-//! Port of packages/core/src/features/plan/domain/milestone.ts. Pure: the caller supplies
+//! Port of packages/core/src/features/plan/domain/parts.ts. Pure: the caller supplies
 //! the id and creation time.
 
 use crate::lab_snapshot::MilestoneStatus;

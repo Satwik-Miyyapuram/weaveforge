@@ -139,9 +139,9 @@ for (const file of snapshotConsumers) {
 // endpoint the user actually chose becomes the exception. Which model runs is
 // an explicit choice made in settings, so the domain layer carries no roster.
 const providerRosterFiles = [
-  "packages/core/src/features/ai-assistant/domain/ai-types.ts",
   "packages/core/src/features/ai-assistant/domain/parts.ts",
-  "packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts",
+  "packages/core/src/features/ai-assistant/domain/parts.ts",
+  "packages/core/src/features/ai-assistant/domain/parts.ts",
 ];
 for (const file of providerRosterFiles) {
   const source = readFileSync(path.join(root, file), "utf8");

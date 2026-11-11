@@ -1,18 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AddLogEntryUseCase } from "../../../src/features/logbook/application/add-log-entry.use-case.js";
-import { CheckCitationAlertsUseCase } from "../../../src/features/relations/application/check-citation-alerts.use-case.js";
+import { CheckCitationAlertsUseCase } from "../../../src/features/relations/application/parts.js";
 import type {
   CitationCandidate,
   ICitationSource,
 } from "../../../src/features/relations/application/parts.js";
 import type { INotificationIntegration } from "../../../src/features/integrations/domain/parts.js";
 import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
-import type { Milestone } from "../../../src/features/plan/domain/milestone.js";
-import type { Paper } from "../../../src/features/papers/domain/paper.js";
-import { InMemoryCitationAlertTrackRepository } from "../../../src/testing/in-memory-citation-alert-track-repository.js";
-import { InMemoryLogEntryRepository } from "../../../src/testing/in-memory-log-entry-repository.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import type { Milestone } from "../../../src/features/plan/domain/parts.js";
+import type { Paper } from "../../../src/features/papers/domain/parts.js";
+import {
+  InMemoryCitationAlertTrackRepository,
+  InMemoryLogEntryRepository,
+} from "../../../src/testing/in-memory-a.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
 
 const paper: Paper = {
   id: "paper-1",

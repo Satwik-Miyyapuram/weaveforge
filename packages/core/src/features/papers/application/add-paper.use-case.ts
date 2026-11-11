@@ -7,7 +7,7 @@
  * responsibility is the *business rule* of adding a paper, including dedupe.
  */
 
-import { createPaper, type NewPaperInput, type Paper, type PaperStatus } from "../domain/paper.js";
+import { createPaper, type NewPaperInput, type Paper, type PaperStatus } from "../domain/parts.js";
 import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import type { IPaperRepository } from "../domain/parts.js";
 import { rust } from "../../../shared/rust.js";

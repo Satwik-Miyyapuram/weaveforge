@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Experiment } from "../features/experiments/domain/experiment.js";
-import type { IExperimentRepository } from "../features/experiments/domain/parts.js";
+import type { Experiment, IExperimentRepository } from "../features/experiments/domain/parts.js";
 
 function sampleExperiment(overrides: Partial<Experiment> = {}): Experiment {
   return {

@@ -1,5 +1,5 @@
 //! Reading a model's concept-extraction reply (TS `parseExtractionJson` and `toExtractionResult`,
-//! `packages/core/src/features/ai-assistant/domain/model-concept-extractor.ts`).
+//! `packages/core/src/features/ai-assistant/domain/parts.ts`).
 
 use std::collections::HashSet;
 
