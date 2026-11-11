@@ -7,7 +7,6 @@ import {
   type FeedMilestone,
   type PlanWidgetData,
 } from "@weaveforge/wasm";
-import type { MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
 import { typedCore } from "@/lib/rust-core";
 import type { IpcResult } from "../../shell/sidecar/src/channels";
 
@@ -37,7 +36,18 @@ where m.deleted_at is null
   and (m.project_id is null or p.id is not null)
 `;
 
-export type PlanWidgetRow = MilestoneRow & { project_name: string | null };
+/** A row of the query above, as the widget reads it. */
+export interface PlanWidgetRow {
+  id: string;
+  title: string;
+  description: string | null;
+  status: FeedMilestone["status"];
+  target_date: string | null;
+  dependencies: unknown[] | null;
+  compute: unknown[] | null;
+  created_at: string;
+  project_name: string | null;
+}
 
 /**
  * Turns the widget on or off. The choice is saved first and nothing changes on
