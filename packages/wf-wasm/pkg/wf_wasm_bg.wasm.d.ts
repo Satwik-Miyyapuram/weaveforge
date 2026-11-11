@@ -747,7 +747,6 @@ export const mediaTypeEssence: (a: number, b: number) => [number, number];
 export const memberNameMap: (a: any) => [number, number, number];
 export const memberRank: (a: number, b: number) => number;
 export const memberRoleLabelOf: (a: any, b: number, c: number) => [number, number, number, number];
-export const memberRowToDomain: (a: any) => [number, number, number];
 export const membershipViewFromRow: (a: any) => [number, number, number];
 export const mentionItemRanges: (a: any, b: number, c: number) => [number, number, number];
 export const mentionRects: (a: any, b: number, c: number) => [number, number, number];

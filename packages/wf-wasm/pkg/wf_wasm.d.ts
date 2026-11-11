@@ -5754,11 +5754,6 @@ export function memberRank(kind: string): number;
 export function memberRoleLabelOf(member: { role: string }, in_lab: boolean, owns_org: boolean): string | undefined;
 
 /**
- * [`to_domain`]: a `profiles` row as a lab member.
- */
-export function memberRowToDomain(row: any): any;
-
-/**
  * [`to_view`]: an `org_memberships` row with its embedded organisation as a membership view.
  */
 export function membershipViewFromRow(row: any): any;
@@ -11787,7 +11782,6 @@ export interface InitOutput {
     readonly memberNameMap: (a: any) => [number, number, number];
     readonly memberRank: (a: number, b: number) => number;
     readonly memberRoleLabelOf: (a: any, b: number, c: number) => [number, number, number, number];
-    readonly memberRowToDomain: (a: any) => [number, number, number];
     readonly membershipViewFromRow: (a: any) => [number, number, number];
     readonly mentionItemRanges: (a: any, b: number, c: number) => [number, number, number];
     readonly mentionRects: (a: any, b: number, c: number) => [number, number, number];

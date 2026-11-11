@@ -1,166 +1,63 @@
-import { one } from "@/backend/providers/postgrest/parts-1";
+import { rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { singleFlight } from "@/lib/cache/parts";
-import { readyCore, type RustCore, typedCore } from "@/lib/rust-core";
+import { type RustCore, typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ICurrentUserProvider, IMemberRepository, Member, Role } from "@weaveforge/core";
-
-// --- member-rows ---
-/**
- * How member rows are stored. The mapping to the domain type is in Rust (wf-core).
- *
- * Shared by both backend providers. They talk to the *same* table — one through
- * supabase-js, the other through `pg` — so the column shape and the mapping are
- * not per-provider facts, and holding two copies of them is how they drift.
- */
-
-export interface ProfileRow {
-  user_id: string;
-  email: string | null;
-  full_name: string | null;
-  role: Role;
-  supervisor_id: string | null;
-  org_setup_complete: boolean | null;
-  active_org_id: string | null;
-}
-
-/** The columns a ProfileRow is read as: exactly its fields, named rather than starred. */
-export const PROFILE_COLUMNS =
-  "user_id, email, full_name, role, supervisor_id, org_setup_complete, active_org_id";
-
-export function byName(a: Member, b: Member): number {
-  return (a.fullName ?? a.email ?? "").localeCompare(b.fullName ?? b.email ?? "");
-}
+import type { ICurrentUserProvider, IMemberRepository, Member } from "@weaveforge/core";
 
 // --- postgrest-member-repository ---
 /**
- * PostgREST implementation of IMemberRepository. Reads the `profiles` table (the
- * ONLY place it's queried from the client). Since migration 0018 widened the
- * profiles SELECT policy to the whole lab (so you can pick share recipients),
- * `listTeam()` now re-applies the subtree filter client-side, while
- * `listDirectory()` returns the full lab.
+ * IMemberRepository over the `profiles` table. Rust plans the queries and maps the rows
+ * (`crates/wf-core/src/repos/members.rs`). Since migration 0018 widened the profiles
+ * SELECT policy to the whole lab (so you can pick share recipients), `listTeam()`
+ * re-applies the subtree filter client-side, while `listDirectory()` returns the full lab.
+ *
+ * Team, lab and profile consumers all mount at once, so each read is single-flighted.
  */
 
-const TABLE = "profiles";
+/** Whether the caller is in their active lab, and who else is in it. */
+interface LabContext {
+  inLab: boolean;
+  orgMemberIds: string[] | null;
+}
 
-/** Rust keeps role as String; the DB check constraint limits it to Role. */
-const toRole = (role: string): Role => role as Role;
+/** The methods Rust runs for this repository. */
+interface MemberSteps {
+  getMine(): Promise<Member | null>;
+  listDirectory(): Promise<Member[]>;
+  labContext(activeOrgId: string): Promise<LabContext>;
+}
 
-const toDomain = (r: ProfileRow): Member => {
-  const m = typedCore().memberRowToDomain(r);
-  return {
-    id: m.id,
-    email: m.email ?? undefined,
-    fullName: m.fullName ?? undefined,
-    role: toRole(m.role),
-    supervisorId: m.supervisorId ?? undefined,
-    orgSetupComplete: m.orgSetupComplete,
-    activeOrgId: m.activeOrgId ?? undefined,
-  };
-};
+const OUTSIDE_LAB: LabContext = { inLab: false, orgMemberIds: null };
 
-export class PostgrestMemberRepository implements IMemberRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly session: ICurrentUserProvider,
-  ) {}
+export function memberRepository(db: SupabaseClient, session: ICurrentUserProvider): IMemberRepository {
+  const rust = rustRepository<MemberSteps>(db, "members", ["getMine", "listDirectory", "labContext"], async () => ({
+    userId: (await session.getCurrentUserId()) ?? undefined,
+  }));
 
-  async getMine(): Promise<Member | null> {
-    const uid = await this.session.getCurrentUserId();
-    if (!uid) return null;
-    return singleFlight(`members:mine:${uid}`, async () => {
-      const row = await one<ProfileRow>(this.db
-        .from(TABLE)
-        .select(PROFILE_COLUMNS)
-        .eq("user_id", uid)
-        .maybeSingle());
-      return row ? toDomain(row) : null;
-    });
-  }
+  const listDirectory = () => singleFlight("members:directory", () => rust.listDirectory());
 
-  async listDirectory(): Promise<Member[]> {
-    // Team, lab and directory consumers all mount at once; share one round trip.
-    return singleFlight("members:directory", async () => {
-      const { data, error } = await this.db
-        .from(TABLE)
-        .select(PROFILE_COLUMNS);
-      if (error) throw error;
-      return (data as ProfileRow[]).map(toDomain).sort(byName);
-    });
-  }
-
-  async listTeam(): Promise<Member[]> {
-    return this.listMembers(typedCore().filterTeamMembers);
-  }
-
-  async listLab(): Promise<Member[]> {
-    return this.listMembers(typedCore().filterLabMembers);
-  }
-
-  private async listMembers(
-    filter: RustCore["filterTeamMembers"],
-  ): Promise<Member[]> {
-    const uid = await this.session.getCurrentUserId();
+  async function listMembers(filter: RustCore["filterTeamMembers"]): Promise<Member[]> {
+    const uid = await session.getCurrentUserId();
     if (!uid) return [];
-
     // The directory already contains the caller's own row — no second read.
-    const all = await this.listDirectory();
-    const mine = all.find((member) => member.id === uid) ?? null;
-    const explicitOrgId = await this.explicitActiveOrgId(uid, mine?.activeOrgId);
-    const inLab = !!explicitOrgId;
-    const orgMemberIds = explicitOrgId
-      ? await this.orgMemberIds(explicitOrgId)
-      : null;
-
-    return filter(uid, all, { inLab, orgMemberIds }).sort(byName);
+    const all = await listDirectory();
+    const orgId = all.find((member) => member.id === uid)?.activeOrgId;
+    const lab = orgId
+      ? await singleFlight(`members:lab:${uid}:${orgId}`, () => rust.labContext(orgId))
+      : OUTSIDE_LAB;
+    const orgMemberIds = lab.orgMemberIds && new Set(lab.orgMemberIds);
+    // The directory is sorted by name and the filters keep its order.
+    return filter(uid, all, { inLab: lab.inLab, orgMemberIds });
   }
 
-  /** Active org only counts when explicitly joined or owned (not migration backfill). */
-  private async explicitActiveOrgId(
-    userId: string,
-    activeOrgId?: string,
-  ): Promise<string | null> {
-    if (!activeOrgId) return null;
-    return singleFlight(`members:explicit-org:${userId}:${activeOrgId}`, () =>
-      this.loadExplicitActiveOrgId(userId, activeOrgId),
-    );
-  }
-
-  private async loadExplicitActiveOrgId(
-    userId: string,
-    activeOrgId: string,
-  ): Promise<string | null> {
-    const { data: org, error: orgErr } = await this.db
-      .from("organizations")
-      .select("owner_id")
-      .eq("id", activeOrgId)
-      .maybeSingle();
-    if (orgErr) throw orgErr;
-    if (org?.owner_id === userId) return activeOrgId;
-
-    const { data: membership, error: memErr } = await this.db
-      .from("org_memberships")
-      .select("joined_via")
-      .eq("org_id", activeOrgId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (memErr) throw memErr;
-    if (!membership) return null;
-
-    // Explicit join/create vs. migration backfill is decided in Rust (`is_explicit_lab_membership`).
-    const joinedVia = (membership as { joined_via?: string }).joined_via;
-    return readyCore().isExplicitLabMembership({ orgId: activeOrgId, joinSource: joinedVia ?? null })
-      ? activeOrgId
-      : null;
-  }
-
-  private async orgMemberIds(orgId: string): Promise<Set<string>> {
-    return singleFlight(`members:org-member-ids:${orgId}`, async () => {
-      const { data, error } = await this.db
-        .from("org_memberships")
-        .select("user_id")
-        .eq("org_id", orgId);
-      if (error) throw error;
-      return new Set((data ?? []).map((row) => row.user_id as string));
-    });
-  }
+  return {
+    async getMine() {
+      const uid = await session.getCurrentUserId();
+      if (!uid) return null;
+      return singleFlight(`members:mine:${uid}`, () => rust.getMine());
+    },
+    listDirectory,
+    listTeam: () => listMembers(typedCore().filterTeamMembers),
+    listLab: () => listMembers(typedCore().filterLabMembers),
+  };
 }

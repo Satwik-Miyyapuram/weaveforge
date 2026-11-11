@@ -5,6 +5,7 @@ pub mod ai_proposals;
 pub mod annotation_quotation_types;
 pub mod comments;
 pub mod library_pins;
+pub mod members;
 pub mod paper_relations;
 pub mod paper_tags;
 pub mod share_links;
