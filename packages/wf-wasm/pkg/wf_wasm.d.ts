@@ -7702,16 +7702,6 @@ export function pointInPolygon(polygon: readonly number[], x: number, y: number)
 export function postgrestErrorInfo(body: string): B.ErrorInfo;
 
 /**
- * [`keyed_column_spec`]: the keyed-column spec named `name`, or `null` when there is none.
- */
-export function postgrestKeyedColumnSpec(name: string): any;
-
-/**
- * [`row_spec`]: the row spec named `name`, or `null` when there is none.
- */
-export function postgrestRowSpec(name: string): any;
-
-/**
  * [`writable`] for JS (TS `postgrestWritable`): the payload minus the table's generated columns.
  *
  * # Errors
@@ -11923,8 +11913,6 @@ export interface InitOutput {
     readonly pointInArea: (a: any, b: number, c: number) => [number, number, number];
     readonly pointInPolygon: (a: number, b: number, c: number, d: number) => number;
     readonly postgrestErrorInfo: (a: number, b: number) => [number, number, number];
-    readonly postgrestKeyedColumnSpec: (a: number, b: number) => [number, number, number];
-    readonly postgrestRowSpec: (a: number, b: number) => [number, number, number];
     readonly postgrestWritable: (a: number, b: number, c: any) => [number, number, number];
     readonly preprintServerFor: (a: number, b: number) => [number, number];
     readonly pressureByte: (a: number, b: number) => number;

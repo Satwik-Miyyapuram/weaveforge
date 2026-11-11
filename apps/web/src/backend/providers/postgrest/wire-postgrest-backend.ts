@@ -1,5 +1,4 @@
 import type { BackendConfig } from "@/backend/parts";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/parts-1";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import {
@@ -16,10 +15,7 @@ import {
   rustPaperFieldRepository,
 } from "@/features/papers/infrastructure/parts-1";
 import { rustPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
-import {
-  type MilestoneRow,
-  milestoneToDomain,
-} from "@/features/plan/infrastructure/milestone-rows";
+import { rustMilestoneRepository } from "@/features/plan/infrastructure/milestone-rows";
 import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
 import {
   rustReadingListItemRepository,
@@ -85,7 +81,7 @@ import {
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
-import { createDataClient, KeyedColumnRepository, SpecRepository } from "./parts-1";
+import { createDataClient } from "./parts-1";
 import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
 import { watchWrites } from "./watch-writes";
 
@@ -125,201 +121,38 @@ export function cachePaperRepository<R extends IPaperRepository>(inner: R, pid: 
   return cacheRepo(inner, methods("read"), methods("write"), pid, { resourceType: "paper" });
 }
 
-// --- integrations-rows ---
-/**
- * How integrations rows are stored, and how they map to the domain type.
- *
- * Shared by both backend providers. They talk to the *same* table — one through
- * supabase-js, the other through `pg` — so the column shape and the mapping are
- * not per-provider facts, and holding two copies of them is how they drift.
- */
-
-export interface IntegrationRow {
-  provider: SyncProvider;
-  enabled: boolean;
-  token: string | null;
-  repo: string | null;
-  branch: string | null;
-  options?: Record<string, unknown> | null;
+// --- rust-backed stores ---
+/** `project_integrations` per (project, provider), through the Rust step engine. */
+export function rustIntegrationsStore(db: SupabaseClient): IIntegrationsStore {
+  return rustRepository<IIntegrationsStore>(db, "project_integrations", ["get", "save"]);
 }
 
-// --- postgrest-integrations-store ---
-/** Reads/writes `project_integrations` per (project, provider). */
-export class PostgrestIntegrationsStore {
-  constructor(private readonly db: SupabaseClient) {}
-
-  async get(projectId: string, provider: SyncProvider): Promise<Integration> {
-    const { data, error } = await this.db
-      .from("project_integrations")
-      .select("provider,enabled,token,repo,branch,options")
-      .eq("project_id", projectId)
-      .eq("provider", provider)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return readyCore().emptyIntegration(provider);
-    const r = data as IntegrationRow;
-    return {
-      provider,
-      enabled: r.enabled,
-      token: r.token ?? undefined,
-      repo: r.repo ?? undefined,
-      branch: readyCore().branchRead({ provider, branch: r.branch ?? null }),
-      options: r.options ?? undefined,
-    };
-  }
-
-  async save(projectId: string, integration: Integration): Promise<void> {
-    await run(this.db.from("project_integrations").upsert(
-      {
-        project_id: projectId,
-        provider: integration.provider,
-        enabled: integration.enabled,
-        token: integration.token ?? null,
-        repo: integration.repo ?? null,
-        // For Mattermost this is the channel id; a blank one stays blank.
-        branch: readyCore().branchSave({ provider: integration.provider, branch: integration.branch ?? "" }),
-        options: integration.options ?? {},
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "project_id,provider" },
-    ));
-  }
+/** `projects` through the Rust step engine; `save` stamps the signed-in user. */
+function rustProjectRepository(db: SupabaseClient, session: ICurrentUserProvider): IProjectRepository {
+  return rustRepository<IProjectRepository>(db, "projects", ["getById", "list", "save", "delete"], async () => ({
+    userId: (await session.getCurrentUserId()) ?? undefined,
+  }));
 }
-
-// --- project-rows ---
-/**
- * How project rows are stored, and how they map to the domain type.
- *
- * Shared by both backend providers. They talk to the *same* table — one through
- * supabase-js, the other through `pg` — so the column shape and the mapping are
- * not per-provider facts, and holding two copies of them is how they drift.
- */
-
-export interface ProjectRow {
-  id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-}
-
-export function toDomain(r: ProjectRow): Project {
-  const p = readyCore().projectFromRow(r);
-  return { id: p.id, name: p.name, color: p.color ?? undefined, createdAt: p.createdAt };
-}
-
-// --- postgrest-project-repository ---
-/**
- * The columns a ProjectRow is read as, named rather than starred.
- *
- * Derived from the row type: these are exactly the fields the mapper reads, and a
- * star would make them "whatever the table grows next".
- */
-const PROJECT_COLUMNS = "id,name,color,created_at";
-
-const TABLE = "projects";
-
-export class PostgrestProjectRepository implements IProjectRepository {
-  constructor(
-    private readonly db: SupabaseClient,
-    private readonly session: ICurrentUserProvider,
-  ) {}
-
-  async getById(id: string): Promise<Project | null> {
-    const row = await rowById<ProjectRow>(this.db, TABLE, id);
-    return row ? toDomain(row) : null;
-  }
-  async list(): Promise<Project[]> {
-    return (await rows<ProjectRow>(this.db.from(TABLE).select(PROJECT_COLUMNS).order("created_at"))).map(toDomain);
-  }
-  async save(entity: Project): Promise<void> {
-    const userId = await this.session.getCurrentUserId();
-    await run(this.db.from(TABLE).upsert({
-      id: entity.id,
-      user_id: userId,
-      name: entity.name,
-      color: entity.color ?? null,
-      created_at: entity.createdAt,
-    }));
-  }
-  async delete(id: string): Promise<void> {
-    await deleteRowById(this.db, TABLE, id);
-  }
-}
-
-// --- shared-reader-sources ---
-/** Per-type row mapping: which table, and which columns hold the title/status. */
-export const SHARED_SOURCES: Record<
-  ShareableType,
-  { table: string; title: string; status: string | null }
-> = {
-  milestone: { table: "milestones", title: "title", status: "status" },
-  experiment: { table: "experiments", title: "name", status: "status" },
-  report_section: { table: "report_sections", title: "title", status: "status" },
-  reading_list: { table: "reading_lists", title: "name", status: null },
-  paper: { table: "papers", title: "title", status: "status" },
-  vault_page: { table: "vault_pages", title: "title", status: null },
-};
 
 /**
- * Shape one row into a `SharedItem`.
- *
- * Shared by the PostgREST and Postgres readers deliberately: they differ in how
- * they *fetch* — PostgREST `.or()` filters against SQL `any($n::uuid[])` — but
- * a shared item must look identical whichever backend produced it, and this
- * mapping had drifted into two copies of the same twelve lines.
+ * The rows behind a set of shares, by id (per-item grants) or by owner (blanket
+ * grants). Rust plans the read (`repos/shared_items.rs`); no grants, no request.
  */
-export function toSharedItem(kind: ShareableType, row: Record<string, unknown>): SharedItem {
-  return readyCore().sharedItem(kind, row, SHARED_SOURCES[kind]);
+function rustSharedReader(db: SupabaseClient): ISharedReader {
+  return rustRepository<ISharedReader>(db, "shared_items", ["read"]);
 }
 
-// --- postgrest-shared-reader ---
 /**
- * Fetches the actual rows behind a set of shares — by id (per-item grants) or by
- * owner (blanket "share everything" grants). Reads whatever the widened SELECT
- * policies (0018) permit, independent of the project-scoped feature repos.
+ * Per-project Zotero collection (`projects.zotero_collection`). The API key and
+ * library are per user; only the target collection is per project.
  */
-export class PostgrestSharedReader implements ISharedReader {
-  constructor(private readonly db: import("@supabase/supabase-js").SupabaseClient) {}
-
-  async read(kind: ShareableType, ids: string[], owners: string[]): Promise<SharedItem[]> {
-    // Table, columns and filter come from Rust (`shared_read_plan`); no plan, no request.
-    const plan = readyCore().sharedReadPlan(kind, ids, owners);
-    if (!plan) return [];
-
-    const { data, error } = await this.db.from(plan.table).select(plan.columns).or(plan.filter);
-    if (error) throw error;
-    // The dynamic column list makes PostgREST infer an error type; the rows are
-    // plain records, so cast through unknown.
-    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
-    return rows.map((r) => toSharedItem(kind, r));
-  }
-}
-
-// --- project-zotero-store ---
-/**
- * Per-project Zotero collection mapping. Reads/writes `projects.zotero_collection`.
- * The API key + library are per-user (user_settings); only the target collection
- * is per-project, so a project syncs to its own Zotero collection.
- */
-export class ProjectZoteroStore implements IProjectBibliographyCollectionStore {
-  constructor(private readonly db: SupabaseClient) {}
-
-  async getCollection(projectId: string): Promise<string | undefined> {
-    const { data, error } = await this.db
-      .from("projects")
-      .select("zotero_collection")
-      .eq("id", projectId)
-      .maybeSingle();
-    if (error) throw error;
-    return (data as { zotero_collection: string | null } | null)?.zotero_collection ?? undefined;
-  }
-
-  async setCollection(projectId: string, collection: string | null): Promise<void> {
-    await run(this.db
-      .from("projects")
-      .update({ zotero_collection: collection || null })
-      .eq("id", projectId));
-  }
+function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollectionStore {
+  type Wire = { getCollection(projectId: string): Promise<string | null>; setCollection(projectId: string, collection: string | null): Promise<void> };
+  const repo = rustRepository<Wire>(db, "projects", ["getCollection", "setCollection"]);
+  return {
+    getCollection: async (projectId) => (await repo.getCollection(projectId)) ?? undefined,
+    setCollection: (projectId, collection) => repo.setCollection(projectId, collection),
+  };
 }
 
 // --- wire-postgrest-backend ---
@@ -419,29 +252,27 @@ export function wirePostgrestBackend(
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
-    new PostgrestProjectRepository(db, session),
+    rustProjectRepository(db, session),
     ["getById", "list"],
     ["save", "delete"],
     pid,
     { resourceType: "project" },
   );
   const dashboardLayoutRepository = cacheRepo(
-    new KeyedColumnRepository<DashboardLayout>(db, "dashboardLayout", (raw) =>
-      readyCore().parseDashboardLayout(raw as never) as DashboardLayout | null),
+    rustRepository<IDashboardLayoutRepository>(db, "dashboardLayout", ["get", "save"]),
     ["get"],
     ["save"],
     pid,
     { resourceType: "dashboard_layout" },
   );
   const graphSettingsRepository = cacheRepo(
-    new KeyedColumnRepository<GraphPersistedState>(db, "graphSettings", (raw) =>
-      typedCore().parseGraphPersistedState(raw as never)),
+    rustRepository<IGraphSettingsRepository>(db, "graphSettings", ["get", "save"]),
     ["get"],
     ["save"],
     pid,
     { resourceType: "graph_settings" },
   );
-  const integrationsStore: IIntegrationsStore = new PostgrestIntegrationsStore(db);
+  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
@@ -558,17 +389,14 @@ export function wirePostgrestBackend(
   // What you can read depends on the grants, so a share change (yours or a
   // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
-    new PostgrestSharedReader(db),
+    rustSharedReader(db),
     ["read"],
     [],
     pid,
     { resourceType: "share" },
   );
   const milestoneRepository = cacheRepo(
-    new SpecRepository<Milestone, MilestoneRow, MilestoneFilter>(db, projectContext, "milestones", {
-      toDomain: milestoneToDomain,
-      toRow: (m) => readyCore().milestoneToRow(m),
-    }),
+    rustMilestoneRepository(db, projectContext),
     ["getById", "list"],
     ["save", "delete"],
     pid,
@@ -587,7 +415,7 @@ export function wirePostgrestBackend(
     pid,
   );
   const supervisionRepository = rustSupervisionRepository(db);
-  const projectBibliographyCollection = new ProjectZoteroStore(db);
+  const projectBibliographyCollection = rustProjectZoteroStore(db);
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
     rustRepository<ILibraryPinRepository>(

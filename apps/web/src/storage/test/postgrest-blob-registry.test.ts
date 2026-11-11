@@ -5,10 +5,13 @@
  * violation, raised after the bytes are already in the bucket (10-01).
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { PostgrestBlobRegistry } from "../providers/postgrest/blob-registry";
+
+before(loadTestCore);
 
 type Row = Record<string, unknown> & { id: string; bucket: string; path: string };
 

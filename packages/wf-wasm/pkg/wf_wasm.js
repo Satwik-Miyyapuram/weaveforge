@@ -18653,36 +18653,6 @@ export function postgrestErrorInfo(body) {
 }
 
 /**
- * [`keyed_column_spec`]: the keyed-column spec named `name`, or `null` when there is none.
- * @param {string} name
- * @returns {any}
- */
-export function postgrestKeyedColumnSpec(name) {
-    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.postgrestKeyedColumnSpec(ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`row_spec`]: the row spec named `name`, or `null` when there is none.
- * @param {string} name
- * @returns {any}
- */
-export function postgrestRowSpec(name) {
-    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.postgrestRowSpec(ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`writable`] for JS (TS `postgrestWritable`): the payload minus the table's generated columns.
  *
  * # Errors

@@ -56,18 +56,14 @@ export async function purgeUserBlobs(
   /* Injected so the failure paths can be tested without object storage. */
   buildStore: typeof buildTieredBlobStoreFromRegistry = buildTieredBlobStoreFromRegistry,
 ): Promise<void> {
-  const { data: rows, error } = await admin
-    .from("blob_objects")
-    .select("bucket, path")
-    .eq("user_id", userId);
-  if (error) throw error;
-
   await loadCore();
+  const registry = new PostgrestBlobRegistry(admin);
+  const rows = await registry.listForUser(userId);
   const config = readStorageConfig();
   const failed: BlobRow[] = [];
-  if (config.provider === "tiered" && rows?.length) {
-    const store = buildStore(config, new PostgrestBlobRegistry(admin));
-    for (const row of rows as BlobRow[]) {
+  if (config.provider === "tiered" && rows.length) {
+    const store = buildStore(config, registry);
+    for (const row of rows) {
       try {
         await store.remove(row.bucket, row.path);
       } catch {
@@ -83,12 +79,11 @@ export async function purgeUserBlobs(
   if (failed.length) {
     /* Their rows stay: they are what a retry needs to find the objects. */
     throw new Error(
-      `Could not delete ${failed.length} of ${rows?.length ?? 0} stored objects — account not deleted. Retry once object storage is reachable.`,
+      `Could not delete ${failed.length} of ${rows.length} stored objects — account not deleted. Retry once object storage is reachable.`,
     );
   }
 
-  const { error: deleteError } = await admin.from("blob_objects").delete().eq("user_id", userId);
-  if (deleteError) throw deleteError;
+  await registry.deleteForUser(userId);
 }
 
 /** One listing call returns at most this many entries; longer prefixes are paged. */

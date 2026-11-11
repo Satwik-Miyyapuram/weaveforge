@@ -474,6 +474,15 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "reading_lists" => crate::repos::reading_lists::step(method, call),
         "screening_decisions" => crate::repos::screening_decisions::step(method, call),
         "crdt_snapshots" => crate::repos::crdt_updates::snapshot_step(method, call),
+        "blob_objects" => crate::repos::blob_objects::step(method, call),
+        "milestones" => crate::repos::milestones::step(method, call),
+        "plan_feed_links" => crate::repos::plan_feed_links::step(method, call),
+        "dashboardLayout" | "graphSettings" => {
+            crate::repos::project_columns::step(repo, method, call)
+        }
+        "project_integrations" => crate::repos::project_integrations::step(method, call),
+        "projects" => crate::repos::projects_repo::step(method, call),
+        "shared_items" => crate::repos::shared_items::step(method, call),
         _ => return RepoStep::fail(format!("No Rust repository named {repo}")),
     };
     step.unwrap_or_else(|| RepoStep::fail(format!("No method {method} on Rust repository {repo}")))
