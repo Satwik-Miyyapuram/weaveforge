@@ -16,7 +16,7 @@ import type { ReportSection } from "../features/report/domain/report-section.js"
 import type { Experiment } from "../features/experiments/domain/experiment.js";
 import type { Milestone } from "../features/plan/domain/milestone.js";
 import type { LogEntry } from "../features/logbook/domain/log-entry.js";
-import type { Tag } from "../features/tags/domain/tag.js";
+import type { Tag } from "../features/tags/domain/parts.js";
 import type { ReaderAnnotation } from "../reader/reader-annotation.js";
 import { readWithDelta, type DeltaLister } from "./snapshot-delta.js";
 

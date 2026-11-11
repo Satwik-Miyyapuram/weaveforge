@@ -8,8 +8,8 @@ export type {
   IProjectBibliographyCollectionStore,
   ILogSyncIntegration,
   INotificationIntegration,
-} from "./domain/integration-ports.js";
+} from "./domain/parts.js";
 export type {
   IntegrationFieldDescriptor,
   UserIntegrationDescriptor,
-} from "./domain/integration-descriptors.js";
+} from "./domain/parts.js";

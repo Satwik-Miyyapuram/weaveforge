@@ -1,5 +1,5 @@
 //! Overleaf BibTeX export helpers (wf-core `overleaf::bibtex`). The TS wrappers in
-//! `packages/wf-wasm/src/overleaf-bibtex.ts` flatten a `Paper` before it crosses.
+//! `packages/wf-wasm/src/wrappers-4.ts` flatten a `Paper` before it crosses.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

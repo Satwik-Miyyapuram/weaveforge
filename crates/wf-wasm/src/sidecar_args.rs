@@ -1,5 +1,5 @@
 //! Sidecar command-line parsing for JavaScript (wf-core `sidecar_args`). The JS name matches
-//! `packages/wf-wasm/src/sidecar-args.ts`. Reading `process.argv`, resolving paths and printing the
+//! `packages/wf-wasm/src/wrappers-10.ts`. Reading `process.argv`, resolving paths and printing the
 //! error stay in `apps/shell/sidecar/src/main.ts`.
 
 use wasm_bindgen::JsValue;

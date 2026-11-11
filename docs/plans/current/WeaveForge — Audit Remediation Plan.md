@@ -248,7 +248,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 
 **Goal:** one rewrite of a 131-line pure module that closes **nine** findings. This is the highest finding-per-line ratio in the audit, and the audit's own decomposition is close to right.
 
-`packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts` — refactor into pure stages with explicit data flow, then fix the rules.
+`packages/core/src/features/ai-assistant/domain/parts.ts` — refactor into pure stages with explicit data flow, then fix the rules.
 
 - **Decompose (`WF-C03`).** `harvestStated(doc)`, `harvestGuessed(plain)`, `mergeMentions(all)` owning the merge policy, `rankAndLimit(concepts, max)`, `projectMentions(kept)`. `extract()` becomes composition. The `record` closure currently mutates two collections from three call sites, which is how the merge-policy bug and the double parse hid.
 - **One pass (`WF-P03`, `WF-C05`).** Collect `stated` keys at the point of recording; delete the second loop over every document. The two derivations already disagree on empty wikilink targets (`[[#Heading]]`), today inertly.
@@ -499,7 +499,7 @@ Known gaps after Phase 1, recorded rather than hidden: the Zotero push rule and 
 
 ### Phase 2 — what landed
 
-One rewrite of `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`, closing 9 findings. The file is now `prepare` → `harvestStated` → `harvestGuessed` → `mergeMentions` → `rankAndLimit` → `projectMentions`, and `extract()` is five lines of composition.
+One rewrite of `packages/core/src/features/ai-assistant/domain/parts.ts`, closing 9 findings. The file is now `prepare` → `harvestStated` → `harvestGuessed` → `mergeMentions` → `rankAndLimit` → `projectMentions`, and `extract()` is five lines of composition.
 
 | Item | Finding | How it was closed |
 |---|---|---|

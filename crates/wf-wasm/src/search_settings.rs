@@ -1,5 +1,5 @@
 //! Search settings helpers for JavaScript (wf-core `search_settings`). The JS names
-//! match `packages/core/src/search/search-settings.ts`.
+//! match `packages/core/src/search/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_GROUP_WINDOW_MS } from "../../src/ink/segment.js";
+import { INK_GROUP_WINDOW_MS } from "../../src/ink/parts.js";
 import { type InkStroke } from "../../src/ink/ink-note.js";
 import { rust } from "../../src/shared/rust.js";
 

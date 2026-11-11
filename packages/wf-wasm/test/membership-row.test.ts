@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { membershipViewFromRow } from "../src/membership-row.js";
+import { membershipViewFromRow } from "../src/wrappers-4.js";
 import type { MembershipRow } from "../src/bindings.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);

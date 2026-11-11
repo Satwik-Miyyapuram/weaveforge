@@ -8,11 +8,11 @@
  */
 
 import { type NewPaperRelationInput, type PaperRelation } from "../domain/paper-relation.js";
-import type { IPaperRelationRepository } from "../domain/paper-relation-repository.js";
-import type { ICitationSource } from "./citation-source.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { IPaperRelationRepository } from "../domain/parts.js";
+import type { ICitationSource } from "./parts.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { type Paper } from "../../papers/domain/paper.js";
-import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/paper-identity.js";
+import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/parts.js";
 import type { PaperRef } from "../../papers/application/metadata-source.js";
 import { rust } from "../../../shared/rust.js";
 

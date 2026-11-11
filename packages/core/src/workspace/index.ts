@@ -4,11 +4,11 @@
  */
 export * from "./workspace-snapshot.js";
 export * from "./fs-port.js";
-export * from "./frontmatter.js";
+export * from "./parts.js";
 export * from "./folder-layout.js";
 export * from "./snapshot-delta.js";
 export * from "./git-port.js";
-export * from "./git-gate.js";
+export * from "./parts.js";
 export * from "./folder-mirror.js";
-export * from "./git-sync-policy.js";
+export * from "./parts.js";
 export * from "./git-remote.js";

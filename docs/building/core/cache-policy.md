@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/cache_policy.rs`.
 Wasm: `crates/wf-wasm/src/cache_policy.rs` (`screenCachePolicy`).
-TS wrapper: `packages/wf-wasm/src/rust-exports-1.ts` (star-exported from `index.ts`).
+TS wrapper: `packages/wf-wasm/src/wrappers-9.ts` (star-exported from `index.ts`).
 TS constants: `apps/web/src/lib/cache/cache-policy.ts` (unchanged, THIN).
 
 ## Exports

@@ -7,8 +7,7 @@
  */
 
 import { type Paper, type PaperFilter, type PaperSummary } from "../features/papers/domain/paper.js";
-import type { IPaperRepository } from "../features/papers/domain/paper-repository.js";
-import type { PaperIdentity } from "../features/papers/domain/paper-identity.js";
+import type { IPaperRepository, PaperIdentity } from "../features/papers/domain/parts.js";
 import { rust } from "../shared/rust.js";
 
 export class InMemoryPaperRepository implements IPaperRepository {

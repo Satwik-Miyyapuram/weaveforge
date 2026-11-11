@@ -1,5 +1,5 @@
 //! Open-conflict attention rules for JavaScript (wf-core `sync::conflict_attention`).
-//! The JS names match `packages/wf-wasm/src/sync-conflict-attention.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

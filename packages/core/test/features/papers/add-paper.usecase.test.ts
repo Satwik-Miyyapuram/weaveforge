@@ -11,7 +11,7 @@ import {
   type IMetadataSource,
   type PaperRef,
 } from "../../../src/features/papers/application/metadata-source.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+import { fixedClock, seqIds } from "../../../src/testing/parts.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

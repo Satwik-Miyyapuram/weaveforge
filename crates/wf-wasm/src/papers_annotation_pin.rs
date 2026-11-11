@@ -1,6 +1,6 @@
 //! Annotation pin row to domain pin (wf-core `papers::annotation_pin`).
 //!
-//! The TS wrapper in `packages/wf-wasm/src/papers-annotation-pin.ts` gives the results their types.
+//! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` gives the results their types.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

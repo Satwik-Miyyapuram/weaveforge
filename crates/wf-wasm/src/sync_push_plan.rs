@@ -1,7 +1,7 @@
 //! Push and pull gates for the offline-sync engine, for JavaScript (wf-core `sync::push_plan`).
 //! The JS names `continuePushRound`, `shouldRecoverUnsent`, `groupEligible`,
 //! `shouldPullAfterPush`, `shouldFetchNextPage` and `tableGroups` are wrapped by
-//! `packages/wf-wasm/src/sync-push-plan.ts`, called from `domain/sync-engine.ts` and `domain/puller.ts`.
+//! `packages/wf-wasm/src/wrappers-11.ts`, called from `domain/sync-engine.ts` and `domain/puller.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

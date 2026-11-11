@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPaper, PaperValidationError } from "../../../src/features/papers/domain/paper.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import type { Clock, IdGenerator } from "../../../src/shared/parts.js";
 import { rust } from "../../../src/shared/rust.js";
 
 const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };

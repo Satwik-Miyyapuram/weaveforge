@@ -1,5 +1,5 @@
 //! Git text output parsers for JavaScript (wf-core `sync::vault_git_parse`). The JS names match
-//! `packages/wf-wasm/src/vault-git-parse.ts`; running git and reading its stdout stay in
+//! `packages/wf-wasm/src/wrappers-11.ts`; running git and reading its stdout stay in
 //! `apps/shell/sidecar/src/vault-git.ts`.
 
 use wasm_bindgen::JsValue;

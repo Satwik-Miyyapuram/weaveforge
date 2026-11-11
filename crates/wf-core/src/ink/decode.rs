@@ -1,5 +1,5 @@
 //! Choosing among an engine's readings of each word, and saying how sure the
-//! choice is. A port of `packages/core/src/ink/decode.ts`; see its header for
+//! choice is. A port of `packages/core/src/ink/parts.ts`; see its header for
 //! the reasoning behind each rule.
 //!
 //! Lengths and edit distances count UTF-16 units, and `\p{L}` / `\p{N}` are

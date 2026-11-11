@@ -1,5 +1,5 @@
 //! The path to the document on screen (wf-core `editor_workspace::breadcrumbs`),
-//! re-exported from `packages/wf-wasm/src/breadcrumbs.ts`.
+//! re-exported from `packages/wf-wasm/src/wrappers-1.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::editor_workspace::breadcrumbs::{self as crumbs, BreadcrumbTab};

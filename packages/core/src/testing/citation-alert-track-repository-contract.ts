@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { ICitationAlertTrackRepository } from "../features/relations/domain/citation-alert-track-repository.js";
+import type { ICitationAlertTrackRepository } from "../features/relations/domain/parts.js";
 
 export function runCitationAlertTrackRepositoryContract(
   label: string,

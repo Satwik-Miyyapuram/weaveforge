@@ -3,7 +3,7 @@
  */
 import { createProject, type NewProjectInput, type Project } from "../domain/project.js";
 import type { IProjectRepository } from "../domain/project-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 
 export interface ManageProjectDeps {
   repository: IProjectRepository;

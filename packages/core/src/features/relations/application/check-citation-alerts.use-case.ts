@@ -1,10 +1,10 @@
-import type { Clock } from "../../../shared/clock.js";
+import type { Clock } from "../../../shared/parts.js";
 import type { AddLogEntryUseCase } from "../../logbook/application/add-log-entry.use-case.js";
-import type { INotificationIntegration } from "../../integrations/domain/integration-ports.js";
-import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
+import type { INotificationIntegration } from "../../integrations/domain/parts.js";
+import type { IPaperRepository } from "../../papers/domain/parts.js";
 import type { Paper } from "../../papers/domain/paper.js";
-import type { ICitationAlertTrackRepository } from "../domain/citation-alert-track-repository.js";
-import type { CitationCandidate, ICitationSource } from "./citation-source.js";
+import type { ICitationAlertTrackRepository } from "../domain/parts.js";
+import type { CitationCandidate, ICitationSource } from "./parts.js";
 import { rust } from "../../../shared/rust.js";
 import { NotFoundError } from "../../../shared/errors.js";
 

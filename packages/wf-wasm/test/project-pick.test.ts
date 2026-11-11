@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { pickProject } from "../src/project-pick.js";
+import { pickProject } from "../src/wrappers-6.js";
 import { initSync } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);

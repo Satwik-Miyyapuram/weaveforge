@@ -6,8 +6,8 @@
  * place that knows a decision needs an id and a timestamp.
  */
 
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
-import type { IScreeningRepository } from "../domain/screening-repository.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
+import type { IScreeningRepository } from "../domain/parts.js";
 import { type ItemVerdict, type PrismaCounts, type ScreeningDecision, type ScreeningItem, type ScreeningStage, type ScreeningState } from "../domain/screening.js";
 import { rust } from "../../../shared/rust.js";
 

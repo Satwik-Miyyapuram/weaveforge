@@ -1,5 +1,5 @@
 import { type Member } from "../features/org/domain/member.js";
-import type { IMemberRepository } from "../features/org/domain/member-repository.js";
+import type { IMemberRepository } from "../features/org/domain/parts.js";
 import { rust } from "../shared/rust.js";
 
 /**

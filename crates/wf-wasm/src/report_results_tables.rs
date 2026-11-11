@@ -2,7 +2,7 @@
 //! names match the TS functions they replace in `apps/web/src/features/report/application/`.
 //!
 //! The table renderers are not exported. They are only reached through `resolveResultsTables`.
-//! The TS wrapper in `packages/wf-wasm/src/report-results-tables.ts` applies the default caption.
+//! The TS wrapper in `packages/wf-wasm/src/wrappers-8.ts` applies the default caption.
 
 use serde_json::Value;
 use wasm_bindgen::JsValue;

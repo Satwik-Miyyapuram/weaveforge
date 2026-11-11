@@ -1,6 +1,6 @@
 //! Hit collapsing and related-list de-duplication for JavaScript (wf-core
 //! `result_dedupe`). The JS names match
-//! `packages/wf-wasm/src/search-result-dedupe.ts`.
+//! `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

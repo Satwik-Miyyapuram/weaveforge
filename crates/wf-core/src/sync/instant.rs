@@ -1,5 +1,5 @@
 //! Port of the timestamp parsing `Date.parse` does for
-//! `packages/core/src/shared/three-way-merge.ts`, limited to the grammar sync
+//! `packages/core/src/shared/parts.ts`, limited to the grammar sync
 //! rows use. Offsetless times are UTC here, not local time.
 
 /// Epoch milliseconds for a timestamp in the accepted grammar, `None` otherwise.

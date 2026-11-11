@@ -1,5 +1,5 @@
 //! Wiki build rules for JavaScript (wf-core `ai::wiki_pages`). The TS wrappers in
-//! `packages/wf-wasm/src/wiki-pages.ts` apply the types.
+//! `packages/wf-wasm/src/wrappers-11.ts` apply the types.
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;

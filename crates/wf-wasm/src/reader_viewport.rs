@@ -3,7 +3,7 @@
 //! shapes match `packages/core/src/reader`.
 //!
 //! Objects cross as plain JS objects through serde; numbers cross as f64. The
-//! TS wrappers in `packages/wf-wasm/src/reader-viewport.ts` apply the defaults.
+//! TS wrappers in `packages/wf-wasm/src/wrappers-8.ts` apply the defaults.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

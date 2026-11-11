@@ -1,5 +1,5 @@
 //! User settings row helpers for JavaScript (wf-core `settings::user_settings`). The JS names
-//! match `packages/core/src/features/settings/domain/user-settings.ts`.
+//! match `packages/core/src/features/settings/domain/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

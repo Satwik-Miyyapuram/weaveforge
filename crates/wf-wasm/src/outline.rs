@@ -1,5 +1,5 @@
 //! The Outline section's headings (wf-core `editor_workspace::outline`),
-//! re-exported from `packages/wf-wasm/src/outline.ts`.
+//! re-exported from `packages/wf-wasm/src/wrappers-2.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::editor_workspace::outline;

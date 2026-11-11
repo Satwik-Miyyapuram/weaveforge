@@ -1,5 +1,5 @@
 //! Desktop update check for JavaScript (wf-core `update_check`). JS names match
-//! `packages/wf-wasm/src/update-check.ts`.
+//! `packages/wf-wasm/src/wrappers-11.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

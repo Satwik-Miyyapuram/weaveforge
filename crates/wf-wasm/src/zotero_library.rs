@@ -1,5 +1,5 @@
 //! Zotero Web API library helpers for JavaScript (wf-core `papers::zotero_library`).
-//! The JS names match `packages/wf-wasm/src/zotero-library.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-12.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

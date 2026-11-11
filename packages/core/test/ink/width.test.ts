@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_HIGHLIGHTER_MIN_WIDTH, INK_HIGHLIGHTER_WIDTH, INK_HIGHLIGHTER_WIDTHS, INK_MAX_WIDTH, INK_MIN_WIDTH, INK_PEN_WIDTH, INK_PEN_WIDTHS, INK_PRESSURE_MAX_FACTOR, INK_PRESSURE_MIN_FACTOR, INK_VELOCITY_TAPER } from "../../src/ink/width.js";
+import { INK_HIGHLIGHTER_MIN_WIDTH, INK_HIGHLIGHTER_WIDTH, INK_HIGHLIGHTER_WIDTHS, INK_MAX_WIDTH, INK_MIN_WIDTH, INK_PEN_WIDTH, INK_PEN_WIDTHS, INK_PRESSURE_MAX_FACTOR, INK_PRESSURE_MIN_FACTOR, INK_VELOCITY_TAPER } from "../../src/ink/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 test("a 6 mm highlighter survives clamping, which the reader's clamp would eat", () => {

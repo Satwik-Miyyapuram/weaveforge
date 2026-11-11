@@ -287,7 +287,7 @@ if inspect.iscoroutinefunction(fn):
 
 ### WF-B10 — Concept classifier labels every 2–6 letter acronym a 'method' — ICLR and MNIST become methods
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** classify() checks /^[A-Z]{2,6}$/ first and returns 'method' before any other rule runs. Venue acronyms (ICLR, ACL, CVPR), dataset acronyms (MNIST, GLUE, COCO) and metric acronyms (BLEU, AUC) all get kind 'method'. The dataset/metric/venue keyword rules below can never fire for acronyms.
 
@@ -303,7 +303,7 @@ if inspect.iscoroutinefunction(fn):
 
 ### WF-B11 — A concept's kind is frozen by whichever mention is seen first — a deliberate #tag cannot correct a guess
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** record() does counts.get(key) ?? { name, kind, ... } — name and kind are set on first insertion and never reconsidered. If 'Transformer' is first harvested as a capitalised-phrase guess and later appears as an explicit #transformer tag (which the module's own comments call a stated, deliberate signal), the tag's kind and casing are discarded.
 
@@ -391,7 +391,7 @@ order by metric, step;
 
 ### WF-P03 — Lexical extractor parses every document twice — hashtags and wikilinks are extracted two times per doc
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** extract() loops over request.documents once to record concepts (calling extractHashtags + extractWikilinks per document), then loops over ALL documents a second time solely to rebuild the set of 'stated' concept keys — calling extractHashtags and extractWikilinks again on the same text. Every regex pass over every document runs twice.
 
@@ -422,7 +422,7 @@ for (const document of request.documents) {
 
 ### WF-P04 — evidenceFor() lowercases the whole document for every single mention
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** evidenceFor(text, needle) begins with text.toLowerCase().indexOf(needle.toLowerCase()). It is called once per recorded mention, and each call allocates a fresh lowercase copy of the entire document and scans it from the start. A 50KB note with 80 mentions allocates ~4MB of throwaway strings and does 80 full scans.
 
@@ -438,7 +438,7 @@ for (const document of request.documents) {
 
 ### WF-P05 — conceptKey() recomputed four times per concept across the extraction pipeline
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** The same normalization is recomputed in record(), in the stated-set builder, in the survivors filter (conceptKey(entry.name)), in the kept-set builder, and per-mention in the final mentions.filter(conceptKey(mention.conceptName)). For M mentions that last filter alone is M extra normalizations of strings whose keys were known when the mention was created.
 
@@ -454,7 +454,7 @@ for (const document of request.documents) {
 
 ### WF-P06 — Two separate full-text regex passes (capitalised phrases, then acronyms) over the same document
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** The phrase loop runs CAPITALISED_PHRASE over the full plain text, then restarts from position 0 with ACRONYM over the same text. Acronyms are also a subset of what the first pattern can match, so many tokens are matched twice and rejected once by the seenInDoc set.
 
@@ -566,7 +566,7 @@ def track(..., container: TrackingContainer | None = None, ...):
 
 ### WF-C03 — LexicalConceptExtractor.extract() does six jobs in one method (SRP)
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** One method strips markdown, harvests stated signals (tags/links), harvests guessed signals (regex phrases), aggregates counts via a captured closure (record), derives the stated-set, filters/ranks, applies the maxConcepts cap, and re-filters mentions. The record closure mutates two collections from four call sites, which is why the merge-policy bug (WF-B11) and the double-parse (WF-P03) could hide in plain sight.
 
@@ -598,7 +598,7 @@ def track(..., container: TrackingContainer | None = None, ...):
 
 ### WF-C05 — The definition of a 'stated' concept lives in two loops that must stay in sync (DRY)
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** 'Stated' (user-authored tag or wikilink) is derived twice: implicitly in the first loop (which records them) and explicitly in the second loop (which rebuilds the set from scratch). Today the second loop trims wikilink targets slightly differently territory: the first loop checks target.trim() truthiness before recording, the second adds conceptKey(link.target) unconditionally — the two derivations already disagree on empty-target links.
 
@@ -614,7 +614,7 @@ def track(..., container: TrackingContainer | None = None, ...):
 
 ### WF-C06 — classify(name, fromTag) — boolean-flag parameter switching between two behaviors
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** classify takes fromTag: boolean and branches on it mid-rule-list. A flag argument means the function has two callers wanting two behaviors — the definition of a function doing two things. Call sites read as classify(tag, true) / classify(phrase, false), which is meaningless at a glance.
 

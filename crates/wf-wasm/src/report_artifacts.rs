@@ -2,7 +2,7 @@
 //! `report::artifact_refs` and `report::artifact_markdown`). The JS names match the TS functions
 //! they replace in `apps/web/src/features/report/application/`.
 //!
-//! The TS wrappers in `packages/wf-wasm/src/report-artifacts.ts` apply the `?? null` handling
+//! The TS wrappers in `packages/wf-wasm/src/wrappers-8.ts` apply the `?? null` handling
 //! and the default stale-check clock.
 
 use wasm_bindgen::JsValue;

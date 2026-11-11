@@ -3,7 +3,7 @@
 //! `packages/core/src/features/reader/analysis/citations.ts`.
 //!
 //! Objects cross as plain JS objects through serde. The TS wrappers in
-//! `packages/wf-wasm/src/reader-analysis-citations.ts` apply the defaults.
+//! `packages/wf-wasm/src/wrappers-6.ts` apply the defaults.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

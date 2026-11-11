@@ -1,6 +1,6 @@
 //! Excerpt splitting into plain and highlighted segments for JavaScript
 //! (wf-core `excerpt_segments`). The JS name matches
-//! `packages/wf-wasm/src/search-excerpt-segments.ts`.
+//! `packages/wf-wasm/src/wrappers-9.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

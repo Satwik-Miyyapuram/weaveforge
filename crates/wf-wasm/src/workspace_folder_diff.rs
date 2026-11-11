@@ -1,5 +1,5 @@
 //! Folder-diff helpers for JavaScript (wf-core `workspace::folder_diff`).
-//! The JS names match `packages/wf-wasm/src/workspace-folder-diff.ts`.
+//! The JS names match `packages/wf-wasm/src/wrappers-11.ts`.
 
 use std::collections::{BTreeMap, HashSet};
 

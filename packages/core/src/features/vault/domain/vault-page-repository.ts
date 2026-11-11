@@ -5,7 +5,7 @@
 import type {
   IReadableRepository,
   IWritableRepository,
-} from "../../../shared/repository.js";
+} from "../../../shared/parts.js";
 import type {
   VaultPage,
   VaultPageFilter,

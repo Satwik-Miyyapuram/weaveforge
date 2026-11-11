@@ -1,5 +1,5 @@
 //! Partial-refresh planning for the search index (wf-core `refresh_diff`). The
-//! JS name matches `packages/wf-wasm/src/search-refresh-diff.ts`.
+//! JS name matches `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

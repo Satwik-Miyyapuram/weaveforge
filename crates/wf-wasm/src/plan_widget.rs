@@ -1,5 +1,5 @@
 //! Plan desktop widget for JavaScript (wf-core `plan_widget`). JS names match
-//! `packages/wf-wasm/src/plan-widget.ts`.
+//! `packages/wf-wasm/src/wrappers-6.ts`.
 
 use serde_json::Value;
 use wasm_bindgen::JsValue;

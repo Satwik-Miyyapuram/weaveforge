@@ -1,5 +1,5 @@
 //! Overleaf root folder id from the join answer (wf-core `overleaf::upload`). The TS wrapper
-//! `packages/wf-wasm/src/overleaf-upload.ts` maps the absent id to `null`.
+//! `packages/wf-wasm/src/wrappers-4.ts` maps the absent id to `null`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::overleaf::upload;

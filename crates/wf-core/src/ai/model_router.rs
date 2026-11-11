@@ -15,7 +15,7 @@ pub struct ModelProviderAvailability {
 }
 
 /// The provider to use for `selected`. Port of the selection in `AiModelRouter`
-/// (`packages/core/src/features/ai-assistant/domain/ai-model-router.ts`).
+/// (`packages/core/src/features/ai-assistant/domain/parts.ts`).
 ///
 /// # Errors
 ///

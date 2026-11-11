@@ -1,4 +1,4 @@
-//! Port of packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts. Pure.
+//! Port of packages/core/src/features/ai-assistant/domain/parts.ts. Pure.
 //!
 //! Positions are UTF-16 units, as in the TS, so offsets and evidence snippets
 //! match what the JS side computed.

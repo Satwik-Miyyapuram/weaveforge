@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { PaperRelation } from "../features/relations/domain/paper-relation.js";
-import type { IPaperRelationRepository } from "../features/relations/domain/paper-relation-repository.js";
+import type { IPaperRelationRepository } from "../features/relations/domain/parts.js";
 
 function sampleEdge(overrides: Partial<PaperRelation> = {}): PaperRelation {
   return {

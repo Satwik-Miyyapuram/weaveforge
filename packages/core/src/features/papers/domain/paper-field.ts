@@ -1,4 +1,4 @@
-import type { Identifiable } from "../../../shared/repository.js";
+import type { Identifiable } from "../../../shared/parts.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 /** Supported custom field kinds on papers. */

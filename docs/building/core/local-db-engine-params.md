@@ -16,7 +16,7 @@ It does no I/O. The app opens the engine and passes its defaults in.
 
 The wasm exports live in `crates/wf-wasm/src/local_db_engine_params.rs`:
 `localDbSharedBuffers()` and `engineStartParams(defaults)`. The TypeScript
-wrapper in `packages/wf-wasm/src/rust-exports-2.ts` re-exports them.
+wrapper in `packages/wf-wasm/src/wrappers-9.ts` re-exports them.
 
 The sidecar (`apps/shell/sidecar/src/lifecycle.ts`) and the desktop app
 (`apps/desktop/src/main-local-db.ts`) call

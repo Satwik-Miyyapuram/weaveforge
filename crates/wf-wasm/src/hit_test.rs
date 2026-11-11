@@ -1,5 +1,5 @@
 //! Lasso and erase hit tests for JavaScript (wf-core `ink::hit_test`), re-exported
-//! from `packages/wf-wasm/src/hit-test.ts`.
+//! from `packages/wf-wasm/src/wrappers-2.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::ink::hit_test;

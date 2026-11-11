@@ -1,5 +1,5 @@
 //! Reading a `.bib` well enough to ask questions about it. Port of
-//! `packages/core/src/features/report/domain/bib-entries.ts`: no BibTeX
+//! `packages/core/src/features/report/domain/parts.ts`: no BibTeX
 //! re-rendering and no macro resolution; anything unreadable becomes a warning.
 
 use std::sync::LazyLock;

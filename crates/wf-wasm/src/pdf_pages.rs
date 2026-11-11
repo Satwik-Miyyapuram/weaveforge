@@ -1,5 +1,5 @@
 //! Which PDF pages an answer names (wf-core `ink::pdf_pages`), re-exported from
-//! `packages/wf-wasm/src/pdf-pages.ts`.
+//! `packages/wf-wasm/src/wrappers-5.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::pdf_pages;

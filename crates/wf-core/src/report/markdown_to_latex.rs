@@ -1,5 +1,5 @@
 //! Markdown to LaTeX subset for Overleaf export packages. Port of
-//! `packages/core/src/features/report/domain/markdown-to-latex.ts`.
+//! `packages/core/src/features/report/domain/parts.ts`.
 //! KaTeX HTML is never used: equations stay as raw TeX delimiters. `reportimg:` images become
 //! `\includegraphics` under `figures/`, `[[Paper]]` wikilinks become `\cite{key}` when a cite
 //! map is given, and other unsupported constructs become warnings.

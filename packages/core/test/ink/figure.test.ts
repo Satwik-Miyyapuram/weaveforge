@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   FIGURE_ALT,
-} from "../../src/ink/figure.js";
+} from "../../src/ink/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 test("tokens round-trip: a box and its crop come back as they are written", () => {

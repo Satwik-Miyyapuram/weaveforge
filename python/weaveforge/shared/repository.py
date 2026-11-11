@@ -4,7 +4,7 @@ Split into read and write halves so consumers depend only on what they need
 (Interface Segregation Principle). These interfaces live in the domain layer;
 concrete persistence (HTTP API, PostgREST, in-memory) implements them in
 ``infrastructure`` — nothing here knows how data is stored (Dependency
-Inversion). Faithful port of ``packages/core/src/shared/repository.ts``.
+Inversion). Faithful port of ``packages/core/src/shared/parts.ts``.
 
 Repositories are synchronous: the Python SDK is used from training scripts,
 and the ``httpx`` client used here is synchronous.

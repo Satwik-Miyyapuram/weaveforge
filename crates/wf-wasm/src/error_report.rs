@@ -1,7 +1,7 @@
 //! Error-report redaction for JavaScript (`wf_core::error_report::redact`).
 //!
 //! Each export returns `{ text, redactions }`; the TS wrapper in
-//! `packages/wf-wasm/src/error-report.ts` names the type.
+//! `packages/wf-wasm/src/wrappers-2.ts` names the type.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

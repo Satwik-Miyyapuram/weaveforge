@@ -71,7 +71,7 @@ export interface InkRecognitionLine {
    * Not a measurement: `InkAnalyzer` exposes no confidence, and inventing one
    * would make the correction UI's dotted underline claim to know which lines are
    * doubtful. The evidence is in `words`, from which the client derives a score
-   * (packages/core/src/ink/decode.ts).
+   * (packages/core/src/ink/parts.ts).
    */
   confidence: number;
   alternatives?: string[];

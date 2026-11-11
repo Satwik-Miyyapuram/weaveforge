@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { PaperTag, TagSource } from "../features/tags/domain/tag.js";
-import type { IPaperTagRepository } from "../features/tags/domain/tag-repository.js";
+import type { IPaperTagRepository, PaperTag, TagSource } from "../features/tags/domain/parts.js";
 
 function link(
   paperId: string,

@@ -4,7 +4,7 @@
 //!
 //! Objects cross as plain JS objects through serde; numbers cross as f64.
 //! `isRotatedText` takes a `Float64Array`. The TS wrappers in
-//! `packages/wf-wasm/src/reader-analysis-outline.ts` apply the defaults.
+//! `packages/wf-wasm/src/wrappers-6.ts` apply the defaults.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

@@ -1,5 +1,5 @@
 //! The sync dot for JavaScript (wf-core `sync::sync_dot`). The JS name `syncDot` is wrapped
-//! by `packages/wf-wasm/src/sync-dot.ts`, which `domain/sync-status.ts` calls.
+//! by `packages/wf-wasm/src/wrappers-10.ts`, which `domain/sync-status.ts` calls.
 
 use serde_wasm_bindgen::Error;
 use wasm_bindgen::JsValue;

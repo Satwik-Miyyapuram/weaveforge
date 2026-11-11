@@ -10,8 +10,7 @@
  * array or scalar, so the result crosses `postMessage` without losing shape.
  */
 
-import type { PageTextItem } from "../page-text-item.js";
-import type { ReaderOutlineItem } from "../outline-types.js";
+import type { PageTextItem, ReaderOutlineItem } from "../parts.js";
 
 export type { PageTextItem };
 

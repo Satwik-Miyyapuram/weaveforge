@@ -1,6 +1,6 @@
 //! Instant, golden, ported and property tests for `sync::instant` and
 //! `sync::merge`. Goldens come from `tests/goldens/sync-merge.mjs`, which runs
-//! `packages/core/src/shared/three-way-merge.ts`. Ported cases come from
+//! `packages/core/src/shared/parts.ts`. Ported cases come from
 //! `packages/core/test/shared/three-way-merge.test.ts`.
 
 // Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.

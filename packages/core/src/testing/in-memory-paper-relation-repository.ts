@@ -9,7 +9,7 @@ import type {
   PaperRelationFilter,
   RelationType,
 } from "../features/relations/domain/paper-relation.js";
-import type { IPaperRelationRepository } from "../features/relations/domain/paper-relation-repository.js";
+import type { IPaperRelationRepository } from "../features/relations/domain/parts.js";
 
 export class InMemoryPaperRelationRepository
   implements IPaperRelationRepository

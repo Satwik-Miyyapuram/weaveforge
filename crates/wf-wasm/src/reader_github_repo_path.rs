@@ -1,5 +1,5 @@
 //! GitHub repo PDF path for JavaScript (wf-core `reader::github_repo_path`). The JS name
-//! matches `GitHubRepoPdfResolver` in `packages/core/src/reader/github-repo-pdf-resolver.ts`.
+//! matches `GitHubRepoPdfResolver` in `packages/core/src/reader/parts.ts`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::reader::github_repo_path::github_repo_pdf_path;

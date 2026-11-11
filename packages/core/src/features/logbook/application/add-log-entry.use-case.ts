@@ -9,7 +9,7 @@
 
 import { LogEntryValidationError, type LogEntry, type LogKind, type NewLogEntryInput } from "../domain/log-entry.js";
 import type { ILogEntryRepository } from "../domain/log-entry-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";
 

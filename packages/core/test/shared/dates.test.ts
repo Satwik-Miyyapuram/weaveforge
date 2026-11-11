@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { localIsoDate } from "../../src/shared/dates.js";
+import { localIsoDate } from "../../src/shared/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 const addDays = (iso: string, days: number): string => rust().addDays(iso, days);

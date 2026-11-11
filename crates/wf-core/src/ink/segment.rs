@@ -1,5 +1,5 @@
 //! Line segmentation: a page's strokes grouped into the lines a recogniser
-//! reads (§5.4). A port of `packages/core/src/ink/segment.ts`.
+//! reads (§5.4). A port of `packages/core/src/ink/parts.ts`.
 //!
 //! Strokes arrive in time order, so a stroke joins the line being built when it
 //! starts soon enough after it and sits at the same height. Only pen strokes are

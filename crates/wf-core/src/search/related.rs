@@ -1,4 +1,4 @@
-//! Port of packages/core/src/search/related.ts: the arm and result types, the minimum seed
+//! Port of packages/core/src/search/parts.ts: the arm and result types, the minimum seed
 //! degree, the arm reason text, and `findRelated`. Pure: the lexical and tag arms are passed in
 //! as closures, and the PPR `rng` is the `rng` parameter.
 

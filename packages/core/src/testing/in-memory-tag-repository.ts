@@ -1,5 +1,11 @@
-import type { Tag, PaperTag, TagSource, TagWithPaperCount } from "../features/tags/domain/tag.js";
-import type { ITagRepository, IPaperTagRepository } from "../features/tags/domain/tag-repository.js";
+import type {
+  IPaperTagRepository,
+  ITagRepository,
+  PaperTag,
+  Tag,
+  TagSource,
+  TagWithPaperCount,
+} from "../features/tags/domain/parts.js";
 
 export class InMemoryTagRepository implements ITagRepository {
   constructor(private readonly paperTags?: IPaperTagRepository) {}

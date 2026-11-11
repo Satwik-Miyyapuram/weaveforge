@@ -1,8 +1,8 @@
-import type { ILibraryPinRepository } from "../features/library/domain/library-pin-repository.js";
 import type {
+  ILibraryPinRepository,
   LibraryPin,
   NewLibraryPinInput,
-} from "../features/library/domain/library-pin.js";
+} from "../features/library/domain/parts.js";
 import type { ShareableType } from "../shared/core-contract.js";
 
 /**

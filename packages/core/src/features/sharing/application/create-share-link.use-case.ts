@@ -1,4 +1,4 @@
-import type { IdGenerator } from "../../../shared/clock.js";
+import type { IdGenerator } from "../../../shared/parts.js";
 import type {
   IShareLinkRepository,
   IShareLinkTokenHasher,

@@ -1,5 +1,5 @@
 //! Overleaf link rules for JavaScript (wf-core `overleaf_link`). JS names match
-//! `packages/wf-wasm/src/overleaf-link.ts`.
+//! `packages/wf-wasm/src/wrappers-5.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::overleaf_link::{check_link_folder, parse_links};

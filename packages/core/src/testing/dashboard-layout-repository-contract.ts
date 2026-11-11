@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { DashboardLayout } from "../features/dashboard/domain/dashboard-layout.js";
-import type { IDashboardLayoutRepository } from "../features/dashboard/domain/dashboard-layout-repository.js";
+import type { IDashboardLayoutRepository } from "../features/dashboard/domain/parts.js";
 
 const sampleLayout = (): DashboardLayout => ({
   lg: [

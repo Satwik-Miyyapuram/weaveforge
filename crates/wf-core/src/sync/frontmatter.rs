@@ -1,4 +1,4 @@
-//! Frontmatter writer and reader. Ports `packages/core/src/workspace/frontmatter.ts`.
+//! Frontmatter writer and reader. Ports `packages/core/src/workspace/parts.ts`.
 
 use std::num::FpCategory;
 

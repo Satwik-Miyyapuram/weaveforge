@@ -64,7 +64,7 @@ and a page of handwriting is megabytes. Nothing deletes it, and nothing should:
 these are the user's notes.
 
 So the bound is applied at the point of capture instead, in
-`packages/core/src/reader/ink-stroke.ts`:
+`packages/core/src/reader/parts.ts`:
 
 | Budget | Mechanism | Effect |
 |---|---|---|

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import type { CombinedPdfAnchor, PdfLocus } from "../src/reader-types.js";
-import { chooseAnchorStrategy } from "../src/reader-anchor.js";
+import type { CombinedPdfAnchor, PdfLocus } from "../src/wrappers-9.js";
+import { chooseAnchorStrategy } from "../src/wrappers-6.js";
 import { initSync } from "../src/index.js";
 
 // Moved from packages/core/test/reader/anchor-strategy.test.ts when anchor-strategy.ts was removed.

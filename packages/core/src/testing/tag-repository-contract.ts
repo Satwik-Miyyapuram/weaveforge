@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Tag } from "../features/tags/domain/tag.js";
-import type { ITagRepository, IPaperTagRepository } from "../features/tags/domain/tag-repository.js";
+import type { IPaperTagRepository, ITagRepository, Tag } from "../features/tags/domain/parts.js";
 
 function sampleTag(overrides: Partial<Tag> = {}): Tag {
   return {

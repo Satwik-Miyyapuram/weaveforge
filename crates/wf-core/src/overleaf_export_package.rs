@@ -1,6 +1,6 @@
 //! Overleaf export package steps (TS `build-overleaf-export.ts`): the section walk that builds the
 //! body of `main.tex`, and the `manifest.json` rewrite for figures whose blobs could not be loaded.
-//! Pure: no I/O. The TS wrapper in `packages/wf-wasm/src/overleaf-export-package.ts` applies types.
+//! Pure: no I/O. The TS wrapper in `packages/wf-wasm/src/wrappers-4.ts` applies types.
 
 use std::collections::{HashMap, HashSet};
 

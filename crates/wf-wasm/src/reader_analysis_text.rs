@@ -4,7 +4,7 @@
 //! `title-similarity.ts`.
 //!
 //! Objects cross as plain JS objects through serde; numbers cross as f64. `rectanglesOverlap`
-//! takes `Float64Array`s. The TS wrappers in `packages/wf-wasm/src/reader-analysis-text.ts`
+//! takes `Float64Array`s. The TS wrappers in `packages/wf-wasm/src/wrappers-6.ts`
 //! apply the defaults.
 
 use wasm_bindgen::JsValue;

@@ -1,7 +1,7 @@
 /** Data shapes the Rust core takes and returns that the generated bindings do not cover yet. */
-import type { Identifiable } from "./repository.js";
+import type { Identifiable } from "./parts.js";
 import type { ReaderAnnotation } from "../reader/reader-annotation.js";
-import type { PageTextItem } from "../features/reader/page-text-item.js";
+import type { PageTextItem } from "../features/reader/parts.js";
 import type { PdfLink } from "../features/reader/analysis/analysis-types.js";
 
 // ---- Sharing types (Rust-owned; hand-declared mirrors of the wf-bindings shapes) ----

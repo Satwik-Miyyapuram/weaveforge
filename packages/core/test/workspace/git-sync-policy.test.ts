@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { rust } from "../../src/shared/rust.js";
-import { GIT_SYNC_IGNORED_EXTENSIONS, GIT_SYNC_LIMITS } from "../../src/workspace/git-sync-policy.js";
+import { GIT_SYNC_IGNORED_EXTENSIONS, GIT_SYNC_LIMITS } from "../../src/workspace/parts.js";
 
 const MB = 1024 * 1024;
 const SMALL = 1024;

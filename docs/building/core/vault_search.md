@@ -14,7 +14,7 @@ Rust home: `crates/wf-core/src/vault_search.rs`.
 ## Where it is called
 
 - wasm exports `searchMatches`, `isSearchFile`, `isSkippedDir`, `rootVerdict`, `chooseRoot`, `temporaryName` and `isTemporaryName` in `crates/wf-wasm/src/vault_search.rs`.
-- Wrapper `packages/wf-wasm/src/vault-search.ts`, typed through `rust()` in `packages/core/src/shared/rust.ts`.
+- Wrapper `packages/wf-wasm/src/wrappers-11.ts`, typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - `apps/shell/sidecar/src/vault-search.ts`: `walkVault` skips dot directories via `isSkippedDir`; `searchVault` filters with `isSearchFile` and cuts with `searchMatches`.
 - `apps/shell/sidecar/src/vault-folder.ts`: `verifyRoot` and `workspaceRootFor` map the verdict through `rootVerdict` and `chooseRoot`; `writeFile` stages with `temporaryName`; `list` skips with `isTemporaryName`.
 

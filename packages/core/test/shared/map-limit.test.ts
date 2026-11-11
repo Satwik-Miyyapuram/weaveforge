@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { mapLimit } from "../../src/shared/map-limit.js";
+import { mapLimit } from "../../src/shared/parts.js";
 
 /** A promise the test opens by hand, so the in-flight count is observable. */
 function gate() {

@@ -31,7 +31,7 @@ import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 are `readStorageConfig`, `blobProviderForRuntime`, `r2BlobClientConfig`,
 `coldBlobClientConfig`, `missingR2ConfigMessage`, `maxSignedUrlPaths` and
 `blobStorageBuckets`. The TypeScript `BlobStorageBucket` union in
-`packages/wf-wasm/src/storage-blob-access.ts` repeats the Rust bucket list, so
+`packages/wf-wasm/src/wrappers-10.ts` repeats the Rust bucket list, so
 add a bucket in both places.
 
 Code in `apps/web` reads these through `readyCore()` from

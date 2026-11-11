@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INK_SMOOTH_SPACING } from "../../src/ink/smooth.js";
+import { INK_SMOOTH_SPACING } from "../../src/ink/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 test("resampling spaces the points evenly and keeps both ends", () => {

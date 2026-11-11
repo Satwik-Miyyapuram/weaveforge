@@ -1,5 +1,5 @@
 //! Per-user appearance preferences read back from the settings row. Port of
-//! `packages/core/src/features/settings/domain/user-appearance.ts`. Pure.
+//! `packages/core/src/features/settings/domain/parts.ts`. Pure.
 
 use serde::Serialize;
 use serde_json::Value;

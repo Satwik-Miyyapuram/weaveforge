@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { UserSettings } from "../features/settings/domain/user-settings.js";
-import type { ISettingsRepository } from "../features/settings/domain/settings-repository.js";
+import type { ISettingsRepository, UserSettings } from "../features/settings/domain/parts.js";
 
 const sampleSettings = (): UserSettings => ({
   zoteroApiKey: "key-abc",

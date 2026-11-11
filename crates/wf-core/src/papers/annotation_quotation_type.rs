@@ -1,5 +1,5 @@
 //! How an annotation will be used in writing (Citavi-style). Port of
-//! `packages/core/src/features/papers/domain/annotation-quotation-type.ts`.
+//! `packages/core/src/features/papers/domain/parts.ts`.
 
 /// Citavi-style taxonomy for how an annotation will be used in writing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

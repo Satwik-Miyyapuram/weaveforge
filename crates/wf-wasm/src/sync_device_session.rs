@@ -1,5 +1,5 @@
 //! Sync-loop session decisions for JavaScript (wf-core `sync::device_session`). The JS names
-//! match `mayDriveDevice` and `sessionAction` in `packages/wf-wasm/src/sync-device-session.ts`.
+//! match `mayDriveDevice` and `sessionAction` in `packages/wf-wasm/src/wrappers-10.ts`.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::device_session::{may_drive_device, session_action};

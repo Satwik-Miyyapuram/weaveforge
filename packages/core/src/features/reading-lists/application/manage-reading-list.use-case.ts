@@ -11,8 +11,8 @@ import { ReadingListValidationError, type NewReadingListInput, type ReadingList,
 import type {
   IReadingListItemRepository,
   IReadingListRepository,
-} from "../domain/reading-list-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+} from "../domain/parts.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";
 

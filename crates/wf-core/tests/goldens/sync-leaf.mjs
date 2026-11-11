@@ -8,7 +8,7 @@ import {
   describePush,
   redactSecret,
 } from "../../../../packages/core/src/workspace/git-remote.ts";
-import { decideGitSyncPath, isUnderIgnoredFolder } from "../../../../packages/core/src/workspace/git-sync-policy.ts";
+import { decideGitSyncPath, isUnderIgnoredFolder } from "../../../../packages/core/src/workspace/parts.ts";
 import { guessBlobContentType } from "../../../../packages/core/src/storage/blob-content-type.ts";
 
 const urls = [

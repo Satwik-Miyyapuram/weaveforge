@@ -1,6 +1,6 @@
 //! The per-user settings row: fill the integrations bag from legacy columns, clean it before
 //! saving, and set provider fields. Port of
-//! `packages/core/src/features/settings/domain/user-settings.ts` and `applyUserIntegrationFields`
+//! `packages/core/src/features/settings/domain/parts.ts` and `applyUserIntegrationFields`
 //! from `user-integration-credentials.ts`. Pure.
 //!
 //! The functions work on the JSON row, so keys they do not know survive as the TS spreads keep

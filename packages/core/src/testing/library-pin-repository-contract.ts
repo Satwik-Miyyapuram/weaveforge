@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { ILibraryPinRepository } from "../features/library/domain/library-pin-repository.js";
+import type { ILibraryPinRepository } from "../features/library/domain/parts.js";
 
 export function runLibraryPinRepositoryContract(
   label: string,

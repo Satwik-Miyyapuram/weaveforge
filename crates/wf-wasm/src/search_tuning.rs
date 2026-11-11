@@ -1,5 +1,5 @@
 //! Search ranking rules for JavaScript (wf-core `search_tuning`). The JS names match
-//! `packages/core/src/search/search-tuning.ts`.
+//! `packages/core/src/search/parts.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

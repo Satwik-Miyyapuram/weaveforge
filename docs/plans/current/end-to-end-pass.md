@@ -205,7 +205,7 @@ earlier was rejected. What changed is what is done with the engine's output.
   - It adds `join` where a word and the next read as one dictionary word
     ("dr aft" → "draft").
   - `confidence` is still `1`/`0`, and it still means only "produced text".
-- **The client decides** (`packages/core/src/ink/decode.ts`, wired in
+- **The client decides** (`packages/core/src/ink/parts.ts`, wired in
   `recognisers.ts`).
   - Per word, it keeps a reading that is a workspace term, then a dictionary
     word over a non-word.

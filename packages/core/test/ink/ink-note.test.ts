@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 
 import { rust } from "../../src/shared/rust.js";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_SIDECAR_DIR, INK_STROKE_MAX_POINTS } from "../../src/ink/ink-note.js";
-import { rust } from "../../src/shared/rust.js";
 
 /** Chunk ids that are valid by construction (26 Crockford characters). */
 const CHUNK_A = "01JABC0DEF0GH0JK0MN0PQ0RST";

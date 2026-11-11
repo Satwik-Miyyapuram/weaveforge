@@ -1,9 +1,9 @@
 import { ReportSectionValidationError, type NewReportSectionInput, type ReportSection, type ReportStatus } from "../domain/report-section.js";
-import type { IReportSectionRepository } from "../domain/report-section-repository.js";
-import type { Clock, IdGenerator } from "../../../shared/clock.js";
+import type { IReportSectionRepository } from "../domain/parts.js";
+import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 
-import { assertNotUnder } from "../../../shared/tree.js";
+import { assertNotUnder } from "../../../shared/parts.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface ManageReportSectionDeps {

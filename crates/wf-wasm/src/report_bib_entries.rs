@@ -1,8 +1,8 @@
 //! Bib entry parsing for JavaScript (wf-core `report::bib_entries`). Each export wraps one
-//! function; the JS name and shape match `packages/core/src/features/report/domain/bib-entries.ts`.
+//! function; the JS name and shape match `packages/core/src/features/report/domain/parts.ts`.
 //!
 //! Objects cross as plain JS objects through serde. Entry `fields` cross as an ordered
-//! `{ name, value }` list; `packages/wf-wasm/src/report-bib-entries.ts` rebuilds the record.
+//! `{ name, value }` list; `packages/wf-wasm/src/wrappers-8.ts` rebuilds the record.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

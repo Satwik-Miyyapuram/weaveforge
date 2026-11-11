@@ -1,6 +1,6 @@
 import type {
   IShareRepository,
-} from "../features/sharing/domain/share-repository.js";
+} from "../features/sharing/domain/parts.js";
 import type {
   NewShareInput,
   Share,

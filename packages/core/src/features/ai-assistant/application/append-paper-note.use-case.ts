@@ -1,5 +1,5 @@
-import type { Clock } from "../../../shared/clock.js";
-import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
+import type { Clock } from "../../../shared/parts.js";
+import type { IPaperRepository } from "../../papers/domain/parts.js";
 import { appendPaperNote, type IAiPaperNoteAppender } from "../domain/ai-write-proposal.js";
 import { rust } from "../../../shared/rust.js";
 

@@ -1,8 +1,8 @@
 //! Cite-key helpers for JavaScript (wf-core `report::cite_key`). Each export wraps one function;
-//! the JS names match `packages/core/src/features/report/domain/cite-key.ts`.
+//! the JS names match `packages/core/src/features/report/domain/parts.ts`.
 //!
 //! The paper crosses as a plain JS object through serde. The TS wrappers in
-//! `packages/wf-wasm/src/report-cite-key.ts` pick the string fields and apply the `Set` handling.
+//! `packages/wf-wasm/src/wrappers-8.ts` pick the string fields and apply the `Set` handling.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

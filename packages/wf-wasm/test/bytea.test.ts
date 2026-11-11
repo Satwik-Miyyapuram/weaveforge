@@ -2,7 +2,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
-import { decodeBase64, decodeBytea, encodeBase64, encodeBytea } from "../src/bytea.js";
+import { decodeBase64, decodeBytea, encodeBase64, encodeBytea } from "../src/wrappers-1.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 

@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { itemToRect, selectionToAnchor } from "../src/reader-selection.js";
-import type { PageTextGeometry } from "../src/reader-types.js";
+import { itemToRect, selectionToAnchor } from "../src/wrappers-8.js";
+import type { PageTextGeometry } from "../src/wrappers-9.js";
 import { initSync } from "../src/index.js";
 
 // Moved from packages/core/test/reader/selection-to-anchor.test.ts when selection-to-anchor.ts was removed.

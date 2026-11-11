@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { HIGHLIGHTER_MIN_WIDTH, INK_DEFAULT_WIDTH, INK_MAX_POINTS, INK_NIB_DEFAULT_PT, INK_NIB_WIDTHS_PT } from "../../src/reader/ink-stroke.js";
-import { INK_PEN_WIDTH } from "../../src/ink/width.js";
+import { HIGHLIGHTER_MIN_WIDTH, INK_DEFAULT_WIDTH, INK_MAX_POINTS, INK_NIB_DEFAULT_PT, INK_NIB_WIDTHS_PT } from "../../src/reader/parts.js";
+import { INK_PEN_WIDTH } from "../../src/ink/parts.js";
 import { rust } from "../../src/shared/rust.js";
 
 /** A hand-drawn-ish stroke: a sine wave sampled far denser than its shape needs. */

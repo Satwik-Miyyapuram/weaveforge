@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DuplicateSharedPaperUseCase } from "../../../src/features/library/application/duplicate-shared-paper.use-case.js";
 import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
-import { LibraryPinError } from "../../../src/features/library/domain/library-pin.js";
+import { LibraryPinError } from "../../../src/features/library/domain/parts.js";
 import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 import { InMemoryShareRepository } from "../../../src/testing/in-memory-share-repository.js";
 

@@ -1,4 +1,4 @@
-import type { BlobObjectRecord, IBlobRegistry, RegisterBlobInput } from "../storage/blob-registry-ports.js";
+import type { BlobObjectRecord, IBlobRegistry, RegisterBlobInput } from "../storage/parts.js";
 
 /** In-memory {@link IBlobRegistry} for unit tests. */
 export class InMemoryBlobRegistry implements IBlobRegistry {

@@ -1,5 +1,5 @@
 //! Export path guard and missing-figure warning (wf-core `overleaf::export_path`). The TS wrapper
-//! `packages/wf-wasm/src/overleaf-export-path.ts` turns the guard's message into a thrown error.
+//! `packages/wf-wasm/src/wrappers-5.ts` turns the guard's message into a thrown error.
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::overleaf::export_path;

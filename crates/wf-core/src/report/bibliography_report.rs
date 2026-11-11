@@ -1,6 +1,6 @@
 //! The two questions a compiler will not answer: which cited keys are undefined,
 //! and which defined keys are never cited. Port of
-//! `packages/core/src/features/report/domain/bibliography-report.ts`. Pure: no
+//! `packages/core/src/features/report/domain/parts.ts`. Pure: no
 //! compiler, network or model. Every problem is a finding, never an error.
 
 // Line numbers and counts stay far below 2^53, so `usize` to `f64` is exact.

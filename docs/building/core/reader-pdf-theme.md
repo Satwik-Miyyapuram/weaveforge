@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/pdf_theme.rs`.
 Wasm: `crates/wf-wasm/src/reader_pdf_theme.rs`.
-TS wrapper: `packages/wf-wasm/src/reader-pdf-theme.ts` (re-exported from `index.ts`).
+TS wrapper: `packages/wf-wasm/src/wrappers-7.ts` (re-exported from `index.ts`).
 The app-side TS shim is deleted; `use-dark-pdf.ts` calls `readyCore().shouldUseDarkPdfRendering` directly.
 
 Pure logic: whether PDF pages render in dark mode.

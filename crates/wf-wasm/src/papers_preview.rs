@@ -1,7 +1,7 @@
 //! Paper preview frame: the reader link and the saved page's site (wf-core
 //! `papers::paper_preview`).
 //!
-//! The TS wrapper in `packages/wf-wasm/src/papers-preview.ts` gives the results their types.
+//! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` gives the results their types.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

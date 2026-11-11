@@ -1,5 +1,5 @@
 /** Types for report-section. Its logic is in Rust (crates/wf-core, exposed by wf-wasm). */
-import type { Identifiable } from "../../../shared/repository.js";
+import type { Identifiable } from "../../../shared/parts.js";
 import { ValidationError } from "../../../shared/errors.js";
 
 /** A section's writing status, in workflow order. */
